@@ -185,6 +185,21 @@ class JobsController
     llm_opts
   end
 
+  # Pick the given optional keys out of a parsed request body into an opts
+  # hash, omitting any that are blank/absent. Shared by the llm_* proxy actions.
+  def extract_llm_opts(data, *keys)
+    keys.each_with_object({}) { |key, opts| opts[key] = data[key.to_s] if data[key.to_s] }
+  end
+
+  # Run an llm_* proxy action: yield to build and return the success response,
+  # rescuing and logging any failure as a 500 tagged with the given label.
+  def with_llm_proxy_error_handling(label)
+    yield
+  rescue StandardError => e
+    PowernodeWorker.application.logger.error "#{label} failed: #{e.message}"
+    error_response(500, "#{label} failed: #{e.message}")
+  end
+
   # POST /api/v1/llm/complete
   # Synchronous LLM completion -- called by server's LLM proxy.
   # Accepts either agent_id (worker fetches provider config from server) or
@@ -193,19 +208,11 @@ class JobsController
     data, error = parse_llm_request(request)
     return error if error
 
-    begin
-      opts = {}
-      opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
-      opts[:temperature] = data['temperature'] if data['temperature']
-      opts[:system_prompt] = data['system_prompt'] if data['system_prompt']
-      opts[:effort] = data['effort'] if data['effort']
-
+    with_llm_proxy_error_handling('LLM complete') do
+      opts = extract_llm_opts(data, :max_tokens, :temperature, :system_prompt, :effort)
       llm_opts = apply_llm_provider_target({ messages: data['messages'], model: data['model'], **opts }, data)
       result = build_llm_proxy_client.complete(**llm_opts)
       success_response(result)
-    rescue StandardError => e
-      PowernodeWorker.application.logger.error "LLM complete failed: #{e.message}"
-      error_response(500, "LLM complete failed: #{e.message}")
     end
   end
 
@@ -216,19 +223,11 @@ class JobsController
     data, error = parse_llm_request(request)
     return error if error
 
-    begin
-      opts = {}
-      opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
-      opts[:temperature] = data['temperature'] if data['temperature']
-      opts[:tool_choice] = data['tool_choice'] if data['tool_choice']
-      opts[:effort] = data['effort'] if data['effort']
-
+    with_llm_proxy_error_handling('LLM complete_with_tools') do
+      opts = extract_llm_opts(data, :max_tokens, :temperature, :tool_choice, :effort)
       llm_opts = apply_llm_provider_target({ messages: data['messages'], tools: data['tools'] || [], model: data['model'], **opts }, data)
       result = build_llm_proxy_client.complete_with_tools(**llm_opts)
       success_response(result)
-    rescue StandardError => e
-      PowernodeWorker.application.logger.error "LLM complete_with_tools failed: #{e.message}"
-      error_response(500, "LLM complete_with_tools failed: #{e.message}")
     end
   end
 
@@ -240,21 +239,14 @@ class JobsController
     data, error = parse_llm_request(request)
     return error if error
 
-    begin
-      opts = {}
-      opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
-      opts[:temperature] = data['temperature'] if data['temperature']
-      opts[:system_prompt] = data['system_prompt'] if data['system_prompt']
-      opts[:effort] = data['effort'] if data['effort']
+    with_llm_proxy_error_handling('LLM stream') do
+      opts = extract_llm_opts(data, :max_tokens, :temperature, :system_prompt, :effort)
 
       # Use standard complete -- the worker collects the full response.
       # Streaming to the end user is handled server-side via ActionCable.
       llm_opts = apply_llm_provider_target({ messages: data['messages'], model: data['model'], **opts }, data)
       result = build_llm_proxy_client.complete(**llm_opts)
       success_response(result)
-    rescue StandardError => e
-      PowernodeWorker.application.logger.error "LLM stream failed: #{e.message}"
-      error_response(500, "LLM stream failed: #{e.message}")
     end
   end
 
