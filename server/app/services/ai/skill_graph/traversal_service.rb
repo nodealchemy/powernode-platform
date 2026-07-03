@@ -20,7 +20,7 @@ module Ai
       def traverse(task_context: nil, agent: nil, mode: :auto, token_budget: DEFAULT_TOKEN_BUDGET)
         case mode.to_sym
         when :auto
-          auto_traverse(task_context: task_context, token_budget: token_budget)
+          auto_traverse(task_context: task_context, agent: agent, token_budget: token_budget)
         when :manifest
           manifest_traverse(agent: agent)
         else
@@ -31,7 +31,7 @@ module Ai
       private
 
       # Auto-traverse: embedding-seeded expansion for task context
-      def auto_traverse(task_context:, token_budget:)
+      def auto_traverse(task_context:, agent:, token_budget:)
         return empty_auto_result("No task context provided") if task_context.blank?
 
         # Generate embedding from task context
@@ -46,8 +46,14 @@ module Ai
 
         return empty_auto_result("No relevant skills found") if seeds.empty?
 
+        # Skills already attached to this agent are already fully embedded in its
+        # system prompt (Ai::Agent#build_skill_system_prompts) — exclude them here
+        # so the same skill's system_prompt isn't injected a second time via
+        # ContextEnrichmentService#format_auto_context.
+        excluded_skill_ids = attached_skill_ids(agent)
+
         # Expand via graph neighbors
-        discovered = expand_seeds(seeds, token_budget)
+        discovered = expand_seeds(seeds, token_budget, excluded_skill_ids)
 
         {
           discovered_skills: discovered,
@@ -105,6 +111,19 @@ module Ai
         }
       end
 
+      # Skill ids already embedded verbatim in the agent's system prompt via
+      # Ai::Agent#build_skill_system_prompts. Mirrors that method's predicate
+      # (active join + active/enabled skill) so we only exclude skills that are
+      # actually present in the system prompt, not merely attached.
+      def attached_skill_ids(agent)
+        return [] if agent.nil?
+
+        agent.agent_skills.where(is_active: true)
+          .joins(:skill)
+          .where(ai_skills: { status: "active", is_enabled: true })
+          .pluck(:ai_skill_id)
+      end
+
       def find_seed_nodes(embedding)
         candidates = account.ai_knowledge_graph_nodes
           .skill_nodes
@@ -132,7 +151,7 @@ module Ai
         results.uniq(&:id)
       end
 
-      def expand_seeds(seeds, token_budget)
+      def expand_seeds(seeds, token_budget, excluded_skill_ids = [])
         discovered = {}
         tokens_used = 0
 
@@ -144,6 +163,7 @@ module Ai
 
           skill = Ai::Skill.find_by(id: seed.ai_skill_id)
           next unless skill
+          next if excluded_skill_ids.include?(skill.id)
 
           entry = build_skill_entry(skill, seed, score, 0)
           entry_tokens = estimate_entry_tokens(entry)
@@ -179,6 +199,7 @@ module Ai
             node_record = account.ai_knowledge_graph_nodes.find_by(id: neighbor[:id])
             skill = Ai::Skill.find_by(id: node_record&.ai_skill_id)
             next unless skill
+            next if excluded_skill_ids.include?(skill.id)
 
             entry = build_skill_entry(skill, node_record, score, depth)
             entry_tokens = estimate_entry_tokens(entry)

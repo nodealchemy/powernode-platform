@@ -83,5 +83,36 @@ RSpec.describe Ai::SkillGraph::ContextEnrichmentService, type: :service do
       expect(result[:context_block]).to eq("")
       expect(result[:metadata][:error]).to eq("service down")
     end
+
+    context "with a skill already attached to the agent (real traversal)" do
+      before do
+        allow_any_instance_of(Ai::Skill).to receive(:sync_to_knowledge_graph)
+        allow_any_instance_of(Ai::Agent).to receive(:sync_to_knowledge_graph)
+        # No embedding stored on the node factory, so force the keyword-fallback
+        # seed-discovery path rather than the pgvector nearest_neighbors path.
+        allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+      end
+
+      let!(:skill) { create(:ai_skill, account: account, name: "Code Review", category: "productivity", system_prompt: "You review code diligently") }
+      let!(:node) do
+        create(:ai_knowledge_graph_node,
+          account: account,
+          name: "Code Review",
+          entity_type: "skill",
+          node_type: "entity",
+          ai_skill_id: skill.id
+        )
+      end
+      let!(:agent_skill) { create(:ai_agent_skill, agent: agent, skill: skill) }
+
+      it "does not re-inject the attached skill's system_prompt already present in the agent's system prompt" do
+        system_prompt = agent.build_system_prompt_with_profile
+        expect(system_prompt).to include("You review code diligently")
+
+        result = service.enrich(agent: agent, input_text: "review code", mode: :auto)
+
+        expect(result[:context_block]).not_to include("You review code diligently")
+      end
+    end
   end
 end

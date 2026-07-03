@@ -49,6 +49,25 @@ RSpec.describe Ai::SkillGraph::TraversalService, type: :service do
           result = service.traverse(task_context: "code review task", mode: :auto)
           expect(result[:discovered_skills].map { |s| s[:name] }).to include("Code Review")
         end
+
+        it "excludes skills already attached to the given agent, since those are already fully injected into the agent's system prompt" do
+          allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+
+          agent = create(:ai_agent, account: account)
+          create(:ai_agent_skill, agent: agent, skill: skill)
+
+          result = service.traverse(task_context: "code review task", agent: agent, mode: :auto)
+
+          expect(result[:discovered_skills].map { |s| s[:name] }).not_to include("Code Review")
+        end
+
+        it "still discovers the skill for :auto mode when no agent is given" do
+          allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+
+          result = service.traverse(task_context: "code review task", agent: nil, mode: :auto)
+
+          expect(result[:discovered_skills].map { |s| s[:name] }).to include("Code Review")
+        end
       end
     end
 
