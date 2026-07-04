@@ -398,6 +398,13 @@
       queue: ai_orchestration
       description: 'Decay knowledge graph node confidence and recalculate quality scores'
 
+    # Scheduled learning verification (C4) - outcome-based heuristic verify/dispute pass
+    ai_learning_verification:
+      cron: '50 4 * * *'  # Daily at 4:50 AM UTC (after knowledge graph maintenance)
+      class: AiLearningVerificationJob
+      queue: ai_orchestration
+      description: 'Verify/dispute unverified active learnings by measured effectiveness+confidence (default OFF via :compound_learning_scheduled_verification)'
+
     # Knowledge documentation sync - export MCP knowledge to markdown fallback docs
     ai_knowledge_doc_sync:
       cron: '30 5 * * *'  # Daily at 5:30 AM UTC (after all maintenance jobs)
