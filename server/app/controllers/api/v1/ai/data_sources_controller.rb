@@ -245,7 +245,17 @@ module Api
             # endpoints requires update authority (or the manage super-grant).
             require_any_permission("ai.data_sources.update", "ai.data_sources.manage")
           when "endpoints_query"
-            require_permission("ai.data_sources.query")
+            # Parity with the agent path (Ai::Tools::DataSourceTool#guarded_fetch):
+            # a write/side-effecting endpoint (http_method not GET/HEAD, or
+            # metadata["side_effecting"] == true) needs the elevated update/manage
+            # grant, not just the base query grant a read endpoint requires. Without
+            # this, a query-only user could dispatch a write call (e.g. POST
+            # /2/tweets) that an agent in the same account would be blocked from.
+            if @endpoint&.write_endpoint?
+              require_any_permission("ai.data_sources.update", "ai.data_sources.manage")
+            else
+              require_permission("ai.data_sources.query")
+            end
           when "schema_history", "quality", "contract"
             # Phase 2b read-only observability — same read grant as index/show.
             require_permission("ai.data_sources.read")
