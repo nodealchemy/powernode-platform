@@ -434,16 +434,8 @@ module Api
         case params[:attachable_type]
         when "Page"
           current_account.pages.find_by(id: params[:attachable_id])
-        when "SupplyChain::Sbom"
-          current_account.supply_chain_sboms.find_by(id: params[:attachable_id])
-        when "SupplyChain::Attestation"
-          current_account.supply_chain_attestations.find_by(id: params[:attachable_id])
-        when "SupplyChain::ContainerImage"
-          current_account.supply_chain_container_images.find_by(id: params[:attachable_id])
-        when "SupplyChain::Vendor"
-          current_account.supply_chain_vendors.find_by(id: params[:attachable_id])
         else
-          nil
+          Powernode::AttachableRegistry.resolve(params[:attachable_type])&.call(current_account, params[:attachable_id])
         end
       end
     end

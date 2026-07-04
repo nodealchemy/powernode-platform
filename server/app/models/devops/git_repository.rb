@@ -24,8 +24,9 @@ module Devops
     has_many :devops_pipeline_repositories, class_name: "Devops::PipelineRepository", foreign_key: "git_repository_id", dependent: :destroy
     has_many :devops_pipelines, through: :devops_pipeline_repositories, source: :pipeline
 
-    # Supply chain associations
-    has_many :sboms, class_name: "SupplyChain::Sbom", foreign_key: "git_repository_id", dependent: :nullify
+    # NOTE: has_many :sboms is contributed by the optional supply-chain extension
+    # via a model decorator (extensions/supply-chain — GitRepository decorator);
+    # core must not name that extension's namespace.
 
     # Delegations — provider_type resolves from devops provider or credential's git_provider
     delegate :provider_type, to: :resolved_provider, allow_nil: true
