@@ -1738,6 +1738,14 @@ Rails.application.routes.draw do
           get    "subscriptions",                  to: "data_sources#subscriptions_index"
           post   "subscriptions",                  to: "data_sources#subscriptions_create"
           delete "subscriptions/:subscription_id", to: "data_sources#subscriptions_destroy"
+          # x-com-provider campaign (I1) — provider-agnostic OAuth 2.0
+          # Authorization Code + PKCE connect flow, driven by the source's
+          # auth_config (authorize_url/token_url/scopes) and its credential's
+          # client_id/client_secret. :authorize is JWT-authenticated (the
+          # operator initiates); :callback is a top-level BROWSER REDIRECT from
+          # the provider and carries no JWT — see DataSourceOauthController.
+          post  "oauth/authorize", to: "data_source_oauth#authorize", as: :oauth_authorize
+          match "oauth/callback",  to: "data_source_oauth#callback",  via: [ :get, :post ], as: :oauth_callback
           resources :credentials, controller: "data_source_credentials" do
             member do
               post :test

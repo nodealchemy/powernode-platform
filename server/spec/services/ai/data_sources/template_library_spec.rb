@@ -85,7 +85,8 @@ RSpec.describe Ai::DataSources::TemplateLibrary, type: :service do
         "generic-rest-json",
         "rss-feed",
         "open-meteo-weather",
-        "generic-graphql"
+        "generic-graphql",
+        "x-com"
       )
     end
 
@@ -171,8 +172,17 @@ RSpec.describe Ai::DataSources::TemplateLibrary, type: :service do
 
           # No opaque high-entropy-looking secret blobs (>=24 contiguous
           # base64/hex-ish chars). Real template values are URLs, JSONPaths,
-          # short words, or templated {{vars}} — none hit this.
-          blobby = strings.select { |s| s =~ /\A[A-Za-z0-9_\-+\/=]{24,}\z/ }
+          # short words, or templated {{vars}} — with one legitimate exception:
+          # a broker "type" selector (e.g. "oauth2_authorization_code", used by
+          # the x-com template's auth_config["broker"]["type"]) is a small,
+          # fixed, PUBLIC enum straight out of
+          # Ai::DataSources::Credentials::Registry::BROKERS — never secret —
+          # that can coincidentally read as a 24+-char lowercase/underscore
+          # "blob" to this heuristic. Excluded by EXACT value match only (not a
+          # regex relaxation), so an actual secret landing under any key still
+          # trips this check.
+          known_enum_values = Ai::DataSources::Credentials::Registry.types
+          blobby = strings.select { |s| s =~ /\A[A-Za-z0-9_\-+\/=]{24,}\z/ } - known_enum_values
           expect(blobby).to be_empty,
                             "template #{tpl[:slug]} carries a secret-shaped blob: #{blobby.inspect}"
         end
@@ -429,6 +439,123 @@ RSpec.describe Ai::DataSources::TemplateLibrary, type: :service do
         expect(result[:dry_run]).to be(true)
         expect(result[:data_source]).to be_nil
         expect(result[:errors]).to eq(["unknown template: nope-not-real"])
+      end
+    end
+  end
+
+  # ── x-com-provider campaign (I4): X.com template ──────────────────────────
+  # The generic credential-free / secret-scan / manifest-shape specs above
+  # already cover "x-com" (it walks every template in .all). These specs pin
+  # its OAuth2-authorization-code wiring, its read + write endpoints, and that
+  # installing it is byte-for-byte the same path every other template uses.
+  describe "the x-com template" do
+    it "is present in .all and findable by slug" do
+      expect(described_class.all.map { |t| t[:slug] }).to include("x-com")
+      tpl = described_class.find("x-com")
+      expect(tpl).to be_a(Hash)
+      expect(tpl[:name]).to eq("X.com")
+    end
+
+    it "selects the oauth2_authorization_code broker and carries a reconciled auth_config" do
+      source = described_class.find("x-com")[:manifest]["source"]
+
+      expect(source["requires_auth"]).to be(true)
+      expect(source["auth_scheme"]).to eq("bearer")
+
+      auth_config = source["auth_config"]
+      # I1's connect flow (OauthAuthorizationCodeService) reads these TOP-LEVEL keys.
+      expect(auth_config["authorize_url"]).to eq("https://twitter.com/i/oauth2/authorize")
+      expect(auth_config["token_url"]).to eq("https://api.twitter.com/2/oauth2/token")
+      expect(auth_config["scope"]).to eq("tweet.read tweet.write users.read offline.access")
+      # I3's broker (Oauth2AuthorizationCodeBroker) reads the NESTED "broker" hash,
+      # selected via the standard auth_config["broker"]["type"] mechanism.
+      expect(auth_config["broker"]).to eq(
+        "type" => "oauth2_authorization_code",
+        "token_url" => "https://api.twitter.com/2/oauth2/token"
+      )
+      expect(Ai::DataSources::Credentials::Registry.for(auth_config["broker"]["type"]))
+        .to be_a(Ai::DataSources::Credentials::Oauth2AuthorizationCodeBroker)
+    end
+
+    it "ships NO credential material despite requiring auth" do
+      result = described_class.install("x-com", account: account)
+
+      expect(result[:errors]).to be_empty
+      source = result[:data_source]
+      expect(source.requires_auth).to be(true)
+      expect(source.credentials.count).to eq(0)
+      expect(account.ai_data_source_credentials.count).to eq(0)
+    end
+
+    it "installs via the same ConfigPortabilityService path as every other template" do
+      result = described_class.install("x-com", account: account)
+
+      expect(result[:created]).to be(true)
+      expect(result[:dry_run]).to be(false)
+      source = result[:data_source]
+      expect(source).to be_a(Ai::DataSource)
+      expect(source).to be_persisted
+      expect(source.slug).to eq("x-com")
+      expect(source.source_type).to eq("x_com")
+      expect(result[:updated_endpoints].map { |e| e[:slug] })
+        .to contain_exactly("recent-search", "user-tweets", "create-post")
+    end
+
+    it "survives the import sanitizer's auth_config allowlist round-trip unchanged" do
+      # This is the exact reconciliation risk: ConfigPortabilityService#import
+      # re-sanitizes auth_config against AUTH_CONFIG_ALLOWED_KEYS, so any key not
+      # explicitly allowlisted is silently dropped on install.
+      result = described_class.install("x-com", account: account)
+
+      auth_config = result[:data_source].auth_config
+      expect(auth_config["authorize_url"]).to eq("https://twitter.com/i/oauth2/authorize")
+      expect(auth_config["token_url"]).to eq("https://api.twitter.com/2/oauth2/token")
+      expect(auth_config["scope"]).to eq("tweet.read tweet.write users.read offline.access")
+      expect(auth_config["broker"]["type"]).to eq("oauth2_authorization_code")
+      expect(auth_config["broker"]["token_url"]).to eq("https://api.twitter.com/2/oauth2/token")
+    end
+
+    describe "runtime alignment (read + write endpoints)" do
+      it "builds the recent-search GET request with the query placeholder substituted" do
+        result = described_class.install("x-com", account: account)
+        endpoint = result[:data_source].endpoints.find_by!(slug: "recent-search")
+
+        req = Ai::DataSources::Adapters::RestAdapter.new.build_request(
+          endpoint: endpoint, params: { "query" => "from:openai" }
+        )
+
+        expect(req[:method]).to eq("GET")
+        expect(req[:query]["query"]).to eq("from:openai")
+      end
+
+      it "extracts recent-search records via response_mapping" do
+        endpoint = described_class.install("x-com", account: account)[:data_source]
+                                   .endpoints.find_by!(slug: "recent-search")
+        body = '{"data":[{"id":"1","text":"hello"}],"meta":{"result_count":1}}'
+
+        records = Ai::DataSources::Decoders::Json.new.decode(body, endpoint: endpoint)
+
+        expect(records).to eq([{ "id" => "1", "text" => "hello" }])
+      end
+
+      it "builds the create-post POST request with the text placeholder in the body" do
+        result = described_class.install("x-com", account: account)
+        endpoint = result[:data_source].endpoints.find_by!(slug: "create-post")
+
+        req = Ai::DataSources::Adapters::RestAdapter.new.build_request(
+          endpoint: endpoint, params: { "text" => "hello world" }
+        )
+
+        expect(req[:method]).to eq("POST")
+        expect(req[:body]).to eq("text" => "hello world")
+      end
+
+      it "marks the create-post endpoint as never-cache and side-effecting" do
+        endpoint = described_class.install("x-com", account: account)[:data_source]
+                                   .endpoints.find_by!(slug: "create-post")
+
+        expect(endpoint.cache_ttl_seconds).to eq(0)
+        expect(endpoint.metadata["side_effecting"]).to be(true)
       end
     end
   end

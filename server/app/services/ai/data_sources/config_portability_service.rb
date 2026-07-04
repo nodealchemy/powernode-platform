@@ -73,8 +73,9 @@ module Ai
 
       # ── ALLOWLIST: NON-secret auth_config knobs that MAY ride the manifest ──
       # Union of every documented broker's NON-secret config (oauth2 client
-      # credentials, aws_sts, aws_sts_web_identity, vault_dynamic) PLUS the flat
-      # SigV4 knobs (region/service) some sources set directly on auth_config.
+      # credentials, oauth2 authorization code, aws_sts, aws_sts_web_identity,
+      # vault_dynamic) PLUS the flat SigV4 knobs (region/service) some sources
+      # set directly on auth_config.
       # CRITICAL: this is an ALLOWLIST — anything not listed is DROPPED. Even so,
       # each value is additionally screened by #secret_key? (defense in depth) so
       # a knob that ever turns secret-ish is still stripped. Secret-bearing keys
@@ -83,9 +84,12 @@ module Ai
       # NOTE: external_id is deliberately EXCLUDED — an AWS STS external_id is a
       # confused-deputy SHARED SECRET (the importing operator re-supplies it with the
       # credential), not a portable structural knob.
+      # authorize_url is the OAuth2 Authorization-Code grant's user-facing consent
+      # URL (OauthAuthorizationCodeService#build_authorize_request) — a public,
+      # documented provider endpoint, never secret-bearing.
       AUTH_CONFIG_ALLOWED_KEYS = %w[
-        type token_url scope audience client_auth skew_seconds role_arn
-        session_name duration_seconds region service vault_path
+        type token_url authorize_url scope audience client_auth skew_seconds
+        role_arn session_name duration_seconds region service vault_path
         path lease_seconds ttl token_request_method token_file
       ].freeze
 

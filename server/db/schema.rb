@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_02_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_04_060000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1778,12 +1778,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_02_010000) do
   end
 
   create_table "ai_data_source_credentials", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.datetime "access_token_expires_at"
     t.uuid "account_id", null: false
     t.uuid "ai_data_source_id", null: false
     t.integer "consecutive_failures", default: 0, null: false
     t.datetime "created_at", null: false
+    t.string "encrypted_access_token"
     t.string "encrypted_api_key"
     t.string "encrypted_api_secret"
+    t.string "encrypted_client_id"
+    t.string "encrypted_client_secret"
+    t.string "encrypted_refresh_token"
     t.datetime "expires_at", precision: nil
     t.integer "failure_count", default: 0, null: false
     t.boolean "is_active", default: true, null: false
@@ -1794,6 +1799,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_02_010000) do
     t.datetime "last_used_at", precision: nil
     t.datetime "migrated_to_vault_at"
     t.string "name", limit: 255, null: false
+    t.jsonb "oauth_scopes", default: [], null: false
     t.jsonb "rate_limits", default: {}, null: false
     t.integer "success_count", default: 0, null: false
     t.datetime "updated_at", null: false

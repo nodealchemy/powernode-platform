@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -30,6 +31,7 @@ export function useDataSourcesPage() {
   const { addNotification } = useNotifications();
   const { hasPermission } = usePermissions();
   const isInitialMount = useRef(true);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const canCreateDataSources = hasPermission('ai.data_sources.create');
   const canManageDataSources = hasPermission('ai.data_sources.update');
@@ -142,6 +144,45 @@ export function useDataSourcesPage() {
       loadDataSources();
     }
   }, [filters, searchQuery]);
+
+  // x-com-provider campaign (I5): the OAuth2 callback (Api::V1::Ai::
+  // DataSourceOauthController#callback) redirects the browser back here with
+  // ?oauth=success|failed[&data_source_id=...][&error=...] instead of showing a
+  // raw JSON body. Surface it as a toast, reopen the source's detail view (so
+  // the operator sees the connected state — scopes + token expiry — right
+  // away), then strip the params so a refresh/back-nav doesn't re-fire it.
+  useEffect(() => {
+    const oauthStatus = searchParams.get('oauth');
+    if (!oauthStatus) return;
+
+    const dataSourceId = searchParams.get('data_source_id');
+    const error = searchParams.get('error');
+
+    if (oauthStatus === 'success') {
+      addNotification({ type: 'success', title: 'OAuth Connected', message: 'OAuth connection successful' });
+    } else {
+      addNotification({
+        type: 'error',
+        title: 'OAuth Connection Failed',
+        message: error || 'The OAuth connection could not be completed',
+      });
+    }
+
+    if (dataSourceId) {
+      handleViewDataSource(dataSourceId);
+      loadDataSources(false);
+    }
+
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('oauth');
+      next.delete('data_source_id');
+      next.delete('error');
+      return next;
+    }, { replace: true });
+    // Intentionally runs once on mount to consume the redirect's query params.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const pageActions: PageAction[] = [
     {

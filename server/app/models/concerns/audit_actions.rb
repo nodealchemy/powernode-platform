@@ -166,6 +166,22 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # AI DATA SOURCE ACTIONS — includes the OAuth 2.0 connect-flow key operations
+  # (oauth.authorize / oauth.callback) and credential lifecycle; these MUST stay
+  # registered per the crypto-material-safety rule (all key ops audited).
+  # =============================================================================
+  AI_DATA_SOURCE_ACTIONS = %w[
+    ai.data_sources.create ai.data_sources.update ai.data_sources.delete
+    ai.data_sources.test_connection ai.data_sources.introspect
+    ai.data_sources.credential.create ai.data_sources.credential.update
+    ai.data_sources.credential.delete ai.data_sources.credential.test
+    ai.data_sources.credential.make_default
+    ai.data_sources.oauth.authorize ai.data_sources.oauth.callback
+    ai.data_sources.endpoint.create ai.data_sources.endpoint.update ai.data_sources.endpoint.delete
+    ai.data_sources.subscription.create ai.data_sources.subscription.delete
+  ].freeze
+
+  # =============================================================================
   # AI PROMPT TEMPLATE ACTIONS
   # =============================================================================
   AI_PROMPT_TEMPLATE_ACTIONS = %w[
@@ -296,6 +312,7 @@ module AuditActions
     AI_MESSAGE_ACTIONS,
     AI_ANALYTICS_ACTIONS,
     AI_PROVIDER_ACTIONS,
+    AI_DATA_SOURCE_ACTIONS,
     AI_PROMPT_TEMPLATE_ACTIONS,
     AI_MONITORING_ACTIONS,
     AI_ROI_ACTIONS,

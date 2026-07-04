@@ -29,6 +29,7 @@ module Ai
         BROKERS = {
           "static"                    => "Ai::DataSources::Credentials::StaticBroker",
           "oauth2_client_credentials" => "Ai::DataSources::Credentials::Oauth2ClientCredentialsBroker",
+          "oauth2_authorization_code" => "Ai::DataSources::Credentials::Oauth2AuthorizationCodeBroker",
           "aws_sts"                   => "Ai::DataSources::Credentials::AwsStsBroker",
           "aws_sts_web_identity"      => "Ai::DataSources::Credentials::AwsStsWebIdentityBroker",
           "vault_dynamic"             => "Ai::DataSources::Credentials::VaultDynamicBroker",

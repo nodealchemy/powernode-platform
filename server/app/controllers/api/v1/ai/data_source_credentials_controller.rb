@@ -191,6 +191,11 @@ module Api
           params.require(:credential).permit(
             :name, :is_active, :is_default, :expires_at,
             :encrypted_api_key, :encrypted_api_secret,
+            # OAuth2 app credentials (I2). access_token/refresh_token/
+            # access_token_expires_at are NEVER permitted here — those are
+            # written only by the OAuth callback (a later increment), never
+            # from client-supplied params.
+            :client_id, :client_secret,
             rate_limits: {}
           )
         end

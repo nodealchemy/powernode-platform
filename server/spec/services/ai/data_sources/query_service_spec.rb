@@ -2135,4 +2135,77 @@ RSpec.describe Ai::DataSources::QueryService, type: :service do
       expect(envelope[:status]).to eq("blocked")
     end
   end
+
+  # ==========================================================================
+  # WRITE-SAFETY (x-com-provider campaign, I4) — a write endpoint (any method
+  # other than GET/HEAD) or one explicitly opted out via cache_ttl_seconds <= 0
+  # never touches ResponseCacheService: no lookup, no write. Added because
+  # fetch_via_cache previously wrapped EVERY request (any HTTP method) in
+  # ResponseCacheService.fetch unconditionally, so a side-effecting endpoint
+  # (e.g. X.com's "Create post", POST /2/tweets) would have a retried identical
+  # request silently served the FIRST call's cached response instead of really
+  # re-dispatching to the upstream.
+  # ==========================================================================
+  describe "write-safety: non-GET/HEAD or explicitly no-cache endpoints bypass the cache" do
+    let(:post_endpoint) do
+      create(:ai_data_source_endpoint, data_source: data_source, slug: "post-it",
+                                       http_method: "POST", path_template: "/v1/items",
+                                       body_template: { "value" => "{value}" }, cache_ttl_seconds: 0)
+    end
+    let(:post_params) { { "value" => "hello" } }
+    let(:post_body) { JSON.generate({ "id" => "created" }) }
+
+    def post_service
+      described_class.new(data_source: data_source, endpoint: post_endpoint, params: post_params, agent: agent)
+    end
+
+    it "never reports from_cache:true across two identical calls (each really re-dispatches)" do
+      conn = stub_http(response: FakeResponse.new(status: 201, body: post_body,
+                                                  headers: { "content-type" => "application/json" }))
+
+      first = post_service.call
+      second = post_service.call
+
+      expect(first[:provenance][:from_cache]).to be(false)
+      expect(second[:provenance][:from_cache]).to be(false)
+      expect(second[:status]).to eq("success") # never "cached"
+      expect(conn).to have_received(:run_request).twice
+    end
+
+    it "never writes an entry to the response cache" do
+      stub_http(response: FakeResponse.new(status: 201, body: post_body,
+                                           headers: { "content-type" => "application/json" }))
+
+      post_service.call
+
+      cached = Ai::DataSources::ResponseCacheService.read(
+        data_source: data_source, endpoint: post_endpoint, params: post_params
+      )
+      expect(cached).to be_nil
+    end
+
+    it "a GET endpoint with cache_ttl_seconds:0 is likewise never cached (explicit opt-out honored)" do
+      no_cache_get = create(:ai_data_source_endpoint, data_source: data_source, slug: "no-cache-get",
+                                                       path_template: "/v1/nocache", cache_ttl_seconds: 0)
+      conn = stub_http
+
+      described_class.new(data_source: data_source, endpoint: no_cache_get, params: params, agent: agent).call
+      described_class.new(data_source: data_source, endpoint: no_cache_get, params: params, agent: agent).call
+
+      expect(conn).to have_received(:run_request).twice
+      cached = Ai::DataSources::ResponseCacheService.read(
+        data_source: data_source, endpoint: no_cache_get, params: params
+      )
+      expect(cached).to be_nil
+    end
+
+    it "a normal GET endpoint (cache_ttl_seconds unset) is UNCHANGED — still caches" do
+      stub_http
+      first_service = described_class.new(data_source: data_source, endpoint: endpoint, params: params, agent: agent)
+      first_service.call
+
+      cached = Ai::DataSources::ResponseCacheService.read(data_source: data_source, endpoint: endpoint, params: params)
+      expect(cached).to be_present
+    end
+  end
 end

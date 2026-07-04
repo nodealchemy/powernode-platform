@@ -47,6 +47,12 @@ module Ai
         default_parameters: ds.default_parameters,
         rate_limits: ds.rate_limits,
         metadata: ds.metadata,
+        # x-com-provider campaign (I5): read-only in this view. auth_config carries
+        # only provider endpoint URLs/scopes (authorize_url/token_url/scopes), never
+        # secrets — the frontend uses authorize_url's presence to decide whether to
+        # show the OAuth2 connect panel for this source. Editing it is out of scope
+        # here; sources get it from a template (e.g. x_com_template) or an admin tool.
+        auth_config: ds.auth_config,
         credentials: ds.credentials.map { |c| serialize_data_source_credential(c) },
         quota: ds.quota_summary
       )
@@ -65,6 +71,15 @@ module Ai
         last_error: cred.last_error,
         created_at: cred.created_at.iso8601,
         updated_at: cred.updated_at.iso8601,
+        # x-com-provider campaign (I5): OAuth2 connect state for the frontend connect
+        # panel. Only presence/derived booleans travel here — client_id, tokens, and
+        # client_secret themselves are NEVER serialized (mirrors api_key/api_secret,
+        # which have never been exposed by this method either).
+        oauth_configured: cred.client_id.present?,
+        oauth_connected: cred.decrypted_access_token.present?,
+        oauth_scopes: cred.oauth_scopes,
+        oauth_token_expires_at: cred.access_token_expires_at&.iso8601,
+        oauth_token_expired: cred.token_expired?,
         data_source: {
           id: cred.data_source.id,
           name: cred.data_source.name,

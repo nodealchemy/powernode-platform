@@ -30,6 +30,11 @@ RSpec.describe Ai::DataSources::Credentials::Registry, type: :service do
         .to be_an_instance_of(Ai::DataSources::Credentials::Oauth2ClientCredentialsBroker)
     end
 
+    it "maps 'oauth2_authorization_code' to Oauth2AuthorizationCodeBroker" do
+      expect(described_class.for("oauth2_authorization_code"))
+        .to be_an_instance_of(Ai::DataSources::Credentials::Oauth2AuthorizationCodeBroker)
+    end
+
     it "maps 'aws_sts' to AwsStsBroker" do
       expect(described_class.for("aws_sts"))
         .to be_an_instance_of(Ai::DataSources::Credentials::AwsStsBroker)
@@ -116,6 +121,7 @@ RSpec.describe Ai::DataSources::Credentials::Registry, type: :service do
       expect(described_class.types).to contain_exactly(
         "static",
         "oauth2_client_credentials",
+        "oauth2_authorization_code",
         "aws_sts",
         "aws_sts_web_identity",
         "vault_dynamic",
