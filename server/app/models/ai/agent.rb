@@ -47,6 +47,16 @@ module Ai
       "On a Fable/Mythos refusal (stop_reason \"refusal\"), don't panic or manually retry — it auto-reframes once then falls back to Opus and logs it; prefer goal+constraints prompting over step-by-step for Fable (search_knowledge tag:guidance-fable5-compliance)."
     ].join("\n").freeze
 
+    # Budget for #build_skill_system_prompts — mirrors the skill-graph
+    # enrichment budget (Ai::SkillGraph::TraversalService::DEFAULT_TOKEN_BUDGET)
+    # since attached-skill prompts are the same kind of per-call context cost.
+    # Operator-tunable without a deploy (config-driven-config convention, same
+    # resolution order as Ai::FableRouting): Account#settings override ->
+    # SiteSetting global -> this DEFAULT.
+    SKILL_PROMPT_TOKEN_BUDGET_SETTING = "ai_skill_prompt_token_budget"
+    DEFAULT_SKILL_PROMPT_TOKEN_BUDGET = 2000
+    SKILL_PROMPT_CHARS_PER_TOKEN = 4
+
     # Associations
     # Optional: a global (platform-provided) agent has account_id nil.
     belongs_to :account, optional: true
@@ -384,15 +394,52 @@ module Ai
       end
 
       skill_data = skill_query.pluck("ai_skills.slug", "ai_skills.system_prompt")
+      prompts = skill_data.reject { |_slug, prompt| prompt.blank? }
 
-      injected_slugs = skill_data.reject { |_slug, prompt| prompt.blank? }.map(&:first)
-      if injected_slugs.any?
-        Rails.logger.info("[Ai::Agent] #{name}: injecting #{injected_slugs.size} skill prompts: #{injected_slugs.join(', ')}")
+      # Budgeted like every other per-call context source (memory injection
+      # defaults to 4000 tokens, skill-graph enrichment to 2000) — without
+      # this, an agent with many or verbose skills silently inflates every
+      # LLM call with no ceiling (skills are user/agent-creatable via
+      # auto_evolve_skill/mutate_skill, so this is not a fixed, bounded set).
+      char_budget = skill_prompt_token_budget * SKILL_PROMPT_CHARS_PER_TOKEN
+      used_chars = 0
+      included = []
+      dropped_slugs = []
+      prompts.each do |slug, prompt|
+        if used_chars + prompt.length > char_budget
+          dropped_slugs << slug
+          next
+        end
+        included << prompt
+        used_chars += prompt.length
+      end
+
+      if included.any?
+        Rails.logger.info("[Ai::Agent] #{name}: injecting #{included.size} skill prompts: #{(prompts.map(&:first) - dropped_slugs).join(', ')}")
       else
         Rails.logger.info("[Ai::Agent] #{name}: no skill prompts to inject (#{skill_data.size} skills matched, all prompts blank)")
       end
+      if dropped_slugs.any?
+        Rails.logger.warn("[Ai::Agent] #{name}: skill prompt token budget (#{skill_prompt_token_budget} tokens) exceeded — dropped #{dropped_slugs.size} lower-priority skill prompt(s): #{dropped_slugs.join(', ')}")
+      end
 
-      skill_data.map(&:last).reject(&:blank?).join("\n\n")
+      included.join("\n\n")
+    end
+
+    # Account#settings override -> SiteSetting global -> DEFAULT, so operators
+    # can tune this per-account or platform-wide without a deploy (same
+    # resolution order as Ai::FableRouting's settings reads).
+    def skill_prompt_token_budget
+      settings = account&.settings
+      if settings.is_a?(Hash)
+        key = SKILL_PROMPT_TOKEN_BUDGET_SETTING
+        override = settings.key?(key) ? settings[key] : settings[key.to_sym]
+        return override.to_i if override.present?
+      end
+
+      SiteSetting.get(SKILL_PROMPT_TOKEN_BUDGET_SETTING) || DEFAULT_SKILL_PROMPT_TOKEN_BUDGET
+    rescue StandardError
+      DEFAULT_SKILL_PROMPT_TOKEN_BUDGET
     end
 
     # Auto-resolve provider when model name changes to a different provider family

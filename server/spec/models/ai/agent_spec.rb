@@ -412,4 +412,58 @@ RSpec.describe Ai::Agent, type: :model do
       expect(pinned_agent.resolved_model).to eq('claude-fable-5')
     end
   end
+
+  describe '#build_skill_system_prompts token budget' do
+    # Every other per-call context source (memory injection, skill-graph
+    # enrichment) is budgeted; this is the only unbounded one. Three attached
+    # skills whose prompts are individually within budget but sum well past
+    # it, to prove the method caps the TOTAL rather than just concatenating.
+    let(:long_prompt) { "x" * 6000 }
+
+    it 'caps total injected skill-prompt length instead of concatenating every attached skill unbounded' do
+      agent = create(:ai_agent)
+      skills = Array.new(3) { create(:ai_skill, system_prompt: long_prompt) }
+      skills.each_with_index do |skill, i|
+        create(:ai_agent_skill, agent: agent, skill: skill, priority: i)
+      end
+
+      result = agent.send(:build_skill_system_prompts)
+
+      max_chars = Ai::Agent::DEFAULT_SKILL_PROMPT_TOKEN_BUDGET * Ai::Agent::SKILL_PROMPT_CHARS_PER_TOKEN
+      expect(result.length).to be <= max_chars
+      # Sanity: unbounded concatenation would be 3 * 6000 = 18000 chars, far over budget.
+      expect(3 * long_prompt.length).to be > max_chars
+    end
+
+    it 'keeps the highest-priority skill prompts and drops lower-priority ones once the budget is spent' do
+      agent = create(:ai_agent)
+      kept = create(:ai_skill, system_prompt: "k" * 6000)
+      dropped = create(:ai_skill, system_prompt: "d" * 6000)
+      create(:ai_agent_skill, agent: agent, skill: kept, priority: 0)
+      create(:ai_agent_skill, agent: agent, skill: dropped, priority: 1)
+
+      result = agent.send(:build_skill_system_prompts)
+
+      expect(result).to include(kept.system_prompt[0, 100])
+      expect(result).not_to include(dropped.system_prompt)
+    end
+
+    it 'is tunable per-account without a deploy (Account#settings override)' do
+      account = create(:account, settings: { Ai::Agent::SKILL_PROMPT_TOKEN_BUDGET_SETTING => 100 })
+      agent = create(:ai_agent, account: account)
+      skill = create(:ai_skill, system_prompt: "y" * 6000)
+      create(:ai_agent_skill, agent: agent, skill: skill, priority: 0)
+
+      expect(agent.send(:skill_prompt_token_budget)).to eq(100)
+      result = agent.send(:build_skill_system_prompts)
+      expect(result.length).to be <= 100 * Ai::Agent::SKILL_PROMPT_CHARS_PER_TOKEN
+    end
+
+    it 'falls back to the platform SiteSetting when no account override is present' do
+      SiteSetting.set("ai_skill_prompt_token_budget", 50, setting_type: "integer")
+      agent = create(:ai_agent)
+
+      expect(agent.send(:skill_prompt_token_budget)).to eq(50)
+    end
+  end
 end
