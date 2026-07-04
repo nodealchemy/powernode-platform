@@ -2614,6 +2614,16 @@ Rails.application.routes.draw do
           get "optimization_score", action: :optimization_score
         end
 
+        # ===================================================================
+        # 14c. GROWTH ANALYTICS CONTROLLER - Audience Insights, Posting-Time
+        #      Optimization & Cross-Post Orchestration
+        # ===================================================================
+        scope :growth, controller: "growth_analytics" do
+          get "audience_insights", action: :audience_insights
+          get "posting_time_recommendations", action: :posting_time_recommendations
+          post "cross_post", action: :cross_post
+        end
+
         # Credits and outcome billing routes are in business/server/config/routes.rb
 
         # Agent marketplace routes (17) are in business/server/config/routes.rb
