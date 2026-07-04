@@ -155,9 +155,12 @@ module Ai
 
       def resolve_skill(skill_id)
         # Override-aware: an account sees GLOBAL (platform-provided) skills plus
-        # its own, so a global skill can be attached/detached like any other.
+        # its own, so a global skill can be attached/detached like any other. When
+        # a slug is shared by a global skill and the account's own clone/override
+        # of it, resolve_for's account_override_first ordering picks the account
+        # row deterministically (a bare find_by(slug:) would not).
         Ai::Skill.for_account(account.id).find_by(id: skill_id) ||
-          Ai::Skill.for_account(account.id).find_by(slug: skill_id)
+          Ai::Skill.resolve_for(account.id, slug: skill_id)
       end
 
       def resolve_agent_by_any(agent_id)

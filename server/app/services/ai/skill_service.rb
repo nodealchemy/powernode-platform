@@ -28,9 +28,14 @@ module Ai
     end
 
     def find_skill(skill_id:)
-      Ai::Skill.for_account(account&.id).find(skill_id)
-    rescue ActiveRecord::RecordNotFound
-      raise NotFoundError, "Skill not found"
+      # ID first, then slug — override-aware (resolve_for): if a global skill
+      # and the account's own clone/override share a slug, the account's row
+      # wins rather than whichever a bare find_by(slug:) happened to return.
+      skill = Ai::Skill.for_account(account&.id).find_by(id: skill_id) ||
+              Ai::Skill.resolve_for(account&.id, slug: skill_id)
+      raise NotFoundError, "Skill not found" unless skill
+
+      skill
     end
 
     def create_skill(attributes:, knowledge_base_id: nil, mcp_server_ids: [])

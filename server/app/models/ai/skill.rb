@@ -129,7 +129,6 @@ module Ai
     # Scopes
     # ==========================================
     scope :system_skills, -> { where(is_system: true) }
-    scope :for_account, ->(account_id) { where(account_id: [account_id, nil]) }
     scope :by_category, ->(cat) { where(category: cat) }
     scope :active, -> { where(status: "active") }
     scope :enabled, -> { where(is_enabled: true) }
@@ -147,6 +146,24 @@ module Ai
     # ordered list of MCP tool invocations stored in metadata["recipe"]
     # rather than a Ruby executor class. Dispatched by Ai::SkillRecipeRunner.
     scope :recipe_skills, -> { where("metadata ? 'recipe'") }
+
+    # Override-aware ordering: an account's OWN row sorts BEFORE the global
+    # (account_id nil) one, so account overrides win over the global default.
+    scope :account_override_first, -> { order(Arel.sql("ai_skills.account_id IS NULL")) }
+
+    # Resolve a skill by slug/name for a given account, honoring the override
+    # model (clone-on-evolve): if the account has its own clone/override of that
+    # slug/name it wins; otherwise the GLOBAL (platform-provided) baseline is
+    # returned. Use this — not a bare for_account(...).find_by — anywhere a
+    # skill is resolved by natural key, so a global skill and an account clone
+    # sharing a slug resolve deterministically to the account's override.
+    #   Ai::Skill.resolve_for(account.id, slug: "code-review")
+    def self.resolve_for(account_id, slug: nil, name: nil)
+      rel = for_account(account_id)
+      rel = rel.where(slug: slug) if slug
+      rel = rel.where(name: name) if name
+      rel.account_override_first.first
+    end
 
     # ==========================================
     # Callbacks
@@ -403,8 +420,13 @@ module Ai
       base_slug = name.to_s.parameterize
       self.slug = base_slug
 
+      # Slug uniqueness is partitioned by scope (GloballyScopable): globals are
+      # unique among globals, account skills unique within their account. So
+      # dedupe WITHIN this row's scope — `where(account_id:)` resolves to
+      # `account_id IS NULL` for a global skill — which lets an account skill
+      # reuse the slug of the global skill it overrides/clones.
       counter = 1
-      while self.class.exists?(slug: self.slug)
+      while self.class.where(account_id: account_id, slug: self.slug).exists?
         self.slug = "#{base_slug}-#{counter}"
         counter += 1
       end
