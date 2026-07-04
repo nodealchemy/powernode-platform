@@ -514,6 +514,50 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(result[:queue][:passed]).to eq(1)
     end
 
+    it "transitions the loop to completed when the last task passes and none remain (IMP-af21b11d476c)" do
+      # F9-99 (the only task) is the one being completed here — passing it should
+      # be the LAST outstanding task, so all_tasks_completed? goes true and the
+      # loop itself (not just the task) should flip to completed.
+      result = tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "F9-99",
+        outcome: "passed", summary: "done"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:all_tasks_completed]).to be true
+      expect(ralph_loop.reload.status).to eq("completed")
+      expect(ralph_loop.completed_at).to be_present
+    end
+
+    it "does NOT force-complete a campaign-tied loop even when its current tasks are all terminal (regression guard)" do
+      # A campaign's loop is open-ended -- more increments are expected on it
+      # later. Force-completing it here would bypass Campaign#should_stop?'s
+      # own premature-finalization guard (see memory: "Campaign
+      # premature-finalization bug").
+      campaign = create(:ai_campaign, account: account)
+      ralph_loop.update!(campaign: campaign)
+
+      result = tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "F9-99",
+        outcome: "passed", summary: "done"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:all_tasks_completed]).to be true
+      expect(ralph_loop.reload.status).not_to eq("completed")
+    end
+
+    it "does NOT complete the loop while other tasks are still pending" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "F9-100")
+
+      tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "F9-99",
+        outcome: "passed", summary: "done"
+      })
+
+      expect(ralph_loop.reload.status).not_to eq("completed")
+    end
+
     it "embeds each captured learning mid-run, not only at completion (G12)" do
       extractor = instance_double(Ai::Learning::RalphLearningExtractor)
       allow(Ai::Learning::RalphLearningExtractor).to receive(:new).and_return(extractor)

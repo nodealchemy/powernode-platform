@@ -355,13 +355,36 @@ module Ai
         end
         return error_result(pairing_error) if pairing_error
 
+        loop_record.reload
+        all_tasks_completed = loop_record.all_tasks_completed?
+        # IMP-af21b11d476c: this was the ONLY place manual/claude_code loops ever
+        # observed all_tasks_completed? (the field was already computed below for
+        # the response) but never acted on it — the loop-level status only flipped
+        # to "completed" via the scheduled sweep, which structurally excludes
+        # scheduling_mode: manual loops. Complete it here, deterministically, the
+        # moment the last task passes/skips, instead of leaving it accidental.
+        #
+        # campaign_id.blank? guard is load-bearing, not incidental: a campaign's
+        # loop is open-ended (more record_increment!/delegated tasks are expected
+        # on it), and Campaign#should_stop?/#fully_drained? deliberately rely on
+        # the loop staying `active` as the ONLY guard against a completion_pct-
+        # based premature finalization on an unseeded campaign (see that
+        # comment, and memory: "Campaign premature-finalization bug"). Verified
+        # live two campaign-tied loops ("Migrate Claude-only rules", "Model
+        # Routing v4") have no plan_increments seeded — completing them here
+        # would silently reopen that exact bug via this shared code path (this
+        # method is also how /dev-loop <campaign-loop> drains a campaign's own
+        # loop). Non-campaign loops (plain dev-improve-style backlogs) have no
+        # such open-ended-refill expectation, so completing them here is safe.
+        loop_record.complete! if all_tasks_completed && loop_record.campaign_id.blank? && loop_record.can_complete?
+
         response = {
           success: true,
           task_key: task.task_key,
           task_status: task.reload.status,
           iteration_number: iteration.iteration_number,
           queue: queue_snapshot(loop_record.reload),
-          all_tasks_completed: loop_record.all_tasks_completed?
+          all_tasks_completed: all_tasks_completed
         }
         # Governance annotation (report-only — no approval lane until an
         # executor consumes it; see audit finding F3-01 for why).

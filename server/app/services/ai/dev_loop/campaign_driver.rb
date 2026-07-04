@@ -198,6 +198,22 @@ module Ai
           campaign.snapshot_progress!
         end
 
+        # IMP-af21b11d476c: investigated force-completing loop_record here
+        # (mirroring the DevLoopTool#complete_task fix below), but a campaign's
+        # loop is open-ended by design — more record_increment! calls are
+        # expected on it, and the existing should_stop?/fully_drained? guards
+        # deliberately keep it `active` (pending/running/paused) as the ONLY
+        # thing preventing a completion_pct-based premature campaign
+        # finalization on an unseeded loop (see Campaign#should_stop?'s own
+        # comment, and memory: "Campaign premature-finalization bug"). Verified
+        # live: "Migrate Claude-only rules"/"Model Routing v4" ARE campaign-tied
+        # loops with no plan_increments seeded — force-completing them here
+        # would silently reopen that exact bug via a new path. Deliberately NOT
+        # fixed in this method; campaign loop completion belongs to
+        # maybe_finalize!/should_stop!'s own richer signals, not a bare
+        # all_tasks_completed? check on every increment. See follow-up filed
+        # for genuinely-done, unseeded campaign loops.
+
         # Finalize the campaign if this increment drained it (all loops ended,
         # tasks terminal, no open questions) or met a stop condition — so it
         # doesn't linger at status=active/100% forever.

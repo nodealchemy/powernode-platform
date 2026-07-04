@@ -57,6 +57,19 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
       expect(campaign.completed_tasks).to eq(0)
     end
 
+    it "does NOT force-complete the loop after a single unseeded increment (regression guard, IMP-af21b11d476c investigation)" do
+      # An unseeded campaign loop is open-ended -- more record_increment! calls
+      # are expected. Force-completing it the moment the current task count
+      # hits zero-pending would reopen the "first passed increment reads 100%"
+      # premature-finalization bug (Campaign#should_stop?'s own guard exists
+      # specifically to prevent this). The loop must stay active.
+      driver.record_increment!(campaign, title: "Increment 1", summary: "did the thing", rationale: "because")
+
+      loop_ = campaign.ralph_loops.first
+      expect(loop_.reload.status).not_to eq("completed")
+      expect(campaign.reload.status).not_to eq("completed")
+    end
+
     it "raises if the campaign has no loop to record against" do
       bare = account.ai_campaigns.create!(name: "bare", status: "active", decision_authority: "trusted")
       expect { driver.record_increment!(bare, title: "x") }.to raise_error(ArgumentError, /no loop/)
