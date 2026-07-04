@@ -45,14 +45,16 @@ module Ai
             }
           },
           "update_ralph_loop" => {
-            description: "Update mutable Ralph Loop config: name, default_agent_id, cycle_interval_minutes, max_iterations_per_day, schedule_paused. " \
-                         "Useful for repointing default_agent_id when consolidating duplicate agents, or adjusting cadence without delete+recreate.",
+            description: "Update mutable Ralph Loop config: name, default_agent_id, cycle_interval_minutes, max_iterations_per_day, max_iterations, schedule_paused. " \
+                         "Useful for repointing default_agent_id when consolidating duplicate agents, adjusting cadence without delete+recreate, or raising a loop's " \
+                         "lifetime iteration cap before it halts on max_iterations_reached.",
             parameters: {
               loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
               name: { type: "string", required: false, description: "New loop name" },
               default_agent_id: { type: "string", required: false, description: "Repoint to a different agent (UUID, slug, or name)" },
               cycle_interval_minutes: { type: "integer", required: false, description: "Time between iterations in minutes" },
               max_iterations_per_day: { type: "integer", required: false, description: "Daily iteration cap" },
+              max_iterations: { type: "integer", required: false, description: "Lifetime iteration cap (distinct from the daily max_iterations_per_day throttle)" },
               schedule_paused: { type: "boolean", required: false, description: "Pause/resume scheduling without a state machine event" }
             }
           },
@@ -138,6 +140,7 @@ module Ai
 
         attrs = {}
         attrs[:name] = params[:name] if params[:name].present?
+        attrs[:max_iterations] = params[:max_iterations].to_i if params[:max_iterations].present?
 
         if params[:default_agent_id].present?
           agent = ::Ai::Agent.for_account(account.id).find_by(id: params[:default_agent_id]) ||
@@ -210,6 +213,8 @@ module Ai
           cycle_interval_minutes: loop_record.schedule_config&.dig("cycle_interval_minutes") ||
                                   loop_record.duty_cycle_config&.dig("frequency_minutes") || 15,
           max_iterations_per_day: loop_record.schedule_config&.dig("max_iterations_per_day"),
+          current_iteration: loop_record.current_iteration,
+          max_iterations: loop_record.max_iterations,
           daily_iteration_count: loop_record.daily_iteration_count,
           next_scheduled_at: loop_record.next_scheduled_at,
           created_at: loop_record.created_at

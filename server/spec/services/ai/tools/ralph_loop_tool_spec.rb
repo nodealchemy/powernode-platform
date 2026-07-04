@@ -82,4 +82,36 @@ RSpec.describe Ai::Tools::RalphLoopTool do
       expect(ralph_loop.reload.schedule_paused).to be false
     end
   end
+
+  describe "update_ralph_loop" do
+    it "updates the loop's lifetime max_iterations cap" do
+      ralph_loop.update!(max_iterations: 500)
+
+      result = tool.execute(params: { action: "update_ralph_loop", loop_id: ralph_loop.id, max_iterations: 5000 })
+
+      expect(result[:success]).to be true
+      expect(ralph_loop.reload.max_iterations).to eq(5000)
+      expect(result[:loop][:max_iterations]).to eq(5000)
+    end
+
+    it "leaves max_iterations untouched when not provided" do
+      ralph_loop.update!(max_iterations: 500)
+
+      result = tool.execute(params: { action: "update_ralph_loop", loop_id: ralph_loop.id, name: "renamed-loop" })
+
+      expect(result[:success]).to be true
+      expect(ralph_loop.reload.max_iterations).to eq(500)
+    end
+  end
+
+  describe "serialize_loop iteration headroom" do
+    it "surfaces current_iteration and max_iterations via get_ralph_loop" do
+      ralph_loop.update!(current_iteration: 466, max_iterations: 500)
+
+      result = tool.execute(params: { action: "get_ralph_loop", loop_id: ralph_loop.id })
+
+      expect(result[:loop][:current_iteration]).to eq(466)
+      expect(result[:loop][:max_iterations]).to eq(500)
+    end
+  end
 end
