@@ -278,6 +278,36 @@ module Ai
       # (3) cache
       # ----------------------------------------------------------------------
 
+      # WRITE-SAFETY: a write endpoint (any HTTP method other than GET/HEAD) or
+      # one explicitly opted out via cache_ttl_seconds <= 0 NEVER touches the
+      # response cache — neither lookup nor store. Without this, a
+      # side-effecting endpoint (e.g. X.com's "Create post", POST /2/tweets)
+      # would flow through ResponseCacheService.fetch exactly like a read: a
+      # retried POST with identical params would be silently served the FIRST
+      # call's cached response instead of re-dispatching, so the caller would
+      # believe a second post succeeded when the upstream was never touched
+      # again. It also closes a related gap: ttl_for treats cache_ttl_seconds:0
+      # as "unset" and falls back to the 5-minute DEFAULT_TTL, so an endpoint's
+      # explicit "never cache me" would otherwise be silently ignored. Kept on
+      # QueryService (not ResponseCacheService) because the write/no-cache
+      # decision belongs to the endpoint contract QueryService already reads
+      # (http_method, cache_ttl_seconds).
+      def cacheable_request?
+        safe_cache_method? && !explicit_cache_disabled?
+      end
+
+      def safe_cache_method?
+        method = endpoint.respond_to?(:http_method) ? endpoint.http_method.to_s.upcase : "GET"
+        %w[GET HEAD].include?(method)
+      end
+
+      def explicit_cache_disabled?
+        return false unless endpoint.respond_to?(:cache_ttl_seconds)
+
+        ttl = endpoint.cache_ttl_seconds
+        ttl.present? && ttl.to_i <= 0
+      end
+
       # Wraps the live fetch (4)-(8) in ResponseCacheService.fetch (singleflight +
       # XFetch). The cache stores only the payload portion ({ data:, provenance: }).
       # On a MISS the block runs the real network fetch and returns the cacheable
@@ -285,9 +315,15 @@ module Ai
       # payload. We detect which happened via a recompute flag and return a single
       # internal result Hash that finalize() persists exactly once in call.
       #
+      # A non-cacheable request (see #cacheable_request?) bypasses
+      # ResponseCacheService entirely and calls perform_fetch directly — no
+      # Redis read, no singleflight lock, no write.
+      #
       # The cache-layer rescue falls through to a direct (uncached) fetch so a
       # Redis fault never breaks a query.
       def fetch_via_cache
+        return perform_fetch unless cacheable_request?
+
         recomputed = false
         fresh_result = nil
 
@@ -326,6 +362,7 @@ module Ai
       # nil, when no qualifying failure occurred, or when no stale entry exists.
       def maybe_serve_stale_if_error(result)
         return result unless result.is_a?(Hash)
+        return result unless cacheable_request?
         return result if result[:success]
         return result if result[:from_cache]
         return result unless STALE_IF_ERROR_STATUSES.include?(result[:status])
@@ -1187,7 +1224,10 @@ module Ai
         # cache an error). A quarantined fetch is HTTP-successful but failed quality:
         # NEVER cache the bad payload — the served data is last-known-good, which is
         # already cached, so re-writing would either be a no-op or poison the cache.
-        write_cache(result) if result[:success] && !from_cache && !@quarantined
+        # cacheable_request? is the WRITE-SAFETY gate: a write endpoint never
+        # reaches fetch_via_cache's write path either, but this is asserted again
+        # here in case finalize is ever reached some other way.
+        write_cache(result) if result[:success] && !from_cache && !@quarantined && cacheable_request?
 
         build_envelope(result, prov, masking)
       end
