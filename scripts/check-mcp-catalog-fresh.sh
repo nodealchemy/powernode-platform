@@ -13,6 +13,9 @@ CATALOG="docs/reference/auto/mcp-tools.md"
 
 before="$(mktemp)"
 cp "$CATALOG" "$before"
+# Restore + cleanup on ANY exit (success, failure, or interruption) — not just the
+# happy path — so a failing/killed rake task never leaves the catalog dirty.
+trap 'cp "$before" "$CATALOG" 2>/dev/null || true; rm -f "$before"' EXIT
 
 (cd server && bundle exec rails mcp:generate_tool_catalog) >/dev/null 2>&1
 
@@ -22,8 +25,5 @@ else
     status=1
     echo "MCP tool catalog is stale — regenerate with: cd server && bundle exec rails mcp:generate_tool_catalog" >&2
 fi
-
-cp "$before" "$CATALOG"
-rm -f "$before"
 
 exit $status
