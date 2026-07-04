@@ -149,6 +149,23 @@ else
     security_critical_failed_checks+=("No new zero-authz controllers (authorization-coverage guard)")
 fi
 
+# MCP catalog freshness guard: docs/reference/auto/mcp-tools.md is generated
+# FROM Ai::Tools::PlatformApiToolRegistry::TOOLS action_definitions (rails
+# mcp:generate_tool_catalog). A commit that adds/changes an MCP tool action's
+# params/description without regenerating this doc leaves it silently stale —
+# check-mcp-catalog-fresh.sh regenerates into the real output path and diffs
+# against the committed content (ignoring the timestamp line) to catch drift,
+# then restores the file so this check has no side effects of its own.
+total_checks=$((total_checks + 1))
+echo -n "Checking: MCP tool catalog is up to date (rails mcp:generate_tool_catalog)... "
+if bash scripts/check-mcp-catalog-fresh.sh >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Catalog stale; run: cd server && bundle exec rails mcp:generate_tool_catalog)"
+    failed_checks=$((failed_checks + 1))
+fi
+
 # Inline-permission-check guard: require_permission* now raise + self-halt, but
 # an inline check in an action body still runs after preceding side effects. The
 # correct usage is a before_action gate. check-inline-require-permission.sh flags
