@@ -79,6 +79,10 @@ module Permissions
     "ai.data_sources.query" => "Query AI data sources",
     "ai.data_sources.stream" => "Subscribe to AI data source endpoints (pull-based monitoring)",
 
+    # AI Orchestration - Growth Content Drafts (D1/D2)
+    "ai.content_drafts.read" => "View AI content drafts",
+    "ai.content_drafts.manage" => "Manage AI content drafts (create, approve, reject, publish)",
+
     # AI Orchestration - Credentials
     "ai.credentials.read" => "View AI provider credentials",
     "ai.credentials.create" => "Create AI provider credentials",
@@ -690,6 +694,7 @@ module Permissions
         "kb.read",
         # Basic AI permissions
         "ai.providers.read", "ai.data_sources.read", "ai.data_sources.query", "ai.data_sources.stream", "ai.agents.read", "ai.executions.read",
+        "ai.content_drafts.read",
         "ai.workflows.read", "ai.workflow_executions.read",
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate",
         "ai.messages.read", "ai.messages.create", "ai.templates.read", "ai.templates.install",
@@ -737,6 +742,7 @@ module Permissions
         "ai.credentials.delete", "ai.credentials.test",
         "ai.data_sources.read", "ai.data_sources.create", "ai.data_sources.update", "ai.data_sources.delete",
         "ai.data_sources.manage", "ai.data_sources.query", "ai.data_sources.stream",
+        "ai.content_drafts.read", "ai.content_drafts.manage",
         "ai.agents.read", "ai.agents.create", "ai.agents.update", "ai.agents.delete",
         "ai.agents.execute", "ai.agents.clone",
         "ai.executions.read", "ai.executions.cancel", "ai.executions.retry",
@@ -984,6 +990,7 @@ module Permissions
         "ai.credentials.delete", "ai.credentials.test",
         "ai.data_sources.read", "ai.data_sources.create", "ai.data_sources.update", "ai.data_sources.delete",
         "ai.data_sources.manage", "ai.data_sources.query", "ai.data_sources.stream",
+        "ai.content_drafts.read", "ai.content_drafts.manage",
         "ai.agents.read", "ai.agents.create", "ai.agents.update", "ai.agents.delete",
         "ai.agents.execute", "ai.agents.clone",
         "ai.executions.read", "ai.executions.cancel", "ai.executions.retry",

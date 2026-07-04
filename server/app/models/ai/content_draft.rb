@@ -14,6 +14,13 @@ module Ai
 
     STATUSES = %w[draft pending_review approved rejected published].freeze
 
+    # D2 lifecycle transitions — see Api::V1::Ai::ContentDraftsController
+    # #approve/#reject. The actual dispatch (draft -> published) is NOT a
+    # simple status flip; it is owned by Ai::Growth::ContentPublishingService,
+    # which only advances status after a real (or proposed) publish attempt.
+    APPROVABLE_FROM = %w[draft pending_review].freeze
+    REJECTABLE_FROM = %w[draft pending_review approved].freeze
+
     # Associations
     belongs_to :account
     belongs_to :data_source, class_name: "Ai::DataSource", foreign_key: "ai_data_source_id"
@@ -41,6 +48,23 @@ module Ai
     # (segments.size > 1) rather than a single post.
     def thread?
       segments.size > 1
+    end
+
+    # Human-review approval — does NOT publish. A separate step from
+    # ContentPublishingService#publish so a draft can be marked reviewed
+    # before (or without) actually dispatching it.
+    def approve!
+      raise ArgumentError, "cannot approve draft #{id} from status '#{status}'" unless APPROVABLE_FROM.include?(status)
+
+      update!(status: "approved")
+    end
+
+    # Terminal — a rejected draft can never be published (ContentPublishingService
+    # hard-refuses any TERMINAL_STATUSES draft, rejected included).
+    def reject!(reason: nil)
+      raise ArgumentError, "cannot reject draft #{id} from status '#{status}'" unless REJECTABLE_FROM.include?(status)
+
+      update!(status: "rejected", metadata: metadata.merge("rejected_reason" => reason).compact)
     end
 
     def draft_summary

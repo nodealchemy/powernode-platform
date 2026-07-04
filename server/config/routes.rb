@@ -2624,6 +2624,20 @@ Rails.application.routes.draw do
           post "cross_post", action: :cross_post
         end
 
+        # ===================================================================
+        # 14d. CONTENT DRAFTS CONTROLLER (D2) - Draft lifecycle: create/review/
+        #      approve/reject/publish. Publish is approval-gated (routes
+        #      through the same DataSourceTool/CrossPostService choke point
+        #      as cross_post above).
+        # ===================================================================
+        resources :content_drafts, only: %i[index show create] do
+          member do
+            post :approve
+            post :reject
+            post :publish
+          end
+        end
+
         # Credits and outcome billing routes are in business/server/config/routes.rb
 
         # Agent marketplace routes (17) are in business/server/config/routes.rb
