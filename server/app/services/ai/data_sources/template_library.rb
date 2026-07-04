@@ -56,7 +56,10 @@ module Ai
           rss_feed_template,
           open_meteo_weather_template,
           graphql_template,
-          x_com_template
+          x_com_template,
+          linkedin_template,
+          reddit_template,
+          youtube_template
         ]
       end
 
@@ -408,6 +411,278 @@ module Ai
                   "note" => "SIDE-EFFECTING write — publishes a real post. Never cached.",
                   "side_effecting" => true
                 }
+              }
+            ]
+          )
+        }
+      end
+
+      # LinkedIn — provider-wave-2 (W1), the SAME OAuth 2.0 Authorization-Code
+      # seam as x_com_template above (oauth2_authorization_code broker,
+      # BearerSigner, write-safety, approval-gating): zero new signer/code, only
+      # a manifest. requires_auth/auth_scheme mirror x-com exactly.
+      #
+      # Scopes: LinkedIn's self-serve "Sign In with LinkedIn using OpenID
+      # Connect" + "Share on LinkedIn" products grant "openid profile email
+      # w_member_social" without partner review; a read-your-own-posts scope
+      # (e.g. r_member_social) exists but is gated behind LinkedIn's Marketing
+      # Developer Platform partner program, so it is deliberately NOT requested
+      # here — the read endpoint below uses the OpenID userinfo endpoint
+      # instead, which is reachable with the self-serve scopes alone.
+      #
+      # Posts API note: a successful "Create post" (POST /rest/posts) returns
+      # 201 with the created post's URN in the "x-restli-id" response HEADER,
+      # not the JSON body (which LinkedIn documents as typically empty) — the
+      # response_mapping below is a best-effort hint for APIs/test doubles that
+      # do echo a body; the header is outside this generic JSON-body pipeline.
+      def linkedin_template
+        {
+          slug: "linkedin",
+          name: "LinkedIn",
+          description: "LinkedIn API — OAuth 2.0 Authorization Code. Read your " \
+                       "profile and publish posts. Attach an OAuth2 app credential " \
+                       "(client_id/client_secret) after install, then run the " \
+                       "connect flow to authorize — no tokens are shipped here.",
+          category: "social",
+          manifest: base_manifest(
+            source: {
+              "name" => "LinkedIn",
+              "slug" => "linkedin",
+              "source_type" => "linkedin",
+              "category" => "social",
+              "protocol" => "rest",
+              "api_base_url" => "https://api.linkedin.com",
+              "description" => "LinkedIn API — connect an OAuth2 app and authorize " \
+                               "to read your profile and publish new posts.",
+              "documentation_url" => "https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api",
+              "requires_auth" => true,
+              # Authenticated REST API, not a crawled resource — same rationale
+              # as x-com's override.
+              "respect_robots" => false,
+              "auth_scheme" => "bearer",
+              "auth_config" => {
+                "authorize_url" => "https://www.linkedin.com/oauth/v2/authorization",
+                "token_url" => "https://www.linkedin.com/oauth/v2/accessToken",
+                "scope" => "openid profile email w_member_social",
+                "broker" => {
+                  "type" => "oauth2_authorization_code",
+                  "token_url" => "https://www.linkedin.com/oauth/v2/accessToken"
+                }
+              },
+              "configuration" => {
+                "default_headers" => {
+                  "Accept" => "application/json",
+                  "LinkedIn-Version" => "202401",
+                  "X-Restli-Protocol-Version" => "2.0.0"
+                }
+              },
+              "metadata" => { "template" => "linkedin", "starter" => true }
+            },
+            endpoints: [
+              {
+                "name" => "Profile",
+                "slug" => "profile",
+                "http_method" => "GET",
+                "path_template" => "/v2/userinfo",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "response_mapping" => {},
+                "metadata" => { "note" => "OpenID Connect userinfo — a flat object, wrapped as a single record." }
+              },
+              {
+                "name" => "Create post",
+                "slug" => "create-post",
+                "http_method" => "POST",
+                "path_template" => "/rest/posts",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "cache_ttl_seconds" => 0,
+                "body_template" => {
+                  "author" => "urn:li:person:{person_id}",
+                  "commentary" => "{text}",
+                  "visibility" => "PUBLIC",
+                  "distribution" => {
+                    "feedDistribution" => "MAIN_FEED",
+                    "targetEntities" => [],
+                    "thirdPartyDistributionChannels" => []
+                  },
+                  "lifecycleState" => "PUBLISHED",
+                  "isReshareDisabledByAuthor" => false
+                },
+                "response_mapping" => { "records_path" => "data" },
+                "metadata" => {
+                  "note" => "SIDE-EFFECTING write — publishes a real post. Never cached. " \
+                            "person_id is the LinkedIn member URN id (path/body param).",
+                  "side_effecting" => true
+                }
+              }
+            ]
+          )
+        }
+      end
+
+      # Reddit — provider-wave-2 (W1), same OAuth2 Authorization-Code seam.
+      #
+      # Reddit's API rules REQUIRE a unique, descriptive User-Agent on every
+      # call (generic/library user-agents are aggressively rate-limited) — the
+      # placeholder below MUST be customized by the operator after install.
+      # Authenticated calls go to oauth.reddit.com, never www.reddit.com.
+      def reddit_template
+        {
+          slug: "reddit",
+          name: "Reddit",
+          description: "Reddit API — OAuth 2.0 Authorization Code. Read subreddit " \
+                       "listings and submit posts. Attach an OAuth2 app credential " \
+                       "(client_id/client_secret) after install, then run the " \
+                       "connect flow to authorize — no tokens are shipped here. " \
+                       "Customize the User-Agent header after install (Reddit " \
+                       "requires a unique, descriptive one per its API rules).",
+          category: "social",
+          manifest: base_manifest(
+            source: {
+              "name" => "Reddit",
+              "slug" => "reddit",
+              "source_type" => "reddit",
+              "category" => "social",
+              "protocol" => "rest",
+              "api_base_url" => "https://oauth.reddit.com",
+              "description" => "Reddit API — connect an OAuth2 app and authorize " \
+                               "to read subreddit listings and submit posts.",
+              "documentation_url" => "https://www.reddit.com/dev/api/oauth",
+              "requires_auth" => true,
+              "respect_robots" => false,
+              "auth_scheme" => "bearer",
+              "auth_config" => {
+                "authorize_url" => "https://www.reddit.com/api/v1/authorize",
+                "token_url" => "https://www.reddit.com/api/v1/access_token",
+                "scope" => "read submit identity",
+                "broker" => {
+                  "type" => "oauth2_authorization_code",
+                  "token_url" => "https://www.reddit.com/api/v1/access_token"
+                }
+              },
+              "configuration" => {
+                "default_headers" => {
+                  "Accept" => "application/json",
+                  "User-Agent" => "powernode-data-source/1.0 (by /u/change-me)"
+                }
+              },
+              "metadata" => { "template" => "reddit", "starter" => true }
+            },
+            endpoints: [
+              {
+                "name" => "Subreddit new posts",
+                "slug" => "subreddit-new",
+                "http_method" => "GET",
+                "path_template" => "/r/{subreddit}/new",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "query_template" => { "limit" => "{limit}" },
+                "response_mapping" => { "records_path" => "data.children" },
+                "metadata" => {
+                  "note" => "Each record is a Reddit \"Listing\" child ({kind, data}); " \
+                            "post fields live one level deeper, under record[\"data\"]."
+                }
+              },
+              {
+                "name" => "Submit post",
+                "slug" => "submit-post",
+                "http_method" => "POST",
+                "path_template" => "/api/submit",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "cache_ttl_seconds" => 0,
+                "body_template" => {
+                  "sr" => "{subreddit}",
+                  "kind" => "self",
+                  "title" => "{title}",
+                  "text" => "{text}",
+                  "api_type" => "json"
+                },
+                "response_mapping" => { "records_path" => "json.data" },
+                "metadata" => {
+                  "note" => "SIDE-EFFECTING write — submits a real post. Never cached.",
+                  "side_effecting" => true
+                }
+              }
+            ]
+          )
+        }
+      end
+
+      # YouTube (Google OAuth 2.0) — provider-wave-2 (W1), same generic
+      # Authorization-Code seam; Google is just another provider on it.
+      #
+      # READ-ONLY for W1: publishing to YouTube is a video upload (resumable,
+      # multipart — a materially different request shape than every other
+      # endpoint in this library, which are single-request JSON/form calls).
+      # Scope is deliberately limited to youtube.readonly (least privilege —
+      # an unused upload scope would need Google's app-verification review for
+      # no benefit yet). A future increment can add an upload endpoint once the
+      # adapter layer supports resumable/multipart bodies.
+      #
+      # Note: Google typically requires "access_type=offline&prompt=consent" on
+      # the authorize request to guarantee a refresh_token on RE-authorization;
+      # OauthAuthorizationCodeService#build_authorize_request sends a fixed
+      # query set (client_id/redirect_uri/response_type/scope/state/PKCE) with
+      # no per-provider extra-params hook, so a first-time consent should still
+      # return a refresh_token, but a repeat authorization may not. Flagged for
+      # the connect-flow owner rather than worked around here (config-only).
+      def youtube_template
+        {
+          slug: "youtube",
+          name: "YouTube",
+          description: "YouTube Data API v3 — OAuth 2.0 Authorization Code. " \
+                       "Search videos (read-only for now). Attach an OAuth2 app " \
+                       "credential (client_id/client_secret) after install, then " \
+                       "run the connect flow to authorize — no tokens are shipped " \
+                       "here. Publishing (video upload) is not yet supported.",
+          category: "social",
+          manifest: base_manifest(
+            source: {
+              "name" => "YouTube",
+              "slug" => "youtube",
+              "source_type" => "youtube",
+              "category" => "social",
+              "protocol" => "rest",
+              "api_base_url" => "https://www.googleapis.com/youtube/v3",
+              "description" => "YouTube Data API v3 — connect a Google OAuth2 app " \
+                               "and authorize to search videos.",
+              "documentation_url" => "https://developers.google.com/youtube/v3/docs",
+              "requires_auth" => true,
+              "respect_robots" => false,
+              "auth_scheme" => "bearer",
+              "auth_config" => {
+                "authorize_url" => "https://accounts.google.com/o/oauth2/v2/auth",
+                "token_url" => "https://oauth2.googleapis.com/token",
+                "scope" => "https://www.googleapis.com/auth/youtube.readonly",
+                "broker" => {
+                  "type" => "oauth2_authorization_code",
+                  "token_url" => "https://oauth2.googleapis.com/token"
+                }
+              },
+              "configuration" => { "default_headers" => { "Accept" => "application/json" } },
+              "metadata" => {
+                "template" => "youtube", "starter" => true,
+                "publish" => "deferred — video upload needs resumable/multipart support, out of scope for W1"
+              }
+            },
+            endpoints: [
+              {
+                "name" => "Search videos",
+                "slug" => "search-videos",
+                "http_method" => "GET",
+                "path_template" => "/search",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "query_template" => {
+                  "part" => "snippet",
+                  "q" => "{query}",
+                  "type" => "video",
+                  "maxResults" => "{max_results}"
+                },
+                "response_mapping" => { "records_path" => "items" },
+                "metadata" => { "note" => "q is a YouTube search query string." }
               }
             ]
           )

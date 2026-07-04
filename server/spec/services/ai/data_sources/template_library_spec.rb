@@ -86,7 +86,10 @@ RSpec.describe Ai::DataSources::TemplateLibrary, type: :service do
         "rss-feed",
         "open-meteo-weather",
         "generic-graphql",
-        "x-com"
+        "x-com",
+        "linkedin",
+        "reddit",
+        "youtube"
       )
     end
 
@@ -557,6 +560,114 @@ RSpec.describe Ai::DataSources::TemplateLibrary, type: :service do
         expect(endpoint.cache_ttl_seconds).to eq(0)
         expect(endpoint.metadata["side_effecting"]).to be(true)
       end
+    end
+  end
+
+  # ── provider-wave-2 (W1): LinkedIn / Reddit / YouTube ─────────────────────
+  # Same seam as x-com (oauth2_authorization_code broker) — these specs pin
+  # each template's auth_config wiring and that install/endpoints land exactly
+  # like every other template. The generic credential-free / secret-scan /
+  # manifest-shape specs above already cover all three (they walk .all).
+  describe "the linkedin template" do
+    it "is present in .all and findable by slug" do
+      expect(described_class.all.map { |t| t[:slug] }).to include("linkedin")
+      expect(described_class.find("linkedin")[:name]).to eq("LinkedIn")
+    end
+
+    it "selects the oauth2_authorization_code broker and carries a reconciled auth_config" do
+      result = described_class.install("linkedin", account: account)
+      auth_config = result[:data_source].auth_config
+
+      expect(result[:data_source].requires_auth).to be(true)
+      expect(result[:data_source].auth_scheme).to eq("bearer")
+      expect(auth_config["authorize_url"]).to eq("https://www.linkedin.com/oauth/v2/authorization")
+      expect(auth_config["token_url"]).to eq("https://www.linkedin.com/oauth/v2/accessToken")
+      expect(auth_config["scope"]).to eq("openid profile email w_member_social")
+      expect(auth_config["broker"]["type"]).to eq("oauth2_authorization_code")
+      expect(Ai::DataSources::Credentials::Registry.for(auth_config["broker"]["type"]))
+        .to be_a(Ai::DataSources::Credentials::Oauth2AuthorizationCodeBroker)
+    end
+
+    it "installs with ZERO credentials and the read + write endpoints" do
+      result = described_class.install("linkedin", account: account)
+
+      expect(result[:errors]).to be_empty
+      expect(result[:data_source].credentials.count).to eq(0)
+      expect(result[:updated_endpoints].map { |e| e[:slug] }).to contain_exactly("profile", "create-post")
+    end
+
+    it "marks the create-post endpoint as never-cache and side-effecting" do
+      endpoint = described_class.install("linkedin", account: account)[:data_source]
+                                 .endpoints.find_by!(slug: "create-post")
+
+      expect(endpoint.cache_ttl_seconds).to eq(0)
+      expect(endpoint.metadata["side_effecting"]).to be(true)
+    end
+  end
+
+  describe "the reddit template" do
+    it "is present in .all and findable by slug" do
+      expect(described_class.all.map { |t| t[:slug] }).to include("reddit")
+      expect(described_class.find("reddit")[:name]).to eq("Reddit")
+    end
+
+    it "selects the oauth2_authorization_code broker and carries a reconciled auth_config" do
+      result = described_class.install("reddit", account: account)
+      auth_config = result[:data_source].auth_config
+
+      expect(result[:data_source].requires_auth).to be(true)
+      expect(result[:data_source].auth_scheme).to eq("bearer")
+      expect(auth_config["authorize_url"]).to eq("https://www.reddit.com/api/v1/authorize")
+      expect(auth_config["token_url"]).to eq("https://www.reddit.com/api/v1/access_token")
+      expect(auth_config["scope"]).to eq("read submit identity")
+      expect(auth_config["broker"]["type"]).to eq("oauth2_authorization_code")
+      expect(Ai::DataSources::Credentials::Registry.for(auth_config["broker"]["type"]))
+        .to be_a(Ai::DataSources::Credentials::Oauth2AuthorizationCodeBroker)
+    end
+
+    it "installs with ZERO credentials and the read + write endpoints" do
+      result = described_class.install("reddit", account: account)
+
+      expect(result[:errors]).to be_empty
+      expect(result[:data_source].credentials.count).to eq(0)
+      expect(result[:updated_endpoints].map { |e| e[:slug] }).to contain_exactly("subreddit-new", "submit-post")
+    end
+
+    it "marks the submit-post endpoint as never-cache and side-effecting" do
+      endpoint = described_class.install("reddit", account: account)[:data_source]
+                                 .endpoints.find_by!(slug: "submit-post")
+
+      expect(endpoint.cache_ttl_seconds).to eq(0)
+      expect(endpoint.metadata["side_effecting"]).to be(true)
+    end
+  end
+
+  describe "the youtube template" do
+    it "is present in .all and findable by slug" do
+      expect(described_class.all.map { |t| t[:slug] }).to include("youtube")
+      expect(described_class.find("youtube")[:name]).to eq("YouTube")
+    end
+
+    it "selects the oauth2_authorization_code broker and carries a reconciled auth_config" do
+      result = described_class.install("youtube", account: account)
+      auth_config = result[:data_source].auth_config
+
+      expect(result[:data_source].requires_auth).to be(true)
+      expect(result[:data_source].auth_scheme).to eq("bearer")
+      expect(auth_config["authorize_url"]).to eq("https://accounts.google.com/o/oauth2/v2/auth")
+      expect(auth_config["token_url"]).to eq("https://oauth2.googleapis.com/token")
+      expect(auth_config["scope"]).to eq("https://www.googleapis.com/auth/youtube.readonly")
+      expect(auth_config["broker"]["type"]).to eq("oauth2_authorization_code")
+      expect(Ai::DataSources::Credentials::Registry.for(auth_config["broker"]["type"]))
+        .to be_a(Ai::DataSources::Credentials::Oauth2AuthorizationCodeBroker)
+    end
+
+    it "installs with ZERO credentials and a read-only endpoint (publish deferred for W1)" do
+      result = described_class.install("youtube", account: account)
+
+      expect(result[:errors]).to be_empty
+      expect(result[:data_source].credentials.count).to eq(0)
+      expect(result[:updated_endpoints].map { |e| e[:slug] }).to contain_exactly("search-videos")
     end
   end
 end
