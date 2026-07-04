@@ -71,7 +71,7 @@ platform_skill_assignments.each do |agent_name, slugs|
   next unless agent
 
   slugs.each_with_index do |slug, idx|
-    skill = Ai::Skill.find_by(slug: slug, status: 'active')
+    skill = Ai::Skill.global.find_by(slug: slug, status: 'active')
     next unless skill
 
     Ai::AgentSkill.find_or_create_by!(

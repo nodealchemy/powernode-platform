@@ -59,9 +59,12 @@ RSpec.describe "provider-agnostic agent rename (claude_agents_seed)" do
   end
 
   describe "Strategic Planner rebound to planning-domain skills" do
+    # GLOBAL, matching the real shape: these platform-provided skills are
+    # seeded global (account_id nil) by ai_skills_seed.rb, and the assignment
+    # seed binds via Ai::Skill.global.find_by(slug:) for a deterministic match.
     let!(:skills) do
       %w[product-management business-search technical-researcher data].map do |slug|
-        create(:ai_skill, account: account, slug: slug, status: "active")
+        create(:ai_skill, :global, slug: slug, status: "active")
       end
     end
 

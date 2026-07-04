@@ -777,8 +777,10 @@ created_count = 0
 server_link_count = 0
 
 skills_data.each do |data|
-  # GLOBAL content: account_id nil, upserted by source_key (= slug).
-  skill = Ai::Skill.find_or_initialize_by(source_key: data[:slug], account_id: nil)
+  # GLOBAL content: account_id nil, upserted by natural key (slug). Converts a
+  # pre-globalization ACCOUNT-scoped row of the same slug in place instead of
+  # inserting a second (duplicate) global row — see GloballyScopable.
+  skill = Ai::Skill.find_or_initialize_global(slug: data[:slug], source_key: data[:slug])
   skill.slug = data[:slug]
   skill.assign_attributes(
     name: data[:name],
@@ -825,7 +827,7 @@ end
 # ============================================================================
 # Powernode Concierge skill — workspace routing & agent delegation rules
 # ============================================================================
-concierge_skill = Ai::Skill.find_or_initialize_by(source_key: "powernode-concierge", account_id: nil)
+concierge_skill = Ai::Skill.find_or_initialize_global(slug: "powernode-concierge", source_key: "powernode-concierge")
 concierge_skill.slug = "powernode-concierge"
 concierge_skill.assign_attributes(
   name: "Powernode Concierge",
