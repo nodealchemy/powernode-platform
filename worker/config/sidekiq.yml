@@ -374,6 +374,16 @@
       args: ['monthly']
       description: 'Monthly skill lifecycle maintenance: re-embed skills, health report'
 
+    # F5: skill-health-driven evolution proposals - scan low-effectiveness skills
+    # and active conflicts, file operator-review recommendations. Propose-only
+    # (never activates a version or resolves a conflict); gated behind
+    # skill_scheduled_evolution (default OFF).
+    ai_skill_evolution_proposal:
+      cron: '30 4 * * *'  # Daily at 4:30 AM UTC (after skill lifecycle daily maintenance)
+      class: AiSkillEvolutionProposalJob
+      queue: ai_orchestration
+      description: 'Scan skill health/conflicts and file operator-review evolution proposals (propose-only)'
+
     # Shared knowledge maintenance - import learnings and recalculate quality scores
     ai_shared_knowledge_maintenance:
       cron: '30 4 * * *'
