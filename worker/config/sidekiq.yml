@@ -405,6 +405,14 @@
       queue: ai_orchestration
       description: 'Verify/dispute unverified active learnings by measured effectiveness+confidence (default OFF via :compound_learning_scheduled_verification)'
 
+    # Scheduled learning-cluster -> skill promotion proposals (P3) - clusters
+    # high-value learnings and files operator-review SkillProposals
+    ai_cluster_promotion:
+      cron: '10 5 * * *'  # Daily at 5:10 AM UTC (after learning verification)
+      class: AiClusterPromotionJob
+      queue: ai_orchestration
+      description: 'Cluster high-value learnings and file operator-review skill-promotion proposals (propose-only, default OFF via :learning_to_skill_promotion)'
+
     # Knowledge documentation sync - export MCP knowledge to markdown fallback docs
     ai_knowledge_doc_sync:
       cron: '30 5 * * *'  # Daily at 5:30 AM UTC (after all maintenance jobs)
