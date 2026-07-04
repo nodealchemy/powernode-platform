@@ -209,9 +209,10 @@ export const DataSourceDetailModal: React.FC<DataSourceDetailModalProps> = ({
           <TabsContent value="overview"><DataSourceOverviewTab dataSource={dataSource} /></TabsContent>
           <TabsContent value="credentials">
             <DataSourceCredentialsTab
-              credentials={dataSource.credentials || []}
+              dataSource={dataSource}
               canManageDataSources={canManageDataSources}
               onEdit={handleEdit}
+              onCredentialsChanged={() => { loadDataSource(); onUpdate?.(); }}
             />
           </TabsContent>
           <TabsContent value="endpoints">

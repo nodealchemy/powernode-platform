@@ -421,6 +421,18 @@ export interface ConversationAnalytics {
 
 export type DataSourceHealthStatus = 'healthy' | 'degraded' | 'critical' | 'unknown';
 
+// x-com-provider campaign (I5): provider-agnostic OAuth2 connect config, read-only
+// here — a source gets this from a template (e.g. the X.com template) or an admin
+// tool, never from this UI. authorize_url's presence is what the frontend uses to
+// decide whether to show the OAuth2 connect panel for a source.
+export interface DataSourceAuthConfig {
+  authorize_url?: string;
+  token_url?: string;
+  scopes?: string[];
+  scope?: string;
+  [key: string]: unknown;
+}
+
 export interface AiDataSource {
   id: string;
   account_id: string;
@@ -458,6 +470,8 @@ export interface AiDataSource {
   updated_at: string;
   credentials?: AiDataSourceCredential[];
   quota?: DataSourceQuota;
+  // Detail-view only (serialize_data_source_detail). Absent from list rows.
+  auth_config?: DataSourceAuthConfig | null;
   // Phase 2 trust signals — populated once the backend serializer exposes the
   // effectiveness/usage columns (Ai::DataSource#recalculate_effectiveness!).
   // Optional so cards degrade gracefully while the rollout is in flight.
@@ -484,6 +498,20 @@ export interface AiDataSourceCredential {
   failure_count: number;
   created_at: string;
   updated_at: string;
+  // x-com-provider campaign (I5): OAuth2 connect state. client_id, tokens, and
+  // client_secret are NEVER serialized — only presence/derived booleans travel here.
+  oauth_configured?: boolean;
+  oauth_connected?: boolean;
+  oauth_scopes?: string[];
+  oauth_token_expires_at?: string | null;
+  oauth_token_expired?: boolean;
+}
+
+// x-com-provider campaign (I5): response of POST .../oauth/authorize.
+export interface DataSourceOauthAuthorizeResponse {
+  authorization_url: string;
+  redirect_uri: string;
+  state: string;
 }
 
 export interface DataSourceQuota {

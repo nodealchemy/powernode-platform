@@ -16,6 +16,7 @@ import type {
   DataSourceSubscriptionsResponse,
   CreateDataSourceSubscriptionRequest,
   DataSourceProtocol,
+  DataSourceOauthAuthorizeResponse,
 } from '@/shared/types/ai';
 import type { ConnectionTestResult } from '@/shared/services/ai/ProvidersApiService';
 
@@ -39,6 +40,7 @@ import type { ConnectionTestResult } from '@/shared/services/ai/ProvidersApiServ
  * - DELETE /api/v1/ai/data_sources/:data_source_id/credentials/:id
  * - POST   /api/v1/ai/data_sources/:data_source_id/credentials/:id/test
  * - POST   /api/v1/ai/data_sources/:data_source_id/credentials/:id/make_default
+ * - POST   /api/v1/ai/data_sources/:data_source_id/oauth/authorize
  */
 
 export interface DataSourceQueryFilters extends QueryFilters {
@@ -74,7 +76,11 @@ export interface CreateDataSourceRequest {
 
 export interface CreateDataSourceCredentialRequest {
   name: string;
-  api_key: string;
+  // api_key is for the plain API-key credential shape; OAuth2 app credentials
+  // (client_id/client_secret, x-com-provider campaign I5) don't set it.
+  api_key?: string;
+  client_id?: string;
+  client_secret?: string;
   is_active?: boolean;
   is_default?: boolean;
   expires_at?: string;
@@ -266,6 +272,29 @@ class DataSourcesApiService extends BaseApiService {
       'credentials',
       credentialId,
       'make_default'
+    );
+  }
+
+  /**
+   * Start (or restart) the OAuth2 Authorization Code + PKCE connect flow for a
+   * data source (x-com-provider campaign, I1/I5). Mints a fresh, single-use
+   * `state` server-side each call, so this is safe to call both to preview the
+   * redirect_uri (for the operator to register on the provider's app) and,
+   * moments later, to actually navigate via the returned authorization_url.
+   * POST /api/v1/ai/data_sources/:data_source_id/oauth/authorize
+   *
+   * @param credentialId - Optional; defaults server-side to the source's
+   *   active credential (the one holding the OAuth app's client_id/secret).
+   */
+  async authorizeOauth(
+    dataSourceId: string,
+    credentialId?: string
+  ): Promise<DataSourceOauthAuthorizeResponse> {
+    return this.performAction<DataSourceOauthAuthorizeResponse>(
+      this.resource,
+      dataSourceId,
+      'oauth/authorize',
+      credentialId ? { credential_id: credentialId } : undefined
     );
   }
 
