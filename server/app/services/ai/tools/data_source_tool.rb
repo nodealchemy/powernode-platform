@@ -15,6 +15,17 @@ module Ai
     # and return a proposal-style result so a human can review/approve. This
     # mirrors the established pattern used by AgentAutonomyTool/AgentManagementTool.
     #
+    # WRITE ENDPOINT GATE: data_source_query and the other actions that execute a
+    # single endpoint (data_source_contract, each target of data_source_reconcile,
+    # data_source_failover_query) additionally check whether the ENDPOINT itself is
+    # a write/side-effecting external call (http_method not GET/HEAD, or
+    # metadata["side_effecting"] == true — e.g. the X.com template's POST
+    # /2/tweets "Create post" endpoint). An agent whose account lacks
+    # WRITE_ENDPOINT_PERMISSION for such an endpoint never dispatches the live
+    # call; it gets the same proposal fallback as a data-source-level mutation.
+    # This closes the gap where QUERY_PERMISSION alone would let an unprivileged
+    # agent silently publish (e.g. post a tweet) through the governed-fetch path.
+    #
     # The class-level REQUIRED_PERMISSION gates visibility (least-privilege read);
     # finer per-action checks happen inside #call so a single tool can carry read,
     # query, and mutation actions with distinct authorization.
@@ -25,6 +36,13 @@ module Ai
       QUERY_PERMISSION  = "ai.data_sources.query"
       MANAGE_PERMISSION = "ai.data_sources.manage"
       STREAM_PERMISSION = "ai.data_sources.stream"
+
+      # Executing a WRITE/side-effecting endpoint (see #write_endpoint?) requires
+      # this on top of QUERY_PERMISSION. Reuses MANAGE_PERMISSION — the same grant
+      # the tool already treats as authorizing any state-changing action against a
+      # data source — rather than adding a new permission family. Lacking it routes
+      # to the proposal fallback instead of dispatching the live call.
+      WRITE_ENDPOINT_PERMISSION = MANAGE_PERMISSION
 
       # Subscription (pull-based monitoring) actions, gated by STREAM_PERMISSION.
       STREAM_ACTIONS = %w[data_source_subscribe data_source_unsubscribe].freeze
@@ -153,7 +171,9 @@ module Ai
           },
           "data_source_query" => {
             description: "Run a governed external fetch through Ai::DataSources::QueryService (kill flag, quota, cache, " \
-                         "circuit breaker, SSRF guard, decode, normalize, schema-validate, redact, audit). Returns a FetchEnvelope.",
+                         "circuit breaker, SSRF guard, decode, normalize, schema-validate, redact, audit). Returns a FetchEnvelope. " \
+                         "A write/side-effecting endpoint (e.g. POST /2/tweets) additionally requires ai.data_sources.manage; " \
+                         "without it, files a proposal instead of dispatching the live call.",
             parameters: {
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" },
               endpoint_id: { type: "string", required: true, description: "Endpoint UUID or slug to fetch" },
@@ -229,7 +249,9 @@ module Ai
           },
           "data_source_contract" => {
             description: "Run Ai::DataSources::ContractService for a source+endpoint: performs a governed fetch then aggregates " \
-                         "schema_valid + quality_passed + within_sla into a single contract verdict (met + violations).",
+                         "schema_valid + quality_passed + within_sla into a single contract verdict (met + violations). " \
+                         "A write/side-effecting endpoint additionally requires ai.data_sources.manage; without it, files a " \
+                         "proposal instead of dispatching the live call.",
             parameters: {
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" },
               endpoint_id: { type: "string", required: true, description: "Endpoint UUID or slug" },
@@ -365,7 +387,9 @@ module Ai
                          "INDEPENDENTLY, collect each successful FetchEnvelope's records, then collapse them into one list " \
                          "by EXACT canonical-key match via Ai::DataSources::ReconciliationService (strategy first_wins|" \
                          "last_wins|merge). No cross-source SQL/join, no fuzzy entity resolution — exact key merge only. " \
-                         "Requires ai.data_sources.query (it fetches). Returns the merged records plus per-source status.",
+                         "Requires ai.data_sources.query (it fetches). A write/side-effecting target endpoint additionally " \
+                         "requires ai.data_sources.manage; without it, that target files a proposal instead of dispatching " \
+                         "the live call. Returns the merged records plus per-source status.",
             parameters: {
               targets: { type: "array", required: true,
                          description: "Targets to fetch + merge; each { data_source_id, endpoint_id }" },
@@ -379,8 +403,9 @@ module Ai
             description: "Ordered FAILOVER across equivalent targets via Ai::DataSources::FailoverService#query: try each " \
                          "{ data_source_id, endpoint_id } IN ORDER (primary first) through the full governed QueryService " \
                          "pipeline and return the FIRST success; if all fail, return the last failure envelope. Requires " \
-                         "ai.data_sources.query. Returns the winning FetchEnvelope with failover provenance " \
-                         "(failover_used/failover_attempts/failover_source).",
+                         "ai.data_sources.query. If ANY target is a write/side-effecting endpoint the agent lacks " \
+                         "ai.data_sources.manage for, the whole call files a proposal instead of dispatching. Returns the " \
+                         "winning FetchEnvelope with failover provenance (failover_used/failover_attempts/failover_source).",
             parameters: {
               targets: { type: "array", required: true,
                          description: "Ordered targets (primary first); each { data_source_id, endpoint_id }" },
@@ -524,17 +549,11 @@ module Ai
         ds = resolve_source(params[:data_source_id])
         endpoint = resolve_endpoint(ds, params[:endpoint_id])
 
-        envelope = Ai::DataSources::QueryService.new(
-          data_source: ds,
-          endpoint: endpoint,
-          params: (params[:params] || {}).to_h,
-          agent: agent,
-          user: user
-        ).call
-
-        # The FetchEnvelope already carries success/data/provenance/status/error;
-        # return it verbatim so callers get the full governed result.
-        envelope
+        # guarded_fetch dispatches the governed fetch and returns the FetchEnvelope
+        # verbatim for a read (or an authorized write) endpoint. For a write/
+        # side-effecting endpoint the agent lacks WRITE_ENDPOINT_PERMISSION for, it
+        # returns a proposal-fallback result instead — the live call never happens.
+        guarded_fetch(ds, endpoint, action: "data_source_query", query_params: params[:params])
       end
 
       def source_health(params)
@@ -674,6 +693,14 @@ module Ai
       def failover_query(params)
         pairs = resolve_target_pairs(params[:targets])
 
+        # FailoverService iterates the pairs itself (try each in order, return the
+        # first success), so a per-attempt gate can't be injected mid-iteration.
+        # Pre-scan instead: if ANY candidate is a write/side-effecting endpoint the
+        # agent lacks WRITE_ENDPOINT_PERMISSION for, refuse the whole call up front
+        # rather than risk dispatching it as a later fallback attempt.
+        blocked = pairs.find { |pair| write_endpoint?(pair[:endpoint]) && !permission?(WRITE_ENDPOINT_PERMISSION) }
+        return propose_write(blocked[:data_source], blocked[:endpoint], "data_source_failover_query", params[:params]) if blocked
+
         Ai::DataSources::FailoverService.new(
           account: account, agent: agent, user: user
         ).query(pairs, params: (params[:params] || {}).to_h)
@@ -762,13 +789,7 @@ module Ai
       # (it maps every fault to a failure envelope), but guard defensively so a single
       # bad target cannot abort the whole reconcile — degrade to a failure envelope.
       def fetch_envelope(target, query_params)
-        Ai::DataSources::QueryService.new(
-          data_source: target[:data_source],
-          endpoint: target[:endpoint],
-          params: (query_params || {}).to_h,
-          agent: agent,
-          user: user
-        ).call
+        guarded_fetch(target[:data_source], target[:endpoint], action: "data_source_reconcile", query_params: query_params)
       rescue StandardError => e
         Rails.logger.warn("[DataSourceTool] reconcile fetch failed for #{target[:data_source]&.slug}: #{e.class}")
         { success: false, data: [], status: "error", error: "fetch failed" }
@@ -857,13 +878,8 @@ module Ai
         ds = resolve_source(params[:data_source_id])
         endpoint = resolve_endpoint(ds, params[:endpoint_id])
 
-        envelope = Ai::DataSources::QueryService.new(
-          data_source: ds,
-          endpoint: endpoint,
-          params: (params[:params] || {}).to_h,
-          agent: agent,
-          user: user
-        ).call
+        envelope = guarded_fetch(ds, endpoint, action: "data_source_contract", query_params: params[:params])
+        return envelope if envelope[:requires_approval]
 
         verdict = Ai::DataSources::ContractService.new.validate(
           data_source: ds, endpoint: endpoint, envelope: envelope
@@ -1254,6 +1270,88 @@ module Ai
       rescue StandardError => e
         Rails.logger.error("[DataSourceTool] proposal fallback failed: #{e.class}: #{e.message}")
         error_result("Permission #{MUTATION_PERMISSIONS[action]} required and proposal could not be filed")
+      end
+
+      # ----------------------------------------------------------------------
+      # write endpoint gate (query_source / contract_verdict / reconcile / failover)
+      # ----------------------------------------------------------------------
+
+      # True when the endpoint performs a real external side effect: any HTTP
+      # method other than GET/HEAD, or an explicit metadata["side_effecting"]
+      # opt-in. The X.com template's POST /2/tweets "Create post" endpoint sets
+      # both http_method: "POST" and metadata: { side_effecting: true } (see
+      # Ai::DataSources::TemplateLibrary#x_com_template).
+      def write_endpoint?(endpoint)
+        return true unless %w[GET HEAD].include?(endpoint.http_method.to_s.upcase)
+
+        meta = endpoint.metadata.is_a?(Hash) ? endpoint.metadata.stringify_keys : {}
+        to_bool(meta["side_effecting"])
+      end
+
+      # Single-target governed fetch shared by every call site that executes ONE
+      # (data_source, endpoint) pair through QueryService. A read endpoint (or a
+      # write endpoint the agent IS authorized for) dispatches exactly as before —
+      # this is a no-op for the existing read path. A write/side-effecting
+      # endpoint the agent lacks WRITE_ENDPOINT_PERMISSION for never reaches
+      # QueryService; it routes to #propose_write instead.
+      def guarded_fetch(ds, endpoint, action:, query_params:)
+        if write_endpoint?(endpoint) && !permission?(WRITE_ENDPOINT_PERMISSION)
+          return propose_write(ds, endpoint, action, query_params)
+        end
+
+        Ai::DataSources::QueryService.new(
+          data_source: ds,
+          endpoint: endpoint,
+          params: (query_params || {}).to_h,
+          agent: agent,
+          user: user
+        ).call
+      end
+
+      # When the agent's account lacks WRITE_ENDPOINT_PERMISSION for a write/
+      # side-effecting endpoint, file a proposal instead of dispatching the live
+      # call — mirrors propose_mutation's fallback for data-source-level mutations.
+      def propose_write(ds, endpoint, action, query_params)
+        return permission_denied(WRITE_ENDPOINT_PERMISSION) unless agent && account
+
+        proposed_changes = {
+          action: "execute_endpoint",
+          data_source_id: ds.id,
+          endpoint_id: endpoint.id,
+          http_method: endpoint.http_method,
+          params: (query_params || {}).to_h
+        }
+
+        service = Ai::ProposalService.new(account: account)
+        proposal = service.create(
+          agent: agent,
+          params: {
+            proposal_type: "configuration",
+            title: "Execute #{endpoint.http_method} #{ds.name} / #{endpoint.name}",
+            description: "Agent requested to execute a write/side-effecting endpoint " \
+                         "via #{action} but lacks #{WRITE_ENDPOINT_PERMISSION}. Review and " \
+                         "apply if appropriate.",
+            priority: "medium",
+            proposed_changes: proposed_changes
+          }
+        )
+
+        if proposal.persisted?
+          {
+            success: true,
+            requires_approval: true,
+            proposal_id: proposal.id,
+            status: proposal.status,
+            message: "Permission #{WRITE_ENDPOINT_PERMISSION} required to execute this write endpoint — " \
+                     "filed proposal #{proposal.id} for review",
+            proposed_changes: proposed_changes
+          }
+        else
+          error_result("Could not file proposal: #{proposal.errors.full_messages.join(', ')}")
+        end
+      rescue StandardError => e
+        Rails.logger.error("[DataSourceTool] write proposal fallback failed: #{e.class}: #{e.message}")
+        error_result("Permission #{WRITE_ENDPOINT_PERMISSION} required and proposal could not be filed")
       end
 
       def mutation_changeset(action, params)

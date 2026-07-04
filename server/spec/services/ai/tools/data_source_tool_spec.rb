@@ -322,6 +322,123 @@ RSpec.describe Ai::Tools::DataSourceTool do
   end
 
   # ------------------------------------------------------------------------
+  # write endpoint gate (agent context => WRITE_ENDPOINT_PERMISSION consulted)
+  # ------------------------------------------------------------------------
+  #
+  # A write/side-effecting endpoint (http_method not GET/HEAD, or an explicit
+  # metadata["side_effecting"] opt-in — mirrors the X.com template's "Create
+  # post" endpoint: POST /2/tweets, cache_ttl_seconds: 0) additionally requires
+  # ai.data_sources.manage on top of ai.data_sources.query. Lacking it routes
+  # data_source_query (and the other single-endpoint-execution actions) to the
+  # same Ai::ProposalService fallback used by data-source-level mutations — the
+  # live call never dispatches. An AGENT must not be able to silently publish.
+  describe "write endpoint gate" do
+    let!(:write_source) { create(:ai_data_source, account: account, slug: "x-com", name: "X.com") }
+    let!(:write_endpoint) do
+      create(:ai_data_source_endpoint, data_source: write_source, slug: "create-post",
+             name: "Create post", http_method: "POST", cache_ttl_seconds: 0,
+             metadata: { "side_effecting" => true })
+    end
+    let!(:read_endpoint) do
+      create(:ai_data_source_endpoint, data_source: write_source, slug: "get-me", http_method: "GET")
+    end
+
+    context "agent lacking ai.data_sources.manage" do
+      let(:agent) { create(:ai_agent, account: account) }
+
+      before { create(:user, account: account, permissions: ["ai.data_sources.query"]) }
+
+      it "files a proposal for data_source_query against the write endpoint and never dispatches QueryService" do
+        agent_tool = described_class.new(account: account, agent: agent, user: user)
+        expect(Ai::DataSources::QueryService).not_to receive(:new)
+
+        result = nil
+        expect do
+          result = agent_tool.execute(params: {
+            action: "data_source_query", data_source_id: "x-com",
+            endpoint_id: "create-post", params: { "text" => "hello world" }
+          })
+        end.to change(Ai::AgentProposal, :count).by(1)
+
+        expect(result[:success]).to be true
+        expect(result[:requires_approval]).to be true
+        expect(result[:proposal_id]).to be_present
+        expect(result[:message]).to match(/ai\.data_sources\.manage required/)
+        expect(result[:proposed_changes]).to include(action: "execute_endpoint", endpoint_id: write_endpoint.id)
+
+        proposal = Ai::AgentProposal.order(:created_at).last
+        expect(proposal.proposal_type).to eq("configuration")
+        expect(proposal.agent).to eq(agent)
+      end
+
+      it "still executes a GET endpoint normally — read behavior unaffected" do
+        agent_tool = described_class.new(account: account, agent: agent, user: user)
+        fake = instance_double(Ai::DataSources::QueryService,
+                                call: { success: true, data: [], provenance: {}, status: "success",
+                                        duration_ms: 1, bytes: 0, error: nil })
+        expect(Ai::DataSources::QueryService).to receive(:new).and_return(fake)
+
+        result = agent_tool.execute(params: {
+          action: "data_source_query", data_source_id: "x-com", endpoint_id: "get-me"
+        })
+
+        expect(result[:success]).to be true
+        expect(Ai::AgentProposal.count).to eq(0)
+      end
+
+      it "blocks the write endpoint via data_source_contract too, without dispatching" do
+        agent_tool = described_class.new(account: account, agent: agent, user: user)
+        expect(Ai::DataSources::QueryService).not_to receive(:new)
+
+        result = agent_tool.execute(params: {
+          action: "data_source_contract", data_source_id: "x-com", endpoint_id: "create-post"
+        })
+
+        expect(result[:requires_approval]).to be true
+      end
+
+      it "refuses the whole failover call up front when any target is an unauthorized write endpoint" do
+        agent_tool = described_class.new(account: account, agent: agent, user: user)
+        expect(Ai::DataSources::FailoverService).not_to receive(:new)
+
+        result = agent_tool.execute(params: {
+          action: "data_source_failover_query",
+          targets: [{ data_source_id: "x-com", endpoint_id: "create-post" }]
+        })
+
+        expect(result[:requires_approval]).to be true
+      end
+    end
+
+    context "agent holding ai.data_sources.manage" do
+      let(:agent) { create(:ai_agent, account: account) }
+
+      before { create(:user, account: account, permissions: ["ai.data_sources.manage"]) }
+
+      it "dispatches data_source_query against the write endpoint instead of filing a proposal" do
+        agent_tool = described_class.new(account: account, agent: agent, user: user)
+        fake = instance_double(Ai::DataSources::QueryService,
+                                call: { success: true, data: [{ "id" => "123" }], provenance: {},
+                                        status: "success", duration_ms: 1, bytes: 0, error: nil })
+        expect(Ai::DataSources::QueryService).to receive(:new).with(
+          hash_including(data_source: write_source, endpoint: write_endpoint)
+        ).and_return(fake)
+
+        result = nil
+        expect do
+          result = agent_tool.execute(params: {
+            action: "data_source_query", data_source_id: "x-com",
+            endpoint_id: "create-post", params: { "text" => "hello world" }
+          })
+        end.not_to change(Ai::AgentProposal, :count)
+
+        expect(result[:success]).to be true
+        expect(result).not_to include(:requires_approval)
+      end
+    end
+  end
+
+  # ------------------------------------------------------------------------
   # mutations — happy path (authorized) vs proposal fallback (unauthorized)
   # ------------------------------------------------------------------------
 
