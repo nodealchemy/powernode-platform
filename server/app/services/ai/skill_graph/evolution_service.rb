@@ -229,8 +229,16 @@ module Ai
 
       private
 
+      # Override-aware (F2/F3 clone-on-evolve): resolves by id first, then falls
+      # back to Ai::Skill.resolve_for so a slug shared by a global skill and the
+      # account's own clone/override deterministically resolves to the account's
+      # row — mirrors Ai::SkillService#find_skill / SkillTool#resolve_skill.
+      # Bang semantics preserved (raises, not nil) since every caller here
+      # already relies on the exception being caught by its own rescue block.
       def find_skill!(skill_id)
-        Ai::Skill.for_account(account.id).find(skill_id)
+        Ai::Skill.for_account(account.id).find_by(id: skill_id) ||
+          Ai::Skill.resolve_for(account.id, slug: skill_id) ||
+          raise(ActiveRecord::RecordNotFound, "Couldn't find Ai::Skill with id or slug=#{skill_id}")
       end
 
       def calculate_success_rate(records)

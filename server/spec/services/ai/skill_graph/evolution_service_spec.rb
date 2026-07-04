@@ -26,6 +26,37 @@ RSpec.describe Ai::SkillGraph::EvolutionService, type: :service do
     )
   end
 
+  # F2/F3: find_skill! (private, exercised via any public method) is
+  # override-aware — a slug shared by a global skill and the account's own
+  # clone resolves to the account's row, mirroring SkillService#find_skill.
+  describe "#find_skill! (override-aware resolution, private)" do
+    let!(:global_skill) do
+      create(:ai_skill, :global, :system_skill, name: "Global Baseline", slug: "global-baseline",
+                                                  category: "productivity")
+    end
+
+    it "still resolves by raw id" do
+      expect(service.send(:find_skill!, skill.id)).to eq(skill)
+    end
+
+    it "resolves a global skill by slug" do
+      expect(service.send(:find_skill!, "global-baseline")).to eq(global_skill)
+    end
+
+    it "prefers the account's own clone over the global baseline for the same slug" do
+      clone = create(:ai_skill, account: account, name: "My Version", slug: "global-baseline",
+                                 category: "productivity")
+
+      expect(service.send(:find_skill!, "global-baseline")).to eq(clone)
+    end
+
+    it "raises RecordNotFound when neither id nor slug resolves" do
+      expect {
+        service.send(:find_skill!, SecureRandom.uuid)
+      }.to raise_error(ActiveRecord::RecordNotFound)
+    end
+  end
+
   describe "#record_outcome" do
     it "records a successful outcome on the active version" do
       result = service.record_outcome(skill_id: skill.id, successful: true)
