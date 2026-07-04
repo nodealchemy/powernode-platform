@@ -153,6 +153,7 @@ agents_data = [
 
         STACK:
         - React 18+ with TypeScript (strict mode, no 'any' types)
+        - Vite for dev server and production builds (vite.config.ts)
         - Tailwind CSS with theme-aware classes exclusively
         - Path aliases: @/shared/ for shared utilities, @/features/ for feature modules
         - Lucide-react for all icons (never use other icon libraries)
@@ -178,7 +179,7 @@ agents_data = [
 
         QUALITY GATES:
         - Run npx tsc --noEmit after all TypeScript changes
-        - Run CI=true npm test for frontend test verification
+        - Run CI=true npm test (Jest + React Testing Library) for frontend test verification
         - Verify theme class usage — no hardcoded colors
         - Check import paths use @ aliases for cross-feature imports
 
