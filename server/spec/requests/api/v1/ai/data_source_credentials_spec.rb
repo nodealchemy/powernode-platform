@@ -64,5 +64,21 @@ RSpec.describe "Api::V1::Ai::DataSourceCredentials OAuth2 params", type: :reques
       expect(credential.decrypted_api_key).to eq("legacy-key")
       expect(credential.decrypted_api_secret).to eq("legacy-secret")
     end
+
+    # I8 — crypto-audit remediation: credential creation is a key operation and
+    # MUST persist an audit trail entry (see data_source_oauth_spec.rb for the
+    # OAuth authorize/callback coverage of the same underlying registration fix).
+    it "persists an ai.data_sources.credential.create AuditLog row" do
+      expect {
+        post base_path, params: {
+          credential: { name: "X.com OAuth app", client_id: "x-com-client-id", client_secret: "x-com-client-secret" }
+        }, headers: auth_headers_for(creator), as: :json
+      }.to change(AuditLog, :count).by(1)
+
+      expect_success_response
+      log = AuditLog.last
+      expect(log.action).to eq("ai.data_sources.credential.create")
+      expect(log.resource_id).to eq(json_response_data["credential"]["id"])
+    end
   end
 end

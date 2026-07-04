@@ -282,6 +282,58 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
   end
 
   # ==========================================================================
+  # Audit logging (I8 — crypto-audit remediation)
+  #
+  # #authorize and #callback are the key operations of this whole flow (OAuth2
+  # token issuance/exchange), so the crypto-material-safety rule requires them
+  # to be audited. Before this fix, "ai.data_sources.oauth.authorize" and
+  # "ai.data_sources.oauth.callback" were not registered in AuditActions, so
+  # AuditLog.log_action raised ActiveRecord::RecordInvalid on every call —
+  # silently swallowed by ApiResponse's `rescue_from ... unless performed?`
+  # since the response had already rendered. No AuditLog row was ever created.
+  # ==========================================================================
+  describe "audit logging" do
+    it "persists an ai.data_sources.oauth.authorize AuditLog row" do
+      expect { perform_authorize! }.to change(AuditLog, :count).by(1)
+
+      log = AuditLog.last
+      expect(log.action).to eq("ai.data_sources.oauth.authorize")
+      expect(log.resource_type).to eq("Ai::DataSource")
+      expect(log.resource_id).to eq(data_source.id)
+      expect(log.user_id).to eq(operator.id)
+      expect(log.account_id).to eq(account.id)
+    end
+
+    it "persists an ai.data_sources.oauth.callback AuditLog row on a successful token exchange" do
+      auth = perform_authorize!
+      stub_token_exchange
+
+      expect {
+        get callback_path, params: { state: auth["state"], code: "auth-code-123" }, as: :json
+      }.to change(AuditLog, :count).by(1)
+
+      log = AuditLog.last
+      expect(log.action).to eq("ai.data_sources.oauth.callback")
+      expect(log.resource_type).to eq("Account")
+      expect(log.resource_id).to eq(account.id)
+    end
+
+    it "persists an ai.data_sources.oauth.callback AuditLog row on a failed token exchange" do
+      auth = perform_authorize!
+      stub_token_exchange(status: 401, body: { error: "invalid_grant" }.to_json)
+
+      expect {
+        get callback_path, params: { state: auth["state"], code: "bad-code" }, as: :json
+      }.to change(AuditLog, :count).by(1)
+
+      log = AuditLog.last
+      expect(log.action).to eq("ai.data_sources.oauth.callback")
+      expect(log.resource_type).to eq("Account")
+      expect(log.resource_id).to eq(account.id)
+    end
+  end
+
+  # ==========================================================================
   # GET /oauth/callback — browser redirect (I5)
   #
   # The provider's real redirect is a top-level browser navigation, which
