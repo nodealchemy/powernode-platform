@@ -43,6 +43,10 @@ FactoryBot.define do
       status { "deprecated" }
     end
 
+    trait :retired do
+      status { "retired" }
+    end
+
     trait :global do
       scope { "global" }
     end

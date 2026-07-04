@@ -89,6 +89,39 @@ RSpec.describe Ai::CompoundLearning, type: :model do
   end
 
   # ============================================================================
+  # RETIRE (domain-retirement seam)
+  # ============================================================================
+
+  describe "#retire!" do
+    let(:learning) { create(:ai_compound_learning, account: account, ai_agent_team: team, tags: ["trading"]) }
+
+    it "sets status to retired and records domain/reason in metadata" do
+      learning.retire!(domain: "trading", reason: "purged domain")
+      learning.reload
+
+      expect(learning.status).to eq("retired")
+      expect(learning.metadata["retired_domain"]).to eq("trading")
+      expect(learning.metadata["retired_reason"]).to eq("purged domain")
+      expect(learning.metadata["retired_at"]).to be_present
+    end
+
+    it "does not hard-delete the row" do
+      learning.retire!(domain: "trading")
+
+      expect(Ai::CompoundLearning.unscoped.where(id: learning.id)).to exist
+    end
+
+    it "omits nil domain/reason from metadata instead of storing nils" do
+      learning.retire!
+
+      learning.reload
+      expect(learning.metadata).not_to have_key("retired_domain")
+      expect(learning.metadata).not_to have_key("retired_reason")
+      expect(learning.metadata["retired_at"]).to be_present
+    end
+  end
+
+  # ============================================================================
   # TOUCH EVENT PROCESSED
   # ============================================================================
 
@@ -121,6 +154,11 @@ RSpec.describe Ai::CompoundLearning, type: :model do
 
     it "record_injection_outcome! sets last_event_processed_at" do
       learning.record_injection_outcome!(successful: true)
+      expect(learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "retire! sets last_event_processed_at" do
+      learning.retire!(domain: "trading")
       expect(learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
     end
   end
@@ -364,6 +402,12 @@ RSpec.describe Ai::CompoundLearning, type: :model do
         expect(WorkerJobService).not_to have_received(:enqueue_ai_update_graph_node)
       end
 
+      it "does not enqueue when status changes to retired" do
+        learning.update!(status: "retired")
+
+        expect(WorkerJobService).not_to have_received(:enqueue_ai_update_graph_node)
+      end
+
       it "does not enqueue when non-status fields change" do
         learning.update!(importance_score: 0.9)
 
@@ -403,6 +447,36 @@ RSpec.describe Ai::CompoundLearning, type: :model do
         expect(described_class.high_importance).to include(high)
         expect(described_class.high_importance).not_to include(low)
       end
+    end
+
+    describe ".retired" do
+      it "returns only retired learnings" do
+        retired_learning = create(:ai_compound_learning, :retired, account: account, ai_agent_team: team)
+
+        expect(described_class.retired).to include(retired_learning)
+        expect(described_class.retired).not_to include(active_learning, verified_learning, deprecated_learning)
+      end
+    end
+
+    describe ".active excludes retired" do
+      it "does not include retired learnings" do
+        retired_learning = create(:ai_compound_learning, :retired, account: account, ai_agent_team: team)
+
+        expect(described_class.active).not_to include(retired_learning)
+      end
+    end
+  end
+
+  describe ".in_domain" do
+    let!(:trading_by_tag) { create(:ai_compound_learning, account: account, ai_agent_team: team, tags: ["trading"]) }
+    let!(:trading_by_domain) { create(:ai_compound_learning, account: account, ai_agent_team: team, applicable_domains: ["trading"]) }
+    let!(:dev_loop_learning) { create(:ai_compound_learning, account: account, ai_agent_team: team, tags: ["dev-loop"]) }
+
+    it "matches learnings by tags or applicable_domains" do
+      results = described_class.in_domain("trading")
+
+      expect(results).to include(trading_by_tag, trading_by_domain)
+      expect(results).not_to include(dev_loop_learning)
     end
   end
 

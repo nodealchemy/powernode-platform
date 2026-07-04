@@ -401,6 +401,48 @@ module Ai
       end
 
       # ==================================================
+      # Lifecycle: Domain Retirement
+      # ==================================================
+
+      # Generic, domain-agnostic soft-retirement: excludes every learning
+      # tagged/domained under `domain` from injection, retrieval, and ranking
+      # by flipping status to "retired" (a status every surfacing query in
+      # this class already restricts away from — semantic_search, find_similar,
+      # keyword_search, and compound_metrics' active_base all scope to
+      # active/verified). Never hard-deletes; retired rows remain queryable
+      # via list_learnings(status: "retired") for audit.
+      #
+      # Scoped to active/verified because those are the only statuses that
+      # ever surface (deprecated/superseded/disproven already carry their own
+      # audit semantics and are excluded from surfacing today) — retiring them
+      # too would just overwrite that history for no behavioral change.
+      #
+      # First caller: retiring the purged trading/Kalshi domain (see
+      # lib/tasks/ai_learning.rake) — but this method takes domain as a
+      # parameter, not a hardcoded value, so any future domain retirement
+      # reuses it as-is.
+      def retire_domain!(domain, reason: nil)
+        return { success: false, error: "domain is required", retired_count: 0 } if domain.blank?
+
+        scope = Ai::CompoundLearning
+          .for_account(@account.id)
+          .where(status: %w[active verified])
+          .in_domain(domain)
+
+        retired_count = 0
+        scope.find_each do |learning|
+          learning.retire!(domain: domain, reason: reason)
+          retired_count += 1
+        end
+
+        Rails.logger.info("[CompoundLearning] Retired #{retired_count} learnings in domain '#{domain}' for account #{@account.id}")
+        { success: true, domain: domain, retired_count: retired_count }
+      rescue StandardError => e
+        Rails.logger.error("[CompoundLearning] Domain retirement failed for '#{domain}': #{e.message}")
+        { success: false, error: e.message, retired_count: 0 }
+      end
+
+      # ==================================================
       # Analytics
       # ==================================================
 

@@ -11,7 +11,7 @@ module Ai
     # ==========================================
     CATEGORIES = %w[pattern anti_pattern best_practice discovery fact failure_mode review_finding performance_insight reflexion].freeze
     SCOPES = %w[team global].freeze
-    STATUSES = %w[active deprecated superseded verified disproven].freeze
+    STATUSES = %w[active deprecated superseded verified disproven retired].freeze
     EXTRACTION_METHODS = %w[marker auto_success auto_failure review evaluation reflexion ralph_loop].freeze
 
     # ==========================================
@@ -59,7 +59,14 @@ module Ai
     scope :high_importance, -> { where("importance_score >= ?", 0.7) }
     scope :verified, -> { where(status: "verified") }
     scope :disproven, -> { where(status: "disproven") }
+    scope :retired, -> { where(status: "retired") }
     scope :with_tag, ->(tag) { where("tags @> ?", [tag].to_json) }
+    # Domain retirement seam: a learning belongs to a domain via either tags
+    # (the field every extraction path actually populates today) or
+    # applicable_domains (the purpose-built, GIN-indexed column that promotion
+    # copies through but nothing currently writes) — match either so the seam
+    # keeps working if callers migrate to applicable_domains later.
+    scope :in_domain, ->(domain) { where("tags @> ? OR applicable_domains @> ?", [domain].to_json, [domain].to_json) }
     scope :with_embedding, -> { where.not(embedding: nil) }
     scope :recent, -> { order(created_at: :desc) }
     scope :by_effectiveness, -> { order(effectiveness_score: :desc) }
@@ -210,6 +217,23 @@ module Ai
 
     def supersede!(new_learning)
       update!(status: "superseded", superseded_by: new_learning)
+    end
+
+    # Soft-retire: excludes the learning from every surfacing path (all of
+    # which scope to status active/verified — see .active, .semantic_search,
+    # .find_similar) without hard-deleting it. Retired rows stay queryable for
+    # audit via list_learnings(status: "retired"). Domain/reason are recorded
+    # in metadata rather than new columns to keep this migration-free.
+    def retire!(domain: nil, reason: nil)
+      update!(
+        status: "retired",
+        metadata: metadata.merge(
+          "retired_domain" => domain,
+          "retired_reason" => reason,
+          "retired_at" => Time.current.iso8601
+        ).compact
+      )
+      touch_event_processed!
     end
 
     def deprecate!

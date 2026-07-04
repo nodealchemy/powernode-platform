@@ -549,6 +549,105 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
     end
   end
 
+  describe "#retire_domain!" do
+    it "returns an error and retires nothing when domain is blank" do
+      result = service.retire_domain!("")
+
+      expect(result).to eq(success: false, error: "domain is required", retired_count: 0)
+    end
+
+    it "retires learnings tagged with the given domain, by tag or applicable_domains" do
+      trading_by_tag = create(:ai_compound_learning, account: account, status: "active", tags: ["trading"])
+      trading_by_domain = create(:ai_compound_learning, account: account, status: "verified", applicable_domains: ["trading"])
+      other_domain = create(:ai_compound_learning, account: account, status: "active", tags: ["dev-loop"])
+
+      result = service.retire_domain!("trading")
+
+      expect(result).to eq(success: true, domain: "trading", retired_count: 2)
+      expect(trading_by_tag.reload.status).to eq("retired")
+      expect(trading_by_domain.reload.status).to eq("retired")
+      expect(other_domain.reload.status).to eq("active")
+    end
+
+    it "records the domain and an optional reason on each retired learning" do
+      learning = create(:ai_compound_learning, account: account, status: "active", tags: ["trading"])
+
+      service.retire_domain!("trading", reason: "purged domain")
+
+      learning.reload
+      expect(learning.metadata["retired_domain"]).to eq("trading")
+      expect(learning.metadata["retired_reason"]).to eq("purged domain")
+    end
+
+    it "does not retire learnings already deprecated/superseded/disproven (they don't surface today anyway)" do
+      deprecated = create(:ai_compound_learning, :deprecated, account: account, tags: ["trading"])
+
+      result = service.retire_domain!("trading")
+
+      expect(result[:retired_count]).to eq(0)
+      expect(deprecated.reload.status).to eq("deprecated")
+    end
+
+    it "does not hard-delete retired rows — they remain queryable for audit" do
+      learning = create(:ai_compound_learning, account: account, status: "active", tags: ["trading"])
+
+      service.retire_domain!("trading")
+
+      expect(service.list_learnings(status: "retired")).to include(learning.reload)
+    end
+
+    it "leaves other accounts' learnings untouched" do
+      other_account = create(:account)
+      other_learning = create(:ai_compound_learning, account: other_account, status: "active", tags: ["trading"])
+
+      service.retire_domain!("trading")
+
+      expect(other_learning.reload.status).to eq("active")
+    end
+
+    it "handles exceptions gracefully" do
+      allow(Ai::CompoundLearning).to receive(:for_account).and_raise(StandardError, "query error")
+
+      result = service.retire_domain!("trading")
+
+      expect(result[:success]).to eq(false)
+      expect(result[:retired_count]).to eq(0)
+    end
+
+    context "surfacing exclusion" do
+      let!(:retained) do
+        create(:ai_compound_learning, account: account, status: "active", tags: ["dev-loop"],
+               title: "Use caching", content: "Always use caching for repeated queries",
+               importance_score: 0.9, effectiveness_score: 0.9)
+      end
+      let!(:trading) do
+        create(:ai_compound_learning, account: account, status: "active", tags: ["trading"],
+               title: "Trading pattern", content: "Trading strategy content",
+               importance_score: 0.95, effectiveness_score: 0.95)
+      end
+
+      before { service.retire_domain!("trading") }
+
+      it "excludes retired learnings from compound_metrics' most_effective ranking" do
+        metrics = service.compound_metrics
+
+        ids = metrics[:most_effective].map { |l| l[:id] }
+        expect(ids).to include(retained.id)
+        expect(ids).not_to include(trading.id)
+      end
+
+      it "excludes retired learnings from build_compound_context keyword-fallback retrieval" do
+        allow(Shared::FeatureFlagService).to receive(:enabled?)
+          .with(:compound_learning_injection, account).and_return(true)
+
+        result = service.build_compound_context(agent: create(:ai_agent, account: account),
+                                                  task_description: "trading strategy content")
+
+        expect(result[:learning_ids]).not_to include(trading.id)
+      end
+    end
+  end
+
   describe "#list_learnings" do
     before do
       create(:ai_compound_learning, account: account, category: "best_practice",
