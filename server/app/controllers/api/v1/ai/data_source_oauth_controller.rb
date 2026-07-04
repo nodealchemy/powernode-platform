@@ -18,7 +18,12 @@ module Api
       #     Ai::DataSources::OauthAuthorizationCodeService): it re-associates the
       #     request to the initiating account/user/data_source and is rejected
       #     if the state is missing, unknown, expired, or disagrees with the
-      #     path's data_source_id.
+      #     path's data_source_id. (I5) Because the caller is a real browser, the
+      #     default (:html) response REDIRECTS to the frontend's data-sources
+      #     route with an `?oauth=success|failed` status so the operator lands
+      #     back in the app instead of staring at a raw JSON body; a caller that
+      #     explicitly negotiates :json (tests, or a future API client) still
+      #     gets the plain success/error envelope.
       class DataSourceOauthController < ApplicationController
         include AuditLogging
 
@@ -64,11 +69,15 @@ module Api
           @current_user = ::User.find_by(id: result[:user_id])
           @current_account = ::Account.find_by(id: result[:account_id])
 
+          # Respond BEFORE logging (mirrors #authorize above): AuditLogging#log_audit_event
+          # re-raises in test env, and ApiResponse's rescue_from only renders its own
+          # error response `unless performed?` — logging first would let an audit-log
+          # failure clobber the callback response the operator/provider is waiting on.
+          respond_to_callback(result)
+
           if result[:success]
-            render_success(message: "OAuth connection successful", scopes: result[:scopes])
             log_audit_event("ai.data_sources.oauth.callback", @current_account, outcome: "success")
           else
-            render_error(result[:error], status: :unprocessable_content)
             log_audit_event("ai.data_sources.oauth.callback", @current_account,
               outcome: "failed", error_message: result[:error]
             )
@@ -76,6 +85,35 @@ module Api
         end
 
         private
+
+        # The real caller is always the provider's top-level browser redirect (see
+        # the class comment), which negotiates :html by default — so that's the
+        # branch that sends the operator back into the app. A caller that explicitly
+        # asks for JSON (an API client, or a request spec using `as: :json`) keeps
+        # the raw success/error envelope instead, unchanged from I1.
+        def respond_to_callback(result)
+          if request.format.json?
+            if result[:success]
+              render_success(message: "OAuth connection successful", scopes: result[:scopes])
+            else
+              render_error(result[:error], status: :unprocessable_content)
+            end
+          else
+            redirect_to(callback_redirect_url(result), allow_other_host: true)
+          end
+        end
+
+        # Frontend landing route + status query params for the post-connect UX
+        # (I5). data_source_id only travels here when the state itself resolved
+        # one (never the untrusted path param) — the frontend uses it to reopen
+        # that source's detail view; its absence just means a generic toast.
+        def callback_redirect_url(result)
+          frontend = ::AdminSetting.frontend_url_for_request(request)
+          query = { oauth: result[:success] ? "success" : "failed" }
+          query[:data_source_id] = result[:data_source_id] if result[:data_source_id].present?
+          query[:error] = result[:error] if result[:error].present?
+          "#{frontend}/app/ai/infrastructure/data-sources?#{query.to_query}"
+        end
 
         def oauth_service
           ::Ai::DataSources::OauthAuthorizationCodeService.new

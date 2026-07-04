@@ -130,16 +130,22 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
 
   # ==========================================================================
   # GET|POST /oauth/callback — UNAUTHENTICATED (state is the auth model)
+  #
+  # All examples in THIS describe block pass `as: :json` to negotiate the raw
+  # success/error envelope (the API-caller/test contract from I1). The
+  # separate "browser redirect (I5)" describe block below covers the DEFAULT
+  # (:html) format — what the provider's real top-level redirect negotiates —
+  # which instead 302s to the frontend with an ?oauth=success|failed status.
   # ==========================================================================
   describe "GET|POST /oauth/callback" do
     it "rejects a missing state" do
-      get callback_path, params: { code: "auth-code-123" }
+      get callback_path, params: { code: "auth-code-123" }, as: :json
 
       expect_error_response("state", :unprocessable_content)
     end
 
     it "rejects an unknown state" do
-      get callback_path, params: { state: "bogus-state-value", code: "auth-code-123" }
+      get callback_path, params: { state: "bogus-state-value", code: "auth-code-123" }, as: :json
 
       expect_error_response(nil, :unprocessable_content)
     end
@@ -148,7 +154,7 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
       auth = perform_authorize!
 
       travel 11.minutes do
-        get callback_path, params: { state: auth["state"], code: "auth-code-123" }
+        get callback_path, params: { state: auth["state"], code: "auth-code-123" }, as: :json
         expect_error_response(nil, :unprocessable_content)
       end
     end
@@ -156,7 +162,7 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
     it "rejects when the provider reports an error (user denied consent)" do
       auth = perform_authorize!
 
-      get callback_path, params: { state: auth["state"], error: "access_denied" }
+      get callback_path, params: { state: auth["state"], error: "access_denied" }, as: :json
 
       expect_error_response("access_denied", :unprocessable_content)
     end
@@ -166,7 +172,7 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
       auth = perform_authorize!
 
       get "/api/v1/ai/data_sources/#{other_source.id}/oauth/callback",
-        params: { state: auth["state"], code: "auth-code-123" }
+        params: { state: auth["state"], code: "auth-code-123" }, as: :json
 
       expect_error_response(nil, :unprocessable_content)
     end
@@ -175,10 +181,10 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
       auth = perform_authorize!
       stub_token_exchange
 
-      get callback_path, params: { state: auth["state"], code: "auth-code-123" }
+      get callback_path, params: { state: auth["state"], code: "auth-code-123" }, as: :json
       expect_success_response
 
-      get callback_path, params: { state: auth["state"], code: "auth-code-123" }
+      get callback_path, params: { state: auth["state"], code: "auth-code-123" }, as: :json
       expect_error_response(nil, :unprocessable_content)
     end
 
@@ -186,7 +192,7 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
       auth = perform_authorize!
       stub_token_exchange
 
-      get callback_path, params: { state: auth["state"], code: "auth-code-123" }
+      get callback_path, params: { state: auth["state"], code: "auth-code-123" }, as: :json
 
       expect_success_response
     end
@@ -195,7 +201,7 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
       auth = perform_authorize!
       stub_token_exchange
 
-      get callback_path, params: { state: auth["state"], code: "auth-code-123" }
+      get callback_path, params: { state: auth["state"], code: "auth-code-123" }, as: :json
 
       expect_success_response
       expect(json_response_data["scopes"]).to eq(%w[tweet.read tweet.write offline.access])
@@ -213,7 +219,7 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
       conn = stub_token_exchange
       pending_state = Rails.cache.read("ai:data_source_oauth:pending:#{auth['state']}")
 
-      get callback_path, params: { state: auth["state"], code: "auth-code-123" }
+      get callback_path, params: { state: auth["state"], code: "auth-code-123" }, as: :json
 
       expect(conn).to have_received(:run_request) do |method, url, body, headers|
         expect(method).to eq(:post)
@@ -232,7 +238,7 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
       auth = perform_authorize!
       stub_token_exchange(status: 401, body: { error: "invalid_grant" }.to_json)
 
-      get callback_path, params: { state: auth["state"], code: "bad-code" }
+      get callback_path, params: { state: auth["state"], code: "bad-code" }, as: :json
 
       expect_error_response(nil, :unprocessable_content)
       expect(credential.reload.last_test_status).to eq("failed")
@@ -246,7 +252,7 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
       data_source.update!(auth_config: data_source.auth_config.merge("token_url" => "http://169.254.169.254/token"))
       auth = perform_authorize!
 
-      get callback_path, params: { state: auth["state"], code: "auth-code-123" }
+      get callback_path, params: { state: auth["state"], code: "auth-code-123" }, as: :json
 
       expect_error_response(nil, :unprocessable_content)
       expect(credential.reload.decrypted_access_token).to be_nil
@@ -266,12 +272,77 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
       allow(Rails.logger).to receive(:error) { |msg| logged << msg.to_s }
       allow(Rails.logger).to receive(:debug) { |msg| logged << msg.to_s }
 
-      get callback_path, params: { state: auth["state"], code: "auth-code-123" }
+      get callback_path, params: { state: auth["state"], code: "auth-code-123" }, as: :json
 
       joined = logged.join("\n")
       expect(joined).not_to include("TOKEN-LEAK-CHECK")
       expect(joined).not_to include("REFRESH-LEAK-CHECK")
       expect(joined).not_to include("x-com-client-secret")
+    end
+  end
+
+  # ==========================================================================
+  # GET /oauth/callback — browser redirect (I5)
+  #
+  # The provider's real redirect is a top-level browser navigation, which
+  # negotiates :html by default (no `as: :json`, no explicit Accept header —
+  # matches an actual browser hitting this URL). That default format must land
+  # the operator back in the frontend app instead of showing a raw JSON body.
+  # ==========================================================================
+  describe "GET /oauth/callback (default :html format)" do
+    it "redirects to the frontend data-sources route with ?oauth=success and the data_source_id on success" do
+      auth = perform_authorize!
+      stub_token_exchange
+
+      get callback_path, params: { state: auth["state"], code: "auth-code-123" }
+
+      expect(response).to have_http_status(:found)
+      location = URI.parse(response.headers["Location"])
+      expect(location.path).to eq("/app/ai/infrastructure/data-sources")
+      query = URI.decode_www_form(location.query.to_s).to_h
+      expect(query["oauth"]).to eq("success")
+      expect(query["data_source_id"]).to eq(data_source.id)
+      expect(response.body).not_to include("AT-12345") # never leaks the token into the redirect
+    end
+
+    it "redirects with ?oauth=failed and an error message when the callback fails" do
+      auth = perform_authorize!
+
+      # The provider-error short-circuit fires before the state is even looked
+      # up (see handle_callback), so no data_source_id is available here —
+      # matches the existing JSON-contract test for this same case above,
+      # which likewise never asserts a data_source_id.
+      get callback_path, params: { state: auth["state"], error: "access_denied" }
+
+      expect(response).to have_http_status(:found)
+      location = URI.parse(response.headers["Location"])
+      expect(location.path).to eq("/app/ai/infrastructure/data-sources")
+      query = URI.decode_www_form(location.query.to_s).to_h
+      expect(query["oauth"]).to eq("failed")
+      expect(query["error"]).to include("access_denied")
+    end
+
+    it "redirects with ?oauth=failed and the data_source_id when the state resolved but the token exchange failed" do
+      auth = perform_authorize!
+      stub_token_exchange(status: 401, body: { error: "invalid_grant" }.to_json)
+
+      get callback_path, params: { state: auth["state"], code: "bad-code" }
+
+      expect(response).to have_http_status(:found)
+      location = URI.parse(response.headers["Location"])
+      query = URI.decode_www_form(location.query.to_s).to_h
+      expect(query["oauth"]).to eq("failed")
+      expect(query["data_source_id"]).to eq(data_source.id)
+    end
+
+    it "redirects with ?oauth=failed and no data_source_id when the state itself never resolved" do
+      get callback_path, params: { state: "bogus-state-value", code: "auth-code-123" }
+
+      expect(response).to have_http_status(:found)
+      location = URI.parse(response.headers["Location"])
+      query = URI.decode_www_form(location.query.to_s).to_h
+      expect(query["oauth"]).to eq("failed")
+      expect(query).not_to have_key("data_source_id")
     end
   end
 end
