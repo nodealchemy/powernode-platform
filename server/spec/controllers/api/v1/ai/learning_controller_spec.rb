@@ -536,4 +536,44 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
       expect(response).to have_http_status(:unprocessable_content)
     end
   end
+
+  # =========================================================================
+  # SCHEDULED CLUSTER PROMOTION (POST /api/v1/ai/learning/cluster_promotion_maintenance) - P3
+  # =========================================================================
+  describe "POST /api/v1/ai/learning/cluster_promotion_maintenance" do
+    let(:path) { "/api/v1/ai/learning/cluster_promotion_maintenance" }
+
+    it 'returns 401 when unauthenticated' do
+      post path, headers: { 'Content-Type' => 'application/json' }
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'returns 403 when user lacks ai.analytics.manage permission' do
+      post path, headers: auth_headers_for(read_user)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'returns success and passes through the scheduled promotion result' do
+      service_double = instance_double(Ai::Learning::ScheduledPromotionService,
+                                        run: { proposed: 2, reused: 1, total_clusters: 3, ran_at: Time.current.iso8601 })
+      allow(Ai::Learning::ScheduledPromotionService).to receive(:new).and_return(service_double)
+
+      post path, headers: auth_headers_for(manage_user)
+
+      expect(response).to have_http_status(:success)
+      expect(service_double).to have_received(:run)
+      expect(json_response_data['proposed']).to eq(2)
+      expect(json_response_data['reused']).to eq(1)
+    end
+
+    it 'returns unprocessable_content when the service raises' do
+      service_double = instance_double(Ai::Learning::ScheduledPromotionService)
+      allow(Ai::Learning::ScheduledPromotionService).to receive(:new).and_return(service_double)
+      allow(service_double).to receive(:run).and_raise(StandardError, "boom")
+
+      post path, headers: auth_headers_for(manage_user)
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+  end
 end

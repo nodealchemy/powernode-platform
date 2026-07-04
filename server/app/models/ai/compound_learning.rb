@@ -224,6 +224,28 @@ module Ai
       update!(status: "superseded", superseded_by: new_learning)
     end
 
+    # Cross-model variant of #supersede! for the learning-to-skill-promotion
+    # campaign (P3): the target is an Ai::Skill, not another CompoundLearning,
+    # so it can't go through the superseded_by association (FK'd to
+    # ai_compound_learnings) — recorded in metadata instead, migration-free,
+    # same convention as #retire!'s retired_domain/retired_reason. Idempotent:
+    # a learning already superseded (by either path) is left alone rather
+    # than re-pointed at a later skill — e.g. a learning shared by two
+    # clusters that both get approved keeps its FIRST supersession.
+    def supersede_by_skill!(skill)
+      return if status == "superseded"
+
+      update!(
+        status: "superseded",
+        metadata: metadata.merge(
+          "superseded_by_skill_id" => skill.id,
+          "superseded_reason" => "learning_to_skill_promotion",
+          "superseded_at" => Time.current.iso8601
+        )
+      )
+      touch_event_processed!
+    end
+
     # Soft-retire: excludes the learning from every surfacing path (all of
     # which scope to status active/verified — see .active, .semantic_search,
     # .find_similar) without hard-deleting it. Retired rows stay queryable for

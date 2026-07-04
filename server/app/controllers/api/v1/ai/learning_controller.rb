@@ -364,6 +364,23 @@ module Api
           end
         end
 
+        # POST /api/v1/ai/learning/cluster_promotion_maintenance (internal, called by worker)
+        # Scheduled learning-cluster -> skill promotion pass (P3). Clusters
+        # high-value learnings (Ai::Learning::LearningClusterService) and
+        # drafts an operator-review SkillProposal per cluster
+        # (Ai::Learning::LearningToSkillPromoter#propose_from_cluster) —
+        # never creates or activates a skill itself (that stays behind the
+        # SkillProposal approve->apply gate, see #apply_recommendation
+        # above). Gated behind :learning_to_skill_promotion (default OFF),
+        # independent of :skill_scheduled_evolution /
+        # :compound_learning_scheduled_verification.
+        def cluster_promotion_maintenance
+          result = ::Ai::Learning::ScheduledPromotionService.new(account: current_account).run
+          render_success(result)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         # POST /api/v1/ai/learning/compound_maintenance (internal, called by worker)
         def compound_maintenance
           service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
@@ -385,7 +402,8 @@ module Api
           # Worker bypass for internal maintenance endpoints (same pattern as TieredMemoryController)
           if current_worker
             return if %w[compound_maintenance memory_maintenance knowledge_doc_sync knowledge_graph_maintenance
-                         promote_learning dedup_check update_graph_node verify_maintenance].include?(action_name)
+                         promote_learning dedup_check update_graph_node verify_maintenance
+                         cluster_promotion_maintenance].include?(action_name)
           end
 
           case action_name
@@ -396,7 +414,7 @@ module Api
           when "apply_recommendation", "dismiss_recommendation", "create_benchmark", "run_benchmark"
             require_permission("ai.analytics.manage")
           when "reinforce", "promote", "compound_maintenance", "memory_maintenance", "knowledge_doc_sync",
-               "knowledge_graph_maintenance", "verify_maintenance"
+               "knowledge_graph_maintenance", "verify_maintenance", "cluster_promotion_maintenance"
             require_permission("ai.analytics.manage")
           when "promote_learning", "dedup_check", "update_graph_node"
             require_permission("ai.analytics.manage")

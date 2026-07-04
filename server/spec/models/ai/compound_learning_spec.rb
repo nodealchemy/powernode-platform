@@ -142,6 +142,59 @@ RSpec.describe Ai::CompoundLearning, type: :model do
   end
 
   # ============================================================================
+  # SUPERSEDE BY SKILL (P3: learning-to-skill-promotion campaign)
+  # ============================================================================
+
+  describe "#supersede_by_skill!" do
+    let(:learning) { create(:ai_compound_learning, account: account, ai_agent_team: team, status: "active") }
+    let(:skill) { create(:ai_skill, account: account) }
+
+    it "sets status to superseded and records the skill id + reason in metadata" do
+      learning.supersede_by_skill!(skill)
+      learning.reload
+
+      expect(learning.status).to eq("superseded")
+      expect(learning.metadata["superseded_by_skill_id"]).to eq(skill.id)
+      expect(learning.metadata["superseded_reason"]).to eq("learning_to_skill_promotion")
+      expect(learning.metadata["superseded_at"]).to be_present
+    end
+
+    it "excludes the learning from active/verified surfacing scopes" do
+      learning.supersede_by_skill!(skill)
+
+      expect(Ai::CompoundLearning.active).not_to include(learning)
+      expect(Ai::CompoundLearning.where(status: %w[active verified])).not_to include(learning)
+    end
+
+    it "does not touch the FK'd superseded_by association" do
+      learning.supersede_by_skill!(skill)
+      expect(learning.reload.superseded_by_id).to be_nil
+    end
+
+    it "is idempotent — does not re-point an already-superseded learning at a later skill" do
+      first_skill = skill
+      later_skill = create(:ai_skill, account: account)
+
+      learning.supersede_by_skill!(first_skill)
+      learning.supersede_by_skill!(later_skill)
+      learning.reload
+
+      expect(learning.metadata["superseded_by_skill_id"]).to eq(first_skill.id)
+    end
+
+    it "leaves a learning superseded via #supersede! (learning-to-learning) alone too" do
+      keeper = create(:ai_compound_learning, account: account, ai_agent_team: team)
+      learning.supersede!(keeper)
+
+      learning.supersede_by_skill!(skill)
+      learning.reload
+
+      expect(learning.superseded_by_id).to eq(keeper.id)
+      expect(learning.metadata).not_to have_key("superseded_by_skill_id")
+    end
+  end
+
+  # ============================================================================
   # TOUCH EVENT PROCESSED
   # ============================================================================
 

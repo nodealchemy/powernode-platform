@@ -21,8 +21,10 @@ module Ai
     #      trigger is Ai::Learning::ImprovementRecommender#apply_recommendation!'s
     #      "skill_creation" case. It creates the skill (or clone-on-evolves a
     #      matching existing one), wires KG provenance edges to the source
-    #      learnings, and seeds effectiveness_score from the cluster's
-    #      observed outcome aggregate — never the bare 0.5 schema default.
+    #      learnings, seeds effectiveness_score from the cluster's observed
+    #      outcome aggregate (never the bare 0.5 schema default), and
+    #      supersedes the source learnings (P3) so the corpus stops
+    #      resurfacing content that's now embodied in the approved skill.
     #
     # Structural never-auto-approve guarantee: propose_from_cluster never sets
     # trust_tier_at_proposal, so Ai::SkillProposal#can_auto_approve? (which
@@ -82,6 +84,7 @@ module Ai
         skill = matched_skill ? refresh_existing_skill!(matched_skill, proposal) : create_new_skill!(proposal)
 
         create_provenance_edges!(skill, proposal)
+        supersede_source_learnings!(skill, proposal)
 
         { skill: skill, proposal: proposal.reload, matched_existing: matched_skill.present? }
       end
@@ -269,6 +272,30 @@ module Ai
 
         mean_importance = agg[:mean_effective_importance] || agg[:mean_importance_score]
         mean_importance.present? ? mean_importance.to_f.round(4) : nil
+      end
+
+      # P3: once a cluster is folded into an approved skill, its source
+      # learnings are superseded so the corpus stops resurfacing content
+      # that's now embodied in the skill (semantic_search/find_similar/
+      # promote_cross_team all scope to active/verified — see
+      # Ai::CompoundLearning::STATUSES). Only reached here, on
+      # approval/apply — #propose_from_cluster stays read-only per the class
+      # comment above. Walks the FULL source_learning_ids list (unlike
+      # #create_provenance_edges!'s MAX_SOURCE_LEARNINGS-bounded edge/prompt
+      # budget) since every cluster member contributed to the promotion, not
+      # just the ones that made the prompt/edge cut. #supersede_by_skill! is
+      # itself a no-op on an already-superseded learning (e.g. one shared by
+      # two clusters that both got approved) — never re-points an earlier
+      # supersession.
+      def supersede_source_learnings!(skill, proposal)
+        learning_ids = Array(proposal.metadata["source_learning_ids"])
+        return if learning_ids.empty?
+
+        Ai::CompoundLearning.where(id: learning_ids, account_id: account.id).find_each do |learning|
+          learning.supersede_by_skill!(skill)
+        rescue StandardError => e
+          Rails.logger.warn "[LearningToSkillPromoter] supersede failed for learning #{learning.id}: #{e.message}"
+        end
       end
 
       def create_provenance_edges!(skill, proposal)

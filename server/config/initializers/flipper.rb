@@ -32,6 +32,7 @@ Rails.application.config.after_initialize do
     skill_scheduled_evolution
     compound_learning_injection
     compound_learning_promotion
+    learning_to_skill_promotion
   ]
 
   flags.each do |flag|

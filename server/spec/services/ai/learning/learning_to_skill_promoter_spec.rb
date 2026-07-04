@@ -174,6 +174,22 @@ RSpec.describe Ai::Learning::LearningToSkillPromoter, type: :service do
         expect(applied[:skill].effectiveness_score.to_f).to eq(0.75) # mean_effective_importance from sample_cluster
         expect(applied[:skill].effectiveness_score.to_f).not_to eq(0.5)
       end
+
+      it "does not supersede the source learnings before apply — approval alone leaves them active" do
+        expect(learning_a.reload.status).to eq("active")
+        expect(learning_b.reload.status).to eq("active")
+      end
+
+      it "supersedes the source learnings on apply so the corpus stops resurfacing them" do
+        result = service.apply_approved_proposal!(proposal.id)
+
+        learning_a.reload
+        learning_b.reload
+        expect(learning_a.status).to eq("superseded")
+        expect(learning_a.metadata["superseded_by_skill_id"]).to eq(result[:skill].id)
+        expect(learning_b.status).to eq("superseded")
+        expect(learning_b.metadata["superseded_by_skill_id"]).to eq(result[:skill].id)
+      end
     end
 
     context "effectiveness inheritance" do
@@ -246,6 +262,13 @@ RSpec.describe Ai::Learning::LearningToSkillPromoter, type: :service do
 
         expect(proposal.reload.status).to eq("created")
         expect(proposal.created_skill_id).to eq(applied[:skill].id)
+      end
+
+      it "supersedes the source learnings against the refreshed (cloned) skill" do
+        applied = service.apply_approved_proposal!(proposal.id)
+
+        expect(learning_a.reload.metadata["superseded_by_skill_id"]).to eq(applied[:skill].id)
+        expect(learning_b.reload.metadata["superseded_by_skill_id"]).to eq(applied[:skill].id)
       end
     end
   end

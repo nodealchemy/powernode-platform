@@ -2981,6 +2981,8 @@ Rails.application.routes.draw do
           post "knowledge_doc_sync", action: :knowledge_doc_sync
           post "knowledge_graph_maintenance", action: :knowledge_graph_maintenance
           post "verify_maintenance", action: :verify_maintenance
+          # P3: scheduled learning-cluster -> skill promotion pass (called by worker)
+          post "cluster_promotion_maintenance", action: :cluster_promotion_maintenance
           # Event-driven single-entity endpoints (called by worker jobs)
           post "promote_learning", action: :promote_learning
           post "dedup_check", action: :dedup_check
