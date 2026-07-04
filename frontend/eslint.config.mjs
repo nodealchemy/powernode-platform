@@ -175,6 +175,7 @@ export default tseslint.config(
       'no-console': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
       'security/detect-object-injection': 'off',
     },
   }
