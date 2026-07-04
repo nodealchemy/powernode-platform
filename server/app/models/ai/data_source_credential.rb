@@ -15,6 +15,21 @@ module Ai
     encrypts :encrypted_api_key
     encrypts :encrypted_api_secret
 
+    # OAuth 2.0 app credentials + user-context tokens (I2, x-com-provider campaign).
+    # Same shape as the api_key/api_secret pair above: plain string column,
+    # encrypted at the Rails layer. access_token/refresh_token are written only by
+    # the OAuth callback (a later increment) — never accepted from client params.
+    encrypts :encrypted_client_id
+    encrypts :encrypted_client_secret
+    encrypts :encrypted_access_token
+    encrypts :encrypted_refresh_token
+
+    # Friendlier OAuth2-standard names for the app-credential pair, so controllers
+    # and callers can use client_id/client_secret while storage/encryption stays
+    # on the encrypted_* column.
+    alias_attribute :client_id, :encrypted_client_id
+    alias_attribute :client_secret, :encrypted_client_secret
+
     # Validations
     validates :name, presence: true, length: { maximum: 255 }
     validates :ai_data_source_id, presence: true
@@ -23,6 +38,7 @@ module Ai
     # JSON column defaults (lambda required for mutable defaults)
     attribute :rate_limits, :json, default: -> { {} }
     attribute :usage_stats, :json, default: -> { {} }
+    attribute :oauth_scopes, :json, default: -> { [] }
 
     # Scopes
     scope :active, -> { where(is_active: true) }
@@ -42,8 +58,38 @@ module Ai
       encrypted_api_secret
     end
 
+    def decrypted_client_id
+      encrypted_client_id
+    end
+
+    def decrypted_client_secret
+      encrypted_client_secret
+    end
+
+    def decrypted_access_token
+      encrypted_access_token
+    end
+
+    def decrypted_refresh_token
+      encrypted_refresh_token
+    end
+
     def expired?
       expires_at.present? && expires_at <= Time.current
+    end
+
+    # Whether the OAuth2 access token itself (access_token_expires_at) has
+    # already lapsed. Distinct from `expired?`, which covers the generic
+    # api_key credential's `expires_at`.
+    def token_expired?
+      access_token_expires_at.present? && access_token_expires_at <= Time.current
+    end
+
+    # True when the access token is already expired or will expire within
+    # `buffer` seconds — the refresh broker (I3) uses this to refresh silently
+    # ahead of expiry rather than waiting for a 401.
+    def needs_refresh?(buffer: 60)
+      access_token_expires_at.present? && access_token_expires_at <= buffer.seconds.from_now
     end
 
     def healthy?
