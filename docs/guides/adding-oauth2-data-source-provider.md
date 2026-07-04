@@ -13,9 +13,11 @@ all generic platform capabilities (`Ai::DataSources::OauthAuthorizationCodeServi
 writing a new template — a source + endpoint manifest — not touching any of
 that machinery.
 
-There is no dedicated UI for this yet (the frontend connect UX is a separate,
-not-yet-shipped increment). Everything below goes through the REST API or the
-`data_source_management` MCP tool directly.
+The data-sources UI ships a connect panel for all of this (I5): any source whose
+`auth_config.authorize_url` is set shows an OAuth2 Connection card — enter the app
+credentials, copy the redirect URI, and click Authorize. Everything below documents
+the underlying REST API / `data_source_management` MCP tool flow the panel drives,
+which you can also call directly.
 
 ## 1. Register the app on the provider
 
