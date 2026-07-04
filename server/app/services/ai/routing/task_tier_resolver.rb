@@ -88,7 +88,7 @@ module Ai
         attr_reader :tier, :model, :effort, :rationale, :baseline_tier, :baseline_model, :kind
 
         def initialize(tier:, model:, effort:, rationale:, baseline_tier:, baseline_model:, kind:,
-                       account:, agent:, request_type:, assessment_attributes:)
+                       account:, agent:, request_type:, assessment_attributes:, preroute_rule: nil)
           @tier = tier
           @model = model
           @effort = effort
@@ -100,6 +100,7 @@ module Ai
           @agent = agent
           @request_type = request_type
           @assessment_attributes = assessment_attributes
+          @preroute_rule = preroute_rule
         end
 
         def escalated? = @kind == :escalate
@@ -121,6 +122,7 @@ module Ai
               rationale: @rationale.deep_stringify_keys,
               complexity_assessment: assessment,
               agent_execution: agent_execution,
+              routing_rule: @preroute_rule,
               request_metadata: {
                 "agent_id" => @agent&.id,
                 "agent_type" => @agent&.agent_type,
@@ -192,7 +194,11 @@ module Ai
           tier: decision[:tier], model: final_model, effort: effort, rationale: rationale,
           baseline_tier: baseline_tier, baseline_model: baseline_model, kind: decision[:kind],
           account: @account, agent: @agent, request_type: (@task_type.presence || DEFAULT_TASK_TYPE),
-          assessment_attributes: assessment_attributes(classification: classification, level: level, score: score)
+          assessment_attributes: assessment_attributes(classification: classification, level: level, score: score),
+          # Set only when frontier_or_cap actually capped BECAUSE of this rule
+          # (see the preroute branch in #frontier_or_cap) — never derived merely
+          # from "a matching rule exists," which would misattribute feedback.
+          preroute_rule: @matched_preroute_rule
         )
       end
 
@@ -319,7 +325,12 @@ module Ai
           evidence << "frontier suppressed: account budget ≥90% consumed; capping to reasoning"
           return :reasoning
         end
-        if frontier_preroute_suppressed?
+        if frontier_preroute_rule
+          # Only recorded here, where the rule is the ACTUAL reason for the cap —
+          # not derived later from "a matching rule exists somewhere," which would
+          # misattribute record_match! feedback to a rule that had no bearing on
+          # this decision (e.g. one from before the Fable gate was turned off).
+          @matched_preroute_rule = frontier_preroute_rule
           evidence << "frontier suppressed: active fable-refusal pre-route rule for #{@agent.agent_type}; capping to reasoning"
           return :reasoning
         end
@@ -456,9 +467,15 @@ module Ai
       end
 
       def frontier_preroute_suppressed?
-        return @frontier_preroute_suppressed if defined?(@frontier_preroute_suppressed)
+        frontier_preroute_rule.present?
+      end
 
-        @frontier_preroute_suppressed = ::Ai::AgentModelSelector.fable_preroute_suppressed?(
+      # Memoized so the boolean check above and the Resolution#persist! linkage
+      # (see #resolve) share the one query instead of running it twice.
+      def frontier_preroute_rule
+        return @frontier_preroute_rule if defined?(@frontier_preroute_rule)
+
+        @frontier_preroute_rule = ::Ai::AgentModelSelector.matching_fable_preroute_rule(
           account: @account, agent_type: @agent.agent_type
         )
       end

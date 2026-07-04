@@ -159,6 +159,22 @@ RSpec.describe Ai::Routing::TaskTierResolver do
         decision = res.persist!
         expect(decision.rationale["effort"]).to eq("max")
       end
+
+      it "links the matched fable-refusal-preroute rule onto the persisted decision so it can accrue match feedback" do
+        rule = create(:ai_model_routing_rule, :quality_based, account: account,
+          name: "fable-refusal-preroute:claude-fable-5:code_assistant:any",
+          conditions: { "request_types" => [ "code_assistant" ], "model_patterns" => [ Regexp.escape("claude-fable-5") ] })
+
+        res = described_class.resolve(account: account, agent: agent, task_type: "code_review", messages: messages)
+        expect(res.tier).to eq(:reasoning) # suppressed from frontier by the active preroute rule
+
+        decision = res.persist!
+        expect(decision.routing_rule_id).to eq(rule.id)
+
+        expect do
+          decision.record_outcome!(outcome: "succeeded")
+        end.to change { rule.reload.times_matched }.by(1)
+      end
     end
 
     it "NEVER escalates to frontier when the Fable gate is OFF (caps to reasoning)" do
@@ -168,6 +184,20 @@ RSpec.describe Ai::Routing::TaskTierResolver do
       expect(res.tier).to eq(:reasoning)
       expect(res.rationale.dig(:gates, :fable_routing_enabled)).to be(false)
       expect(res.rationale[:evidence].join(" ")).to match(/frontier/i)
+    end
+
+    it "does NOT link an unrelated preroute rule when the cap came from an earlier gate (Fable OFF), even though a matching rule exists" do
+      account.update!(settings: { "fable_routing_enabled" => false })
+      stub_selector(reasoning: "claude-opus-4-8")
+      create(:ai_model_routing_rule, :quality_based, account: account,
+        name: "fable-refusal-preroute:claude-fable-5:code_assistant:any",
+        conditions: { "request_types" => [ "code_assistant" ], "model_patterns" => [ Regexp.escape("claude-fable-5") ] })
+
+      res = described_class.resolve(account: account, agent: agent, task_type: "code_review", messages: messages)
+      expect(res.tier).to eq(:reasoning) # capped by the gate being OFF, not by the preroute rule
+
+      decision = res.persist!
+      expect(decision.routing_rule_id).to be_nil
     end
 
     it "caps to reasoning when the agent_type is not allowlisted even with the gate ON" do

@@ -364,13 +364,23 @@ module Ai
     # (Ai::Routing::TaskTierResolver) enforces the SAME learned-routing suppression
     # when deciding whether frontier is admissible — one source of truth, no drift.
     def self.fable_preroute_suppressed?(account:, agent_type:)
+      matching_fable_preroute_rule(account: account, agent_type: agent_type).present?
+    end
+
+    # Returns the actual matched rule (not just the boolean above) so a caller that
+    # suppresses on it — Ai::Routing::TaskTierResolver — can link its persisted
+    # Ai::RoutingDecision back to the rule via routing_rule_id. Without this link
+    # Ai::ModelRoutingRule#record_match!/success_rate never accrued for these
+    # rules (nothing ever called RoutingDecision#record_outcome! against them),
+    # so the promotion service's own re-evaluation machinery was starved of data.
+    def self.matching_fable_preroute_rule(account:, agent_type:)
       ::Ai::ModelRoutingRule.for_account(account).active
                             .where("name LIKE ?", "fable-refusal-preroute:%")
                             .to_a
-                            .any? { |rule| preroute_rule_targets_fable_for_agent_type?(rule, agent_type) }
+                            .find { |rule| preroute_rule_targets_fable_for_agent_type?(rule, agent_type) }
     rescue StandardError => e
       Rails.logger.warn("[AgentModelSelector] Fable pre-route check failed: #{e.class}: #{e.message}")
-      false
+      nil
     end
 
     def self.preroute_rule_targets_fable_for_agent_type?(rule, agent_type)
