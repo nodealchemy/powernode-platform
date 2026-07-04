@@ -29,6 +29,7 @@ Rails.application.config.after_initialize do
     skill_conflict_auto_resolve
     skill_self_learning
     skill_optimization
+    skill_scheduled_evolution
     compound_learning_injection
     compound_learning_promotion
   ]

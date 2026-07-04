@@ -2076,6 +2076,8 @@ Rails.application.routes.draw do
           post "maintenance/daily", action: :maintenance_daily
           post "maintenance/weekly", action: :maintenance_weekly
           post "maintenance/monthly", action: :maintenance_monthly
+          # F5: scheduled skill-health-driven evolution proposals (called by worker)
+          post "evolution_proposals", action: :scheduled_evolution_proposals
           # Event-driven single-skill conflict check (called by worker jobs)
           post "conflict_check", action: :conflict_check
         end

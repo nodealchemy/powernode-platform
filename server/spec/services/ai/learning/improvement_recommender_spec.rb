@@ -10,6 +10,8 @@ RSpec.describe Ai::Learning::ImprovementRecommender, type: :service do
     allow(Rails.logger).to receive(:info)
     allow(Rails.logger).to receive(:warn)
     allow(Rails.logger).to receive(:error)
+    allow_any_instance_of(Ai::Skill).to receive(:sync_to_knowledge_graph)
+    allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(Array.new(1536, 0.1))
   end
 
   describe "#generate_recommendations" do
@@ -174,6 +176,57 @@ RSpec.describe Ai::Learning::ImprovementRecommender, type: :service do
       it "returns the recommendation" do
         result = service.apply_recommendation!(recommendation.id, user: user)
         expect(result).to eq(recommendation)
+      end
+    end
+
+    context "with a skill_health recommendation carrying a proposed version (F5)" do
+      let(:skill) { create(:ai_skill, account: account, effectiveness_score: 0.2) }
+      let!(:active_version) do
+        create(:ai_skill_version, account: account, ai_skill: skill, version: "1.0.0", is_active: true)
+      end
+      let!(:draft_version) do
+        create(:ai_skill_version, :evolved, account: account, ai_skill: skill, version: "2.0.0", is_active: false)
+      end
+      let!(:recommendation) do
+        create(:ai_improvement_recommendation,
+               :pending,
+               account: account,
+               recommendation_type: "skill_health",
+               target_type: "Ai::Skill",
+               target_id: skill.id,
+               recommended_config: { "proposed_version_id" => draft_version.id })
+      end
+
+      it "activates the proposed version" do
+        service.apply_recommendation!(recommendation.id, user: user)
+
+        expect(draft_version.reload.is_active).to be true
+        expect(active_version.reload.is_active).to be false
+      end
+
+      it "marks the recommendation as applied" do
+        service.apply_recommendation!(recommendation.id, user: user)
+
+        expect(recommendation.reload.status).to eq("applied")
+      end
+    end
+
+    context "with a skill_health recommendation carrying no proposed version (nightly trajectory signal)" do
+      let(:skill) { create(:ai_skill, account: account, effectiveness_score: 0.2) }
+      let!(:recommendation) do
+        create(:ai_improvement_recommendation,
+               :pending,
+               account: account,
+               recommendation_type: "skill_health",
+               target_type: "Ai::Skill",
+               target_id: skill.id,
+               recommended_config: {})
+      end
+
+      it "just marks the recommendation applied without error" do
+        result = service.apply_recommendation!(recommendation.id, user: user)
+
+        expect(result.status).to eq("applied")
       end
     end
 

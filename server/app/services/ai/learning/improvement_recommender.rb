@@ -39,6 +39,8 @@ module Ai
           recommendation.apply!(user)
         when "cost_optimization"
           recommendation.apply!(user)
+        when "skill_health"
+          apply_skill_evolution(recommendation, user)
         else
           recommendation.apply!(user)
         end
@@ -87,6 +89,20 @@ module Ai
         return unless new_provider_id
 
         agent.update!(ai_provider_id: new_provider_id)
+        recommendation.apply!(user)
+      end
+
+      # Approving a scheduled evolution proposal (Ai::SkillGraph::
+      # EvolutionProposalService) activates the pre-drafted, already
+      # clone-on-write-safe version it points at — the concrete "operator
+      # said yes" action this recommendation type exists to gate. Older
+      # skill_health recommendations (Ai::Learning::TrajectoryAnalyzer's
+      # nightly low-success-rate signal) carry no proposed_version_id and
+      # have nothing to activate — applying one just acknowledges review.
+      def apply_skill_evolution(recommendation, user)
+        version_id = recommendation.recommended_config["proposed_version_id"]
+        Ai::SkillGraph::EvolutionService.new(@account).activate_version(version_id: version_id) if version_id.present?
+
         recommendation.apply!(user)
       end
     end

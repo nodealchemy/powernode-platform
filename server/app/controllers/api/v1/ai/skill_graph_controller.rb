@@ -433,6 +433,19 @@ module Api
           render_success(result)
         end
 
+        # POST /api/v1/ai/skill_graph/evolution_proposals (scheduled, called by worker)
+        #
+        # F5: scans skill health + active conflicts and files operator-review
+        # Ai::ImprovementRecommendation offers (never mutates a skill/version/
+        # conflict). Gated behind :skill_scheduled_evolution (default OFF).
+        def scheduled_evolution_proposals
+          authorize_permission!("ai.analytics.manage") unless current_worker
+          result = evolution_proposal_service.run
+          render_success(result)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         private
 
         def authorize_permission!(permission)
@@ -483,6 +496,10 @@ module Api
 
         def optimization_service
           @optimization_service ||= ::Ai::SkillGraph::OptimizationService.new(current_account)
+        end
+
+        def evolution_proposal_service
+          @evolution_proposal_service ||= ::Ai::SkillGraph::EvolutionProposalService.new(current_account)
         end
 
         def proposal_params

@@ -170,6 +170,40 @@ RSpec.describe Ai::SkillGraph::EvolutionService, type: :service do
 
       expect(result).to be_nil
     end
+
+    context "with a global (is_system) skill (F5 clone-on-evolve)" do
+      let!(:global_skill) do
+        create(:ai_skill, :global, :system_skill, name: "Global Baseline",
+                          slug: "global-baseline-#{SecureRandom.hex(3)}", category: "productivity")
+      end
+      let!(:global_active_version) do
+        create(:ai_skill_version, ai_skill: global_skill, version: "1.0.0", is_active: true)
+      end
+
+      it "drafts the version onto an account-owned clone, not the shared baseline" do
+        version = service.propose_evolution(skill_id: global_skill.id)
+
+        expect(version.ai_skill_id).not_to eq(global_skill.id)
+
+        clone = Ai::Skill.find(version.ai_skill_id)
+        expect(clone.account_id).to eq(account.id)
+        expect(clone.cloned_from_id).to eq(global_skill.id)
+      end
+
+      it "never versions the global baseline itself" do
+        service.propose_evolution(skill_id: global_skill.id)
+
+        expect(global_skill.reload.versions.count).to eq(1) # only the pre-existing active version
+      end
+
+      it "reuses the account's existing clone on a second evolution instead of cloning again" do
+        first = service.propose_evolution(skill_id: global_skill.id)
+        second = service.propose_evolution(skill_id: global_skill.id)
+
+        expect(second.ai_skill_id).to eq(first.ai_skill_id)
+        expect(Ai::Skill.where(account: account, cloned_from_id: global_skill.id).count).to eq(1)
+      end
+    end
   end
 
   describe "#activate_version" do

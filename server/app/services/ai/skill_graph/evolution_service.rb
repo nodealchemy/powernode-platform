@@ -73,6 +73,12 @@ module Ai
       # Create an evolved version with an improved system_prompt informed by compound learnings
       def propose_evolution(skill_id:)
         skill = find_skill!(skill_id)
+        # F5 clone-on-evolve: a GLOBAL (is_system) skill is never versioned in
+        # place — that would attach the new version to the shared baseline
+        # every account resolves to. Redirect onto this account's editable
+        # clone first (reusing F2/F3's idempotent resolve-or-clone), the same
+        # guarantee SkillService#update_skill already gives manual edits.
+        skill = editable_skill(skill)
         current_version = skill.versions.active.first
 
         # Gather compound learnings relevant to this skill
@@ -244,6 +250,21 @@ module Ai
         Ai::Skill.for_account(account.id).find_by(id: skill_id) ||
           Ai::Skill.resolve_for(account.id, slug: skill_id) ||
           raise(ActiveRecord::RecordNotFound, "Couldn't find Ai::Skill with id or slug=#{skill_id}")
+      end
+
+      # Resolve the account-editable target for a (possibly global) skill,
+      # mirroring SkillService#resolve_editable_target: an already
+      # account-owned skill is returned as-is; a global one is redirected to
+      # the account's existing override (if this account already cloned it)
+      # or a fresh clone via SkillService#clone_skill — idempotent either way.
+      def editable_skill(skill)
+        return skill unless skill.global?
+
+        skill_service.clone_skill(skill_id: skill.id)
+      end
+
+      def skill_service
+        @skill_service ||= Ai::SkillService.new(account: account)
       end
 
       def calculate_success_rate(records)
