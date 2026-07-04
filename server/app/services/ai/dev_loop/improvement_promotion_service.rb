@@ -41,6 +41,13 @@ module Ai
         if created
           task.assign_attributes(task_attributes(recommendation))
           task.save!
+        elsif task.status.in?(%w[failed blocked])
+          # IMP-938f68b16a1a: re-approving an offer whose promoted task already
+          # failed/blocked previously returned it untouched -- dev_next_task
+          # only ever claims pending tasks, so the operator's retry intent was
+          # silently swallowed (no other seam re-queues a non-repeating task).
+          # Re-approval is an explicit "try again" signal; honor it.
+          task.reset!
         end
 
         Result.new(ralph_loop: ralph_loop, ralph_task: task, created: created)

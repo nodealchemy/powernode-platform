@@ -51,6 +51,50 @@ RSpec.describe Ai::DevLoop::ImprovementPromotionService do
       expect(first.ralph_loop.ralph_tasks.count).to eq(1)
     end
 
+    it "re-queues a promoted task that previously failed, when the offer is re-approved (IMP-938f68b16a1a)" do
+      first = described_class.new(recommendation: recommendation).call
+      first.ralph_task.start!
+      first.ralph_task.fail!(error_message: "3-strikes: could not reproduce")
+      expect(first.ralph_task.reload.status).to eq("failed")
+
+      second = described_class.new(recommendation: recommendation).call
+
+      expect(second.ralph_task.id).to eq(first.ralph_task.id)
+      expect(second.ralph_task.status).to eq("pending")
+      expect(second.ralph_task.error_message).to be_nil
+    end
+
+    it "re-queues a promoted task that was left blocked, when the offer is re-approved" do
+      first = described_class.new(recommendation: recommendation).call
+      first.ralph_task.block!(reason: "needs operator input", blocked_for: "review")
+      expect(first.ralph_task.reload.status).to eq("blocked")
+
+      second = described_class.new(recommendation: recommendation).call
+
+      expect(second.ralph_task.status).to eq("pending")
+    end
+
+    it "does NOT disturb an already-passed task on re-approval" do
+      first = described_class.new(recommendation: recommendation).call
+      first.ralph_task.start!
+      first.ralph_task.pass!(iteration_number: 1)
+      expect(first.ralph_task.reload.status).to eq("passed")
+
+      second = described_class.new(recommendation: recommendation).call
+
+      expect(second.ralph_task.status).to eq("passed")
+    end
+
+    it "does NOT disturb a task that is still in_progress on re-approval" do
+      first = described_class.new(recommendation: recommendation).call
+      first.ralph_task.start!
+      expect(first.ralph_task.reload.status).to eq("in_progress")
+
+      second = described_class.new(recommendation: recommendation).call
+
+      expect(second.ralph_task.status).to eq("in_progress")
+    end
+
     it "refuses to promote a recommendation that is not approved" do
       recommendation.update!(status: "pending")
       expect { described_class.new(recommendation: recommendation).call }
