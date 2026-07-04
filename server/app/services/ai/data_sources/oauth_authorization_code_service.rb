@@ -234,6 +234,12 @@ module Ai
       # POST the token endpoint through the SSRF-guarded connection. Returns
       # [access_token, refresh_token, expires_in_seconds_or_nil, scope]. NEVER
       # logs the code, verifier, tokens, or client_secret.
+      #
+      # Response parsing + the Basic client-auth header are shared with
+      # Oauth2AuthorizationCodeBroker's refresh call via OauthTokenEndpoint — this
+      # method keeps its own transport-error rescue (returns the nil-tuple
+      # sentinel) rather than raising, which is THIS service's convention (the
+      # broker instead lets transport errors propagate to BaseBroker#acquire).
       def exchange_code_for_token(data_source:, credential:, token_url:, code:, code_verifier:, redirect_uri:)
         form = {
           "grant_type" => "authorization_code",
@@ -248,7 +254,9 @@ module Ai
         # client; a public client (no client_secret configured) omits it and
         # relies on PKCE + the client_id already present in the form body.
         if credential.client_secret.present?
-          headers["Authorization"] = basic_auth_header(credential.client_id, credential.client_secret)
+          headers["Authorization"] = ::Ai::DataSources::OauthTokenEndpoint.basic_auth_header(
+            credential.client_id, credential.client_secret
+          )
         end
 
         # max_redirects: 0 — a token endpoint must never redirect (mirrors
@@ -256,44 +264,11 @@ module Ai
         # verifier, or client_secret to an unintended host).
         conn = ::Ai::DataSources::HttpConnectionFactory.build(data_source: data_source, max_redirects: 0)
         response = conn.run_request(:post, token_url, URI.encode_www_form(form), headers)
-        parse_token_response(response)
+        result = ::Ai::DataSources::OauthTokenEndpoint.parse_response(response, max_ttl_seconds: MAX_TOKEN_TTL_SECONDS)
+        [result["access_token"], result["refresh_token"], result["expires_in"], result["scope"]]
       rescue StandardError => e
         Rails.logger.error("[OauthAuthorizationCodeService] token exchange transport error: #{e.class}")
         [nil, nil, nil, nil]
-      end
-
-      # Parse the token endpoint's JSON. Returns [access_token, refresh_token,
-      # expires_in, scope]. A non-2xx, non-JSON, or token-less body yields all
-      # nils (caller reports failure) WITHOUT surfacing any response content
-      # (which could echo a secret).
-      def parse_token_response(response)
-        return [nil, nil, nil, nil] unless response&.respond_to?(:status)
-        return [nil, nil, nil, nil] unless (200..299).cover?(response.status)
-
-        body = response.body
-        parsed = body.is_a?(Hash) ? body : safe_parse_json(body)
-        return [nil, nil, nil, nil] unless parsed.is_a?(Hash)
-
-        access_token = parsed["access_token"] || parsed[:access_token]
-        refresh_token = parsed["refresh_token"] || parsed[:refresh_token]
-        expires_in = (parsed["expires_in"] || parsed[:expires_in]).to_i
-        expires_in = MAX_TOKEN_TTL_SECONDS if expires_in > MAX_TOKEN_TTL_SECONDS
-        scope = parsed["scope"] || parsed[:scope]
-
-        [access_token.presence, refresh_token.presence, (expires_in.positive? ? expires_in : nil), scope]
-      end
-
-      def safe_parse_json(body)
-        str = body.to_s
-        return nil if str.empty?
-
-        JSON.parse(str)
-      rescue JSON::ParserError
-        nil
-      end
-
-      def basic_auth_header(client_id, client_secret)
-        "Basic #{Base64.strict_encode64("#{client_id}:#{client_secret}")}"
       end
 
       # Persists the exchanged tokens onto the credential using the raw
@@ -314,10 +289,7 @@ module Ai
       end
 
       def normalize_scopes(scope)
-        return [] if scope.blank?
-        return scope.map(&:to_s) if scope.is_a?(Array)
-
-        scope.to_s.split(/[\s,]+/).reject(&:blank?)
+        ::Ai::DataSources::OauthTokenEndpoint.normalize_scopes(scope)
       end
 
       def requested_scopes(data_source)
