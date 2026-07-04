@@ -68,6 +68,20 @@ module Ai
         { success: false, error: e.message }
       end
 
+      # Reassign real associations (agent bindings, MCP server links,
+      # knowledge-graph node) from `loser` to `winner` — the "keep the data,
+      # drop the duplicate" step. Shared by two callers: resolve_duplicate
+      # below (conflict-driven repair, which then archives the loser) and the
+      # one-off data migration reconciling seed-globalization duplicates
+      # (db/migrate/*_dedupe_skill_seed_globals.rb), which deletes the loser
+      # outright once its associations are safely moved. Idempotent — safe to
+      # call on a loser that no longer holds any of these associations.
+      def merge_associations(winner:, loser:)
+        merge_knowledge_graph_node(winner, loser)
+        reassign_agent_skills(winner, loser)
+        reassign_mcp_servers(winner, loser)
+      end
+
       private
 
       # Merge duplicate: higher usage_count wins, reassign AgentSkills, archive loser
@@ -84,27 +98,7 @@ module Ai
                         end
 
         ActiveRecord::Base.transaction do
-          # Merge KG nodes if both have them
-          winner_node = winner.knowledge_graph_node
-          loser_node = loser.knowledge_graph_node
-
-          if winner_node && loser_node
-            graph_service.merge_nodes(
-              keep: winner_node,
-              merge: loser_node,
-              reason: "Duplicate skill merge: #{loser.name} → #{winner.name}"
-            )
-          end
-
-          # Reassign AgentSkills from loser to winner
-          loser.agent_skills.find_each do |agent_skill|
-            existing = Ai::AgentSkill.find_by(ai_agent_id: agent_skill.ai_agent_id, ai_skill_id: winner.id)
-            if existing
-              agent_skill.destroy!
-            else
-              agent_skill.update!(ai_skill_id: winner.id)
-            end
-          end
+          merge_associations(winner: winner, loser: loser)
 
           # Archive loser skill
           loser.update!(status: "inactive", is_enabled: false)
@@ -296,6 +290,43 @@ module Ai
         "Skills '#{details['skill_a_name']}' and '#{details['skill_b_name']}' share the prefix " \
           "'#{details['shared_prefix']}' and may represent different versions of the same capability. " \
           "Review whether they should be consolidated or versioned properly."
+      end
+
+      def merge_knowledge_graph_node(winner, loser)
+        winner_node = winner.knowledge_graph_node
+        loser_node = loser.knowledge_graph_node
+        return unless loser_node
+
+        if winner_node
+          graph_service.merge_nodes(
+            keep: winner_node,
+            merge: loser_node,
+            reason: "Duplicate skill merge: #{loser.name} → #{winner.name}"
+          )
+        else
+          # Winner has no node of its own yet — just move the loser's node
+          # over rather than merging (nothing to merge into).
+          loser_node.update!(ai_skill_id: winner.id)
+        end
+      end
+
+      def reassign_agent_skills(winner, loser)
+        loser.agent_skills.find_each do |agent_skill|
+          existing = Ai::AgentSkill.find_by(ai_agent_id: agent_skill.ai_agent_id, ai_skill_id: winner.id)
+          if existing
+            agent_skill.destroy!
+          else
+            agent_skill.update!(ai_skill_id: winner.id)
+          end
+        end
+      end
+
+      # MCP server links are a HABTM join table — AR's dependent: option
+      # doesn't reassign those, it just clears the join rows on destroy — so
+      # without this the loser's server links would silently vanish.
+      def reassign_mcp_servers(winner, loser)
+        extra_ids = loser.mcp_server_ids - winner.mcp_server_ids
+        winner.mcp_server_ids += extra_ids if extra_ids.any?
       end
 
       def graph_service
