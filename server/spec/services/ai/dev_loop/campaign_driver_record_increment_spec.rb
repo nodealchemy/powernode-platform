@@ -75,4 +75,41 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
       expect { driver.record_increment!(bare, title: "x") }.to raise_error(ArgumentError, /no loop/)
     end
   end
+
+  describe "seeded-plan closeout (campaign must not linger at status=active/100%)" do
+    let(:seeded) do
+      driver.start(name: "seeded",
+                   configuration: { "plan_increments" => [ "Slice A", "Slice B" ] })[:campaign]
+    end
+
+    it "seeds all_tasks_terminal completion criteria on the loop (goal-driven terminator applies)" do
+      loop_ = seeded.ralph_loops.first
+      expect(loop_.configuration["completion"]).to eq("all_tasks_terminal" => true)
+    end
+
+    it "does NOT seed completion criteria on an unseeded campaign (open-ended stays open-ended)" do
+      expect(campaign.ralph_loops.first.configuration["completion"]).to be_nil
+    end
+
+    it "starts the pending loop on the first recorded increment" do
+      driver.record_increment!(seeded, title: "Slice A")
+      expect(seeded.ralph_loops.first.reload).to have_attributes(status: "running", started_at: be_present)
+    end
+
+    it "stays active while the seeded plan is only partially drained" do
+      driver.record_increment!(seeded, title: "Slice A")
+      expect(seeded.ralph_loops.first.reload.status).not_to eq("completed")
+      expect(seeded.reload.status).to eq("active")
+    end
+
+    it "completes the loop AND finalizes the campaign when the seeded plan fully drains" do
+      driver.record_increment!(seeded, title: "Slice A")
+      driver.record_increment!(seeded, title: "Slice B")
+
+      loop_ = seeded.ralph_loops.first.reload
+      expect(loop_).to have_attributes(status: "completed", completed_at: be_present)
+      expect(seeded.reload).to have_attributes(status: "completed", completed_at: be_present)
+      expect(seeded.completion_summary).to match(/drained|stop condition/)
+    end
+  end
 end

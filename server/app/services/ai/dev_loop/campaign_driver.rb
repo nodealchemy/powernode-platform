@@ -182,6 +182,11 @@ module Ai
         # Atomic: the task transition + iteration + decision + snapshot are one unit, so a
         # mid-way failure can't leave a passed task with an orphan iteration and no decision.
         campaign.transaction do
+          # A CC/CLI-drained campaign loop is never claimed via dev_next_task, so the
+          # first recorded increment is the moment it factually starts running (also a
+          # prerequisite for closeout: only a running/paused loop can legally complete!).
+          loop_record.start! if loop_record.can_start?
+
           task = loop_record.ralph_tasks.find_or_initialize_by(task_key: key[0, 120])
           task.description = summary.presence || title
           task.status = status
@@ -198,21 +203,20 @@ module Ai
           campaign.snapshot_progress!
         end
 
-        # IMP-af21b11d476c: investigated force-completing loop_record here
-        # (mirroring the DevLoopTool#complete_task fix below), but a campaign's
-        # loop is open-ended by design — more record_increment! calls are
-        # expected on it, and the existing should_stop?/fully_drained? guards
-        # deliberately keep it `active` (pending/running/paused) as the ONLY
-        # thing preventing a completion_pct-based premature campaign
-        # finalization on an unseeded loop (see Campaign#should_stop?'s own
-        # comment, and memory: "Campaign premature-finalization bug"). Verified
-        # live: "Migrate Claude-only rules"/"Model Routing v4" ARE campaign-tied
-        # loops with no plan_increments seeded — force-completing them here
-        # would silently reopen that exact bug via a new path. Deliberately NOT
-        # fixed in this method; campaign loop completion belongs to
-        # maybe_finalize!/should_stop!'s own richer signals, not a bare
-        # all_tasks_completed? check on every increment. See follow-up filed
-        # for genuinely-done, unseeded campaign loops.
+        # Goal-driven loop completion — the follow-up promised by the
+        # IMP-af21b11d476c investigation note that previously lived here. A bare
+        # all_tasks_completed? check on every increment would reopen the
+        # premature-finalization bug on UNSEEDED loops (the first passed
+        # increment reads 1/1 = 100%; see Campaign#should_stop?'s guard and the
+        # regression spec), so completion is keyed to the loop's OWN completion
+        # criteria instead, which seed_plan_increments! sets only when the
+        # campaign was started with a seeded plan: the plan defines the whole
+        # work, so every planned task terminal ⇒ the loop is genuinely done.
+        # Unseeded loops have no criteria (goal_met? is false) and stay
+        # open-ended, exactly as before.
+        if loop_record.goal_met? && loop_record.can_complete?
+          loop_record.complete!(result: { "reason" => "seeded_plan_drained" })
+        end
 
         # Finalize the campaign if this increment drained it (all loops ended,
         # tasks terminal, no open questions) or met a stop condition — so it
@@ -365,6 +369,7 @@ module Ai
         return unless increments.is_a?(Array)
 
         seen = Hash.new(0)
+        seeded = 0
         increments.each_with_index do |inc, idx|
           spec = inc.is_a?(Hash) ? inc.deep_stringify_keys : { "title" => inc.to_s }
           title = spec["title"].to_s
@@ -382,7 +387,19 @@ module Ai
             status: "pending",
             position: idx + 1
           )
+          seeded += 1
         end
+        return if seeded.zero?
+
+        # A seeded plan defines the campaign's WHOLE work upfront, so "every planned
+        # task terminal" is a genuine completion goal: set the loop's completion
+        # criteria so the goal-driven terminator (record_increment! / G5 in
+        # dev_next_task) can end the loop when the plan drains and maybe_finalize!
+        # can close the campaign. Unseeded loops get NO criteria and stay
+        # open-ended by design (premature-finalization guard).
+        loop_record.update!(
+          configuration: loop_record.configuration.merge("completion" => { "all_tasks_terminal" => true })
+        )
       end
 
       def create_campaign_loop(campaign, workload: DEFAULT_WORKLOAD)
