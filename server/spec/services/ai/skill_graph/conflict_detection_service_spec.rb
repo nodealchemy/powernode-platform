@@ -158,9 +158,36 @@ RSpec.describe Ai::SkillGraph::ConflictDetectionService, type: :service do
   end
 
   describe "#detect_version_drift" do
-    it "detects skills sharing the same name prefix" do
+    it "does not flag distinct skills that merely share a name prefix (regression)" do
+      create(:ai_skill, account: account, name: "SDWAN Create Network")
+      create(:ai_skill, account: account, name: "SDWAN Delete Network")
       create(:ai_skill, account: account, name: "Deploy v1")
       create(:ai_skill, account: account, name: "Deploy v2")
+
+      result = service.detect_version_drift
+
+      expect(result).to be_empty
+    end
+
+    it "does not flag an account clone that hasn't diverged from its origin" do
+      origin = create(:ai_skill, :global, name: "Code Review")
+      clone = origin.clone_to_account(account)
+
+      result = service.detect_version_drift
+
+      expect(result).to be_empty
+      expect(clone.cloned_from_id).to eq(origin.id)
+    end
+
+    it "flags a clone whose content has genuinely diverged from its origin (real lineage)" do
+      origin = create(:ai_skill, :global, name: "Code Review", description: "Original description")
+      clone = origin.clone_to_account(account)
+
+      # Origin changes a field after the clone was made...
+      origin.update!(description: "Origin changed this")
+      # ...and the clone independently changed the SAME field to something else —
+      # an unresolved 3-way merge conflict, i.e. real version drift.
+      clone.update_column(:description, "Clone changed this independently")
 
       result = service.detect_version_drift
 
@@ -169,31 +196,27 @@ RSpec.describe Ai::SkillGraph::ConflictDetectionService, type: :service do
       expect(conflict.conflict_type).to eq("version_drift")
       expect(conflict.severity).to eq("medium")
       expect(conflict.auto_resolvable).to be false
+      expect([conflict.skill_a_id, conflict.skill_b_id]).to contain_exactly(origin.id, clone.id)
+      expect(conflict.resolution_details["diverged_fields"]).to include("description")
     end
 
-    it "does not flag skills with different prefixes" do
-      create(:ai_skill, account: account, name: "Code review")
-      create(:ai_skill, account: account, name: "Data analysis")
+    it "does not flag a clone whose origin was deactivated" do
+      origin = create(:ai_skill, :global, name: "Code Review", description: "Original")
+      clone = origin.clone_to_account(account)
+      origin.update!(description: "Changed")
+      clone.update_column(:description, "Also changed")
+      origin.update!(status: "inactive")
 
       result = service.detect_version_drift
 
       expect(result).to be_empty
     end
 
-    it "creates pairwise conflicts for groups of 3+" do
-      create(:ai_skill, account: account, name: "Deploy alpha")
-      create(:ai_skill, account: account, name: "Deploy beta")
-      create(:ai_skill, account: account, name: "Deploy gamma")
-
-      result = service.detect_version_drift
-
-      # 3 choose 2 = 3 pairs
-      expect(result.size).to eq(3)
-    end
-
     it "is idempotent" do
-      create(:ai_skill, account: account, name: "Test v1")
-      create(:ai_skill, account: account, name: "Test v2")
+      origin = create(:ai_skill, :global, name: "Code Review", description: "Original")
+      clone = origin.clone_to_account(account)
+      origin.update!(description: "Origin changed")
+      clone.update_column(:description, "Clone changed")
 
       first_run = service.detect_version_drift
       second_run = service.detect_version_drift
@@ -237,6 +260,35 @@ RSpec.describe Ai::SkillGraph::ConflictDetectionService, type: :service do
     it "returns empty when no skill nodes exist" do
       result = service.detect_overlapping
       expect(result).to be_empty
+    end
+
+    it "flags same-category near-matches as advisory (severity low), not a hard conflict (F6)" do
+      skill_a = create(:ai_skill, account: account, name: "Skill Alpha", category: "productivity")
+      skill_b = create(:ai_skill, account: account, name: "Skill Beta", category: "productivity")
+
+      base = Array.new(1536, 1.0)
+      # Flipping the sign of 115 of 1536 dims against an all-1.0 base yields
+      # cosine similarity ~0.85 -- inside the overlap band (0.7-0.92) and
+      # below the duplicate threshold (0.92).
+      skewed = Array.new(1536) { |i| i < 115 ? -1.0 : 1.0 }
+
+      Ai::KnowledgeGraphNode.create!(
+        account: account, name: skill_a.name, entity_type: "skill",
+        node_type: "entity", status: "active", confidence: 1.0,
+        ai_skill_id: skill_a.id, embedding: base
+      )
+      Ai::KnowledgeGraphNode.create!(
+        account: account, name: skill_b.name, entity_type: "skill",
+        node_type: "entity", status: "active", confidence: 1.0,
+        ai_skill_id: skill_b.id, embedding: skewed
+      )
+
+      result = service.detect_overlapping
+
+      expect(result.size).to be >= 1
+      expect(result.first.conflict_type).to eq("overlapping")
+      expect(result.first.severity).to eq("low")
+      expect(result.first.auto_resolvable).to be false
     end
   end
 

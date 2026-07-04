@@ -82,7 +82,14 @@ module Ai
         []
       end
 
-      # Detect overlapping skills (similarity 0.7-0.92, same category)
+      # Detect overlapping skills (similarity 0.7-0.92, same category).
+      # Advisory signal, not a hard conflict — two skills can legitimately
+      # sit close together in embedding space (same category, related but
+      # distinct capabilities) without either being wrong. severity: "low"
+      # keeps it out of the way of real conflicts (duplicate/circular_
+      # dependency/version_drift) in HealthScoreService's severity-weighted
+      # conflict_penalty (F6) — a flood of "consider merging" suggestions
+      # shouldn't drag the health grade down the way an actual conflict does.
       def detect_overlapping
         created = []
         skill_nodes = account.ai_knowledge_graph_nodes.skill_nodes.active.with_embeddings.to_a
@@ -108,7 +115,7 @@ module Ai
               skill_a_id: node.ai_skill_id,
               skill_b_id: candidate.ai_skill_id,
               conflict_type: "overlapping",
-              severity: "medium",
+              severity: "low",
               auto_resolvable: false,
               similarity_score: similarity.round(4),
               node_a_id: node.id,
@@ -288,33 +295,52 @@ module Ai
         []
       end
 
-      # Detect version drift: multiple active skills sharing the same first word in name
+      # Detect version drift: an account's clone of a skill has diverged from
+      # its origin in a way the 3-way merge (GloballyScopable#
+      # update_from_source) can't reconcile automatically — the origin
+      # changed a field AND the clone independently changed the same field
+      # to a different value. That's a real "same skill, multiple
+      # unresolved versions" state.
+      #
+      # Previously this grouped skills by the first word of `name`, which
+      # flagged unrelated skills that merely share a prefix ("SDWAN Create
+      # Network" vs "SDWAN Delete Network") as if they were versions of one
+      # another. Lineage is read from cloned_from_id — set once, at clone
+      # time, by GloballyScopable#clone_to_account — rather than pattern-
+      # matched from the name or slug, for the same reason the old
+      # detector was wrong: pattern-matching a display string is fragile.
+      # The 3-way merge only ever compares a clone against its immediate
+      # origin, so cloned_from_id (not the transitively-shared source_key)
+      # is what we walk.
       def detect_version_drift
         created = []
 
-        skills = Ai::Skill.for_account(account.id).active.enabled.pluck(:id, :name)
-        prefix_groups = skills.group_by { |_, name| name.to_s.split(/\s+/).first&.downcase }.select { |_, v| v.size > 1 }
+        clones = Ai::Skill.for_account(account.id).active.enabled
+          .where.not(cloned_from_id: nil)
+          .includes(:cloned_from)
 
-        prefix_groups.each do |_prefix, group|
-          next if group.size < 2
+        clones.find_each do |clone|
+          origin = clone.cloned_from
+          next unless origin && origin.status == "active" && origin.is_enabled
 
-          # Create conflicts between each pair
-          group.combination(2).each do |a, b|
-            conflict = create_conflict_if_new(
-              skill_a_id: a[0],
-              skill_b_id: b[0],
-              conflict_type: "version_drift",
-              severity: "medium",
-              auto_resolvable: false,
-              resolution_strategy: "human_review",
-              resolution_details: {
-                skill_a_name: a[1],
-                skill_b_name: b[1],
-                shared_prefix: a[1].to_s.split(/\s+/).first
-              }
-            )
-            created << conflict if conflict
-          end
+          merge = clone.update_from_source(dry_run: true)
+          next if merge[:conflicts].blank?
+
+          conflict = create_conflict_if_new(
+            skill_a_id: origin.id,
+            skill_b_id: clone.id,
+            conflict_type: "version_drift",
+            severity: "medium",
+            auto_resolvable: false,
+            resolution_strategy: "human_review",
+            resolution_details: {
+              skill_a_name: origin.name,
+              skill_b_name: clone.name,
+              source_key: clone.source_key,
+              diverged_fields: merge[:conflicts].keys
+            }
+          )
+          created << conflict if conflict
         end
 
         Rails.logger.info "[SkillGraph::ConflictDetection] detect_version_drift found #{created.size} conflicts"

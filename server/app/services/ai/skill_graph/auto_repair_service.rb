@@ -296,9 +296,13 @@ module Ai
 
       def build_version_drift_description(conflict)
         details = conflict.resolution_details || {}
-        "Skills '#{details['skill_a_name']}' and '#{details['skill_b_name']}' share the prefix " \
-          "'#{details['shared_prefix']}' and may represent different versions of the same capability. " \
-          "Review whether they should be consolidated or versioned properly."
+        fields = Array(details["diverged_fields"])
+        field_note = fields.any? ? " Diverged fields: #{fields.join(', ')}." : ""
+
+        "Skills '#{details['skill_a_name']}' and '#{details['skill_b_name']}' share lineage " \
+          "(source_key '#{details['source_key']}') and have unresolved differences from a 3-way merge " \
+          "against their common origin.#{field_note} Review whether they should be reconciled or kept " \
+          "as intentionally separate overrides."
       end
 
       def merge_knowledge_graph_node(winner, loser)

@@ -129,6 +129,29 @@ RSpec.describe Ai::SkillGraph::HealthScoreService, type: :service do
       expect(result[:components][:conflict_penalty]).to be <= 1.0
     end
 
+    describe "conflict_penalty severity weighting (F6)" do
+      it "weighs a critical conflict more heavily than a low-severity one" do
+        skill_a = create(:ai_skill, account: account, effectiveness_score: 0.5)
+        skill_b = create(:ai_skill, account: account, effectiveness_score: 0.5)
+
+        create(:ai_skill_conflict,
+          account: account, skill_a: skill_a, skill_b: skill_b,
+          conflict_type: "duplicate", severity: "critical", status: "detected"
+        )
+        critical_penalty = service.calculate[:components][:conflict_penalty]
+
+        Ai::SkillConflict.destroy_all
+
+        create(:ai_skill_conflict, :overlapping,
+          account: account, skill_a: skill_a, skill_b: skill_b,
+          severity: "low", status: "detected"
+        )
+        low_penalty = service.calculate[:components][:conflict_penalty]
+
+        expect(critical_penalty).to be > low_penalty
+      end
+    end
+
     it "returns score between 0 and 100" do
       create(:ai_skill, account: account, effectiveness_score: 0.5)
 

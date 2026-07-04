@@ -136,10 +136,23 @@ module Ai
         avg&.to_f || 0.0
       end
 
-      # Conflict penalty: active_conflicts / total_active_skills (capped at 1.0)
+      # Conflict penalty: severity-weighted active conflicts / total_active
+      # skills (capped at 1.0). Weighted rather than a flat headcount so a
+      # genuine hard conflict (duplicate/circular_dependency — critical/
+      # high) drags the score down more than an advisory signal (stale/
+      # orphan/overlapping — low). Previously every active conflict counted
+      # equally regardless of severity, which let a flood of low-signal
+      # rows (e.g. version_drift false positives, or "consider merging"
+      # overlapping suggestions) dominate the penalty exactly like a real
+      # conflict would (F6). Normalized against SEVERITY_WEIGHTS["critical"]
+      # so one critical conflict per skill still maxes out the penalty,
+      # matching the prior scale.
       def calculate_conflict_penalty(active_skills, total_active)
-        active_conflict_count = Ai::SkillConflict.where(account: account).active.count
-        [active_conflict_count / total_active.to_f, 1.0].min
+        weighted = Ai::SkillConflict.where(account: account).active.pluck(:severity)
+          .sum { |severity| Ai::SkillConflict::SEVERITY_WEIGHTS.fetch(severity, 2) }
+        max_weight = Ai::SkillConflict::SEVERITY_WEIGHTS.fetch("critical", 4)
+
+        [weighted / (total_active * max_weight).to_f, 1.0].min
       end
 
       def score_to_grade(score)
