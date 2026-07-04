@@ -48,12 +48,13 @@ class AiChatResponseJob < BaseJob
     }.compact.presence
   end
 
-  def build_response_messages(_conv_response, conversation_id, agent)
-    # Fetch recent message history
-    response = backend_api_get("/api/v1/ai/conversations/#{conversation_id}", {})
-
+  def build_response_messages(conv_response, _conversation_id, agent)
+    # conv_response was already fetched once by AiResponseJobConcern#execute
+    # and passed in here — re-fetching it doubled every chat response's
+    # GET /api/v1/ai/conversations/:id round-trip (IMP-258dee4f09b9).
+    # AiWorkspaceResponseJob's build_response_messages already reuses it this way.
     messages = []
-    conversation = response['data']['conversation'] if response['success']
+    conversation = conv_response['data']['conversation'] if conv_response['success']
 
     # System prompt from agent
     system_prompt = agent['system_prompt']
