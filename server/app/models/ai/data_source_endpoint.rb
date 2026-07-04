@@ -97,6 +97,21 @@ module Ai
       Array(cfg["pipeline"] || cfg[:pipeline]).any?
     end
 
+    # True when this endpoint performs a real external side effect: any HTTP
+    # method other than GET/HEAD, or an explicit metadata["side_effecting"]
+    # opt-in (e.g. the X.com template's POST /2/tweets "Create post" endpoint
+    # sets both). Shared write-gate detection for both execution surfaces —
+    # the agent path (Ai::Tools::DataSourceTool#write_endpoint?) and the
+    # interactive user path (Api::V1::Ai::DataSourcesController#validate_permissions)
+    # — so a write/side-effecting endpoint requires the same elevated grant
+    # regardless of which surface dispatches it.
+    def write_endpoint?
+      return true unless %w[GET HEAD].include?(http_method.to_s.upcase)
+
+      meta = metadata.is_a?(Hash) ? metadata.stringify_keys : {}
+      ActiveModel::Type::Boolean.new.cast(meta["side_effecting"])
+    end
+
     private
 
     def generate_slug

@@ -1276,16 +1276,12 @@ module Ai
       # write endpoint gate (query_source / contract_verdict / reconcile / failover)
       # ----------------------------------------------------------------------
 
-      # True when the endpoint performs a real external side effect: any HTTP
-      # method other than GET/HEAD, or an explicit metadata["side_effecting"]
-      # opt-in. The X.com template's POST /2/tweets "Create post" endpoint sets
-      # both http_method: "POST" and metadata: { side_effecting: true } (see
-      # Ai::DataSources::TemplateLibrary#x_com_template).
+      # Delegates to Ai::DataSourceEndpoint#write_endpoint? — shared with the
+      # interactive user path (Api::V1::Ai::DataSourcesController) so both
+      # execution surfaces agree on what counts as a write/side-effecting
+      # endpoint. See the model method for the detection rule.
       def write_endpoint?(endpoint)
-        return true unless %w[GET HEAD].include?(endpoint.http_method.to_s.upcase)
-
-        meta = endpoint.metadata.is_a?(Hash) ? endpoint.metadata.stringify_keys : {}
-        to_bool(meta["side_effecting"])
+        endpoint.write_endpoint?
       end
 
       # Single-target governed fetch shared by every call site that executes ONE

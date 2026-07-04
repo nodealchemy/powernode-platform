@@ -179,4 +179,68 @@ RSpec.describe "Api::V1::Ai::DataSource Query", type: :request do
     include_examples "requires authentication", :post,
                      "/api/v1/ai/data_sources/placeholder/endpoints/placeholder/query"
   end
+
+  # Parity with the agent path (Ai::Tools::DataSourceTool#guarded_fetch /
+  # #write_endpoint?): a write/side-effecting endpoint needs the elevated
+  # update/manage grant, not just the base query grant a read endpoint
+  # requires — see Ai::DataSourceEndpoint#write_endpoint?.
+  describe "write-endpoint gate (parity with the agent path)" do
+    let!(:write_endpoint) do
+      create(:ai_data_source_endpoint, :post, data_source: data_source, slug: "publish")
+    end
+    let(:write_query_path) { "/api/v1/ai/data_sources/#{data_source.id}/endpoints/#{write_endpoint.id}/query" }
+
+    it "forbids a query-only user from executing a write endpoint" do
+      expect(Ai::DataSources::QueryService).not_to receive(:new)
+
+      post write_query_path, headers: auth_headers_for(querier), as: :json
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "forbids a write endpoint execution for a user with no permissions" do
+      expect(Ai::DataSources::QueryService).not_to receive(:new)
+
+      post write_query_path, headers: auth_headers_for(user_without_permissions(account: account)), as: :json
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "allows a user with ai.data_sources.update (no query grant) to execute a write endpoint" do
+      stub_query_service(success_envelope)
+      updater = user_with_permissions("ai.data_sources.update", account: account)
+
+      post write_query_path, headers: auth_headers_for(updater), as: :json
+
+      expect_success_response
+    end
+
+    it "allows a user with ai.data_sources.manage to execute a write endpoint" do
+      stub_query_service(success_envelope)
+      manager = user_with_permissions("ai.data_sources.manage", account: account)
+
+      post write_query_path, headers: auth_headers_for(manager), as: :json
+
+      expect_success_response
+    end
+
+    it "forbids a query-only user from executing a GET endpoint opted into metadata[side_effecting]" do
+      side_effecting_get = create(:ai_data_source_endpoint, data_source: data_source, slug: "trigger",
+                                   metadata: { "side_effecting" => true })
+      expect(Ai::DataSources::QueryService).not_to receive(:new)
+
+      post "/api/v1/ai/data_sources/#{data_source.id}/endpoints/#{side_effecting_get.id}/query",
+           headers: auth_headers_for(querier), as: :json
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it "still allows a read (GET, non-side-effecting) endpoint with only ai.data_sources.query" do
+      stub_query_service(success_envelope)
+
+      post query_path, headers: auth_headers_for(querier), as: :json
+
+      expect_success_response
+    end
+  end
 end
