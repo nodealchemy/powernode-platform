@@ -337,6 +337,12 @@ module Ai
       # request (or one with cache_ttl_seconds <= 0) regardless of this
       # metadata flag — see QueryService#cacheable_request? — so a retried post
       # always really posts rather than silently replaying a cached response.
+      # It additionally carries metadata["captures_published_post"] (growth
+      # analytics, G1) so a successful post is recorded as an Ai::PublishedPost
+      # (see Ai::Growth::PublishedPostRecorder); the "Post metrics" endpoint
+      # below (metadata["engagement_metrics"]) is what
+      # Ai::Growth::EngagementIngestionService polls for that post's
+      # likes/reposts/replies/impressions.
       def x_com_template
         {
           slug: "x-com",
@@ -411,7 +417,32 @@ module Ai
                 "response_mapping" => { "records_path" => "data" },
                 "metadata" => {
                   "note" => "SIDE-EFFECTING write — publishes a real post. Never cached.",
-                  "side_effecting" => true
+                  "side_effecting" => true,
+                  # Opts this endpoint into Ai::Growth::PublishedPostRecorder
+                  # (invoked from Ai::Tools::DataSourceTool#guarded_fetch after
+                  # a successful write): the {id, text} response is captured as
+                  # an Ai::PublishedPost. Same metadata-flag idiom as
+                  # side_effecting above — a future provider's own create-post
+                  # endpoint opts in the same way, no core code change.
+                  "captures_published_post" => true
+                }
+              },
+              {
+                "name" => "Post metrics",
+                "slug" => "post-metrics",
+                "http_method" => "GET",
+                "path_template" => "/2/tweets/{id}",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "query_template" => { "tweet.fields" => "public_metrics" },
+                "response_mapping" => { "records_path" => "data" },
+                "metadata" => {
+                  "note" => "id is the tweet id (Create post's response id). Returns " \
+                            "public_metrics: like_count, retweet_count, reply_count, impression_count.",
+                  # Discovered by Ai::Growth::EngagementIngestionService to read
+                  # a published post's current engagement — see its FIELD_MAPS
+                  # entry for source_type "x_com".
+                  "engagement_metrics" => true
                 }
               }
             ]

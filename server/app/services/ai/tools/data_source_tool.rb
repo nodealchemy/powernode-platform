@@ -26,6 +26,11 @@ module Ai
     # This closes the gap where QUERY_PERMISSION alone would let an unprivileged
     # agent silently publish (e.g. post a tweet) through the governed-fetch path.
     #
+    # PUBLISHED-POST CAPTURE (growth analytics, G1): #guarded_fetch, the single
+    # choke point every one of those actions dispatches through, also records an
+    # Ai::PublishedPost when the dispatched endpoint opts in via
+    # metadata["captures_published_post"] — see Ai::Growth::PublishedPostRecorder.
+    #
     # The class-level REQUIRED_PERMISSION gates visibility (least-privilege read);
     # finer per-action checks happen inside #call so a single tool can carry read,
     # query, and mutation actions with distinct authorization.
@@ -1299,13 +1304,32 @@ module Ai
           return propose_write(ds, endpoint, action, query_params)
         end
 
-        Ai::DataSources::QueryService.new(
+        envelope = Ai::DataSources::QueryService.new(
           data_source: ds,
           endpoint: endpoint,
           params: (query_params || {}).to_h,
           agent: agent,
           user: user
         ).call
+
+        # Growth analytics (G1): an endpoint opted into
+        # metadata["captures_published_post"] (e.g. x-com's Create post) has its
+        # successful write recorded as an Ai::PublishedPost — see
+        # Ai::Growth::PublishedPostRecorder. No-op for every other endpoint.
+        record_published_post(ds, endpoint, envelope) if captures_published_post?(endpoint)
+
+        envelope
+      end
+
+      def captures_published_post?(endpoint)
+        meta = endpoint.metadata.is_a?(Hash) ? endpoint.metadata.stringify_keys : {}
+        to_bool(meta["captures_published_post"])
+      end
+
+      def record_published_post(ds, endpoint, envelope)
+        Ai::Growth::PublishedPostRecorder.new(account: account, agent: agent).record(ds, endpoint, envelope)
+      rescue StandardError => e
+        Rails.logger.warn("[DataSourceTool] published-post capture failed: #{e.class}: #{e.message}")
       end
 
       # When the agent's account lacks WRITE_ENDPOINT_PERMISSION for a write/

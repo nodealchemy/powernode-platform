@@ -19,6 +19,8 @@ module Ai
              foreign_key: "ai_data_source_id", dependent: :destroy
     has_many :config_versions, class_name: "Ai::DataSourceConfigVersion",
              foreign_key: "ai_data_source_id", dependent: :destroy
+    has_many :published_posts, class_name: "Ai::PublishedPost",
+             foreign_key: "ai_data_source_id", dependent: :destroy
     has_one :knowledge_graph_node, class_name: "Ai::KnowledgeGraphNode",
             foreign_key: "ai_data_source_id", dependent: :nullify
 

@@ -503,7 +503,7 @@ RSpec.describe Ai::DataSources::TemplateLibrary, type: :service do
       expect(source.slug).to eq("x-com")
       expect(source.source_type).to eq("x_com")
       expect(result[:updated_endpoints].map { |e| e[:slug] })
-        .to contain_exactly("recent-search", "user-tweets", "create-post")
+        .to contain_exactly("recent-search", "user-tweets", "create-post", "post-metrics")
     end
 
     it "survives the import sanitizer's auth_config allowlist round-trip unchanged" do
@@ -555,12 +555,21 @@ RSpec.describe Ai::DataSources::TemplateLibrary, type: :service do
         expect(req[:body]).to eq("text" => "hello world")
       end
 
-      it "marks the create-post endpoint as never-cache and side-effecting" do
+      it "marks the create-post endpoint as never-cache, side-effecting, and publish-capturing" do
         endpoint = described_class.install("x-com", account: account)[:data_source]
                                    .endpoints.find_by!(slug: "create-post")
 
         expect(endpoint.cache_ttl_seconds).to eq(0)
         expect(endpoint.metadata["side_effecting"]).to be(true)
+        expect(endpoint.metadata["captures_published_post"]).to be(true)
+      end
+
+      it "marks the post-metrics endpoint as an engagement-metrics source" do
+        endpoint = described_class.install("x-com", account: account)[:data_source]
+                                   .endpoints.find_by!(slug: "post-metrics")
+
+        expect(endpoint.http_method).to eq("GET")
+        expect(endpoint.metadata["engagement_metrics"]).to be(true)
       end
     end
   end
