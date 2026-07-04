@@ -206,11 +206,16 @@ module Ai
         { error: e.message }
       end
 
-      # Decay effectiveness of skills not used recently
+      # Decay effectiveness of skills not used recently. Only skills that HAVE
+      # a last_used_at (i.e. were actually used at some point, then went
+      # stale) decay — a skill that has NEVER been used (last_used_at nil) is
+      # a no-signal seed, not a bad skill, and previously rotted to 0.0 daily
+      # for no reason other than not yet being attached/discovered (F4).
       def decay_stale_skills(days_threshold: 30)
         cutoff = days_threshold.days.ago
         stale_skills = Ai::Skill.for_account(account.id).active
-          .where("last_used_at < ? OR last_used_at IS NULL", cutoff)
+          .where.not(last_used_at: nil)
+          .where("last_used_at < ?", cutoff)
           .where("effectiveness_score > ?", 0.0)
 
         decayed = 0

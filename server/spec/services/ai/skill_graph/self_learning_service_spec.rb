@@ -81,6 +81,69 @@ RSpec.describe Ai::SkillGraph::SelfLearningService, type: :service do
       result = service.record_skill_outcomes(execution: execution, agent: nil, outcome: "success")
       expect(result).to be_nil
     end
+
+    # F4: usage recording is no longer limited to agent.skills.active — a
+    # skill dynamically resolved for this execution (e.g. via skill-graph
+    # context enrichment) but never attached to any agent must still accrue
+    # usage/last_used_at, or orphaned and global-baseline skills can never
+    # recover from a cold start.
+    context "with resolved_skill_ids (skills surfaced but not attached)" do
+      let(:orphan_skill) { create(:ai_skill, account: account) }
+
+      it "records usage for a resolved skill that isn't attached to the agent" do
+        count = service.record_skill_outcomes(
+          execution: execution, agent: agent, outcome: "success", resolved_skill_ids: [orphan_skill.id]
+        )
+
+        expect(count).to eq(2) # attached skill + resolved orphan
+        expect(orphan_skill.usage_records.count).to eq(1)
+        expect(orphan_skill.reload.last_used_at).to be_present
+      end
+
+      it "records for the resolved skill alone when the agent has no attached skills" do
+        agent_without_skills = create(:ai_agent, account: account)
+
+        count = service.record_skill_outcomes(
+          execution: execution, agent: agent_without_skills, outcome: "success", resolved_skill_ids: [orphan_skill.id]
+        )
+
+        expect(count).to eq(1)
+        expect(orphan_skill.reload.usage_count).to eq(1)
+      end
+
+      it "does not double-record a skill that is both attached and passed as resolved" do
+        count = service.record_skill_outcomes(
+          execution: execution, agent: agent, outcome: "success", resolved_skill_ids: [skill.id]
+        )
+
+        expect(count).to eq(1)
+        expect(skill.reload.usage_count).to eq(1)
+      end
+
+      it "ignores a resolved skill id the account can't see" do
+        other_account = create(:account)
+        other_skill = create(:ai_skill, account: other_account)
+
+        count = service.record_skill_outcomes(
+          execution: execution, agent: agent, outcome: "success", resolved_skill_ids: [other_skill.id]
+        )
+
+        expect(count).to eq(1) # only the attached skill
+        expect(other_skill.reload.usage_count).to eq(0)
+      end
+    end
+
+    # F4: this path previously never called recalculate_effectiveness! at all
+    # (Skill#record_usage! is the only method that did), so effectiveness sat
+    # frozen at its seed value no matter how much real usage flowed through
+    # agent executions.
+    it "recalculates effectiveness after a single real usage (lowered gate)" do
+      expect(skill.effectiveness_score).to eq(0.5) # factory default / neutral baseline
+
+      service.record_skill_outcomes(execution: execution, agent: agent, outcome: "success")
+
+      expect(skill.reload.effectiveness_score).not_to eq(0.5)
+    end
   end
 
   describe "#optimize_dependencies" do

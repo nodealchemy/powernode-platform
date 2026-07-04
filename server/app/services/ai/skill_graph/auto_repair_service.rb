@@ -178,6 +178,15 @@ module Ai
       end
 
       # Stale: decrease effectiveness; if already < 0.2, mark as auto_resolved
+      #
+      # F4 note: unlike EvolutionService#decay_stale_skills (a blanket daily
+      # sweep over every skill), this only ever runs against a "stale"
+      # SkillConflict, which ConflictDetectionService#detect_stale_skills only
+      # creates for skills already `created_at < STALE_MIN_AGE.days.ago` — a
+      # brand-new never-used seed can't reach this method in the first place,
+      # so it doesn't need the same never-used floor/skip. The <0.2 branch
+      # below already acts as a soft floor (stops mutating instead of driving
+      # to 0.0).
       def resolve_stale(conflict)
         skill = Ai::Skill.find_by(id: conflict.skill_a_id)
         return { success: false, error: "Skill not found" } unless skill

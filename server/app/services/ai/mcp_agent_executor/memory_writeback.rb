@@ -170,9 +170,12 @@ class Ai::McpAgentExecutor
       return unless @agent && @execution
 
       outcome = result.dig("metadata", "status") == "error" ? "failure" : "success"
+      resolved_skill_ids = Array(execution_context[:resolved_skill_ids])
 
       service = Ai::SkillGraph::SelfLearningService.new(@account)
-      recorded = service.record_skill_outcomes(execution: @execution, agent: @agent, outcome: outcome)
+      recorded = service.record_skill_outcomes(
+        execution: @execution, agent: @agent, outcome: outcome, resolved_skill_ids: resolved_skill_ids
+      )
       service.optimize_dependencies(execution: @execution, agent: @agent, outcome: outcome) if recorded.to_i > 0
     rescue StandardError => e
       @logger.warn "[MemoryWriteback] Skill learning outcome recording failed: #{e.message}"

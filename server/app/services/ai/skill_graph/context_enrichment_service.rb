@@ -54,7 +54,14 @@ module Ai
             mode: :auto,
             skill_count: skills.size,
             seed_count: result[:seed_count],
-            token_estimate: result[:token_estimate]
+            token_estimate: result[:token_estimate],
+            # F4: ids of the skills actually injected into this context (deliberately
+            # excludes agent-attached skills — see TraversalService#attached_skill_ids —
+            # so this is the "resolved but not pre-attached" set: orphans and global
+            # baseline skills that would otherwise never accrue a usage signal).
+            # Threaded through McpAgentExecutor::ContextAndFormatting into
+            # MemoryWriteback so SelfLearningService can record real usage for them.
+            skill_ids: skills.map { |s| s[:skill_id] }.compact.uniq
           }
         }
       end

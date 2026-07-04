@@ -111,10 +111,20 @@ module Ai
         [avg_edges / 3.0, 1.0].min
       end
 
-      # Freshness: fraction of active skills used in last 30 days
+      # Freshness: fraction of active skills used in last 30 days. A skill
+      # that has NEVER been used (last_used_at nil) counts as fresh while it's
+      # still recently created — it hasn't had a fair chance to be discovered
+      # yet, so a newly-seeded baseline shouldn't drag the score to 0.0 on day
+      # one (F4). Once it ages past the same 30-day window without ever being
+      # used, it legitimately starts counting against freshness like anything
+      # else that's gone stale.
       def calculate_freshness(active_skills, total_active)
+        cutoff = 30.days.ago
         fresh_count = active_skills
-          .where("last_used_at >= ?", 30.days.ago)
+          .where(
+            "last_used_at >= :cutoff OR (last_used_at IS NULL AND created_at >= :cutoff)",
+            cutoff: cutoff
+          )
           .count
 
         fresh_count / total_active.to_f

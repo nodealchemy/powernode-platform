@@ -339,13 +339,22 @@ RSpec.describe Ai::SkillGraph::EvolutionService, type: :service do
       expect(Ai::Skill.last.effectiveness_score).to eq(0.0)
     end
 
-    it "decays skills with nil last_used_at" do
+    it "does not decay a never-used skill (nil last_used_at) — no usage signal isn't a bad skill (F4)" do
       skill = create(:ai_skill, account: account, last_used_at: nil, effectiveness_score: 0.5)
 
       result = service.decay_stale_skills
 
+      expect(result).to eq(0)
+      expect(skill.reload.effectiveness_score).to eq(0.5)
+    end
+
+    it "still decays a skill that was used before but has since gone stale" do
+      previously_used = create(:ai_skill, account: account, last_used_at: 45.days.ago, effectiveness_score: 0.5)
+
+      result = service.decay_stale_skills(days_threshold: 30)
+
       expect(result).to eq(1)
-      expect(skill.reload.effectiveness_score).to eq(0.45)
+      expect(previously_used.reload.effectiveness_score).to eq(0.45)
     end
 
     it "skips skills with effectiveness already at 0.0" do

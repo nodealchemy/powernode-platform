@@ -137,6 +137,24 @@ RSpec.describe Ai::SkillGraph::HealthScoreService, type: :service do
       expect(result[:score]).to be_between(0.0, 100.0)
     end
 
+    describe "freshness for never-used skills (F4)" do
+      it "counts a recently-created but never-used skill as fresh" do
+        create(:ai_skill, account: account, last_used_at: nil, created_at: 2.days.ago, effectiveness_score: 0.5)
+
+        result = service.calculate
+
+        expect(result[:components][:freshness]).to eq(1.0)
+      end
+
+      it "does not count an old never-used skill as fresh" do
+        create(:ai_skill, account: account, last_used_at: nil, created_at: 60.days.ago, effectiveness_score: 0.5)
+
+        result = service.calculate
+
+        expect(result[:components][:freshness]).to eq(0.0)
+      end
+    end
+
     describe "grade thresholds" do
       it "assigns grade A for scores 90-100" do
         # Stub components to produce high score

@@ -60,6 +60,13 @@ class Ai::McpAgentExecutor
               base_context[:additional_context], context_block
             ].compact.join("\n\n")
           end
+
+          # F4: skills dynamically surfaced into this execution's context (auto
+          # mode only) are a real usage signal even though they aren't attached
+          # to the agent — carried through to MemoryWriteback so
+          # SelfLearningService#record_skill_outcomes isn't limited to
+          # agent.skills.active.
+          base_context[:resolved_skill_ids] = Array(enrichment.dig(:metadata, :skill_ids))
         end
       rescue StandardError => e
         Rails.logger.warn "[ContextAndFormatting] Skill graph enrichment failed: #{e.message}"

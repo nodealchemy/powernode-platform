@@ -18,6 +18,15 @@ module Ai
 
     STATUSES = %w[active inactive draft].freeze
 
+    # Minimum accumulated usage signal (positive + negative) before
+    # recalculate_effectiveness! runs. Was 5 — a skill sat frozen at the
+    # neutral default score until 5 full outcomes accumulated, which for a
+    # lightly-used (but real) skill meant effectiveness never moved. Lowered
+    # (F4) so a single genuine usage already updates the score; shared with
+    # SkillGraph::SelfLearningService#record_skill_outcomes, which recalculates
+    # on the same gate.
+    EFFECTIVENESS_RECALC_MIN_USES = 1
+
     # Where a skill's content originated. Mirrors the platform's other origin/
     # trust precedents (knowledge provenance, agent trust tiers). Platform-
     # authored skills are "internal"; "community"/"imported" cover externally
@@ -243,7 +252,7 @@ module Ai
       end
 
       update!(last_used_at: Time.current)
-      recalculate_effectiveness! if (positive_usage_count + negative_usage_count) >= 5
+      recalculate_effectiveness! if (positive_usage_count + negative_usage_count) >= EFFECTIVENESS_RECALC_MIN_USES
     end
 
     def recalculate_effectiveness!

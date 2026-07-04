@@ -9,16 +9,29 @@ module Ai
         @account = account
       end
 
-      # Record skill outcomes from an execution
-      def record_skill_outcomes(execution:, agent:, outcome:)
+      # Record skill outcomes from an execution. Records against skills
+      # ATTACHED to the agent (agent.skills.active) AND any additional skills
+      # actually RESOLVED for this execution but not pre-attached
+      # (resolved_skill_ids — dynamically surfaced via skill-graph context
+      # enrichment, see ContextEnrichmentService/TraversalService). Before F4
+      # this only ever saw agent.skills.active, so orphaned skills and the
+      # global baseline (never attached to any agent) could never accrue
+      # usage/last_used_at no matter how often they were actually resolved.
+      def record_skill_outcomes(execution:, agent:, outcome:, resolved_skill_ids: [])
         return unless Shared::FeatureFlagService.enabled?(:skill_self_learning, account)
         return unless agent && execution
 
-        skills = agent.skills.active
+        attached = agent.skills.active.to_a
+        resolved = if resolved_skill_ids.present?
+                     Ai::Skill.for_account(account.id).active.where(id: resolved_skill_ids).to_a
+                   else
+                     []
+                   end
+        skills = (attached + resolved).uniq(&:id)
         return if skills.empty?
 
         recorded = 0
-        skills.find_each do |skill|
+        skills.each do |skill|
           # Create usage record with full execution context
           skill.usage_records.create!(
             account: account,
@@ -39,6 +52,14 @@ module Ai
             skill.increment!(:negative_usage_count)
           end
           skill.update_column(:last_used_at, Time.current)
+
+          # F4: recalculate effectiveness here too (previously this path never
+          # called it at all, so effectiveness sat frozen at its seed value no
+          # matter how much real usage flowed through agent executions) — same
+          # lowered gate as Skill#record_usage! so a small-but-real signal counts.
+          if (skill.positive_usage_count + skill.negative_usage_count) >= Ai::Skill::EFFECTIVENESS_RECALC_MIN_USES
+            skill.recalculate_effectiveness!
+          end
 
           recorded += 1
         end
