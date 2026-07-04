@@ -448,6 +448,7 @@ module Ai
         "skill_metrics" => "Ai::Tools::SkillTool",
         "create_skill" => "Ai::Tools::SkillTool",
         "update_skill" => "Ai::Tools::SkillTool",
+        "clone_skill" => "Ai::Tools::SkillTool",
         "delete_skill" => "Ai::Tools::SkillTool",
         "toggle_skill" => "Ai::Tools::SkillTool",
         "attach_skill_to_agent" => "Ai::Tools::SkillTool",

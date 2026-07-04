@@ -60,13 +60,19 @@ module Ai
       raise ValidationError, e.message
     end
 
+    # Clone-on-write (F3): a system/global skill is never edited in place for an
+    # account — the edit lands on a per-account clone instead, leaving the
+    # shared baseline untouched for every other account. Returns a result hash
+    # (not a bare Skill) so the caller gets a CLEAR signal a clone was created
+    # rather than being surprised into thinking they edited the baseline.
     def update_skill(skill_id:, attributes:, mcp_server_ids: nil)
       skill = find_skill(skill_id: skill_id)
-      raise ValidationError, "Cannot modify system skills" if skill.is_system && account.present?
+      cloned = skill.is_system && account.present?
 
       requested_provenance, attrs = extract_provenance(attributes)
 
       Ai::Skill.transaction do
+        skill = resolve_editable_target(skill) if cloned
         skill.assign_attributes(attrs)
         # Re-scan after applying the edit so an update that injects malicious
         # content downgrades the trust_level (and re-gates the attach path).
@@ -79,6 +85,34 @@ module Ai
       end
 
       skill.reload
+      { skill: skill, cloned: cloned, cloned_from_id: cloned ? skill.cloned_from_id : nil }
+    rescue ActiveRecord::RecordInvalid => e
+      raise ValidationError, e.message
+    end
+
+    # Explicit counterpart to update_skill's clone-on-write path: fork a
+    # visible (global or account) skill into the current account without
+    # requiring an edit in the same call. `overrides` run through the same
+    # provenance/content-scan gate as update_skill (extract_provenance strips
+    # any caller-supplied trust_level) so a clone can't smuggle in unscanned
+    # content via the override.
+    def clone_skill(skill_id:, overrides: {})
+      raise ValidationError, "An account is required to clone a skill" unless account.present?
+
+      origin = find_skill(skill_id: skill_id)
+      requested_provenance, attrs = extract_provenance(overrides || {})
+
+      clone = nil
+      Ai::Skill.transaction do
+        clone = resolve_editable_target(origin)
+        if attrs.present?
+          clone.assign_attributes(attrs)
+          apply_provenance_and_trust(clone, requested_provenance || clone.provenance)
+          clone.save!
+        end
+      end
+
+      clone
     rescue ActiveRecord::RecordInvalid => e
       raise ValidationError, e.message
     end
@@ -194,6 +228,35 @@ module Ai
       )
     rescue StandardError => e
       Rails.logger.error "[Ai::SkillService] scan log failed: #{e.message}"
+    end
+
+    # Resolve the account-editable target for a visible skill (F3 clone-on-write).
+    # A GLOBAL origin clone-on-evolves: reuse the account's existing override if
+    # one was already forked from this origin (idempotent — a second edit lands
+    # on the same clone rather than piling up duplicates), otherwise fork a new
+    # one carrying the origin's OWN slug/name. clone_to_account's default -copy
+    # /(Copy) suffixing is meant for a parallel, independently-discoverable copy
+    # (the generic behavior other GloballyScopable content — templates,
+    # knowledge bases — wants from a "clone to customize" action); skills need
+    # the opposite so Ai::Skill.resolve_for's account_override_first ordering
+    # can find the fork and treat it as this account's version of the skill
+    # (F2). An origin that's already account-owned (not global — e.g. the
+    # account's own is_system-flagged row, an edge case) just gets a plain
+    # generic clone: forcing the same slug within the SAME account_id would
+    # collide with itself.
+    def resolve_editable_target(origin)
+      return origin.clone_to_account(account) unless origin.global?
+
+      Ai::Skill.owned_by_account(account.id).find_by(cloned_from_id: origin.id) ||
+        clone_as_override(origin)
+    end
+
+    def clone_as_override(origin)
+      clone = origin.clone_to_account(account)
+      clone.slug = origin.slug
+      clone.name = origin.name
+      clone.save!
+      clone
     end
 
     # Apply ?scope=global|custom|all (default: for_account = global + own) so the

@@ -8,15 +8,15 @@ module Ai
       def self.definition
         {
           name: "skill_management",
-          description: "Manage and discover AI skills: list, get details, discover relevant skills, create/update/delete/toggle skills, get enriched context, and check skill graph health",
+          description: "Manage and discover AI skills: list, get details, discover relevant skills, create/update/delete/toggle/clone skills, get enriched context, and check skill graph health",
           parameters: {
-            action: { type: "string", required: true, description: "Action: list_skills, get_skill, discover_skills, get_skill_context, skill_health, skill_metrics, create_skill, update_skill, delete_skill, toggle_skill" },
-            skill_id: { type: "string", required: false, description: "Skill ID (for get_skill, update_skill, delete_skill, toggle_skill)" },
-            name: { type: "string", required: false, description: "Skill name (for create_skill, update_skill)" },
-            description: { type: "string", required: false, description: "Skill description (for create_skill, update_skill)" },
-            system_prompt: { type: "string", required: false, description: "System prompt template (for create_skill, update_skill)" },
-            commands: { type: "array", required: false, description: "Slash commands array (for create_skill, update_skill)" },
-            tags: { type: "array", required: false, description: "Tags array (for create_skill, update_skill)" },
+            action: { type: "string", required: true, description: "Action: list_skills, get_skill, discover_skills, get_skill_context, skill_health, skill_metrics, create_skill, update_skill, delete_skill, toggle_skill, clone_skill" },
+            skill_id: { type: "string", required: false, description: "Skill ID (for get_skill, update_skill, delete_skill, toggle_skill, clone_skill)" },
+            name: { type: "string", required: false, description: "Skill name (for create_skill, update_skill, clone_skill override)" },
+            description: { type: "string", required: false, description: "Skill description (for create_skill, update_skill, clone_skill override)" },
+            system_prompt: { type: "string", required: false, description: "System prompt template (for create_skill, update_skill, clone_skill override)" },
+            commands: { type: "array", required: false, description: "Slash commands array (for create_skill, update_skill, clone_skill override)" },
+            tags: { type: "array", required: false, description: "Tags array (for create_skill, update_skill, clone_skill override)" },
             status: { type: "string", required: false, description: "Filter by status: active/inactive/draft (for list_skills)" },
             category: { type: "string", required: false, description: "Filter by category (for list_skills, create_skill)" },
             search: { type: "string", required: false, description: "Search query for skill name/description (for list_skills)" },
@@ -88,7 +88,7 @@ module Ai
             }
           },
           "update_skill" => {
-            description: "Update an existing AI skill's configuration",
+            description: "Update an existing AI skill's configuration. A global/system skill is never edited in place — the edit lands on a per-account clone instead (response includes cloned: true and cloned_from_id).",
             parameters: {
               skill_id: { type: "string", required: true, description: "Skill ID" },
               name: { type: "string", required: false, description: "New skill name" },
@@ -97,6 +97,18 @@ module Ai
               system_prompt: { type: "string", required: false, description: "System prompt template" },
               commands: { type: "array", required: false, description: "Slash commands array" },
               tags: { type: "array", required: false, description: "Tags array" }
+            }
+          },
+          "clone_skill" => {
+            description: "Fork a visible (global or account) skill into the current account as an editable copy, optionally applying overrides in the same call. Idempotent per origin — a repeat clone of the same origin edits the account's existing fork rather than duplicating it.",
+            parameters: {
+              skill_id: { type: "string", required: true, description: "Skill UUID or slug to clone" },
+              name: { type: "string", required: false, description: "Override name on the clone" },
+              description: { type: "string", required: false, description: "Override description on the clone" },
+              category: { type: "string", required: false, description: "Override category on the clone" },
+              system_prompt: { type: "string", required: false, description: "Override system prompt on the clone" },
+              commands: { type: "array", required: false, description: "Override commands array on the clone" },
+              tags: { type: "array", required: false, description: "Override tags array on the clone" }
             }
           },
           "delete_skill" => {
@@ -143,6 +155,7 @@ module Ai
         when "skill_metrics" then skill_metrics
         when "create_skill" then create_skill(params)
         when "update_skill" then update_skill(params)
+        when "clone_skill" then clone_skill(params)
         when "delete_skill" then delete_skill(params)
         when "toggle_skill" then toggle_skill(params)
         when "attach_skill_to_agent" then attach_skill_to_agent(params)
@@ -309,8 +322,34 @@ module Ai
         attributes[:commands] = Array(params[:commands]) if params.key?(:commands)
         attributes[:tags] = Array(params[:tags]) if params.key?(:tags)
 
-        skill = skill_service.update_skill(skill_id: params[:skill_id], attributes: attributes)
-        { success: true, skill: skill.skill_details }
+        result = skill_service.update_skill(skill_id: params[:skill_id], attributes: attributes)
+        response = { success: true, skill: result[:skill].skill_details, cloned: result[:cloned] }
+        response[:cloned_from_id] = result[:cloned_from_id] if result[:cloned]
+        response
+      rescue Ai::SkillService::NotFoundError, Ai::SkillService::ValidationError => e
+        { success: false, error: e.message }
+      rescue StandardError => e
+        { success: false, error: e.message }
+      end
+
+      def clone_skill(params)
+        return { success: false, error: "skill_id is required" } if params[:skill_id].blank?
+
+        overrides = {}
+        overrides[:name] = params[:name] if params[:name].present?
+        overrides[:description] = params[:description] if params[:description].present?
+        overrides[:category] = params[:category] if params[:category].present?
+        overrides[:system_prompt] = params[:system_prompt] if params[:system_prompt].present?
+        overrides[:commands] = Array(params[:commands]) if params.key?(:commands)
+        overrides[:tags] = Array(params[:tags]) if params.key?(:tags)
+
+        clone = skill_service.clone_skill(skill_id: params[:skill_id], overrides: overrides)
+        {
+          success: true,
+          skill: clone.skill_details,
+          cloned_from_id: clone.cloned_from_id,
+          source_key: clone.source_key
+        }
       rescue Ai::SkillService::NotFoundError, Ai::SkillService::ValidationError => e
         { success: false, error: e.message }
       rescue StandardError => e

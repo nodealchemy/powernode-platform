@@ -67,13 +67,19 @@ module Api
           require_editable_content!(@skill)
           return if performed?
 
-          skill = skill_service.update_skill(
+          result = skill_service.update_skill(
             skill_id: @skill.id,
             attributes: skill_params,
             mcp_server_ids: params.dig(:skill, :mcp_server_ids)
           )
 
-          render_success({ skill: skill.skill_details })
+          # require_editable_content! already blocks updating a global skill via
+          # HTTP (clone via POST .../:id/clone first), so result[:cloned] is
+          # normally false here — surfaced anyway in case an account's own
+          # is_system-flagged row (edge case) triggers clone-on-write.
+          response = { skill: result[:skill].skill_details }
+          response[:cloned] = true if result[:cloned]
+          render_success(response)
         rescue ::Ai::SkillService::ValidationError => e
           render_error(e.message, status: :unprocessable_content)
         end
