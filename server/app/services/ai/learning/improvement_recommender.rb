@@ -41,6 +41,8 @@ module Ai
           recommendation.apply!(user)
         when "skill_health"
           apply_skill_evolution(recommendation, user)
+        when "skill_creation"
+          apply_skill_creation(recommendation, user)
         else
           recommendation.apply!(user)
         end
@@ -102,6 +104,24 @@ module Ai
       def apply_skill_evolution(recommendation, user)
         version_id = recommendation.recommended_config["proposed_version_id"]
         Ai::SkillGraph::EvolutionService.new(@account).activate_version(version_id: version_id) if version_id.present?
+
+        recommendation.apply!(user)
+      end
+
+      # Approving a cluster-promotion skill_creation recommendation (Ai::
+      # Learning::LearningToSkillPromoter#propose_from_cluster) approves the
+      # underlying SkillProposal draft, then applies it — creating/refreshing
+      # the skill, wiring KG provenance, and inheriting effectiveness from
+      # the cluster's outcome aggregate. Older skill_creation recommendations
+      # (Ai::SkillGraph::SelfLearningService#detect_capability_gaps's
+      # capability-gap signal) carry no skill_proposal_id and have nothing to
+      # apply — approving one just acknowledges review, same as before.
+      def apply_skill_creation(recommendation, user)
+        proposal_id = recommendation.recommended_config["skill_proposal_id"]
+        if proposal_id.present?
+          Ai::SkillGraph::LifecycleService.new(@account).approve_proposal(proposal_id: proposal_id, reviewer: user)
+          Ai::Learning::LearningToSkillPromoter.new(account: @account).apply_approved_proposal!(proposal_id)
+        end
 
         recommendation.apply!(user)
       end

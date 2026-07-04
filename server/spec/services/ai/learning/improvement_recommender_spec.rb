@@ -230,6 +230,55 @@ RSpec.describe Ai::Learning::ImprovementRecommender, type: :service do
       end
     end
 
+    context "with a skill_creation recommendation from a cluster promotion (P2)" do
+      let!(:proposal) do
+        create(:ai_skill_proposal, :proposed, account: account, name: "Worktree Lock Guard (learning cluster)",
+               category: "productivity",
+               metadata: { "source" => "learning_cluster_promotion", "source_learning_ids" => [], "cluster_aggregate" => {} })
+      end
+      let!(:recommendation) do
+        create(:ai_improvement_recommendation,
+               :pending,
+               account: account,
+               recommendation_type: "skill_creation",
+               target_type: "Ai::SkillProposal",
+               target_id: proposal.id,
+               recommended_config: { "skill_proposal_id" => proposal.id })
+      end
+
+      it "approves the underlying proposal and creates the skill" do
+        service.apply_recommendation!(recommendation.id, user: user)
+
+        proposal.reload
+        expect(proposal.status).to eq("created")
+        expect(proposal.created_skill).to be_present
+      end
+
+      it "marks the recommendation as applied" do
+        service.apply_recommendation!(recommendation.id, user: user)
+
+        expect(recommendation.reload.status).to eq("applied")
+      end
+    end
+
+    context "with a skill_creation recommendation carrying no skill_proposal_id (capability-gap signal, regression)" do
+      let!(:recommendation) do
+        create(:ai_improvement_recommendation,
+               :pending,
+               account: account,
+               recommendation_type: "skill_creation",
+               target_type: "Account",
+               target_id: account.id,
+               recommended_config: {})
+      end
+
+      it "just marks the recommendation applied without error" do
+        result = service.apply_recommendation!(recommendation.id, user: user)
+
+        expect(result.status).to eq("applied")
+      end
+    end
+
     context "when recommendation does not exist" do
       it "returns nil" do
         result = service.apply_recommendation!(SecureRandom.uuid, user: user)
