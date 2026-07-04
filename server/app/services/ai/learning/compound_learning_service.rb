@@ -31,6 +31,14 @@ module Ai
       MIN_PROMOTION_CONFIDENCE = 0.7
       MIN_PROMOTION_EFFECTIVENESS = 0.4
 
+      # Scheduled verification pass (C4): a learning only has a *measured*
+      # effectiveness_score once #recalculate_effectiveness! has run, which
+      # requires this many injections — below it there's no real outcome
+      # evidence yet, so the pass leaves the learning alone rather than
+      # guessing. Matches CompoundLearning#recalculate_effectiveness!.
+      MIN_VERIFICATION_SAMPLE = 3
+      DEFAULT_VERIFY_BATCH_SIZE = 100
+
       def initialize(account:)
         @account = account
         @embedding_service = Ai::Memory::EmbeddingService.new(account: account)
@@ -349,6 +357,83 @@ module Ai
       rescue StandardError => e
         Rails.logger.error("[CompoundLearning] Dedup of promoted copies failed: #{e.message}")
         { success: false, error: e.message, collapsed: 0 }
+      end
+
+      # Scheduled quality-lifecycle pass (C4): verified_at is NULL corpus-wide
+      # today because the only writer is the human/agent-directed
+      # Ai::Tools::KnowledgeQualityTool (verify_learning/verify_learning_batch),
+      # which requires an acting user — nothing runs it on a schedule, so the
+      # corpus has no real quality signal (which #promote_cross_team's gate
+      # and general trust depend on). This closes that gap with an
+      # outcome-based heuristic (no LLM call, so no per-run cost) that reuses
+      # the exact "trustworthy" bars #promote_cross_team already established
+      # (MIN_PROMOTION_CONFIDENCE/EFFECTIVENESS) rather than inventing a
+      # second judgment of the same signal:
+      #   - effectiveness_score < MIN_PROMOTION_EFFECTIVENESS (a real, measured
+      #     poor track record) -> disprove! (matches KnowledgeQualityTool's
+      #     dispute_learning transition, just without a human-supplied reason)
+      #   - effectiveness_score >= MIN_PROMOTION_EFFECTIVENESS AND
+      #     confidence_score >= MIN_PROMOTION_CONFIDENCE -> verify!
+      #   - otherwise (positive-enough outcome but unproven confidence) -> left
+      #     alone; #verify! calls CompoundLearning directly (not through the
+      #     tool), same as #promote_learning/#dedup_check/#update_graph_node.
+      # Only considers learnings with a REAL measured outcome
+      # (injection_count >= MIN_VERIFICATION_SAMPLE, the same bar
+      # #recalculate_effectiveness! uses before effectiveness_score means
+      # anything) — unmeasured learnings are left for a future run once
+      # they've accrued enough injections, same "unmeasured is not held
+      # against it" stance as the promotion gate.
+      #
+      # Gated behind :compound_learning_scheduled_verification (default OFF)
+      # since — unlike the propose-only F5 evolution scan — this mutates
+      # status/importance/confidence directly; batch size is
+      # Account#settings-resolved (ai_learning_verify_batch_size) with a
+      # constant fallback, per the config-driven-config convention already
+      # established by Ai::ModelRefusalPromotionService.
+      def verify_unverified_batch(max_per_run: nil)
+        unless scheduled_verification_enabled?
+          return { success: true, feature_disabled: true, reason: "compound_learning_scheduled_verification feature flag disabled",
+                    verified: 0, disputed: 0, remaining: 0 }
+        end
+
+        cap = (max_per_run.presence || verify_batch_size).to_i.clamp(1, 1_000)
+
+        scope = Ai::CompoundLearning.active
+          .for_account(@account.id)
+          .where(verified_at: nil)
+          .where("injection_count >= ?", MIN_VERIFICATION_SAMPLE)
+
+        pending = scope.count
+        # find_each ignores .limit, so materialize the bounded slice. Oldest
+        # first so the longest-waiting candidates get judged first across runs.
+        batch = scope.order(:created_at).limit(cap).to_a
+        remaining = [pending - batch.size, 0].max
+
+        verified = 0
+        disputed = 0
+
+        batch.each do |learning|
+          if learning.effectiveness_score.to_f < MIN_PROMOTION_EFFECTIVENESS
+            learning.disprove!(
+              reason: "Automated verification pass: effectiveness #{learning.effectiveness_score.to_f.round(2)} " \
+                      "below trust threshold after #{learning.injection_count} injections"
+            )
+            disputed += 1
+          elsif learning.confidence_score.to_f >= MIN_PROMOTION_CONFIDENCE
+            learning.verify!
+            verified += 1
+          end
+          # else: positive-enough effectiveness but unproven confidence — leave unverified for now.
+        rescue StandardError => e
+          Rails.logger.warn("[CompoundLearning] Scheduled verification failed for #{learning.id}: #{e.message}")
+        end
+
+        skipped = batch.size - verified - disputed
+        Rails.logger.info("[CompoundLearning] Scheduled verification: verified=#{verified} disputed=#{disputed} skipped=#{skipped} remaining=#{remaining}")
+        { success: true, verified: verified, disputed: disputed, skipped: skipped, remaining: remaining }
+      rescue StandardError => e
+        Rails.logger.error("[CompoundLearning] Scheduled verification batch failed: #{e.message}")
+        { success: false, error: e.message, verified: 0, disputed: 0, remaining: 0 }
       end
 
       # Create a learning from team execution coordination results
@@ -827,6 +912,24 @@ module Ai
 
       def promotion_enabled?
         Shared::FeatureFlagService.enabled?(:compound_learning_promotion, @account)
+      end
+
+      def scheduled_verification_enabled?
+        Shared::FeatureFlagService.enabled?(:compound_learning_scheduled_verification, @account)
+      end
+
+      def verify_batch_size
+        configured = setting("ai_learning_verify_batch_size")
+        (configured.presence || DEFAULT_VERIFY_BATCH_SIZE).to_i.clamp(1, 1_000)
+      end
+
+      # Account#settings → constant fallback, matching
+      # Ai::ModelRefusalPromotionService's config-driven-config convention.
+      def setting(key)
+        s = @account&.settings
+        return nil unless s.is_a?(Hash)
+
+        s[key] || s[key.to_sym]
       end
 
       def execution_quality_sufficient?(execution)

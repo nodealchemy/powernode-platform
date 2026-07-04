@@ -62,6 +62,17 @@ RSpec.describe Ai::CompoundLearning, type: :model do
       expect(learning.importance_score).to be > original_importance
       expect(learning.confidence_score).to be > original_confidence
     end
+
+    # C4: the scheduled heuristic pass (CompoundLearningService#verify_unverified_batch)
+    # has no human actor to attribute the attestation to.
+    it "allows user to be omitted (no human actor) and leaves verified_by nil" do
+      learning.verify!
+      learning.reload
+
+      expect(learning.status).to eq("verified")
+      expect(learning.verified_at).to be_present
+      expect(learning.verified_by_id).to be_nil
+    end
   end
 
   describe "#disprove!" do
@@ -85,6 +96,15 @@ RSpec.describe Ai::CompoundLearning, type: :model do
 
       expect(learning.importance_score).to eq(0.05)
       expect(learning.confidence_score).to eq(0.1)
+    end
+
+    it "allows user to be omitted (no human actor) and leaves disproven_by nil" do
+      learning.disprove!(reason: "Automated: poor effectiveness")
+      learning.reload
+
+      expect(learning.status).to eq("disproven")
+      expect(learning.disproven_by_id).to be_nil
+      expect(learning.contradiction_note).to eq("Automated: poor effectiveness")
     end
   end
 

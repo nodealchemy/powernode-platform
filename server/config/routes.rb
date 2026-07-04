@@ -2980,6 +2980,7 @@ Rails.application.routes.draw do
           post "memory_maintenance", action: :memory_maintenance
           post "knowledge_doc_sync", action: :knowledge_doc_sync
           post "knowledge_graph_maintenance", action: :knowledge_graph_maintenance
+          post "verify_maintenance", action: :verify_maintenance
           # Event-driven single-entity endpoints (called by worker jobs)
           post "promote_learning", action: :promote_learning
           post "dedup_check", action: :dedup_check

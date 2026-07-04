@@ -33,6 +33,7 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
     allow(compound_service).to receive(:promote_cross_team).and_return(0)
     allow(compound_service).to receive(:decay_and_consolidate).and_return({ decayed: 0, consolidated: 0 })
     allow(compound_service).to receive(:backfill_embeddings).and_return({ success: true, embedded: 0, failed: 0, remaining: 0 })
+    allow(compound_service).to receive(:verify_unverified_batch).and_return({ success: true, verified: 0, disputed: 0, skipped: 0, remaining: 0 })
 
     # Stub EvaluationService
     eval_service = instance_double(Ai::Learning::EvaluationService)
@@ -476,6 +477,63 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
 
       expect(service_double).to have_received(:backfill_embeddings)
       expect(json_response.dig('data', 'embedding_backfill', 'embedded')).to eq(2)
+    end
+  end
+
+  # =========================================================================
+  # SCHEDULED VERIFICATION (POST /api/v1/ai/learning/verify_maintenance) - C4
+  # =========================================================================
+  describe "POST /api/v1/ai/learning/verify_maintenance" do
+    let(:path) { "/api/v1/ai/learning/verify_maintenance" }
+
+    it 'returns 401 when unauthenticated' do
+      post path, headers: { 'Content-Type' => 'application/json' }
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'returns 403 when user lacks ai.analytics.manage permission' do
+      post path, headers: auth_headers_for(read_user)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'returns success when user has ai.analytics.manage permission' do
+      post path, headers: auth_headers_for(manage_user)
+      expect(response).to have_http_status(:success)
+      expect(json_response['success']).to eq(true)
+    end
+
+    it 'passes through verified/disputed counts from the compound learning service' do
+      service_double = instance_double(Ai::Learning::CompoundLearningService,
+                                        verify_unverified_batch: { success: true, verified: 2, disputed: 1,
+                                                                    skipped: 0, remaining: 0 })
+      allow(Ai::Learning::CompoundLearningService).to receive(:new).and_return(service_double)
+
+      post path, headers: auth_headers_for(manage_user)
+
+      expect(service_double).to have_received(:verify_unverified_batch).with(max_per_run: nil)
+      expect(json_response_data['verified']).to eq(2)
+      expect(json_response_data['disputed']).to eq(1)
+    end
+
+    it 'forwards max_per_run to the service' do
+      service_double = instance_double(Ai::Learning::CompoundLearningService,
+                                        verify_unverified_batch: { success: true, verified: 0, disputed: 0,
+                                                                    skipped: 0, remaining: 0 })
+      allow(Ai::Learning::CompoundLearningService).to receive(:new).and_return(service_double)
+
+      post path, params: { max_per_run: "5" }.to_json, headers: auth_headers_for(manage_user)
+
+      expect(service_double).to have_received(:verify_unverified_batch).with(max_per_run: 5)
+    end
+
+    it 'returns unprocessable_content when the service reports failure' do
+      service_double = instance_double(Ai::Learning::CompoundLearningService,
+                                        verify_unverified_batch: { success: false, error: "boom" })
+      allow(Ai::Learning::CompoundLearningService).to receive(:new).and_return(service_double)
+
+      post path, headers: auth_headers_for(manage_user)
+
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 end

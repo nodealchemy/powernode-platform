@@ -345,6 +345,25 @@ module Api
           render_error(e.message, status: :unprocessable_content)
         end
 
+        # POST /api/v1/ai/learning/verify_maintenance (internal, called by worker)
+        # Scheduled quality-lifecycle pass (C4) — see
+        # Ai::Learning::CompoundLearningService#verify_unverified_batch for the
+        # outcome-based heuristic + feature-flag gate. Bounded per-call via
+        # max_per_run (Account#settings-resolved batch cap when omitted), same
+        # shape as #knowledge_graph_maintenance, so the worker's HTTP timeout
+        # can't kill it mid-batch; `remaining` lets the daily cron catch up
+        # gradually across runs.
+        def verify_maintenance
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
+          result = service.verify_unverified_batch(max_per_run: params[:max_per_run]&.to_i)
+
+          if result[:success]
+            render_success(result)
+          else
+            render_error(result[:error], status: :unprocessable_content)
+          end
+        end
+
         # POST /api/v1/ai/learning/compound_maintenance (internal, called by worker)
         def compound_maintenance
           service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
@@ -366,7 +385,7 @@ module Api
           # Worker bypass for internal maintenance endpoints (same pattern as TieredMemoryController)
           if current_worker
             return if %w[compound_maintenance memory_maintenance knowledge_doc_sync knowledge_graph_maintenance
-                         promote_learning dedup_check update_graph_node].include?(action_name)
+                         promote_learning dedup_check update_graph_node verify_maintenance].include?(action_name)
           end
 
           case action_name
@@ -376,7 +395,8 @@ module Api
             require_permission("ai.analytics.read")
           when "apply_recommendation", "dismiss_recommendation", "create_benchmark", "run_benchmark"
             require_permission("ai.analytics.manage")
-          when "reinforce", "promote", "compound_maintenance", "memory_maintenance", "knowledge_doc_sync", "knowledge_graph_maintenance"
+          when "reinforce", "promote", "compound_maintenance", "memory_maintenance", "knowledge_doc_sync",
+               "knowledge_graph_maintenance", "verify_maintenance"
             require_permission("ai.analytics.manage")
           when "promote_learning", "dedup_check", "update_graph_node"
             require_permission("ai.analytics.manage")

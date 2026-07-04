@@ -557,6 +557,158 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
     end
   end
 
+  describe "#verify_unverified_batch" do
+    context "when scheduled verification is disabled" do
+      before do
+        allow(Shared::FeatureFlagService).to receive(:enabled?)
+          .with(:compound_learning_scheduled_verification, account).and_return(false)
+      end
+
+      it "no-ops and reports feature_disabled" do
+        create(:ai_compound_learning, account: account, status: "active", verified_at: nil,
+               injection_count: 5, effectiveness_score: 0.9, confidence_score: 0.9)
+
+        result = service.verify_unverified_batch
+
+        expect(result).to include(success: true, feature_disabled: true, verified: 0, disputed: 0)
+      end
+    end
+
+    context "when scheduled verification is enabled" do
+      before do
+        allow(Shared::FeatureFlagService).to receive(:enabled?)
+          .with(:compound_learning_scheduled_verification, account).and_return(true)
+      end
+
+      it "verifies a candidate with measured effectiveness+confidence above the promotion bars" do
+        candidate = create(:ai_compound_learning, account: account, status: "active", verified_at: nil,
+                            injection_count: 5, effectiveness_score: 0.8, confidence_score: 0.9,
+                            importance_score: 0.5)
+
+        result = service.verify_unverified_batch
+
+        expect(result).to include(success: true, verified: 1, disputed: 0, skipped: 0, remaining: 0)
+        candidate.reload
+        expect(candidate.status).to eq("verified")
+        expect(candidate.verified_at).to be_present
+        expect(candidate.verified_by_id).to be_nil
+      end
+
+      it "disputes a candidate with a measured poor effectiveness track record" do
+        candidate = create(:ai_compound_learning, account: account, status: "active", verified_at: nil,
+                            injection_count: 5, effectiveness_score: 0.2, confidence_score: 0.9)
+
+        result = service.verify_unverified_batch
+
+        expect(result).to include(success: true, verified: 0, disputed: 1, skipped: 0)
+        candidate.reload
+        expect(candidate.status).to eq("disproven")
+        expect(candidate.disproven_by_id).to be_nil
+        expect(candidate.contradiction_note).to include("Automated verification pass")
+      end
+
+      it "skips a candidate with positive effectiveness but unproven confidence" do
+        candidate = create(:ai_compound_learning, account: account, status: "active", verified_at: nil,
+                            injection_count: 5, effectiveness_score: 0.8, confidence_score: 0.5)
+
+        result = service.verify_unverified_batch
+
+        expect(result).to include(success: true, verified: 0, disputed: 0, skipped: 1)
+        expect(candidate.reload.status).to eq("active")
+        expect(candidate.reload.verified_at).to be_nil
+      end
+
+      it "leaves unmeasured (low injection_count) learnings alone regardless of scores" do
+        candidate = create(:ai_compound_learning, account: account, status: "active", verified_at: nil,
+                            injection_count: 1, effectiveness_score: nil, confidence_score: 0.9)
+
+        result = service.verify_unverified_batch
+
+        expect(result).to include(verified: 0, disputed: 0)
+        expect(candidate.reload.status).to eq("active")
+      end
+
+      it "skips already-verified learnings" do
+        already_verified = create(:ai_compound_learning, account: account, status: "verified",
+                                   verified_at: 1.day.ago, injection_count: 5, effectiveness_score: 0.9,
+                                   confidence_score: 0.9)
+
+        result = service.verify_unverified_batch
+
+        expect(result[:verified]).to eq(0)
+        expect(already_verified.reload.verified_at).to be_within(1.second).of(1.day.ago)
+      end
+
+      it "respects the batch cap and reports remaining" do
+        3.times do
+          create(:ai_compound_learning, account: account, status: "active", verified_at: nil,
+                 injection_count: 5, effectiveness_score: 0.8, confidence_score: 0.9)
+        end
+
+        result = service.verify_unverified_batch(max_per_run: 2)
+
+        expect(result[:verified]).to eq(2)
+        expect(result[:remaining]).to eq(1)
+      end
+
+      it "is idempotent — a second run finds nothing left to verify" do
+        create(:ai_compound_learning, account: account, status: "active", verified_at: nil,
+               injection_count: 5, effectiveness_score: 0.8, confidence_score: 0.9)
+
+        first = service.verify_unverified_batch
+        second = service.verify_unverified_batch
+
+        expect(first[:verified]).to eq(1)
+        expect(second[:verified]).to eq(0)
+        expect(second[:remaining]).to eq(0)
+      end
+
+      it "resolves batch size from Account#settings when max_per_run is omitted" do
+        account.update!(settings: account.settings.merge("ai_learning_verify_batch_size" => 1))
+        2.times do
+          create(:ai_compound_learning, account: account, status: "active", verified_at: nil,
+                 injection_count: 5, effectiveness_score: 0.8, confidence_score: 0.9)
+        end
+
+        result = service.verify_unverified_batch
+
+        expect(result[:verified]).to eq(1)
+        expect(result[:remaining]).to eq(1)
+      end
+
+      it "continues processing when an individual learning fails" do
+        good = create(:ai_compound_learning, account: account, status: "active", verified_at: nil,
+                       injection_count: 5, effectiveness_score: 0.8, confidence_score: 0.9)
+        bad = create(:ai_compound_learning, account: account, status: "active", verified_at: nil,
+                     injection_count: 5, effectiveness_score: 0.8, confidence_score: 0.9)
+
+        # Block form of any_instance_of yields the receiving instance, so the
+        # freshly-queried row (a different Ruby object than `bad` above, same
+        # id) can still be identified and made to fail deterministically.
+        allow_any_instance_of(Ai::CompoundLearning).to receive(:verify!) do |instance|
+          raise StandardError, "DB error" if instance.id == bad.id
+
+          instance.update!(status: "verified", verified_at: Time.current)
+        end
+
+        result = nil
+        expect { result = service.verify_unverified_batch }.not_to raise_error
+        expect(result[:verified]).to eq(1)
+        expect(good.reload.status).to eq("verified")
+        expect(bad.reload.status).to eq("active")
+      end
+
+      it "handles exceptions gracefully" do
+        allow(Ai::CompoundLearning).to receive(:active).and_raise(StandardError, "query error")
+
+        result = service.verify_unverified_batch
+
+        expect(result[:success]).to eq(false)
+        expect(result[:verified]).to eq(0)
+      end
+    end
+  end
+
   describe "#reinforce_learning" do
     let!(:learning) do
       create(:ai_compound_learning, account: account, importance_score: 0.5, status: "active")

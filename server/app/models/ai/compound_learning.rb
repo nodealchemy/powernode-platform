@@ -185,22 +185,27 @@ module Ai
       update_column(:last_event_processed_at, Time.current)
     end
 
-    def verify!(user:)
+    # user: optional (nil for the scheduled heuristic pass — see
+    # Ai::Learning::CompoundLearningService#verify_unverified_batch, which has
+    # no human actor to attribute the attestation to). Human/agent-directed
+    # verification via Ai::Tools::KnowledgeQualityTool always passes a real user.
+    def verify!(user: nil)
       update!(
         status: "verified",
         verified_at: Time.current,
-        verified_by_id: user.id
+        verified_by_id: user&.id
       )
       boost_importance!(0.15)
       update!(confidence_score: [confidence_score + 0.1, 1.0].min)
       touch_event_processed!
     end
 
-    def disprove!(user:, reason:)
+    # user: optional — see #verify! above.
+    def disprove!(user: nil, reason:)
       update!(
         status: "disproven",
         disproven_at: Time.current,
-        disproven_by_id: user.id,
+        disproven_by_id: user&.id,
         contradiction_note: reason,
         importance_score: 0.05,
         confidence_score: 0.1
