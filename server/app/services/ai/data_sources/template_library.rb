@@ -55,7 +55,8 @@ module Ai
           generic_rest_json_template,
           rss_feed_template,
           open_meteo_weather_template,
-          graphql_template
+          graphql_template,
+          x_com_template
         ]
       end
 
@@ -294,6 +295,119 @@ module Ai
                 },
                 "response_mapping" => { "records_path" => "data" },
                 "metadata" => { "note" => "Replace the body query/variables with your GraphQL operation." }
+              }
+            ]
+          )
+        }
+      end
+
+      # X.com (Twitter) API v2 — an OAuth 2.0 Authorization-Code + PKCE (x-com-
+      # provider campaign, I1-I3) source with both READ and WRITE endpoints.
+      # requires_auth is true and auth_scheme is "bearer" (a hint AND the real
+      # signing scheme, since the credential brokered below always yields a
+      # bearer token), but — same guarantee as every other template — NO
+      # credential material ships here. The operator (1) attaches an
+      # Ai::DataSourceCredential carrying client_id/client_secret, (2) runs the
+      # authorize/callback flow to populate access_token/refresh_token.
+      #
+      # auth_config wires the oauth2_authorization_code broker (I3) via the
+      # standard data_source.auth_config["broker"]["type"] mechanism
+      # (Ai::DataSources::QueryService#broker_config ->
+      # Ai::DataSources::Credentials::Registry.for) so every signed fetch
+      # silently refreshes a near-expiry access_token before dispatch. token_url
+      # is deliberately duplicated at the top level AND under "broker": I1's
+      # OauthAuthorizationCodeService#exchange_code_for_token reads the
+      # TOP-LEVEL auth_config["token_url"], while I3's
+      # Oauth2AuthorizationCodeBroker reads auth_config["broker"]["token_url"] —
+      # two different readers, same real endpoint, so the value must appear at
+      # both keys. "scope" (singular, a space-joined String) is used rather than
+      # "scopes" (an Array) because OauthAuthorizationCodeService#requested_scopes
+      # accepts either spelling but ConfigPortabilityService's auth_config
+      # allowlist only admits the singular key.
+      #
+      # The "Create Post" endpoint is a genuine SIDE-EFFECTING write (POST
+      # /2/tweets): cache_ttl_seconds is 0 and metadata carries
+      # side_effecting: true so operators/agents can see it is not a passive
+      # read. QueryService itself refuses to cache or dedupe ANY non-GET/HEAD
+      # request (or one with cache_ttl_seconds <= 0) regardless of this
+      # metadata flag — see QueryService#cacheable_request? — so a retried post
+      # always really posts rather than silently replaying a cached response.
+      def x_com_template
+        {
+          slug: "x-com",
+          name: "X.com",
+          description: "X (Twitter) API v2 — OAuth 2.0 Authorization Code + PKCE. " \
+                       "Read recent posts/timelines and publish new posts. Attach an " \
+                       "OAuth2 app credential (client_id/client_secret) after install, " \
+                       "then run the connect flow to authorize — no tokens are shipped here.",
+          category: "social",
+          manifest: base_manifest(
+            source: {
+              "name" => "X.com",
+              "slug" => "x-com",
+              "source_type" => "x_com",
+              "category" => "social",
+              "protocol" => "rest",
+              "api_base_url" => "https://api.twitter.com",
+              "description" => "X (Twitter) API v2 — connect an OAuth2 app and authorize " \
+                               "to read posts and publish new ones.",
+              "documentation_url" => "https://developer.twitter.com/en/docs/twitter-api",
+              "requires_auth" => true,
+              # An authenticated REST API, not a crawled resource — robots.txt
+              # governs page crawling, not signed API calls, so this overrides
+              # default_source's respect_robots:true (correct for the RSS/weather
+              # templates, wrong here — it would fetch/honor api.twitter.com's
+              # robots.txt before every signed request).
+              "respect_robots" => false,
+              "auth_scheme" => "bearer",
+              "auth_config" => {
+                "authorize_url" => "https://twitter.com/i/oauth2/authorize",
+                "token_url" => "https://api.twitter.com/2/oauth2/token",
+                "scope" => "tweet.read tweet.write users.read offline.access",
+                "broker" => {
+                  "type" => "oauth2_authorization_code",
+                  "token_url" => "https://api.twitter.com/2/oauth2/token"
+                }
+              },
+              "configuration" => { "default_headers" => { "Accept" => "application/json" } },
+              "metadata" => { "template" => "x-com", "starter" => true }
+            },
+            endpoints: [
+              {
+                "name" => "Recent search",
+                "slug" => "recent-search",
+                "http_method" => "GET",
+                "path_template" => "/2/tweets/search/recent",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "query_template" => { "query" => "{query}" },
+                "response_mapping" => { "records_path" => "data" },
+                "metadata" => { "note" => "query is a required X.com search operator string." }
+              },
+              {
+                "name" => "User tweets",
+                "slug" => "user-tweets",
+                "http_method" => "GET",
+                "path_template" => "/2/users/{id}/tweets",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "response_mapping" => { "records_path" => "data" },
+                "metadata" => { "note" => "id is the X.com numeric user id (path param)." }
+              },
+              {
+                "name" => "Create post",
+                "slug" => "create-post",
+                "http_method" => "POST",
+                "path_template" => "/2/tweets",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "cache_ttl_seconds" => 0,
+                "body_template" => { "text" => "{text}" },
+                "response_mapping" => { "records_path" => "data" },
+                "metadata" => {
+                  "note" => "SIDE-EFFECTING write — publishes a real post. Never cached.",
+                  "side_effecting" => true
+                }
               }
             ]
           )
