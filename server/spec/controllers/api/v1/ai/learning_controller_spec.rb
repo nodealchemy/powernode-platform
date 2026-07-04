@@ -265,6 +265,60 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
   end
 
   # =========================================================================
+  # PROMOTE_LEARNING (POST /api/v1/ai/learning/promote_learning) — event-driven,
+  # called by AiPromoteLearningJob for a single learning
+  # =========================================================================
+  describe "POST /api/v1/ai/learning/promote_learning" do
+    let(:path) { "/api/v1/ai/learning/promote_learning" }
+
+    # Long enough that String#truncate(100) actually truncates — regression
+    # coverage for the fix: the fragment must drop truncate's "..." omission
+    # and escape LIKE metacharacters, or this duplicate-detection query never
+    # matches and a second global copy gets created every time.
+    let(:long_content) do
+      "Always reuse existing infrastructure before building anything new, and query " \
+      "the knowledge graph first to avoid duplicating prior cross-team learnings here."
+    end
+
+    it 'returns 401 when unauthenticated' do
+      post path, params: { learning_id: SecureRandom.uuid }.to_json, headers: { 'Content-Type' => 'application/json' }
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'returns 403 when user lacks ai.analytics.manage permission' do
+      learning = create(:ai_compound_learning, account: account, scope: "team", content: long_content)
+      post path, params: { learning_id: learning.id }.to_json, headers: auth_headers_for(read_user)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'detects an already-promoted duplicate instead of creating a second global copy' do
+      expect(long_content.length).to be > 100
+
+      create(:ai_compound_learning, account: account, scope: "global", content: long_content)
+      learning = create(:ai_compound_learning, account: account, scope: "team", content: long_content)
+
+      expect {
+        post path, params: { learning_id: learning.id }.to_json, headers: auth_headers_for(manage_user)
+      }.not_to change { Ai::CompoundLearning.global_scope.for_account(account.id).count }
+
+      expect(response).to have_http_status(:success)
+      expect(json_response_data['promoted']).to eq(false)
+      expect(json_response_data['reason']).to eq('already_global')
+    end
+
+    it 'promotes when no matching global copy exists yet' do
+      learning = create(:ai_compound_learning, account: account, scope: "team", content: long_content)
+
+      expect {
+        post path, params: { learning_id: learning.id }.to_json, headers: auth_headers_for(manage_user)
+      }.to change { Ai::CompoundLearning.global_scope.for_account(account.id).count }.by(1)
+
+      expect(response).to have_http_status(:success)
+      expect(json_response_data['promoted']).to eq(true)
+    end
+  end
+
+  # =========================================================================
   # BENCHMARKS (GET /api/v1/ai/learning/benchmarks)
   # =========================================================================
   describe "GET /api/v1/ai/learning/benchmarks" do

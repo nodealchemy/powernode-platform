@@ -262,11 +262,17 @@ module Api
 
           service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
 
-          # Check if already promoted globally
+          # Check if already promoted globally. Drop truncate's "..." omission
+          # and escape LIKE metacharacters so the fragment matches literally —
+          # without this the fragment never matches (its trailing "...") and
+          # this event-driven path silently creates duplicate global copies of
+          # content already promoted via #promote_cross_team. Mirrors the fix
+          # in Ai::Learning::CompoundLearningService#promote_cross_team.
+          fragment = ::ActiveRecord::Base.sanitize_sql_like(learning.content.truncate(100, omission: ""))
           existing_global = ::Ai::CompoundLearning.active
             .for_account(current_account.id)
             .global_scope
-            .where("content ILIKE ?", "%#{learning.content.truncate(100)}%")
+            .where("content ILIKE ?", "%#{fragment}%")
 
           if existing_global.exists?
             render_success(promoted: false, reason: "already_global")

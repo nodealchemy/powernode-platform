@@ -7,6 +7,30 @@ module Ai
       CONFLICT_THRESHOLD_LOW = 0.7
       CHARS_PER_TOKEN = 4
 
+      # Cross-team/global promotion quality gate. importance_score + access_count
+      # alone are not sufficient evidence of "genuinely reusable" — importance is
+      # cheaply inflated by same-source reinforcement (e.g. a sensor/reconcile-tick
+      # pattern bumping its own access_count on every tick via record_access!,
+      # never actually recalled into another execution's context), and neither
+      # field is touched by that reinforcement path's confidence. Two extra
+      # checks, both matching thresholds already established elsewhere in this
+      # codebase rather than inventing new numbers:
+      #   - MIN_PROMOTION_CONFIDENCE: every extraction path derived from a real
+      #     observed outcome (auto_failure, review, evaluation, team_execution)
+      #     seeds confidence >= 0.7; only default-seeded, never-corroborated
+      #     entries (fleet reconcile-tick "manual" creates, raw ralph_loop
+      #     harvests) sit at the unexamined 0.5 default. Matches
+      #     Ai::KnowledgeDocSyncService::LEARNING_MIN_CONFIDENCE (the existing
+      #     bar for "confident enough to surface in shared docs" — promotion is
+      #     at least as strict).
+      #   - MIN_PROMOTION_EFFECTIVENESS: once a learning has enough injections to
+      #     have a *measured* effectiveness_score (see #recalculate_effectiveness!,
+      #     injection_count >= 3), a poor track record should block promotion
+      #     even if importance/confidence are high; unmeasured (nil) is not held
+      #     against it. Matches Ai::SkillGraph::EvolutionProposalService::LOW_EFFECTIVENESS_THRESHOLD.
+      MIN_PROMOTION_CONFIDENCE = 0.7
+      MIN_PROMOTION_EFFECTIVENESS = 0.4
+
       def initialize(account:)
         @account = account
         @embedding_service = Ai::Memory::EmbeddingService.new(account: account)
@@ -198,11 +222,16 @@ module Ai
         return 0 unless promotion_enabled?
 
         candidates = Ai::CompoundLearning
-          .active
           .for_account(@account.id)
+          # Surfacing set (see .semantic_search / .find_similar) — was status:
+          # "active" only, which wrongly excluded verified learnings from ever
+          # being promoted.
+          .where(status: %w[active verified])
           .team_scope
           .where("importance_score >= ?", min_importance)
           .where("access_count >= ?", 2)
+          .where("confidence_score >= ?", MIN_PROMOTION_CONFIDENCE)
+          .where("effectiveness_score IS NULL OR effectiveness_score >= ?", MIN_PROMOTION_EFFECTIVENESS)
 
         promoted_count = 0
 
@@ -251,6 +280,57 @@ module Ai
       rescue StandardError => e
         Rails.logger.warn("[CompoundLearning] Promotion failed: #{e.message}")
         0
+      end
+
+      # Collapses duplicate PROMOTED copies (rows with promoted_at present) that
+      # share identical content at the same scope. Both promotion write paths —
+      # this service's #promote_cross_team and the event-driven
+      # Api::V1::Ai::LearningController#promote_learning action — guard against
+      # creating a *new* duplicate at write time, but neither retroactively
+      # cleans up copies that already exist (pre-dating those guards, or slipping
+      # through one path while the other's independent check missed it). Never
+      # hard-deletes: keeps the oldest row per duplicate group (closest to the
+      # original promotion event) and marks the rest superseded_by it, folding
+      # their reinforcement counters into the keeper so that signal isn't lost.
+      # Mirrors System::Fleet::LearningExtractor#consolidate_legacy_rows!'s
+      # oldest-keeper pattern. Restricting to status active/verified makes
+      # repeated runs idempotent — once collapsed, duplicates carry status
+      # "superseded" and drop out of the group scope.
+      def dedup_promoted_copies(scope: nil)
+        base = Ai::CompoundLearning
+          .for_account(@account.id)
+          .where(status: %w[active verified])
+          .where.not(promoted_at: nil)
+        base = base.where(scope: scope) if scope.present?
+
+        groups = base.group(:scope, :content).having("COUNT(*) > 1").count
+
+        collapsed = 0
+        groups.each_key do |(dup_scope, content)|
+          rows = base.where(scope: dup_scope, content: content).order(:created_at).to_a
+          keeper = rows.first
+          duplicates = rows.drop(1)
+          next if duplicates.empty?
+
+          folded_access = duplicates.sum(&:access_count)
+          folded_injections = duplicates.sum(&:injection_count)
+          folded_positive = duplicates.sum(&:positive_outcome_count)
+
+          duplicates.each { |dup| dup.supersede!(keeper) }
+
+          keeper.update_columns(
+            access_count: keeper.access_count + folded_access,
+            injection_count: keeper.injection_count + folded_injections,
+            positive_outcome_count: keeper.positive_outcome_count + folded_positive
+          )
+          collapsed += duplicates.size
+        end
+
+        Rails.logger.info("[CompoundLearning] Collapsed #{collapsed} duplicate promoted copies across #{groups.size} groups")
+        { success: true, collapsed: collapsed, groups: groups.size }
+      rescue StandardError => e
+        Rails.logger.error("[CompoundLearning] Dedup of promoted copies failed: #{e.message}")
+        { success: false, error: e.message, collapsed: 0 }
       end
 
       # Create a learning from team execution coordination results

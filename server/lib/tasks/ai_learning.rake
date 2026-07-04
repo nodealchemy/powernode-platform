@@ -16,4 +16,17 @@ namespace :ai do
       puts "[ai:retire_learning_domain] account=#{account.id} domain=#{domain} #{result}"
     end
   end
+
+  desc "Collapse duplicate promoted (team/global) compound learnings sharing identical content at the same scope; supersedes duplicates, never hard-deletes"
+  task dedup_promoted_learnings: :environment do
+    Account.find_each do |account|
+      service = Ai::Learning::CompoundLearningService.new(account: account)
+      result = service.dedup_promoted_copies
+
+      next if result[:collapsed].to_i.zero? && result[:success] != false
+
+      Rails.logger.info("[ai:dedup_promoted_learnings] account=#{account.id} #{result}")
+      puts "[ai:dedup_promoted_learnings] account=#{account.id} #{result}"
+    end
+  end
 end

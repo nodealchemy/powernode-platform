@@ -291,7 +291,7 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       end
 
       it "handles exceptions gracefully" do
-        allow(Ai::CompoundLearning).to receive(:active).and_raise(StandardError, "query error")
+        allow(Ai::CompoundLearning).to receive(:for_account).and_raise(StandardError, "query error")
         expect(service.promote_cross_team).to eq(0)
       end
 
@@ -300,8 +300,8 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       # promote_cross_team must not chain relation methods onto it.
       it "promotes when find_similar returns a non-global Array match" do
         candidate = create(:ai_compound_learning, account: account, scope: "team",
-                            status: "active", importance_score: 0.8, access_count: 2,
-                            embedding: Array.new(1536, 0.1))
+                            status: "active", importance_score: 0.8, confidence_score: 0.8,
+                            access_count: 2, embedding: Array.new(1536, 0.1))
         team_scoped_match = create(:ai_compound_learning, account: account, scope: "team",
                                     status: "active")
 
@@ -318,8 +318,8 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
 
       it "skips promotion when find_similar returns a global-scope Array match" do
         candidate = create(:ai_compound_learning, account: account, scope: "team",
-                            status: "active", importance_score: 0.8, access_count: 2,
-                            embedding: Array.new(1536, 0.1))
+                            status: "active", importance_score: 0.8, confidence_score: 0.8,
+                            access_count: 2, embedding: Array.new(1536, 0.1))
         create(:ai_compound_learning, account: account, scope: "global", status: "active")
 
         global_match = build(:ai_compound_learning, account: account, scope: "global",
@@ -334,6 +334,131 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
             .where("metadata->>'original_id' = ?", candidate.id.to_s)
         ).not_to exist
       end
+
+      it "includes verified (not just active) learnings in the candidate set" do
+        candidate = create(:ai_compound_learning, account: account, scope: "team",
+                            status: "verified", importance_score: 0.8, confidence_score: 0.8,
+                            access_count: 2)
+
+        result = nil
+        expect { result = service.promote_cross_team }.not_to raise_error
+        expect(result).to eq(1)
+        expect(
+          Ai::CompoundLearning.global_scope.for_account(account.id)
+            .where("metadata->>'original_id' = ?", candidate.id.to_s)
+        ).to exist
+      end
+
+      it "does not promote a sensor/reconcile-tick-style learning that meets importance+access but never earned confidence" do
+        # Mirrors System::Fleet::LearningExtractor's decision-pattern rows:
+        # reinforced repeatedly via record_access! (access_count climbs) and
+        # boosted via boost_importance! (importance_score climbs), but
+        # confidence_score is never touched by that reinforcement path and
+        # stays at the unexamined default.
+        create(:ai_compound_learning, account: account, scope: "team", status: "active",
+               category: "discovery", importance_score: 1.0, confidence_score: 0.5,
+               access_count: 50, tags: ["fleet", "autonomy", "system.config_drift"])
+
+        expect(service.promote_cross_team).to eq(0)
+        expect(Ai::CompoundLearning.global_scope.for_account(account.id)).not_to exist
+      end
+
+      it "does not promote a candidate with a measured poor effectiveness track record" do
+        create(:ai_compound_learning, account: account, scope: "team", status: "active",
+               importance_score: 0.8, confidence_score: 0.8, access_count: 2,
+               injection_count: 5, positive_outcome_count: 1, effectiveness_score: 0.2)
+
+        expect(service.promote_cross_team).to eq(0)
+      end
+
+      it "promotes a candidate with an unmeasured (nil) effectiveness score" do
+        candidate = create(:ai_compound_learning, account: account, scope: "team", status: "active",
+                            importance_score: 0.8, confidence_score: 0.8, access_count: 2,
+                            effectiveness_score: nil)
+
+        expect(service.promote_cross_team).to eq(1)
+        expect(
+          Ai::CompoundLearning.global_scope.for_account(account.id)
+            .where("metadata->>'original_id' = ?", candidate.id.to_s)
+        ).to exist
+      end
+
+    end
+  end
+
+  describe "#dedup_promoted_copies" do
+    it "collapses duplicate promoted copies at the same scope, keeping the oldest" do
+      keeper = create(:ai_compound_learning, account: account, scope: "global", status: "active",
+                       content: "Promotion-optimal training session design", promoted_at: 2.days.ago,
+                       created_at: 2.days.ago, access_count: 3, injection_count: 4, positive_outcome_count: 2)
+      dup = create(:ai_compound_learning, account: account, scope: "global", status: "active",
+                    content: "Promotion-optimal training session design", promoted_at: 1.day.ago,
+                    created_at: 1.day.ago, access_count: 1, injection_count: 2, positive_outcome_count: 1)
+
+      result = service.dedup_promoted_copies
+
+      expect(result).to include(success: true, collapsed: 1, groups: 1)
+      expect(dup.reload.status).to eq("superseded")
+      expect(dup.superseded_by_id).to eq(keeper.id)
+      keeper.reload
+      expect(keeper.status).to eq("active")
+      expect(keeper.access_count).to eq(4)
+      expect(keeper.injection_count).to eq(6)
+      expect(keeper.positive_outcome_count).to eq(3)
+    end
+
+    it "leaves non-duplicate promoted copies untouched" do
+      solo = create(:ai_compound_learning, account: account, scope: "global", status: "active",
+                     content: "Unique promoted content", promoted_at: 1.day.ago)
+
+      result = service.dedup_promoted_copies
+
+      expect(result).to include(success: true, collapsed: 0)
+      expect(solo.reload.status).to eq("active")
+    end
+
+    it "does not group across different scopes even with identical content" do
+      create(:ai_compound_learning, account: account, scope: "team", status: "active",
+             content: "Shared content", promoted_at: 1.day.ago)
+      create(:ai_compound_learning, account: account, scope: "global", status: "active",
+             content: "Shared content", promoted_at: 1.day.ago)
+
+      result = service.dedup_promoted_copies
+
+      expect(result[:collapsed]).to eq(0)
+    end
+
+    it "ignores non-promoted rows (promoted_at nil) even if content matches" do
+      create(:ai_compound_learning, account: account, scope: "team", status: "active",
+             content: "Not yet promoted", promoted_at: nil)
+      create(:ai_compound_learning, account: account, scope: "team", status: "active",
+             content: "Not yet promoted", promoted_at: nil)
+
+      result = service.dedup_promoted_copies
+
+      expect(result[:collapsed]).to eq(0)
+    end
+
+    it "is idempotent — a second run finds nothing left to collapse" do
+      create(:ai_compound_learning, account: account, scope: "global", status: "active",
+             content: "Dup content", promoted_at: 2.days.ago, created_at: 2.days.ago)
+      create(:ai_compound_learning, account: account, scope: "global", status: "active",
+             content: "Dup content", promoted_at: 1.day.ago, created_at: 1.day.ago)
+
+      first = service.dedup_promoted_copies
+      second = service.dedup_promoted_copies
+
+      expect(first[:collapsed]).to eq(1)
+      expect(second[:collapsed]).to eq(0)
+    end
+
+    it "handles exceptions gracefully" do
+      allow(Ai::CompoundLearning).to receive(:for_account).and_raise(StandardError, "query error")
+
+      result = service.dedup_promoted_copies
+
+      expect(result[:success]).to eq(false)
+      expect(result[:collapsed]).to eq(0)
     end
   end
 
