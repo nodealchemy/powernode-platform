@@ -89,7 +89,9 @@ RSpec.describe Ai::DataSources::TemplateLibrary, type: :service do
         "x-com",
         "linkedin",
         "reddit",
-        "youtube"
+        "youtube",
+        "mastodon",
+        "bluesky"
       )
     end
 

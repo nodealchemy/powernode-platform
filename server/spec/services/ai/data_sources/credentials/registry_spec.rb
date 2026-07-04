@@ -125,7 +125,8 @@ RSpec.describe Ai::DataSources::Credentials::Registry, type: :service do
         "aws_sts",
         "aws_sts_web_identity",
         "vault_dynamic",
-        "presigned_url"
+        "presigned_url",
+        "atproto_app_password"
       )
     end
 

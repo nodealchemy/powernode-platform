@@ -33,7 +33,8 @@ module Ai
           "aws_sts"                   => "Ai::DataSources::Credentials::AwsStsBroker",
           "aws_sts_web_identity"      => "Ai::DataSources::Credentials::AwsStsWebIdentityBroker",
           "vault_dynamic"             => "Ai::DataSources::Credentials::VaultDynamicBroker",
-          "presigned_url"             => "Ai::DataSources::Credentials::PresignedUrlBroker"
+          "presigned_url"             => "Ai::DataSources::Credentials::PresignedUrlBroker",
+          "atproto_app_password"      => "Ai::DataSources::Credentials::AtprotoAppPasswordBroker"
         }.freeze
 
         # @param broker_type [String, Symbol, nil]

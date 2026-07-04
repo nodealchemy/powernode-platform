@@ -59,7 +59,9 @@ module Ai
           x_com_template,
           linkedin_template,
           reddit_template,
-          youtube_template
+          youtube_template,
+          mastodon_template,
+          bluesky_template
         ]
       end
 
@@ -683,6 +685,205 @@ module Ai
                 },
                 "response_mapping" => { "records_path" => "items" },
                 "metadata" => { "note" => "q is a YouTube search query string." }
+              }
+            ]
+          )
+        }
+      end
+
+      # Mastodon — provider-wave-2 (W2), same OAuth 2.0 Authorization-Code seam
+      # as x-com/linkedin/reddit/youtube above (oauth2_authorization_code
+      # broker, BearerSigner) — ZERO new signer/broker code needed. What makes
+      # Mastodon "non-standard" is not the grant type but that it is
+      # FEDERATED: every user has a home INSTANCE (mastodon.social,
+      # fosstodon.org, ...) with its own app registration and its own
+      # authorize_url/token_url/api_base_url. Both
+      # OauthAuthorizationCodeService (reads auth_config["authorize_url"] /
+      # ["token_url"]) and Oauth2AuthorizationCodeBroker (reads
+      # auth_config["broker"]["token_url"]) already resolve these PER DATA
+      # SOURCE, never from a hardcoded provider constant — so a federated
+      # provider is representable purely as config: the placeholder host below
+      # (mastodon.social, a real, large instance) is what the operator REPLACES
+      # with their own instance in all four places (api_base_url,
+      # authorize_url, token_url, broker.token_url) before registering an app
+      # and running the connect flow. This mirrors generic_rest_json_template's
+      # "placeholder base URL the operator edits" story, just applied to three
+      # more auth_config URLs as well.
+      #
+      # The operator must first register an app on their instance (Preferences
+      # -> Development -> New application, or POST {instance}/api/v1/apps) to
+      # obtain the client_id/client_secret this template's credential expects —
+      # same prerequisite x-com/linkedin/reddit/youtube already impose.
+      def mastodon_template
+        {
+          slug: "mastodon",
+          name: "Mastodon",
+          description: "Mastodon API — OAuth 2.0 Authorization Code, federated " \
+                       "across independently-run instances. REPLACE the " \
+                       "placeholder mastodon.social host in api_base_url, " \
+                       "authorize_url, token_url, AND broker.token_url with " \
+                       "YOUR home instance before registering an app and " \
+                       "running the connect flow. Read your home timeline and " \
+                       "publish new statuses.",
+          category: "social",
+          manifest: base_manifest(
+            source: {
+              "name" => "Mastodon",
+              "slug" => "mastodon",
+              "source_type" => "mastodon",
+              "category" => "social",
+              "protocol" => "rest",
+              "api_base_url" => "https://mastodon.social",
+              "description" => "Mastodon API — replace every mastodon.social " \
+                               "occurrence in this source's config with your " \
+                               "own instance's host, then connect an OAuth2 " \
+                               "app registered on that instance.",
+              "documentation_url" => "https://docs.joinmastodon.org/api/",
+              "requires_auth" => true,
+              # Authenticated REST API, not a crawled resource — same
+              # rationale as x-com's override.
+              "respect_robots" => false,
+              "auth_scheme" => "bearer",
+              "auth_config" => {
+                "authorize_url" => "https://mastodon.social/oauth/authorize",
+                "token_url" => "https://mastodon.social/oauth/token",
+                "scope" => "read write",
+                "broker" => {
+                  "type" => "oauth2_authorization_code",
+                  "token_url" => "https://mastodon.social/oauth/token"
+                }
+              },
+              "configuration" => { "default_headers" => { "Accept" => "application/json" } },
+              "metadata" => {
+                "template" => "mastodon", "starter" => true,
+                "federated" => "api_base_url/authorize_url/token_url/broker.token_url " \
+                                "must ALL be changed to the operator's own instance"
+              }
+            },
+            endpoints: [
+              {
+                "name" => "Home timeline",
+                "slug" => "home-timeline",
+                "http_method" => "GET",
+                "path_template" => "/api/v1/timelines/home",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "query_template" => { "limit" => "{limit}" },
+                "response_mapping" => {},
+                "metadata" => { "note" => "Returns a bare JSON array of statuses (no wrapping key)." }
+              },
+              {
+                "name" => "Create status",
+                "slug" => "create-status",
+                "http_method" => "POST",
+                "path_template" => "/api/v1/statuses",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "cache_ttl_seconds" => 0,
+                "body_template" => { "status" => "{text}" },
+                "response_mapping" => {},
+                "metadata" => {
+                  "note" => "SIDE-EFFECTING write — publishes a real status. Never cached.",
+                  "side_effecting" => true
+                }
+              }
+            ]
+          )
+        }
+      end
+
+      # Bluesky (AT Protocol) — provider-wave-2 (W2). Genuinely NOT the
+      # OAuth2 Authorization-Code seam every other template rides: AT Proto
+      # logs in directly with an account handle (or DID) plus a scoped,
+      # revocable APP PASSWORD (bsky.app/settings/app-passwords — never the
+      # main account password) via com.atproto.server.createSession, which
+      # returns a short-lived accessJwt. This needed a NEW broker —
+      # Credentials::AtprotoAppPasswordBroker (see its file for the full
+      # design, including what was deliberately NOT built: refreshSession-
+      # based renewal) — registered under broker type
+      # "atproto_app_password". auth_scheme stays "bearer" (the broker always
+      # yields an accessJwt, signed identically to every other bearer
+      # template) even though the GRANT is app-password, not OAuth2.
+      #
+      # CREDENTIAL SHAPE: reuses the credential's generic api_key/api_secret
+      # pair — decrypted_api_key is the identifier (handle/DID), decrypted_
+      # api_secret is the app password. No client_id/client_secret, no
+      # authorize/callback connect flow: attaching the credential is enough
+      # for every signed fetch to broker a fresh session automatically.
+      #
+      # HOST: api_base_url doubles as both the session-login host and the API
+      # host (the operator's PDS — https://bsky.social for a hosted account,
+      # or a self-hosted PDS's URL), mirroring the Mastodon template's
+      # per-instance api_base_url.
+      def bluesky_template
+        {
+          slug: "bluesky",
+          name: "Bluesky",
+          description: "Bluesky (AT Protocol) — logs in with your handle + a " \
+                       "scoped APP PASSWORD (never your account password; mint " \
+                       "one at bsky.app/settings/app-passwords). Attach a " \
+                       "credential with your handle as the API key and the app " \
+                       "password as the API secret — no separate connect flow " \
+                       "needed. Read your home timeline and publish new posts.",
+          category: "social",
+          manifest: base_manifest(
+            source: {
+              "name" => "Bluesky",
+              "slug" => "bluesky",
+              "source_type" => "bluesky",
+              "category" => "social",
+              "protocol" => "rest",
+              "api_base_url" => "https://bsky.social",
+              "description" => "Bluesky / AT Protocol — attach a credential " \
+                               "carrying your handle + an app password; every " \
+                               "signed request silently brokers a fresh session.",
+              "documentation_url" => "https://docs.bsky.app/docs/category/http-reference",
+              "requires_auth" => true,
+              "respect_robots" => false,
+              "auth_scheme" => "bearer",
+              "auth_config" => {
+                "broker" => { "type" => "atproto_app_password" }
+              },
+              "configuration" => { "default_headers" => { "Accept" => "application/json" } },
+              "metadata" => { "template" => "bluesky", "starter" => true }
+            },
+            endpoints: [
+              {
+                "name" => "Home timeline",
+                "slug" => "home-timeline",
+                "http_method" => "GET",
+                "path_template" => "/xrpc/app.bsky.feed.getTimeline",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "query_template" => { "limit" => "{limit}" },
+                "response_mapping" => { "records_path" => "feed" },
+                "metadata" => { "note" => "Each record wraps { post, reply?, reason? } — the post itself is nested under record[\"post\"]." }
+              },
+              {
+                "name" => "Create post",
+                "slug" => "create-post",
+                "http_method" => "POST",
+                "path_template" => "/xrpc/com.atproto.repo.createRecord",
+                "response_format" => "json",
+                "expected_content_type" => "application/json",
+                "cache_ttl_seconds" => 0,
+                "body_template" => {
+                  "repo" => "{repo}",
+                  "collection" => "app.bsky.feed.post",
+                  "record" => {
+                    "$type" => "app.bsky.feed.post",
+                    "text" => "{text}",
+                    "createdAt" => "{created_at}"
+                  }
+                },
+                "response_mapping" => {},
+                "metadata" => {
+                  "note" => "SIDE-EFFECTING write — publishes a real post. Never cached. " \
+                            "repo is YOUR OWN did (see the createSession response or " \
+                            "app.bsky.actor.getProfile); created_at is an ISO8601 " \
+                            "timestamp the caller supplies.",
+                  "side_effecting" => true
+                }
               }
             ]
           )
