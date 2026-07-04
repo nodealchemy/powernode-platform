@@ -31,8 +31,13 @@ module Ai
           used_chars += factual_chars
         end
 
-        # 2. Include working memory (current task state)
-        if types.include?("working") && task.present?
+        # 2. Include working memory (current task state). No `task.present?`
+        # gate: Ai::McpAgentExecutor::MemoryWriteback (the only production
+        # writer) never passes a task, so working memory is agent-scoped in
+        # practice — gating this on task.present? meant it was never injected
+        # on that path at all (IMP-c51ef070f4ca). #inject_working_memory
+        # already falls back to agent-scoped when task is nil.
+        if types.include?("working")
           working_context, working_chars = inject_working_memory(budget_chars - used_chars, task)
           context_parts << working_context if working_context.present?
           used_chars += working_chars
@@ -195,8 +200,10 @@ module Ai
       end
 
       def inject_working_memory(char_budget, task)
-        return [ nil, 0 ] unless task
-
+        # task: nil here resolves WorkingMemoryService to the SAME agent-scoped
+        # Redis key namespace MemoryWriteback writes to (it never passes a
+        # task either) — passing `task` through when present preserves the
+        # existing Ralph-task-scoped behavior unchanged.
         working_service = WorkingMemoryService.new(
           agent: @agent,
           account: @account,

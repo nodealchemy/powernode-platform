@@ -186,4 +186,20 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
       expect(result).to be_present
     end
   end
+
+  describe 'agent-scoped working memory (no Ralph task) — IMP-c51ef070f4ca' do
+    # Ai::McpAgentExecutor::MemoryWriteback#write_working_memory_state is the
+    # only production writer of working memory, and it NEVER passes a task to
+    # WorkingMemoryService (agent.rb-level executions don't have a Ralph task).
+    # The reader must match that scope, not require a task that never exists
+    # on this path.
+    it 'injects working memory written without a task, matching how the only writer actually writes it' do
+      working_service = Ai::Memory::WorkingMemoryService.new(agent: agent, account: account)
+      working_service.store_task_state({ 'last_output' => 'previous execution result' })
+
+      result = service.build_context(include_types: %w[working])
+
+      expect(result[:context]).to include('previous execution result')
+    end
+  end
 end
