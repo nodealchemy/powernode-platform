@@ -16,6 +16,10 @@ module Ai
       BASE_CONTEXT_PER_FILE_LIMIT = 12_288  # head bytes kept per base file (~12 KiB)
       BASE_CONTEXT_TOTAL_LIMIT    = 49_152  # bytes kept across all base files (~48 KiB)
 
+      # C3: cap on compound learnings surfaced per claimed task — small and lean by
+      # design (see #relevant_compound_learnings).
+      RELEVANT_LEARNINGS_LIMIT = 4
+
       def self.definition
         {
           name: "dev_loop",
@@ -655,19 +659,26 @@ module Ai
           # G12: re-inject prior context every iteration so the loop learns from
           # itself and doesn't drift — recent lessons, open campaign decisions, and
           # the base structural files the executor should re-read.
-          context: iteration_context(loop_record, config)
+          context: iteration_context(loop_record, config, task)
         }
       end
 
       # The feedback the framework's "lessons_learned" state file is meant to
       # provide, surfaced into each dev_next_task payload (the campaign/dev-loop path
       # otherwise never re-reads its own learnings or decisions).
-      def iteration_context(loop_record, config)
+      def iteration_context(loop_record, config, task)
         ctx = { recent_learnings: loop_record.recent_learnings(limit: 5) }
 
         if (campaign = loop_record.campaign)
           ctx[:open_decisions] = campaign.campaign_decisions.recent(5).map(&:summary)
         end
+
+        # C3: unlike recent_learnings (this loop's own raw captures), this pulls the
+        # top-k MOST RELEVANT compound learnings across the corpus for this specific
+        # task — closing the gap where the primary (Claude Code) executor learns via
+        # dev_complete_task but was never handed anything back on the next claim.
+        relevant = relevant_compound_learnings(task)
+        ctx[:relevant_learnings] = relevant if relevant.present?
 
         base = config["base_context_files"]
         if base.present?
@@ -679,6 +690,29 @@ module Ai
           ctx[:base_context_contents] = contents if contents.present?
         end
         ctx
+      end
+
+      # C3: reuses Ai::Learning::CompoundLearningService's existing retrieval/
+      # ranking (the same embedding search + effective_importance rank that
+      # build_compound_context already uses for platform-agent executions) so
+      # this consumer never drifts from that one. Feature-flagged behind the
+      # same :compound_learning_injection flag; excludes retired learnings via
+      # the surfacing set both retrieval paths already restrict to
+      # (active/verified); bumps injection_count/last_injected on each
+      # surfaced learning. Query text is the task's own description +
+      # acceptance criteria — no separate tags/category field exists on
+      # Ai::RalphTask to key off instead.
+      def relevant_compound_learnings(task)
+        return [] unless task
+
+        task_description = [task.description, task.acceptance_criteria].compact_blank.join("\n")
+        return [] if task_description.blank?
+
+        ::Ai::Learning::CompoundLearningService.new(account: account)
+          .top_relevant_learnings(task_description: task_description, k: RELEVANT_LEARNINGS_LIMIT)
+      rescue StandardError => e
+        Rails.logger.warn("[DevLoopTool] relevant_compound_learnings failed for task #{task&.task_key}: #{e.message}")
+        []
       end
 
       # Read each curated base structural file and return size-bounded contents so any

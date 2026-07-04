@@ -158,26 +158,8 @@ module Ai
         char_budget = token_budget * CHARS_PER_TOKEN
         learning_ids = []
 
-        # Generate query embedding
-        query_embedding = @embedding_service.generate(task_description)
-
-        # Retrieve relevant learnings
-        candidates = if query_embedding
-          Ai::CompoundLearning.semantic_search(
-            query_embedding,
-            account_id: @account.id,
-            threshold: 0.5,
-            limit: 30
-          )
-        else
-          # Fallback to keyword search
-          keyword_search(task_description)
-        end
-
-        return { context: nil, token_estimate: 0, learning_ids: [] } if candidates.empty?
-
-        # Rank by effective_importance
-        ranked = candidates.sort_by { |l| -l.effective_importance }
+        ranked = ranked_learning_candidates(task_description)
+        return { context: nil, token_estimate: 0, learning_ids: [] } if ranked.empty?
 
         # Build context string within budget
         lines = ["## Compound Learnings"]
@@ -212,6 +194,42 @@ module Ai
       rescue StandardError => e
         Rails.logger.warn("[CompoundLearning] Context build failed: #{e.message}")
         { context: nil, token_estimate: 0, learning_ids: [] }
+      end
+
+      # Lean, top-k relevant learnings for a caller that wants a small structured
+      # list rather than a formatted context block — e.g. Ai::Tools::DevLoopTool's
+      # dev_next_task, injecting prior learnings into the primary (Claude Code)
+      # executor's payload the same way build_compound_context already does for
+      # platform-agent executions. Reuses the identical retrieval/ranking
+      # (embedding search -> keyword fallback -> effective_importance rank, both
+      # of which already restrict to the active/verified surfacing set — retired
+      # learnings never reach either) so the two consumers can't drift apart.
+      # Bumps injection_count/last_injected on each surfaced learning exactly like
+      # build_compound_context, so usage from either path feeds the same
+      # effectiveness accrual. Summaries only (truncated title/content) to keep
+      # the payload lean.
+      def top_relevant_learnings(task_description:, k: 5)
+        return [] unless injection_enabled?
+        return [] if task_description.blank?
+
+        ranked = ranked_learning_candidates(task_description).first(k)
+        return [] if ranked.empty?
+
+        ranked.map do |learning|
+          learning.record_access!
+          learning.record_injection!
+          {
+            id: learning.id,
+            category: learning.category,
+            title: learning.title || learning.content.truncate(100),
+            summary: learning.content.truncate(200),
+            confidence: learning.confidence_score,
+            effectiveness: learning.effectiveness_score
+          }
+        end
+      rescue StandardError => e
+        Rails.logger.warn("[CompoundLearning] top_relevant_learnings failed: #{e.message}")
+        []
       end
 
       # ==================================================
@@ -764,6 +782,29 @@ module Ai
           tasks_total: execution.respond_to?(:tasks_total) ? execution.tasks_total : nil,
           team_name: execution.respond_to?(:agent_team) ? execution.agent_team&.name : nil
         }
+      end
+
+      # Shared retrieval + ranking for build_compound_context and
+      # top_relevant_learnings: embedding search first, keyword fallback when no
+      # embedding is available, ranked by effective_importance (importance_score
+      # blended with observed injection effectiveness once there's enough
+      # signal — see Ai::CompoundLearning#effective_importance). Both retrieval
+      # paths already restrict to the active/verified surfacing set.
+      def ranked_learning_candidates(task_description)
+        query_embedding = @embedding_service.generate(task_description)
+
+        candidates = if query_embedding
+          Ai::CompoundLearning.semantic_search(
+            query_embedding,
+            account_id: @account.id,
+            threshold: 0.5,
+            limit: 30
+          )
+        else
+          keyword_search(task_description)
+        end
+
+        candidates.sort_by { |l| -l.effective_importance }
       end
 
       def keyword_search(query)

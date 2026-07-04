@@ -8,6 +8,14 @@ RSpec.describe Ai::Tools::DevLoopTool do
   let(:tool) { described_class.new(account: account, user: user) }
   let(:ralph_loop) { create(:ai_ralph_loop, account: account, name: "dev-audit-test") }
 
+  # C3: dev_next_task now surfaces relevant compound learnings on every claim, which
+  # calls through to Ai::Memory::EmbeddingService. Force the keyword-fallback path
+  # deterministically (rather than depending on Redis / the test-env mock embedding)
+  # so unrelated tests in this file aren't coupled to embedding infrastructure.
+  before do
+    allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+  end
+
   describe ".definition" do
     it "returns a valid tool definition" do
       defn = described_class.definition
@@ -63,6 +71,78 @@ RSpec.describe Ai::Tools::DevLoopTool do
       ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
       expect(ctx).to have_key(:recent_learnings)
       expect(ctx).not_to have_key(:open_decisions)
+    end
+
+    # C3: unlike recent_learnings (this loop's own raw captures), relevant_learnings
+    # surfaces the top-k most RELEVANT compound learnings across the whole corpus for
+    # the specific task being claimed — closing the gap where a primary (Claude Code)
+    # executor's dev_complete_task learnings were never handed back on the next claim.
+    describe "surfaces relevant compound learnings for the claimed task (C3)" do
+      before do
+        allow(Shared::FeatureFlagService).to receive(:enabled?)
+          .with(:compound_learning_injection, account).and_return(true)
+      end
+
+      it "injects the top-k most relevant compound learnings, reusing build_compound_context's ranking" do
+        learning = create(:ai_compound_learning, account: account, status: "active",
+                          category: "best_practice", title: "Cache reporting queries",
+                          content: "Always cache repeated reporting queries", importance_score: 0.8)
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "cache-task", priority: 5,
+               description: "Optimize caching queries in the reporting service",
+               acceptance_criteria: "Reporting queries should hit the cache")
+
+        ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+
+        expect(ctx[:relevant_learnings]).to be_present
+        entry = ctx[:relevant_learnings].find { |l| l[:id] == learning.id }
+        expect(entry).to include(category: "best_practice", title: "Cache reporting queries")
+      end
+
+      it "caps relevant_learnings at RELEVANT_LEARNINGS_LIMIT" do
+        6.times do |i|
+          create(:ai_compound_learning, account: account, status: "active",
+                 content: "Cache reporting queries pattern #{i}", importance_score: 0.5)
+        end
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "cache-task", priority: 5,
+               description: "Optimize caching queries", acceptance_criteria: "n/a")
+
+        ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+
+        expect(ctx[:relevant_learnings].size).to eq(described_class::RELEVANT_LEARNINGS_LIMIT)
+      end
+
+      it "excludes retired learnings" do
+        retired = create(:ai_compound_learning, account: account, status: "retired",
+                         content: "Cache reporting queries retired pattern", importance_score: 0.9)
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "cache-task", priority: 5,
+               description: "Optimize caching queries", acceptance_criteria: "n/a")
+
+        ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+
+        ids = (ctx[:relevant_learnings] || []).map { |l| l[:id] }
+        expect(ids).not_to include(retired.id)
+      end
+
+      it "bumps injection_count/last_injected_at on surfaced learnings" do
+        learning = create(:ai_compound_learning, account: account, status: "active",
+                          content: "Cache reporting queries", importance_score: 0.8, injection_count: 0)
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "cache-task", priority: 5,
+               description: "Optimize caching queries", acceptance_criteria: "n/a")
+
+        tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+        expect(learning.reload.injection_count).to eq(1)
+        expect(learning.last_injected_at).to be_present
+      end
+
+      it "omits relevant_learnings entirely when nothing matches (keeps payload lean)" do
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "no-match", priority: 5,
+               description: "Completely unrelated widget frobnication", acceptance_criteria: "n/a")
+
+        ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+
+        expect(ctx).not_to have_key(:relevant_learnings)
+      end
     end
 
     # G12 (IMP-c46281b749ed): a non-Claude executor on the platform path can't read

@@ -233,6 +233,101 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
     end
   end
 
+  describe "#top_relevant_learnings" do
+    context "when injection is disabled" do
+      before do
+        allow(Shared::FeatureFlagService).to receive(:enabled?)
+          .with(:compound_learning_injection, account).and_return(false)
+      end
+
+      it "returns an empty array" do
+        create(:ai_compound_learning, account: account, content: "caching queries pattern", status: "active")
+
+        expect(service.top_relevant_learnings(task_description: "caching queries")).to eq([])
+      end
+    end
+
+    context "when injection is enabled" do
+      before do
+        allow(Shared::FeatureFlagService).to receive(:enabled?)
+          .with(:compound_learning_injection, account).and_return(true)
+      end
+
+      it "returns an empty array for a blank task description" do
+        expect(service.top_relevant_learnings(task_description: "")).to eq([])
+      end
+
+      it "returns an empty array with no matching learnings" do
+        expect(service.top_relevant_learnings(task_description: "something with no matches")).to eq([])
+      end
+
+      it "returns lean summaries of matching learnings, reusing build_compound_context's ranking" do
+        learning = create(:ai_compound_learning,
+                          account: account,
+                          category: "best_practice",
+                          title: "Use caching",
+                          content: "Always use caching for repeated queries",
+                          importance_score: 0.8,
+                          confidence_score: 0.7,
+                          status: "active")
+
+        results = service.top_relevant_learnings(task_description: "caching queries")
+
+        expect(results.size).to eq(1)
+        expect(results.first).to include(
+          id: learning.id,
+          category: "best_practice",
+          title: "Use caching",
+          confidence: 0.7
+        )
+        expect(results.first[:summary]).to include("caching")
+      end
+
+      it "caps results at k even when more candidates match" do
+        6.times do |i|
+          create(:ai_compound_learning, account: account, content: "caching pattern number #{i}",
+                 importance_score: 0.5, status: "active")
+        end
+
+        results = service.top_relevant_learnings(task_description: "caching pattern", k: 3)
+
+        expect(results.size).to eq(3)
+      end
+
+      it "bumps injection_count/access_count/last_injected_at on each surfaced learning" do
+        learning = create(:ai_compound_learning, account: account, content: "caching queries pattern",
+                          status: "active", injection_count: 0, access_count: 0)
+
+        service.top_relevant_learnings(task_description: "caching queries")
+        learning.reload
+
+        expect(learning.injection_count).to eq(1)
+        expect(learning.access_count).to eq(1)
+        expect(learning.last_injected_at).to be_within(5.seconds).of(Time.current)
+      end
+
+      it "excludes retired learnings" do
+        retained = create(:ai_compound_learning, account: account, status: "active", tags: ["dev-loop"],
+                          content: "caching queries pattern", importance_score: 0.9)
+        trading = create(:ai_compound_learning, account: account, status: "active", tags: ["trading"],
+                         content: "caching queries trading pattern", importance_score: 0.95)
+        service.retire_domain!("trading")
+
+        results = service.top_relevant_learnings(task_description: "caching queries trading pattern")
+
+        ids = results.map { |r| r[:id] }
+        expect(ids).to include(retained.id)
+        expect(ids).not_to include(trading.id)
+      end
+
+      it "handles exceptions gracefully" do
+        allow(embedding_service).to receive(:generate).and_raise(StandardError, "embedding error")
+
+        expect(service.top_relevant_learnings(task_description: "test")).to eq([])
+      end
+    end
+  end
+
   describe "#boost_injected_learnings_on_success" do
     it "resolves recent neutral injections as positive outcomes without re-counting the injection" do
       learning = create(:ai_compound_learning,
