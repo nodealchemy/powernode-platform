@@ -21,6 +21,8 @@ module Ai
              foreign_key: "ai_data_source_id", dependent: :destroy
     has_many :published_posts, class_name: "Ai::PublishedPost",
              foreign_key: "ai_data_source_id", dependent: :destroy
+    has_many :content_drafts, class_name: "Ai::ContentDraft",
+             foreign_key: "ai_data_source_id", dependent: :destroy
     has_one :knowledge_graph_node, class_name: "Ai::KnowledgeGraphNode",
             foreign_key: "ai_data_source_id", dependent: :nullify
 

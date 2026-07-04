@@ -343,6 +343,14 @@ module Ai
       # below (metadata["engagement_metrics"]) is what
       # Ai::Growth::EngagementIngestionService polls for that post's
       # likes/reposts/replies/impressions.
+      #
+      # metadata["max_content_length"] / metadata["thread_splittable"] (content
+      # drafting, D1) are the same metadata-flag idiom applied to publish
+      # CONSTRAINTS rather than capabilities: Ai::Growth::ContentDraftingService
+      # reads these off the target endpoint generically, so a future provider's
+      # own create-post-shaped endpoint carries its own limits and needs zero
+      # drafting-code change. X's 280-char cap is real and genuinely
+      # thread-splittable (a long draft becomes an ordered, numbered thread).
       def x_com_template
         {
           slug: "x-com",
@@ -424,7 +432,11 @@ module Ai
                   # an Ai::PublishedPost. Same metadata-flag idiom as
                   # side_effecting above — a future provider's own create-post
                   # endpoint opts in the same way, no core code change.
-                  "captures_published_post" => true
+                  "captures_published_post" => true,
+                  # Content-drafting constraints (D1) — see the class-comment
+                  # note above "Create Post" for the full rationale.
+                  "max_content_length" => 280,
+                  "thread_splittable" => true
                 }
               },
               {
@@ -546,7 +558,11 @@ module Ai
                 "metadata" => {
                   "note" => "SIDE-EFFECTING write — publishes a real post. Never cached. " \
                             "person_id is the LinkedIn member URN id (path/body param).",
-                  "side_effecting" => true
+                  "side_effecting" => true,
+                  # Content-drafting constraints (D1) — LinkedIn is long-form,
+                  # never thread-split.
+                  "max_content_length" => 3000,
+                  "thread_splittable" => false
                 }
               }
             ]
@@ -635,7 +651,11 @@ module Ai
                 "response_mapping" => { "records_path" => "json.data" },
                 "metadata" => {
                   "note" => "SIDE-EFFECTING write — submits a real post. Never cached.",
-                  "side_effecting" => true
+                  "side_effecting" => true,
+                  # Content-drafting constraints (D1) — Reddit self-posts are
+                  # effectively unbounded, never thread-split.
+                  "max_content_length" => 40_000,
+                  "thread_splittable" => false
                 }
               }
             ]
@@ -815,7 +835,12 @@ module Ai
                 "response_mapping" => {},
                 "metadata" => {
                   "note" => "SIDE-EFFECTING write — publishes a real status. Never cached.",
-                  "side_effecting" => true
+                  "side_effecting" => true,
+                  # Content-drafting constraints (D1) — the fediverse-standard
+                  # 500-char default toot length; Mastodon threads natively via
+                  # reply chains, so long drafts are thread-splittable too.
+                  "max_content_length" => 500,
+                  "thread_splittable" => true
                 }
               }
             ]
@@ -913,7 +938,11 @@ module Ai
                             "repo is YOUR OWN did (see the createSession response or " \
                             "app.bsky.actor.getProfile); created_at is an ISO8601 " \
                             "timestamp the caller supplies.",
-                  "side_effecting" => true
+                  "side_effecting" => true,
+                  # Content-drafting constraints (D1) — AT Protocol's real
+                  # 300-grapheme post cap; thread-splittable like X.
+                  "max_content_length" => 300,
+                  "thread_splittable" => true
                 }
               }
             ]
