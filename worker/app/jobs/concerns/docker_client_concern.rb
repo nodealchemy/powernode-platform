@@ -71,8 +71,22 @@ module DockerClientConcern
   end
 
   def configure_tls(faraday, tls_credentials)
-    faraday.ssl.client_cert = OpenSSL::X509::Certificate.new(tls_credentials[:client_cert])
-    faraday.ssl.client_key = OpenSSL::PKey.read(clean_pem_key(tls_credentials[:client_key]))
+    # A CA-only credential (server-verify-only TLS, no client mutual-auth
+    # cert/key) is a legitimately reachable stored shape — Devops::
+    # TlsCredentialParams#build_tls_credentials packs the blob whenever ANY
+    # of tls_ca/tls_cert/tls_key is present, not all three. An asymmetric
+    # pair (only one of client_cert/client_key present) is never legitimate,
+    # so it's rejected loudly instead of silently falling back to CA-only
+    # (which would look like working TLS while quietly skipping the
+    # mutual-auth the operator configured).
+    client_cert = tls_credentials[:client_cert]
+    client_key = tls_credentials[:client_key]
+    if client_cert.present? && client_key.present?
+      faraday.ssl.client_cert = OpenSSL::X509::Certificate.new(client_cert)
+      faraday.ssl.client_key = OpenSSL::PKey.read(clean_pem_key(client_key))
+    elsif client_cert.present? || client_key.present?
+      raise ArgumentError, "Invalid TLS credentials: client_cert and client_key must both be present, or both absent for server-verify-only TLS"
+    end
     return if tls_credentials[:ca_cert].blank?
 
     # Write the CA cert to a tempfile for Faraday SSL verification. Stashed on

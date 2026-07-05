@@ -120,6 +120,44 @@ RSpec.describe DockerClientConcern do
       end
     end
 
+    context "with a CA-only credential shape (server-verify-only TLS, no client cert/key)" do
+      let(:connection) do
+        {
+          "api_endpoint" => "https://docker-host-1:2376",
+          "encrypted_tls_credentials" => {
+            ca_cert: ca[1].to_pem,
+            client_cert: nil,
+            client_key: nil
+          }.to_json
+        }
+      end
+
+      it "connects without raising, leaving client cert/key unset" do
+        client = nil
+        expect { client = instance.build_docker_client(connection) }.not_to raise_error
+        expect(client.ssl.client_cert).to be_nil
+        expect(client.ssl.client_key).to be_nil
+        expect(client.ssl.ca_file).to be_present
+      end
+    end
+
+    context "with an asymmetric credential shape (only one of client_cert/client_key stored)" do
+      let(:connection) do
+        {
+          "api_endpoint" => "https://docker-host-1:2376",
+          "encrypted_tls_credentials" => {
+            ca_cert: ca[1].to_pem,
+            client_cert: client_cert.to_pem,
+            client_key: nil
+          }.to_json
+        }
+      end
+
+      it "raises a clear error instead of silently degrading to CA-only" do
+        expect { instance.build_docker_client(connection) }.to raise_error(ArgumentError, /client_cert and client_key must both be present/)
+      end
+    end
+
     context "with a tcp:// endpoint (managed-host DOCKER_HOST convention)" do
       let(:connection) do
         {

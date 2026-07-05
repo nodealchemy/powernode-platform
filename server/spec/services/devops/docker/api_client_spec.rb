@@ -74,6 +74,31 @@ RSpec.describe Devops::Docker::ApiClient do
       expect(conn.ssl.client_cert).to be_a(OpenSSL::X509::Certificate)
       expect(conn.ssl.client_key).to be_a(OpenSSL::PKey::PKey)
     end
+
+    # Devops::TlsCredentialParams#build_tls_credentials packs
+    # encrypted_tls_credentials whenever tls_ca.present? OR tls_cert.present?
+    # OR tls_key.present? — so a host registered with only a CA cert
+    # (server-verify-only TLS, no client mutual-auth cert/key) is a
+    # legitimately reachable stored shape: {client_cert: nil, client_key: nil}.
+    it "connects with server-verify-only TLS when only a CA cert is stored (no client cert/key)" do
+      ca_only_host = create(:devops_docker_host, account: account,
+        encrypted_tls_credentials: { ca_cert: ca[1].to_pem, client_cert: nil, client_key: nil }.to_json)
+      client = described_class.new(ca_only_host)
+
+      conn = nil
+      expect { conn = client.send(:connection) }.not_to raise_error
+      expect(conn.ssl.client_cert).to be_nil
+      expect(conn.ssl.client_key).to be_nil
+      expect(conn.ssl.ca_file).to be_present
+    end
+
+    it "raises a clear ConnectionError instead of silently degrading when only one of client_cert/client_key is stored" do
+      asymmetric_host = create(:devops_docker_host, account: account,
+        encrypted_tls_credentials: { ca_cert: ca[1].to_pem, client_cert: client_cert.to_pem, client_key: nil }.to_json)
+      client = described_class.new(asymmetric_host)
+
+      expect { client.send(:connection) }.to raise_error(Devops::Docker::ApiClient::ConnectionError, /client_cert and client_key must both be present/)
+    end
   end
 
   # System::DockerDaemonProvisionerService always emits api_endpoint
