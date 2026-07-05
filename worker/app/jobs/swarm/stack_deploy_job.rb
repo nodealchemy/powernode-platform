@@ -226,7 +226,7 @@ module Swarm
     end
 
     def find_existing_service(docker, service_name)
-      response = docker.get("/services", filters: { name: [service_name] }.to_json)
+      response = docker.get(docker_path("/services"), filters: { name: [service_name] }.to_json)
       return nil unless response.success?
 
       services = JSON.parse(response.body)
@@ -234,7 +234,7 @@ module Swarm
     end
 
     def create_docker_service(docker, spec)
-      response = docker.post("/services/create") do |req|
+      response = docker.post(docker_path("/services/create")) do |req|
         req.headers["Content-Type"] = "application/json"
         req.body = spec.to_json
       end
@@ -247,7 +247,7 @@ module Swarm
     end
 
     def update_docker_service(docker, service_id, version_index, spec)
-      response = docker.post("/services/#{service_id}/update?version=#{version_index}") do |req|
+      response = docker.post(docker_path("/services/#{service_id}/update?version=#{version_index}")) do |req|
         req.headers["Content-Type"] = "application/json"
         req.body = spec.to_json
       end
@@ -266,7 +266,7 @@ module Swarm
           next false unless service
 
           desired = service.dig("Spec", "Mode", "Replicated", "Replicas") || 1
-          tasks_response = docker.get("/tasks", filters: { service: [service["ID"]], "desired-state": ["running"] }.to_json)
+          tasks_response = docker.get(docker_path("/tasks"), filters: { service: [service["ID"]], "desired-state": ["running"] }.to_json)
           next false unless tasks_response.success?
 
           tasks = JSON.parse(tasks_response.body)

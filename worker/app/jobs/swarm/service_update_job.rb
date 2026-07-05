@@ -124,7 +124,7 @@ module Swarm
       end
 
       # Execute the update
-      response = docker.post("/services/#{service_docker_id}/update?version=#{version_index}") do |req|
+      response = docker.post(docker_path("/services/#{service_docker_id}/update?version=#{version_index}")) do |req|
         req.headers["Content-Type"] = "application/json"
         req.body = spec.to_json
       end
@@ -147,7 +147,7 @@ module Swarm
       previous_spec = current["PreviousSpec"]
       raise "No previous spec available for rollback" unless previous_spec
 
-      response = docker.post("/services/#{service_docker_id}/update?version=#{version_index}&rollback=previous") do |req|
+      response = docker.post(docker_path("/services/#{service_docker_id}/update?version=#{version_index}&rollback=previous")) do |req|
         req.headers["Content-Type"] = "application/json"
         req.body = previous_spec.to_json
       end
@@ -160,7 +160,7 @@ module Swarm
     end
 
     def fetch_service(docker, service_docker_id)
-      response = docker.get("/services/#{service_docker_id}")
+      response = docker.get(docker_path("/services/#{service_docker_id}"))
 
       unless response.success?
         raise "Failed to fetch service #{service_docker_id}: #{response.status} - #{response.body}"
@@ -190,7 +190,7 @@ module Swarm
         end
 
         # Check running tasks
-        tasks_response = docker.get("/tasks", filters: { service: [service_docker_id], "desired-state": ["running"] }.to_json)
+        tasks_response = docker.get(docker_path("/tasks"), filters: { service: [service_docker_id], "desired-state": ["running"] }.to_json)
         if tasks_response.success?
           tasks = JSON.parse(tasks_response.body)
           running = tasks.count { |t| t.dig("Status", "State") == "running" }

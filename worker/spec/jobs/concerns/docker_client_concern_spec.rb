@@ -20,7 +20,7 @@ RSpec.describe DockerClientConcern do
     Class.new do
       include DockerClientConcern
       const_set(:DOCKER_API_VERSION, "v1.45")
-      public :build_docker_client
+      public :build_docker_client, :docker_path
     end
   end
   let(:instance) { including_class.new }
@@ -149,6 +149,46 @@ RSpec.describe DockerClientConcern do
 
         expect(client.url_prefix.scheme).to eq("http")
       end
+    end
+  end
+
+  # Regression coverage for IMP-d03772860f73: #build_docker_client bakes
+  # DOCKER_API_VERSION into base_url, but every job historically issued
+  # requests with an absolute (leading-slash) path — which Faraday resolves
+  # by replacing base_url's path entirely (RFC 3986), silently dropping the
+  # version segment. #docker_path is the fix: it strips the leading slash so
+  # the path is appended instead. These specs hit a real Faraday connection
+  # through WebMock (not an instance_double) so the actual URL join is what's
+  # under test, not an assumption about how Faraday behaves.
+  describe "#docker_path" do
+    it "strips a leading slash so the path is appended to base_url instead of replacing it" do
+      expect(instance.docker_path("/nodes")).to eq("nodes")
+    end
+
+    it "leaves a path with no leading slash unchanged" do
+      expect(instance.docker_path("nodes")).to eq("nodes")
+    end
+  end
+
+  describe "request routing through a client built by #build_docker_client" do
+    let(:connection) { { "api_endpoint" => "https://docker-host-1:2376", "tls_verify" => false } }
+    let(:client) { instance.build_docker_client(connection) }
+
+    it "drops the baked-in version segment when the request path is absolute (the bug)" do
+      stub_request(:get, "https://docker-host-1:2376/nodes").to_return(status: 200, body: "[]")
+
+      response = client.get("/nodes")
+
+      expect(response.status).to eq(200)
+      expect(a_request(:get, "https://docker-host-1:2376/v1.45/nodes")).not_to have_been_made
+    end
+
+    it "preserves the baked-in version segment when the path is routed through #docker_path" do
+      stub_request(:get, "https://docker-host-1:2376/v1.45/nodes").to_return(status: 200, body: "[]")
+
+      response = client.get(instance.docker_path("/nodes"))
+
+      expect(response.status).to eq(200)
     end
   end
 end

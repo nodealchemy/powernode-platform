@@ -62,7 +62,7 @@ module Docker
     end
 
     def fetch_docker_containers(docker)
-      response = docker.get("/containers/json?all=true")
+      response = docker.get(docker_path("/containers/json?all=true"))
 
       unless response.success?
         raise "Docker API error fetching containers: #{response.status} - #{response.body}"
@@ -88,7 +88,7 @@ module Docker
     end
 
     def fetch_docker_images(docker)
-      response = docker.get("/images/json")
+      response = docker.get(docker_path("/images/json"))
 
       unless response.success?
         raise "Docker API error fetching images: #{response.status} - #{response.body}"

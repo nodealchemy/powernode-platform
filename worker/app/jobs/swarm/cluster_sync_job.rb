@@ -72,7 +72,7 @@ module Swarm
     end
 
     def fetch_docker_nodes(docker)
-      response = docker.get("/nodes")
+      response = docker.get(docker_path("/nodes"))
 
       unless response.success?
         raise "Docker API error fetching nodes: #{response.status} - #{response.body}"
@@ -102,7 +102,7 @@ module Swarm
     end
 
     def fetch_docker_services(docker, running_counts = {})
-      response = docker.get("/services")
+      response = docker.get(docker_path("/services"))
 
       unless response.success?
         raise "Docker API error fetching services: #{response.status} - #{response.body}"
@@ -137,7 +137,7 @@ module Swarm
     end
 
     def fetch_running_task_counts(docker)
-      response = docker.get("/tasks", filters: { "desired-state" => ["running"] }.to_json)
+      response = docker.get(docker_path("/tasks"), filters: { "desired-state" => ["running"] }.to_json)
 
       unless response.success?
         log_warn "Failed to fetch tasks for running counts: #{response.status}"

@@ -99,7 +99,7 @@ module Swarm
     end
 
     def check_api_ping(docker)
-      response = docker.get("/_ping")
+      response = docker.get(docker_path("/_ping"))
       response.success?
     rescue StandardError
       false
@@ -108,7 +108,7 @@ module Swarm
     def check_node_health(docker)
       alerts = []
 
-      response = docker.get("/nodes")
+      response = docker.get(docker_path("/nodes"))
       return [{ severity: "critical", message: "Cannot fetch node list" }] unless response.success?
 
       nodes = JSON.parse(response.body)
@@ -140,7 +140,7 @@ module Swarm
     def check_service_health(docker)
       alerts = []
 
-      response = docker.get("/services")
+      response = docker.get(docker_path("/services"))
       return [{ severity: "warning", message: "Cannot fetch service list" }] unless response.success?
 
       services = JSON.parse(response.body)
@@ -152,7 +152,7 @@ module Swarm
         next unless desired_replicas # Skip global-mode services
 
         # Check running tasks for this service
-        tasks_response = docker.get("/tasks", filters: { service: [svc["ID"]], "desired-state": ["running"] }.to_json)
+        tasks_response = docker.get(docker_path("/tasks"), filters: { service: [svc["ID"]], "desired-state": ["running"] }.to_json)
         next unless tasks_response.success?
 
         tasks = JSON.parse(tasks_response.body)

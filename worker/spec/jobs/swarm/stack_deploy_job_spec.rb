@@ -70,7 +70,7 @@ RSpec.describe Swarm::StackDeployJob, type: :job do
       it 'issues an Engine API create and never an update' do
         create_resp = instance_double(Faraday::Response, success?: true, body: '{"ID":"svc-new"}')
 
-        expect(docker).to receive(:post).with('/services/create').and_return(create_resp)
+        expect(docker).to receive(:post).with('services/create').and_return(create_resp)
         expect(docker).not_to receive(:post).with(a_string_matching(%r{/update}))
 
         job.execute(deployment_id)
@@ -85,8 +85,8 @@ RSpec.describe Swarm::StackDeployJob, type: :job do
       it 'issues an Engine API update pinned to the current version index, never a create' do
         update_resp = instance_double(Faraday::Response, success?: true, body: '')
 
-        expect(docker).to receive(:post).with('/services/svc-123/update?version=7').and_return(update_resp)
-        expect(docker).not_to receive(:post).with('/services/create')
+        expect(docker).to receive(:post).with('services/svc-123/update?version=7').and_return(update_resp)
+        expect(docker).not_to receive(:post).with('services/create')
 
         job.execute(deployment_id)
       end
@@ -97,7 +97,7 @@ RSpec.describe Swarm::StackDeployJob, type: :job do
     before do
       allow(job).to receive(:find_existing_service).and_return(nil)
       allow(docker).to receive(:post)
-        .with('/services/create')
+        .with('services/create')
         .and_return(instance_double(Faraday::Response, success?: true, body: '{"ID":"svc-new"}'))
     end
 
@@ -126,7 +126,7 @@ RSpec.describe Swarm::StackDeployJob, type: :job do
     before do
       allow(job).to receive(:find_existing_service).and_return(nil)
       allow(docker).to receive(:post)
-        .with('/services/create')
+        .with('services/create')
         .and_return(instance_double(Faraday::Response, success?: false, status: 500, body: 'boom'))
     end
 

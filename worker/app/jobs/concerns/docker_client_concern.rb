@@ -42,6 +42,21 @@ module DockerClientConcern
     end
   end
 
+  # #build_docker_client bakes DOCKER_API_VERSION into base_url (e.g.
+  # "https://host:2376/v1.41"). Faraday's URL joining follows RFC 3986: a
+  # request path starting with "/" REPLACES base_url's path component
+  # entirely instead of appending to it, so an absolute path silently drops
+  # the baked-in version segment (Faraday.new(url: "https://host:2376/v1.41")
+  # .get("/nodes") hits "https://host:2376/nodes", not ".../v1.41/nodes").
+  # Every docker.get/post/put/delete call against a client built by
+  # #build_docker_client MUST route its path through this helper — which
+  # simply strips the leading slash so Faraday appends rather than replaces —
+  # instead of passing a raw absolute path. Mirrors
+  # Devops::Docker::ApiClient#versioned_path (server-side counterpart).
+  def docker_path(path)
+    path.sub(%r{\A/}, "")
+  end
+
   # DockerHost/SwarmCluster#api_endpoint permits Docker's own "tcp://"
   # DOCKER_HOST convention, but "tcp" isn't an HTTP scheme Faraday
   # understands — its net_http adapter only enables TLS when
