@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_04_060000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_05_102416) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1475,6 +1475,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_060000) do
     t.index ["superseded_by_id"], name: "index_ai_compound_learnings_on_superseded_by_id"
     t.index ["tags"], name: "index_ai_compound_learnings_on_tags", using: :gin
     t.index ["verified_by_id"], name: "index_ai_compound_learnings_on_verified_by_id"
+  end
+
+  create_table "ai_content_drafts", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_data_source_id", null: false
+    t.uuid "ai_knowledge_base_id"
+    t.jsonb "brand_voice", default: {}, null: false
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "requesting_agent_id"
+    t.jsonb "segments", default: [], null: false
+    t.string "source_type", null: false
+    t.string "status", default: "draft", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_content_drafts_on_account_id"
+    t.index ["ai_data_source_id"], name: "index_ai_content_drafts_on_ai_data_source_id"
+    t.index ["ai_knowledge_base_id"], name: "index_ai_content_drafts_on_ai_knowledge_base_id"
+    t.index ["requesting_agent_id"], name: "index_ai_content_drafts_on_requesting_agent_id"
+    t.index ["status"], name: "index_ai_content_drafts_on_status"
   end
 
   create_table "ai_context_access_logs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -3207,6 +3228,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_060000) do
     t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'acknowledged'::character varying::text, 'investigating'::character varying::text, 'resolved'::character varying::text, 'dismissed'::character varying::text, 'escalated'::character varying::text])", name: "check_violation_status"
   end
 
+  create_table "ai_post_engagement_snapshots", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_published_post_id", null: false
+    t.datetime "captured_at", null: false
+    t.datetime "created_at", null: false
+    t.integer "impressions_count"
+    t.integer "likes_count"
+    t.jsonb "raw_metrics", default: {}, null: false
+    t.integer "replies_count"
+    t.integer "reposts_count"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_post_engagement_snapshots_on_account_id"
+    t.index ["ai_published_post_id", "captured_at"], name: "index_ai_post_engagement_snapshots_on_post_and_captured_at"
+  end
+
   create_table "ai_pressure_fields", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.integer "address_count", default: 0, null: false
@@ -3375,6 +3411,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_060000) do
     t.datetime "updated_at", null: false
     t.index ["mission_id"], name: "index_ai_provisioning_code_deployments_on_mission_id"
     t.index ["node_instance_id"], name: "index_ai_provisioning_code_deployments_on_node_instance_id"
+  end
+
+  create_table "ai_published_posts", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_data_source_endpoint_id"
+    t.uuid "ai_data_source_id", null: false
+    t.text "content"
+    t.datetime "created_at", null: false
+    t.string "external_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "published_at", null: false
+    t.uuid "requesting_agent_id"
+    t.string "source_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_published_posts_on_account_id"
+    t.index ["ai_data_source_endpoint_id"], name: "index_ai_published_posts_on_ai_data_source_endpoint_id"
+    t.index ["ai_data_source_id", "external_id"], name: "index_ai_published_posts_on_ai_data_source_id_and_external_id", unique: true
+    t.index ["requesting_agent_id"], name: "index_ai_published_posts_on_requesting_agent_id"
   end
 
   create_table "ai_quarantine_records", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -9278,6 +9332,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_060000) do
     t.uuid "instance_pool_id"
     t.text "key"
     t.datetime "last_heartbeat_at"
+    t.datetime "last_synced_at"
     t.decimal "latitude", precision: 10, scale: 7, comment: "Latitude coordinate"
     t.decimal "longitude", precision: 10, scale: 7, comment: "Longitude coordinate"
     t.string "mac_address", comment: "Primary MAC address"
@@ -9308,6 +9363,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_04_060000) do
     t.index ["instance_pool_id", "pool_state", "pool_warming_started_at"], name: "idx_node_instances_pool_acquire", where: "(instance_pool_id IS NOT NULL)"
     t.index ["instance_pool_id"], name: "index_system_node_instances_on_instance_pool_id"
     t.index ["last_heartbeat_at"], name: "index_system_node_instances_on_last_heartbeat_at"
+    t.index ["last_synced_at"], name: "index_system_node_instances_on_last_synced_at"
     t.index ["mac_address"], name: "index_system_node_instances_on_mac_address", unique: true, where: "(mac_address IS NOT NULL)"
     t.index ["mtls_subject"], name: "index_system_node_instances_on_mtls_subject"
     t.index ["network_profile"], name: "index_system_node_instances_on_network_profile"
