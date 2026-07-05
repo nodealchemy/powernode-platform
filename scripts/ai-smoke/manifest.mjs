@@ -313,5 +313,28 @@ export function buildManifest(runId) {
         { id: 'coordination.team_events', method: 'GET', path: '/ai/coordination/team_events' },
       ],
     },
+
+    // ----------------------------------------------------------------- ingress
+    // System extension: reverse-proxy / service-exposure surface (Path A/E of
+    // extensions/system/docs/runbooks/traefik-tcp-exposure-vs-dnat.md).
+    //
+    // Only `ingress_routes` (a derived, read-only projection over
+    // System::AcmeCertificate — no model, no writes) is reachable as a plain
+    // REST endpoint the frontend calls directly. The mutating actions this
+    // domain is named for — system_expose_service_publicly,
+    // system_expose_service_local, system_unexpose_service_local,
+    // system_reverse_proxy_compose — are MCP-tool-only
+    // (Ai::Tools::SystemIngressTool, dispatched via the JSON-RPC
+    // POST /api/v1/mcp/message "tools/call" method, not a REST resource this
+    // harness's read/sample/lifecycle shapes can express). They are covered
+    // instead by REQUEST-level RSpec specs that drive the real MCP dispatch
+    // path end to end:
+    // extensions/system/server/spec/requests/api/v1/mcp/system_ingress_tool_spec.rb.
+    ingress: {
+      label: 'Ingress (System Extension)',
+      read: [
+        { id: 'ingress_routes', method: 'GET', path: '/system/ingress_routes' },
+      ],
+    },
   };
 }
