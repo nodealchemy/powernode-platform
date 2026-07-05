@@ -34,12 +34,42 @@ RSpec.describe SystemTaskReaperJob, type: :job do
         expect(result).to include(reaped_pending: 0, reaped_running: 0)
       end
 
-      it "queries the tasks endpoint with both pending and running statuses" do
+      it "queries the tasks endpoint with pending+scheduled and running statuses" do
         job.execute
         expect(api_client).to have_received(:get)
-          .with("/api/v1/system/worker_api/tasks", hash_including(status: "pending")).at_least(:once)
+          .with("/api/v1/system/worker_api/tasks", hash_including(status: %w[pending scheduled])).at_least(:once)
         expect(api_client).to have_received(:get)
           .with("/api/v1/system/worker_api/tasks", hash_including(status: "running")).at_least(:once)
+      end
+    end
+
+    context "when a scheduled task is stuck" do
+      # System::Task#schedule transitions pending -> scheduled (AASM), and the
+      # reaper's own comment says it covers "pending or scheduled operations
+      # whose enqueue might have been missed" — but the query only ever asked
+      # for status: "pending", so a stuck :scheduled task was never fetched
+      # and silently stranded forever.
+      let(:stuck_scheduled_task) do
+        { "id" => "sched-task-1", "created_at" => 10.minutes.ago.iso8601 }
+      end
+
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/system/worker_api/tasks", hash_including(status: "pending"))
+          .and_return({ "data" => { "tasks" => [] } })
+        allow(api_client).to receive(:get)
+          .with("/api/v1/system/worker_api/tasks", hash_including(status: %w[pending scheduled]))
+          .and_return({ "data" => { "tasks" => [ stuck_scheduled_task ] } })
+        allow(api_client).to receive(:get)
+          .with("/api/v1/system/worker_api/tasks", hash_including(status: "running"))
+          .and_return({ "data" => { "tasks" => [] } })
+        allow(api_client).to receive(:post).and_return({ "data" => {} })
+        allow(SystemExecuteTaskJob).to receive(:perform_async)
+      end
+
+      it "re-enqueues the stuck scheduled task, not just pending ones" do
+        job.execute
+        expect(SystemExecuteTaskJob).to have_received(:perform_async).with("sched-task-1")
       end
     end
 
