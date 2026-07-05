@@ -14,6 +14,10 @@ module Ai
     # Terminal = the operator already decided; a rediscovery must not resurrect it.
     TERMINAL_STATUSES = %w[rejected spawned].freeze
     SOURCES = %w[discovery trajectory improvement manual].freeze
+    # Editable via #update_fields! — only while status is proposed/queued (pre-approval).
+    UPDATABLE_FIELDS = %i[title objective source scope suggested_workload suggested_driver
+                          decision_authority configuration].freeze
+    PRE_APPROVAL_STATUSES = %w[proposed queued].freeze
     # Where an approved proposal's campaign loop can be delegated to drain (increment 4).
     SUGGESTED_DRIVERS = %w[claude_code platform_agent platform_team platform_mission].freeze
     # Workloads mirror the campaign driver's — a proposal spawns one of these.
@@ -93,6 +97,26 @@ module Ai
 
     def queue!
       update!(status: "queued")
+    end
+
+    # Revise a proposal's fields before it's been approved (operator-directed review
+    # rounds, as opposed to .propose!'s discovery-rediscovery refresh path above).
+    # Recomputes the fingerprint so dedupe stays consistent with the edited target.
+    def update_fields!(**attrs)
+      unless PRE_APPROVAL_STATUSES.include?(status)
+        raise ArgumentError, "cannot update a #{status} proposal — only proposed/queued proposals can be edited"
+      end
+
+      attrs = attrs.slice(*UPDATABLE_FIELDS).compact
+      return self if attrs.empty?
+
+      attrs[:fingerprint] = self.class.fingerprint_for(
+        scope: attrs.fetch(:scope, scope),
+        objective: attrs.fetch(:objective, objective),
+        suggested_workload: attrs.fetch(:suggested_workload, suggested_workload)
+      )
+      update!(attrs)
+      self
     end
 
     def approve!(user = nil)

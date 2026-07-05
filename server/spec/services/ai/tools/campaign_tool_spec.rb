@@ -14,7 +14,8 @@ RSpec.describe Ai::Tools::CampaignTool do
   it "registers a campaign permission + declares its actions" do
     expect(described_class::REQUIRED_PERMISSION).to eq("ai.campaigns.manage")
     expect(described_class.action_definitions.keys).to contain_exactly(
-      "campaign_propose", "campaign_list_proposals", "campaign_approve_proposal", "campaign_delegate",
+      "campaign_propose", "campaign_list_proposals", "campaign_update_proposal", "campaign_approve_proposal",
+      "campaign_reject_proposal", "campaign_delegate",
       "campaign_start", "campaign_list", "campaign_status", "campaign_claim", "campaign_release",
       "campaign_answer_question", "campaign_record_increment", "campaign_check_rebase", "campaign_stop"
     )
@@ -63,6 +64,54 @@ RSpec.describe Ai::Tools::CampaignTool do
     # Same target again → refreshed, not duplicated.
     exec(action: "campaign_propose", title: "Add export v2", objective: "Add CSV export to reports", scope: "core")
     expect(account.ai_campaign_proposals.count).to eq(1)
+  end
+
+  it "campaign_update_proposal revises fields on a proposed proposal and recomputes its fingerprint" do
+    pid = exec(action: "campaign_propose", title: "Add export", objective: "Add CSV export to reports", scope: "core")[:data][:proposal][:id]
+    original_fingerprint = account.ai_campaign_proposals.find(pid).fingerprint
+
+    res = exec(action: "campaign_update_proposal", proposal_id: pid, title: "Add export v2",
+               objective: "Add CSV+JSON export to reports")
+    expect(res[:success]).to be true
+    expect(res[:data][:proposal][:title]).to eq("Add export v2")
+
+    proposal = account.ai_campaign_proposals.find(pid)
+    expect(proposal.objective).to eq("Add CSV+JSON export to reports")
+    expect(proposal.fingerprint).not_to eq(original_fingerprint)
+  end
+
+  it "campaign_update_proposal errors on an unknown proposal, an empty update, or an already-approved one" do
+    expect(exec(action: "campaign_update_proposal", proposal_id: "nope", title: "x")[:success]).to be false
+
+    pid = exec(action: "campaign_propose", title: "Widget", objective: "Build the widget")[:data][:proposal][:id]
+    expect(exec(action: "campaign_update_proposal", proposal_id: pid)[:success]).to be false
+
+    exec(action: "campaign_approve_proposal", proposal_id: pid)
+    res = exec(action: "campaign_update_proposal", proposal_id: pid, title: "too late")
+    expect(res[:success]).to be false
+    expect(res[:error]).to match(/spawned proposal/)
+  end
+
+  it "campaign_reject_proposal rejects a proposed/queued proposal with a reason" do
+    pid = exec(action: "campaign_propose", title: "Not needed", objective: "Do something unnecessary")[:data][:proposal][:id]
+
+    res = exec(action: "campaign_reject_proposal", proposal_id: pid, reason: "duplicate of existing work")
+    expect(res[:success]).to be true
+    expect(res[:data][:proposal][:status]).to eq("rejected")
+
+    proposal = account.ai_campaign_proposals.find(pid)
+    expect(proposal.rejection_reason).to eq("duplicate of existing work")
+    expect(proposal.reviewed_by_id).to eq(user.id)
+  end
+
+  it "campaign_reject_proposal errors on an unknown proposal or an already-spawned one" do
+    expect(exec(action: "campaign_reject_proposal", proposal_id: "nope")[:success]).to be false
+
+    pid = exec(action: "campaign_propose", title: "Widget2", objective: "Build widget 2")[:data][:proposal][:id]
+    exec(action: "campaign_approve_proposal", proposal_id: pid)
+    res = exec(action: "campaign_reject_proposal", proposal_id: pid)
+    expect(res[:success]).to be false
+    expect(res[:error]).to match(/campaign_stop/)
   end
 
   it "campaign_approve_proposal approves + spawns the campaign in one step (concierge path)" do

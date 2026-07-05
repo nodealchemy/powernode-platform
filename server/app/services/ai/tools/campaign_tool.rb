@@ -16,12 +16,15 @@ module Ai
                        "campaign directly (and its dev-loop), check status, answer parked questions, stop it.",
           parameters: {
             action: { type: "string", required: true,
-                      description: "campaign_propose | campaign_list_proposals | campaign_approve_proposal | " \
+                      description: "campaign_propose | campaign_list_proposals | campaign_update_proposal | " \
+                                   "campaign_approve_proposal | campaign_reject_proposal | " \
                                    "campaign_delegate | campaign_start | campaign_list | campaign_status | " \
                                    "campaign_claim | campaign_release | campaign_answer_question | " \
                                    "campaign_record_increment | campaign_check_rebase | campaign_stop" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
-            proposal_id: { type: "string", required: false, description: "CampaignProposal UUID (campaign_approve_proposal)" },
+            proposal_id: { type: "string", required: false,
+                           description: "CampaignProposal UUID (campaign_update_proposal/campaign_approve_proposal/campaign_reject_proposal)" },
+            reason: { type: "string", required: false, description: "Rejection reason (campaign_reject_proposal)" },
             driver_kind: { type: "string", required: false, description: "claude_code|external_cli|platform_agent|platform_team|platform_mission (campaign_delegate)" },
             target: { type: "object", required: false, description: "Platform target ref: { agent_id|group_id|mission_id } (campaign_delegate)" },
             holder: { type: "string", required: false, description: "Driver identity for the single-driver lease (campaign_claim/release/delegate)" },
@@ -63,6 +66,34 @@ module Ai
               suggested_driver: { type: "string", required: false, description: "claude_code|platform_agent|platform_team|platform_mission" },
               decision_authority: { type: "string", required: false, description: "supervised|monitored|trusted|autonomous (default trusted)" },
               configuration: { type: "object", required: false, description: "Spawn configuration (scope/posture/plan_increments/...)" }
+            }
+          },
+          "campaign_update_proposal" => {
+            description: "Revise a proposed/queued CampaignProposal's fields before it's approved — the " \
+                         "operator-directed review-round counterpart to campaign_propose (which is for " \
+                         "creating/rediscovery-refreshing). Errors if the proposal is already approved, " \
+                         "rejected, or spawned. Recomputes the dedupe fingerprint when scope/objective/" \
+                         "suggested_workload change. Only the fields you pass are updated.",
+            parameters: {
+              proposal_id: { type: "string", required: true, description: "CampaignProposal UUID" },
+              title: { type: "string", required: false, description: "New proposal title" },
+              objective: { type: "string", required: false, description: "New objective" },
+              source: { type: "string", required: false, description: "discovery|trajectory|improvement|manual" },
+              scope: { type: "string", required: false, description: "New target/repo scope label" },
+              suggested_workload: { type: "string", required: false, description: "improvement-campaign|feature-development|new-project" },
+              suggested_driver: { type: "string", required: false, description: "claude_code|platform_agent|platform_team|platform_mission" },
+              decision_authority: { type: "string", required: false, description: "supervised|monitored|trusted|autonomous" },
+              configuration: { type: "object", required: false, description: "Replaces the proposal's spawn configuration" }
+            }
+          },
+          "campaign_reject_proposal" => {
+            description: "Reject a proposed/queued CampaignProposal — the operator decided not to pursue it. " \
+                         "Terminal: a rejected proposal is never resurrected by a later campaign_propose " \
+                         "rediscovery at the same fingerprint. Errors if already approved/rejected/spawned " \
+                         "(use campaign_stop to stop an already-spawned campaign instead).",
+            parameters: {
+              proposal_id: { type: "string", required: true, description: "CampaignProposal UUID" },
+              reason: { type: "string", required: false, description: "Why this proposal was rejected" }
             }
           },
           "campaign_list_proposals" => {
@@ -182,7 +213,9 @@ module Ai
       def call(params)
         case params[:action]
         when "campaign_propose" then campaign_propose(params)
+        when "campaign_update_proposal" then campaign_update_proposal(params)
         when "campaign_approve_proposal" then campaign_approve_proposal(params)
+        when "campaign_reject_proposal" then campaign_reject_proposal(params)
         when "campaign_delegate" then campaign_delegate(params)
         when "campaign_list_proposals" then campaign_list_proposals(params)
         when "campaign_list" then campaign_list(params)
@@ -249,6 +282,37 @@ module Ai
         success_result(proposal: proposal.summary)
       rescue ActiveRecord::RecordInvalid => e
         error_result(e.message)
+      end
+
+      def campaign_update_proposal(params)
+        return success_result(halted: true) if halted?
+
+        proposal = find_proposal(params[:proposal_id])
+        return error_result("Proposal not found") unless proposal
+
+        attrs = params.slice(:title, :objective, :source, :scope, :suggested_workload,
+                             :suggested_driver, :decision_authority, :configuration).compact
+        return error_result("at least one field to update is required") if attrs.empty?
+
+        proposal.update_fields!(**attrs)
+        success_result(proposal: proposal.reload.summary)
+      rescue ArgumentError => e
+        error_result(e.message)
+      rescue ActiveRecord::RecordInvalid => e
+        error_result(e.message)
+      end
+
+      def campaign_reject_proposal(params)
+        return success_result(halted: true) if halted?
+
+        proposal = find_proposal(params[:proposal_id])
+        return error_result("Proposal not found") unless proposal
+        unless Ai::CampaignProposal::PRE_APPROVAL_STATUSES.include?(proposal.status)
+          return error_result("cannot reject a #{proposal.status} proposal — use campaign_stop for an already-spawned campaign")
+        end
+
+        proposal.reject!(user, reason: params[:reason])
+        success_result(proposal: proposal.reload.summary)
       end
 
       def campaign_approve_proposal(params)
