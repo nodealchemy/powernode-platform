@@ -55,7 +55,7 @@ Generation order (matters — mTLS shared config + CA must exist before per-acco
 on `<dynamic_dir>` with **`watch: true`** (dynamic routers/certs **hot-reload without a restart**;
 only static-config changes need a service restart); dashboard off.
 
-**Per-account routers — 9 per cert** (`ROUTER_SPECS`, `traefik_config_writer.rb:376-386`), all on
+**Per-account routers — 10 per cert** (`ROUTER_SPECS`, `traefik_config_writer.rb:414-425`), all on
 `websecure`, each `tls.options: mtls-optional@file`, ordered by path specificity:
 
 | Router | Rule | Upstream |
@@ -97,7 +97,7 @@ controllers re-verify via core `Security::MtlsTrust`. This is fleet/federation m
 - **Serve a public hostname (platform's own API+frontend):** issue an `AcmeCertificate` whose CN is the
   hostname (UI `/app/system/ingress` → Expose Service, or MCP `system_expose_service_publicly`,
   approval-gated). Once a `valid` cert exists, the account's `acme-<id>.yaml` is (re)written and Traefik
-  hot-reloads — the host gets all 9 routers. The per-cert regen is also exposed as MCP
+  hot-reloads — the host gets all 10 routers. The per-cert regen is also exposed as MCP
   `system_reverse_proxy_compose` (input: `certificate_id`).
 - **Front an externally-terminated hostname onto the same backend:** set `POWERNODE_PROXY_EXTRA_HOSTS`
   (adds OR'd `Host()` matchers; no cert claimed).
@@ -116,7 +116,6 @@ controllers re-verify via core `Security::MtlsTrust`. This is fleet/federation m
 | `Api::V1::System::IngressRoutesController` (read-only) | **system ext** | derived projection of routers |
 | `reverse_proxy_compose_executor` (MCP skill) | **system ext** | thin per-account regen |
 | `internal/reverse_proxy_controller` | **core** | LEGACY config-text generator; worker-only; not the running proxy |
-| `admin/reverse_proxy_controller` | **core** | **DEAD** — unrouted, missing worker jobs, stubbed methods |
 | `ServicesController` + `url_mappings` + `ServiceConfiguration` concern | **core** | LIVE legacy: generates external-proxy config text; `AdminSetting`-backed, single-tenant |
 | `manage-proxy-hosts.sh` (+ its `AdminSetting` methods) | **core** | trusted-host allowlist only |
 
@@ -167,6 +166,64 @@ The genuine gaps:
 
 ---
 
+## Ratified decisions — campaign 019f3458 (2026-07-05)
+
+Campaign `019f3458-e607-7528-937d-3c159f097901` (Reverse-Proxy/SDWAN Export Hardening +
+Ops-Tier Rebuild on Proxmox) settled how public/federated TCP, TLS, and UDP traffic is routed,
+and scoped the §7-8 core/extension split below. Nothing in this section is implemented yet —
+each bullet lands as its own individually-approved campaign increment (numbers below refer to
+that campaign's increment table).
+
+- **Capability-tiered hybrid, not a single mechanism.** Public **TLS-carrying TCP** (traffic
+  that presents a TLS ClientHello with SNI) rides **Traefik `tcp.routers`** — on the **existing**
+  `websecure` entrypoint only. **All UDP, non-SNI plaintext TCP, and source-IP-sensitive
+  services stay on nftables DNAT** (`Sdwan::PortMapping` → `Sdwan::NatCompiler`) **permanently —
+  no new Traefik entrypoints, ever.** (Increments 5, 6.)
+- **`edge_mode` on `Sdwan::Service`** (not yet a column — lands with increment 5): defaults to
+  **`passthrough`** (Traefik forwards the encrypted stream untouched; the backend terminates
+  TLS); **`terminate`** is opt-in (Traefik terminates via its own ACME cert); **proxy-terminated
+  mTLS ships in v1** (client-cert enforcement at the Traefik edge, not deferred to a later
+  version).
+- **Federated `tcp`-protocol subscriptions move off Traefik entirely**, onto the site-local
+  `tcpfwd` daemon (the Go agent's `internal/tcpfwd` package, already implemented and tested on
+  the agent side — `extensions/system/agent/internal/tcpfwd/`). Federated `tls`-protocol
+  subscriptions (which do carry SNI) stay on Traefik, once increment 4 fixes the bugs below.
+- **The §7-8 core/extension provider seam is scoped to `:80`/`:443` only** — it carries the
+  existing HTTP(S) router baseline (`Core::IngressConfigWriter` + provider injection), not the
+  TCP/TLS/UDP paths above. It lands as campaign increment **8**, gated on increments 4, 5, and 7
+  landing first and on a separate operator go/no-go for the seam shape.
+
+### Current `ServiceRouteWriter` bugs (existing code, fixed by increments 3-4)
+
+`Federation::ServiceRouteWriter`
+(`extensions/system/server/app/services/federation/service_route_writer.rb`) already emits live
+Traefik `tcp.routers` for federated `tcp`/`tls` subscriptions. Re-verified directly against the
+file on 2026-07-05, all three confirmed:
+
+- **`tcp`-protocol subscriptions can never match.** `add_tcp_route!` (line 147) is invoked for
+  both `"tcp"` and `"tls"` protocols (line 90-91) and unconditionally emits a `HostSNI` rule
+  (line 152) — but plaintext TCP carries no TLS ClientHello for Traefik to read an SNI value
+  from, so a `tcp`-protocol router can never route real traffic. **Fix (increment 4):** stop
+  emitting `tcp`-protocol subscriptions to Traefik at all; route them via the `tcpfwd` daemon
+  instead (increment 3 builds its config writer).
+- **The `tls` branch never sets `passthrough: true`.** Line 155 sets `router["tls"] = {}` for
+  `protocol == "tls"` but never adds a `passthrough` key anywhere in `add_tcp_route!` — so
+  Traefik attempts to terminate TLS itself (passthrough defaults to `false`) instead of forwarding
+  the encrypted stream to the backend, a silent mis-termination. **Fix (increment 4):** set
+  `passthrough: true` on the `tls` branch.
+- **The `tls` branch never sets `entryPoints`.** No entry in the router hash built by
+  `add_tcp_route!` (lines 151-156) sets `entryPoints` — Traefik routers with no `entryPoints` key
+  bind **every** entrypoint matching the protocol, which includes the plaintext `web` (`:80`)
+  entrypoint alongside `websecure` (`:443`). **Fix (increment 4):** set
+  `entryPoints: [websecure]` explicitly.
+
+**`Federation::TcpForwarderConfigWriter` does not exist anywhere in the tree** (confirmed:
+zero grep hits across the full worktree, both `docs/` and `extensions/system/`) — the Go agent's
+`tcpfwd` daemon already expects a server-side writer to feed it forward configs, but nothing
+emits one yet. Building it is campaign increment **3** (in-repo plan reference P4.6.7).
+
+---
+
 ## 7. Determination — core vs `system` extension (Proposed, pending decision)
 
 **Recommendation: a tiered split via the existing `ExtensionRegistry` provider seam — not a wholesale
@@ -196,7 +253,8 @@ Why not the alternatives:
 ## 8. Proposed phased plan (pending decision)
 
 1. **Quick fixes (low risk, independent of the strategic choice):** G3 empty-cert guard; G4 doc
-   corrections; remove the dead `admin/reverse_proxy_controller.rb` (+ confirm no routes/specs).
+   corrections. (The dead `admin/reverse_proxy_controller.rb` was already removed in the same
+   commit that introduced this doc — `643619f3`, 2026-06-15 — so that item is done, not pending.)
 2. **Core ingress baseline (Phase A of the tiered split):** `Core::IngressConfigWriter` (static + generic
    routers + self-signed/single-domain cert); core binary acquisition; launcher delegates via provider
    seam; both-mode boot smoke (core mode: serves :443 self-signed; private mode: unchanged).
