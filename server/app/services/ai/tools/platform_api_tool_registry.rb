@@ -119,6 +119,7 @@ module Ai
         "system_list_tasks" => "Ai::Tools::SystemFleetTool",
         "system_get_task" => "Ai::Tools::SystemFleetTool",
         "system_cancel_task" => "Ai::Tools::SystemFleetTool",
+        "system_abort_task" => "Ai::Tools::SystemFleetTool",
         # Slice 7 — instance pools
         "system_list_instance_pools" => "Ai::Tools::SystemFleetTool",
         "system_get_instance_pool" => "Ai::Tools::SystemFleetTool",
@@ -258,6 +259,8 @@ module Ai
         "system_sdwan_create_ovn_deployment"           => "Ai::Tools::SdwanTool",
         "system_sdwan_create_ovn_logical_switch"       => "Ai::Tools::SdwanTool",
         "system_sdwan_create_ovn_logical_switch_port"  => "Ai::Tools::SdwanTool",
+        "system_sdwan_activate_ovn_logical_switch"      => "Ai::Tools::SdwanTool",
+        "system_sdwan_activate_ovn_logical_switch_port" => "Ai::Tools::SdwanTool",
         "system_sdwan_compile_ovn_plan"                => "Ai::Tools::SdwanTool",
         "system_sdwan_create_ipfix_collector"          => "Ai::Tools::SdwanTool",
         "system_sdwan_list_ipfix_collectors"           => "Ai::Tools::SdwanTool",
