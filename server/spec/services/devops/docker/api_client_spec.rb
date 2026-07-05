@@ -75,4 +75,55 @@ RSpec.describe Devops::Docker::ApiClient do
       expect(conn.ssl.client_key).to be_a(OpenSSL::PKey::PKey)
     end
   end
+
+  # System::DockerDaemonProvisionerService always emits api_endpoint
+  # "tcp://[<overlay>]:2376" (DockerHost's format validator explicitly
+  # permits the tcp scheme). Faraday's net_http adapter only calls
+  # configure_ssl when url.scheme == "https", so a raw tcp:// base_url
+  # sends plaintext HTTP straight at dockerd's TLS-only 2376 listener —
+  # every managed host would fail every call. External hosts happen to
+  # work only because operators type https:// endpoints by convention.
+  describe "tcp:// endpoint scheme normalization" do
+    it "rewrites a TLS-verified tcp:// endpoint to https:// (managed-host shape)" do
+      host = create(:devops_docker_host, account: account,
+        api_endpoint: "tcp://[fd00::1]:2376", tls_verify: true)
+      client = described_class.new(host)
+
+      conn = client.send(:connection)
+      expect(conn.scheme).to eq("https")
+    end
+
+    it "rewrites a tcp:// endpoint to https:// when client TLS credentials are present, even if tls_verify is false" do
+      host = create(:devops_docker_host, account: account,
+        tls_verify: false,
+        api_endpoint: "tcp://[fd00::2]:2376",
+        encrypted_tls_credentials: {
+          ca_chain_pem: ca[1].to_pem,
+          client_cert_pem: client_cert.to_pem,
+          client_key_pem: client_key.private_to_pem
+        }.to_json)
+      client = described_class.new(host)
+
+      conn = client.send(:connection)
+      expect(conn.scheme).to eq("https")
+    end
+
+    it "leaves a genuinely plaintext tcp:// endpoint (no tls_verify, no credentials) as http://" do
+      host = create(:devops_docker_host, account: account,
+        api_endpoint: "tcp://[fd00::3]:2375", tls_verify: false)
+      client = described_class.new(host)
+
+      conn = client.send(:connection)
+      expect(conn.scheme).to eq("http")
+    end
+
+    it "leaves an https:// endpoint untouched" do
+      host = create(:devops_docker_host, account: account,
+        api_endpoint: "https://docker-host.example.com:2376")
+      client = described_class.new(host)
+
+      conn = client.send(:connection)
+      expect(conn.scheme).to eq("https")
+    end
+  end
 end

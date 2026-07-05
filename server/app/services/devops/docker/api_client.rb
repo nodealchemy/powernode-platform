@@ -21,10 +21,10 @@ module Devops
 
       def initialize(cluster)
         @cluster = cluster
-        @base_url = cluster.api_endpoint
         @api_version = cluster.api_version || "v1.45"
         @tls_verify = cluster.respond_to?(:tls_verify) ? cluster.tls_verify : true
         @tls_credentials = parse_tls_credentials
+        @base_url = normalize_base_url(cluster.api_endpoint)
       end
 
       # System
@@ -418,6 +418,23 @@ module Devops
         return path.sub(/\A\//, "") if path.start_with?("/_")
 
         "#{@api_version}#{path}".sub(/\A\//, "")
+      end
+
+      # DockerHost#api_endpoint permits Docker's own "tcp://" DOCKER_HOST
+      # convention (System::DockerDaemonProvisionerService always emits
+      # "tcp://[<overlay>]:2376" for managed hosts), but "tcp" isn't an HTTP
+      # scheme Faraday understands — its net_http adapter only enables TLS
+      # when url.scheme == "https", so a raw tcp:// base_url would silently
+      # send plaintext HTTP at dockerd's TLS-only listener. Docker itself
+      # decides TLS-vs-plaintext for a tcp:// endpoint via --tlsverify /
+      # client certs rather than the scheme, so mirror that here: rewrite to
+      # https when this host is configured for TLS (tls_verify or client
+      # cert credentials present), otherwise to plain http.
+      def normalize_base_url(endpoint)
+        return endpoint unless endpoint.to_s.start_with?("tcp://")
+
+        scheme = @tls_verify || @tls_credentials.present? ? "https" : "http"
+        endpoint.sub(/\Atcp:\/\//, "#{scheme}://")
       end
 
       def parse_tls_credentials
