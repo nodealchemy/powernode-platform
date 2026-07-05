@@ -18,7 +18,8 @@ RSpec.describe Docker::HostSyncJob do
       [{ "id" => "host-uuid-1", "name" => "docker-host-1", "api_endpoint" => "https://docker-host-1:2376", "api_version" => "v1.45" }]
     end
     let(:connection_data) do
-      { "host" => "docker-host-1", "port" => "2376", "tls_enabled" => false }
+      { "host_id" => "host-uuid-1", "api_endpoint" => "https://docker-host-1:2376", "api_version" => "v1.45",
+        "encrypted_tls_credentials" => nil, "encryption_key_id" => nil, "tls_verify" => true }
     end
 
     context "when hosts are available" do

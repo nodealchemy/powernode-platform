@@ -5,6 +5,8 @@ require "openssl"
 
 module Docker
   class HealthCheckJob < BaseJob
+    include DockerClientConcern
+
     sidekiq_options queue: "devops_default", retry: 2
 
     def execute
@@ -67,16 +69,20 @@ module Docker
       response.dig("data", "connection")
     end
 
+    # Own copy of the base client builder (not DockerClientConcern#build_docker_client):
+    # this job hits both an unversioned endpoint (/_ping) and a versioned one
+    # (/v1.45/info) through the same connection, so — unlike the other Docker/Swarm
+    # jobs — it must NOT bake an API version segment into base_url. Reuses the
+    # shared TLS-parsing helpers (#parse_tls_credentials, #normalize_endpoint_scheme,
+    # #configure_tls) from the included concern.
     def build_docker_client(connection)
-      scheme = connection["tls_enabled"] ? "https" : "http"
-      base_url = "#{scheme}://#{connection['host']}:#{connection['port']}"
+      tls_credentials = parse_tls_credentials(connection["encrypted_tls_credentials"])
+      tls_verify = connection.fetch("tls_verify", true)
+      base_url = normalize_endpoint_scheme(connection["api_endpoint"], tls_verify, tls_credentials)
 
       Faraday.new(url: base_url) do |f|
-        if connection["tls_enabled"]
-          f.ssl.client_cert = OpenSSL::X509::Certificate.new(connection["client_cert"])
-          f.ssl.client_key = OpenSSL::PKey::RSA.new(connection["client_key"])
-          f.ssl.verify = connection.fetch("tls_verify", true)
-        end
+        f.ssl.verify = tls_verify
+        configure_tls(f, tls_credentials) if tls_credentials
         f.options.timeout = 10
         f.options.open_timeout = 5
         f.adapter Faraday.default_adapter

@@ -33,7 +33,8 @@ module Api
                 api_endpoint: host.api_endpoint,
                 api_version: host.api_version,
                 encrypted_tls_credentials: host.encrypted_tls_credentials,
-                encryption_key_id: host.encryption_key_id
+                encryption_key_id: host.encryption_key_id,
+                tls_verify: host.tls_verify
               }
             )
           rescue ActiveRecord::RecordNotFound

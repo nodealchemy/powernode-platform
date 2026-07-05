@@ -32,11 +32,14 @@ module Api
             cluster = ::Devops::SwarmCluster.find(params[:id])
 
             render_success(
-              cluster_id: cluster.id,
-              api_endpoint: cluster.api_endpoint,
-              api_version: cluster.api_version,
-              encrypted_tls_credentials: cluster.encrypted_tls_credentials,
-              encryption_key_id: cluster.encryption_key_id
+              connection: {
+                cluster_id: cluster.id,
+                api_endpoint: cluster.api_endpoint,
+                api_version: cluster.api_version,
+                encrypted_tls_credentials: cluster.encrypted_tls_credentials,
+                encryption_key_id: cluster.encryption_key_id,
+                tls_verify: cluster.tls_verify
+              }
             )
           rescue ActiveRecord::RecordNotFound
             render_error("Cluster not found", status: :not_found)
