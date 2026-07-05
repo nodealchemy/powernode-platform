@@ -2,7 +2,9 @@
 
 > Status: active
 >
-> When to use this runbook: deploying Powernode to a fresh Linux host as the **systemd-managed installation** — backend, worker, worker-web, frontend, and reverse-proxy as native services with apt-installed PostgreSQL + Redis underneath. This is the path used by `dev.ipnode.us`, the `ops` control plane, and (with `--production`) the first Vultr cutover before the modular self-host migration.
+> When to use this runbook: deploying Powernode to a fresh Linux host as the **systemd-managed installation** — backend, worker, worker-web, frontend, and reverse-proxy as native services with apt-installed PostgreSQL + Redis underneath. This is the path used by `dev.ipnode.us` and the `ops` control plane (`--production` creates a dedicated system user for production-style installs on this same path).
+>
+> **Correction (2026-07-05, campaign `019f3458`):** an earlier version of this note cited "the first Vultr cutover before the modular self-host migration" as a user of this path. No Vultr instance ever existed — operator-confirmed 2026-07-05. Prod is planned as a greenfield deployment (campaign `019f3458` increment 22), independent of this runbook.
 >
 > This runbook covers the base install. For production operations around it (storage, backups, monitoring, scaling, rollback, readiness), see [`production-deployment.md`](production-deployment.md). If you want the long-term modular self-host path via the Go agent + System modules, that's a separate runbook (see [Golden Eclipse M3+](../../extensions/system/docs/CONTAINER_RUNTIMES.md)).
 
