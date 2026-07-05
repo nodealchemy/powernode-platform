@@ -424,10 +424,19 @@ module Devops
         return nil if @cluster.encrypted_tls_credentials.blank?
 
         creds = JSON.parse(@cluster.encrypted_tls_credentials)
+        # Two producers pack this blob under different key names:
+        #   - Devops::TlsCredentialParams (externally-registered hosts):
+        #     ca_cert / client_cert / client_key
+        #   - System::DockerDaemonProvisionerService (managed hosts, Phase B
+        #     auto-registration): ca_chain_pem / client_cert_pem /
+        #     client_key_pem
+        # Accept either shape so managed hosts don't silently get an all-nil
+        # credential hash (which used to pass the `if @tls_credentials` truthy
+        # check and then blow up in configure_tls with a raw TypeError).
         {
-          ca_cert: creds["ca_cert"],
-          client_cert: creds["client_cert"],
-          client_key: creds["client_key"]
+          ca_cert: creds["ca_cert"] || creds["ca_chain_pem"],
+          client_cert: creds["client_cert"] || creds["client_cert_pem"],
+          client_key: creds["client_key"] || creds["client_key_pem"]
         }
       rescue JSON::ParserError => e
         Rails.logger.error("Failed to parse TLS credentials for cluster #{@cluster.id}: #{e.message}")
