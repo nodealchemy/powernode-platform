@@ -474,9 +474,12 @@ class FileStorageService
       return file.content_type
     end
 
-    # Fallback to filename extension
-    extension = File.extname(filename).downcase
-    MIME::Types.type_for(filename).first&.content_type || "application/octet-stream"
+    # Fallback to filename-extension lookup via Marcel (Rails-bundled via
+    # ActiveStorage). The prior MIME::Types call required the mime-types gem,
+    # which is NOT in the bundle (only mini_mime, transitively) — so it raised
+    # `uninitialized constant MIME` for every caller that reached this branch.
+    # Marcel returns "application/octet-stream" as its own default.
+    Marcel::MimeType.for(name: filename)
   end
 
   def generate_storage_key(filename, category = nil)
