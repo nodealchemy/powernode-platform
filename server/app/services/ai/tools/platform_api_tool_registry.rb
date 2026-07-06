@@ -164,6 +164,9 @@ module Ai
         "system_approve_storage_migration" => "Ai::Tools::SystemFleetTool",
         "system_cancel_storage_migration" => "Ai::Tools::SystemFleetTool",
         "system_report_storage_migration_progress" => "Ai::Tools::SystemFleetTool",
+        # Increment 9 (campaign 019f3458) — revert_binding! (R) / cleanup (C)
+        "system_revert_storage_migration_binding" => "Ai::Tools::SystemFleetTool",
+        "system_cleanup_storage_migration"        => "Ai::Tools::SystemFleetTool",
         "system_platform_maintenance" => "Ai::Tools::SystemFleetTool",
         "system_platform_resilience" => "Ai::Tools::SystemFleetTool",
         # Gap remediation slice 5 — disk image CI
