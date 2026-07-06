@@ -179,7 +179,7 @@ that campaign's increment table).
   `websecure` entrypoint only. **All UDP, non-SNI plaintext TCP, and source-IP-sensitive
   services stay on nftables DNAT** (`Sdwan::PortMapping` → `Sdwan::NatCompiler`) **permanently —
   no new Traefik entrypoints, ever.** (Increments 5, 6.)
-- **`edge_mode` on `Sdwan::Service`** (not yet a column — lands with increment 5): defaults to
+- **`edge_mode` on `Sdwan::Service`** (landed with increment 5; `public_enabled` stays unsettable until its owning executor exists — improvement `019f34f9`): defaults to
   **`passthrough`** (Traefik forwards the encrypted stream untouched; the backend terminates
   TLS); **`terminate`** is opt-in (Traefik terminates via its own ACME cert); **proxy-terminated
   mTLS ships in v1** (client-cert enforcement at the Traefik edge, not deferred to a later
