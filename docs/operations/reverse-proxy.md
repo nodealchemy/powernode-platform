@@ -1,7 +1,10 @@
 # Bundled Reverse Proxy (Traefik) — Architecture, Usage & Improvement Plan
 
-**Status:** Audit + determination (2026-06-15). Current-state sections are authoritative;
-the "Proposed" section is a plan pending maintainer decision (not yet implemented).
+**Status:** Audit + determination (2026-06-15); core/extension ingress seam (§7-8) approved
+2026-07-06 and implemented by campaign 019f3458 increment 8. Current-state sections are
+authoritative; §7's split is now live (`Core::IngressConfigWriter` + the
+`ingress_certs`/`ingress_routers` provider seam) — see the increment-8 note under §4 and §7-8
+below.
 
 Powernode ships a **bundled reverse proxy** so an install can terminate TLS and serve its
 own API + frontend on :80/:443 without a separate, hand-configured external proxy. This doc
@@ -110,8 +113,9 @@ controllers re-verify via core `Security::MtlsTrust`. This is fleet/federation m
 
 | Component | Location | Notes |
 |---|---|---|
-| systemd unit + launcher script | **core** (`scripts/systemd/`) | But launcher hard-refs the extension binary + `Acme::TraefikConfigWriter` (latent coupling). |
-| `Acme::TraefikConfigWriter`, full `Acme::*` ACME stack | **system ext** | `extensions/system/server/app/services/acme/` |
+| systemd unit + launcher script | **core** (`scripts/systemd/`) | **Decoupled by increment 8** — the launcher now calls `Core::IngressConfigWriter` (binary resolution checks the extension's vendored path first, then core's own `scripts/systemd/dist/` — `make vendor-traefik` at the repo root); no more hard ref to the extension binary path or `Acme::TraefikConfigWriter`. |
+| `Core::IngressConfigWriter` (static config + services + path/host-rule helpers + provider seam + core-mode self-signed baseline) | **core** (`server/app/services/core/`) | **New, increment 8.** `Acme::TraefikConfigWriter` delegates its static-config/services/path-resolution/host-rule methods here instead of duplicating them. |
+| `Acme::TraefikConfigWriter`, full `Acme::*` ACME stack | **system ext** | `extensions/system/server/app/services/acme/` — registered as BOTH the `ingress_certs` and `ingress_routers` providers (`lib/powernode_system/engine.rb`); `Core::IngressConfigWriter.write!` delegates the entire per-account write to it when present (byte-identical to pre-seam output), nil ⇒ core baseline. |
 | `System::AcmeCertificate` model + migration | **system ext** | cert source for routers |
 | `Api::V1::System::IngressRoutesController` (read-only) | **system ext** | derived projection of routers |
 | `reverse_proxy_compose_executor` (MCP skill) | **system ext** | thin per-account regen |
@@ -231,25 +235,37 @@ supported — an agent restart is required to pick up new/changed forwards).
 
 ---
 
-## 7. Determination — core vs `system` extension (Proposed, pending decision)
+## 7. Determination — core vs `system` extension (Approved 2026-07-06, implemented by increment 8)
 
-**Recommendation: a tiered split via the existing `ExtensionRegistry` provider seam — not a wholesale
-move.**
+**A tiered split via the existing `ExtensionRegistry` provider seam — not a wholesale move.**
 
-- **Move a minimal "core ingress baseline" into core**: the static config + the
-  `api`/`agent`/`cable`/frontend routers + a self-signed (or single-domain HTTP-01/TLS-ALPN) cert for the
-  host, plus core acquisition of the vendored Traefik binary. This gives **core mode** a working HTTPS
-  ingress with zero extension — directly enabling external-proxy retirement on self-hosted single-node
-  installs. (~40% of `TraefikConfigWriter` — the static config + services + generic routers — has zero
-  system dependency and lifts almost verbatim.)
-- **Keep advanced ingress in the `system` extension**, injected through the provider seam this session's
-  decoupling work already established: per-account ACME (DNS-01 + providers), the mTLS CA bundle +
-  `_mtls.yaml`, and the federation/worker/`node_api` routers. Core's writer calls
-  `ExtensionRegistry.provider(:ingress_certs)` / `provider(:ingress_routers)` and falls back to the
-  baseline when nil (nil ⇒ core mode). **Zero core→extension coupling**; a future extension can inject
-  ingress behavior with no core edit.
-- **Fix the launcher's latent coupling**: stop hard-coding the extension binary path + `Acme::TraefikConfigWriter`;
-  call a core entrypoint that delegates to the provider if present, else the baseline.
+- **A minimal "core ingress baseline" now lives in core** (`Core::IngressConfigWriter`,
+  `server/app/services/core/`): the static config + the `api`/`agent`/`cable`/`frontend` routers + a
+  self-signed cert for the host, plus core acquisition of the vendored Traefik binary (`make
+  vendor-traefik` at the repo root, mirroring the extension's target into
+  `scripts/systemd/dist/`). This gives **core mode** a working HTTPS ingress with zero extension —
+  directly enabling external-proxy retirement on self-hosted single-node installs. The static
+  config + services + path-resolution + host-rule helpers (zero `System::` dependency to begin
+  with) were LIFTED out of `Acme::TraefikConfigWriter` into `Core::IngressConfigWriter`; the
+  extension's methods of the same name now delegate to core (one-liners) instead of duplicating
+  the logic, so the two writers can't drift apart.
+- **Advanced ingress stays in the `system` extension**: per-account ACME (DNS-01 + providers), the
+  mTLS CA bundle + `_mtls.yaml`, and the federation/worker/`node_api`/Sidekiq routers.
+  `Acme::TraefikConfigWriter` is registered as BOTH the `:ingress_certs` and `:ingress_routers`
+  providers (`lib/powernode_system/engine.rb`) — it already owns cert selection and router
+  rendering together as one cohesive per-account write, so `Core::IngressConfigWriter.write!` asks
+  `ExtensionRegistry.provider(:ingress_certs)` / `provider(:ingress_routers)` and, when BOTH resolve
+  to the SAME registered object, delegates the ENTIRE per-account write to it, unchanged — this is
+  what guarantees byte-identical output vs. the pre-seam code path (verified: `diff -r` across a
+  full pre/post config generation, plus an automated spec,
+  `extensions/system/server/spec/integration/core_ingress_seam_spec.rb`). Nil (or a provider
+  registering only one facet) ⇒ core baseline. **Zero core→extension coupling**; a future extension
+  can inject ingress behavior with no core edit.
+- **The launcher's latent coupling is fixed**: `scripts/systemd/powernode-reverse-proxy.sh` no
+  longer hard-codes the extension binary path or `Acme::TraefikConfigWriter` — it calls
+  `Core::IngressConfigWriter`, which delegates to the provider if present, else the baseline. Binary
+  resolution checks the extension's vendored path first (existing installs unaffected), then core's
+  own vendored copy.
 
 Why not the alternatives:
 - *Leave entirely in system ext* — simplest, but core mode still can't drop an external proxy, and the
@@ -257,21 +273,31 @@ Why not the alternatives:
 - *Full move to core* — drags `FederationPeer`, `InternalCaService`, DNS-01 issuance, and per-account
   multi-tenancy into core; contradicts Extension Isolation and the decoupling effort.
 
-## 8. Proposed phased plan (pending decision)
+## 8. Phased plan
 
-1. **Quick fixes (low risk, independent of the strategic choice):** G3 empty-cert guard; G4 doc
-   corrections. (The dead `admin/reverse_proxy_controller.rb` was already removed in the same
-   commit that introduced this doc — `643619f3`, 2026-06-15 — so that item is done, not pending.)
-2. **Core ingress baseline (Phase A of the tiered split):** `Core::IngressConfigWriter` (static + generic
-   routers + self-signed/single-domain cert); core binary acquisition; launcher delegates via provider
-   seam; both-mode boot smoke (core mode: serves :443 self-signed; private mode: unchanged).
-3. **System ext as ingress provider (Phase B):** register `:ingress_certs` / `:ingress_routers`
-   providers; move the ACME/mTLS/federation router emission behind them; verify hot-reload + federation
-   unaffected.
-4. **Custom routes (G1):** add an account-scoped (system) / global (core) custom-route model — or wire
-   the existing `url_mappings` — into the writer so operators define `Host + PathPrefix → upstream`
-   routes; UI + MCP surface; this is what lets custom external-proxy paths move in.
-5. **Verify & document:** both-mode tests, `tsc`/specs, update this doc + the system ingress docs, AI smoke.
+1. **Quick fixes — DONE.** G3 empty-cert guard; G4 doc corrections. (The dead
+   `admin/reverse_proxy_controller.rb` was already removed in the same commit that introduced this
+   doc — `643619f3`, 2026-06-15.)
+2. **Core ingress baseline (Phase A) — DONE (increment 8).** `Core::IngressConfigWriter` (static +
+   4 generic routers + self-signed cert); core binary acquisition (`make vendor-traefik` at the
+   repo root); launcher delegates via the provider seam; both-mode output verified (core mode:
+   static + 4 generic routers + self-signed cert stanza, sanity-checked via a simulated
+   extension-absent generation; extension mode: `diff -r` byte-identical against the pre-seam
+   output, plus the automated `core_ingress_seam_spec.rb` regression pin).
+3. **System ext as ingress provider (Phase B) — DONE (increment 8).** `Acme::TraefikConfigWriter`
+   registered under both `:ingress_certs` and `:ingress_routers`; the ACME/mTLS/federation/worker
+   router emission stays behind it, invoked via full delegation when both keys resolve to the same
+   object; `Sdwan::ServiceExposureWriter` (local-services plane) and `Federation::ServiceRouteWriter`
+   / `Federation::TcpForwarderConfigWriter` (TCP/TLS tiers) are untouched — verified via their
+   existing spec suites, unmodified.
+4. **Custom routes (G1) — already delivered pre-increment-8** via the Service Exposure Subsystem
+   (`Sdwan::Service`, §6) — not part of this seam.
+5. **Verify & document — DONE for increment 8's scope.** Core writer specs + extension
+   provider-registration spec + the automated byte-identical seam spec, all green; full
+   `spec/services/acme/`, `sdwan/service_exposure_writer_spec.rb`,
+   `federation/service_route_writer_spec.rb`, and the MCP ingress request specs re-run green;
+   pattern-validation 43/43; this doc updated. Broader both-mode AI/UI smoke coverage remains a
+   follow-up, not blocking this increment.
 
 Cross-repo commit discipline: control-plane changes land **inside `extensions/system`** first
 (push both `origin` (Gitea) + `github` (public mirror)), then core/parent pointer + core baseline.
