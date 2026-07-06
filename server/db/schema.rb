@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_05_102416) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_05_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10684,7 +10684,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_05_102416) do
     t.string "backend_host"
     t.integer "backend_port", null: false
     t.uuid "backend_vip_id"
+    t.string "client_auth", default: "none", null: false
     t.datetime "created_at", null: false
+    t.string "edge_mode", default: "passthrough", null: false
     t.string "local_auth_mode", default: "authenticated", null: false
     t.uuid "local_certificate_id"
     t.boolean "local_enabled", default: false, null: false
@@ -10694,6 +10696,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_05_102416) do
     t.jsonb "metadata", default: {}, null: false
     t.string "name", limit: 255, null: false
     t.string "protocol", default: "https", null: false
+    t.boolean "public_enabled", default: false, null: false
     t.string "slug", limit: 64, null: false
     t.string "status", default: "active", null: false
     t.datetime "updated_at", null: false
@@ -10701,6 +10704,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_05_102416) do
     t.index ["account_id"], name: "index_system_sdwan_services_on_account_id"
     t.index ["backend_vip_id"], name: "index_system_sdwan_services_on_backend_vip_id"
     t.index ["local_certificate_id"], name: "index_system_sdwan_services_on_local_certificate_id"
+    t.index ["public_enabled"], name: "index_system_sdwan_services_on_public_enabled"
     t.check_constraint "backend_port >= 1 AND backend_port <= 65535", name: "sdwan_services_backend_port_range"
     t.check_constraint "backend_vip_id IS NOT NULL OR backend_host IS NOT NULL", name: "sdwan_services_backend_present"
     t.check_constraint "local_auth_mode::text = ANY (ARRAY['public'::character varying::text, 'authenticated'::character varying::text, 'scoped'::character varying::text])", name: "sdwan_services_local_auth_mode_enum"
