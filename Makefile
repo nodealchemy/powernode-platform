@@ -1,6 +1,6 @@
 # Powernode Platform Development Makefile
 
-.PHONY: help setup install test clean build deploy
+.PHONY: help setup install test clean build deploy vendor-traefik vendor-traefik-amd64 vendor-traefik-arm64 clean-traefik
 
 # Default target
 help:
@@ -139,6 +139,45 @@ build-backend:
 build-frontend:
 	@echo "🏗️  Building frontend application..."
 	@cd frontend && npm run build
+
+# Core ingress baseline — vendor the same upstream Traefik binary the
+# `system` extension vendors (extensions/system/agent/Makefile), but into a
+# CORE-owned location so scripts/systemd/powernode-reverse-proxy.sh can start
+# the bundled proxy with ZERO extension present (docs/operations/
+# reverse-proxy.md §7-8, campaign 019f3458 increment 8). Pinned to the same
+# TRAEFIK_VERSION as the extension's target; bump both together.
+TRAEFIK_VERSION ?= v3.3.2
+TRAEFIK_BASE_URL = https://github.com/traefik/traefik/releases/download/$(TRAEFIK_VERSION)
+TRAEFIK_DIST_DIR = scripts/systemd/dist
+
+vendor-traefik: vendor-traefik-amd64 vendor-traefik-arm64
+
+vendor-traefik-amd64:
+	@mkdir -p $(TRAEFIK_DIST_DIR)
+	@if [ ! -f $(TRAEFIK_DIST_DIR)/powernode-reverse-proxy-linux-amd64 ]; then \
+	  echo "Downloading Traefik $(TRAEFIK_VERSION) linux/amd64..."; \
+	  tmp=$$(mktemp -d) && \
+	  curl -sSL "$(TRAEFIK_BASE_URL)/traefik_$(TRAEFIK_VERSION)_linux_amd64.tar.gz" -o $$tmp/t.tar.gz && \
+	  tar -xzf $$tmp/t.tar.gz -C $$tmp traefik && \
+	  install -m 0755 $$tmp/traefik $(TRAEFIK_DIST_DIR)/powernode-reverse-proxy-linux-amd64 && \
+	  rm -rf $$tmp; \
+	else \
+	  echo "$(TRAEFIK_DIST_DIR)/powernode-reverse-proxy-linux-amd64 already present (version unverified — run 'make clean-traefik' to refresh)"; \
+	fi
+
+vendor-traefik-arm64:
+	@mkdir -p $(TRAEFIK_DIST_DIR)
+	@if [ ! -f $(TRAEFIK_DIST_DIR)/powernode-reverse-proxy-linux-arm64 ]; then \
+	  echo "Downloading Traefik $(TRAEFIK_VERSION) linux/arm64..."; \
+	  tmp=$$(mktemp -d) && \
+	  curl -sSL "$(TRAEFIK_BASE_URL)/traefik_$(TRAEFIK_VERSION)_linux_arm64.tar.gz" -o $$tmp/t.tar.gz && \
+	  tar -xzf $$tmp/t.tar.gz -C $$tmp traefik && \
+	  install -m 0755 $$tmp/traefik $(TRAEFIK_DIST_DIR)/powernode-reverse-proxy-linux-arm64 && \
+	  rm -rf $$tmp; \
+	fi
+
+clean-traefik:
+	rm -f $(TRAEFIK_DIST_DIR)/powernode-reverse-proxy-linux-amd64 $(TRAEFIK_DIST_DIR)/powernode-reverse-proxy-linux-arm64
 
 # Utility commands
 clean:
