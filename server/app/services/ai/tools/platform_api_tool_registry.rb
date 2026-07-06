@@ -23,6 +23,9 @@ module Ai
         "system_update_service"             => "Ai::Tools::SystemIngressTool",
         "system_delete_service"             => "Ai::Tools::SystemIngressTool",
         "system_unexpose_service_local"     => "Ai::Tools::SystemIngressTool",
+        # Path B (public TLS-carrying TCP) — sole owner of public_enabled, both directions
+        "system_expose_service_public_tcp"   => "Ai::Tools::SystemIngressTool",
+        "system_unexpose_service_public_tcp" => "Ai::Tools::SystemIngressTool",
 
         # === ACME certificate lifecycle (DNS-01 issuance, renewal, revocation) ===
         "system_acme_get_certificate"       => "Ai::Tools::SystemAcmeTool",
