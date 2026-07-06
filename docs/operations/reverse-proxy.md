@@ -193,34 +193,38 @@ that campaign's increment table).
   TCP/TLS/UDP paths above. It lands as campaign increment **8**, gated on increments 4, 5, and 7
   landing first and on a separate operator go/no-go for the seam shape.
 
-### Current `ServiceRouteWriter` bugs (existing code, fixed by increments 3-4)
+### `ServiceRouteWriter` bugs — FIXED by increment 4 (historical)
 
 `Federation::ServiceRouteWriter`
-(`extensions/system/server/app/services/federation/service_route_writer.rb`) already emits live
-Traefik `tcp.routers` for federated `tcp`/`tls` subscriptions. Re-verified directly against the
-file on 2026-07-05, all three confirmed:
+(`extensions/system/server/app/services/federation/service_route_writer.rb`) used to emit live
+Traefik `tcp.routers` for federated `tcp`/`tls` subscriptions with three confirmed bugs
+(re-verified directly against the file on 2026-07-05). All three are **FIXED as of increment 4**:
 
-- **`tcp`-protocol subscriptions can never match.** `add_tcp_route!` (line 147) is invoked for
-  both `"tcp"` and `"tls"` protocols (line 90-91) and unconditionally emits a `HostSNI` rule
-  (line 152) — but plaintext TCP carries no TLS ClientHello for Traefik to read an SNI value
-  from, so a `tcp`-protocol router can never route real traffic. **Fix (increment 4):** stop
-  emitting `tcp`-protocol subscriptions to Traefik at all; route them via the `tcpfwd` daemon
-  instead (increment 3 builds its config writer).
-- **The `tls` branch never sets `passthrough: true`.** Line 155 sets `router["tls"] = {}` for
-  `protocol == "tls"` but never adds a `passthrough` key anywhere in `add_tcp_route!` — so
-  Traefik attempts to terminate TLS itself (passthrough defaults to `false`) instead of forwarding
-  the encrypted stream to the backend, a silent mis-termination. **Fix (increment 4):** set
-  `passthrough: true` on the `tls` branch.
-- **The `tls` branch never sets `entryPoints`.** No entry in the router hash built by
-  `add_tcp_route!` (lines 151-156) sets `entryPoints` — Traefik routers with no `entryPoints` key
-  bind **every** entrypoint matching the protocol, which includes the plaintext `web` (`:80`)
-  entrypoint alongside `websecure` (`:443`). **Fix (increment 4):** set
-  `entryPoints: [websecure]` explicitly.
+- **`tcp`-protocol subscriptions could never match. FIXED.** `add_tcp_route!` was invoked for
+  both `"tcp"` and `"tls"` protocols and unconditionally emitted a `HostSNI` rule — but plaintext
+  TCP carries no TLS ClientHello for Traefik to read an SNI value from, so a `tcp`-protocol router
+  could never route real traffic. **Now:** `ServiceRouteWriter` no longer emits a Traefik router
+  for `tcp`-protocol subscriptions at all; they route via the `tcpfwd` daemon instead
+  (`Federation::TcpForwarderConfigWriter`, increment 3's writer, whose selection increment 4
+  broadened from site-local-only to site-local-or-`tcp`-protocol).
+- **The `tls` branch never set `passthrough: true`. FIXED.** It set `router["tls"] = {}` for
+  `protocol == "tls"` but never added a `passthrough` key — so Traefik attempted to terminate TLS
+  itself (passthrough defaults to `false`) instead of forwarding the encrypted stream to the
+  backend, a silent mis-termination. **Now:** the `tls` branch sets
+  `"tls" => { "passthrough" => true }`.
+- **The `tls` branch never set `entryPoints`. FIXED.** No entry in the router hash built by
+  `add_tcp_route!` set `entryPoints` — Traefik routers with no `entryPoints` key bind **every**
+  entrypoint matching the protocol, including the plaintext `web` (`:80`) entrypoint alongside
+  `websecure` (`:443`). **Now:** the router explicitly sets `entryPoints: ["websecure"]`.
 
-**`Federation::TcpForwarderConfigWriter` does not exist anywhere in the tree** (confirmed:
-zero grep hits across the full worktree, both `docs/` and `extensions/system/`) — the Go agent's
-`tcpfwd` daemon already expects a server-side writer to feed it forward configs, but nothing
-emits one yet. Building it is campaign increment **3** (in-repo plan reference P4.6.7).
+`Federation::TcpForwarderConfigWriter`
+(`extensions/system/server/app/services/federation/tcp_forwarder_config_writer.rb`, built in
+increment 3) now exists and, as of increment 4, selects both site-local subscriptions and any
+`tcp`-protocol subscription (site-local or not) — matching `ServiceRouteWriter`'s narrowed
+selection so exactly one writer runs per subscription. The Go agent's `powernode-agent service`
+loop (`extensions/system/agent/internal/runtime/service.go`) now loads and runs the `tcpfwd`
+daemon at startup from `tcpfwd.DefaultConfigPath` (load-at-start only; reload-on-change is not yet
+supported — an agent restart is required to pick up new/changed forwards).
 
 ---
 
