@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_05_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_05_190000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10613,11 +10613,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_05_180000) do
     t.boolean "enabled", default: true, null: false
     t.datetime "last_compiled_at"
     t.integer "listen_port", null: false
+    t.integer "max_connections"
     t.jsonb "metadata", default: {}, null: false
     t.string "name", limit: 64, null: false
     t.string "protocol", default: "tcp", null: false
+    t.integer "rate_limit"
     t.uuid "sdwan_network_id", null: false
     t.uuid "sdwan_peer_id", null: false
+    t.jsonb "source_cidrs", default: [], null: false
     t.uuid "target_peer_id"
     t.integer "target_port"
     t.uuid "target_virtual_ip_id"
