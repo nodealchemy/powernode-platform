@@ -35,6 +35,14 @@ RuntimeDirectory=powernode-fwcfg
 RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=yes
 
+# OCI blob cache for System::OciBlobProxyService (module artifact pulls).
+# StateDirectory= creates /var/lib/powernode/oci-cache owned by User= before
+# the service starts — without it, the app can't mkdir under the root-owned
+# /var/lib/powernode parent (EACCES), and every module-blob pull 500s.
+# Path matches the service's CACHE_ROOT default (POWERNODE_OCI_CACHE_DIR).
+StateDirectory=powernode/oci-cache
+StateDirectoryMode=0755
+
 # Security hardening (injected by installer in production mode)
 # NoNewPrivileges=true
 # ProtectSystem=strict
