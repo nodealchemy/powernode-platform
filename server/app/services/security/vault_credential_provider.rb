@@ -53,6 +53,12 @@ module Security
       # the credential carries a vault_path; the on-the-wire signer
       # (Ai::DataSources::Auth::SignerRegistry) consumes the returned material.
       data_source: "data-sources",
+      # Claude Code CLI credential (Anthropic API key) for the claude-tmux
+      # NodeModule. Stored per System::ClaudeCodeCredential.id (one row per
+      # NodeInstance); the on-node module's boot-time fetch script reads it
+      # back over the mTLS-authenticated node_api (never baked into the
+      # module image, never in an env file, never logged).
+      claude_code_api_key: "claude-code-api-keys",
       custom: "custom"
     }.freeze
 
