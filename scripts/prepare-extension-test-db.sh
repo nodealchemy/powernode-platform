@@ -160,9 +160,15 @@ fi
 cd "$SERVER"
 
 if [ "${#PRIVATE_VERSIONS[@]}" -eq 0 ]; then
-  echo "[prepare-extension-test-db] core mode (no private extensions) → plain db:prepare"
+  # Core mode: load the schema WITHOUT seeding. `db:prepare` runs `db:seed`,
+  # and the seed path fails on a fresh core+baseline test DB (RecordInvalid /
+  # "Value can't be blank"; agent + skill-binding seeds require a demo admin
+  # account that the test DB doesn't have). RSpec builds its own state via
+  # factories and needs no seed data, so mirror the private-extension path
+  # below: drop → create → schema:load only. (imp 605b follow-on / BUG-I)
+  echo "[prepare-extension-test-db] core mode (no private extensions) → schema-load only (no seed)"
   db_io_lock
-  bin/rails db:prepare
+  bin/rails db:drop db:create db:schema:load
   db_io_unlock
   exit 0
 fi
