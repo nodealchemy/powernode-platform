@@ -59,6 +59,12 @@ module Security
       # back over the mTLS-authenticated node_api (never baked into the
       # module image, never in an env file, never logged).
       claude_code_api_key: "claude-code-api-keys",
+      # Per-instance Gitea deploy-key PRIVATE key (OpenSSH Ed25519) for a
+      # dev-cell NodeInstance's git-over-SSH. Stored per
+      # System::DevCellDeployKey.id (one row per NodeInstance); read back only
+      # when assembling the mTLS dev_cell_bootstrap response body — never baked
+      # into an image, never in an env file, never logged.
+      dev_cell_deploy_key: "dev-cell-deploy-keys",
       custom: "custom"
     }.freeze
 
