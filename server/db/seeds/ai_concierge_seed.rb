@@ -2,18 +2,27 @@
 
 puts "\n🤖 Seeding AI Concierge Agent..."
 
+# Graceful skip (not raise) when prerequisites are missing: on a fresh
+# core/prod DB no account exists until first-admin bootstrap / the setup
+# wizard runs — re-seeding afterwards creates the concierge. Matches the
+# skip idiom of the sibling baseline agent seeds (ai_utility_agents_seed).
 admin_account = Account.find_by(name: "Powernode Admin")
-raise "ai_concierge_seed: admin account 'Powernode Admin' not found — seed accounts first" unless admin_account
+admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 
-admin_user = admin_account.users.find_by(email: "admin@powernode.org")
-raise "ai_concierge_seed: admin user 'admin@powernode.org' not found" unless admin_user
+unless admin_account && admin_user
+  puts "  ⏭️  Admin account/user not found — skipping AI Concierge (re-seed after setup)"
+  return
+end
 
 provider = Ai::Provider.find_by(provider_type: 'openai', name: 'OpenAI') ||
            Ai::Provider.find_by(provider_type: 'openai') ||
            Ai::Provider.find_by(provider_type: 'ollama') ||
            Ai::Provider.where(is_active: true).first
 
-raise "ai_concierge_seed: no AI provider available — seed ai_providers first" unless provider
+unless provider
+  puts "  ⏭️  No AI provider found — skipping AI Concierge (re-seed after providers)"
+  return
+end
 
 ActiveRecord::Base.transaction do
   # GLOBAL platform concierge (account_id nil); an account customizes it by

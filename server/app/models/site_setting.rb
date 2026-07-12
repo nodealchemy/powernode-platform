@@ -1,10 +1,23 @@
 # frozen_string_literal: true
 
 class SiteSetting < ApplicationRecord
+  # Keys whose value may be deliberately blank: optional social/analytics links
+  # and the contact email (community contact is via GitHub — the seed sets it
+  # to ""). Single source for the presence validation and can_be_blank?.
+  BLANK_ALLOWED_KEYS = %w[
+    social_facebook
+    social_twitter
+    social_linkedin
+    social_instagram
+    social_youtube
+    analytics_tracking_id
+    contact_email
+  ].freeze
+
   # Validations
   validates :key, presence: true, uniqueness: { case_sensitive: false }
   validates :setting_type, presence: true, inclusion: { in: %w[string text boolean integer json] }
-  validates :value, presence: true, unless: ->(setting) { setting.setting_type == "boolean" || setting.key.in?(%w[social_facebook social_twitter social_linkedin social_instagram social_youtube analytics_tracking_id]) }
+  validates :value, presence: true, unless: ->(setting) { setting.setting_type == "boolean" || setting.key.in?(BLANK_ALLOWED_KEYS) }
 
   # Callbacks
   after_save :clear_footer_cache_if_needed
@@ -112,14 +125,7 @@ class SiteSetting < ApplicationRecord
 
   def can_be_blank?
     # Allow these fields to be blank
-    key.in?(%w[
-      social_facebook
-      social_twitter
-      social_linkedin
-      social_instagram
-      social_youtube
-      analytics_tracking_id
-    ])
+    key.in?(BLANK_ALLOWED_KEYS)
   end
 
   def clear_footer_cache_if_needed

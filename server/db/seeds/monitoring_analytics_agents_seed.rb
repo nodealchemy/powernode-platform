@@ -5,8 +5,11 @@
 
 puts "📊 Creating Monitoring and Analytics Agents..."
 
+# Safe-navigation lookups: on a fresh core/prod DB no account exists yet, and
+# the bare `admin_account.users` here NoMethodError'd the whole seed file.
+# The if/else below already skips gracefully when any prerequisite is missing.
 admin_account = Account.find_by(name: "Powernode Admin")
-admin_user = admin_account.users.find_by(email: "admin@powernode.org")
+admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 provider = Ai::Provider.first
 
 if admin_account && admin_user && provider
