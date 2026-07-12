@@ -57,6 +57,30 @@ module Devops
       client.runner_registration_token(owner, repo, scope: scope)
     end
 
+    # Mint a runner registration token for a scope WITHOUT a persisted GitRunner row.
+    # Used to register ephemeral fleet builders before any GitRunner exists.
+    # scope: :repo | :org | :admin. owner/repo required for :repo; owner required for :org.
+    def registration_token_for_scope(credential:, scope: :repo, owner: nil, repo: nil)
+      return { success: false, error: "Credential not found" } unless credential&.can_be_used?
+
+      client = ::Devops::Git::ApiClient.for(credential)
+      return { success: false, error: "Provider does not support runners" } unless client.supports_runners?
+
+      scope = scope.to_sym
+      case scope
+      when :repo
+        return { success: false, error: "owner and repo required for repo scope" } if owner.blank? || repo.blank?
+      when :org
+        return { success: false, error: "owner required for org scope" } if owner.blank?
+      when :admin
+        # no owner/repo needed
+      else
+        return { success: false, error: "Invalid scope: #{scope}" }
+      end
+
+      client.runner_registration_token(owner, repo, scope: scope)
+    end
+
     # Get removal token for a runner's scope
     def removal_token(runner)
       credential = runner.git_provider_credential

@@ -153,6 +153,103 @@ RSpec.describe Devops::RunnerLifecycleService do
     end
   end
 
+  describe "#registration_token_for_scope" do
+    context "with repo scope" do
+      before do
+        allow(mock_client).to receive(:runner_registration_token).and_return({ token: "REPO-TOKEN", expires_at: nil })
+      end
+
+      it "returns the client's token result" do
+        result = service.registration_token_for_scope(credential: credential, scope: :repo, owner: repository.owner, repo: repository.name)
+
+        expect(result).to eq({ token: "REPO-TOKEN", expires_at: nil })
+      end
+
+      it "calls client with correct arguments" do
+        service.registration_token_for_scope(credential: credential, scope: :repo, owner: repository.owner, repo: repository.name)
+
+        expect(mock_client).to have_received(:runner_registration_token).with(
+          repository.owner, repository.name, scope: :repo
+        )
+      end
+    end
+
+    context "with admin scope" do
+      before do
+        allow(mock_client).to receive(:runner_registration_token).and_return({ token: "ADMIN-TOKEN", expires_at: nil })
+      end
+
+      it "returns the client's token result without owner/repo" do
+        result = service.registration_token_for_scope(credential: credential, scope: :admin)
+
+        expect(result).to eq({ token: "ADMIN-TOKEN", expires_at: nil })
+      end
+
+      it "calls client with nil owner/repo" do
+        service.registration_token_for_scope(credential: credential, scope: :admin)
+
+        expect(mock_client).to have_received(:runner_registration_token).with(
+          nil, nil, scope: :admin
+        )
+      end
+    end
+
+    context "when credential is unusable" do
+      before do
+        allow(credential).to receive(:can_be_used?).and_return(false)
+      end
+
+      it "returns an error without calling the client" do
+        result = service.registration_token_for_scope(credential: credential, scope: :repo, owner: "acme", repo: "widgets")
+
+        expect(result).to eq({ success: false, error: "Credential not found" })
+        expect(Devops::Git::ApiClient).not_to have_received(:for)
+      end
+    end
+
+    context "when provider doesn't support runners" do
+      before do
+        allow(mock_client).to receive(:supports_runners?).and_return(false)
+      end
+
+      it "returns an error" do
+        result = service.registration_token_for_scope(credential: credential, scope: :repo, owner: "acme", repo: "widgets")
+
+        expect(result).to eq({ success: false, error: "Provider does not support runners" })
+      end
+    end
+
+    context "with repo scope missing owner/repo" do
+      it "returns an error without calling the client" do
+        expect(mock_client).not_to receive(:runner_registration_token)
+
+        result = service.registration_token_for_scope(credential: credential, scope: :repo)
+
+        expect(result).to eq({ success: false, error: "owner and repo required for repo scope" })
+      end
+    end
+
+    context "with org scope missing owner" do
+      it "returns an error without calling the client" do
+        expect(mock_client).not_to receive(:runner_registration_token)
+
+        result = service.registration_token_for_scope(credential: credential, scope: :org)
+
+        expect(result).to eq({ success: false, error: "owner required for org scope" })
+      end
+    end
+
+    context "with an invalid scope" do
+      it "returns an error without calling the client" do
+        expect(mock_client).not_to receive(:runner_registration_token)
+
+        result = service.registration_token_for_scope(credential: credential, scope: :bogus)
+
+        expect(result).to eq({ success: false, error: "Invalid scope: bogus" })
+      end
+    end
+  end
+
   describe "#removal_token" do
     let(:runner) { create(:git_runner, :online, credential: credential, account: account, repository: repository) }
 
