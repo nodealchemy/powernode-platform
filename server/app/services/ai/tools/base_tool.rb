@@ -49,6 +49,12 @@ module Ai
         @user = user
       end
 
+      # Optionally injected post-construction by McpPlatformToolRegistrar for an
+      # instance principal (mTLS node cert; no User/Agent) so DevLoopTool#claimant_ref
+      # can scope claims as "instance:<id>". Public writer (external caller);
+      # nil for user/agent callers, whose paths are unchanged. (BUG-S)
+      attr_writer :node_instance
+
       def execute(params:)
         validate_params!(params)
         enforce_guardrails!
@@ -95,7 +101,7 @@ module Ai
 
       private
 
-      attr_reader :account, :agent, :user
+      attr_reader :account, :agent, :user, :node_instance
     end
   end
 end

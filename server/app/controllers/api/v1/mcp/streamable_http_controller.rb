@@ -363,7 +363,7 @@ module Api
           unless session
             # Create DB-backed session
             session = McpSession.create!(
-              user: current_user,
+              **session_principal_attributes,
               account: current_account,
               protocol_version: negotiated,
               client_info: params["clientInfo"] || {},
@@ -498,7 +498,13 @@ module Api
                 params: arguments,
                 account: current_account,
                 user: current_user,
-                mcp_agent: mcp_client_agent
+                mcp_agent: mcp_client_agent,
+                # Instance principals are already grant-gated above (line 487);
+                # let the registrar skip the user-permission check for them. (BUG-R)
+                instance_authorized: current_mcp_principal&.instance? || false,
+                # ...and give the tool the instance so DevLoopTool#claimant_ref can
+                # scope claims as "instance:<id>" (nil for user/agent). (BUG-S)
+                node_instance: current_mcp_principal&.node_instance
               )
             rescue ArgumentError => e
               if e.message.start_with?("Unknown platform tool")
@@ -800,6 +806,21 @@ module Api
 
         def current_user
           @current_user
+        end
+
+        # Owner attributes for a NEW McpSession. User (OAuth/CLI) principals keep
+        # the existing { user: current_user } shape byte-for-byte; instance
+        # principals (mTLS node cert → Mcp::Principal.for_instance_cn, no User)
+        # record principal_kind + principal_subject_id instead, so the session is
+        # attributable without a core→extension FK to node instances. (BUG-Q)
+        def session_principal_attributes
+          return { user: current_user } if current_user
+
+          if current_mcp_principal&.instance?
+            { user: nil, principal_kind: "instance", principal_subject_id: current_mcp_principal.subject_id }
+          else
+            { user: current_user }
+          end
         end
 
         def current_account

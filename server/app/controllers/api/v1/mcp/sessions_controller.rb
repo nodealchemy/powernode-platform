@@ -43,7 +43,7 @@ module Api
           {
             id: session.id,
             session_token: session.session_token,
-            user_name: session.user.name,
+            user_name: session.user&.name,
             user_id: session.user_id,
             status: session.active? ? "active" : session.status,
             protocol_version: session.protocol_version,

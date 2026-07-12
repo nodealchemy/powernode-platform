@@ -803,6 +803,11 @@ module Ai
           "user:#{user.id}"
         elsif agent
           "agent:#{agent.id}"
+        elsif node_instance
+          # Instance principal (mTLS node cert; no User/Agent) — e.g. a managed
+          # dev-cell driving the dev-loop over MCP. Opaque claim-scope string that
+          # flows through claim → reclaim → complete like user:/agent:. (BUG-S)
+          "instance:#{node_instance.id}"
         end
       end
     end

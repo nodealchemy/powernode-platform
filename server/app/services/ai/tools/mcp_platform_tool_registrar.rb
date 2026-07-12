@@ -111,13 +111,13 @@ module Ai
           synced_names.size
         end
 
-        def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, token: nil, mcp_agent: nil)
+        def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, token: nil, mcp_agent: nil, instance_authorized: false, node_instance: nil)
           tool_name = tool_id.delete_prefix("#{TOOL_ID_PREFIX}.")
           tool_class = find_tool_class(tool_name)
           raise ArgumentError, "Unknown platform tool: #{tool_name}" unless tool_class
 
           # SECURITY: Enforce permission at execution time (defense-in-depth)
-          enforce_permission!(user: user, tool_class: tool_class, tool_id: tool_id, token: token)
+          enforce_permission!(user: user, tool_class: tool_class, tool_id: tool_id, token: token, instance_authorized: instance_authorized)
 
           # Rate limiting per agent
           if agent_id
@@ -147,14 +147,28 @@ module Ai
           end
 
           tool_instance = tool_class.new(account: account, user: user, agent: mcp_agent)
+          # Instance principals (mTLS node cert; user/agent both nil) need their
+          # node_instance so DevLoopTool#claimant_ref can scope claims as
+          # "instance:<id>" — otherwise claimant_ref is nil and every dev-loop
+          # action hard-refuses. Guarded so the .new signature and the user/agent
+          # paths (node_instance nil) stay byte-for-byte unchanged. (BUG-S)
+          tool_instance.node_instance = node_instance if node_instance
           tool_instance.execute(params: execution_params)
         end
 
         private
 
-        def enforce_permission!(user:, tool_class:, tool_id:, token: nil)
+        def enforce_permission!(user:, tool_class:, tool_id:, token: nil, instance_authorized: false)
           required = tool_class::REQUIRED_PERMISSION
           return if required.nil?
+
+          # An instance principal (mTLS node cert, no User) that reached here was
+          # ALREADY grant-gated by the streamable controller's may_invoke? check
+          # (see streamable_http_controller.rb:487): the per-tool grant IS its
+          # authorization, and the intended downstream user:nil path is the
+          # internal-caller bypass. Without this it was hard-denied -32001 for
+          # every dev_next_task/dev_complete_task. (BUG-R — sibling of BUG-Q.)
+          return if instance_authorized
 
           unless user
             raise ::Mcp::ProtocolService::PermissionDeniedError,
