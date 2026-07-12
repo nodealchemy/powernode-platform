@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe McpToolExecution, type: :model do
   describe 'associations' do
     it { should belong_to(:mcp_tool) }
-    it { should belong_to(:user) }
+    it { should belong_to(:user).optional }
   end
 
   describe 'validations' do

@@ -11,7 +11,7 @@ RSpec.describe McpSession, type: :model do
   # Associations
   # ===========================================================================
   describe "associations" do
-    it { is_expected.to belong_to(:user) }
+    it { is_expected.to belong_to(:user).optional }
     it { is_expected.to belong_to(:account) }
   end
 
@@ -27,6 +27,20 @@ RSpec.describe McpSession, type: :model do
 
     it "is valid with valid attributes" do
       expect(session).to be_valid
+    end
+
+    it "is valid as an instance principal (no user, principal fields set)" do
+      instance_session = McpSession.new(
+        account: account, user: nil,
+        principal_kind: "instance", principal_subject_id: SecureRandom.uuid
+      )
+      expect(instance_session).to be_valid
+    end
+
+    it "is invalid with neither a user nor an instance principal" do
+      orphan = McpSession.new(account: account, user: nil)
+      expect(orphan).not_to be_valid
+      expect(orphan.errors[:base]).to include("must belong to a user or an instance principal")
     end
   end
 

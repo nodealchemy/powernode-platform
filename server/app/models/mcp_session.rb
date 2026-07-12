@@ -2,7 +2,10 @@
 
 class McpSession < ApplicationRecord
   # Associations
-  belongs_to :user
+  # Optional: instance principals (dev-cell / node-instance mTLS clients,
+  # resolved via Mcp::Principal.for_instance_cn) have no User — they record
+  # principal_kind + principal_subject_id instead. (BUG-Q)
+  belongs_to :user, optional: true
   belongs_to :account
   belongs_to :oauth_application, class_name: "Doorkeeper::Application", foreign_key: "oauth_application_id", optional: true
   belongs_to :ai_agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
@@ -15,6 +18,15 @@ class McpSession < ApplicationRecord
   # Validations
   validates :session_token, presence: true, uniqueness: true
   validates :status, presence: true, inclusion: { in: STATUSES }
+  # Every session belongs to a principal — a User (OAuth/CLI) or an instance
+  # (mTLS node cert). Guards against a userless, subjectless session. (BUG-Q)
+  validate :must_have_a_principal
+
+  def must_have_a_principal
+    return if user_id.present? || principal_subject_id.present?
+
+    errors.add(:base, "must belong to a user or an instance principal")
+  end
 
   # Scopes
   scope :active, -> { where(status: "active").where("expires_at > ?", Time.current) }

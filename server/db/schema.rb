@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_05_190000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -7331,18 +7331,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_05_190000) do
     t.datetime "last_activity_at"
     t.jsonb "metadata", default: {}
     t.uuid "oauth_application_id"
+    t.string "principal_kind"
+    t.uuid "principal_subject_id"
     t.string "protocol_version"
     t.datetime "revoked_at"
     t.string "session_token", null: false
     t.string "status", default: "active", null: false
     t.datetime "updated_at", null: false
     t.string "user_agent"
-    t.uuid "user_id", null: false
+    t.uuid "user_id"
     t.index ["account_id", "status"], name: "index_mcp_sessions_on_account_id_and_status"
     t.index ["account_id"], name: "index_mcp_sessions_on_account_id"
     t.index ["ai_agent_id"], name: "index_mcp_sessions_on_ai_agent_id"
     t.index ["expires_at"], name: "index_mcp_sessions_on_expires_at"
     t.index ["oauth_application_id"], name: "index_mcp_sessions_on_oauth_application_id"
+    t.index ["principal_kind", "principal_subject_id"], name: "index_mcp_sessions_on_principal"
     t.index ["session_token"], name: "index_mcp_sessions_on_session_token", unique: true
     t.index ["user_id", "status"], name: "index_mcp_sessions_on_user_id_and_status"
     t.index ["user_id"], name: "index_mcp_sessions_on_user_id"
@@ -7360,7 +7363,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_05_190000) do
     t.datetime "started_at"
     t.string "status", null: false
     t.datetime "updated_at", null: false
-    t.uuid "user_id", null: false
+    t.uuid "user_id"
     t.index ["mcp_tool_id", "created_at"], name: "index_mcp_tool_executions_on_mcp_tool_id_and_created_at"
     t.index ["mcp_tool_id"], name: "index_mcp_tool_executions_on_mcp_tool_id"
     t.index ["user_id", "created_at"], name: "index_mcp_tool_executions_on_user_id_and_created_at"

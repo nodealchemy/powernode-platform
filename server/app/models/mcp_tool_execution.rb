@@ -11,7 +11,8 @@ class McpToolExecution < ApplicationRecord
   # Associations
   # ==========================================
   belongs_to :mcp_tool
-  belongs_to :user
+  # Optional: instance principals have no User (BUG-Q — see McpSession).
+  belongs_to :user, optional: true
 
   # ==========================================
   # Validations
