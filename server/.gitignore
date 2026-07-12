@@ -27,6 +27,11 @@
 /public/uploads/*
 !/public/uploads/.keep
 
+# The agent binary is served from public/agent -> ../../extensions/system/agent/dist
+# (a gitignored build-artifact dir). The symlink is live-host / deploy plumbing,
+# not source; nothing in-repo recreates it, so a fresh deploy must (re)create it.
+/public/agent
+
 # Ignore master key for decrypting credentials and more.
 /config/master.key
 
