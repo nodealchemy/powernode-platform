@@ -151,16 +151,16 @@ if Powernode::Seeds.demo?
   Powernode::Seeds.ensure_system_worker!
 end
 
-# Demo: AI providers (account-scoped) — seeded BEFORE the baseline section
-# because baseline's AI Example showcase data (ai_example_templates_seed) gates
-# its instance creation on all three providers (anthropic/openai/grok). Seeding
-# providers here lets a SINGLE db:seed produce the full set instead of needing a
-# second pass (the providers used to load in the demo section, after the example
-# templates, so the first seed silently skipped the example agents/teams).
-if Powernode::Seeds.demo?
-  puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
-  safe_load('comprehensive_ai_providers_seed.rb')
-end
+# AI providers (account-scoped) — seeded BEFORE the baseline section because
+# baseline's fundamental global agents AND the AI Example showcase data
+# (ai_example_templates_seed) gate on providers being present. Seeding
+# providers here lets a SINGLE db:seed produce the full set instead of needing
+# a second pass. Not demo-gated: the seed guards itself (skips when the admin
+# account doesn't exist yet), so in core mode it no-ops on a genuinely fresh
+# DB and seeds the provider catalog once the admin account exists (hub
+# first-boot bootstraps the admin before db:seed; wizard installs re-seed).
+puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
+safe_load('comprehensive_ai_providers_seed.rb')
 
 # 📄 Create public pages — demo/account-scoped (need an admin author). Gated by
 # Powernode::Seeds.demo?; in core/prod the setup wizard seeds account pages.
@@ -353,39 +353,46 @@ if Powernode::Seeds.demo?
   puts "   AI Data Sources: #{Ai::DataSource.count}"
 end
 
-# 🔧 Create default site settings
+# 🔧 Create default site settings — resilient like safe_load: one invalid
+# setting must never abort the whole seed run (a blank contact_email
+# previously raised RecordInvalid here and crash-looped fresh hub installs).
 puts "\n🔧 Creating default site settings..."
 
-# Site information
-SiteSetting.set('site_name', 'Powernode', description: 'Name of the site', setting_type: 'string', is_public: true)
-SiteSetting.set('footer_description', 'Powerful AI management platform for orchestrating production agent fleets. Built for teams shipping with AI.', description: 'Footer description text', setting_type: 'text', is_public: true)
+begin
+  # Site information
+  SiteSetting.set('site_name', 'Powernode', description: 'Name of the site', setting_type: 'string', is_public: true)
+  SiteSetting.set('footer_description', 'Powerful AI management platform for orchestrating production agent fleets. Built for teams shipping with AI.', description: 'Footer description text', setting_type: 'text', is_public: true)
 
-# Copyright information
-SiteSetting.set('copyright_text', 'Everett C. Haimes III', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
-SiteSetting.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
+  # Copyright information
+  SiteSetting.set('copyright_text', 'Everett C. Haimes III', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
+  SiteSetting.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
 
-# Contact information
-SiteSetting.set('contact_email', '', description: 'Main contact email (empty — community contact is via GitHub: see footer Contact page)', setting_type: 'string', is_public: true)
-SiteSetting.set('contact_phone', '+1 (555) 123-4567', description: 'Contact phone number', setting_type: 'string', is_public: true)
-SiteSetting.set('company_address', '123 Innovation Drive, Tech City, TC 12345', description: 'Company address', setting_type: 'string', is_public: true)
+  # Contact information
+  SiteSetting.set('contact_email', '', description: 'Main contact email (empty — community contact is via GitHub: see footer Contact page)', setting_type: 'string', is_public: true)
+  SiteSetting.set('contact_phone', '+1 (555) 123-4567', description: 'Contact phone number', setting_type: 'string', is_public: true)
+  SiteSetting.set('company_address', '123 Innovation Drive, Tech City, TC 12345', description: 'Company address', setting_type: 'string', is_public: true)
 
-# Social media links
-SiteSetting.set('social_twitter', '', description: 'Twitter/X profile URL', setting_type: 'string', is_public: true)
-SiteSetting.set('social_linkedin', '', description: 'LinkedIn profile URL', setting_type: 'string', is_public: true)
-SiteSetting.set('social_facebook', '', description: 'Facebook page URL', setting_type: 'string', is_public: true)
-SiteSetting.set('social_instagram', '', description: 'Instagram profile URL', setting_type: 'string', is_public: true)
-SiteSetting.set('social_youtube', '', description: 'YouTube channel URL', setting_type: 'string', is_public: true)
+  # Social media links
+  SiteSetting.set('social_twitter', '', description: 'Twitter/X profile URL', setting_type: 'string', is_public: true)
+  SiteSetting.set('social_linkedin', '', description: 'LinkedIn profile URL', setting_type: 'string', is_public: true)
+  SiteSetting.set('social_facebook', '', description: 'Facebook page URL', setting_type: 'string', is_public: true)
+  SiteSetting.set('social_instagram', '', description: 'Instagram profile URL', setting_type: 'string', is_public: true)
+  SiteSetting.set('social_youtube', '', description: 'YouTube channel URL', setting_type: 'string', is_public: true)
 
-# Admin-only settings
-SiteSetting.set('maintenance_mode', 'false', description: 'Enable maintenance mode', setting_type: 'boolean', is_public: false)
-SiteSetting.set('analytics_tracking_id', '', description: 'Google Analytics tracking ID', setting_type: 'string', is_public: false)
-SiteSetting.set('seo_default_title', 'Powernode - AI Management Platform', description: 'Default SEO title', setting_type: 'string', is_public: false)
-SiteSetting.set('seo_default_description', 'Manage production AI agent fleets — knowledge graph, governance, swarm coordination, and an MCP-native runtime.', description: 'Default SEO description', setting_type: 'text', is_public: false)
+  # Admin-only settings
+  SiteSetting.set('maintenance_mode', 'false', description: 'Enable maintenance mode', setting_type: 'boolean', is_public: false)
+  SiteSetting.set('analytics_tracking_id', '', description: 'Google Analytics tracking ID', setting_type: 'string', is_public: false)
+  SiteSetting.set('seo_default_title', 'Powernode - AI Management Platform', description: 'Default SEO title', setting_type: 'string', is_public: false)
+  SiteSetting.set('seo_default_description', 'Manage production AI agent fleets — knowledge graph, governance, swarm coordination, and an MCP-native runtime.', description: 'Default SEO description', setting_type: 'text', is_public: false)
 
-# Footer caching
-SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for footer data to improve performance', setting_type: 'boolean', is_public: false)
+  # Footer caching
+  SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for footer data to improve performance', setting_type: 'boolean', is_public: false)
 
-puts "✅ Created #{SiteSetting.count} site settings"
+  puts "✅ Created #{SiteSetting.count} site settings"
+rescue StandardError => e
+  Rails.logger.error("[seeds] site settings failed: #{e.class}: #{e.message}")
+  puts "  ⚠️  site settings failed (#{e.class}: #{e.message}) — continuing"
+end
 
 
 if Powernode::Seeds.demo?

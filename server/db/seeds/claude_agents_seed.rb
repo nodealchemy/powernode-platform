@@ -7,14 +7,23 @@
 
 puts "🧠 Creating reasoning/analysis workflow agents..."
 
+# Graceful skip (not raise) when prerequisites are missing: on a fresh
+# core/prod DB no account exists until first-admin bootstrap / the setup
+# wizard runs — re-seeding afterwards creates these agents. Matches the
+# skip idiom of the sibling baseline agent seeds (ai_utility_agents_seed).
 admin_account = Account.find_by(name: "Powernode Admin")
-raise "claude_agents_seed: admin account 'Powernode Admin' not found — seed accounts first" unless admin_account
+admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 
-admin_user = admin_account.users.find_by(email: "admin@powernode.org")
-raise "claude_agents_seed: admin user 'admin@powernode.org' not found" unless admin_user
+unless admin_account && admin_user
+  puts "  ⏭️  Admin account/user not found — skipping reasoning/analysis agents (re-seed after setup)"
+  return
+end
 
 claude_provider = Ai::Provider.find_by(provider_type: 'anthropic')
-raise "claude_agents_seed: Anthropic provider not seeded — run ai_providers_seed first" unless claude_provider
+unless claude_provider
+  puts "  ⏭️  Anthropic provider not found — skipping reasoning/analysis agents (re-seed after providers)"
+  return
+end
 
 ActiveRecord::Base.transaction do
   puts "✅ Using admin account: #{admin_account.name} (ID: #{admin_account.id})"
