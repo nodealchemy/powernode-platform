@@ -929,5 +929,36 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(result[:success]).to be false
       expect(result[:error]).to match(/context required/)
     end
+
+    # BUG-S: an instance principal (mTLS node cert; user AND agent both nil — e.g. a
+    # managed dev-cell driving the dev-loop over MCP) had claimant_ref == nil and so
+    # was hard-refused at call() line 106 for every dev-loop action. node_instance is
+    # injected post-construction by McpPlatformToolRegistrar; claimant_ref now scopes
+    # instance claims as "instance:<id>".
+    describe "instance principal (BUG-S)" do
+      let(:instance) { double("System::NodeInstance", id: "0198abcd-node-instance") }
+
+      it "scopes the claim as instance:<id> when only node_instance is present" do
+        tool = described_class.new(account: account)
+        tool.node_instance = instance
+        expect(tool.send(:claimant_ref)).to eq("instance:0198abcd-node-instance")
+      end
+
+      it "no longer refuses dev-loop actions for an instance principal" do
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "t")
+        tool = described_class.new(account: account)
+        tool.node_instance = instance
+
+        result = tool.execute(params: { action: "dev_list_tasks", loop_id: ralph_loop.name })
+
+        expect(result[:success]).to be true
+        expect(result[:error]).to be_nil
+      end
+
+      it "leaves the user claimant path unchanged (regression)" do
+        tool.node_instance = instance # user is already present via let(:tool)
+        expect(tool.send(:claimant_ref)).to eq("user:#{user.id}")
+      end
+    end
   end
 end

@@ -159,6 +159,25 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
           /Authentication required/
         )
       end
+
+      it "skips the user-permission check for a grant-authorized instance principal (BUG-R)" do
+        # Instance principals (mTLS node cert, user: nil) are already may_invoke?-gated
+        # by the streamable controller before this call; instance_authorized: true lets
+        # them through instead of the user:nil hard-deny above.
+        allow(Ai::Tools::AgentManagementTool).to receive(:new)
+          .with(account: account, user: nil, agent: nil).and_return(tool_instance)
+        allow(tool_instance).to receive(:execute).and_return({ success: true })
+
+        expect {
+          described_class.execute_tool(
+            "platform.agent_management",
+            params: { "action" => "list_agents" },
+            account: account,
+            user: nil,
+            instance_authorized: true
+          )
+        }.not_to raise_error
+      end
     end
 
     it "raises ArgumentError for unknown tool" do
