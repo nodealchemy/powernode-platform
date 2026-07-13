@@ -177,6 +177,9 @@ module Ai
         "system_provision_ci_worker" => "Ai::Tools::SystemFleetTool",
         "system_terminate_ci_worker" => "Ai::Tools::SystemFleetTool",
         "system_list_ci_workers" => "Ai::Tools::SystemFleetTool",
+        "system_lease_ci_runner" => "Ai::Tools::SystemFleetTool",
+        "system_release_ci_runner" => "Ai::Tools::SystemFleetTool",
+        "system_list_ci_runner_leases" => "Ai::Tools::SystemFleetTool",
         "system_list_disk_image_webhooks" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice 6a — GitOps reconciler MCP surface
         "system_gitops_register_repository" => "Ai::Tools::SystemFleetTool",

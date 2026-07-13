@@ -578,7 +578,11 @@ module Permissions
     "system.ci_workers.read"                     => "List CI workers for the current account",
     "system.ci_workers.create"                   => "Provision a new CI worker (returns plaintext token once)",
     "system.ci_workers.delete"                   => "Revoke a CI worker",
-    "system.ci_workers.rotate_token"             => "Rotate a CI worker's authentication token"
+    "system.ci_workers.rotate_token"             => "Rotate a CI worker's authentication token",
+    # Campaign 019f5885 inc3 — ephemeral CI runner leases.
+    "system.ci_runner_leases.read"               => "List CI runner leases for the current account",
+    "system.ci_runner_leases.create"             => "Lease an ephemeral Gitea Act runner from a builder pool",
+    "system.ci_runner_leases.update"             => "Release a CI runner lease (deregister + recycle the instance)"
   }.freeze
 
   # All permissions combined
