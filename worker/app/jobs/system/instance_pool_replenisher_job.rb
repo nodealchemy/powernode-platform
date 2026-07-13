@@ -50,10 +50,15 @@ module System
     private
 
     def list_active_pools
+      # BackendApiClient returns STRING-keyed JSON, and get(path, params) takes
+      # the query hash POSITIONALLY — passing `params: {...}` double-nests it to
+      # ?params[status]=... which the server ignores. Both bugs silently
+      # discarded this reaper's results (it logged "processed 0 pools" every
+      # tick and never recycled/replenished any pool).
       response = api_client.get("/api/v1/system/instance_pools",
-                                params: { status: "active,draining" })
-      return [] unless response[:success]
-      response.dig(:data, :pools) || []
+                                { status: "active,draining" })
+      return [] unless response["success"]
+      response.dig("data", "pools") || []
     rescue StandardError => e
       logger.error("[InstancePoolReplenisherJob] list pools failed: #{e.message}")
       []
@@ -63,8 +68,8 @@ module System
       pool_id = pool[:id] || pool["id"]
       response = api_client.post("/api/v1/system/instance_pools/#{pool_id}/replenish")
 
-      if response[:success]
-        provisioned = response.dig(:data, :replenish_result, :provisioned) || 0
+      if response["success"]
+        provisioned = response.dig("data", "replenish_result", "provisioned") || 0
         logger.info(
           "[InstancePoolReplenisherJob] replenished pool #{pool_id}: " \
           "provisioned=#{provisioned}"
@@ -73,9 +78,9 @@ module System
       else
         logger.warn(
           "[InstancePoolReplenisherJob] replenish failed for pool #{pool_id}: " \
-          "#{response[:error]}"
+          "#{response["error"]}"
         )
-        { pool_id: pool_id, error: response[:error] }
+        { pool_id: pool_id, error: response["error"] }
       end
     rescue StandardError => e
       logger.error(
@@ -88,8 +93,8 @@ module System
       pool_id = pool[:id] || pool["id"]
       response = api_client.post("/api/v1/system/instance_pools/#{pool_id}/recycle_stale")
 
-      if response[:success]
-        counts = response.dig(:data, :recycle_result) || {}
+      if response["success"]
+        counts = response.dig("data", "recycle_result") || {}
         if counts.values.any? { |v| v.is_a?(Integer) && v.positive? }
           logger.info(
             "[InstancePoolReplenisherJob] recycled stale members in pool " \
@@ -99,7 +104,7 @@ module System
       else
         logger.warn(
           "[InstancePoolReplenisherJob] recycle failed for pool #{pool_id}: " \
-          "#{response[:error]}"
+          "#{response["error"]}"
         )
       end
     rescue StandardError => e

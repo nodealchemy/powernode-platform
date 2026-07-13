@@ -4,9 +4,16 @@ require "rails_helper"
 
 # Audit F5-13 — InstancePoolReplenisherJob is the LIVE 60s reaping path
 # (cron in sidekiq.yml), API-only: per active/draining pool it POSTs
-# recycle_stale then replenish. It previously had no spec (its dead direct-DB
-# twin System::InstancePoolReaperService was removed). This locks the
-# surviving implementation's per-pool 2-phase contract.
+# recycle_stale then replenish. This locks the surviving implementation's
+# per-pool 2-phase contract.
+#
+# Regression guard (improvement 019f5b93): BackendApiClient returns
+# STRING-keyed JSON and get(path, params) takes the query hash POSITIONALLY.
+# The stubs below therefore use string keys and a positional query hash — an
+# earlier revision stubbed symbol keys + `params: {...}`, which matched the
+# job's (buggy) symbol reads so the tests passed while the real reaper read
+# nil off every response and "processed 0 pools" forever. Keep these stubs
+# shaped like the real client so that class of bug can't hide again.
 RSpec.describe System::InstancePoolReplenisherJob, type: :job do
   subject { described_class }
 
@@ -22,23 +29,24 @@ RSpec.describe System::InstancePoolReplenisherJob, type: :job do
       let(:pools) { [ { "id" => "pool-a" }, { "id" => "pool-b" } ] }
 
       before do
+        # Positional query hash → serializes as ?status=... (NOT params[status]).
         allow(api_client).to receive(:get)
-          .with("/api/v1/system/instance_pools", params: { status: "active,draining" })
-          .and_return({ success: true, data: { pools: pools } })
+          .with("/api/v1/system/instance_pools", { status: "active,draining" })
+          .and_return({ "success" => true, "data" => { "pools" => pools } })
 
         allow(api_client).to receive(:post)
           .with("/api/v1/system/instance_pools/pool-a/recycle_stale")
-          .and_return({ success: true, data: { recycle_result: { "ready_to_draining" => 1 } } })
+          .and_return({ "success" => true, "data" => { "recycle_result" => { "ready_to_draining" => 1 } } })
         allow(api_client).to receive(:post)
           .with("/api/v1/system/instance_pools/pool-b/recycle_stale")
-          .and_return({ success: true, data: { recycle_result: {} } })
+          .and_return({ "success" => true, "data" => { "recycle_result" => {} } })
 
         allow(api_client).to receive(:post)
           .with("/api/v1/system/instance_pools/pool-a/replenish")
-          .and_return({ success: true, data: { replenish_result: { provisioned: 2 } } })
+          .and_return({ "success" => true, "data" => { "replenish_result" => { "provisioned" => 2 } } })
         allow(api_client).to receive(:post)
           .with("/api/v1/system/instance_pools/pool-b/replenish")
-          .and_return({ success: true, data: { replenish_result: { provisioned: 1 } } })
+          .and_return({ "success" => true, "data" => { "replenish_result" => { "provisioned" => 1 } } })
       end
 
       it "recycles then replenishes every pool and sums provisioned counts" do
@@ -68,16 +76,16 @@ RSpec.describe System::InstancePoolReplenisherJob, type: :job do
       let(:pools) { [ { "id" => "pool-bad" }, { "id" => "pool-good" } ] }
 
       before do
-        allow(api_client).to receive(:get).and_return({ success: true, data: { pools: pools } })
+        allow(api_client).to receive(:get).and_return({ "success" => true, "data" => { "pools" => pools } })
         allow(api_client).to receive(:post)
           .with(%r{/instance_pools/pool-(bad|good)/recycle_stale})
-          .and_return({ success: true, data: { recycle_result: {} } })
+          .and_return({ "success" => true, "data" => { "recycle_result" => {} } })
         allow(api_client).to receive(:post)
           .with("/api/v1/system/instance_pools/pool-bad/replenish")
           .and_raise(StandardError.new("connection refused"))
         allow(api_client).to receive(:post)
           .with("/api/v1/system/instance_pools/pool-good/replenish")
-          .and_return({ success: true, data: { replenish_result: { provisioned: 2 } } })
+          .and_return({ "success" => true, "data" => { "replenish_result" => { "provisioned" => 2 } } })
       end
 
       it "still replenishes the remaining pools and reports their counts" do
@@ -93,16 +101,16 @@ RSpec.describe System::InstancePoolReplenisherJob, type: :job do
       let(:pools) { [ { "id" => "pool-err" }, { "id" => "pool-ok" } ] }
 
       before do
-        allow(api_client).to receive(:get).and_return({ success: true, data: { pools: pools } })
+        allow(api_client).to receive(:get).and_return({ "success" => true, "data" => { "pools" => pools } })
         allow(api_client).to receive(:post)
           .with(%r{/instance_pools/pool-(err|ok)/recycle_stale})
-          .and_return({ success: true, data: { recycle_result: {} } })
+          .and_return({ "success" => true, "data" => { "recycle_result" => {} } })
         allow(api_client).to receive(:post)
           .with("/api/v1/system/instance_pools/pool-err/replenish")
-          .and_return({ success: false, error: "pool is paused" })
+          .and_return({ "success" => false, "error" => "pool is paused" })
         allow(api_client).to receive(:post)
           .with("/api/v1/system/instance_pools/pool-ok/replenish")
-          .and_return({ success: true, data: { replenish_result: { provisioned: 1 } } })
+          .and_return({ "success" => true, "data" => { "replenish_result" => { "provisioned" => 1 } } })
       end
 
       it "records the error for that pool and continues with the rest" do
@@ -118,13 +126,13 @@ RSpec.describe System::InstancePoolReplenisherJob, type: :job do
       let(:pools) { [ { "id" => "pool-x" } ] }
 
       before do
-        allow(api_client).to receive(:get).and_return({ success: true, data: { pools: pools } })
+        allow(api_client).to receive(:get).and_return({ "success" => true, "data" => { "pools" => pools } })
         allow(api_client).to receive(:post)
           .with("/api/v1/system/instance_pools/pool-x/recycle_stale")
-          .and_return({ success: false, error: "recycle boom" })
+          .and_return({ "success" => false, "error" => "recycle boom" })
         allow(api_client).to receive(:post)
           .with("/api/v1/system/instance_pools/pool-x/replenish")
-          .and_return({ success: true, data: { replenish_result: { provisioned: 4 } } })
+          .and_return({ "success" => true, "data" => { "replenish_result" => { "provisioned" => 4 } } })
       end
 
       it "still replenishes the pool (recycle failure does not block phase 2)" do
