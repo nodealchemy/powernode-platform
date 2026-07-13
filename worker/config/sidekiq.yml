@@ -205,6 +205,16 @@
       queue: default
       description: 'Recycle stale + replenish active instance pools'
 
+    # CI runner lease reconcile - every 60 seconds (campaign 019f5885 inc3).
+    # Correlates each active CiRunnerLease against Gitea run state + publish
+    # arrival, drives it toward release + recycle, and reaps orphaned fleet-*
+    # runners. Server-side sweep (worker is HTTP-only).
+    ci_runner_lease_reconcile:
+      every: '60s'
+      class: System::CiRunnerLeaseReconcileJob
+      queue: default
+      description: 'Reconcile CI runner leases (Gitea run state, release + recycle)'
+
     # Docker Swarm health check - every 10 minutes
     swarm_health_check:
       every: '10m'
