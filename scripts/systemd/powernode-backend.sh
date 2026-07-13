@@ -40,4 +40,14 @@ if [[ -d "${ISEQ_CACHE}" ]]; then
     rm -rf "${ISEQ_CACHE}"
 fi
 
+# Ensure the agent-serving symlink exists: server/public/agent -> the system
+# extension's built agent dist. The /agent/* Traefik router serves the fleet
+# agent binary from this path; it is gitignored deploy plumbing, so (re)create
+# it on boot rather than depend on a manual per-host step.
+AGENT_LINK="${POWERNODE_BASE:-/opt/powernode}/server/public/agent"
+if [[ ! -L "${AGENT_LINK}" ]]; then
+    ln -sfn ../../extensions/system/agent/dist "${AGENT_LINK}" \
+        && echo "[backend] created agent-serving symlink ${AGENT_LINK}"
+fi
+
 exec bundle exec rails server -p "${PORT}" -b "${HOST}"
