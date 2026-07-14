@@ -42,5 +42,19 @@ RSpec.describe SystemPackageRepositorySyncJob, type: :job do
         expect(job.execute).to include(ok: false)
       end
     end
+
+    context "on-demand single-repo sync (repo id arg from the Sync-now button)" do
+      let(:repo_id) { "019f6000-0000-7000-8000-000000000000" }
+      let(:response) { { "data" => { "tick_count" => 1, "results" => [ { "ok" => true, "upserted" => 3 } ] } } }
+
+      before { allow(api_client).to receive(:post).with(endpoint, { repository_id: repo_id }).and_return(response) }
+
+      it "POSTs only that repository id and does NOT take the global daily lock" do
+        expect(job).not_to receive(:acquire_lock)
+        result = job.execute(repo_id)
+        expect(api_client).to have_received(:post).with(endpoint, { repository_id: repo_id })
+        expect(result).to include(on_demand: true, repository_id: repo_id)
+      end
+    end
   end
 end
