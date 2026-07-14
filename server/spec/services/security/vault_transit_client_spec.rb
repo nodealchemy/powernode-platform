@@ -124,4 +124,89 @@ RSpec.describe Security::VaultTransitClient do
       expect(result[:latest_version]).to eq(2)
     end
   end
+
+  describe "#create_signing_key" do
+    it "raises ArgumentError for blank name" do
+      expect { client.create_signing_key("") }.to raise_error(ArgumentError, /name/)
+    end
+
+    it "raises ArgumentError when exportable: true is requested (private key must never leave Vault)" do
+      expect(vault_logical).not_to receive(:write)
+      expect(vault_logical).not_to receive(:read)
+
+      expect { client.create_signing_key("powernode-module-signing", exportable: true) }
+        .to raise_error(ArgumentError, /exportable/)
+    end
+
+    it "creates a new ecdsa-p256 key with exportable:false when the key does not exist" do
+      expect(vault_logical).to receive(:read)
+        .with("transit/keys/powernode-module-signing")
+        .and_return(nil)
+      expect(vault_logical).to receive(:write)
+        .with("transit/keys/powernode-module-signing", hash_including(exportable: false, type: "ecdsa-p256"))
+
+      result = client.create_signing_key("powernode-module-signing")
+      expect(result).to be true
+    end
+
+    it "defaults to type ecdsa-p256 but honors an explicit type override" do
+      allow(vault_logical).to receive(:read).and_return(nil)
+      expect(vault_logical).to receive(:write)
+        .with("transit/keys/other-key", hash_including(type: "ed25519"))
+
+      client.create_signing_key("other-key", type: "ed25519")
+    end
+
+    it "is idempotent — no-ops (no write) when the key already exists" do
+      existing = double(data: { latest_version: 1, type: "ecdsa-p256" })
+      expect(vault_logical).to receive(:read)
+        .with("transit/keys/powernode-module-signing")
+        .and_return(existing)
+      expect(vault_logical).not_to receive(:write)
+
+      result = client.create_signing_key("powernode-module-signing")
+      expect(result).to be false
+    end
+  end
+
+  describe "#signing_public_key" do
+    it "raises ArgumentError for blank name" do
+      expect { client.signing_public_key("") }.to raise_error(ArgumentError, /name/)
+    end
+
+    it "raises KeyNotFoundError when the key does not exist" do
+      allow(vault_logical).to receive(:read)
+        .with("transit/keys/missing-key")
+        .and_return(nil)
+
+      expect { client.signing_public_key("missing-key") }
+        .to raise_error(Security::VaultTransitClient::KeyNotFoundError)
+    end
+
+    it "returns the PEM public key for the latest version" do
+      pem = "-----BEGIN PUBLIC KEY-----\nabc123\n-----END PUBLIC KEY-----\n"
+      meta_response = double(data: {
+        latest_version: 2,
+        keys: {
+          "1" => { public_key: "stale-pem" },
+          "2" => { public_key: pem }
+        }
+      })
+      allow(vault_logical).to receive(:read)
+        .with("transit/keys/powernode-module-signing")
+        .and_return(meta_response)
+
+      expect(client.signing_public_key("powernode-module-signing")).to eq(pem)
+    end
+
+    it "raises TransitError when the latest version has no public_key" do
+      meta_response = double(data: { latest_version: 1, keys: { "1" => { "creation_time" => "now" } } })
+      allow(vault_logical).to receive(:read)
+        .with("transit/keys/symmetric-key")
+        .and_return(meta_response)
+
+      expect { client.signing_public_key("symmetric-key") }
+        .to raise_error(Security::VaultTransitClient::TransitError)
+    end
+  end
 end

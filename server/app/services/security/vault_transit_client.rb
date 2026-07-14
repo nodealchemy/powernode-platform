@@ -14,10 +14,26 @@ module Security
   #   - `rotate_key(name)` — bumps key version; old versions still decrypt
   #     until explicit retire.
   #
+  # Signing-key management (generic — no caller-specific coupling):
+  #   - `create_signing_key(name, type:, exportable:)` — POST
+  #     transit/keys/<name> with an asymmetric key type (ecdsa-p256 by
+  #     default). Idempotent: a pre-flight read no-ops if the key already
+  #     exists rather than re-issuing the write (avoids silently mutating
+  #     an existing production key's config on a repeated call). Always
+  #     rejects `exportable: true` — a transit SIGNING key's whole purpose
+  #     is that the private key material never leaves Vault; callers that
+  #     need exportable material want a different primitive entirely.
+  #   - `signing_public_key(name)` — GET transit/keys/<name>, returns the
+  #     PEM public key for the latest version. Public keys are not secret
+  #     (safe to log/store/distribute) — this method never touches private
+  #     key material, which Vault's transit API does not expose for
+  #     non-exportable keys in the first place.
+  #
   # Defends against an unmounted transit engine via VaultUnavailableError so
   # callers can degrade gracefully (un-peppered rows continue to work).
   #
-  # Reference: comprehensive stabilization sweep P3.
+  # Reference: comprehensive stabilization sweep P3; signing-key management
+  # added for campaign 019f5885 inc8 (platform-side module signing).
   class VaultTransitClient
     class VaultUnavailableError < StandardError; end
     class TransitError < StandardError; end
@@ -93,6 +109,60 @@ module Security
         result = @vault_client.client.logical.read("#{@mount}/keys/#{name}")
         result&.data || {}
       end
+    end
+
+    # Idempotent creation of an asymmetric transit key intended for
+    # SIGNING (not encrypt/decrypt). `exportable` must stay false — this
+    # is a hard invariant, not a caller preference: the entire point of a
+    # Vault-transit signing key is that the private half never leaves
+    # Vault, so cosign (or any other caller) only ever gets to ask Vault
+    # to sign, never to hand over key material.
+    #
+    # Idempotency is implemented via a pre-flight `key_metadata` read
+    # rather than relying on Vault's own create-endpoint semantics — this
+    # guarantees a second call never re-issues the write (and so never
+    # risks silently changing an existing key's type/config), regardless
+    # of what a given Vault version does with a duplicate create.
+    #
+    # @return [Boolean] true if this call created the key, false if it
+    #   already existed (no-op).
+    def create_signing_key(name, type: "ecdsa-p256", exportable: false)
+      raise ArgumentError, "name required" if name.blank?
+      if exportable
+        raise ArgumentError,
+              "signing keys must not be exportable — the private key must never leave Vault"
+      end
+
+      return false if key_metadata(name).present?
+
+      with_circuit do
+        @vault_client.client.logical.write(
+          "#{@mount}/keys/#{name}",
+          exportable: false,
+          type: type
+        )
+        true
+      end
+    end
+
+    # Returns the PEM-encoded public key for the latest version of a
+    # transit key. Public keys are NOT secret — safe to log, cache, or
+    # hand to a verifier. Raises KeyNotFoundError if the key doesn't
+    # exist, TransitError if the key exists but has no public key for its
+    # latest version (e.g. it's a symmetric key, not asymmetric).
+    def signing_public_key(name, version: nil)
+      raise ArgumentError, "name required" if name.blank?
+
+      meta = key_metadata(name)
+      raise KeyNotFoundError, "Vault transit key not found: #{name}" if meta.blank?
+
+      keys = meta[:keys] || meta["keys"] || {}
+      target_version = (version || meta[:latest_version] || meta["latest_version"]).to_s
+      entry = keys[target_version] || keys[target_version.to_sym]
+      pubkey = entry.is_a?(Hash) ? (entry[:public_key] || entry["public_key"]) : nil
+      raise TransitError, "Vault transit key #{name} has no public_key for version #{target_version}" if pubkey.blank?
+
+      pubkey
     end
 
     def peppered_blob?(value)
