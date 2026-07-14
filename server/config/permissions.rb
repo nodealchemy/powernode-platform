@@ -582,7 +582,9 @@ module Permissions
     # Campaign 019f5885 inc3 — ephemeral CI runner leases.
     "system.ci_runner_leases.read"               => "List CI runner leases for the current account",
     "system.ci_runner_leases.create"             => "Lease an ephemeral Gitea Act runner from a builder pool",
-    "system.ci_runner_leases.update"             => "Release a CI runner lease (deregister + recycle the instance)"
+    "system.ci_runner_leases.update"             => "Release a CI runner lease (deregister + recycle the instance)",
+    # Campaign 019f5885 inc9 — native module-build batch orchestration.
+    "system.module_builds.dispatch"              => "Plan + dispatch a native module-build batch (lease builders, create ci.module_build tasks)"
   }.freeze
 
   # All permissions combined

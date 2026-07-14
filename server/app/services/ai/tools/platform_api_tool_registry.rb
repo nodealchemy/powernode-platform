@@ -181,6 +181,8 @@ module Ai
         "system_release_ci_runner" => "Ai::Tools::SystemFleetTool",
         "system_list_ci_runner_leases" => "Ai::Tools::SystemFleetTool",
         "system_list_disk_image_webhooks" => "Ai::Tools::SystemFleetTool",
+        # Campaign 019f5885 inc9 — native module-build batch orchestration
+        "system_dispatch_module_build_batch" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice 6a — GitOps reconciler MCP surface
         "system_gitops_register_repository" => "Ai::Tools::SystemFleetTool",
         "system_gitops_sync_repository" => "Ai::Tools::SystemFleetTool",
