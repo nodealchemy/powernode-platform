@@ -47,13 +47,19 @@ RSpec.describe SystemPackageRepositorySyncJob, type: :job do
       let(:repo_id) { "019f6000-0000-7000-8000-000000000000" }
       let(:response) { { "data" => { "tick_count" => 1, "results" => [ { "ok" => true, "upserted" => 3 } ] } } }
 
-      before { allow(api_client).to receive(:post).with(endpoint, { repository_id: repo_id }).and_return(response) }
+      before { allow(api_client).to receive(:post).with(endpoint, { repository_id: repo_id, force: false }).and_return(response) }
 
       it "POSTs only that repository id and does NOT take the global daily lock" do
         expect(job).not_to receive(:acquire_lock)
         result = job.execute(repo_id)
-        expect(api_client).to have_received(:post).with(endpoint, { repository_id: repo_id })
+        expect(api_client).to have_received(:post).with(endpoint, { repository_id: repo_id, force: false })
         expect(result).to include(on_demand: true, repository_id: repo_id)
+      end
+
+      it "forwards force from the opts hash" do
+        allow(api_client).to receive(:post).with(endpoint, { repository_id: repo_id, force: true }).and_return(response)
+        job.execute(repo_id, { "force" => true })
+        expect(api_client).to have_received(:post).with(endpoint, { repository_id: repo_id, force: true })
       end
     end
   end
