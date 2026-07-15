@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_14_183000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8559,6 +8559,51 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
     t.index ["token_hash"], name: "index_system_bootstrap_tokens_on_token_hash", unique: true
   end
 
+  create_table "system_ci_runner_leases", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "build_task_id"
+    t.datetime "busy_at"
+    t.datetime "created_at", null: false
+    t.boolean "ephemeral", default: false, null: false
+    t.text "error_message"
+    t.datetime "errored_at"
+    t.datetime "expires_at"
+    t.string "git_owner"
+    t.string "git_repo"
+    t.uuid "git_runner_id"
+    t.uuid "instance_pool_id"
+    t.datetime "leased_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "node_instance_id", null: false
+    t.string "purpose", default: "generic", null: false
+    t.datetime "registered_at"
+    t.datetime "released_at"
+    t.datetime "releasing_at"
+    t.string "runner_external_id"
+    t.jsonb "runner_labels", default: [], null: false
+    t.string "runner_name"
+    t.string "runner_scope", default: "org", null: false
+    t.string "status", default: "leased", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "workflow_run_id"
+    t.string "workflow_run_repo"
+    t.index ["account_id"], name: "index_system_ci_runner_leases_on_account_id"
+    t.index ["build_task_id"], name: "index_system_ci_runner_leases_on_build_task_id"
+    t.index ["node_instance_id"], name: "index_system_ci_runner_leases_on_node_instance_id"
+    t.index ["runner_name"], name: "index_system_ci_runner_leases_on_runner_name"
+    t.index ["status"], name: "index_system_ci_runner_leases_on_status"
+    t.index ["workflow_run_id"], name: "index_system_ci_runner_leases_on_workflow_run_id"
+  end
+
+  create_table "system_claude_code_credentials", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "migrated_to_vault_at"
+    t.uuid "node_instance_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "vault_path_credentials"
+    t.index ["node_instance_id"], name: "index_system_claude_code_credentials_on_node_instance_id", unique: true
+  end
+
   create_table "system_cve_exposures", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.uuid "cve_id", null: false
@@ -8599,6 +8644,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
     t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying::text, 'high'::character varying::text, 'medium'::character varying::text, 'low'::character varying::text, 'unknown'::character varying::text])", name: "ck_cves_severity"
   end
 
+  create_table "system_dev_cell_deploy_keys", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.string "algorithm"
+    t.datetime "created_at", null: false
+    t.bigint "deploy_key_id"
+    t.string "fingerprint"
+    t.datetime "migrated_to_vault_at"
+    t.uuid "node_instance_id", null: false
+    t.text "public_key_openssh"
+    t.string "source_repo"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.string "vault_path_credentials"
+    t.index ["node_instance_id"], name: "index_system_dev_cell_deploy_keys_on_node_instance_id", unique: true
+  end
+
   create_table "system_disk_image_publications", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "arch", null: false
@@ -8621,6 +8681,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
     t.bigint "size_bytes", null: false
     t.string "status", default: "queued", null: false, comment: "queued|awaiting_upload|verifying|published|failed|retired|purged"
     t.uuid "triggered_by_worker_id"
+    t.text "uki_cosign_bundle"
+    t.string "uki_oci_ref"
+    t.string "uki_sha256"
     t.datetime "updated_at", null: false
     t.datetime "verified_at"
     t.uuid "webhook_id"
@@ -9116,6 +9179,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
     t.index ["sbom_packages_synced_at"], name: "index_system_module_artifacts_on_sbom_packages_synced_at"
   end
 
+  create_table "system_module_build_batches", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "awaiting_signature_at"
+    t.string "base_sha", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.datetime "dispatched_at"
+    t.text "error_message"
+    t.datetime "failed_at"
+    t.integer "failed_count", default: 0, null: false
+    t.string "head_sha", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.jsonb "module_slugs", default: [], null: false
+    t.integer "planned_count", default: 0, null: false
+    t.datetime "publishing_at"
+    t.boolean "shadow", default: false, null: false
+    t.string "status", default: "planning", null: false
+    t.integer "succeeded_count", default: 0, null: false
+    t.string "trigger", default: "push", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_system_module_build_batches_on_account_id"
+    t.index ["module_slugs"], name: "index_system_module_build_batches_on_module_slugs", using: :gin
+    t.index ["shadow"], name: "index_system_module_build_batches_on_shadow"
+    t.index ["status"], name: "index_system_module_build_batches_on_status"
+    t.index ["trigger"], name: "index_system_module_build_batches_on_trigger"
+  end
+
   create_table "system_module_dependencies", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.uuid "dependency_id", null: false
@@ -9175,9 +9265,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
     t.uuid "node_module_id", null: false
     t.string "restart_policy", limit: 32, default: "always", null: false
     t.uuid "service_user_id"
-    t.text "start_command", null: false
+    t.text "start_command"
     t.text "stop_command"
     t.string "system_user", limit: 32
+    t.text "unit_body"
     t.datetime "updated_at", null: false
     t.string "working_directory", limit: 512
     t.index ["account_id"], name: "index_system_module_services_on_account_id"
@@ -9321,6 +9412,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
     t.string "agent_version"
     t.string "architecture", default: "amd64", null: false
     t.string "boot_id"
+    t.string "booted_image_git_sha"
     t.jsonb "capabilities", default: {}, null: false
     t.string "claim_code"
     t.datetime "claimed_at"
@@ -9594,6 +9686,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
     t.integer "disk_image_retention_count", default: 3, null: false, comment: "Number of historical publications to retain before reaper purges (per platform)"
     t.string "disk_image_sha256"
     t.bigint "disk_image_size_bytes"
+    t.string "disk_image_uki_oci_ref"
+    t.string "disk_image_uki_sha256"
     t.boolean "enabled", default: true, null: false
     t.text "init_script"
     t.string "name", null: false
@@ -9713,9 +9807,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
     t.datetime "last_synced_at"
     t.string "name", null: false
     t.integer "package_count", default: 0, null: false
+    t.integer "parser_version", default: 0, null: false
     t.integer "priority", default: 100, null: false
     t.jsonb "rpm_config", default: {}, null: false
     t.text "signing_key_armor"
+    t.text "sync_fingerprint"
     t.string "sync_status", default: "idle", null: false
     t.datetime "updated_at", null: false
     t.string "vault_credential_path"
@@ -12103,8 +12199,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193003) do
   add_foreign_key "system_acme_certificates", "accounts", on_delete: :cascade
   add_foreign_key "system_acme_certificates", "system_acme_dns_credentials", column: "dns_credential_id", on_delete: :nullify
   add_foreign_key "system_acme_dns_credentials", "accounts", on_delete: :cascade
-  add_foreign_key "system_bootstrap_tokens", "system_node_instances", column: "node_instance_id"
-  add_foreign_key "system_bootstrap_tokens", "system_nodes", column: "node_id"
+  add_foreign_key "system_bootstrap_tokens", "system_node_instances", column: "node_instance_id", on_delete: :nullify
+  add_foreign_key "system_bootstrap_tokens", "system_nodes", column: "node_id", on_delete: :cascade
   add_foreign_key "system_cve_exposures", "system_cves", column: "cve_id"
   add_foreign_key "system_cve_exposures", "system_node_module_versions", column: "node_module_version_id"
   add_foreign_key "system_disk_image_publications", "accounts"
