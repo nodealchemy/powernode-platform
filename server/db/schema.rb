@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_14_183000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_15_120100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8984,6 +8984,46 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_14_183000) do
     t.index ["fingerprint"], name: "index_system_fleet_remediation_outcomes_on_fingerprint"
   end
 
+  create_table "system_fulfillment_requests", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "approved_at"
+    t.uuid "build_batch_id"
+    t.datetime "building_at"
+    t.jsonb "cost_estimate", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "error"
+    t.datetime "expired_at"
+    t.datetime "expires_at"
+    t.datetime "failed_at"
+    t.integer "instance_count", default: 0, null: false
+    t.integer "lease_ttl_seconds"
+    t.integer "materialized_count", default: 0, null: false
+    t.jsonb "materialized_module_ids", default: [], null: false
+    t.jsonb "materialized_modules", default: [], null: false
+    t.datetime "materializing_at"
+    t.jsonb "node_instance_ids", default: [], null: false
+    t.jsonb "parked", default: [], null: false
+    t.jsonb "plan", default: {}, null: false
+    t.datetime "provisioning_at"
+    t.datetime "ready_at"
+    t.text "request", null: false
+    t.uuid "requested_by_user_id"
+    t.integer "reused_count", default: 0, null: false
+    t.jsonb "reused_modules", default: [], null: false
+    t.jsonb "smoke"
+    t.datetime "smoking_at"
+    t.string "state", default: "composed", null: false
+    t.uuid "template_id"
+    t.datetime "templated_at"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "materializing_at"], name: "idx_fulfillment_requests_account_rate"
+    t.index ["account_id"], name: "index_system_fulfillment_requests_on_account_id"
+    t.index ["build_batch_id"], name: "index_system_fulfillment_requests_on_build_batch_id"
+    t.index ["expires_at"], name: "index_system_fulfillment_requests_on_expires_at"
+    t.index ["state"], name: "index_system_fulfillment_requests_on_state"
+    t.index ["template_id"], name: "index_system_fulfillment_requests_on_template_id"
+  end
+
   create_table "system_gitops_repositories", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.boolean "auto_apply", default: false, null: false
@@ -9429,6 +9469,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_14_183000) do
     t.datetime "last_heartbeat_at"
     t.datetime "last_synced_at"
     t.decimal "latitude", precision: 10, scale: 7, comment: "Latitude coordinate"
+    t.datetime "lease_expires_at"
+    t.string "lifecycle_class"
     t.decimal "longitude", precision: 10, scale: 7, comment: "Longitude coordinate"
     t.string "mac_address", comment: "Primary MAC address"
     t.string "mtls_subject"
@@ -9459,6 +9501,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_14_183000) do
     t.index ["instance_pool_id"], name: "index_system_node_instances_on_instance_pool_id"
     t.index ["last_heartbeat_at"], name: "index_system_node_instances_on_last_heartbeat_at"
     t.index ["last_synced_at"], name: "index_system_node_instances_on_last_synced_at"
+    t.index ["lifecycle_class", "lease_expires_at"], name: "idx_node_instances_task_scoped_lease", where: "(lifecycle_class IS NOT NULL)"
     t.index ["mac_address"], name: "index_system_node_instances_on_mac_address", unique: true, where: "(mac_address IS NOT NULL)"
     t.index ["mtls_subject"], name: "index_system_node_instances_on_mtls_subject"
     t.index ["network_profile"], name: "index_system_node_instances_on_network_profile"
