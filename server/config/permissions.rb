@@ -584,7 +584,15 @@ module Permissions
     "system.ci_runner_leases.create"             => "Lease an ephemeral Gitea Act runner from a builder pool",
     "system.ci_runner_leases.update"             => "Release a CI runner lease (deregister + recycle the instance)",
     # Campaign 019f5885 inc9 — native module-build batch orchestration.
-    "system.module_builds.dispatch"              => "Plan + dispatch a native module-build batch (lease builders, create ci.module_build tasks)"
+    "system.module_builds.dispatch"              => "Plan + dispatch a native module-build batch (lease builders, create ci.module_build tasks)",
+    # Campaign 019f6084 inc2 — agent-pollable build-completion barrier
+    # (ModuleBuildBatch read API). Adjacent to .dispatch because that's the
+    # existing precedent for this permission name; the admin/manager grant
+    # is registered from the extension side (see PowernodeSystem::Engine) —
+    # .dispatch itself is worker/webhook-only by design (SYSTEM_PERMISSIONS
+    # entries default to system_worker only; nothing here should be read as
+    # implying admin/manager also get .dispatch).
+    "system.module_builds.read"                  => "View module-build batches (status, per-module build/lease/artifact state)"
   }.freeze
 
   # All permissions combined
