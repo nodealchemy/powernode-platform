@@ -102,109 +102,46 @@ module Ai
 
         private
 
+        # Both default configs derive their field values from
+        # Ai::ProviderCatalog — the single source of truth for provider
+        # data — so nothing here duplicates catalog values. Only the
+        # bootstrap-specific shape setup_default_providers consumes
+        # (:slug, :configuration) is assembled locally.
         def openai_default_config
-          {
-            name: "OpenAI",
-            slug: "openai",
-            provider_type: "openai",
-            api_base_url: "https://api.openai.com/v1",
-            api_endpoint: "https://api.openai.com/v1",
-            capabilities: %w[text_generation chat],
-            supported_models: [
-              {
-                name: "gpt-4.1",
-                id: "gpt-4.1",
-                context_length: 1_000_000,
-                cost_per_1k_tokens: { input: 0.002, output: 0.008 }
-              },
-              {
-                name: "gpt-4.1-mini",
-                id: "gpt-4.1-mini",
-                context_length: 1_000_000,
-                cost_per_1k_tokens: { input: 0.0004, output: 0.0016 }
-              },
-              {
-                name: "gpt-4o",
-                id: "gpt-4o",
-                context_length: 128_000,
-                cost_per_1k_tokens: { input: 0.0025, output: 0.01 }
-              }
-            ],
-            configuration_schema: {
-              type: "object",
-              properties: {
-                api_key: { type: "string", description: "OpenAI API key" },
-                model: { type: "string", description: "Model to use" }
-              },
-              required: %w[api_key model]
-            },
-            configuration: {
-              models: %w[gpt-4.1 gpt-4.1-mini gpt-4o],
-              default_model: "gpt-4.1-mini"
-            },
-            rate_limits: {
-              requests_per_minute: 3500,
-              tokens_per_minute: 90_000
-            },
-            priority_order: 1
-          }
+          default_config_from_catalog("openai", slug: "openai")
         end
 
         def anthropic_default_config
+          default_config_from_catalog("anthropic", slug: "anthropic")
+        end
+
+        def default_config_from_catalog(provider_type, slug:)
+          catalog = ::Ai::ProviderCatalog.for(provider_type)
+
           {
-            name: "Anthropic",
-            slug: "anthropic",
-            provider_type: "anthropic",
-            api_base_url: "https://api.anthropic.com/v1",
-            api_endpoint: "https://api.anthropic.com/v1",
-            capabilities: %w[text_generation chat],
-            supported_models: [
-              {
-                name: "claude-opus-4-8",
-                id: "claude-opus-4-8",
-                context_length: 1_000_000,
-                max_output_tokens: 128_000,
-                cost_per_1k_tokens: { input: 0.005, output: 0.025 }
-              },
-              {
-                name: "claude-sonnet-5",
-                id: "claude-sonnet-5",
-                context_length: 1_000_000,
-                max_output_tokens: 128_000,
-                cost_per_1k_tokens: { input: 0.003, output: 0.015 }
-              },
-              {
-                name: "claude-sonnet-4-6",
-                id: "claude-sonnet-4-6",
-                context_length: 1_000_000,
-                max_output_tokens: 128_000,
-                cost_per_1k_tokens: { input: 0.003, output: 0.015 }
-              },
-              {
-                name: "claude-haiku-4-5",
-                id: "claude-haiku-4-5",
-                context_length: 200_000,
-                max_output_tokens: 64_000,
-                cost_per_1k_tokens: { input: 0.001, output: 0.005 }
-              }
-            ],
-            configuration_schema: {
-              type: "object",
-              properties: {
-                api_key: { type: "string", description: "Anthropic API key" },
-                model: { type: "string", description: "Model to use" }
-              },
-              required: %w[api_key model]
-            },
-            configuration: {
-              models: %w[claude-opus-4-8 claude-sonnet-5 claude-sonnet-4-6 claude-haiku-4-5],
-              default_model: "claude-sonnet-5"
-            },
-            rate_limits: {
-              requests_per_minute: 1000,
-              tokens_per_minute: 40_000
-            },
-            priority_order: 2
+            name: catalog[:name],
+            slug: slug,
+            provider_type: catalog[:provider_type],
+            api_base_url: catalog[:api_base_url],
+            api_endpoint: catalog[:api_endpoint],
+            capabilities: catalog[:capabilities],
+            supported_models: catalog[:supported_models],
+            configuration_schema: catalog[:configuration_schema],
+            configuration: bootstrap_configuration(catalog),
+            rate_limits: catalog[:rate_limits],
+            priority_order: catalog[:priority_order]
+          }
+        end
+
+        # setup_default_providers stores this (not configuration_schema) as
+        # the provider's actual runtime configuration — see Configurable#configuration=.
+        def bootstrap_configuration(catalog)
+          model_ids = catalog[:supported_models].map { |model| model["id"] }
+          default_model = catalog[:configuration_schema]["default_model"] || model_ids.first
+
+          {
+            models: model_ids,
+            default_model: default_model
           }
         end
       end
