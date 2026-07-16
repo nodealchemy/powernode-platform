@@ -206,4 +206,35 @@ RSpec.describe "discover_extension_gems_by_visibility (public/private split)" do
       )
     end
   end
+
+  describe "deployed mode (POWERNODE_DEPLOYED=1) — a node loads every composed extension" do
+    around do |example|
+      saved = ENV["POWERNODE_DEPLOYED"]
+      ENV["POWERNODE_DEPLOYED"] = "1"
+      begin
+        example.run
+      ensure
+        saved.nil? ? ENV.delete("POWERNODE_DEPLOYED") : (ENV["POWERNODE_DEPLOYED"] = saved)
+      end
+    end
+
+    it "loads public AND private on-disk server extensions, skipping disabled + frontend-only" do
+      result = discover_extension_gems_by_visibility(root)
+      expect(result[:public]).to eq(
+        [["alpha", "../extensions/alpha/server"], ["beta", "../extensions/beta/server"]]
+      )
+      expect(result[:private]).to eq([["gamma", "../extensions/gamma/server"]])
+      slugs = result.values.flatten(1).map(&:first)
+      expect(slugs).not_to include("disabled")
+      expect(slugs).not_to include("frontendonly")
+    end
+
+    it "loads all on-disk server extensions even with .gitmodules absent (the node case)" do
+      # No .gitmodules -> nothing is 'public', but DEPLOYED loads every on-disk
+      # server extension anyway: on a node, presence == the composition decision.
+      FileUtils.rm_f(File.join(root, ".gitmodules"))
+      slugs = discover_extension_gems(root).map(&:first)
+      expect(slugs).to contain_exactly("alpha", "beta", "gamma")
+    end
+  end
 end

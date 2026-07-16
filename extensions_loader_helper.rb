@@ -42,6 +42,16 @@ end
 # scripts/regen-public-lockfile.sh remains as a convenience wrapper.
 def discover_extension_gems_by_visibility(base_dir = __dir__)
   include_private = ENV["POWERNODE_INCLUDE_PRIVATE_EXTENSIONS"] == "1"
+  # Deployed control planes (the hub-backend rails service sets
+  # POWERNODE_DEPLOYED=1) load EVERY extension present on disk, regardless of
+  # public/private: on a node, presence-on-disk IS the composition decision — a
+  # NodeModule put it there. dev/CI leave the flag unset, so discovery stays
+  # gated on .gitmodules (public) or the POWERNODE_INCLUDE_PRIVATE_EXTENSIONS
+  # opt-in, preserving the public-only committed-lock invariant. Distinct from
+  # the private opt-in: DEPLOYED loads public AND private on-disk extensions
+  # (they only reach the node's disk by being composed), but only ever at
+  # runtime on a node — never during the committed `bundle lock`.
+  deployed = ENV["POWERNODE_DEPLOYED"] == "1"
   dir = File.join(base_dir, "extensions")
   return { public: [], private: [] } unless Dir.exist?(dir)
 
@@ -62,7 +72,7 @@ def discover_extension_gems_by_visibility(base_dir = __dir__)
     next unless Dir.exist?(server_path)
 
     is_public = !private_by_location && public_slugs.include?(slug)
-    next if !is_public && !include_private
+    next if !deployed && !is_public && !include_private
 
     bucket = is_public ? :public : :private
     result[bucket] << [slug, "../#{rel_path}/server"]
