@@ -63,6 +63,11 @@ interface AiProviderResponse {
   data?: { provider?: { id?: string } };
 }
 
+/** `GET /ai/providers?provider_type=…` — used to resolve an existing provider before creating one. */
+interface AiProviderIndexResponse {
+  data?: { items?: Array<{ id?: string; provider_type?: string }> };
+}
+
 interface AiCredentialResponse {
   data?: { credential?: { id?: string } };
 }
@@ -89,6 +94,11 @@ export interface CreateProviderViaProviderParams {
   providerType: ProviderTypeSlug;
   /** Display name attached to the created Provider record. */
   name: string;
+  /**
+   * Provider-level config (e.g. self-hosted Gitea/GitLab base URL). Sent as
+   * `provider.api_base_url` — this configures the Provider, not the credential.
+   */
+  apiBaseUrl?: string;
 }
 
 export interface CreateNamedCredentialParams {
@@ -156,13 +166,24 @@ export const onboardingApi = {
   },
 
   /**
-   * AI category step 1: create the provider. Returns the created provider id
-   * (or undefined — the caller throws when missing, matching prior behavior).
+   * AI category step 1: resolve an existing provider of this type, or create
+   * one. The catalog seeds a Provider per type ahead of onboarding, so a bare
+   * POST here would create a duplicate missing required fields (422). Instead
+   * GET `/ai/providers?provider_type=…` first and reuse `items[0].id` when
+   * present; only fall through to create when none exists.
    */
   async createAiProvider({
     providerType,
     name,
   }: CreateProviderViaProviderParams): Promise<string | undefined> {
+    const existing = await apiClient.get<AiProviderIndexResponse>('/ai/providers', {
+      params: { provider_type: providerType },
+    });
+    const items = existing.data?.data?.items ?? [];
+    if (items.length > 0) {
+      return items[0]?.id;
+    }
+
     const response = await apiClient.post<AiProviderResponse>('/ai/providers', {
       provider: {
         provider_type: providerType,
@@ -197,15 +218,20 @@ export const onboardingApi = {
   /**
    * Git category step 1: create the provider. Returns the created provider id
    * (or undefined — the caller throws when missing, matching prior behavior).
+   * `apiBaseUrl`, when given, configures the self-hosted Gitea/GitLab
+   * endpoint on the Provider record itself (`provider.api_base_url`) — the
+   * base URL is provider config, not credential material.
    */
   async createGitProvider({
     providerType,
     name,
+    apiBaseUrl,
   }: CreateProviderViaProviderParams): Promise<string | undefined> {
     const response = await apiClient.post<GitProviderResponse>('/git/providers', {
       provider: {
         provider_type: providerType,
         name,
+        ...(apiBaseUrl ? { api_base_url: apiBaseUrl } : {}),
       },
     });
     return response.data?.data?.provider?.id;
@@ -213,7 +239,9 @@ export const onboardingApi = {
 
   /**
    * Git category step 2: create the credential under a provider. Returns the
-   * derived credential id (`credential?.id ?? null`).
+   * derived credential id (`credential?.id ?? null`). `auth_type` is fixed to
+   * `personal_access_token` — the only PAT-style flow the onboarding wizard
+   * offers today (OAuth is a separate, non-onboarding flow).
    */
   async createGitCredential({
     providerId,
@@ -224,6 +252,7 @@ export const onboardingApi = {
       {
         credential: {
           name: 'Onboarding',
+          auth_type: 'personal_access_token',
           credentials,
           is_active: true,
           is_default: true,

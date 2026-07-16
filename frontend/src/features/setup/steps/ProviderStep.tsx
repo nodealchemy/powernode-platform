@@ -82,12 +82,17 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
         if (!providerId) throw new Error('AI provider creation did not return an id');
         await onboardingApi.createAiCredential({ providerId, credentials });
       } else if (category === 'git') {
+        // base_url configures the Provider record (self-hosted Gitea/GitLab
+        // endpoint), not the credential — split it out before sending the rest
+        // of the form values as credential material.
+        const { base_url, ...gitCredentials } = credentials;
         const providerId = await onboardingApi.createGitProvider({
           providerType,
           name: PROVIDER_LABELS.git[providerType] ?? providerType,
+          apiBaseUrl: typeof base_url === 'string' ? base_url : undefined,
         });
         if (!providerId) throw new Error('Git provider creation did not return an id');
-        await onboardingApi.createGitCredential({ providerId, credentials });
+        await onboardingApi.createGitCredential({ providerId, credentials: gitCredentials });
       }
       setSaveStatus('saved');
     } catch (err) {

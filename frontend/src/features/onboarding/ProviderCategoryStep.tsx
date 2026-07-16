@@ -61,7 +61,8 @@ export const PROVIDER_OPTIONS_BY_CATEGORY: Record<ProviderCategory, ReadonlyArra
     {
       type: 'local_qemu',
       label: 'Local KVM/QEMU',
-      description: 'Run on the local hypervisor — recommended for first-time setup and on-box workloads.',
+      description:
+        "Runs on this host via libvirt/virsh — requires libvirt installed locally. New here and don't have libvirt? Start with a hosted provider like Proxmox VE instead.",
       icon: <Server className="h-5 w-5" />,
     },
     {

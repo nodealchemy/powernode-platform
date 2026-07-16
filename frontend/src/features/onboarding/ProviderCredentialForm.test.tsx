@@ -54,6 +54,12 @@ describe('ProviderCredentialForm', () => {
     expect(uri.value).toBe('qemu:///system');
   });
 
+  it('renders the GitHub schema with an access_token field (not personal_access_token)', () => {
+    render(<ProviderCredentialForm category="git" providerType="github" />);
+    expect(screen.getByTestId('provider-cred-field-access_token')).toBeInTheDocument();
+    expect(screen.queryByTestId('provider-cred-field-personal_access_token')).toBeNull();
+  });
+
   it('disables the Test button until all required fields are populated', () => {
     render(<ProviderCredentialForm category="cloud" providerType="aws" />);
     const testBtn = screen.getByTestId('provider-cred-test-btn');

@@ -276,7 +276,7 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
   git: {
     github: [
       {
-        key: 'personal_access_token',
+        key: 'access_token',
         label: 'Personal Access Token',
         type: 'password',
         placeholder: 'ghp_…',
@@ -291,6 +291,7 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         type: 'text',
         placeholder: 'https://git.example.com',
         required: true,
+        scope: 'config',
       },
       {
         key: 'access_token',
@@ -306,6 +307,7 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         type: 'text',
         defaultValue: 'https://gitlab.com',
         required: false,
+        scope: 'config',
       },
       {
         key: 'access_token',
