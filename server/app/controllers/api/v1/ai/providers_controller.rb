@@ -45,7 +45,7 @@ module Api
 
         # POST /api/v1/ai/providers
         def create
-          @provider = ::Ai::Provider.new(provider_params)
+          @provider = ::Ai::Provider.new(::Ai::ProviderCatalog.merge_defaults(provider_params.to_h))
           @provider.account = current_user.account
 
           if @provider.save
