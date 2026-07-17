@@ -85,6 +85,21 @@ module Core
     # config and referenced by the backend routers when worker mTLS is on.
     PASS_TLS_CLIENT_CERT_MW = "pass-tls-client-cert"
 
+    # Name of the Traefik middleware that DELETES any client-supplied
+    # X-Forwarded-Tls-Client-Cert[-Info] header before a backend router sees it.
+    # Applied (first) on EVERY backend router, unconditionally.
+    #
+    # Why unconditional: Traefik's passTLSClientCert only *overwrites* those
+    # headers when a client cert was actually negotiated — v3.7.1 calls
+    # req.Header.Set() solely inside `len(req.TLS.PeerCertificates) > 0`, and
+    # never req.Header.Del(). clientAuth here is OPTIONAL
+    # (VerifyClientCertIfGiven), so a cert-less caller's forged CN header would
+    # otherwise pass through untouched and Security::MtlsTrust#verify_request
+    # would trust it on the no-PEM path (imp 019f71e3-2a9c). The strip runs
+    # BEFORE PASS_TLS_CLIENT_CERT_MW so only a proxy-authenticated (handshake-
+    # verified) CN can reach the backend.
+    STRIP_FORWARDED_CLIENT_CERT_MW = "strip-forwarded-client-cert"
+
     class << self
       # ------------------------------------------------------------------
       # Static config + services — lifted from Acme::TraefikConfigWriter.
@@ -371,8 +386,20 @@ module Core
       # write_static_config! emits that entrypoint reference, but a composed hub
       # node's traefik static config (from the reverse-proxy module) does NOT, so
       # relying on it silently drops the CN and every worker call 401s.
+      #
+      # Independent of `client_auth_ca`, the backend routers ALWAYS carry the
+      # strip middleware that deletes any inbound forwarded-client-cert header,
+      # so a forged CN can never reach MtlsTrust#verify_request's no-PEM path
+      # (imp 019f71e3-2a9c). When no CA is present the backend simply receives no
+      # CN and worker auth fails closed — the correct posture with no verifiable CA.
       def host_login_config(cert_path, key_path, client_auth_ca: nil)
-        backend_mw = client_auth_ca ? [ PASS_TLS_CLIENT_CERT_MW ] : nil
+        # Backend routers ALWAYS strip any client-supplied forwarded-client-cert
+        # header first (STRIP_FORWARDED_CLIENT_CERT_MW), so a cert-less caller
+        # can't forge the CN that MtlsTrust#verify_request trusts. pass-tls
+        # (which only re-adds the CN when a real cert was negotiated) is layered
+        # AFTER the strip, and only when clientAuth is active (a CA is present).
+        backend_mw = [ STRIP_FORWARDED_CLIENT_CERT_MW ]
+        backend_mw << PASS_TLS_CLIENT_CERT_MW if client_auth_ca
         routers = {}
         HOST_LOGIN_BACKEND_PREFIXES.each do |prefix|
           routers["host-login-#{router_slug_for(prefix)}"] =
@@ -396,11 +423,26 @@ module Core
           "http" => {
             "routers"     => routers,
             "services"    => render_services,
-            # The CN-forwarding middleware, referenced by the backend routers
-            # above (when worker mTLS is on) and by the websecure entrypoint that
-            # write_static_config! emits. Forwarding is a no-op when no client
-            # cert is negotiated, so it is always safe to define.
             "middlewares" => {
+              # DELETES any client-supplied forwarded-client-cert header at the
+              # trust boundary: an empty customRequestHeaders value makes Traefik's
+              # headers middleware call req.Header.Del(name) unconditionally
+              # (v3.7.1). Strips exactly the two headers MtlsTrust consumes so only
+              # Traefik-populated, handshake-verified values reach the backend.
+              # Applied FIRST on every backend router (see backend_mw above).
+              STRIP_FORWARDED_CLIENT_CERT_MW => {
+                "headers" => {
+                  "customRequestHeaders" => {
+                    ::Security::MtlsTrust::PEM_HEADER     => "",
+                    ::Security::MtlsTrust::SUBJECT_HEADER => ""
+                  }
+                }
+              },
+              # The CN-forwarding middleware, referenced by the backend routers
+              # above (when worker mTLS is on) and by the websecure entrypoint that
+              # write_static_config! emits. It only *sets* the CN when a client
+              # cert is negotiated (never strips a forged one — hence the strip
+              # middleware above), so it is always safe to define.
               PASS_TLS_CLIENT_CERT_MW => {
                 "passTLSClientCert" => { "info" => { "subject" => { "commonName" => true } } }
               }

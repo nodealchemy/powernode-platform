@@ -302,22 +302,53 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
       expect(opt["caFiles"]).to eq([ "/certs/internal-ca.crt" ])
     end
 
-    # Regression: the middleware must be applied at the ROUTER level, not merely
-    # defined + left to the entrypoint. On a composed hub node the traefik static
-    # config lacks the pass-tls-client-cert@file entrypoint reference, so without
-    # the router-level middleware the CN is never forwarded and every worker call 401s.
-    it "applies pass-tls-client-cert to the backend routers when mTLS is on" do
+    # Regression: the pass-tls middleware must be applied at the ROUTER level, not
+    # merely defined + left to the entrypoint. On a composed hub node the traefik
+    # static config lacks the pass-tls-client-cert@file entrypoint reference, so
+    # without the router-level middleware the CN is never forwarded and every
+    # worker call 401s.
+    #
+    # SECURITY (imp 019f71e3-2a9c): Traefik v3.7.1's passTLSClientCert only
+    # *overwrites* X-Forwarded-Tls-Client-Cert[-Info] when a client cert was
+    # negotiated (it sets, never deletes) and clientAuth here is OPTIONAL
+    # (VerifyClientCertIfGiven) — so a cert-less caller could forge the CN header
+    # that Security::MtlsTrust#verify_request trusts on its no-PEM path. The
+    # backend routers therefore ALWAYS carry an unconditional strip middleware
+    # (removes any client-supplied forwarded-cert header) that runs BEFORE
+    # pass-tls re-adds the proxy-authentic CN from the verified handshake cert.
+    it "strips forged forwarded-cert headers, THEN forwards the verified CN, on backend routers when mTLS is on" do
       config = described_class.host_login_config("/c/crt", "/c/key", client_auth_ca: "/certs/internal-ca.crt")
       routers = config.dig("http", "routers")
-      expect(routers["host-login-api"]["middlewares"]).to eq([ "pass-tls-client-cert" ])
-      expect(routers["host-login-up"]["middlewares"]).to eq([ "pass-tls-client-cert" ])
-      # the frontend catch-all router must NOT carry it
+      expect(routers["host-login-api"]["middlewares"]).to eq(%w[strip-forwarded-client-cert pass-tls-client-cert])
+      expect(routers["host-login-up"]["middlewares"]).to eq(%w[strip-forwarded-client-cert pass-tls-client-cert])
+      # the frontend catch-all router must NOT carry either middleware
       expect(routers["host-login-frontend"]).not_to have_key("middlewares")
     end
 
-    it "omits the router-level middleware when mTLS is off (no CA)" do
+    it "STILL strips forged forwarded-cert headers on backend routers when mTLS is off (no CA) — no forgeable CN reaches the backend" do
       config = described_class.host_login_config("/c/crt", "/c/key")
-      expect(config.dig("http", "routers", "host-login-api")).not_to have_key("middlewares")
+      routers = config.dig("http", "routers")
+      # No clientAuth ⇒ no CN is ever forwarded, but the strip must remain so a
+      # forged X-Forwarded-Tls-Client-Cert-Info can't reach verify_request.
+      expect(routers["host-login-api"]["middlewares"]).to eq(%w[strip-forwarded-client-cert])
+      expect(routers["host-login-cable"]["middlewares"]).to eq(%w[strip-forwarded-client-cert])
+      # neither the CN-forwarding middleware nor any middleware on non-backend routers
+      expect(routers["host-login-api"]["middlewares"]).not_to include("pass-tls-client-cert")
+      expect(routers["host-login-frontend"]).not_to have_key("middlewares")
+      expect(routers["host-login-sidekiq"]).not_to have_key("middlewares")
+    end
+
+    it "defines the strip middleware to DELETE exactly the headers MtlsTrust consumes (empty value ⇒ Traefik Header.Del)" do
+      config = described_class.host_login_config("/c/crt", "/c/key")
+      strip = config.dig("http", "middlewares", "strip-forwarded-client-cert")
+      expect(strip).to eq(
+        "headers" => {
+          "customRequestHeaders" => {
+            Security::MtlsTrust::PEM_HEADER     => "",
+            Security::MtlsTrust::SUBJECT_HEADER => ""
+          }
+        }
+      )
     end
 
     it "ensure_host_login_ingress! copies the agent CA next to the serving cert + wires clientAuth" do
