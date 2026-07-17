@@ -80,6 +80,11 @@ module Core
     # WORKER_PKI_DIR (same env the worker reads).
     AGENT_PKI_DIR_DEFAULT = "/persist/var/lib/powernode/pki"
 
+    # Name of the Traefik middleware that forwards the verified client-cert CN
+    # (X-Forwarded-Tls-Client-Cert-Info). Defined in the host-login dynamic
+    # config and referenced by the backend routers when worker mTLS is on.
+    PASS_TLS_CLIENT_CERT_MW = "pass-tls-client-cert"
+
     class << self
       # ------------------------------------------------------------------
       # Static config + services — lifted from Acme::TraefikConfigWriter.
@@ -359,14 +364,19 @@ module Core
       # `client_auth_ca` (a traefik-readable internal-CA path, or nil) toggles
       # worker mTLS: when present the default TLS store requests+verifies client
       # certs against it (VerifyClientCertIfGiven, so cert-less browser login
-      # still works) and the always-defined pass-tls-client-cert middleware —
-      # applied at the websecure entrypoint by write_static_config! — forwards
-      # the verified CN to the backend for every route, including /api/v1/internal.
+      # still works) and the pass-tls-client-cert middleware — applied at the
+      # ROUTER level on the backend routers below — forwards the verified CN to
+      # the backend (the /api router covers /api/v1/internal + /api/v1/system/*).
+      # Applied per-router, NOT relied on at the websecure entrypoint:
+      # write_static_config! emits that entrypoint reference, but a composed hub
+      # node's traefik static config (from the reverse-proxy module) does NOT, so
+      # relying on it silently drops the CN and every worker call 401s.
       def host_login_config(cert_path, key_path, client_auth_ca: nil)
+        backend_mw = client_auth_ca ? [ PASS_TLS_CLIENT_CERT_MW ] : nil
         routers = {}
         HOST_LOGIN_BACKEND_PREFIXES.each do |prefix|
           routers["host-login-#{router_slug_for(prefix)}"] =
-            host_login_router("PathPrefix(`#{prefix}`)", "powernode-backend")
+            host_login_router("PathPrefix(`#{prefix}`)", "powernode-backend", middlewares: backend_mw)
         end
         routers["host-login-sidekiq"]  = host_login_router("PathPrefix(`/sidekiq`)", "powernode-worker-web")
         routers["host-login-frontend"] = host_login_router("PathPrefix(`/`)", "powernode-frontend")
@@ -386,11 +396,12 @@ module Core
           "http" => {
             "routers"     => routers,
             "services"    => render_services,
-            # Resolves the pass-tls-client-cert@file reference the websecure
-            # entrypoint carries (write_static_config!). Forwarding is a no-op
-            # when no client cert is negotiated, so it is always safe to define.
+            # The CN-forwarding middleware, referenced by the backend routers
+            # above (when worker mTLS is on) and by the websecure entrypoint that
+            # write_static_config! emits. Forwarding is a no-op when no client
+            # cert is negotiated, so it is always safe to define.
             "middlewares" => {
-              "pass-tls-client-cert" => {
+              PASS_TLS_CLIENT_CERT_MW => {
                 "passTLSClientCert" => { "info" => { "subject" => { "commonName" => true } } }
               }
             }
@@ -403,8 +414,13 @@ module Core
       # A single host-login router. tls:{} makes it an HTTPS router (served
       # over :443 with the default cert store); without it the router is
       # HTTP-only and 404s HTTPS requests on a bare TLS entrypoint.
-      def host_login_router(rule, service)
-        { "rule" => rule, "service" => service, "entryPoints" => [ ENTRYPOINT ], "tls" => {} }
+      def host_login_router(rule, service, middlewares: nil)
+        router = { "rule" => rule, "service" => service, "entryPoints" => [ ENTRYPOINT ], "tls" => {} }
+        # Fresh array + fresh strings per router: a shared object would make
+        # YAML.dump emit anchors/aliases across the routers (valid, but ugly and
+        # not all parsers enable alias resolution).
+        router["middlewares"] = middlewares.map(&:dup) if middlewares.present?
+        router
       end
 
       # Copies the agent-provided internal CA (present only once this node has

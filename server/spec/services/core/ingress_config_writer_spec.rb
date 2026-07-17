@@ -302,6 +302,24 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
       expect(opt["caFiles"]).to eq([ "/certs/internal-ca.crt" ])
     end
 
+    # Regression: the middleware must be applied at the ROUTER level, not merely
+    # defined + left to the entrypoint. On a composed hub node the traefik static
+    # config lacks the pass-tls-client-cert@file entrypoint reference, so without
+    # the router-level middleware the CN is never forwarded and every worker call 401s.
+    it "applies pass-tls-client-cert to the backend routers when mTLS is on" do
+      config = described_class.host_login_config("/c/crt", "/c/key", client_auth_ca: "/certs/internal-ca.crt")
+      routers = config.dig("http", "routers")
+      expect(routers["host-login-api"]["middlewares"]).to eq([ "pass-tls-client-cert" ])
+      expect(routers["host-login-up"]["middlewares"]).to eq([ "pass-tls-client-cert" ])
+      # the frontend catch-all router must NOT carry it
+      expect(routers["host-login-frontend"]).not_to have_key("middlewares")
+    end
+
+    it "omits the router-level middleware when mTLS is off (no CA)" do
+      config = described_class.host_login_config("/c/crt", "/c/key")
+      expect(config.dig("http", "routers", "host-login-api")).not_to have_key("middlewares")
+    end
+
     it "ensure_host_login_ingress! copies the agent CA next to the serving cert + wires clientAuth" do
       pki = Dir.mktmpdir("agent-pki")
       File.write(File.join(pki, "ca-chain.crt"), ca_pem)
