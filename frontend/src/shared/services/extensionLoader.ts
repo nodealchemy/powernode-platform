@@ -1,4 +1,6 @@
 import { logger } from '@/shared/utils/logger';
+import apiClient from '@/shared/services/apiClient';
+import { CORE_UI_API_VERSION } from '@/shared/host-api/modules';
 
 interface ExtensionModule {
   register: () => void;
@@ -116,4 +118,136 @@ registerAllExtensions();
  */
 export async function loadAllExtensions(): Promise<void> {
   // No-op: extensions are registered synchronously at module import.
+}
+
+// ---------------------------------------------------------------------------
+// Runtime extension loading (dedicated-module frontends)
+// ---------------------------------------------------------------------------
+// Extensions whose frontend is NOT baked into this build are served as
+// standalone ESM bundles (composed onto the host at deploy time) and linked to
+// core at runtime via the injected import map (see vite.config.ts + host-api/
+// modules.ts). This path fetches the set of enabled extensions, then loads and
+// registers each one that the eager glob path above did not already bake in.
+
+/**
+ * Per-extension manifest emitted at compose-time and served as a static asset
+ * at `/extensions/<slug>/manifest.json`. Describes how to load the extension's
+ * dedicated frontend bundle at runtime.
+ */
+interface RuntimeExtensionManifest {
+  slug: string;
+  version: string;
+  /** Host UI API version the bundle was built against — must match core. */
+  coreUiApi: number;
+  /** URL of the extension's ESM entry chunk (imported dynamically). */
+  entry: string;
+  /** URLs of stylesheet(s) to inject before the module renders. */
+  css?: string[];
+}
+
+/** Shape of one row from GET /api/v1/extensions/ui. */
+interface RuntimeExtensionListItem {
+  slug: string;
+  version?: string;
+  enabled: boolean;
+}
+
+/** Injected CSS hrefs, so a re-entrant call never double-injects a <link>. */
+const injectedCss = new Set<string>();
+
+function injectExtensionCss(hrefs: string[] | undefined): void {
+  if (!hrefs) return;
+  for (const href of hrefs) {
+    if (injectedCss.has(href)) continue;
+    injectedCss.add(href);
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+  }
+}
+
+/**
+ * Discover enabled extensions and load any whose frontend was not baked into
+ * this build. For each enabled, not-already-loaded extension it fetches
+ * `/extensions/<slug>/manifest.json`, verifies the `coreUiApi` contract,
+ * injects the module's CSS, dynamically imports its entry, and calls
+ * `register()`.
+ *
+ * Every extension is isolated in its own try/catch: a missing bundle resolves
+ * to the SPA history fallback (index.html), so the manifest parse or the entry
+ * import throws — that extension is logged and skipped, never blocking the
+ * others or the app boot. Deduped against the eager glob path via the shared
+ * `loaded` map so a baked-in extension is never registered twice.
+ */
+export async function loadRuntimeExtensions(): Promise<void> {
+  let items: RuntimeExtensionListItem[] = [];
+  try {
+    // Discovery goes through apiClient so the configured API base is honored.
+    // Endpoint is unauthenticated; no token is required.
+    const res = await apiClient.get('/extensions/ui');
+    const envelope = res.data ?? {};
+    items = envelope.data?.extensions ?? envelope.extensions ?? [];
+  } catch (err) {
+    logger.warn('Runtime extension discovery failed; skipping runtime extensions', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return;
+  }
+
+  for (const item of items) {
+    const slug = item?.slug;
+    if (!slug || !item.enabled) continue;
+    // Dedupe with the eager glob path: if baked in, register() already ran.
+    if (loaded.has(slug)) {
+      logger.debug(`Extension "${slug}" already loaded (baked) — skipping runtime load`);
+      continue;
+    }
+
+    try {
+      // Static asset at the site root (NOT under the API base) — raw fetch.
+      const manifestRes = await fetch(`/extensions/${slug}/manifest.json`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!manifestRes.ok) {
+        logger.warn(`Extension "${slug}": manifest fetch failed (HTTP ${manifestRes.status}) — skipping`);
+        continue;
+      }
+      // A missing manifest may resolve to index.html (200 text/html); parsing
+      // that as JSON throws and is caught below — safe.
+      const manifest = (await manifestRes.json()) as RuntimeExtensionManifest;
+
+      if (manifest.coreUiApi !== CORE_UI_API_VERSION) {
+        logger.warn(
+          `Extension "${slug}": coreUiApi ${manifest.coreUiApi} != host ${CORE_UI_API_VERSION} — skipping`,
+        );
+        continue;
+      }
+      if (!manifest.entry) {
+        logger.warn(`Extension "${slug}": manifest has no entry — skipping`);
+        continue;
+      }
+
+      injectExtensionCss(manifest.css);
+
+      // @vite-ignore: entry is a runtime URL, not a build-time-analyzable path.
+      const mod = (await import(/* @vite-ignore */ manifest.entry)) as ExtensionModule;
+      if (typeof mod.register !== 'function') {
+        logger.warn(`Extension "${slug}": module exports no register() — skipping`);
+        continue;
+      }
+      mod.register();
+      loaded.set(slug, {
+        name: slug,
+        slug,
+        version: manifest.version ?? 'unknown',
+        capabilities: [],
+        components: { frontend: true },
+      });
+      logger.info(`Extension "${slug}" loaded at runtime`);
+    } catch (err) {
+      // One extension's failure must never block the others or app boot.
+      logger.error(`Failed to load runtime extension "${slug}":`, err);
+    }
+  }
 }

@@ -1,10 +1,178 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin, type InputOptions } from 'vite';
 import react from '@vitejs/plugin-react';
 import viteTsconfigPaths from 'vite-tsconfig-paths';
 import svgr from 'vite-plugin-svgr';
 import path from 'path';
 import fs from 'fs';
 import packageJson from './package.json';
+import { createRequire } from 'module';
+import { HOST_EXPOSED_IDS, hostChunkName } from './src/shared/host-api/modules';
+
+// Require bound to the frontend package root, used to enumerate the real
+// runtime named exports of CommonJS packages (React family) when building their
+// host re-export facades (see hostReexportPlugin).
+const hostRequire = createRequire(path.join(__dirname, 'package.json'));
+
+// ---------------------------------------------------------------------------
+// Host re-export + import-map plugin (runtime extension linking — Phase 1)
+// ---------------------------------------------------------------------------
+// For each id in HOST_EXPOSED_IDS, emit a stable-named ESM re-export chunk at
+// `assets/host/<name>.js` and inject a `<script type="importmap">` mapping the
+// bare id to that chunk. Extension bundles (P2) import these ids as EXTERNAL
+// bare specifiers; the browser resolves them through the import map to core's
+// SINGLE module instance.
+//
+// CORRECTNESS — no duplication: the re-export chunks are added as additional
+// inputs to the SAME Rollup build as the main app, so each source module lives
+// in exactly one output chunk (Rollup never duplicates a module across chunks in
+// one build). Depending on the module, Rollup either (a) makes the host chunk a
+// thin facade that re-exports from the shared chunk holding the real module
+// (e.g. host `react` re-exports from the `vendor` chunk), or (b) places the real
+// module directly INTO the stably-referenced host chunk and points every core
+// consumer at it (this is what happens for `featureRegistry` / `WebSocketManager`
+// — verified: their implementation appears in exactly one chunk and all ~90 core
+// page chunks import it from there). Either way the singleton is one instance
+// shared by core AND extensions. `preserveEntrySignatures: 'allow-extension'`
+// keeps each host entry's exports without forcing a copy; `manualChunks` (below)
+// pins react/redux/axios to single chunks.
+//
+// The import map is built from the ACTUAL emitted (content-hashed) filenames in
+// `transformIndexHtml`, so host chunks keep normal cache-busting while the map
+// still targets them exactly.
+const HOST_VIRTUAL_PREFIX = 'virtual:powernode-host:';
+const HOST_RESOLVED_PREFIX = '\0' + HOST_VIRTUAL_PREFIX;
+
+function hostReexportPlugin(): Plugin {
+  // Guard: sanitized chunk names must be unique or two ids would collide onto
+  // one file (silently sharing/overwriting a facade).
+  const names = HOST_EXPOSED_IDS.map(hostChunkName);
+  if (new Set(names).size !== names.length) {
+    throw new Error('[host-reexport] hostChunkName collision among HOST_EXPOSED_IDS');
+  }
+
+  // Public base, captured at config-resolve time so import-map URLs honor it.
+  let base = '/';
+
+  return {
+    name: 'powernode-host-reexport',
+    apply: 'build', // dev uses the eager glob path; runtime linking is prod-only
+    configResolved(config) {
+      base = config.base || '/';
+    },
+    // Append one virtual entry per exposed id to whatever input Vite resolved
+    // (the index.html entry), so they join the single main-app build.
+    options(opts: InputOptions): InputOptions {
+      const input = opts.input;
+      let normalized: Record<string, string>;
+      if (typeof input === 'string') {
+        normalized = { index: input };
+      } else if (Array.isArray(input)) {
+        normalized = Object.fromEntries(input.map((f, i) => [`input${i}`, f]));
+      } else {
+        normalized = { ...(input as Record<string, string>) };
+      }
+      for (const id of HOST_EXPOSED_IDS) {
+        normalized[`host/${hostChunkName(id)}`] = HOST_VIRTUAL_PREFIX + id;
+      }
+      return { ...opts, input: normalized };
+    },
+    resolveId(id: string) {
+      if (id.startsWith(HOST_VIRTUAL_PREFIX)) return '\0' + id;
+      return null;
+    },
+    async load(id: string) {
+      if (!id.startsWith(HOST_RESOLVED_PREFIX)) return null;
+      const target = id.slice(HOST_RESOLVED_PREFIX.length);
+      const t = JSON.stringify(target);
+
+      // Classify the target so we emit the right re-export form. CommonJS
+      // packages (the React family) surface their API as PROPERTIES of the
+      // default export (React.useState), not as real ESM named exports — the
+      // CJS→ESM interop proxy exposes only `default` + `__moduleExports`, so
+      // `export * from 'react'` silently drops `useState`/`useEffect`/… and an
+      // extension's `import { useState } from 'react'` would resolve to
+      // undefined. Detect that proxy shape and, for it, re-export each real
+      // runtime name as property access on the default instead.
+      let isCjsInterop = false;
+      let hasDefault = false;
+      try {
+        const resolved = await this.resolve(target, undefined, { skipSelf: true });
+        if (resolved && !resolved.external) {
+          const info = await this.load({ id: resolved.id });
+          const names = Array.isArray(info.exports) ? info.exports : [];
+          hasDefault = names.includes('default');
+          isCjsInterop = names.includes('__moduleExports');
+        }
+      } catch {
+        // Fall through to the ESM star form (correct for pure-ESM modules).
+      }
+
+      if (isCjsInterop) {
+        // Enumerate the real named exports from the package at build time and
+        // bind each to a property of the default. Snapshot bindings are fine
+        // here — React's hook/API references are stable for a module's lifetime.
+        let names: string[] = [];
+        try {
+          const mod = hostRequire(target) as Record<string, unknown>;
+          const IDENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+          names = Object.keys(mod).filter(
+            (n) => n !== 'default' && n !== '__esModule' && n !== '__moduleExports' && IDENT.test(n),
+          );
+        } catch {
+          // If the package can't be required, fall back to default-only below.
+        }
+        const lines = [`import __def from ${t};`, `export default __def;`];
+        if (names.length > 0) {
+          lines.push(
+            `export const ${names
+              .map((n) => `${n} = __def[${JSON.stringify(n)}]`)
+              .join(', ')};`,
+          );
+        }
+        return lines.join('\n');
+      }
+
+      // ESM path: `export *` carries every named binding (including barrel
+      // star re-exports and ESM npm packages), plus the default when present.
+      const out = [`export * from ${t};`];
+      if (hasDefault) out.push(`export { default } from ${t};`);
+      return out.join('\n');
+    },
+    // Inject the import map at the very start of <head> — it must precede the
+    // app's module script (only one import map is allowed, and it must appear
+    // before the first module load it governs). Built from the ACTUAL emitted
+    // (content-hashed) host chunk filenames so the map targets them exactly
+    // while normal cache-busting is preserved.
+    transformIndexHtml: {
+      order: 'post' as const,
+      handler(_html: string, ctx: { bundle?: Record<string, { type: string; name?: string; isEntry?: boolean; fileName: string }> }) {
+        const imports: Record<string, string> = {};
+        const bundle = ctx.bundle || {};
+        const byName = new Map<string, string>();
+        for (const out of Object.values(bundle)) {
+          if (out.type === 'chunk' && out.isEntry && out.name) byName.set(out.name, out.fileName);
+        }
+        const missing: string[] = [];
+        for (const id of HOST_EXPOSED_IDS) {
+          const fileName = byName.get(`host/${hostChunkName(id)}`);
+          if (fileName) imports[id] = `${base}${fileName}`;
+          else missing.push(id);
+        }
+        if (missing.length > 0) {
+          this.warn(`[host-reexport] no emitted chunk for: ${missing.join(', ')}`);
+        }
+        return [
+          {
+            tag: 'script',
+            attrs: { type: 'importmap' },
+            children: JSON.stringify({ imports }, null, 2),
+            injectTo: 'head-prepend' as const,
+          },
+        ];
+      },
+    },
+  };
+}
 
 // Get allowed hosts from cache file or environment
 // The cache file is populated by `npm run refresh-proxy` or manually
@@ -99,6 +267,9 @@ export default defineConfig(({ mode }: { mode: string }) => {
           icon: true,
         },
       }),
+      // Runtime extension linking (Phase 1): emit host re-export chunks +
+      // inject the import map. Build-only (dev uses the eager glob path).
+      hostReexportPlugin(),
       // When extensions are absent, resolve @ext/* imports to a stub module
       // so Rollup doesn't fail on dead-code dynamic imports (e.g. App.tsx conditionals)
       ...(discoveredSlugs.length === 0 ? [{
@@ -216,6 +387,12 @@ export default defineConfig(({ mode }: { mode: string }) => {
       sourcemap: true,
       chunkSizeWarningLimit: 600,
       rollupOptions: {
+        // Keep each host re-export entry's exports without forcing Rollup to
+        // copy the underlying module. Host entries are named `host/<id>`, so
+        // Vite's default `assets/[name]-[hash].js` lands them (hashed) under
+        // `assets/host/` automatically; the import map targets the real emitted
+        // filenames (see transformIndexHtml).
+        preserveEntrySignatures: 'allow-extension',
         output: {
           manualChunks: {
             // Core React
