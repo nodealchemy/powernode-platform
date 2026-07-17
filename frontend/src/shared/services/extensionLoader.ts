@@ -155,14 +155,18 @@ interface RuntimeExtensionListItem {
 /** Injected CSS hrefs, so a re-entrant call never double-injects a <link>. */
 const injectedCss = new Set<string>();
 
-function injectExtensionCss(hrefs: string[] | undefined): void {
+function injectExtensionCss(base: string, hrefs: string[] | undefined): void {
   if (!hrefs) return;
   for (const href of hrefs) {
-    if (injectedCss.has(href)) continue;
-    injectedCss.add(href);
+    // Manifest hrefs are relative to the extension's dist root; make them
+    // absolute (/extensions/<slug>/…) so the <link> never resolves against
+    // the current SPA route (which would 404 to index.html).
+    const url = base + href;
+    if (injectedCss.has(url)) continue;
+    injectedCss.add(url);
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = href;
+    link.href = url;
     document.head.appendChild(link);
   }
 }
@@ -228,10 +232,17 @@ export async function loadRuntimeExtensions(): Promise<void> {
         continue;
       }
 
-      injectExtensionCss(manifest.css);
+      // Manifest asset paths are RELATIVE to the extension's dist root, which
+      // is served at /extensions/<slug>/. Resolve them to an ABSOLUTE URL path
+      // so the browser loads the entry as a URL — a bare specifier like
+      // "assets/register-x.js" would instead be routed through the host import
+      // map (which only maps the HOST_EXPOSED_IDS) and throw "failed to resolve
+      // module specifier", silently skipping the extension (no menu).
+      const base = `/extensions/${slug}/`;
+      injectExtensionCss(base, manifest.css);
 
       // @vite-ignore: entry is a runtime URL, not a build-time-analyzable path.
-      const mod = (await import(/* @vite-ignore */ manifest.entry)) as ExtensionModule;
+      const mod = (await import(/* @vite-ignore */ base + manifest.entry)) as ExtensionModule;
       if (typeof mod.register !== 'function') {
         logger.warn(`Extension "${slug}": module exports no register() — skipping`);
         continue;
