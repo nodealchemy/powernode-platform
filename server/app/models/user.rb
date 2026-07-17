@@ -383,23 +383,36 @@ class User < ApplicationRecord
     return false unless reset_token_digest.present?
     return false unless BCrypt::Password.new(reset_token_digest).is_password?(token)
     return false if reset_token_expires_at && reset_token_expires_at < Time.current
+    return false if new_password.blank?
 
-    # For password reset, we need to bypass certain validations that might not apply
-    # in this specific context (like password confirmation for UI forms)
+    # Enforce the SAME strength + reuse policy as every other password-set path.
+    # update_columns below skips validate_password_strength, so validate the new
+    # password here — directly, without mutating @password, so no validation
+    # state lingers on the instance — and bail before writing on failure. Errors
+    # land on :password so the controller's render_validation_error surfaces them.
+    strength = Security::PasswordStrengthService.validate_password(new_password)
+    unless strength[:valid]
+      strength[:errors].each { |message| errors.add(:password, message) }
+      return false
+    end
+    if password_previously_used?(new_password)
+      errors.add(:password, "has been used recently. For security, please choose a different password that you haven't used in your last #{PASSWORD_HISTORY_COUNT} password changes")
+      return false
+    end
+
     transaction do
-      # Update password using update_columns to bypass model validations
-      password_digest = BCrypt::Password.create(new_password)
+      new_digest = BCrypt::Password.create(new_password)
 
       update_columns(
-        password_digest: password_digest,
+        password_digest: new_digest,
         reset_token_digest: nil,
         reset_token_expires_at: nil,
         password_changed_at: Time.current
       )
 
-      # Create password history entry manually
+      # Create password history entry manually (update_columns skips the callback)
       password_histories.create!(
-        password_digest: password_digest,
+        password_digest: new_digest,
         created_at: Time.current
       )
 

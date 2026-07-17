@@ -206,6 +206,28 @@ RSpec.describe User, 'Password Security Integration', type: :model do
       expect(user.reset_token_expires_at).to be_nil
     end
 
+    it 'rejects a weak password on reset (strength validation is not bypassed)' do
+      token = user.generate_reset_token!
+
+      expect(user.reset_password!('weak', token)).to be false
+      expect(user.errors[:password]).to be_present
+      # Password unchanged and the token NOT consumed, so the user can retry.
+      expect(user.reload.authenticate('OriginalEntry4!9@')).to be_truthy
+      expect(user.reset_token_digest).to be_present
+    end
+
+    it 'rejects reusing a recent password on reset' do
+      # Rotating away from the original records it in password history.
+      user.update!(password: 'RotatedEntry5!0@x', password_confirmation: 'RotatedEntry5!0@x')
+
+      token = user.generate_reset_token!
+      # Resetting back to the original (now in history) must be rejected.
+      expect(user.reset_password!('OriginalEntry4!9@', token)).to be false
+      expect(user.errors[:password].join).to match(/used recently/i)
+      # A rejected reset must not consume the token.
+      expect(user.reset_token_digest).to be_present
+    end
+
     it 'clears reset token after password change' do
       token = user.generate_reset_token!
 

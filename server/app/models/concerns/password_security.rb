@@ -40,12 +40,22 @@ module PasswordSecurity
   def password_reused?
     return false unless password.present? && persisted?
 
+    password_previously_used?(password)
+  end
+
+  # True when `candidate` (plaintext) matches any of the user's recent password
+  # history entries. Extracted so both the model validation (password_reused?)
+  # and the token-based reset path (User#reset_password!, which bypasses model
+  # validations via update_columns) enforce the same reuse policy.
+  def password_previously_used?(candidate)
+    return false if candidate.blank?
+
     # Performance optimization: Use find_each and early termination
     password_histories
       .order(created_at: :desc)
       .limit(12)
       .find_each do |history|
-        return true if BCrypt::Password.new(history.password_digest) == password
+        return true if BCrypt::Password.new(history.password_digest) == candidate
       end
 
     false
