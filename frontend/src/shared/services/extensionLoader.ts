@@ -159,15 +159,22 @@ function injectExtensionCss(base: string, hrefs: string[] | undefined): void {
   if (!hrefs) return;
   for (const href of hrefs) {
     // Manifest hrefs are relative to the extension's dist root; make them
-    // absolute (/extensions/<slug>/…) so the <link> never resolves against
-    // the current SPA route (which would 404 to index.html).
+    // absolute (/extensions/<slug>/…) so the import never resolves against the
+    // current SPA route (which would 404 to index.html).
     const url = base + href;
     if (injectedCss.has(url)) continue;
     injectedCss.add(url);
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = url;
-    document.head.appendChild(link);
+    // Import into the low-priority `extension` cascade layer (declared first in
+    // index.css). An extension's bundle self-generates a full Tailwind utility
+    // set (core's build can't @source-scan the extension when the fleet build
+    // clones the parent without submodules), and injecting that as a plain
+    // <link> overrode core's layout utilities app-wide (missing logo, body
+    // sliding under the sidebar). Confining it to the `extension` layer means
+    // core's own utilities always win; the extension's CSS only styles what
+    // core doesn't. <link> has no layer attribute, so use a <style>@import.
+    const style = document.createElement('style');
+    style.textContent = `@import url(${JSON.stringify(url)}) layer(extension);`;
+    document.head.appendChild(style);
   }
 }
 

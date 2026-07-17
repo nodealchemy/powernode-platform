@@ -1,3 +1,13 @@
+/* Declare a low-priority `extension` cascade layer FIRST so it sorts BELOW
+   every Tailwind layer (theme/base/components/utilities) and core's unlayered
+   rules. Runtime-loaded extension bundles (extensionLoader.ts) @import their
+   CSS into this layer, so an extension's utilities/reset can never override
+   core's layout, theme, or components — they only apply where core has no
+   competing rule (the extension's own pages). A bare @layer statement is
+   allowed before @import (same as @charset), so this does not invalidate the
+   imports below. */
+@layer extension;
+
 /* Tailwind CSS 4 import */
 @import "tailwindcss";
 
