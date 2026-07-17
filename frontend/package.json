@@ -77,7 +77,7 @@
     "typecheck": "tsc --noEmit",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
-    "cypress:parallel": "cypress-split",
+    "cypress:parallel": "../scripts/e2e/run-cypress-parallel.sh",
     "cypress:parallel:2": "npm run cypress:parallel -- --split 2",
     "cypress:parallel:4": "npm run cypress:parallel -- --split 4"
   },
