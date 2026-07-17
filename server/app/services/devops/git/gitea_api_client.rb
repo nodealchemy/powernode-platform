@@ -656,11 +656,11 @@ module Devops
 
     def get_commit_diff(owner, repo, sha)
       commit = get("/repos/#{owner}/#{repo}/git/commits/#{sha}")
-      # NO `rescue ""`: a failed .diff fetch (network / 5xx / 404) MUST surface
-      # as an ApiError rather than be normalized to an empty changeset. The old
-      # silent empty made System::ModuleBuildPlannerService plan zero modules
-      # for a real change and report the batch "succeeded" having built nothing.
-      diff = get("/repos/#{owner}/#{repo}/commits/#{sha}.diff", raw: true)
+      # `.diff` 404s on some Gitea deployments (confirmed live 2026-07-17); the
+      # rescue keeps this best-effort for its diff-view callers. The build planner
+      # does NOT rely on this — it reads each commit's /git/commits files[] via
+      # #get_commit (the .diff omission would otherwise plan 0 modules silently).
+      diff = get("/repos/#{owner}/#{repo}/commits/#{sha}.diff", raw: true) rescue ""
       normalize_gitea_commit_diff(commit, diff)
     end
 

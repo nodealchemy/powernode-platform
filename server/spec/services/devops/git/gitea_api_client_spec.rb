@@ -344,18 +344,13 @@ RSpec.describe Devops::Git::GiteaApiClient do
       expect(diff[:files].map { |f| f[:filename] }).to eq([ 'modules/redis/rootfs/marker' ])
       expect(diff[:files].first[:status]).to eq('added')
     end
-
-    it 'raises instead of silently returning an empty changeset when the .diff fetch fails' do
-      stub_request(:get, "#{base_url}/repos/owner/repo/commits/abc123.diff")
-        .to_return(status: 500, body: { message: 'boom' }.to_json)
-
-      expect { client.get_commit_diff('owner', 'repo', 'abc123') }
-        .to raise_error(Devops::Git::ApiClient::ServerError)
-    end
   end
 
   describe '#compare_commits' do
-    it 'surfaces the affected files from the compare response (not an unconditional empty array)' do
+    # Forward-compat: today's Gitea compare API omits a files[] array (the build
+    # planner reads each commit's own /git/commits files[] instead). If a future
+    # Gitea DOES include it, the normalizer surfaces it rather than discarding it.
+    it 'surfaces the affected files from the compare response when present' do
       stub_request(:get, "#{base_url}/repos/owner/repo/compare/base...head")
         .to_return(
           status: 200,
@@ -377,11 +372,11 @@ RSpec.describe Devops::Git::GiteaApiClient do
       expect(comparison[:total_commits]).to eq(2)
     end
 
-    it 'returns an empty file list when the compare reports no affected files' do
+    it "returns an empty file list for today's real Gitea shape (commits only, no files key)" do
       stub_request(:get, "#{base_url}/repos/owner/repo/compare/base...empty")
         .to_return(
           status: 200,
-          body: { commits: [ { sha: 'c1' } ] }.to_json,
+          body: { commits: [ { sha: 'c1' } ], total_commits: 1 }.to_json,
           headers: { 'Content-Type' => 'application/json' }
         )
 
