@@ -64,11 +64,12 @@ interface TestInvoice {
   customer_name: string;
 }
 
-// Admin login credentials (should be set in cypress.env.json)
-const ADMIN_EMAIL = Cypress.env('adminEmail') || 'admin@example.com';
-const ADMIN_PASSWORD = Cypress.env('adminPassword') || 'Qx7#mK9@pL2$nZ6!';
-const BILLING_MANAGER_EMAIL = Cypress.env('billingManagerEmail') || 'billing@example.com';
-const BILLING_MANAGER_PASSWORD = Cypress.env('billingManagerPassword') || 'Rw8$jN4#vX3@qM5!';
+// Login credentials — provisioned per run by scripts/e2e/provision-test-logins.cjs
+// (same *_EMAIL/*_PASSWORD env keys as login-commands.ts). No literals committed.
+const ADMIN_EMAIL = Cypress.env('ADMIN_EMAIL');
+const ADMIN_PASSWORD = Cypress.env('ADMIN_PASSWORD');
+const BILLING_MANAGER_EMAIL = Cypress.env('BILLING_EMAIL');
+const BILLING_MANAGER_PASSWORD = Cypress.env('BILLING_PASSWORD');
 
 // Login as admin user
 Cypress.Commands.add('loginAsAdmin', () => {

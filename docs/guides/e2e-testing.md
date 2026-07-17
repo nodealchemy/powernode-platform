@@ -33,8 +33,8 @@ This guide is for engineers writing or running cross-browser E2E coverage of pla
 
 - Working local environment: `sudo systemctl start powernode.target`
 - Playwright browsers installed: `npx playwright install`
-- Test credentials in `test-credentials.json` (created by `cd server && rails db:seed`)
-- Optionally: `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` environment variables for custom credentials
+- Seeded demo users: `cd server && POWERNODE_SEED_DEMO=true rails db:seed` (test-user passwords are provisioned **per run** via the reset endpoint — no credentials file on disk)
+- Optionally: `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` environment variables to use an explicit login instead of per-run provisioning
 
 ## Directory layout
 
@@ -264,7 +264,7 @@ By default, fixtures don't clean up after themselves — the test database is re
 
 ### Real AI execution
 
-AI specs hit a real provider (Ollama or remote). Set the provider URL via environment variables or `test-credentials.json`. Allow longer timeouts (60s+) for model inference:
+AI specs hit a real provider (Ollama or remote). Set the provider URL via environment variables. Allow longer timeouts (60s+) for model inference:
 
 ```typescript
 await page.waitForSelector('[data-testid="agent-response"]', { timeout: 60_000 });
@@ -396,7 +396,7 @@ Run the full suite across Chromium, Firefox, and WebKit at least weekly. WebKit 
 ### Authentication fails
 
 - Delete `e2e/.auth/` and re-run
-- Verify `test-credentials.json` has the expected user (re-run `rails db:seed` if it doesn't)
+- Verify the seeded demo users exist (re-run `POWERNODE_SEED_DEMO=true rails db:seed`); passwords are provisioned per run via the reset endpoint, so ensure the backend is up when the suite starts
 - Check the login page object's selectors haven't drifted
 
 ### Flaky tests
