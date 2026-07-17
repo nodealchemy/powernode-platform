@@ -92,6 +92,36 @@ module Shared
       end
     end
 
+    # Extensions present on disk that ship a frontend component, with their
+    # enabled state. Enumerated from ExtensionPaths (NOT the loaded-engine
+    # registry) so an extension's frontend availability is reported independent
+    # of whether its backend engine is loaded in this process — which is what
+    # the runtime frontend loader needs to decide which dedicated-module
+    # bundles to fetch. Malformed manifests and extensions without a frontend
+    # component are skipped.
+    # @return [Array<Hash{slug:String, version:(String,nil), enabled:Boolean}>]
+    def self.frontend_extensions
+      Shared::ExtensionPaths.extension_dirs.filter_map do |dir|
+        manifest_path = dir.join("extension.json")
+        next unless manifest_path.exist?
+
+        manifest = begin
+          JSON.parse(manifest_path.read)
+        rescue JSON::ParserError
+          nil
+        end
+        next if manifest.nil?
+        next unless manifest.dig("components", "frontend")
+
+        slug = manifest["slug"].presence || dir.basename.to_s
+        {
+          slug: slug,
+          version: manifest["version"],
+          enabled: extension_enabled?(slug)
+        }
+      end
+    end
+
     # Toggle an extension's "<slug>_mode" Flipper flag (generic).
     # @param slug [String]
     # @param enabled [Boolean]

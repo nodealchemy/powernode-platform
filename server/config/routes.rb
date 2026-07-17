@@ -92,6 +92,10 @@ Rails.application.routes.draw do
       get :config, to: "config#index"
       get "config/allowed_hosts", to: "config#allowed_hosts"
 
+      # Runtime extension-frontend discovery (no authentication required) —
+      # drives the dedicated-module frontend loader (see extensionLoader.ts).
+      get "extensions/ui", to: "extensions#ui"
+
       # Public endpoints (no authentication required)
       get "public/plans", to: "plans#public_index"
       get "public/footer", to: "site_settings#public_footer"
