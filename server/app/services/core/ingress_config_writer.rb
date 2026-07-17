@@ -59,6 +59,18 @@ module Core
     BASELINE_CERT_FILENAME = "core-self-signed.crt"
     BASELINE_KEY_FILENAME  = "core-self-signed.key"
 
+    # Dedicated dynamic file for the host's OWN self-signed login ingress
+    # (see `ensure_host_login_ingress!`). Distinct from the per-account
+    # `acme-<id>.yaml` files so the two coexist in the watched directory: the
+    # host login is the universal HTTPS front door, per-account ACME routers
+    # are additive. The `00-` prefix is cosmetic (load order only).
+    HOST_LOGIN_FILENAME = "00-host-login.yaml"
+
+    # Path-prefixes routed to the Rails backend on the host login ingress;
+    # every other path falls through to the frontend catch-all. `/sidekiq`
+    # is routed separately to the worker-web upstream (the dashboard).
+    HOST_LOGIN_BACKEND_PREFIXES = %w[/api /up /cable /agent /rails/health].freeze
+
     class << self
       # ------------------------------------------------------------------
       # Static config + services — lifted from Acme::TraefikConfigWriter.
@@ -294,7 +306,67 @@ module Core
         [ cert_path, key_path ]
       end
 
+      # ------------------------------------------------------------------
+      # Host login ingress (universal — core AND extension mode)
+      # ------------------------------------------------------------------
+
+      # Writes the host's OWN self-signed login ingress: a self-signed serving
+      # cert + host-agnostic, TLS-terminating routers, so the operator can
+      # ALWAYS reach the control-plane UI + API over HTTPS — independent of any
+      # ACME certificate.
+      #
+      # Why this exists separately from `write!`: in extension mode `write!`
+      # delegates entirely to the registered ACME writer, which emits routers
+      # ONLY for a valid System::AcmeCertificate. A hub that has not issued a
+      # cert for its own hostname would therefore have NO login ingress at all.
+      # This method NEVER consults the extension seam — it is the guaranteed
+      # front door every self-hosted install gets. Per-account ACME routers
+      # (added when an operator later exposes a service) are ADDITIVE: Traefik
+      # merges the separate dynamic files, and the `host-login-*` router names
+      # here never collide with the ACME writer's `<slug>-*` names.
+      #
+      # Host-agnostic (PathPrefix rules, no Host() match) so the appliance is
+      # reachable at ANY name/IP it is served on — external hostname, SDWAN
+      # overlay name, LAN IP, or localhost — with zero per-host config. That is
+      # what makes it work for ops-hub.ipnode.us and every future hub the same.
+      #
+      # Idempotent: reuses an existing self-signed cert (no fingerprint churn
+      # across reboots — important when `cert_dir` is durable storage) and
+      # rewrites the dynamic YAML deterministically.
+      def ensure_host_login_ingress!(dynamic_dir: nil, cert_dir: nil)
+        dyn = dynamic_dir || default_dynamic_dir
+        crt = cert_dir || default_cert_dir
+        cert_path, key_path = ensure_baseline_cert!(cert_dir: crt)
+        FileUtils.mkdir_p(dyn)
+        output_path = File.join(dyn, HOST_LOGIN_FILENAME)
+        File.write(output_path, YAML.dump(host_login_config(cert_path, key_path)))
+        { output_path: output_path, cert_file: cert_path, key_file: key_path }
+      end
+
+      # The dynamic-config hash `ensure_host_login_ingress!` renders. Public so
+      # tests can assert the shape without filesystem side effects.
+      def host_login_config(cert_path, key_path)
+        routers = {}
+        HOST_LOGIN_BACKEND_PREFIXES.each do |prefix|
+          routers["host-login-#{router_slug_for(prefix)}"] =
+            host_login_router("PathPrefix(`#{prefix}`)", "powernode-backend")
+        end
+        routers["host-login-sidekiq"]  = host_login_router("PathPrefix(`/sidekiq`)", "powernode-worker-web")
+        routers["host-login-frontend"] = host_login_router("PathPrefix(`/`)", "powernode-frontend")
+        {
+          "tls"  => { "certificates" => [ { "certFile" => cert_path, "keyFile" => key_path, "stores" => [ "default" ] } ] },
+          "http" => { "routers" => routers, "services" => render_services }
+        }
+      end
+
       private
+
+      # A single host-login router. tls:{} makes it an HTTPS router (served
+      # over :443 with the default cert store); without it the router is
+      # HTTP-only and 404s HTTPS requests on a bare TLS entrypoint.
+      def host_login_router(rule, service)
+        { "rule" => rule, "service" => service, "entryPoints" => [ ENTRYPOINT ], "tls" => {} }
+      end
 
       def can_use_system_prefix?
         File.directory?(SYSTEM_PREFIX) && File.writable?(SYSTEM_PREFIX)
@@ -391,7 +463,12 @@ module Core
         [ "#{slug}-#{suffix}", {
           "rule"        => rule,
           "service"     => service,
-          "entryPoints" => [ ENTRYPOINT ]
+          "entryPoints" => [ ENTRYPOINT ],
+          # tls:{} makes this an HTTPS router — REQUIRED so Traefik serves it
+          # over the :443 (TLS) entrypoint using the default cert store. A
+          # router with no tls section is HTTP-only and 404s every HTTPS
+          # request on a bare TLS entrypoint (imp 019f6c3d-aab2).
+          "tls"         => {}
         } ]
       end.to_h
     end

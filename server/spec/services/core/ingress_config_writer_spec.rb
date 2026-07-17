@@ -123,6 +123,17 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
         .to contain_exactly("powernode-backend", "powernode-frontend", "powernode-worker-web")
     end
 
+    it "marks every baseline router as an HTTPS (tls) router so :443 serves it (imp 019f6c3d-aab2)" do
+      result = described_class.write!(account: account, dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+      parsed = YAML.load_file(result[:output_path])
+
+      parsed["http"]["routers"].each_value do |router|
+        expect(router).to have_key("tls")
+        expect(router["tls"]).to eq({})
+        expect(router["entryPoints"]).to eq([ "websecure" ])
+      end
+    end
+
     it "generates a structurally valid self-signed cert/key pair" do
       described_class.write!(account: account, dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
       cert_path = described_class.baseline_cert_file_path(cert_dir: tmp_cert_dir)
@@ -168,6 +179,60 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
       ensure
         original.nil? ? ENV.delete("POWERNODE_PROXY_EXTRA_HOSTS") : (ENV["POWERNODE_PROXY_EXTRA_HOSTS"] = original)
       end
+    end
+  end
+
+  describe ".ensure_host_login_ingress! (universal host front door)" do
+    # The system extension IS loaded in this app, so the seam resolves to
+    # Acme::TraefikConfigWriter — these examples prove the host login is
+    # generated REGARDLESS (it never consults the seam), which is exactly the
+    # extension-mode gap it closes.
+    it "writes the dedicated 00-host-login.yaml with a self-signed cert + services" do
+      result = described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+
+      expect(File.basename(result[:output_path])).to eq("00-host-login.yaml")
+      parsed = YAML.load_file(result[:output_path])
+
+      cert_entry = parsed["tls"]["certificates"].first
+      expect(File.exist?(cert_entry["certFile"])).to be true
+      expect(File.exist?(cert_entry["keyFile"])).to be true
+      expect(parsed["http"]["services"].keys)
+        .to contain_exactly("powernode-backend", "powernode-frontend", "powernode-worker-web")
+    end
+
+    it "emits host-agnostic (PathPrefix-only, no Host()) TLS routers" do
+      described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+      parsed = YAML.load_file(File.join(tmp_dynamic_dir, "00-host-login.yaml"))
+      routers = parsed["http"]["routers"]
+
+      routers.each_value do |router|
+        expect(router["rule"]).to start_with("PathPrefix(")
+        expect(router["rule"]).not_to include("Host(")
+        expect(router["tls"]).to eq({})
+        expect(router["entryPoints"]).to eq([ "websecure" ])
+      end
+      # backend prefixes route to the app; the bare "/" catch-all to the frontend
+      expect(routers["host-login-api"]["service"]).to eq("powernode-backend")
+      expect(routers["host-login-up"]["service"]).to eq("powernode-backend")
+      expect(routers["host-login-frontend"]["rule"]).to eq("PathPrefix(`/`)")
+      expect(routers["host-login-frontend"]["service"]).to eq("powernode-frontend")
+      expect(routers["host-login-sidekiq"]["service"]).to eq("powernode-worker-web")
+    end
+
+    it "is idempotent — reuses the persisted cert (stable fingerprint across reboots)" do
+      described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+      cert_path = described_class.baseline_cert_file_path(cert_dir: tmp_cert_dir)
+      first_pem = File.read(cert_path)
+
+      described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+      expect(File.read(cert_path)).to eq(first_pem)
+    end
+
+    it "does NOT consult the extension seam (still writes when a provider is registered)" do
+      # Even if the ACME writer is registered, the host login is produced.
+      expect(described_class).not_to receive(:extension_writer)
+      result = described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+      expect(File.exist?(result[:output_path])).to be true
     end
   end
 
