@@ -310,6 +310,87 @@ RSpec.describe Devops::Git::GiteaApiClient do
   end
 
   # =============================================================================
+  # COMMIT DIFF & COMPARE (native-build planner inputs — must never silently
+  # normalize a failed diff fetch to an empty changeset)
+  # =============================================================================
+
+  describe '#get_commit_diff' do
+    let(:commit_body) do
+      { sha: 'abc123', parents: [ { sha: 'par0' } ], stats: { additions: 1, deletions: 0, total: 1 } }
+    end
+    let(:raw_diff) do
+      <<~DIFF
+        diff --git a/modules/redis/rootfs/marker b/modules/redis/rootfs/marker
+        new file mode 100644
+        index 0000000..e69de29
+        --- /dev/null
+        +++ b/modules/redis/rootfs/marker
+        @@ -0,0 +1 @@
+        +hello
+      DIFF
+    end
+
+    before do
+      stub_request(:get, "#{base_url}/repos/owner/repo/git/commits/abc123")
+        .to_return(status: 200, body: commit_body.to_json, headers: { 'Content-Type' => 'application/json' })
+    end
+
+    it 'parses the raw unified diff into changed files' do
+      stub_request(:get, "#{base_url}/repos/owner/repo/commits/abc123.diff")
+        .to_return(status: 200, body: raw_diff, headers: { 'Content-Type' => 'text/plain' })
+
+      diff = client.get_commit_diff('owner', 'repo', 'abc123')
+
+      expect(diff[:files].map { |f| f[:filename] }).to eq([ 'modules/redis/rootfs/marker' ])
+      expect(diff[:files].first[:status]).to eq('added')
+    end
+
+    it 'raises instead of silently returning an empty changeset when the .diff fetch fails' do
+      stub_request(:get, "#{base_url}/repos/owner/repo/commits/abc123.diff")
+        .to_return(status: 500, body: { message: 'boom' }.to_json)
+
+      expect { client.get_commit_diff('owner', 'repo', 'abc123') }
+        .to raise_error(Devops::Git::ApiClient::ServerError)
+    end
+  end
+
+  describe '#compare_commits' do
+    it 'surfaces the affected files from the compare response (not an unconditional empty array)' do
+      stub_request(:get, "#{base_url}/repos/owner/repo/compare/base...head")
+        .to_return(
+          status: 200,
+          body: {
+            html_url: 'https://gitea.example.com/owner/repo/compare/base...head',
+            commits: [ { sha: 'c1' }, { sha: 'c2' } ],
+            files: [
+              { filename: 'modules/redis/rootfs/marker', status: 'added' },
+              { filename: 'modules/base-os/manifest.yaml', status: 'modified' }
+            ]
+          }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      comparison = client.compare_commits('owner', 'repo', 'base', 'head')
+
+      expect(comparison[:files].map { |f| f[:filename] })
+        .to contain_exactly('modules/redis/rootfs/marker', 'modules/base-os/manifest.yaml')
+      expect(comparison[:total_commits]).to eq(2)
+    end
+
+    it 'returns an empty file list when the compare reports no affected files' do
+      stub_request(:get, "#{base_url}/repos/owner/repo/compare/base...empty")
+        .to_return(
+          status: 200,
+          body: { commits: [ { sha: 'c1' } ] }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      comparison = client.compare_commits('owner', 'repo', 'base', 'empty')
+      expect(comparison[:files]).to eq([])
+    end
+  end
+
+  # =============================================================================
   # PULL REQUESTS
   # =============================================================================
 

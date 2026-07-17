@@ -656,7 +656,11 @@ module Devops
 
     def get_commit_diff(owner, repo, sha)
       commit = get("/repos/#{owner}/#{repo}/git/commits/#{sha}")
-      diff = get("/repos/#{owner}/#{repo}/commits/#{sha}.diff", raw: true) rescue ""
+      # NO `rescue ""`: a failed .diff fetch (network / 5xx / 404) MUST surface
+      # as an ApiError rather than be normalized to an empty changeset. The old
+      # silent empty made System::ModuleBuildPlannerService plan zero modules
+      # for a real change and report the batch "succeeded" having built nothing.
+      diff = get("/repos/#{owner}/#{repo}/commits/#{sha}.diff", raw: true)
       normalize_gitea_commit_diff(commit, diff)
     end
 
@@ -1091,7 +1095,13 @@ module Devops
       return nil unless comparison
 
       commits = comparison["commits"] || []
-      files = []
+      # Gitea's compare API returns the range's affected files as an array of
+      # CommitAffectedFiles ({ filename, status }). Surfacing them here is what
+      # lets System::ModuleBuildPlannerService diff a base..head range directly
+      # (no per-commit walk); the field was previously discarded as an
+      # unconditional [], which both forced that workaround and hid failed diff
+      # fetches as "no change".
+      files = Array(comparison["files"]).filter_map { |f| normalize_gitea_compare_file(f) }
 
       {
         url: comparison["html_url"],
@@ -1110,6 +1120,21 @@ module Devops
           total: files.sum { |f| f[:changes] },
           files_changed: files.length
         }
+      }
+    end
+
+    # Gitea compare API's CommitAffectedFiles carries only filename + status
+    # (no per-file line counts), so the numeric fields default to 0 to keep
+    # the diff_stats sums numeric.
+    def normalize_gitea_compare_file(file)
+      return nil unless file && file["filename"]
+
+      {
+        filename: file["filename"],
+        status: file["status"],
+        additions: file["additions"] || 0,
+        deletions: file["deletions"] || 0,
+        changes: file["changes"] || 0
       }
     end
 
