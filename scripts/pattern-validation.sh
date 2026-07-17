@@ -483,11 +483,15 @@ echo -e "${BLUE}## File Organization${NC}"
 # Directories are never flagged. A genuinely-new legitimate root file must be added to
 # root_file_allowlist (deliberate vetting, mirroring the other baseline-style guards); a
 # stray report/scratch file at root FAILS here. CLAUDE.local.md and a file-form `.git`
-# (worktree checkout) are allowlisted for live/worktree parity.
+# (worktree checkout) are allowlisted for live/worktree parity. test-credentials.json is the
+# gitignored per-role E2E login artifact `rails db:seed` writes to the repo root, where the
+# Cypress config (frontend/cypress.config.ts) hard-codes its load path — legitimate and
+# required there. The allowlist is exact-match, so other `*-credentials.json` names still FAIL.
 root_file_allowlist=" \
   CHANGELOG.md CLAUDE.md CLAUDE.local.md CODE_OF_CONDUCT.md CONTRIBUTING.md \
   GOVERNANCE.md LICENSE Makefile README.md ROADMAP.md SECURITY.md VERSION \
   extensions_loader_helper.rb package.json package-lock.json playwright.config.ts \
+  test-credentials.json \
   .commitlintrc.json .env.example .git .gitflow .gitignore .gitleaks.toml \
   .gitmessage .gitmodules .releaserc.json "
 total_checks=$((total_checks + 1))
