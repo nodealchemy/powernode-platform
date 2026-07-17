@@ -256,4 +256,74 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
       expect(described_class.default_dynamic_dir).to include("tmp/traefik")
     end
   end
+
+  # Worker mTLS: a co-located Sidekiq worker authenticates its backend calls by
+  # presenting the agent-issued node cert; Traefik must request+verify it and
+  # forward the CN. The host-login ingress carries clientAuth ONLY when this
+  # node has enrolled (agent CA on disk); pure core mode is unchanged.
+  describe "worker mTLS (host-login clientAuth + pass-tls-client-cert)" do
+    around do |ex|
+      orig = ENV["WORKER_PKI_DIR"]
+      ex.run
+    ensure
+      orig.nil? ? ENV.delete("WORKER_PKI_DIR") : (ENV["WORKER_PKI_DIR"] = orig)
+    end
+
+    let(:ca_pem) do
+      key  = OpenSSL::PKey::RSA.new(2048)
+      name = OpenSSL::X509::Name.parse("/CN=Powernode Internal CA (test)")
+      cert = OpenSSL::X509::Certificate.new
+      cert.version = 2
+      cert.serial  = 1
+      cert.subject = name
+      cert.issuer  = name
+      cert.public_key = key.public_key
+      cert.not_before = Time.now - 3600
+      cert.not_after  = Time.now + 3600
+      cert.sign(key, OpenSSL::Digest.new("SHA256"))
+      cert.to_pem
+    end
+
+    it "always defines the pass-tls-client-cert middleware the websecure entrypoint references" do
+      config = described_class.host_login_config("/c/crt", "/c/key")
+      expect(config.dig("http", "middlewares", "pass-tls-client-cert"))
+        .to eq("passTLSClientCert" => { "info" => { "subject" => { "commonName" => true } } })
+    end
+
+    it "omits clientAuth when no CA is supplied (pure core mode, unchanged)" do
+      config = described_class.host_login_config("/c/crt", "/c/key")
+      expect(config["tls"]).not_to have_key("options")
+    end
+
+    it "adds OPTIONAL clientAuth against the CA when supplied (enrolled node; login still works cert-less)" do
+      config = described_class.host_login_config("/c/crt", "/c/key", client_auth_ca: "/certs/internal-ca.crt")
+      opt = config.dig("tls", "options", "default", "clientAuth")
+      expect(opt["clientAuthType"]).to eq("VerifyClientCertIfGiven")
+      expect(opt["caFiles"]).to eq([ "/certs/internal-ca.crt" ])
+    end
+
+    it "ensure_host_login_ingress! copies the agent CA next to the serving cert + wires clientAuth" do
+      pki = Dir.mktmpdir("agent-pki")
+      File.write(File.join(pki, "ca-chain.crt"), ca_pem)
+      ENV["WORKER_PKI_DIR"] = pki
+
+      result = described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+      expect(result[:client_auth_ca]).to eq(File.join(tmp_cert_dir, "internal-ca.crt"))
+      expect(File.read(result[:client_auth_ca])).to eq(ca_pem)
+
+      parsed = YAML.load_file(result[:output_path])
+      expect(parsed.dig("tls", "options", "default", "clientAuth", "caFiles"))
+        .to eq([ File.join(tmp_cert_dir, "internal-ca.crt") ])
+    ensure
+      FileUtils.rm_rf(pki) if pki
+    end
+
+    it "ensure_host_login_ingress! omits clientAuth when the agent CA is absent (pure core mode)" do
+      ENV["WORKER_PKI_DIR"] = Dir.mktmpdir("empty-pki")
+      result = described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+      expect(result[:client_auth_ca]).to be_nil
+      parsed = YAML.load_file(result[:output_path])
+      expect(parsed["tls"]).not_to have_key("options")
+    end
+  end
 end

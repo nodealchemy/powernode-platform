@@ -71,6 +71,15 @@ module Core
     # is routed separately to the worker-web upstream (the dashboard).
     HOST_LOGIN_BACKEND_PREFIXES = %w[/api /up /cable /agent /rails/health].freeze
 
+    # Default location the on-host powernode-agent writes this node's enrolled
+    # mTLS material to (matches the worker's WorkerCertManager default). The
+    # `ca-chain.crt` here is the internal CA that signed the worker's client
+    # cert; the host-login ingress verifies worker client certs against it so a
+    # co-located Sidekiq worker can authenticate its backend calls. A
+    # filesystem seam only — no extension code dependency. Overridable via
+    # WORKER_PKI_DIR (same env the worker reads).
+    AGENT_PKI_DIR_DEFAULT = "/persist/var/lib/powernode/pki"
+
     class << self
       # ------------------------------------------------------------------
       # Static config + services — lifted from Acme::TraefikConfigWriter.
@@ -337,15 +346,23 @@ module Core
         dyn = dynamic_dir || default_dynamic_dir
         crt = cert_dir || default_cert_dir
         cert_path, key_path = ensure_baseline_cert!(cert_dir: crt)
+        client_auth_ca = prepare_client_auth_ca(cert_dir: crt)
         FileUtils.mkdir_p(dyn)
         output_path = File.join(dyn, HOST_LOGIN_FILENAME)
-        File.write(output_path, YAML.dump(host_login_config(cert_path, key_path)))
-        { output_path: output_path, cert_file: cert_path, key_file: key_path }
+        File.write(output_path, YAML.dump(host_login_config(cert_path, key_path, client_auth_ca: client_auth_ca)))
+        { output_path: output_path, cert_file: cert_path, key_file: key_path, client_auth_ca: client_auth_ca }
       end
 
       # The dynamic-config hash `ensure_host_login_ingress!` renders. Public so
       # tests can assert the shape without filesystem side effects.
-      def host_login_config(cert_path, key_path)
+      #
+      # `client_auth_ca` (a traefik-readable internal-CA path, or nil) toggles
+      # worker mTLS: when present the default TLS store requests+verifies client
+      # certs against it (VerifyClientCertIfGiven, so cert-less browser login
+      # still works) and the always-defined pass-tls-client-cert middleware —
+      # applied at the websecure entrypoint by write_static_config! — forwards
+      # the verified CN to the backend for every route, including /api/v1/internal.
+      def host_login_config(cert_path, key_path, client_auth_ca: nil)
         routers = {}
         HOST_LOGIN_BACKEND_PREFIXES.each do |prefix|
           routers["host-login-#{router_slug_for(prefix)}"] =
@@ -353,9 +370,31 @@ module Core
         end
         routers["host-login-sidekiq"]  = host_login_router("PathPrefix(`/sidekiq`)", "powernode-worker-web")
         routers["host-login-frontend"] = host_login_router("PathPrefix(`/`)", "powernode-frontend")
+        tls = { "certificates" => [ { "certFile" => cert_path, "keyFile" => key_path, "stores" => [ "default" ] } ] }
+        if client_auth_ca
+          tls["options"] = {
+            "default" => {
+              "clientAuth" => {
+                "caFiles"        => [ client_auth_ca ],
+                "clientAuthType" => "VerifyClientCertIfGiven"
+              }
+            }
+          }
+        end
         {
-          "tls"  => { "certificates" => [ { "certFile" => cert_path, "keyFile" => key_path, "stores" => [ "default" ] } ] },
-          "http" => { "routers" => routers, "services" => render_services }
+          "tls"  => tls,
+          "http" => {
+            "routers"     => routers,
+            "services"    => render_services,
+            # Resolves the pass-tls-client-cert@file reference the websecure
+            # entrypoint carries (write_static_config!). Forwarding is a no-op
+            # when no client cert is negotiated, so it is always safe to define.
+            "middlewares" => {
+              "pass-tls-client-cert" => {
+                "passTLSClientCert" => { "info" => { "subject" => { "commonName" => true } } }
+              }
+            }
+          }
         }
       end
 
@@ -366,6 +405,31 @@ module Core
       # HTTP-only and 404s HTTPS requests on a bare TLS entrypoint.
       def host_login_router(rule, service)
         { "rule" => rule, "service" => service, "entryPoints" => [ ENTRYPOINT ], "tls" => {} }
+      end
+
+      # Copies the agent-provided internal CA (present only once this node has
+      # enrolled) next to the serving cert so the traefik user can read it, and
+      # returns that path for the host-login TLS default's clientAuth. Returns
+      # nil in pure core mode (no enrollment / no CA on disk) — the ingress then
+      # omits clientAuth entirely, unchanged from before. Best-effort: any
+      # failure degrades to nil rather than aborting the boot-time ingress write.
+      def prepare_client_auth_ca(cert_dir:)
+        src_dir = ENV["WORKER_PKI_DIR"].presence || AGENT_PKI_DIR_DEFAULT
+        ca_src  = File.join(src_dir, "ca-chain.crt")
+        return nil unless File.file?(ca_src)
+
+        pem = File.read(ca_src)
+        return nil unless pem.include?("BEGIN CERTIFICATE")
+
+        FileUtils.mkdir_p(cert_dir)
+        dest = File.join(cert_dir, "internal-ca.crt")
+        File.write(dest, pem)
+        dest
+      rescue StandardError => e
+        if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
+          ::Rails.logger.warn("[IngressConfigWriter] client-auth CA prep skipped: #{e.class}: #{e.message}")
+        end
+        nil
       end
 
       def can_use_system_prefix?
