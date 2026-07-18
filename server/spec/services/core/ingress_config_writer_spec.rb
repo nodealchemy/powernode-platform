@@ -390,5 +390,97 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
       parsed = YAML.load_file(result[:output_path])
       expect(parsed["tls"]).not_to have_key("options")
     end
+
+    # DUAL-TRUST (task #13): a Vault-less hub signs node certs with its OWN
+    # local internal CA (POWERNODE_CA_LOCAL_DIR/root.crt) yet still holds a
+    # DEV-signed cert from its bootstrap enrollment. The client-auth bundle must
+    # trust BOTH: the enrolled agent chain AND the hub's own local root.
+    context "dual-trust client-auth bundle (enrolled agent CA + local internal-CA root)" do
+      def build_ca_cert(cn)
+        key  = OpenSSL::PKey.generate_key("ED25519")
+        cert = OpenSSL::X509::Certificate.new
+        cert.version = 2
+        cert.serial  = SecureRandom.random_number(2**32)
+        cert.subject = cert.issuer = OpenSSL::X509::Name.parse("/CN=#{cn}")
+        cert.public_key = key
+        cert.not_before = Time.now - 3600
+        cert.not_after  = Time.now + 3600
+        ef = OpenSSL::X509::ExtensionFactory.new(cert, cert)
+        cert.add_extension(ef.create_extension("basicConstraints", "CA:TRUE", true))
+        cert.add_extension(ef.create_extension("keyUsage", "keyCertSign, cRLSign", true))
+        cert.sign(key, nil)
+        [ key, cert ]
+      end
+
+      def sign_leaf(ca_key, ca_cert, cn)
+        leaf_key = OpenSSL::PKey.generate_key("ED25519")
+        leaf = OpenSSL::X509::Certificate.new
+        leaf.version = 2
+        leaf.serial  = SecureRandom.random_number(2**32)
+        leaf.subject = OpenSSL::X509::Name.parse("/CN=#{cn}")
+        leaf.issuer  = ca_cert.subject
+        leaf.public_key = leaf_key
+        leaf.not_before = Time.now - 60
+        leaf.not_after  = Time.now + 3600
+        leaf.sign(ca_key, nil)
+        leaf
+      end
+
+      def store_from_bundle(bundle)
+        store = OpenSSL::X509::Store.new
+        bundle.scan(/-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----\n?/m).each do |block|
+          store.add_cert(OpenSSL::X509::Certificate.new(block))
+        end
+        store
+      end
+
+      it "unions both CA roots and validates a leaf signed by the LOCAL CA" do
+        _agent_key, agent_ca = build_ca_cert("Agent Enrollment CA (test)")
+        local_key,  local_ca = build_ca_cert("Local Hub Internal CA (test)")
+        agent_dir = Dir.mktmpdir("agent-pki")
+        local_dir = Dir.mktmpdir("local-ca")
+        File.write(File.join(agent_dir, "ca-chain.crt"), agent_ca.to_pem)
+        File.write(File.join(local_dir, "root.crt"), local_ca.to_pem)
+        ENV["WORKER_PKI_DIR"] = agent_dir
+        ENV["POWERNODE_CA_LOCAL_DIR"] = local_dir
+
+        result = described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+        bundle = File.read(result[:client_auth_ca])
+
+        expect(bundle).to include(agent_ca.to_pem.strip)
+        expect(bundle).to include(local_ca.to_pem.strip)
+
+        # A node cert THIS hub's local CA signs must pass against the bundle.
+        leaf = sign_leaf(local_key, local_ca, "node-abc")
+        expect(store_from_bundle(bundle).verify(leaf)).to be(true)
+
+        # clientAuth still references the single emitted bundle file.
+        parsed = YAML.load_file(result[:output_path])
+        expect(parsed.dig("tls", "options", "default", "clientAuth", "caFiles"))
+          .to eq([ result[:client_auth_ca] ])
+      ensure
+        ENV.delete("POWERNODE_CA_LOCAL_DIR")
+        FileUtils.rm_rf(agent_dir) if agent_dir
+        FileUtils.rm_rf(local_dir) if local_dir
+      end
+
+      it "deduplicates when the agent chain and local root are the SAME cert" do
+        _key, ca = build_ca_cert("Shared CA (test)")
+        agent_dir = Dir.mktmpdir("agent-pki")
+        local_dir = Dir.mktmpdir("local-ca")
+        File.write(File.join(agent_dir, "ca-chain.crt"), ca.to_pem)
+        File.write(File.join(local_dir, "root.crt"), ca.to_pem)
+        ENV["WORKER_PKI_DIR"] = agent_dir
+        ENV["POWERNODE_CA_LOCAL_DIR"] = local_dir
+
+        result = described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+        bundle = File.read(result[:client_auth_ca])
+        expect(bundle.scan("BEGIN CERTIFICATE").size).to eq(1)
+      ensure
+        ENV.delete("POWERNODE_CA_LOCAL_DIR")
+        FileUtils.rm_rf(agent_dir) if agent_dir
+        FileUtils.rm_rf(local_dir) if local_dir
+      end
+    end
   end
 end

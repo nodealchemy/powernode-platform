@@ -470,29 +470,86 @@ module Core
         router
       end
 
-      # Copies the agent-provided internal CA (present only once this node has
-      # enrolled) next to the serving cert so the traefik user can read it, and
-      # returns that path for the host-login TLS default's clientAuth. Returns
-      # nil in pure core mode (no enrollment / no CA on disk) — the ingress then
-      # omits clientAuth entirely, unchanged from before. Best-effort: any
-      # failure degrades to nil rather than aborting the boot-time ingress write.
+      # Composes the client-auth trust bundle written next to the serving cert
+      # (internal-ca.crt) and returned as the host-login TLS clientAuth caFile.
+      #
+      # DUAL-TRUST — the bundle unions every CA a legitimate client cert may
+      # chain to:
+      #   (a) the enrolled agent CA chain (<pki>/ca-chain.crt) — the CA THIS
+      #       node enrolled against. Keeps a control-plane / worker whose certs
+      #       chain to it validating (unchanged from before).
+      #   (b) this node's OWN local internal-CA root
+      #       (POWERNODE_CA_LOCAL_DIR/root.crt), when it runs one — so certs
+      #       this node's InternalCaService signs for the nodes IT enrolls also
+      #       pass clientAuth. A Vault-less hub signs with its own local CA yet
+      #       still holds a chain-(a) cert from its bootstrap enrollment;
+      #       trusting both keeps existing mTLS working while admitting the
+      #       hub's own issued nodes.
+      #
+      # Sourced by path convention (POWERNODE_CA_LOCAL_DIR mirrors how the agent
+      # chain is read from WORKER_PKI_DIR) so core stays decoupled from the
+      # system extension's InternalCaService. Returns nil only when NEITHER
+      # source is present (pure core mode) — the ingress then omits clientAuth,
+      # unchanged. Deterministic + deduped so the bundle is byte-stable across
+      # reboots (no fingerprint churn when cert_dir is durable). Best-effort:
+      # any failure degrades to whatever it could read (or nil).
       def prepare_client_auth_ca(cert_dir:)
-        src_dir = ENV["WORKER_PKI_DIR"].presence || AGENT_PKI_DIR_DEFAULT
-        ca_src  = File.join(src_dir, "ca-chain.crt")
-        return nil unless File.file?(ca_src)
+        blocks = client_auth_ca_sources.filter_map do |path|
+          next unless File.file?(path)
 
-        pem = File.read(ca_src)
-        return nil unless pem.include?("BEGIN CERTIFICATE")
+          pem = File.read(path)
+          next unless pem.include?("BEGIN CERTIFICATE")
+
+          pem
+        end
+
+        certs = dedup_ca_pem_blocks(blocks)
+        return nil if certs.empty?
 
         FileUtils.mkdir_p(cert_dir)
         dest = File.join(cert_dir, "internal-ca.crt")
-        File.write(dest, pem)
+        File.write(dest, certs.join)
         dest
       rescue StandardError => e
         if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
           ::Rails.logger.warn("[IngressConfigWriter] client-auth CA prep skipped: #{e.class}: #{e.message}")
         end
         nil
+      end
+
+      # Ordered CA sources unioned into the client-auth trust bundle:
+      #   1. the enrolled agent chain (WORKER_PKI_DIR / AGENT_PKI_DIR_DEFAULT)
+      #   2. this node's own local internal-CA root, when POWERNODE_CA_LOCAL_DIR
+      #      is set (the same var that anchors LocalCaAdapter's persisted root)
+      # Both are path conventions; the caller skips paths that don't exist.
+      def client_auth_ca_sources
+        sources = [ File.join(ENV["WORKER_PKI_DIR"].presence || AGENT_PKI_DIR_DEFAULT, "ca-chain.crt") ]
+        if (local_dir = ENV["POWERNODE_CA_LOCAL_DIR"].presence)
+          sources << File.join(local_dir, "root.crt")
+        end
+        sources
+      end
+
+      # Split concatenated PEM blobs into individual certificate blocks and drop
+      # duplicates by SHA-256(DER), preserving first-seen order. Prevents a
+      # doubled cert when sources overlap and keeps the emitted bundle stable.
+      # An unparseable block is skipped rather than aborting the whole bundle.
+      def dedup_ca_pem_blocks(blobs)
+        seen = {}
+        blobs.each_with_object([]) do |blob, out|
+          blob.scan(/-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----/m).each do |block|
+            normalized = block.end_with?("\n") ? block : "#{block}\n"
+            begin
+              fingerprint = OpenSSL::Digest::SHA256.hexdigest(OpenSSL::X509::Certificate.new(normalized).to_der)
+            rescue OpenSSL::X509::CertificateError
+              next
+            end
+            next if seen[fingerprint]
+
+            seen[fingerprint] = true
+            out << normalized
+          end
+        end
       end
 
       def can_use_system_prefix?
