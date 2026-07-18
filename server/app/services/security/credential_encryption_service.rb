@@ -282,13 +282,39 @@ module Security
         # Fall back to legacy AI encryption keys (backwards compatibility)
         key ||= Rails.application.credentials.dig(:ai_encryption, :keys, key_id.to_sym)
 
-        # Generate fallback key for development/test
+        # Explicit env-provided key. The ONLY key source that works in
+        # production without a Rails credentials file: the self-hosted
+        # pivot-boot hub has no config/credentials.yml.enc / master.key, so it
+        # generates + persists this key at first boot (rails-start.sh) exactly
+        # the way it does SECRET_KEY_BASE. Explicit opt-in, never silently
+        # derived — absent it, production still fails closed via the raise below.
+        key ||= env_encryption_key(key_id, namespace)
+
+        # Deterministic dev/test fallback — returns nil in production, so a
+        # production process with neither a credentials key nor an env key
+        # fails closed here rather than encrypting with a weak derived key.
         key ||= generate_fallback_key(key_id, namespace)
 
         raise KeyNotFoundError, "Encryption key '#{key_id}' not found" unless key
 
         validate_key_format(key)
         key
+      end
+
+      # Base64-encoded 32-byte key from an explicit env var, or nil. Mirrors
+      # rails-start.sh's persisted var name: CREDENTIAL_ENCRYPTION_KEY_<ID>
+      # (global) or CREDENTIAL_ENCRYPTION_KEY_<NAMESPACE>_<ID> (namespace-scoped,
+      # which wins — same precedence as the credentials lookup above). Returned
+      # as-is (a base64 string, like the credentials-sourced keys); validated by
+      # #validate_key_format. Works in ALL environments (an operator opt-in), but
+      # it is what makes credential encryption work on a production hub that has
+      # no Rails credentials file.
+      def env_encryption_key(key_id, namespace = nil)
+        if namespace.present?
+          scoped = ENV["CREDENTIAL_ENCRYPTION_KEY_#{namespace.upcase}_#{key_id.upcase}"]
+          return scoped if scoped.present?
+        end
+        ENV["CREDENTIAL_ENCRYPTION_KEY_#{key_id.upcase}"].presence
       end
 
       def validate_key_format(key)

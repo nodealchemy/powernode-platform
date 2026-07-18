@@ -340,4 +340,96 @@ RSpec.describe Security::CredentialEncryptionService do
       expect { described_class.send(:validate_version, 'v2') }.not_to raise_error
     end
   end
+
+  # Production-hub credential-encryption key sourcing: a self-hosted pivot-boot
+  # hub (ops-hub) has NO Rails credentials file (config/credentials.yml.enc +
+  # master.key are gitignored, never shipped), so the key comes from an explicit
+  # env var that rails-start.sh generates + persists. See #get_encryption_key /
+  # #env_encryption_key.
+  describe 'production env-provided encryption key' do
+    let(:credentials) { { 'api_key' => 'prod_secret', 'token' => 'prod_token' } }
+    let(:env_key) { described_class.generate_new_key } # base64 of 32 random bytes
+
+    before do
+      # Simulate production with an EMPTY Rails credentials file (exactly ops-hub).
+      allow(Rails.env).to receive(:production?).and_return(true)
+      allow(Rails.application.credentials).to receive(:dig).and_return(nil)
+    end
+
+    context 'when the credential-encryption env key is present' do
+      before do
+        allow(ENV).to receive(:[]).and_call_original
+        allow(ENV).to receive(:[]).with('CREDENTIAL_ENCRYPTION_KEY_DEFAULT').and_return(env_key)
+      end
+
+      it 'encrypts and decrypts round-trip using the env key' do
+        encrypted = described_class.encrypt(credentials)
+        expect(encrypted).to be_present
+        expect(encrypted).not_to include('prod_secret')
+        expect(described_class.decrypt(encrypted)).to eq(credentials)
+      end
+
+      it 'round-trips a namespaced (git) credential off the global env key' do
+        encrypted = described_class.encrypt(credentials, namespace: 'git')
+        expect(described_class.decrypt(encrypted, namespace: 'git')).to eq(credentials)
+      end
+    end
+
+    context 'when NO credential-encryption env key is present (fail-closed)' do
+      before do
+        allow(ENV).to receive(:[]).and_call_original
+        allow(ENV).to receive(:[]).with('CREDENTIAL_ENCRYPTION_KEY_DEFAULT').and_return(nil)
+        allow(ENV).to receive(:[]).with('CREDENTIAL_ENCRYPTION_KEY_GIT_DEFAULT').and_return(nil)
+      end
+
+      it 'raises rather than encrypting with a derived/weak key' do
+        expect { described_class.encrypt(credentials) }
+          .to raise_error(Security::CredentialEncryptionService::EncryptionError, /Encryption key 'default' not found/)
+      end
+
+      it 'also fails closed for a namespaced credential' do
+        expect { described_class.encrypt(credentials, namespace: 'git') }
+          .to raise_error(Security::CredentialEncryptionService::EncryptionError, /Encryption key 'default' not found/)
+      end
+    end
+
+    context 'namespace-scoped env key precedence' do
+      let(:global_key) { described_class.generate_new_key }
+      let(:scoped_key) { described_class.generate_new_key }
+
+      before do
+        allow(ENV).to receive(:[]).and_call_original
+        allow(ENV).to receive(:[]).with('CREDENTIAL_ENCRYPTION_KEY_DEFAULT').and_return(global_key)
+        allow(ENV).to receive(:[]).with('CREDENTIAL_ENCRYPTION_KEY_GIT_DEFAULT').and_return(scoped_key)
+      end
+
+      it 'prefers the namespace-scoped key over the global one' do
+        encrypted = described_class.encrypt(credentials, namespace: 'git')
+        # Payload was made with the SCOPED key; remove it so only the global
+        # key remains — decryption must then fail (proving the scoped key won).
+        allow(ENV).to receive(:[]).with('CREDENTIAL_ENCRYPTION_KEY_GIT_DEFAULT').and_return(nil)
+        expect { described_class.decrypt(encrypted, namespace: 'git') }
+          .to raise_error(Security::CredentialEncryptionService::DecryptionError)
+      end
+    end
+  end
+
+  # Guards that the DEV/TEST path is unchanged after adding the production
+  # env-key source: with empty credentials and no env key, a non-production
+  # process still encrypts via the deterministic secret_key_base-derived fallback.
+  describe 'dev/test fallback remains intact' do
+    let(:credentials) { { 'api_key' => 'dev_secret' } }
+
+    before do
+      allow(Rails.application.credentials).to receive(:dig).and_return(nil)
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with('CREDENTIAL_ENCRYPTION_KEY_DEFAULT').and_return(nil)
+    end
+
+    it 'still round-trips without any credentials or env key (not production)' do
+      expect(Rails.env.production?).to be(false)
+      encrypted = described_class.encrypt(credentials)
+      expect(described_class.decrypt(encrypted)).to eq(credentials)
+    end
+  end
 end
