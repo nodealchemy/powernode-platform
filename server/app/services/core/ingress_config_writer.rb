@@ -494,14 +494,7 @@ module Core
       # reboots (no fingerprint churn when cert_dir is durable). Best-effort:
       # any failure degrades to whatever it could read (or nil).
       def prepare_client_auth_ca(cert_dir:)
-        blocks = client_auth_ca_sources.filter_map do |path|
-          next unless File.file?(path)
-
-          pem = File.read(path)
-          next unless pem.include?("BEGIN CERTIFICATE")
-
-          pem
-        end
+        blocks = client_auth_ca_sources.filter_map { |path| read_ca_source(path) }
 
         certs = dedup_ca_pem_blocks(blocks)
         return nil if certs.empty?
@@ -513,6 +506,27 @@ module Core
       rescue StandardError => e
         if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
           ::Rails.logger.warn("[IngressConfigWriter] client-auth CA prep skipped: #{e.class}: #{e.message}")
+        end
+        nil
+      end
+
+      # Reads one CA source, returning its PEM (or nil for a missing path / a
+      # file with no cert). Best-effort PER SOURCE: an existing-but-unreadable
+      # source (transient FS error, a perms glitch) is skipped so the bundle
+      # degrades to the sources it COULD read — NOT nil'd wholesale. Nil'ing the
+      # whole bundle would drop clientAuth entirely and FAIL-OPEN the mTLS gate;
+      # dropping just the unreadable source keeps the gate up on whatever
+      # remains (e.g. the enrolled agent chain when only the local root glitches).
+      def read_ca_source(path)
+        return nil unless File.file?(path)
+
+        pem = File.read(path)
+        return nil unless pem.include?("BEGIN CERTIFICATE")
+
+        pem
+      rescue StandardError => e
+        if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
+          ::Rails.logger.warn("[IngressConfigWriter] client-auth CA source skipped (#{path}): #{e.class}: #{e.message}")
         end
         nil
       end

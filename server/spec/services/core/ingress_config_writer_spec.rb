@@ -481,6 +481,42 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
         FileUtils.rm_rf(agent_dir) if agent_dir
         FileUtils.rm_rf(local_dir) if local_dir
       end
+
+      # Per-source best-effort: an EXISTING-but-unreadable local root must NOT
+      # nil the whole bundle (that would drop clientAuth → fail-open the mTLS
+      # gate). It degrades to the readable source (agent chain) with clientAuth
+      # still emitted.
+      it "degrades to the agent chain (clientAuth preserved) when the local root is unreadable" do
+        _agent_key, agent_ca = build_ca_cert("Agent Enrollment CA (test)")
+        _local_key, local_ca = build_ca_cert("Local Hub Internal CA (test)")
+        agent_dir = Dir.mktmpdir("agent-pki")
+        local_dir = Dir.mktmpdir("local-ca")
+        local_root = File.join(local_dir, "root.crt")
+        File.write(File.join(agent_dir, "ca-chain.crt"), agent_ca.to_pem)
+        File.write(local_root, local_ca.to_pem)
+        ENV["WORKER_PKI_DIR"] = agent_dir
+        ENV["POWERNODE_CA_LOCAL_DIR"] = local_dir
+
+        # File.file? is true (it exists) but the read raises — a transient
+        # perms/FS glitch on an existing file.
+        allow(File).to receive(:read).and_call_original
+        allow(File).to receive(:read).with(local_root).and_raise(Errno::EACCES, "permission denied")
+
+        result = described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+        expect(result[:client_auth_ca]).not_to be_nil
+
+        bundle = File.read(result[:client_auth_ca])
+        expect(bundle).to include(agent_ca.to_pem.strip)     # readable source kept → gate up
+        expect(bundle).not_to include(local_ca.to_pem.strip) # unreadable source skipped
+
+        parsed = YAML.load_file(result[:output_path])
+        expect(parsed.dig("tls", "options", "default", "clientAuth", "caFiles"))
+          .to eq([ result[:client_auth_ca] ])                # clientAuth STILL emitted
+      ensure
+        ENV.delete("POWERNODE_CA_LOCAL_DIR")
+        FileUtils.rm_rf(agent_dir) if agent_dir
+        FileUtils.rm_rf(local_dir) if local_dir
+      end
     end
   end
 end
