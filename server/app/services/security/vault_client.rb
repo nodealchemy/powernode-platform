@@ -368,8 +368,38 @@ module Security
                :store_credential, :get_credential, :delete_credential, :rotate_credential,
                :store_system_secret, :get_system_secret,
                :generate_container_token, :revoke_token,
-               :healthy?, :sealed?, :status, :with_secrets,
+               :with_secrets,
                to: :instance
+
+      # Availability probes MUST NOT raise — callers across the codebase
+      # (VaultCredentialProvider, controllers) treat "Vault unconfigured" the
+      # same as "Vault unavailable" and fall back to DB encryption. `instance`
+      # (`@instance ||= new`) raises Security::VaultClient::AuthenticationError
+      # while constructing the Vault::Client — the AppRole login in
+      # #fetch_app_token — whenever VAULT_ROLE_ID/VAULT_SECRET_ID are absent
+      # (a Vault-less deployment, e.g. ops-hub, by design). A plain `delegate`
+      # would let that escape past the instance-level rescues in #healthy? /
+      # #sealed? / #status below, since those only guard the health-check
+      # call itself, not client configuration. Fail closed instead.
+      def sealed?
+        instance.sealed?
+      rescue StandardError => e
+        Rails.logger.warn "Vault unavailable, treating as sealed: #{e.message}"
+        true
+      end
+
+      def healthy?
+        instance.healthy?
+      rescue StandardError => e
+        Rails.logger.warn "Vault unavailable: #{e.message}"
+        false
+      end
+
+      def status
+        instance.status
+      rescue StandardError => e
+        { error: e.message, circuit_state: "unknown", available: false }
+      end
     end
   end
 end
