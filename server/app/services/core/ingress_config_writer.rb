@@ -370,6 +370,11 @@ module Core
         FileUtils.mkdir_p(dyn)
         output_path = File.join(dyn, HOST_LOGIN_FILENAME)
         File.write(output_path, YAML.dump(host_login_config(cert_path, key_path, client_auth_ca: client_auth_ca)))
+        # This file is NON-SECRET (router defs + cert PATHS, no keys) and MUST be
+        # readable by the unprivileged traefik user. chmod explicitly (NOT
+        # File.write(perm:), which is masked by the process umask) so a stray
+        # restrictive umask can never leave it 0600 → unreadable by traefik → 404.
+        File.chmod(0o644, output_path)
         { output_path: output_path, cert_file: cert_path, key_file: key_path, client_auth_ca: client_auth_ca }
       end
 

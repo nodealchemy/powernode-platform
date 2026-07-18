@@ -200,6 +200,22 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
         .to contain_exactly("powernode-backend", "powernode-frontend", "powernode-worker-web")
     end
 
+    it "writes 00-host-login.yaml world-readable (0644) even under a restrictive umask" do
+      # Regression: a leaked 0077 process umask previously made this NON-SECRET
+      # file 0600, unreadable by the unprivileged traefik user → all :443 → 404.
+      # The explicit chmod must defeat any ambient umask.
+      old_umask = File.umask(0o077)
+      begin
+        result = described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+        mode = File.stat(result[:output_path]).mode & 0o777
+        expect(mode).to eq(0o644)
+        # group- and world-readable (traefik is neither the owner nor in root's group).
+        expect(mode & 0o044).to eq(0o044)
+      ensure
+        File.umask(old_umask)
+      end
+    end
+
     it "emits host-agnostic (PathPrefix-only, no Host()) TLS routers" do
       described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
       parsed = YAML.load_file(File.join(tmp_dynamic_dir, "00-host-login.yaml"))
