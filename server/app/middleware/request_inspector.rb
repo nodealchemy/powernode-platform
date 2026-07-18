@@ -340,7 +340,26 @@ class RequestInspector
 
   def trusted_path?(path)
     # Health checks and public endpoints
-    path.match?(%r{^/(health|ready|live|up|favicon|assets)})
+    return true if path.match?(%r{^/(health|ready|live|up|favicon|assets)})
+
+    # On-node agent + worker + federation traffic. These paths are gated by
+    # mTLS or an instance JWT (controller-level auth), so every request is
+    # already bound to a specific NodeInstance identity — the anonymous
+    # intrusion-heuristics here don't apply. More importantly, inspecting
+    # them lets a node's own agent BRICK itself: a transient failure (e.g.
+    # a compose that can't fetch its modules) makes the agent retry every
+    # endpoint in a tight loop, which trips check_request_rate (>50 req/10s),
+    # scores the traffic "suspicious", and IP-blocks the node — after which
+    # EVERY node_api call (heartbeat, modules, task lease) 403s and the node
+    # can never reach the platform to recover. Rack::Attack safelists these
+    # same prefixes for the same reason (see safelist "powernode_node_api").
+    # The anonymous device-claim endpoint has no credential at this lifecycle
+    # stage, so it stays inspected (matching that safelist's /claim carve-out).
+    return false if path == "/api/v1/system/node_api/claim"
+
+    path.start_with?("/api/v1/system/node_api/") ||
+      path.start_with?("/api/v1/system/worker_api/") ||
+      path.start_with?("/api/v1/system/federation_api/")
   end
 
   def api_request?(request)
