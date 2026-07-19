@@ -89,6 +89,15 @@ module Devops
         "https://gitlab.com"
       when "bitbucket"
         "https://bitbucket.org"
+      when "gitea"
+        # Gitea is self-hosted (no fixed public host), so derive the web base
+        # from api_base_url by stripping the "/api/vN" suffix — Gitea's REST API
+        # lives at <web-base>/api/v1. This means a provider configured with only
+        # api_base_url still yields a usable web/clone host instead of nil. A nil
+        # web base produced a HOSTLESS clone URL
+        # ("#{effective_web_base_url}/owner/repo.git" → "/owner/repo.git"), which
+        # broke native module-source clones (fatal: '//x-access-token:…@').
+        api_base_url.presence&.sub(%r{/api/v\d+/?\z}, "")&.presence
       else
         nil
       end
