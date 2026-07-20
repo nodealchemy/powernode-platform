@@ -184,4 +184,32 @@ RSpec.describe Devops::GitProvider, type: :model do
       expect(provider.bitbucket?).to be false
     end
   end
+
+  describe '#default_web_base_url / #effective_web_base_url (gitea derivation)' do
+    it 'derives a gitea web base from api_base_url by stripping the /api/vN suffix' do
+      provider = build(:git_provider, provider_type: 'gitea',
+                                      web_base_url: nil,
+                                      api_base_url: 'https://git.example.com/api/v1')
+      expect(provider.default_web_base_url).to eq('https://git.example.com')
+      expect(provider.effective_web_base_url).to eq('https://git.example.com')
+    end
+
+    it 'prefers an explicit web_base_url over the derived default' do
+      provider = build(:git_provider, provider_type: 'gitea',
+                                      web_base_url: 'https://git.example.com',
+                                      api_base_url: 'https://api.internal/api/v1')
+      expect(provider.effective_web_base_url).to eq('https://git.example.com')
+    end
+
+    it 'is a no-op when api_base_url has no /api/vN suffix' do
+      provider = build(:git_provider, provider_type: 'gitea', web_base_url: nil,
+                                      api_base_url: 'https://git.example.com')
+      expect(provider.default_web_base_url).to eq('https://git.example.com')
+    end
+
+    it 'returns nil for a gitea provider with neither web_base_url nor api_base_url' do
+      provider = build(:git_provider, provider_type: 'gitea', web_base_url: nil, api_base_url: nil)
+      expect(provider.default_web_base_url).to be_nil
+    end
+  end
 end
