@@ -344,10 +344,12 @@ cmd_install_user() {
         fi
 
         # Private-extension bundle: when the checkout carries Gemfile.private,
-        # the backend/worker instances must boot with it or the private
-        # path-gems silently vanish from the resolution.
+        # the backend must boot with it or the private path-gems silently
+        # vanish from the resolution. BUNDLE_GEMFILE resolves relative to the
+        # unit's WorkingDirectory, so this applies only to the backend conf
+        # (the worker app has no Gemfile.private).
         if [[ -f "${detected_base}/server/Gemfile.private" ]] \
-            && [[ "${basename}" == "backend-default.conf" || "${basename}" == "worker-default.conf" || "${basename}" == "worker-web-default.conf" ]]; then
+            && [[ "${basename}" == "backend-default.conf" ]]; then
             {
                 echo ""
                 echo "# Private extensions present in this checkout (appended by install --user)"
@@ -376,12 +378,13 @@ cmd_install_user() {
         # - configs come from the user config dir (no /etc on immutable roots)
         # - paths point at the detected checkout
         # - postgresql/redis/network.target are system-scope units the user
-        #   manager cannot see; app-level retry covers startup ordering
+        #   manager cannot see (a surviving Requires= hard-fails the start);
+        #   app-level retry covers startup ordering
         # - User=/Group= are unsupported in user scope (the manager IS the user)
         sed -e "s|/etc/powernode|${user_config_dir}|g" \
             -e "s|/opt/powernode|${detected_base}|g" \
-            -e '/^\(After\|Wants\)=/s/[[:alnum:]@._-]*\(postgresql\|redis\|network\)[[:alnum:]@._-]*//g' \
-            -e '/^\(After\|Wants\)=[[:space:]]*$/d' \
+            -e '/^\(After\|Wants\|Requires\|BindsTo\)=/s/[[:alnum:]@._-]*\(postgresql\|redis\|network\)[[:alnum:]@._-]*//g' \
+            -e '/^\(After\|Wants\|Requires\|BindsTo\)=[[:space:]]*$/d' \
             -e '/^User=/d' -e '/^Group=/d' \
             "${unit_file}" > "${dest}"
         chmod 644 "${dest}"
