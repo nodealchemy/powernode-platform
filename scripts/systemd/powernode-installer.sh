@@ -4,6 +4,7 @@
 #
 # Usage:
 #   powernode-installer.sh install [--production]
+#   powernode-installer.sh install --user
 #   powernode-installer.sh uninstall [--purge]
 #   powernode-installer.sh add-instance <service> <name>
 #   powernode-installer.sh remove-instance <service> <name>
@@ -111,6 +112,11 @@ detect_powernode_base() {
 # install - Install systemd units and configuration
 # ──────────────────────────────────────────────────────────────────
 cmd_install() {
+    if [[ "${1:-}" == "--user" ]]; then
+        cmd_install_user
+        return
+    fi
+
     require_root
 
     local production=false
@@ -276,6 +282,142 @@ cmd_install() {
         echo "  Build frontend:       cd ${detected_base}/frontend && npm run build"
         echo "  Generate nginx:       sudo ${SCRIPT_DIR}/powernode-installer.sh generate-nginx default"
     fi
+}
+
+# ──────────────────────────────────────────────────────────────────
+# install --user - Install as systemd USER units (no root)
+#
+# For hosts where the developer owns the services but /etc is immutable or
+# per-boot-volatile (e.g. the ops-hub dev-cell: EROFS root + tmpfs overlay,
+# writable persistent home). Units land in ~/.config/systemd/user/, configs
+# in ~/.config/powernode/ — both survive reboot/recompose via the home
+# bind-mount, and no sudo is needed to manage the services.
+# ──────────────────────────────────────────────────────────────────
+cmd_install_user() {
+    if [[ ${EUID} -eq 0 ]]; then
+        log_error "install --user must run as the developer user, not root"
+        exit 1
+    fi
+
+    local user_systemd_dir="${XDG_CONFIG_HOME:-${HOME}/.config}/systemd/user"
+    local user_config_dir="${XDG_CONFIG_HOME:-${HOME}/.config}/powernode"
+
+    log_info "Installing Powernode systemd USER services..."
+    mkdir -p "${user_systemd_dir}" "${user_config_dir}"
+
+    # Auto-detect environment (RVM/nvm may legitimately be absent — the
+    # launcher scripts fall back to the ruby/node already on PATH)
+    local detected_rvm_path detected_ruby detected_nvm_dir detected_node detected_base
+    detected_rvm_path="$(detect_rvm_path)"
+    detected_ruby="$(detect_ruby_version "${detected_rvm_path}")"
+    detected_nvm_dir="$(detect_nvm_dir)"
+    detected_node="$(detect_node_version "${detected_nvm_dir}")"
+    detected_base="$(detect_powernode_base)"
+
+    log_info "Detected environment:"
+    log_info "  Base path:     ${detected_base}"
+    log_info "  RVM path:      ${detected_rvm_path:-not found (system ruby fallback)}"
+    log_info "  Ruby version:  ${detected_ruby:-not found}"
+    log_info "  nvm dir:       ${detected_nvm_dir:-not found (system node fallback)}"
+    log_info "  Node version:  ${detected_node:-not found}"
+    log_info "  Units:         ${user_systemd_dir}"
+    log_info "  Configs:       ${user_config_dir}"
+
+    # Install config templates (never overwrite existing)
+    log_info "Installing config templates..."
+    local conf_file basename dest
+    for conf_file in "${CONFIGS_DIR}"/*.conf; do
+        basename="$(basename "${conf_file}")"
+        dest="${user_config_dir}/${basename}"
+        if [[ -f "${dest}" ]]; then
+            log_warn "Skipping ${basename} (already exists)"
+            continue
+        fi
+        cp "${conf_file}" "${dest}"
+
+        if [[ "${basename}" == "powernode.conf" ]]; then
+            sed -i "s|^POWERNODE_BASE=.*|POWERNODE_BASE=${detected_base}|" "${dest}"
+            [[ -n "${detected_rvm_path}" ]] && sed -i "s|^RVM_PATH=.*|RVM_PATH=${detected_rvm_path}|" "${dest}"
+            [[ -n "${detected_ruby}" ]] && sed -i "s|^POWERNODE_RUBY_VERSION=.*|POWERNODE_RUBY_VERSION=${detected_ruby}|" "${dest}"
+            [[ -n "${detected_nvm_dir}" ]] && sed -i "s|^NVM_DIR=.*|NVM_DIR=${detected_nvm_dir}|" "${dest}"
+            [[ -n "${detected_node}" ]] && sed -i "s|^NODE_VERSION=.*|NODE_VERSION=${detected_node}|" "${dest}"
+        fi
+
+        # Private-extension bundle: when the checkout carries Gemfile.private,
+        # the backend/worker instances must boot with it or the private
+        # path-gems silently vanish from the resolution.
+        if [[ -f "${detected_base}/server/Gemfile.private" ]] \
+            && [[ "${basename}" == "backend-default.conf" || "${basename}" == "worker-default.conf" || "${basename}" == "worker-web-default.conf" ]]; then
+            {
+                echo ""
+                echo "# Private extensions present in this checkout (appended by install --user)"
+                echo "BUNDLE_GEMFILE=Gemfile.private"
+                echo "POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1"
+            } >> "${dest}"
+        fi
+
+        chmod 600 "${dest}"
+        log_ok "Installed ${basename}"
+    done
+
+    # Install unit files, rewritten for user scope
+    log_info "Installing user unit files..."
+    local unit_file
+    for unit_file in "${UNITS_DIR}"/*; do
+        basename="$(basename "${unit_file}")"
+
+        # Root-only host-prep helpers have no place in the user manager
+        if [[ "${basename}" != *@.service ]] && [[ "${basename}" != "powernode.target" ]]; then
+            log_info "Skipping ${basename} (system-scope helper)"
+            continue
+        fi
+
+        dest="${user_systemd_dir}/${basename}"
+        # - configs come from the user config dir (no /etc on immutable roots)
+        # - paths point at the detected checkout
+        # - postgresql/redis/network.target are system-scope units the user
+        #   manager cannot see; app-level retry covers startup ordering
+        # - User=/Group= are unsupported in user scope (the manager IS the user)
+        sed -e "s|/etc/powernode|${user_config_dir}|g" \
+            -e "s|/opt/powernode|${detected_base}|g" \
+            -e '/^\(After\|Wants\)=/s/[[:alnum:]@._-]*\(postgresql\|redis\|network\)[[:alnum:]@._-]*//g' \
+            -e '/^\(After\|Wants\)=[[:space:]]*$/d' \
+            -e '/^User=/d' -e '/^Group=/d' \
+            "${unit_file}" > "${dest}"
+        chmod 644 "${dest}"
+        log_ok "Installed ${basename}"
+    done
+
+    chmod +x "${SCRIPT_DIR}"/powernode-*.sh
+
+    # No session bus (plain `ssh host cmd`, no lingering yet) must not abort the
+    # install — files are already in place; reload/enable re-run fine later.
+    if systemctl --user daemon-reload 2>/dev/null; then
+        log_ok "user systemd daemon reloaded"
+    else
+        log_warn "could not reach the user systemd manager (no session bus?) — run 'systemctl --user daemon-reload' from a login session"
+    fi
+
+    log_info "Enabling default service instances (user scope)..."
+    systemctl --user enable powernode.target 2>/dev/null || true
+    local svc
+    for svc in "${SERVICES[@]}"; do
+        systemctl --user enable "powernode-${svc}@default.service" 2>/dev/null || true
+        log_ok "Enabled powernode-${svc}@default"
+    done
+
+    echo ""
+    log_ok "User-scope installation complete!"
+    echo ""
+    echo "  Start all services:   systemctl --user start powernode.target"
+    echo "  Check status:         systemctl --user status 'powernode-*'"
+    echo "  View logs:            journalctl --user -u powernode-backend@default -f"
+    echo ""
+    echo "  Config files:         ${user_config_dir}/"
+    echo "  Unit files:           ${user_systemd_dir}/"
+    echo ""
+    echo "  Services survive logout/reboot only with lingering enabled:"
+    echo "    sudo loginctl enable-linger $(whoami)"
 }
 
 # ──────────────────────────────────────────────────────────────────
@@ -619,6 +761,7 @@ usage() {
     echo ""
     echo "Commands:"
     echo "  install [--production]           Install units, configs, optionally create system user"
+    echo "  install --user                   Install as systemd USER units (no root; immutable-root hosts)"
     echo "  uninstall [--purge]              Remove units, optionally purge configs"
     echo "  add-instance <service> <name>    Create a new instance config"
     echo "  remove-instance <service> <name> Remove an instance"

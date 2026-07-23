@@ -4,20 +4,28 @@
 # Using exec ensures the process becomes PID 1 for proper signal handling.
 set -eo pipefail
 
-# Source RVM (disable nounset — RVM uses uninitialized variables internally)
+# Source RVM (disable nounset — RVM uses uninitialized variables internally).
+# Hosts without RVM (immutable-image nodes like the dev-cell, where runtime-ruby
+# bakes ruby into /usr/local) fall back to the ruby already on PATH.
+RVM_SOURCED=false
 if [[ -n "${RVM_PATH:-}" ]] && [[ -s "${RVM_PATH}/scripts/rvm" ]]; then
     source "${RVM_PATH}/scripts/rvm"
+    RVM_SOURCED=true
 elif [[ -s "/usr/local/rvm/scripts/rvm" ]]; then
     source "/usr/local/rvm/scripts/rvm"
+    RVM_SOURCED=true
 elif [[ -s "$HOME/.rvm/scripts/rvm" ]]; then
     source "$HOME/.rvm/scripts/rvm"
+    RVM_SOURCED=true
+elif command -v ruby &>/dev/null && command -v bundle &>/dev/null; then
+    echo "[powernode] RVM not found; using system ruby: $(command -v ruby) ($(ruby -v))"
 else
-    echo "ERROR: RVM not found. Set RVM_PATH in /etc/powernode/powernode.conf" >&2
+    echo "ERROR: RVM not found and no ruby/bundle on PATH. Set RVM_PATH in powernode.conf or install ruby." >&2
     exit 1
 fi
 
 # Use configured Ruby version
-if [[ -n "${POWERNODE_RUBY_VERSION:-}" ]]; then
+if [[ "${RVM_SOURCED}" == true ]] && [[ -n "${POWERNODE_RUBY_VERSION:-}" ]]; then
     rvm use "${POWERNODE_RUBY_VERSION}" || {
         echo "ERROR: Failed to activate Ruby ${POWERNODE_RUBY_VERSION}" >&2
         exit 1
