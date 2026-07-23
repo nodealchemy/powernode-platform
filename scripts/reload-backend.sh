@@ -13,4 +13,10 @@
 
 set -euo pipefail
 
-sudo systemctl reload powernode-backend@default
+# User-scope units (dev-cell: installer --user) take precedence; system scope
+# (dev box) is the fallback.
+if systemctl --user cat powernode-backend@default.service &>/dev/null; then
+    systemctl --user reload powernode-backend@default
+else
+    sudo systemctl reload powernode-backend@default
+fi

@@ -18,8 +18,13 @@ fi
 
 if [[ -f "$WORKER_MARKER" ]]; then
   rm -f "$WORKER_MARKER"
-  # Background the worker restart — it takes ~28s and the hook has a 3s timeout
-  sudo systemctl restart powernode-worker@default &
+  # Background the worker restart — it takes ~28s and the hook has a 3s timeout.
+  # User-scope unit (dev-cell) takes precedence; system scope (dev box) is the fallback.
+  if systemctl --user cat powernode-worker@default.service &>/dev/null; then
+    systemctl --user restart powernode-worker@default &
+  else
+    sudo systemctl restart powernode-worker@default &
+  fi
   RESTARTED+=("worker (backgrounded)")
 fi
 

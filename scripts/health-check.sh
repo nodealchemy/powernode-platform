@@ -12,11 +12,27 @@ NC='\033[0m'
 
 ERRORS=0
 
+# powernode-* units may live in the user scope (dev-cell: installer --user)
+# instead of the system scope (dev box). Detect per unit; non-powernode units
+# (postgresql, redis) are always system scope.
+unit_scope() {
+  if [[ "$1" == powernode-* ]] && systemctl --user cat "$1" &>/dev/null; then
+    echo "user"
+  else
+    echo "system"
+  fi
+}
+
 check_service() {
   local name="$1"
   local unit="$2"
-  local status
-  status=$(systemctl is-active "$unit" 2>/dev/null || true)
+  local status scope
+  scope=$(unit_scope "$unit")
+  if [[ "$scope" == "user" ]]; then
+    status=$(systemctl --user is-active "$unit" 2>/dev/null || true)
+  else
+    status=$(systemctl is-active "$unit" 2>/dev/null || true)
+  fi
   if [[ "$status" == "active" ]]; then
     printf "  ${GREEN}✓${NC} %-35s %s\n" "$name" "$unit"
   else
@@ -62,8 +78,16 @@ echo ""
 
 # Recent errors (last 5 min)
 echo "Recent Errors (5 min):"
-BACKEND_ERRORS=$(journalctl -u powernode-backend@default --since "5 min ago" --no-pager -p err 2>/dev/null | grep -c "" || true)
-WORKER_ERRORS=$(journalctl -u powernode-worker@default --since "5 min ago" --no-pager -p err 2>/dev/null | grep -c "" || true)
+journal_errors() {
+  local unit="$1"
+  if [[ "$(unit_scope "$unit")" == "user" ]]; then
+    journalctl --user -u "$unit" --since "5 min ago" --no-pager -p err 2>/dev/null | grep -c "" || true
+  else
+    journalctl -u "$unit" --since "5 min ago" --no-pager -p err 2>/dev/null | grep -c "" || true
+  fi
+}
+BACKEND_ERRORS=$(journal_errors powernode-backend@default)
+WORKER_ERRORS=$(journal_errors powernode-worker@default)
 if [[ "$BACKEND_ERRORS" -gt 0 ]]; then
   printf "  ${YELLOW}!${NC} Backend: %d error lines\n" "$BACKEND_ERRORS"
 else
