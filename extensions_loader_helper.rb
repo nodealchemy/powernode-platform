@@ -65,7 +65,7 @@ def discover_extension_gems_by_visibility(base_dir = __dir__)
     manifest = File.join(base_dir, rel_path, "extension.json")
     next unless File.exist?(manifest)
 
-    parsed = JSON.parse(File.read(manifest))
+    parsed = JSON.parse(File.read(manifest, encoding: "UTF-8"))
     next unless parsed.dig("components", "server")
 
     server_path = File.join(base_dir, rel_path, "server")
@@ -109,7 +109,7 @@ end
 def public_extension_slugs(base_dir = __dir__)
   gitmodules = File.join(base_dir, ".gitmodules")
   return [] unless File.exist?(gitmodules)
-  File.read(gitmodules).scan(%r{^\s*path\s*=\s*extensions/([^\s]+)$}).flatten
+  File.read(gitmodules, encoding: "UTF-8").scan(%r{^\s*path\s*=\s*extensions/([^\s]+)$}).flatten
 rescue IOError, SystemCallError
   []
 end
@@ -118,7 +118,7 @@ def disabled_extension_slugs(base_dir = __dir__)
   state_file = File.join(base_dir, "config", "extensions_state.json")
   return [] unless File.exist?(state_file)
 
-  state = JSON.parse(File.read(state_file))
+  state = JSON.parse(File.read(state_file, encoding: "UTF-8"))
   Array(state["disabled"]).map(&:to_s)
 rescue JSON::ParserError, IOError, SystemCallError
   []
