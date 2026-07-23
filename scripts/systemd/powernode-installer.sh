@@ -386,6 +386,7 @@ cmd_install_user() {
             -e '/^\(After\|Wants\|Requires\|BindsTo\)=/s/[[:alnum:]@._-]*\(postgresql\|redis\|network\)[[:alnum:]@._-]*//g' \
             -e '/^\(After\|Wants\|Requires\|BindsTo\)=[[:space:]]*$/d' \
             -e '/^User=/d' -e '/^Group=/d' \
+            -e 's/^WantedBy=multi-user.target/WantedBy=default.target/' \
             "${unit_file}" > "${dest}"
         chmod 644 "${dest}"
         log_ok "Installed ${basename}"

@@ -65,15 +65,27 @@ check_service "Rails API"          "powernode-backend@default"
 check_service "Sidekiq Worker"     "powernode-worker@default"
 check_service "Worker HTTP API"    "powernode-worker-web@default"
 check_service "Frontend"           "powernode-frontend@default"
-check_service "PostgreSQL"         "postgresql"
-check_service "Redis"              "redis-server"
+# Postgres/Redis unit names vary by host (system packages vs fleet modules) —
+# probe connectivity instead of a unit name.
+if pg_isready -q 2>/dev/null; then
+  printf "  ${GREEN}✓${NC} %-35s %s\n" "PostgreSQL" "pg_isready"
+else
+  printf "  ${RED}✗${NC} %-35s %s\n" "PostgreSQL" "pg_isready failed"
+  ERRORS=$((ERRORS + 1))
+fi
+if [[ "$(redis-cli ping 2>/dev/null)" == "PONG" ]]; then
+  printf "  ${GREEN}✓${NC} %-35s %s\n" "Redis" "redis-cli ping"
+else
+  printf "  ${RED}✗${NC} %-35s %s\n" "Redis" "redis-cli ping failed"
+  ERRORS=$((ERRORS + 1))
+fi
 echo ""
 
-# Endpoints
+# Endpoints (frontend Vite port per configs/frontend-default.conf convention)
 echo "Endpoints:"
 check_endpoint "API Health"        "http://localhost:3000/api/v1/health"
 check_endpoint "Worker API"        "http://localhost:4567/health"
-check_endpoint "Frontend"          "http://localhost:5173"
+check_endpoint "Frontend"          "http://localhost:3001"
 echo ""
 
 # Recent errors (last 5 min)
