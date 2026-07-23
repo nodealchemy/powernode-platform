@@ -10,6 +10,11 @@ import { storageApi } from '@/features/admin/storage/services/storageApi';
 import type { StorageProvider } from '@/shared/types/storage';
 import { StorageProviderAssignmentsTab } from '@/features/system/storage/components/StorageProviderAssignmentsTab';
 
+// BLESSED CROSS-BOUNDARY SEAM (IMP-ca6b51d65114): this core admin page
+// fronts system-extension endpoints via features/system/storage. It fails
+// closed in a core-only assembly — system.storage.assignments.read is
+// extension-registered, so canRead below can never be true without the
+// extension. See storageAssignmentsApi.ts for the full ruling.
 const StorageProviderAssignmentsPage: React.FC = () => {
   const { storageId } = useParams<{ storageId: string }>();
   const dispatch = useDispatch<AppDispatch>();

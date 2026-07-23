@@ -1,6 +1,10 @@
 import { apiClient } from '@/shared/services/apiClient';
 import { StorageCredential, StorageCredentialsListResponse } from '../types';
 
+// BLESSED CROSS-BOUNDARY SEAM (IMP-ca6b51d65114) — see the header of
+// storageAssignmentsApi.ts for the ruling; the same fail-closed permission
+// mechanics apply (system.storage.assignments.* are extension-registered).
+//
 // Storage credential METADATA surface (IMP-b2c32f1e3038). Backend:
 //   extensions/system/server/app/controllers/api/v1/system/storage_credentials_controller.rb
 // index/show are read-only metadata (kind/status/rotation cadence); rotate

@@ -2,6 +2,9 @@
  * Storage assignment types — matches
  *   extensions/system/server/app/controllers/api/v1/system/storage_assignments_controller.rb#serialize_assignment
  * Drift between this and the controller surfaces as undefined fields at runtime.
+ *
+ * Referencing the extension controller from core is a BLESSED seam
+ * (IMP-ca6b51d65114) — see storageAssignmentsApi.ts for the ruling.
  */
 
 export type StorageAssignmentStatus =

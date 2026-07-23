@@ -1,3 +1,14 @@
+// BLESSED CROSS-BOUNDARY SEAM (IMP-ca6b51d65114): core admin UI fronting
+// system-extension endpoints (/api/v1/system/storage_assignments*). This is
+// deliberate, not drift: FileManagement storage is a core concept; only the
+// (Storage × NodeInstance) assignment facet is extension-owned. The extension-
+// isolation invariant is preserved because no CODE crosses the boundary
+// (URL + permission strings only), and the seam FAILS CLOSED without the
+// extension — system.storage.assignments.* permissions are registered by
+// the extension engine (powernode_system/engine.rb), so a core-only
+// assembly can never grant them and this surface stays hidden. Regression
+// guard: StorageProviderAssignmentsPage.test.tsx "fails closed" spec. Same
+// class as onboardingApi / provisioningApi / the agent mention picker.
 import { apiClient } from '@/shared/services/apiClient';
 import {
   StorageAssignment,
