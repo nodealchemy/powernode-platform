@@ -36,6 +36,14 @@ jest.mock('../services/storageAssignmentsApi', () => ({
   },
 }));
 
+// Stub the credentials drill-down — it has its own unit coverage; the tab
+// only needs to toggle it with the right props.
+jest.mock('./StorageCredentialsList', () => ({
+  StorageCredentialsList: ({ assignmentId }: { assignmentId: string }) => (
+    <div data-testid="credentials-list">credentials-for-{assignmentId}</div>
+  ),
+}));
+
 // Stub the child dialog so we can assert it opens and fires its callbacks.
 jest.mock('./BulkAssignDialog', () => ({
   BulkAssignDialog: ({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) => (
@@ -156,6 +164,19 @@ describe('StorageProviderAssignmentsTab', () => {
       type: 'ui/addNotification',
       payload: { type: 'success', message: 'Assignment deleted' },
     });
+  });
+
+  it('toggles the per-assignment credentials drill-down', async () => {
+    mockList.mockResolvedValue({ assignments: [ASSIGNMENT] });
+    render(<StorageProviderAssignmentsTab storageId="fs-1" />);
+    await waitFor(() => expect(screen.getByText('/mnt/data')).toBeInTheDocument());
+
+    expect(screen.queryByTestId('credentials-list')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Credentials'));
+
+    expect(screen.getByTestId('credentials-list')).toHaveTextContent('credentials-for-sa-1');
+    fireEvent.click(screen.getByText('Hide credentials'));
+    expect(screen.queryByTestId('credentials-list')).not.toBeInTheDocument();
   });
 
   it('hides Rotate and Delete actions without their permissions', async () => {

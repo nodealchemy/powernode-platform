@@ -58,3 +58,27 @@ export interface StorageAssignmentsListResponse {
   assignments: StorageAssignment[];
   meta?: { total_count?: number; page?: number; per_page?: number };
 }
+
+/**
+ * Storage credential METADATA row — matches
+ *   extensions/system/server/app/controllers/api/v1/system/storage_credentials_controller.rb#serialize
+ * The backend NEVER serializes credential material; material lives in Vault
+ * and is fetched only by the node agent at mount time. Rotation via the UI
+ * returns the new credential's metadata row — never a secret.
+ */
+export interface StorageCredential {
+  id: string;
+  storage_assignment_id: string;
+  node_instance_id: string | null;
+  kind: string;
+  status: string;
+  expires_at: string | null;
+  last_rotated_at: string | null;
+  needs_rotation: boolean;
+  metadata: Record<string, unknown>;
+}
+
+export interface StorageCredentialsListResponse {
+  credentials: StorageCredential[];
+  meta?: { total_count?: number; page?: number; per_page?: number };
+}

@@ -10,6 +10,7 @@ import {
   StorageAssignmentStatus,
 } from '../types';
 import { BulkAssignDialog } from './BulkAssignDialog';
+import { StorageCredentialsList } from './StorageCredentialsList';
 
 interface Props {
   /** The FileManagement::Storage UUID this tab belongs to. */
@@ -148,7 +149,12 @@ const AssignmentRow: React.FC<{
 
   const { armed, trigger } = useArmedConfirm(handleDelete);
 
+  // Credential metadata drill-down (IMP-b2c32f1e3038) — expands a sub-row
+  // listing this assignment's credentials with per-credential rotation.
+  const [showCredentials, setShowCredentials] = useState(false);
+
   return (
+    <>
     <tr className="border-t border-theme">
       <td className="py-2 px-2 text-theme-primary font-mono text-xs">{assignment.node_instance_id.slice(0, 8)}</td>
       <td className="py-2 px-2 text-theme-primary">{assignment.mount_path}</td>
@@ -160,6 +166,13 @@ const AssignmentRow: React.FC<{
         {assignment.last_status_at ? new Date(assignment.last_status_at).toLocaleString() : '—'}
       </td>
       <td className="py-2 px-2 space-x-2">
+        <button
+          type="button"
+          onClick={() => setShowCredentials((v) => !v)}
+          className="text-theme-interactive-primary text-xs underline"
+        >
+          {showCredentials ? 'Hide credentials' : 'Credentials'}
+        </button>
         {canRotate && (
           <button
             type="button"
@@ -180,5 +193,17 @@ const AssignmentRow: React.FC<{
         )}
       </td>
     </tr>
+    {showCredentials && (
+      <tr className="border-t border-theme bg-theme-background-muted/30">
+        <td colSpan={6} className="py-2 px-4">
+          <StorageCredentialsList
+            assignmentId={assignment.id}
+            activeCredentialId={assignment.active_credential_id}
+            canRotate={canRotate}
+          />
+        </td>
+      </tr>
+    )}
+    </>
   );
 };
