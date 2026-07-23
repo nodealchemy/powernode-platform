@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_20_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_23_183000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9070,23 +9070,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_180000) do
     t.index ["status"], name: "index_system_gitops_sync_runs_on_status"
   end
 
-  create_table "system_instance_mount_points", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.jsonb "config", default: {}, null: false
-    t.datetime "created_at", null: false
-    t.boolean "enabled", default: true, null: false
-    t.uuid "mount_point_id", null: false
-    t.uuid "node_instance_id", null: false
-    t.string "status", default: "pending", null: false
-    t.datetime "updated_at", null: false
-    t.index ["config"], name: "index_system_instance_mount_points_on_config", using: :gin
-    t.index ["enabled"], name: "index_system_instance_mount_points_on_enabled"
-    t.index ["mount_point_id"], name: "index_system_instance_mount_points_on_mount_point_id"
-    t.index ["node_instance_id", "mount_point_id"], name: "idx_on_node_instance_id_mount_point_id_34679a18f1", unique: true
-    t.index ["node_instance_id"], name: "index_system_instance_mount_points_on_node_instance_id"
-    t.index ["status"], name: "index_system_instance_mount_points_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'mounted'::character varying::text, 'unmounted'::character varying::text, 'error'::character varying::text])", name: "system_instance_mount_points_status_check"
-  end
-
   create_table "system_instance_pools", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
@@ -9697,26 +9680,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_180000) do
     t.index ["reboot_required"], name: "index_system_node_modules_on_reboot_required"
     t.index ["variety"], name: "index_system_node_modules_on_variety"
     t.check_constraint "variety::text = ANY (ARRAY['config'::character varying::text, 'instance'::character varying::text, 'subscription'::character varying::text])", name: "system_node_modules_variety_check"
-  end
-
-  create_table "system_node_mount_points", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.boolean "auto_mount", default: true, null: false
-    t.datetime "created_at", null: false
-    t.text "description"
-    t.boolean "enabled", default: true, null: false
-    t.string "mount_path", null: false
-    t.string "mount_type", default: "nfs", null: false
-    t.string "name", null: false
-    t.jsonb "options", default: {}, null: false
-    t.string "source"
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "name"], name: "index_system_node_mount_points_on_account_id_and_name", unique: true
-    t.index ["account_id"], name: "index_system_node_mount_points_on_account_id"
-    t.index ["enabled"], name: "index_system_node_mount_points_on_enabled"
-    t.index ["mount_type"], name: "index_system_node_mount_points_on_mount_type"
-    t.index ["options"], name: "index_system_node_mount_points_on_options", using: :gin
-    t.check_constraint "mount_type::text = ANY (ARRAY['tmpfs'::character varying::text, 'bind'::character varying::text, 'custom'::character varying::text])", name: "system_node_mount_points_type_check"
   end
 
   create_table "system_node_platforms", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -12284,8 +12247,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_180000) do
   add_foreign_key "system_fleet_remediation_outcomes", "accounts"
   add_foreign_key "system_gitops_repositories", "accounts"
   add_foreign_key "system_gitops_sync_runs", "system_gitops_repositories", column: "gitops_repository_id"
-  add_foreign_key "system_instance_mount_points", "system_node_instances", column: "node_instance_id"
-  add_foreign_key "system_instance_mount_points", "system_node_mount_points", column: "mount_point_id"
   add_foreign_key "system_instance_pools", "accounts", on_delete: :cascade
   add_foreign_key "system_instance_pools", "system_node_templates", column: "node_template_id", on_delete: :restrict
   add_foreign_key "system_instance_pools", "system_provider_instance_types", column: "provider_instance_type_id", on_delete: :nullify
@@ -12343,7 +12304,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_180000) do
   add_foreign_key "system_node_modules", "system_node_modules", column: "parent_module_id"
   add_foreign_key "system_node_modules", "system_node_platforms", column: "node_platform_id"
   add_foreign_key "system_node_modules", "system_nodes", column: "node_id"
-  add_foreign_key "system_node_mount_points", "accounts"
   add_foreign_key "system_node_platforms", "accounts"
   add_foreign_key "system_node_platforms", "system_node_architectures", column: "node_architecture_id"
   add_foreign_key "system_node_scripts", "accounts"
