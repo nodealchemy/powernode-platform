@@ -1,0 +1,35 @@
+[Unit]
+Description=Powernode: external dead-node watchdog for ops-hub (RCP v2 P0-a)
+Documentation=https://github.com/powernode/platform
+Documentation=file:///opt/powernode/docs/operations/ops-hub-watchdog.md
+# Deliberately no Requires=network-online.target: a failed network check IS the
+# signal this unit exists to detect, so it must be able to run (and log a failure)
+# even when the network is degraded, not be blocked from starting by it.
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# Named powernode-* so this unit's journal entries are picked up by the existing
+# Promtail `powernode-journal` scrape job with ZERO config changes --
+# docs/operations/observability.md's relabel_configs keep rule matches
+# "powernode-*.service" on the systemd unit name.
+SyslogIdentifier=powernode-ops-hub-watchdog
+EnvironmentFile=-/etc/powernode/ops-hub-watchdog.conf
+ExecStart=/opt/powernode/scripts/monitoring/ops-hub-watchdog.sh --once
+
+# This host is NOT ops-hub and (ideally) not dna either -- see the script header
+# and docs/operations/ops-hub-watchdog.md for the placement rationale. Deploy path
+# is operator-chosen (opn-1/edge/dev-cell per the RCP v2 plan, or another host with
+# LAN/SDWAN line-of-sight to ops-hub); this unit file assumes the repo (or just this
+# script) is present at /opt/powernode on whatever host runs it. Adjust ExecStart's
+# path if deploying just the standalone script elsewhere.
+
+TimeoutStartSec=30s
+
+# Security hardening (uncomment once deployed to its final host; left off here so
+# the unit is portable to whatever minimal image opn-1/edge/dev-cell run):
+# NoNewPrivileges=true
+# ProtectSystem=strict
+# PrivateTmp=true
+# ReadWritePaths=/var/lib/powernode-watchdog /var/lib/node_exporter/textfile_collector

@@ -1,0 +1,11 @@
+[Unit]
+Description=Powernode: run the ops-hub external watchdog every 15s (RCP v2 P0-a)
+Documentation=https://github.com/powernode/platform
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=15s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
