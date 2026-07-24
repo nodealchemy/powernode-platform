@@ -11,6 +11,22 @@ This is a **report + a scan snapshot**, not a remediation — per this increment
 here changes behavior on any currently-running node. Findings that imply a live fix are named and
 routed to the operator, not auto-applied.
 
+> **Update, same day, after live infrastructure access was granted mid-task:** the initial version
+> of this audit (below) drew INV-6's "no violation" conclusion from the platform's own
+> provisioning-record metadata alone, without live PVE access, and **that conclusion was wrong**.
+> Direct, live, read-only queries against dna/rna (via `ssh admin@dna` + root cluster-trust to rna,
+> granted by the operator after the initial audit was written) found: (1) `dna-data` is a PVE
+> storage of **type `nfs`** (a self-hosted NFS re-export of a dataset under dna's own `local-zfs`
+> zpool), not the local `zfspool`-type storage the earlier text assumed — a genuinely-local
+> alternative (`zfspool: local-data`) exists on dna and was NOT what ops-hub's VM was built on; (2)
+> ops-hub's actual running VM 104 config (`qm config 104`) confirms its root disk, EFI disk, AND
+> cloud-init drive are all on `dna-data` — i.e. **INV-6 is not just a theoretical risk, it is a live,
+> confirmed violation on the currently-running control-plane VM**; (3) rna's storage independence is
+> now definitively confirmed (own section below). The INV-2 and INV-6 sections below are corrected
+> in place; corrections are marked. Nothing was fixed live as part of this correction pass except
+> the one operator-approved action documented in "Approved action taken" — everything else remains
+> report-only.
+
 ## What was built
 
 | Concern | File |
@@ -64,11 +80,15 @@ three concrete reasons:
 
 ## Fleet-wide scan — CURRENT findings
 
-Two evidence sources were used: (a) direct MCP queries against the live platform (this session is
+Three evidence sources were used: (a) direct MCP queries against the live platform (this session is
 connected to **dev**'s backend — the sole control plane today, per `campaign-reciprocal-control-
-plane.md`'s "Campaign on dev until P7 retires dev"), and (b) the new `RcpInvariantScanner`'s logic,
-verified correct against 15 passing specs but **not executed live** from this session (see
-"Verification gaps" — this worktree has no Proxmox credentials).
+plane.md`'s "Campaign on dev until P7 retires dev"); (b) the new `RcpInvariantScanner`'s logic,
+verified correct against 15 passing specs but not run in `live: true` mode from this session (no
+Proxmox credentials are wired into the Rails app from this sandboxed worktree); and (c), added
+mid-task once the operator granted direct infrastructure access, **live read-only SSH queries
+against dna/rna themselves** (`zpool list`, `/etc/pve/storage.cfg`, `qm config 104`,
+`/etc/pve/corosync.conf`, `smartctl`) — these are the most authoritative source where they apply
+and are cited explicitly below.
 
 ### INV-1 (no self-management)
 
@@ -88,65 +108,94 @@ task #14 / the P1-a onboarding territory, not something this increment can see o
 
 ### INV-2 (no boot-time network dependency)
 
-**A real, currently-live violation candidate, confirmed via the platform's own provisioning
-records + the provider adapter's own code:**
+**CONFIRMED LIVE, with the exact NFS export pinned down (corrected/sharpened after live access).**
 
 - The live Proxmox provider (`IPNode-PVE`, id `019e446f-916c-75d2-8f4d-b44bf7cb8664`, endpoint
   `https://dna.ipnode.net:8006`) has **no `cidata_transport` key** in its `System::Provider#config`
   (confirmed via `system_list_providers`).
 - `ProxmoxProvider#stage_cicustom`'s own doc comment states the default assumption explicitly:
   *"Defaults assume the Powernode-platform-on-ops shape: dsm-data NFS at
-  /mnt/pve-data/snippets"* — i.e. the code itself documents that ops-hub's shape is the NFS-cicustom
-  default.
-- ops-hub's currently-running instance (`019f680e-d4ff-7f17-943b-ed31eb3be8da`) has
-  `cloud_instance_id: "dna/qemu/104"` — confirming it boots via this exact Proxmox connection.
+  /mnt/pve-data/snippets"*.
+- **Live-confirmed via `qm config 104` on dna:** ops-hub's actual VM config carries
+  `cicustom: user=dsm-data:snippets/104-user.yml,meta=dsm-data:snippets/104-meta.yml` — the
+  cicustom snippets specifically ride **`dsm-data`**, an NFS export from the Synology
+  (`dsm.ipnode.net:/volume1/Data`, per `/etc/pve/storage.cfg`), matching the code's documented
+  default exactly. This pins the earlier (correct but less precise) finding down to the exact host.
 - Net: **ops-hub's boot-time cloud-init / federation-payload identity delivery depends on the
-  NFS-backed cicustom snippets channel being reachable at boot** — the frozen-LKG-adjacent hazard
-  this whole campaign traces to, and a textbook INV-2 violation (boot-critical path depends on
-  network/NFS).
-- **Residual gap:** `cidata_transport` is actually read from the `System::ProviderConnection`'s own
-  config, not the parent `Provider`'s (see "config resolution" note in
-  `boot_path_invariant_check.rb`) — no MCP tool surfaces `ProviderConnection#config` directly, so
-  this finding is corroborated (Provider-level absence + the code's own explicit framing + the
-  prior `ops-hub-cicustom-needs-nfs-snippets` operational memory) but **not independently
-  reconfirmed at the connection level** from this session. Run `rails rcp:invariant_scan` from a
-  live context (`/opt/powernode/server`, not a worktree) for the fully authoritative answer — the
-  scanner resolves through `Providers::Registry.for_instance` down to the actual connection.
-- **Not fixed here.** The remediation (setting `cidata_transport: "iso"` on the live connection, or
-  moving to the ISO transport) is a live-behavior change to a currently-functioning boot path and is
-  explicitly out of scope for this increment (flagged below).
+  NFS-backed cicustom snippets channel (`dsm-data`) being reachable at boot** — confirmed live, not
+  just inferred.
+- **Residual gap, still real:** `cidata_transport` is read from the `System::ProviderConnection`'s
+  own config, not the parent `Provider`'s. No MCP tool surfaces `ProviderConnection#config`
+  directly (confirmed by a thorough tool search — see "Approved action taken" below), so whether the
+  live *connection* (as opposed to the Provider row) already carries an override could still not be
+  read directly — though the live `qm config 104` evidence above makes this moot for ops-hub
+  specifically: whatever the connection's current config is, VM 104 was built using the cicustom/NFS
+  path, not the ISO transport.
 
 ### INV-6 (member storage = local disk, no shared NFS root)
 
-**dna-data confirmed local (re-derived, not assumed):** the live `IPNode-PVE` provider's
-`default_node: "dna"` + `default_storage: "dna-data"`, combined with ops-hub's own
-`cloud_instance_id: "dna/qemu/104"`, independently corroborates the established fact that
-`dna-data` is dna's own local storage — the same single point of failure that took ops-hub down
-once (per `ops-hub-cannot-self-provision-egress-blocks-proxmox` / this campaign's own "Why").
+**RETRACTION: the original version of this section concluded "no violation found." That was
+wrong** — it inferred "dna-data is local ZFS" from the campaign design doc's own paraphrase +
+provisioning metadata, without checking the actual PVE storage *type*. Live access corrected this:
 
-**rna's `local-data` zpool independence — NOT independently re-verified.** This audit was asked to
-confirm this "rather than assuming it from memory." A genuine attempt was made and fell short of a
-live answer:
-- No SSH access from this sandboxed worktree to `dna.ipnode.net` / `rna.ipnode.net` (tried
-  `admin@`/`rett@`, both `Permission denied (publickey,password)` — no credentialed path available
-  to this session, by design).
-- No MCP tool exposes raw Proxmox `storage.cfg` (`list_volume_types` is a `ProxmoxProvider`
-  instance method requiring live credentials, not an MCP action).
-- The platform's own `System::ProviderVolume` table has exactly one row (`dsm-powernode`, NFS,
-  unattached) — unrelated to the dna/rna PVE-cluster-local storage question.
-- **This is why `rails rcp:storage_topology[<node>,rna]` was built** (reuses the existing,
-  already-live `ProxmoxProvider#list_volume_types` — no new PVE API code): run it from
-  `/opt/powernode/server` (real credentials) to get the authoritative plugin_type/shared answer for
-  every pool visible on `rna`, closing this gap before/alongside P1-a ("ops-hub-B on rna").
-- No currently-running instance is placed on rna today (P1-a hasn't happened yet), so there is no
-  live INV-6 finding to report for rna one way or the other — this is a **pre-flight verification
-  gap**, not a detected violation.
+**`/etc/pve/storage.cfg` on dna (full listing, live) shows `dna-data` is `nfs`-type, NOT
+`zfspool`-type:**
+```
+zfspool: local-data
+	pool local-zfs/local-data
+	content images,rootdir
+	mountpoint /local-zfs/local-data
+
+nfs: dna-data
+	export /local-zfs/dna-data
+	path /mnt/pve/dna-data
+	server dna.ipnode.net
+	content vztmpl,iso,images,snippets,rootdir,import
+```
+`dna-data` is a **self-hosted NFS re-export** of a dataset carved out of dna's own `local-zfs`
+zpool (`local-zfs/dna-data`) — served over NFS (even to dna itself) so every cluster node can see
+identical content. A genuinely local, non-NFS alternative already exists on the same host:
+`zfspool: local-data` (backed directly by `local-zfs/local-data`, no NFS layer at all).
+
+**CONFIRMED LIVE VIOLATION, not a candidate:** `qm config 104` on dna (ops-hub's actual, currently
+running VM) shows:
+```
+scsi0: dna-data:104/vm-104-disk-0.raw,discard=on,iothread=1,size=160G     <- ROOT DISK
+efidisk0: dna-data:104/vm-104-disk-0.qcow2,efitype=4m,size=528K            <- EFI/bootloader disk
+ide2: dna-data:104/vm-104-cloudinit.qcow2,media=cdrom                      <- cloud-init seed drive
+```
+**ops-hub's root disk, EFI disk, and cloud-init drive are all on `dna-data` — the NFS-type
+storage — right now, on the live, running VM.** This is a materially bigger finding than the
+original INV-2-only characterization: it means ops-hub's disk I/O for its *actual root filesystem*
+rides a self-hosted NFS re-export of dna's zpool, not a direct local `zfspool` PVE storage. A hang
+or crash in dna's own NFS server daemon (independent of the underlying zpool's health) could stall
+ops-hub's root filesystem I/O — a strictly worse failure mode than a native `zfspool`-type storage
+would have, and exactly the class of hazard INV-6's "no shared NFS for member root disks" text is
+written to forbid. The underlying *bytes* being on dna's own disks (not truly remote) does not
+satisfy INV-6 — the PVE storage *type* is what matters, and it is `nfs`. **Not fixed here** — this
+was discovered during this correction pass and is a new, more urgent item for "Flagged for the
+operator" below; changing a running VM's root-disk backend is a live storage migration, categorically
+more invasive than the one narrowly-scoped, approved action this task took (see below), and was not
+attempted.
+
+**rna's `local-data` zpool independence — NOW DEFINITIVELY CONFIRMED, not just inferred.**
+Independently verified (not merely relayed) via live, read-only queries:
+- `sudo zpool list` on dna: pool `local-zfs`, **14.5T**.
+- `sudo ssh rna zpool list` (root cluster-trust, dna → rna): pool `local-zfs`, **3.62T** — same
+  *name* (Proxmox's conventional default), but a **different pool** — sizes differ by 4x, and:
+- `sudo ssh rna smartctl -i /dev/disk/by-id/ata-ST4000VN008-2DR166_ZGY9R1DG`: a physical 4TB
+  Seagate IronWolf (`ST4000VN008-2DR166`, serial `ZGY9R1DG`) — confirmed distinct physical hardware
+  from dna's pool. **Closed**: rna's storage is an independent failure domain from dna's, on
+  distinct physical disks. (No instance is placed on rna today — P1-a hasn't happened — so this is
+  pre-flight confirmation for that future increment, not a current violation finding one way or the
+  other.)
 
 **Documentation note (not a bug):** `proxmox_provider_spec.rb`'s existing `#list_volume_types` test
 fabricates a fixture entry named `"dna-data"` with `plugintype: "nfs"` purely to exercise the
-method's response-parsing logic. A comment was added at that test to head off a future reader
-mistaking that arbitrary test double for a claim about the real deployment's dna-data (confirmed
-above to be local ZFS, not NFS).
+method's response-parsing logic — a comment was added there. In an odd twist, that fixture's
+`"nfs"` plugintype turned out to match the REAL dna-data's real type after all (the comment has
+been left in place since it's still correct that the fixture was arbitrary test data, not a claim,
+at the time it was written — the audit itself is what independently established the real type).
 
 ## Shared-fate audit — residual correlated failure domains
 
@@ -158,12 +207,17 @@ P1 (ops-hub-B on rna) lands:
    is correlated across every member regardless of which zpool or which PVE node they're on.
 2. **Site power.** Same electrical circuit/UPS domain. A power event takes dna, rna, and the switch
    down together — no storage or compute redundancy addresses this on one site.
-3. **The PVE corosync quorum itself.** dna + rna are members of one Proxmox cluster; the
-   corosync/QDevice quorum layer that RCP's own P1 design *relies on* to arbitrate life/death is
-   itself a shared substrate. A corosync-level split-brain or a cluster-wide config error is a
-   single failure mode that can affect every member simultaneously — this is exactly why the design
-   doc requires the QDevice witness to sit in a **third, independent** failure domain, and why P1-b's
-   gate is a demonstrated partition test, not a paper design.
+3. **The PVE corosync quorum itself.** The cluster is **4 nodes** (confirmed live via
+   `/etc/pve/corosync.conf`): `dna` (nodeid 1, `quorum_votes: 2`), `fna` (nodeid 2, 1 vote), `lna`
+   (nodeid 3, 1 vote), `rna` (nodeid 4, 1 vote) — **5 total votes, with dna double-weighted**.
+   **Confirmed: there is currently no QDevice configured** — no `device { }` block exists in
+   corosync.conf at all. This is exactly the shared substrate RCP's P1 design *relies on* to
+   arbitrate life/death, and today it has no independent witness — dna's own double vote-weight
+   means dna alone is much closer to a quorum-deciding position than a peer, the opposite of the
+   arbitration RCP wants. This is precisely why the design doc requires a QDevice witness in a
+   **third, independent** failure domain, and confirms P1-b's witness work is a real, entirely
+   unstarted gap, not a paper requirement — this increment does not implement it (P1-b's job), only
+   confirms it's still open.
 4. **The NFS/snippets server itself (`dsm.ipnode.net`, Synology) — a fourth domain surfaced by this
    investigation, not named explicitly in the original three.** It backs BOTH the one tracked
    `ProviderVolume` (`dsm-powernode`) AND (per the INV-2 finding above) the cicustom snippets
@@ -179,24 +233,82 @@ None of these four are "bugs" to fix in this increment — they are the honest l
 and the witness-in-a-third-domain requirement (INV-7) are the acknowledged, deliberate mitigations;
 a genuine third physical site is the only way to fully retire #1–#3.
 
+## Approved action taken — INV-2 `cidata_transport: iso` (attempted, blocked on tooling)
+
+Operator/coordinator approved, after reviewing the INV-2 finding, setting `cidata_transport: "iso"`
+on the live `IPNode-PVE` provider **connection** going forward, scoped narrowly to that one config
+key.
+
+**Blast-radius analysis (completed, high confidence):**
+- `cidata_iso_transport?`/`stage_cicustom` vs. `stage_cidata_iso` are consulted **only inside
+  `create_instance`** at VM-creation time (`POST /api2/json/nodes/<node>/qemu` body construction) —
+  never re-evaluated afterward.
+- A graceful or forced reboot (`ProxmoxProvider#reboot_instance`) does **not** touch the cloud-init
+  drive at all (PVE's own `qmreboot` never reloads the cloudinit seed — confirmed by an existing
+  code comment in `reboot_instance`).
+- The only code path that *would* re-materialize a VM's cloud-init seed post-creation,
+  `reload_cloudinit_seed!` (invoked only via the public `power_cycle_instance`), is called from
+  exactly one place: `System::InstancePoolService#reload_pending_seeds!` — a **pool-reaper**
+  mechanism that retries only for **warming, not-yet-enrolled pool members**. ops-hub is a
+  standalone provisioned VM, not an instance-pool member, so this path never touches it.
+- **Conclusion: this change has ZERO effect on VM 104 (ops-hub) — not immediately, not on its next
+  reboot, not ever, short of someone manually rebuilding/re-provisioning it.** It affects only
+  **future** `create_instance` calls through this connection (new VMs, uefi_disk/direct_kernel boot
+  mode, with a payload to deliver) — those will use the ISO transport (`stage_cidata_iso`, an
+  in-process-built NoCloud ISO uploaded via the PVE storage API and attached as a CD-ROM) instead of
+  writing snippet files to NFS.
+
+**Applying it — blocked, not attempted further.** The value lives on `System::ProviderConnection#
+config` (confirmed via `BaseProvider#initialize`'s `@connection` — a `ProviderConnection`, not a
+`Provider` — and `Providers::Registry#find_connection_for_region`/`#find_connection_for_instance`,
+which query `System::ProviderConnection` directly), **not** `System::Provider#config`. A thorough
+search of the available MCP tool surface found:
+- `system_get_provider` / `system_update_provider` — operate on `System::Provider` only. Writing
+  `cidata_transport` there would be silently ineffective: `cidata_iso_transport?` reads
+  *only* the connection's own config, with no Provider-level fallback (unlike `default_storage`,
+  which does fall back — see the `pve_credential` note in this increment's code comments).
+- `system_create_provider_connection` — creates a **new, separate** `ProviderConnection` row; it
+  does not update the existing one, doesn't accept credentials directly (resolves them from Vault
+  at use time), and having two `status: "connected"` rows for the same provider+account makes
+  `find_connection_for_region`'s "first connected" resolution order-dependent/non-deterministic —
+  a materially different and riskier action than "change one field on the existing row," and not
+  attempted.
+- No generic settings/config MCP tool, and no `list`/`get`/`update_provider_connection` tool exists.
+- `rails runner`/console access from this session is not available: this agent is sandboxed to its
+  worktree, and every attempt this session to run a command against `/opt/powernode` (the live
+  checkout, where credentials decrypt) was refused by the tool layer itself (confirmed repeatedly,
+  not merely assumed from the "worktree credential decrypt empty" operational note).
+
+**Net: the approved action was not applied — not because it's unsafe (the blast-radius analysis
+above shows it is safe and correctly scoped), but because no tool available to this session can
+write `System::ProviderConnection#config` for an existing row, and creating a new row instead is a
+materially different, riskier action this task did not take.** What's needed to close this: either
+(a) an MCP tool (or a rails-console-capable session, run from `/opt/powernode/server`) that can
+update the existing `ProviderConnection` for provider `019e446f-916c-75d2-8f4d-b44bf7cb8664`
+("IPNode-PVE") — merge `{"cidata_transport" => "iso"}` into its `config` — or (b) explicit
+authorization to create a replacement connection understanding the resolution-order risk above.
+
 ## Flagged for the operator (decisions/actions, not made here)
 
 1. **`self_hosting_node_id` is not set anywhere** (mirrors `control_plane_id`'s own dormancy). Until
    an operator sets it on ops-hub's own (future, separate) backend deployment, `SelfManagementFence`
    is a correct but inert safety rail there. Recommend pairing this with task #14's runbook — both
    are "tell this deployment who/what it is" onboarding steps.
-2. **INV-2's remediation (cidata ISO transport) was found but not applied.** Setting
-   `cidata_transport: "iso"` on the live `IPNode-PVE` connection (or per-node override) would fix
-   the NFS boot-dependency, but is a live behavior change to a currently-working boot/federation path
-   this increment was told to flag rather than make. The new `options[:rcp_member_provisioning]`
-   strict gate in `ProvisioningService` will enforce this for **future** RCP-member provisions
-   (P1-a/P1-d) without touching anything already running.
-3. **Live verification owed before/alongside P1-a:** run `rails rcp:storage_topology[ops-hub,rna]`
-   and `rails rcp:invariant_scan LIVE=1` from `/opt/powernode/server` (real credentials) to (a)
-   confirm rna's `local-data` zpool's real PVE plugin_type/shared flag, and (b) get a
-   connection-level-accurate INV-2 reading. Both were built specifically because this sandboxed
-   session could not reach live infrastructure to do it itself.
-4. **This audit's scan coverage is dev-plane-only** (see the INV-1 blind spot above) — it cannot see
+2. **NEW, most urgent finding of this correction pass: ops-hub's root disk, EFI disk, and cloud-init
+   drive are confirmed LIVE on `dna-data` (NFS-type storage), not a local `zfspool`** — see the
+   corrected INV-6 section above. A genuinely-local alternative (`zfspool: local-data`) already
+   exists on dna. Moving ops-hub's root disk to it is a live storage migration (categorically more
+   invasive than the approved cidata-transport change) and was **not attempted** — this needs an
+   explicit operator decision on timing/method (likely coupled to P1's "cattle, not pets" rebuild
+   philosophy rather than an in-place migration).
+3. **INV-2's remediation (cidata ISO transport) was approved but could not be applied** — see
+   "Approved action taken" above. Needs either a new MCP tool/capability or a differently-privileged
+   session to complete. The new `options[:rcp_member_provisioning]` strict gate in
+   `ProvisioningService` will enforce this for **future** RCP-member provisions (P1-a/P1-d)
+   regardless.
+4. **No QDevice configured today** (confirmed live via corosync.conf) — P1-b's witness work is a
+   real, unstarted gap; dna currently carries double quorum weight with no independent tie-breaker.
+5. **This audit's scan coverage is dev-plane-only** (see the INV-1 blind spot above) — it cannot see
    whether ops-hub's own (if any) separate backend deployment has any self-referential fleet rows.
 
 ## Verification
@@ -205,5 +317,8 @@ a genuine third physical site is the only way to fully retire #1–#3.
   `/opt/powernode/.claude/worktrees/agent-a3605674b61f82061/server` against an isolated worktree
   test DB — `powernode_test_agent_a3605674b61f82061`).
 - `scripts/validate.sh --skip-tests --skip-ts`: pattern-validation 43/43 PASS, gitleaks 0 leaks.
-- No live node's behavior changed — every new check is nil-safe/opt-in by default; nothing in this
-  increment sets a SiteSetting or mutates any live provider/connection config.
+- No live node's behavior changed as a result of the code in this increment — every new check is
+  nil-safe/opt-in by default; nothing in the code changes sets a SiteSetting or mutates any live
+  provider/connection config. The live, read-only infrastructure queries run directly against
+  dna/rna during this correction pass (zpool list, storage.cfg, qm config, corosync.conf, smartctl)
+  were all read-only; the one approved write (INV-2 cidata_transport) was not applied, per above.
