@@ -46,7 +46,10 @@ unless conn.select_value("SELECT count(*) FROM accounts WHERE id = #{conn.quote(
 end
 verified_by_id = nil
 if verified_by_email
-  verified_by_id = conn.select_value("SELECT id FROM users WHERE email = #{conn.quote(verified_by_email)}")
+  # users.email is ActiveRecord-encrypted (deterministic) — a raw-SQL WHERE
+  # compares against ciphertext and never matches. Resolve through the model,
+  # which encrypts the query value.
+  verified_by_id = User.find_by(email: verified_by_email)&.id
   abort "ABORT: --verified-by user #{verified_by_email} not found" unless verified_by_id
 end
 
