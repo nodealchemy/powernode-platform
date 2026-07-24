@@ -298,5 +298,6 @@ Run within 5 business days of any SEV1/SEV2. Blameless format.
 - [docker-swarm.md](./docker-swarm.md) — Swarm-specific operations
 - [ai-operations.md](./ai-operations.md) — AI agent operations
 - [observability.md](./observability.md) — log aggregation + monitoring
+- [ops-hub-watchdog.md](./ops-hub-watchdog.md) — external dead-node monitoring + qmstart auto-retry for fleet nodes that self-heartbeat
 
 _Last verified: 2026-06-04_

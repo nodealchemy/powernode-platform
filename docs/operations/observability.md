@@ -200,5 +200,6 @@ The compactor needs time to free space (`retention_delete_delay: 2h`). If disk i
 - [single-node-bootstrap.md](./single-node-bootstrap.md) — the systemd install these logs come from
 - [incident-response.md](./incident-response.md) — uses these logs during incidents
 - [performance-tuning.md](./performance-tuning.md) — metrics-driven tuning
+- [ops-hub-watchdog.md](./ops-hub-watchdog.md) — external watchdog that emits into this stack's journal scrape + textfile-collector conventions
 
 _Last verified: 2026-06-04_
