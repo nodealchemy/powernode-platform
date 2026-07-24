@@ -23,9 +23,14 @@ routed to the operator, not auto-applied.
 > cloud-init drive are all on `dna-data` — i.e. **INV-6 is not just a theoretical risk, it is a live,
 > confirmed violation on the currently-running control-plane VM**; (3) rna's storage independence is
 > now definitively confirmed (own section below). The INV-2 and INV-6 sections below are corrected
-> in place; corrections are marked. Nothing was fixed live as part of this correction pass except
-> the one operator-approved action documented in "Approved action taken" — everything else remains
-> report-only.
+> in place; corrections are marked.
+>
+> **Further update, same day: the operator subsequently approved and this session executed a live,
+> verified-at-every-step online migration of ops-hub's three disks off `dna-data` onto `local-data`**
+> (see the INV-6 section for the full sequence, an anomaly hit and resolved along the way, and
+> closing verification) — **INV-6 is now compliant for ops-hub, not just documented as a gap.** The
+> INV-2 `cidata_transport` fix remains unapplied (tooling gap, not a safety concern — see "Approved
+> action taken"). Everything else in this audit remains report-only, as originally scoped.
 
 ## What was built
 
@@ -172,11 +177,30 @@ or crash in dna's own NFS server daemon (independent of the underlying zpool's h
 ops-hub's root filesystem I/O — a strictly worse failure mode than a native `zfspool`-type storage
 would have, and exactly the class of hazard INV-6's "no shared NFS for member root disks" text is
 written to forbid. The underlying *bytes* being on dna's own disks (not truly remote) does not
-satisfy INV-6 — the PVE storage *type* is what matters, and it is `nfs`. **Not fixed here** — this
-was discovered during this correction pass and is a new, more urgent item for "Flagged for the
-operator" below; changing a running VM's root-disk backend is a live storage migration, categorically
-more invasive than the one narrowly-scoped, approved action this task took (see below), and was not
-attempted.
+satisfy INV-6 — the PVE storage *type* is what matters, and it is `nfs`.
+
+**FIXED, same day, operator-approved live migration.** All three disks moved online (VM running
+throughout, zero downtime) to `local-data` (`zfspool`-type, genuinely local, ~1.22TB free at time of
+move vs. `local-lvm`'s disqualifying ~162.5GB total capacity — insufficient margin for a 160G disk).
+Sequence: `qm disk move 104 <disk> local-data --delete 0` for `efidisk0`, then `ide2`, then `scsi0`
+(smallest/lowest-risk first), each followed by a `qm config 104` + `/up` health check + `qm status
+104 --verbose` error-counter check before proceeding to the next. One anomaly hit and resolved along
+the way: the `ide2` (cloudinit) move produced a Perl warning (`Use of uninitialized value $unused_key`)
+in PVE's own code — diagnosed via three independent checks (config correctness, QEMU-level zero
+failed/invalid operation counters, and confirming the old volume was cleanly removed rather than
+orphaned) as a cosmetic bug specific to cloudinit's special-cased "no `unusedN` retention" handling,
+not a functional problem; `scsi0` (a regular disk, same category as the cleanly-moved `efidisk0`)
+moved without any anomaly, monitored throughout its ~3m41s transfer with health polled every 20s.
+The two retained old volumes (`unused0`/`unused1`, kept via `--delete 0` specifically so nothing was
+irreversible until the new storage was verified healthy) were then removed: `protection: 1` on VM
+104 blocks disk-removal operations (confirmed via `man qm.conf`: "This will disable the remove VM
+and remove disk operations" — checked non-destructively before attempting anything), so protection
+was toggled off for the single `qm disk unlink 104 --idlist unused0,unused1` call and immediately
+restored, confirmed back on via `qm config 104`. Final state: `efidisk0`/`ide2`/`scsi0` all on
+`local-data`; no `dna-data` reference anywhere in VM 104's config; `/up` and QEMU-level health clean
+throughout; the cluster-wide `dna-data` reference set (100, 107, 114, 500-503, 9000) is unchanged —
+this cleanup touched nothing but VM 104's own two orphaned volumes. **INV-6 is now compliant for
+ops-hub.**
 
 **rna's `local-data` zpool independence — NOW DEFINITIVELY CONFIRMED, not just inferred.**
 Independently verified (not merely relayed) via live, read-only queries:
@@ -294,13 +318,11 @@ authorization to create a replacement connection understanding the resolution-or
    an operator sets it on ops-hub's own (future, separate) backend deployment, `SelfManagementFence`
    is a correct but inert safety rail there. Recommend pairing this with task #14's runbook — both
    are "tell this deployment who/what it is" onboarding steps.
-2. **NEW, most urgent finding of this correction pass: ops-hub's root disk, EFI disk, and cloud-init
-   drive are confirmed LIVE on `dna-data` (NFS-type storage), not a local `zfspool`** — see the
-   corrected INV-6 section above. A genuinely-local alternative (`zfspool: local-data`) already
-   exists on dna. Moving ops-hub's root disk to it is a live storage migration (categorically more
-   invasive than the approved cidata-transport change) and was **not attempted** — this needs an
-   explicit operator decision on timing/method (likely coupled to P1's "cattle, not pets" rebuild
-   philosophy rather than an in-place migration).
+2. **RESOLVED, same day: ops-hub's root disk, EFI disk, and cloud-init drive were confirmed LIVE on
+   `dna-data` (NFS-type storage) and have since been migrated to `local-data` (genuinely local
+   `zfspool`) via an operator-approved, verified-at-every-step online migration** — see the INV-6
+   section above for the full sequence, the cloudinit anomaly encountered and resolved, and closing
+   verification. No further action needed; INV-6 is compliant for ops-hub as of this migration.
 3. **INV-2's remediation (cidata ISO transport) was approved but could not be applied** — see
    "Approved action taken" above. Needs either a new MCP tool/capability or a differently-privileged
    session to complete. The new `options[:rcp_member_provisioning]` strict gate in
