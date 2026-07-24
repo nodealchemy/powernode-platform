@@ -146,6 +146,12 @@ paths = [
     # encryption keys, JWT_SECRET_KEY and the admin password are all openssl-generated
     # at first boot into a runtime conf, never stored in the script. (IMP-22e47fc38156)
     '''extensions/system/modules/powernode-hub-backend/rootfs/usr/local/bin/rails-start\.sh$''',
+    # dev-cell SSH key generator: the private-key rule matches two format
+    # STRINGS — a doc comment quoting "-----BEGIN OPENSSH PRIVATE KEY-----"
+    # and wrap_pem() which wraps RUNTIME-generated base64 in PEM delimiters.
+    # No key material is committed; the key is generated per-instance at call
+    # time and returned once for Vault storage, never stored in source.
+    '''extensions/system/server/app/services/system/dev_cell/ssh_key_generator\.rb$''',
 ]
 
 # Ignore specific regex patterns in content
