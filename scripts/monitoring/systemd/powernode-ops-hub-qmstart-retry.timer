@@ -1,0 +1,11 @@
+[Unit]
+Description=Powernode: run the (dry-run, unarmed) qmstart auto-retry check every 30s
+Documentation=https://github.com/powernode/platform
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=30s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

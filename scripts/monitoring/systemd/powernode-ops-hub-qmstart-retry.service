@@ -1,0 +1,30 @@
+[Unit]
+Description=Powernode: dry-run qmstart auto-retry for ops-hub/VM104 (RCP v2 P0-a, NOT ARMED)
+Documentation=https://github.com/powernode/platform
+Documentation=file:///opt/powernode/docs/operations/ops-hub-watchdog.md
+# Must run on the Proxmox hypervisor host (dna) -- needs local `qm`/`pvesm` CLI.
+ConditionPathExists=/usr/sbin/qm
+After=pve-cluster.service pvedaemon.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+SyslogIdentifier=powernode-ops-hub-qmstart-retry
+EnvironmentFile=-/etc/powernode/ops-hub-qmstart-retry.conf
+
+# SAFE BY DEFAULT: no --execute flag. This unit, as shipped, ONLY EVER LOGS what it
+# would do -- it cannot start any VM regardless of what it observes. Arming requires
+# an operator to deliberately edit this ExecStart line (via `systemctl edit
+# powernode-ops-hub-qmstart-retry.service`) to add --execute, AND create the marker
+# file /etc/powernode/qmstart-retry.armed. Both gates are required in the script
+# itself too (belt-and-suspenders) -- see
+# docs/operations/ops-hub-watchdog.md#arming-qmstart-retry for the exact steps.
+ExecStart=/opt/powernode/scripts/monitoring/ops-hub-qmstart-retry.sh
+
+TimeoutStartSec=30s
+
+# Security hardening (uncomment once deployed; needs CAP access to run qm/pvesm so
+# ProtectSystem=strict etc. need care -- left commented, decide at deploy time):
+# NoNewPrivileges=true
+# PrivateTmp=true
+# ReadWritePaths=/var/lib/powernode-watchdog /var/lib/node_exporter/textfile_collector
