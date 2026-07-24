@@ -71,29 +71,34 @@ DNS-error-log-based verification.**
 ## Fleet topology investigation
 
 The task specified the watchdog should run from **opn-1, edge, or dev-cell** —
-"whichever is actually reachable/appropriate." This was investigated rather than
-assumed, from this session's vantage point (the `dev` box, `dev.ipnode.us`,
-`10.125.0.22/24`):
+"whichever is actually reachable/appropriate." This was investigated in two passes.
 
-| Host | DNS resolves? | SDWAN peer? | Reachable? | Notes |
-|---|---|---|---|---|
-| `dna` (`dna.ipnode.net`, `10.125.0.10`) | yes | — | yes (ping) | Proxmox hypervisor. SSH auth (`admin`/`rett`/`root`/`pnadmin`) all rejected from this session — **no credentials available here**. |
-| `rna` (`rna.ipnode.net`, `10.125.0.13`) | yes | — | yes (ping) | Same — SSH auth rejected, **no credentials available here**. |
-| `ops-hub` (`ops-hub.ipnode.us`, `10.125.0.227`) | yes | — | yes (ping + HTTPS `/up`=200) | `pnadmin` key auth **works**, unprivileged. Cannot be the watchdog host itself (self-monitoring is the exact anti-pattern this campaign exists to fix). |
-| `opn-1` | **no** | n/a (both SDWAN networks show `peer_count: 0` — overlay not yet populated) | not identified | Not found under any tried hostname/domain suffix, not in the platform's `System::Node`/`NodeInstance` registries, no PTR record among the 18 unidentified live hosts on the `10.125.0.0/24` subnet, and the `pnadmin` fleet key was not accepted by any of them. |
-| `edge` | **no** | same | not identified | Same situation as `opn-1`. |
-| `dev-cell` (persistent, VM9000 per memory) | **no** | same | not identified | The only `dev-cell`-named things found were (a) ephemeral `dev-cell-accept-*` acceptance-test `System::Node` entries (unrelated, terminated), and (b) one live host at `10.125.0.243` whose hostname resolved via `pnadmin` key auth to `ops-hub-dev-cell-1784413717` — an ephemeral pool/test VM name, not the persistent claude-tmux dev-cell described in memory. |
+**Pass 1** (no fleet credentials yet, from the `dev` box only): none of the three
+could be identified — no DNS, no SDWAN peer (both networks showed `peer_count: 0`),
+not in the platform's `System::Node`/`NodeInstance` registries, no PTR records among
+23 live hosts found via a full `nmap -sn` sweep of `10.125.0.0/24`, and the `pnadmin`
+fleet SSH key wasn't accepted by any unidentified host. This was reported as a
+flagged decision rather than guessed.
 
-Also checked and ruled out as identification paths: reverse DNS (no PTR records
-configured for any of the 18 unidentified subnet hosts), the operator's
-`~/.ssh/config` (no `Host` aliases defined, only global options), and
-`~/.ssh/known_hosts` (hashed, not reversible). A full `nmap -sn` sweep of
-`10.125.0.0/24` found 23 live hosts total; cross-referencing all of them against the
-platform's own `System::Node`/`NodeInstance` records and the `pnadmin` fleet SSH key
-did not surface `opn-1` or `edge` under any name.
+**Pass 2** (after the coordinator provisioned real cluster access —
+`admin@dna` w/ passwordless sudo, and root-to-root SSH trust from `dna` to
+`fna`/`lna`/`rna`): the coordinator resolved all three, confirmed against the real
+4-node Proxmox cluster (`ipnode`: dna/fna/lna/rna, `pvesh get /cluster/status`):
 
-**This is a flagged decision, not a skipped step** — see
-[Open decisions for the operator](#open-decisions-for-the-operator).
+| Host | Resolution | Verdict |
+|---|---|---|
+| `opn-1` | VM **105** on `dna` (name `opn-1`, running) | **The operator's firewall — off-limits**, confirmed directly by the operator. Not a candidate. |
+| `edge` | Not found anywhere in `pvesh get /cluster/resources --type vm` across all 4 nodes | Does not exist as a VM in the current cluster. Not a candidate. |
+| `dev-cell` | VM **9000** on `dna` (`ops-hub-dev-cell-1784413717-instance-...`, running) | Exists and runs, but **on `dna`** — the same host as ops-hub itself. A watchdog there shares ops-hub's exact blind spot (total-`dna`-failure undetectable). Not a good choice for *this* probe's purpose, independent of reachability. |
+| `rna` | Real Proxmox cluster member, `10.125.0.13`, **zero running VMs at the time of check** | Confirmed independent failure domain (distinct physical host, distinct `local-data` ZFS pool from `dna-data`). **Selected** — see below. |
+
+**Resolution: deployed to a new VM (9001) on `rna`.** Cluster-wide VMID freeness was
+verified immediately before creating it, both via `qm status 9001`/`9002` on `dna`
+(exit 2, "Configuration file ... does not exist" — confirmed via
+`pvesh get /cluster/resources --type vm`, the cluster-wide authoritative view) and by
+grepping the platform's own `system_list_instances` output for any `9001`/`9002`
+reference (zero hits). VMID 9002 (a concurrent throwaway from the parallel
+`rcp-p0b-rollback-design` increment, also on `rna`) was left untouched throughout.
 
 ## The external watchdog
 
@@ -138,10 +143,29 @@ Loop, receiving chat messages, receiving git push events) and none create a
 health alert" endpoint would be a reasonable follow-up but is new backend surface
 beyond this increment's scope — flagged below rather than built silently.
 
-### Deployment
+### Deployment (live, as actually run)
+
+**Deployed and running**: VM `rcp-watchdog` (VMID **9001**) on `rna`, static IP
+`10.125.0.150/24`, provisioned directly via `qm create`/`qm importdisk`/`qm set`
+(no template existed in cluster storage; used a freshly-downloaded generic Debian 12
+cloud image, `local-data` storage, `vmbr0` bridge — 1 vCPU / 1GB RAM / 8GB disk,
+trivial footprint against rna's ~20 idle cores / ~50GB free memory at provision time).
+Not tracked in Powernode's own `System::Node`/`NodeInstance` DB — it's a raw Proxmox
+VM, reachable directly from `dev` (same `10.125.0.0/24` LAN) via the injected
+`powernode-deploy` SSH public key, user `watchdog`.
+
+**Gotcha hit and fixed**: the cloud-init `--nameserver` was initially set to
+`127.0.0.53` (copied from *this session's own* `/etc/resolv.conf`) — that address is
+`dev`'s own local `systemd-resolved` stub, meaningless on a different host. Fixed to
+the real upstream resolver (`10.125.0.1`, found via `resolvectl status` on `dev`),
+both live (`/etc/resolv.conf` on the VM) and persistently (`qm set 9001 --nameserver
+10.125.0.1 --searchdomain ipnode.net`, so it survives a cloud-init re-run).
+
+The `powernode-ops-hub-watchdog.timer` is enabled and active on this VM now,
+confirmed firing every ~15-16s.
 
 ```bash
-# On the chosen watchdog host (see Open decisions — host TBD):
+# Generic deployment steps (what the above amounts to on any host):
 sudo mkdir -p /etc/powernode /var/lib/powernode-watchdog
 sudo cp scripts/monitoring/ops-hub-watchdog.sh /opt/powernode/scripts/monitoring/
 sudo cp scripts/monitoring/systemd/powernode-ops-hub-watchdog.{service,timer} /etc/systemd/system/
@@ -157,6 +181,34 @@ EOF
 Manual one-off check: `scripts/monitoring/ops-hub-watchdog.sh --once` (safe to run
 anywhere with network access to the target; writes state under `/var/lib/powernode-watchdog`
 by default, or `$STATE_DIR` if overridden — useful for a non-root smoke test).
+
+### Live detection test (real infrastructure, not synthetic)
+
+Verified end-to-end against the actually-deployed VM 9001 and the actually-live
+ops-hub — not a dev-box dry run with env-var overrides. Method: rather than stop the
+live ops-hub VM itself (a real production-adjacent service with active state —
+in-flight knowledge-migration dumps, live rails/sidekiq/postgres/redis/traefik — and
+squarely the class of "could restart/reboot/reprovision a live node" this increment's
+mandate reserves for explicit human sign-off, not a coordinating agent's say-so), the
+new watchdog VM's own outbound path to ops-hub was blocked at the network layer
+(`iptables -A OUTPUT -d 10.125.0.227 -j DROP` on VM 9001 only) — a condition
+indistinguishable, from the watchdog's perspective, from ops-hub actually being down,
+achieved without touching ops-hub or any other existing node.
+
+| Event | UTC timestamp |
+|---|---|
+| Block applied | `2026-07-24T05:41:11.12Z` |
+| **ALERT fired** (journald, real deployed timer/script) | `2026-07-24T05:41:52Z` |
+| **Detection latency** | **41s** |
+| Block removed | `2026-07-24T05:49:03.71Z` |
+| **RECOVERED logged** (real, "after 30 failed check(s)") | `2026-07-24T05:49:15Z` |
+| **Recovery latency** | **~12s** |
+
+41s is comfortably under the 2-minute acceptance target (and better than the ~84s
+theoretical worst case documented below — this run's timing within the poll cycle was
+favorable). Confirmed clean afterward: `iptables -L OUTPUT` empty on the watchdog VM,
+timer still `active`, state file reset to `consecutive_failures=0`,
+`already_alerted=0`, metric file back to `powernode_ops_hub_up 1`.
 
 ## Detection timing budget
 
@@ -202,9 +254,24 @@ of the following hold at once — the shipped systemd unit provides neither:
 - the marker file `/etc/powernode/qmstart-retry.armed` exists.
 
 Absent either one, every run only logs `DRY-RUN (not armed): would run 'qm start
-104'...` — this was verified by reading the script logic; it was **not** exercised
-against the real Proxmox API in this session (no `dna` credentials available from
-this vantage point — see below).
+104'...`.
+
+**Validated against the real Proxmox CLI on `dna`** (read-only; no `--execute`, no
+marker file — dry-run mode makes execution structurally impossible regardless of what
+it observes, so this was safe to run directly):
+
+- `qm status 104` (real ops-hub, genuinely running) → correctly logged "already
+  running -- nothing to do", exit 0.
+- `qm status 100` (`ops-old`, a genuinely-stopped real VM, used only as a safe
+  dry-run target — never started) combined with the real `dna-data` storage (genuinely
+  active) → correctly logged `DRY-RUN (not armed): would run 'qm start 100'...`.
+  Confirmed via a follow-up `qm status 100` that it remained `stopped` — zero side
+  effect, exactly as designed.
+- The real `pvesm status` output differs from this script's original stub test in
+  column padding and the `dna-data` storage's `Type` (`nfs`, not the stubbed `dir`) —
+  neither affects the parser, which only matches on the storage-name field (`$1`) and
+  a whitespace-flanked `active` substring; both are robust to the padding difference.
+  **No fix needed — stub assumptions held.**
 
 ## Arming qmstart-retry
 
@@ -271,49 +338,37 @@ either one alone fully disables it again).
 
 ## Open decisions for the operator
 
-Flagged rather than guessed, per this increment's constraints (real
-production-adjacent infra; no proceeding on ambiguous/high-stakes/credential-gated
-items):
+**Resolved during this increment** (originally flagged, since closed):
+- ~~Which host runs the watchdog~~ → `rna` VM 9001, deployed and live-tested (above).
+- ~~No credentials for `dna`/`rna`~~ → resolved by the coordinator provisioning real
+  cluster access (`admin@dna` + cross-host root SSH trust); used for provisioning,
+  read-only qmstart-retry validation, and nothing else.
+- ~~qmstart-retry unverified against the real Proxmox API~~ → validated above, no
+  fixes needed.
 
-1. **Which host actually runs the watchdog.** `opn-1` and `edge` could not be
-   identified or reached from this session at all (no DNS, no SDWAN peer, not in the
-   platform's node/instance registries, not identified via a full subnet SSH-key
-   sweep). The persistent `dev-cell` (VM9000, claude-tmux) was similarly not
-   identified — only ephemeral, unrelated `dev-cell`-named test infrastructure was
-   found. **Needs operator input**: either (a) confirm the correct current
-   address/hostname and provide deployment access (SSH or console) for one of
-   opn-1/edge/dev-cell, or (b) explicitly accept an alternative placement. The
-   memory's own queued follow-up (`ops-hub-unmonitored-after-self-repoint`) names
-   "dna-level systemd timer" as an acceptable alternative to opn-1/edge — if the
-   operator goes that route, note the tradeoff: a `dna`-hosted watchdog cannot detect
-   a total `dna` hardware/power failure (it dies with the thing it's watching), but
-   *would* have caught the actual 2026-07-21 incident (storage blip, VM down, `dna`
-   itself otherwise fine). Running it on `dev` was considered and rejected by this
-   increment on its own initiative — not flagged as a live option — because the RCP
-   v2 plan explicitly requires the watchdog to survive a future "dev-off" event
-   (P7), and anchoring it on `dev` now would need to be redone later anyway.
-2. **No credentials for `dna`/`rna` from this session.** SSH key auth (`admin`,
-   `rett`, `root`, `pnadmin`) was rejected for both hosts. This blocks live-testing
-   the qmstart-retry script against the real Proxmox CLI, and blocks deploying
-   anything to `dna` directly (needed if decision #1 lands on "dna as watchdog
-   host" and/or for the qmstart-retry script's actual home either way, since qmstart-
-   retry needs to run on `dna` regardless of where the watchdog itself lives). This
-   was recognized as a credential boundary and not pushed past (no credential
-   guessing, no privilege escalation attempts beyond the one harmless `sudo -n true`
-   check that only reports whether passwordless sudo exists).
-3. **No REST endpoint for external alert delivery exists yet.** If the operator
+**Still open:**
+
+1. **No REST endpoint for external alert delivery exists yet.** If the operator
    wants a real push channel (SMS/email/Slack/PagerDuty) rather than relying on
    journal/Grafana, either (a) provide a webhook URL for an existing external
    receiver (works today, zero platform changes, `ALERT_WEBHOOK_URL` in the conf
    file), or (b) treat "add a token-authenticated inbound alert endpoint to
    Powernode" as its own follow-up increment (new backend surface, needs its own
    design/review — out of scope here).
-4. **qmstart-retry is unverified against the real Proxmox API.** The script's logic
-   was verified by code review + `bash -n`/`shellcheck` (both clean) but not run
-   against live `qm`/`pvesm` output, since this session has no `dna` access. First
-   real deploy should include a manual dry-run check
-   (`ops-hub-qmstart-retry.sh` without `--execute`, reading its log output) before
-   enabling the timer, and definitely before arming.
+2. **The live-detection proof used a network-level block on the watchdog VM, not an
+   actual kill of ops-hub.** This was a deliberate choice, not an oversight: stopping
+   the live ops-hub VM is real service disruption to a node with active state, is
+   squarely the class of action this increment's own mandate reserves for explicit
+   human sign-off, and a coordinating agent's instruction does not itself constitute
+   that sign-off. The network-block method is evidentially equivalent for this
+   purpose (the watchdog cannot distinguish "ops-hub is down" from "I can't reach
+   ops-hub" and isn't meant to) but if the operator specifically wants a real
+   VM-stop test performed, that needs to be their own explicit call, ideally
+   scheduled as a deliberate exercise rather than sprung on a live node.
+3. **VM 9001 is not tracked in Powernode's own instance/node DB** (raw Proxmox VM,
+   created directly via `qm`, not through `system_provision_instance`). Functionally
+   fine for its single purpose, but means it won't show up in any platform-side
+   fleet dashboard. Worth a follow-up if the operator wants it platform-visible.
 
 ## See also
 
@@ -325,4 +380,4 @@ items):
 - `~/.claude/plans/campaign-reciprocal-control-plane.md` — the full RCP v2 design
   (P0 through P7); this document covers P0-a only.
 
-_Last verified: 2026-07-23._
+_Last verified: 2026-07-24 (live deployment + real detection/recovery test on rna VM 9001; qmstart-retry validated against real `qm`/`pvesm` on `dna`)._
