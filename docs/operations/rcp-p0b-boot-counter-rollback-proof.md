@@ -1,10 +1,12 @@
 # RCP v2 · P0-b — Boot-Counter Rollback Proof (design)
 
 > **STATUS: DRAFT design deliverable — NOT executed, NOT landed.**
-> Gated behind an independent Fable adversarial review (INV-8) **and** explicit
-> human sign-off before any live failure-injection runs (INV-10 first-of-class,
-> human-observed once). This document is the artifact those gates review. No live
-> test was triggered to produce it.
+> **INV-8 Fable adversarial review: COMPLETE — verdict needs-rework (procedure-level,
+> not structural); all four required changes are incorporated in this revision**
+> (injection containment, watchdog decomposition, arm-only scoping, five precision
+> edits). **Remaining gates before any live run: explicit human sign-off + a
+> human-observed first run (INV-10 first-of-class).** No live test was triggered to
+> produce or revise this document.
 >
 > Campaign: Resilient Control Plane (RCP) v2 · `019f9250-a199-7819-ace6-cee904116b3e`
 > Increment: `p0b-boot-counter-rollback-proof` · Model: Opus (design), Fable (review)
@@ -154,28 +156,42 @@ of the bad slot; reboot #2 = back to A). Nothing in the image triggers reboot #2
   revert never fires on its own.
 
 So the below-payload *selection* is real, but a genuine **"survive a dead/
-unresponsive agent" unattended revert (INV-3)** additionally requires a reboot
-trigger that does **not** depend on the agent or the composed payload. That
-trigger is net-new. Options, best-first:
+unresponsive agent" unattended revert (INV-3)** needs a reboot trigger that does
+**not** depend on the agent or the composed payload. It decomposes into **three
+distinct failure modes**, each with its own correct mechanism (an earlier draft's
+"a health service pets the watchdog only while healthy" is **mechanically wrong**:
+`RuntimeWatchdogSec` is petted by PID1 *unconditionally* while systemd is alive,
+and PID1 owns `/dev/watchdog` *exclusively* — a separate health unit cannot share
+it):
 
-1. **OS-level health-watchdog in base-os (recommended, below the payload).** A
-   `powernode-boot-health.service` (+ `RuntimeWatchdogSec` / hardware `/dev/watchdog`)
-   that pets the watchdog **only while the app-health gate (§3.1) is passing**.
-   A hung agent OR a dead composed app stops the pets → the watchdog resets the
-   box → reboot #2 → systemd-boot selects A. This is genuinely agent-independent
-   and network-free.
-2. **`panic=1` (or `panic=10`) in the UKI cmdline** for the DOA case, so an early
-   kernel panic auto-resets instead of hanging. Cheap, complements (1).
-3. **External watchdog = P0-a.** RCP P0-a ("Minimal fix + monitoring") is exactly
-   an external probe that detects a dead/unreachable node and can `qm reset` it.
-   This is a legitimate below-the-node trigger and the intended backstop, but it
-   is a *separate* increment; P0-b should not silently depend on it for its core
-   acceptance. Treat P0-a as the backstop, ship (1)+(2) for a self-contained
-   proof.
+- **(i) base-os up, payload dead** (systemd/PID1 alive; the common case, incl. a
+  dead agent). **No watchdog needed** — systemd is alive by definition. A
+  standalone **bake-deadline unit** (a systemd `.timer`/oneshot independent of the
+  agent process, so it survives a dead agent) checks `boot-slot.json`: if
+  `Pending != ""` and the slot is **not blessed within deadline T**, it runs
+  `systemctl reboot`, escalating to `reboot -f` if that stalls. Reboot #2 →
+  default A. This is the agent-independent trigger for the dead-payload/dead-agent
+  case.
+- **(ii) kernel / PID1 hang** (systemd itself wedged, can't run the unit above).
+  `RuntimeWatchdogSec` in systemd — but this **requires an actual watchdog
+  device**. **Open item:** confirm whether the throwaway VM (and fleet VMs
+  generally) expose one — Proxmox `i6300esb` on the VM, or the `softdog` kernel
+  module; it likely must be **added to the VM spec**, not assumed. Without a
+  device `RuntimeWatchdogSec` is inert and this case falls through to (iii)/P0-a.
+- **(iii) DOA** (kernel never reaches PID1): `panic=N` on the UKI cmdline resets on
+  a **panic** — but not on a **hang** (see §5.1 Variant A). A hang here is covered
+  only by the external probe below.
+
+**External watchdog = P0-a** ("Minimal fix + monitoring") is an out-of-band probe
+that detects a dead/unreachable node and can `qm reset` it — the legitimate
+backstop for the residual (ii)-without-device and (iii)-hang cases. P0-b should
+**not silently depend** on it for its core acceptance; ship (i) + `panic=N`,
+resolve (ii)'s device question, and treat P0-a as the backstop.
 
 An agent-initiated "reboot myself after the bake window fails" is a fine **fast
 path** but is **not sufficient alone** — INV-3's whole point is that a bricked/
-hung agent can't run its own undo, so the trigger must also exist below it.
+hung agent can't run its own undo, so mode (i)'s trigger is a *separate* systemd
+unit and modes (ii)/(iii) live entirely below the OS.
 
 ## 4. Throwaway test target
 
@@ -225,7 +241,8 @@ unilaterally):**
    (`[[shared-dna-vmid-collision-ops-hub-dev]]` — the shared pool has no VMID
    floor and previously grabbed a live VMID). Pin an explicit, reserved,
    non-colliding VMID.
-3. **Trust isolation for the broken artifact** — see §5.1.
+3. **Injection containment** — the broken artifact is injected via the **mandatory
+   local-CLI-staged path**, never platform dispatch (SAFETY-CRITICAL; see §5.1).
 
 ## 5. Concrete design
 
@@ -237,14 +254,39 @@ UKI bytes — that is refused before the ESP write and only tests the supply cha
 not the rollback. A broken *slot* must be a **legitimately cosign-signed but
 functionally-broken image** with a **distinct `git_sha`**.
 
-**Trust isolation (recommended, and it satisfies crypto-material-safety).** Sign
-the broken UKI with a **dedicated test cosign key** whose **public** half is
-provisioned onto the throwaway's platform only (`POWERNODE_COSIGN_PUBLIC_KEY[_FILE]`),
-never onto any production platform. Then a deliberately-broken image is
-**structurally unable** to be accepted by any real fleet node (different key), so
-it can never be mis-promoted. The keypair is generated and held in **CI/Vault**
-(never on a CLI, never output); this design **never handles or emits private key
-material**.
+**Containment (corrected per INV-8 review — SAFETY-CRITICAL).** An earlier draft
+claimed a test-key signature makes the broken UKI "structurally unable to be
+accepted by any real node." **That is false.** Cosign keys are **not**
+per-node-pinned: `upgrade_dispatcher.rb` reads a **platform-global** env var
+(`POWERNODE_COSIGN_PUBLIC_KEY[_FILE]`) and ships the key **inside the dispatch
+envelope**; the agent verifies against whatever key rides in the task. So a
+test-key-signed broken UKI dispatched through the **normal platform path is NOT
+contained** — a mis-targeted dispatch (exactly the VMID-collision operator-error
+class flagged in §4) could deliver a *verifying-but-broken* UKI to a **real fleet
+node**, which unpatched code would then bless on its first heartbeat. **The
+platform-dispatch path for the broken artifact is therefore FORBIDDEN.**
+
+**Mandatory containment = the local-CLI-staged path (no platform involvement).**
+Inject entirely on the throwaway, so the test key never touches platform env and
+the broken artifact never enters the publication catalog:
+
+1. Pre-stage the broken UKI on the throwaway at
+   `/persist/cache/boot-image/<sha256>.uki` — `bootupgrade.Apply` **skips the
+   download** when the staged file's sha matches (`bootupgrade.go:98`), so no
+   platform pull happens.
+2. Stage the test cosign **public** key + bundle as local files on the throwaway.
+3. Run `powernode-agent upgrade-boot-image --cosign-public-key-file <pub>
+   --cosign-bundle-file <bundle> --reboot` (flags exist, `commands.go:1131-1138`).
+   This drives the **same** `Apply → sha256 → cosign-verify → WriteUKISlot →
+   set-oneshot` path, so write fidelity is identical to production — only the
+   *trigger* and *key source* are local.
+
+**Explicitly forbidden anywhere in this procedure:** touching dev's
+`POWERNODE_COSIGN_PUBLIC_KEY[_FILE]`, promoting/registering the broken UKI as a
+`DiskImagePublication`, or dispatching it via `system_upgrade_boot_image`. The
+test keypair is generated and held in **CI/Vault** (never CLI-generated, never
+output); this design **never handles or emits private key material** — only the
+public half + bundle are staged, as files, on the throwaway.
 
 **Two failure flavors (build both; run B as primary, A as the hard-case):**
 
@@ -258,20 +300,27 @@ material**.
   bless → must revert. **Under today's unpatched code this slot is WRONGLY
   blessed on the first heartbeat** — running B against unpatched code first is the
   honest demonstration that the INV-4 gap is real; then apply §3.1 and re-run to
-  show correct rollback.
-- **Variant A — kernel/UKI dead-on-arrival (SECONDARY, hardest clause).** A
-  test-key-signed UKI that panics early (broken initramfs / unmountable root).
-  Exercises INV-3's "even if the kernel doesn't come up" clause; revert trigger is
-  `panic=1` (§3.2 opt 2) or the hypervisor's reboot-on-panic — purely
-  firmware/hypervisor, fully below the payload.
+  show correct rollback. **The unpatched demo run must keep the network UP
+  throughout** — that bless rides a real heartbeat POST, so severing the link would
+  suppress the very (wrong) bless it means to expose. Only the patched **revert**
+  run severs the network (§5.3).
+- **Variant A — kernel/UKI dead-on-arrival (SECONDARY, hardest clause).** Must
+  provably **panic**, not hang: an "unmountable root" typically **hangs in initrd**
+  (a `dracut` emergency shell / retry loop), and `panic=N` does **not** fire on a
+  hang. Pick a breakage that panics deterministically — a **truncated/corrupt
+  initramfs** section, or `init=/nonexistent` (kernel panics "No init found") — and
+  **smoke it in local QEMU first** to confirm it panics (not hangs) before the
+  throwaway run. Revert trigger is `panic=N` (§3.2 mode iii). **Residual, named:** a
+  hang-style DOA is *not* covered by `panic=N`; it falls to the external P0-a probe
+  / a VM watchdog (§3.2 mode ii) — do not claim Variant A proves the hang case.
 
-**Delivery of the injection:** the normal `system_upgrade_boot_image` MCP action
-targeting the throwaway instance (writes the inactive slot + `set-oneshot` +
-reboots). For a tighter loop that skips platform-side publication plumbing, the
-manual `agent upgrade-boot-image --reboot` CLI subcommand drives the same
-`bootupgrade.Apply` (still cosign-verifies; still needs the signed artifact).
-Either way the write path is unchanged from production — that fidelity is the
-point.
+**Fidelity note:** the mandatory local-CLI path above is not a lower-fidelity
+shortcut — it invokes the **same** `bootupgrade.Apply` (same sha256 recheck, same
+never-skipped cosign verify, same `WriteUKISlot` + `bootctl set-oneshot`) the
+platform-dispatched production path invokes. Only the *dispatch trigger* (a local
+command vs. a `System::Task`) and the *key/artifact source* (local files vs. the
+platform envelope + OCI pull) differ — and those differences are exactly what
+keeps the broken artifact off every real node.
 
 ### 5.2 Health-gate criteria (exact)
 
@@ -294,41 +343,84 @@ bake window in the **~60–90 s** band to stay within the campaign's sub-90 s
 measured-rollback ethos while still catching an early crash.
 
 If (1) holds but (2)/(3) never do within the failure budget → **do not bless**;
-default stays A; the §3.2 trigger forces reboot #2 → revert.
+default stays A; the §3.2 mode-(i) bake-deadline unit forces reboot #2 → revert.
 
-### 5.3 Expected timing & behaviour (primary run, Variant B, patched)
+**Arm-only scoping (required before this ships beyond the throwaway).** The
+bless-gate **and** the §3.2 mode-(i) bake-deadline reset **arm only while
+`boot-slot.json` `Pending != ""`** (an upgrade is genuinely in flight) and
+**disarm on bless or on revert-detection** (`booted != Pending`). Without this, a
+node with no composed `/up` — the **CI-builder majority**, and any base-os-only
+class — would fail the health gate on every ordinary boot and **reboot-loop**, and
+non-hub upgrades would become **permanently unblessable** (one-shot consumed →
+auto-revert, forever, every time). Arming only during an in-flight upgrade confines
+the whole mechanism to the exact window it is for.
+
+**Per-node-class health resolution (required for generality).** The probe URL is
+resolved from the boot breadcrumb's `AppHealth.URL` (`LKGCapturer.resolveGate`).
+The **throwaway is hub-class** (a composed control plane with `/up`), so the gate
+is well-defined and the proof is valid **for that class**. For classes with **no
+composed app** (`AppHealth.URL` empty) the "healthy" definition is undefined — a
+fallback (agent-liveness, or a node-class-appropriate check) **must be specified
+before** the gate is enabled fleet-wide. Until then, scope this bless-gate to
+composed-control-plane nodes; do **not** treat it as applicable to the whole fleet.
+
+### 5.3 Expected timing & behaviour
+
+**Two distinct runs — do not conflate their network posture:**
+
+**Run 1 — unpatched INV-4 demo (network UP throughout).** Variant B against current
+code: base-os + agent boot, first heartbeat POSTs, `ConfirmBoot` sees
+`booted == Pending` and **wrongly blesses** the broken slot (identity-only gate).
+This must run **online** — the wrong bless rides a real heartbeat; severing the link
+would hide the very failure it demonstrates. Expected (and damning) result: the
+broken slot becomes the permanent default. This is the "before."
+
+**Run 2 — patched revert run (network SEVERED to prove INV-2).** Variant B against
+§3.1-patched code:
 
 | t | Event | Layer |
 |---|---|---|
-| t0 | Operator triggers `system_upgrade_boot_image` (broken, test-signed UKI) | platform |
-| t0+s | Agent: pull → sha256 → **cosign verify (test key)** → `WriteUKISlot` `powernode-b+3.efi` → `bootctl set-oneshot` → persist `Pending=b/PendingSHA` → attempt marker → `systemctl reboot` | agent |
-| **t0+s′** | **SEVER the throwaway's network** (prove INV-2: revert must need no net) | test harness |
-| +3 s | Reboot #1: systemd-boot honours one-shot → boots `powernode-b` (rename `+2-1`), clears one-shot | **below kernel** |
+| t0 | Local CLI on the throwaway: `powernode-agent upgrade-boot-image --cosign-public-key-file … --cosign-bundle-file … --reboot` (broken UKI pre-staged at `/persist/cache/boot-image/<sha>.uki`) | agent (local) |
+| t0+s | Agent: sha256 (staged) → **cosign verify (test key, file)** → `WriteUKISlot powernode-b+3.efi` → `bootctl set-oneshot` → persist `Pending=b/PendingSHA` → attempt marker → `systemctl reboot` | agent |
+| **t0+s′** | **SEVER the throwaway's network** (prove the revert needs no net) | test harness |
+| +≤3 s | Reboot #1: systemd-boot honours the one-shot → boots `powernode-b` (rename `+2-1`); **clears `LoaderEntryOneShot` before kernel exec** (fail-safe — a crash before bless cannot re-select the bad slot) | **below kernel** |
 | boot | base-os + agent up; composed `/up` **never 2xx** (broken by design) | payload dead |
 | bake | Health gate: never 3 consecutive 2xx → **never blessed**; default stays A | agent gate |
-| +bake | **Health-watchdog stops petting** → watchdog reset (or agent fast-path reboot; DOA→`panic=1`) | **below payload** |
-| +3 s | Reboot #2: no one-shot → systemd-boot selects `default powernode-a` (good) → boots A | **below kernel** |
-| back | Healthy boot on A; `ConfirmBoot` sees booted≠Pending → `CleanSlot(b)`, clears Pending | agent |
+| +T | §3.2 **mode-(i) bake-deadline unit** (`Pending != ""`, unblessed within T) → `systemctl reboot` (→ `reboot -f` if it stalls) — independent of the agent | **below payload** |
+| +≤3 s | Reboot #2: no one-shot → systemd-boot selects `default powernode-a` (good) → boots A | **below kernel** |
+| back | Node is running the pinned good slot A | — |
 
-**Acceptance (matches P0-b + INV):** the throwaway returns to the pinned good
-slot A **unattended, with the network severed, and without the agent/payload
-participating in the revert**. Measure t0→recovered-on-A. Then the same run
-against **unpatched** code demonstrates the INV-4 gap (Variant B is wrongly
-blessed) — the before/after that makes the proof honest.
+**Acceptance for Run 2 (observed locally, network still severed): booted A **and**
+`bootctl` default still `powernode-a` **and** slot B **unblessed** (still
+counter-suffixed / not promoted).** Do **not** use "Pending cleared" as the
+criterion — `ConfirmBoot`'s `CleanSlot(b)` + Pending-clear runs on a PostSend
+*after a heartbeat*, which needs the network; that bookkeeping is expected only
+once the link is **restored** (a clean follow-up assertion, not part of the
+severed-run acceptance). Measure t0→booted-on-A. Run 1 then supplies the "before"
+that makes the before/after honest.
 
 ### 5.4 Invariant satisfaction
 
 - **INV-2 (boot ≠ network):** already true by construction (local UKI, local
   systemd-boot; update pull is post-boot). **Proven** by severing the link at
-  t0+s′ and observing the revert complete offline.
+  t0+s′ (Run 2) and observing the revert complete offline.
 - **INV-3 (rollback below the payload):** slot selection/fallback is in
   systemd-boot (below the kernel) — present. Made **unattended and
-  agent-independent** by the §3.2 OS-level watchdog + `panic=1` trigger. The
-  "dead agent" clause is proven by killing the agent/payload and still reverting.
+  agent-independent** by the §3.2 trigger set: mode-(i) standalone bake-deadline
+  unit (dead payload/agent, systemd alive), mode-(ii) `RuntimeWatchdogSec` + a VM
+  watchdog device (PID1 hang — **device presence is an open item**), mode-(iii)
+  `panic=N` (DOA panic). The "dead agent" clause is proven by killing the
+  agent/payload and still reverting via mode (i).
 - **INV-4 (good is EARNED):** bless is moved from "first heartbeat" to
   **app-health `/up` 2xx × 3 consecutive over a bake window** (§5.2), reusing the
-  LKGCapturer definition. A boots-but-broken slot can no longer be frozen good;
+  LKGCapturer definition, **armed only while an upgrade is in flight**. A
+  boots-but-broken slot can no longer be frozen good **within the bake window**;
   LKG is earned by a *completed* health-gated bake, never captured at apply-time.
+  **Residual, named honestly:** this protects only up to the bless. A slot that
+  passes the bake window and is blessed, then fails **later**, has **no
+  below-payload undo** — it is now the good default; recovery is a fresh upgrade
+  cycle or external/out-of-band action. A longer bake window trades rollout speed
+  for a smaller post-bless exposure but cannot eliminate it.
 
 ## 6. Net-new work required for P0-b (scoped)
 
@@ -336,11 +428,16 @@ blessed) — the before/after that makes the proof honest.
    `service.go`'s first-heartbeat bless to drive `ConfirmBoot` from the
    LKGCapturer-style `HealthProber`/consecutive-probe gate (share, don't
    duplicate, the health definition). *Agent, Go.*
-2. **Below-payload revert trigger** (§3.2) — `powernode-boot-health.service` +
-   `RuntimeWatchdogSec`/`/dev/watchdog` petted only while `/up` is healthy; add
-   `panic=1` to the UKI cmdline for the DOA case. *base-os module + image build.*
-3. **Deliberately-broken, test-key-signed UKIs** (Variant A + B) + **test cosign
-   keypair in CI/Vault** + throwaway-only public-key provisioning (§5.1). *CI +
+2. **Below-payload revert trigger set** (§3.2) — (i) a standalone systemd
+   bake-deadline unit (reboot when `Pending != ""` and unblessed within T,
+   agent-independent); (ii) `RuntimeWatchdogSec` **plus confirming/adding a VM
+   watchdog device** (i6300esb/softdog) for the PID1-hang case; (iii) `panic=N` on
+   the UKI cmdline. *base-os module + image build + VM spec.* **Not** "a health
+   service pets the watchdog" — mechanically impossible (PID1 owns `/dev/watchdog`).
+3. **Deliberately-broken UKIs (Variant A + B)** signed by a **test cosign keypair
+   in CI/Vault**, injected **only** via the mandatory **local-CLI-staged path** on
+   the throwaway (§5.1) — never via platform dispatch, never touching dev's global
+   `POWERNODE_COSIGN_PUBLIC_KEY`, never entering the publication catalog. *CI +
    operator; no key material handled/emitted by the implementer.*
 4. **Throwaway provisioning recipe** (§4) — fresh OVMF VM, reserved VMID, on the
    operator-chosen host/storage; teardown step.
@@ -351,9 +448,10 @@ blessed) — the before/after that makes the proof honest.
 
 This is boot-critical, root-of-trust-adjacent, and rollback-machinery. Per the
 campaign's discipline: **(a)** independent **Fable** adversarial review of THIS
-design first (give it the specific claim to refute: "the §5 procedure genuinely
-reverts a bad slot unattended, network-free, with a dead agent, and cannot freeze
-a bad slot as good"); **(b)** explicit **human sign-off**; **(c)** the first live
-run is **human-observed once** (INV-10 first-of-class). Only then does anyone
-watch it execute for real. No live failure-injection was performed for this
-document, and none should be until (a)–(c) clear.
+design — **DONE** (claim refuted: cosign keys are not per-node-pinned; verdict
+needs-rework; the four required changes are folded into §3.2 / §5.1 / §5.2 / §5.3 /
+§5.4 / §6, per the status banner); **(b)** explicit **human sign-off** — *pending*;
+**(c)** the first live run is **human-observed once** (INV-10 first-of-class) —
+*pending*. Only then does anyone watch it execute for real. No live
+failure-injection was performed for this document or its revision, and none should
+be until (b)–(c) clear.
