@@ -12,6 +12,7 @@ operator sign-off.
 - [What was verified live (boot target)](#what-was-verified-live-boot-target)
 - [Fleet topology investigation](#fleet-topology-investigation)
 - [The external watchdog](#the-external-watchdog)
+- [Monitoring multiple targets (e.g. ops-hub-B)](#monitoring-multiple-targets-eg-ops-hub-b)
 - [Detection timing budget](#detection-timing-budget)
 - [The qmstart auto-retry (built, NOT armed)](#the-qmstart-auto-retry-built-not-armed)
 - [Arming qmstart-retry](#arming-qmstart-retry)
@@ -122,11 +123,14 @@ On alert (and again on recovery), it fires three channels that degrade gracefull
    once the operator's Loki/Promtail/Grafana stack is running, these lines already
    flow in.
 2. **Prometheus textfile-collector metric**
-   (`/var/lib/node_exporter/textfile_collector/powernode_ops_hub_watchdog.prom`,
+   (`/var/lib/node_exporter/textfile_collector/powernode_ops_hub_watchdog_${TARGET_NAME}.prom`,
    only written if that directory already exists) exposing
    `powernode_ops_hub_up{target="ops-hub"}` — plugs into the same Grafana/Prometheus
    stack that `observability.md` documents as the platform's intended alerting layer,
-   once the operator adds an alerting rule on this metric.
+   once the operator adds an alerting rule on this metric. Filename is parameterized
+   by `TARGET_NAME` specifically so a second concurrent instance monitoring a
+   different target doesn't clobber this one — see
+   [Monitoring multiple targets](#monitoring-multiple-targets-eg-ops-hub-b) below.
 3. **Optional generic webhook** (`ALERT_WEBHOOK_URL` / `ALERT_WEBHOOK_TOKEN` in
    `/etc/powernode/ops-hub-watchdog.conf`) — a plain JSON POST to any receiver the
    operator already has (Slack incoming webhook, ntfy.sh, healthchecks.io,
@@ -142,6 +146,60 @@ Loop, receiving chat messages, receiving git push events) and none create a
 `Notification`/`Ai::AgentObservation`. Building a new token-authenticated "external
 health alert" endpoint would be a reasonable follow-up but is new backend surface
 beyond this increment's scope — flagged below rather than built silently.
+
+### Monitoring multiple targets (e.g. ops-hub-B)
+
+The target is **not** a SiteSetting or any DB-backed value — this script has no
+Rails/API/DB access at all, by design (it has to keep working even if the entire
+platform, including the DB it might otherwise read config from, is unreachable). It's
+a plain shell `EnvironmentFile` at `$CONFIG_FILE` (default
+`/etc/powernode/ops-hub-watchdog.conf`), which the systemd unit passes via
+`EnvironmentFile=-/etc/powernode/ops-hub-watchdog.conf` (the leading `-` means
+"don't error if absent").
+
+The integration seam for a second target (e.g. once P1-a's ops-hub-B exists) is: a
+**second config file + a second systemd service/timer pair pointing at the same
+script**, e.g.:
+
+```bash
+# /etc/powernode/ops-hub-b-watchdog.conf
+TARGET_NAME="ops-hub-b"
+TARGET_URL="https://ops-hub-b.ipnode.us/up"   # or whatever B's real address is
+TARGET_PING_HOST="ops-hub-b.ipnode.us"
+```
+
+```ini
+# /etc/systemd/system/powernode-ops-hub-b-watchdog.service (copy of the shipped
+# unit with two lines changed):
+SyslogIdentifier=powernode-ops-hub-b-watchdog
+EnvironmentFile=-/etc/powernode/ops-hub-b-watchdog.conf
+ExecStart=/opt/powernode/scripts/monitoring/ops-hub-watchdog.sh --once
+```
+
+(plus a matching `.timer` — copy `powernode-ops-hub-watchdog.timer`, rename.)
+
+Everything keyed by `TARGET_NAME` stays independent per instance: the state file
+(`${STATE_DIR}/${TARGET_NAME}.state`) already was; **the Prometheus metric file
+was NOT until this revision** — it was a static filename
+(`powernode_ops_hub_watchdog.prom`) that a second instance with a different
+`TARGET_NAME` would have silently overwritten on every run (both instances would
+still log correctly and alert correctly via journald/webhook; only the Prometheus
+metric surface would have been wrong — whichever instance ran last would clobber the
+other's gauge). Fixed here to
+`powernode_ops_hub_watchdog_${TARGET_NAME}.prom` — node_exporter's textfile
+collector scrapes every `*.prom` file in the directory, so multiple per-target files
+is the correct, supported pattern, not a workaround. Verified: two instances with
+different `TARGET_NAME` (one pointed at the real ops-hub, one at a deliberately
+unreachable address) now produce two independent files with correct, non-colliding
+values; redeployed to the live VM 9001 instance (which now emits
+`powernode_ops_hub_watchdog_ops-hub.prom` instead of the old static name).
+
+If P1-a's design wants a single unified "which ops-hub instances are down" view
+rather than N independent per-target files/timers, that's a small further step (e.g.
+a `TARGETS` list the script iterates, or a wrapper timer that invokes the script once
+per configured target) — not built here since only one target (ops-hub-A) exists
+today; flagged as a natural extension point rather than speculatively built ahead of
+need.
 
 ### Deployment (live, as actually run)
 

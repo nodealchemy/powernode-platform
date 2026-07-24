@@ -60,7 +60,12 @@ ALERT_WEBHOOK_TOKEN="${ALERT_WEBHOOK_TOKEN:-}"
 SYSLOG_TAG="${SYSLOG_TAG:-powernode-ops-hub-watchdog}"
 
 STATE_FILE="${STATE_DIR}/${TARGET_NAME}.state"
-METRIC_FILE="${TEXTFILE_COLLECTOR_DIR}/powernode_ops_hub_watchdog.prom"
+# Parameterized by TARGET_NAME (matching STATE_FILE above) so a second concurrent
+# instance monitoring a different target (e.g. TARGET_NAME=ops-hub-b once P1-a stands
+# it up) writes its own file instead of clobbering this one on every run. node_exporter's
+# textfile collector scrapes every *.prom file in the directory, so multiple files is
+# the supported, correct pattern -- not a workaround.
+METRIC_FILE="${TEXTFILE_COLLECTOR_DIR}/powernode_ops_hub_watchdog_${TARGET_NAME}.prom"
 
 # --- arg parsing -------------------------------------------------------------------
 RESET=0
