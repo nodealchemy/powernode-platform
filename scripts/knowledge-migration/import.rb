@@ -64,7 +64,10 @@ NULL_COLUMNS = {
   "ai_shared_knowledges" => %w[created_by_id git_repository_id],
   "ai_compound_learnings" => %w[ai_agent_team_id source_agent_id source_execution_id
                                 git_repository_id disproven_by_id superseded_by_id],
-  "ai_knowledge_graph_nodes" => %w[ai_skill_id ai_data_source_id source_document_id],
+  # merged_into_id is a self-FK to a (usually merged/tombstone) node that may
+  # be conflict-skipped on the target or ordered after its referrer — NULL it
+  # like the other self-refs; the merge pointer is non-load-bearing here.
+  "ai_knowledge_graph_nodes" => %w[ai_skill_id ai_data_source_id source_document_id merged_into_id],
   "ai_knowledge_graph_edges" => %w[source_document_id]
 }.freeze
 
