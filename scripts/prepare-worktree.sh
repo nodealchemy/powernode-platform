@@ -143,6 +143,19 @@ if [ "$MODE" = "create" ]; then
   fi
 
   base_ref="${BASE:-$(git -C "$MAIN" symbolic-ref --short HEAD)}"
+  # Stale-base guard: a worktree created off a LOCAL branch that lags origin
+  # silently bases new work on old code (bit the ops-hub campaign twice).
+  # Best-effort fetch, then prefer origin/<base> when it exists; offline use
+  # keeps working — fetch failure is a warning, never fatal.
+  if git -C "$MAIN" fetch --quiet origin "$base_ref" 2>/dev/null \
+      && git -C "$MAIN" rev-parse --verify --quiet "origin/$base_ref" >/dev/null; then
+    if [ "$(git -C "$MAIN" rev-parse "$base_ref")" != "$(git -C "$MAIN" rev-parse "origin/$base_ref")" ]; then
+      warn "local '$base_ref' differs from origin/$base_ref — basing the worktree on origin/$base_ref"
+    fi
+    base_ref="origin/$base_ref"
+  elif [ -n "${BASE:-}" ] && git -C "$MAIN" rev-parse --verify --quiet "$base_ref" >/dev/null; then
+    warn "could not fetch origin/$base_ref (offline? sha/tag base?) — using local '$base_ref'"
+  fi
   branch="$(basename "$TARGET_ARG")"
   info "creating worktree '$branch' off '$base_ref'"
   git -C "$MAIN" worktree add -b "$branch" "$TARGET_ARG" "$base_ref"
