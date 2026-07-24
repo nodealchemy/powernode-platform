@@ -11,6 +11,9 @@ module Ai
         "system_storage_chown_status"               => "Ai::Tools::SystemStorageOwnerTool",
         "system_storage_chown_retry"                => "Ai::Tools::SystemStorageOwnerTool",
 
+        # === Infrastructure blast-radius (RCP v2 campaign, increment P0-d) ===
+        "system_blast_radius" => "Ai::Tools::SystemBlastRadiusTool",
+
         # === Ingress / service exposure (public + local /svc) / ACME provisioning ===
         "system_reverse_proxy_compose"      => "Ai::Tools::SystemIngressTool",
         "system_expose_service_publicly"    => "Ai::Tools::SystemIngressTool",
