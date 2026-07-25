@@ -37,6 +37,30 @@ Either repoint both or neither. This is exactly the failure mode the "name thing
 addresses" rule is meant to prevent, and it was introduced *by the migration itself* — worth
 recording as evidence that partial cutovers are their own hazard.
 
+## Findings from actually provisioning a dev-cell (2026-07-25)
+
+Proving the replacement workflow surfaced four more, none visible on paper. A cell *was*
+successfully provisioned, promoted and shelled into — ruby 3.2.8 (exact match to dev), node 24,
+its own PostgreSQL 16, git, tmux, Claude Code 2.1.216, passwordless sudo, 15 GB RAM, Gitea
+reachable. The environment is genuinely capable. What was broken was everything around it.
+
+| # | Finding | Impact |
+|---|---|---|
+| 6 | **Pool promotion was permanently blocked.** The `powernode-dev-cell` template pins `sdwan_network_id` to an SDWAN network named **`dev-fleet`** that has no hub — fleet-wide `Sdwan::Peer` count was **0** before tonight. `sdwan_overlay_ready?` gates promotion on a WireGuard handshake that can never happen, so cells sat `warming` forever and `acquire_pooled_instance` would never return one. **Almost certainly why the pool sat at `target_size: 0` — it never worked.** Unblocked by deleting the two dead peer rows; both promoted within one heartbeat. Contradicts the standing "SDWAN preferred, not required" directive. |
+| 7 | **`git clone` fails from a cell — no credentials.** A cell cannot fetch source, which is the whole point. Needs a Gitea deploy token (Vault-backed). |
+| 8 | **Operator access not wired for pool cells.** Pool-created nodes carry no `config["authorized_keys"]`, so cells accept only account-user keys, not the deploy key. Works today by luck of an account key matching. |
+| 9 | **Cell provisioning depends on `dna-data`** — cidata ISOs are staged on the NFS export whose blip caused the 2-day outage. Making the dev workflow depend on it reintroduces that fragility one layer up. |
+
+Plus two non-coupling defects worth tracking: the pool **over-provisions** (manual replenish races
+the 60s reaper; both compute the same deficit, and it corrects shortfalls but not surpluses), and
+**`go` is absent** from the cell image, so a cell cannot build the agent — exactly the work that
+exposed all of this.
+
+**And the CI target has its own TLS problem:** pointing CI at ops-hub now fails with
+`curl: (60) SSL certificate problem: self-signed certificate`. ops-hub serves its own self-issued
+cert; dev has a real Let's Encrypt one. Publishing to ops-hub needs either its CA in the runners'
+trust store or a trusted cert on ops-hub.
+
 ## Still to check
 
 - **Gitea Actions secrets** — 11 exist; values are masked by the API, so `POWERNODE_AGENT_BINARY_URL`,
