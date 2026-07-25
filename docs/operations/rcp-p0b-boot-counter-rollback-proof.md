@@ -455,3 +455,76 @@ needs-rework; the four required changes are folded into §3.2 / §5.1 / §5.2 / 
 *pending*. Only then does anyone watch it execute for real. No live
 failure-injection was performed for this document or its revision, and none should
 be until (b)–(c) clear.
+
+## 8. As-provisioned state (2026-07-24, VMID 9002 on rna)
+
+The P0-b throwaway is provisioned and staged up to (but NOT including) the injection:
+
+- **VM:** `rcp-p0b-throwaway-9002` (VMID 9002) on **rna**, disk on **local-data**
+  (zpool `local-zfs/local-data`, independent per INV-6). OVMF/q35, secure boot OFF
+  (`pre-enrolled-keys=0`), serial-only console `/var/run/qemu-server/9002.serial0`.
+  Running; boots **slot A** of capability image git_sha `a60b0a0d…`; enrollment
+  pending (no identity injected — expected). Config matched to the fleet's
+  `create_uefi_disk_vm_instance` / `build_qemu_vm_body`. Only 9002 was created;
+  rna's 9001 (another agent's watchdog) + 7 stopped VMs untouched.
+- **Source-image provenance:** the cached `.raw` sha differs from the OCI
+  publication sha by a *systematic* ~316-byte PVE-import transform (confirmed
+  across 3 images) — it is the fleet's real imported capability image.
+- **Staged in `/persist/cache/boot-image/`** (offline write to the persist
+  partition ONLY — ESP left untouched, no slot written, no set-oneshot):
+  - `0ae697d0fa662ef82210f03c7d014a4977c585e57bda457e24f924f8fef74f47.uki` — the
+    **Variant-A DOA broken UKI** (real 6.8.0-136 kernel + **empty initrd** +
+    cmdline `panic=1 console=ttyS0,115200 powernode.image_git_sha=deadbeef…`).
+    QEMU-smoke-confirmed: kernel panics (`VFS: Unable to mount root fs`) then
+    `Rebooting in 1 seconds` (panic=1). **Unsigned** — signing deferred (§9.2).
+  - `rcp-p0b-test-signing.pub` — the test cosign public key (Vault transit key
+    `rcp-p0b-test-signing`, non-exportable).
+- **Access finding:** neither offline `/persist` key injection (sshd fetches keys
+  live from the platform post-enrollment into the read-only initramfs rootfs — not
+  a persist path) nor MCP-driven enrollment (no claim-confirm / claimable-physical
+  MCP tool exists) can establish shell access autonomously. Access is an **operator
+  step** (§9.1) — which fits, since the run is human-observed anyway.
+
+## 9. Human-observed run procedure (gated on INV-8/INV-10 sign-off — do NOT run without it)
+
+1. **Establish shell access (operator).** Minimal-template enrollment: pre-create a
+   claimable physical NodeInstance on a minimal-template Node (e.g. `ci-builder-amd64`,
+   4 modules, platform `019e7c7e`) with `ssh_key` = the deploy pubkey; then confirm
+   the VM's broadcast claim code in the operator UI, OR write a real `identity.cfg`
+   (`ID=<that instance UUID>`, `SERVER=https://dev.ipnode.us`) to the VM's ESP and
+   reboot (claim-by-ID auto-confirm). Post-enroll the agent fetches the deploy
+   pubkey → `ssh root@<vm-ip>`. Confirm `/usr/bin/cosign` present.
+2. **Sign the broken UKI (operator mints a FRESH Vault token first — old one expired).**
+   With the `rcp-p0b-test-signing` policy token in env, on any host with cosign + the
+   UKI file:
+   `cosign sign-blob --key hashivault://rcp-p0b-test-signing --tlog-upload=false --bundle 0ae697d0….uki.cosign-bundle <path>/0ae697d0….uki`
+   (`--tlog-upload=false` keeps the bundle offline; the node verifies with
+   `--insecure-ignore-tlog` per the inc5 fix). Stage the `.cosign-bundle` onto the VM
+   at `/persist/cache/boot-image/0ae697d0….uki.cosign-bundle`.
+3. **Run the injection (THE observed step).** SSH to the VM, then:
+   ```
+   powernode-agent upgrade-boot-image \
+     --uki-sha256 0ae697d0fa662ef82210f03c7d014a4977c585e57bda457e24f924f8fef74f47 \
+     --target-git-sha deadbeefdeadbeefdeadbeefdeadbeefdeadbeef \
+     --cosign-public-key-file /persist/cache/boot-image/rcp-p0b-test-signing.pub \
+     --cosign-bundle-file /persist/cache/boot-image/0ae697d0….uki.cosign-bundle \
+     --reboot
+   ```
+   Apply skips the download (sha-named UKI pre-staged), cosign-verifies against the
+   test pubkey, writes slot B `powernode-b+3.efi`, `bootctl set-oneshot`, reboots.
+4. **(Optional, proves INV-2)** sever the VM's network right after the reboot is
+   initiated.
+5. **Observe the rollback** on the serial socket: reboot #1 → slot B → kernel panic
+   (empty initrd / no root) → `panic=1` reboot → one-shot consumed → systemd-boot
+   selects default **slot A** → VM back on the good image. Agent-independent +
+   network-independent revert (INV-3 / INV-2).
+6. **Acceptance:** booted A **and** `bootctl` default still `powernode-a` **and**
+   slot B unblessed. (Variant-A kernel-DOA proof of INV-3; the INV-4
+   health-gate/bake-window proof — §5.3 Run 2 — needs the §3.1/§3.2 patched image,
+   deferred.)
+7. **Teardown:** `qm stop 9002 && qm set 9002 --protection 0 && qm destroy 9002` on
+   rna; remove the claimable NodeInstance record.
+
+**Scope:** this round is **Variant A only** (kernel-DOA, runnable on the current
+unpatched image). It does NOT exercise INV-4's health-gated bless / bake-window —
+that requires the net-new §3.1/§3.2 code built into a fresh capability image.
