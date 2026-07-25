@@ -30,14 +30,20 @@ be small, boring, and *not* participate in the system it rebuilds.
 | Anchor component | Where | Verified |
 |---|---|---|
 | Hypervisor | Proxmox cluster `ipnode` (dna/fna/lna/rna) | ✅ live |
-| Source of truth | Gitea `git.powernode.org` → **10.125.1.37** — a different subnet from dev (10.125.0.22), no gitea unit on dev | ✅ **off-dev** |
+| Source of truth | Gitea `git.powernode.org` → **10.125.1.37**, a separately-managed docker container. Distinct subnet from dev (10.125.0.22) and from ops-hub (10.125.0.227 = VM 104); no gitea unit on dev; not a VM in the Proxmox cluster inventory | ✅ **off-dev AND off-ops-hub** (operator-confirmed) |
 | Secrets | Vault `vault.ipnode.org` (unsealed, v1.15.6) | ✅ reachable, survives dev |
 | Golden image | `DiskImagePublication` for `ubuntu-24.04-amd64-uefi`, content-addressed in the OCI registry | ✅ exists |
 
-**Open anchor check (do this before trusting P7):** confirm Gitea is not co-resident with
-ops-hub. It is demonstrably not on dev; that it is also not on ops-hub is assumed, not
-verified. If Gitea lives on ops-hub, then ops-hub down = no source = cannot rebuild, and
-that must be fixed before anything else here matters.
+**Anchor check: CLOSED.** Gitea is independent of both dev and ops-hub — verified by address
+(10.125.1.37, distinct subnet from both), by absence from the Proxmox cluster VM inventory,
+and confirmed by the operator as a separately-managed docker container. The source of truth
+therefore survives the loss of either plane, which is what makes everything below viable.
+
+**Residual to name, not to fix now:** Gitea's availability inherits from whichever docker host
+runs that container. That host is now part of the anchor by definition, and deserves the same
+treatment as the rest of it — known, boring, and not dependent on the platform. Worth an
+explicit note in the coupling inventory (§6) so "the anchor" never quietly means "a container
+nobody is watching."
 
 **Rule: the anchor never depends on the platform.** Proxmox does not need ops-hub. Gitea does
 not need ops-hub. Vault does not need ops-hub.
