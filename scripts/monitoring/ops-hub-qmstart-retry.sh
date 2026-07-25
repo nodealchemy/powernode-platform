@@ -42,7 +42,13 @@ fi
 # --- defaults (override via CONFIG_FILE) -----------------------------------------
 VMID="${VMID:-104}"
 VM_NAME="${VM_NAME:-ops-hub}"
-STORAGE_NAME="${STORAGE_NAME:-dna-data}"
+# STORAGE_NAME is the storage whose "active" state gates a retry. This MUST track
+# where VM $VMID's disks actually live. It defaulted to dna-data (the NFS export
+# implicated in the 2026-07-21 incident) until RCP v2 P0-c migrated ops-hub off NFS
+# onto rna-local zfspool `local-data` for INV-6; verified live 2026-07-25 —
+# `qm config 104` shows efidisk0/ide2/scsi0 all on local-data. Gating on the old
+# NFS export would check a storage the VM no longer uses.
+STORAGE_NAME="${STORAGE_NAME:-local-data}"
 ARM_MARKER_FILE="${ARM_MARKER_FILE:-/etc/powernode/qmstart-retry.armed}"
 STATE_DIR="${STATE_DIR:-/var/lib/powernode-watchdog}"
 STATE_FILE="${STATE_DIR}/qmstart-retry.${VMID}.state"

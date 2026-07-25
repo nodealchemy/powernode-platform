@@ -186,7 +186,9 @@ self-healing across script/timer restarts rather than needing to catch a precise
 storage-recovery transition):
 
 1. `qm status <vmid>` — if already running, no-op.
-2. If stopped: `pvesm status` for the configured storage (default `dna-data`) — if
+2. If stopped: `pvesm status` for the configured storage (default `local-data` — it
+   was `dna-data` until P0-c migrated ops-hub off NFS; the gate must name the storage
+   the VM's disks actually live on, verified live 2026-07-25 via `qm config 104`) — if
    not active yet, log and wait for the next cycle.
 3. If stopped AND storage active: retry candidate, rate-limited to
    `MAX_ATTEMPTS_PER_WINDOW` (default 3) per `WINDOW_SECONDS` (default 3600) so a
