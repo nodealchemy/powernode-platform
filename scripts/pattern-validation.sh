@@ -185,6 +185,16 @@ fi
 # Post-0.4.0 convention: native `id: :uuid` PKs with the `uuidv7()` DB default
 # (the old `string :id, limit: 36` string-PK form was eliminated in the squash —
 # decision #8 fixed the mis-set primary_key_type: :string).
+# Agent host-path safety: a /persist-backed path declared as an unexported const
+# cannot be redirected by a test seam, so any test reaching it mutates LIVE node
+# state. This is not hypothetical — PendingComposePath was such a const, and the
+# agent suite called os.Remove on the real staged boot composition of whatever
+# host ran `go test`. The safe idiom is a `Default*` const paired with a
+# redirectable var (or a config field), which this check allows.
+check_pattern "Agent /persist paths are redirectable (no unexported consts)" \
+    "grep -rnE '^[[:space:]]*const[[:space:]]+[a-z][A-Za-z0-9_]*[[:space:]]*=[[:space:]]*\"/persist' extensions/system/agent --include='*.go' 2>/dev/null | grep -v '_test\.go:' | wc -l" \
+    "empty"
+
 check_pattern "UUID primary key usage (native :uuid + uuidv7 default)" \
     "grep -rh 'id: :uuid' server/db/migrate/ | wc -l" \
     "positive" "50"
