@@ -61,6 +61,18 @@ exposed all of this.
 cert; dev has a real Let's Encrypt one. Publishing to ops-hub needs either its CA in the runners'
 trust store or a trusted cert on ops-hub.
 
+## Finding from delivering a module to ops-hub (2026-07-26) — **BLOCKER**
+
+| # | Finding | Impact |
+|---|---|---|
+| 10 | **ops-hub's boot composition is frozen to a 2026-07-19 LKG whose `source` is `https://dev.ipnode.us`**, listing DEV's module IDs. `/persist/var/lib/powernode/assignment-lkg.json`. | 🔴 **Blocks dev-off.** Worse, it can never self-correct: `ComposeForPivot` fetches the assigned-module set **pre-pivot**, and ops-hub *is* its own platform, so the fetch always fails → every boot sets `from_lkg: true` → `LKGCapturer.Run()` returns early on exactly that condition → the LKG is never re-captured. `current_version` changes cannot reach this node at all. The documented refresh path (delete the file, let the next healthy boot recapture) **bricks** it: no LKG + unreachable platform = nothing to compose. |
+
+This one was invisible to a config audit because it lives in **on-node state**, not in a setting or
+a secret — a reminder that "find couplings by disuse" must include the nodes' own persisted state,
+not just the control plane's tables. Worked around on 2026-07-26 by retargeting the LKG through the
+agent's own `WriteBootLKG` (checksum is `sha256(json.Marshal(Modules))`, so a hand-edit is rejected);
+a supported re-freeze mechanism is still needed.
+
 ## Still to check
 
 - **Gitea Actions secrets** — 11 exist; values are masked by the API, so `POWERNODE_AGENT_BINARY_URL`,
