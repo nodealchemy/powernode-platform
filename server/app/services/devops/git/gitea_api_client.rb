@@ -746,11 +746,40 @@ module Devops
     # Gitea's contents API mishandles ref query parameters with slashes
     # (e.g. ?ref=mission/abc-feature). Passing the commit SHA instead
     # makes the API call succeed directly.
+    # Matches an ABBREVIATED commit sha — hex, long enough to be unambiguous,
+    # but shorter than the full 40. A full sha needs no expansion and a branch
+    # or tag name is not hex, so both fall through untouched.
+    SHORT_SHA_RE = /\A[0-9a-f]{7,39}\z/
+
     def resolve_ref(owner, repo, ref)
-      return ref unless ref.include?("/")
+      return expand_short_sha(owner, repo, ref) unless ref.include?("/")
 
       branch_info = get_branch(owner, repo, ref)
       branch_info&.dig("commit", "id") || branch_info&.dig("commit", "sha") || ref
+    rescue NotFoundError, ApiError
+      ref
+    end
+
+    # Gitea's /contents endpoint does NOT resolve abbreviated shas — it 404s on
+    # them while happily serving the same path for the full sha or a branch
+    # name. Verified live against the deployed Gitea: `?ref=e952ad9` -> 404,
+    # `?ref=e952ad95d8c366b1b58fe5e139dee4ea66b93b15` -> 200, same file.
+    #
+    # That matters because the platform stores module build tags as 7-char short
+    # shas (the module-forge OCI_REF convention), so every manifest fetch keyed
+    # on a build tag silently returned nil — the caller cannot tell "no such
+    # file" from "ref not understood". The /git/commits endpoint DOES accept an
+    # abbreviated sha, so use it to expand first.
+    #
+    # Falls back to the original ref on any failure: a tag or branch that merely
+    # looks hex-ish must keep working, and a fetch that would have succeeded
+    # before must not start failing because expansion was unavailable.
+    def expand_short_sha(owner, repo, ref)
+      return ref unless ref.is_a?(String) && SHORT_SHA_RE.match?(ref)
+
+      commit = get("/repos/#{owner}/#{repo}/git/commits/#{ref}")
+      full = commit.is_a?(Hash) ? (commit["sha"] || commit[:sha]) : nil
+      full.presence || ref
     rescue NotFoundError, ApiError
       ref
     end

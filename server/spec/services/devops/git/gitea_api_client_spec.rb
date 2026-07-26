@@ -1637,6 +1637,54 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
     end
 
+    # Gitea's /contents endpoint 404s on an ABBREVIATED sha while serving the
+    # same path fine for the full one (verified live). Module build tags are
+    # stored as 7-char short shas, so without expansion every manifest fetch
+    # keyed on a build tag silently returned nil — indistinguishable from
+    # "file does not exist".
+    context 'with an abbreviated commit sha' do
+      let(:full_sha) { 'e952ad95d8c366b1b58fe5e139dee4ea66b93b15' }
+
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/git/commits/e952ad9")
+          .to_return(status: 200, body: { sha: full_sha }.to_json,
+                     headers: { 'Content-Type' => 'application/json' })
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/modules/m/manifest.yaml")
+          .with(query: { ref: full_sha })
+          .to_return(status: 200,
+                     body: { content: Base64.encode64('name: m'), encoding: 'base64', type: 'file' }.to_json,
+                     headers: { 'Content-Type' => 'application/json' })
+      end
+
+      it 'expands it to the full sha before requesting contents' do
+        result = client.get_file_content('owner', 'repo', 'modules/m/manifest.yaml', 'e952ad9')
+
+        expect(result[:content]).to include('name: m')
+        expect(a_request(:get, "#{base_url}/repos/owner/repo/contents/modules/m/manifest.yaml")
+                 .with(query: { ref: full_sha })).to have_been_made
+      end
+    end
+
+    # A tag or branch that merely looks hex-ish, or an unexpandable ref, must
+    # keep working exactly as before — expansion is best-effort enrichment.
+    context 'when short-sha expansion fails' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/git/commits/abcdef1")
+          .to_return(status: 404, body: { message: 'Not found' }.to_json)
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/README.md")
+          .with(query: { ref: 'abcdef1' })
+          .to_return(status: 200,
+                     body: { content: Base64.encode64('hi'), encoding: 'base64', type: 'file' }.to_json,
+                     headers: { 'Content-Type' => 'application/json' })
+      end
+
+      it 'falls back to the original ref' do
+        result = client.get_file_content('owner', 'repo', 'README.md', 'abcdef1')
+
+        expect(result[:content]).to include('hi')
+      end
+    end
+
     context 'with non-slashed ref that returns 404' do
       before do
         stub_request(:get, "#{base_url}/repos/owner/repo/contents/missing.txt")
