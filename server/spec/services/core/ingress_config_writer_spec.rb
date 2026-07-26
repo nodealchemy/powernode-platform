@@ -200,6 +200,37 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
         .to contain_exactly("powernode-backend", "powernode-frontend", "powernode-worker-web")
     end
 
+    # The durable mirror is what lets the reverse proxy start WITH clientAuth on
+    # the next boot instead of ~2 minutes into it. /etc/traefik/dynamic is a
+    # tmpfs-backed overlay on a module-composed node, so without this the config
+    # is gone every boot and the proxy never asks for a client certificate until
+    # Rails is up — which is what left the agent 401ing on a poisoned connection.
+    it "mirrors the config next to the certs so it survives a boot" do
+      result = described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+
+      durable = result[:durable_path]
+      expect(durable).to be_present
+      # Sibling of the cert dir, derived — cert_dir is operator-configurable.
+      expect(File.dirname(durable)).to eq(File.join(File.dirname(tmp_cert_dir), "dynamic"))
+      expect(File.basename(durable)).to eq("00-host-login.yaml")
+      expect(File.read(durable)).to eq(File.read(result[:output_path]))
+      # Must be readable by the unprivileged proxy user that restores it.
+      expect(format("%o", File.stat(durable).mode)[-3..]).to eq("644")
+    ensure
+      FileUtils.rm_rf(File.join(File.dirname(tmp_cert_dir), "dynamic"))
+    end
+
+    # Pre-seeding the NEXT boot must never break ingress on THIS one.
+    it "still writes the live config when the durable mirror cannot be written" do
+      allow(FileUtils).to receive(:cp).and_raise(Errno::EACCES, "read-only")
+
+      result = described_class.ensure_host_login_ingress!(dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir)
+
+      expect(result[:durable_path]).to be_nil
+      expect(File.exist?(result[:output_path])).to be true
+      expect(YAML.load_file(result[:output_path])["tls"]).to be_present
+    end
+
     it "writes 00-host-login.yaml world-readable (0644) even under a restrictive umask" do
       # Regression: a leaked 0077 process umask previously made this NON-SECRET
       # file 0600, unreadable by the unprivileged traefik user → all :443 → 404.
