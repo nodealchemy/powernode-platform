@@ -375,7 +375,60 @@ module Core
         # File.write(perm:), which is masked by the process umask) so a stray
         # restrictive umask can never leave it 0600 → unreadable by traefik → 404.
         File.chmod(0o644, output_path)
-        { output_path: output_path, cert_file: cert_path, key_file: key_path, client_auth_ca: client_auth_ca }
+        mirrored = mirror_host_login_durably(output_path, cert_dir: crt)
+        { output_path: output_path, cert_file: cert_path, key_file: key_path,
+          client_auth_ca: client_auth_ca, durable_path: mirrored }
+      end
+
+      # Copy the rendered host-login config next to the certs it references, so
+      # the reverse proxy can restore it BEFORE this app exists on the next boot.
+      #
+      # Why: `dynamic_dir` is /etc/traefik/dynamic, which on a module-composed
+      # node is an overlay whose upper layer is tmpfs — it is empty at every
+      # boot. This file can only be regenerated once Rails is up, measured at
+      # ~2 minutes on ops-hub, and until it lands Traefik has no clientAuth and
+      # therefore never asks for a client certificate. Every agent handshake in
+      # that window produces a certless connection (see the 401 incident and
+      # transport.Client.Do). Everything this YAML *references* is already
+      # durable — the baseline cert/key and the internal CA all live in
+      # `cert_dir` — so the config was the only volatile part.
+      #
+      # Best-effort by construction: a node with no durable cert_dir (no
+      # /persist) simply has nothing to mirror, and the proxy-side restore is
+      # itself guarded on every referenced path existing. Never raises — failing
+      # to pre-seed the NEXT boot must not break ingress on THIS one.
+      def mirror_host_login_durably(output_path, cert_dir:)
+        durable_dir = durable_dynamic_dir_for(cert_dir)
+        return nil unless durable_dir
+
+        FileUtils.mkdir_p(durable_dir)
+        target = File.join(durable_dir, HOST_LOGIN_FILENAME)
+        tmp = "#{target}.tmp-#{Process.pid}"
+        FileUtils.cp(output_path, tmp)
+        File.chmod(0o644, tmp)
+        File.rename(tmp, target) # atomic: the proxy may read this concurrently
+        target
+      rescue StandardError => e
+        Rails.logger.warn("[IngressConfigWriter] durable mirror skipped: #{e.class}: #{e.message}") if defined?(Rails)
+        begin
+          File.delete(tmp) if tmp && File.exist?(tmp)
+        rescue StandardError
+          nil
+        end
+        nil
+      end
+
+      # Sibling of the cert dir: <root>/certs -> <root>/dynamic. Derived rather
+      # than hardcoded because cert_dir is operator-configurable
+      # (POWERNODE_TRAEFIK_CERT_DIR, and rails-start.sh picks /persist/... or
+      # /var/lib/... depending on whether /persist is a mountpoint).
+      def durable_dynamic_dir_for(cert_dir)
+        return nil if cert_dir.to_s.strip.empty?
+
+        parent = File.dirname(File.expand_path(cert_dir))
+        return nil if parent == "/" || parent.empty?
+
+        File.join(parent, "dynamic")
       end
 
       # The dynamic-config hash `ensure_host_login_ingress!` renders. Public so
