@@ -111,16 +111,34 @@ module Ai
 
       private
 
+      # Resolve the Gitea credential the way the rest of the platform does.
+      #
+      # This previously read `Devops::GitCredential.find_by(provider_type:,
+      # status: "active")`, and every part of that is wrong: there is no
+      # GitCredential model, provider_type lives on the PROVIDER not the
+      # credential, and "active" is the is_active boolean behind the .active
+      # scope rather than a status string. So this raised NameError on the very
+      # first line that touched it — not a caught error, an undefined constant.
+      #
+      # It is reached from a live endpoint (worktree_sessions_controller's
+      # finalize-session-with-PR action), so every call there 500'd. The same
+      # mistake was already found and fixed once in System::ManifestFetchService;
+      # this was the second copy.
       def build_gitea_client
-        # Use existing Gitea API client if available
-        if defined?(Devops::Git::GiteaApiClient)
-          credential = Devops::GitCredential.find_by(provider_type: "gitea", status: "active")
-          raise "No active Gitea credential found. Configure a Gitea credential first." unless credential
-
-          Devops::Git::GiteaApiClient.new(credential)
-        else
+        unless defined?(Devops::Git::GiteaApiClient)
           raise "GiteaApiClient not available. Ensure devops/git/gitea_api_client.rb is loaded."
         end
+
+        provider = Devops::GitProvider.find_by(provider_type: "gitea")
+        raise "No Gitea provider configured. Add a Devops::GitProvider with provider_type 'gitea'." unless provider
+
+        credential = Devops::GitProviderCredential.active
+                                                  .for_provider(provider)
+                                                  .order(is_default: :desc, created_at: :desc)
+                                                  .first
+        raise "No active Gitea credential found. Configure a Gitea credential first." unless credential
+
+        Devops::Git::GiteaApiClient.new(credential)
       end
 
       def build_pr_body(session)
