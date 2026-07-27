@@ -14,7 +14,7 @@ operator sign-off.
 - [The external watchdog](#the-external-watchdog)
 - [Monitoring multiple targets (e.g. ops-hub-B)](#monitoring-multiple-targets-eg-ops-hub-b)
 - [Detection timing budget](#detection-timing-budget)
-- [The qmstart auto-retry (built, NOT armed)](#the-qmstart-auto-retry-built-not-armed)
+- [The qmstart auto-retry (ships dry-run; ARMED on `dna`)](#the-qmstart-auto-retry-ships-dry-run-armed-on-dna)
 - [Arming qmstart-retry](#arming-qmstart-retry)
 - [Existing infrastructure reused vs. not used](#existing-infrastructure-reused-vs-not-used)
 - [Open decisions for the operator](#open-decisions-for-the-operator)
@@ -283,9 +283,18 @@ Acceptance: killed/unreachable ops-hub detected + alerted in **< 2 minutes**.
   began (+21s) ≈ **~84s worst case** — comfortably under the 120s target with ~36s of
   margin for scheduling jitter.
 
-## The qmstart auto-retry (built, NOT armed)
+## The qmstart auto-retry (ships dry-run; ARMED on `dna`)
 
 `scripts/monitoring/ops-hub-qmstart-retry.sh` (+ `scripts/monitoring/systemd/powernode-ops-hub-qmstart-retry.{service,timer}`).
+
+> **Live state (verified 2026-07-26, not inferred):** the timer is active on `dna` and
+> the arm marker `/etc/powernode/qmstart-retry.armed` is **present** — so on `dna` this
+> is executing for real, not dry-running. The operator armed it 2026-07-25 after both
+> logic branches were exercised against the live Proxmox CLI. The *code* default below
+> is unchanged and still dry-run; arming is deployment state, held in a marker file on
+> one host, and is invisible to this repo. Re-verify with
+> `systemctl list-timers powernode-ops-hub-qmstart-retry.timer` and
+> `test -f /etc/powernode/qmstart-retry.armed` rather than trusting this note.
 
 Runs on the Proxmox hypervisor (`dna`) — needs local `qm`/`pvesm` CLI, unlike the
 watchdog above which runs on a third-party host. Directly targets the 2026-07-21
