@@ -196,10 +196,40 @@ active? :=  quorate?  AND  this_node_is_active_by_rule?
 - `quorate?` — read from corosync votequorum (e.g. via `corosync-quorumtool`/the votequorum API, or
   a small local helper). Encodes `wait_for_all` + the qnetd tie-break for free.
 - `this_node_is_active_by_rule?` — the **election rule (§4.3)**.
-- **DEFAULT-INERT:** if **no role coordinator is configured** (single-plane / core-mode — the
-  default), `active?` returns **true**, so nothing changes for a single-node deployment. The gate
-  only bites when a quorum/role coordinator is explicitly configured. This mirrors `ControlPlaneFence`'s
-  own careful "inert unless configured" property.
+**IMPLEMENTED 2026-07-26** — `extensions/system/server/app/services/system/autonomy/control_plane_role.rb`,
+20 specs, four fail-open mutants verified caught. No longer design-only, and deliberately **not yet
+wired into `ControlPlaneFence`** (§4.4, §6.4): the code exists so the fail-closed claim is executable
+and testable, while the live behaviour change stays a separate, ordered, operator-observed step.
+
+- **ARMED-ness is a DB marker, and arming is one-way.** The gate is inert (returns `true`) until the
+  `control_plane_role_coordinator` **SiteSetting** is present, so a single-plane deployment — today,
+  and core-mode forever — is unaffected. **Once armed, an unreadable, unparseable, stale, inquorate,
+  or non-electing reading yields `active? == false`. It never falls back to inert.**
+- **Why a SiteSetting and not on-host state.** An earlier revision said only "if no role coordinator
+  is configured" and never defined where "configured" lives. If armed-ness were inferred from the
+  host — is corosync installed, does `/etc/corosync/corosync.conf` exist — then an image re-compose
+  or pivot that drops an ad-hoc install silently returns **both** planes to active. The ops-hub
+  guests are composed A/B-image appliances where exactly that class of drop is a **recorded incident
+  class**, not a hypothesis. A SiteSetting lives in the database, survives re-image, and cannot be
+  lost by a composition change. Disarming is an explicit operator act, never an inferred one.
+- **Freshness is part of the contract.** `ControlPlaneFence` memoizes its self-id for a whole
+  reconcile pass, which is right for an identity that cannot change mid-pass. Quorum is the
+  opposite — it changes underneath a running process, and this platform has a **recorded
+  stale-poll-read bug class**; the same bug here is a split-brain bug. So `active?` re-reads on every
+  call, and a `Reading` carries a `valid_until`. An irreversible action should capture a reading,
+  carry it with the plan, and re-assert `active?(reading:)` immediately before committing, so a plan
+  authored while quorate cannot be committed after quorum was lost.
+- **A wedged plane is handled by the same property, not a second mechanism.** Freshness is *pulled*
+  at the point of use. Nothing pushes an "I am active" flag that a stalled updater could leave
+  behind for the gate to read as consent — so a plane that is hung is, by construction, not
+  confirming anything, and is therefore not active. This is what replaces the watchdog backstop that
+  §6.2's removal cost (§4.5).
+- **The QDevice is a vote, not a candidate.** `corosync-quorumtool -s` lists the qnetd device in the
+  membership table as **node id 0**. Counting it makes 0 the minimum, so no real node is ever lowest,
+  **both** planes stand down, and the control plane is permanently dead — while every symptom looks
+  like the gate correctly failing closed. It is excluded explicitly. This was a live bug in the first
+  implementation, caught only because the spec used verbatim `corosync-quorumtool` output; a tidied
+  fixture would have hidden it.
 
 ### 4.3 Election rule (this is where INV-7's asymmetry-intent lives)
 
@@ -245,10 +275,28 @@ def fence_to_control_plane(relation)
   relation.where("#{col} IS NULL OR #{col} = ?", self_id)  # existing narrowing
 end
 
-# NEW. DEFAULT-INERT: true when no role coordinator is configured (single-plane == today).
+# NEW. Inert (true) only while UNARMED. Once the coordinator SiteSetting is
+# set, anything short of a fresh, quorate, electing reading is false — see §4.2.
 def control_plane_active?
   System::Autonomy::ControlPlaneRole.active?
 end
+```
+
+**Wiring status: NOT APPLIED, deliberately.** `ControlPlaneRole` is implemented and specced; this
+augmentation is the step that gives it teeth over every actuator at once, and it is therefore the
+**last** step of §6.4's enable order rather than part of shipping the gate. Until it is wired,
+`active?` can be computed and observed on both planes with zero behavioural risk — which is exactly
+what §6.4 steps 4–6 rely on to validate the election before anything depends on it.
+
+For an irreversible actuator, prefer the carried-reading form over a bare re-check, so a plan
+authored while quorate cannot be committed after quorum was lost:
+
+```ruby
+reading = System::Autonomy::ControlPlaneRole.current_reading
+plan    = build_plan(...)                     # authored under this reading
+# ... later, immediately before committing:
+return unless System::Autonomy::ControlPlaneRole.active?(reading: reading)
+commit!(plan)
 ```
 
 Layered enforcement, honestly labeled:
@@ -415,6 +463,51 @@ weakens the design rather than simplifying it.
 
 </details>
 
+### 6.4 Enable ORDER and the undo path (both mandatory — INV-10)
+
+Previously absent, and its absence was itself the defect: the increment specified an end state with
+no route into or out of it. **Order is not a detail here — the wrong order takes the only live
+control plane offline**, silently.
+
+**Why order matters.** `wait_for_all: 1` means a member is not quorate until the full membership has
+formed **at least once**. So if plane A's gate is armed *before* the quorum has ever converged —
+B not yet joined, or qnetd not yet serving — A is inquorate, `active?` is false, every actuator
+stands down, and the fleet stops being reconciled with no error raised anywhere. It looks like the
+gate working correctly, because it *is* the gate working correctly on a quorum that was never built.
+
+**Enable order (each step gated on the previous being observed, not assumed):**
+
+1. Stand up `corosync-qnetd` on `fna`. Verify it is serving and reachable from both members.
+2. Deliver corosync + `corosync-qdevice` to **both** planes as a **NodeModule** — not an ad-hoc
+   install (see §4.2: ad-hoc host state does not survive a re-compose, and losing it would unarm the
+   gate on a plane that is supposed to be gated).
+3. Bring the quorum up with **both gates still unarmed**. Confirm with `corosync-quorumtool -s` on
+   each plane: quorate, membership `{A, B}` plus the QDevice, and that the QDevice appears as node
+   id **0** (the exclusion in §4.2 depends on this shape — verify it on the real substrate rather
+   than trusting the fixture).
+4. Confirm the election *reads* correctly while still inert: `ControlPlaneRole.current_reading` on
+   each plane, asserting A computes `elected? == true` and B computes `false`. Nothing is gated yet,
+   so a wrong answer here costs nothing.
+5. Arm **B** first (`control_plane_role_coordinator` SiteSetting on B). B is the standby and carries
+   no live load, so if the gate misbehaves the blast radius is a plane that was doing nothing.
+   Observe B stood down and still healthy.
+6. Arm **A** last, and only after B has been observed correct for a full reconcile interval.
+7. Wire the `ControlPlaneFence` augmentation (§4.4) **last of all**, since that is the step that
+   actually gives the gate teeth. Until then `active?` is computed and observable but not enforced —
+   which is deliberately how it ships today.
+
+**Undo (per-plane, must return to exactly today's behaviour):**
+
+- **Disarm:** delete the `control_plane_role_coordinator` SiteSetting on that plane. `armed?` is read
+  fresh on every call and is **not** memoized, so this takes effect within one gate evaluation —
+  no restart, which matters because the failure mode you are undoing may be "this plane will not
+  act". Verify: reconcilers resume, `active?` returns true, `/up` healthy.
+- **Full rollback:** disarm both planes, then stop `corosync-qdevice` on the members and
+  `corosync-qnetd` on `fna`. The guest quorum is self-contained, so nothing on `ipnode` is touched at
+  any point of the rollback.
+- **The undo must be exercised on the throwaway before the live run** (§8.4), not merely written
+  down. An untested rollback is a plan, not a rollback.
+
 ### 6.3 Application
 
 - `System::Autonomy::ControlPlaneRole` reads §6.1 quorum + applies the §4.3 election rule.
@@ -489,11 +582,24 @@ controlled window.
      (witness loss alone ≠ outage — the `fna`-reboot case).
    - `A'|B'` partition **with `W'` also unreachable** → **neither** quorate, **both** stand down
      (conservative: unavailable, not split — **the accepted shared-switch residual from §7**).
-5. **Wedged-loser probe.** Force `B'` to keep "acting" after it loses quorum (simulate a hung loser);
-   assert the top-of-pass `active?` re-check demotes it within one cycle, and that the optional
-   Proxmox-API hard-stop would stop it (stubbed against the disposable VM).
+5. **Wedged-loser probe — must wedge for real.** Suspend the loser's process with **`SIGSTOP`**, do
+   not merely "force it to keep acting". A process that is still evaluating its own gate is a
+   *cooperative* plane, and cooperation is precisely the assumption under scrutiny — a cooperative
+   stand-down passing this step proves nothing. With `SIGSTOP` the plane holds whatever it had
+   in-flight and confirms nothing further, which is what a hang actually looks like.
+   Assert: **no actuation occurs while suspended**, and on `SIGCONT` the plane does not commit any
+   plan it authored before losing quorum (the carried-reading deadline in §4.2 is what should stop
+   it — this is the step that tests it). This case matters more since §6.2's removal: it is the
+   residual that lost its watchdog backstop (§4.5).
 6. **Heal + failback.** Restore the link; assert clean rejoin, no flap storm, and the §4.3 failback
    behavior (A' resumes active) — record whether flapping argues for the sticky variant.
+7. **Enable-order and rollback drill (§6.4).** Two failure-shaped rehearsals, both on the throwaway:
+   - **Wrong order, deliberately:** arm `A'` *before* the quorum has ever formed. Assert it goes
+     inquorate and stands down — i.e. reproduce the outage §6.4 exists to prevent, so the ordering
+     rule is evidence rather than assertion. Then recover by disarming.
+   - **Undo:** exercise the full per-plane disarm and the full rollback. Assert reconcilers resume
+     **without a process restart** (`armed?` is read fresh), and that nothing on the host cluster was
+     touched at any point. An untested rollback is a plan, not a rollback.
 
 ### 8.3 Pass criteria (map to P1-b acceptance)
 
@@ -503,6 +609,13 @@ controlled window.
 - The witness-loss and switch-failure (witness+member) cases behave as §4.3 predicts (fail
   conservative, no split-brain).
 - Winner is the **same** at the quorum layer (qnetd) and the election layer (rank rule).
+- A **`SIGSTOP`-wedged** loser actuates nothing while suspended, and commits nothing it authored
+  pre-partition once resumed.
+- The **wrong enable order reproduces the stand-down** (proving §6.4's rule is load-bearing), and
+  **disarm restores today's behaviour without a restart**.
+- The QDevice is confirmed to appear as node id **0** on the real substrate, and the elected plane is
+  computed **excluding** it (§4.2). If a build numbers the QDevice differently, the exclusion rule
+  must be re-derived from the observed output before arming anything.
 
 ### 8.4 Evidence bundle for INV-8
 
@@ -514,10 +627,16 @@ must be shown, not asserted.**
 
 ## 9. Assumptions & uncertainties (explicit — do not treat as settled)
 
-1. **Relied on session-provided ground truth** for `ipnode` (4 nodes; dna 2 votes; total 5; quorum
-   3; **no `device{}`**). **Did not read `/etc/pve/corosync.conf`** (it lives on the PVE host, not
-   reachable from this guest worktree; design-only anyway). **Re-verify on the host before any
-   change** (§10).
+1. ~~Relied on session-provided ground truth for `ipnode`.~~ **CLOSED 2026-07-26 — read directly
+   from `/etc/pve/corosync.conf` on dna.** Confirmed: `cluster_name: ipnode`, `config_version: 16`,
+   `secauth: on`, `ip_version: ipv4`, `link_mode: passive`, nodes dna(1, **2 votes**)/fna(2)/lna(3)/
+   rna(4), and a `quorum{}` block containing **only** `provider: corosync_votequorum` — no
+   `device{}`. `pvecm status`: expected 5, quorum 3, quorate. The design's assumptions held.
+   **One thing the original ground truth did not mention and which matters: there is a SINGLE ring
+   (`linknumber: 0`, no redundant link).** That is what makes a lone NIC/cable/switch-port event
+   sufficient to cost quorum, and it is a load-bearing part of why §6.2's watchdog arming was
+   rejected. Also confirmed live: `corosync-qnetd` is **not installed anywhere** on the cluster
+   today (candidate `3.0.3-2` available), so step 1 of §6.4 starts from nothing.
 2. **Assumed ops-hub-A/B are QEMU guests** (per "VM 104", "VM on rna"), **not** LXC and **not**
    intended to become PVE cluster members.
 3. **`wait_for_all` cold-start caveat (real, and desired here):** after a total outage where only one
