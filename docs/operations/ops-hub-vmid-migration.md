@@ -163,14 +163,35 @@ sudo journalctl -u powernode-ops-hub-qmstart-retry -n5        # expect: "already
 Also update the repo default so a fresh deploy does not reintroduce 104:
 `scripts/monitoring/ops-hub-qmstart-retry.sh` → `VMID="${VMID:-600}"`.
 
-**6b. The platform's own record** (on the ops-hub plane, once it is up):
+**6b. The platform's own record** (on the ops-hub plane, once it is up).
+
+> **`cloud_instance_id` is a key inside the `config` jsonb, NOT a column.** Querying it as a column
+> raises `PG::UndefinedColumn`. The name appears as a top-level field in provider serializer output,
+> which is where the wrong assumption comes from.
+
+> **Do NOT blanket-update everything matching `/104`.** VMIDs get reused over time, so old rows
+> legitimately reference 104 and are not ops-hub. On the dev plane this matched **seven** rows —
+> six terminated/error records (a claude-tmux rehearsal, an enroll-fix instance, an accept-test, and
+> three CI builders) plus the real one. Repointing all of them would have left six stale rows
+> claiming to be VM 600, i.e. pointing at the live control plane; a reconciler acting on one of those
+> would target ops-hub. **List first, then update only the row whose name is the ops-hub instance.**
 
 ```ruby
-i = System::NodeInstance.find_by("cloud_instance_id LIKE ?", "%/104")
-i&.update!(cloud_instance_id: i.cloud_instance_id.sub(%r{/104\z}, "/600"))
+# 1. LOOK. Do not skip this step.
+System::NodeInstance.where("config ->> 'cloud_instance_id' LIKE ?", "%/104").each do |i|
+  puts "#{i.name}  status=#{i.status}"
+end
+
+# 2. Update ONLY the ops-hub row, by name.
+i = System::NodeInstance.find_by(name: "ops-hub-instance-20260715231350-052f")
+i.update!(config: i.config.merge("cloud_instance_id" => "dna/qemu/600"))
+
+# 3. Confirm exactly one row claims /600.
+System::NodeInstance.where("config ->> 'cloud_instance_id' = ?", "dna/qemu/600").pluck(:name)
 ```
 
-Check the **dev plane** for a row too — both planes have driven this cluster.
+Run the same three steps on the **dev plane** — both planes have driven this cluster, and the dev
+plane is where the stale rows live.
 
 **6c. The external watchdog** (rna VM 9001) needs no change: it keys on `TARGET_NAME=ops-hub`, not
 the VMID. Confirm it is still reporting rather than assuming.

@@ -3,9 +3,10 @@
 #
 # WHY THIS EXISTS (see /home/rett/.claude/plans/campaign-reciprocal-control-plane.md
 # and platform memory ops-hub-unmonitored-after-self-repoint / ops-hub-lkg-self-pointed-dns-brick-risk):
-# since ops-hub (VM104) was repointed to its own platform_url, it heartbeats ONLY to
-# itself. Dev's own NodeInstance table for ops-hub is stale/terminated and alerts
-# nothing. The 2026-07-21->23 incident (dna-data NFS blip failed a manual `qmstart 104`,
+# since ops-hub (VM600 — VM104 until 2026-07-26) was repointed to its own
+# platform_url, it heartbeats ONLY to itself. Dev's own NodeInstance table for
+# ops-hub is stale/terminated and alerts nothing. The 2026-07-21->23 incident (a
+# dna-data NFS blip failed a manual qmstart of what was then VM104,
 # nothing retried, node down ~2 days unnoticed) happened precisely because no
 # INDEPENDENT third party was watching. This script is that third party: it must run
 # on a host that is NOT ops-hub itself (self-monitoring is the exact anti-pattern this
@@ -46,6 +47,10 @@ fi
 
 # --- defaults (override via CONFIG_FILE) -----------------------------------------
 TARGET_NAME="${TARGET_NAME:-ops-hub}"
+# Used ONLY in the alert text, to hand the operator the right next command. This
+# script's DETECTION is deliberately VMID-free (it probes the URL below), so a
+# wrong value here degrades an alert message and never the monitoring itself.
+TARGET_VMID="${TARGET_VMID:-600}"
 TARGET_URL="${TARGET_URL:-https://ops-hub.ipnode.us/up}"
 TARGET_PING_HOST="${TARGET_PING_HOST:-ops-hub.ipnode.us}"
 # 3s: tight enough that 3 consecutive failures at a 15s timer cadence (see the
@@ -166,7 +171,13 @@ else
 
   if [[ "${consecutive_failures}" -ge "${FAILURE_THRESHOLD}" ]]; then
     if [[ "${already_alerted}" -eq 0 ]]; then
-      log crit "ALERT: ${TARGET_NAME} DOWN -- ${consecutive_failures} consecutive failed checks, ${reachability}. Investigate via dna's Proxmox provider (qm status 104) before any action -- see docs/operations/ops-hub-watchdog.md."
+      # The VMID appears here because this text is read during an outage, by someone
+      # who needs the next command rather than a lookup. That also makes it the text
+      # most likely to send them somewhere wrong: ops-hub-A moved 104 -> 600 on
+      # 2026-07-26, and `qm status 104` now reports a VM that does not exist — which
+      # reads as far worse than reality at exactly the moment nobody can afford it.
+      # Parameterised so the next retarget cannot strand it again.
+      log crit "ALERT: ${TARGET_NAME} DOWN -- ${consecutive_failures} consecutive failed checks, ${reachability}. Investigate via dna's Proxmox provider (qm status ${TARGET_VMID}) before any action -- see docs/operations/ops-hub-watchdog.md."
       send_webhook "ALERT: ${TARGET_NAME} DOWN (${consecutive_failures} consecutive failures) -- ${reachability}"
       already_alerted=1
     else
