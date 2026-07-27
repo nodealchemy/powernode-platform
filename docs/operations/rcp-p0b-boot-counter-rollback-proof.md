@@ -1,6 +1,27 @@
 # RCP v2 · P0-b — Boot-Counter Rollback Proof (design)
 
-> **STATUS: DRAFT design deliverable — NOT executed, NOT landed.**
+> ## ⚠️ SUPERSEDED BY EXECUTION — read this before anything below
+>
+> **This test has been run. Twice.** The status block below is the pre-execution
+> state and is preserved deliberately, unedited, because §9's procedure is what was
+> actually followed and the reasoning that produced it is the audit trail. Do not
+> read it as current.
+>
+> | Run | Date | Outcome |
+> |---|---|---|
+> | First | 2026-07-25 | **FAILED** — rollback did not fire. The upgrade path overwrote systemd-boot itself, and the node took 48 boots of a bad image / 24 kernel panics before host-side offline surgery recovered it. Full account: [`rcp-p0b-rollback-failure-2026-07-25.md`](rcp-p0b-rollback-failure-2026-07-25.md). |
+> | Second | 2026-07-25 | **PASSED** — after the root cause (A/B rollback wrote the wrong EFI GUID, so the machinery had never worked on any node) was fixed. Rollback fires unattended in ~20s. |
+>
+> The failure is the more valuable record of the two: it caught a node-bricking
+> defect in the exact machinery P1-d was about to point at the live control plane.
+> **INV-4 (health-gated bless) is a separate claim and was not proven by either run** —
+> Variant B, this design's own primary case, was never built.
+>
+> **VM 9002 (§8) is still running on rna** as of 2026-07-26 and is a reap candidate;
+> it is a throwaway with no dependents.
+
+> **STATUS (pre-execution snapshot, 2026-07-24 — retained for audit, not current):**
+> **DRAFT design deliverable — NOT executed, NOT landed.**
 > **INV-8 Fable adversarial review: COMPLETE — verdict needs-rework (procedure-level,
 > not structural); all four required changes are incorporated in this revision**
 > (injection containment, watchdog decomposition, arm-only scoping, five precision
