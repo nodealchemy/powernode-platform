@@ -30,11 +30,15 @@
    are **guest VMs**, not corosync members of the `ipnode` Proxmox host cluster (whose members are
    the hosts dna/fna/lna/rna). RCP's consensus group is a **purpose-built arbiter for the ops-hub
    pair, layered *above* `ipnode`** — **`ipnode`'s corosync is NOT modified** (§1).
-2. **Chosen mechanism (operator-approved):** Proxmox HA keeps the VMs alive; a **2-member+witness
-   quorum** (recommended substrate: **corosync votequorum + a qnetd QDevice on `fna`, no
-   Pacemaker**) elects exactly one **active plane**; the loser **cooperatively stands down**;
-   enforcement rides the **existing `ControlPlaneFence`** via a small **active-role precondition**
-   (§3–§4).
+2. **Chosen mechanism (operator-approved):** a **2-member+witness quorum** (recommended substrate:
+   **corosync votequorum + a qnetd QDevice on `fna`, no Pacemaker**) elects exactly one **active
+   plane**; the loser **cooperatively stands down**; enforcement rides the **existing
+   `ControlPlaneFence`** via a small **active-role precondition** (§3–§4).
+   **Proxmox HA is NOT used** — the operator removed it from scope on 2026-07-26 (§6.2). `ipnode`
+   keeps zero HA resources, no node becomes self-fence-capable, and VM-level liveness is provided
+   by *having a live peer*, not by restarting a dead one. This removes the design's single largest
+   blast-radius item and widens exactly two residuals, both named: §2's INV-7 host-death clause and
+   §4.5's wedged loser.
 3. **INV-7 is met in intent, not literally, and this is documented explicitly (§2).** `wait_for_all`
    is met literally. STONITH (power/BMC) and `priority-fencing-delay` are **not** used — there is
    **no IPMI/BMC driver** (verified in code) and no Pacemaker; the deterministic-winner *intent* is
@@ -99,7 +103,7 @@ documented honestly. Clause by clause:
 | INV-7 clause | Literal? | What we actually do |
 |---|---|---|
 | **`wait_for_all`** | ✅ **Literal** | corosync votequorum `wait_for_all: 1` on the guest quorum — a lone node cannot be quorate at cold start until the pair has formed once. Directly implements "an isolated node is structurally incapable of acting on its peer until quorum re-forms." |
-| **STONITH (power/BMC)** | ❌ **Not literal** | **No IPMI/BMC driver exists** (verified — §5). No host power-fence. The loser **cooperatively stands down** on quorum loss (the role gate, §4); a **wedged** loser can be hard-stopped via the **Proxmox-API guest stop** (not a true power-fence — §5). Host *death* is handled by the existing Proxmox **watchdog self-fence**. |
+| **STONITH (power/BMC)** | ❌ **Not literal** | **No IPMI/BMC driver exists** (verified — §5). No host power-fence. The loser **cooperatively stands down** on quorum loss (the role gate, §4); a **wedged** loser can be hard-stopped via the **Proxmox-API guest stop** (not a true power-fence — §5). **Host *death* is now handled by nothing** — with Proxmox HA removed (§6.2) no LRM ever holds a lock, so **no node self-fences**. A dead host simply takes its guest with it, which is survivable (the peer becomes active). A host that is **partitioned but alive** is the case that lost its backstop — see §4.5. |
 | **asymmetric fencing delay (`priority-fencing-delay`)** | ❌ **Not literal (mechanism)** / ✅ **intent** | No Pacemaker ⇒ no `priority-fencing-delay`. The *intent* — a deterministic, non-symmetric winner — is met by the **rank-based election rule** (active = quorate ∧ lowest-rank member, A-preferred) plus the **qnetd `ffsplit` + `tie_breaker`** deterministic quorum winner (§4, §6). |
 | **one deterministic winner, never a symmetric re-provision race** | ✅ **Intent met** | qnetd tie-breaker + election rule ⇒ exactly one active plane in every partition; the loser stands down; neither can unilaterally re-provision the other (no unilateral peer action). Proven by the §8 partition test. |
 | **witness in a third *independent* failure domain** | ⚠️ **Partial — operator-accepted** | Witness on **`fna`**: **power-independent** from both members (operator-confirmed), **shares the site switch** (operator-explicitly-accepted residual; matches INV-6's named "shared switch"). Not a *fully* independent domain — recorded honestly as partial (§7). |
@@ -115,9 +119,10 @@ the operator chose. **Do not read this design as INV-7-literal-compliant.**
 
 Three cooperating pieces, from bottom to top:
 
-1. **VM liveness → Proxmox HA.** Mark the two ops-hub VMs as Proxmox HA resources so a host failure
-   restarts the VM (existing watchdog self-fence handles the dead host). **No `ipnode` corosync
-   change** — HA is a per-VM setting.
+1. ~~**VM liveness → Proxmox HA.**~~ **REMOVED 2026-07-26 (§6.2).** There is no VM-liveness layer.
+   A host failure does **not** restart the ops-hub guest, and no node self-fences. Continuity comes
+   from the surviving peer becoming active (piece 2), not from resurrecting the dead guest.
+   Recovering the lost member is a repair, not an availability event.
 2. **Active-plane election → a 2-member+witness quorum.** Recommended substrate below. Produces a
    single, deterministic answer to "which ops-hub is active right now."
 3. **Enforcement → the existing `ControlPlaneFence`,** augmented with an **active-role precondition**
@@ -267,12 +272,44 @@ Layered enforcement, honestly labeled:
 - This residual is precisely what INV-8 and the §8 partition test must probe; it is the price of
   "no STONITH," accepted knowingly.
 
+> **WIDENED 2026-07-26 by the removal of Proxmox HA (§6.2). Read this before the §8 test.**
+>
+> The worst case is a loser that is **wedged on a host that is partitioned but still running**.
+> Every listed mitigation fails there simultaneously, and they fail for *independent* reasons, so
+> none of them backstops the others:
+>
+> - Mitigation 1 assumes the loser's own process still re-evaluates `active?`. "Wedged" is the
+>   hypothesis that it does not. It cannot cover its own failure case.
+> - Mitigation 2 was **already** useless in exactly this scenario, by §5's own admission — the
+>   Proxmox-API guest stop needs the loser's host reachable and quorate, which a partition denies.
+> - The watchdog self-fence, previously the only mechanism that worked *because* it needs no
+>   reachability, is **gone**. It was the sole non-cooperative option, and it is what the removal
+>   actually cost.
+>
+> **This is not a reason to restore Proxmox HA.** Buying this backstop meant arming dna's watchdog,
+> and the firewall's host hard-resetting on a single-ring corosync blip is a far more likely event
+> than a wedged-and-partitioned control plane. The correct response is to stop treating stand-down
+> as an *action the loser takes* and make it a **structural property**: the actuation path must be
+> **fail-closed on quorum**, so that a plane which cannot positively confirm quorum does nothing —
+> including a plane that is hung, because a hung plane by definition is not confirming anything.
+> Freshness must be *pulled at the actuation point* rather than pushed by a background updater, or
+> a wedged updater leaves a stale "I am active" behind and the gate reads it as consent. This is
+> INV-1's "structurally incapable of acting" applied to the loser rather than the isolated node.
+>
+> **Consequences for the §8 test:** the partition test must now include a wedged-loser case, and it
+> must fail the design if the loser actuates — a cooperative stand-down passing that test proves
+> nothing, because cooperation is the assumption under scrutiny. Simulate wedging by suspending the
+> loser's process (SIGSTOP) rather than by stopping it cleanly.
+
 ### 4.6 New components P1-b introduces (all gated behind P0 + INV-8)
 
 1. The **corosync votequorum + qnetd (on `fna`)** guest quorum (config in §6) — design-only here.
 2. **`System::Autonomy::ControlPlaneRole`** — the thin `active?` reader (quorum + election rule).
 3. The **`ControlPlaneFence` augmentation** (§4.4) — proposed code change, not applied.
-4. **Proxmox HA** marking of the two ops-hub VMs (a per-VM setting, no `ipnode` change).
+4. ~~**Proxmox HA** marking of the two ops-hub VMs~~ — **REMOVED 2026-07-26 (§6.2).** P1-b now
+   introduces **no change of any kind to `ipnode`**: not its corosync, not its HA manager, not its
+   watchdog state. The only thing that lands on an `ipnode` host is the `corosync-qnetd` daemon on
+   `fna` (§7), which is a standalone service and not a cluster participant.
 5. *(Optional)* a **hard-stop actuator** for a wedged loser, gated behind the same `active?`.
 
 ---
@@ -334,11 +371,49 @@ quorum {
 - Each member runs `corosync-qdevice`; **`fna` runs `corosync-qnetd`**. TLS on.
 - **No `crm`/`pcs`/`stonith` config** — there is no Pacemaker in this design.
 
-### 6.2 Proxmox HA (per-VM, on `ipnode`'s HA manager — not a corosync edit)
+### 6.2 Proxmox HA — ~~add the ops-hub VMs as HA resources~~ **REMOVED BY OPERATOR DECISION (2026-07-26)**
 
-- Add the two ops-hub VMs as HA resources so a host failure restarts them. This uses the existing
-  Proxmox HA/watchdog; it does **not** modify `corosync.conf`. (Exact `ha-manager`
-  group/constraints TBD with P1-a's placement so A stays on dna, B on rna.)
+> **DO NOT DO THIS.** The ops-hub VMs will **not** be added as Proxmox HA resources. `ipnode` keeps
+> **zero** HA resources and every LRM stays `idle, watchdog standby`. Nothing about `ipnode`'s HA
+> manager changes. The original text is struck through below for audit.
+
+**Why this was removed.** The original wording — "it does **not** modify `corosync.conf`" — is true
+and beside the point. The blast radius is not in the config file it edits, it is in the cluster
+state it changes:
+
+- `/etc/pve/ha/resources.cfg` is **empty** today; `ha-manager status` shows all four LRMs
+  `idle, watchdog standby` (measured 2026-07-26). **No node on this cluster can self-fence.**
+- `watchdog-mux` is nonetheless **active**, `softdog` is loaded, and `/dev/watchdog` is open — the
+  machinery is armed and merely lacks an active LRM client.
+- Adding the **first** HA resource takes the owning node's LRM active, which connects it to
+  `watchdog-mux`. Its host becomes self-fence-capable from that moment.
+- ops-hub-A is VM 104 on **dna**. dna also runs **opn-1 (VM 105), the production firewall.**
+- `corosync.conf` has a **single ring** (`linknumber: 0`, no redundant link). So one NIC, cable, or
+  switch-port event on dna's `10.125.0.10` path would be sufficient to hard-reset the host running
+  the firewall — where today the identical event only makes `/etc/pve` read-only while every VM
+  keeps running and forwarding packets.
+
+Trading a benign read-only-config failure mode for a hard reset of the firewall's host, in order to
+gain automatic restart of a VM whose entire purpose is to have a live peer, is a bad trade.
+
+**What this costs, honestly.** Proxmox HA was providing VM-level liveness: if dna dies, restart
+ops-hub-A elsewhere. Without it, a dead dna leaves ops-hub-A down until someone starts it — and note
+P0-a's `qmstart` auto-retry cannot help, because it runs *on dna* and dies with the host. Detection
+still works (the P0-a watchdog on rna VM 9001 is external and alerts).
+
+That cost is acceptable **because it duplicates, at a lower layer, exactly what this campaign
+exists to build.** Continuity after a dna failure is supposed to come from ops-hub-B taking over as
+the active plane, not from Proxmox resurrecting ops-hub-A. Restoring A is then a repair at leisure
+rather than an availability event. See §2 and §4.5 for the two places this removal genuinely
+weakens the design rather than simplifying it.
+
+<details><summary>Original text (superseded)</summary>
+
+> - Add the two ops-hub VMs as HA resources so a host failure restarts them. This uses the existing
+>   Proxmox HA/watchdog; it does **not** modify `corosync.conf`. (Exact `ha-manager`
+>   group/constraints TBD with P1-a's placement so A stays on dna, B on rna.)
+
+</details>
 
 ### 6.3 Application
 
