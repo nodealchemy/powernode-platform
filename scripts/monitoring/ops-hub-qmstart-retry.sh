@@ -40,7 +40,12 @@ if [[ -f "${CONFIG_FILE}" ]]; then
 fi
 
 # --- defaults (override via CONFIG_FILE) -----------------------------------------
-VMID="${VMID:-104}"
+# 600, not 104: ops-hub-A was migrated out of the hand-made 100-114 band, whose
+# neighbour at 105 is the production firewall. See
+# docs/operations/ops-hub-vmid-migration.md. The deployed unit on dna carries
+# Environment=VMID=600; this default only governs a fresh deploy, and getting it
+# wrong means this guard silently watches a VM that does not exist.
+VMID="${VMID:-600}"
 VM_NAME="${VM_NAME:-ops-hub}"
 # STORAGE_NAME is the storage whose "active" state gates a retry. This MUST track
 # where VM $VMID's disks actually live. It defaulted to dna-data (the NFS export
