@@ -1724,4 +1724,63 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
     end
   end
+
+  # ===========================================================================
+  # WORKFLOW RUN CANCEL — attempt-and-translate
+  #
+  # Gitea has no cancel endpoint through 1.27.0 (verified against the live
+  # swagger: the only /actions/runs mutations are rerun, rerun-failed-jobs,
+  # per-job rerun and DELETE). We still ATTEMPT the POST so a future Gitea that
+  # adds cancel works with no code change, and translate the 404 rather than
+  # surfacing it raw — a bare "Resource not found" reads as a missing RUN
+  # rather than a missing FEATURE, which is exactly how it misled us.
+  # ===========================================================================
+  describe '#cancel_workflow_run' do
+    let(:cancel_url) { "#{base_url}/repos/owner/repo/actions/runs/42/cancel" }
+    let(:run_url)    { "#{base_url}/repos/owner/repo/actions/runs/42" }
+
+    it 'succeeds when the Gitea version does implement cancel' do
+      stub_request(:post, cancel_url).to_return(status: 200, body: '{}',
+                                                headers: { 'Content-Type' => 'application/json' })
+
+      expect(client.cancel_workflow_run('owner', 'repo', '42')).to include(success: true)
+    end
+
+    # THE regression: endpoint absent, run present.
+    it 'reports unsupported when the endpoint is missing but the run exists' do
+      stub_request(:post, cancel_url).to_return(status: 404, body: '{}')
+      stub_request(:get, run_url).to_return(status: 200, body: { id: 42 }.to_json,
+                                            headers: { 'Content-Type' => 'application/json' })
+
+      result = client.cancel_workflow_run('owner', 'repo', '42')
+
+      expect(result[:success]).to be false
+      expect(result[:unsupported]).to be true
+      expect(result[:error]).to match(/no endpoint to cancel/i)
+    end
+
+    # Gitea 404s identically for both causes, so the run lookup is what keeps
+    # a genuinely missing run from being reported as an unsupported backend.
+    it 'reports a missing run as missing, not as an unsupported backend' do
+      stub_request(:post, cancel_url).to_return(status: 404, body: '{}')
+      stub_request(:get, run_url).to_return(status: 404, body: '{}')
+
+      result = client.cancel_workflow_run('owner', 'repo', '42')
+
+      expect(result[:success]).to be false
+      expect(result[:unsupported]).to be_nil
+      expect(result[:error]).to match(/not found/i)
+    end
+
+    it 'never falls back to deleting the run' do
+      stub_request(:post, cancel_url).to_return(status: 404, body: '{}')
+      stub_request(:get, run_url).to_return(status: 200, body: '{}',
+                                            headers: { 'Content-Type' => 'application/json' })
+      delete_stub = stub_request(:delete, run_url)
+
+      client.cancel_workflow_run('owner', 'repo', '42')
+
+      expect(delete_stub).not_to have_been_requested
+    end
+  end
 end

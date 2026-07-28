@@ -447,26 +447,56 @@ module Devops
       end
     end
 
-    # Gitea has NO cancel endpoint. This used to POST
-    # /actions/runs/{run}/cancel — a GitHub-shaped path Gitea has never
-    # implemented — so every call 404'd as "Resource not found", which reads
-    # like a missing RUN rather than a missing FEATURE. Verified against the
-    # live swagger on Gitea 1.27.0: the only mutations under /actions/runs are
-    # rerun, rerun-failed-jobs, per-job rerun, and DELETE.
+    # Gitea has no cancel endpoint as of 1.27.0 — verified against the live
+    # swagger, where the only mutations under /actions/runs are rerun,
+    # rerun-failed-jobs, per-job rerun, and DELETE. The old code POSTed
+    # /actions/runs/{run}/cancel (a GitHub shape Gitea never implemented) and
+    # surfaced the resulting 404 verbatim as "Resource not found", which reads
+    # like a missing RUN rather than a missing FEATURE and cost real debugging
+    # time while trying to clear a stuck CI queue.
     #
-    # Answer without an HTTP round-trip rather than emitting a request known to
-    # fail, and do NOT silently substitute DELETE: deleting a run discards it
-    # and its logs, which is a different (and destructive) operation. Callers
-    # that genuinely want that must ask for it by name via delete_workflow_run.
-    def cancel_workflow_run(_owner, _repo, _run_id)
+    # ATTEMPT-AND-TRANSLATE rather than a hardcoded refusal: this is a
+    # self-hosted fleet that upgrades Gitea, and a version that grows a cancel
+    # endpoint should start working here with no code change. Pinning today's
+    # absence into the client would outlive the fact.
+    #
+    # The 404 is ambiguous — Gitea answers identically for "no such run" and
+    # "no such route" — so disambiguate by asking whether the run exists.
+    #
+    # DELETE is deliberately NOT substituted: it discards the run and its logs
+    # without stopping a running job. Callers that want that must ask for it by
+    # name via delete_workflow_run.
+    def cancel_workflow_run(owner, repo, run_id)
+      post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/cancel")
+      { success: true }
+    rescue NotFoundError
+      unless workflow_run_exists?(owner, repo, run_id)
+        return { success: false, error: "Workflow run #{run_id} not found in #{owner}/#{repo}" }
+      end
+
       {
         success:     false,
         unsupported: true,
-        error:       "Gitea exposes no API to cancel a workflow run (checked against " \
-                     "the Actions API through 1.27.0). Cancel it from the Gitea web UI, " \
-                     "or use delete_gitea_workflow_run to discard the run entirely — " \
-                     "that removes the run and its logs, it does not stop a running job."
+        error:       "This Gitea exposes no endpoint to cancel a workflow run (none exists " \
+                     "through 1.27.0), so the run cannot be stopped through the API. It has " \
+                     "to finish on its own, be discarded with delete_workflow_run (destructive " \
+                     "— the run and its logs are lost, and a running job is NOT stopped), or be " \
+                     "stopped by tearing down the CI runner executing it."
       }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    # Used only to disambiguate a 404 from cancel. On an unrelated API error we
+    # assume the run exists, so the caller gets the actionable "no cancel
+    # endpoint" explanation rather than a misleading "run not found".
+    def workflow_run_exists?(owner, repo, run_id)
+      get("/repos/#{owner}/#{repo}/actions/runs/#{run_id}")
+      true
+    rescue NotFoundError
+      false
+    rescue ApiError
+      true
     end
 
     # Discards a run and its logs. Destructive and NOT a cancel: on an

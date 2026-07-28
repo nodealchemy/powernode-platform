@@ -21,14 +21,15 @@ module Ai
     #   list_gitea_run_artifacts     — artifacts produced by a run
     #   delete_gitea_workflow_run    — DESTRUCTIVE: discard a run + its logs
     #
-    # NOTE ON CANCEL. Gitea has no cancel endpoint — verified against the live
-    # Actions API through 1.27.0, where the only run-level mutations are rerun,
-    # rerun-failed-jobs, per-job rerun and DELETE. cancel_gitea_workflow_run is
-    # kept in the vocabulary so callers get an explicit "this backend cannot do
-    # it" instead of the bare 404 the old GitHub-shaped POST produced, which
-    # read like a missing run and cost real debugging time. Cancel is a web-UI
-    # operation. DELETE is NOT a substitute: it discards the run and its logs
-    # without stopping a running job, so it lives under its own name.
+    # NOTE ON CANCEL. Gitea has no cancel endpoint through 1.27.0 — verified
+    # against the live Actions API, where the only run-level mutations are
+    # rerun, rerun-failed-jobs, per-job rerun and DELETE. The action is kept and
+    # ATTEMPTED (not hardcoded to fail), so a later Gitea that adds cancel works
+    # here with no code change; on versions without it the client translates the
+    # 404 into an explicit unsupported=true, having first checked whether the
+    # run exists — Gitea 404s identically for "no such run" and "no such route".
+    # DELETE is NOT a substitute: it discards the run and its logs without
+    # stopping a running job, so it lives under its own name.
     #
     # All actions require the operator's account to have an active Gitea
     # credential configured (Settings → Integrations → Gitea). Same
@@ -165,7 +166,7 @@ module Ai
             }
           },
           "cancel_gitea_workflow_run" => {
-            description: "NOT SUPPORTED BY GITEA — always fails, and says so. Gitea exposes no cancel endpoint (checked through 1.27.0), so a queued or in-progress run cannot be stopped via the API; cancel it in the Gitea web UI. Retained as a named action so the answer is an explicit 'this backend cannot do it' rather than a bare 404 that reads like a missing run. See delete_gitea_workflow_run if you want the run record discarded instead.",
+            description: "Attempt to cancel a queued or in-progress run. USUALLY FAILS: Gitea exposes no cancel endpoint through 1.27.0, so this returns unsupported=true with an explanation on those versions — it is attempted rather than hardcoded so a future Gitea that adds cancel starts working with no code change. Do NOT route a 'stop this run' request here expecting it to succeed; the run must finish, be discarded via delete_gitea_workflow_run (destructive, and does not stop a running job), or be stopped by tearing down its CI runner.",
             parameters: {
               owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
               repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
