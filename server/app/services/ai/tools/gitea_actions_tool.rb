@@ -15,6 +15,20 @@ module Ai
     #   dispatch_gitea_workflow      — trigger workflow_dispatch with inputs
     #   list_gitea_workflow_runs     — list recent runs for a workflow file
     #   get_gitea_workflow_run       — fetch a specific run's status + jobs
+    #   rerun_gitea_workflow         — re-run a whole run
+    #   rerun_gitea_workflow_failed_jobs — re-run only the failed jobs
+    #   rerun_gitea_job              — re-run one job (one matrix leg)
+    #   list_gitea_run_artifacts     — artifacts produced by a run
+    #   delete_gitea_workflow_run    — DESTRUCTIVE: discard a run + its logs
+    #
+    # NOTE ON CANCEL. Gitea has no cancel endpoint — verified against the live
+    # Actions API through 1.27.0, where the only run-level mutations are rerun,
+    # rerun-failed-jobs, per-job rerun and DELETE. cancel_gitea_workflow_run is
+    # kept in the vocabulary so callers get an explicit "this backend cannot do
+    # it" instead of the bare 404 the old GitHub-shaped POST produced, which
+    # read like a missing run and cost real debugging time. Cancel is a web-UI
+    # operation. DELETE is NOT a substitute: it discards the run and its logs
+    # without stopping a running job, so it lives under its own name.
     #
     # All actions require the operator's account to have an active Gitea
     # credential configured (Settings → Integrations → Gitea). Same
@@ -36,7 +50,11 @@ module Ai
         get_gitea_workflow_run
         get_gitea_job_logs
         cancel_gitea_workflow_run
+        delete_gitea_workflow_run
         rerun_gitea_workflow
+        rerun_gitea_workflow_failed_jobs
+        rerun_gitea_job
+        list_gitea_run_artifacts
         create_gitea_user_token
         list_gitea_user_tokens
         delete_gitea_user_token
@@ -61,7 +79,8 @@ module Ai
             ref:           { type: "string", required: false, description: "Branch/tag ref to run against (e.g. 'master', 'refs/tags/v1.0.0')" },
             inputs:        { type: "object", required: false, description: "Workflow_dispatch inputs as a hash" },
             # get_gitea_workflow_run / list_gitea_workflow_runs
-            run_id: { type: "string", required: false, description: "Workflow run ID (for get/cancel actions)" },
+            run_id: { type: "string", required: false, description: "Workflow run ID (get / delete / rerun / artifact actions)" },
+            job_id: { type: "string", required: false, description: "Job ID from get_gitea_workflow_run.jobs[].id (log + per-job rerun actions)" },
             limit:  { type: "integer", required: false, description: "Max results for list actions (default 20)" }
           }
         }
@@ -146,7 +165,7 @@ module Ai
             }
           },
           "cancel_gitea_workflow_run" => {
-            description: "Cancel a queued or in-progress workflow run",
+            description: "NOT SUPPORTED BY GITEA — always fails, and says so. Gitea exposes no cancel endpoint (checked through 1.27.0), so a queued or in-progress run cannot be stopped via the API; cancel it in the Gitea web UI. Retained as a named action so the answer is an explicit 'this backend cannot do it' rather than a bare 404 that reads like a missing run. See delete_gitea_workflow_run if you want the run record discarded instead.",
             parameters: {
               owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
               repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
@@ -159,6 +178,39 @@ module Ai
               owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
               repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
               run_id: { type: "string", required: true, description: "Gitea Actions workflow run ID (from list_gitea_workflow_runs)" }
+            }
+          },
+          "rerun_gitea_workflow_failed_jobs" => {
+            description: "Re-run ONLY the failed jobs of a run, leaving successful jobs alone. Prefer this over rerun_gitea_workflow when one leg of a matrix failed — it avoids repeating work that already passed.",
+            parameters: {
+              owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
+              run_id: { type: "string", required: true, description: "Gitea Actions workflow run ID (from list_gitea_workflow_runs)" }
+            }
+          },
+          "rerun_gitea_job" => {
+            description: "Re-run a single job within a run. The scalpel for a fan-out where one matrix leg failed and the rest are fine.",
+            parameters: {
+              owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
+              run_id: { type: "string", required: true, description: "Gitea Actions workflow run ID" },
+              job_id: { type: "string", required: true, description: "Job ID from get_gitea_workflow_run.jobs[].id" }
+            }
+          },
+          "delete_gitea_workflow_run" => {
+            description: "DESTRUCTIVE: discard a workflow run and its logs. This is NOT a cancel — it does not stop a running job, and the run's logs are unrecoverable afterwards. Gitea exposes no cancel API, so this is the only run-level mutation available; use it only when you actually want the record gone.",
+            parameters: {
+              owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
+              run_id: { type: "string", required: true, description: "Gitea Actions workflow run ID to delete" }
+            }
+          },
+          "list_gitea_run_artifacts" => {
+            description: "List artifacts produced by a workflow run",
+            parameters: {
+              owner:  { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
+              repo:   { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
+              run_id: { type: "string", required: true, description: "Gitea Actions workflow run ID" }
             }
           },
           "create_gitea_user_token" => {
@@ -206,7 +258,11 @@ module Ai
         when "get_gitea_workflow_run"         then get_run(client, params)
         when "get_gitea_job_logs"             then get_job_logs(client, params)
         when "cancel_gitea_workflow_run"      then cancel_run(client, params)
+        when "delete_gitea_workflow_run"      then delete_run(client, params)
         when "rerun_gitea_workflow"           then rerun_run(client, params)
+        when "rerun_gitea_workflow_failed_jobs" then rerun_failed_jobs(client, params)
+        when "rerun_gitea_job"                then rerun_single_job(client, params)
+        when "list_gitea_run_artifacts"       then list_run_artifacts(client, params)
         when "create_gitea_user_token"        then create_user_token(client, params)
         when "list_gitea_user_tokens"         then list_user_tokens(client)
         when "delete_gitea_user_token"        then delete_user_token(client, params)
@@ -348,6 +404,10 @@ module Ai
         { success: true, owner: owner, repo: repo, job_id: job_id, log_size_bytes: logs.bytesize, logs: logs }
       end
 
+      # Gitea has no cancel API (verified against 1.27.0). The client answers
+      # without a round-trip; pass its `unsupported` flag through so a caller
+      # can tell "this backend cannot do it" apart from "that run is gone",
+      # which a bare 404 conflates.
       def cancel_run(client, params)
         owner, repo = require_owner_repo(params)
         return owner if owner.is_a?(Hash)
@@ -356,9 +416,72 @@ module Ai
         return { success: false, error: "run_id required" } if run_id.blank?
 
         result = client.cancel_workflow_run(owner, repo, run_id)
-        return { success: false, error: result[:error] || "cancel failed" } unless result[:success]
+        return { success: false, error: result[:error] || "cancel failed" }.merge(
+          result[:unsupported] ? { unsupported: true, owner: owner, repo: repo, run_id: run_id } : {}
+        ) unless result[:success]
 
         { success: true, owner: owner, repo: repo, run_id: run_id, message: "Workflow run cancelled" }
+      end
+
+      # DESTRUCTIVE and not a cancel: this discards the run and its logs. Kept
+      # deliberately separate from cancel_gitea_workflow_run so nothing can
+      # reach it by asking to "cancel" something.
+      def delete_run(client, params)
+        owner, repo = require_owner_repo(params)
+        return owner if owner.is_a?(Hash)
+
+        run_id = params[:run_id].to_s
+        return { success: false, error: "run_id required" } if run_id.blank?
+
+        result = client.delete_workflow_run(owner, repo, run_id)
+        return { success: false, error: result[:error] || "delete failed" } unless result[:success]
+
+        { success: true, owner: owner, repo: repo, run_id: run_id,
+          message: "Workflow run deleted (run record and logs discarded; this does not stop a running job)" }
+      end
+
+      def rerun_failed_jobs(client, params)
+        owner, repo = require_owner_repo(params)
+        return owner if owner.is_a?(Hash)
+
+        run_id = params[:run_id].to_s
+        return { success: false, error: "run_id required" } if run_id.blank?
+
+        result = client.rerun_workflow_failed_jobs(owner, repo, run_id)
+        return { success: false, error: result[:error] || "rerun-failed-jobs failed" } unless result[:success]
+
+        { success: true, owner: owner, repo: repo, run_id: run_id,
+          message: "Re-running the failed jobs of this run; successful jobs are left alone" }
+      end
+
+      # Matrix legs are individual jobs, so this is the scalpel when one leg
+      # fails and re-running the whole run would repeat everything.
+      def rerun_single_job(client, params)
+        owner, repo = require_owner_repo(params)
+        return owner if owner.is_a?(Hash)
+
+        run_id = params[:run_id].to_s
+        job_id = params[:job_id].to_s
+        return { success: false, error: "run_id required" } if run_id.blank?
+        return { success: false, error: "job_id required" } if job_id.blank?
+
+        result = client.rerun_job(owner, repo, run_id, job_id)
+        return { success: false, error: result[:error] || "job rerun failed" } unless result[:success]
+
+        { success: true, owner: owner, repo: repo, run_id: run_id, job_id: job_id,
+          message: "Re-running job #{job_id}" }
+      end
+
+      def list_run_artifacts(client, params)
+        owner, repo = require_owner_repo(params)
+        return owner if owner.is_a?(Hash)
+
+        run_id = params[:run_id].to_s
+        return { success: false, error: "run_id required" } if run_id.blank?
+
+        artifacts = client.list_run_artifacts(owner, repo, run_id)
+        { success: true, owner: owner, repo: repo, run_id: run_id,
+          count: artifacts.length, artifacts: artifacts }
       end
 
       def rerun_run(client, params)

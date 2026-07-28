@@ -37,7 +37,7 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
       expect(described_class.definition[:name]).to eq("gitea_actions")
     end
 
-    it "lists all 14 actions in ACTIONS constant" do
+    it "lists all 18 actions in ACTIONS constant" do
       expect(described_class::ACTIONS).to contain_exactly(
         "set_gitea_action_secret",
         "set_gitea_action_secrets_bulk",
@@ -49,7 +49,11 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
         "get_gitea_workflow_run",
         "get_gitea_job_logs",
         "cancel_gitea_workflow_run",
+        "delete_gitea_workflow_run",
         "rerun_gitea_workflow",
+        "rerun_gitea_workflow_failed_jobs",
+        "rerun_gitea_job",
+        "list_gitea_run_artifacts",
         "create_gitea_user_token",
         "list_gitea_user_tokens",
         "delete_gitea_user_token"
@@ -301,6 +305,84 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
       result = tool.execute(params: { action: "cancel_gitea_workflow_run", owner: "o", repo: "r", run_id: "42" })
       expect(result[:success]).to be true
       expect(result[:message]).to eq("Workflow run cancelled")
+    end
+
+    # Gitea has no cancel endpoint (verified against the live 1.27.0 Actions
+    # API). The old code POSTed a GitHub-shaped path, so every call came back
+    # "Resource not found" — indistinguishable from a run that doesn't exist,
+    # which is how it burned real debugging time while trying to clear a CI
+    # queue. The unsupported flag is what lets a caller tell the two apart.
+    it "surfaces an unsupported backend distinctly from a missing run" do
+      allow(client).to receive(:cancel_workflow_run).and_return(
+        { success: false, unsupported: true, error: "Gitea exposes no API to cancel a workflow run" }
+      )
+      result = tool.execute(params: { action: "cancel_gitea_workflow_run", owner: "o", repo: "r", run_id: "42" })
+
+      expect(result[:success]).to be false
+      expect(result[:unsupported]).to be true
+      expect(result[:error]).to match(/no API to cancel/i)
+      expect(result[:run_id]).to eq("42")
+    end
+
+    # The one thing this must never do: quietly turn "cancel" into "delete".
+    # DELETE is the only run-level mutation Gitea offers, it does not stop a
+    # running job, and it destroys the run's logs.
+    it "never falls back to deleting the run" do
+      allow(client).to receive(:cancel_workflow_run).and_return({ success: false, unsupported: true, error: "unsupported" })
+      expect(client).not_to receive(:delete_workflow_run)
+
+      tool.execute(params: { action: "cancel_gitea_workflow_run", owner: "o", repo: "r", run_id: "42" })
+    end
+  end
+
+  describe "delete_gitea_workflow_run" do
+    it "delegates to client.delete_workflow_run and says it is not a cancel" do
+      expect(client).to receive(:delete_workflow_run).with("o", "r", "42").and_return({ success: true })
+      result = tool.execute(params: { action: "delete_gitea_workflow_run", owner: "o", repo: "r", run_id: "42" })
+
+      expect(result[:success]).to be true
+      expect(result[:message]).to match(/does not stop a running job/i)
+    end
+
+    it "requires a run_id" do
+      result = tool.execute(params: { action: "delete_gitea_workflow_run", owner: "o", repo: "r" })
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/run_id required/)
+    end
+  end
+
+  describe "rerun_gitea_workflow_failed_jobs" do
+    it "delegates to client.rerun_workflow_failed_jobs" do
+      expect(client).to receive(:rerun_workflow_failed_jobs).with("o", "r", "42").and_return({ success: true })
+      result = tool.execute(params: { action: "rerun_gitea_workflow_failed_jobs", owner: "o", repo: "r", run_id: "42" })
+      expect(result[:success]).to be true
+      expect(result[:message]).to match(/failed jobs/i)
+    end
+  end
+
+  describe "rerun_gitea_job" do
+    it "delegates to client.rerun_job with both ids" do
+      expect(client).to receive(:rerun_job).with("o", "r", "42", "7").and_return({ success: true })
+      result = tool.execute(params: { action: "rerun_gitea_job", owner: "o", repo: "r", run_id: "42", job_id: "7" })
+      expect(result[:success]).to be true
+      expect(result[:job_id]).to eq("7")
+    end
+
+    it "requires a job_id" do
+      result = tool.execute(params: { action: "rerun_gitea_job", owner: "o", repo: "r", run_id: "42" })
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/job_id required/)
+    end
+  end
+
+  describe "list_gitea_run_artifacts" do
+    it "delegates to client.list_run_artifacts" do
+      expect(client).to receive(:list_run_artifacts).with("o", "r", "42")
+        .and_return([ { "name" => "disk-image", "size_in_bytes" => 1024 } ])
+      result = tool.execute(params: { action: "list_gitea_run_artifacts", owner: "o", repo: "r", run_id: "42" })
+
+      expect(result[:success]).to be true
+      expect(result[:count]).to eq(1)
     end
   end
 

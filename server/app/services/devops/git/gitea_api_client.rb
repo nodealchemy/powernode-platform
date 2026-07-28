@@ -447,9 +447,34 @@ module Devops
       end
     end
 
-    def cancel_workflow_run(owner, repo, run_id)
+    # Gitea has NO cancel endpoint. This used to POST
+    # /actions/runs/{run}/cancel — a GitHub-shaped path Gitea has never
+    # implemented — so every call 404'd as "Resource not found", which reads
+    # like a missing RUN rather than a missing FEATURE. Verified against the
+    # live swagger on Gitea 1.27.0: the only mutations under /actions/runs are
+    # rerun, rerun-failed-jobs, per-job rerun, and DELETE.
+    #
+    # Answer without an HTTP round-trip rather than emitting a request known to
+    # fail, and do NOT silently substitute DELETE: deleting a run discards it
+    # and its logs, which is a different (and destructive) operation. Callers
+    # that genuinely want that must ask for it by name via delete_workflow_run.
+    def cancel_workflow_run(_owner, _repo, _run_id)
+      {
+        success:     false,
+        unsupported: true,
+        error:       "Gitea exposes no API to cancel a workflow run (checked against " \
+                     "the Actions API through 1.27.0). Cancel it from the Gitea web UI, " \
+                     "or use delete_gitea_workflow_run to discard the run entirely — " \
+                     "that removes the run and its logs, it does not stop a running job."
+      }
+    end
+
+    # Discards a run and its logs. Destructive and NOT a cancel: on an
+    # in-progress run Gitea's behaviour is its own, and the record is gone
+    # either way.
+    def delete_workflow_run(owner, repo, run_id)
       with_error_handling do
-        post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/cancel")
+        delete("/repos/#{owner}/#{repo}/actions/runs/#{run_id}")
         { success: true }
       end
     end
@@ -459,6 +484,30 @@ module Devops
         post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/rerun")
         { success: true }
       end
+    end
+
+    # Re-runs only the failed jobs of a run, leaving successful ones alone.
+    def rerun_workflow_failed_jobs(owner, repo, run_id)
+      with_error_handling do
+        post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/rerun-failed-jobs")
+        { success: true }
+      end
+    end
+
+    # Re-runs a single job. The matrix legs of a fan-out are individual jobs,
+    # so this is the scalpel when one leg fails and the rest are fine.
+    def rerun_job(owner, repo, run_id, job_id)
+      with_error_handling do
+        post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/jobs/#{job_id}/rerun")
+        { success: true }
+      end
+    end
+
+    def list_run_artifacts(owner, repo, run_id)
+      result = get("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/artifacts")
+      result["artifacts"] || result || []
+    rescue NotFoundError
+      []
     end
 
     # Act Runner Management
