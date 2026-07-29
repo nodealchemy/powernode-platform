@@ -10,6 +10,27 @@ StartLimitIntervalSec=0
 [Service]
 Type=oneshot
 SyslogIdentifier=powernode-ops-hub-qmstart-retry
+# Silence the steady state. The timer fires every 30s, so without this the
+# unit emits ~2,880 "already running -- nothing to do" lines a day PLUS
+# systemd's own Starting/Finished/Deactivated for each run — roughly 11k
+# lines/day asserting that nothing happened. That volume is not merely
+# untidy: it is how a real event gets missed, which is exactly how the
+# 2026-07-28 ops-hub outage went unnoticed for 51 minutes.
+#
+# LogLevelMax applies both to the script's own output AND to messages the
+# service manager generates about the unit, so this drops the per-run
+# Starting/Finished chatter too.
+#
+# notice, NOT warning: the script's levels are already well chosen and the
+# cut lands exactly between routine and meaningful —
+#   info    "already running -- nothing to do" / "waiting for storage"  DROPPED
+#   notice  "qm start N succeeded"                                       KEPT
+#   warning "DRY-RUN (not armed): would run qm start"                    KEPT
+#   err     "qm start N FAILED" / "qm CLI not found"                     KEPT
+# So the watchdog is silent while healthy and loud the moment it acts or
+# fails. Raising this to warning would hide the successful-restart notice —
+# the single line most worth having.
+LogLevelMax=notice
 EnvironmentFile=-/etc/powernode/ops-hub-qmstart-retry.conf
 
 # SAFE BY DEFAULT: no --execute flag. This unit, as shipped, ONLY EVER LOGS what it
