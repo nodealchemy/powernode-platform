@@ -3,7 +3,7 @@
 module Ai
   class ImprovementRecommendation < ApplicationRecord
     STATUSES = %w[pending approved applied dismissed].freeze
-    RECOMMENDATION_TYPES = %w[provider_switch team_composition timeout_adjustment model_upgrade cost_optimization skill_consolidation skill_connection prompt_refinement skill_creation code_lint dead_code code_duplication convention_adherence test_gap agent_reliability skill_health learning_health].freeze
+    RECOMMENDATION_TYPES = %w[provider_switch team_composition timeout_adjustment model_upgrade cost_optimization skill_consolidation skill_connection prompt_refinement skill_creation code_lint dead_code code_duplication convention_adherence test_gap agent_reliability skill_health learning_health capability_gap].freeze
     # Code-quality types are discovered via the /improve loop (Tier-1) and promoted
     # to dev-improve Ralph tasks rather than auto-applied as config changes.
     CODE_QUALITY_TYPES = %w[code_lint dead_code code_duplication convention_adherence test_gap].freeze

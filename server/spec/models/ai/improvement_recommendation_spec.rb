@@ -75,7 +75,7 @@ RSpec.describe Ai::ImprovementRecommendation, type: :model do
         %w[provider_switch team_composition timeout_adjustment model_upgrade cost_optimization
            skill_consolidation skill_connection prompt_refinement skill_creation
            code_lint dead_code code_duplication convention_adherence test_gap
-           agent_reliability skill_health learning_health]
+           agent_reliability skill_health learning_health capability_gap]
       )
     end
 
@@ -371,6 +371,24 @@ RSpec.describe Ai::ImprovementRecommendation, type: :model do
         expect { gateway.resolve!(request: req, decision: 'approved', by: user) }
           .not_to change { recommendation.reload.status }
       end
+    end
+  end
+
+  describe "capability_gap type" do
+    # Filed by the system extension's CapabilityGapSensor against a
+    # NodeModule. Core stays generic: it names no extension class, and
+    # #target already constantizes with a NameError rescue, so a core-only
+    # install degrades to a nil target instead of raising.
+    it "is an accepted recommendation type" do
+      expect(described_class::RECOMMENDATION_TYPES).to include("capability_gap")
+    end
+
+    # CODE_QUALITY_TYPES auto-promote to dev-improve Ralph tasks. A capability
+    # gap must NOT: closing one means authoring a new module, which has to
+    # pass the human reuse gate first, or automation turns cheap module
+    # creation into cheap module sprawl.
+    it "is not a code-quality type, so it never auto-promotes to a dev task" do
+      expect(described_class::CODE_QUALITY_TYPES).not_to include("capability_gap")
     end
   end
 end
