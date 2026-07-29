@@ -435,7 +435,21 @@ end
 # LOGGING & MONITORING
 # =========================================================================
 
-# Add logging for rate limit hits
+# Add logging for rate limit hits.
+#
+# NOTE THE RECEIVER. This block runs at TOP LEVEL (self == main), unlike the
+# throttle/safelist blocks above, which close over `self == Rack::Attack`
+# because they are written inside `class Rack::Attack`. So `client_ip` must be
+# called on the class explicitly here — an unqualified call raises
+# NoMethodError for main:Object.
+#
+# That is not a cosmetic distinction. This subscriber fires ONLY when a rule
+# MATCHES, so the bug was invisible under normal traffic and appeared the
+# instant a limit was hit: the NoMethodError propagated out of
+# ActiveSupport::Notifications, through Rack::Attack, and into
+# ProxySecurityValidator's catch-all, which returned a generic 500. Every
+# throttle hit answered 500 instead of 429 and every blocklist hit 500 instead
+# of 403 — with the real cause masked.
 ActiveSupport::Notifications.subscribe("rack.attack") do |_name, _start, _finish, _request_id, payload|
   request = payload[:request]
 
@@ -447,7 +461,7 @@ ActiveSupport::Notifications.subscribe("rack.attack") do |_name, _start, _finish
     when :throttle
       Rails.logger.warn(
         "[RateLimit] Throttled: " \
-        "IP=#{client_ip(request)} " \
+        "IP=#{Rack::Attack.client_ip(request)} " \
         "Path=#{request.path} " \
         "Rule=#{request.env['rack.attack.matched']} " \
         "Count=#{match_data[:count]}/#{match_data[:limit]} " \
@@ -456,7 +470,7 @@ ActiveSupport::Notifications.subscribe("rack.attack") do |_name, _start, _finish
     when :blocklist
       Rails.logger.error(
         "[RateLimit] Blocked: " \
-        "IP=#{client_ip(request)} " \
+        "IP=#{Rack::Attack.client_ip(request)} " \
         "Path=#{request.path} " \
         "Rule=#{request.env['rack.attack.matched']}"
       )
