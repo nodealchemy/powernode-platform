@@ -56,7 +56,17 @@ class ProxySecurityValidator
 
     [ status, headers, response ]
   rescue StandardError => e
-    Rails.logger.error "ProxySecurityValidator error: #{e.message}"
+    # This rescue wraps @app.call, so it catches EVERYTHING downstream —
+    # including exceptions raised in middleware that runs inside it, such as
+    # Rack::Attack's throttled_responder. Logging only e.message turns any
+    # such failure into an unattributable "Internal server error": that is how
+    # a broken throttle response sat undiagnosed, reported as a 500 where the
+    # spec expected a 429, with no way to tell which frame raised.
+    #
+    # The backtrace is logged (server-side only — the response body stays
+    # deliberately generic so nothing leaks to the caller).
+    Rails.logger.error "ProxySecurityValidator error: #{e.class}: #{e.message}"
+    Rails.logger.error "ProxySecurityValidator backtrace: #{Array(e.backtrace).first(15).join("\n  ")}"
     [ 500, { "Content-Type" => "application/json" }, [ { error: "Internal server error" }.to_json ] ]
   end
 
