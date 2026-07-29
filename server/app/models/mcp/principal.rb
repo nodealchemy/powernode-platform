@@ -37,6 +37,64 @@ module Mcp
         @tool_grant_resolver ||= ->(_instance) { [] }
       end
 
+      # Tools an INSTANCE principal may never invoke, whatever it was granted.
+      #
+      # WHY A STATIC OVERLAY AND NOT JUST CAREFUL GRANTS. For an instance the
+      # grant glob is otherwise the ONLY control, because both layers beneath
+      # it are bypassed for a principal with no User:
+      #
+      #   * Ai::Tools::McpPlatformToolRegistrar#enforce_permission! does
+      #     `return if instance_authorized`, skipping BOTH
+      #     `user.has_permission?(required)` and the MCP-token permission
+      #     intersection.
+      #   * Tool bodies gate on a user — e.g. the fleet tool's
+      #     `action_permitted?` does `return true if @user.nil?` as an
+      #     "internal/system bypass". Its premise, that MCP-invoked callers
+      #     always carry a user, predates instance principals and is false for
+      #     them, so the per-action permission map is never consulted.
+      #
+      # Net effect without this overlay: one over-broad pattern —
+      # "platform.system_*", or a careless "platform.*" — is an unattributed,
+      # unapproved, unaudited destroy. Deny wins over any grant, including an
+      # exact-name one, so the blast radius of a grant mistake is bounded by
+      # code rather than by reviewer attention.
+      #
+      # Destructive work belongs to a USER principal: human-attributable, run
+      # through has_permission? + token intersection, and eligible for
+      # Ai::ApprovalChain gating. This overlay does not touch users.
+      #
+      # Patterns are matched against the tool name with any "platform." prefix
+      # stripped, case-insensitively. Deliberately shape-based rather than an
+      # enumerated list: core must not know the extension's tool catalogue, and
+      # a new destroy-shaped tool must be denied the day it ships, not the day
+      # someone remembers to add it here.
+      DESTRUCTIVE_TOOL_PATTERNS = %w[
+        *destroy*
+        *terminate*
+        *decommission*
+        *delete*
+        *purge*
+        *revoke*
+        *rotate*
+        *drain_*
+        *reap_*
+        *recycle*
+        emergency_*
+        *_stop_instance
+        *_reboot_instance
+      ].freeze
+
+      # True when the tool is destroy-shaped and therefore off-limits to every
+      # instance principal.
+      def destructive_tool?(tool_name)
+        name = tool_name.to_s.downcase.sub(/\Aplatform\./, "")
+        return false if name.empty?
+
+        DESTRUCTIVE_TOOL_PATTERNS.any? do |pattern|
+          ::File.fnmatch(pattern, name, ::File::FNM_EXTGLOB)
+        end
+      end
+
       def for_user(user)
         new(kind: :user, account: user.account, user: user, subject_id: user.id)
       end
@@ -84,11 +142,14 @@ module Mcp
 
     # nil-safe tool authorization. Users are unrestricted (existing permission
     # behavior). Instances are DEFAULT-DENY: a tool is invocable only when it
-    # matches one of the instance's granted patterns (from the injected resolver).
+    # matches one of the instance's granted patterns (from the injected
+    # resolver) AND is not destroy-shaped (see DESTRUCTIVE_TOOL_PATTERNS).
     def may_invoke?(tool_name)
       return true if user?
 
       name = tool_name.to_s
+      return false if self.class.destructive_tool?(name)
+
       granted_tool_patterns.any? { |p| ::File.fnmatch(p, name, ::File::FNM_EXTGLOB) }
     end
 
