@@ -19,9 +19,24 @@ class Rack::Attack
     fallback_limit
   end
 
-  # Helper method to check if rate limiting is enabled at runtime
+  # Helper method to check if rate limiting is enabled at runtime.
+  #
+  # Delegates to the config assigned above rather than recomputing the
+  # predicate, because the two DID drift and the drift was invisible: the
+  # config excluded test, this helper did not, and every throttle proc calls
+  # THIS one. So the auth throttles ran live during the suite with their real
+  # limits (auth_login_by_email 5/hour, password reset 3/hour) against a
+  # 1-hour window shared by the whole run.
+  #
+  # That made the password specs order- and timing-dependent — they 429 or pass
+  # depending on where a randomised run happens to place them, which is exactly
+  # how it presented: five spec/requests/api/v1/auth/passwords_spec.rb failures
+  # on one machine and none on another, from identical code.
+  #
+  # One definition, one source of truth. A future environment exclusion added
+  # to the config is now automatically honoured at runtime.
   def self.rate_limiting_enabled?
-    ENV["DISABLE_RATE_LIMITING"] != "true"
+    Rails.application.config.rate_limiting_enabled
   end
 
   # Extract user from JWT token
