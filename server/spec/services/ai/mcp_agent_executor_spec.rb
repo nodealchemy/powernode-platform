@@ -272,8 +272,17 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       expect(context[:temperature]).to eq(0.5)
     end
 
-    it 'does not hydrate working memory (dead work — see IMP-573fbbd9a2b7)' do
-      expect(Ai::Memory::WorkingMemoryService).not_to receive(:new)
+    # Superseded by IMP-c51ef070f4ca. The original lock (IMP-573fbbd9a2b7)
+    # asserted WorkingMemoryService was never CONSTRUCTED — but that pinned a
+    # bug as correct behavior: injection hard-gated on `task.present?`, and
+    # nothing on this path passes a task, so working memory silently never
+    # fired. That fix's real target was proactive DB->Redis hydration ahead of
+    # the read, not the read itself. Assert that instead, and let the read run.
+    #
+    # Request-level counterpart:
+    #   spec/requests/api/v1/internal/ai/execution_contexts_working_memory_spec.rb
+    it 'reads working memory without proactively hydrating it from the database' do
+      expect_any_instance_of(Ai::Memory::WorkingMemoryService).not_to receive(:load_from_database)
 
       context = executor.send(:build_execution_context, { "input" => "test" })
 

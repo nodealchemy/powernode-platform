@@ -230,26 +230,36 @@ RSpec.describe McpToolExecution, type: :model do
     end
   end
 
+  # execution_time_ms is completed_at - created_at in REAL wall-clock, so these
+  # measured however long the example itself took on top of the offset. The
+  # 1000ms tolerance hid that until suite load pushed one to 6056ms vs 5000.
+  # Freezing the clock removes the race and lets the assertion be exact.
   describe 'execution time calculation' do
     it 'calculates execution time on completion' do
-      execution = create(:mcp_tool_execution, :pending, created_at: 5.seconds.ago)
-      execution.complete!({ success: true })
+      freeze_time do
+        execution = create(:mcp_tool_execution, :pending, created_at: 5.seconds.ago)
+        execution.complete!({ success: true })
 
-      expect(execution.reload.execution_time_ms).to be_within(1000).of(5000)
+        expect(execution.reload.execution_time_ms).to eq(5000)
+      end
     end
 
     it 'calculates execution time on failure' do
-      execution = create(:mcp_tool_execution, :pending, created_at: 3.seconds.ago)
-      execution.fail!('Error occurred')
+      freeze_time do
+        execution = create(:mcp_tool_execution, :pending, created_at: 3.seconds.ago)
+        execution.fail!('Error occurred')
 
-      expect(execution.reload.execution_time_ms).to be_within(1000).of(3000)
+        expect(execution.reload.execution_time_ms).to eq(3000)
+      end
     end
 
     it 'calculates execution time on cancellation' do
-      execution = create(:mcp_tool_execution, :pending, created_at: 2.seconds.ago)
-      execution.cancel!
+      freeze_time do
+        execution = create(:mcp_tool_execution, :pending, created_at: 2.seconds.ago)
+        execution.cancel!
 
-      expect(execution.reload.execution_time_ms).to be_within(1000).of(2000)
+        expect(execution.reload.execution_time_ms).to eq(2000)
+      end
     end
   end
 end

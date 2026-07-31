@@ -160,16 +160,35 @@ RSpec.describe 'Api::V1::Ai::Teams - Channels', type: :request do
   end
 
   describe 'POST /api/v1/ai/teams/cleanup_messages' do
+    # Worker-internal by design: gated on WORKER auth rather than
+    # ai.teams.execute, precisely so a regular user cannot POST it to purge
+    # their own account's messages. This example previously signed in a user
+    # and asserted success, so it got the guard's 403 — the guard working.
+    let(:cleanup_worker) { create(:worker, account: account) }
+    let(:worker_headers) do
+      {
+        'X-Forwarded-Tls-Client-Cert-Info' =>
+          CGI.escape(%(Subject="CN=#{cleanup_worker.node_instance_id}")),
+        'Content-Type' => 'application/json'
+      }
+    end
+
     it 'runs cleanup and returns counts' do
       team = create(:ai_agent_team, account: account)
       create(:ai_team_channel, agent_team: team, message_retention_hours: 1)
 
-      post '/api/v1/ai/teams/cleanup_messages', headers: headers, as: :json
+      post '/api/v1/ai/teams/cleanup_messages', headers: worker_headers, as: :json
 
       expect_success_response
       data = json_response_data
       expect(data).to have_key('channels_processed')
       expect(data).to have_key('messages_deleted')
+    end
+
+    it 'refuses a regular user holding the team permissions' do
+      post '/api/v1/ai/teams/cleanup_messages', headers: headers, as: :json
+
+      expect(response).to have_http_status(:forbidden)
     end
   end
 

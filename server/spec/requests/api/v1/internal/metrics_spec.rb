@@ -36,40 +36,67 @@ RSpec.describe 'Api::V1::Internal::Metrics', type: :request do
         expect(job_metrics['queues']).to be_a(Hash)
       end
 
-      it 'includes processed job statistics' do
+      # `processed`, `failed` and `workers` are SCALAR counters, not nested
+      # hashes. Three examples here previously drilled into them for sub-keys
+      # ('total'/'today', 'retry_queue', 'active'/'processes'), a shape neither
+      # branch of the controller has ever produced — so they failed on
+      # `nil.has_key?` rather than on anything the endpoint got wrong.
+      it 'reports available=false with null counters when the worker is unreachable' do
+        # Stubbed rather than assumed: a developer box often HAS a worker
+        # listening on :4567, so leaving this to the environment makes the
+        # example pass on one machine and fail on another.
+        allow(WorkerJobService).to receive(:fetch_sidekiq_stats).and_return(nil)
+
         post '/api/v1/internal/metrics/jobs', headers: internal_headers, as: :json
 
         expect_success_response
-        data = json_response_data
+        job_metrics = json_response_data['job_metrics']
 
-        processed = data['job_metrics']['processed']
-        expect(processed).to have_key('total')
-        expect(processed).to have_key('today')
-        expect(processed).to have_key('success_rate')
+        # The deliberate honest-fallback branch: this Rails API runs no Sidekiq,
+        # so with the worker down there is nothing to report. Reporting zeros
+        # here would read as "healthy, nothing failed" — the nils are the point.
+        expect(job_metrics['available']).to be(false)
+        expect(job_metrics['source']).to eq('worker_unreachable')
+        expect(job_metrics.values_at('processed', 'failed', 'workers', 'success_rate')).to all(be_nil)
+        expect(job_metrics['queues']).to eq({})
       end
 
-      it 'includes failed job statistics' do
-        post '/api/v1/internal/metrics/jobs', headers: internal_headers, as: :json
+      context 'when the worker reports Sidekiq stats' do
+        # Otherwise unexercised: the counters only ever arrive over the worker's
+        # HTTP API, and the worker is unreachable in test.
+        before do
+          allow(WorkerJobService).to receive(:fetch_sidekiq_stats).and_return(
+            'data' => {
+              'processed' => 990, 'failed' => 10, 'enqueued' => 3,
+              'scheduled_size' => 4, 'retry_size' => 5, 'dead_size' => 6,
+              'workers_size' => 2, 'default_queue_latency' => 0.25,
+              'queues' => { 'default' => 3 }, 'timestamp' => '2026-07-30T00:00:00Z'
+            }
+          )
+        end
 
-        expect_success_response
-        data = json_response_data
+        it 'maps the worker counters onto the response' do
+          post '/api/v1/internal/metrics/jobs', headers: internal_headers, as: :json
 
-        failed = data['job_metrics']['failed']
-        expect(failed).to have_key('total')
-        expect(failed).to have_key('today')
-        expect(failed).to have_key('retry_queue')
-        expect(failed).to have_key('dead_queue')
-      end
+          expect_success_response
+          job_metrics = json_response_data['job_metrics']
 
-      it 'includes worker statistics' do
-        post '/api/v1/internal/metrics/jobs', headers: internal_headers, as: :json
+          expect(job_metrics['available']).to be(true)
+          expect(job_metrics['source']).to eq('worker_sidekiq')
+          expect(job_metrics['processed']).to eq(990)
+          expect(job_metrics['failed']).to eq(10)
+          expect(job_metrics['scheduled']).to eq(4)
+          expect(job_metrics['retries']).to eq(5)
+          expect(job_metrics['dead']).to eq(6)
+          expect(job_metrics['workers']).to eq(2)
+          expect(job_metrics['queues']).to eq('default' => 3)
+        end
 
-        expect_success_response
-        data = json_response_data
+        it 'computes the lifetime success rate from the cumulative counters' do
+          post '/api/v1/internal/metrics/jobs', headers: internal_headers, as: :json
 
-        workers = data['job_metrics']['workers']
-        expect(workers).to have_key('active')
-        expect(workers).to have_key('processes')
+          expect(json_response_data['job_metrics']['success_rate']).to eq(99.0)
+        end
       end
     end
 

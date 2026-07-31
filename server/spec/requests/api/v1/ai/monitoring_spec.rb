@@ -381,22 +381,56 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
         expect(data).to have_key('timestamp')
       end
 
-      it 'returns error for missing account_id' do
-        post '/api/v1/ai/monitoring/broadcast', headers: headers, as: :json
+      # `resolve_broadcast_account` deliberately falls back to the CALLER'S OWN
+      # account; a supplied account_id is honoured only for holders of
+      # ai.analytics.global. Two examples here asserted 400 for a missing
+      # account_id and 404 for an unknown one while signing in an actor holding
+      # neither permission — both describe a contract this endpoint never had,
+      # and both got the fallback's 200.
+      context 'account resolution' do
+        before do
+          allow_any_instance_of(Monitoring::UnifiedService).to receive(:get_dashboard)
+            .and_return({ system_status: 'healthy' })
+          allow(ActionCable.server).to receive(:broadcast).and_return(true)
+        end
 
-        expect(response).to have_http_status(:bad_request)
-        expect(json_response['success']).to be false
-        expect(json_response['error']).to include('account_id')
-      end
+        it "falls back to the caller's own account when account_id is omitted" do
+          post '/api/v1/ai/monitoring/broadcast', headers: headers, as: :json
 
-      it 'returns error for invalid account' do
-        post '/api/v1/ai/monitoring/broadcast',
-             params: { account_id: SecureRandom.uuid }.to_json,
-             headers: headers
+          expect_success_response
+          expect(json_response_data['account_id']).to eq(account.id)
+        end
 
-        expect(response).to have_http_status(:not_found)
-        expect(json_response['success']).to be false
-        expect(json_response['error']).to include('not found')
+        # The tenancy control: lacking ai.analytics.global, a supplied account_id
+        # must not aim the broadcast at another tenant's channel.
+        it "ignores another account's id from a caller without ai.analytics.global" do
+          other_account = create(:account)
+
+          post '/api/v1/ai/monitoring/broadcast',
+               params: { account_id: other_account.id }.to_json,
+               headers: headers
+
+          expect_success_response
+          expect(json_response_data['account_id']).to eq(account.id)
+          expect(ActionCable.server).to have_received(:broadcast)
+            .with("ai_orchestration_#{account.id}", anything)
+        end
+
+        context 'as a holder of ai.analytics.global' do
+          let(:global_user) do
+            create(:user, account: account, permissions: %w[ai.monitoring.manage ai.analytics.global])
+          end
+
+          it 'returns not_found for an unknown account_id' do
+            post '/api/v1/ai/monitoring/broadcast',
+                 params: { account_id: SecureRandom.uuid }.to_json,
+                 headers: auth_headers_for(global_user)
+
+            expect(response).to have_http_status(:not_found)
+            expect(json_response['success']).to be false
+            expect(json_response['error']).to include('not found')
+          end
+        end
       end
     end
   end

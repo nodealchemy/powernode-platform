@@ -27,10 +27,15 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   # =============================================================================
 
   describe 'GET #index' do
-    let!(:github_provider) { create(:git_provider, :github) }
-    let!(:gitlab_provider) { create(:git_provider, :gitlab) }
-    let!(:gitea_provider) { create(:git_provider, :gitea) }
-    let!(:inactive_provider) { create(:git_provider, :inactive) }
+    # #index is account-scoped (GitProvider belongs_to :account; listing every
+    # provider leaked other tenants' config/URLs). The factory has
+    # `association :account`, so a bare create(:git_provider) builds its OWN
+    # account and is correctly invisible here — which is why these asserted 3
+    # and got 0. Create them in the caller's account.
+    let!(:github_provider) { create(:git_provider, :github, account: account) }
+    let!(:gitlab_provider) { create(:git_provider, :gitlab, account: account) }
+    let!(:gitea_provider) { create(:git_provider, :gitea, account: account) }
+    let!(:inactive_provider) { create(:git_provider, :inactive, account: account) }
 
     context 'with valid permissions' do
       before { sign_in provider_read_user }
@@ -40,6 +45,20 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
         expect(json['success']).to be true
+        expect(json['data']['providers'].length).to eq(3)
+      end
+
+      # The account scope is a cross-tenant control, not a convenience filter.
+      # Without this example, dropping back to an unscoped `GitProvider.active`
+      # would still pass every other expectation in this file.
+      it 'does not list providers belonging to another account' do
+        # No :github trait — that trait pins a fixed slug, which collides.
+        other_provider = create(:git_provider, account: create(:account))
+
+        get :index
+
+        json = JSON.parse(response.body)
+        expect(json['data']['providers'].map { |p| p['id'] }).not_to include(other_provider.id)
         expect(json['data']['providers'].length).to eq(3)
       end
 
