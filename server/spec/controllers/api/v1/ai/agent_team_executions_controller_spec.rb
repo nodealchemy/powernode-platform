@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe Api::V1::Ai::AgentTeamExecutionsController, type: :controller do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, permissions: []) }
-  let(:auth_user) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.execute']) }
+  let(:auth_user) { create(:user, account: account, permissions: ['ai.teams.manage', 'ai.teams.execute']) }
   let(:team) { create(:ai_agent_team, account: account) }
 
   let!(:execution) do

@@ -4,7 +4,12 @@ require 'rails_helper'
 
 RSpec.describe 'AI Analytics Integration', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
+  # Explicit, not implicit. A bare create(:user, account:) is only privileged
+  # when it is the account's FIRST user, and the let! fixtures below create two
+  # users in this account before this let is ever touched — so `user` lands as a
+  # `member` and lacks ai.analytics.read. Granting the permission the endpoints
+  # actually require removes the dependence on creation order entirely.
+  let(:user) { create(:user, account: account, permissions: ['ai.analytics.read', 'ai.analytics.export']) }
 
   # Core AI components
   let!(:provider1) { create(:ai_provider, slug: 'openai', name: 'OpenAI') }

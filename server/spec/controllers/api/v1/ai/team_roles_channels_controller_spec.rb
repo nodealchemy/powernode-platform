@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe "Api::V1::Ai::TeamRolesChannelsController", type: :request do
   let(:account) { create(:account) }
-  let(:auth_user) { user_with_permissions('ai.teams.manage', account: account) }
+  let(:auth_user) { user_with_permissions('ai.teams.manage', 'ai.teams.execute', account: account) }
   let(:no_perms_user) { user_without_permissions(account: account) }
 
   let!(:team) { create(:ai_agent_team, account: account) }
@@ -242,8 +242,24 @@ RSpec.describe "Api::V1::Ai::TeamRolesChannelsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns success when authenticated' do
+    # cleanup_messages is worker-internal by design. The controller requires
+    # WORKER auth specifically so a regular user cannot POST it to purge their
+    # own account's messages — see the before_action comment. Authenticating as
+    # a user here asserted that the guard does not exist; it does, and it
+    # should. Exercised with a worker token instead, matching the pattern in
+    # spec/requests/api/v1/worker_callback_auth_spec.rb.
+    let(:worker) { create(:worker, account: account) }
+    let(:worker_headers) do
+      { 'Authorization' => "Bearer #{Security::JwtService.encode({ type: 'worker', sub: worker.id }, 5.minutes.from_now)}" }
+    end
+
+    it 'forbids a regular user (worker-internal endpoint)' do
       post path, headers: auth_headers_for(auth_user)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'returns success when authenticated as a worker' do
+      post path, headers: worker_headers
       expect(response).to have_http_status(:success)
       expect(json_response['data']).to have_key('channels_processed')
       expect(json_response['data']).to have_key('messages_deleted')

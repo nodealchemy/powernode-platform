@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe "Api::V1::Ai::TeamsController", type: :request do
   let(:account) { create(:account) }
-  let(:auth_user) { user_with_permissions('ai.teams.manage', account: account) }
+  let(:auth_user) { user_with_permissions('ai.teams.manage', 'ai.teams.execute', account: account) }
   let(:no_perms_user) { user_without_permissions(account: account) }
 
   let!(:team) { create(:ai_agent_team, account: account) }
