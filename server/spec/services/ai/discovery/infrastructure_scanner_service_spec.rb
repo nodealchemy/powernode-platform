@@ -9,7 +9,15 @@ RSpec.describe Ai::Discovery::InfrastructureScannerService, type: :service do
 
   describe '#scan_docker_hosts' do
     before do
+      # Default FIRST: the strict .with below rejects every OTHER call to .where,
+      # and the models call it internally — Ai::Agent's slug-uniqueness loop does
+      # Ai::Agent.where(account_id:, slug:) on save. Without a default that raises.
+      allow(Devops::DockerHost).to receive(:where).and_call_original
       allow(Devops::DockerHost).to receive(:where).with(account: account).and_return(hosts_relation)
+      # Default FIRST: the strict .with below rejects every OTHER call to .where,
+      # and the models call it internally — Ai::Agent's slug-uniqueness loop does
+      # Ai::Agent.where(account_id:, slug:) on save. Without a default that raises.
+      allow(Ai::Agent).to receive(:where).and_call_original
       allow(Ai::Agent).to receive(:where).with(account: account).and_return(agents_relation)
     end
 
@@ -112,7 +120,15 @@ RSpec.describe Ai::Discovery::InfrastructureScannerService, type: :service do
 
   describe '#scan_swarm_clusters' do
     before do
+      # Default FIRST: the strict .with below rejects every OTHER call to .where,
+      # and the models call it internally — Ai::Agent's slug-uniqueness loop does
+      # Ai::Agent.where(account_id:, slug:) on save. Without a default that raises.
+      allow(Devops::SwarmCluster).to receive(:where).and_call_original
       allow(Devops::SwarmCluster).to receive(:where).with(account: account).and_return(clusters_relation)
+      # Default FIRST: the strict .with below rejects every OTHER call to .where,
+      # and the models call it internally — Ai::Agent's slug-uniqueness loop does
+      # Ai::Agent.where(account_id:, slug:) on save. Without a default that raises.
+      allow(Ai::Agent).to receive(:where).and_call_original
       allow(Ai::Agent).to receive(:where).with(account: account).and_return(agents_relation)
     end
 
