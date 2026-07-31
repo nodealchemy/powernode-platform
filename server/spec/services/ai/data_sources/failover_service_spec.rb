@@ -303,7 +303,14 @@ RSpec.describe Ai::DataSources::FailoverService, type: :service do
         mirror.id => success_envelope(slug: mirror.slug)
       )
 
-      expect_any_instance_of(Object).not_to receive(:sleep)
+      # Scoped to the service under test, NOT `expect_any_instance_of(Object)`.
+      # That form matches every object in the process, so it also catches
+      # background threads from unrelated subsystems: the two-machine parity run
+      # failed here on Mcp::TransportService's message-cleanup thread
+      # (transport_service.rb:393) doing its own `sleep 5` while this example
+      # happened to be running. Timing-dependent, so it passed on one box and
+      # failed on the other, and would eventually flake on either.
+      expect(service).not_to receive(:sleep)
       service.query([primary_target, mirror_target])
     end
 

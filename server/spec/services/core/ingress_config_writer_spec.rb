@@ -17,13 +17,30 @@ require "openssl"
 # they can't leak state into other examples.
 RSpec.describe Core::IngressConfigWriter, type: :service do
   let(:account) { create(:account) }
-  let(:tmp_dynamic_dir) { Dir.mktmpdir("core-ingress-dynamic") }
-  let(:tmp_cert_dir)    { Dir.mktmpdir("core-ingress-certs") }
+  # Everything lives under ONE root, and the writer's derived SIBLING paths
+  # therefore stay inside it.
+  #
+  # These were previously two bare Dir.mktmpdir calls, i.e. directly in /tmp.
+  # The writer mirrors the production layout by deriving siblings — traefik.yaml
+  # beside the dynamic dir, and a durable `dynamic/` mirror beside the cert dir
+  # — so those resolved to the SHARED /tmp/traefik.yaml and /tmp/dynamic. That
+  # passes on a developer box and fails with Errno::EACCES on a freshly
+  # provisioned one where /tmp/traefik.yaml is owned by another user (caught by
+  # the two-machine parity run). The durable-mirror example also `rm -rf`'d
+  # /tmp/dynamic on the way out, which is not this spec's directory to delete.
+  #
+  # `live` and `durable` are separate parents on purpose: in production the
+  # dynamic dir is tmpfs-backed under /etc/traefik while the certs and their
+  # durable mirror sit on /persist. Sharing one parent here would collapse the
+  # live dynamic dir and the durable mirror onto the same path and stop the
+  # mirroring assertion from testing anything.
+  let(:tmp_root)        { Dir.mktmpdir("core-ingress") }
+  let(:tmp_live_dir)    { File.join(tmp_root, "live").tap { |d| FileUtils.mkdir_p(d) } }
+  let(:tmp_dynamic_dir) { File.join(tmp_live_dir, "dynamic").tap { |d| FileUtils.mkdir_p(d) } }
+  let(:tmp_durable_dir) { File.join(tmp_root, "durable").tap { |d| FileUtils.mkdir_p(d) } }
+  let(:tmp_cert_dir)    { File.join(tmp_durable_dir, "certs").tap { |d| FileUtils.mkdir_p(d) } }
 
-  after do
-    FileUtils.rm_rf(tmp_dynamic_dir) if Dir.exist?(tmp_dynamic_dir)
-    FileUtils.rm_rf(tmp_cert_dir)    if Dir.exist?(tmp_cert_dir)
-  end
+  after { FileUtils.rm_rf(tmp_root) }
 
   describe ".write_static_config!" do
     it "renders the baseline static config (entrypoints, file provider, no dashboard)" do
@@ -216,8 +233,8 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
       expect(File.read(durable)).to eq(File.read(result[:output_path]))
       # Must be readable by the unprivileged proxy user that restores it.
       expect(format("%o", File.stat(durable).mode)[-3..]).to eq("644")
-    ensure
-      FileUtils.rm_rf(File.join(File.dirname(tmp_cert_dir), "dynamic"))
+      # No ensure-block cleanup: the mirror now lands under tmp_root, which the
+      # after-hook removes. It previously had to delete /tmp/dynamic by hand.
     end
 
     # Pre-seeding the NEXT boot must never break ingress on THIS one.
