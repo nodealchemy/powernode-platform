@@ -33,6 +33,17 @@ RSpec.describe Api::V1::Mcp::HostingController, type: :controller do
     end)
   end
 
+  # `routes` in a NON-anonymous controller spec IS Rails.application.routes, and
+  # RouteSet#draw calls clear! before evaluating its block — so the draw above
+  # wipes every application route for the remainder of the process. Restore them.
+  #
+  # Without this the damage is invisible here and lands on whatever runs later:
+  # webhooks/git_controller_spec failed 18 examples with "No route matches" when
+  # it happened to be ordered after this file, and passed in isolation. Anonymous
+  # controller specs (`controller(ApplicationController) do`) get an isolated
+  # RouteSet from rspec-rails and need no such cleanup; this one is not anonymous.
+  after { Rails.application.reload_routes! }
+
   describe "index (read tier)" do
     it "forbids a user with no mcp perms" do
       sign_in_as_user(no_perm)
