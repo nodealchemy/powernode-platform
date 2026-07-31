@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe Api::V1::Ai::Security::AnomalyDetectionsController, type: :controller do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
+  let(:user) { create(:user, account: account, permissions: []) }
   let(:security_user) { create(:user, account: account, permissions: ['ai.security.manage']) }
   let(:agent) { create(:ai_agent, account: account) }
 

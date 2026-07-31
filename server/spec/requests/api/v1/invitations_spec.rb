@@ -155,7 +155,7 @@ RSpec.describe 'API::V1::Invitations', type: :request do
     end
 
     it 'forbids non-inviter without admin permissions' do
-      other_user = create(:user, :manager, account: account)
+      other_user = create(:user, account: account, permissions: [])
       patch "/api/v1/invitations/#{invitation.id}",
             params: { invitation: { first_name: 'Jane' } },
             headers: auth_headers_for(other_user),
@@ -177,7 +177,7 @@ RSpec.describe 'API::V1::Invitations', type: :request do
     end
 
     it 'forbids deletion by non-inviter' do
-      other_user = create(:user, :manager, account: account)
+      other_user = create(:user, account: account, permissions: [])
       delete "/api/v1/invitations/#{invitation.id}",
              headers: auth_headers_for(other_user),
              as: :json

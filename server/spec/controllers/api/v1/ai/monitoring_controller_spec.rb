@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
+  let(:user) { create(:user, account: account, permissions: []) }
   let(:worker) { create(:worker) }
 
   # Permission-based users

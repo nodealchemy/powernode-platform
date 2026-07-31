@@ -97,7 +97,7 @@ RSpec.describe Api::V1::Ai::ApprovalChainsController, type: :request do
   end
 
   describe 'permission gating' do
-    let(:no_perm_user) { create(:user, account: account) }
+    let(:no_perm_user) { create(:user, account: account, permissions: []) }
     let(:no_perm_headers) { auth_headers_for(no_perm_user) }
 
     it 'rejects unauthorized users' do
