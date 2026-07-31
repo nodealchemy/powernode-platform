@@ -1,33 +1,54 @@
 # frozen_string_literal: true
 
-# Clears Security::RateLimiter counters before every example.
+# Clears rate-limit counters before every example.
 #
-# WHY THIS IS NEEDED. The limiter is backed by Redis, not Rails.cache, so its
-# counters outlive both the example and the entire run. Nothing reset them, and
-# several endpoints rate-limit unconditionally — Api::V1::Auth::PasswordsController
-# declares `should_rate_limit? => true # Always` with 3 attempts per IP per 15
-# MINUTES, a window far longer than a suite takes. So the fourth password
-# request in a run gets HTTP 429 regardless of what the example asserts.
+# WHY. Controllers that rate-limit do so through the RateLimiting concern,
+# which counts in Rails.cache under "rate_limit:<controller>:<ip>" — every
+# example in a run shares one controller name and one remote IP (127.0.0.1),
+# so they share one counter. Nothing reset it. Api::V1::Auth::PasswordsController
+# overrides should_rate_limit? to `true # Always` with 3 attempts per 15
+# MINUTES, a window longer than a suite takes, so the fourth password request
+# in a run returns HTTP 429 regardless of what the example asserts.
 #
-# The result was a cross-machine phantom: five passwords_spec failures on one
-# box and zero on another, from identical code, identical suite, identical
-# example count. They pass in isolation and fail in file order, which reads as
-# an environment difference and is not one. Two full suite runs were spent
-# chasing it.
+# It presents as a cross-machine phantom rather than an ordering bug: five
+# passwords_spec failures on one box and zero on another, from identical code
+# and an identical suite. The cause is RateLimiting#check_and_increment_rate_limit's
+# `return if ENV["DISABLE_RATE_LIMITING"] == "true"` — a developer box has a
+# gitignored .env setting it, a freshly-provisioned box has no .env at all. The
+# limiter is therefore silently inert exactly where anyone would look for it,
+# and live everywhere else.
 #
-# SCOPED DELETION, NOT FLUSHDB — deliberately. On a developer box the test
-# environment resolves to the SAME Redis logical database as the running
-# platform (no REDIS_URL/REDIS_DB is set, and the AdminSetting lookup falls back
-# to redis://localhost:6379/0). A flush here would wipe live platform state:
-# sessions, caches, queues. Deleting only the limiter's own `rate_limit:*`
-# namespace touches nothing else, and uses SCAN rather than KEYS so it never
-# blocks the server.
+# Resetting the counter is preferable to setting that variable in test: the
+# limiter stays exercised, its own specs keep working, and specs become
+# order-independent because each starts from a known-empty counter rather than
+# from whatever the previous examples happened to leave behind.
 #
-# That shared-database arrangement is itself worth fixing — the suite should not
-# share Redis with a running platform at all — but that is a broader change than
-# making these specs deterministic, and this hook is correct either way.
+# Two stores are cleared because there are two independent limiters, and only
+# the first is in this call path:
+#   - Rails.cache        — the RateLimiting concern (what actually 429s here)
+#   - Redis rate_limit:* — Security::RateLimiter, used by other endpoints
+#
+# The Redis pass is scoped with SCAN + DEL rather than FLUSHDB on purpose: on a
+# developer box the test environment resolves to the SAME Redis logical database
+# as the running platform (no REDIS_URL/REDIS_DB set), so a flush would wipe
+# live sessions, caches and queues.
 RSpec.configure do |config|
   config.before(:each) do
+    # 1. Rails.cache — the RateLimiting concern's counter.
+    begin
+      Rails.cache.delete_matched("rate_limit:*")
+    rescue NotImplementedError, StandardError
+      # Not every store implements delete_matched; fall back to a full clear,
+      # which is safe here because the test store is per-process (MemoryStore)
+      # and shares nothing with a running platform.
+      begin
+        Rails.cache.clear
+      rescue StandardError
+        nil
+      end
+    end
+
+    # 2. Redis — Security::RateLimiter's counter, for endpoints that use it.
     next unless defined?(::Powernode::Redis)
 
     begin
@@ -40,8 +61,6 @@ RSpec.configure do |config|
       end
     rescue StandardError
       # Redis being unavailable must never fail an example that does not use it.
-      # The specs that DO depend on the limiter will fail on their own terms,
-      # which is a clearer signal than a connection error in a before hook.
       nil
     end
   end
