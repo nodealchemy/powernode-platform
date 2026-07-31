@@ -6,10 +6,27 @@ RSpec.describe 'Api::V1::SiteSettings', type: :request do
   let(:account) { create(:account) }
   let(:admin_user) { create(:user, :admin, account: account) }
   let(:user_with_settings_manage) { create(:user, account: account) }
-  let(:regular_user) { create(:user, account: account) }
+  # Genuinely unprivileged, not stub-simulated. auth_headers_for mints a JWT
+  # embedding the user's real permissions, and the controller's has_permission?
+  # (concerns/authentication.rb) answers from that payload BEFORE falling back to
+  # User#has_permission? — so stubbing the model cannot make an owner
+  # unauthorized. A bare create(:user, account:) is this account's first user and
+  # therefore an owner, whose token carries settings.manage.
+  let(:regular_user) { create(:user, account: account, permissions: []) }
 
   # Helper to stub admin permissions
   def stub_admin_permissions
+    # Default FIRST, then the specific expectations. Without a default, RSpec
+    # raises "received :has_permission? with unexpected arguments" for any other
+    # argument — and Rack::Attack's system.admin safelist
+    # (config/initializers/rack_attack.rb) calls has_permission?("system.admin")
+    # in middleware on every request, before the controller is reached. That is
+    # what these 15 failures were: a strict stub meeting a caller the spec did
+    # not know about.
+    #
+    # and_call_original rather than a blanket false, so anything not explicitly
+    # stubbed keeps its real behaviour instead of being silently denied.
+    allow_any_instance_of(User).to receive(:has_permission?).and_call_original
     allow_any_instance_of(User).to receive(:has_permission?).with('admin.access').and_return(true)
     allow_any_instance_of(User).to receive(:has_permission?).with('settings.manage').and_return(true)
   end
@@ -69,6 +86,8 @@ RSpec.describe 'Api::V1::SiteSettings', type: :request do
       let(:headers) { auth_headers_for(user_with_settings_manage) }
 
       before do
+        # Re-stubbing resets the method, so the outer default does not carry here.
+        allow_any_instance_of(User).to receive(:has_permission?).and_call_original
         allow_any_instance_of(User).to receive(:has_permission?).with('admin.access').and_return(false)
         allow_any_instance_of(User).to receive(:has_permission?).with('settings.manage').and_return(true)
       end
@@ -84,8 +103,9 @@ RSpec.describe 'Api::V1::SiteSettings', type: :request do
       let(:headers) { auth_headers_for(regular_user) }
 
       before do
-        allow_any_instance_of(User).to receive(:has_permission?).with('admin.access').and_return(false)
-        allow_any_instance_of(User).to receive(:has_permission?).with('settings.manage').and_return(false)
+        # No stubbing: regular_user genuinely holds neither permission, so the
+        # JWT payload carries neither and the controller refuses on its own.
+        allow_any_instance_of(User).to receive(:has_permission?).and_call_original
       end
 
       it 'returns forbidden error' do
