@@ -243,11 +243,31 @@ them.
 ### The methodological trap
 
 An earlier pass concluded "the polluter is outside `spec/controllers`" because a
-controllers-only run showed zero git/onboarding failures. That was **unsound**:
-the suite runs `--order random` with an unpinned seed, so a single passing run
-only shows that *that* ordering did not place the polluter first. Under random
-ordering, absence of failure in one run is not evidence of absence — only a
-forced ordering (`--order defined`) is.
+controllers-only run showed zero git/onboarding failures. That was **unsound** —
+the polluter was inside that directory.
+
+The first explanation given here for *why* it was unsound was itself wrong, and
+the correction is the more useful lesson. This document previously stated that
+the suite runs `--order random` with an unpinned seed, so one green run only
+reflected a lucky ordering. **It does not.** `spec/spec_helper.rb` lines 49–93
+sit inside a `=begin`/`=end` block, so `config.order = :random` and
+`Kernel.srand config.seed` are commented out; no active `config.order` exists
+anywhere. The suite runs RSpec's default **`:defined`** order.
+
+Caught by two full sandbox runs failing at *identical* example ordinals (6537,
+6538, 6539), which random ordering makes essentially impossible — and by neither
+log containing the "Randomized with seed N" line RSpec always prints when random
+ordering is on.
+
+So the real trap is narrower and more practical: **a subset run does not
+reproduce a full run's ordering**, because the file set differs. That is why a
+green `rspec spec/controllers` could not clear that directory. Force the pairing
+(`rspec <suspect> <victim> --order defined`, then the reverse, then each alone)
+rather than inferring from a subset.
+
+A useful consequence: because ordering is deterministic, failure ordinals are
+comparable *between* full runs, which makes it possible to see exactly which
+failures a fix removed.
 
 Three other specs call `routes.draw` and are harmless: they use
 `controller(ApplicationController) do`, and rspec-rails gives anonymous
@@ -359,9 +379,51 @@ the objective.
 3. ~~**Family C**~~ — DONE (`57d43a134`), 15 failures.
 4. ~~**Family D**~~ — DONE, 31 failures (one route-set wipe).
 5. ~~**Family E**~~ — DONE, 13 failures (11 genuine + 2 reclassified).
-6. **Re-run and re-diff on both machines** to confirm parity holds — the one
-   step still outstanding, and the only way to catch another environment
-   dependency like the worker-on-:4567 one above.
+6. ~~**Re-run and re-diff on both machines**~~ — DONE, see below.
+
+## Parity result (2026-07-31)
+
+Both machines at `3635f56c8`:
+
+| | examples | failures | pending |
+|---|---|---|---|
+| dev (VM 300) | 21,145 | **0** | 141 |
+| sandbox (VM 9000) | 21,145 | 7 | 141 |
+
+Identical example and pending totals, so both run the same suite. **All eleven
+specs changed by this work passed on both machines.** The seven sandbox
+failures are environment differences, not defects:
+
+| failures | spec | cause |
+|---|---|---|
+| 3 | `admin_settings_spec` (extension toggle) | sandbox has **no private extensions** — `extensions/private` is empty |
+| 1 | `feature_gate_service_spec` | same: `extension_manifest_present?("business")` is legitimately false there |
+| 2 | `ingress_config_writer_spec` | `Errno::EACCES` writing `/tmp/core-ingress-dynamic*/../traefik.yaml` |
+| 1 | `failover_service_spec` | a real `sleep 5` fired where the spec expects none |
+
+The dev-cell provision script names the private-extension gap explicitly ("the
+pinned dev_cell_bootstrap contract only documents ONE gitea credential… private
+extensions are gitignored, SEPARATE Gitea repos — OPEN CONTRACT GAP"), so those
+four are expected on any cell without them, not a regression.
+
+The two `ingress_config_writer` failures are worth a follow-up: the spec writes
+to `../traefik.yaml` *relative to its own `Dir.mktmpdir`*, i.e. to the shared
+`/tmp/traefik.yaml`. That happens to be writable on a developer box and is owned
+by another user on a freshly-provisioned one. A spec should not write outside
+its temp directory; this is the same class of latent cross-machine defect as the
+`.env` and worker-on-:4567 traps below.
+
+### What the parity run cost, and what it caught
+
+The first attempt reported 106 failures and was invalid — Redis on the sandbox
+had latched `MISCONF` (RDB snapshots could not fit on a 512 MB tmpfs overlay, so
+every write was refused), and repairing it mid-run made the measurement
+non-uniform. The repair removed 24 of the first 28 failures outright.
+
+That fault was worth finding on its own: it traced to the redis module's
+`conf.d` drop-in never being loaded at all (the apt `redis.conf` carries no
+`include`), which means `appendonly`, `save ""`, `maxmemory` and
+`protected-mode` have never taken effect on any node.
 
 Consider also adding a guard so this class of defect announces itself: a shared
 example, or a check in `PermissionTestHelpers`, asserting that an actor used in a
