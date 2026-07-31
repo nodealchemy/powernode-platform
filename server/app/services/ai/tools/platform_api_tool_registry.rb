@@ -65,6 +65,7 @@ module Ai
         "system_start_instance" => "Ai::Tools::SystemFleetTool",
         "system_stop_instance" => "Ai::Tools::SystemFleetTool",
         "system_reboot_instance" => "Ai::Tools::SystemFleetTool",
+        "system_upgrade_boot_image" => "Ai::Tools::SystemFleetTool",
         "system_list_providers"     => "Ai::Tools::SystemFleetTool",
         "system_get_provider"       => "Ai::Tools::SystemFleetTool",
         "system_update_provider"    => "Ai::Tools::SystemFleetTool",
