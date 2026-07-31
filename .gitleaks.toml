@@ -122,6 +122,15 @@ paths = [
     '''tmp/''',
     '''log/''',
     '''logs/''',
+    # Integration worktrees are full checkouts of THIS repo (gitignored, but
+    # gitleaks --no-git does not honour .gitignore — verified). Scanning them
+    # re-scanned the codebase once per worktree: 78,752 files / 2.4G against
+    # 93,992 / 1.6G for the tree proper, ~45% of the scan for no new coverage.
+    # Tradeoff accepted knowingly: a secret sitting UNCOMMITTED in a worktree is
+    # no longer caught by a gate run from the main repo. Each worktree is a full
+    # checkout that runs its own gate and pre-commit hook, which is what covers
+    # that case — if that ever stops being true, this entry should come out.
+    '''\.claude/worktrees/''',
     '''(^|/)\.env$''',
     '''server/db/seeds/''',
     '''scripts/test_''',
