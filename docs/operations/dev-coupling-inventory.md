@@ -24,8 +24,8 @@ rebuilds.
 | # | Coupling | Where | Impact if dev dies | Status |
 |---|---|---|---|---|
 | 1 | CI `POWERNODE_API_BASE` pinned to `10.125.0.232` — dev's **former** IP | Gitea secret | CI already broken; failed silently | ✅ **fixed** → `https://ops-hub.ipnode.us` |
-| 2 | `ops.powernode.org` resolves to `10.125.1.37` (the Gitea docker host) and **nothing serves it** — yet it is the workflow's hardcoded default | DNS + `build-disk-image.yaml:390,551` | CI silently falls back to a dead host whenever the secret is unset | ⚠️ open — needs a DNS record or the default changed |
-| 3 | **CI builders enrol to dev**: `SiteSetting[system.ci_builder.enroll_platform_url] = https://dev.ipnode.us` | platform setting | **Build fleet cannot enrol.** You lose the ability to build the images needed to fix it — the circular dependency P7 exists to break | 🔴 **blocks dev-off** |
+| 2 | `ops.powernode.org` resolves to a host that **doesn't serve the platform** — yet it is the workflow's hardcoded default. Re-checked 2026-08-01: now resolves `10.125.1.32` (the git HTTPS proxy), `/up` connection-refused | DNS + `build-disk-image.yaml:390,551` | CI silently falls back to a dead host whenever the secret is unset | ⚠️ **still open** — needs a DNS record or the default changed |
+| 3 | **CI builders enrol to dev**: `SiteSetting[system.ci_builder.enroll_platform_url] = https://dev.ipnode.us` | platform setting | **Build fleet cannot enrol.** You lose the ability to build the images needed to fix it — the circular dependency P7 exists to break | ✅ **fixed** — verified 2026-08-01 on ops-hub: `https://ops-hub.ipnode.us` (+ `enroll_ca_pem` present, no dev reference) |
 | 4 | `POWERNODE_DISK_IMAGE_WEBHOOK_URL` — the call that creates the `DiskImagePublication` | Gitea secret (value masked) | New images publish to the wrong plane. Strongly implied by dev's DB holding the current publications | 🔴 open — **repoint with #1 or CI is split-brained** |
 | 5 | `reverse_proxy_url_config.trusted_hosts` includes `dev.powernode.org` / `dev.ipnode.us` | AdminSetting | Cosmetic; stale entries only | minor |
 
@@ -88,8 +88,26 @@ permanently orphaned (its identity cannot be looked up even though its cert may 
 Note on #12: the pool provisioning timestamps put **active CI-pool provisioning on dev inside the
 wipe window** — whatever session drove that activity is the best lead for the wipe's root cause.
 
+**2026-08-01 DB-side scan of ops-hub: CLEAN.** Zero `dev.ipnode`/`10.125.0.22` hits across
+`site_settings`, `system_gitops_repositories`, `system_package_repositories`,
+`system_federation_peers`, `system_node_platforms.disk_image_oci_ref`,
+`system_disk_image_publications.oci_ref`, and all CI workflow files (core + extensions/system +
+agent/initramfs/module-repo). None of the six orphan IPs match any `system_node_instances` row —
+**ops-hub has no knowledge these VMs exist**. The residual coupling class is exactly what a DB scan
+cannot see: per-node on-disk agent state (`platform_url`, pinned connections).
+
+**Escalation on #13:** `docs/operations/rcp-p1a-ops-hub-b-provisioning-design.md` and the RCP
+campaign handoff both state ops-hub-b is **design-only, gated, "not yet created"** — yet a live
+host answers to that name at .220 with a populated `/persist`. Either something jumped the RCP
+gate or an unrelated VM took the name. Provenance needs dna/Proxmox access (currently denied from
+dev — see below). Operator decision required; do not auto-dispose.
+
 ## Still to check
 
+- **dna SSH access from dev is DENIED (2026-08-01)** — `admin@dna`, `rett@dna`, `root@dna` all
+  publickey-rejected from the dev box. Blocks: watchdog verification, .217 console identification,
+  ops-hub-b provenance. Either the key was rotated off dna or past sessions used an agent-loaded
+  key this environment lacks. Operator: restore a read path or run those three checks directly.
 - **Gitea Actions secrets** — 11 exist; values are masked by the API, so `POWERNODE_AGENT_BINARY_URL`,
   `PLATFORM_READ_TOKEN` and `POWERNODE_CI_WORKER_TOKEN` scoping cannot be confirmed by inspection.
   They must be verified by *use* (run a build with dev off) or rotated deliberately.
