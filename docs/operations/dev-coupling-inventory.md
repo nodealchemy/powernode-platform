@@ -82,8 +82,8 @@ permanently orphaned (its identity cannot be looked up even though its cert may 
 | # | Coupling | Where | Impact if dev dies | Status |
 |---|---|---|---|---|
 | 11 | **Dev's traefik still serves `Host(ops-hub.ipnode.us)` routers** (`acme-…0b83….yaml`, regenerated 07-29) — dev answers as ops-hub for any client with stale DNS or a pinned keep-alive connection | dev dynamic config | Misleading: an operator browser tab on "ops-hub" can actually be dev's Vite (observed live from the workstation, ~6.9k req/hr). All API traffic through it 4xxes since the wipe | ⚠️ open — dies naturally at dev-off; meanwhile close stale tabs, check workstation `/etc/hosts` |
-| 12 | **Six orphaned fleet agents poll dev every ~30 s** (403/401): `ci-native-builders-amd64-pool-*` at .194/.205/.223 and `ci-builders-amd64-pool-*` at .213 — all provisioned 2026-07-30 ~16:10–17:20 UTC, **minutes before the wipe** — plus .217 (unidentified, publickey-rejected) | LAN VMs (MAC OUI 12:25:78, platform-assigned) | Wasted dna capacity; after any reconnect they will move their 401 noise to the real ops-hub | 🔴 **disposal decision parked for operator** (pool members hold nothing durable; .217 needs serial-console ID first) |
-| 13 | **`ops-hub-b` (.220) is alive** — the RCP P1a second control-plane instance: up 3+ days, `/up` 200, self-signed CN=ops-hub-b, populated `/persist`, polling dev under a dead identity | RCP campaign asset | Unmanaged control-plane instance with no registry row anywhere | parked → RCP campaign decision (do NOT auto-dispose) |
+| 12 | **Six orphaned fleet agents poll dev every ~30 s** (403/401): `ci-native-builders-amd64-pool-*` at .194/.205/.223 and `ci-builders-amd64-pool-*` at .213 — all provisioned 2026-07-30 ~16:10–17:20 UTC, **minutes before the wipe** — plus .217 (unidentified, publickey-rejected) | LAN VMs (MAC OUI 12:25:78, platform-assigned) | Wasted dna capacity; after any reconnect they will move their 401 noise to the real ops-hub | ✅ **4 destroyed 2026-08-01** (operator-approved; MAC-matched to dna VMIDs 500/501/502/504, freed 64 GB RAM / 640 GB disk). `.217` = dna **VMID 503** (5th pool VM, 07-29); dna **VMID 505** = 6th, provisioned at the wipe-start minute, likely stillborn — both pending an operator go |
+| 13 | **`ops-hub-b` (.220) is alive** — up 3+ days, `/up` 200, self-signed CN=ops-hub-b, populated `/persist`, polling dev under a dead identity. RCP P1a says design-only/"not yet created". **Its MAC matches NO VM on dna** → it runs on other hardware; hypervisor unknown | RCP campaign asset | Unmanaged control-plane instance with no registry row anywhere | parked → find its hypervisor, then RCP campaign decision (do NOT auto-dispose) |
 
 Note on #12: the pool provisioning timestamps put **active CI-pool provisioning on dev inside the
 wipe window** — whatever session drove that activity is the best lead for the wipe's root cause.
@@ -104,10 +104,11 @@ dev — see below). Operator decision required; do not auto-dispose.
 
 ## Still to check
 
-- **dna SSH access from dev is DENIED (2026-08-01)** — `admin@dna`, `rett@dna`, `root@dna` all
-  publickey-rejected from the dev box. Blocks: watchdog verification, .217 console identification,
-  ops-hub-b provenance. Either the key was rotated off dna or past sessions used an agent-loaded
-  key this environment lacks. Operator: restore a read path or run those three checks directly.
+- ~~dna SSH denied~~ **RESOLVED 2026-08-01**: dna accepts `admin` with the **powernode-deploy**
+  key (`ssh -i ~/.ssh/powernode-deploy admin@dna`; default id_ed25519 is not authorized; `qm`
+  needs `sudo -n`). Watchdog verified live the same day: `powernode-fleet-watchdog.timer` clean
+  30 s cadence + `powernode-ops-hub-qmstart-retry.timer` armed. Remaining dna item: ops-hub-b is
+  NOT on dna — find which hypervisor hosts it.
 - **Gitea Actions secrets** — 11 exist; values are masked by the API, so `POWERNODE_AGENT_BINARY_URL`,
   `PLATFORM_READ_TOKEN` and `POWERNODE_CI_WORKER_TOKEN` scoping cannot be confirmed by inspection.
   They must be verified by *use* (run a build with dev off) or rotated deliberately.
