@@ -181,6 +181,22 @@ else
     failed_checks=$((failed_checks + 1))
 fi
 
+# In a NON-anonymous controller spec, `routes` IS Rails.application.routes and
+# RouteSet#draw clears it first — so routes.draw there replaces the entire
+# application route table for the rest of the process. The damage lands on
+# whatever runs later, never on the spec that caused it: one such spec broke 32
+# examples across three unrelated files, each of which passed in isolation.
+# Mechanically checkable, so it belongs here rather than in a convention doc.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No unrestored routes.draw in controller specs... "
+if bash scripts/check-controller-spec-routes-draw.sh >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (routes.draw wipes the app route table; run: bash scripts/check-controller-spec-routes-draw.sh)"
+    failed_checks=$((failed_checks + 1))
+fi
+
 # Model Structure Compliance
 # Post-0.4.0 convention: native `id: :uuid` PKs with the `uuidv7()` DB default
 # (the old `string :id, limit: 36` string-PK form was eliminated in the squash —
