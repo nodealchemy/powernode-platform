@@ -97,10 +97,37 @@ if [[ "$SKIP_TS" == "false" ]]; then
   # it walks up from the file location, so the platform's node_modules has
   # to be reachable from extensions/<slug>/frontend/. We ensure this by
   # symlinking; never commit the symlink (extension .gitignore handles that).
-  for ext_tsconfig in "$PROJECT_ROOT"/extensions/*/frontend/tsconfig.check.json "$PROJECT_ROOT"/extensions/private/*/frontend/tsconfig.check.json; do
-    [[ -f "$ext_tsconfig" ]] || continue
-    ext_dir="$(dirname "$ext_tsconfig")"
+  # Enumerate extension FRONTEND DIRS, not tsconfig.check.json files. Globbing
+  # the configs made a missing one a silent skip — which is precisely how
+  # marketing and supply-chain stayed unchecked (380 source files) while the
+  # gate reported green, and how a real regression (mainNav deleted from
+  # PublicPageContainer under a "bump dependencies" commit) survived. An
+  # extension frontend must now either ship a config or be named in
+  # scripts/tsc-check-optouts.txt with a reason; anything else fails.
+  OPTOUT_FILE="$PROJECT_ROOT/scripts/tsc-check-optouts.txt"
+  for ext_dir in "$PROJECT_ROOT"/extensions/*/frontend "$PROJECT_ROOT"/extensions/private/*/frontend; do
+    [[ -d "$ext_dir" ]] || continue
     ext_slug="$(basename "$(dirname "$ext_dir")")"
+    ext_tsconfig="$ext_dir/tsconfig.check.json"
+
+    if [[ ! -f "$ext_tsconfig" ]]; then
+      # Opt-out lines are "<slug><whitespace><reason>"; comments start with #.
+      # `|| true` is load-bearing: this script runs under `set -eo pipefail`, so
+      # a no-match grep (exit 1) inside a command substitution aborts the whole
+      # gate — silently, mid-phase, with no summary. That is the exact failure
+      # mode this check exists to remove, so it must not introduce one.
+      optout_reason="$(grep -E "^${ext_slug}[[:space:]]" "$OPTOUT_FILE" 2>/dev/null | head -1 | sed -E "s/^${ext_slug}[[:space:]]+//" || true)"
+      if [[ -n "$optout_reason" ]]; then
+        # Printed every run on purpose: an exemption that is invisible stops
+        # being a decision and becomes an accident.
+        echo -e "${YELLOW}  └─ SKIP extensions/$ext_slug/frontend — not type-checked: ${optout_reason}${NC}"
+      else
+        echo -e "${RED}  └─ extensions/$ext_slug/frontend has no tsconfig.check.json and no entry in scripts/tsc-check-optouts.txt${NC}"
+        TS_OK=false
+      fi
+      continue
+    fi
+
     if [[ ! -e "$ext_dir/node_modules" ]]; then
       ln -sf "$PROJECT_ROOT/frontend/node_modules" "$ext_dir/node_modules"
     fi

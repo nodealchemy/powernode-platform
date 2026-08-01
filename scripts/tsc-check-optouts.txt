@@ -1,0 +1,16 @@
+# Extension frontends deliberately EXEMPT from the tsc gate.
+#
+# Format: <extension-slug><whitespace><reason>
+# Lines starting with # are comments.
+#
+# An extension frontend with neither a tsconfig.check.json nor a line here
+# FAILS the gate. Absence used to be a silent skip, which is exactly how
+# marketing and supply-chain went unchecked for months — 380 source files
+# exempt from a gate whose stated purpose is to stop runtime and syntax
+# errors in extension components. Silence is what hid it; an exemption
+# should cost a line in a file someone can read.
+#
+# Every entry here is technical debt with a name. Removing one means adding
+# extensions/<slug>/frontend/tsconfig.check.json and fixing what it surfaces.
+
+trading  operator decision 2026-07-31 — 177 errors across 71 files, no dominant cause; a project rather than a cleanup. Deps are installed, so this is scope, not feasibility.
