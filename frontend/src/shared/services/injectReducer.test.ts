@@ -4,8 +4,8 @@ import { store, injectReducer, injectedReducerKeys } from '@/shared/services';
 // The extension state seam. Extensions compose routes/nav/channels through
 // featureRegistry; before this existed there was no equivalent for Redux state,
 // so an extension could define a slice with nowhere to register its reducer —
-// which is exactly what the business extension shipped, undetected, because
-// nothing rendered the components that would have thrown.
+// which is exactly what one shipped, undetected, because nothing rendered the
+// components that would have thrown.
 
 const makeSlice = (name: string, initial: { value: number }) =>
   createSlice({
