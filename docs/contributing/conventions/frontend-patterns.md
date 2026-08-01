@@ -35,18 +35,18 @@ seam**, via `injectReducer` from `@/shared/services`.
 
 An extension that defines a Redux slice must register its reducer, or the slice
 exists nowhere and every selector reading it gets `undefined`. That is not
-hypothetical: the business extension shipped a complete `subscriptionSlice`
-mounted in no store, and it went unnoticed only because nothing rendered the
-components that would have thrown on first render.
+hypothetical: an extension shipped a complete slice mounted in no store, and it
+went unnoticed only because nothing rendered the components that would have
+thrown on first render.
 
 ```typescript
 // extension register() — beside the featureRegistry calls
 import { injectReducer } from '@/shared/services';
-import subscriptionReducer from '@business/shared/slices/subscriptionSlice';
+import billingReducer from '@myext/shared/slices/billingSlice';
 
 export function register(): void {
-  injectReducer('subscription', subscriptionReducer);
-  featureRegistry.registerRoutes('business', [ /* ... */ ]);
+  injectReducer('billing', billingReducer);
+  featureRegistry.registerRoutes('myext', [ /* ... */ ]);
 }
 ```
 
@@ -57,7 +57,7 @@ exposes an empty, augmentable `ExtensionState` that declaration merging fills:
 // beside the slice
 declare module '@/shared/services' {
   interface ExtensionState {
-    subscription: SubscriptionState;
+    billing: BillingState;
   }
 }
 ```

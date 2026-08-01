@@ -13,4 +13,4 @@
 # Every entry here is technical debt with a name. Removing one means adding
 # extensions/<slug>/frontend/tsconfig.check.json and fixing what it surfaces.
 
-trading  operator decision 2026-07-31 — 177 errors across 71 files, no dominant cause; a project rather than a cleanup. Deps are installed, so this is scope, not feasibility.
+trading  operator decision 2026-07-31 — backlog too large to clear as part of adding the gate; scheduled as its own piece of work, not a feasibility problem.

@@ -29,9 +29,9 @@ export const store = configureStore({
 // settings tabs, channels, component slots). State was the one axis with no
 // seam: an extension could define a Redux slice but had nowhere to register the
 // reducer, so `state.<slice>` was permanently undefined and any selector
-// reading it threw. The business extension shipped exactly that — a complete
-// slice registered in no store, unnoticed because nothing rendered its
-// components.
+// reading it threw. This is not hypothetical — an extension shipped exactly
+// that, a complete slice registered in no store, and it went unnoticed because
+// nothing rendered the components that would have thrown.
 //
 // Ordering is already guaranteed by the loader: extension register() runs
 // synchronously at module load (extensionLoader's eager glob) and runtime
