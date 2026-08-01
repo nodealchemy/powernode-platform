@@ -42,6 +42,11 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     platform.delete_agent
     platform.system_rotate_vault_transit_pepper
     platform.system_sdwan_revoke_access_grant
+    # Arms an A/B boot slot the node reboots into, on itself or a peer — at
+    # least as consequential as system_reboot_instance, which is already
+    # denied. Became MCP-reachable only when the action was added to
+    # PlatformApiToolRegistry (previously declared, tested and unroutable).
+    platform.system_upgrade_boot_image
   ].freeze
 
   SAFE = %w[

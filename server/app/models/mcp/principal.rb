@@ -82,6 +82,15 @@ module Mcp
         emergency_*
         *_stop_instance
         *_reboot_instance
+        # Arms an A/B boot slot that the node then REBOOTS into, so it is at
+        # least as consequential as *_reboot_instance above — denying the
+        # reboot while permitting the thing that causes one is incoherent. It
+        # also retargets what the node runs after that reboot, on itself or on
+        # a peer in the same account. Reachable by MCP only since the action
+        # was added to PlatformApiToolRegistry (it had been declared, tested
+        # and unroutable); this keeps that fix from widening what an instance
+        # principal can reach.
+        *upgrade_boot_image*
       ].freeze
 
       # True when the tool is destroy-shaped and therefore off-limits to every
