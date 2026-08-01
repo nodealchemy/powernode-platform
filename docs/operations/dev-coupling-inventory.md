@@ -73,6 +73,21 @@ not just the control plane's tables. Worked around on 2026-07-26 by retargeting 
 agent's own `WriteBootLKG` (checksum is `sha256(json.Marshal(Modules))`, so a hand-edit is rejected);
 a supported re-freeze mechanism is still needed.
 
+## Findings from live traffic analysis (2026-08-01, dev-plane-retirement campaign)
+
+Context: dev's `powernode_development` DB was mass-deleted 2026-07-30 ~17:35–18:02, so **every
+registry row for anything dev-enrolled is gone** — any node whose platform was dev is now
+permanently orphaned (its identity cannot be looked up even though its cert may verify).
+
+| # | Coupling | Where | Impact if dev dies | Status |
+|---|---|---|---|---|
+| 11 | **Dev's traefik still serves `Host(ops-hub.ipnode.us)` routers** (`acme-…0b83….yaml`, regenerated 07-29) — dev answers as ops-hub for any client with stale DNS or a pinned keep-alive connection | dev dynamic config | Misleading: an operator browser tab on "ops-hub" can actually be dev's Vite (observed live from the workstation, ~6.9k req/hr). All API traffic through it 4xxes since the wipe | ⚠️ open — dies naturally at dev-off; meanwhile close stale tabs, check workstation `/etc/hosts` |
+| 12 | **Six orphaned fleet agents poll dev every ~30 s** (403/401): `ci-native-builders-amd64-pool-*` at .194/.205/.223 and `ci-builders-amd64-pool-*` at .213 — all provisioned 2026-07-30 ~16:10–17:20 UTC, **minutes before the wipe** — plus .217 (unidentified, publickey-rejected) | LAN VMs (MAC OUI 12:25:78, platform-assigned) | Wasted dna capacity; after any reconnect they will move their 401 noise to the real ops-hub | 🔴 **disposal decision parked for operator** (pool members hold nothing durable; .217 needs serial-console ID first) |
+| 13 | **`ops-hub-b` (.220) is alive** — the RCP P1a second control-plane instance: up 3+ days, `/up` 200, self-signed CN=ops-hub-b, populated `/persist`, polling dev under a dead identity | RCP campaign asset | Unmanaged control-plane instance with no registry row anywhere | parked → RCP campaign decision (do NOT auto-dispose) |
+
+Note on #12: the pool provisioning timestamps put **active CI-pool provisioning on dev inside the
+wipe window** — whatever session drove that activity is the best lead for the wipe's root cause.
+
 ## Still to check
 
 - **Gitea Actions secrets** — 11 exist; values are masked by the API, so `POWERNODE_AGENT_BINARY_URL`,
