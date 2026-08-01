@@ -4,8 +4,14 @@ require "rails_helper"
 
 RSpec.describe Shared::FeatureGateService do
   describe ".extension_manifest_present?" do
+    # A PUBLIC extension slug on purpose. This asserts the predicate, not any
+    # particular extension, and the public extensions are submodules present in
+    # every full checkout. Naming a private one made the example depend on the
+    # machine: it passed here and failed on a freshly-provisioned node where
+    # extensions/private is legitimately empty (caught by the two-machine parity
+    # run), turning an environment difference into a red suite.
     it "returns true when the extension's manifest exists" do
-      expect(described_class.extension_manifest_present?("business")).to be true
+      expect(described_class.extension_manifest_present?("marketing")).to be true
     end
 
     it "returns false when the extension has no manifest" do

@@ -283,9 +283,19 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
 
   describe 'PUT /api/v1/admin_settings/extensions/:slug/toggle' do
     let(:headers) { auth_headers_for(user_with_settings_update) }
-    # Use 'business' since its manifest is present in this checkout. The toggle
-    # endpoint requires the manifest to exist on disk.
-    let(:slug) { 'business' }
+    # Needs a slug meeting BOTH of the endpoint's requirements: a manifest on
+    # disk, and a `feature_flag` in that manifest (without one the controller
+    # returns "does not support toggling" and never reaches the state store).
+    # 'system' is the only PUBLIC extension satisfying both — marketing and
+    # supply-chain declare no feature_flag.
+    #
+    # Public matters: they are submodules present in every full checkout,
+    # whereas extensions/private is legitimately empty on a freshly-provisioned
+    # node. Naming a private slug made these three pass on a developer box and
+    # fail on the sandbox (two-machine parity run) — an environment difference
+    # reported as a test failure. Which extension is toggled is irrelevant to
+    # what these assert, and the state store is stubbed regardless.
+    let(:slug) { 'system' }
 
     before do
       allow(Audit::LoggingService.instance).to receive(:log).and_return(nil)
