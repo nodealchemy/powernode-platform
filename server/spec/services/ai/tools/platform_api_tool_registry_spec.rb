@@ -179,22 +179,72 @@ RSpec.describe Ai::Tools::PlatformApiToolRegistry do
   end
 
   describe "registration coverage (no built-but-unrouted actions)" do
+    # Tool classes are enumerated from DISK, not from the registry's own values.
+    #
+    # An earlier version iterated `all_tools.values.uniq`, i.e. only classes
+    # ALREADY registered for at least one action — so a tool class registered
+    # for NONE was invisible to this guard entirely. SystemFleetTool's
+    # system_upgrade_boot_image (declared, permission-mapped, dispatched and
+    # ~20 specs deep, yet unroutable) was caught only because that class
+    # happened to have other actions mapped. A wholly-unregistered class would
+    # have sailed through.
+    def tool_class_names
+      (
+        Dir.glob(Rails.root.join("app/services/ai/tools/*_tool.rb")) +
+        Dir.glob(Rails.root.join("../extensions/*/server/app/services/ai/tools/*_tool.rb")) +
+        Dir.glob(Rails.root.join("../extensions/private/*/server/app/services/ai/tools/*_tool.rb"))
+      ).map { |f| "Ai::Tools::#{File.basename(f, '.rb').camelize}" }.uniq.sort
+    end
+
+    # Floor for classes actually inspected. Every rescue below (absent
+    # extension, abstract base) silently shrinks coverage, so without this the
+    # guard can degrade to vacuously green — e.g. if autoloading broke and
+    # every constantize raised. 64 declare actions on a full dev checkout;
+    # this sits well under that so a core-only or extension-less environment
+    # still passes, while a collapse to near-zero fails loudly.
+    MIN_INSPECTED_TOOL_CLASSES = 40
+
     it "registers every action that each loaded tool declares" do
       registry_keys = described_class.all_tools.keys.map(&:to_s)
+      registered_classes = described_class.all_tools.values.uniq.to_set
 
-      described_class.all_tools.values.uniq.each do |class_name|
+      inspected = 0
+      unrouted = {}
+      unregistered = []
+
+      tool_class_names.each do |class_name|
         klass =
           begin
             class_name.constantize
-          rescue NameError
-            next # extension tool class not loaded in this environment
+          rescue NameError, LoadError
+            next # extension tool class not present in this environment
           end
         next unless klass.respond_to?(:action_definitions)
 
-        missing = klass.action_definitions.keys.map(&:to_s) - registry_keys
-        expect(missing).to be_empty,
-          "#{class_name} declares MCP actions absent from PlatformApiToolRegistry (unreachable): #{missing.inspect}"
+        actions =
+          begin
+            klass.action_definitions.keys.map(&:to_s)
+          rescue NotImplementedError, StandardError
+            next # abstract base class (BaseTool) — not introspectable
+          end
+        next if actions.empty?
+
+        inspected += 1
+        unregistered << class_name unless registered_classes.include?(class_name)
+        missing = actions - registry_keys
+        unrouted[class_name] = missing if missing.any?
       end
+
+      expect(inspected).to be >= MIN_INSPECTED_TOOL_CLASSES,
+        "only inspected #{inspected} tool classes (floor #{MIN_INSPECTED_TOOL_CLASSES}) — " \
+        "this guard has degraded toward vacuous; check autoloading before trusting a green run"
+
+      expect(unregistered).to be_empty,
+        "tool classes declare MCP actions but appear nowhere in PlatformApiToolRegistry " \
+        "(every action they expose is unreachable): #{unregistered.inspect}"
+
+      expect(unrouted).to be_empty,
+        "tool classes declare MCP actions absent from PlatformApiToolRegistry (unreachable): #{unrouted.inspect}"
     end
   end
 end
