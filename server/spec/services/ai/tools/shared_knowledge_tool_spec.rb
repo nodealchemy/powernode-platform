@@ -49,4 +49,65 @@ RSpec.describe Ai::Tools::SharedKnowledgeTool do
       expect(titles).to include("Alpha Widget Doc", "Beta Widget Doc")
     end
   end
+
+  # Found in production 2026-08-02: the tags filter worked in-process but was
+  # inert over MCP. The value arrives as a JSON *string* rather than an Array,
+  # so `Array(params[:tags])` wrapped the literal text `["alpha"]` as ONE tag
+  # and matched nothing. The same coercion feeds create/update, where it does
+  # not merely miss — it PERSISTS the bogus single tag.
+  describe "tags arriving as a JSON string (MCP transport)" do
+    let!(:alpha) do
+      Ai::Memory::SharedKnowledgeService.new(account: account).create(
+        title: "Alpha Widget Doc", content: "widget alpha content",
+        content_type: "text", access_level: "team", tags: %w[alpha]
+      )
+    end
+    let!(:beta) do
+      Ai::Memory::SharedKnowledgeService.new(account: account).create(
+        title: "Beta Widget Doc", content: "widget beta content",
+        content_type: "text", access_level: "team", tags: %w[beta]
+      )
+    end
+
+    before do
+      allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+    end
+
+    it "parses a JSON-encoded tags string when filtering" do
+      result = tool.execute(params: {
+        action: "search_knowledge", query: "widget", tags: '["alpha"]'
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:entries].map { |e| e[:title] }).to eq(["Alpha Widget Doc"])
+    end
+
+    it "stores parsed tags on create rather than the raw JSON string" do
+      result = tool.execute(params: {
+        action: "create_knowledge", title: "Gamma Doc",
+        content: "gamma content for tag coercion", content_type: "text",
+        access_level: "team", tags: '["gamma","delta"]'
+      })
+
+      expect(result[:success]).to be true
+      stored = Ai::SharedKnowledge.find(result[:entry][:id]).tags
+      expect(stored).to contain_exactly("gamma", "delta")
+    end
+
+    it "still accepts a real array unchanged" do
+      result = tool.execute(params: {
+        action: "search_knowledge", query: "widget", tags: ["beta"]
+      })
+
+      expect(result[:entries].map { |e| e[:title] }).to eq(["Beta Widget Doc"])
+    end
+
+    it "treats a bare non-JSON string as a single tag" do
+      result = tool.execute(params: {
+        action: "search_knowledge", query: "widget", tags: "alpha"
+      })
+
+      expect(result[:entries].map { |e| e[:title] }).to eq(["Alpha Widget Doc"])
+    end
+  end
 end

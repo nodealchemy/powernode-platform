@@ -90,6 +90,38 @@ module Ai
         @knowledge_service ||= Ai::Memory::SharedKnowledgeService.new(account: account)
       end
 
+      # Coerce a tags parameter into a real Array of tag strings.
+      #
+      # The schema declares `tags` as an array, but over MCP the value arrives
+      # as a JSON-encoded STRING. `Array("[\"alpha\"]")` yields the literal text
+      # as ONE element, which silently matches nothing on search — and on
+      # create/update PERSISTS that bogus single tag. Found in production
+      # 2026-08-02: the filter worked in-process and was inert over MCP, which
+      # is the only path the guidance actually tells callers to use.
+      #
+      # A bare string that is not JSON is treated as a single tag, so
+      # `tags: "guidance-backend-patterns"` behaves the way a caller expects.
+      def normalize_tags(raw)
+        case raw
+        when Array
+          raw.map { |t| t.to_s.strip }.reject(&:blank?)
+        when String
+          text = raw.strip
+          return [] if text.blank?
+
+          if text.start_with?("[")
+            begin
+              return Array(JSON.parse(text)).map { |t| t.to_s.strip }.reject(&:blank?)
+            rescue JSON::ParserError
+              # Not valid JSON after all — fall through and treat it as one tag.
+            end
+          end
+          [ text ]
+        else
+          Array(raw).map { |t| t.to_s.strip }.reject(&:blank?)
+        end
+      end
+
       def search_knowledge(params)
         return { success: false, error: "Query is required" } if params[:query].blank?
 
@@ -97,7 +129,7 @@ module Ai
           query: params[:query],
           content_type: params[:content_type],
           access_level: params[:access_level],
-          tags: Array(params[:tags]),
+          tags: normalize_tags(params[:tags]),
           limit: (params[:limit] || 10).to_i.clamp(1, 50)
         )
 
@@ -110,7 +142,7 @@ module Ai
           content: params[:content],
           content_type: params[:content_type] || "text",
           access_level: params[:access_level] || "team",
-          tags: Array(params[:tags]),
+          tags: normalize_tags(params[:tags]),
           source_type: "agent"
         )
 
@@ -122,7 +154,7 @@ module Ai
 
         attrs = {}
         attrs[:content] = params[:content] if params[:content].present?
-        attrs[:tags] = Array(params[:tags]) if params[:tags].present?
+        attrs[:tags] = normalize_tags(params[:tags]) if params[:tags].present?
         attrs[:access_level] = params[:access_level] if params[:access_level].present?
 
         result = knowledge_service.update(entry_id: params[:entry_id], **attrs)
