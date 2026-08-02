@@ -127,9 +127,31 @@ _These three invariants are also in the cross-executor `guidance-architecture-in
 | Term | Means | Not |
 |------|-------|-----|
 | `server/` | Rails app directory | "backend directory" |
-| `powernode-backend` | systemd service (`@default`) | "rails service" |
+| `powernode-backend` | the Rails **service** (unit name below) | "rails service" |
 | `worker/` | standalone Sidekiq app | "job runner" |
-| `powernode-worker` | systemd service (`@default`) | "sidekiq service" |
+| `powernode-worker` | the Sidekiq **service** (unit name below) | "sidekiq service" |
+
+**systemd unit names — NEVER guess them.** On module-composed nodes the agent
+generates `powernode-<moduleID>-<serviceName>.service`
+(`agent/internal/lifecycle/service.go`), where `<moduleID>` is the module's UUID
+and `<serviceName>` is a `services:` entry in its manifest. So Rails is
+`powernode-019f7cb5-3858-…-rails.service`, and sidekiq/worker-web share one UUID
+because both ship in `powernode-hub-worker`. **Always discover, never assume:**
+
+```bash
+systemctl list-units 'powernode-*-rails.service' --no-pager --no-legend   # or -sidekiq/-worker-web
+```
+
+A guessed name (`powernode-backend@default`, `rails.service`) does **not** error —
+`systemctl restart` on a nonexistent unit fails silently in a `||` chain, leaving
+new code on disk while the old image keeps running, which looks exactly like a
+successful deploy. Verify with `systemctl is-active` on the discovered unit.
+The `@default` template form appears throughout `extensions/system/docs/runbooks/`
+but is installed on neither dev-cell nor ops-hub — `systemctl list-unit-files
+'powernode*'` shows no `@` template at all. Treat those references as stale.
+
+After a Rails restart `/up` returns **502 for ~30s** while it boots; that is not a
+failed deploy.
 
 ---
 
