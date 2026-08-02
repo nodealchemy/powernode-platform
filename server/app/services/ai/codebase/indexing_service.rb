@@ -463,6 +463,13 @@ module Ai
         end
       end
 
+      # The description IS the embedded text (generate_embeddings embeds
+      # "name description"). A signature alone describes what a symbol is
+      # CALLED, never what it DOES, which is why behavioural queries used to
+      # miss code that was indexed and healthy: nothing in
+      # "method `emergency_halt!` — params: (reason:)" matches "stop a runaway
+      # agent". The doc comment is the only behavioural text available, so it
+      # carries most of the retrieval value here.
       def build_description(sym, relative_path)
         parts = ["#{sym[:kind]} `#{sym[:name]}`"]
         parts << "in #{relative_path}"
@@ -470,6 +477,7 @@ module Ai
         parts << "params: #{sym[:params]}" if sym[:params]
         parts << "returns: #{sym[:return_type]}" if sym[:return_type]
         parts << "extends #{sym[:superclass]}" if sym[:superclass]
+        parts << sym[:doc] if sym[:doc].present?
         parts.join(" — ")
       end
     end

@@ -50,6 +50,8 @@ module Ai
                   else []
                   end
 
+        attach_doc_comments!(symbols, content, language)
+
         { language: language, file_path: file_path, symbols: symbols }
       rescue Encoding::UndefinedConversionError, Encoding::InvalidByteSequenceError
         { language: language, file_path: file_path, symbols: [] }
@@ -428,6 +430,106 @@ module Ai
       end
 
       # ─── Helpers ──────────────────────────────────────────────────────
+
+      # ─── Doc Comment Extraction ───────────────────────────────────────
+      #
+      # Every parser records line_start, so doc extraction is done once here
+      # rather than in each of the three parsers. Without this the only text
+      # describing a symbol is its own signature, which makes semantic search
+      # a fuzzy identifier lookup: "kill switch emergency halt" finds
+      # KillSwitchService, but "stop a runaway agent" finds nothing.
+
+      DOC_MAX_CHARS = 300
+
+      # Pragmas and linter directives are not documentation. They repeat at the
+      # top of thousands of files, so embedding them would push unrelated
+      # symbols toward one identical point in vector space.
+      DOC_NOISE = /\A\s*(frozen_string_literal|encoding|coding|rubocop|eslint|prettier|jshint|shellcheck|noinspection|@ts-|ts-ignore|typescript-eslint|!)/i
+
+      def attach_doc_comments!(symbols, content, language)
+        lines = content.lines
+        symbols.each { |sym| sym[:doc] = extract_doc(lines, sym[:line_start], language) }
+        symbols
+      end
+
+      def extract_doc(lines, line_start, language)
+        return nil unless line_start.is_a?(Integer) && line_start.positive?
+
+        raw = if language == :python
+                python_docstring(lines, line_start)
+        else
+                preceding_comment(lines, line_start, language)
+        end
+        return nil if raw.blank?
+
+        doc = raw.gsub(/\s+/, " ").strip
+        return nil if doc.blank? || doc.match?(DOC_NOISE)
+
+        doc.truncate(DOC_MAX_CHARS)
+      end
+
+      # Ruby `#`, TS/JS `//` or a `/** … */` block sitting directly above the
+      # symbol. Decorators/annotations may sit between, so they are stepped
+      # over; a blank line is treated as a break, since a comment separated by
+      # whitespace usually documents something else.
+      def preceding_comment(lines, line_start, language)
+        idx = line_start - 2
+        idx -= 1 while idx >= 0 && lines[idx].strip.start_with?("@")
+        return nil if idx.negative? || lines[idx].nil?
+
+        above = lines[idx].strip
+        return block_comment(lines, idx) if language != :ruby && above.end_with?("*/")
+
+        marker = language == :ruby ? "#" : "//"
+        collected = []
+        while idx >= 0
+          stripped = lines[idx].strip
+          break unless stripped.start_with?(marker)
+
+          collected.unshift(stripped.sub(/\A#+|\A\/\/+/, "").strip)
+          idx -= 1
+        end
+        collected.join(" ")
+      end
+
+      def block_comment(lines, end_idx)
+        collected = []
+        idx = end_idx
+        while idx >= 0
+          stripped = lines[idx].strip
+          collected.unshift(stripped.gsub(%r{\A/\*+|\*+/\z}, "").sub(/\A\*+/, "").strip)
+          break if stripped.start_with?("/*")
+
+          idx -= 1
+        end
+        collected.join(" ")
+      end
+
+      # Python docstrings follow the def/class line rather than preceding it.
+      def python_docstring(lines, line_start)
+        idx = line_start
+        idx += 1 while idx < lines.length && lines[idx].strip.empty?
+        return nil if idx >= lines.length
+
+        stripped = lines[idx].strip
+        quote = stripped[/\A("""|''')/, 1]
+        return nil unless quote
+
+        rest = stripped.delete_prefix(quote)
+        return rest.delete_suffix(quote) if rest.end_with?(quote)
+
+        collected = [ rest ]
+        idx += 1
+        while idx < lines.length
+          if lines[idx].include?(quote)
+            collected << lines[idx].split(quote).first
+            break
+          end
+          collected << lines[idx]
+          idx += 1
+        end
+        collected.join(" ")
+      end
 
       def build_symbol(name, qualified_name, kind, visibility, line_start, line_end, params, return_type, parent, superclass, file_path, decorators: [])
         {
