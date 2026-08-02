@@ -117,4 +117,92 @@ RSpec.describe Ai::Codebase::IndexingService do
       expect(node.reload.embedding).not_to be_nil, "unchanged nodes must not be re-embedded"
     end
   end
+
+  # Measured 2026-08-02: embedding "#{node.name} #{node.description}" put the
+  # fully path-qualified name AND the path again AND kind/visibility/params into
+  # every vector. That boilerplate is near-identical across ~89k nodes, so it
+  # diluted the only discriminating text. Adding doc comments alone did not move
+  # behavioural queries; the noise had to come out of the embedded text.
+  describe "#embedding_text" do
+    def node_with(props, name: "some/path.rb::Klass#do_thing")
+      build(:ai_knowledge_graph_node, account: account, knowledge_base: knowledge_base,
+                                      name: name, node_type: "code_entity", properties: props)
+    end
+
+    it "omits path, visibility and params boilerplate" do
+      text = service.send(:embedding_text, node_with({
+        "simple_name" => "emergency_halt!", "kind" => "method",
+        "visibility" => "private", "params" => "(reason:, triggered_by:)",
+        "file_path" => "server/app/services/ai/autonomy/kill_switch_service.rb"
+      }))
+
+      expect(text).not_to include("server/app/services")
+      expect(text).not_to include("triggered_by")
+      expect(text).not_to include("private")
+    end
+
+    it "keeps the identifier and adds a word-split form so phrasing can match" do
+      text = service.send(:embedding_text, node_with({
+        "simple_name" => "emergency_halt!", "kind" => "method"
+      }))
+
+      expect(text).to include("emergency_halt!")
+      expect(text).to include("emergency halt")
+    end
+
+    it "splits camelCase identifiers into words" do
+      text = service.send(:embedding_text, node_with({
+        "simple_name" => "guardMenuForViewer", "kind" => "function"
+      }))
+
+      expect(text).to include("guard Menu For Viewer")
+    end
+
+    it "carries the doc comment, which is the actual behavioural signal" do
+      text = service.send(:embedding_text, node_with({
+        "simple_name" => "emergency_halt!", "kind" => "method",
+        "parent" => "KillSwitchService",
+        "doc" => "Coordinated emergency stop — halts ALL agentic activity for an account."
+      }))
+
+      expect(text).to include("Coordinated emergency stop")
+      expect(text).to include("Kill Switch Service")
+    end
+
+    it "does not repeat the word-split form when it equals the identifier" do
+      text = service.send(:embedding_text, node_with({ "simple_name" => "halt", "kind" => "method" }))
+
+      expect(text.scan(/halt/).length).to eq(1)
+    end
+
+    it "uses path words for file nodes, whose directories carry the domain" do
+      text = service.send(:embedding_text, node_with(
+        { "simple_name" => "peer_drift_service.rb", "language" => "ruby" },
+        name: "extensions/system/server/app/services/sdwan/peer_drift_service.rb"
+      ))
+
+      expect(text).to include("sdwan")
+      expect(text).to include("peer_drift_service.rb")
+    end
+
+    it "is what generate_batch actually receives" do
+      create(:ai_knowledge_graph_node,
+             account: account, knowledge_base: knowledge_base,
+             name: "a/b.rb::K#emergency_halt!", node_type: "code_entity", entity_type: "method",
+             description: "method `emergency_halt!` — in a/b.rb — params: (reason:)",
+             embedding: nil, status: "active",
+             properties: { "simple_name" => "emergency_halt!", "kind" => "method",
+                           "doc" => "Halts ALL agentic activity." })
+
+      embedder = instance_double(Ai::Memory::EmbeddingService)
+      allow(Ai::Memory::EmbeddingService).to receive(:new).and_return(embedder)
+      seen = nil
+      allow(embedder).to receive(:generate_batch) { |texts| seen = texts.first; texts.map { vector } }
+
+      service.send(:generate_embeddings)
+
+      expect(seen).to include("Halts ALL agentic activity.")
+      expect(seen).not_to include("in a/b.rb")
+    end
+  end
 end

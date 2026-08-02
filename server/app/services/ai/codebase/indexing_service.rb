@@ -189,7 +189,11 @@ module Ai
                 "params" => sym[:params],
                 "return_type" => sym[:return_type],
                 "superclass" => sym[:superclass],
-                "file_path" => relative
+                "file_path" => relative,
+                # Kept as structured fields so embedding_text can use them
+                # directly instead of re-parsing them back out of description.
+                "parent" => sym[:parent],
+                "doc" => sym[:doc]
               }
             )
 
@@ -408,7 +412,7 @@ module Ai
         # Safe despite mutating the scope's own filter: find_in_batches pages on
         # id > last_seen, so rows that stop matching are already behind the cursor.
         pending.find_in_batches(batch_size: EMBED_BATCH_SIZE) do |nodes|
-          vectors = embedding_service.generate_batch(nodes.map { |n| "#{n.name} #{n.description}" })
+          vectors = embedding_service.generate_batch(nodes.map { |n| embedding_text(n) })
 
           nodes.each_with_index do |node, i|
             vector = vectors[i]
@@ -463,8 +467,52 @@ module Ai
         end
       end
 
-      # The description IS the embedded text (generate_embeddings embeds
-      # "name description"). A signature alone describes what a symbol is
+      # What gets EMBEDDED is deliberately not the display description.
+      #
+      # The old text was "#{node.name} #{node.description}". node.name is fully
+      # path-qualified, so the file path was embedded twice, then followed by
+      # kind, visibility and parameter names. That boilerplate is near-identical
+      # across all ~89k nodes: it adds no discriminating signal while consuming
+      # most of the vector. Measured 2026-08-02 — adding doc comments alone did
+      # NOT move behavioural queries, because ~120 chars of shared boilerplate
+      # diluted ~180 chars of meaning.
+      #
+      # Embed only the discriminating parts: the identifier (also split into
+      # words, so camelCase/snake_case match natural phrasing), its owning
+      # class/module, and the doc comment. The structural description stays
+      # untouched for humans reading results.
+      def embedding_text(node)
+        props = node.properties || {}
+        return file_embedding_text(node, props) if props["kind"].blank? && props["language"].present?
+
+        simple = props["simple_name"].presence || node.name.to_s.split(/::|#/).last.to_s
+        words  = humanize_identifier(simple)
+
+        parts = [ simple ]
+        parts << words unless words.casecmp?(simple)
+        parts << humanize_identifier(props["parent"]) if props["parent"].present?
+        parts << props["doc"] if props["doc"].present?
+        parts.compact_blank.join(" — ")
+      end
+
+      # A file node's only real signal is its path — those directory segments
+      # carry the domain ("sdwan", "autonomy"), so they are kept as words.
+      def file_embedding_text(node, props)
+        [ props["simple_name"], humanize_identifier(node.name.to_s.tr("/", " ")) ]
+          .compact_blank.uniq.join(" — ")
+      end
+
+      # emergency_halt! -> "emergency halt"; KillSwitchService -> "Kill Switch Service"
+      def humanize_identifier(text)
+        text.to_s
+            .sub(/[?!=]\z/, "")
+            .gsub(/([a-z\d])([A-Z])/, '\1 \2')
+            .tr("_-", "  ")
+            .squeeze(" ")
+            .strip
+      end
+
+      # A signature alone describes what a symbol is
       # CALLED, never what it DOES, which is why behavioural queries used to
       # miss code that was indexed and healthy: nothing in
       # "method `emergency_halt!` — params: (reason:)" matches "stop a runaway
