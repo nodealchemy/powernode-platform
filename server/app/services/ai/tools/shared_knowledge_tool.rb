@@ -17,7 +17,7 @@ module Ai
             content: { type: "string", required: false, description: "Entry content (for create/update)" },
             content_type: { type: "string", required: false, description: "Content type: text/markdown/code/snippet/procedure/reference/fact/definition/guide (default: text)" },
             access_level: { type: "string", required: false, description: "Access level: private/team/account/global (for create/promote)" },
-            tags: { type: "array", required: false, description: "Tags array (for create/update)" },
+            tags: { type: "array", required: false, description: "Tags array (for create/update, or as a filter for search_knowledge)" },
             limit: { type: "integer", required: false, description: "Max results (default 10)" }
           }
         }
@@ -31,6 +31,7 @@ module Ai
               query: { type: "string", required: true, description: "Search query" },
               content_type: { type: "string", required: false, description: "Filter by content type" },
               access_level: { type: "string", required: false, description: "Filter by access level" },
+              tags: { type: "array", required: false, description: "Filter by tags (matches any of the given tags)" },
               limit: { type: "integer", required: false, description: "Max results (default 10)" }
             }
           },
@@ -96,6 +97,7 @@ module Ai
           query: params[:query],
           content_type: params[:content_type],
           access_level: params[:access_level],
+          tags: Array(params[:tags]),
           limit: (params[:limit] || 10).to_i.clamp(1, 50)
         )
 
