@@ -165,6 +165,33 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
       expect(result[:entries].size).to be <= 1
     end
 
+    context "when the embedding service is unavailable (RAG outage)" do
+      before do
+        allow_any_instance_of(Ai::Memory::EmbeddingService)
+          .to receive(:generate)
+          .and_raise(
+            Ai::Memory::EmbeddingService::EmbeddingError,
+            "Worker embedding service returned no result."
+          )
+      end
+
+      it "falls back to keyword search instead of failing the whole query" do
+        result = service.search(query: "migration rules")
+
+        expect(result[:success]).to be true
+        expect(result[:entries].map { |e| e[:title] }).to include("Database Migration Rules")
+      end
+
+      it "reports the underlying reason when the fallback itself cannot run" do
+        allow(service).to receive(:keyword_search).and_raise(StandardError, "pg down")
+
+        result = service.search(query: "migration rules")
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to include("pg down")
+      end
+    end
+
     context "with archived entries" do
       let(:target) { Ai::SharedKnowledge.find_by!(title: "Ruby Best Practices") }
 

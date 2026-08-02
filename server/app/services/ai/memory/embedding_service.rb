@@ -43,6 +43,26 @@ module Ai
         embedding
       end
 
+      # Best-effort embedding for READ/search paths.
+      #
+      # #generate RAISES (EmbeddingError) when the worker embedding service is down
+      # or has no provider credentials. A search path that carries a keyword
+      # fallback must not let that escape: the raise would skip the fallback and
+      # fail the whole query, which is precisely the outage the fallback exists
+      # for. Callers get nil instead and degrade to keyword search.
+      #
+      # Write paths should keep calling #generate and decide for themselves whether
+      # storing a record without an embedding is acceptable.
+      def generate_or_nil(text, use_cache: true, context: nil)
+        generate(text, use_cache: use_cache)
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[EmbeddingService] Embedding unavailable#{" for #{context}" if context} " \
+          "(#{e.class}: #{e.message}) - caller falls back to keyword search"
+        )
+        nil
+      end
+
       # Batch generate embeddings
       def generate_batch(texts, use_cache: true)
         return [] if texts.blank?

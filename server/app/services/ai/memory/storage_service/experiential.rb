@@ -46,7 +46,7 @@ module Ai
           @experiential_context ||= find_or_create_experiential_context
           @embedding_service ||= EmbeddingService.new(account: account)
 
-          query_embedding = @embedding_service.generate(query)
+          query_embedding = @embedding_service.generate_or_nil(query, context: "StorageService#search_experiential")
           return experiential_keyword_search(query, limit: limit, tags: tags) unless query_embedding
 
           scope = build_experiential_search_scope(tags: tags, outcome_filter: outcome_filter)

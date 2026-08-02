@@ -17,6 +17,30 @@ RSpec.describe Ai::Memory::EmbeddingService, type: :service do
   # #generate
   # ===========================================================================
 
+  describe "#generate_or_nil" do
+    it "returns nil instead of raising when the worker embedding service is down" do
+      allow(service).to receive(:generate)
+        .and_raise(described_class::EmbeddingError, "Worker embedding service returned no result.")
+
+      expect(service.generate_or_nil("some query")).to be_nil
+    end
+
+    it "logs the underlying reason so the outage is diagnosable" do
+      allow(service).to receive(:generate)
+        .and_raise(described_class::EmbeddingError, "Worker embedding service returned no result.")
+      expect(Rails.logger).to receive(:warn).with(/Embedding unavailable.*Worker embedding service/)
+
+      service.generate_or_nil("some query", context: "SpecCaller")
+    end
+
+    it "passes the embedding through untouched on success" do
+      allow(mock_redis).to receive(:get).and_return(nil)
+      allow(mock_redis).to receive(:setex)
+
+      expect(service.generate_or_nil("Hello, world!")).to eq(service.generate("Hello, world!"))
+    end
+  end
+
   describe "#generate" do
     it "returns nil for blank text" do
       expect(service.generate("")).to be_nil
