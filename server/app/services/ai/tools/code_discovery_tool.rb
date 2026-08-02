@@ -190,7 +190,9 @@ module Ai
         return { success: false, error: "query is required" } if params[:query].blank?
         return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
 
-        _repo, kb, _bp = resolve_project_context(params)
+        # KB-only: this queries knowledge-graph rows, never the filesystem,
+        # so it must not demand a repository local_path that exists on disk.
+        _repo, kb, _bp = resolve_project_context(params, require_base_path: false)
         top_k = (params[:top_k] || 10).to_i
         entity_types = Array(params[:entity_types]).presence
 
@@ -231,7 +233,9 @@ module Ai
         return { success: false, error: "query is required" } if params[:query].blank?
         return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
 
-        _repo, kb, _bp = resolve_project_context(params)
+        # KB-only: this queries knowledge-graph rows, never the filesystem,
+        # so it must not demand a repository local_path that exists on disk.
+        _repo, kb, _bp = resolve_project_context(params, require_base_path: false)
         top_k = (params[:top_k] || 10).to_i
         entity_types = Array(params[:entity_types]).presence
 
@@ -271,7 +275,9 @@ module Ai
       def semantic_navigate(params)
         return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
 
-        _repo, kb, _bp = resolve_project_context(params)
+        # KB-only: this queries knowledge-graph rows, never the filesystem,
+        # so it must not demand a repository local_path that exists on disk.
+        _repo, kb, _bp = resolve_project_context(params, require_base_path: false)
 
         service = Ai::Codebase::ClusteringService.new(account: account, knowledge_base: kb)
         result = service.cluster
