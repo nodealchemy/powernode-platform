@@ -357,9 +357,21 @@ class RequestInspector
     # stage, so it stays inspected (matching that safelist's /claim carve-out).
     return false if path == "/api/v1/system/node_api/claim"
 
+    # /api/v1/internal/ is the WORKER→backend channel (embeddings, credential
+    # decrypt, LLM proxy), reached over mTLS via localhost:443 and gated by
+    # authenticate_worker_via_mtls! — same identity-bound rationale as the
+    # node_api prefixes above, and the same self-brick hazard. Omitting it bit
+    # on ops-hub 2026-08-02: a codebase index run made ~25k internal calls,
+    # tripped check_request_rate, and the platform IP-blocked 127.0.0.1 — its
+    # own worker. Every embedding then failed with "Service access forbidden"
+    # while the provider credential, egress and OpenAI key were all fine, and
+    # nothing appeared in the controller log because this middleware rejects
+    # ahead of the controller. A bulk internal operation must not be able to
+    # lock the platform out of itself.
     path.start_with?("/api/v1/system/node_api/") ||
       path.start_with?("/api/v1/system/worker_api/") ||
-      path.start_with?("/api/v1/system/federation_api/")
+      path.start_with?("/api/v1/system/federation_api/") ||
+      path.start_with?("/api/v1/internal/")
   end
 
   def api_request?(request)

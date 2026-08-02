@@ -55,6 +55,31 @@ RSpec.describe RequestInspector do
       expect(status).to eq(200)
       expect(body).to eq(['OK'])
     end
+
+    # Live incident, ops-hub 2026-08-02. The internal API is how the WORKER
+    # talks to the backend (embeddings, credential decrypt) over mTLS via
+    # localhost:443. A codebase index run made ~25k such calls, tripped
+    # check_request_rate, and the platform IP-blocked 127.0.0.1 — i.e. itself.
+    # Every embedding then failed with "Service access forbidden" while the
+    # OpenAI key, egress and provider were all verifiably fine, and the 403
+    # never appeared in the rails controller log because this middleware
+    # rejects ahead of the controller.
+    #
+    # Exactly the self-brick this method's own comment already warns about for
+    # node_api/worker_api — /api/v1/internal/ was simply missing from the list.
+    # It is mTLS-gated (authenticate_worker_via_mtls!), so every request is
+    # already bound to a NodeInstance identity and the anonymous heuristics
+    # do not apply.
+    it 'serves the mTLS-gated internal API even for a blocked IP' do
+      status, _headers, body = call(path: '/api/v1/internal/ai/embedding_config', ip: ip)
+      expect(status).to eq(200)
+      expect(body).to eq(['OK'])
+    end
+
+    it 'still inspects ordinary API paths for a blocked IP' do
+      status, _headers, _body = call(path: '/api/v1/widgets', ip: ip)
+      expect(status).to eq(403)
+    end
   end
 
   describe 'threat scoring' do
