@@ -6,6 +6,15 @@ module Ai
       BATCH_SIZE = 100
       MAX_FILES = 20000
 
+      # Texts per embedding request. Bounded by TWO independent ceilings:
+      #   - WorkerEmbeddingClient::TIMEOUT is 30s while the worker's own HTTParty
+      #     call waits 60s, so the server hangs up first — a batch must finish
+      #     well inside 30s or the work is done and then thrown away.
+      #   - OpenAI allows 300k tokens/request; normalize_text truncates each text
+      #     to 8000 chars (~2k tokens), so 100 worst-case texts ≈ 200k. 200 could
+      #     breach it.
+      EMBED_BATCH_SIZE = 100
+
       # Patterns to skip (gitignore-style)
       SKIP_PATTERNS = %w[
         node_modules/ vendor/ .git/ .bundle/ tmp/ log/ coverage/
@@ -281,14 +290,24 @@ module Ai
                                  .first
 
         if existing
-          existing.update!(
+          # The embedding is generated from "name description". name is the match
+          # key here, so a changed description means the stored vector no longer
+          # describes this entity. Clearing it re-queues the node for
+          # generate_embeddings; leaving it (the old behaviour) meant a re-index
+          # refreshed the text but kept the ORIGINAL vector forever, so semantic
+          # search drifted further from the code on every run and no amount of
+          # re-indexing could ever correct it.
+          attrs = {
             entity_type: entity_type,
             description: description,
             properties: existing.properties.merge(properties),
             metadata: existing.metadata.merge(metadata),
             last_seen_at: Time.current,
             confidence: 1.0
-          )
+          }
+          attrs[:embedding] = nil if existing.description != description
+
+          existing.update!(**attrs)
           existing.record_mention!
           @stats[:nodes_updated] += 1
           existing
@@ -361,26 +380,65 @@ module Ai
 
       # ─── Embedding Generation ──────────────────────────────────────
 
+      # One embedding request per EMBED_BATCH_SIZE nodes rather than one per node.
+      # The per-node loop this replaces cost a full rails -> worker -> OpenAI
+      # round-trip each time (~27 nodes/min measured on ops-hub 2026-08-02, i.e.
+      # ~50h for a full re-vector). generate_batch collapses that into a single
+      # provider call whose results are index-ordered by the worker.
+      #
+      # Failures are still tolerated so one bad batch cannot abort the run — but
+      # they are COUNTED and surfaced in stats. Previously every failure was a
+      # bare warn and complete_indexing! still ran, so a knowledge base could
+      # reach status "completed" while 0% embedded and nothing said otherwise.
       def generate_embeddings
-        nodes_without_embeddings = knowledge_base.knowledge_graph_nodes
-                                                  .where(node_type: "code_entity", status: "active", embedding: nil)
-                                                  .where.not(description: [nil, ""])
+        pending = knowledge_base.knowledge_graph_nodes
+                                .where(node_type: "code_entity", status: "active", embedding: nil)
+                                .where.not(description: [nil, ""])
 
-        return if nodes_without_embeddings.empty?
+        total = pending.count
+        @stats[:nodes_embedded] = 0
+        @stats[:embedding_failures] = 0
+        return if total.zero?
 
-        Rails.logger.info "[CodebaseIndexing] Generating embeddings for #{nodes_without_embeddings.count} nodes"
+        Rails.logger.info "[CodebaseIndexing] Generating embeddings for #{total} nodes " \
+                          "(batches of #{EMBED_BATCH_SIZE})"
 
         embedding_service = Ai::Memory::EmbeddingService.new(account: account)
 
-        nodes_without_embeddings.find_each(batch_size: 50) do |node|
-          text = "#{node.name} #{node.description}"
-          embedding = embedding_service.generate(text)
-          node.set_embedding!(embedding) if embedding
+        # Safe despite mutating the scope's own filter: find_in_batches pages on
+        # id > last_seen, so rows that stop matching are already behind the cursor.
+        pending.find_in_batches(batch_size: EMBED_BATCH_SIZE) do |nodes|
+          vectors = embedding_service.generate_batch(nodes.map { |n| "#{n.name} #{n.description}" })
+
+          nodes.each_with_index do |node, i|
+            vector = vectors[i]
+            if vector.blank?
+              @stats[:embedding_failures] += 1
+              next
+            end
+            node.set_embedding!(vector)
+            @stats[:nodes_embedded] += 1
+          end
         rescue => e
-          Rails.logger.warn "[CodebaseIndexing] Embedding error for node #{node.id}: #{e.message}"
+          @stats[:embedding_failures] += nodes.size
+          Rails.logger.warn "[CodebaseIndexing] Embedding batch of #{nodes.size} failed: #{e.message}"
+        end
+
+        if @stats[:embedding_failures].positive?
+          Rails.logger.error "[CodebaseIndexing] Embedded #{@stats[:nodes_embedded]}/#{total} nodes — " \
+                             "#{@stats[:embedding_failures]} FAILED; semantic search will be incomplete"
+        else
+          Rails.logger.info "[CodebaseIndexing] Embedded #{@stats[:nodes_embedded]}/#{total} nodes"
         end
       rescue => e
-        Rails.logger.warn "[CodebaseIndexing] Embedding generation failed: #{e.message}"
+        # Observed on ops-hub 2026-08-02: this swallowed an abort ~245 nodes into
+        # a 7,599-node phase. index() then called complete_indexing! anyway, so
+        # the knowledge base reported "active" while 92% of it had no vector and
+        # nothing above warn level ever said so. Re-running the index resumes,
+        # since the phase only ever selects embedding: nil.
+        Rails.logger.error "[CodebaseIndexing] Embedding generation aborted after " \
+                           "#{@stats[:nodes_embedded]} nodes: #{e.class}: #{e.message} — " \
+                           "index will still be marked complete; re-run to finish embedding"
       end
 
       # ─── Helpers ───────────────────────────────────────────────────
