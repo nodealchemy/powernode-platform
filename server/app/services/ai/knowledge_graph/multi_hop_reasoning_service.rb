@@ -53,7 +53,7 @@ module Ai
       private
 
       def find_seed_nodes(query)
-        query_embedding = @embedding_service.generate(query)
+        query_embedding = @embedding_service.generate_or_nil(query, context: "MultiHopReasoningService#find_seed_nodes")
         return keyword_seed_nodes(query) unless query_embedding
 
         nodes_scope = @account.ai_knowledge_graph_nodes.active.with_embeddings

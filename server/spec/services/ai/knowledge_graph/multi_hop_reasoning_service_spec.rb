@@ -7,6 +7,36 @@ RSpec.describe Ai::KnowledgeGraph::MultiHopReasoningService, type: :service do
   subject(:service) { described_class.new(account) }
 
   describe "#reason" do
+    context "when the embedding service is unavailable (RAG outage)" do
+      let!(:ruby_node) do
+        create(:ai_knowledge_graph_node,
+               account: account,
+               name: "Ruby",
+               node_type: "entity",
+               entity_type: "technology",
+               description: "A dynamic programming language")
+      end
+
+      before do
+        allow_any_instance_of(Ai::Memory::EmbeddingService)
+          .to receive(:generate)
+          .and_raise(
+            Ai::Memory::EmbeddingService::EmbeddingError,
+            "Worker embedding service returned no result."
+          )
+      end
+
+      it "falls back to keyword seed nodes instead of raising" do
+        expect { service.reason(query: "Ruby") }.not_to raise_error
+      end
+
+      it "still finds seed nodes by keyword" do
+        result = service.reason(query: "Ruby")
+
+        expect(result[:seed_nodes_found]).to be > 0
+      end
+    end
+
     context "with no nodes in graph" do
       it "returns empty result" do
         result = service.reason(query: "What is Ruby?")

@@ -101,6 +101,28 @@ RSpec.describe Ai::Memory::StorageService, type: :service do
         expect(results).to be_an(Array)
       end
     end
+
+    context 'when the embedding service is unavailable (RAG outage)' do
+      before do
+        allow_any_instance_of(Ai::Memory::EmbeddingService)
+          .to receive(:generate)
+          .and_raise(
+            Ai::Memory::EmbeddingService::EmbeddingError,
+            'Worker embedding service returned no result.'
+          )
+      end
+
+      it 'falls back to keyword search instead of raising' do
+        expect { service.search_experiential('dark mode') }.not_to raise_error
+      end
+
+      it 'still returns keyword matches' do
+        results = service.search_experiential('dark mode')
+
+        expect(results).to be_an(Array)
+        expect(results).not_to be_empty
+      end
+    end
   end
 
   describe '#successful_outcomes' do

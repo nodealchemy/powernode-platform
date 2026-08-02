@@ -79,7 +79,7 @@ module Ai
       # Semantic search with ACL filtering
       def search(query:, access_level: nil, content_type: nil, team: nil,
                  tags: nil, limit: MAX_RESULTS)
-        query_embedding = @embedding_service.generate(query)
+        query_embedding = @embedding_service.generate_or_nil(query, context: "SharedKnowledgeService#search")
 
         scope = Ai::SharedKnowledge.where(account: @account).not_archived
 
@@ -114,7 +114,7 @@ module Ai
         { success: true, entries: entries, count: entries.size }
       rescue StandardError => e
         Rails.logger.error("[SharedKnowledge] Search failed: #{e.message}")
-        { success: false, error: "Search failed", entries: [], count: 0 }
+        { success: false, error: "Search failed: #{e.message}", entries: [], count: 0 }
       end
 
       # Update an existing entry
