@@ -13,7 +13,13 @@ class Api::V1::Internal::CodebaseController < Api::V1::Internal::InternalBaseCon
       return
     end
 
-    kb = resolve_knowledge_base(account, base_path)
+    repository, repo_error = resolve_indexing_repository(account)
+    if repo_error
+      render_error(repo_error, status: :unprocessable_content)
+      return
+    end
+
+    kb = resolve_knowledge_base(account, base_path, repository)
 
     service = Ai::Codebase::IndexingService.new(
       account: account,
@@ -50,7 +56,13 @@ class Api::V1::Internal::CodebaseController < Api::V1::Internal::InternalBaseCon
     end
 
     opts = analysis_options
-    kb = resolve_knowledge_base(account, base_path)
+    repository, repo_error = resolve_indexing_repository(account)
+    if repo_error
+      render_error(repo_error, status: :unprocessable_content)
+      return
+    end
+
+    kb = resolve_knowledge_base(account, base_path, repository)
 
     result =
       case operation
@@ -102,9 +114,30 @@ class Api::V1::Internal::CodebaseController < Api::V1::Internal::InternalBaseCon
   # Resolve (or create) the codebase knowledge base for this account, keyed by
   # git repository when provided, else by base_path basename. Shared by
   # index_codebase and analyze so both target the same KB.
-  def resolve_knowledge_base(account, base_path)
-    repository = params[:repository_id].present? ? account.git_repositories.find_by(id: params[:repository_id]) : nil
+  # Resolve an explicitly-supplied repository_id by id, name OR full_name —
+  # the same three-way lookup CodebaseContextResolvable#resolve_repository uses
+  # on the READ side. Keeping only find_by(id:) here is what made indexing and
+  # searching key their knowledge bases differently: a caller passing
+  # "powernode/powernode-platform" resolved to nil, fell through to the
+  # base_path branch, and wrote thousands of nodes into "Codebase: <basename>"
+  # that no repository-scoped search could ever reach — silently.
+  #
+  # Returns [repository_or_nil, error_or_nil]. A blank repository_id is fine
+  # (base_path keying is a legitimate mode). A PRESENT but unresolvable one is
+  # an error: indexing somewhere other than where the caller asked is worse
+  # than refusing.
+  def resolve_indexing_repository(account)
+    raw = params[:repository_id]
+    return [ nil, nil ] if raw.blank?
 
+    scope = account.git_repositories
+    repository = scope.find_by(id: raw) || scope.find_by(name: raw) || scope.find_by(full_name: raw)
+    return [ nil, "repository not found: #{raw}" ] if repository.nil?
+
+    [ repository, nil ]
+  end
+
+  def resolve_knowledge_base(account, base_path, repository = nil)
     if repository
       account.ai_knowledge_bases.find_or_create_by!(git_repository_id: repository.id) do |k|
         k.name = "Codebase: #{repository.full_name || repository.name}"
