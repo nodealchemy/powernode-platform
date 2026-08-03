@@ -330,6 +330,8 @@ module Mcp
   # - resources.subscribe is NOT advertised: resources/subscribe was never
   #   implemented here, and revision 2026-07-28 removed the method entirely
   #   (replaced by subscriptions/listen, which is not implemented yet either).
+  # - completions is advertised only from 2025-03-26, the revision that
+  #   introduced the capability flag (the method itself predates it).
   # - For the stateless era (2026-07-28) all listChanged flags are false:
   #   change notifications flow only over subscriptions/listen streams, which
   #   this server does not provide yet. Stateful clients keep listChanged via
@@ -347,15 +349,19 @@ module Mcp
       return {
         "tools" => { "listChanged" => false },
         "resources" => { "listChanged" => false },
-        "prompts" => { "listChanged" => false }
+        "prompts" => { "listChanged" => false },
+        "completions" => {}
       }
     end
 
-    {
+    capabilities = {
       "tools" => { "listChanged" => true },
       "resources" => { "subscribe" => false, "listChanged" => true },
       "prompts" => { "listChanged" => false }
     }
+    # Date-string comparison is safe: protocol revisions are ISO dates.
+    capabilities["completions"] = {} if version >= "2025-03-26"
+    capabilities
   end
 
   # =============================================================================

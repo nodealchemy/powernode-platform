@@ -66,6 +66,29 @@ module Mcp
       }
     end
 
+    # Complete values for a prompt template argument (completion/complete with
+    # ref/prompt). Only variables that declare an enumerated value set
+    # ("options" or "enum" in the variable definition) have completions;
+    # free-form variables return an empty list, which is a valid completion
+    # result per spec.
+    #
+    # @return [Array<String>] candidate values (prefix-matched, case-insensitive)
+    # @raise [ArgumentError] if the prompt does not exist
+    def complete_argument(name:, argument_name:, value: "")
+      template = @account.shared_prompt_templates
+                         .active
+                         .find_by(slug: name)
+
+      raise ArgumentError, "Prompt not found: #{name}" unless template
+
+      var_def = (template.variables || []).find { |v| v["name"].to_s == argument_name.to_s }
+      return [] unless var_def
+
+      options = Array(var_def["options"] || var_def["enum"]).map(&:to_s)
+      prefix = value.to_s.downcase
+      options.select { |option| option.downcase.start_with?(prefix) }
+    end
+
     private
 
     def template_to_prompt(template)

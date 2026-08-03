@@ -319,12 +319,16 @@ module Api
             handle_tools_call(params)
           when "resources/list"
             handle_resources_list(params)
+          when "resources/templates/list"
+            handle_resources_templates_list(params)
           when "resources/read"
             handle_resources_read(params)
           when "prompts/list"
             handle_prompts_list(params)
           when "prompts/get"
             handle_prompts_get(params)
+          when "completion/complete"
+            handle_completion_complete(params)
           else
             render_jsonrpc_error(message_id, -32601, "Method not found: #{method}")
             nil
@@ -581,6 +585,42 @@ module Api
           end
           response_payload[:isError] = true if result.is_a?(Hash) && result[:success] == false
           response_payload
+        end
+
+        def handle_resources_templates_list(params)
+          provider = ::Mcp::NativeResourceProvider.new(account: current_account)
+          provider.list_resource_templates(cursor: params["cursor"])
+        end
+
+        def handle_completion_complete(params)
+          ref = params["ref"] || {}
+          argument = params["argument"] || {}
+          value = argument["value"].to_s
+
+          values =
+            case ref["type"]
+            when "ref/prompt"
+              ::Mcp::NativePromptProvider.new(account: current_account).complete_argument(
+                name: ref["name"].to_s,
+                argument_name: argument["name"].to_s,
+                value: value
+              )
+            when "ref/resource"
+              ::Mcp::NativeResourceProvider.new(account: current_account).complete_uri_template(
+                uri_template: ref["uri"].to_s,
+                value: value
+              )
+            else
+              render_jsonrpc_error(nil, -32602, "Invalid completion ref type: #{ref['type'].inspect}")
+              return nil
+            end
+
+          capped = values.first(100)
+          completion = { "values" => capped, "hasMore" => values.size > capped.size }
+          # total is optional and must be accurate; providers fetch at most
+          # one page + 1, so it is only known when nothing was truncated.
+          completion["total"] = values.size unless completion["hasMore"]
+          { "completion" => completion }
         end
 
         def handle_resources_list(params)

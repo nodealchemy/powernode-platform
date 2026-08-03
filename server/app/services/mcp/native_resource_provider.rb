@@ -3,6 +3,9 @@
 module Mcp
   class NativeResourceProvider
     PAGE_SIZE = 50
+    # completion/complete caps values at 100 per spec; fetch one page + 1 so
+    # the caller can compute hasMore without a count query.
+    COMPLETION_FETCH_LIMIT = 101
 
     def initialize(account:)
       @account = account
@@ -55,6 +58,28 @@ module Mcp
       }
     end
 
+    # List parameterized URI templates for all native resource types
+    # (MCP resources/templates/list — present in every supported revision,
+    # 2024-11-05 through 2026-07-28).
+    #
+    # @return [Hash] { resourceTemplates: [...] }
+    def list_resource_templates(cursor: nil)
+      { resourceTemplates: resource_types.values.map { |config| config[:template] } }
+    end
+
+    # Complete values for a resource template variable (completion/complete
+    # with ref/resource). The uri_template must match one of the templates
+    # returned by #list_resource_templates.
+    #
+    # @return [Array<String>] candidate values (uncapped; caller applies the
+    #   spec's 100-value limit and hasMore accounting)
+    def complete_uri_template(uri_template:, value: "")
+      config = resource_types.values.find { |c| c[:template][:uriTemplate] == uri_template }
+      return [] unless config
+
+      config[:complete].call(value.to_s)
+    end
+
     private
 
     def resource_types
@@ -68,6 +93,18 @@ module Mcp
               description: article.excerpt,
               mimeType: "text/plain"
             }
+          },
+          template: {
+            uriTemplate: "powernode://kb/articles/{slug}",
+            name: "kb-article",
+            title: "Knowledge Base Article",
+            description: "Published knowledge base article, addressed by slug",
+            mimeType: "text/plain"
+          },
+          complete: ->(prefix) {
+            KnowledgeBase::Article.for_account(@account.id).published
+              .where("slug ILIKE ?", "#{sanitize_like(prefix)}%")
+              .order(:slug).limit(COMPLETION_FETCH_LIMIT).pluck(:slug)
           }
         },
         "ai/agents" => {
@@ -79,6 +116,18 @@ module Mcp
               description: agent.description,
               mimeType: "application/json"
             }
+          },
+          template: {
+            uriTemplate: "powernode://ai/agents/{id}",
+            name: "ai-agent",
+            title: "AI Agent",
+            description: "Active AI agent definition, addressed by agent id",
+            mimeType: "application/json"
+          },
+          complete: ->(prefix) {
+            ::Ai::Agent.for_account(@account.id).where(status: "active")
+              .where("id::text ILIKE ?", "#{sanitize_like(prefix)}%")
+              .order(:id).limit(COMPLETION_FETCH_LIMIT).pluck(:id).map(&:to_s)
           }
         },
         "ai/prompts" => {
@@ -90,9 +139,25 @@ module Mcp
               description: template.description,
               mimeType: "text/plain"
             }
+          },
+          template: {
+            uriTemplate: "powernode://ai/prompts/{slug}",
+            name: "ai-prompt",
+            title: "Prompt Template",
+            description: "Active shared prompt template, addressed by slug",
+            mimeType: "text/plain"
+          },
+          complete: ->(prefix) {
+            ::Shared::PromptTemplate.for_account(@account.id).active
+              .where("slug ILIKE ?", "#{sanitize_like(prefix)}%")
+              .order(:slug).limit(COMPLETION_FETCH_LIMIT).pluck(:slug)
           }
         }
       }
+    end
+
+    def sanitize_like(value)
+      ActiveRecord::Base.sanitize_sql_like(value.to_s)
     end
 
     def fetch_items(type, config, offset: 0)
