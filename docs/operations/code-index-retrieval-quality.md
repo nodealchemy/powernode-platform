@@ -87,5 +87,63 @@ search**: query with likely identifier vocabulary ("kill switch", "instance pool
 reaper"), not with behavioural descriptions, and fall back to
 `code_identifier_search` / grep when the name is unknown.
 
+---
+
+## Round 2 — measured outcome of (1) and the dilution fix (2026-08-03)
+
+Both recommendations were implemented and the index fully re-vectored
+(89,216/89,216 embedded):
+
+- **v37** — `AstParserService` extracts doc comments (ruby `#`, ts/js `//` and
+  `/** */`, python docstrings); `build_description` appends them.
+- **v38** — embedded text separated from the display description.
+  `embedding_text` contributes the identifier, a word-split form, the owning
+  class and the doc — dropping the twice-repeated file path, kind, visibility
+  and parameter names.
+
+Doc coverage achieved: **34,578 / 89,216 nodes (38.8%)**.
+
+| Query | Baseline | After v38 |
+|---|---|---|
+| "kill switch emergency halt" (identifier) | 0.603, correct top-3 | **0.731**, correct top-3, **plus a frontend `useEmergencyHalt` hit at 0.698** |
+| "immediately stop a runaway autonomous agent…" (behavioural) | miss, top 0.519 | **still miss**, top 0.559 — target not in top-**10** |
+| "let internal service-to-service calls bypass…" (behavioural) | miss, top 0.436 | **still miss**, top 0.497, results now topically closer (`authenticate_service_request`) |
+
+**Verdict: identifier retrieval improved substantially (+21% similarity, and
+cross-language results now surface). Behavioural retrieval did NOT become
+reliable.** Nothing regressed.
+
+**Why it did not close.** `emergency_halt!` has its doc, its parent and a fresh
+vector, and still loses to `demote_all_agents_to_supervised` — which has **no
+doc at all** — because that identifier's own words ("demote all agents") match
+the query's vocabulary. All candidates cluster in a narrow 0.51–0.56 band, well
+below the 0.73 an identifier match reaches. Two structural reasons:
+
+1. **61% of nodes still have no behavioural text**, and a well-named
+   undocumented symbol legitimately outranks a documented one.
+2. Corpus entries are terse fragments (identifier + a one-line doc). A
+   general-purpose embedding model does not place a long natural-language
+   question and a short code-symbol fragment close together, whatever the
+   fragment contains.
+
+**Stopping here** per the Stop & Ask rule — three attempts at the same goal.
+Options beyond this point, in rough order of expected effect, none attempted:
+
+1. **LLM-generated natural-language summaries per symbol** — makes the corpus
+   the same *kind* of text as the query. Expensive; the only option that
+   plausibly closes the gap outright.
+2. **Hybrid retrieval** — rank-fuse vector similarity with the existing
+   `code_identifier_search` (keyword/BM25). Cheap, and directly targets the
+   observed failure, since the right answer is usually retrievable lexically.
+3. **Include a body snippet**, not just the doc, for undocumented symbols.
+
+Operational note: bulk embedding remains fragile. The re-vector failed twice
+mid-run (`Worker embedding service returned no results for batch`, and a
+wholesale stall after ~18.4k nodes) and needed a paced, retrying backfill with
+an id cursor to finish. Always verify `count(embedding) = count(id)` afterwards.
+Re-vectoring also requires a **walk first** — `properties.doc`/`parent` are
+written by `upsert_node`, so an embed-only pass over nodes indexed by older code
+silently produces identifier-only vectors.
+
 Related: [[code-reindex-never-reembeds-existing-nodes]] in auto-memory for the
 indexing mechanics and re-vector procedure.
