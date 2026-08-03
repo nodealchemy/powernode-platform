@@ -323,20 +323,38 @@ module Mcp
     response
   end
 
-  # Build server capabilities for MCP protocol
-  def build_server_capabilities
-    {
-      "protocolVersion" => @protocol_version,
-      "tools" => {
-        "listChanged" => true
-      },
-      "resources" => {
-        "subscribe" => true,
-        "listChanged" => true
-      },
-      "prompts" => {
-        "listChanged" => false
+  # Build server capabilities for MCP protocol, shaped for the negotiated
+  # protocol revision. Only capabilities the server actually implements are
+  # advertised:
+  #
+  # - resources.subscribe is NOT advertised: resources/subscribe was never
+  #   implemented here, and revision 2026-07-28 removed the method entirely
+  #   (replaced by subscriptions/listen, which is not implemented yet either).
+  # - For the stateless era (2026-07-28) all listChanged flags are false:
+  #   change notifications flow only over subscriptions/listen streams, which
+  #   this server does not provide yet. Stateful clients keep listChanged via
+  #   the GET SSE stream + SessionNotifier.
+  # - logging is never advertised (logging/setLevel unimplemented; the whole
+  #   Logging feature is Deprecated as of 2026-07-28).
+  #
+  # Note: this hash intentionally contains no "protocolVersion" key — that
+  # field belongs at the top level of the initialize result, not inside
+  # ServerCapabilities (it was previously mis-nested here).
+  def build_server_capabilities(protocol_version: nil)
+    version = protocol_version || @protocol_version
+
+    if STATELESS_VERSIONS.include?(version)
+      return {
+        "tools" => { "listChanged" => false },
+        "resources" => { "listChanged" => false },
+        "prompts" => { "listChanged" => false }
       }
+    end
+
+    {
+      "tools" => { "listChanged" => true },
+      "resources" => { "subscribe" => false, "listChanged" => true },
+      "prompts" => { "listChanged" => false }
     }
   end
 

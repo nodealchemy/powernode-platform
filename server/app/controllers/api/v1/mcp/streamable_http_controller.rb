@@ -402,7 +402,7 @@ module Api
 
           {
             protocolVersion: negotiated,
-            capabilities: protocol_service.build_server_capabilities,
+            capabilities: protocol_service.build_server_capabilities(protocol_version: negotiated),
             serverInfo: {
               name: "Powernode AI Platform",
               version: Rails.application.config.respond_to?(:version) ? Rails.application.config.version : "1.0.0"
