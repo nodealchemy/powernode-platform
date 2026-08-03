@@ -393,7 +393,9 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
       tools = json_response["result"]["tools"]
       platform_tools = tools.select { |t| t["name"].start_with?("platform.") }
       expect(platform_tools).not_to be_empty
-      expect(platform_tools.first["name"]).to eq("platform.list_agents")
+      # Membership, not position: tools/list is name-sorted, so the first entry
+      # is whichever stub sorts first rather than the first one declared.
+      expect(platform_tools.map { |t| t["name"] }).to include("platform.list_agents")
     end
 
     it "includes inputSchema on platform tools" do

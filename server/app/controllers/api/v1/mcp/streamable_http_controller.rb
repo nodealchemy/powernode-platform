@@ -15,6 +15,10 @@ module Api
         # residual streaming glue keeps this controller above the limit by design.
 
         MCP_PROTOCOL_VERSION = "2025-11-25"
+        # tools/list page size. Deliberately above the current catalog size so
+        # cursor-less clients still receive the complete catalog in one page;
+        # the cursor exists for growth, not to force pagination on anyone today.
+        TOOLS_PAGE_SIZE = 250
         SESSION_TTL = 24.hours
         SSE_KEEPALIVE_INTERVAL = 30 # seconds between SSE pings (keeps connection alive)
         SSE_ACTIVITY_TOUCH_CYCLES = 10 # Touch DB every N keepalive cycles (~5 min) — not every ping
@@ -449,7 +453,19 @@ module Api
           { sessions: sessions }
         end
 
-        def handle_tools_list(_params)
+        def handle_tools_list(params)
+          # Cursor pagination (opaque offset cursor). Invalid cursors are a
+          # protocol error per spec (-32602).
+          cursor = params["cursor"]
+          offset = 0
+          if cursor.present?
+            unless cursor.to_s.match?(/\A\d+\z/)
+              render_jsonrpc_error(nil, -32602, "Invalid cursor: #{cursor}")
+              return nil
+            end
+            offset = cursor.to_i
+          end
+
           # Only expose platform and introspection tools in tools/list.
           # Agent tools (one per AI agent) are excluded from listing to avoid
           # flooding MCP clients with thousands of entries. Agents remain
@@ -471,7 +487,16 @@ module Api
           # Instance principals get a default-deny, grant-scoped catalog; users keep
           # the full list (their per-tool permissions gate execution).
           tools = current_mcp_principal ? current_mcp_principal.filter_tools(all_tools) : all_tools
-          { "tools" => tools }
+
+          # Deterministic order (2026-07-28 SHOULD) — also what makes an offset
+          # cursor meaningful: registry hash order is not stable across
+          # processes, so page 2 of an unsorted list could skip or repeat tools.
+          tools = tools.sort_by { |tool| tool["name"].to_s }
+
+          page = tools.slice(offset, TOOLS_PAGE_SIZE) || []
+          result = { "tools" => page }
+          result["nextCursor"] = (offset + TOOLS_PAGE_SIZE).to_s if tools.size > offset + TOOLS_PAGE_SIZE
+          result
         end
 
         def handle_tools_call(params)
