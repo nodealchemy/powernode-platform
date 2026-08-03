@@ -14,17 +14,41 @@ module Api
         # extracted to services as a future refinement (ref IMP-fe2c4e9fcb00); the
         # residual streaming glue keeps this controller above the limit by design.
 
+        # Default response-header version for the stateful (handshake) era.
+        # Stateless-era requests (2026-07-28) get their own version echoed —
+        # see validate_stateless_transport!.
         MCP_PROTOCOL_VERSION = "2025-11-25"
-        # tools/list page size. Deliberately above the current catalog size so
-        # cursor-less clients still receive the complete catalog in one page;
-        # the cursor exists for growth, not to force pagination on anyone today.
+        SESSION_TTL = 24.hours
+
+        # tools/list page size. Deliberately larger than the current full
+        # catalog (231 tools for the widest principal) so existing clients
+        # that never send a cursor keep receiving the complete set in one
+        # page with no nextCursor — pagination engages only when the catalog
+        # outgrows this bound.
         TOOLS_PAGE_SIZE = 250
-        # Heuristic for the readOnlyHint tool annotation. Deliberately
-        # conservative: a tool is hinted read-only only when its action name
-        # says so, so a mis-hint cannot mark a mutating tool as safe.
+
+        # Methods whose Mcp-Name request header must mirror params.name /
+        # params.uri (2026-07-28 Streamable HTTP request metadata).
+        NAME_HEADER_METHODS = %w[tools/call resources/read prompts/get].freeze
+
+        # CacheableResult hints for stateless-era (2026-07-28) responses.
+        # All catalogs are principal/account-scoped → cacheScope "private".
+        LIST_RESULT_TTL_MS = 300_000 # 5 min freshness hint for list endpoints
+        READ_RESULT_TTL_MS = 0       # resource contents: always re-fetch
+        DISCOVER_TTL_MS = 3_600_000  # server identity/capabilities: 1 h
+        CACHEABLE_METHOD_TTLS = {
+          "tools/list" => LIST_RESULT_TTL_MS,
+          "prompts/list" => LIST_RESULT_TTL_MS,
+          "resources/list" => LIST_RESULT_TTL_MS,
+          "resources/templates/list" => LIST_RESULT_TTL_MS,
+          "resources/read" => READ_RESULT_TTL_MS
+        }.freeze
+
+        # Conservative read-only heuristic for ToolAnnotations.readOnlyHint
+        # (2025-03-26+). Annotations are untrusted hints per spec; only tools
+        # whose action name is unambiguously read-only get the hint.
         READ_ONLY_ACTION_PREFIXES = %w[list get search query read describe check discover perceive measure recent].freeze
         READ_ONLY_ACTION_NAMES = %w[health metrics resources scoreboard].freeze
-        SESSION_TTL = 24.hours
         SSE_KEEPALIVE_INTERVAL = 30 # seconds between SSE pings (keeps connection alive)
         SSE_ACTIVITY_TOUCH_CYCLES = 10 # Touch DB every N keepalive cycles (~5 min) — not every ping
         SSE_CHANNEL_REFRESH_CYCLES = 12 # Re-check workspace channels every N keepalive cycles (~6 min)
@@ -71,6 +95,11 @@ module Api
           # (JSON-RPC 2.0 requires error responses to echo the request id).
           @jsonrpc_id = message_id
 
+          # 2026-07-28 stateless-era transport validation (per-request _meta
+          # protocol version, Mcp-Method / Mcp-Name header mirroring).
+          validate_stateless_transport!(body)
+          return if performed?
+
           # Stream tools/call responses as SSE when client accepts it
           if streaming_accepted? && method == "tools/call"
             handle_streaming_tools_call(params, message_id)
@@ -80,6 +109,7 @@ module Api
           result = dispatch_method(method, params, message_id)
           return if performed?
 
+          result = apply_stateless_result_envelope(method, result) if stateless_request?
           render_jsonrpc_result(message_id, result)
         rescue JSON::ParserError
           render_jsonrpc_error(nil, -32700, "Parse error: invalid JSON")
@@ -309,6 +339,8 @@ module Api
           case method
           when "initialize"
             handle_initialize(params, message_id)
+          when "server/discover"
+            handle_server_discover(params)
           when "session/discover"
             handle_session_discover(params)
           when "ping"
@@ -330,7 +362,10 @@ module Api
           when "completion/complete"
             handle_completion_complete(params)
           else
-            render_jsonrpc_error(message_id, -32601, "Method not found: #{method}")
+            # 2026-07-28 requires HTTP 404 for unknown RPC methods; the
+            # stateful era keeps the historical 200 + JSON-RPC error.
+            render_jsonrpc_error(message_id, -32601, "Method not found: #{method}",
+                                 status: stateless_request? ? :not_found : :ok)
             nil
           end
         end
@@ -501,9 +536,8 @@ module Api
           # the full list (their per-tool permissions gate execution).
           tools = current_mcp_principal ? current_mcp_principal.filter_tools(all_tools) : all_tools
 
-          # Deterministic order (2026-07-28 SHOULD) — also what makes an offset
-          # cursor meaningful: registry hash order is not stable across
-          # processes, so page 2 of an unsorted list could skip or repeat tools.
+          # Deterministic order (2026-07-28 SHOULD) — also keeps pagination
+          # cursors stable across processes and deploys.
           tools = tools.sort_by { |tool| tool["name"].to_s }
 
           page = tools.slice(offset, TOOLS_PAGE_SIZE) || []
@@ -592,6 +626,26 @@ module Api
           provider.list_resource_templates(cursor: params["cursor"])
         end
 
+        # server/discover (2026-07-28): mandatory version/capability probe.
+        # Answered for every client era — it is explicitly the request a
+        # client MAY use to find out which revisions this server speaks, so
+        # the CacheableResult fields required by its schema are always
+        # included rather than being version-gated.
+        def handle_server_discover(_params)
+          {
+            "supportedVersions" => ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS,
+            "capabilities" => build_protocol_service.build_server_capabilities(
+              protocol_version: ::Mcp::ProtocolService::STATELESS_VERSIONS.first
+            ),
+            "instructions" => "Powernode AI Platform control plane. The tool catalog is " \
+                              "permission-scoped per authenticated principal; call tools/list for it.",
+            "resultType" => "complete",
+            "ttlMs" => DISCOVER_TTL_MS,
+            "cacheScope" => "public",
+            "_meta" => { "io.modelcontextprotocol/serverInfo" => server_info_payload }
+          }
+        end
+
         def handle_completion_complete(params)
           ref = params["ref"] || {}
           argument = params["argument"] || {}
@@ -656,14 +710,43 @@ module Api
         end
 
         # =====================================================================
-        # Protocol-revision helpers
+        # JSON-RPC Response Helpers
         # =====================================================================
 
+        def render_jsonrpc_result(id, result)
+          render json: {
+            jsonrpc: "2.0",
+            id: id,
+            result: result
+          }, status: :ok
+        end
+
+        # JSON-RPC 2.0 requires error responses to echo the request id, so
+        # handlers that render an error without one fall back to the id
+        # captured at dispatch time. `status` defaults to 200 (stateful-era
+        # behavior); 2026-07-28 transport errors pass 400/404 explicitly.
+        def render_jsonrpc_error(id, code, message, status: :ok, data: nil)
+          error = { code: code, message: message }
+          error[:data] = data unless data.nil?
+
+          render json: {
+            jsonrpc: "2.0",
+            id: id.nil? ? @jsonrpc_id : id,
+            error: error
+          }, status: status
+        end
+
+        # ==================================================================
+        # Protocol-revision helpers (stateful 2024-11-05..2025-11-25 vs
+        # stateless 2026-07-28 on the same endpoint)
+        # ==================================================================
+
         # The protocol revision governing THIS request's response shape.
-        # Resolution order: the MCP-Protocol-Version header, then the session's
-        # negotiated version, then 2025-03-26 — the spec-mandated assumption
-        # for requests without the header, since clients older than 2025-06-18
-        # never sent one.
+        # Resolution order: validated per-request _meta / header for the
+        # stateless era (set by validate_stateless_transport!), then the
+        # MCP-Protocol-Version header, then the session's negotiated version,
+        # then 2025-03-26 — the spec-mandated assumption for requests without
+        # the header (clients older than 2025-06-18 never sent one).
         def request_protocol_version
           @request_protocol_version ||= begin
             header = request.headers["MCP-Protocol-Version"]
@@ -682,6 +765,123 @@ module Api
         # Protocol revisions are ISO dates, so string comparison orders them.
         def protocol_at_least?(version)
           request_protocol_version >= version
+        end
+
+        def stateless_request?
+          ::Mcp::ProtocolService::STATELESS_VERSIONS.include?(request_protocol_version)
+        end
+
+        # 2026-07-28 Streamable HTTP request validation. Engages only when the
+        # request signals the stateless era (a protocolVersion in params._meta
+        # or a stateless MCP-Protocol-Version header); every stateful-era
+        # request passes through untouched, keeping legacy behavior identical.
+        def validate_stateless_transport!(body)
+          params = body["params"]
+          meta = params.is_a?(Hash) ? params["_meta"] : nil
+          meta_version = meta.is_a?(Hash) ? meta["io.modelcontextprotocol/protocolVersion"] : nil
+          header = request.headers["MCP-Protocol-Version"]
+
+          return unless meta_version.present? || ::Mcp::ProtocolService::STATELESS_VERSIONS.include?(header)
+
+          requested = meta_version.presence || header
+
+          unless ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS.include?(requested)
+            render_jsonrpc_error(
+              body["id"], -32022, "Unsupported protocol version: #{requested}",
+              status: :bad_request,
+              data: { supported: ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS, requested: requested.to_s }
+            )
+            return
+          end
+
+          # A stateful version carried in _meta is out-of-spec but tolerated;
+          # the stateless transport rules below apply only to 2026-07-28+.
+          return unless ::Mcp::ProtocolService::STATELESS_VERSIONS.include?(requested)
+
+          # The MCP-Protocol-Version header MUST match _meta's protocolVersion.
+          if header != meta_version
+            render_jsonrpc_error(
+              body["id"], -32020,
+              "Header mismatch: MCP-Protocol-Version header #{header.inspect} does not match " \
+              "_meta io.modelcontextprotocol/protocolVersion #{meta_version.inspect}",
+              status: :bad_request
+            )
+            return
+          end
+
+          # Mcp-Method is required on every request and MUST mirror the body.
+          mcp_method = request.headers["Mcp-Method"]
+          if mcp_method.to_s != body["method"]
+            render_jsonrpc_error(
+              body["id"], -32020,
+              "Header mismatch: Mcp-Method header #{mcp_method.inspect} does not match body method #{body['method'].inspect}",
+              status: :bad_request
+            )
+            return
+          end
+
+          # Mcp-Name MUST mirror params.name / params.uri for named methods.
+          if NAME_HEADER_METHODS.include?(body["method"])
+            expected = params.is_a?(Hash) ? (params["name"] || params["uri"]).to_s : ""
+            provided = decode_mcp_header_value(request.headers["Mcp-Name"])
+            if provided.nil? || provided != expected
+              render_jsonrpc_error(
+                body["id"], -32020,
+                "Header mismatch: Mcp-Name header does not match body value #{expected.inspect}",
+                status: :bad_request
+              )
+              return
+            end
+          end
+
+          @request_protocol_version = requested
+          response.set_header("MCP-Protocol-Version", requested)
+        end
+
+        # Decodes the Base64 sentinel format (=?base64?...?=) used when a
+        # header value cannot be carried as plain ASCII.
+        def decode_mcp_header_value(value)
+          return nil if value.nil?
+
+          if value.start_with?("=?base64?") && value.end_with?("?=")
+            encoded = value.delete_prefix("=?base64?").delete_suffix("?=")
+            Base64.decode64(encoded).force_encoding(Encoding::UTF_8)
+          else
+            value
+          end
+        end
+
+        # Stateless-era (2026-07-28) result envelope: required resultType,
+        # CacheableResult fields on the read/list methods whose schemas
+        # require them, and the SHOULD-level serverInfo in result _meta.
+        # Never applied to stateful-era responses.
+        def apply_stateless_result_envelope(method, result)
+          return result unless result.is_a?(Hash)
+
+          enveloped = result.dup
+          unless enveloped.key?("resultType") || enveloped.key?(:resultType)
+            enveloped["resultType"] = "complete"
+          end
+
+          ttl = CACHEABLE_METHOD_TTLS[method]
+          if ttl && !enveloped.key?("ttlMs") && !enveloped.key?(:ttlMs)
+            enveloped["ttlMs"] = ttl
+            enveloped["cacheScope"] = "private"
+          end
+
+          existing_meta = enveloped["_meta"] || enveloped[:_meta]
+          meta = existing_meta.is_a?(Hash) ? existing_meta.dup : {}
+          meta["io.modelcontextprotocol/serverInfo"] ||= server_info_payload
+          enveloped.delete(:_meta)
+          enveloped["_meta"] = meta
+          enveloped
+        end
+
+        def server_info_payload
+          {
+            "name" => "Powernode AI Platform",
+            "version" => Rails.application.config.respond_to?(:version) ? Rails.application.config.version : "1.0.0"
+          }
         end
 
         # Version-gated tool metadata for tools/list entries. Fields never
@@ -708,32 +908,6 @@ module Api
         def read_only_action?(action)
           READ_ONLY_ACTION_NAMES.include?(action) ||
             READ_ONLY_ACTION_PREFIXES.include?(action.split("_").first)
-        end
-
-        # =====================================================================
-        # JSON-RPC Response Helpers
-        # =====================================================================
-
-        def render_jsonrpc_result(id, result)
-          render json: {
-            jsonrpc: "2.0",
-            id: id,
-            result: result
-          }, status: :ok
-        end
-
-        def render_jsonrpc_error(id, code, message)
-          render json: {
-            jsonrpc: "2.0",
-            # Handlers receive only `params`, so they pass nil here; fall back to
-            # the id captured for this request rather than emitting id: null,
-            # which JSON-RPC 2.0 reserves for undetectable-id failures.
-            id: id.nil? ? @jsonrpc_id : id,
-            error: {
-              code: code,
-              message: message
-            }
-          }, status: :ok
         end
 
         def build_input_schema(parameters)
@@ -793,6 +967,8 @@ module Api
               # handle_tools_call rendered a JSON error (e.g. missing param) — extract and re-emit as SSE
               return
             end
+
+            result = apply_stateless_result_envelope("tools/call", result) if stateless_request?
 
             sse.write({
               jsonrpc: "2.0",
