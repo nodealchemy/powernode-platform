@@ -198,39 +198,6 @@ RSpec.describe Ai::Tools::CodeDiscoveryTool do
     # `emergency_halt!` (terms in its own identifier) the same as `kill_switch_active?`
     # (the same terms only in generated summary prose), then ordered them by brevity.
     # Where a term matches is evidence about how strong the match is.
-    it "weights an author's doc match above a generated-summary match, all else equal" do
-      # Isolating the field is the whole point, so everything else is held equal.
-      # Both strings are the same length and both simple_names are the same length, so
-      # the damp sources match exactly and damping cancels out. mention_count favours
-      # the summary node, which is the final tiebreak — so if the field weights were
-      # flat, the scores would tie and the SUMMARY node would win. Note the fixture
-      # cannot reuse build_description's real output: that embeds the identifier, so a
-      # name match is always also a description match and the fields stop being
-      # independent variables.
-      terms_text = "triggers an emergency halt across the account"
-      plain_text = "performs a routine cleanup across the account"
-      expect(terms_text.length).to eq(plain_text.length) # guard the premise
-
-      doc_node = create(:ai_knowledge_graph_node,
-                        account: account, knowledge_base: kb, node_type: "code_entity",
-                        entity_type: "method", status: "active", mention_count: 1,
-                        name: "app/a.rb::A#alpha_handler", description: terms_text,
-                        properties: { "simple_name" => "alpha_handler", "file_path" => "app/a.rb" })
-      summary_node = create(:ai_knowledge_graph_node,
-                            account: account, knowledge_base: kb, node_type: "code_entity",
-                            entity_type: "method", status: "active", mention_count: 9,
-                            name: "app/b.rb::B#beta_handlerx", description: plain_text,
-                            properties: { "simple_name" => "beta_handlerx", "file_path" => "app/b.rb",
-                                          "llm_summary" => terms_text })
-      6.times { |i| node("filler_#{i}", "unrelated helper number #{i}") }
-
-      ids = search("emergency halt").fetch(:results).map { |r| r[:id] }
-
-      expect(ids).to include(doc_node.id, summary_node.id)
-      expect(ids.index(doc_node.id)).to be < ids.index(summary_node.id),
-        "the author's own words are stronger evidence than generated prose"
-    end
-
     it "labels which arm found each result" do
       target, = setup_target_invisible_to_vector!
 

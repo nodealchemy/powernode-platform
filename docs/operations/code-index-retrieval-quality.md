@@ -302,6 +302,31 @@ a single-topic slice every summary legitimately shares vocabulary. In the hetero
 embedding path (so the actual hypothesis is testable) and a re-pilot on a slice drawn
 from several unrelated subsystems (so topical homogeneity stops being the confound).
 
-All three ranking changes are **inert on an unsummarised index** — with no summaries,
-`LEXICAL_DAMP_SOURCE` equals the old haystack, the summary field COALESCEs to empty, and
-coverage-first produced ordering identical to baseline in measurement.
+### Inertness, and a correction
+
+An earlier revision of this document (and the commit message of `07122436c`) claimed all
+three ranking changes were inert on an unsummarised index. **That was wrong for field
+weighting, and could not have been right**: weighting name matches above description
+matches changes ranking on *any* index, summaries or not. Spot-checking against the live
+index surfaced it; measured on the unsummarised pilot, field weighting moved a target
+from rank 2 to rank 3.
+
+**Field weighting was therefore reverted.** It is the correct fix for the summarised case
+— it was what restored `emergency_halt!` to rank 2 against peers whose matches were
+summary-only — but production carries zero summaries, so it was live ranking risk for no
+live benefit. It belongs in the same change that enables summaries, not ahead of it.
+
+What remains IS inert, and this is now verified by diffing full result orderings against
+the pre-change code (`a37474165`) rather than by inspection: **20/20 result rows identical**
+across four probe queries on an unsummarised corpus.
+
+- `llm_summary` joins `LEXICAL_HAYSTACK` — COALESCEs to empty with no summaries
+- `LEXICAL_DAMP_SOURCE` — expression identical to the previous haystack
+- coverage-first ordering — measured byte-identical ordering
+
+A second defect found while chasing this, and reverted along with it: `name_scored` and
+`body_scored` were **summed**, so a term appearing in both `simple_name` and `description`
+scored `NAME + DOC` rather than once. Since `build_description` embeds the identifier,
+that is nearly every term. Whenever field weighting is reintroduced, it must use
+best-field semantics (count each term once, at its strongest provenance) — the fields are
+not independent.
