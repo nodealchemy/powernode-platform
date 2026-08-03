@@ -58,6 +58,10 @@ module Api
             return
           end
 
+          # Remember the request id so nested handler error renders carry it
+          # (JSON-RPC 2.0 requires error responses to echo the request id).
+          @jsonrpc_id = message_id
+
           # Stream tools/call responses as SSE when client accepts it
           if streaming_accepted? && method == "tools/call"
             handle_streaming_tools_call(params, message_id)
@@ -585,7 +589,10 @@ module Api
         def render_jsonrpc_error(id, code, message)
           render json: {
             jsonrpc: "2.0",
-            id: id,
+            # Handlers receive only `params`, so they pass nil here; fall back to
+            # the id captured for this request rather than emitting id: null,
+            # which JSON-RPC 2.0 reserves for undetectable-id failures.
+            id: id.nil? ? @jsonrpc_id : id,
             error: {
               code: code,
               message: message
