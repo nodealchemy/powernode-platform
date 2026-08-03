@@ -491,6 +491,13 @@ module Ai
         parts = [ simple ]
         parts << words unless words.casecmp?(simple)
         parts << humanize_identifier(props["parent"]) if props["parent"].present?
+        # The LLM summary (SymbolSummaryService) is query-shaped prose — the only text
+        # here written in the same register as a developer's question, and the only
+        # thing that reaches a symbol whose vocabulary is disjoint from the query. It
+        # precedes the doc because it is the higher-value signal, not a replacement:
+        # the doc is the author's own words and often carries domain terms the
+        # summariser would not invent.
+        parts << props["llm_summary"] if props["llm_summary"].present?
         parts << props["doc"] if props["doc"].present?
         parts.compact_blank.join(" — ")
       end

@@ -169,6 +169,30 @@ RSpec.describe Ai::Codebase::IndexingService do
       expect(text).to include("Kill Switch Service")
     end
 
+    # The whole point of SymbolSummaryService: a summary that never reaches
+    # embedding_text is money spent on a properties field nothing reads.
+    it "carries the LLM summary, the only query-shaped text in the corpus" do
+      text = service.send(:embedding_text, node_with({
+        "simple_name" => "emergency_halt!", "kind" => "method",
+        "llm_summary" => "immediately stops a runaway autonomous agent from taking further action"
+      }))
+
+      expect(text).to include("immediately stops a runaway autonomous agent")
+    end
+
+    it "keeps the doc alongside the summary rather than replacing it" do
+      text = service.send(:embedding_text, node_with({
+        "simple_name" => "emergency_halt!", "kind" => "method",
+        "llm_summary" => "stops every agent right now",
+        "doc" => "Coordinated emergency stop — halts ALL agentic activity."
+      }))
+
+      # The author's own words often carry domain terms the summariser would not
+      # invent, so these are complementary signals, not substitutes.
+      expect(text).to include("stops every agent right now")
+      expect(text).to include("Coordinated emergency stop")
+    end
+
     it "does not repeat the word-split form when it equals the identifier" do
       text = service.send(:embedding_text, node_with({ "simple_name" => "halt", "kind" => "method" }))
 
