@@ -19,6 +19,11 @@ module Api
         # cursor-less clients still receive the complete catalog in one page;
         # the cursor exists for growth, not to force pagination on anyone today.
         TOOLS_PAGE_SIZE = 250
+        # Heuristic for the readOnlyHint tool annotation. Deliberately
+        # conservative: a tool is hinted read-only only when its action name
+        # says so, so a mis-hint cannot mark a mutating tool as safe.
+        READ_ONLY_ACTION_PREFIXES = %w[list get search query read describe check discover perceive measure recent].freeze
+        READ_ONLY_ACTION_NAMES = %w[health metrics resources scoreboard].freeze
         SESSION_TTL = 24.hours
         SSE_KEEPALIVE_INTERVAL = 30 # seconds between SSE pings (keeps connection alive)
         SSE_ACTIVITY_TOUCH_CYCLES = 10 # Touch DB every N keepalive cycles (~5 min) — not every ping
@@ -472,15 +477,19 @@ module Api
           # callable via tools/call and discoverable via platform.list_agents
           # + platform.execute_agent.
           platform_tools = ::Ai::Tools::PlatformApiToolRegistry.tool_definitions.map do |defn|
-            {
+            decorate_tool_entry(
               "name" => "platform.#{defn[:name]}",
               "description" => defn[:description],
               "inputSchema" => build_input_schema(defn[:parameters])
-            }
+            )
           end
 
           introspection_tools = ::Ai::Introspection::McpToolRegistrar::INTROSPECTION_TOOLS.map do |defn|
-            { "name" => defn[:id], "description" => defn[:description], "inputSchema" => defn[:input_schema] }
+            decorate_tool_entry(
+              "name" => defn[:id],
+              "description" => defn[:description],
+              "inputSchema" => defn[:input_schema]
+            )
           end
 
           all_tools = platform_tools + introspection_tools
@@ -563,6 +572,13 @@ module Api
               { type: "text", text: result.to_json }
             ]
           }
+          # Structured tool output (2025-06-18+). The advertised outputSchema is
+          # { "type" => "object" }, so structuredContent must always be a JSON
+          # object — non-object results are wrapped under "result". Never sent
+          # to clients on 2025-03-26 / 2024-11-05, which predate the field.
+          if protocol_at_least?("2025-06-18")
+            response_payload[:structuredContent] = result.is_a?(Hash) ? result : { "result" => result }
+          end
           response_payload[:isError] = true if result.is_a?(Hash) && result[:success] == false
           response_payload
         end
@@ -597,6 +613,61 @@ module Api
 
           provider = ::Mcp::NativePromptProvider.new(account: current_account)
           provider.get_prompt(name: name, arguments: params["arguments"] || {})
+        end
+
+        # =====================================================================
+        # Protocol-revision helpers
+        # =====================================================================
+
+        # The protocol revision governing THIS request's response shape.
+        # Resolution order: the MCP-Protocol-Version header, then the session's
+        # negotiated version, then 2025-03-26 — the spec-mandated assumption
+        # for requests without the header, since clients older than 2025-06-18
+        # never sent one.
+        def request_protocol_version
+          @request_protocol_version ||= begin
+            header = request.headers["MCP-Protocol-Version"]
+            session = current_mcp_session || @tracked_session
+
+            if ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS.include?(header)
+              header
+            elsif session && ::Mcp::ProtocolService::SUPPORTED_VERSIONS.include?(session.protocol_version)
+              session.protocol_version
+            else
+              "2025-03-26"
+            end
+          end
+        end
+
+        # Protocol revisions are ISO dates, so string comparison orders them.
+        def protocol_at_least?(version)
+          request_protocol_version >= version
+        end
+
+        # Version-gated tool metadata for tools/list entries. Fields never
+        # leak to revisions that predate them: annotations (2025-03-26),
+        # title + outputSchema (2025-06-18).
+        def decorate_tool_entry(tool)
+          action = tool["name"].to_s.delete_prefix("platform.")
+
+          if protocol_at_least?("2025-03-26") && read_only_action?(action)
+            tool["annotations"] = { "readOnlyHint" => true }
+          end
+
+          if protocol_at_least?("2025-06-18")
+            tool["title"] = action.split("_").map(&:capitalize).join(" ")
+            # The generic object schema is the truthful contract: every
+            # tools/call result serializes a JSON object into
+            # structuredContent (see handle_tools_call).
+            tool["outputSchema"] = { "type" => "object" }
+          end
+
+          tool
+        end
+
+        def read_only_action?(action)
+          READ_ONLY_ACTION_NAMES.include?(action) ||
+            READ_ONLY_ACTION_PREFIXES.include?(action.split("_").first)
         end
 
         # =====================================================================
