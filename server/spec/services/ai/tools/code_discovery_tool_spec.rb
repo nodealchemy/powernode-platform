@@ -162,37 +162,6 @@ RSpec.describe Ai::Tools::CodeDiscoveryTool do
       expect(hit[:matched_by]).to include("lexical")
     end
 
-    # Measured 2026-08-03: for "kill switch emergency halt" the top three candidates
-    # all matched all four terms (raw 16.15, tied at the maximum), so ordering fell
-    # entirely to the damping divisor and `emergency_halt!` placed last of the three
-    # purely because its description was the longest — which it was because it is the
-    # best documented. Coverage must outrank brevity.
-    it "prefers a complete term match over a terser partial one" do
-      complete = create(:ai_knowledge_graph_node,
-                        account: account, knowledge_base: kb, node_type: "code_entity",
-                        entity_type: "method", status: "active", mention_count: 1,
-                        name: "app/svc.rb::Svc#emergency_halt!",
-                        description: "method `emergency_halt!` - in server/app/services/ai/autonomy/" \
-                                     "kill_switch_service.rb - params: (reason:, triggered_by:) - " \
-                                     "Coordinated emergency stop that halts every agentic workflow for " \
-                                     "an account, opens all circuit breakers, cancels queued executions " \
-                                     "and records an audit event describing who triggered the halt and why.",
-                        properties: { "simple_name" => "emergency_halt!", "file_path" => "app/svc.rb" })
-      terse = create(:ai_knowledge_graph_node,
-                     account: account, knowledge_base: kb, node_type: "code_entity",
-                     entity_type: "method", status: "active", mention_count: 1,
-                     name: "app/other.rb::Other#halt_switch",
-                     description: "halt switch",
-                     properties: { "simple_name" => "halt_switch", "file_path" => "app/other.rb" })
-      6.times { |i| node("filler_#{i}", "unrelated helper number #{i}") }
-
-      ids = search("emergency halt switch").fetch(:results).map { |r| r[:id] }
-
-      # `complete` matches all three terms; `terse` matches two and is ~20x shorter,
-      # so damping alone would hand it the top slot.
-      expect(ids.index(complete.id)).to be < ids.index(terse.id),
-        "a candidate matching every query term must outrank a shorter partial match"
-    end
 
     # Measured 2026-08-03: at equal coverage, a flat bag-of-fields scored
     # `emergency_halt!` (terms in its own identifier) the same as `kill_switch_active?`

@@ -347,34 +347,31 @@ module Ai
         damping = "(1 + ln(1 + char_length(#{LEXICAL_DAMP_SOURCE}) / 300.0))"
         rank = "(#{scored}) / #{damping}"
 
-        # How many DISTINCT query terms a candidate matches, which is the primary sort.
+        # Coverage-first ordering (sort by the number of distinct query terms matched,
+        # damping only within a band) was tried here and REVERTED 2026-08-03, for the
+        # same reason as field weighting: it changes live ranking and its quality is
+        # unvalidated.
         #
-        # Damping must not be the primary discriminator. Measured 2026-08-03: for
-        # "kill switch emergency halt" the top three candidates all matched all four
-        # terms — raw 16.15, tied at the maximum — so the weighted score carried no
-        # information and ordering fell entirely to the damping divisor, i.e. to
-        # brevity. `emergency_halt!` placed third of the three for the sole reason that
-        # its description is the longest, and its description is longest because it is
-        # the best-documented of the three. The ranking was penalising documentation.
+        # It targets a real defect — where several candidates match every term the
+        # weighted scores tie, ordering falls entirely to the damping divisor, i.e. to
+        # brevity, and the best-documented symbol places last precisely because its
+        # description is longest. That is worth fixing.
         #
-        # Coverage first fixes the ordering where it is actually decidable: a candidate
-        # matching every term of the query is more relevant than one matching a subset,
-        # whatever their lengths. Damping still breaks ties WITHIN a coverage band,
-        # where it does its intended job of discounting incidental matches accumulated
-        # by sprawling text. Terms with idf <= 1.0 were already discarded upstream, so
-        # every term counted here carries real signal.
-        coverage = weights.map do |term, _idf|
-          ActiveRecord::Base.sanitize_sql_array(
-            [ "(CASE WHEN #{LEXICAL_HAYSTACK} ILIKE ? THEN 1 ELSE 0 END)",
-             "%#{ActiveRecord::Base.sanitize_sql_like(term)}%" ]
-          )
-        end.join(" + ")
-
-        scope.select("ai_knowledge_graph_nodes.*, (#{rank}) AS lexical_score, " \
-                     "(#{coverage}) AS lexical_coverage")
+        # But it is NOT inert, and the 414-node pilot that said it was could not have
+        # detected otherwise: an 8-term query against 89k heterogeneous nodes produces a
+        # wide spread of per-document coverage, while a single-directory slice produces
+        # almost none, so a coverage tiebreak has nothing to reorder there. Measured on
+        # the live index in v41: 73/140 result positions moved (52%), top-1 changed on
+        # 4/14 queries, top-3 on 8/14, with a null control at 0/140 confirming the
+        # movement was the change and not tie churn. Direction was mixed — two clear
+        # wins, one clear loss where coverage over-rewarded a candidate matching several
+        # ubiquitous words — which is too thin a basis for a change touching half of all
+        # positions. Reintroduce it with relevance judgements, alongside the summaries
+        # whose tie-heavy corpus actually needs it.
+        # See docs/operations/code-index-retrieval-quality.md round 5.
+        scope.select("ai_knowledge_graph_nodes.*, (#{rank}) AS lexical_score")
              .where("(#{scored}) > 0")
-             .order(Arel.sql("(#{coverage}) DESC, (#{rank}) DESC, " \
-                             "ai_knowledge_graph_nodes.mention_count DESC"))
+             .order(Arel.sql("(#{rank}) DESC, ai_knowledge_graph_nodes.mention_count DESC"))
              .limit(limit)
              .to_a
       end
