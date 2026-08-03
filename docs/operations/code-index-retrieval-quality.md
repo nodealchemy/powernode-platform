@@ -137,6 +137,49 @@ Options beyond this point, in rough order of expected effect, none attempted:
    observed failure, since the right answer is usually retrievable lexically.
 3. **Include a body snippet**, not just the doc, for undocumented symbols.
 
+---
+
+## Round 3 — hybrid retrieval (v39/v40, 2026-08-03)
+
+`code_semantic_search` now fuses vector similarity with a term-based lexical
+arm using Reciprocal Rank Fusion. The lexical arm could not reuse
+`code_identifier_search`, which matches the whole query as one ILIKE substring —
+a behavioural sentence matches no identifier, so it would have contributed
+nothing. Terms are weighted `log((N+1)/(df+1)) + 1` and damped by description
+length; a first live run without those two corrections ranked a verbose executor
+above the right answer purely on word volume.
+
+| Query | Before hybrid | After |
+|---|---|---|
+| "kill switch emergency halt" (identifier) | 0.731, correct | **unchanged, now `matched_by: [vector, lexical]` on all top-3** |
+| "halt all agentic activity and snapshot state before stopping" (behavioural) | — | **top-3 all kill-switch subsystem, all both-arm**: `halted?`, `kill_switch_engaged?` (extension), `capture_state_snapshot` |
+| "immediately stop a runaway autonomous agent…" (behavioural) | miss | **still miss** |
+
+**The boundary is now well defined.** A behavioural query succeeds when it shares
+**any distinctive vocabulary** with the target. It fails when it does not:
+`emergency_halt!` reads "Coordinated emergency stop — halts ALL agentic
+activity", while the failing query says "immediately stop a runaway autonomous
+agent from taking any further action". The only shared words are "stop" and
+"agent" — one common, one ubiquitous in this codebase. The distinctive terms
+("runaway", "immediately", "autonomous") appear nowhere in the target, so the
+lexical arm cannot reach it and the embedding model does not bridge it either.
+**No retrieval method spans genuinely disjoint vocabulary**; that needs the
+corpus rewritten into query-like language (LLM summaries), not better ranking.
+
+Two secondary wins worth keeping:
+
+- `matched_by` (vector / lexical / both) plus per-arm ranks are returned, so a
+  caller can distinguish a meaning match from a word match. Agreement across
+  both arms is a far better confidence signal than the old flat similarity,
+  which never separated hits from noise.
+- With embeddings down the tool degrades to `lexical_only` instead of failing
+  the query outright.
+
+Caveat observed in practice: comments that *discuss* retrieval now rank for
+retrieval queries — `IndexingService#build_description` surfaces for "stop a
+runaway agent" because its comment quotes that phrase. Correct behaviour, but a
+reminder that prose in comments is indexed as evidence.
+
 Operational note: bulk embedding remains fragile. The re-vector failed twice
 mid-run (`Worker embedding service returned no results for batch`, and a
 wholesale stall after ~18.4k nodes) and needed a paced, retrying backfill with
