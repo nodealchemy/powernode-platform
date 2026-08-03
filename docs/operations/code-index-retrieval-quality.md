@@ -316,13 +316,46 @@ from rank 2 to rank 3.
 summary-only — but production carries zero summaries, so it was live ranking risk for no
 live benefit. It belongs in the same change that enables summaries, not ahead of it.
 
-What remains IS inert, and this is now verified by diffing full result orderings against
-the pre-change code (`a37474165`) rather than by inspection: **20/20 result rows identical**
-across four probe queries on an unsummarised corpus.
+Two of the three remaining changes are inert by construction:
 
 - `llm_summary` joins `LEXICAL_HAYSTACK` — COALESCEs to empty with no summaries
 - `LEXICAL_DAMP_SOURCE` — expression identical to the previous haystack
-- coverage-first ordering — measured byte-identical ordering
+
+**Coverage-first is NOT inert. This was claimed twice and was wrong twice.** On the
+414-node pilot it produced byte-identical orderings (20/20 rows), which is what the claim
+rested on. Measured against the real 89,216-node index after deploying v41:
+
+| Measure | 14 diverse queries |
+|---|---|
+| Result positions moved | **73/140 (52%)** |
+| Top-1 changed | 4/14 (29%) |
+| Top-3 changed | 8/14 (57%) |
+| **Null control** (same ordering run twice) | **0/140 — no tie noise** |
+
+The null control matters: ordering is deterministic run-to-run, so the 52% is entirely
+attributable to the change rather than to ties resolving arbitrarily.
+
+**The lesson is methodological: a small, topically narrow corpus does not predict ranking
+behaviour at scale.** Eight-term queries against 89k nodes produce coverage spreads a
+single-directory 414-node slice cannot generate, so the pilot could not have detected
+this. Validate ranking changes against the production index, with a null control, before
+claiming inertness.
+
+Direction, from inspecting the four flipped top-1s — mixed, leaning positive:
+
+- **Better**: "batch embedding generation for code index" now surfaces
+  `#generate_embeddings`, absent from the old top-3 (which led with a bare `BATCH_SIZE`
+  constant and a spec file).
+- **Better**: "prevent an agent from spending more money" now leads with
+  `BudgetAwareContextService#check_rate_of_change` instead of `BudgetCreateEditModal.tsx::isPending`.
+- **Worse**: "let internal service calls bypass rate limiting" lost the `rate_limiting`
+  concern from the top, promoting a controller and a permissions constant that merely
+  match "internal"/"service"/"calls". Coverage can over-reward many-common-term matches —
+  the failure mode IDF is meant to prevent and does not fully.
+
+Three samples is a weak basis for a change touching half of all result positions. Coverage
+-first is currently LIVE in v41 on that basis; it needs real relevance judgements to keep
+or drop deliberately.
 
 A second defect found while chasing this, and reverted along with it: `name_scored` and
 `body_scored` were **summed**, so a term appearing in both `simple_name` and `description`
