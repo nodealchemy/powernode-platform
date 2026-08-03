@@ -190,3 +190,118 @@ silently produces identifier-only vectors.
 
 Related: [[code-reindex-never-reembeds-existing-nodes]] in auto-memory for the
 indexing mechanics and re-vector procedure.
+
+---
+
+## Round 4 — LLM symbol summaries (implemented, NOT yet run at scale)
+
+Round 3 concluded that no ranking change spans disjoint vocabulary and that closing
+the gap requires rewriting the corpus into query-like language. That is now built:
+`Ai::Codebase::SymbolSummaryService` plus the `code_index:summarize` rake task.
+
+**How it works.** For each symbol it sends the signature, the doc comment and the
+symbol's *actual body lines* (read from the checkout via `file_path` +
+`line_start`/`line_end`) to the account's LLM, and asks for one sentence phrased the
+way a developer would *ask* for the code — explicitly including synonyms the
+identifier lacks. The result lands in `properties["llm_summary"]` and the node's
+vector is **cleared**, so the normal embed phase picks it up. The display
+`description` is untouched; humans still see the signature.
+
+`embedding_text` now contributes `llm_summary` ahead of `doc`, keeping both — the
+author's own words often carry domain terms a summariser would not invent.
+
+**Why the body matters.** 61% of symbols have no doc comment, and those are exactly
+the ones retrieval loses. The body is the only behavioural text they have. Without
+`BASE_PATH` the task still runs but degrades to signature-only summaries, so it warns.
+
+**Cost controls, because this is the expensive option.**
+
+- `constant` (22% of the index) and `file` nodes are excluded — a constant's value is
+  its meaning, and a file's path is already its signal. Summarising them is the
+  easiest way to burn budget for no gain.
+- The rake task is **dry-run by default**; it prints the candidate count and the
+  estimated call count and writes nothing until `RUN=1`.
+- `LIMIT` for a pilot, `PACE` for provider rate limits, `MODEL` to pin.
+- The pending scope skips nodes that already have a summary, so a run that dies
+  resumes without re-paying. Failures are counted in stats, never merely warned —
+  the 2026-08-02 embed phase reported success at 8% precisely because they weren't.
+
+**Scale of the full run** (measure with a dry run before believing it): ~59.5k
+summarisable symbols of the 89,216 indexed ⇒ ~2,980 LLM calls at `SUMMARY_BATCH=20`,
+very roughly ~26M input and ~3.3M output tokens, followed by a re-embed of those
+59.5k nodes (~110 min at the measured 450–640 nodes/min).
+
+**Recommended sequence, not yet performed:**
+
+1. Dry run to get the real candidate count.
+2. `LIMIT=200` pilot over the kill-switch / request-inspector areas.
+3. Re-embed and re-run the three standing probe queries above — in particular
+   *"immediately stop a runaway autonomous agent from taking any further action"*,
+   which has missed in every round so far and is the controlled test of whether
+   query-shaped summaries actually close a disjoint-vocabulary gap.
+4. Only then decide on the full corpus.
+
+Step 3 is the point of the whole exercise: if the pilot does not move that probe,
+the full run is not worth its cost.
+
+---
+
+## Round 5 — the pilot, and three ranking defects it exposed (2026-08-03)
+
+A local pilot indexed `server/app/services/ai/autonomy` into the dev DB (414 nodes,
+32 files) and summarised it via **flat-rate CLI subagents** rather than the metered
+platform LLM — four subagents read real method bodies and returned 345 summaries with
+byte-exact name fidelity and zero provider spend. `export_pending` → subagents →
+`import_summaries` is the route that makes this affordable.
+
+**Two limits on every number below.** There is no worker on dev-cell and `Rails.env.test?`
+returns hash-based mock vectors, so **only the lexical arm was measured** — the original
+vector hypothesis remains untested. And the slice is topically homogeneous: every symbol
+concerns agents, halting, budgets and approvals, so summaries add *shared* vocabulary.
+That is close to a worst case for this technique and does not represent the 89k index.
+
+Control query "kill switch emergency halt", where `emergency_halt!` is the right answer:
+
+| Stage | Rank |
+|---|---|
+| Baseline, no summaries | 2 |
+| Summaries on (all types) | **MISS** |
+| + damping excludes summary | MISS (8th overall) |
+| + containers excluded | 4 |
+| + coverage-first ordering | 3 |
+| + field weighting | **2** — baseline restored, with summaries present |
+
+Each step fixed a distinct, independently-verified defect:
+
+1. **Containers become unbeatable decoys.** A `class`/`module` summary describes
+   everything it contains, so it matches every query aimed at any member while its own
+   description stays ~30 chars and takes almost no damping. `SUMMARIZABLE_TYPES` is now
+   leaf-only (`method function interface type_definition`); a container's retrieval value
+   is its name, which the identifier already supplies.
+2. **Damping was the primary discriminator.** Three candidates tied at raw 16.15 — all
+   terms matched — so ordering fell entirely to the length divisor, i.e. to brevity, and
+   `emergency_halt!` came last *because it is the best documented*. Ranking now sorts by
+   **term coverage** first, damping only within a coverage band.
+3. **All fields were one bag.** `emergency_halt!` matched "emergency"/"halt" in its own
+   identifier while `kill_switch_active?` matched them only in generated prose, and both
+   scored identically. Now BM25F-style: name 3.0 / doc 1.5 / summary 1.0. Critically the
+   **name contribution is undamped** — an identifier cannot accumulate matches by luck, so
+   damping it merely penalises a symbol for having a doc comment. With damping applied to
+   the whole score, field weighting still lost (36.35 vs 29.39 and *still* second).
+
+**Net: still not a win.** Restoring the control query to its baseline rank is not an
+improvement, and the behavioural probe "immediately stop a runaway autonomous agent…"
+regressed from 2 to MISS and stayed there. On this corpus, summaries pay for themselves
+only if the vector arm gains — which is exactly what could not be measured.
+
+Coverage bands show why: summaries pushed the 3/4 band from 3 nodes to **14**, because in
+a single-topic slice every summary legitimately shares vocabulary. In the heterogeneous
+89k index that dilution should be far weaker, but that is a hypothesis, not a measurement.
+
+**Do not run the full 59.5k corpus on this evidence.** The prerequisites are a real
+embedding path (so the actual hypothesis is testable) and a re-pilot on a slice drawn
+from several unrelated subsystems (so topical homogeneity stops being the confound).
+
+All three ranking changes are **inert on an unsummarised index** — with no summaries,
+`LEXICAL_DAMP_SOURCE` equals the old haystack, the summary field COALESCEs to empty, and
+coverage-first produced ordering identical to baseline in measurement.
