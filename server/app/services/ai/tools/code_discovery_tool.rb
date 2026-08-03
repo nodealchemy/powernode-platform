@@ -323,26 +323,102 @@ module Ai
         weights = term_idf_weights(scope, terms)
         return [] if weights.empty?
 
-        scored = weights.map do |term, idf|
+        # Where a term matches is evidence about how strong the match is, so score the
+        # fields separately (BM25F-style) instead of concatenating them into one bag.
+        #
+        # Measured 2026-08-03: for "kill switch emergency halt" three candidates tied on
+        # coverage, and a flat bag scored them identically even though `emergency_halt!`
+        # matched "emergency" and "halt" in its own IDENTIFIER while `kill_switch_active?`
+        # matched those two terms only inside generated summary prose. Those are not
+        # equivalent evidence. Ranked strongest field first, so each term scores by the
+        # best place it appears:
+        #   name    — deliberate, human-chosen, and short; the strongest signal there is
+        #   doc     — the author's own words, appended to description by build_description
+        #   summary — generated prose; useful reach, but the weakest provenance
+        name_scored = weights.map do |term, idf|
           ActiveRecord::Base.sanitize_sql_array(
-            [ "(CASE WHEN #{LEXICAL_HAYSTACK} ILIKE ? THEN #{idf.round(4)} ELSE 0 END)",
+            [ "(CASE WHEN #{LEXICAL_NAME_FIELD} ILIKE ? THEN #{(idf * FIELD_WEIGHT_NAME).round(4)} ELSE 0 END)",
              "%#{ActiveRecord::Base.sanitize_sql_like(term)}%" ]
           )
         end.join(" + ")
 
-        # Longer text has more chances to match by luck; damp it rather than
-        # dividing outright, so a genuinely rich doc is not punished into
-        # oblivion.
-        rank = "(#{scored}) / (1 + ln(1 + char_length(#{LEXICAL_HAYSTACK}) / 300.0))"
+        body_scored = weights.map do |term, idf|
+          like = "%#{ActiveRecord::Base.sanitize_sql_like(term)}%"
+          ActiveRecord::Base.sanitize_sql_array(
+            [ "(CASE WHEN #{LEXICAL_DOC_FIELD} ILIKE ? THEN #{(idf * FIELD_WEIGHT_DOC).round(4)} " \
+              "WHEN #{LEXICAL_SUMMARY_FIELD} ILIKE ? THEN #{(idf * FIELD_WEIGHT_SUMMARY).round(4)} " \
+              "ELSE 0 END)", like, like ]
+          )
+        end.join(" + ")
 
-        scope.select("ai_knowledge_graph_nodes.*, (#{rank}) AS lexical_score")
+        # Damping applies to the BODY contribution only.
+        #
+        # Its purpose is to discount matches a long text accumulates by luck. An
+        # identifier cannot accumulate anything by luck — it is a handful of deliberate
+        # characters — so damping a name match penalises a symbol for having a doc
+        # comment attached elsewhere on the record. With damping applied to the whole
+        # score, field weighting still lost: `emergency_halt!` scored 36.35 raw against
+        # `kill_switch_active?`'s 29.39 and *still* came second, because its 697-char
+        # description divided the name evidence away too. Damping the body alone keeps
+        # the identifier evidence intact (30.69 vs 25.77) and puts it first.
+        damping = "(1 + ln(1 + char_length(#{LEXICAL_DAMP_SOURCE}) / 300.0))"
+        rank = "((#{name_scored}) + ((#{body_scored}) / #{damping}))"
+        scored = "((#{name_scored}) + (#{body_scored}))"
+
+        # How many DISTINCT query terms a candidate matches, which is the primary sort.
+        #
+        # Damping must not be the primary discriminator. Measured 2026-08-03: for
+        # "kill switch emergency halt" the top three candidates all matched all four
+        # terms — raw 16.15, tied at the maximum — so the weighted score carried no
+        # information and ordering fell entirely to the damping divisor, i.e. to
+        # brevity. `emergency_halt!` placed third of the three for the sole reason that
+        # its description is the longest, and its description is longest because it is
+        # the best-documented of the three. The ranking was penalising documentation.
+        #
+        # Coverage first fixes the ordering where it is actually decidable: a candidate
+        # matching every term of the query is more relevant than one matching a subset,
+        # whatever their lengths. Damping still breaks ties WITHIN a coverage band,
+        # where it does its intended job of discounting incidental matches accumulated
+        # by sprawling text. Terms with idf <= 1.0 were already discarded upstream, so
+        # every term counted here carries real signal.
+        coverage = weights.map do |term, _idf|
+          ActiveRecord::Base.sanitize_sql_array(
+            [ "(CASE WHEN #{LEXICAL_HAYSTACK} ILIKE ? THEN 1 ELSE 0 END)",
+             "%#{ActiveRecord::Base.sanitize_sql_like(term)}%" ]
+          )
+        end.join(" + ")
+
+        scope.select("ai_knowledge_graph_nodes.*, (#{rank}) AS lexical_score, " \
+                     "(#{coverage}) AS lexical_coverage")
              .where("(#{scored}) > 0")
-             .order(Arel.sql("(#{rank}) DESC, ai_knowledge_graph_nodes.mention_count DESC"))
+             .order(Arel.sql("(#{coverage}) DESC, (#{rank}) DESC, " \
+                             "ai_knowledge_graph_nodes.mention_count DESC"))
              .limit(limit)
              .to_a
       end
 
+      # The LLM summary belongs here as much as in the vector. It is the only text in
+      # the corpus written in the register of a QUESTION, which makes it the best
+      # lexical signal too — omitting it left the summary reachable by the vector arm
+      # alone, so a summarised symbol still lost to a well-named undocumented one
+      # whenever the query's words appeared in the summary rather than the identifier.
+      # Per-field weights (BM25F-style). Ordered by how much the provenance of a match
+      # tells you: a chosen identifier > the author's doc > generated summary prose.
+      FIELD_WEIGHT_NAME    = 3.0
+      FIELD_WEIGHT_DOC     = 1.5
+      FIELD_WEIGHT_SUMMARY = 1.0
+
+      LEXICAL_NAME_FIELD    = "COALESCE(ai_knowledge_graph_nodes.properties->>'simple_name','')"
+      LEXICAL_DOC_FIELD     = "COALESCE(ai_knowledge_graph_nodes.description,'')"
+      LEXICAL_SUMMARY_FIELD = "COALESCE(ai_knowledge_graph_nodes.properties->>'llm_summary','')"
+
+      # What damping measures: the organically-grown text, summary excluded. See the
+      # rank expression in #lexical_candidates for why the two differ.
+      LEXICAL_DAMP_SOURCE = "(COALESCE(ai_knowledge_graph_nodes.properties->>'simple_name','') || ' ' || " \
+                            "COALESCE(ai_knowledge_graph_nodes.description,''))"
+
       LEXICAL_HAYSTACK = "(COALESCE(ai_knowledge_graph_nodes.properties->>'simple_name','') || ' ' || " \
+                         "COALESCE(ai_knowledge_graph_nodes.properties->>'llm_summary','') || ' ' || " \
                          "COALESCE(ai_knowledge_graph_nodes.description,''))"
 
       # Document frequency per term, in one pass, cached: the corpus only moves

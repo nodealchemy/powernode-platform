@@ -139,6 +139,98 @@ RSpec.describe Ai::Tools::CodeDiscoveryTool do
       expect(result[:retrieval][:mode]).to eq("hybrid")
     end
 
+    # The exact production failure, now with a summary attached: `emergency_halt!`
+    # describes itself as "Coordinated emergency stop" and never matched "runaway
+    # autonomous agent" in any of three rounds. The LLM summary is the only text
+    # carrying the searcher's vocabulary — if the lexical arm cannot see it, the
+    # summary is reachable by the vector arm alone and we have paid for half a fix.
+    it "reaches a symbol through its LLM summary when the name and description share no query words" do
+      target = create(:ai_knowledge_graph_node,
+                      account: account, knowledge_base: kb,
+                      name: "app/svc.rb::Svc#emergency_halt!", node_type: "code_entity",
+                      entity_type: "method", status: "active", mention_count: 1,
+                      description: "method `emergency_halt!` - params: (reason:, triggered_by:)",
+                      properties: {
+                        "simple_name" => "emergency_halt!", "file_path" => "app/svc.rb",
+                        "llm_summary" => "immediately stops a runaway autonomous agent from taking further action"
+                      })
+      3.times { |i| node("unrelated_#{i}", "something else entirely", embedding: Array.new(1536) { 0.01 }) }
+
+      hit = search("runaway autonomous agent").fetch(:results).find { |r| r[:id] == target.id }
+
+      expect(hit).to be_present, "the summary must be lexically searchable, not vector-only"
+      expect(hit[:matched_by]).to include("lexical")
+    end
+
+    # Measured 2026-08-03: for "kill switch emergency halt" the top three candidates
+    # all matched all four terms (raw 16.15, tied at the maximum), so ordering fell
+    # entirely to the damping divisor and `emergency_halt!` placed last of the three
+    # purely because its description was the longest — which it was because it is the
+    # best documented. Coverage must outrank brevity.
+    it "prefers a complete term match over a terser partial one" do
+      complete = create(:ai_knowledge_graph_node,
+                        account: account, knowledge_base: kb, node_type: "code_entity",
+                        entity_type: "method", status: "active", mention_count: 1,
+                        name: "app/svc.rb::Svc#emergency_halt!",
+                        description: "method `emergency_halt!` - in server/app/services/ai/autonomy/" \
+                                     "kill_switch_service.rb - params: (reason:, triggered_by:) - " \
+                                     "Coordinated emergency stop that halts every agentic workflow for " \
+                                     "an account, opens all circuit breakers, cancels queued executions " \
+                                     "and records an audit event describing who triggered the halt and why.",
+                        properties: { "simple_name" => "emergency_halt!", "file_path" => "app/svc.rb" })
+      terse = create(:ai_knowledge_graph_node,
+                     account: account, knowledge_base: kb, node_type: "code_entity",
+                     entity_type: "method", status: "active", mention_count: 1,
+                     name: "app/other.rb::Other#halt_switch",
+                     description: "halt switch",
+                     properties: { "simple_name" => "halt_switch", "file_path" => "app/other.rb" })
+      6.times { |i| node("filler_#{i}", "unrelated helper number #{i}") }
+
+      ids = search("emergency halt switch").fetch(:results).map { |r| r[:id] }
+
+      # `complete` matches all three terms; `terse` matches two and is ~20x shorter,
+      # so damping alone would hand it the top slot.
+      expect(ids.index(complete.id)).to be < ids.index(terse.id),
+        "a candidate matching every query term must outrank a shorter partial match"
+    end
+
+    # Measured 2026-08-03: at equal coverage, a flat bag-of-fields scored
+    # `emergency_halt!` (terms in its own identifier) the same as `kill_switch_active?`
+    # (the same terms only in generated summary prose), then ordered them by brevity.
+    # Where a term matches is evidence about how strong the match is.
+    it "weights an author's doc match above a generated-summary match, all else equal" do
+      # Isolating the field is the whole point, so everything else is held equal.
+      # Both strings are the same length and both simple_names are the same length, so
+      # the damp sources match exactly and damping cancels out. mention_count favours
+      # the summary node, which is the final tiebreak — so if the field weights were
+      # flat, the scores would tie and the SUMMARY node would win. Note the fixture
+      # cannot reuse build_description's real output: that embeds the identifier, so a
+      # name match is always also a description match and the fields stop being
+      # independent variables.
+      terms_text = "triggers an emergency halt across the account"
+      plain_text = "performs a routine cleanup across the account"
+      expect(terms_text.length).to eq(plain_text.length) # guard the premise
+
+      doc_node = create(:ai_knowledge_graph_node,
+                        account: account, knowledge_base: kb, node_type: "code_entity",
+                        entity_type: "method", status: "active", mention_count: 1,
+                        name: "app/a.rb::A#alpha_handler", description: terms_text,
+                        properties: { "simple_name" => "alpha_handler", "file_path" => "app/a.rb" })
+      summary_node = create(:ai_knowledge_graph_node,
+                            account: account, knowledge_base: kb, node_type: "code_entity",
+                            entity_type: "method", status: "active", mention_count: 9,
+                            name: "app/b.rb::B#beta_handlerx", description: plain_text,
+                            properties: { "simple_name" => "beta_handlerx", "file_path" => "app/b.rb",
+                                          "llm_summary" => terms_text })
+      6.times { |i| node("filler_#{i}", "unrelated helper number #{i}") }
+
+      ids = search("emergency halt").fetch(:results).map { |r| r[:id] }
+
+      expect(ids).to include(doc_node.id, summary_node.id)
+      expect(ids.index(doc_node.id)).to be < ids.index(summary_node.id),
+        "the author's own words are stronger evidence than generated prose"
+    end
+
     it "labels which arm found each result" do
       target, = setup_target_invisible_to_vector!
 
