@@ -121,6 +121,9 @@ RSpec.describe Ai::Tools::CodeDiscoveryTool do
     end
 
     before do
+      # Document-frequency weights are cached per scope; without this, one
+      # example's corpus statistics leak into the next.
+      Rails.cache.clear
       allow_any_instance_of(Ai::Memory::EmbeddingService)
         .to receive(:generate).and_return(Array.new(1536) { 0.01 })
     end
@@ -147,12 +150,47 @@ RSpec.describe Ai::Tools::CodeDiscoveryTool do
     end
 
     it "ranks a node matching more query terms above one matching fewer" do
+      # Filler so neither term matches the ENTIRE corpus -- a term present in
+      # every document carries no signal and is correctly weighted out.
+      3.times { |i| node("filler_#{i}", "unrelated text") }
       both = node("halt_agent", "stops the agent")
       one  = node("halt_only", "stops a job")
 
       ids = search("halt agent").fetch(:results).map { |r| r[:id] }
 
       expect(ids.index(both.id)).to be < ids.index(one.id)
+    end
+
+    # First live run of the fusion put PlatformResilienceExecutor above
+    # KillSwitchService#emergency_halt! for "immediately stop a runaway
+    # autonomous agent", purely because its long doc contained the ubiquitous
+    # words "action"/"autonomous"/"agent". Matching a rare word is evidence;
+    # matching "agent" in an agent platform is not.
+    it "weights a rare term above a ubiquitous one" do
+      10.times { |i| node("handler_#{i}", "processes an agent request for the agent queue") }
+      rare = node("interrupt_loop", "stops a runaway process")
+
+      ids = search("runaway agent").fetch(:results).map { |r| r[:id] }
+
+      expect(ids.first).to eq(rare.id)
+    end
+
+    # Same failure seen live: a verbose doc should not win on volume alone.
+    it "damps a long doc that matches the same term as a short precise one" do
+      # Both contain BOTH query terms, so raw term-count ties them and only
+      # length damping can separate them.
+      verbose = node("general_executor",
+                     "Action-discriminated executor covering emergency handling: the operator or an " \
+                     "autonomous agent picks a sub-action and the executor routes it, and it can stop " \
+                     "a branch, resume a branch, compose with maintenance and deploy flows, and wrap " \
+                     "any existing primitive with a great deal of further long-winded prose besides.",
+                     mentions: 50)
+      precise = node("emergency_halt!", "Coordinated emergency stop.", mentions: 1)
+      5.times { |i| node("noise_#{i}", "unrelated filler text") }
+
+      ids = search("emergency stop").fetch(:results).map { |r| r[:id] }
+
+      expect(ids.index(precise.id)).to be < (ids.index(verbose.id) || 999)
     end
 
     it "degrades to lexical-only instead of failing when embeddings are down" do

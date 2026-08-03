@@ -300,27 +300,72 @@ module Ai
              .first(LEXICAL_MAX_TERMS)
       end
 
-      # Rank by how MANY distinct query terms a node matches, so a node hitting
-      # "stop" and "agent" outranks one hitting only "agent". Matching runs over
-      # identifier + description together, which is where the doc comment lives.
+      # Rank by IDF-weighted term matches over identifier + description (where
+      # the doc comment lives).
+      #
+      # A raw term COUNT is not good enough, and the first live run showed why:
+      # for "immediately stop a runaway autonomous agent", PlatformResilience-
+      # Executor outranked KillSwitchService#emergency_halt! purely because its
+      # long doc happened to contain the ubiquitous words "action", "autonomous"
+      # and "agent", while the precise short doc matched only "stop" and
+      # "agent". Matching a rare word ("runaway", "halt") is strong evidence;
+      # matching "agent" in an agent platform is almost none.
+      #
+      # So each term is weighted by log(N / df) and the total is damped by
+      # description length, which is the part of BM25 that actually matters
+      # here. Without both, the lexical arm just prefers whichever node has the
+      # most text.
+      DF_CACHE_TTL = 1.hour
+
       def lexical_candidates(scope, terms, limit)
         return [] if terms.empty?
 
-        haystack = "(COALESCE(ai_knowledge_graph_nodes.properties->>'simple_name','') || ' ' || " \
-                   "COALESCE(ai_knowledge_graph_nodes.description,''))"
+        weights = term_idf_weights(scope, terms)
+        return [] if weights.empty?
 
-        hits = terms.map do |term|
+        scored = weights.map do |term, idf|
           ActiveRecord::Base.sanitize_sql_array(
-            [ "(CASE WHEN #{haystack} ILIKE ? THEN 1 ELSE 0 END)",
+            [ "(CASE WHEN #{LEXICAL_HAYSTACK} ILIKE ? THEN #{idf.round(4)} ELSE 0 END)",
              "%#{ActiveRecord::Base.sanitize_sql_like(term)}%" ]
           )
         end.join(" + ")
 
-        scope.select("ai_knowledge_graph_nodes.*, (#{hits}) AS term_hits")
-             .where("(#{hits}) > 0")
-             .order(Arel.sql("(#{hits}) DESC, ai_knowledge_graph_nodes.mention_count DESC"))
+        # Longer text has more chances to match by luck; damp it rather than
+        # dividing outright, so a genuinely rich doc is not punished into
+        # oblivion.
+        rank = "(#{scored}) / (1 + ln(1 + char_length(#{LEXICAL_HAYSTACK}) / 300.0))"
+
+        scope.select("ai_knowledge_graph_nodes.*, (#{rank}) AS lexical_score")
+             .where("(#{scored}) > 0")
+             .order(Arel.sql("(#{rank}) DESC, ai_knowledge_graph_nodes.mention_count DESC"))
              .limit(limit)
              .to_a
+      end
+
+      LEXICAL_HAYSTACK = "(COALESCE(ai_knowledge_graph_nodes.properties->>'simple_name','') || ' ' || " \
+                         "COALESCE(ai_knowledge_graph_nodes.description,''))"
+
+      # Document frequency per term, in one pass, cached: the corpus only moves
+      # when the index is rebuilt, and this must not add a scan per query.
+      def term_idf_weights(scope, terms)
+        total = Rails.cache.fetch("code_idf:total:#{scope_cache_key(scope)}", expires_in: DF_CACHE_TTL) do
+          scope.count
+        end
+        return {} if total.to_i.zero?
+
+        terms.index_with do |term|
+          df = Rails.cache.fetch("code_idf:df:#{scope_cache_key(scope)}:#{Digest::MD5.hexdigest(term)}",
+                                 expires_in: DF_CACHE_TTL) do
+            scope.where("#{LEXICAL_HAYSTACK} ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(term)}%").count
+          end
+          # +1 smoothing keeps a term that matches everything from going to zero
+          # or negative, and an unseen term from dividing by zero.
+          Math.log((total.to_f + 1) / (df.to_i + 1)) + 1.0
+        end.reject { |_term, idf| idf <= 1.0 } # matched (nearly) everywhere ⇒ no signal
+      end
+
+      def scope_cache_key(scope)
+        Digest::MD5.hexdigest(scope.to_sql)
       end
 
       # score(d) = Σ 1 / (K + rank_in_list) — standard RRF. K damps the top of
