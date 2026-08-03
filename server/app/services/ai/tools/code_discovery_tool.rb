@@ -48,7 +48,7 @@ module Ai
             }
           },
           "code_semantic_search" => {
-            description: "Semantic search over code symbols using embeddings. Finds code by meaning, not just name.",
+            description: "Hybrid code search: embedding similarity fused with term matching (RRF). Finds code by meaning OR by wording — describe the behaviour or name the symbol. Each result reports matched_by: vector, lexical, or both.",
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
               query: { type: "string", required: true, description: "Search query" },
@@ -186,6 +186,42 @@ module Ai
 
       # ─── Semantic Search ───────────────────────────────────────────
 
+      # Hybrid retrieval: vector similarity fused with term-based lexical
+      # matching via Reciprocal Rank Fusion.
+      #
+      # Measured 2026-08-03 (docs/operations/code-index-retrieval-quality.md):
+      # pure vector search reliably answers identifier-shaped queries ("kill
+      # switch emergency halt" -> 0.73) but not behavioural ones. "immediately
+      # stop a runaway autonomous agent" did not return
+      # KillSwitchService#emergency_halt! in the top TEN, even though that node
+      # carries the doc "Coordinated emergency stop — halts ALL agentic
+      # activity". Every candidate sat in a flat 0.51-0.56 band: the model does
+      # not place a long question near a terse code-symbol fragment, and no
+      # amount of enriching the corpus fixed it across three attempts.
+      #
+      # The lexical arm recovers exactly what the vector arm loses, because the
+      # answer usually IS reachable by a word in the query ("stop", "halt",
+      # "agent"). Note it cannot reuse #identifier_search: that matches the
+      # WHOLE query as one ILIKE substring, so a behavioural sentence matches no
+      # identifier at all and would contribute nothing to the fusion.
+      #
+      # RRF is used rather than score-blending because the two arms' scores are
+      # not comparable (cosine similarity vs. a term count); only their
+      # rankings are.
+      RRF_K = 60
+      LEXICAL_MAX_TERMS = 8
+
+      # Words that appear in nearly every phrasing carry no retrieval signal and
+      # would match huge swathes of the corpus.
+      QUERY_STOPWORDS = %w[
+        the a an of to from for any all and or in on with that this it is are be
+        by at as not no we you do does how what when where which who why can
+        could should would will may might must have has had its their our your
+        then than there some such only same so too very just now also into out
+        up down over under again once about after before while each other more
+        most own but if per via use used using get set new
+      ].to_set.freeze
+
       def semantic_search(params)
         return { success: false, error: "query is required" } if params[:query].blank?
         return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
@@ -196,21 +232,35 @@ module Ai
         top_k = (params[:top_k] || 10).to_i
         entity_types = Array(params[:entity_types]).presence
 
-        # Use embedding service for semantic search
-        embedding_service = Ai::Memory::EmbeddingService.new(account: account)
-        query_embedding = embedding_service.generate(params[:query])
+        base = kb.knowledge_graph_nodes
+                 .where(account: account, node_type: "code_entity", status: "active")
+        base = base.where(entity_type: entity_types) if entity_types
 
-        return { success: false, error: "Failed to generate query embedding" } unless query_embedding
+        # Fuse over a deeper slice than we return: the whole point is to promote
+        # a node ranked ~30th by one arm that the other arm ranks near the top.
+        candidate_k = [ top_k * 3, 30 ].max
 
-        scope = kb.knowledge_graph_nodes
-                   .where(account: account, node_type: "code_entity", status: "active")
-                   .with_embeddings
+        # Best-effort: with embeddings down this degrades to lexical-only rather
+        # than failing the query outright.
+        query_embedding = Ai::Memory::EmbeddingService.new(account: account)
+                                                     .generate_or_nil(params[:query], context: "code_semantic_search")
 
-        scope = scope.where(entity_type: entity_types) if entity_types
+        vector_nodes = if query_embedding
+          base.with_embeddings
+              .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
+              .first(candidate_k)
+        else
+          []
+        end
 
-        results = scope.nearest_neighbors(:embedding, query_embedding, distance: "cosine")
-                       .first(top_k)
-                       .map do |node|
+        terms = query_terms(params[:query])
+        lexical_nodes = lexical_candidates(base, terms, candidate_k)
+
+        similarity_by_id = vector_nodes.to_h { |n| [ n.id, (1.0 - (n.neighbor_distance || 0)).round(4) ] }
+        vector_rank      = vector_nodes.each_with_index.to_h { |n, i| [ n.id, i + 1 ] }
+        lexical_rank     = lexical_nodes.each_with_index.to_h { |n, i| [ n.id, i + 1 ] }
+
+        results = reciprocal_rank_fusion([ vector_nodes, lexical_nodes ], top_k).map do |node, fused|
           {
             id: node.id,
             name: node.name,
@@ -219,12 +269,76 @@ module Ai
             description: node.description,
             file_path: node.properties&.dig("file_path"),
             line_start: node.properties&.dig("line_start"),
-            similarity: (1.0 - (node.neighbor_distance || 0)).round(4),
+            similarity: similarity_by_id[node.id],
+            fused_score: fused.round(5),
+            # Which arm found it — an agent (and a human) can tell a meaning
+            # match from a word match, which the old flat score never showed.
+            matched_by: [ ("vector" if vector_rank[node.id]), ("lexical" if lexical_rank[node.id]) ].compact,
+            vector_rank: vector_rank[node.id],
+            lexical_rank: lexical_rank[node.id],
             mention_count: node.mention_count
           }
         end
 
-        { success: true, results: results, count: results.size, query: params[:query] }
+        {
+          success: true, results: results, count: results.size, query: params[:query],
+          retrieval: {
+            mode: query_embedding ? "hybrid" : "lexical_only",
+            terms: terms,
+            vector_candidates: vector_nodes.size,
+            lexical_candidates: lexical_nodes.size
+          }
+        }
+      end
+
+      # Meaningful words from a natural-language query. Short tokens and
+      # stopwords are dropped; the cap bounds how much SQL the scorer builds.
+      def query_terms(query)
+        query.to_s.downcase.scan(/[a-z0-9_]+/)
+             .reject { |t| t.length < 3 || QUERY_STOPWORDS.include?(t) }
+             .uniq
+             .first(LEXICAL_MAX_TERMS)
+      end
+
+      # Rank by how MANY distinct query terms a node matches, so a node hitting
+      # "stop" and "agent" outranks one hitting only "agent". Matching runs over
+      # identifier + description together, which is where the doc comment lives.
+      def lexical_candidates(scope, terms, limit)
+        return [] if terms.empty?
+
+        haystack = "(COALESCE(ai_knowledge_graph_nodes.properties->>'simple_name','') || ' ' || " \
+                   "COALESCE(ai_knowledge_graph_nodes.description,''))"
+
+        hits = terms.map do |term|
+          ActiveRecord::Base.sanitize_sql_array(
+            [ "(CASE WHEN #{haystack} ILIKE ? THEN 1 ELSE 0 END)",
+             "%#{ActiveRecord::Base.sanitize_sql_like(term)}%" ]
+          )
+        end.join(" + ")
+
+        scope.select("ai_knowledge_graph_nodes.*, (#{hits}) AS term_hits")
+             .where("(#{hits}) > 0")
+             .order(Arel.sql("(#{hits}) DESC, ai_knowledge_graph_nodes.mention_count DESC"))
+             .limit(limit)
+             .to_a
+      end
+
+      # score(d) = Σ 1 / (K + rank_in_list) — standard RRF. K damps the top of
+      # each list so one arm cannot dominate on its own first place alone.
+      def reciprocal_rank_fusion(lists, top_k)
+        scores = Hash.new(0.0)
+        nodes  = {}
+
+        lists.each do |list|
+          list.each_with_index do |node, idx|
+            scores[node.id] += 1.0 / (RRF_K + idx + 1)
+            nodes[node.id] ||= node
+          end
+        end
+
+        scores.sort_by { |id, score| [ -score, nodes[id].name.to_s ] }
+              .first(top_k)
+              .map { |id, score| [ nodes[id], score ] }
       end
 
       # ─── Identifier Search ────────────────────────────────────────
