@@ -13,19 +13,31 @@ module Mcp
   class ConnectionError < ProtocolError; end
   class PermissionDeniedError < ProtocolError; end
 
-  # MCP Protocol Version - Updated to 2025-11-25 specification
+  # Default protocol version for the stateful (initialize-handshake) era.
   MCP_VERSION = "2025-11-25"
   JSONRPC_VERSION = "2.0"
 
-  # Supported protocol versions for negotiation (newest first)
+  # Stateful protocol versions negotiated via the initialize handshake
+  # (newest first). Revision 2026-07-28 removed initialize entirely, so it is
+  # deliberately NOT in this list — it never participates in handshake
+  # negotiation (see STATELESS_VERSIONS).
   SUPPORTED_VERSIONS = [
-    "2025-11-25",  # Latest - Claude Code v2.1.x uses this
+    "2025-11-25",  # Latest stateful revision - Claude Code v2.1.x uses this
     "2025-06-18",  # Enhanced Streamable HTTP, OAuth 2.1
     "2025-03-26",  # Streamable HTTP introduction
     "2024-11-05"   # Legacy version for backward compatibility
   ].freeze
 
-  # Default version for clients that don't specify one (per spec)
+  # Stateless protocol versions (no handshake; version + capabilities travel
+  # per-request in _meta, per revision 2026-07-28).
+  STATELESS_VERSIONS = ["2026-07-28"].freeze
+
+  # Every protocol version this server can speak, newest first. Advertised by
+  # server/discover.
+  ALL_SUPPORTED_VERSIONS = (STATELESS_VERSIONS + SUPPORTED_VERSIONS).freeze
+
+  # Default version for clients that don't specify one in initialize (per the
+  # stateful-era spec)
   DEFAULT_VERSION = "2025-11-25"
 
   attr_accessor :account, :connection_id, :protocol_version
