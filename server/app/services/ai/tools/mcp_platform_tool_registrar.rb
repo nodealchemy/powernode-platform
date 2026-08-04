@@ -139,11 +139,16 @@ module Ai
           # Multi-action tools use an :action param to route internally.
           # Auto-inject the registry key as the action when the tool class
           # handles multiple registry entries (e.g. create_agent, list_agents
-          # all map to AgentManagementTool).
-          unless execution_params.key?(:action)
-            needs_action = tool_class.definition[:parameters]&.key?(:action) ||
-                           tool_class.action_definitions.size > 1
-            execution_params[:action] = ACTION_ALIASES.fetch(tool_name, tool_name) if needs_action
+          # all map to AgentManagementTool). A caller-supplied action wins, so
+          # for an instance principal — authorized per tool NAME — it must first
+          # be shown to agree with the name that authorization cleared.
+          if execution_params.key?(:action)
+            if instance_authorized
+              enforce_action_scope!(tool_name: tool_name, tool_id: tool_id, tool_class: tool_class,
+                                    supplied_action: execution_params[:action])
+            end
+          elsif action_dispatched?(tool_class)
+            execution_params[:action] = ACTION_ALIASES.fetch(tool_name, tool_name)
           end
 
           tool_instance = tool_class.new(account: account, user: user, agent: mcp_agent)
@@ -165,16 +170,63 @@ module Ai
 
         private
 
+        # True when the tool routes on an :action param — one tool class serving
+        # several registry keys, or declaring :action in its own schema. For
+        # these the action, not the tool name, decides what actually runs.
+        def action_dispatched?(tool_class)
+          tool_class.definition[:parameters]&.key?(:action) ||
+            tool_class.action_definitions.size > 1
+        end
+
+        # SECURITY (IMP-e8138c2714fb): make the action that RUNS agree with the
+        # tool name the caller's grant was checked against.
+        #
+        # An instance principal is authorized by NAME: the streamable controller
+        # runs Mcp::Principal#may_invoke?(tool_name) — grant globs plus the
+        # destructive deny overlay — and everything downstream trusts that one
+        # verdict (enforce_permission! returns early below, and a grant-gated
+        # instance skips the tool's own per-action permission map). A
+        # multi-action tool then ran whatever :action the caller supplied, so a
+        # benign grant reached a destroy-shaped sibling on the same class:
+        # platform.read_shared_memory carrying action "delete_shared_memory" is
+        # a delete the overlay would never have granted by name.
+        #
+        # The flattened MCP surface advertises one tool name PER ACTION
+        # (PlatformApiToolRegistry.tool_definitions), so a legitimate caller
+        # never needs to disagree — it invokes the action's own name and the
+        # branch above injects it. Requiring agreement is therefore the whole
+        # fix: the executed action is, by construction, the name may_invoke?
+        # already cleared.
+        #
+        # Scoped to instance principals deliberately. A user principal is bounded
+        # by the per-action permission map inside the tool (has_permission? +
+        # token intersection), which reads the SAME caller-supplied action, so
+        # that path is left byte-for-byte unchanged.
+        def enforce_action_scope!(tool_name:, tool_id:, tool_class:, supplied_action:)
+          return unless action_dispatched?(tool_class)
+
+          expected = ACTION_ALIASES.fetch(tool_name, tool_name)
+          return if supplied_action.to_s == expected
+
+          Rails.logger.warn(
+            "[McpPlatformTool] Refused out-of-scope action for instance principal: " \
+            "tool=#{tool_id} supplied_action=#{supplied_action} expected=#{expected}"
+          )
+          raise ::Mcp::ProtocolService::PermissionDeniedError,
+                "Action '#{supplied_action}' is not permitted for #{tool_id}: an instance " \
+                "principal is authorized per tool name, so #{tool_id} may only run '#{expected}'"
+        end
+
         def enforce_permission!(user:, tool_class:, tool_id:, token: nil, instance_authorized: false)
           required = tool_class::REQUIRED_PERMISSION
           return if required.nil?
 
           # An instance principal (mTLS node cert, no User) that reached here was
           # ALREADY grant-gated by the streamable controller's may_invoke? check
-          # (see streamable_http_controller.rb:487): that grant is what stands in
-          # for its authorization — noting the grant is NAME-scoped while a
-          # multi-action tool runs the caller-supplied action, so it bounds less
-          # than it appears. The intended downstream user:nil path is the
+          # (see streamable_http_controller.rb:563): that grant is what stands in
+          # for its authorization. The grant is NAME-scoped, and enforce_action_scope!
+          # above now holds the executed action to that same name, so what the
+          # grant bounds is what runs. The intended downstream user:nil path is the
           # internal-caller bypass. Without this it was hard-denied -32001 for
           # every dev_next_task/dev_complete_task. (BUG-R — sibling of BUG-Q.)
           return if instance_authorized

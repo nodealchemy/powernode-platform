@@ -89,6 +89,49 @@ RSpec.describe "MCP instance mTLS authentication", type: :request do
     expect(response.body).to include("not permitted")
   end
 
+  # IMP-e8138c2714fb — the grant is checked against the TOOL NAME, but a
+  # multi-action tool used to run whatever :action the caller supplied. An
+  # instance granted only a benign read tool could name a destroy-shaped sibling
+  # on the same tool class and reach it, defeating both the destructive deny
+  # overlay and the tool's per-action permission map in one argument.
+  it "denies a destructive sibling ACTION smuggled into a granted benign tool" do
+    Mcp::Principal.tool_grant_resolver = ->(_i) { %w[platform.read_shared_memory] }
+    executed = []
+    allow_any_instance_of(Ai::Tools::MemoryTool).to receive(:execute) do |_tool, params:|
+      executed << params[:action]
+      { success: true }
+    end
+
+    post "/api/v1/mcp/message",
+         params: { jsonrpc: "2.0", id: 7, method: "tools/call",
+                   params: { name: "platform.read_shared_memory",
+                             arguments: { action: "delete_shared_memory",
+                                          pool_id: "default", key: "secrets" } } }.to_json,
+         headers: { "Content-Type" => "application/json", "Accept" => "application/json" }
+                  .merge(cert_header(leaf(instance.id, ca[0], ca[1])))
+
+    expect(executed).to be_empty
+    expect(JSON.parse(response.body).dig("error", "code")).to eq(-32001)
+  end
+
+  it "still runs a granted tool whose action agrees with its name" do
+    Mcp::Principal.tool_grant_resolver = ->(_i) { %w[platform.read_shared_memory] }
+    executed = []
+    allow_any_instance_of(Ai::Tools::MemoryTool).to receive(:execute) do |_tool, params:|
+      executed << params[:action]
+      { success: true }
+    end
+
+    post "/api/v1/mcp/message",
+         params: { jsonrpc: "2.0", id: 8, method: "tools/call",
+                   params: { name: "platform.read_shared_memory",
+                             arguments: { pool_id: "default", key: "secrets" } } }.to_json,
+         headers: { "Content-Type" => "application/json", "Accept" => "application/json" }
+                  .merge(cert_header(leaf(instance.id, ca[0], ca[1])))
+
+    expect(executed).to eq([ "read_shared_memory" ])
+  end
+
   it "rejects with 401 when neither a cert nor a token is present" do
     post_tools_list({})
     expect(response).to have_http_status(:unauthorized)

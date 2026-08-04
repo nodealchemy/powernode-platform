@@ -164,6 +164,8 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
         # Instance principals (mTLS node cert, user: nil) are already may_invoke?-gated
         # by the streamable controller before this call; instance_authorized: true lets
         # them through instead of the user:nil hard-deny above.
+        # Invoked by its FLATTENED name — the only shape an instance's catalog
+        # advertises, and the one its grant is written against (IMP-e8138c2714fb).
         allow(Ai::Tools::AgentManagementTool).to receive(:new)
           .with(account: account, user: nil, agent: nil).and_return(tool_instance)
         allow(tool_instance).to receive(:execute).and_return({ success: true })
@@ -171,7 +173,7 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
 
         expect {
           described_class.execute_tool(
-            "platform.agent_management",
+            "platform.list_agents",
             params: { "action" => "list_agents" },
             account: account,
             user: nil,
@@ -198,6 +200,197 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
         )
 
         expect(tool_instance).not_to have_received(:instance_authorized=)
+      end
+    end
+
+    # IMP-e8138c2714fb — the action was injected only when the caller had not
+    # supplied one, so a caller-supplied :action won. An instance principal
+    # granted a benign flattened tool could name a DESTRUCTIVE SIBLING action on
+    # the same tool class and reach it: may_invoke? had already passed against
+    # the benign TOOL NAME, enforce_permission! returns early on
+    # instance_authorized, and the tool's own per-action map is skipped for a
+    # grant-gated instance. One argument defeated both the deny overlay and the
+    # per-action permission map.
+    context "caller-supplied action scope (instance principals)" do
+      let(:memory_tool) { instance_double(Ai::Tools::MemoryTool) }
+
+      before do
+        allow(Ai::Tools::MemoryTool).to receive(:new)
+          .with(account: account, user: nil, agent: nil).and_return(memory_tool)
+        allow(memory_tool).to receive(:instance_authorized=)
+        allow(memory_tool).to receive(:execute).and_return({ success: true })
+      end
+
+      it "refuses an action that disagrees with the grant-checked tool name" do
+        expect {
+          described_class.execute_tool(
+            "platform.read_shared_memory",
+            params: { "action" => "delete_shared_memory", "pool_id" => "default", "key" => "k" },
+            account: account,
+            user: nil,
+            instance_authorized: true
+          )
+        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /delete_shared_memory/)
+
+        expect(memory_tool).not_to have_received(:execute)
+      end
+
+      it "refuses it even though the deny overlay could never have granted that sibling by name" do
+        # Pins WHY the escape mattered: delete_shared_memory is destroy-shaped, so
+        # no grant — however broad — can reach it by name. Only the smuggled
+        # action could.
+        expect(::Mcp::Principal.destructive_tool?("platform.delete_shared_memory")).to be(true)
+        expect(::Mcp::Principal.destructive_tool?("platform.read_shared_memory")).to be(false)
+      end
+
+      it "allows an action that agrees with the invoked tool name" do
+        described_class.execute_tool(
+          "platform.read_shared_memory",
+          params: { "action" => "read_shared_memory", "key" => "k" },
+          account: account,
+          user: nil,
+          instance_authorized: true
+        )
+
+        expect(memory_tool).to have_received(:execute)
+      end
+
+      it "allows the aliased internal action name for a renamed registry key" do
+        kg_tool = instance_double(Ai::Tools::KnowledgeGraphTool)
+        allow(Ai::Tools::KnowledgeGraphTool).to receive(:new)
+          .with(account: account, user: nil, agent: nil).and_return(kg_tool)
+        allow(kg_tool).to receive(:instance_authorized=)
+        allow(kg_tool).to receive(:execute).and_return({ success: true })
+
+        described_class.execute_tool(
+          "platform.search_knowledge_graph",
+          params: { "action" => "search", "query" => "x" },
+          account: account,
+          user: nil,
+          instance_authorized: true
+        )
+
+        expect(kg_tool).to have_received(:execute)
+      end
+
+      it "refuses a sibling alias that belongs to a different registry key" do
+        kg_tool = instance_double(Ai::Tools::KnowledgeGraphTool)
+        allow(Ai::Tools::KnowledgeGraphTool).to receive(:new)
+          .with(account: account, user: nil, agent: nil).and_return(kg_tool)
+        allow(kg_tool).to receive(:instance_authorized=)
+        allow(kg_tool).to receive(:execute).and_return({ success: true })
+
+        expect {
+          described_class.execute_tool(
+            "platform.search_knowledge_graph",
+            params: { "action" => "list_nodes" },
+            account: account,
+            user: nil,
+            instance_authorized: true
+          )
+        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError)
+
+        expect(kg_tool).not_to have_received(:execute)
+      end
+
+      it "keeps the dev-loop instance path working (no action supplied — still injected)" do
+        dev_tool = instance_double(Ai::Tools::DevLoopTool)
+        allow(Ai::Tools::DevLoopTool).to receive(:new)
+          .with(account: account, user: nil, agent: nil).and_return(dev_tool)
+        allow(dev_tool).to receive(:instance_authorized=)
+        allow(dev_tool).to receive(:node_instance=)
+        allow(dev_tool).to receive(:execute).and_return({ success: true })
+
+        described_class.execute_tool(
+          "platform.dev_next_task",
+          params: { "loop_id" => "loop-1" },
+          account: account,
+          user: nil,
+          instance_authorized: true
+        )
+
+        expect(dev_tool).to have_received(:execute) do |args|
+          expect(args[:params][:action]).to eq("dev_next_task")
+        end
+      end
+
+      it "requires EXACT agreement — a longer sibling that merely CONTAINS the granted name is refused" do
+        # Guards the comparison itself, which nothing else here pins: relaxing
+        # `==` to a substring test passes every other example, because the
+        # destructive deny overlay independently blocks the grantable side of
+        # each destroy-shaped pair. It would still silently widen ~23
+        # same-class pairs whose names nest — system_create_provider ->
+        # system_create_provider_connection, get_ralph_loop ->
+        # get_ralph_loop_statistics. BOTH names below are non-destructive, so
+        # the overlay cannot refuse this one; only exact equality can.
+        ralph_tool = instance_double(Ai::Tools::RalphLoopTool)
+        allow(Ai::Tools::RalphLoopTool).to receive(:new)
+          .with(account: account, user: nil, agent: nil).and_return(ralph_tool)
+        allow(ralph_tool).to receive(:instance_authorized=)
+        allow(ralph_tool).to receive(:execute).and_return({ success: true })
+
+        expect(::Mcp::Principal.destructive_tool?("platform.get_ralph_loop")).to be(false)
+        expect(::Mcp::Principal.destructive_tool?("platform.get_ralph_loop_statistics")).to be(false)
+
+        expect {
+          described_class.execute_tool(
+            "platform.get_ralph_loop",
+            params: { "action" => "get_ralph_loop_statistics", "loop_id" => "l-1" },
+            account: account,
+            user: nil,
+            instance_authorized: true
+          )
+        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError)
+
+        expect(ralph_tool).not_to have_received(:execute)
+      end
+
+      it "refuses a CLASS-LEVEL tool name, which names no action at all" do
+        # "platform.agent_management" is the tool class's own definition[:name],
+        # reachable only through find_tool_class's fallback — tools/list
+        # advertises registry keys only. It maps to NO action, so may_invoke?
+        # against it tells you nothing about what will run: it is the escape in
+        # its purest form (delete_agent is destroy-shaped and would be denied by
+        # name, but "agent_management" is not). Instances get flattened names.
+        agent_tool = instance_double(Ai::Tools::AgentManagementTool)
+        allow(Ai::Tools::AgentManagementTool).to receive(:new)
+          .with(account: account, user: nil, agent: nil).and_return(agent_tool)
+        allow(agent_tool).to receive(:instance_authorized=)
+        allow(agent_tool).to receive(:execute).and_return({ success: true })
+
+        expect(::Mcp::Principal.destructive_tool?("platform.delete_agent")).to be(true)
+        expect(::Mcp::Principal.destructive_tool?("platform.agent_management")).to be(false)
+
+        expect {
+          described_class.execute_tool(
+            "platform.agent_management",
+            params: { "action" => "delete_agent", "agent_id" => "a-1" },
+            account: account,
+            user: nil,
+            instance_authorized: true
+          )
+        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError)
+
+        expect(agent_tool).not_to have_received(:execute)
+      end
+
+      it "leaves the USER principal path unchanged — a mismatching action still runs" do
+        # Users are bounded by the per-action permission map inside the tool, so
+        # this path must not change shape. Byte-identical behavior is the point.
+        allow(Ai::Tools::MemoryTool).to receive(:new)
+          .with(account: account, user: user, agent: nil).and_return(memory_tool)
+        allow(user).to receive(:has_permission?).with("ai.agents.read").and_return(true)
+
+        described_class.execute_tool(
+          "platform.read_shared_memory",
+          params: { "action" => "delete_shared_memory", "key" => "k" },
+          account: account,
+          user: user
+        )
+
+        expect(memory_tool).to have_received(:execute) do |args|
+          expect(args[:params][:action]).to eq("delete_shared_memory")
+        end
       end
     end
 

@@ -56,11 +56,14 @@ module Mcp
       #     instance calls via `instance_authorized=` (IMP-9030413bc292). That
       #     closes the *unmarked* bypass, not the tier skip — a marked instance
       #     call still skips the per-action map, by design, treating the
-      #     per-tool grant as its authorization. CAVEAT (known, unfixed): that
-      #     treatment is weaker than it reads — the grant is checked against the
-      #     TOOL NAME, while a multi-action tool executes the action the CALLER
-      #     supplies, so a benign grant can reach a sibling action. Do not cite
-      #     this line as proof the marked path is bounded.
+      #     per-tool grant as its authorization. That treatment holds only
+      #     because the executed action is pinned to the granted name: the grant
+      #     is checked against the TOOL NAME, and a multi-action tool would
+      #     otherwise run whatever action the CALLER supplied, letting a benign
+      #     grant reach a destroy-shaped sibling. McpPlatformToolRegistrar
+      #     #enforce_action_scope! rejects an instance's caller-supplied action
+      #     that disagrees with the invoked tool name (IMP-e8138c2714fb) — if
+      #     that check is ever removed, this overlay is bypassable again.
       #
       # Net effect without this overlay: one over-broad pattern —
       # "platform.system_*", or a careless "platform.*" — is an unattributed,

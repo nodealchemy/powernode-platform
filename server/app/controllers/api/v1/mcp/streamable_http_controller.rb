@@ -575,8 +575,9 @@ module Api
                 account: current_account,
                 user: current_user,
                 mcp_agent: mcp_client_agent,
-                # Instance principals are already grant-gated above (line 487);
-                # let the registrar skip the user-permission check for them. (BUG-R)
+                # Instance principals are already grant-gated above (line 563);
+                # let the registrar skip the user-permission check for them, and
+                # hold the action it runs to that same granted name. (BUG-R)
                 instance_authorized: current_mcp_principal&.instance? || false,
                 # ...and give the tool the instance so DevLoopTool#claimant_ref can
                 # scope claims as "instance:<id>" (nil for user/agent). (BUG-S)
