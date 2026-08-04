@@ -43,10 +43,18 @@ module Ai
         end
       end
 
-      def initialize(account:, agent: nil, user: nil)
+      # `internal: true` marks an in-process system caller (autonomy
+      # reconcilers, skill executors running without a user) that is trusted to
+      # skip a tool's per-action permission gate. It must be passed EXPLICITLY:
+      # a nil @user does NOT imply "internal", because an MCP instance
+      # principal (mTLS node cert) also arrives with no user, and tools that
+      # inferred "internal" from `user.nil?` silently handed those principals
+      # every per-action permission. (IMP-9030413bc292)
+      def initialize(account:, agent: nil, user: nil, internal: false)
         @account = account
         @agent = agent
         @user = user
+        @internal = internal
       end
 
       # Optionally injected post-construction by McpPlatformToolRegistrar for an
@@ -54,6 +62,13 @@ module Ai
       # can scope claims as "instance:<id>". Public writer (external caller);
       # nil for user/agent callers, whose paths are unchanged. (BUG-S)
       attr_writer :node_instance
+
+      # Set by McpPlatformToolRegistrar when the caller is an instance principal
+      # whose SPECIFIC tool name already passed Mcp::Principal#may_invoke? in
+      # the streamable controller. Lets a tool tell a grant-gated instance call
+      # apart from a bare no-user call — indistinguishable while both were just
+      # "@user is nil". (IMP-9030413bc292; sibling of the BUG-S writer above.)
+      attr_writer :instance_authorized
 
       def execute(params:)
         validate_params!(params)
@@ -97,6 +112,18 @@ module Ai
 
       def error_result(message)
         { success: false, error: message }
+      end
+
+      # True only when the caller explicitly declared itself an in-process
+      # system caller via `internal: true`.
+      def internal?
+        @internal == true
+      end
+
+      # True only when McpPlatformToolRegistrar marked this call as an instance
+      # principal that already cleared the per-tool grant gate.
+      def instance_authorized?
+        @instance_authorized == true
       end
 
       private

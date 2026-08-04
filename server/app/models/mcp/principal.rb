@@ -47,11 +47,20 @@ module Mcp
       #     `return if instance_authorized`, skipping BOTH
       #     `user.has_permission?(required)` and the MCP-token permission
       #     intersection.
-      #   * Tool bodies gate on a user — e.g. the fleet tool's
-      #     `action_permitted?` does `return true if @user.nil?` as an
-      #     "internal/system bypass". Its premise, that MCP-invoked callers
-      #     always carry a user, predates instance principals and is false for
-      #     them, so the per-action permission map is never consulted.
+      #   * Tool bodies gate on a user, and several still read `@user.nil?` as
+      #     an "internal/system bypass" (e.g. SystemAcmeTool). That premise —
+      #     MCP-invoked callers always carry a user — predates instance
+      #     principals and is false for them, so the per-action permission map
+      #     is never consulted. SystemFleetTool no longer infers this: it takes
+      #     an explicit `internal:` flag, and the registrar marks grant-gated
+      #     instance calls via `instance_authorized=` (IMP-9030413bc292). That
+      #     closes the *unmarked* bypass, not the tier skip — a marked instance
+      #     call still skips the per-action map, by design, treating the
+      #     per-tool grant as its authorization. CAVEAT (known, unfixed): that
+      #     treatment is weaker than it reads — the grant is checked against the
+      #     TOOL NAME, while a multi-action tool executes the action the CALLER
+      #     supplies, so a benign grant can reach a sibling action. Do not cite
+      #     this line as proof the marked path is bounded.
       #
       # Net effect without this overlay: one over-broad pattern —
       # "platform.system_*", or a careless "platform.*" — is an unattributed,

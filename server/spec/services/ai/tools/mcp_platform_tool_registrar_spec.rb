@@ -167,6 +167,7 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
         allow(Ai::Tools::AgentManagementTool).to receive(:new)
           .with(account: account, user: nil, agent: nil).and_return(tool_instance)
         allow(tool_instance).to receive(:execute).and_return({ success: true })
+        allow(tool_instance).to receive(:instance_authorized=)
 
         expect {
           described_class.execute_tool(
@@ -177,6 +178,26 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
             instance_authorized: true
           )
         }.not_to raise_error
+
+        # The grant-gate verdict must reach the tool: a tool whose own
+        # per-action gate has to tell an instance principal apart from a bare
+        # userless caller can only do so if this is set. (IMP-9030413bc292)
+        expect(tool_instance).to have_received(:instance_authorized=).with(true)
+      end
+
+      it "does NOT mark user/agent-principal calls as instance-authorized (IMP-9030413bc292)" do
+        allow(user).to receive(:has_permission?).with("ai.agents.execute").and_return(true)
+        allow(tool_instance).to receive(:execute).and_return({ success: true })
+        allow(tool_instance).to receive(:instance_authorized=)
+
+        described_class.execute_tool(
+          "platform.agent_management",
+          params: { "action" => "list_agents" },
+          account: account,
+          user: user
+        )
+
+        expect(tool_instance).not_to have_received(:instance_authorized=)
       end
     end
 

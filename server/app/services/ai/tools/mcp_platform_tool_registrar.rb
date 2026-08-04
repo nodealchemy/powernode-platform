@@ -153,6 +153,13 @@ module Ai
           # action hard-refuses. Guarded so the .new signature and the user/agent
           # paths (node_instance nil) stay byte-for-byte unchanged. (BUG-S)
           tool_instance.node_instance = node_instance if node_instance
+          # ...and tell the tool this call already cleared the per-tool grant
+          # gate (streamable_http_controller.rb may_invoke?), so a tool's own
+          # per-action check can recognise a grant-gated instance principal
+          # instead of inferring "internal caller" from the nil user — which
+          # handed instances every per-action permission. Guarded so the
+          # user/agent paths stay byte-for-byte unchanged. (IMP-9030413bc292)
+          tool_instance.instance_authorized = true if instance_authorized
           tool_instance.execute(params: execution_params)
         end
 
@@ -164,8 +171,10 @@ module Ai
 
           # An instance principal (mTLS node cert, no User) that reached here was
           # ALREADY grant-gated by the streamable controller's may_invoke? check
-          # (see streamable_http_controller.rb:487): the per-tool grant IS its
-          # authorization, and the intended downstream user:nil path is the
+          # (see streamable_http_controller.rb:487): that grant is what stands in
+          # for its authorization — noting the grant is NAME-scoped while a
+          # multi-action tool runs the caller-supplied action, so it bounds less
+          # than it appears. The intended downstream user:nil path is the
           # internal-caller bypass. Without this it was hard-denied -32001 for
           # every dev_next_task/dev_complete_task. (BUG-R — sibling of BUG-Q.)
           return if instance_authorized
