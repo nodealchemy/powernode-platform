@@ -140,12 +140,13 @@ module Ai
           # Auto-inject the registry key as the action when the tool class
           # handles multiple registry entries (e.g. create_agent, list_agents
           # all map to AgentManagementTool). A caller-supplied action wins, so
-          # for an instance principal — authorized per tool NAME — it must first
-          # be shown to agree with the name that authorization cleared.
+          # for a caller with nothing downstream bounding what it runs, it must
+          # first be shown to agree with the name authorization cleared.
           if execution_params.key?(:action)
-            if instance_authorized
+            if action_pinned_to_name?(user: user, mcp_agent: mcp_agent, instance_authorized: instance_authorized)
               enforce_action_scope!(tool_name: tool_name, tool_id: tool_id, tool_class: tool_class,
-                                    supplied_action: execution_params[:action])
+                                    supplied_action: execution_params[:action],
+                                    principal: instance_authorized ? "instance" : "none")
             end
           elsif action_dispatched?(tool_class)
             execution_params[:action] = ACTION_ALIASES.fetch(tool_name, tool_name)
@@ -178,6 +179,35 @@ module Ai
             tool_class.action_definitions.size > 1
         end
 
+        # Which callers must have the action they run pinned to the tool name
+        # they invoked. Derived from what the call CARRIES rather than from a
+        # flag the call site remembered to set: instance_authorized is opt-in,
+        # and the second entry point into execute_tool (Mcp::ProtocolService's
+        # platform_tool branch, reached for any tool name that is not
+        # "platform."-prefixed) passes no principal at all, so an opt-in fence
+        # simply never ran there. Keyed on the principal, an omitted flag now
+        # tightens instead of opening a door. (IMP-3024cfb1d850)
+        #
+        #   user present     authorization here is per-CLASS: one REQUIRED_PERMISSION
+        #                    covers every sibling action, and each action already has
+        #                    its own registry key. Smuggling a sibling is therefore
+        #                    isomorphic to invoking that sibling by name — same class,
+        #                    same permission, no privilege gained. Unpinned, and
+        #                    byte-for-byte unchanged. (Extension tools add their own
+        #                    per-action ACTION_PERMISSIONS map on top; no core tool
+        #                    has one, so do not rely on that here.)
+        #   mcp_agent        the LLM tool-calling path, where an agent legitimately
+        #                    supplies :action for a class that declares one
+        #                    (AgentAutonomyTool, ProvisioningTool) — unpinned.
+        #   neither          nothing bounds the action: enforce_permission! returns
+        #                    without a check whenever REQUIRED_PERMISSION is nil, and
+        #                    for an instance principal the name is all may_invoke?
+        #                    ever saw. The invoked name is the only bound left, so
+        #                    hold the action to it.
+        def action_pinned_to_name?(user:, mcp_agent:, instance_authorized:)
+          instance_authorized || (user.nil? && mcp_agent.nil?)
+        end
+
         # SECURITY (IMP-e8138c2714fb): make the action that RUNS agree with the
         # tool name the caller's grant was checked against.
         #
@@ -198,23 +228,32 @@ module Ai
         # fix: the executed action is, by construction, the name may_invoke?
         # already cleared.
         #
-        # Scoped to instance principals deliberately. A user principal is bounded
-        # by the per-action permission map inside the tool (has_permission? +
-        # token intersection), which reads the SAME caller-supplied action, so
-        # that path is left byte-for-byte unchanged.
-        def enforce_action_scope!(tool_name:, tool_id:, tool_class:, supplied_action:)
+        # The same reasoning covers a call carrying no principal at all, which is
+        # how Mcp::ProtocolService reaches this method (its platform_tool branch
+        # passes none). That branch is INERT at runtime today — invoke_tool
+        # hard-denies user.nil? before it, so nothing principal-less arrives here.
+        # This is insurance for the next call site, not a live hole being closed:
+        # if that deny is ever relaxed, the classes whose REQUIRED_PERMISSION is
+        # nil would run a caller-supplied action with no check at all. See
+        # action_pinned_to_name? for which callers are held to this, and why a
+        # user principal is not.
+        # principal: is for the operator reading the log — "instance" (grant-gated
+        # mTLS node) or "none" (a call carrying no principal). It stays OUT of the
+        # exception message on purpose: both entry points must refuse identically,
+        # and mcp_protocol_service_action_scope_spec.rb asserts that equality.
+        def enforce_action_scope!(tool_name:, tool_id:, tool_class:, supplied_action:, principal: "none")
           return unless action_dispatched?(tool_class)
 
           expected = ACTION_ALIASES.fetch(tool_name, tool_name)
           return if supplied_action.to_s == expected
 
           Rails.logger.warn(
-            "[McpPlatformTool] Refused out-of-scope action for instance principal: " \
+            "[McpPlatformTool] Refused out-of-scope action: principal=#{principal} " \
             "tool=#{tool_id} supplied_action=#{supplied_action} expected=#{expected}"
           )
           raise ::Mcp::ProtocolService::PermissionDeniedError,
-                "Action '#{supplied_action}' is not permitted for #{tool_id}: an instance " \
-                "principal is authorized per tool name, so #{tool_id} may only run '#{expected}'"
+                "Action '#{supplied_action}' is not permitted for #{tool_id}: this caller is " \
+                "authorized per tool name, so #{tool_id} may only run '#{expected}'"
         end
 
         def enforce_permission!(user:, tool_class:, tool_id:, token: nil, instance_authorized: false)

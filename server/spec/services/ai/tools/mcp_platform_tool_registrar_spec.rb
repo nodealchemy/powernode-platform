@@ -394,6 +394,65 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
       end
     end
 
+    # IMP-3024cfb1d850 — the fence above was opt-in on instance_authorized, so
+    # the OTHER entry point into this method (Mcp::ProtocolService's
+    # platform_tool branch, which passes no principal at all) never ran it. The
+    # trigger is now the principal itself: a call with nothing downstream
+    # bounding the action it runs is pinned to the name it invoked, so a call
+    # site that omits the flag tightens instead of opening a door. Both entry
+    # points are held to this in
+    # spec/services/mcp_protocol_service_action_scope_spec.rb.
+    context "caller-supplied action scope (principal-less calls)" do
+      let(:autonomy_tool) { instance_double(Ai::Tools::AgentAutonomyTool) }
+
+      before do
+        allow(Ai::Tools::AgentAutonomyTool).to receive(:new)
+          .with(account: account, user: nil, agent: nil).and_return(autonomy_tool)
+        allow(autonomy_tool).to receive(:instance_authorized=)
+        allow(autonomy_tool).to receive(:execute).and_return({ success: true })
+      end
+
+      it "pins the action for a call carrying neither a user nor an agent" do
+        # REQUIRED_PERMISSION is nil here, so enforce_permission! waves the call
+        # through without checking anything — the invoked name is the only bound
+        # left on what runs.
+        expect(Ai::Tools::AgentAutonomyTool::REQUIRED_PERMISSION).to be_nil
+
+        expect {
+          described_class.execute_tool(
+            "platform.agent_autonomy",
+            params: { "action" => "request_code_change" },
+            account: account,
+            user: nil
+          )
+        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /request_code_change/)
+
+        expect(autonomy_tool).not_to have_received(:execute)
+      end
+
+      it "leaves the agent tool-calling path unpinned even when the agent has no creator" do
+        # AgentToolBridgeService passes user: agent.creator — nil for an agent
+        # with no creator — alongside mcp_agent. An agent legitimately supplies
+        # :action for a class that declares one, so this path must keep running
+        # it rather than falling into the principal-less pin.
+        agent = instance_double(Ai::Agent)
+        allow(Ai::Tools::AgentAutonomyTool).to receive(:new)
+          .with(account: account, user: nil, agent: agent).and_return(autonomy_tool)
+
+        described_class.execute_tool(
+          "platform.agent_autonomy",
+          params: { "action" => "list_agent_goals" },
+          account: account,
+          user: nil,
+          mcp_agent: agent
+        )
+
+        expect(autonomy_tool).to have_received(:execute) do |args|
+          expect(args[:params][:action]).to eq("list_agent_goals")
+        end
+      end
+    end
+
     it "raises ArgumentError for unknown tool" do
       expect {
         described_class.execute_tool(

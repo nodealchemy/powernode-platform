@@ -479,6 +479,21 @@ module Mcp
       executor = Ai::McpAgentExecutor.new(agent: agent, account: @account)
       executor.execute(params)
     when "platform_tool"
+      # The second entry point into the registrar. Reached for any tool name that
+      # is not "platform."-prefixed, because #get_tool resolves those through the
+      # registry's name→ID index keyed on the UNPREFIXED manifest name.
+      #
+      # Principal-less callers cannot actually arrive here today: #invoke_tool
+      # hard-denies user.nil? above, and an instance principal always has
+      # current_user nil. The registrar still pins their action to the tool name
+      # as insurance for the day that deny is relaxed.
+      #
+      # It deliberately passes no instance_authorized: that flag makes the
+      # registrar SKIP its user-permission check (an instance principal is
+      # grant-gated in the controller instead, which is a gate this path never
+      # ran). Passing it here would hand a caller the bypass without the gate.
+      # Carrying no principal is also what holds the executed action to the
+      # invoked tool name — see McpPlatformToolRegistrar.action_pinned_to_name?.
       Ai::Tools::McpPlatformToolRegistrar.execute_tool(
         "platform.#{tool_manifest['name']}",
         params: params,
