@@ -5,6 +5,10 @@ module Ai
     class KbArticleManagementTool < BaseTool
       REQUIRED_PERMISSION = "kb.manage"
 
+      # Crossing the `published` boundary is a separate act from editing, and
+      # carries its own permission on the human path — see #publication_allowed?.
+      PUBLISH_PERMISSION = "kb.publish"
+
       def self.definition
         {
           name: "kb_article_management",
@@ -105,6 +109,14 @@ module Ai
         category = find_category(params[:category_slug])
         return { success: false, error: "Category not found: #{params[:category_slug]}" } unless category
 
+        status = params[:status] || "draft"
+        # Refuse BEFORE the transaction opens: nothing is written, so there is no
+        # half-created article and no workflow row for a transition that did not
+        # happen.
+        unless publication_transition_allowed?(nil, status)
+          return publication_denied_result(nil, status)
+        end
+
         article = nil
 
         ActiveRecord::Base.transaction do
@@ -113,7 +125,7 @@ module Ai
             content: params[:content],
             category: category,
             author: default_author,
-            status: params[:status] || "draft",
+            status: status,
             excerpt: params[:excerpt],
             is_featured: params[:is_featured] || false,
             is_public: true,
@@ -154,6 +166,15 @@ module Ai
         attrs[:is_featured] = params[:is_featured] unless params[:is_featured].nil?
 
         from_status = article.status
+        to_status = attrs[:status] || from_status
+
+        # Refuse the whole call, not just the status: a publish that rides along
+        # with a title change must not land the title either, or the caller gets
+        # a partial success it never asked for. Placed before the transaction so
+        # no article change and no workflow row is written.
+        unless publication_transition_allowed?(from_status, to_status)
+          return publication_denied_result(from_status, to_status)
+        end
 
         ActiveRecord::Base.transaction do
           article.update!(attrs)
@@ -174,6 +195,91 @@ module Ai
         { success: true, article_id: article.id, slug: article.slug }
       rescue ActiveRecord::RecordInvalid => e
         { success: false, error: e.message }
+      end
+
+      # === Publication gating ===
+      #
+      # Publishing is not an ordinary attribute write. On the human path
+      # Api::V1::Kb::ArticlesController gates #publish and #unpublish behind
+      # kb.publish (articles_controller.rb:10) — a deliberate distinction from
+      # editing, which only needs kb.update. This tool used to pass `status`
+      # straight through to create!/update!, so any principal that could reach
+      # it could publish without holding kb.publish and without traversing the
+      # gated endpoints.
+      #
+      # It matters beyond permission tidiness because publishing is what makes
+      # content visible to OTHER agents: Mcp::NativeResourceProvider serves
+      # `.published` articles as MCP resources by slug
+      # (native_resource_provider.rb:88, :105, :176). Ungated, an agent could
+      # promote its own writing into the corpus the rest of the fleet reads as
+      # context.
+      #
+      # Gated in BOTH directions, following the controller's own pairing of
+      # publish with unpublish: entering `published` grants that visibility and
+      # leaving it (to draft, review, or archived) revokes it, and an agent that
+      # can pull an article the fleet reads is the same authority in reverse.
+      # Transitions that never touch `published` (draft -> review, draft ->
+      # archived, and back) stay open — they change no one's visibility, the
+      # human path lets kb.update make them, and `review` is precisely the safe
+      # parking state an agent should be able to reach on its own.
+      def publication_transition_allowed?(from_status, to_status)
+        return true unless crosses_publication_boundary?(from_status, to_status)
+
+        publication_allowed?
+      end
+
+      # A move is only interesting here if it enters or leaves `published`.
+      # A no-op restatement of the current status is not a transition at all.
+      def crosses_publication_boundary?(from_status, to_status)
+        return false if from_status.to_s == to_status.to_s
+
+        from_status.to_s == "published" || to_status.to_s == "published"
+      end
+
+      # Two bypasses, both EXPLICIT, mirroring the ladder the tools hardened in
+      # this campaign use (SystemFleetTool IMP-9030413bc292 carries the full
+      # note; SystemAcmeTool / SystemStorageOwnerTool repeat it):
+      #
+      #   internal?            in-process system callers (seeds, reconcilers,
+      #                        skill executors running without a user) that
+      #                        opted in with `internal: true`.
+      #   instance_authorized? an MCP instance principal (mTLS node cert, no
+      #                        User) whose specific tool name already cleared
+      #                        Mcp::Principal#may_invoke?. NAME-scoped only:
+      #                        the grant is on `create_kb_article` /
+      #                        `update_kb_article`, which cannot express "drafts
+      #                        only", so it is provenance rather than a fence.
+      #
+      # A nil user with NEITHER flag fails CLOSED — that is the agent principal
+      # this fix is about. Inferring "trusted" from `user.nil?` is exactly the
+      # mistake IMP-9030413bc292 removed elsewhere; an agent must not satisfy a
+      # permission check by having no user to check.
+      #
+      # kb.manage is deliberately NOT accepted here, though the controller's
+      # can_publish_kb? accepts it: kb.manage is this tool's own
+      # REQUIRED_PERMISSION, so honouring it would make the check vacuous for
+      # every caller able to reach this code. Its catalog definition is
+      # "Manage knowledge base categories and settings" (config/permissions.rb:63),
+      # not a publish superset, and every shipped role granting kb.manage also
+      # grants kb.publish explicitly (config/permissions.rb:758, :859, :878), so
+      # requiring the specific permission costs no shipped role its access.
+      def publication_allowed?
+        return true if internal?
+        return true if instance_authorized?
+        return false if user.nil?
+        return true unless user.respond_to?(:has_permission?)
+
+        user.has_permission?(PUBLISH_PERMISSION)
+      end
+
+      def publication_denied_result(from_status, to_status)
+        transition = from_status.present? ? "#{from_status} -> #{to_status}" : to_status.to_s
+
+        {
+          success: false,
+          error: "Not authorized: changing article status (#{transition}) crosses the " \
+                 "published boundary and requires the #{PUBLISH_PERMISSION} permission"
+        }
       end
 
       # Records an article state transition, blocking like the controller does:

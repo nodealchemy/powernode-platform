@@ -14,6 +14,13 @@ RSpec.describe Ai::Tools::KbArticleManagementTool, "workflow audit trail" do
 
   subject(:tool) { described_class.new(account: account, agent: agent) }
 
+  # Crossing the `published` boundary needs kb.publish (IMP-3682545ccbe9), so
+  # the two examples below that assert what a PUBLISHING transition records have
+  # to be made by a principal allowed to make one. What they assert — the action
+  # vocabulary a publish lands in the trail — is unchanged; only the caller is.
+  let(:publisher) { create(:user, account: account, permissions: [ "kb.publish" ]) }
+  let(:publishing_tool) { described_class.new(account: account, agent: agent, user: publisher) }
+
   def latest_workflow
     KnowledgeBase::Workflow.recent.first
   end
@@ -33,8 +40,8 @@ RSpec.describe Ai::Tools::KbArticleManagementTool, "workflow audit trail" do
       )
     end
 
-    it "records the landing status when the agent creates an already-published article" do
-      tool.send(:create_article, title: "Live", content: "Body", category_slug: category.slug, status: "published")
+    it "records the landing status when the caller creates an already-published article" do
+      publishing_tool.send(:create_article, title: "Live", content: "Body", category_slug: category.slug, status: "published")
 
       expect(latest_workflow).to have_attributes(action: "create", to_status: "published")
     end
@@ -59,8 +66,8 @@ RSpec.describe Ai::Tools::KbArticleManagementTool, "workflow audit trail" do
       )
     end
 
-    it "records a publish when the agent moves the status" do
-      tool.send(:update_article, article_id: article.id, status: "published")
+    it "records a publish when the caller moves the status" do
+      publishing_tool.send(:update_article, article_id: article.id, status: "published")
 
       expect(latest_workflow).to have_attributes(
         action: "publish", from_status: "draft", to_status: "published"
