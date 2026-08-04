@@ -101,6 +101,22 @@ RSpec.describe Ai::DevLoop::ImprovementPromotionService do
         .to raise_error(ArgumentError, /approved/)
     end
 
+    # IMP-c4d5b7abb697: defense-in-depth — the tool layer refuses this first,
+    # but the service must not promote a non-code-quality type either, in case
+    # it is ever called directly.
+    it "refuses to promote a non-code-quality recommendation type" do
+      non_code = create(:ai_improvement_recommendation,
+                        account: account,
+                        recommendation_type: "agent_reliability",
+                        status: "approved",
+                        target_type: "Account",
+                        target_id: account.id,
+                        evidence: { "title" => "Low approval rate" })
+
+      expect { described_class.new(recommendation: non_code).call }
+        .to raise_error(ArgumentError, /agent_reliability/)
+    end
+
     # Regression: task_key_for truncated the de-hyphenated fingerprint to its first
     # 12 chars, so every same-recommendation_type finding collapsed to one key
     # (e.g. "IMP-convention_a") and the 2nd promotion silently reused the 1st task.

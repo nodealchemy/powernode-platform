@@ -165,6 +165,29 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(result[:data][:halted]).to be true
       expect(account.ai_ralph_loops.find_by(name: "dev-improve")).to be_nil
     end
+
+    # IMP-c4d5b7abb697: this tool's approve_improvement unconditionally promoted
+    # ANY recommendation into a dev-improve CODING task, including non-code
+    # types like agent_reliability written by the weekly policy-tuning writer.
+    # Promotion must stay confined to CODE_QUALITY_TYPES.
+    it "refuses to promote a non-code-quality recommendation into a dev-improve task" do
+      rec = create(:ai_improvement_recommendation,
+                   account: account,
+                   recommendation_type: "agent_reliability",
+                   status: "pending",
+                   target_type: "Account",
+                   target_id: account.id,
+                   evidence: { "title" => "Only 16.7% approval rate — agent may need retraining" })
+
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec.id })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to include("agent_reliability")
+      expect(result[:error]).to include("not a code-quality recommendation")
+      expect(rec.reload.status).to eq("pending")
+      expect(account.ai_ralph_loops.find_by(name: "dev-improve")).to be_nil
+      expect(Ai::RalphTask.where("metadata->>'recommendation_id' = ?", rec.id)).to be_empty
+    end
   end
 
   describe "dismiss_improvement" do

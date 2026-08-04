@@ -248,6 +248,13 @@ module Ai
         rec = find_recommendation(params[:recommendation_id])
         return error_result("Recommendation not found") unless rec
         return error_result("Recommendation is #{rec.status}, cannot approve") unless %w[pending approved].include?(rec.status)
+        unless CODE_TYPES.include?(rec.recommendation_type)
+          return error_result(
+            "#{rec.recommendation_type} is not a code-quality recommendation — this tool only promotes " \
+            "#{CODE_TYPES.join(', ')} offers into dev-improve coding tasks. Approve it via " \
+            "POST /api/v1/ai/learning/recommendations/#{rec.id}/apply (Ai::Learning::ImprovementRecommender) instead."
+          )
+        end
 
         rec.approve!(user) unless rec.status == "approved"
         result = Ai::DevLoop::ImprovementPromotionService.new(recommendation: rec).call

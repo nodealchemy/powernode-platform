@@ -33,6 +33,11 @@ module Ai
 
       def call
         raise ArgumentError, "recommendation must be approved" unless recommendation.status == "approved"
+        unless Ai::ImprovementRecommendation::CODE_QUALITY_TYPES.include?(recommendation.recommendation_type)
+          raise ArgumentError, "recommendation_type #{recommendation.recommendation_type} is not a code-quality " \
+                                "type — dev-improve tasks are code changes; promote via Ai::Learning::" \
+                                "ImprovementRecommender#apply_recommendation! instead"
+        end
 
         ralph_loop = find_or_create_loop
         task = ralph_loop.ralph_tasks.find_or_initialize_by(task_key: task_key_for(recommendation))
