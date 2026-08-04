@@ -200,6 +200,25 @@ RSpec.describe Ai::SkillGraph::AutoRepairService, type: :service do
         expect(recommendation.evidence["title"]).to include("orphan")
       end
 
+      # F3: jsonb normalizes symbol keys to strings on the round trip through
+      # the DB, so `Ai::ImprovementRecommendation.last.evidence` reads fine
+      # either way — but that hides the writer using symbol keys while every
+      # other evidence writer (SelfLearningService, ImprovementTool) uses
+      # strings. Assert on the hash actually handed to create!, before any
+      # DB round trip normalizes it.
+      it "writes evidence with string keys, not symbols" do
+        allow(mock_bridge).to receive(:auto_detect_relationships).and_return([])
+        captured_evidence = nil
+        allow(Ai::ImprovementRecommendation).to receive(:create!).and_wrap_original do |original, **attrs|
+          captured_evidence = attrs[:evidence]
+          original.call(**attrs)
+        end
+
+        service.resolve_conflict(conflict)
+
+        expect(captured_evidence.keys).to all(be_a(String))
+      end
+
       it "defers resolution for young skills with no relationships" do
         skill.update_column(:created_at, 35.days.ago)
         allow(mock_bridge).to receive(:auto_detect_relationships).and_return([])
@@ -233,6 +252,20 @@ RSpec.describe Ai::SkillGraph::AutoRepairService, type: :service do
         recommendation = Ai::ImprovementRecommendation.last
         expect(recommendation.recommendation_type).to eq("skill_consolidation")
         expect(recommendation.evidence["title"]).to include("overlapping")
+      end
+
+      # F3: see the same assertion on the orphan-resolution branch above for
+      # why reading back via .last isn't sufficient to catch this.
+      it "writes evidence with string keys, not symbols" do
+        captured_evidence = nil
+        allow(Ai::ImprovementRecommendation).to receive(:create!).and_wrap_original do |original, **attrs|
+          captured_evidence = attrs[:evidence]
+          original.call(**attrs)
+        end
+
+        service.resolve_conflict(conflict)
+
+        expect(captured_evidence.keys).to all(be_a(String))
       end
     end
 
@@ -299,6 +332,20 @@ RSpec.describe Ai::SkillGraph::AutoRepairService, type: :service do
         recommendation = Ai::ImprovementRecommendation.last
         expect(recommendation.recommendation_type).to eq("skill_consolidation")
         expect(recommendation.evidence["title"]).to include("version drift")
+      end
+
+      # F3: see the same assertion on the orphan-resolution branch above for
+      # why reading back via .last isn't sufficient to catch this.
+      it "writes evidence with string keys, not symbols" do
+        captured_evidence = nil
+        allow(Ai::ImprovementRecommendation).to receive(:create!).and_wrap_original do |original, **attrs|
+          captured_evidence = attrs[:evidence]
+          original.call(**attrs)
+        end
+
+        service.resolve_conflict(conflict)
+
+        expect(captured_evidence.keys).to all(be_a(String))
       end
     end
 

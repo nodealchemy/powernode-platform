@@ -4,6 +4,15 @@ module Ai
   class FeedbackLoopService
     TRUST_BATCH_SIZE = 20
 
+    # Closed contract with Api::V1::Internal::Ai::AutonomyController
+    # #analyze_policy_patterns (the only consumer), which switches on
+    # suggestion[:type] via `==` comparisons rather than an exhaustive case
+    # and always files the result as recommendation_type "agent_reliability"
+    # regardless of type. A suggestion type outside this set would silently
+    # fall through those comparisons' `else` branches instead of raising —
+    # #build_suggestion below is the guard that keeps that from happening.
+    KNOWN_SUGGESTION_TYPES = %w[auto_approve_suggestion quality_concern].freeze
+
     attr_reader :account
 
     def initialize(account:)
@@ -86,28 +95,47 @@ module Ai
       suggestions = []
 
       if approval_rate > 0.95
-        suggestions << {
+        suggestions << build_suggestion(
           type: "auto_approve_suggestion",
           message: "#{(approval_rate * 100).round(1)}% approval rate over 30 days — consider enabling auto-approve policy",
           agent_id: agent&.id,
           approval_rate: approval_rate
-        }
+        )
       end
 
       if approval_rate < 0.3
-        suggestions << {
+        suggestions << build_suggestion(
           type: "quality_concern",
           message: "Only #{(approval_rate * 100).round(1)}% approval rate — agent may need retraining or trust demotion",
           agent_id: agent&.id,
           approval_rate: approval_rate
-        }
+        )
       end
 
       {
         total_proposals: total,
         approval_rate: approval_rate,
-        suggestions: suggestions
+        suggestions: suggestions.compact
       }
+    end
+
+    private
+
+    # Guard clause, not an exhaustive-case raise: analyze_patterns runs across
+    # every active agent for every active account in a single sweep
+    # (Api::V1::Internal::Ai::AutonomyController#analyze_policy_patterns), and
+    # that caller already rescues per-agent to keep one failure from aborting
+    # the batch. Raising here would just bounce off that rescue anyway, so
+    # logging and dropping the single bad suggestion in place is cheaper and
+    # keeps the safety net at the point of truth instead of relying on every
+    # future caller to wrap this in its own rescue.
+    def build_suggestion(type:, message:, agent_id:, approval_rate:)
+      unless KNOWN_SUGGESTION_TYPES.include?(type)
+        Rails.logger.warn "[FeedbackLoop] Dropping suggestion with unrecognized type: #{type.inspect}"
+        return nil
+      end
+
+      { type: type, message: message, agent_id: agent_id, approval_rate: approval_rate }
     end
   end
 end

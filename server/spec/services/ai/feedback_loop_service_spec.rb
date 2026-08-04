@@ -104,4 +104,29 @@ RSpec.describe Ai::FeedbackLoopService, type: :service do
       end
     end
   end
+
+  # F4: suggestion `type` strings are a closed contract with
+  # Api::V1::Internal::Ai::AutonomyController#analyze_policy_patterns, which
+  # switches on suggestion[:type] via `==` comparisons rather than an
+  # exhaustive case and always files the result as recommendation_type
+  # "agent_reliability". Nothing validated that only the two known type
+  # strings ever reach that controller — a future third type would silently
+  # fall through the controller's ternaries instead of failing loudly. Route
+  # every suggestion through a guard that drops (and logs) anything outside
+  # the known set.
+  describe '#build_suggestion (suggestion type guard)' do
+    it 'builds a suggestion for a known type' do
+      result = service.send(:build_suggestion, type: 'quality_concern', message: 'x', agent_id: agent.id, approval_rate: 0.2)
+
+      expect(result).to eq(type: 'quality_concern', message: 'x', agent_id: agent.id, approval_rate: 0.2)
+    end
+
+    it 'drops and logs an unrecognized suggestion type instead of forwarding it' do
+      expect(Rails.logger).to receive(:warn).with(/unrecognized.*mystery_type/i)
+
+      result = service.send(:build_suggestion, type: 'mystery_type', message: 'x', agent_id: agent.id, approval_rate: 0.5)
+
+      expect(result).to be_nil
+    end
+  end
 end

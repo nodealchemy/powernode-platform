@@ -304,6 +304,42 @@ RSpec.describe Ai::SkillGraph::SelfLearningService, type: :service do
           .not_to(change { Ai::ImprovementRecommendation.count })
       end
     end
+
+    # F1: the rescue used to wrap the whole method, so one skill's create!
+    # failure discarded every other skill's already-computed proposal too —
+    # the sweep must survive a single bad row and keep going.
+    context "when persisting a recommendation for one skill fails" do
+      let(:vector) { Array.new(1536, 0.1) }
+      let!(:good_skill) { create(:ai_skill, account: account, name: "Good Skill") }
+      let!(:bad_skill) { create(:ai_skill, account: account, name: "Bad Skill") }
+      let!(:learning) do
+        create(:ai_compound_learning, account: account, status: "active",
+                                      content: "Shared learning content", embedding: vector)
+      end
+
+      before do
+        create(:ai_knowledge_graph_node, account: account, entity_type: "skill",
+                                         ai_skill_id: good_skill.id, status: "active", embedding: vector)
+        create(:ai_knowledge_graph_node, account: account, entity_type: "skill",
+                                         ai_skill_id: bad_skill.id, status: "active", embedding: vector)
+
+        allow(Ai::ImprovementRecommendation).to receive(:create!).and_wrap_original do |original, **attrs|
+          raise StandardError, "boom" if attrs[:target_id] == bad_skill.id
+
+          original.call(**attrs)
+        end
+      end
+
+      it "still proposes the healthy skill and logs the failed one instead of losing the whole sweep" do
+        expect(Rails.logger).to receive(:error).with(/propose_prompt_refinements skill #{bad_skill.id} failed: StandardError/)
+
+        result = service.propose_prompt_refinements
+
+        expect(result).to eq([good_skill.id])
+        expect(Ai::ImprovementRecommendation.where(recommendation_type: "prompt_refinement", target_id: good_skill.id)).to exist
+        expect(Ai::ImprovementRecommendation.where(recommendation_type: "prompt_refinement", target_id: bad_skill.id)).not_to exist
+      end
+    end
   end
 
   describe "#detect_capability_gaps" do
@@ -371,6 +407,43 @@ RSpec.describe Ai::SkillGraph::SelfLearningService, type: :service do
 
         expect { service.detect_capability_gaps }
           .not_to(change { Ai::ImprovementRecommendation.count })
+      end
+    end
+
+    # F1: same defect as propose_prompt_refinements — a bad category's failed
+    # create! must not erase gaps already found or unrelated healthy categories.
+    context "when one category's recommendation fails to persist" do
+      let!(:good_learnings) do
+        Array.new(3) do |i|
+          create(:ai_compound_learning, account: account, status: "active", category: "performance_insight",
+                                        importance_score: 0.9, content: "Good learning #{i}",
+                                        embedding: Array.new(1536, 0.1))
+        end
+      end
+      let!(:bad_learnings) do
+        Array.new(3) do |i|
+          create(:ai_compound_learning, account: account, status: "active", category: "failure_mode",
+                                        importance_score: 0.9, content: "Bad learning #{i}",
+                                        embedding: Array.new(1536, 0.2))
+        end
+      end
+
+      before do
+        allow(Ai::ImprovementRecommendation).to receive(:create!).and_wrap_original do |original, **attrs|
+          raise StandardError, "boom" if attrs[:evidence]["gap_category"] == "failure_mode"
+
+          original.call(**attrs)
+        end
+      end
+
+      it "still proposes the healthy category and logs the failed one instead of losing the whole sweep" do
+        expect(Rails.logger).to receive(:error).with(/detect_capability_gaps category failure_mode failed: StandardError/)
+
+        result = service.detect_capability_gaps
+
+        expect(result[:gaps].size).to eq(6)
+        expect(result[:proposed_categories]).to eq(["performance_insight"])
+        expect(Ai::ImprovementRecommendation.where(recommendation_type: "skill_creation").count).to eq(1)
       end
     end
   end

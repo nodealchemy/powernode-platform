@@ -100,7 +100,8 @@ module Ai
                 recommendations: analysis["recommendations"]&.first(3)
               }
             end
-        rescue StandardError
+        rescue StandardError => e
+          Rails.logger.error "[Sensors::Recommendation] agent_trajectory_recommendations failed: #{e.class}: #{e.message}"
           []
         end
       end

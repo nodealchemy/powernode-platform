@@ -142,4 +142,21 @@ RSpec.describe Ai::Autonomy::Sensors::RecommendationSensor, type: :service do
     expect(titles.first).to eq("Recommendation: Rec 6")
     expect(titles).not_to include("Recommendation: Rec 1")
   end
+
+  # F2: a bare `rescue StandardError; []` with no logging is exactly how the
+  # phantom-column bug documented above stayed invisible in production —
+  # this branch needs its own error class logged too.
+  describe "trajectory recommendation resilience" do
+    it "logs the error class when trajectory lookup fails, without losing other observations" do
+      recommendation(target_type: "Ai::Agent", target_id: agent.id, evidence: { "title" => "Still surfaced" })
+
+      allow(Ai::Trajectory).to receive(:where).and_raise(StandardError.new("boom"))
+
+      expect(Rails.logger).to receive(:error).with(/agent_trajectory_recommendations failed: StandardError/)
+
+      observations = sensor.collect
+
+      expect(observations.map { |o| o[:title] }).to include("Recommendation: Still surfaced")
+    end
+  end
 end

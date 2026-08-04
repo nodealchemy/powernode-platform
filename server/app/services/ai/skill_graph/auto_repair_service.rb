@@ -128,12 +128,12 @@ module Ai
           confidence_score: conflict.similarity_score || 0.7,
           status: "pending",
           evidence: {
-            title: "Consolidate overlapping skills",
-            description: build_overlap_description(conflict),
-            conflict_id: conflict.id,
-            skill_a_id: conflict.skill_a_id,
-            skill_b_id: conflict.skill_b_id,
-            similarity_score: conflict.similarity_score
+            "title" => "Consolidate overlapping skills",
+            "description" => build_overlap_description(conflict),
+            "conflict_id" => conflict.id,
+            "skill_a_id" => conflict.skill_a_id,
+            "skill_b_id" => conflict.skill_b_id,
+            "similarity_score" => conflict.similarity_score
           }
         )
 
@@ -243,10 +243,10 @@ module Ai
             confidence_score: 0.6,
             status: "pending",
             evidence: {
-              title: "Review orphan skill: #{skill.name}",
-              description: "Skill '#{skill.name}' has no agent assignments or knowledge graph connections after #{days_old} days. Consider archiving or connecting to relevant agents.",
-              conflict_id: conflict.id,
-              days_old: days_old
+              "title" => "Review orphan skill: #{skill.name}",
+              "description" => "Skill '#{skill.name}' has no agent assignments or knowledge graph connections after #{days_old} days. Consider archiving or connecting to relevant agents.",
+              "conflict_id" => conflict.id,
+              "days_old" => days_old
             }
           )
 
@@ -270,13 +270,13 @@ module Ai
           confidence_score: 0.6,
           status: "pending",
           evidence: {
-            title: "Resolve version drift between related skills",
-            description: build_version_drift_description(conflict),
-            conflict_id: conflict.id,
-            skill_a_id: conflict.skill_a_id,
-            skill_b_id: conflict.skill_b_id,
-            skill_a_name: conflict.resolution_details&.dig("skill_a_name"),
-            skill_b_name: conflict.resolution_details&.dig("skill_b_name")
+            "title" => "Resolve version drift between related skills",
+            "description" => build_version_drift_description(conflict),
+            "conflict_id" => conflict.id,
+            "skill_a_id" => conflict.skill_a_id,
+            "skill_b_id" => conflict.skill_b_id,
+            "skill_a_name" => conflict.resolution_details&.dig("skill_a_name"),
+            "skill_b_name" => conflict.resolution_details&.dig("skill_b_name")
           }
         )
 

@@ -145,6 +145,11 @@ module Ai
             }
           )
           proposals << skill.id
+        rescue StandardError => e
+          # Per-item, not method-level: one skill's failure (e.g. create!
+          # validation) must not discard proposals already computed for
+          # other skills in the same sweep, or abort the skills still queued.
+          Rails.logger.error "[SkillGraph::SelfLearning] propose_prompt_refinements skill #{skill.id} failed: #{e.class}: #{e.message}"
         end
 
         Rails.logger.info "[SkillGraph::SelfLearning] Proposed #{proposals.size} prompt refinements"
@@ -186,6 +191,10 @@ module Ai
               best_match_similarity: best_similarity.round(4)
             }
           end
+        rescue StandardError => e
+          # Per-item: one learning's nearest-neighbor lookup failing must not
+          # drop every other learning's gap from this sweep.
+          Rails.logger.error "[SkillGraph::SelfLearning] detect_capability_gaps learning #{learning.id} failed: #{e.class}: #{e.message}"
         end
 
         # Cluster gaps by category — propose new skills when >= 3 gaps in same category
@@ -218,6 +227,10 @@ module Ai
             }
           )
           proposals << category
+        rescue StandardError => e
+          # Per-item: one category's failed create! must not discard gaps
+          # already found (first loop, above) or other categories' proposals.
+          Rails.logger.error "[SkillGraph::SelfLearning] detect_capability_gaps category #{category} failed: #{e.class}: #{e.message}"
         end
 
         Rails.logger.info "[SkillGraph::SelfLearning] Detected #{gaps.size} gaps, proposed #{proposals.size} new skills"
