@@ -385,6 +385,22 @@ RSpec.describe Ai::Agent, type: :model do
     end
   end
 
+  describe 'BASE_GUARDRAILS reuse-first fleet-discovery wording' do
+    # Extension-agnostic: an agent asked to provision infrastructure needs to
+    # be pointed at fleet discovery (existing modules/templates/packages)
+    # before building anything new, but core must never name an
+    # extension-specific tool (no system_* actions) since BASE_GUARDRAILS
+    # rides every agent regardless of which extensions are installed.
+    it 'tells agents to discover existing fleet infrastructure before provisioning' do
+      expect(Ai::Agent::BASE_GUARDRAILS).to include("provisioning fleet infrastructure")
+      expect(Ai::Agent::BASE_GUARDRAILS).to include("the platform's fleet-discovery tools")
+    end
+
+    it 'never names an extension-specific (system_*) tool' do
+      expect(Ai::Agent::BASE_GUARDRAILS).not_to match(/\bsystem_/)
+    end
+  end
+
   describe '#resolved_model Fable candidacy gate (pinned path)' do
     let(:gate_account) { create(:account) }
     let(:gate_provider) do
