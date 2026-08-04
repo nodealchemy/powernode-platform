@@ -134,11 +134,15 @@ module Ai
             recommendation_type: "prompt_refinement",
             target_type: "Ai::Skill",
             target_id: skill.id,
-            title: "Refine prompt for '#{skill.name}' based on #{learnings.size} compound learnings",
-            description: "Relevant learnings: #{learning_summaries}",
             confidence_score: learnings.first.respond_to?(:neighbor_distance) ? (1.0 - learnings.first.neighbor_distance).round(4) : 0.7,
             status: "pending",
-            metadata: { learning_ids: learnings.map(&:id), skill_effectiveness: skill.effectiveness_score }
+            evidence: {
+              "title" => "Refine prompt for '#{skill.name}' based on #{learnings.size} compound learnings",
+              "description" => "Relevant learnings: #{learning_summaries}",
+              "skill_name" => skill.name,
+              "learning_ids" => learnings.map(&:id),
+              "skill_effectiveness" => skill.effectiveness_score
+            }
           )
           proposals << skill.id
         end
@@ -146,7 +150,7 @@ module Ai
         Rails.logger.info "[SkillGraph::SelfLearning] Proposed #{proposals.size} prompt refinements"
         proposals
       rescue StandardError => e
-        Rails.logger.error "[SkillGraph::SelfLearning] propose_prompt_refinements failed: #{e.message}"
+        Rails.logger.error "[SkillGraph::SelfLearning] propose_prompt_refinements failed: #{e.class}: #{e.message}"
         []
       end
 
@@ -194,7 +198,7 @@ module Ai
           existing = Ai::ImprovementRecommendation
             .where(account: account, recommendation_type: "skill_creation")
             .pending
-            .where("metadata @> ?", { gap_category: category }.to_json)
+            .where("evidence @> ?", { gap_category: category }.to_json)
             .exists?
           next if existing
 
@@ -203,11 +207,15 @@ module Ai
             recommendation_type: "skill_creation",
             target_type: "Account",
             target_id: account.id,
-            title: "Create skill for '#{category}' capability gap (#{category_gaps.size} learnings)",
-            description: "#{category_gaps.size} high-importance learnings suggest a missing #{category} skill. Top gaps: #{category_gaps.first(3).map { |g| g[:learning_content] }.join('; ')}",
             confidence_score: category_gaps.map { |g| g[:importance] }.sum / category_gaps.size,
             status: "pending",
-            metadata: { gap_category: category, gap_count: category_gaps.size, learning_ids: category_gaps.map { |g| g[:learning_id] } }
+            evidence: {
+              "title" => "Create skill for '#{category}' capability gap (#{category_gaps.size} learnings)",
+              "description" => "#{category_gaps.size} high-importance learnings suggest a missing #{category} skill. Top gaps: #{category_gaps.first(3).map { |g| g[:learning_content] }.join('; ')}",
+              "gap_category" => category,
+              "gap_count" => category_gaps.size,
+              "learning_ids" => category_gaps.map { |g| g[:learning_id] }
+            }
           )
           proposals << category
         end
@@ -215,7 +223,7 @@ module Ai
         Rails.logger.info "[SkillGraph::SelfLearning] Detected #{gaps.size} gaps, proposed #{proposals.size} new skills"
         { gaps: gaps, proposed_categories: proposals }
       rescue StandardError => e
-        Rails.logger.error "[SkillGraph::SelfLearning] detect_capability_gaps failed: #{e.message}"
+        Rails.logger.error "[SkillGraph::SelfLearning] detect_capability_gaps failed: #{e.class}: #{e.message}"
         { gaps: [], proposed_categories: [] }
       end
 

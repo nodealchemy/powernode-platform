@@ -128,19 +128,10 @@ module Api
                 next unless result
 
                 result[:suggestions].each do |suggestion|
-                  # Create an improvement recommendation for each suggestion
-                  ::Ai::ImprovementRecommendation.create(
-                    account_id: account.id,
-                    ai_agent_id: agent.id,
-                    title: suggestion[:message],
-                    recommendation_type: suggestion[:type],
-                    priority: suggestion[:type] == "quality_concern" ? "high" : "medium",
-                    description: "Based on #{result[:total_proposals]} proposals with #{(result[:approval_rate] * 100).round(1)}% approval rate",
-                    status: "pending"
-                  )
+                  upsert_policy_suggestion!(account: account, agent: agent, suggestion: suggestion, result: result)
                   suggestions_count += 1
                 rescue StandardError => e
-                  Rails.logger.warn "[PolicyTuning] Failed to create suggestion: #{e.message}"
+                  Rails.logger.warn "[PolicyTuning] Failed to create suggestion: #{e.class}: #{e.message}"
                 end
               end
             rescue StandardError => e
@@ -148,6 +139,65 @@ module Api
             end
 
             render_success(suggestions_count: suggestions_count)
+          end
+
+          private
+
+          POLICY_TUNING_SOURCE = "policy_tuning"
+
+          # One standing offer per agent, refreshed in place. This endpoint runs on
+          # a schedule over a rolling 30-day window, so creating unconditionally
+          # would accrue a new pending row every run. The agent is carried by the
+          # polymorphic target and the suggestion's own shape (message/priority/
+          # type) rides in evidence, matching how Ai::Tools::ImprovementTool
+          # #create_improvement maps rich fields.
+          #
+          # evidence["source"] identifies this writer. Ai::Learning::Improvement
+          # Recommender produces agent_reliability rows against the same
+          # (account, Ai::Agent, agent) tuple from a different signal; the tag is
+          # what keeps the two from dedupe-matching and overwriting each other.
+          def upsert_policy_suggestion!(account:, agent:, suggestion:, result:)
+            attrs = {
+              confidence_score: policy_suggestion_confidence(suggestion),
+              evidence: {
+                "title" => suggestion[:message],
+                "description" => "Based on #{result[:total_proposals]} proposals with #{(result[:approval_rate] * 100).round(1)}% approval rate",
+                "priority" => suggestion[:type] == "quality_concern" ? "high" : "medium",
+                "suggestion_type" => suggestion[:type],
+                "approval_rate" => result[:approval_rate],
+                "total_proposals" => result[:total_proposals],
+                "source" => POLICY_TUNING_SOURCE
+              }
+            }
+
+            existing = open_policy_suggestion(account: account, agent: agent)
+            return existing.update!(attrs) if existing
+
+            ::Ai::ImprovementRecommendation.create!(
+              attrs.merge(
+                account_id: account.id,
+                recommendation_type: "agent_reliability",
+                target_type: "Ai::Agent",
+                target_id: agent.id,
+                status: "pending"
+              )
+            )
+          end
+
+          def open_policy_suggestion(account:, agent:)
+            ::Ai::ImprovementRecommendation
+              .where(account_id: account.id, recommendation_type: "agent_reliability",
+                     target_type: "Ai::Agent", target_id: agent.id, status: "pending")
+              .where("evidence->>'source' = ?", POLICY_TUNING_SOURCE)
+              .first
+          end
+
+          # Confidence that the suggestion is correct, not a restatement of its
+          # high/medium priority label (which rides in evidence): how consistently
+          # the observed approval rate points the way the suggestion does.
+          def policy_suggestion_confidence(suggestion)
+            rate = suggestion[:approval_rate].to_f
+            (suggestion[:type] == "quality_concern" ? 1.0 - rate : rate).clamp(0.0, 1.0)
           end
         end
       end

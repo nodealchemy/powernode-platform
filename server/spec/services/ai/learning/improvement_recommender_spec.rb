@@ -127,6 +127,74 @@ RSpec.describe Ai::Learning::ImprovementRecommender, type: :service do
           expect(Ai::ImprovementRecommendation.last.recommendation_type).to eq("agent_reliability")
         end
       end
+
+      # Policy tuning (Api::V1::Internal::Ai::AutonomyController#analyze_policy_patterns)
+      # writes agent_reliability rows against the same (account, Ai::Agent, agent)
+      # tuple this analyzer produces. Its rows are tagged with evidence["source"];
+      # updating one here would replace the whole evidence column and destroy the
+      # title/description/priority the observation sensor reads.
+      context "when another writer owns a pending row for the same tuple" do
+        let(:agent) { create(:ai_agent, account: account) }
+        let!(:policy_row) do
+          create(:ai_improvement_recommendation, :pending,
+                 account: account,
+                 recommendation_type: "agent_reliability",
+                 target_type: "Ai::Agent",
+                 target_id: agent.id,
+                 confidence_score: 0.8333,
+                 evidence: {
+                   "title" => "Only 16.7% approval rate",
+                   "description" => "Based on 12 proposals",
+                   "priority" => "high",
+                   "suggestion_type" => "quality_concern",
+                   "source" => "policy_tuning"
+                 })
+        end
+
+        before do
+          allow(analyzer).to receive(:analyze).and_return([{
+            recommendation_type: "agent_reliability",
+            target_type: "Ai::Agent",
+            target_id: agent.id,
+            current_config: { agent_name: agent.name, failure_rate: 40.0 },
+            recommended_config: {},
+            evidence: { suggestion: "Review configuration or provider." },
+            confidence_score: 0.4
+          }])
+        end
+
+        it "leaves the other writer's evidence intact" do
+          service.generate_recommendations
+
+          evidence = policy_row.reload.evidence
+          expect(evidence["title"]).to eq("Only 16.7% approval rate")
+          expect(evidence["description"]).to eq("Based on 12 proposals")
+          expect(evidence["priority"]).to eq("high")
+          expect(evidence["suggestion_type"]).to eq("quality_concern")
+        end
+
+        it "leaves the other writer's confidence score intact" do
+          service.generate_recommendations
+
+          expect(policy_row.reload.confidence_score.to_f).to be_within(0.0001).of(0.8333)
+        end
+
+        it "writes its own row instead of hijacking that one" do
+          expect { service.generate_recommendations }
+            .to change(Ai::ImprovementRecommendation, :count).by(1)
+
+          own = Ai::ImprovementRecommendation.where(recommendation_type: "agent_reliability").order(:created_at).last
+          expect(own.id).not_to eq(policy_row.id)
+          expect(own.evidence["suggestion"]).to eq("Review configuration or provider.")
+        end
+
+        it "still dedupes against its own untagged row on a second run" do
+          service.generate_recommendations
+
+          expect { service.generate_recommendations }
+            .not_to change(Ai::ImprovementRecommendation, :count)
+        end
+      end
     end
 
     context "when the account kill switch is active (gate #3)" do

@@ -259,6 +259,51 @@ RSpec.describe Ai::SkillGraph::SelfLearningService, type: :service do
 
       expect(result).to eq([])
     end
+
+    # title/description/metadata are not columns on ai_improvement_recommendations;
+    # the enclosing rescue swallowed the UnknownAttributeError, so no proposal was
+    # ever persisted even when the nearest-neighbour search found matches.
+    context "when a skill has close compound learnings" do
+      let(:vector) { Array.new(1536, 0.1) }
+      let!(:skill) { create(:ai_skill, account: account) }
+      let!(:learning) do
+        create(:ai_compound_learning, account: account, status: "active",
+                                      content: "Always re-verify the finding on HEAD before offering it", embedding: vector)
+      end
+
+      before do
+        create(:ai_knowledge_graph_node, account: account, entity_type: "skill",
+                                         ai_skill_id: skill.id, status: "active", embedding: vector)
+      end
+
+      it "persists a prompt_refinement recommendation for the skill" do
+        expect { service.propose_prompt_refinements }
+          .to change { Ai::ImprovementRecommendation.count }.by(1)
+
+        rec = Ai::ImprovementRecommendation.last
+        expect(rec.recommendation_type).to eq("prompt_refinement")
+        expect(rec.target_type).to eq("Ai::Skill")
+        expect(rec.target_id).to eq(skill.id)
+        expect(rec.status).to eq("pending")
+        expect(rec.confidence_score).to be_present
+      end
+
+      it "carries title, description and learning provenance in evidence" do
+        service.propose_prompt_refinements
+        evidence = Ai::ImprovementRecommendation.last.evidence
+
+        expect(evidence["title"]).to include(skill.name)
+        expect(evidence["description"]).to include(learning.content.truncate(100))
+        expect(evidence["learning_ids"]).to include(learning.id)
+        expect(evidence).to have_key("skill_effectiveness")
+      end
+
+      it "returns the skill id and does not re-propose while one is pending" do
+        expect(service.propose_prompt_refinements).to eq([skill.id])
+        expect { service.propose_prompt_refinements }
+          .not_to(change { Ai::ImprovementRecommendation.count })
+      end
+    end
   end
 
   describe "#detect_capability_gaps" do
@@ -279,6 +324,54 @@ RSpec.describe Ai::SkillGraph::SelfLearningService, type: :service do
       result = service.detect_capability_gaps
 
       expect(result[:gaps]).to eq([])
+    end
+
+    # Same phantom-column defect as propose_prompt_refinements, plus a dedupe
+    # check that filtered on a `metadata` jsonb column that does not exist.
+    context "when >= 3 high-importance learnings cluster with no matching skill" do
+      let!(:learnings) do
+        Array.new(3) do |i|
+          create(:ai_compound_learning, account: account, status: "active", category: "performance_insight",
+                                        importance_score: 0.9, content: "Deployment learning #{i}",
+                                        embedding: Array.new(1536, 0.1))
+        end
+      end
+
+      it "persists a skill_creation recommendation targeted at the account" do
+        expect { service.detect_capability_gaps }
+          .to change { Ai::ImprovementRecommendation.count }.by(1)
+
+        rec = Ai::ImprovementRecommendation.last
+        expect(rec.recommendation_type).to eq("skill_creation")
+        expect(rec.target_type).to eq("Account")
+        expect(rec.target_id).to eq(account.id)
+        expect(rec.confidence_score.to_f).to be_within(0.001).of(0.9)
+      end
+
+      it "carries the gap cluster in evidence" do
+        service.detect_capability_gaps
+        evidence = Ai::ImprovementRecommendation.last.evidence
+
+        expect(evidence["title"]).to include("performance_insight")
+        expect(evidence["description"]).to include("high-importance learnings")
+        expect(evidence["gap_category"]).to eq("performance_insight")
+        expect(evidence["gap_count"]).to eq(3)
+        expect(evidence["learning_ids"]).to match_array(learnings.map(&:id))
+      end
+
+      it "reports the gaps and proposed categories" do
+        result = service.detect_capability_gaps
+
+        expect(result[:gaps].size).to eq(3)
+        expect(result[:proposed_categories]).to eq(["performance_insight"])
+      end
+
+      it "does not re-propose the same category while one is pending" do
+        service.detect_capability_gaps
+
+        expect { service.detect_capability_gaps }
+          .not_to(change { Ai::ImprovementRecommendation.count })
+      end
     end
   end
 

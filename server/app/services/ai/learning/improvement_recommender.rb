@@ -52,14 +52,19 @@ module Ai
 
       private
 
+      # Refreshing an existing offer replaces its evidence/config wholesale, so it
+      # must only ever match a row this analyzer owns. Rows written by another
+      # subsystem tag themselves with evidence["source"] (e.g. policy tuning's
+      # agent_reliability offers, which share this exact tuple); untagged rows are
+      # this analyzer's own, including every row written before the tag existed.
       def create_or_update_recommendation(analysis)
-        existing = Ai::ImprovementRecommendation.find_by(
+        existing = Ai::ImprovementRecommendation.where(
           account: @account,
           recommendation_type: analysis[:recommendation_type],
           target_type: analysis[:target_type],
           target_id: analysis[:target_id],
           status: "pending"
-        )
+        ).where("evidence->>'source' IS NULL").first
 
         if existing
           existing.update!(

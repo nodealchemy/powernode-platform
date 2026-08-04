@@ -49,21 +49,37 @@ module Ai
 
         private
 
+        # Agent attribution is the polymorphic target, and the rich fields live in
+        # the evidence jsonb (see Ai::Tools::ImprovementTool#create_improvement).
+        # Recommendations aimed at another agent are somebody else's; anything not
+        # aimed at an agent at all is fleet-wide and relevant to everyone.
+        #
+        # Code-quality offers are excluded: they are the /improve loop's backlog,
+        # drained as Ralph tasks by Ai::DevLoop::ImprovementPromotionService, and
+        # are repository-targeted rather than agent-targeted. Feeding them here
+        # would hand every agent another repository's lint findings as its own
+        # action items and spend the AgentObservation per-hour budget the other
+        # sensors need. Newest-first so an agent's own recent recommendations
+        # cannot be crowded out of the limit by an older backlog.
         def pending_recommendations
           Ai::ImprovementRecommendation
             .where(account_id: account.id, status: "pending")
-            .where(ai_agent_id: [agent.id, nil])
+            .where.not(recommendation_type: Ai::ImprovementRecommendation::CODE_QUALITY_TYPES)
+            .where("target_type <> 'Ai::Agent' OR target_id = ?", agent.id)
+            .order(created_at: :desc)
             .limit(5)
             .map do |rec|
+              evidence = rec.evidence.is_a?(Hash) ? rec.evidence : {}
               {
                 id: rec.id,
-                title: rec.title,
+                title: evidence["title"].presence || "#{rec.recommendation_type} improvement",
                 recommendation_type: rec.recommendation_type,
-                priority: rec.priority,
-                description: rec.description&.truncate(200)
+                priority: evidence["priority"],
+                description: evidence["description"]&.truncate(200)
               }
             end
-        rescue StandardError
+        rescue StandardError => e
+          Rails.logger.error "[Sensors::Recommendation] pending_recommendations failed: #{e.class}: #{e.message}"
           []
         end
 
