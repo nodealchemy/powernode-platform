@@ -105,23 +105,36 @@ module Ai
         category = find_category(params[:category_slug])
         return { success: false, error: "Category not found: #{params[:category_slug]}" } unless category
 
-        author = ::User.find_by(email: "admin@powernode.org") || ::User.first
-        article = ::KnowledgeBase::Article.create!(
-          title: params[:title],
-          content: params[:content],
-          category: category,
-          author: author,
-          status: params[:status] || "draft",
-          excerpt: params[:excerpt],
-          is_featured: params[:is_featured] || false,
-          is_public: true,
-          views_count: 0,
-          likes_count: 0,
-          sort_order: 0
-        )
+        article = nil
 
-        if params[:tags].present?
-          article.tag_names = Array(params[:tags])
+        ActiveRecord::Base.transaction do
+          article = ::KnowledgeBase::Article.create!(
+            title: params[:title],
+            content: params[:content],
+            category: category,
+            author: default_author,
+            status: params[:status] || "draft",
+            excerpt: params[:excerpt],
+            is_featured: params[:is_featured] || false,
+            is_public: true,
+            views_count: 0,
+            likes_count: 0,
+            sort_order: 0
+          )
+
+          if params[:tags].present?
+            article.tag_names = Array(params[:tags])
+          end
+
+          # A create that lands straight in `published` stays a `create` row —
+          # one event happened, not two. "Who published this" is answered across
+          # both shapes by the to_status index, not by the action.
+          record_article_workflow!(
+            article,
+            action: "create",
+            from_status: nil,
+            to_status: article.status
+          )
         end
 
         { success: true, article_id: article.id, slug: article.slug, title: article.title }
@@ -140,12 +153,72 @@ module Ai
         attrs[:status] = params[:status] if params[:status].present?
         attrs[:is_featured] = params[:is_featured] unless params[:is_featured].nil?
 
-        article.update!(attrs)
-        article.tag_names = Array(params[:tags]) if params[:tags].present?
+        from_status = article.status
+
+        ActiveRecord::Base.transaction do
+          article.update!(attrs)
+
+          # Read the summary before tag assignment resets saved_changes.
+          summary = ::KnowledgeBase::Workflow.change_summary(article)
+          article.tag_names = Array(params[:tags]) if params[:tags].present?
+
+          record_article_workflow!(
+            article,
+            action: ::KnowledgeBase::Workflow.action_for(from_status, article.status),
+            from_status: from_status,
+            to_status: article.status,
+            comment: summary
+          )
+        end
 
         { success: true, article_id: article.id, slug: article.slug }
       rescue ActiveRecord::RecordInvalid => e
         { success: false, error: e.message }
+      end
+
+      # Records an article state transition, blocking like the controller does:
+      # a bare create! inside the caller's transaction, so a transition that
+      # cannot be recorded is rolled back. The surrounding
+      # `rescue ActiveRecord::RecordInvalid` then reports it to the agent as a
+      # failed call rather than a silent partial success.
+      def record_article_workflow!(article, action:, from_status:, to_status:, comment: nil, metadata: {})
+        principal, attribution = workflow_principal(article)
+
+        ::KnowledgeBase::Workflow.create!(
+          article: article,
+          user: principal,
+          action: action,
+          from_status: from_status,
+          to_status: to_status,
+          comment: comment,
+          metadata: metadata.merge(
+            source: "ai_tool",
+            tool: self.class.tool_name,
+            agent_id: agent&.id,
+            agent_name: agent&.name,
+            attribution: attribution
+          ).compact
+        )
+      end
+
+      # knowledge_base_workflows.user_id is NOT NULL, so every row needs a
+      # principal — but an agent-driven call frequently has no acting user
+      # (BaseTool#user is nil for both agent and instance principals) and the
+      # seeded GLOBAL articles are deliberately authorless (db/seeds/kb/*.rb set
+      # author_id = nil on 53 of them). The chain therefore falls back to the
+      # same admin this tool already picks as an author, and returns which link
+      # was used so `metadata.attribution` records it: the row never claims a
+      # fallback user performed the action, and `metadata.agent_id` carries the
+      # actor the column cannot express.
+      def workflow_principal(article)
+        return [ user, "acting_user" ] if user
+        return [ article.author, "article_author" ] if article.author
+
+        [ default_author, "fallback_admin" ]
+      end
+
+      def default_author
+        ::User.find_by(email: "admin@powernode.org") || ::User.first
       end
 
       def find_article(params)

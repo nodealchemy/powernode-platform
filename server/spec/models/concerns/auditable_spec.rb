@@ -47,12 +47,7 @@ RSpec.describe Auditable do
                                "(factory sets \"agent\", model allows agent_memory/knowledge_base/shared_context)",
     "Ai::ContextEntry" => "builds an Ai::PersistentContext, which is invalid for the reason above",
     "Devops::KubernetesNode" => "Node instance must exist (factory sets no node_instance)",
-    "SupplyChain::SbomDiff" => "SBOMs must belong to the same account (factory builds two unrelated SBOMs)",
-    # Not a factory defect: the model validates, scopes and branches on a
-    # workflow_type column that knowledge_base_workflows does not have, so
-    # every save raises NoMethodError. The model is unusable in production too.
-    "KnowledgeBase::Workflow" => "undefined method `workflow_type' — model references a column " \
-                                 "that does not exist in knowledge_base_workflows"
+    "SupplyChain::SbomDiff" => "SBOMs must belong to the same account (factory builds two unrelated SBOMs)"
   }.freeze
 
   # Models with no FactoryBot factory. They get the structural check only.

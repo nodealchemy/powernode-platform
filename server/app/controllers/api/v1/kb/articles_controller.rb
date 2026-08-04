@@ -83,9 +83,20 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     # owned by + visible only within it (globals are seed/platform-managed only).
     article.account = current_account
 
-    if article.save
-      handle_tag_assignment(article) if params[:article][:tag_names].present?
+    created = ActiveRecord::Base.transaction do
+      next false unless article.save
 
+      handle_tag_assignment(article) if params[:article][:tag_names].present?
+      record_article_workflow!(
+        article,
+        action: "create",
+        from_status: nil,
+        to_status: article.status
+      )
+      true
+    end
+
+    if created
       render_success(
         article: serialize_article_admin(article.reload)
       )
@@ -99,9 +110,26 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     return render_error("Article not found", status: :not_found) unless @article
     return render_error("Access denied", status: :forbidden) unless @article.editable_by?(current_user)
 
-    if @article.update(article_params)
-      handle_tag_assignment(@article) if params[:article][:tag_names].present?
+    from_status = @article.status
 
+    updated = ActiveRecord::Base.transaction do
+      next false unless @article.update(article_params)
+
+      # Read the change summary before tag assignment: its save resets
+      # saved_changes on the same instance.
+      summary = KnowledgeBase::Workflow.change_summary(@article)
+      handle_tag_assignment(@article) if params[:article][:tag_names].present?
+      record_article_workflow!(
+        @article,
+        action: KnowledgeBase::Workflow.action_for(from_status, @article.status),
+        from_status: from_status,
+        to_status: @article.status,
+        comment: summary
+      )
+      true
+    end
+
+    if updated
       render_success(
         article: serialize_article_admin(@article.reload)
       )
@@ -123,7 +151,22 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   def publish
     return render_error("Article not found", status: :not_found) unless @article
 
-    if @article.update(status: "published", published_at: Time.current)
+    from_status = @article.status
+
+    published = ActiveRecord::Base.transaction do
+      next false unless @article.update(status: "published", published_at: Time.current)
+
+      record_article_workflow!(
+        @article,
+        action: "publish",
+        from_status: from_status,
+        to_status: @article.status,
+        metadata: { published_at: @article.published_at&.iso8601 }
+      )
+      true
+    end
+
+    if published
       render_success(
         article: serialize_article_admin(@article)
       )
@@ -136,7 +179,25 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   def unpublish
     return render_error("Article not found", status: :not_found) unless @article
 
-    if @article.update(status: "draft", published_at: nil)
+    from_status = @article.status
+    # published_at is about to be cleared, so the only record of when this
+    # article was live is the one written here.
+    was_published_at = @article.published_at
+
+    unpublished = ActiveRecord::Base.transaction do
+      next false unless @article.update(status: "draft", published_at: nil)
+
+      record_article_workflow!(
+        @article,
+        action: "unpublish",
+        from_status: from_status,
+        to_status: @article.status,
+        metadata: { was_published_at: was_published_at&.iso8601 }
+      )
+      true
+    end
+
+    if unpublished
       render_success(
         article: serialize_article_admin(@article)
       )
@@ -240,6 +301,35 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   end
 
   private
+
+  # Records an article state transition in knowledge_base_workflows.
+  #
+  # Deliberately blocking: a bare create! inside the caller's transaction, so a
+  # transition that cannot be recorded is rolled back rather than committed
+  # untracked. This follows the domain-event precedent in this codebase —
+  # Ai::KillSwitchEvent (kill_switch_service.rb:306), Ai::TeamRestructureEvent
+  # (self_organizing_team_service.rb:50) and Ai::A2aTaskEvent (a2a_task.rb:374)
+  # all use a bare create!, and kill_switch_service rescues its broadcast and
+  # trust-tier side effects in the same file while leaving the event write
+  # unrescued. The one domain-event writer that swallows failures,
+  # Ai::Introspection::ExecutionEventRecorder, records cost/duration telemetry
+  # rather than a domain fact. Generic Auditable is best-effort for the same
+  # reason; this table is not, because a trail with silent holes cannot answer
+  # the question it exists for.
+  #
+  # current_user is always present here: every calling action sits behind
+  # authenticate_request plus an authorize_kb_* filter.
+  def record_article_workflow!(article, action:, from_status:, to_status:, comment: nil, metadata: {})
+    KnowledgeBase::Workflow.create!(
+      article: article,
+      user: current_user,
+      action: action,
+      from_status: from_status,
+      to_status: to_status,
+      comment: comment,
+      metadata: metadata.merge(source: "api").compact
+    )
+  end
 
   def authenticate_optional
     # Authenticate if Authorization header is present
