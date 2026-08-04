@@ -5,6 +5,8 @@ module Devops
     self.table_name = "devops_swarm_deployments"
 
     include Auditable
+
+    audit_account_via :cluster
     include ExecutionTrackable
 
     DEPLOYMENT_TYPES = %w[deploy update scale rollback remove stack_deploy stack_remove].freeze

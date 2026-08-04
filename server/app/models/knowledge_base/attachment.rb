@@ -7,6 +7,9 @@ module KnowledgeBase
     # Concerns
     include Auditable
 
+    # Article#account is optional, so fall back to the uploading user.
+    audit_account_via :article, :uploaded_by
+
     # Associations
     belongs_to :article, class_name: "KnowledgeBase::Article", foreign_key: "article_id"
     belongs_to :uploaded_by, class_name: "User", foreign_key: "uploaded_by_id"

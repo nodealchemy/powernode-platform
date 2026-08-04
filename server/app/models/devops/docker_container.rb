@@ -6,6 +6,8 @@ module Devops
 
     include Auditable
 
+    audit_account_via :docker_host
+
     STATES = %w[created running paused restarting exited removing dead].freeze
 
     belongs_to :docker_host, class_name: "Devops::DockerHost"

@@ -7,6 +7,9 @@ module KnowledgeBase
     # Concerns
     include Auditable
 
+    # Article#account is optional, so fall back to the authoring user.
+    audit_account_via :article, :author
+
     # Associations
     belongs_to :article, class_name: "KnowledgeBase::Article", foreign_key: "article_id"
     belongs_to :author, class_name: "User", foreign_key: "author_id"

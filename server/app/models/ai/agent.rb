@@ -60,6 +60,7 @@ module Ai
     # Associations
     # Optional: a global (platform-provided) agent has account_id nil.
     belongs_to :account, optional: true
+    audit_optional_account! reason: "system agents are shared across tenants and own no account"
     belongs_to :creator, class_name: "User", foreign_key: "creator_id"
     belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
     has_many :executions, class_name: "Ai::AgentExecution", foreign_key: "ai_agent_id", dependent: :destroy

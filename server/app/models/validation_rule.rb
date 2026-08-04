@@ -7,6 +7,8 @@ class ValidationRule < ApplicationRecord
   # ==========================================
   include Auditable
 
+  audit_without_account! reason: "global rule catalogue seeded from config, not tenant data"
+
   # ==========================================
   # Validations
   # ==========================================

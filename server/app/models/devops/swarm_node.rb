@@ -6,6 +6,8 @@ module Devops
 
     include Auditable
 
+    audit_account_via :cluster
+
     ROLES = %w[manager worker].freeze
     AVAILABILITIES = %w[active pause drain].freeze
     STATUSES = %w[ready down disconnected unknown].freeze

@@ -5,6 +5,8 @@ module Ai
     # ==================== Concerns ====================
     include Auditable
 
+    audit_account_via :ralph_loop
+
     # ==================== Constants ====================
     STATUSES = %w[pending in_progress passed failed blocked skipped].freeze
     TERMINAL_STATUSES = %w[passed failed skipped].freeze

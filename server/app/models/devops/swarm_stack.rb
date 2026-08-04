@@ -6,6 +6,8 @@ module Devops
 
     include Auditable
 
+    audit_account_via :cluster
+
     STATUSES = %w[draft deploying deployed failed removing removed].freeze
     SOURCES = %w[platform discovered].freeze
 

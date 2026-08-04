@@ -4,6 +4,8 @@ class CommunityAgent < ApplicationRecord
   # Concerns
   include Auditable
 
+  audit_account_via :owner_account
+
   # Constants
   VISIBILITIES = %w[public unlisted private].freeze
   STATUSES = %w[pending active suspended deprecated].freeze

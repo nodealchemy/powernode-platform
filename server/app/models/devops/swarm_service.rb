@@ -6,6 +6,8 @@ module Devops
 
     include Auditable
 
+    audit_account_via :cluster
+
     MODES = %w[replicated global].freeze
 
     belongs_to :cluster, class_name: "Devops::SwarmCluster"

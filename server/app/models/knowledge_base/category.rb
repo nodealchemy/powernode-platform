@@ -8,6 +8,8 @@ module KnowledgeBase
     include Auditable
     include Searchable
 
+    audit_without_account! reason: "shared article taxonomy, not tenant-owned data"
+
     # Associations
     belongs_to :parent, class_name: "KnowledgeBase::Category", optional: true
     has_many :children, class_name: "KnowledgeBase::Category", foreign_key: "parent_id", dependent: :destroy

@@ -5,6 +5,8 @@ module Devops
     self.table_name = "devops_swarm_events"
 
     include Auditable
+
+    audit_account_via :cluster
     include AcknowledgeableEvent
 
     SOURCE_TYPES = %w[node service task cluster stack].freeze

@@ -7,6 +7,8 @@ module Devops
     include Auditable
     include AcknowledgeableEvent
 
+    audit_account_via :docker_host
+
     SOURCE_TYPES = %w[host container image network volume].freeze
 
     belongs_to :docker_host, class_name: "Devops::DockerHost"

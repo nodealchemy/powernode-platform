@@ -2,10 +2,70 @@
 
 # Auditable concern for models that need audit logging
 # Automatically tracks changes for compliance and security
+#
+# ## Resolving the account
+#
+# Every AuditLog row requires an account (`belongs_to :account`, and
+# `audit_logs.account_id` is NOT NULL): the account is how tenants read their
+# own audit trail, so a row without one is a row nobody can ever see. Models
+# that carry `belongs_to :account` need no configuration. Models that reach an
+# account through an owner declare the path:
+#
+#     audit_account_via :ralph_loop                    # ralph_loop.account
+#     audit_account_via %i[mcp_tool mcp_server], :user # first non-nil wins
+#     audit_account_via :owner_account                 # already an Account
+#
+# Models that genuinely have no owning tenant (global reference data) declare
+# that instead, which suppresses the write rather than letting it fail:
+#
+#     audit_without_account! reason: "global SPDX catalogue, not tenant data"
+#
+# Both declarations are asserted by spec/models/concerns/auditable_spec.rb,
+# which walks every model including this concern.
 module Auditable
   extend ActiveSupport::Concern
 
+  # Raised when a model that is supposed to have an account cannot produce one.
+  # Routed through the same failure path as any other audit write error.
+  class AccountUnresolved < StandardError; end
+
+  # Audit callbacks are inert in the test environment by default: the suite
+  # creates records constantly and auditing every one would add an INSERT (plus
+  # an advisory-lock round trip) to each. Specs that exercise auditing turn it
+  # on for their own examples with `Auditable.with_logging`.
+  mattr_accessor :logging_enabled, default: !Rails.env.test?
+
+  # A failed audit write must never break the user-facing save that triggered
+  # it, so outside the test environment a failure is logged and instrumented
+  # but swallowed. In test it raises, so CI fails on a regression instead of
+  # letting the gap reappear silently.
+  mattr_accessor :raise_on_failure, default: Rails.env.test?
+
+  # Emitted on every failed or suppressed audit write so the gap is countable
+  # in production rather than living only in a log line.
+  FAILURE_NOTIFICATION = "audit.write_failed.auditable"
+  SKIPPED_NOTIFICATION = "audit.write_skipped.auditable"
+
+  def self.with_logging
+    previous = logging_enabled
+    self.logging_enabled = true
+    yield
+  ensure
+    self.logging_enabled = previous
+  end
+
   included do
+    # Ordered candidate paths for resolving the audit account. Empty means
+    # "use the model's own :account association".
+    class_attribute :audit_account_sources, instance_writer: false, default: [].freeze
+
+    # Set by audit_without_account! for global records with no owning tenant.
+    class_attribute :audit_account_exemption, instance_writer: false, default: nil
+
+    # Set by audit_optional_account! for models where only *some* rows are
+    # tenant-owned (system templates shared across accounts, typically).
+    class_attribute :audit_optional_account_reason, instance_writer: false, default: nil
+
     # Audit log creation after record creation
     after_create :log_record_creation
 
@@ -16,64 +76,115 @@ module Auditable
     before_destroy :log_record_deletion
   end
 
+  class_methods do
+    # Declares where this model's audit account comes from. Each source is an
+    # association name, or an array of names to walk. The first source that
+    # yields an account wins.
+    def audit_account_via(*sources)
+      self.audit_account_sources = sources.map { |source| Array(source).map(&:to_sym).freeze }.freeze
+    end
+
+    # Declares that this model has no owning account, so audit writes are
+    # suppressed instead of failing. The reason is surfaced by the spec.
+    def audit_without_account!(reason:)
+      self.audit_account_exemption = reason
+    end
+
+    # Declares that a row of this model may legitimately have no account (a
+    # system template shared across tenants). Those rows are skipped; rows that
+    # do have an account are audited normally.
+    def audit_optional_account!(reason:)
+      self.audit_optional_account_reason = reason
+    end
+  end
+
+  # The account an audit row for this record belongs to. Override directly for
+  # anything the declarative form cannot express.
+  def audit_account
+    return try(:account) if audit_account_sources.empty?
+
+    audit_account_sources.each do |path|
+      owner = path.reduce(self) { |object, segment| object.respond_to?(segment) ? object.public_send(segment) : nil }
+      next if owner.nil?
+
+      resolved = owner.is_a?(Account) ? owner : owner.try(:account)
+      return resolved if resolved
+    end
+
+    nil
+  end
+
   private
 
   def log_record_creation
-    # Skip audit logging in test environment to avoid deadlocks from
-    # RSpec's multi-connection transactional test setup
-    return if Rails.env.test?
-
-    AuditLog.log_action(
-      action: "created",
-      resource: self,
-      account: try(:account),
-      new_values: auditable_attributes,
-      source: "system"
-    )
-  rescue StandardError => e
-    Rails.logger.error "Failed to log record creation for #{self.class.name}##{id}: #{e.message}"
+    write_audit_log("created", new_values: auditable_attributes)
   end
 
   def log_record_update
-    # Skip audit logging in test environment to avoid deadlocks from
-    # RSpec's multi-connection transactional test setup
-    return if Rails.env.test?
-
     return unless saved_changes.present?
 
     # Filter out non-auditable changes (timestamps, etc.)
     relevant_changes = saved_changes.except("updated_at", "created_at")
     return if relevant_changes.empty?
 
-    old_values = relevant_changes.transform_values(&:first)
-    new_values = relevant_changes.transform_values(&:last)
+    write_audit_log(
+      "updated",
+      old_values: relevant_changes.transform_values(&:first),
+      new_values: relevant_changes.transform_values(&:last)
+    )
+  end
+
+  def log_record_deletion
+    write_audit_log("deleted", old_values: auditable_attributes)
+  end
+
+  def write_audit_log(action, old_values: nil, new_values: nil)
+    return unless Auditable.logging_enabled
+    return record_audit_skipped(action) if audit_account_exemption
+
+    account = audit_account
+    if account.nil?
+      return record_audit_skipped(action) if audit_optional_account_reason
+
+      raise AccountUnresolved,
+            "#{self.class.name} could not resolve an audit account. Declare one with " \
+            "audit_account_via, or audit_without_account! if it has no owning tenant."
+    end
 
     AuditLog.log_action(
-      action: "updated",
+      action: action,
       resource: self,
-      account: try(:account),
+      account: account,
       old_values: old_values,
       new_values: new_values,
       source: "system"
     )
   rescue StandardError => e
-    Rails.logger.error "Failed to log record update for #{self.class.name}##{id}: #{e.message}"
+    record_audit_failure(action, e)
   end
 
-  def log_record_deletion
-    # Skip audit logging in test environment to avoid deadlocks from
-    # RSpec's multi-connection transactional test setup
-    return if Rails.env.test?
-
-    AuditLog.log_action(
-      action: "deleted",
-      resource: self,
-      account: try(:account),
-      old_values: auditable_attributes,
-      source: "system"
+  def record_audit_failure(action, error)
+    ActiveSupport::Notifications.instrument(
+      FAILURE_NOTIFICATION,
+      model: self.class.name,
+      record_id: id,
+      action: action,
+      error_class: error.class.name,
+      message: error.message
     )
-  rescue StandardError => e
-    Rails.logger.error "Failed to log record deletion for #{self.class.name}##{id}: #{e.message}"
+    Rails.logger.error "Failed to log record #{action} for #{self.class.name}##{id}: #{error.message}"
+    raise error if Auditable.raise_on_failure
+  end
+
+  def record_audit_skipped(action)
+    ActiveSupport::Notifications.instrument(
+      SKIPPED_NOTIFICATION,
+      model: self.class.name,
+      record_id: id,
+      action: action,
+      reason: audit_account_exemption || audit_optional_account_reason
+    )
+    nil
   end
 
   # Override this method in models to specify which attributes should be audited

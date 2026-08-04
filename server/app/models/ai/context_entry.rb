@@ -5,6 +5,8 @@ module Ai
     # ==================== Concerns ====================
     include Auditable
 
+    audit_account_via :persistent_context
+
     has_neighbors :embedding
 
     # ==================== Constants ====================

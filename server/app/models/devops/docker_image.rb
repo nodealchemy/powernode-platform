@@ -6,6 +6,8 @@ module Devops
 
     include Auditable
 
+    audit_account_via :docker_host
+
     belongs_to :docker_host, class_name: "Devops::DockerHost"
     has_many :docker_activities, class_name: "Devops::DockerActivity", foreign_key: "image_id", dependent: :nullify
 

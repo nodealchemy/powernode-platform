@@ -14,6 +14,8 @@ module Devops
 
     include Auditable
 
+    audit_account_via :kubernetes_cluster
+
     # K3s vocabulary
     K3S_ROLES = %w[server agent].freeze
     # Kubeadm vocabulary

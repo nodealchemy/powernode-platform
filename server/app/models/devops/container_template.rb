@@ -17,6 +17,7 @@ module Devops
 
     # Associations
     belongs_to :account, optional: true  # nil = system template
+    audit_optional_account! reason: "system templates are shared across tenants and own no account"
     belongs_to :created_by, class_name: "User", optional: true
     belongs_to :parent_template, class_name: "Devops::ContainerTemplate", optional: true
 

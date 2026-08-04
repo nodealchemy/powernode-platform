@@ -4,6 +4,8 @@ class CommunityAgentReport < ApplicationRecord
   # Concerns
   include Auditable
 
+  audit_account_via :reported_by_account
+
   # Constants
   REPORT_TYPES = %w[malicious spam inappropriate copyright other].freeze
   STATUSES = %w[pending investigating resolved dismissed].freeze

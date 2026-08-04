@@ -5,6 +5,8 @@ module Ai
     # ==================== Concerns ====================
     include Auditable
 
+    audit_account_via :ralph_loop
+
     # ==================== Constants ====================
     STATUSES = %w[pending running completed failed skipped].freeze
 

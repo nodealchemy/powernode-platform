@@ -7,6 +7,9 @@ class McpToolExecution < ApplicationRecord
   # ==========================================
   include Auditable
 
+  # user_id is nullable, so the server's account is the reliable path.
+  audit_account_via %i[mcp_tool mcp_server], :user
+
   # ==========================================
   # Associations
   # ==========================================

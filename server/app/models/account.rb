@@ -3,6 +3,11 @@
 class Account < ApplicationRecord
   include Auditable
 
+  # An account's own audit rows belong to itself.
+  def audit_account
+    self
+  end
+
   # Associations
   has_many :users, dependent: :destroy
   has_many :invitations, dependent: :destroy

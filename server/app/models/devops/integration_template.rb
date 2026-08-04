@@ -14,6 +14,7 @@ module Devops
 
     # ==================== Associations ====================
     belongs_to :account, optional: true
+    audit_optional_account! reason: "system templates are shared across tenants and own no account"
     has_many :instances, class_name: "Devops::IntegrationInstance", foreign_key: "integration_template_id", dependent: :restrict_with_error
 
     # Backward compatibility alias

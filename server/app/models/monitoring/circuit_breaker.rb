@@ -11,6 +11,8 @@ module Monitoring
     # ==========================================
     include Auditable
 
+    audit_without_account! reason: "process-wide breaker state for outbound services, not tenant data"
+
     # ==========================================
     # Associations
     # ==========================================

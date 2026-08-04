@@ -7,6 +7,8 @@ module KnowledgeBase
     # Concerns
     include Auditable
 
+    audit_without_account! reason: "shared article taxonomy, not tenant-owned data"
+
     # Associations
     has_many :article_tags, class_name: "KnowledgeBase::ArticleTag", foreign_key: "tag_id", dependent: :destroy
     has_many :articles, class_name: "KnowledgeBase::Article", through: :article_tags

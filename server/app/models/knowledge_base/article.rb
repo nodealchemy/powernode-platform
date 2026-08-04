@@ -11,6 +11,7 @@ module KnowledgeBase
 
     # Associations
     belongs_to :account, optional: true
+    audit_optional_account! reason: "globally-scoped articles are shared across tenants and own no account"
     belongs_to :category, class_name: "KnowledgeBase::Category"
     belongs_to :author, class_name: "User", optional: true
     has_many :article_tags, class_name: "KnowledgeBase::ArticleTag", foreign_key: "article_id", dependent: :destroy

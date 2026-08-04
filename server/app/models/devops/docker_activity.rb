@@ -7,6 +7,8 @@ module Devops
     include Auditable
     include ExecutionTrackable
 
+    audit_account_via :docker_host
+
     ACTIVITY_TYPES = %w[create start stop restart remove pull image_remove image_tag].freeze
     STATUSES = %w[pending running completed failed].freeze
 
