@@ -109,9 +109,13 @@ module Ai
         "system_create_template" => "Ai::Tools::SystemFleetTool",
         "system_update_instance" => "Ai::Tools::SystemFleetTool",
         "system_assign_module_to_template" => "Ai::Tools::SystemFleetTool",
+        "system_compose_preview_template" => "Ai::Tools::SystemFleetTool",
         "system_list_modules" => "Ai::Tools::SystemFleetTool",
         "system_get_module" => "Ai::Tools::SystemFleetTool",
         "system_list_module_versions" => "Ai::Tools::SystemFleetTool",
+        # Semantic catalog discovery — the reuse-first gate over modules/templates
+        "system_discover_modules" => "Ai::Tools::SystemFleetTool",
+        "system_discover_templates" => "Ai::Tools::SystemFleetTool",
         "system_promote_module_version" => "Ai::Tools::SystemFleetTool",
         "system_drift_report" => "Ai::Tools::SystemFleetTool",
         # Fleet observability & runbooks
