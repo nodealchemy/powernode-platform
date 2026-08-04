@@ -196,8 +196,30 @@ module Ai
 
     # Dispatches an MCP tool action via the registered tool class. Returns the
     # tool's response hash ({success:, data:/error:}).
+    #
+    # Principal guard: a recipe step needs *some* caller to attribute the
+    # dispatch to. `@user` and `@agent` are independently optional (see
+    # `initialize`, and `Ai::SkillRecipeRun belongs_to :user, optional: true`),
+    # so refuse outright when both are nil rather than let it fall through to
+    # a downstream "permission denied: <perm> required" that reads like a
+    # misconfigured grant. An agent-only principal (no user) is legitimate —
+    # it's the same "LLM tool-calling path" `Ai::Tools::McpPlatformToolRegistrar`
+    # already recognizes for a bound `mcp_agent` — so only the *no-principal*
+    # case is refused, not the user-less one.
+    #
+    # `internal:` is deliberately NEVER passed to `klass.new` below. A recipe
+    # is arbitrary caller-supplied content (skill metadata), not an in-process
+    # system caller — passing `internal: true` (or inferring it from a nil
+    # user) would hand every recipe the exact permission-gate bypass that
+    # `Ai::Tools::BaseTool#internal?` exists to restrict, reopening the hole
+    # IMP-9030413bc292 closed across SystemFleetTool/SdwanTool/SystemAcmeTool/
+    # SystemIngressTool/SystemStorageOwnerTool/SystemPackageRepositoryTool/
+    # SystemArchitectureCatalogTool. Do not "helpfully" add it here.
     def dispatch_tool(tool_name, params)
       raise RecipeError, "Step missing 'tool' name" if tool_name.blank?
+      if @user.nil? && @agent.nil?
+        raise RecipeError, "No principal for tool dispatch: recipe run has neither a user nor an agent"
+      end
 
       tool_class_name = ::Ai::Tools::PlatformApiToolRegistry.all_tools[tool_name]
       raise RecipeError, "Unknown tool: #{tool_name}" if tool_class_name.blank?
