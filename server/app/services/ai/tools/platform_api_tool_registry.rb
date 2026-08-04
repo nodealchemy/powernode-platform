@@ -66,6 +66,12 @@ module Ai
         "system_stop_instance" => "Ai::Tools::SystemFleetTool",
         "system_reboot_instance" => "Ai::Tools::SystemFleetTool",
         "system_upgrade_boot_image" => "Ai::Tools::SystemFleetTool",
+        # IMP-b2f80e6d1c65 — operator ops hold (2026-07-27 incident response):
+        # had ACTION_PERMISSIONS + dispatch but no registry key, so it was
+        # reachable only by smuggling the action into another tool's name.
+        "system_instance_hold" => "Ai::Tools::SystemFleetTool",
+        "system_instance_hold_status" => "Ai::Tools::SystemFleetTool",
+        "system_instance_release_hold" => "Ai::Tools::SystemFleetTool",
         "system_list_providers"     => "Ai::Tools::SystemFleetTool",
         "system_get_provider"       => "Ai::Tools::SystemFleetTool",
         "system_update_provider"    => "Ai::Tools::SystemFleetTool",
@@ -109,6 +115,7 @@ module Ai
         "system_create_template" => "Ai::Tools::SystemFleetTool",
         "system_update_instance" => "Ai::Tools::SystemFleetTool",
         "system_assign_module_to_template" => "Ai::Tools::SystemFleetTool",
+        "system_update_template_module" => "Ai::Tools::SystemFleetTool",
         "system_compose_preview_template" => "Ai::Tools::SystemFleetTool",
         "system_list_modules" => "Ai::Tools::SystemFleetTool",
         "system_get_module" => "Ai::Tools::SystemFleetTool",
@@ -120,6 +127,10 @@ module Ai
         "system_drift_report" => "Ai::Tools::SystemFleetTool",
         # Fleet observability & runbooks
         "system_module_diff" => "Ai::Tools::SystemFleetTool",
+        # IMP-b2f80e6d1c65 — same "declared but unroutable" gap as the ops
+        # hold above, from the same 2026-07-27 incident response commits.
+        "system_module_publish_target" => "Ai::Tools::SystemFleetTool",
+        "system_module_publication_integrity" => "Ai::Tools::SystemFleetTool",
         "system_compliance_snapshot" => "Ai::Tools::SystemFleetTool",
         "system_runbook_generate" => "Ai::Tools::SystemFleetTool",
         "system_cve_runbook_generate" => "Ai::Tools::SystemFleetTool",

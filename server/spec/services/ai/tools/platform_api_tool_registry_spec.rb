@@ -61,6 +61,21 @@ RSpec.describe Ai::Tools::PlatformApiToolRegistry do
         "system_inspect_correlation" => "Ai::Tools::SystemFleetTool"
       )
     end
+
+    # IMP-b2f80e6d1c65 — these five had an ACTION_PERMISSIONS entry and a
+    # dispatch branch in system_fleet_tool.rb, but no registry key, so they
+    # were reachable ONLY by smuggling the action into another tool's name
+    # (closed by e6c3e6e4d). Same "declared but unroutable" shape
+    # system_upgrade_boot_image was previously in.
+    it "registers the SystemFleetTool ops-hold and publish-target actions" do
+      expect(described_class::TOOLS).to include(
+        "system_instance_hold" => "Ai::Tools::SystemFleetTool",
+        "system_instance_hold_status" => "Ai::Tools::SystemFleetTool",
+        "system_instance_release_hold" => "Ai::Tools::SystemFleetTool",
+        "system_module_publish_target" => "Ai::Tools::SystemFleetTool",
+        "system_module_publication_integrity" => "Ai::Tools::SystemFleetTool"
+      )
+    end
   end
 
   describe ".available_tools" do

@@ -30,6 +30,31 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
 
   after { described_class.reset! }
 
+  # NOTE: %w[] does not support inline comments — a line starting with "#"
+  # inside the literal becomes literal words in the array, not a comment.
+  # This DESTRUCTIVE/SAFE pair are plain test fixtures (not the production
+  # deny list), but Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS had exactly
+  # this defect: eval'ing it standalone held 107 entries where 15 were
+  # intended, 92 of them stray words from two %w[]-inline annotations (see
+  # "structural sanity" below, which now pins bare-pattern-only against the
+  # real constant so this cannot silently recur). Per-entry rationale for
+  # fixture additions lives up here instead of inline, for the same reason.
+  #
+  # system_upgrade_boot_image: arms an A/B boot slot the node reboots into,
+  # on itself or a peer — at least as consequential as
+  # system_reboot_instance, which is already denied. Became MCP-reachable
+  # only when the action was added to PlatformApiToolRegistry (previously
+  # declared, tested and unroutable).
+  #
+  # system_instance_hold / system_instance_release_hold (IMP-b2f80e6d1c65):
+  # arm/disarm the operator ops hold. Release is the sharper risk
+  # (InstanceOpsHoldService#release! does not require a user, unlike
+  # #hold!) but both are denied for symmetry — same system.instances.control
+  # tier as the *_stop_instance/*_reboot_instance pair above, and permitting
+  # an instance to clear a hold a human placed would re-create the
+  # unattended-start race the feature exists to prevent. Became
+  # MCP-reachable only when these actions were added to
+  # PlatformApiToolRegistry (previously declared, tested and unroutable).
   DESTRUCTIVE = %w[
     platform.system_destroy_instance
     platform.system_terminate_instance
@@ -42,13 +67,16 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     platform.delete_agent
     platform.system_rotate_vault_transit_pepper
     platform.system_sdwan_revoke_access_grant
-    # Arms an A/B boot slot the node reboots into, on itself or a peer — at
-    # least as consequential as system_reboot_instance, which is already
-    # denied. Became MCP-reachable only when the action was added to
-    # PlatformApiToolRegistry (previously declared, tested and unroutable).
     platform.system_upgrade_boot_image
+    platform.system_instance_hold
+    platform.system_instance_release_hold
   ].freeze
 
+  # system_instance_hold_status / system_module_publish_target /
+  # system_module_publication_integrity (IMP-b2f80e6d1c65): read-only, same
+  # tier as system_get_module/system_list_instances above; not paired with
+  # an arm/disarm of a safety mechanism the way system_instance_hold/
+  # release_hold are.
   SAFE = %w[
     platform.code_blast_radius
     platform.search_knowledge
@@ -60,7 +88,37 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     platform.get_skill
     platform.list_skills
     platform.skill_health
+    platform.system_instance_hold_status
+    platform.system_module_publish_target
+    platform.system_module_publication_integrity
   ].freeze
+
+  # Structural sanity on the CONSTANT itself, not on behaviour — behaviour
+  # specs below pass even with a %w[]-inline-comment defect present (the
+  # stray words don't happen to fnmatch any real tool name today), which is
+  # exactly why 92 stray entries from two annotations survived undetected
+  # until an explicit count. This asserts the shape directly so a future
+  # inline "# comment" inside DESTRUCTIVE_TOOL_PATTERNS fails loudly instead
+  # of silently padding the array with denied-by-accident literal words.
+  describe "DESTRUCTIVE_TOOL_PATTERNS array hygiene" do
+    # DESTRUCTIVE_TOOL_PATTERNS is declared inside `class << self`, so it
+    # lives on Mcp::Principal's singleton class, not on Mcp::Principal
+    # itself — `described_class::DESTRUCTIVE_TOOL_PATTERNS` raises
+    # NameError even though the constant is real and `destructive_tool?`
+    # (defined in that same singleton-class body) resolves it lexically.
+    let(:patterns) { described_class.singleton_class::DESTRUCTIVE_TOOL_PATTERNS }
+
+    it "contains only bare fnmatch patterns — no stray words from an accidental %w[] comment" do
+      patterns.each do |pattern|
+        expect(pattern).not_to match(/\s/), "#{pattern.inspect} contains whitespace — likely a comment word leaked into the array"
+        expect(pattern).not_to eq("#"), "a literal \"#\" entry means a comment line leaked into the array"
+      end
+    end
+
+    it "matches the known, intentional pattern count exactly" do
+      expect(patterns.size).to eq(15)
+    end
+  end
 
   context "with a wildcard grant covering everything" do
     subject(:principal) { principal_granted("platform.*") }

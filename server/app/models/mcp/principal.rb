@@ -47,11 +47,16 @@ module Mcp
       #     `return if instance_authorized`, skipping BOTH
       #     `user.has_permission?(required)` and the MCP-token permission
       #     intersection.
-      #   * Tool bodies gate on a user, and several still read `@user.nil?` as
-      #     an "internal/system bypass" (e.g. SystemAcmeTool). That premise —
-      #     MCP-invoked callers always carry a user — predates instance
-      #     principals and is false for them, so the per-action permission map
-      #     is never consulted. SystemFleetTool no longer infers this: it takes
+      #   * Tool bodies used to read `@user.nil?` as an "internal/system
+      #     bypass". That premise — MCP-invoked callers always carry a user —
+      #     predates instance principals and is false for them, so the
+      #     per-action permission map was never consulted for one. All seven
+      #     tools carrying an ACTION_PERMISSIONS map now use the same explicit
+      #     three-rung ladder instead (internal? / instance_authorized? / a nil
+      #     user fails closed): SystemFleetTool (75ed9154) plus SdwanTool,
+      #     SystemAcmeTool, SystemArchitectureCatalogTool, SystemIngressTool,
+      #     SystemPackageRepositoryTool and SystemStorageOwnerTool (ef3059da).
+      #     None still infers internal from a nil user. SystemFleetTool takes
       #     an explicit `internal:` flag, and the registrar marks grant-gated
       #     instance calls via `instance_authorized=` (IMP-9030413bc292). That
       #     closes the *unmarked* bypass, not the tier skip — a marked instance
@@ -80,6 +85,41 @@ module Mcp
       # enumerated list: core must not know the extension's tool catalogue, and
       # a new destroy-shaped tool must be denied the day it ships, not the day
       # someone remembers to add it here.
+      #
+      # NOTE: %w[] does not support inline comments — a "#..." line inside the
+      # literal below is not a comment, it becomes literal words that are
+      # silently added as extra (wrong, though so far harmless — none happen
+      # to fnmatch a real tool name) deny patterns. Confirmed by eval'ing this
+      # exact array standalone: it held 107 entries where 15 were intended,
+      # 92 of them stray words from the two annotations below. Every
+      # per-pattern rationale therefore lives up here as real comments, not
+      # inline. Keep it that way — the array itself must contain ONLY bare
+      # patterns.
+      #
+      # *upgrade_boot_image* — arms an A/B boot slot that the node then
+      # REBOOTS into, so it is at least as consequential as *_reboot_instance
+      # above — denying the reboot while permitting the thing that causes one
+      # is incoherent. It also retargets what the node runs after that
+      # reboot, on itself or on a peer in the same account. Reachable by MCP
+      # only since the action was added to PlatformApiToolRegistry (it had
+      # been declared, tested and unroutable); this keeps that fix from
+      # widening what an instance principal can reach.
+      #
+      # *_hold (IMP-b2f80e6d1c65) denies system_instance_hold and
+      # system_instance_release_hold — arm/disarm of the operator ops hold,
+      # both system.instances.control tier, same as *_stop_instance/
+      # *_reboot_instance above. system_instance_release_hold is the sharper
+      # risk: InstanceOpsHoldService#release! does not require a user (only
+      # #hold! does), so nothing downstream stops an instance principal from
+      # clearing a hold a human operator placed — exactly re-creating the
+      # unattended-start race the feature exists to prevent (2026-07-27: a
+      # start 30s after stop truncated a blob under a dual mount).
+      # system_instance_hold shares the tier and the same arm/disarm pair, so
+      # it is denied for symmetry even though #hold! itself fails closed on a
+      # nil user today — the overlay does not rely on that holding. The
+      # pattern matches only the trailing "_hold", so
+      # system_instance_hold_status (system.instances.read, unrestricted like
+      # the tool's other read actions) is unaffected.
       DESTRUCTIVE_TOOL_PATTERNS = %w[
         *destroy*
         *terminate*
@@ -94,15 +134,8 @@ module Mcp
         emergency_*
         *_stop_instance
         *_reboot_instance
-        # Arms an A/B boot slot that the node then REBOOTS into, so it is at
-        # least as consequential as *_reboot_instance above — denying the
-        # reboot while permitting the thing that causes one is incoherent. It
-        # also retargets what the node runs after that reboot, on itself or on
-        # a peer in the same account. Reachable by MCP only since the action
-        # was added to PlatformApiToolRegistry (it had been declared, tested
-        # and unroutable); this keeps that fix from widening what an instance
-        # principal can reach.
         *upgrade_boot_image*
+        *_hold
       ].freeze
 
       # True when the tool is destroy-shaped and therefore off-limits to every
