@@ -589,9 +589,15 @@ module Permissions
     # (ModuleBuildBatch read API). Adjacent to .dispatch because that's the
     # existing precedent for this permission name; the admin/manager grant
     # is registered from the extension side (see PowernodeSystem::Engine) —
-    # .dispatch itself is worker/webhook-only by design (SYSTEM_PERMISSIONS
-    # entries default to system_worker only; nothing here should be read as
-    # implying admin/manager also get .dispatch).
+    # .dispatch itself gets no such registration and is worker/webhook-only
+    # by design (SYSTEM_PERMISSIONS entries default to system_worker only;
+    # nothing here should be read as implying the admin/manager ROLES also
+    # get an explicit .dispatch grant). That's a statement about role grants,
+    # not effective access: User#has_permission? short-circuits on
+    # system.admin, so the super_admin role still passes a .dispatch check
+    # without ever being registered here. Plain admin/manager aren't
+    # affected by that short-circuit — neither role's permissions array
+    # includes system.admin.
     "system.module_builds.read"                  => "View module-build batches (status, per-module build/lease/artifact state)"
   }.freeze
 
