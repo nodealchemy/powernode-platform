@@ -16,11 +16,52 @@ on:
       - '.gitea/workflows/docker-build.yml'
 
 env:
-  REGISTRY: ${{ secrets.REGISTRY_HOST || 'registry.example.com' }}
+  REGISTRY: ${{ secrets.REGISTRY_HOST }}
   IMAGE_TAG: ${{ gitea.event.inputs.tag || 'dev-latest' }}
 
 jobs:
+  # Fail fast, and loudly, on registry misconfiguration. Without this the three
+  # build jobs each die at `docker login` with an opaque
+  # "login attempt to https://***/v2/ failed with status: 404 Not Found" —
+  # the host is masked, so the log never says which setting is wrong.
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify registry configuration
+        env:
+          REGISTRY_HOST: ${{ secrets.REGISTRY_HOST }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          missing=0
+          for name in REGISTRY_HOST REGISTRY_USER REGISTRY_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret ${name} is empty or unset (Settings -> Actions -> Secrets)."
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ] || exit 1
+
+          # A Docker Registry v2 endpoint must answer GET /v2/ with 200 or 401.
+          # Anything else means REGISTRY_HOST is not pointing at a registry.
+          # curl's %{http_code} already prints 000 when the request never
+          # completes, so `|| true` here (not `|| echo 000`, which would
+          # concatenate a second 000 and defeat the match below).
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+                   "https://${REGISTRY_HOST}/v2/" || true)
+          case "${code:-000}" in
+            200|401)
+              echo "Registry v2 endpoint responded HTTP ${code} - OK." ;;
+            000)
+              echo "::error::Cannot reach https://<REGISTRY_HOST>/v2/ (DNS, TLS or connectivity)."
+              exit 1 ;;
+            *)
+              echo "::error::REGISTRY_HOST does not serve a Docker Registry v2 API: GET /v2/ returned HTTP ${code} (expected 200 or 401). Point REGISTRY_HOST at the Gitea host that serves the container registry."
+              exit 1 ;;
+          esac
+
   build-backend:
+    needs: preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +76,7 @@ jobs:
         run: docker push ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-backend:${{ env.IMAGE_TAG }}
 
   build-frontend:
+    needs: preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +96,7 @@ jobs:
         run: docker push ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-frontend:${{ env.IMAGE_TAG }}
 
   build-worker:
+    needs: preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
