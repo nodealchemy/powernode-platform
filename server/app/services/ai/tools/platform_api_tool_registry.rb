@@ -373,6 +373,7 @@ module Ai
         "update_ralph_loop" => "Ai::Tools::RalphLoopTool",
         "delete_ralph_loop" => "Ai::Tools::RalphLoopTool",
         "get_ralph_loop_statistics" => "Ai::Tools::RalphLoopTool",
+        "reopen_ralph_loop" => "Ai::Tools::RalphLoopTool",
         # Dev-loop executor bridge (pull-based task queue for Claude Code / platform executors)
         "dev_next_task" => "Ai::Tools::DevLoopTool",
         "dev_complete_task" => "Ai::Tools::DevLoopTool",

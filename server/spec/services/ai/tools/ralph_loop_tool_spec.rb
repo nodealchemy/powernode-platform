@@ -114,4 +114,35 @@ RSpec.describe Ai::Tools::RalphLoopTool do
       expect(result[:loop][:max_iterations]).to eq(500)
     end
   end
+
+  # IMP-957902bf8474: reset_ralph_loop's destructive reset! was the only
+  # terminal-legal transition reachable via this tool — reopen_ralph_loop
+  # exposes the non-destructive RalphLoop#reopen! escape hatch without a
+  # direct DB write.
+  describe "reopen_ralph_loop" do
+    it "reopens a completed loop to running without touching iterations" do
+      ralph_loop.update!(status: "completed", completed_at: Time.current)
+      create(:ai_ralph_iteration, ralph_loop: ralph_loop, iteration_number: 1)
+
+      result = tool.execute(params: { action: "reopen_ralph_loop", loop_id: ralph_loop.id })
+
+      expect(result[:success]).to be true
+      expect(ralph_loop.reload.status).to eq("running")
+      expect(ralph_loop.ralph_iterations.count).to eq(1)
+    end
+
+    it "refuses to reopen a non-terminal loop" do
+      result = tool.execute(params: { action: "reopen_ralph_loop", loop_id: ralph_loop.id }) # default status: pending
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/not terminal|nothing to reopen/i)
+    end
+
+    it "returns an error for an unknown loop" do
+      result = tool.execute(params: { action: "reopen_ralph_loop", loop_id: "missing" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/not found/)
+    end
+  end
 end

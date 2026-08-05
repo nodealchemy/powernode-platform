@@ -68,6 +68,15 @@ module Ai
             description: "Get aggregate statistics across all Ralph Loops — iteration counts, success rates, timing, " \
                          "improvement scoreboard, and the convergence metric (recurrence rate of already-learned bug classes per discovery window)",
             parameters: {}
+          },
+          "reopen_ralph_loop" => {
+            description: "Non-destructively reopen a terminal (completed/failed/cancelled) Ralph Loop back to " \
+                         "running — preserves ralph_iterations and every task's status (contrast with the " \
+                         "destructive reset!, which wipes iteration history and requeues non-skipped tasks). Use " \
+                         "when more work needs to be queued onto a loop that already finished draining.",
+            parameters: {
+              loop_id: { type: "string", required: true, description: "Ralph loop ID or name" }
+            }
           }
         }
       end
@@ -85,6 +94,7 @@ module Ai
         when "update_ralph_loop" then update_loop(params)
         when "delete_ralph_loop" then delete_loop(params)
         when "get_ralph_loop_statistics" then get_statistics
+        when "reopen_ralph_loop" then reopen_loop(params)
         else
           { success: false, error: "Unknown action: #{params[:action]}" }
         end
@@ -174,6 +184,17 @@ module Ai
         name = loop_record.name
         loop_record.destroy!
         { success: true, deleted: name }
+      end
+
+      def reopen_loop(params)
+        loop_record = find_loop(params[:loop_id])
+        return { success: false, error: "Ralph loop not found" } unless loop_record
+        unless loop_record.can_reopen?
+          return { success: false, error: "Loop is #{loop_record.status}, not terminal — nothing to reopen" }
+        end
+
+        loop_record.reopen!
+        { success: true, loop_id: loop_record.id, name: loop_record.name, status: loop_record.status }
       end
 
       def get_statistics

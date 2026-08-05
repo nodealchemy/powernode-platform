@@ -449,6 +449,66 @@ RSpec.describe Ai::RalphLoop, type: :model do
       end
     end
 
+    # IMP-957902bf8474: a loop that drains its queue goes `completed`, which is
+    # terminal — halt_reason then returns "loop_completed" forever, and the ONLY
+    # terminal-legal transition was reset!, which is destructive (drops iteration
+    # history via ralph_iterations.delete_all, and requeues every non-skipped
+    # task to pending). #reopen! is the non-destructive escape hatch: terminal ->
+    # running, preserving both — for a loop whose "completion" was just the
+    # queue running dry, not a deliberate do-over.
+    describe "#reopen!" do
+      it "moves a completed loop back to running and clears completed_at" do
+        record = create(:ai_ralph_loop, :completed, account: account)
+
+        record.reopen!
+        record.reload
+
+        expect(record.status).to eq("running")
+        expect(record.completed_at).to be_nil
+      end
+
+      it "preserves iteration history — contrast with reset!, which clears it" do
+        record = create(:ai_ralph_loop, :completed, account: account)
+        create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 1)
+        create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 2)
+
+        record.reopen!
+
+        expect(record.ralph_iterations.count).to eq(2)
+      end
+
+      it "moves no passed task back to pending, and leaves skipped tasks alone — " \
+         "contrast with #reset! above, which resets non-skipped tasks to pending" do
+        record = create(:ai_ralph_loop, :completed, account: account)
+        passed = create(:ai_ralph_task, :passed, ralph_loop: record, execution_attempts: 3)
+        skipped = create(:ai_ralph_task, :skipped, ralph_loop: record)
+
+        record.reopen!
+
+        expect(passed.reload).to have_attributes(status: "passed", execution_attempts: 3)
+        expect(skipped.reload.status).to eq("skipped")
+      end
+
+      %i[completed failed cancelled].each do |state|
+        it "reopens a #{state} loop to running" do
+          record = create(:ai_ralph_loop, state, account: account)
+
+          record.reopen!
+
+          expect(record.reload.status).to eq("running")
+        end
+      end
+
+      %i[pending running paused].each do |state|
+        it "refuses to reopen a non-terminal (#{state}) loop" do
+          live = create(:ai_ralph_loop, state, account: account)
+
+          expect { live.reopen! }
+            .to raise_error(Ai::RalphLoop::InvalidTransitionError, /Cannot reopen/)
+        end
+      end
+    end
+
     describe "state predicates" do
       it "classifies terminal vs in-progress statuses" do
         expect(create(:ai_ralph_loop, :completed, account: account)).to be_terminal

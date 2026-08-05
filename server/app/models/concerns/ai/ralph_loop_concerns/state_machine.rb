@@ -119,6 +119,21 @@ module Ai
         end
       end
 
+      # IMP-957902bf8474: reset! is the only terminal-legal transition, and it's
+      # destructive by design (wipes ralph_iterations, requeues every non-skipped
+      # task). A loop that went `completed` just because its queue ran dry — not
+      # because an operator chose a do-over — has no way back to `running` that
+      # doesn't erase that history. #reopen! is the non-destructive sibling:
+      # terminal -> running only, leaving ralph_iterations and every task's
+      # status exactly as they were. Deliberately does NOT touch error_message/
+      # error_code/error_details — those stay as the historical record of why a
+      # failed/cancelled loop stopped; reset! is still the only way to clear them.
+      def reopen!
+        raise Ai::RalphLoop::InvalidTransitionError, "Cannot reopen loop in #{status} status" unless can_reopen?
+
+        update!(status: "running", completed_at: nil)
+      end
+
       # State checks
 
       def can_start?
@@ -126,6 +141,10 @@ module Ai
       end
 
       def can_reset?
+        terminal?
+      end
+
+      def can_reopen?
         terminal?
       end
 
