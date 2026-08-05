@@ -8993,6 +8993,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
   create_table "system_fulfillment_requests", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "approved_at"
+    t.uuid "approved_by_user_id"
     t.uuid "build_batch_id"
     t.datetime "building_at"
     t.jsonb "cost_estimate", default: {}, null: false
@@ -9024,6 +9025,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "materializing_at"], name: "idx_fulfillment_requests_account_rate"
     t.index ["account_id"], name: "index_system_fulfillment_requests_on_account_id"
+    t.index ["approved_by_user_id"], name: "index_system_fulfillment_requests_on_approved_by_user_id"
     t.index ["build_batch_id"], name: "index_system_fulfillment_requests_on_build_batch_id"
     t.index ["expires_at"], name: "index_system_fulfillment_requests_on_expires_at"
     t.index ["state"], name: "index_system_fulfillment_requests_on_state"
@@ -9466,6 +9468,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
     t.string "name", null: false
     t.string "network_profile", default: "lightweight", null: false, comment: "OVS+OVN dual-profile selector — see System::NodeInstance::NETWORK_PROFILES"
     t.uuid "node_id", null: false
+    t.datetime "ops_hold_at"
+    t.uuid "ops_hold_by_id"
+    t.datetime "ops_hold_expires_at"
+    t.string "ops_hold_provider_state"
+    t.string "ops_hold_reason"
     t.datetime "pool_acquired_at"
     t.string "pool_state"
     t.datetime "pool_warming_started_at"
@@ -9498,6 +9505,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
     t.index ["node_id", "status"], name: "index_system_node_instances_on_node_id_and_status"
     t.index ["node_id", "variety"], name: "index_system_node_instances_on_node_id_and_variety"
     t.index ["node_id"], name: "index_system_node_instances_on_node_id"
+    t.index ["ops_hold_at"], name: "idx_system_node_instances_on_ops_hold", where: "(ops_hold_at IS NOT NULL)"
     t.index ["provider_instance_type_id"], name: "index_system_node_instances_on_provider_instance_type_id"
     t.index ["provider_region_id", "status"], name: "index_system_node_instances_on_provider_region_id_and_status"
     t.index ["provider_region_id"], name: "index_system_node_instances_on_provider_region_id"
@@ -9631,6 +9639,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
     t.integer "data_file_size"
     t.jsonb "dependency_spec", default: [], null: false
     t.text "description"
+    t.vector "embedding", limit: 1536
+    t.datetime "embedding_generated_at"
     t.boolean "enabled", default: true, null: false
     t.jsonb "file_spec", default: [], null: false
     t.string "gitea_repo_full_name"
@@ -9663,6 +9673,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
     t.index ["current_version_id"], name: "index_system_node_modules_on_current_version_id"
     t.index ["current_version_number"], name: "index_system_node_modules_on_current_version_number"
     t.index ["data_checksum"], name: "index_system_node_modules_on_data_checksum"
+    t.index ["embedding"], name: "idx_system_node_modules_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["enabled"], name: "index_system_node_modules_on_enabled"
     t.index ["file_spec"], name: "index_system_node_modules_on_file_spec", using: :gin
     t.index ["gitea_repo_full_name"], name: "idx_uniq_system_node_modules_gitea_repo", unique: true, where: "(gitea_repo_full_name IS NOT NULL)"
@@ -9698,8 +9709,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
     t.integer "disk_image_retention_count", default: 3, null: false, comment: "Number of historical publications to retain before reaper purges (per platform)"
     t.string "disk_image_sha256"
     t.bigint "disk_image_size_bytes"
-    t.string "disk_image_uki_oci_ref"
-    t.string "disk_image_uki_sha256"
     t.boolean "enabled", default: true, null: false
     t.text "init_script"
     t.string "name", null: false
@@ -9739,6 +9748,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
     t.text "description"
+    t.vector "embedding", limit: 1536
+    t.datetime "embedding_generated_at"
     t.boolean "enabled", default: true, null: false
     t.string "name", null: false
     t.uuid "node_platform_id", null: false
@@ -9749,6 +9760,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
     t.index ["account_id", "public"], name: "index_system_node_templates_on_account_id_and_public"
     t.index ["account_id"], name: "index_system_node_templates_on_account_id"
     t.index ["config"], name: "index_system_node_templates_on_config", using: :gin
+    t.index ["embedding"], name: "idx_system_node_templates_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["node_platform_id"], name: "index_system_node_templates_on_node_platform_id"
   end
 
@@ -12286,6 +12298,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
   add_foreign_key "system_node_instances", "system_nodes", column: "node_id"
   add_foreign_key "system_node_instances", "system_provider_instance_types", column: "provider_instance_type_id"
   add_foreign_key "system_node_instances", "system_provider_regions", column: "provider_region_id"
+  add_foreign_key "system_node_instances", "users", column: "ops_hold_by_id"
   add_foreign_key "system_node_module_assignments", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_node_module_assignments", "system_nodes", column: "node_id"
   add_foreign_key "system_node_module_assignments", "system_template_modules", column: "source_template_module_id", on_delete: :nullify
