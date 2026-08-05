@@ -112,6 +112,13 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
     from_status = @article.status
 
+    # Refuse BEFORE the transaction opens, so a denied publish leaves no
+    # article change and no audit row. (IMP-e32f500cdd88)
+    unless publication_change_allowed?(from_status, article_params[:status])
+      return render_error(publication_denied_message(from_status, article_params[:status]),
+                          status: :forbidden)
+    end
+
     updated = ActiveRecord::Base.transaction do
       next false unless @article.update(article_params)
 
@@ -259,10 +266,44 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     updated_count = 0
     update_params = bulk_update_params
 
+    # Same publication gate as #update. All-or-nothing, matching the
+    # "Access denied for some articles" check above: one article whose move
+    # would cross the published boundary refuses the whole batch rather than
+    # publishing the rest. Each article is checked against its OWN current
+    # status, because a batch can hold articles in different states.
+    # (IMP-e32f500cdd88)
+    crossing = articles.reject { |a| publication_change_allowed?(a.status, update_params[:status]) }
+    if crossing.any?
+      return render_error(publication_denied_message(crossing.first.status, update_params[:status]),
+                          status: :forbidden)
+    end
+
     articles.each do |article|
-      if article.update(update_params)
-        updated_count += 1
+      from_status = article.status
+
+      # Record the transition, exactly as #update does and through the same
+      # helper — one row per article, each carrying its own from_status. A
+      # batch is not one transition, and before this a bulk status move left no
+      # row at all in the table that IS the answer to "who moved this article"
+      # (IMP-78ae82f1deda). Per-article transaction so an unrecordable
+      # transition rolls back that article rather than being committed
+      # untracked, while the rest of the batch still counts.
+      # (IMP-e32f500cdd88)
+      recorded = ActiveRecord::Base.transaction do
+        next false unless article.update(update_params)
+
+        summary = KnowledgeBase::Workflow.change_summary(article)
+        record_article_workflow!(
+          article,
+          action: KnowledgeBase::Workflow.action_for(from_status, article.status),
+          from_status: from_status,
+          to_status: article.status,
+          comment: summary
+        )
+        true
       end
+
+      updated_count += 1 if recorded
     end
 
     render_success(
@@ -386,6 +427,51 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   def authorize_kb_manage
     render_error("Access denied", status: :forbidden) unless can_manage_kb?
+  end
+
+  # SECURITY (IMP-e32f500cdd88): crossing the `published` boundary is a
+  # distinct act from editing, and this controller already prices it that way —
+  # #publish and #unpublish sit behind authorize_kb_publish. But article_params
+  # and bulk_update_params BOTH permit :status while #update and #bulk_update
+  # are gated only by authorize_kb_edit, so a principal holding just kb.update
+  # could publish by writing the attribute directly and never touch the gated
+  # endpoints. Same bypass as the agent path's, which IMP-3682545ccbe9 closed
+  # by requiring kb.publish before KbArticleManagementTool would move an
+  # article across that boundary.
+  #
+  # The gated SET mirrors that fix exactly (its
+  # #crosses_publication_boundary?): both directions across `published`, and
+  # nothing else. Entering grants fleet-wide visibility, leaving revokes it,
+  # and archive-from-published is an unpublish by another name. draft ->
+  # review, review -> draft and draft -> archived change nobody's visibility
+  # and stay open — gating them would make the human path stricter than the
+  # agent path it is mirroring.
+  #
+  # Authorization reuses can_publish_kb?, the helper #publish/#unpublish
+  # already use, rather than introducing a second definition of who may
+  # publish. That means kb.manage is accepted here. The agent path excludes
+  # kb.manage only because it is that TOOL's own REQUIRED_PERMISSION, so
+  # honouring it there would make the check vacuous for every caller able to
+  # reach the code; that reasoning does not carry to this controller, where
+  # the edit gate is kb.update and kb.manage already grants #publish directly.
+  def publication_change_allowed?(from_status, to_status)
+    return true unless crosses_publication_boundary?(from_status, to_status)
+
+    can_publish_kb?
+  end
+
+  # A blank to_status means the request is not asking for a status change at
+  # all, and an unchanged status crosses nothing.
+  def crosses_publication_boundary?(from_status, to_status)
+    return false if to_status.blank?
+    return false if from_status.to_s == to_status.to_s
+
+    from_status.to_s == "published" || to_status.to_s == "published"
+  end
+
+  def publication_denied_message(from_status, to_status)
+    "Access denied: changing article status (#{from_status} -> #{to_status}) crosses the " \
+      "published boundary and requires the kb.publish permission"
   end
 
   def apply_filters(articles)

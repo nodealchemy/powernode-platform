@@ -495,8 +495,22 @@ RSpec.describe 'Api::V1::Kb::Articles', type: :request do
     end
 
     context 'with proper permissions' do
+      # IMP-e32f500cdd88: these params publish, and this example ran as
+      # `editor_headers` — a kb.update-only principal. It passed, which is
+      # precisely the bypass: :status is permitted in bulk_update_params while
+      # bulk_update is gated only by authorize_kb_edit, so kb.update alone
+      # could publish without ever touching the kb.publish-gated endpoints.
+      # The expectation encoded the bug rather than the intent.
+      #
+      # What it is actually for — a bulk update touches every listed article
+      # and applies every permitted field — is unchanged and asserted exactly
+      # as before. Only the CALLER changed, to `headers` (kb.update +
+      # kb.manage), which can_publish_kb? accepts. The refusal for a
+      # kb.update-only caller is asserted in
+      # articles_publish_authorization_spec.rb, alongside the non-publishing
+      # bulk edits an editor can still perform.
       it 'updates multiple articles' do
-        patch '/api/v1/kb/articles/bulk', params: bulk_update_params, headers: editor_headers, as: :json
+        patch '/api/v1/kb/articles/bulk', params: bulk_update_params, headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -504,6 +518,17 @@ RSpec.describe 'Api::V1::Kb::Articles', type: :request do
         expect(article1.reload.status).to eq('published')
         expect(article2.reload.status).to eq('published')
         expect(article1.is_featured).to be true
+      end
+
+      it 'lets a kb.update-only editor bulk-update fields that do not publish' do
+        patch '/api/v1/kb/articles/bulk',
+              params: { article_ids: [ article1.id, article2.id ], is_featured: true },
+              headers: editor_headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['updated_count']).to eq(2)
+        expect(article1.reload.is_featured).to be true
+        expect(article1.status).to eq('draft')
       end
     end
 
