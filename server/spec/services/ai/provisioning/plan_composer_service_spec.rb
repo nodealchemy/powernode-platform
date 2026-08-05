@@ -115,6 +115,65 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
       expect { service.compose! }.not_to change(Ai::AgentGoal, :count)
       expect(Ai::GoalPlan.where(goal_id: first_plan.goal_id).count).to be >= 2
     end
+
+    # IMP-589e181531a1 — core mode: the system extension is absent, a
+    # documented supported configuration. Reachability verdict: mission
+    # compose IS reachable here with no higher-layer gate — ComposerRouter#select
+    # routes to PlanComposerService purely on brief SHAPE (regions present,
+    # preferred_provider present, a known runtime_hint, use_case, or
+    # scale.initial > 0), never checking whether ::System is loaded, and all
+    # three real entry points (ProvisioningController#compose_plan,
+    # ProvisioningTool#compose_plan, Ai::Missions::PlanCompositionActions)
+    # call it the same way. This `brief` (regions + use_case + scale.initial)
+    # is exactly provisioning-shaped, so every one of these examples exercises
+    # the SAME path a live core-mode provisioning request takes.
+    #
+    # The two sites named in the finding (resolve_default_template's
+    # ::System::NodeTemplate lookup, and the ::System::NodeModule lookup one
+    # frame down in attach_role_module_to_template!) are real, but tracing
+    # execution order surfaced they are NOT what a live core-mode request
+    # actually hits first: resolve_provider_choice's ::System::Provider
+    # lookup runs at the top of #compose! (before the goal is even created),
+    # and rewrite_steps! -> merge_resolved_inputs! -> resolve_region_for_brief
+    # / resolve_instance_type_for (::System::ProviderRegion /
+    # ::System::ProviderInstanceType) run before attach_role_module_to_template!
+    # is ever reached for the DEFAULT_EXECUTOR ("provision_full_stack"). A fix
+    # scoped to only the two named sites would leave compose! raising at one
+    # of these three earlier sites -- fixing NodeTemplate/NodeModule alone
+    # would be provably inert against the actual crash. All five sites share
+    # one root cause (System::* undefined together, since they ship in the
+    # same extension) and the same nil-tolerant callers already in place
+    # (region&.id, instance_type&.id, resolve_default_template&.id,
+    # `return unless template`) -- so guarding each leaf lookup to return nil
+    # instead of raising is sufficient; nothing downstream needed to change.
+    context "core mode (system extension absent)" do
+      before do
+        %w[
+          System::Provider
+          System::ProviderRegion
+          System::ProviderInstanceType
+          System::NodeTemplate
+          System::NodeModule
+        ].each { |const_name| hide_const(const_name) }
+      end
+
+      it "does not raise for a provisioning-shaped brief (regions + use_case + scale.initial > 0)" do
+        expect { service.compose! }.not_to raise_error
+      end
+
+      it "still rewrites every step to provisioning_skill shape, with infra ids left unresolved" do
+        plan = service.compose!
+
+        expect(plan.steps.pluck(:step_type)).to all(eq("provisioning_skill"))
+
+        step1 = plan.steps.find_by(step_number: 1)
+        cfg = step1.execution_config
+        expect(cfg["skill"]).to eq("provision_full_stack") # DEFAULT_EXECUTOR / the fake_steps[0] mapping
+        expect(cfg["inputs"]["provider_region_id"]).to be_nil
+        expect(cfg["inputs"]["provider_instance_type_id"]).to be_nil
+        expect(cfg["inputs"]["template_id"]).to be_nil
+      end
+    end
   end
 
   describe "#validate_plan" do

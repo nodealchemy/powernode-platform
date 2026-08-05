@@ -230,6 +230,16 @@ module Ai
       #                                        compose without invoking the LLM
       #                                        decomposition kernel.
       def resolve_provider_choice(brief)
+        # Core mode: the system extension supplies System::Provider. Its
+        # absence already has a defined meaning here — nil means "account has
+        # no providers" (see the return-shape doc above), and every caller
+        # already treats nil that way (compose! proceeds with
+        # @account_provider_override = nil; the unscoped region/instance-type
+        # lookups below are the existing legacy/test fallback for exactly
+        # that case). Returning nil early is not a new contract, just an
+        # earlier exit to the same one.
+        return nil unless defined?(::System::Provider)
+
         providers = ::System::Provider.where(account_id: account.id, enabled: true).to_a
         return nil if providers.empty?
         return providers.first if providers.size == 1
@@ -673,6 +683,11 @@ module Ai
       end
 
       def resolve_region_for_brief(brief, account_provider_override: nil)
+        # Core mode: nil is the existing "no region resolved" shape (the
+        # caller already does `region&.id`), so an early nil here needs no
+        # new handling downstream.
+        return nil unless defined?(::System::ProviderRegion)
+
         @region_cache ||= {}
         wanted = Array(brief["regions"] || brief[:regions]).first.to_s
         cache_key = [account_provider_override&.id, wanted]
@@ -685,6 +700,10 @@ module Ai
       end
 
       def resolve_instance_type_for(region, account_provider_override: nil)
+        # Core mode: same nil-tolerant shape as #resolve_region_for_brief above
+        # (caller already does `instance_type&.id`).
+        return nil unless defined?(::System::ProviderInstanceType)
+
         @instance_type_cache ||= {}
         provider_id = region&.provider_id || account_provider_override&.id
         cache_key = provider_id
@@ -698,7 +717,18 @@ module Ai
         @instance_type_cache[cache_key] = ordered.first || ::System::ProviderInstanceType.where(account_id: account.id).first
       end
 
+      # Core mode (IMP-589e181531a1): System::NodeTemplate is unavailable
+      # with the extension absent. Guarding here rather than at each call
+      # site is the more honest fix — nothing downstream can do anything real
+      # without a template either way — and both existing callers already
+      # tolerate nil (merge_resolved_inputs!'s `resolve_default_template&.id`,
+      # attach_role_module_to_template!'s `return unless template`). The
+      # latter is load-bearing: it's what keeps the sibling
+      # ::System::NodeModule lookup in #attach_role_module_to_template!
+      # unreached in core mode, without needing its own separate guard.
       def resolve_default_template
+        return nil unless defined?(::System::NodeTemplate)
+
         @default_template ||= ::System::NodeTemplate.where(account_id: account.id).order(created_at: :asc).first
       end
 
