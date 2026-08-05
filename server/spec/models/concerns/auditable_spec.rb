@@ -26,6 +26,27 @@ RSpec.describe Auditable do
     ValidationRule
   ].freeze
 
+  # Models where only SOME rows are tenant-owned: the account is nullable by
+  # design (GloballyScopable platform defaults seeded with account_id nil,
+  # system templates shared across tenants), so a row without one has its audit
+  # write skipped instead of failing. Same drift guard as EXPECTED_EXEMPTIONS
+  # above, for the same reason and asserted the same way in both directions — a
+  # skipped audit write is silent at runtime, so the set has to be asserted
+  # rather than trusted. The difference from an exemption is scope, not kind:
+  # an exempt model never audits, one of these audits every row that has an
+  # account and quietly drops the rest.
+  #
+  # NOTE for IMP-aa02f756f569: SupplyChain::ScanTemplate is deliberately NOT
+  # here — it declares nothing yet and is still an EXTENSION_OWNED_GAPS entry
+  # below. The change that adds audit_optional_account! to it must move it into
+  # this list in the same commit, or this assertion fails.
+  EXPECTED_OPTIONAL_ACCOUNTS = %w[
+    Ai::Agent
+    Devops::ContainerTemplate
+    Devops::IntegrationTemplate
+    KnowledgeBase::Article
+  ].freeze
+
   # Models owned by an extension submodule that have no account path. Core
   # cannot declare on their behalf (an extension owns its own models), so they
   # are recorded here instead and remain a real audit gap until the extension
@@ -95,6 +116,11 @@ RSpec.describe Auditable do
       expect(declared).to match_array(EXPECTED_EXEMPTIONS)
     end
 
+    it "skips accountless rows for exactly the models the allowlist names" do
+      declared = self.class.auditable_models.select { |m| m.audit_optional_account_reason.present? }.map(&:name)
+      expect(declared).to match_array(EXPECTED_OPTIONAL_ACCOUNTS)
+    end
+
     auditable_models.each do |model|
       context model.name do
         it "can name the account its audit rows belong to" do
@@ -104,6 +130,16 @@ RSpec.describe Auditable do
                                            "(#{model.audit_account_exemption}) but is not in " \
                                            "EXPECTED_EXEMPTIONS. Add it there with the reason."
             next
+          end
+
+          if model.audit_optional_account_reason.present?
+            expect(EXPECTED_OPTIONAL_ACCOUNTS).to include(model.name),
+                                                  "#{model.name} skips the audit write for any row with no " \
+                                                  "account (#{model.audit_optional_account_reason}) but is not " \
+                                                  "in EXPECTED_OPTIONAL_ACCOUNTS. Add it there with the reason."
+            # No `next`, unlike an exemption: only SOME rows here lack an
+            # account, so the model still has to have a path for the rest of
+            # them and must satisfy the check below.
           end
 
           if EXTENSION_OWNED_GAPS.key?(model.name)
