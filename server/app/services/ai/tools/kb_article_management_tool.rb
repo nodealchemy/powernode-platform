@@ -124,7 +124,7 @@ module Ai
             title: params[:title],
             content: params[:content],
             category: category,
-            author: default_author,
+            author: resolved_author,
             status: status,
             excerpt: params[:excerpt],
             is_featured: params[:is_featured] || false,
@@ -290,6 +290,23 @@ module Ai
       def record_article_workflow!(article, action:, from_status:, to_status:, comment: nil, metadata: {})
         principal, attribution = workflow_principal(article)
 
+        # No principal resolved inside the account, so there is nobody this row
+        # could name without naming someone else's user. Refuse the transition
+        # rather than write a false one: raised as RecordInvalid so it travels
+        # the path every unwritable row already takes here — the transaction
+        # rolls back and the caller is told the call failed, never a silent
+        # partial success.
+        if principal.nil?
+          unattributable = ::KnowledgeBase::Workflow.new(
+            article: article, action: action, from_status: from_status, to_status: to_status
+          )
+          unattributable.errors.add(
+            :user,
+            "cannot be resolved within this account, so the transition has no actor to record"
+          )
+          raise ActiveRecord::RecordInvalid, unattributable
+        end
+
         ::KnowledgeBase::Workflow.create!(
           article: article,
           user: principal,
@@ -311,20 +328,63 @@ module Ai
       # principal — but an agent-driven call frequently has no acting user
       # (BaseTool#user is nil for both agent and instance principals) and the
       # seeded GLOBAL articles are deliberately authorless (db/seeds/kb/*.rb set
-      # author_id = nil on 53 of them). The chain therefore falls back to the
-      # same admin this tool already picks as an author, and returns which link
-      # was used so `metadata.attribution` records it: the row never claims a
-      # fallback user performed the action, and `metadata.agent_id` carries the
-      # actor the column cannot express.
+      # author_id = nil on 53 of them). The chain returns which link was used so
+      # `metadata.attribution` records it: the row never claims a fallback user
+      # performed the action, and `metadata.agent_id` carries the actor the
+      # column cannot express.
+      #
+      # EVERY link is scoped to `account`, including `article.author`. That link
+      # is not safe by construction: #find_article is override-aware, so a
+      # GLOBAL article (account_id nil) is reachable from every tenant, and its
+      # author is routinely a user of some other one. Since IMP-78ae82f1deda
+      # this row IS the article-transition audit trail, and user_id is the
+      # column a reader trusts to answer "who moved this article" — a row
+      # asserting that account A's user acted in account B is worse than a
+      # missing row, because it is a false statement in the record whose whole
+      # purpose is attribution. A foreign candidate is therefore skipped, not
+      # accepted, and the chain ends at nil rather than reaching outside.
       def workflow_principal(article)
-        return [ user, "acting_user" ] if user
-        return [ article.author, "article_author" ] if article.author
+        acting = in_account(user)
+        return [ acting, "acting_user" ] if acting
 
-        [ default_author, "fallback_admin" ]
+        author = in_account(article.author)
+        return [ author, "article_author" ] if author
+
+        fallback = account_principal
+        return [ fallback, "fallback_account_principal" ] if fallback
+
+        [ nil, nil ]
       end
 
-      def default_author
-        ::User.find_by(email: "admin@powernode.org") || ::User.first
+      # The author of an article this tool creates: the acting user when there
+      # is one, mirroring the human path (Api::V1::Kb::ArticlesController#create
+      # sets `article.author = current_user`), and otherwise the account's own
+      # principal. Never an identity from outside the account — an author is a
+      # claim about who wrote the article, and naming another tenant's user is
+      # simply untrue.
+      def resolved_author
+        in_account(user) || account_principal
+      end
+
+      # The account's own responsible identity, for a call that legitimately has
+      # no acting user. Its OWNER — the party accountable for what agents in the
+      # account do — falling back to the account's earliest user for an account
+      # whose owner role was never assigned. Deliberately NOT an address in
+      # source: the platform is DB-driven and multi-tenant, a self-hosted
+      # core-mode install has no reference admin account at all, and a literal
+      # cannot be scoped to the caller. Nil when the account has no users, which
+      # #record_article_workflow! turns into a refusal.
+      def account_principal
+        return nil if account.nil?
+
+        @account_principal ||= account.owner || account.users.order(:created_at, :id).first
+      end
+
+      # A candidate identity, but only when it belongs to THIS account.
+      def in_account(candidate)
+        return nil if candidate.nil? || account.nil?
+
+        candidate.account_id == account.id ? candidate : nil
       end
 
       def find_article(params)

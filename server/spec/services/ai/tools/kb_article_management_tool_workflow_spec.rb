@@ -110,14 +110,17 @@ RSpec.describe Ai::Tools::KbArticleManagementTool, "workflow audit trail" do
 
     # The seeded GLOBAL articles are deliberately authorless (db/seeds/kb/*.rb
     # sets author_id = nil on 53 of them), so this is the common shape in
-    # production, not an edge case.
-    it "falls back to the admin for an authorless global article, and says so" do
+    # production, not an edge case. The fallback is the ACCOUNT's own principal
+    # — here `admin`, the first user created in it and so its owner — not a
+    # user looked up by a hardcoded address (IMP-496d1870009b); cross-account
+    # coverage lives in kb_article_management_tool_attribution_spec.rb.
+    it "falls back to the account's own principal for an authorless global article, and says so" do
       article = create(:kb_article, category: category, account: nil, author: nil)
 
       tool.send(:update_article, article_id: article.id, title: "Global Edit")
 
       expect(latest_workflow.user_id).to eq(admin.id)
-      expect(latest_workflow.metadata["attribution"]).to eq("fallback_admin")
+      expect(latest_workflow.metadata["attribution"]).to eq("fallback_account_principal")
       expect(latest_workflow.metadata["agent_id"]).to eq(agent.id)
     end
   end
