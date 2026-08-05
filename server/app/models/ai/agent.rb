@@ -183,7 +183,13 @@ module Ai
     # read-only to consumers; record real changes to one so platform-agent
     # evolution is auditable over time (account-scoped agents are audited via
     # the controller). Best-effort — never breaks the save.
-    after_update_commit :audit_global_agent_change, if: :global?
+    #
+    # All three of create/update/destroy: an agent appearing or disappearing is
+    # as consequential as one being reconfigured, and only update was covered
+    # (IMP-4a4a497a8c15).
+    after_create_commit  :audit_global_agent_created,   if: :global?
+    after_update_commit  :audit_global_agent_change,    if: :global?
+    after_destroy_commit :audit_global_agent_destroyed, if: :global?
 
     def skill_slugs
       agent_skills.where(is_active: true).joins(:skill).where(ai_skills: { status: "active" }).pluck("ai_skills.slug")
@@ -270,34 +276,72 @@ module Ai
 
     private
 
+    # Columns whose churn is not a content change: touched by execution
+    # bookkeeping or regenerated from the others, so including them would make
+    # every idempotent seed re-run look like an edit.
+    GLOBAL_AUDIT_NOISE_COLUMNS = %w[
+      updated_at execution_stats last_executed_at mcp_registered_at mcp_tool_manifest
+    ].freeze
+
     # D5 — audit changes to a canonical GLOBAL agent over time. Logs only REAL
     # content changes (idempotent seed re-runs change nothing → no entry).
-    # Attributed to the platform account (a global agent has none of its own).
-    # Best-effort: a feedback/audit hiccup must never break the agent save.
+    # Attributed to the platform sentinel (a global agent has no account of its
+    # own). Best-effort: a feedback/audit hiccup must never break the agent save.
     def audit_global_agent_change
-      tracked = saved_changes.except(
-        "updated_at", "execution_stats", "last_executed_at",
-        "mcp_registered_at", "mcp_tool_manifest"
-      )
+      tracked = saved_changes.except(*GLOBAL_AUDIT_NOISE_COLUMNS)
       return if tracked.empty?
 
-      account = ::Account.find_by(name: "Powernode Admin") || ::Account.first
+      write_global_agent_audit!(
+        "ai.agents.update",
+        old_values: tracked.transform_values(&:first),
+        new_values: tracked.transform_values(&:last),
+        changed_fields: tracked.keys
+      )
+    end
+
+    # A global agent appearing is as consequential as one being reconfigured —
+    # it is a new shared capability every tenant resolves against.
+    def audit_global_agent_created
+      snapshot = global_audit_snapshot
+      write_global_agent_audit!("ai.agents.create", new_values: snapshot, changed_fields: snapshot.keys)
+    end
+
+    # ...and one disappearing is the change least recoverable from the record
+    # itself, since the row is gone.
+    def audit_global_agent_destroyed
+      snapshot = global_audit_snapshot
+      write_global_agent_audit!("ai.agents.delete", old_values: snapshot, changed_fields: snapshot.keys)
+    end
+
+    def global_audit_snapshot
+      auditable_attributes.except(*GLOBAL_AUDIT_NOISE_COLUMNS)
+    end
+
+    # FAILS CLOSED when no platform sentinel exists. This used to end in
+    # `|| ::Account.first`, which wrote platform events into whichever tenant
+    # sorted first — readable by them through their own audit relation. See
+    # Audit::PlatformAccount for why refusing beats misattributing, and for the
+    # skip signal a refusal emits so the gap stays countable.
+    def write_global_agent_audit!(action, old_values: nil, new_values: nil, changed_fields: [])
+      account = ::Audit::PlatformAccount.resolve_for(
+        model: self.class.name, record_id: id, action: action
+      )
       return unless account
 
       ::AuditLog.create!(
         account: account, user: nil,
-        action: "ai.agents.update", source: "system",
+        action: action, source: "system",
         resource_type: "Ai::Agent", resource_id: id,
         severity: "low", risk_level: "low",
-        old_values: tracked.transform_values(&:first),
-        new_values: tracked.transform_values(&:last),
+        old_values: old_values,
+        new_values: new_values,
         metadata: {
           "global_agent" => true, "source_key" => source_key, "name" => name,
-          "source_version" => source_version, "changed_fields" => tracked.keys
+          "source_version" => source_version, "changed_fields" => changed_fields
         }
       )
     rescue StandardError => e
-      Rails.logger.warn("[Ai::Agent] global-change audit failed for #{id}: #{e.class}: #{e.message}")
+      Rails.logger.warn("[Ai::Agent] global-#{action} audit failed for #{id}: #{e.class}: #{e.message}")
     end
 
     # The coherent (model, provider, credential) triple. A pinned model is honored
