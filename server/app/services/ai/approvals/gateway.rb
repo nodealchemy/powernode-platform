@@ -80,12 +80,11 @@ module Ai
       private
 
       def find_or_create_chain(kind, approvers, required_approvals, timeout_hours)
-        Ai::ApprovalChain.find_or_create_by!(account_id: @account.id, name: "gateway_#{kind}") do |chain|
-          chain.trigger_type = "manual"
-          chain.status = "active"
-          chain.timeout_hours = timeout_hours
-          chain.steps = [ { "name" => kind.to_s, "approvers" => approvers, "required_approvals" => required_approvals } ]
-        end
+        Ai::ApprovalChain.find_or_strengthen!(
+          account: @account, name: "gateway_#{kind}", step_name: kind.to_s,
+          approvers: approvers, required_approvals: required_approvals,
+          defaults: { trigger_type: "manual", status: "active", timeout_hours: timeout_hours }
+        )
       end
     end
   end

@@ -117,15 +117,11 @@ module Ai
       private
 
       def find_or_create_chain(action_type)
-        Ai::ApprovalChain.find_or_create_by!(
-          account_id: account.id,
-          name: "autonomy_#{action_type}"
-        ) do |chain|
-          chain.trigger_type = "autonomy_action"
-          chain.status = "active"
-          chain.timeout_hours = 24
-          chain.steps = [ { "name" => "autonomy_approval", "approvers" => [ "*" ], "required_approvals" => 1 } ]
-        end
+        Ai::ApprovalChain.find_or_strengthen!(
+          account: account, name: "autonomy_#{action_type}", step_name: "autonomy_approval",
+          approvers: [ "*" ], required_approvals: 1,
+          defaults: { trigger_type: "autonomy_action", status: "active", timeout_hours: 24 }
+        )
       end
     end
   end

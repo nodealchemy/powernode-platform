@@ -147,18 +147,14 @@ module Ai
         "Manual Operations"
       end
 
-      ::Ai::ApprovalChain.find_or_create_by!(account: @account, name: chain_name) do |c|
-        c.trigger_type = "autonomy_action"
-        c.status = "active"
-        c.is_sequential = true
-        c.timeout_hours = DEFAULT_APPROVAL_TIMEOUT_HOURS
-        c.timeout_action = "reject"
-        c.steps = [{
-          "name" => "Operator Approval",
-          "approvers" => ["*"],
-          "required_approvals" => 1
-        }]
-      end
+      ::Ai::ApprovalChain.find_or_strengthen!(
+        account: @account, name: chain_name, step_name: "Operator Approval",
+        approvers: [ "*" ], required_approvals: 1,
+        defaults: {
+          trigger_type: "autonomy_action", status: "active", is_sequential: true,
+          timeout_hours: DEFAULT_APPROVAL_TIMEOUT_HOURS, timeout_action: "reject"
+        }
+      )
     end
   end
 end

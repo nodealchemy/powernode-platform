@@ -63,6 +63,111 @@ module Ai
       end
     end
 
+    class << self
+      # Find-or-strengthen the (account, name) chain: created fresh from
+      # `defaults` + the requested single step on first use; on every later
+      # call the EXISTING chain's step is reconciled against the request
+      # rather than reused untouched.
+      #
+      # Before this, every one of Gateway#request! / AutonomyGate#resolve_chain
+      # / ApprovalWorkflowService's find_or_create_chain used find_or_create_by!
+      # with a block -- Rails only runs that block when INITIALIZING a new
+      # record, so the first-ever call for a given (account, name) set
+      # required_approvals/approvers, and every call after that silently
+      # reused the existing row untouched. A caller asking for a second
+      # signature (required_approvals: 2) got a single-approver chain back,
+      # with no error and nothing logged.
+      #
+      # Strengthen-only, mirroring System::PackageModuleMaterializer's
+      # ModuleDependency edges (a stored `recommends` is upgraded to
+      # `requires`, never the reverse): the stored chain is raised to at
+      # least the requested floor when it falls short, and left untouched
+      # when it already meets or exceeds it. It is NEVER weakened by a later
+      # call asking for less -- an approval gate that could be silently
+      # loosened by whichever caller asks last is the inverse of this bug.
+      def find_or_strengthen!(account:, name:, step_name:, approvers:, required_approvals:, defaults: {})
+        chain = find_or_initialize_by(account: account, name: name)
+
+        if chain.new_record?
+          chain.assign_attributes(defaults)
+          chain.steps = [ { "name" => step_name.to_s, "approvers" => approvers, "required_approvals" => required_approvals } ]
+          chain.save!
+          return chain
+        end
+
+        strengthen_step!(chain, approvers: approvers, required_approvals: required_approvals)
+        chain
+      end
+
+      private
+
+      def strengthen_step!(chain, approvers:, required_approvals:)
+        current = (chain.steps || []).first || {}
+        current_required = current["required_approvals"] || 1
+        current_approvers = current["approvers"].presence || [ "*" ]
+
+        approvers_ok = approvers_at_least_as_strong?(existing: current_approvers, requested: approvers)
+        required_ok = current_required >= required_approvals
+
+        if approvers_ok && required_ok
+          log_discarded_approver_request!(chain, current_approvers: current_approvers, requested: approvers)
+          return
+        end
+
+        new_required = [ current_required, required_approvals ].max
+        new_approvers = approvers_ok ? current_approvers : approvers
+
+        # The mismatch this method exists to close was SILENT — surface it,
+        # the same discipline PackageModuleMaterializer's edge-strengthening
+        # uses (a returned warning there; a log here, since this runs deep
+        # under a request!/resolve_chain call with no warnings array to
+        # thread back to the operator).
+        Rails.logger.warn(
+          "[Ai::ApprovalChain] chain '#{chain.name}' (account=#{chain.account_id}) was weaker than " \
+          "requested — strengthening in place (never weakening): required_approvals " \
+          "#{current_required} -> #{new_required}, approvers #{current_approvers.inspect} -> #{new_approvers.inspect}"
+        )
+
+        chain.steps = [ current.merge("required_approvals" => new_required, "approvers" => new_approvers) ]
+        chain.save!
+      end
+
+      # `["*"]` is the unique universal/weakest approver set — the only
+      # comparison safe to make without inventing a general ordering over
+      # approver lists. Two different non-wildcard lists are never compared
+      # against each other; the stored list wins unless it is exactly `["*"]`
+      # while the request asks for something narrower.
+      def approvers_at_least_as_strong?(existing:, requested:)
+        return true unless existing == [ "*" ]
+        requested == [ "*" ]
+      end
+
+      # strengthen_step! above logs when the STORED chain actually changes.
+      # This covers the narrower residual: the stored chain does NOT change
+      # (it is already at least as strong), but the caller's specific
+      # approver request still gets overridden by a stored, unrelated,
+      # equally non-wildcard set -- e.g. stored ["user-a"], requested
+      # ["user-b"]. approvers_at_least_as_strong? is right to refuse
+      # comparing two non-wildcard lists (there is no defensible ordering),
+      # and the stored list should keep winning -- but "we kept yours out,
+      # in favor of a different list" must not be silent, or this is the
+      # original defect in a smaller box. A caller passing the default
+      # (["*"], "anyone") isn't asking for anything specific, so that path
+      # is exempt -- it is the ordinary chain-reuse case, not a discarded
+      # request.
+      def log_discarded_approver_request!(chain, current_approvers:, requested:)
+        return if requested == current_approvers
+        return if requested == [ "*" ]
+
+        Rails.logger.info(
+          "[Ai::ApprovalChain] chain '#{chain.name}' (account=#{chain.account_id}) kept its stored " \
+          "approvers #{current_approvers.inspect} over a differing request #{requested.inspect} -- " \
+          "neither set is comparably stronger, so the existing approvers win (never weakening); " \
+          "the requested set was NOT applied."
+        )
+      end
+    end
+
     private
 
     def initialize_step_statuses
