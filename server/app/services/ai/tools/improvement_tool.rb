@@ -84,7 +84,9 @@ module Ai
             }
           },
           "dismiss_improvement" => {
-            description: "Dismiss an offer so it is never promoted.",
+            description: "Dismiss an offer so it is never promoted. If it was already approved/promoted, the " \
+                         "pending/blocked dev-improve task is cascaded to skipped in the same transaction; an " \
+                         "in_progress or already-terminal task is left untouched and named back in the response.",
             parameters: {
               recommendation_id: { type: "string", required: true, description: "Recommendation to dismiss" }
             }
@@ -258,23 +260,34 @@ module Ai
 
         rec.approve!(user) unless rec.status == "approved"
         result = Ai::DevLoop::ImprovementPromotionService.new(recommendation: rec).call
+        loop_record = result.ralph_loop
 
-        success_result(
+        response = {
           recommendation_id: rec.id,
           status: rec.status,
-          loop: result.ralph_loop.name,
+          loop: loop_record.name,
           task_key: result.ralph_task.task_key,
-          task_created: result.created,
-          next: "Drain with: /dev-loop #{result.ralph_loop.name}"
-        )
+          task_created: result.created
+        }
+        merge_loop_halt_status!(response, loop_record)
+        response[:next] = "Drain with: /dev-loop #{loop_record.name}"
+
+        success_result(response)
       end
 
       def dismiss_improvement(params)
         rec = find_recommendation(params[:recommendation_id])
         return error_result("Recommendation not found") unless rec
 
-        rec.dismiss!
-        success_result(recommendation_id: rec.id, status: rec.status)
+        response = nil
+        ActiveRecord::Base.transaction do
+          rec.dismiss!
+          response = { recommendation_id: rec.id, status: rec.status }
+          cascade = cascade_dismiss_promoted_task!(rec)
+          response.merge!(cascade) if cascade
+        end
+
+        success_result(response)
       end
 
       # Mark the dev-improve task promoted from a recommendation as reverted — the
@@ -353,6 +366,54 @@ module Ai
         return nil if id.blank?
 
         Ai::ImprovementRecommendation.find_by(id: id, account: account)
+      end
+
+      # IMP-bf2265feec4e: dismissing a RECOMMENDATION that was already approved
+      # left its promoted RalphTask `pending`/`blocked` — dev_next_task kept
+      # handing it out, exactly backwards from "dismiss an offer so it is never
+      # promoted". Cascades onto the task in the SAME transaction as the
+      # dismissal: pending/blocked -> skipped, reason recorded. An in_progress
+      # (or already-terminal) task is left alone — a dismissal must never yank
+      # work out from under a running agent — and the caller is told so
+      # explicitly rather than the change silently no-op'ing on that task.
+      def cascade_dismiss_promoted_task!(rec)
+        task = promoted_task_for(rec)
+        return nil unless task
+
+        if task.can_skip?
+          task.skip!(reason: "Recommendation #{rec.id} dismissed")
+          { promoted_task_key: task.task_key, promoted_task_status: task.status }
+        else
+          { promoted_task_key: task.task_key, promoted_task_status: task.status,
+            note: "task #{task.task_key} is #{task.status} and was left alone" }
+        end
+      end
+
+      # IMP-957902bf8474: a dev-improve loop that drains its queue goes
+      # `completed` (terminal) — halt_reason then refuses every dev_next_task
+      # pull forever, and approve_improvement used to create a task there
+      # anyway and hand back "Drain with: /dev-loop dev-improve", advice that
+      # cannot work. `completed` here is just "the queue ran dry", not an
+      # operator decision, so reopen it automatically — non-destructively
+      # (RalphLoop#reopen! leaves ralph_iterations and every task's status
+      # alone) — so the newly-created task is immediately claimable.
+      # `failed`/`cancelled` ARE deliberate/adverse terminal states an operator
+      # or the platform put the loop into; approving more work must not
+      # silently resurrect those — surface the halt instead (ralph_loop
+      # reopen_ralph_loop is the explicit, operator-driven way back).
+      def merge_loop_halt_status!(response, loop_record)
+        if loop_record.status == "completed"
+          loop_record.reopen!
+          response[:loop_reopened] = true
+        end
+
+        reason = loop_record.halt_reason
+        return unless reason
+
+        response[:warning] = "#{loop_record.name} is halted (#{reason}) — the task was created but dev_next_task " \
+                             "will refuse to pull it until the loop is un-halted (see ralph_loop " \
+                             "reopen_ralph_loop / resume_ralph_loop / update_ralph_loop)."
+        response[:halt_reason] = reason
       end
 
       def promoted_task_for(rec)

@@ -190,6 +190,76 @@ RSpec.describe Ai::Tools::ImprovementTool do
     end
   end
 
+  # ==========================================================================
+  # IMP-957902bf8474: a dev-improve loop that drains its queue goes
+  # `completed` (terminal). approve_improvement used to create a task on it
+  # anyway and reply "Drain with: /dev-loop dev-improve" — advice that cannot
+  # work, since dev_next_task refuses every pull on a terminal loop.
+  # ==========================================================================
+  describe "approve_improvement onto a terminal loop" do
+    let(:dev_loop_tool) { Ai::Tools::DevLoopTool.new(account: account, user: user) }
+
+    it "auto-reopens a naturally-completed loop (queue ran dry) and the new task is claimable" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      first_task_key = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })[:data][:task_key]
+      # Drain the loop for real, through the same path an executor uses, so it
+      # completes NATURALLY (the exact scenario from the field report).
+      dev_loop_tool.execute(params: { action: "dev_next_task", loop_id: "dev-improve" })
+      dev_loop_tool.execute(params: {
+        action: "dev_complete_task", loop_id: "dev-improve", task_key: first_task_key,
+        outcome: "passed", summary: "done"
+      })
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      expect(loop_record.reload.status).to eq("completed") # sanity: drained naturally
+
+      rec2_id = create_offer(fingerprint: "code_lint|server/app/bar.rb|UnusedVar")[:data][:recommendation][:id]
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec2_id })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:task_created]).to be true
+      expect(result[:data][:loop_reopened]).to be true
+      expect(loop_record.reload.status).to eq("running")
+      expect(result[:data]).not_to have_key(:warning)
+      # the earlier passed task is untouched by the reopen
+      expect(loop_record.ralph_tasks.find_by(task_key: first_task_key).status).to eq("passed")
+      # and the new task is actually pullable now — not just created and stranded
+      next_task = dev_loop_tool.execute(params: { action: "dev_next_task", loop_id: "dev-improve" })
+      expect(next_task[:task][:task_key]).to eq(result[:data][:task_key])
+    end
+
+    it "does NOT silently resurrect a failed loop — surfaces the halt instead" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      loop_record.fail!(error_message: "boom")
+
+      rec2_id = create_offer(fingerprint: "code_lint|server/app/bar.rb|UnusedVar")[:data][:recommendation][:id]
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec2_id })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:task_created]).to be true
+      expect(result[:data][:warning]).to be_present
+      expect(result[:data][:halt_reason]).to eq("loop_failed")
+      expect(result[:data]).not_to have_key(:loop_reopened)
+      expect(loop_record.reload.status).to eq("failed") # not silently resurrected
+    end
+
+    it "does NOT silently resurrect a cancelled loop — surfaces the halt instead" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      loop_record.cancel!(reason: "operator stop")
+
+      rec2_id = create_offer(fingerprint: "code_lint|server/app/bar.rb|UnusedVar")[:data][:recommendation][:id]
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec2_id })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:warning]).to be_present
+      expect(result[:data][:halt_reason]).to eq("loop_cancelled")
+      expect(loop_record.reload.status).to eq("cancelled")
+    end
+  end
+
   describe "dismiss_improvement" do
     it "dismisses an offer so it is never promoted" do
       rec_id = create_offer[:data][:recommendation][:id]
@@ -197,6 +267,98 @@ RSpec.describe Ai::Tools::ImprovementTool do
 
       expect(result[:success]).to be true
       expect(Ai::ImprovementRecommendation.find(rec_id).status).to eq("dismissed")
+    end
+  end
+
+  # ==========================================================================
+  # IMP-bf2265feec4e: dismiss_improvement must cascade onto an already-promoted
+  # dev-improve task. Dismissing the RECOMMENDATION alone left the promoted
+  # RalphTask `pending`/`blocked`, so dev_next_task kept handing it out —
+  # backwards from "an offer so it is never promoted".
+  # ==========================================================================
+  describe "dismiss_improvement cascade onto the promoted task" do
+    let(:dev_loop_tool) { Ai::Tools::DevLoopTool.new(account: account, user: user) }
+
+    def approve_and_get_task_key(rec_id)
+      tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })[:data][:task_key]
+    end
+
+    def promoted_task(task_key)
+      account.ai_ralph_loops.find_by(name: "dev-improve").ralph_tasks.find_by(task_key: task_key)
+    end
+
+    it "skips a pending promoted task and records the dismissal reason" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      task_key = approve_and_get_task_key(rec_id)
+
+      result = tool.execute(params: { action: "dismiss_improvement", recommendation_id: rec_id })
+
+      expect(result[:success]).to be true
+      task = promoted_task(task_key)
+      expect(task.status).to eq("skipped")
+      expect(task.error_message).to match(/dismiss/i)
+      expect(result[:data][:promoted_task_key]).to eq(task_key)
+      expect(result[:data][:promoted_task_status]).to eq("skipped")
+    end
+
+    it "the dismissed task is no longer handed out by dev_next_task" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      approve_and_get_task_key(rec_id)
+
+      tool.execute(params: { action: "dismiss_improvement", recommendation_id: rec_id })
+      next_task = dev_loop_tool.execute(params: { action: "dev_next_task", loop_id: "dev-improve" })
+
+      expect(next_task[:task]).to be_nil
+    end
+
+    it "skips a blocked promoted task" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      task_key = approve_and_get_task_key(rec_id)
+      dev_loop_tool.execute(params: { action: "dev_next_task", loop_id: "dev-improve" }) # claim it
+      promoted_task(task_key).block!(reason: "needs input")
+
+      result = tool.execute(params: { action: "dismiss_improvement", recommendation_id: rec_id })
+
+      expect(result[:success]).to be true
+      expect(promoted_task(task_key).status).to eq("skipped")
+    end
+
+    it "leaves an in_progress promoted task untouched and tells the caller" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      task_key = approve_and_get_task_key(rec_id)
+      dev_loop_tool.execute(params: { action: "dev_next_task", loop_id: "dev-improve" }) # claims it
+
+      result = tool.execute(params: { action: "dismiss_improvement", recommendation_id: rec_id })
+
+      expect(result[:success]).to be true
+      expect(promoted_task(task_key).status).to eq("in_progress")
+      expect(result[:data][:promoted_task_status]).to eq("in_progress")
+      expect(result[:data][:note]).to match(/in_progress/).or match(/left alone/i)
+    end
+
+    it "leaves an already-terminal (passed) promoted task untouched" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      task_key = approve_and_get_task_key(rec_id)
+      dev_loop_tool.execute(params: { action: "dev_next_task", loop_id: "dev-improve" })
+      dev_loop_tool.execute(params: {
+        action: "dev_complete_task", loop_id: "dev-improve", task_key: task_key,
+        outcome: "passed", summary: "done"
+      })
+
+      result = tool.execute(params: { action: "dismiss_improvement", recommendation_id: rec_id })
+
+      expect(result[:success]).to be true
+      expect(promoted_task(task_key).status).to eq("passed")
+      expect(result[:data][:note]).to match(/left alone/i)
+    end
+
+    it "still dismisses cleanly when the offer was never approved (no promoted task)" do
+      rec_id = create_offer[:data][:recommendation][:id]
+
+      result = tool.execute(params: { action: "dismiss_improvement", recommendation_id: rec_id })
+
+      expect(result[:success]).to be true
+      expect(result[:data]).not_to have_key(:promoted_task_key)
     end
   end
 
