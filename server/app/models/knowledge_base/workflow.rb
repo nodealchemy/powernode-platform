@@ -26,7 +26,16 @@ module KnowledgeBase
     # Deliberately NOT named ACTIONS: that constant already exists as
     # ActiveRecord::Callbacks::ACTIONS (%i[create destroy update]) and resolves
     # through every model, so the name silently reads as valid until shadowed.
-    VALID_ACTIONS = %w[create edit publish unpublish archive delete review].freeze
+    #
+    # There is deliberately no `delete` here. Article deletions are recorded in
+    # audit_logs — see Api::V1::Kb::ArticlesController#record_article_deletion!
+    # — because this table structurally cannot hold them: Article declares
+    # `has_many :workflows, dependent: :destroy` (article.rb:22), so a row
+    # recording a deletion is cascaded away by the very act it records, while
+    # an audit_logs row survives it (its `resource_id` has no foreign key).
+    # The vocabulary was narrowed to match in
+    # 20260805000000_narrow_kb_workflow_action_vocabulary.rb. (IMP-51b98ea3854d)
+    VALID_ACTIONS = %w[create edit publish unpublish archive review].freeze
 
     # Article columns that say nothing about an editorial change, so they are
     # left out of the human-readable change summary.

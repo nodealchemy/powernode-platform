@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_23_183000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -7075,7 +7075,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_23_183000) do
     t.index ["from_status"], name: "index_knowledge_base_workflows_on_from_status"
     t.index ["to_status"], name: "index_knowledge_base_workflows_on_to_status"
     t.index ["user_id"], name: "index_knowledge_base_workflows_on_user_id"
-    t.check_constraint "action::text = ANY (ARRAY['create'::character varying::text, 'edit'::character varying::text, 'publish'::character varying::text, 'unpublish'::character varying::text, 'archive'::character varying::text, 'delete'::character varying::text, 'review'::character varying::text])", name: "valid_kb_workflow_action"
+    t.check_constraint "action::text = ANY (ARRAY['create'::character varying::text, 'edit'::character varying::text, 'publish'::character varying::text, 'unpublish'::character varying::text, 'archive'::character varying::text, 'review'::character varying::text])", name: "valid_kb_workflow_action"
   end
 
   create_table "marketing_campaign_contents", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
