@@ -69,6 +69,17 @@ module Mcp
       #     #enforce_action_scope! rejects an instance's caller-supplied action
       #     that disagrees with the invoked tool name (IMP-e8138c2714fb) — if
       #     that check is ever removed, this overlay is bypassable again.
+      #   * DEPTH. may_invoke? sees only the FIRST tool name, so for a while
+      #     this overlay stopped at the first hop: a tool that delegates to a
+      #     skill executor forwarded only `user:`, an instance principal has no
+      #     User, and the executor read that nil user as "in-process caller" and
+      #     handed every tool it nested the internal bypass — unchecked by name,
+      #     destroy-shaped or not. Executors now carry the instance provenance
+      #     and Ai::Tools::BaseTool#execute re-applies this overlay to the action
+      #     each nested tool actually runs (IMP-0e6b216de843). Grant globs are
+      #     deliberately not re-checked below the first hop — the operator grants
+      #     a composer, and THIS overlay is what bounds what that composer may do
+      #     on an instance's behalf.
       #
       # Net effect without this overlay: one over-broad pattern —
       # "platform.system_*", or a careless "platform.*" — is an unattributed,
