@@ -599,8 +599,21 @@ module Ai
           a2a_task_id: spawn[:task_id], outcome: outcome, task_status: task.reload.status, agent: spawn[:agent_name] }
       end
 
+      # A TOOL-TO-TOOL hop, so it carries this call's instance provenance the
+      # same way an executor-nested tool does. DevLoopTool is instance-aware
+      # (#claimant_ref scopes claims as "instance:<id>") and delegate_ralph_task
+      # is on the MCP surface, so an instance principal reaches here with no
+      # User — and AgentManagementTool carries destroy-shaped actions. Without
+      # the mark the nested tool cannot tell a grant-gated instance principal
+      # from any other userless caller, and BaseTool#enforce_instance_deny_
+      # overlay! never engages on the nested action. Safe today only because
+      # both call sites pass hardcoded literals ("spawn_task", "wait_for_task");
+      # that is a structural bound, not a fence. Guarded, so the user and
+      # reconciler paths are unchanged. (IMP-c2e3e5d3cff0)
       def delegate_tool
-        @delegate_tool ||= Ai::Tools::AgentManagementTool.new(account: account, user: user, agent: agent)
+        @delegate_tool ||= mark_instance_provenance(
+          Ai::Tools::AgentManagementTool.new(account: account, user: user, agent: agent)
+        )
       end
 
       def delegation_brief(loop_record, task)
