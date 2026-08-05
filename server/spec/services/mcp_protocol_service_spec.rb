@@ -147,6 +147,41 @@ RSpec.describe Mcp::ProtocolService, type: :service do
       )
       expect(result[:result]).to include('output' => be_a(String))
     end
+
+    # IMP-6e5b053c52d2: #invoke_tool is the live tool-invocation path for the
+    # real MCP protocol traffic (routed here from
+    # Api::V1::Mcp::StreamableHttpController, the actual /api/v1/mcp/message
+    # endpoint) -- unlike its sibling #register_tool (down-ranked separately
+    # as unreachable), this method runs on every real tool call. It only
+    # calls @telemetry.track_tool_invocation_* (Mcp::TelemetryService --
+    # entirely in-memory, a fresh instance per ProtocolService.new, discarded
+    # at the end of the request; #persist_metric logs a line and
+    # #send_to_external_monitoring is an empty stub even in production). No
+    # code path anywhere writes a durable, queryable record of who invoked
+    # what.
+    #
+    # DELIBERATE, investigated absence -- not an oversight left for later:
+    #   - mcp_tool_executions.mcp_tool_id is NOT NULL, and McpTool/McpServer
+    #     represent a DIFFERENT concept (an account's own externally-configured
+    #     MCP server connection -- see semantic_tool_discovery_service.rb's
+    #     source: "platform" vs source: "mcp_server" split); McpTool.count == 0
+    #     in this DB, so the FK structurally blocks writing there for the
+    #     traffic that matters.
+    #   - AuditLog serializes every insert behind ONE global Postgres advisory
+    #     lock to assign its SHA256 hash-chain sequence number
+    #     (Audit::LogIntegrityService::SEQUENCE_LOCK_KEY) and has no retention
+    #     job -- built for low-volume compliance events, not a firehose of
+    #     tool calls.
+    #   - This subsystem already has a write-only persistence precedent
+    #     (Mcp::RegistryService's Redis keys + unreachable DB stubs, found the
+    #     same night); a new table with no consumer identified would repeat it.
+    # A real fix needs a purpose-built, decoupled table PLUS a reader (an
+    # admin/activity view) scoped as its own piece of work -- see IMP-6e5b053c52d2.
+    it 'produces no durable execution record anywhere -- documented, not accidental' do
+      expect { service.invoke_tool(tool_id, params, options) }
+        .to change { McpToolExecution.count }.by(0)
+        .and change { AuditLog.count }.by(0)
+    end
   end
 
   describe '#handle_initialize_request' do
