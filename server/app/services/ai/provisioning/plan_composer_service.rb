@@ -743,6 +743,8 @@ module Ai
           return
         end
 
+        return unless composition_allows?(template, node_module)
+
         ::System::TemplateModule.find_or_create_by!(
           node_template: template,
           node_module: node_module
@@ -752,6 +754,64 @@ module Ai
           "[PlanComposerService] Failed to attach role module '#{role_module_name_for(brief)}' " \
             "to template for account=#{account.id}: #{e.message}"
         )
+      end
+
+      # Every other System::TemplateModule writer runs the assignment through
+      # System::TemplateCompositionAnalysis before creating the join and
+      # refuses an addition that introduces an error-severity conflict (a
+      # declared Conflicts: relation, or a second instance-variety module in
+      # one category). This writer created the join unchecked, and it is the
+      # one that can do the most damage: it always targets the account's
+      # DEFAULT template, and additions_verdict diffs against a template's
+      # CURRENT closure — so a collision landed here becomes permanent
+      # baseline that every later assignment is then obliged to accept, and
+      # TemplateExpansionService ships it to real nodes.
+      #
+      # Calling the extension's analysis directly is the sanctioned seam, not
+      # a boundary break: core-purity bars core from naming a PRIVATE
+      # extension, `system` is public, and this method is already unable to do
+      # anything without it (NodeTemplate, NodeModule and TemplateModule are
+      # all System::). The `defined?` guard is the same core-mode seam used by
+      # cost_estimator_service.rb and topology_renderer_service.rb. Reusing the
+      # analysis rather than reimplementing the rules core-side is deliberate:
+      # the conflict vocabulary is extension domain knowledge and a core copy
+      # would drift from the definition the other four writers enforce.
+      #
+      # Refusal is a SKIP, not a raise: attachment is best-effort by contract
+      # (an unseeded role module is already logged and skipped), and the
+      # mission plan is not the thing in conflict.
+      def composition_allows?(template, node_module)
+        unless defined?(::System::TemplateCompositionAnalysis)
+          # Fail CLOSED. Skipping costs one module attachment; proceeding
+          # unchecked is exactly the write this guard exists to prevent.
+          Rails.logger.warn(
+            "[PlanComposerService] Composition analysis unavailable; skipping role-module " \
+              "attachment for account=#{account.id} rather than writing unchecked"
+          )
+          return false
+        end
+
+        verdict = ::System::TemplateCompositionAnalysis
+                    .new(account)
+                    .assignment_verdict(template: template, node_module: node_module)
+        return true unless verdict.blocked?
+
+        Rails.logger.warn(
+          "[PlanComposerService] Refused role-module attachment for account=#{account.id}: " \
+            "#{verdict.message}"
+        )
+        false
+      rescue StandardError => e
+        # The analysis resolves a dependency closure over catalog data this
+        # service does not own, so it must not be able to take the mission
+        # compose down with it — the attachment is best-effort, the plan is
+        # not. Fail closed for the same reason as the branch above: an
+        # unanswerable question is not permission to write unchecked.
+        Rails.logger.warn(
+          "[PlanComposerService] Composition analysis failed for account=#{account.id}; " \
+            "skipping role-module attachment: #{e.class}: #{e.message}"
+        )
+        false
       end
 
       # Append a `deploy_app_code` step that depends on the last

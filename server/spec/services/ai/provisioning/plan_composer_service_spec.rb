@@ -675,6 +675,111 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
       end
     end
 
+    # attach_role_module_to_template! was the FIFTH TemplateModule writer and
+    # the only one that created the join unchecked. The other four run the
+    # assignment through System::TemplateCompositionAnalysis first
+    # (TemplateModulesController#create, system_assign_module_to_template,
+    # Gitops::ApplyService, ModuleSmokeVerifyExecutor) and refuse an addition
+    # that introduces an error-severity composition conflict.
+    #
+    # It matters more here than at any of those four because this writer always
+    # targets the account's DEFAULT template — the oldest one, which every
+    # later mission composes onto. A conflict landed here becomes permanent
+    # BASELINE: additions_verdict diffs against the template's current closure,
+    # so once a collision is in the baseline every later assignment is obliged
+    # to treat it as acceptable, and TemplateExpansionService then ships it to
+    # real nodes.
+    context "composition conflicts on the default template" do
+      let!(:runtime_category) do
+        ::System::NodeModuleCategory.create!(
+          account: account, name: "Runtime", variety: "instance", position: 2
+        )
+      end
+
+      def default_template
+        ::System::NodeTemplate.where(account_id: account.id).order(:created_at).first
+      end
+
+      # Only one instance-variety module may ship per category — a second is an
+      # error-severity `instance_variety_collision` in
+      # TemplateComposerService#detect_conflicts.
+      def make_instance_module(name)
+        ::System::NodeModule.create!(
+          account: account, name: name, variety: "instance",
+          category: runtime_category, priority: 100, enabled: true
+        )
+      end
+
+      def discord_bot_mission
+        mission_for(brief.merge("use_case" => "discord_bot", "repo_url" => nil))
+      end
+
+      it "refuses an attachment that would introduce an instance-variety collision" do
+        incumbent = make_instance_module("incumbent-runtime")
+        ::System::TemplateModule.create!(node_template: default_template, node_module: incumbent)
+        nodejs = make_instance_module("nodejs-runtime")
+
+        described_class.new(account: account, mission: discord_bot_mission).compose!
+
+        attached = default_template.reload.node_modules.pluck(:id)
+        expect(attached).not_to include(nodejs.id)
+        # The incumbent is untouched: refusing the addition must not detach
+        # what was already composing cleanly.
+        expect(attached).to include(incumbent.id)
+      end
+
+      it "still attaches when the addition introduces no conflict" do
+        # Same shape, minus the collision: the guard must refuse conflicts, not
+        # role-module attachment in general.
+        nodejs = make_instance_module("nodejs-runtime")
+
+        described_class.new(account: account, mission: discord_bot_mission).compose!
+
+        expect(default_template.reload.node_modules.pluck(:id)).to include(nodejs.id)
+      end
+
+      it "refuses rather than writing unchecked when the analysis is unavailable" do
+        # Core mode: the system extension supplies both the models and the
+        # guard, so a build where the guard is missing must not fall back to
+        # the unguarded write this task removed. Fail closed — skipping costs
+        # one module attachment, proceeding can poison the default template's
+        # baseline permanently.
+        nodejs = make_instance_module("nodejs-runtime")
+        hide_const("System::TemplateCompositionAnalysis")
+
+        described_class.new(account: account, mission: discord_bot_mission).compose!
+
+        expect(default_template.reload.node_modules.pluck(:id)).not_to include(nodejs.id)
+      end
+
+      it "skips the attachment rather than failing the compose when the analysis raises" do
+        # The analysis resolves a closure over catalog data this service does
+        # not own. A guard that can take mission compose down with it would be
+        # a worse bargain than the unguarded write it replaced, so it fails
+        # closed here too: no plan lost, and still nothing written unchecked.
+        nodejs = make_instance_module("nodejs-runtime")
+        allow(::System::TemplateCompositionAnalysis).to receive(:new)
+          .and_raise(StandardError, "catalog resolution blew up")
+
+        svc = described_class.new(account: account, mission: discord_bot_mission)
+        expect { svc.compose! }.not_to raise_error
+        expect(default_template.reload.node_modules.pluck(:id)).not_to include(nodejs.id)
+      end
+
+      it "does not fail the compose when it refuses the attachment" do
+        incumbent = make_instance_module("incumbent-runtime")
+        ::System::TemplateModule.create!(node_template: default_template, node_module: incumbent)
+        make_instance_module("nodejs-runtime")
+
+        # Best-effort by contract: a refused attachment is logged and skipped,
+        # exactly like a role module Slice A has not seeded. The mission plan
+        # is not the thing in conflict and must still compose.
+        svc = described_class.new(account: account, mission: discord_bot_mission)
+        expect { svc.compose! }.not_to raise_error
+        expect(svc.compose!).to be_present
+      end
+    end
+
     context "deploy_app_code step shape" do
       let(:brief_with_repo) do
         brief.merge(
