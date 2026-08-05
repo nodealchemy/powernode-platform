@@ -501,7 +501,16 @@ module Ai
           id: rec.id,
           type: rec.recommendation_type,
           status: rec.status,
-          confidence: rec.confidence_score,
+          # to_f, not the raw attribute: confidence_score is decimal(5,4), so
+          # ActiveRecord hands back a BigDecimal and BigDecimal#to_json emits a
+          # STRING ("0.87"). This tool declares confidence_score as
+          # `type: "number"` on the way IN and the model validates it
+          # numerically, so returning a quoted string made the schema lie to
+          # every consumer — and a confidence exists to be compared and sorted
+          # on. Serialized by both list_improvements and create_improvement,
+          # so the coercion belongs here rather than at either call site.
+          # (IMP-f83c0139529c)
+          confidence: rec.confidence_score&.to_f,
           title: evidence["title"],
           files: evidence["files"],
           repository: evidence["repository"],
