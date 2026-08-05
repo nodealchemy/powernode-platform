@@ -195,4 +195,113 @@ RSpec.describe 'Api::V1::Kb::Articles workflow audit trail', type: :request do
         .to all(be_in(KnowledgeBase::Workflow::VALID_ACTIONS))
     end
   end
+
+  # A deletion is the one transition knowledge_base_workflows structurally
+  # cannot hold. Article declares `has_many :workflows, dependent: :destroy`
+  # (article.rb:22) and Workflow's `belongs_to :article` is required, so a row
+  # recording a deletion is cascaded away by the very act it records — which is
+  # why `delete` sits in VALID_ACTIONS unwritten. Deletions are recorded in
+  # audit_logs instead: resource_id there is a plain string with NO foreign key
+  # (schema.rb:4808), so the row outlives its subject.
+  describe 'DELETE /api/v1/kb/articles/:id' do
+    def deletion_rows_for(article)
+      AuditLog.where(resource_type: 'KnowledgeBase::Article', resource_id: article.id, action: 'delete')
+    end
+
+    it 'records the deletion somewhere that outlives the article' do
+      article_id = draft_article.id
+
+      delete "/api/v1/kb/articles/#{article_id}", headers: headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(KnowledgeBase::Article.where(id: article_id)).to be_empty
+      expect(deletion_rows_for(draft_article).count).to eq(1)
+    end
+
+    it 'names who deleted it — the question the trail exists to answer' do
+      delete "/api/v1/kb/articles/#{draft_article.id}", headers: headers, as: :json
+
+      expect(deletion_rows_for(draft_article).first.user_id).to eq(user.id)
+    end
+
+    it 'keeps the article identity in metadata, since resource_id now points at nothing' do
+      delete "/api/v1/kb/articles/#{draft_article.id}", headers: headers, as: :json
+
+      expect(deletion_rows_for(draft_article).first.metadata).to include(
+        'title' => 'Draft Article',
+        'slug' => 'audit-draft-article',
+        'status' => 'draft'
+      )
+    end
+
+    # The account is the ACTOR's, not the article's. A GLOBAL article has no
+    # account, audit_logs.account_id is NOT NULL, and KnowledgeBase::Article is
+    # in the audit optional-account set — so an article-scoped row would be
+    # unwritable for exactly the 53 globals the KB ships.
+    it 'records the deletion of a GLOBAL article, which owns no account' do
+      global_article = KnowledgeBase::Article.create!(
+        title: 'Global Article', slug: 'audit-global-article', content: 'Global content',
+        status: 'draft', is_public: true, category: category, account: nil
+      )
+
+      delete "/api/v1/kb/articles/#{global_article.id}", headers: headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      row = deletion_rows_for(global_article).first
+      expect(row).to be_present
+      expect(row.account_id).to eq(account.id)
+      expect(row.metadata['account_id']).to be_nil
+    end
+
+    it 'records nothing when the caller is not allowed to delete' do
+      outsider = create(:user, account: create(:account), permissions: [ 'kb.update' ])
+
+      delete "/api/v1/kb/articles/#{draft_article.id}",
+             headers: auth_headers_for(outsider), as: :json
+
+      expect(deletion_rows_for(draft_article)).to be_empty
+      expect(KnowledgeBase::Article.where(id: draft_article.id)).to be_present
+    end
+
+    # A row asserting a deletion that never happened is the same false record
+    # as a workflow row naming the wrong actor. (The response shape on a failed
+    # destroy is pre-existing behaviour and deliberately unchanged.)
+    it 'records nothing when the destroy itself does not happen' do
+      allow_any_instance_of(KnowledgeBase::Article).to receive(:destroy).and_return(false)
+
+      delete "/api/v1/kb/articles/#{draft_article.id}", headers: headers, as: :json
+
+      expect(deletion_rows_for(draft_article)).to be_empty
+    end
+
+    # Characterization, not a wish: this is WHY the sink had to change. It
+    # passes before and after, and pins the cascade that makes a workflow-row
+    # fix impossible without a schema change.
+    it 'cannot use the workflow trail: the cascade takes it with the article' do
+      patch "/api/v1/kb/articles/#{draft_article.id}",
+            params: { article: { title: 'About To Go' } }, headers: headers, as: :json
+      expect(workflows_for(draft_article).count).to be >= 1
+
+      delete "/api/v1/kb/articles/#{draft_article.id}", headers: headers, as: :json
+
+      expect(KnowledgeBase::Workflow.where(article_id: draft_article.id)).to be_empty
+    end
+  end
+
+  describe 'DELETE /api/v1/kb/articles/bulk' do
+    it 'records one deletion row per article removed' do
+      delete '/api/v1/kb/articles/bulk',
+             params: { article_ids: [ draft_article.id, published_article.id ] },
+             headers: headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      rows = AuditLog.where(
+        resource_type: 'KnowledgeBase::Article',
+        resource_id: [ draft_article.id, published_article.id ],
+        action: 'delete'
+      )
+      expect(rows.count).to eq(2)
+      expect(rows.map(&:user_id).uniq).to eq([ user.id ])
+    end
+  end
 end

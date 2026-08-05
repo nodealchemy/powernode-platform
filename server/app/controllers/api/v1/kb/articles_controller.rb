@@ -150,7 +150,10 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     return render_error("Article not found", status: :not_found) unless @article
     return render_error("Access denied", status: :forbidden) unless @article.editable_by?(current_user)
 
-    @article.destroy
+    snapshot = article_deletion_snapshot(@article)
+    destroyed = @article.destroy
+    record_article_deletion!(snapshot) if destroyed
+
     render_success(message: "Article deleted successfully")
   end
 
@@ -329,9 +332,11 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
     deleted_count = 0
     articles.each do |article|
-      if article.destroy
-        deleted_count += 1
-      end
+      snapshot = article_deletion_snapshot(article)
+      next unless article.destroy
+
+      record_article_deletion!(snapshot)
+      deleted_count += 1
     end
 
     render_success(
@@ -370,6 +375,62 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       comment: comment,
       metadata: metadata.merge(source: "api").compact
     )
+  end
+
+  # Records an article DELETION — in audit_logs, not knowledge_base_workflows.
+  #
+  # Workflow structurally cannot hold this event. Article declares
+  # `has_many :workflows, dependent: :destroy` (article.rb:22) and Workflow's
+  # `belongs_to :article` is required, so the row recording a deletion is
+  # cascaded away by the act it records, and cannot outlive its subject even in
+  # principle. That is why `delete` sits in Workflow::VALID_ACTIONS unwritten;
+  # making it writable there would need a schema change, not a call site.
+  #
+  # audit_logs is the sink that survives: `resource_id` is a plain string with
+  # NO foreign key (schema.rb:4808), so nothing cascades, and the row carries a
+  # user. The article's identity therefore goes into metadata — once the row is
+  # gone, resource_id points at something nobody can look up, and a deletion
+  # record that cannot say WHAT was deleted answers half the question.
+  #
+  # `account` is the ACTOR's, deliberately, not the article's: a GLOBAL article
+  # owns no account, audit_logs.account_id is NOT NULL, and Article is in the
+  # audit optional-account set — so an article-scoped row would be unwritable
+  # for exactly the globals the KB ships 53 of. The actor's account is also the
+  # tenant that can read the row back.
+  #
+  # `user: current_user` matches #record_article_workflow! above rather than
+  # introducing a second, looser attribution: both delete paths sit behind
+  # authenticate_request + authorize_kb_edit + editable_by?(current_user), so
+  # the acting user is always present here. The account-scoped fallback chain
+  # the KB tool needs exists only because an agent/instance principal has no
+  # user at all; no agent path can delete an article (the tool exposes only
+  # list/get/create/update).
+  def record_article_deletion!(snapshot)
+    AuditLog.create!(
+      account: current_account,
+      user: current_user,
+      action: "delete",
+      resource_type: "KnowledgeBase::Article",
+      resource_id: snapshot[:id],
+      source: "api",
+      ip_address: request.remote_ip,
+      user_agent: request.user_agent,
+      metadata: snapshot
+    )
+  end
+
+  # Captured BEFORE the row goes away — this is the only place the deleted
+  # article's identity still exists.
+  def article_deletion_snapshot(article)
+    {
+      id: article.id,
+      title: article.title,
+      slug: article.slug,
+      status: article.status,
+      account_id: article.account_id,
+      category_id: article.category_id,
+      author_id: article.author_id
+    }
   end
 
   def authenticate_optional
