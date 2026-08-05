@@ -23,6 +23,7 @@ RSpec.describe Auditable do
     KnowledgeBase::Category
     KnowledgeBase::Tag
     Monitoring::CircuitBreaker
+    SupplyChain::License
     ValidationRule
   ].freeze
 
@@ -35,16 +36,12 @@ RSpec.describe Auditable do
   # rather than trusted. The difference from an exemption is scope, not kind:
   # an exempt model never audits, one of these audits every row that has an
   # account and quietly drops the rest.
-  #
-  # NOTE for IMP-aa02f756f569: SupplyChain::ScanTemplate is deliberately NOT
-  # here — it declares nothing yet and is still an EXTENSION_OWNED_GAPS entry
-  # below. The change that adds audit_optional_account! to it must move it into
-  # this list in the same commit, or this assertion fails.
   EXPECTED_OPTIONAL_ACCOUNTS = %w[
     Ai::Agent
     Devops::ContainerTemplate
     Devops::IntegrationTemplate
     KnowledgeBase::Article
+    SupplyChain::ScanTemplate
   ].freeze
 
   # Models owned by an extension submodule that have no account path. Core
@@ -52,12 +49,14 @@ RSpec.describe Auditable do
   # are recorded here instead and remain a real audit gap until the extension
   # adds `audit_without_account!` or `audit_account_via`. Listing them keeps
   # the gap visible without letting a *core* model land in the same state.
-  EXTENSION_OWNED_GAPS = {
-    "SupplyChain::License" => "global SPDX licence catalogue, not tenant-owned data; " \
-                              "needs audit_without_account! in extensions/supply-chain",
-    "SupplyChain::ScanTemplate" => "system scan templates have a nullable account; " \
-                                   "needs audit_optional_account! in extensions/supply-chain"
-  }.freeze
+  #
+  # Currently EMPTY (IMP-aa02f756f569). Its only two entries were
+  # SupplyChain::License and SupplyChain::ScanTemplate; extensions/supply-chain
+  # now declares both, so each moved into whichever allowlist above matches its
+  # shape and neither is a gap any more. The mechanism stays for the next
+  # extension model that arrives undeclared — an empty hash is the honest state
+  # of "no known extension-owned gaps", not a dead constant.
+  EXTENSION_OWNED_GAPS = {}.freeze
 
   # Models whose records cannot be built at all today, so they get the
   # structural check only. None of these are audit defects — each model reaches
