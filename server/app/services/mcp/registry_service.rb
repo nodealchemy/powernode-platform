@@ -713,22 +713,49 @@ module Mcp
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # Persistence: DELIBERATELY INERT. Read this before "finishing" them.
+  # ---------------------------------------------------------------------------
+  # This registry is a PER-INSTANCE PROJECTION of `ai_agents`, not a store.
+  # #load_existing_tools rebuilds @tools from @account.ai_agents.active in the
+  # constructor, and every caller constructs a fresh instance — Ai::Agent's
+  # after_create/after_update/after_destroy callbacks each build one, register
+  # into it, and drop it on return (concerns/ai/agent/mcp_registration.rb).
+  # The agents table is the source of truth and `mcp_tool_manifest` is a column
+  # on it, so there is no registry state left over to persist.
+  #
+  # Implementing these would therefore ADD a second source of truth for state
+  # that is already reconstructed on every use, and the two could disagree.
+  # `mcp_tools` is not their home either: it requires a non-null mcp_server_id
+  # (tools belonging to a connected MCP server), and agent-derived tools have
+  # no server.
+  #
+  # Reachability differs between the pairs, which matters if you are pruning:
+  #   persist_tool_to_database / remove_tool_from_database — REACHED on every
+  #     register/update/unregister, and do nothing.
+  #   load_tools_from_database / cleanup_orphaned_entries  — UNREACHABLE: their
+  #     only caller is #sync_registry, which has no callers anywhere in server/
+  #     or extensions/ (nor do #export_registry / #import_registry).
+  #
+  # The contract that makes this safe is pinned in
+  # spec/services/mcp/registry_service_spec.rb — in particular "does NOT carry
+  # a registered tool over to a new instance", which is the example that will
+  # fail the moment persistence is implemented. (IMP-c2f5de2f11f3)
   def persist_tool_to_database(tool_id, manifest)
-    # Implementation would depend on database schema
-    # For now, we'll store in Redis/memory
+    # Intentionally inert — see the note above.
   end
 
   def remove_tool_from_database(tool_id)
-    # Implementation would depend on database schema
+    # Intentionally inert — see the note above.
   end
 
   def load_tools_from_database
-    # Implementation would load from persistent storage
+    # Unreachable (only #sync_registry calls it, and nothing calls that).
     {}
   end
 
   def cleanup_orphaned_entries
-    # Remove entries that no longer have corresponding database records
+    # Unreachable (only #sync_registry calls it, and nothing calls that).
   end
 
   def broadcast_tool_registered(tool_id, manifest)
