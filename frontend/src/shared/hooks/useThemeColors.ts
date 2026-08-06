@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useTheme } from '@/shared/hooks/ThemeContext';
 
 interface ThemeColors {
   primary: string;
@@ -20,8 +19,26 @@ interface ThemeColors {
   infoLight: string;
 }
 
+/** Returns the first CSS custom property that resolves to a non-empty value. */
+const readVar = (styles: CSSStyleDeclaration, ...names: string[]): string => {
+  for (const name of names) {
+    const value = styles.getPropertyValue(name).trim();
+    if (value) return value;
+  }
+  return '';
+};
+
+/**
+ * Resolves theme colours to concrete values, for consumers that need a colour
+ * string rather than a CSS class (SVG attributes, canvas, chart libraries).
+ *
+ * Reads the document's computed custom properties and re-reads them when the
+ * theme flips. It deliberately does NOT depend on `ThemeContext`: it tracks the
+ * `class`/`data-theme` attributes that `ThemeProvider` writes onto the document
+ * element, so a component using it renders correctly anywhere — including in
+ * tests, which mount a stub theme provider.
+ */
 export const useThemeColors = (): ThemeColors => {
-  const { theme } = useTheme();
   const [colors, setColors] = useState<ThemeColors>({
     primary: '',
     success: '',
@@ -45,50 +62,56 @@ export const useThemeColors = (): ThemeColors => {
       // Get computed styles from the document root
       const rootStyles = getComputedStyle(document.documentElement);
       
+      // Prefer the semantic tokens: the theme picks a darker step of each ramp
+      // on light surfaces and a lighter one on dark, so a mark stays legible in
+      // both modes. The raw `-500` steps are the fallback — they are fixed hues
+      // and do not respond to the theme.
       setColors({
-        primary: rootStyles.getPropertyValue('--color-primary-500').trim(),
-        success: rootStyles.getPropertyValue('--color-success-500').trim(),
-        warning: rootStyles.getPropertyValue('--color-warning-500').trim(),
-        error: rootStyles.getPropertyValue('--color-error-500').trim(),
-        info: rootStyles.getPropertyValue('--color-info-500').trim(),
-        border: rootStyles.getPropertyValue('--color-neutral-200').trim(),
-        textPrimary: rootStyles.getPropertyValue('--color-text-primary').trim(),
-        textSecondary: rootStyles.getPropertyValue('--color-text-secondary').trim(),
-        surface: rootStyles.getPropertyValue('--color-surface').trim(),
-        background: rootStyles.getPropertyValue('--color-background').trim(),
-        // Light variants
-        primaryLight: rootStyles.getPropertyValue('--color-primary-50').trim(),
-        successLight: rootStyles.getPropertyValue('--color-success-50').trim(),
-        warningLight: rootStyles.getPropertyValue('--color-warning-50').trim(),
-        errorLight: rootStyles.getPropertyValue('--color-error-50').trim(),
-        infoLight: rootStyles.getPropertyValue('--color-info-50').trim()
+        primary: readVar(rootStyles, '--color-primary-500'),
+        success: readVar(rootStyles, '--color-success', '--color-success-500'),
+        warning: readVar(rootStyles, '--color-warning', '--color-warning-500'),
+        error: readVar(rootStyles, '--color-error', '--color-error-500'),
+        info: readVar(rootStyles, '--color-info', '--color-info-500'),
+        border: readVar(rootStyles, '--color-border', '--color-neutral-200'),
+        textPrimary: readVar(rootStyles, '--color-text-primary'),
+        textSecondary: readVar(rootStyles, '--color-text-secondary'),
+        surface: readVar(rootStyles, '--color-surface'),
+        background: readVar(rootStyles, '--color-background'),
+        // Light variants (tinted backgrounds behind a mark of the same hue)
+        primaryLight: readVar(rootStyles, '--color-surface-selected', '--color-primary-50'),
+        successLight: readVar(rootStyles, '--color-success-background', '--color-success-50'),
+        warningLight: readVar(rootStyles, '--color-warning-background', '--color-warning-50'),
+        errorLight: readVar(rootStyles, '--color-error-background', '--color-error-50'),
+        infoLight: readVar(rootStyles, '--color-info-background', '--color-info-50')
       });
     };
 
     // Update colors immediately
     updateColors();
 
-    // Also update when theme changes or when DOM is ready
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-          updateColors();
-        }
-      });
-    });
+    // ThemeProvider swaps both the `light`/`dark` class and `data-theme` on the
+    // document element; either one means the custom properties have changed.
+    const observer = new MutationObserver(updateColors);
 
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class']
+      attributeFilter: ['class', 'data-theme']
     });
 
     return () => observer.disconnect();
-  }, [theme]);
+  }, []);
 
   return colors;
 };
 
-// Chart-specific color palette hook
+/**
+ * Chart-specific colour palette.
+ *
+ * Consumed by the shared chart kit (`@/shared/components/charts`) via
+ * `useChartTone`, which is the seam every chart primitive uses to resolve a
+ * semantic tone to a theme-aware colour. Chart code should go through the kit
+ * rather than reading tokens directly.
+ */
 export const useChartColors = () => {
   const colors = useThemeColors();
   
