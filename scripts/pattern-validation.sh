@@ -197,6 +197,28 @@ else
     failed_checks=$((failed_checks + 1))
 fi
 
+# A spec that `require`s a file living inside an AUTOLOAD root bypasses Zeitwerk
+# and REOPENS whatever constant that file defines, for the rest of the process.
+# When two files define the same constant, the autoload path decides which one
+# production sees (app/services precedes lib/), and the loser is inert — until a
+# spec requires it by path. That happened: a naive duplicate of
+# System::CveOps::VersionMatcher under lib/ was Zeitwerk-shadowed and unreachable
+# in production, but one spec's `require Rails.root.join(...lib/...)` overwrote
+# the real .vulnerable? suite-wide. RSpec loads EVERY spec file before running
+# any example, so command-line order was irrelevant — merely INCLUDING that spec
+# poisoned the run, which is why six examples failed in CI and passed in every
+# isolation that omitted spec/lib. Fixed in extensions/system 16a636b6; this is
+# the recurrence guard (IMP-fa6577beed89).
+#
+# Deliberately scoped to app/ and lib/ (the autoload roots). Requiring from
+# config/ or db/migrate/ is legitimate and common — migrations are not
+# autoloaded and must be required to be tested — so those are not matched.
+# require_relative is excluded: spec support files use it and resolve
+# relatively, never re-entering an autoload root by absolute path.
+check_pattern "No spec requires a file inside an autoload root (Zeitwerk shadow vector)" \
+    "grep -rnE '^[[:space:]]*require[[:space:]]+.*(Rails\\.root\\.join\\([^)]*[\"'\\'']((app)|(lib))[\"'\\'']|/((app)|(lib))/)' server/spec extensions/*/server/spec --include='*_spec.rb' --include='rails_helper.rb' --include='spec_helper.rb' 2>/dev/null | grep -v 'require_relative' | wc -l" \
+    "empty"
+
 # Model Structure Compliance
 # Post-0.4.0 convention: native `id: :uuid` PKs with the `uuidv7()` DB default
 # (the old `string :id, limit: 36` string-PK form was eliminated in the squash —
