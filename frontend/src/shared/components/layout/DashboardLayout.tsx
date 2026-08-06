@@ -14,6 +14,7 @@ import { AgentDetailModal } from '@/features/ai/agents/components/AgentDetailMod
 import { TeamDetailModal } from '@/features/ai/agent-teams/components/TeamDetailModal';
 import { MissionDetailModal } from '@/features/missions/components/MissionDetailModal';
 import { EntityReferenceHost } from '@/shared/components/entity/EntityReferenceHost';
+import { KillSwitchStatusBar } from '@/features/ai/autonomy/components/KillSwitchStatusBar';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -64,6 +65,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           <TeamDetailModal />
           <MissionDetailModal />
           <EntityReferenceHost />
+          <KillSwitchStatusBar />
         </div>
       </ChatWindowProvider>
     </NavigationProvider>

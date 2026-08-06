@@ -6,7 +6,8 @@ import {
   HardDrive, Workflow, Server, GitBranch,
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Boxes,
-  Play, Rocket, DollarSign, Code2, Gauge, Building2, Megaphone
+  Play, Rocket, DollarSign, Code2, Gauge, Building2, Megaphone,
+  Shield, Route, ClipboardCheck
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -46,6 +47,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Create and manage AI agents',
           permissions: ['ai.agents.read'],
           order: 2
+        },
+        {
+          id: 'ai-autonomy',
+          name: 'Autonomy',
+          href: '/app/ai/agents/autonomy',
+          icon: Shield,
+          description: 'Agent trust, lineage, budgets, and the kill switch',
+          permissions: ['ai.agents.read'],
+          order: 2.5
         },
         {
           id: 'ai-teams',
@@ -102,6 +112,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 9
         },
         {
+          id: 'ai-model-router',
+          name: 'Model Router',
+          href: '/app/ai/infrastructure/model-router',
+          icon: Route,
+          description: 'Model routing rules and bandit performance',
+          permissions: ['ai.routing.read'],
+          order: 9.5
+        },
+        {
           id: 'ai-observability',
           name: 'Observability',
           href: '/app/ai/observability',
@@ -137,8 +156,17 @@ export const defaultNavigationConfig: NavigationConfig = {
           permissions: ['ai.governance.read'],
           order: 13
         },
+        {
+          id: 'ai-approval-chains',
+          name: 'Approval Chains',
+          href: '/app/ai/approval-chains',
+          icon: ClipboardCheck,
+          description: 'Define reusable multi-step approval workflows',
+          permissions: ['ai.approval_chains.manage'],
+          order: 13.5
+        },
       ],
-      permissions: ['ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai_monitoring.read', 'ai.governance.read'],
+      permissions: ['ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai_monitoring.read', 'ai.governance.read', 'ai.routing.read', 'ai.approval_chains.manage'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

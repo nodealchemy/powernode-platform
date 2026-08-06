@@ -8,7 +8,7 @@ import type { LucideIcon } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { useAutonomyStats, useTrustScores, useAgentBudgets, useAgentLineage, useAgentLineageForest, useKillSwitchStatus } from '../api/autonomyApi';
+import { useAutonomyStats, useTrustScores, useAgentBudgets, useAgentLineage, useAgentLineageForest } from '../api/autonomyApi';
 import { TrustScoreCard } from '../components/TrustScoreCard';
 import { AgentLineageTree } from '../components/AgentLineageTree';
 import { BudgetAllocationPanel } from '../components/BudgetAllocationPanel';
@@ -25,6 +25,8 @@ import { ProposalsPanel } from '../components/ProposalsPanel';
 import { EscalationsPanel } from '../components/EscalationsPanel';
 import { FeedbackPanel } from '../components/FeedbackPanel';
 import { InterventionPoliciesPanel } from '../components/InterventionPoliciesPanel';
+import { ShadowModeResultsPanel } from '../components/ShadowModeResultsPanel';
+import { KillSwitchStatusBar } from '../components/KillSwitchStatusBar';
 import type { TrustScore, AgentBudget, AutonomyStats, BudgetRegime } from '../types/autonomy';
 
 const breadcrumbs = [
@@ -66,22 +68,6 @@ function computeBudgetRegime(stats: AutonomyStats): BudgetRegime | null {
   else { level = 'NORMAL'; message = 'Budget availability is healthy'; }
   return { level, utilization_pct: pct, remaining_cents: remaining, message };
 }
-
-const KillSwitchStatusBar: React.FC = () => {
-  const { data: status } = useKillSwitchStatus();
-  if (!status?.halted) return null;
-
-  return (
-    <div className="flex items-center gap-3 p-3 mb-4 rounded-lg border border-theme-error-border/50 bg-theme-error-fg/5">
-      <div className="h-3 w-3 rounded-full bg-theme-error-bg animate-pulse" />
-      <div className="flex-1">
-        <p className="text-sm font-medium text-theme-error-fg">AI Activity Suspended</p>
-        {status.reason && <p className="text-xs text-theme-secondary">{status.reason}</p>}
-      </div>
-      <span className="text-xs text-theme-tertiary">Since {new Date(status.halted_since!).toLocaleString()}</span>
-    </div>
-  );
-};
 
 const OverviewTab: React.FC<{ stats: AutonomyStats }> = ({ stats }) => {
   const regime = computeBudgetRegime(stats);
@@ -230,6 +216,7 @@ const SIDEBAR_ITEMS = [
   { id: 'approvals', label: 'Approvals', icon: ClipboardCheck },
   { id: 'security', label: 'Security', icon: ShieldCheck },
   { id: 'killswitch', label: 'Kill Switch', icon: Power },
+  { id: 'shadow', label: 'Shadow Mode', icon: Eye },
   { id: 'telemetry', label: 'Telemetry', icon: Radio },
 ] as const satisfies ReadonlyArray<{ id: string; label: string; icon: LucideIcon }>;
 
@@ -285,6 +272,8 @@ export const AutonomyContent: React.FC = () => {
         return <SecurityTab selectedAgentId={selectedAgentId} />;
       case 'killswitch':
         return <KillSwitchPanel />;
+      case 'shadow':
+        return <ShadowModeResultsPanel />;
       case 'telemetry':
         return <TelemetryEventStream />;
     }

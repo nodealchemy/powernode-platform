@@ -68,6 +68,7 @@ export { BehavioralFingerprintChart } from './components/BehavioralFingerprintCh
 export { DelegationPolicyPanel } from './components/DelegationPolicyPanel';
 export { ShadowModeResultsPanel } from './components/ShadowModeResultsPanel';
 export { TelemetryEventStream } from './components/TelemetryEventStream';
+export { KillSwitchStatusBar } from './components/KillSwitchStatusBar';
 
 // Pages
 export { AutonomyDashboardPage } from './pages/AutonomyDashboardPage';
