@@ -18,11 +18,24 @@ module Ai
     # the steps that change. The Skill Composition Runner appends them
     # onto the live mission's existing plan rather than replacing it.
     #
+    # Two entrypoints, one internal path:
+    #   - `propose_from_signals` — sensor-driven (ProjectSloSensor →
+    #     DecisionEngine). Swallows errors, returns the plan or nil.
+    #   - `propose_change`       — operator-driven (MCP
+    #     `platform_provisioning_adapt`). Wraps the explicit request in a
+    #     signal-shaped envelope and funnels it into the identical
+    #     `compose_and_route!` internal, so approval routing cannot be
+    #     bypassed by asking for a change directly. Raises rather than
+    #     swallowing, because its caller is interactive.
+    #
     # LLM access is funneled through `#diff_from_llm` so test specs can
     # inject a fixture proposal without exercising provider plumbing —
     # mirrors the seam in `IntentCaptureService` from the M0 sprint.
     class AdaptationProposerService
       class MissionMissingError < StandardError; end
+      # ArgumentError so MCP/tool callers that already funnel ArgumentError
+      # into an error envelope get a clean message for free.
+      class UnknownChangeTypeError < ArgumentError; end
 
       # Maps a signal kind (and optional payload metric) to the canonical
       # change_type used by the proposer + intervention policy resolver.
@@ -50,6 +63,18 @@ module Ai
         "security_change" => "configure_sdwan_for_project"
       }.freeze
 
+      # Change types an EXPLICIT (operator / MCP-initiated) adaptation request
+      # may name. Superset of `CHANGE_TYPES.values` because an operator can ask
+      # for a relocate / schema / security change that no sensor signal derives
+      # on its own — every entry must have a skill in DEFAULT_SKILL_FOR_CHANGE
+      # so the heuristic composer can always produce at least one step.
+      REQUESTABLE_CHANGE_TYPES = (CHANGE_TYPES.values | DEFAULT_SKILL_FOR_CHANGE.keys).freeze
+
+      # Signal kind stamped on the synthetic envelope built for an explicit
+      # request, so downstream consumers can tell an operator-initiated
+      # adaptation apart from a sensor-initiated one.
+      EXPLICIT_SIGNAL_KIND = "operator.adaptation_request"
+
       DEFAULT_TEMPERATURE = 0.2
       DEFAULT_MAX_TOKENS  = 1024
 
@@ -72,16 +97,39 @@ module Ai
         return nil if signals.empty?
 
         primary = primary_signal(signals)
-        change_type = derive_change_type(primary)
-        diff_steps = build_steps_for(primary, change_type)
-        return nil if diff_steps.blank?
-
-        plan = persist_diff_plan!(change_type, diff_steps, primary)
-        request_approval_for!(plan, change_type, primary) if plan
-        plan
+        compose_and_route!(signal: primary, change_type: derive_change_type(primary))[:plan]
       rescue StandardError => e
         Rails.logger.warn("[AdaptationProposerService] propose failed mission=#{mission.id}: #{e.class}: #{e.message}")
         nil
+      end
+
+      # Explicit, operator-initiated adaptation request — the seam the MCP
+      # `platform_provisioning_adapt` action calls. It does NOT bypass any of
+      # the signal path: the change request is wrapped in a signal-shaped
+      # envelope and handed to the same `compose_and_route!` internal, so step
+      # composition, plan persistence and ApprovalWorkflowService routing
+      # (`project.adapt_<change_type>`) are byte-identical to the sensor path.
+      #
+      # Unlike `propose_from_signals` (called from a reconciler, where an
+      # exception must never cascade) this raises, so an interactive caller
+      # gets a real message instead of a silent nil.
+      #
+      # @param change_type [String] one of REQUESTABLE_CHANGE_TYPES
+      # @param metric [String, nil] optional metric that motivated the request
+      # @param details [Hash, nil] optional structured payload (observed,
+      #   target, breach_pct, target_usd, correlation_id, …)
+      # @return [Hash] { plan:, change_type:, signal:, approval_request:,
+      #   auto_apply: } — `plan` is nil when no diff could be composed.
+      def propose_change(change_type:, metric: nil, details: nil)
+        normalized = change_type.to_s.strip
+        unless REQUESTABLE_CHANGE_TYPES.include?(normalized)
+          raise UnknownChangeTypeError,
+                "Unknown change_type '#{change_type}' — must be one of: " \
+                "#{REQUESTABLE_CHANGE_TYPES.join(', ')}"
+        end
+
+        signal = explicit_signal(normalized, metric: metric, details: details)
+        compose_and_route!(signal: signal, change_type: normalized)
       end
 
       # Auto-apply heuristic. Replica scale within
@@ -137,6 +185,52 @@ module Ai
       end
 
       private
+
+      # The single composition+routing path shared by the sensor-driven
+      # (`propose_from_signals`) and the operator-driven (`propose_change`)
+      # entrypoints. Nothing may compose a diff plan without passing through
+      # here — that is what keeps approval routing non-bypassable.
+      def compose_and_route!(signal:, change_type:)
+        diff_steps = build_steps_for(signal, change_type)
+        return empty_result(signal, change_type) if diff_steps.blank?
+
+        plan = persist_diff_plan!(change_type, diff_steps, signal)
+        return empty_result(signal, change_type) unless plan
+
+        {
+          plan: plan,
+          change_type: change_type,
+          signal: signal,
+          approval_request: request_approval_for!(plan, change_type, signal),
+          auto_apply: auto_apply?(plan: plan)
+        }
+      end
+
+      def empty_result(signal, change_type)
+        { plan: nil, change_type: change_type, signal: signal,
+          approval_request: nil, auto_apply: false }
+      end
+
+      # Signal-shaped envelope for an explicit request. Hash form is
+      # deliberate: every reader (#signal_kind, #signal_payload,
+      # #signal_severity) already accepts a Hash, so no branch is needed
+      # anywhere downstream.
+      def explicit_signal(change_type, metric:, details:)
+        payload = details.respond_to?(:deep_stringify_keys) ? details.deep_stringify_keys : {}
+        payload = {} unless payload.is_a?(Hash)
+        payload = payload.dup
+        payload["metric"] = metric.to_s if metric.present?
+        payload["mission_id"] ||= mission.id
+        payload["change_type"] = change_type
+        payload["requested_via"] = "operator"
+        payload["correlation_id"] ||= "provisioning_adapt:#{mission.id}:#{SecureRandom.hex(4)}"
+
+        {
+          "kind" => EXPLICIT_SIGNAL_KIND,
+          "severity" => payload["severity"].presence || "high",
+          "payload" => payload
+        }
+      end
 
       def build_llm_client
         return nil unless defined?(::WorkerLlmClient)

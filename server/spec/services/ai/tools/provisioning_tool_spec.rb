@@ -421,18 +421,175 @@ RSpec.describe Ai::Tools::ProvisioningTool do
   end
 
   # --------------------------------------------------------------------------
-  # platform_provisioning_adapt — M0 stub
+  # platform_provisioning_adapt — wired to AdaptationProposerService
+  #
+  # The M0 stub ({ todo: "M2", adaptation_plan: nil }) is gone: the action now
+  # funnels an explicit operator change request through the SAME internal path
+  # the sensor-driven proposer uses, so the diff plan is persisted and routed
+  # through Ai::Autonomy::ApprovalWorkflowService as
+  # `project.adapt_<change_type>`. Approval routing is never bypassed.
   # --------------------------------------------------------------------------
 
   describe "platform_provisioning_adapt" do
-    it "returns the M0 stub regardless of inputs" do
-      mission = create_mission!
+    # Keep the proposer hermetic — nil from the LLM seam makes it use the
+    # deterministic heuristic step builder (same convention as
+    # spec/services/ai/provisioning/adaptation_proposer_service_spec.rb).
+    before do
+      allow_any_instance_of(::Ai::Provisioning::AdaptationProposerService)
+        .to receive(:diff_from_llm).and_return(nil)
+    end
+
+    let(:adapt_mission) do
+      create_mission!(brief: {
+        "intent" => "3-node web stack",
+        "scale" => { "initial" => 3, "target" => 5, "growth_profile" => "linear" },
+        "regions" => %w[us-east-1 us-west-2]
+      })
+    end
+
+    def stub_approval_workflow(returning: nil)
+      workflow = instance_double(::Ai::Autonomy::ApprovalWorkflowService)
+      allow(::Ai::Autonomy::ApprovalWorkflowService).to receive(:new).and_return(workflow)
+      allow(workflow).to receive(:request_approval).and_return(returning)
+      workflow
+    end
+
+    it "no longer advertises the M0 stub in its action definition" do
+      defn = described_class.action_definitions["platform_provisioning_adapt"]
+      expect(defn[:description]).not_to match(/todo/i)
+      expect(defn[:description]).not_to match(/M0 stub/i)
+      expect(defn[:description]).to match(/approval/i)
+      expect(defn[:parameters]).to have_key(:change_type)
+    end
+
+    it "composes a real diff plan and reports the approval routing outcome" do
+      approval_request = double("Ai::ApprovalRequest", id: SecureRandom.uuid, status: "pending")
+      workflow = stub_approval_workflow(returning: approval_request)
+
       r = call("platform_provisioning_adapt",
-               mission_id: mission.id,
-               proposed_change: { "kind" => "scale_horizontal" })
+               mission_id: adapt_mission.id,
+               change_type: "scale_horizontal",
+               metric: "p99_latency_ms",
+               details: { "breach_pct" => 100.0, "observed" => 500.0, "target" => 250.0 })
+
       expect(r[:success]).to be true
-      expect(r[:data][:todo]).to eq("M2")
-      expect(r[:data][:adaptation_plan]).to be_nil
+      expect(r[:data]).not_to have_key(:todo)
+      expect(r[:data][:mission_id]).to eq(adapt_mission.id)
+      expect(r[:data][:change_type]).to eq("scale_horizontal")
+
+      plan = ::Ai::GoalPlan.find(r[:data][:plan_id])
+      expect(plan.account_id).to eq(account.id)
+      expect(plan.plan_data["kind"]).to eq("adaptation_diff")
+      expect(plan.plan_data["change_type"]).to eq("scale_horizontal")
+      expect(plan.steps.pluck(:step_type)).to all(eq("provisioning_skill"))
+
+      adaptation_plan = r[:data][:adaptation_plan]
+      expect(adaptation_plan[:id]).to eq(plan.id)
+      expect(adaptation_plan[:step_count]).to eq(plan.steps.count)
+      first_step = adaptation_plan[:steps].first
+      expect(first_step[:skill]).to eq("scale_project")
+      expect(first_step[:inputs]["change_type"]).to eq("scale_horizontal")
+      expect(first_step[:inputs]["desired_replica_count"]).to eq(5) # initial 3 + breach 100% → +2
+      # The explicit request is funnelled through the same signal-shaped
+      # envelope the sensor path uses, so the operator's metric/details land
+      # under signal_payload for the downstream skill executor.
+      expect(first_step[:inputs]["signal_payload"]["metric"]).to eq("p99_latency_ms")
+      expect(first_step[:inputs]["signal_payload"]["observed"]).to eq(500.0)
+      expect(first_step[:inputs]["correlation_id"]).to be_present
+
+      expect(workflow).to have_received(:request_approval).with(
+        hash_including(action_type: "project.adapt_scale_horizontal")
+      )
+      expect(r[:data][:approval][:requested]).to be true
+      expect(r[:data][:approval][:action_type]).to eq("project.adapt_scale_horizontal")
+      expect(r[:data][:approval][:approval_request_id]).to eq(approval_request.id)
+      expect(r[:data][:approval][:status]).to eq("pending")
+      expect(r[:data][:summary]).to be_present
+    end
+
+    it "derives the action_type from the requested change_type (cost_control)" do
+      workflow = stub_approval_workflow
+
+      r = call("platform_provisioning_adapt",
+               mission_id: adapt_mission.id,
+               change_type: "cost_control",
+               details: { "target_usd" => 200.0 })
+
+      expect(r[:success]).to be true
+      expect(workflow).to have_received(:request_approval).with(
+        hash_including(action_type: "project.adapt_cost_control")
+      )
+      first_step = r[:data][:adaptation_plan][:steps].first
+      expect(first_step[:skill]).to eq("scale_project")
+      expect(first_step[:inputs]["target_cost_usd"]).to eq(200.0)
+    end
+
+    it "still returns the plan when approval routing is inert (core mode returns nil)" do
+      stub_approval_workflow(returning: nil)
+
+      r = call("platform_provisioning_adapt",
+               mission_id: adapt_mission.id,
+               change_type: "relocate")
+
+      expect(r[:success]).to be true
+      expect(r[:data][:plan_id]).to be_present
+      expect(r[:data][:approval][:requested]).to be false
+      expect(r[:data][:approval][:approval_request_id]).to be_nil
+      expect(r[:data][:adaptation_plan][:steps].first[:skill]).to eq("relocate_workload")
+    end
+
+    it "accepts the legacy proposed_change envelope" do
+      stub_approval_workflow
+
+      r = call("platform_provisioning_adapt",
+               mission_id: adapt_mission.id,
+               proposed_change: { "kind" => "scale_horizontal", "breach_pct" => 100.0 })
+
+      expect(r[:success]).to be true
+      expect(r[:data][:change_type]).to eq("scale_horizontal")
+      expect(r[:data][:adaptation_plan][:steps].first[:inputs]["desired_replica_count"]).to eq(5)
+    end
+
+    it "returns a clean error envelope for an unknown mission_id" do
+      expect {
+        r = call("platform_provisioning_adapt",
+                 mission_id: SecureRandom.uuid,
+                 change_type: "scale_horizontal")
+        expect(r[:success]).to be false
+        expect(r[:error]).to include("not found")
+        expect(r[:data]).to be_nil
+      }.not_to change(::Ai::GoalPlan, :count)
+    end
+
+    it "rejects a mission_id belonging to another account" do
+      other_account = create(:account)
+      other_user = create(:user, account: other_account)
+      other_mission = create_mission!(account: other_account, user: other_user)
+
+      expect {
+        r = call("platform_provisioning_adapt",
+                 mission_id: other_mission.id,
+                 change_type: "scale_horizontal")
+        expect(r[:success]).to be false
+        expect(r[:error]).to include("not found")
+      }.not_to change(::Ai::GoalPlan, :count)
+    end
+
+    it "rejects an unknown change_type without composing a plan" do
+      expect {
+        r = call("platform_provisioning_adapt",
+                 mission_id: adapt_mission.id,
+                 change_type: "delete_everything")
+        expect(r[:success]).to be false
+        expect(r[:error]).to include("change_type")
+        expect(r[:error]).to include("scale_horizontal")
+      }.not_to change(::Ai::GoalPlan, :count)
+    end
+
+    it "requires a change_type" do
+      r = call("platform_provisioning_adapt", mission_id: adapt_mission.id)
+      expect(r[:success]).to be false
+      expect(r[:error]).to include("change_type")
     end
   end
 

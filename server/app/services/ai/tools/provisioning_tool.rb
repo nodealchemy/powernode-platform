@@ -17,7 +17,7 @@ module Ai
     #   platform_provisioning_compose_plan   — mission_id → plan_id + DAG (cost/topology/risk nil for M0)
     #   platform_provisioning_approve_plan   — plan_id + decision → mission status transition (also kicks off execution via the orchestrator)
     #   platform_provisioning_status         — mission_id → phase + step lists
-    #   platform_provisioning_adapt          — M0 stub returning { todo: "M2", adaptation_plan: nil }
+    #   platform_provisioning_adapt          — mission_id + change_type → diff plan + approval routing outcome
     #
     # Note: there is intentionally NO `platform_provisioning_execute` action.
     # The approve_plan action advances the mission past `review_plan`, which
@@ -25,9 +25,14 @@ module Ai
     # SkillCompositionRunner. A separate execute action would race with that
     # path and double-provision (root cause of an early-M1 incident where
     # two duplicate VMs spun up because the Concierge LLM called approve and
-    # then execute as separate tool calls). Adapt is intentionally inert in
-    # M0; the actual adaptation engine ships with the ProjectSloSensor
-    # reconciler in M2.
+    # then execute as separate tool calls).
+    #
+    # `adapt` composes but never applies: it hands the request to
+    # Ai::Provisioning::AdaptationProposerService — the same service the
+    # ProjectSloSensor-driven reconciler uses — which persists a diff plan and
+    # routes it through Ai::Autonomy::ApprovalWorkflowService. Whether that
+    # plan runs is the operator's intervention policy's decision, not this
+    # tool's.
     class ProvisioningTool < BaseTool
       MISSION_TEMPLATE_NAME = "system_provisioning"
       VALID_DECISIONS = %w[approved rejected modified].freeze
@@ -93,17 +98,34 @@ module Ai
             }
           },
           "platform_provisioning_adapt" => {
-            description: "M0 stub — adaptation engine ships with the ProjectSloSensor reconciler in M2. " \
-                         "Returns { todo: 'M2', adaptation_plan: nil } today; will accept a proposed_change " \
-                         "(scale_horizontal, cost_control, schema_change, etc.) and return a remediation plan " \
-                         "in M2.",
+            description: "Propose an adaptation to a live infrastructure mission. Composes a diff-shaped " \
+                         "Ai::GoalPlan (only the steps that change, appended onto the mission's existing " \
+                         "plan) via Ai::Provisioning::AdaptationProposerService and routes it through the " \
+                         "approval workflow as action_type project.adapt_<change_type>, so the operator's " \
+                         "intervention policies decide auto-apply vs require-approval. Returns the plan id, " \
+                         "its steps, and the approval routing outcome.",
             parameters: {
               mission_id: { type: "string", required: true, description: "Infrastructure mission ID" },
+              change_type: { type: "string", required: true,
+                             description: "One of: #{adapt_change_types.join(', ')}" },
+              metric: { type: "string", required: false,
+                        description: "Optional metric that motivated the change (e.g. p99_latency_ms)" },
+              details: { type: "object", required: false,
+                         description: "Optional structured payload merged into the adaptation signal " \
+                                      "(observed, target, breach_pct, target_usd, correlation_id, …)" },
               proposed_change: { type: "object", required: false,
-                                 description: "Optional shape of the adaptation; ignored in M0" }
+                                 description: "Legacy envelope: { change_type|kind: String, …details }. " \
+                                              "Explicit change_type/metric/details take precedence." }
             }
           }
         }
+      end
+
+      # Resolved lazily (inside a method body, not at class-definition time) so
+      # the tool never forces the proposer to autoload while the registry is
+      # being built.
+      def self.adapt_change_types
+        ::Ai::Provisioning::AdaptationProposerService::REQUESTABLE_CHANGE_TYPES
       end
 
       protected
@@ -277,8 +299,114 @@ module Ai
         )
       end
 
-      def adapt(_params)
-        success_result(todo: "M2", adaptation_plan: nil)
+      # Operator-initiated adaptation of a live mission. Delegates to
+      # AdaptationProposerService#propose_change — the explicit-request seam
+      # that funnels into the same internal path the ProjectSloSensor-driven
+      # proposals use, so the resulting diff plan is always routed through
+      # Ai::Autonomy::ApprovalWorkflowService as project.adapt_<change_type>.
+      # This action never applies the change itself.
+      def adapt(params)
+        mission = find_mission!(params[:mission_id])
+        legacy = hash_param(params[:proposed_change])
+
+        change_type = (params[:change_type].presence ||
+                       legacy["change_type"].presence ||
+                       legacy["kind"].presence).to_s
+        if change_type.blank?
+          return error_result("change_type is required — one of: #{self.class.adapt_change_types.join(', ')}")
+        end
+        unless self.class.adapt_change_types.include?(change_type)
+          return error_result(
+            "Unknown change_type '#{change_type}' — must be one of: " \
+            "#{self.class.adapt_change_types.join(', ')}"
+          )
+        end
+
+        details = legacy.except("change_type", "kind").merge(hash_param(params[:details]))
+        result = propose_adaptation(mission, change_type: change_type,
+                                             metric: params[:metric], details: details)
+        return error_result("Adaptation proposal failed for mission #{mission.id}") if result.nil?
+
+        plan = result[:plan]
+        unless plan
+          return error_result(
+            "No adaptation steps could be composed for change_type '#{change_type}' " \
+            "on mission #{mission.id}"
+          )
+        end
+
+        approval = result[:approval_request]
+        success_result(
+          mission_id: mission.id,
+          change_type: result[:change_type],
+          plan_id: plan.id,
+          summary: adaptation_summary(plan, result[:change_type]),
+          adaptation_plan: serialize_adaptation_plan(plan),
+          approval: {
+            requested: approval.present?,
+            approval_request_id: approval.respond_to?(:id) ? approval.id : nil,
+            status: approval.respond_to?(:status) ? approval.status : nil,
+            action_type: "project.adapt_#{result[:change_type]}",
+            auto_apply: result[:auto_apply] == true
+          }
+        )
+      end
+
+      # The proposer raises for a genuinely unknown change_type (already
+      # screened above) and is otherwise best-effort; keep an MCP caller in a
+      # clean envelope rather than bubbling a 500 out of the tool bridge.
+      def propose_adaptation(mission, change_type:, metric:, details:)
+        ::Ai::Provisioning::AdaptationProposerService
+          .new(account: account, mission: mission)
+          .propose_change(change_type: change_type, metric: metric, details: details)
+      rescue ArgumentError
+        raise
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[ProvisioningTool] adaptation proposal failed mission=#{mission.id} " \
+          "change_type=#{change_type}: #{e.class}: #{e.message}"
+        )
+        nil
+      end
+
+      def hash_param(value)
+        value = value.deep_stringify_keys if value.respond_to?(:deep_stringify_keys)
+        value.is_a?(Hash) ? value : {}
+      end
+
+      def adaptation_summary(plan, change_type)
+        steps = plan.steps.reload.to_a
+        skills = steps.map { |s| step_skill(s) }.compact.uniq
+        "Adaptation proposed (#{change_type}): #{steps.size} step#{'s' unless steps.size == 1}" \
+          "#{skills.any? ? " — #{skills.join(', ')}" : ''}"
+      end
+
+      def serialize_adaptation_plan(plan)
+        steps = plan.steps.reload.to_a.sort_by { |s| s.step_number.to_i }
+        plan_data = plan.plan_data.is_a?(Hash) ? plan.plan_data : {}
+        {
+          id: plan.id,
+          status: plan.respond_to?(:status) ? plan.status : nil,
+          version: plan.respond_to?(:version) ? plan.version : nil,
+          kind: plan_data["kind"],
+          step_count: steps.size,
+          steps: steps.map do |s|
+            cfg = s.execution_config.is_a?(Hash) ? s.execution_config : {}
+            {
+              step_number: s.step_number,
+              skill: step_skill(s),
+              description: s.description,
+              inputs: cfg["inputs"] || cfg[:inputs] || {},
+              on_failure: cfg["on_failure"] || cfg[:on_failure],
+              dependencies: Array(s.dependencies).map(&:to_i)
+            }
+          end
+        }
+      end
+
+      def step_skill(step)
+        cfg = step.execution_config.is_a?(Hash) ? step.execution_config : {}
+        cfg["skill"] || cfg[:skill]
       end
 
       # ===== Mission / plan lookups =====
