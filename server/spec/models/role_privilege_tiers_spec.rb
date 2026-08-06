@@ -2,7 +2,16 @@
 
 require "rails_helper"
 
-# IMP-4bd5ac8ca3ad — CHARACTERIZATION SPEC, not an endorsement.
+# IMP-4bd5ac8ca3ad — the system_worker/admin tier collapse, DECIDED.
+#
+# OPERATOR DECISION 2026-08-06: the collapse is INTENDED. system_worker is an
+# admin-equivalent service account by design; the platform does not maintain a
+# narrower worker tier. Do not "fix" this by removing system.admin from the
+# grant — that would be reversing a recorded decision, and these examples are
+# the record. What the decision costs is stated plainly so a future reader
+# weighs it deliberately rather than rediscovering it: a leaked system_worker
+# token carries full admin, and every "worker-only" permission name in the
+# codebase describes an explicit-grant boundary, never an access boundary.
 #
 # `system_worker` is granted `*SYSTEM_PERMISSIONS.keys` (config/permissions.rb
 # ~:932), and SYSTEM_PERMISSIONS includes "system.admin" (:509), whose own
@@ -14,13 +23,11 @@ require "rails_helper"
 # Two prose sites that reason from worker-only grants were audited and are
 # accurate today (system_fleet_tool.rb's WORKER_ONLY_ACTIONS comment and
 # engine.rb's "Deliberately EXCLUDED" note both spell out the short-circuit),
-# so nothing is misleading in the tree. What remains is an OPEN DESIGN
-# QUESTION the operator owns: should the worker tier be narrower than admin?
+# so nothing in the tree misleads a reader.
 #
-# This file pins the measured status quo so the collapse is a recorded fact
-# rather than a surprise rediscovered by the next permission audit. If the
-# role is deliberately narrowed, THIS SPEC GOING RED IS THE INTENDED SIGNAL —
-# update it as part of that change rather than treating it as a regression.
+# This file pins the decided behavior. If the decision is ever revisited and
+# the role narrowed, THIS SPEC GOING RED IS THE INTENDED SIGNAL — update it as
+# part of that change rather than treating it as a regression.
 # Real Role records throughout: a synthetic `permissions:` grant cannot
 # observe this class of fact at all, which is why it stayed hidden.
 RSpec.describe "role privilege tiers", type: :model do
