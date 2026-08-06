@@ -18,6 +18,7 @@ SKIP_TESTS=false
 SKIP_TS=false
 SKIP_PATTERNS=false
 SKIP_SECRETS=false
+SKIP_EXT_SPECS=false
 
 for arg in "$@"; do
   case "$arg" in
@@ -25,20 +26,25 @@ for arg in "$@"; do
     --skip-ts)      SKIP_TS=true ;;
     --skip-patterns) SKIP_PATTERNS=true ;;
     --skip-secrets)  SKIP_SECRETS=true ;;
+    --skip-extension-specs) SKIP_EXT_SPECS=true ;;
     --help)
-      echo "Usage: ./scripts/validate.sh [--skip-tests] [--skip-ts] [--skip-patterns] [--skip-secrets]"
+      echo "Usage: ./scripts/validate.sh [--skip-tests] [--skip-ts] [--skip-patterns] [--skip-secrets] [--skip-extension-specs]"
       echo ""
       echo "Runs pre-push validation checks:"
-      echo "  1. Backend RSpec tests"
+      echo "  1. Backend RSpec tests (platform + every extension that ships specs)"
       echo "  2. Frontend TypeScript type check"
       echo "  3. Pattern validation audit"
       echo "  4. Secret scanning (gitleaks)"
       echo ""
       echo "Options:"
-      echo "  --skip-tests     Skip RSpec backend tests"
-      echo "  --skip-ts        Skip TypeScript type check"
-      echo "  --skip-patterns  Skip pattern validation"
-      echo "  --skip-secrets   Skip gitleaks secret scanning"
+      echo "  --skip-tests             Skip ALL RSpec specs (platform and extensions)"
+      echo "  --skip-extension-specs   Run platform specs only — prints a loud warning."
+      echo "                           The extension suites are long (system alone is"
+      echo "                           ~8000 examples); this exists so you can choose to"
+      echo "                           defer them, not so they can be forgotten."
+      echo "  --skip-ts                Skip TypeScript type check"
+      echo "  --skip-patterns          Skip pattern validation"
+      echo "  --skip-secrets           Skip gitleaks secret scanning"
       exit 0
       ;;
   esac
@@ -67,7 +73,85 @@ fi
 # 1. Backend RSpec tests
 if [[ "$SKIP_TESTS" == "false" ]]; then
   echo -e "${BLUE}[1/4] Running backend specs...${NC}"
+  SPECS_OK=true
+
+  # Platform specs. `bundle exec rspec` uses RSpec's default pattern
+  # spec/**/*_spec.rb RELATIVE TO THE CWD, so this covers server/spec ONLY.
   if (cd "$PROJECT_ROOT/server" && bundle exec rspec --format progress 2>&1); then
+    :
+  else
+    echo -e "${RED}  └─ platform server/spec failed${NC}"
+    SPECS_OK=false
+  fi
+
+  # Extension specs — the whole point of this block.
+  #
+  # They used to be invisible here. The platform run above covers 1056 spec
+  # files; extensions/system alone ships 608 that were NEVER LOADED, so a green
+  # gate said nothing about them. On 2026-08-05 this gate reported 21901
+  # examples / 0 failures while CI was red with 43 extension failures. Both were
+  # true — they were testing different things.
+  #
+  # Same shape as the tsc phase below: enumerate extension SPEC DIRS, not
+  # configs, so a missing one is a failure rather than a silent skip. An
+  # extension that ships specs is either run or named in the opt-out file.
+  if [[ "$SKIP_EXT_SPECS" == "true" ]]; then
+    echo -e "${YELLOW}  └─ SKIP all extension specs (--skip-extension-specs). Platform specs alone do NOT cover extensions.${NC}"
+  else
+    RSPEC_OPTOUT_FILE="$PROJECT_ROOT/scripts/rspec-check-optouts.txt"
+    for ext_spec in "$PROJECT_ROOT"/extensions/*/server/spec "$PROJECT_ROOT"/extensions/private/*/server/spec; do
+      [[ -d "$ext_spec" ]] || continue
+      # No *_spec.rb means nothing to run; not a gap.
+      [[ -n "$(find "$ext_spec" -name '*_spec.rb' -print -quit 2>/dev/null)" ]] || continue
+      ext_slug="$(basename "$(dirname "$(dirname "$ext_spec")")")"
+
+      # `|| true` is load-bearing under `set -eo pipefail`: a no-match grep
+      # (exit 1) inside a command substitution would abort the whole gate
+      # silently, mid-phase — the exact failure this check exists to remove.
+      optout_reason="$(grep -E "^${ext_slug}[[:space:]]" "$RSPEC_OPTOUT_FILE" 2>/dev/null | head -1 | sed -E "s/^${ext_slug}[[:space:]]+//" || true)"
+      if [[ -n "$optout_reason" ]]; then
+        # Printed every run on purpose: an exemption nobody sees stops being a
+        # decision and becomes an accident.
+        echo -e "${YELLOW}  └─ SKIP extensions/$ext_slug — specs not run: ${optout_reason}${NC}"
+        continue
+      fi
+
+      # PRIVATE extensions need the private bundle. Their code is loaded through
+      # PATH gems declared in server/Gemfile.private; under the committed
+      # public-only Gemfile the extension is simply absent, so every one of its
+      # specs dies at load with `NameError: uninitialized constant <Namespace>`
+      # — 95 load errors and "0 examples, 0 failures", which reads as green to
+      # anything checking totals. Measured on the business extension.
+      #
+      # Gemfile.private.lock is gitignored and only exists for maintainers; a
+      # public clone has no extensions/private/* at all, so this branch is
+      # simply never taken there.
+      ext_bundle=""
+      case "$ext_spec" in
+        "$PROJECT_ROOT"/extensions/private/*)
+          if [[ -f "$PROJECT_ROOT/server/Gemfile.private" ]]; then
+            ext_bundle="$PROJECT_ROOT/server/Gemfile.private"
+          else
+            echo -e "${YELLOW}  └─ SKIP extensions/$ext_slug — private extension present but server/Gemfile.private is missing; run 'cd server && BUNDLE_GEMFILE=Gemfile.private bundle install'${NC}"
+            continue
+          fi
+          ;;
+      esac
+
+      echo -e "${BLUE}  └─ extensions/$ext_slug specs...${NC}"
+      # Run from the PLATFORM's server/ so rails_helper, factories and the
+      # engine's autoload paths resolve exactly as they do in CI.
+      if (cd "$PROJECT_ROOT/server" && BUNDLE_GEMFILE="${ext_bundle:-$PROJECT_ROOT/server/Gemfile}" \
+            bundle exec rspec "$ext_spec" --format progress 2>&1); then
+        :
+      else
+        echo -e "${RED}     extensions/$ext_slug specs failed${NC}"
+        SPECS_OK=false
+      fi
+    done
+  fi
+
+  if [[ "$SPECS_OK" == "true" ]]; then
     RESULTS+=("${GREEN}PASS${NC} Backend specs")
   else
     RESULTS+=("${RED}FAIL${NC} Backend specs")
