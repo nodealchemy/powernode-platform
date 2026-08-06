@@ -1,17 +1,9 @@
-import React, { useCallback, useEffect, useState, Suspense } from 'react';
-import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/shared/services';
+import React, { useEffect, useState, Suspense } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
-import { MetricCard } from '@/shared/components/ui/Card';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
-import { useDashboardStats } from '@/shared/hooks/useDashboardStats';
 import { featureRegistry } from '@/shared/services/featureRegistry';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import { BarChart3, Users } from 'lucide-react';
-import { Button } from '@/shared/components/ui/Button';
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
-import { DashboardAIOverview } from '@/features/ai/monitoring/components/DashboardAIOverview';
+import { DashboardOverview } from '@/pages/app/dashboard/DashboardOverview';
 
 // Context providers used inline in route elements (must be synchronous)
 import { ClusterProvider } from '@/features/devops/swarm/context/ClusterContext';
@@ -65,6 +57,7 @@ const AIDebugPage = React.lazy(() => import('./ai').then(m => ({ default: m.AIDe
 const AgentDetailPage = React.lazy(() => import('./ai/AgentDetailPage').then(m => ({ default: m.AgentDetailPage })));
 const AIAnalyticsPage = React.lazy(() => import('./ai/AIAnalyticsPage').then(m => ({ default: m.AIAnalyticsPage })));
 const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m => ({ default: m.AgentMemoryPage })));
+const ApprovalChainsPage = React.lazy(() => import('./ai/ApprovalChainsPage').then(m => ({ default: m.ApprovalChainsPage })));
 const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then(m => ({ default: m.ContextDetailPage })));
 
 // AI Hidden pages
@@ -119,233 +112,6 @@ const KubernetesHubPage = React.lazy(() => import('@/pages/app/devops/Kubernetes
 
 // Marketing routes handled by featureRegistry (marketing extension)
 
-// Dashboard overview page
-const DashboardOverview: React.FC = () => {
-  const navigate = useNavigate();
-  const { user } = useSelector((state: RootState) => state.auth);
-  const { stats, loading: statsLoading, refresh: refreshStats } = useDashboardStats();
-
-  // Handle websocket data updates
-  const handleDataUpdate = useCallback(() => {
-    refreshStats();
-  }, [refreshStats]);
-
-  // WebSocket connection for real-time dashboard updates
-  usePageWebSocket({
-    pageType: 'dashboard',
-    onDataUpdate: handleDataUpdate,
-    onNotification: handleDataUpdate
-  });
-
-  // Calculate completion status
-  const completedTasks = [
-    true, // Account created (always true if user is logged in)
-    user?.email_verified || false, // Email verification
-  ];
-  const completedCount = completedTasks.filter(Boolean).length;
-  const totalTasks = completedTasks.length;
-
-  const pageActions: PageAction[] = [
-    {
-      id: 'ai-overview',
-      label: 'AI Overview',
-      onClick: () => navigate('/app/ai'),
-      variant: 'secondary',
-      icon: BarChart3
-    },
-    {
-      id: 'devops',
-      label: 'DevOps',
-      onClick: () => navigate('/app/devops'),
-      variant: 'secondary',
-      icon: Users
-    }
-  ];
-
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'Dashboard' }
-  ];
-
-  return (
-    <PageContainer
-      title={`Welcome back, ${user?.name || 'User'}! 👋`}
-      description="Here's an overview of your account activity and system status."
-      breadcrumbs={breadcrumbs}
-      actions={pageActions}
-    >
-      <div className="space-y-6">
-        {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <MetricCard
-            title="System Health"
-            value={statsLoading ? '...' : `${stats.systemHealth.score}%`}
-            icon="✅"
-            description={statsLoading ? 'Loading...' : stats.systemHealth.status === 'healthy' ? 'All systems operational' : `Status: ${stats.systemHealth.status}`}
-            onClick={() => navigate('/app/ai/observability')}
-          />
-
-          <MetricCard
-            title="AI Agents"
-            value={statsLoading ? '...' : stats.agents.total}
-            icon="🤖"
-            description={statsLoading ? 'Loading...' : stats.agents.active > 0 ? `${stats.agents.active} active` : 'Configure AI agents'}
-            onClick={() => navigate('/app/ai/agents')}
-          />
-
-          <MetricCard
-            title="Repositories"
-            value={statsLoading ? '...' : stats.repositories}
-            icon="📦"
-            description={statsLoading ? 'Loading...' : stats.repositories > 0 ? `${stats.repositories} connected` : 'Connect your repos'}
-            onClick={() => navigate('/app/devops/source-control')}
-          />
-
-          <MetricCard
-            title="Executions Today"
-            value={statsLoading ? '...' : stats.overview.totalExecutionsToday}
-            icon="⚡"
-            description={statsLoading ? 'Loading...' : stats.overview.totalExecutionsToday > 0 ? `${stats.overview.successRate}% success rate` : 'No executions yet'}
-            onClick={() => navigate('/app/ai/observability')}
-          />
-        </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Getting Started Card */}
-        <div className="card-theme-elevated p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-theme-primary">
-              Getting Started
-            </h3>
-            <span className="bg-theme-info-bg text-theme-on-primary px-3 py-1 rounded-full text-xs font-medium bg-theme-info-bg/10 text-theme-info-fg">
-              {`${completedCount} of ${totalTasks} complete`}
-            </span>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 mt-1">
-                <div className="h-5 w-5 bg-theme-success-bg rounded-full flex items-center justify-center">
-                  <span className="text-white text-xs">✓</span>
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-theme-primary">Account created successfully</p>
-                <p className="text-xs text-theme-tertiary mt-1">Your Powernode account is ready to use</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 mt-1">
-                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                  user?.email_verified ? 'bg-theme-success-bg' : 'bg-theme-error-bg'
-                }`}>
-                  <span className="text-white text-xs">
-                    {user?.email_verified ? '✓' : '✗'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${
-                  user?.email_verified ? 'text-theme-primary' : 'text-theme-primary'
-                }`}>
-                  {user?.email_verified ? 'Email verification completed' : 'Email verification required'}
-                </p>
-                <p className="text-xs text-theme-tertiary mt-1">
-                  {user?.email_verified ? 'Your email address has been verified' : 'Please verify your email address'}
-                </p>
-                {!user?.email_verified && (
-                  <Button
-                    onClick={() => navigate('/verify-email')}
-                    variant="primary"
-                    size="xs"
-                    className="mt-2"
-                  >
-                    Verify Email
-                  </Button>
-                )}
-              </div>
-            </div>
-
-
-          </div>
-        </div>
-
-        {/* Quick Actions Card */}
-        <div className="card-theme-elevated p-6">
-          <h3 className="text-xl font-semibold text-theme-primary mb-6">
-            Quick Actions
-          </h3>
-
-          <div className="grid grid-cols-1 gap-3">
-            <Button
-              onClick={() => navigate('/app/ai')}
-              variant="secondary"
-              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
-            >
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">🤖</span>
-                <div className="text-left">
-                  <p className="font-medium text-theme-primary">AI Agents</p>
-                  <p className="text-xs text-theme-tertiary">Manage AI agents and fleets</p>
-                </div>
-              </div>
-              <span className="text-theme-tertiary">→</span>
-            </Button>
-
-            <Button
-              onClick={() => navigate('/app/devops')}
-              variant="secondary"
-              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
-            >
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">🔧</span>
-                <div className="text-left">
-                  <p className="font-medium text-theme-primary">DevOps</p>
-                  <p className="text-xs text-theme-tertiary">Pipelines, containers, and infrastructure</p>
-                </div>
-              </div>
-              <span className="text-theme-tertiary">→</span>
-            </Button>
-
-            <Button
-              onClick={() => navigate('/app/profile')}
-              variant="secondary"
-              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
-            >
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">⚙️</span>
-                <div className="text-left">
-                  <p className="font-medium text-theme-primary">Account Settings</p>
-                  <p className="text-xs text-theme-tertiary">Customize your account preferences</p>
-                </div>
-              </div>
-              <span className="text-theme-tertiary">→</span>
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Platform Overview */}
-      <DashboardAIOverview stats={stats} loading={statsLoading} />
-
-      {/* System Status Alert */}
-      <div className="alert-theme alert-theme-success">
-        <div className="flex items-center">
-          <span className="text-2xl mr-3">🚀</span>
-          <div>
-            <h4 className="font-medium text-theme-success-fg">Powernode Platform Ready</h4>
-            <p className="text-sm text-theme-success-fg mt-1">
-              Your self-hosted platform is set up and ready. Start by connecting AI providers and configuring your AI infrastructure.
-            </p>
-          </div>
-        </div>
-      </div>
-      </div>
-    </PageContainer>
-  );
-};
-
 const DashboardPage: React.FC = () => {
   // Re-render when extension routes are registered (e.g., business, supply-chain)
   const [, setRegistryVersion] = useState(() => featureRegistry.getVersion());
@@ -378,6 +144,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/communication/conversations" element={<Navigate to="/app/ai/observability/conversations" replace />} />
         <Route path="/ai/communication/*" element={<Navigate to="/app/ai/teams" replace />} />
         <Route path="/ai/governance/*" element={<GovernancePage />} />
+        {/* Approval chains — gated on ai.approval_chains.manage (defense-in-depth;
+            Api::V1::Ai::ApprovalChainsController enforces the same permission). */}
+        <Route path="/ai/approval-chains" element={<ProtectedRoute requiredPermissions={['ai.approval_chains.manage']}><ApprovalChainsPage /></ProtectedRoute>} />
         <Route path="/ai/sandbox" element={<Navigate to="/app/ai/execution/testing" replace />} />
 
         {/* AI Pages - Tabbed wrappers */}
