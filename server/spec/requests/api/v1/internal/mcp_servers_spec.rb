@@ -212,6 +212,44 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
         expect(mcp_server.mcp_tools.count).to eq(2)
       end
 
+      # IMP-69c17aea6e81 — this writer set description/input_schema/enabled/
+      # permission_level but never required_permissions, while the other
+      # writer to the same model (McpPlatformToolRegistrar#upsert_mcp_tool!)
+      # sets it on every call. Mcp::PermissionValidator reads the DB record,
+      # so a declared-but-unapplied permission list is enforcement that never
+      # arrives.
+      it 'applies required_permissions declared in the payload' do
+        tools_data = [
+          { name: 'gated_tool', description: 'Gated', input_schema: {},
+            permission_level: 'account', required_permissions: [ 'system.nodes.read' ] }
+        ]
+
+        post "/api/v1/internal/mcp_servers/#{mcp_server.id}/register_tools",
+             headers: internal_headers, params: { tools: tools_data }, as: :json
+
+        expect_success_response
+        expect(mcp_server.mcp_tools.find_by(name: 'gated_tool').required_permissions)
+          .to eq([ 'system.nodes.read' ])
+      end
+
+      # The other direction, and the reason this is not a one-line reset: a
+      # re-registration whose payload OMITS the key must not wipe the
+      # permissions already on the row — that would widen access silently,
+      # which is the failure this fix exists to prevent.
+      it 'leaves existing required_permissions alone when the payload omits them' do
+        create(:mcp_tool, mcp_server: mcp_server, name: 'kept_tool',
+                          required_permissions: [ 'system.modules.update' ])
+
+        post "/api/v1/internal/mcp_servers/#{mcp_server.id}/register_tools",
+             headers: internal_headers,
+             params: { tools: [ { name: 'kept_tool', description: 'no perms in payload', input_schema: {} } ] },
+             as: :json
+
+        expect_success_response
+        expect(mcp_server.mcp_tools.find_by(name: 'kept_tool').required_permissions)
+          .to eq([ 'system.modules.update' ])
+      end
+
       it 'updates existing tools' do
         existing_tool = create(:mcp_tool, mcp_server: mcp_server, name: 'existing_tool')
 

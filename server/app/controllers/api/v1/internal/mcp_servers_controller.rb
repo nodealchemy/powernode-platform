@@ -108,6 +108,19 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
       tool.input_schema = tool_input_schema
       tool.enabled = tool_enabled
       tool.permission_level = tool_permission_level
+      # IMP-69c17aea6e81 — this used to set permission_level and stop, while
+      # the other writer to this model (Ai::Tools::McpPlatformToolRegistrar
+      # #upsert_mcp_tool!) also sets required_permissions. Mcp::PermissionValidator
+      # reads the DB record, so a payload that DECLARED required permissions
+      # had them silently dropped: enforcement that never arrives.
+      #
+      # Assigned only when the key is present. An unconditional reset would
+      # wipe the list whenever a re-registration payload omits it, widening
+      # access silently — the same failure in the opposite direction.
+      if tool_data.key?("required_permissions") || tool_data.key?(:required_permissions)
+        declared = tool_data["required_permissions"] || tool_data[:required_permissions]
+        tool.required_permissions = Array(declared)
+      end
 
       if tool.save
         tools_registered += 1
