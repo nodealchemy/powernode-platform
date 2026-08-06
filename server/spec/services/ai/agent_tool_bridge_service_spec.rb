@@ -3,6 +3,8 @@
 require 'rails_helper'
 
 RSpec.describe Ai::AgentToolBridgeService, type: :service do
+  include PermissionTestHelpers
+
   let(:account) { create(:account) }
   let(:provider) { create(:ai_provider, account: account) }
   let(:user) { create(:user, account: account) }
@@ -461,6 +463,111 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
 
         expect(Ai::Tools::McpPlatformToolRegistrar).to have_received(:execute_tool).twice
         expect(result[:tool_calls_log].size).to eq(2)
+      end
+    end
+  end
+
+  describe 'external MCP tools' do
+    let(:permitted_creator) { user_with_permissions("mcp.tools.execute", account: account) }
+    let(:server) { create(:mcp_server, :connected, account: account) }
+    let!(:mcp_tool) { create(:mcp_tool, :enabled, mcp_server: server, name: "do_thing") }
+
+    let(:agent) do
+      create(:ai_agent, account: account, provider: provider, creator: permitted_creator,
+                        agent_type: "assistant").tap { |a| a.update!(mcp_metadata: { "mcp_server_ids" => [server.id] }) }
+    end
+
+    subject(:bridge) { described_class.new(agent: agent, account: account) }
+
+    def external_tool_name
+      bridge.tool_definitions_for_llm.map { |t| t[:name] }.find { |n| n.start_with?("mcp__") }
+    end
+
+    describe 'advertisement' do
+      it 'includes the attached external tool, namespaced, when the creator is permitted' do
+        names = bridge.tool_definitions_for_llm.map { |t| t[:name] }
+        external = names.select { |n| n.start_with?("mcp__") }
+
+        expect(external.size).to eq(1)
+        expect(external.first).to match(/\Amcp__.+__do_thing\z/)
+      end
+
+      it 'passes the tool input_schema through as the LLM parameters' do
+        defn = bridge.tool_definitions_for_llm.find { |t| t[:name].to_s.start_with?("mcp__") }
+        expect(defn[:parameters]).to eq(mcp_tool.input_schema)
+      end
+
+      it 'hides external tools when the creator lacks mcp.tools.execute' do
+        agent.update!(creator: user_without_permissions(account: account))
+        bridge = described_class.new(agent: agent, account: account)
+
+        expect(bridge.tool_definitions_for_llm.map { |t| t[:name] }).to all(satisfy { |n| !n.start_with?("mcp__") })
+      end
+
+      it 'hides external tools when no server is attached' do
+        agent.update!(mcp_metadata: {})
+        bridge = described_class.new(agent: agent, account: account)
+
+        expect(bridge.tool_definitions_for_llm.map { |t| t[:name] }).to all(satisfy { |n| !n.start_with?("mcp__") })
+      end
+
+      it 'reports tools_enabled? for an mcp_client agent that has external tools' do
+        agent.update!(agent_type: "mcp_client")
+        bridge = described_class.new(agent: agent, account: account)
+
+        expect(bridge.tools_enabled?).to be true
+        expect(bridge.tool_definitions_for_llm.map { |t| t[:name] }).to include(a_string_starting_with("mcp__"))
+      end
+    end
+
+    describe 'dispatch' do
+      let(:sync_service) { instance_double(Mcp::SyncExecutionService, execute: { "ok" => true }) }
+
+      before { allow(Mcp::SyncExecutionService).to receive(:new).and_return(sync_service) }
+
+      it 'proxies to the sync client with the agent creator as the acting user' do
+        name = external_tool_name
+        _json, result = bridge.dispatch_tool_call_capturing({ name: name, arguments: { "param1" => "x" } })
+
+        expect(Mcp::SyncExecutionService).to have_received(:new).with(
+          hash_including(server: server, tool: mcp_tool, user: agent.creator, account: account)
+        )
+        expect(result).to eq({ "ok" => true })
+      end
+
+      it 'records a completed mcp_tool_executions row' do
+        name = external_tool_name
+
+        expect do
+          bridge.dispatch_tool_call_capturing({ name: name, arguments: { "param1" => "x" } })
+        end.to change { mcp_tool.mcp_tool_executions.count }.by(1)
+
+        execution = mcp_tool.mcp_tool_executions.order(:created_at).last
+        expect(execution.status).to eq("completed")
+        expect(execution.user).to eq(agent.creator)
+        expect(execution.result).to eq({ "ok" => true })
+      end
+
+      it 'denies and does not execute when the per-tool permission check fails' do
+        mcp_tool.update!(required_permissions: ["something.creator.lacks"])
+        name = external_tool_name
+
+        json, result = bridge.dispatch_tool_call_capturing({ name: name, arguments: {} })
+
+        expect(result).to be_nil
+        expect(JSON.parse(json)["error"]).to eq("Permission denied")
+        expect(Mcp::SyncExecutionService).not_to have_received(:new)
+      end
+
+      it 'falls through to the platform path for an unknown mcp__ name' do
+        allow(Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool)
+          .and_raise(ArgumentError, "unknown")
+
+        json, result = bridge.dispatch_tool_call_capturing({ name: "mcp__nope__missing", arguments: {} })
+
+        expect(result).to be_nil
+        expect(JSON.parse(json)["error"]).to eq("Unknown tool: mcp__nope__missing")
+        expect(Mcp::SyncExecutionService).not_to have_received(:new)
       end
     end
   end

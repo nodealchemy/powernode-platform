@@ -16,6 +16,7 @@ module Ai
     include Ai::Agent::Execution
     include Ai::Agent::Statistics
     include Ai::Agent::Operations
+    include Ai::Agent::McpServerIntegration
     include Ai::AgentStorageConfig
     # Global/account scoping (mirrors Ai::Skill): account_id nil = GLOBAL,
     # platform-provided, seed-managed by source_key; account_id set = an
