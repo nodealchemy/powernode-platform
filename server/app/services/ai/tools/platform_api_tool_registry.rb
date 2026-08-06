@@ -43,6 +43,7 @@ module Ai
         "system_delete_node" => "Ai::Tools::SystemFleetTool",
         "system_delete_template" => "Ai::Tools::SystemFleetTool",
         "system_update_template" => "Ai::Tools::SystemFleetTool",
+        "system_clone_template" => "Ai::Tools::SystemFleetTool",
         "system_create_module" => "Ai::Tools::SystemFleetTool",
         "system_update_module" => "Ai::Tools::SystemFleetTool",
         "system_unmark_module_canary" => "Ai::Tools::SystemFleetTool",
