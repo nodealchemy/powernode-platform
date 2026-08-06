@@ -162,4 +162,93 @@ RSpec.describe FederationPartner, type: :model do
       expect(partner.rate_limited?).to be true
     end
   end
+
+  # IMP-e0cb1dbbff7e — sync_agent had NEVER executed: it assigned two columns
+  # that did not exist and never set two required associations, so every call
+  # raised before writing. Operator decision 2026-08-06 was to complete the
+  # data model rather than retire the path. These cover both halves — that it
+  # runs at all, and that a partner cannot inherit local trust by re-pointing
+  # an agent it already had verified.
+  describe '#sync_agent' do
+    let(:partner) { create(:federation_partner) }
+    let(:admin)   { create(:user, account: partner.account) }
+    let(:payload) do
+      { 'id' => 'remote-1', 'name' => 'Summarizer',
+        'description' => 'summarizes things',
+        'endpoint_url' => 'https://old.example/agent',
+        'capabilities' => { 'summarize' => true } }
+    end
+
+    def sync(extra = {})
+      partner.send(:sync_agent, payload.merge(extra))
+    end
+
+    it 'creates a federated agent with no local Ai::Agent, owned by this account' do
+      result = sync
+      expect(result[:success]).to be true
+
+      agent = CommunityAgent.find(result[:community_agent_id])
+      expect(agent.federated).to be true
+      expect(agent.agent_id).to be_nil
+      expect(agent.owner_account_id).to eq(partner.account_id)
+      expect(agent.federation_partner_id).to eq(partner.id)
+      expect(agent.federation_metadata['source_agent_id']).to eq('remote-1')
+    end
+
+    it 'still requires a local agent for a NON-federated row' do
+      local = CommunityAgent.new(owner_account: partner.account, name: 'Local',
+                                 slug: 'local-one', description: 'local',
+                                 visibility: 'public', status: 'pending',
+                                 protocol_version: '0.3', federated: false)
+      expect(local).not_to be_valid
+      expect(local.errors[:agent].join).to match(/must exist/)
+    end
+
+    it 'admits a SECOND federated agent — a nil agent_id is not "already registered"' do
+      expect(sync[:success]).to be true
+      second = partner.send(:sync_agent,
+                            payload.merge('id' => 'remote-2', 'name' => 'Translator'))
+      expect(second[:success]).to be true
+      expect(CommunityAgent.federated.count).to eq(2)
+    end
+
+    it 'clears local attestations when a re-sync repoints the endpoint' do
+      agent = CommunityAgent.find(sync[:community_agent_id])
+      agent.verify!(admin)
+      agent.update_column(:reputation_score, 4.5)
+
+      result = sync('endpoint_url' => 'https://elsewhere.example/agent')
+      expect(result[:attestations_reset]).to be true
+
+      agent.reload
+      expect(agent.verified).to be false
+      expect(agent.verified_at).to be_nil
+      expect(agent.verified_by_id).to be_nil
+      expect(agent.reputation_score.to_f).to eq(0.0)
+    end
+
+    it 'clears them when the capabilities change too' do
+      agent = CommunityAgent.find(sync[:community_agent_id])
+      agent.verify!(admin)
+
+      sync('capabilities' => { 'exfiltrate' => true })
+
+      expect(agent.reload.verified).to be false
+    end
+
+    it 'keeps attestations when only the description changes' do
+      # The counterweight: routine re-syncs must not erode the catalog, or
+      # operators would stop verifying anything.
+      agent = CommunityAgent.find(sync[:community_agent_id])
+      agent.verify!(admin)
+      agent.update_column(:reputation_score, 4.5)
+
+      result = sync('description' => 'better copy, same agent')
+      expect(result[:attestations_reset]).to be false
+
+      agent.reload
+      expect(agent.verified).to be true
+      expect(agent.reputation_score.to_f).to eq(4.5)
+    end
+  end
 end

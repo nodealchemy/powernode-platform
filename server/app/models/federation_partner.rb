@@ -322,6 +322,23 @@ class FederationPartner < ApplicationRecord
     # Find or initialize community agent
     community_agent = CommunityAgent.find_or_initialize_by(federation_key: federation_key)
 
+    # IMP-e0cb1dbbff7e — LOCAL ATTESTATIONS DO NOT SURVIVE AN IDENTITY SWAP.
+    #
+    # The row is keyed on federation_key, so a re-sync lands on the SAME record
+    # and rewrites its behavioral identity from the remote payload — where it
+    # is reached (endpoint_url) and what it claims to do (capabilities). The
+    # local attestations (verified/verified_at/verified_by, reputation_score)
+    # describe the thing that WAS there, and community_skills serves
+    # verified-only results ordered by reputation, so a re-pointed row would be
+    # preferentially selected on trust it never earned.
+    #
+    # Cleared only when the identity actually changes: a partner re-syncing
+    # unchanged (or editing only its description) must not cost an operator
+    # their verification, or routine syncs would silently erode the catalog.
+    identity_swapped = community_agent.persisted? && federated_identity_changed?(
+      community_agent, agent_data
+    )
+
     # Update agent data
     community_agent.assign_attributes(
       name: agent_data["name"],
@@ -329,7 +346,7 @@ class FederationPartner < ApplicationRecord
       description: agent_data["description"],
       long_description: agent_data["long_description"],
       endpoint_url: build_agent_endpoint(agent_data),
-      category: agent_data["category"] || "general",
+      category: federated_category(agent_data["category"]),
       tags: agent_data["tags"] || [],
       visibility: determine_visibility(agent_data),
       status: "active",
@@ -337,6 +354,10 @@ class FederationPartner < ApplicationRecord
       capabilities: agent_data["capabilities"] || {},
       federated: true,
       federation_partner_id: id,
+      # A federated row carries no local Ai::Agent (see CommunityAgent
+      # :local_row_requires_agent) but is still owned by THIS account, which is
+      # what scopes it and what audit_account_via reads.
+      owner_account_id: account_id,
       federation_metadata: {
         source_agent_id: agent_data["id"],
         synced_at: Time.current.iso8601,
@@ -344,11 +365,41 @@ class FederationPartner < ApplicationRecord
       }
     )
 
+    if identity_swapped
+      community_agent.assign_attributes(
+        verified: false, verified_at: nil, verified_by_id: nil,
+        reputation_score: 0.0
+      )
+    end
+
     if community_agent.save
-      { success: true, community_agent_id: community_agent.id }
+      { success: true, community_agent_id: community_agent.id,
+        attestations_reset: identity_swapped }
     else
       { success: false, error: community_agent.errors.full_messages.join(", ") }
     end
+  end
+
+  # A partner's category vocabulary is its own; only CommunityAgent::CATEGORIES
+  # are valid locally. This defaulted to "general", which is NOT in that list —
+  # so every sync failed validation with "Category is not included in the list"
+  # even once the columns existed. Unrecognized (and absent) categories land on
+  # "custom", the catch-all, rather than inventing a mapping. (IMP-e0cb1dbbff7e)
+  def federated_category(remote_category)
+    return "custom" if remote_category.blank?
+
+    CommunityAgent::CATEGORIES.include?(remote_category) ? remote_category : "custom"
+  end
+
+  # True when a re-sync would change WHERE the agent is reached or WHAT it
+  # claims to do — the two facts a local verification was about. Description
+  # and display churn deliberately do not count. (IMP-e0cb1dbbff7e)
+  def federated_identity_changed?(community_agent, agent_data)
+    endpoint_changed = community_agent.endpoint_url != build_agent_endpoint(agent_data)
+    capabilities_changed =
+      (community_agent.capabilities || {}).as_json != (agent_data["capabilities"] || {}).as_json
+
+    endpoint_changed || capabilities_changed
   end
 
   # Build agent endpoint URL

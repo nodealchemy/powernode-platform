@@ -13,7 +13,13 @@ class CommunityAgent < ApplicationRecord
 
   # Associations
   belongs_to :owner_account, class_name: "Account"
-  belongs_to :agent, class_name: "Ai::Agent"
+  # Optional at the association layer, REQUIRED by validation for local rows
+  # (see :local_row_requires_agent). A federated row is sourced from a partner
+  # and has no local Ai::Agent to point at; a placeholder would be a local
+  # agent nothing can execute, which every reader of #agent would then have to
+  # distrust. (IMP-e0cb1dbbff7e)
+  belongs_to :agent, class_name: "Ai::Agent", optional: true
+  belongs_to :federation_partner, optional: true
   belongs_to :agent_card, class_name: "Ai::AgentCard", optional: true
   belongs_to :published_by, class_name: "User", optional: true
   belongs_to :verified_by, class_name: "User", optional: true
@@ -30,6 +36,7 @@ class CommunityAgent < ApplicationRecord
   validates :category, inclusion: { in: CATEGORIES }, allow_nil: true
   validates :protocol_version, presence: true
   validate :unique_agent_registration
+  validate :local_row_requires_agent
 
   # Scopes
   scope :public_visible, -> { where(visibility: "public", status: "active") }
@@ -220,6 +227,11 @@ class CommunityAgent < ApplicationRecord
   end
 
   def unique_agent_registration
+    # Federated rows carry no local agent (IMP-e0cb1dbbff7e). Without this
+    # guard `where(agent_id: nil)` matches every OTHER federated row, so the
+    # second partner-sourced agent would be rejected as "already registered".
+    return if agent_id.nil?
+
     existing = CommunityAgent.where(agent_id: agent_id)
                              .where.not(id: id)
                              .where(status: %w[pending active])
@@ -228,6 +240,17 @@ class CommunityAgent < ApplicationRecord
     if existing
       errors.add(:agent, "is already registered in the community")
     end
+  end
+
+  # A local catalog entry must point at a local Ai::Agent; a FEDERATED entry is
+  # sourced from a partner and legitimately has none. Enforcing it here rather
+  # than via `belongs_to` keeps the invariant for the local catalog instead of
+  # dropping it for everyone. (IMP-e0cb1dbbff7e)
+  def local_row_requires_agent
+    return if federated?
+    return if agent_id.present?
+
+    errors.add(:agent, "must exist for a non-federated community agent")
   end
 
   def link_agent_card

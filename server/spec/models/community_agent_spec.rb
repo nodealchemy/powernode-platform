@@ -5,7 +5,12 @@ require 'rails_helper'
 RSpec.describe CommunityAgent, type: :model do
   describe 'associations' do
     it { should belong_to(:owner_account).class_name('Account') }
-    it { should belong_to(:agent).class_name('Ai::Agent') }
+    # No shoulda matcher for :agent. Since IMP-e0cb1dbbff7e the association is
+    # optional but a CONDITIONAL validation still requires it for non-federated
+    # rows, and belong_to(...).optional / .required both decide by observing
+    # whether validation fails with the association unset — neither can express
+    # "required unless federated". The rule is asserted directly, in both
+    # directions, under 'validations' below.
     it { should belong_to(:agent_card).class_name('Ai::AgentCard').optional }
     it { should belong_to(:published_by).class_name('User').optional }
     it { should belong_to(:verified_by).class_name('User').optional }
@@ -15,6 +20,20 @@ RSpec.describe CommunityAgent, type: :model do
 
   describe 'validations' do
     subject { build(:community_agent) }
+
+    # IMP-e0cb1dbbff7e — the local-agent requirement moved from belongs_to to
+    # a validation so FEDERATED rows can exist without one. Both directions
+    # are asserted so relaxing the association did not quietly drop the rule.
+    it 'requires a local agent for a non-federated row' do
+      row = build(:community_agent, agent: nil, federated: false)
+      expect(row).not_to be_valid
+      expect(row.errors[:agent].join).to match(/must exist/)
+    end
+
+    it 'allows a federated row with no local agent' do
+      row = build(:community_agent, agent: nil, federated: true)
+      expect(row).to be_valid
+    end
 
     it { should validate_presence_of(:name) }
     # Note: slug is auto-generated from name, so shoulda-matchers can't easily test its validation

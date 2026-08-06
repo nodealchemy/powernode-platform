@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_06_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -5082,7 +5082,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
 
   create_table "community_agents", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "agent_card_id"
-    t.uuid "agent_id", null: false
+    t.uuid "agent_id"
     t.jsonb "authentication", default: {}
     t.decimal "avg_rating", precision: 3, scale: 2, default: "0.0"
     t.decimal "avg_response_time_ms", precision: 10, scale: 2
@@ -5095,6 +5095,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
     t.integer "failure_count", default: 0
     t.boolean "federated", default: false
     t.string "federation_key"
+    t.jsonb "federation_metadata", default: {}, null: false
+    t.uuid "federation_partner_id"
     t.datetime "last_updated_at"
     t.text "long_description"
     t.string "name", null: false
@@ -5120,6 +5122,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_05_000000) do
     t.index ["agent_id"], name: "index_community_agents_on_agent_id"
     t.index ["category"], name: "index_community_agents_on_category"
     t.index ["federation_key"], name: "index_community_agents_on_federation_key", unique: true, where: "(federation_key IS NOT NULL)"
+    t.index ["federation_partner_id"], name: "index_community_agents_on_federation_partner_id"
     t.index ["owner_account_id"], name: "index_community_agents_on_owner_account_id"
     t.index ["published_by_id"], name: "index_community_agents_on_published_by_id"
     t.index ["reputation_score"], name: "index_community_agents_on_reputation_score"
