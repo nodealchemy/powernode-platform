@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_06_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_07_071900) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -6283,6 +6283,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_000000) do
     t.integer "max_requests_per_hour", default: 1000
     t.string "name", null: false
     t.string "organization_id", null: false
+    t.string "outbound_token_encrypted"
     t.text "public_key"
     t.integer "request_count", default: 0
     t.string "status", default: "pending"
@@ -9217,6 +9218,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_000000) do
     t.uuid "account_id", null: false
     t.datetime "awaiting_signature_at"
     t.string "base_sha", null: false
+    t.datetime "cancelled_at"
     t.datetime "completed_at"
     t.datetime "created_at", null: false
     t.datetime "dispatched_at"

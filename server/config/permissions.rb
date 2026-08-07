@@ -585,6 +585,11 @@ module Permissions
     "system.ci_runner_leases.update"             => "Release a CI runner lease (deregister + recycle the instance)",
     # Campaign 019f5885 inc9 — native module-build batch orchestration.
     "system.module_builds.dispatch"              => "Plan + dispatch a native module-build batch (lease builders, create ci.module_build tasks)",
+    # Separate from .dispatch on purpose: .dispatch reaches only the
+    # system_worker role (leaked-token blast-radius bound), and gating the
+    # kill switch on it would leave a human operator unable to stop a batch
+    # they can see running. Granted to admin/manager by the system extension.
+    "system.module_builds.cancel"                => "Stop a running native module-build batch (cancel member tasks, release builder leases, halt further dispatch)",
     # Campaign 019f6084 inc2 — agent-pollable build-completion barrier
     # (ModuleBuildBatch read API). Adjacent to .dispatch because that's the
     # existing precedent for this permission name; the admin/manager grant
