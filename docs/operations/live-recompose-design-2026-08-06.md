@@ -339,6 +339,54 @@ All in `extensions/system/agent`, uncommitted on the submodule's `develop`:
   prefix unions (`/usr`, `/opt` composed as submounts; `/etc` rendered),
   which should be run as its own campaign per §4 Option C.
 
+## 7b. Independent critic review (2026-08-07) — OPEN ITEMS
+
+Two independent critics reviewed the boot-critical paths (the standing
+two-critics rule). Five defects were found and fixed in `4a47f141`; the
+worst was a **node-destroying** bug reachable from this feature's
+documented happy path (binding `/run` into a nextroot that lives inside
+`/run` made a later `umount -l` detach the running root's overlay upperdir
+and every module layer — reproduced in a mount namespace, with a control).
+
+**These remain OPEN and are blocking for `--execute` on real hardware:**
+
+1. **`CriticalSoftRebootMounts` guards the wrong unit.** A bind survives
+   its source being unmounted, so tearing down `persist.mount` at
+   `umount.target` is harmless — what actually carries `/persist` into the
+   new root is `run-nextroot-persist.mount`, which is now the *sole*
+   carrier and is unchecked. Meanwhile `run-powernode-scratch.mount` and
+   every `run-powernode-modules-*.mount` report
+   `DefaultDependencies=yes` + `Conflicts=umount.target` on a live node —
+   they fail the code's own survival criterion and are not in the list.
+2. **Highest-stakes open question**: does systemd exempt mounts under
+   `/run/nextroot/**` from `umount.target`? If not, `--execute` lands in
+   the new root with `/persist` gone — the exact unrecoverable outcome the
+   guard exists to prevent, with the preflight reporting OK. Needs the
+   scratch-VM check.
+3. **Preflight tests the predicate the codebase documents as wrong**:
+   `bootslots.Load().Pending` instead of
+   `bootupgrade.ConfirmNeeded(bootedGitSHA)`. A node in the
+   reconcile-owed state passes the preflight while running an unblessed
+   slot. (`bootconfirm.go` explains why `Pending == ""` is not "nothing to
+   do".)
+4. **A budget-aborted sync never re-converges.** The module is recorded
+   fully attached before the sync runs, so the next tick sees no drift and
+   never retries; `recompose_budget` fires once and goes silent, which
+   reads as resolved. `fs.SkipAll` also splits the module at an arbitrary
+   alphabetical boundary with units already restarted against the mix.
+5. **`Overlay.ScratchSize` is dead** — no caller sets it, including the
+   nextroot compose, which is partly why the soft-reboot tier exists.
+6. After a *successful* soft-reboot, `/run/nextroot` is probably still a
+   mountpoint in the new root, so the next `soft-recompose` may hit the
+   fixed-but-related teardown path with no prior prepare. Unverifiable
+   without performing a real soft-reboot.
+
+Also worth recording, because the current safety model implies the
+opposite: **a composed overlay keeps serving after its lower and upper
+mountpoints are unmounted** (overlayfs clones its layers privately). That
+is why the critical bug was silent, and it means `umount.target` tearing
+down layer mounts does not by itself destroy the new root.
+
 ## 8. Related memory / prior art
 
 - Memory: "Live module refresh doesn't remount on pivot" — superseded in
