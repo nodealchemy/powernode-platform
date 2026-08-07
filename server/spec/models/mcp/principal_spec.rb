@@ -93,4 +93,49 @@ RSpec.describe Mcp::Principal do
       expect(kept.map { |t| t["name"] }).to eq(%w[platform.health])
     end
   end
+
+  describe ".for_federation_partner" do
+    let(:account) { create(:account) }
+    let(:partner) do
+      create(:federation_partner, :active, account: account,
+                                            allowed_capabilities: [ "platform.system_list_*", "platform.health" ])
+    end
+    subject(:principal) { described_class.for_federation_partner(partner) }
+
+    it "is a default-deny federation principal bound to the partner's local account" do
+      expect(principal.federation?).to be true
+      expect(principal.restricted?).to be true
+      expect(principal.user?).to be false
+      expect(principal.account).to eq(account)
+      expect(principal.subject_id).to eq(partner.id)
+    end
+
+    it "may invoke only tools matching allowed_capabilities" do
+      expect(principal.may_invoke?("platform.system_list_templates")).to be true
+      expect(principal.may_invoke?("platform.health")).to be true
+      expect(principal.may_invoke?("platform.kb_publish")).to be false
+    end
+
+    it "never invokes a destroy-shaped tool, even when allowed_capabilities would match" do
+      p = described_class.for_federation_partner(
+        create(:federation_partner, :active, account: account, allowed_capabilities: [ "platform.system_*" ])
+      )
+      expect(p.may_invoke?("platform.system_list_templates")).to be true
+      expect(p.may_invoke?("platform.system_terminate_instance")).to be false
+      expect(p.may_invoke?("platform.system_reboot_instance")).to be false
+    end
+
+    it "filters a catalog to the granted, non-destructive subset" do
+      kept = principal.filter_tools([
+        { "name" => "platform.system_list_templates" },
+        { "name" => "platform.kb_publish" },
+        { "name" => "platform.system_destroy_instance" }
+      ])
+      expect(kept.map { |t| t["name"] }).to eq(%w[platform.system_list_templates])
+    end
+
+    it "exposes allowed_capabilities as its capability_scope" do
+      expect(principal.capability_scope).to eq([ "platform.system_list_*", "platform.health" ])
+    end
+  end
 end

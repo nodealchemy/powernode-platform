@@ -251,4 +251,135 @@ RSpec.describe FederationPartner, type: :model do
       expect(agent.reputation_score.to_f).to eq(4.5)
     end
   end
+
+  describe "cross-plane MCP invocation" do
+    describe "#outbound_token" do
+      it "round-trips through encrypted-at-rest storage" do
+        partner = create(:federation_partner, :active)
+        partner.outbound_token = "shared-secret-123"
+        partner.save!
+
+        expect(partner.outbound_token_encrypted).to be_present
+        expect(partner.outbound_token_encrypted).not_to include("shared-secret-123")
+        expect(partner.reload.outbound_token).to eq("shared-secret-123")
+      end
+
+      it "clears to nil when set blank" do
+        partner = create(:federation_partner, :active)
+        partner.update!(outbound_token: "x")
+        partner.update!(outbound_token: "")
+        expect(partner.reload.outbound_token).to be_nil
+      end
+    end
+
+    describe ".for_inbound" do
+      let!(:partner) { create(:federation_partner, :active) } # token "test_token"
+
+      it "resolves an active partner presenting a valid token" do
+        expect(described_class.for_inbound(organization_id: partner.organization_id, token: "test_token")).to eq(partner)
+      end
+
+      it "rejects a bad token" do
+        expect(described_class.for_inbound(organization_id: partner.organization_id, token: "wrong")).to be_nil
+      end
+
+      it "rejects an unknown organization" do
+        expect(described_class.for_inbound(organization_id: "nope", token: "test_token")).to be_nil
+      end
+
+      it "rejects a non-active partner" do
+        suspended = create(:federation_partner, :suspended)
+        expect(described_class.for_inbound(organization_id: suspended.organization_id, token: "test_token")).to be_nil
+      end
+
+      it "rejects a rate-limited partner" do
+        allow_any_instance_of(described_class).to receive(:rate_limited?).and_return(true)
+        expect(described_class.for_inbound(organization_id: partner.organization_id, token: "test_token")).to be_nil
+      end
+
+      it "rejects blank inputs" do
+        expect(described_class.for_inbound(organization_id: nil, token: "x")).to be_nil
+        expect(described_class.for_inbound(organization_id: "x", token: nil)).to be_nil
+      end
+    end
+
+    describe "#invoke_remote_tool" do
+      let(:partner) do
+        p = create(:federation_partner, :active, endpoint_url: "https://peer.example.com")
+        p.outbound_token = "outbound-secret"
+        p.update!(tls_config: { "presented_organization_id" => "my-org" })
+        p
+      end
+
+      # Endpoint resolves to a public address on the happy paths (SSRF guard).
+      before { allow(Resolv).to receive(:getaddresses).and_return([ "93.184.216.34" ]) }
+
+      it "refuses to call an endpoint that resolves to a private/loopback address (SSRF guard)" do
+        allow(Resolv).to receive(:getaddresses).and_return([ "127.0.0.1" ])
+        result = partner.invoke_remote_tool(tool: "x")
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/non-public endpoint host/)
+        expect(a_request(:post, %r{peer.example.com})).not_to have_been_made
+      end
+
+      it "POSTs a JSON-RPC tools/call with the outbound bearer + self identity and returns the result" do
+        stub_request(:post, "https://peer.example.com/api/v1/mcp/message")
+          .to_return(status: 200, body: { jsonrpc: "2.0", id: "1", result: { "templates" => [] } }.to_json)
+
+        result = partner.invoke_remote_tool(tool: "system_list_templates", arguments: { "q" => "x" })
+
+        expect(result[:success]).to be true
+        expect(result[:result]).to eq({ "templates" => [] })
+        expect(
+          a_request(:post, "https://peer.example.com/api/v1/mcp/message").with do |req|
+            body = JSON.parse(req.body)
+            req.headers["Authorization"] == "Bearer outbound-secret" &&
+              req.headers["X-Federation-Organization"] == "my-org" &&
+              body["method"] == "tools/call" &&
+              body.dig("params", "name") == "system_list_templates"
+          end
+        ).to have_been_made
+      end
+
+      it "surfaces a remote JSON-RPC error" do
+        stub_request(:post, "https://peer.example.com/api/v1/mcp/message")
+          .to_return(status: 200, body: { jsonrpc: "2.0", id: "1", error: { code: -32000, message: "nope" } }.to_json)
+
+        result = partner.invoke_remote_tool(tool: "x")
+        expect(result[:success]).to be false
+        expect(result[:error]).to eq("nope")
+      end
+
+      it "refuses when the partner is not active" do
+        partner.update!(status: "suspended")
+        expect(partner.invoke_remote_tool(tool: "x")[:success]).to be false
+      end
+
+      it "refuses when no outbound token is configured" do
+        partner.update!(outbound_token_encrypted: nil)
+        expect(partner.invoke_remote_tool(tool: "x")[:error]).to match(/outbound federation token/)
+      end
+
+      it "refuses when no presented_organization_id is configured" do
+        partner.update!(tls_config: {})
+        expect(partner.invoke_remote_tool(tool: "x")[:error]).to match(/presented_organization_id/)
+      end
+    end
+
+    describe "allowed_capabilities validation" do
+      it "rejects over-broad wildcard grants" do
+        [ "*", "**", "platform.*", "platform.**" ].each do |cap|
+          partner = build(:federation_partner, :active, allowed_capabilities: [ cap ])
+          expect(partner).not_to be_valid, "expected #{cap.inspect} to be rejected"
+          expect(partner.errors[:allowed_capabilities].join).to match(/over-broad/)
+        end
+      end
+
+      it "allows specific tool-prefix patterns and discovery tags" do
+        partner = build(:federation_partner, :active,
+                        allowed_capabilities: [ "platform.system_list_*", "platform.health", "agent-discovery" ])
+        expect(partner).to be_valid
+      end
+    end
+  end
 end

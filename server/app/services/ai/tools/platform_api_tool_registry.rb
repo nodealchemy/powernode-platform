@@ -413,6 +413,9 @@ module Ai
         "enable_autonomy" => "Ai::Tools::ImprovementTool",
         "disable_autonomy" => "Ai::Tools::ImprovementTool",
         "scoreboard" => "Ai::Tools::ImprovementTool",
+        # Cross-plane federation (invoke a tool on a peer deployment)
+        "federation_invoke_tool" => "Ai::Tools::FederationTool",
+        "federation_list_partners" => "Ai::Tools::FederationTool",
         # Agent management
         "create_agent" => "Ai::Tools::AgentManagementTool",
         "list_agents" => "Ai::Tools::AgentManagementTool",

@@ -1,8 +1,20 @@
 # frozen_string_literal: true
 
+require "resolv"
+require "ipaddr"
+
 class FederationPartner < ApplicationRecord
   # Concerns
   include Auditable
+
+  # SSRF guard: an outbound cross-plane call must never reach an internal address,
+  # even if an operator/tenant set endpoint_url to one. Checked against the
+  # RESOLVED host so a public hostname pointing at a private IP is caught too.
+  BLOCKED_OUTBOUND_RANGES = [
+    IPAddr.new("0.0.0.0/8"), IPAddr.new("127.0.0.0/8"), IPAddr.new("10.0.0.0/8"),
+    IPAddr.new("172.16.0.0/12"), IPAddr.new("192.168.0.0/16"), IPAddr.new("169.254.0.0/16"),
+    IPAddr.new("::1/128"), IPAddr.new("fc00::/7"), IPAddr.new("fe80::/10")
+  ].freeze
 
   # Constants
   STATUSES = %w[pending active suspended revoked].freeze
@@ -27,6 +39,7 @@ class FederationPartner < ApplicationRecord
   validates :status, presence: true, inclusion: { in: STATUSES }
   validates :trust_level, numericality: { in: MIN_TRUST_LEVEL..MAX_TRUST_LEVEL }
   validates :max_requests_per_hour, numericality: { greater_than: 0 }
+  validate :allowed_capabilities_not_overbroad
 
   # Scopes
   scope :active, -> { where(status: "active") }
@@ -34,6 +47,20 @@ class FederationPartner < ApplicationRecord
   scope :trusted, -> { where("trust_level >= ?", 3) }
   scope :recently_active, -> { where("last_request_at > ?", 24.hours.ago) }
   scope :verified, -> { where(status: "active").where.not(approved_at: nil) }
+
+  # Resolve an INBOUND cross-plane MCP caller: an active partner whose bcrypt
+  # federation token matches, that is not over its rate limit. Pure lookup +
+  # verify (no side effects); the auth arm records the request. Fail-closed:
+  # nil on any missing/blank/invalid/suspended/rate-limited case.
+  def self.for_inbound(organization_id:, token:)
+    return nil if organization_id.blank? || token.blank?
+
+    partner = active.find_by(organization_id: organization_id)
+    return nil unless partner&.valid_token?(token)
+    return nil if partner.rate_limited?
+
+    partner
+  end
 
   # Alias for controller compatibility (initiated_by -> created_by)
   # For attributes, use alias_attribute; for associations, define wrapper methods
@@ -205,6 +232,89 @@ class FederationPartner < ApplicationRecord
     token
   end
 
+  # OUTBOUND credential: the plaintext shared secret THIS plane presents when it
+  # calls the partner. `federation_token_hash` is one-way (inbound verify only),
+  # so the outbound secret is stored separately, encrypted at rest. Mirrors
+  # McpServer's OAuth-token handling.
+  def outbound_token
+    return nil if outbound_token_encrypted.blank?
+
+    Security::CredentialEncryptionService.decrypt_value(outbound_token_encrypted, namespace: "federation")
+  rescue Security::CredentialEncryptionService::DecryptionError => e
+    Rails.logger.error("Failed to decrypt outbound federation token for partner #{id}: #{e.message}")
+    nil
+  end
+
+  def outbound_token=(value)
+    self.outbound_token_encrypted =
+      value.blank? ? nil : Security::CredentialEncryptionService.encrypt_value(value, namespace: "federation")
+  end
+
+  # The organization id THIS plane is known by on the partner — presented in the
+  # X-Federation-Organization header so the partner finds its reciprocal row.
+  # Non-secret; lives in tls_config alongside the other connection config.
+  def presented_organization_id
+    tls_config&.dig("presented_organization_id")
+  end
+
+  # OUTBOUND cross-plane MCP call: proxy a single tool invocation to the partner's
+  # MCP endpoint over JSON-RPC. Mirrors #fetch_agent_catalog's HTTP/TLS shape.
+  # Returns { success:, result: } or { success: false, error:, code? }.
+  def invoke_remote_tool(tool:, arguments: {})
+    return { success: false, error: "Partner not active" } unless active?
+    return { success: false, error: "Rate limited" } if rate_limited?
+
+    token = outbound_token
+    return { success: false, error: "No outbound federation token configured" } if token.blank?
+
+    presented = presented_organization_id
+    return { success: false, error: "No presented_organization_id configured" } if presented.blank?
+
+    uri = URI.parse("#{endpoint_url}/api/v1/mcp/message")
+    return { success: false, error: "Refusing outbound call to a non-public endpoint host" } unless self.class.public_outbound_host?(uri.host)
+
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = uri.scheme == "https"
+    http.open_timeout = 10
+    http.read_timeout = 30
+    if tls_config["ca_cert"].present?
+      http.ca_file = tls_config["ca_cert"]
+    end
+    if tls_config["verify_mode"].present?
+      http.verify_mode = tls_config["verify_mode"] == "none" ? OpenSSL::SSL::VERIFY_NONE : OpenSSL::SSL::VERIFY_PEER
+    end
+
+    request = Net::HTTP::Post.new(uri)
+    request["Content-Type"] = "application/json"
+    request["Accept"] = "application/json"
+    request["Authorization"] = "Bearer #{token}"
+    request["X-Federation-Organization"] = presented
+    request.body = JSON.generate(
+      jsonrpc: "2.0",
+      id: SecureRandom.uuid,
+      method: "tools/call",
+      params: { name: tool.to_s, arguments: arguments || {} }
+    )
+
+    response = http.request(request)
+    increment_request_count!
+
+    if response.code.to_i == 200
+      data = JSON.parse(response.body)
+      if data["error"]
+        { success: false, error: data.dig("error", "message") || "Remote error", code: data.dig("error", "code") }
+      else
+        { success: true, result: data["result"] }
+      end
+    else
+      { success: false, error: "HTTP #{response.code}: #{response.message}" }
+    end
+  rescue JSON::ParserError => e
+    { success: false, error: "Invalid JSON response: #{e.message}" }
+  rescue StandardError => e
+    { success: false, error: "Request failed: #{e.message}" }
+  end
+
   # Summary for list views
   def partner_summary
     {
@@ -273,7 +383,47 @@ class FederationPartner < ApplicationRecord
     end
   end
 
+  # True only when EVERY resolved address for host is a routable public address.
+  # Fail-closed: unresolvable or partially-private hosts are refused. (SSRF guard
+  # for the new outbound MCP sink; the pre-existing discovery GETs should adopt
+  # this too — tracked separately.)
+  def self.public_outbound_host?(host)
+    return false if host.blank?
+
+    begin
+      addresses = Resolv.getaddresses(host.to_s)
+    rescue StandardError
+      return false
+    end
+    return false if addresses.empty?
+
+    addresses.all? do |addr|
+      ip = begin
+        IPAddr.new(addr)
+      rescue StandardError
+        nil
+      end
+      ip && BLOCKED_OUTBOUND_RANGES.none? { |range| range.include?(ip) }
+    end
+  end
+
   private
+
+  # Reject allowed_capabilities patterns that would grant a remote peer nearly the
+  # whole tool surface — a wildcard-only entry ("*", "**") or the platform-wide
+  # glob ("platform.*"). Specific prefixes like "platform.system_list_*" are fine.
+  def allowed_capabilities_not_overbroad
+    Array(allowed_capabilities).each do |cap|
+      normalized = cap.to_s.strip.downcase
+      next if normalized.blank?
+
+      stripped = normalized.delete("*").delete(".")
+      overbroad = stripped.blank? || (stripped == "platform" && normalized.include?("*"))
+      if overbroad
+        errors.add(:allowed_capabilities, "is over-broad and would grant a peer nearly all tools: #{cap}")
+      end
+    end
+  end
 
   # Fetch agent catalog from partner's discovery endpoint
   def fetch_agent_catalog
