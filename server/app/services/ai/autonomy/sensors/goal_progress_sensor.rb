@@ -82,7 +82,7 @@ module Ai
             end
           end
 
-          observations
+          observations.compact
         end
       end
     end

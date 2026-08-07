@@ -27,7 +27,21 @@ module Ai
 
         sensors.each do |sensor_class|
           observations = safe_collect(sensor_class)
-          observations.each do |attrs|
+          # Sensor::Base#build_observation returns nil on a dedup hit, and the
+          # "drop the nils" step lives in each sensor's own #collect — which
+          # means it is a convention ten sensors must each remember, and three
+          # of them did not. Compacting HERE makes the omission harmless for
+          # every sensor, present and future, instead of relying on ten call
+          # sites to agree.
+          #
+          # What this actually costs when it is missing: create!(nil) raises
+          # RecordInvalid (measured — not ArgumentError), so the rescue below
+          # does catch it and the agent's remaining observations still persist.
+          # The damage is a wasted INSERT per dedup hit plus a "Failed to
+          # create observation" warning that is indistinguishable from a real
+          # validation failure. Since the dedup window equals this pipeline's
+          # cron period, that noise is routine.
+          Array(observations).compact.each do |attrs|
             obs = Ai::AgentObservation.create!(attrs)
             created << obs
           rescue ActiveRecord::RecordInvalid => e
