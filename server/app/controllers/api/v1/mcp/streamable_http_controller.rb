@@ -624,10 +624,19 @@ module Api
               )
             rescue ArgumentError => e
               if e.message.start_with?("Unknown platform tool")
+                # Thread the principal through. Passing only `account:` left
+                # ai.introspection.view unenforceable AND the registrar's
+                # per-agent rate limiter dead, since both need context this
+                # call was discarding. instance_authorized mirrors the sibling
+                # branch above: a restricted principal is already gated against
+                # the granted tool name at tools/call and holds no User.
                 result = ::Ai::Introspection::McpToolRegistrar.execute_tool(
                   tool_name,
                   params: arguments.symbolize_keys,
-                  account: current_account
+                  account: current_account,
+                  user: current_user,
+                  instance_authorized: current_mcp_principal&.instance? || false,
+                  agent_id: mcp_client_agent&.id
                 )
               else
                 result = { success: false, error: e.message }

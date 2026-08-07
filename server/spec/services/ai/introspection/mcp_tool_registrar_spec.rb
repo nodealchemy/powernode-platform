@@ -106,7 +106,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       end
 
       it 'returns nil' do
-        result = described_class.execute_tool("platform.health", params: {}, account: account)
+        result = described_class.execute_tool("platform.health", params: {}, account: account, instance_authorized: true)
         expect(result).to be_nil
       end
     end
@@ -116,7 +116,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
         allow(Ai::Introspection::RateLimiter).to receive(:check!)
         allow(metrics_service).to receive(:system_health).and_return({ status: "ok" })
 
-        described_class.execute_tool("platform.health", params: {}, account: account, agent_id: "agent-123")
+        described_class.execute_tool("platform.health", params: {}, account: account, instance_authorized: true, agent_id: "agent-123")
 
         expect(Ai::Introspection::RateLimiter).to have_received(:check!).with(agent_id: "agent-123")
       end
@@ -125,7 +125,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
         allow(Ai::Introspection::RateLimiter).to receive(:check!)
         allow(metrics_service).to receive(:system_health).and_return({ status: "ok" })
 
-        described_class.execute_tool("platform.health", params: {}, account: account)
+        described_class.execute_tool("platform.health", params: {}, account: account, instance_authorized: true)
 
         expect(Ai::Introspection::RateLimiter).not_to have_received(:check!)
       end
@@ -135,7 +135,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       it 'delegates to metrics_service.system_health' do
         allow(metrics_service).to receive(:system_health).and_return({ score: 0.95 })
 
-        result = described_class.execute_tool("platform.health", params: {}, account: account)
+        result = described_class.execute_tool("platform.health", params: {}, account: account, instance_authorized: true)
 
         expect(result).to eq({ score: 0.95 })
         expect(metrics_service).to have_received(:system_health)
@@ -146,7 +146,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       it 'delegates to metrics_service.system_overview with default time range' do
         allow(metrics_service).to receive(:system_overview).and_return({ workflows: 5 })
 
-        result = described_class.execute_tool("platform.metrics", params: {}, account: account)
+        result = described_class.execute_tool("platform.metrics", params: {}, account: account, instance_authorized: true)
 
         expect(result).to eq({ workflows: 5 })
         expect(metrics_service).to have_received(:system_overview).with(60.minutes)
@@ -155,7 +155,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       it 'uses custom time_range_minutes parameter' do
         allow(metrics_service).to receive(:system_overview).and_return({ workflows: 5 })
 
-        described_class.execute_tool("platform.metrics", params: { time_range_minutes: 120 }, account: account)
+        described_class.execute_tool("platform.metrics", params: { time_range_minutes: 120 }, account: account, instance_authorized: true)
 
         expect(metrics_service).to have_received(:system_overview).with(120.minutes)
       end
@@ -165,7 +165,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       it 'delegates to metrics_service.provider_metrics' do
         allow(metrics_service).to receive(:provider_metrics).and_return({ providers: [] })
 
-        result = described_class.execute_tool("platform.provider_health", params: {}, account: account)
+        result = described_class.execute_tool("platform.provider_health", params: {}, account: account, instance_authorized: true)
 
         expect(result).to eq({ providers: [] })
       end
@@ -175,7 +175,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       it 'delegates to metrics_service.active_alerts' do
         allow(metrics_service).to receive(:active_alerts).and_return({ alerts: [] })
 
-        result = described_class.execute_tool("platform.alerts", params: {}, account: account)
+        result = described_class.execute_tool("platform.alerts", params: {}, account: account, instance_authorized: true)
 
         expect(result).to eq({ alerts: [] })
       end
@@ -185,7 +185,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       it 'delegates to health_service.comprehensive_health_check' do
         allow(health_service).to receive(:comprehensive_health_check).and_return({ db: "ok" })
 
-        result = described_class.execute_tool("platform.infrastructure", params: {}, account: account)
+        result = described_class.execute_tool("platform.infrastructure", params: {}, account: account, instance_authorized: true)
 
         expect(result).to eq({ db: "ok" })
         expect(health_service).to have_received(:comprehensive_health_check).with(skip_cache: false)
@@ -194,7 +194,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       it 'passes skip_cache parameter' do
         allow(health_service).to receive(:comprehensive_health_check).and_return({ db: "ok" })
 
-        described_class.execute_tool("platform.infrastructure", params: { skip_cache: true }, account: account)
+        described_class.execute_tool("platform.infrastructure", params: { skip_cache: true }, account: account, instance_authorized: true)
 
         expect(health_service).to have_received(:comprehensive_health_check).with(skip_cache: true)
       end
@@ -204,7 +204,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       it 'delegates to metrics_service.cost_analysis' do
         allow(metrics_service).to receive(:cost_analysis).and_return({ total: 10.0 })
 
-        result = described_class.execute_tool("platform.cost_analysis", params: {}, account: account)
+        result = described_class.execute_tool("platform.cost_analysis", params: {}, account: account, instance_authorized: true)
 
         expect(result).to eq({ total: 10.0 })
       end
@@ -214,7 +214,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       it 'delegates to introspection_service.recent_events' do
         allow(introspection_service).to receive(:recent_events).and_return({ events: [] })
 
-        result = described_class.execute_tool("platform.recent_events", params: {}, account: account)
+        result = described_class.execute_tool("platform.recent_events", params: {}, account: account, instance_authorized: true)
 
         expect(result).to eq({ events: [] })
         expect(introspection_service).to have_received(:recent_events).with(
@@ -231,7 +231,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
           source_type: "workflow",
           status: "failed",
           limit: 10
-        }, account: account)
+        }, account: account, instance_authorized: true)
 
         expect(introspection_service).to have_received(:recent_events).with(
           source_type: "workflow",
@@ -245,7 +245,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
       it 'delegates to introspection_service.list_resources' do
         allow(introspection_service).to receive(:list_resources).and_return({ agents: [] })
 
-        result = described_class.execute_tool("platform.resources", params: { resource_type: "agents" }, account: account)
+        result = described_class.execute_tool("platform.resources", params: { resource_type: "agents" }, account: account, instance_authorized: true)
 
         expect(result).to eq({ agents: [] })
         expect(introspection_service).to have_received(:list_resources).with(type: "agents")
@@ -259,7 +259,7 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
         result = described_class.execute_tool("platform.config", params: {
           resource_type: "agents",
           resource_id: "abc-123"
-        }, account: account)
+        }, account: account, instance_authorized: true)
 
         expect(result).to eq({ name: "test" })
         expect(introspection_service).to have_received(:get_resource_config).with(type: "agents", id: "abc-123")
@@ -268,9 +268,80 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
 
     context 'with unknown tool_id' do
       it 'returns nil' do
-        result = described_class.execute_tool("unknown.tool", params: {}, account: account)
+        result = described_class.execute_tool("unknown.tool", params: {}, account: account, instance_authorized: true)
         expect(result).to be_nil
       end
+    end
+  end
+
+  # ai.introspection.view was declared nine times in this registrar and
+  # enforced nowhere: execute_tool was a bare `case tool_id` reached from the
+  # MCP controller with no user and no principal, so nine account-wide
+  # observability tools — including platform.cost_analysis — were served to any
+  # holder of a valid MCP token.
+  #
+  # The permission was ALSO absent from the catalog, which made it
+  # simultaneously unenforced here and unsatisfiable on the PermissionValidator
+  # path: that resolves through user.permission_names, which expands
+  # system.admin to Permissions.all_permissions.keys rather than
+  # short-circuiting, so a string missing from the catalog is held by nobody —
+  # not even a system admin. Cataloguing it is therefore part of the fix, not
+  # bookkeeping.
+  describe "ai.introspection.view enforcement" do
+    let(:enforce_account) { create(:account) }
+    let(:privileged) { create(:user, account: enforce_account) }
+    let(:unprivileged) { create(:user, account: enforce_account) }
+
+    before do
+      allow(Shared::FeatureFlagService).to receive(:enabled?).with(:agent_introspection).and_return(true)
+      allow(privileged).to receive(:has_permission?).with("ai.introspection.view").and_return(true)
+      allow(unprivileged).to receive(:has_permission?).with("ai.introspection.view").and_return(false)
+    end
+
+    it "is present in the permission catalog (otherwise nobody can hold it)" do
+      expect(Permissions.all_permissions.keys).to include("ai.introspection.view")
+    end
+
+    it "refuses a user without the permission" do
+      result = described_class.execute_tool("platform.cost_analysis", params: {},
+                                            account: enforce_account, user: unprivileged)
+
+      expect(result[:success]).to be(false)
+      expect(result[:error].to_s).to match(/permission/i)
+    end
+
+    # Default-deny: no user and no upstream authorization means no access.
+    # This is the shape the MCP controller used to call with.
+    it "refuses when no user and no upstream authorization is supplied" do
+      result = described_class.execute_tool("platform.cost_analysis", params: {},
+                                            account: enforce_account)
+
+      expect(result[:success]).to be(false)
+    end
+
+    it "allows a user holding the permission" do
+      metrics = double("DashboardService")
+      allow(Ai::Analytics::DashboardService).to receive(:new).with(account: enforce_account).and_return(metrics)
+      allow(metrics).to receive(:system_health).and_return({ status: "ok" })
+
+      result = described_class.execute_tool("platform.health", params: {},
+                                            account: enforce_account, user: privileged)
+
+      expect(result).to eq({ status: "ok" })
+    end
+
+    # An instance principal reaching this path was already grant-gated against
+    # the tool name at tools/call, mirroring the instance_authorized: contract
+    # the platform tool registrar uses on the sibling branch.
+    it "allows a caller the controller already grant-gated" do
+      metrics = double("DashboardService")
+      allow(Ai::Analytics::DashboardService).to receive(:new).with(account: enforce_account).and_return(metrics)
+      allow(metrics).to receive(:system_health).and_return({ status: "ok" })
+
+      result = described_class.execute_tool("platform.health", params: {},
+                                            account: enforce_account, instance_authorized: true)
+
+      expect(result).to eq({ status: "ok" })
     end
   end
 end

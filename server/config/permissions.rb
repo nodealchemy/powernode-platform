@@ -91,6 +91,16 @@ module Permissions
     "ai.credentials.test" => "Test AI provider credentials",
 
     # AI Orchestration - Agents
+    # Declared nine times in Ai::Introspection::McpToolRegistrar but absent
+    # from this catalog until 2026-08-07, which made it BOTH unenforced on the
+    # MCP path AND unsatisfiable on the Mcp::PermissionValidator path: that
+    # resolves through user.permission_names, which expands system.admin to
+    # Permissions.all_permissions.keys rather than short-circuiting the way
+    # has_permission? does, so a string missing from here is held by nobody at
+    # all — not even a system admin. Gates the nine account-wide observability
+    # tools (platform.health/metrics/infrastructure/cost_analysis/...), which
+    # carry health AND financial data.
+    "ai.introspection.view" => "View platform introspection tools (health, metrics, infrastructure, cost analysis)",
     "ai.agents.read" => "View AI agents",
     "ai.agents.create" => "Create AI agents",
     "ai.agents.update" => "Update own AI agents",
