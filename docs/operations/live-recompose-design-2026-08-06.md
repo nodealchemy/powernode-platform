@@ -239,12 +239,36 @@ Phased, each phase independently valuable:
   code also preflights at runtime (`KernelSupportsMoveMountBeneath`).
 - [x] systemd ≥ 254 — enforced at runtime: `SoftRecomposePreflight` probes
   `systemctl --version` and refuses below 254.
-- [ ] **REQUIRED before first fleet soft-reboot**: empirically verify
-  soft-reboot mount survival on a scratch VM: `/persist`, erofs loop
-  mounts under `/run/powernode/modules`, the live scratch tmpfs, and the
-  rbind-ed durable mounts inside `/run/nextroot` (expected: the `/run`
-  subtree and pre-bound mounts survive the switch). This is the one
-  Phase 2 behavior that cannot be proven from this dev box.
+- [x] **Mount survival — ASSUMPTION WAS WRONG; guard added 2026-08-07.**
+  systemd does *not* preserve mounts across a soft-reboot by default.
+  `systemd-soft-reboot.service(8)` guarantees only that "/run/ file
+  system remains mounted"; everything else survives only if "configured
+  to remain until the very end of the shutdown process" — meaning
+  `DefaultDependencies=no` and no `Conflicts=umount.target`.
+  **A live pivot node's `persist.mount` reports the opposite**
+  (`DefaultDependencies=yes`, `Conflicts=umount.target`), so
+  `soft-recompose --execute` as originally written would have landed in
+  the new root with `/persist` unmounted: no enrolled PKI, no LKG/
+  pending-compose, no durable `/var` — and on a self-hosted control
+  plane, unrecoverable (it cannot re-enroll against itself).
+  `SoftRecomposePreflight` now hard-refuses unless every entry in
+  `CriticalSoftRebootMounts` is provably configured to survive; an
+  unknown unit counts as "does not survive".
+  **Unblocking work**: ship a `persist.mount` drop-in
+  (`DefaultDependencies=no`, no `umount.target` conflict) via the
+  base-os/system-base module, then re-check. Until then a full reboot
+  remains the way to apply a `reboot_required` composition.
+- [ ] **STILL REQUIRED before first fleet soft-reboot**: empirical
+  verification on a scratch VM, now of the *post-drop-in* behavior —
+  `/persist`, the erofs loop mounts under `/run/powernode/modules`, the
+  live scratch tmpfs, and the rbinds staged inside `/run/nextroot`.
+  Not attempted 2026-08-07: this dev box is itself a pivot-booted node
+  (soft-rebooting it would take down the working environment) and has no
+  KVM; no root channel to a disposable fleet VM was available (SSH gives
+  unprivileged `pnadmin` with no sudo on both the CI-pool builder and
+  ops-hub, and the PVE guest-agent route needs a Rails console that
+  itself needs root). Needs either a NOPASSWD-sudo grant on a scratch
+  node, PVE credentials, or a local KVM-capable host.
 - [x] LKG/boot-confirm interplay — addressed structurally: the capturer
   snapshots the breadcrumb once at entry, and soft-recompose withholds the
   breadcrumb until execute time (`BreadcrumbSink`), restoring the prior
