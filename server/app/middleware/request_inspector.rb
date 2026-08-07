@@ -385,9 +385,13 @@ class RequestInspector
   # self-brick class as the node_api and /api/v1/internal/ incidents above.
   # This middleware runs ahead of routing, so request.path is RAW PATH_INFO —
   # the trailing-slash and .format variants Rails later collapses onto the same
-  # controller action are still literally present here. The pattern must accept
-  # exactly what the router accepts for this action, or an ordinary client
-  # footgun (trailing-slash base URL, appended .json) reproduces the incident.
+  # controller action are still literally present here, and an exact-string
+  # match would miss them (an ordinary client footgun — trailing-slash base
+  # URL, appended .json — would reproduce the incident). This pattern covers
+  # those two variant shapes; doubled-slash forms (/api/v1/mcp//message) also
+  # route but are deliberately NOT matched — that direction fails SAFE (body
+  # heuristics still run), and tolerating them would loosen the anchor for a
+  # much rarer join-bug shape.
   MCP_MESSAGE_PATH_PATTERN = %r{\A/api/v1/mcp/message/?(\.\w+)?\z}
 
   # Deliberately NARROWER than trusted_path?: only the request-BODY content
