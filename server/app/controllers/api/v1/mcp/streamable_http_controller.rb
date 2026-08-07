@@ -31,6 +31,31 @@ module Api
         # params.uri (2026-07-28 Streamable HTTP request metadata).
         NAME_HEADER_METHODS = %w[tools/call resources/read prompts/get].freeze
 
+        # The ONLY JSON-RPC methods an instance principal may reach.
+        #
+        # An instance's authorization is a TOOL-NAME glob (Mcp::Principal
+        # #may_invoke?) — there is no such thing as a resource grant. So the
+        # resource/prompt data plane is not part of an instance's surface at
+        # all, and gating it "by grant" would be incoherent rather than merely
+        # strict. Before this list existed, may_invoke? was consulted in
+        # tools/call and filter_tools in tools/list, while every other branch
+        # built its provider with account: alone — so a node granted literally
+        # nothing could read powernode://ai/agents/{id}, which serializes
+        # agent.system_prompt, and resources/templates/list would enumerate the
+        # agent ids for a caller who knew none.
+        #
+        # ALLOWLIST, deliberately, not a denylist of the six known-leaky
+        # methods: a resource method added later must be closed to instances by
+        # default rather than silently open until someone re-audits.
+        #
+        # server/discover is present because it returns protocol capabilities
+        # and a static instructions string — no account data. session/discover
+        # is absent: it queries McpSession scoped to `user: current_user`, which
+        # is nil for an instance, so it would match userless sessions.
+        INSTANCE_PRINCIPAL_METHODS = %w[
+          initialize ping server/discover tools/list tools/call
+        ].freeze
+
         # CacheableResult hints for stateless-era (2026-07-28) responses.
         # All catalogs are principal/account-scoped → cacheScope "private".
         LIST_RESULT_TTL_MS = 300_000 # 5 min freshness hint for list endpoints
@@ -336,6 +361,20 @@ module Api
         end
 
         def dispatch_method(method, params, message_id)
+          # Default-deny the data plane for instance principals. Placed at the
+          # single dispatch point rather than in each handler so a new method
+          # cannot be added without a decision about instance access.
+          # `!user?` rather than `instance?`: :user and :instance are the only
+          # kinds today, so these are equivalent — but a future non-user
+          # principal should inherit the deny, matching the allowlist rationale
+          # above. Users are unaffected; their existing permission checks apply.
+          if current_mcp_principal && !current_mcp_principal.user? &&
+             !INSTANCE_PRINCIPAL_METHODS.include?(method)
+            render_jsonrpc_error(message_id, -32000,
+                                 "Method not permitted for this principal: #{method}")
+            return nil
+          end
+
           case method
           when "initialize"
             handle_initialize(params, message_id)

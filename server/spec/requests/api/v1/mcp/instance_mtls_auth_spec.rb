@@ -147,4 +147,55 @@ RSpec.describe "MCP instance mTLS authentication", type: :request do
     post_tools_list(cert_header(leaf(SecureRandom.uuid, ca[0], ca[1])))
     expect(response).to have_http_status(:unauthorized)
   end
+
+  # The default-deny an instance principal is supposed to have was enforced in
+  # tools/call and tools/list ONLY. Every other JSON-RPC branch built its
+  # provider with account: alone — no principal, no gate — so a node granted
+  # literally nothing could read powernode://ai/agents/{id}, which serializes
+  # agent.system_prompt. tools/list was grant-filtered; resources/list was not,
+  # and resources/templates/list even enumerates valid agent ids for a caller
+  # who knows none.
+  #
+  # An instance's grant is a TOOL-NAME glob — there is no such thing as a
+  # resource grant — so the coherent gate is: the data plane is not part of an
+  # instance principal's surface at all.
+  describe "data-plane surfaces are closed to an instance principal" do
+    def post_rpc(method, headers, params = {})
+      post "/api/v1/mcp/message",
+           params: { jsonrpc: "2.0", id: 99, method: method, params: params }.to_json,
+           headers: { "Content-Type" => "application/json", "Accept" => "application/json" }.merge(headers)
+    end
+
+    let(:instance_headers) { cert_header(leaf(instance.id, ca[0], ca[1])) }
+
+    # A grant would not help here and must not: it grants TOOLS.
+    before { Mcp::Principal.tool_grant_resolver = ->(_i) { %w[platform.*] } }
+
+    %w[resources/list resources/templates/list resources/read
+       prompts/list prompts/get completion/complete].each do |method|
+      it "refuses #{method}" do
+        post_rpc(method, instance_headers, { "uri" => "powernode://ai/agents", "name" => "x" })
+
+        body = JSON.parse(response.body)
+        expect(body["result"]).to be_nil,
+          "#{method} returned a result to a zero-grant instance principal: #{body["result"].inspect}"
+        expect(body.dig("error", "message").to_s).to match(/not permitted|not available/i)
+      end
+    end
+
+    it "does not leak an agent's system_prompt through resources/read" do
+      agent = create(:ai_agent, account: instance.account, system_prompt: "TOP-SECRET-PROMPT-CANARY")
+
+      post_rpc("resources/read", instance_headers, { "uri" => "powernode://ai/agents/#{agent.id}" })
+
+      expect(response.body).not_to include("TOP-SECRET-PROMPT-CANARY")
+    end
+
+    # The control: closing the data plane must not break what an instance is
+    # actually for. These stay reachable.
+    it "still allows tools/list and tools/call for a granted tool" do
+      post_rpc("tools/list", instance_headers)
+      expect(JSON.parse(response.body)["result"]).to be_present
+    end
+  end
 end
