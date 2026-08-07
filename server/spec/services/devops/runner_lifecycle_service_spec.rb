@@ -293,4 +293,71 @@ RSpec.describe Devops::RunnerLifecycleService do
       end
     end
   end
+
+  # The scope sync was upsert-only: it never reconciled the local set against
+  # the set the provider returned, so a row whose upstream runner had vanished
+  # survived forever. Fleet builders register EPHEMERAL and Gitea drops each
+  # after one job, so every sync that caught one mid-life left a permanent
+  # "offline" phantom. Observed 2026-08-07: 51 rows locally, 4 upstream.
+  describe "pruning runners that no longer exist upstream" do
+    def runner_payload(id, name)
+      { "id" => id, "name" => name, "status" => "online", "busy" => false,
+        "labels" => [], "os" => "linux", "architecture" => "amd64", "version" => "2.0" }
+    end
+
+    def existing_runner(external_id, name, scope: "repository", repo: repository)
+      Devops::GitRunner.create!(
+        account: account, git_provider_credential_id: credential.id,
+        git_repository_id: repo&.id, runner_scope: scope,
+        external_id: external_id, name: name, status: "offline", busy: false
+      )
+    end
+
+    it "deletes a row whose runner is absent from the provider listing" do
+      existing_runner("99", "fleet-ephemeral-gone")
+      allow(mock_client).to receive(:list_runners).and_return([ runner_payload("1", "runner-1") ])
+
+      service.sync_runners(credential_id: credential.id)
+
+      expect(Devops::GitRunner.where(external_id: "99")).not_to exist
+      expect(Devops::GitRunner.where(external_id: "1")).to exist
+    end
+
+    # THE load-bearing guard. extract_runners_list degrades ANY unexpected
+    # response shape to [] — an auth failure, a changed envelope, a partial
+    # outage. Pruning on an empty list would delete every runner in the scope
+    # on a transient provider hiccup, which is far worse than the phantoms.
+    it "does NOT prune when the provider returns an empty list" do
+      existing_runner("99", "fleet-still-real")
+      allow(mock_client).to receive(:list_runners).and_return([])
+
+      service.sync_runners(credential_id: credential.id)
+
+      expect(Devops::GitRunner.where(external_id: "99")).to exist
+    end
+
+    it "does NOT prune when the listing call raises" do
+      existing_runner("99", "fleet-still-real")
+      allow(mock_client).to receive(:list_runners).and_raise(StandardError, "provider down")
+
+      service.sync_runners(credential_id: credential.id)
+
+      expect(Devops::GitRunner.where(external_id: "99")).to exist
+    end
+
+    # Absence from ONE scope's listing says nothing about another scope.
+    it "does NOT prune rows belonging to a different credential" do
+      other_cred = create(:git_provider_credential, account: account, provider: provider)
+      foreign = Devops::GitRunner.create!(
+        account: account, git_provider_credential_id: other_cred.id,
+        runner_scope: "repository", external_id: "99", name: "other-cred-runner",
+        status: "offline", busy: false
+      )
+      allow(mock_client).to receive(:list_runners).and_return([ runner_payload("1", "runner-1") ])
+
+      service.sync_runners(credential_id: credential.id)
+
+      expect(Devops::GitRunner.where(id: foreign.id)).to exist
+    end
+  end
 end
