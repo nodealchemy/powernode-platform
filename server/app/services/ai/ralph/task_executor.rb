@@ -147,13 +147,17 @@ module Ai
           options[:tools] = (options[:tools] || []) + mcp_defs
         end
 
-        # Run agentic loop
+        # Run agentic loop. Thread the initiating user so external MCP tool calls
+        # enforce per-tool permissions instead of running unauthenticated. A nil
+        # user is a fully autonomous loop and stays trusted, preserving existing
+        # behavior (mirrors #enforce_executor_permissions!, which exempts nil).
         loop_runner = AgenticLoop.new(
           client: client,
           provider_type: provider_type,
           account: account,
           git_tool_executor: git_executor,
-          mcp_tools: mcp_tools
+          mcp_tools: mcp_tools,
+          user: user
         )
 
         result = loop_runner.execute(messages, options)
