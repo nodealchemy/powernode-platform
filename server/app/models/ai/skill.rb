@@ -181,7 +181,10 @@ module Ai
     before_update :bump_version_on_routing_change
     after_commit :sync_to_knowledge_graph, on: [:create, :update]
     after_commit :enqueue_conflict_check, on: [:create, :update], if: :conflict_relevant_change?
-    after_destroy :archive_knowledge_graph_node
+    # prepend: the has_one's dependent: :nullify callback (declared with the
+    # association, above) otherwise runs FIRST and detaches one arbitrary copy
+    # before this can archive it.
+    before_destroy :archive_knowledge_graph_nodes, prepend: true
 
     # ==========================================
     # Public Methods
@@ -395,6 +398,11 @@ module Ai
     private
 
     def sync_to_knowledge_graph
+      # A global skill (account_id nil) has no single graph to sync into —
+      # every account carries its own node copy (nodes require an account),
+      # written by the seed's post-seed sync and BridgeService#sync_all_skills
+      # (manual sync endpoint / monthly maintenance). Only account-scoped
+      # skills sync inline here (IMP-059e6c5af2bf).
       return unless account_id.present?
 
       Ai::SkillGraph::BridgeService.new(Account.find(account_id)).sync_skill(self)
@@ -417,8 +425,16 @@ module Ai
       Rails.logger.warn "[Ai::Skill] Conflict check enqueue failed for skill #{id}: #{e.message}"
     end
 
-    def archive_knowledge_graph_node
-      knowledge_graph_node&.archive!
+    def archive_knowledge_graph_nodes
+      # Every account carries its own node copy for a global skill (see
+      # sync_to_knowledge_graph), so archive AND detach ALL copies BEFORE the
+      # row deletes: the has_one's dependent: :nullify clears only one row's
+      # FK, so with N copies the DELETE itself violated the FK constraint —
+      # a global skill with synced copies could not be destroyed at all.
+      Ai::KnowledgeGraphNode.where(ai_skill_id: id).find_each do |node|
+        node.archive!
+        node.update_column(:ai_skill_id, nil)
+      end
     rescue StandardError => e
       Rails.logger.warn "[Ai::Skill] KG archive failed for skill #{id}: #{e.message}"
     end
