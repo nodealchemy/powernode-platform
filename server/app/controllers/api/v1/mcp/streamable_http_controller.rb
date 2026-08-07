@@ -31,30 +31,6 @@ module Api
         # params.uri (2026-07-28 Streamable HTTP request metadata).
         NAME_HEADER_METHODS = %w[tools/call resources/read prompts/get].freeze
 
-        # The ONLY JSON-RPC methods an instance principal may reach.
-        #
-        # An instance's authorization is a TOOL-NAME glob (Mcp::Principal
-        # #may_invoke?) — there is no such thing as a resource grant. So the
-        # resource/prompt data plane is not part of an instance's surface at
-        # all, and gating it "by grant" would be incoherent rather than merely
-        # strict. Before this list existed, may_invoke? was consulted in
-        # tools/call and filter_tools in tools/list, while every other branch
-        # built its provider with account: alone — so a node granted literally
-        # nothing could read powernode://ai/agents/{id}, which serializes
-        # agent.system_prompt, and resources/templates/list would enumerate the
-        # agent ids for a caller who knew none.
-        #
-        # ALLOWLIST, deliberately, not a denylist of the six known-leaky
-        # methods: a resource method added later must be closed to instances by
-        # default rather than silently open until someone re-audits.
-        #
-        # server/discover is present because it returns protocol capabilities
-        # and a static instructions string — no account data. session/discover
-        # is absent: it queries McpSession scoped to `user: current_user`, which
-        # is nil for an instance, so it would match userless sessions.
-        INSTANCE_PRINCIPAL_METHODS = %w[
-          initialize ping server/discover tools/list tools/call
-        ].freeze
 
         # CacheableResult hints for stateless-era (2026-07-28) responses.
         # All catalogs are principal/account-scoped → cacheScope "private".
@@ -156,7 +132,8 @@ module Api
         def terminate_session
           session_id = request.headers["Mcp-Session-Id"]
           if session_id.present?
-            McpSession.find_by(session_token: session_id)&.revoke!
+            session = McpSession.find_by(session_token: session_id)
+            session.revoke! if session_owned_by_current_principal?(session)
           end
 
           head :ok
@@ -360,18 +337,24 @@ module Api
           end
         end
 
+        # Methods a RESTRICTED principal (instance / federation) may use. Default-
+        # deny: a restricted caller is scoped to a TOOL allowlist, so it gets the
+        # handshake + tools/* only — never resources/*, prompts/*, completion/*,
+        # or the session/server DISCOVERY methods. Excluding session/discover is
+        # deliberate: a restricted principal (user:nil) has no legitimate
+        # cross-session reclaim need, and session/discover keys on user:nil, which
+        # would otherwise enumerate every other null-user principal's session
+        # tokens in the account. This is the single dispatch-level gate on every
+        # door rather than per-handler.
+        RESTRICTED_PRINCIPAL_METHODS = %w[
+          initialize ping tools/list tools/call
+        ].freeze
+
         def dispatch_method(method, params, message_id)
-          # Default-deny the data plane for instance principals. Placed at the
-          # single dispatch point rather than in each handler so a new method
-          # cannot be added without a decision about instance access.
-          # `!user?` rather than `instance?`: :user and :instance are the only
-          # kinds today, so these are equivalent — but a future non-user
-          # principal should inherit the deny, matching the allowlist rationale
-          # above. Users are unaffected; their existing permission checks apply.
-          if current_mcp_principal && !current_mcp_principal.user? &&
-             !INSTANCE_PRINCIPAL_METHODS.include?(method)
-            render_jsonrpc_error(message_id, -32000,
-                                 "Method not permitted for this principal: #{method}")
+          if current_mcp_principal&.restricted? && !RESTRICTED_PRINCIPAL_METHODS.include?(method)
+            render_jsonrpc_error(message_id, -32601,
+                                 "Method not available to this principal: #{method}",
+                                 status: stateless_request? ? :not_found : :ok)
             return nil
           end
 
@@ -498,6 +481,12 @@ module Api
         end
 
         def handle_session_discover(params)
+          # Restricted principals (instance/federation, user:nil) have no
+          # cross-session reclaim need and are already excluded from this method
+          # by the dispatch allowlist; this is the defense-in-depth backstop so a
+          # user:nil principal can never enumerate other principals' sessions.
+          return { sessions: [] } if current_mcp_principal&.restricted?
+
           client_instance_id = params["client_instance_id"]
 
           # Include grace-period sessions so daemons can reclaim their own session
@@ -594,13 +583,14 @@ module Api
             return nil
           end
 
-          # Instance principals are default-deny: gate execution against the
-          # instance's grant. This is the authorization gate that prevents an
-          # authenticated instance from reaching the user:nil internal-caller
-          # permission bypass below. (Users fall through; their per-tool
-          # permission check still applies inside the registrar.)
-          if current_mcp_principal&.instance? && !current_mcp_principal.may_invoke?(tool_name)
-            render_jsonrpc_error(nil, -32000, "Tool not permitted for this instance principal: #{tool_name}")
+          # Restricted principals (instance / federation) are default-deny: gate
+          # execution against their grant (instance grant glob, or a federation
+          # partner's allowed_capabilities), and never a destroy-shaped tool. This
+          # is the authorization gate that prevents a user:nil principal from
+          # reaching the internal-caller permission bypass below. (Users fall
+          # through; their per-tool permission check still applies in the registrar.)
+          if current_mcp_principal&.restricted? && !current_mcp_principal.may_invoke?(tool_name)
+            render_jsonrpc_error(nil, -32000, "Tool not permitted for this principal: #{tool_name}")
             return nil
           end
 
@@ -614,10 +604,14 @@ module Api
                 account: current_account,
                 user: current_user,
                 mcp_agent: mcp_client_agent,
-                # Instance principals are already grant-gated above (line 563);
-                # let the registrar skip the user-permission check for them, and
-                # hold the action it runs to that same granted name. (BUG-R)
-                instance_authorized: current_mcp_principal&.instance? || false,
+                # Restricted principals (instance / federation) are already
+                # grant-gated above; let the registrar skip the user-permission
+                # check for them, hold the action to that same granted name, and
+                # re-arm the destroy-shaped deny overlay at every nested hop. The
+                # flag is named for its first use but is mechanically generic —
+                # BaseTool#enforce_instance_deny_overlay! keys on it, not on a
+                # node_instance (which federation has none of). (BUG-R)
+                instance_authorized: current_mcp_principal&.restricted? || false,
                 # ...and give the tool the instance so DevLoopTool#claimant_ref can
                 # scope claims as "instance:<id>" (nil for user/agent). (BUG-S)
                 node_instance: current_mcp_principal&.node_instance
@@ -1043,11 +1037,15 @@ module Api
           return nil unless session_id.present?
 
           session = McpSession.active.find_by(session_token: session_id)
-          return session if session
+          # A session is only visible to the principal that owns it, in its own
+          # account — a token alone must not grant another principal the stream.
+          if session
+            return session_owned_by_current_principal?(session) ? session : nil
+          end
 
           # Reconnect recovery for SSE streams (e.g., daemon reconnecting after server restart)
           revoked_session = McpSession.find_by(session_token: session_id)
-          if revoked_session&.reactivatable?
+          if revoked_session&.reactivatable? && session_owned_by_current_principal?(revoked_session)
             revoked_session.reactivate!
             revoked_session
           end
@@ -1177,17 +1175,37 @@ module Api
         end
 
         # Owner attributes for a NEW McpSession. User (OAuth/CLI) principals keep
-        # the existing { user: current_user } shape byte-for-byte; instance
-        # principals (mTLS node cert → Mcp::Principal.for_instance_cn, no User)
-        # record principal_kind + principal_subject_id instead, so the session is
-        # attributable without a core→extension FK to node instances. (BUG-Q)
+        # the existing { user: current_user } shape byte-for-byte; restricted
+        # principals (instance mTLS or federation, no User) record
+        # principal_kind + principal_subject_id instead, so the session is
+        # attributable and NOT lumped with every other null-user session — which
+        # is what session ownership checks and session/discover rely on. (BUG-Q)
         def session_principal_attributes
           return { user: current_user } if current_user
 
-          if current_mcp_principal&.instance?
-            { user: nil, principal_kind: "instance", principal_subject_id: current_mcp_principal.subject_id }
+          if current_mcp_principal&.restricted?
+            { user: nil, principal_kind: current_mcp_principal.kind.to_s,
+              principal_subject_id: current_mcp_principal.subject_id }
           else
             { user: current_user }
+          end
+        end
+
+        # A session belongs to the current principal iff it is in the current
+        # account AND its owner matches: user_id for a user, or (kind, subject)
+        # for a restricted principal. Prevents one principal from reading,
+        # reclaiming or revoking another's session by presenting its token.
+        def session_owned_by_current_principal?(session)
+          return false unless session
+          return false unless session.account_id == current_account&.id
+
+          if current_mcp_principal&.restricted?
+            session.principal_kind == current_mcp_principal.kind.to_s &&
+              session.principal_subject_id.to_s == current_mcp_principal.subject_id.to_s
+          elsif current_user
+            session.user_id == current_user.id
+          else
+            false
           end
         end
 

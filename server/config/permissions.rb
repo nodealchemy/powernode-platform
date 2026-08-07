@@ -656,7 +656,7 @@ module Permissions
     resource :devops, actions: %i[read manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
     resource :sandboxes, actions: %i[read create update delete manage test benchmark],
              grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
-    resource :federation, actions: %i[read create update delete verify sync],
+    resource :federation, actions: %i[read create update delete verify sync invoke],
              grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
     resource :community_agents, actions: %i[read create update delete manage rate report],
              grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all, member: %i[read rate report] }

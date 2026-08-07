@@ -5,12 +5,13 @@ module Ai
     class AgenticLoop
       MAX_TOOL_ROUNDS = 15
 
-      def initialize(client:, provider_type:, account:, git_tool_executor: nil, mcp_tools: [])
+      def initialize(client:, provider_type:, account:, git_tool_executor: nil, mcp_tools: [], user: nil)
         @client = client
         @provider_type = provider_type
         @account = account
         @git_executor = git_tool_executor
         @mcp_tools = mcp_tools
+        @user = user
         @tool_calls_log = []
         @accumulated_content = []
       end
@@ -97,11 +98,20 @@ module Ai
           return { success: false, error: "Unknown tool: #{tool_name}" }
         end
 
+        # Enforce per-tool permissions when an acting user is resolvable. A nil
+        # user is a fully autonomous loop with no initiator — kept trusted to
+        # preserve existing behavior (mirrors TaskExecutor#enforce_executor_permissions!).
+        if @user && !mcp_tool.can_execute?(user: @user, account: @account)
+          status = mcp_tool.authorization_status(user: @user, account: @account)
+          message = Array(status[:errors]).map { |e| e[:message] }.join("; ")
+          return { success: false, error: "Permission denied: #{message}" }
+        end
+
         ::Mcp::SyncExecutionService.new(
           server: mcp_tool.mcp_server,
           tool: mcp_tool,
           parameters: arguments,
-          user: nil,
+          user: @user,
           account: @account
         ).execute
       end

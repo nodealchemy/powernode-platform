@@ -30,8 +30,23 @@ module Ai
       @tool_access_config = agent.mcp_metadata&.dig("tool_access") || {}
     end
 
-    # Whether this agent should receive tools in LLM calls
+    # LLM-facing name prefix for tools proxied from an external MCP server.
+    # Chosen to satisfy OpenAI's function-name charset (^[a-zA-Z0-9_-]+$) and to
+    # never collide with a platform tool (those carry no prefix in the LLM view).
+    EXTERNAL_TOOL_PREFIX = "mcp__"
+
+    # Whether this agent should receive ANY tools in LLM calls. External MCP tools
+    # are governed by attachment + permission, independent of the platform-tool
+    # access toggle — so an agent with servers attached (including the mcp_client
+    # type, whose whole purpose is external tools) still gets a tool list even when
+    # platform tools are off.
     def tools_enabled?
+      platform_tools_enabled? || external_mcp_available?
+    end
+
+    # The historical tools_enabled? gate, now scoped to the platform (platform.*)
+    # tool surface only.
+    def platform_tools_enabled?
       return false if agent.agent_type == "mcp_client"
 
       if @tool_access_config.key?("enabled")
@@ -39,6 +54,20 @@ module Ai
       end
 
       true
+    end
+
+    # External MCP tools are exposed only when the agent has servers attached AND
+    # its creator holds mcp.tools.execute. Fail closed when the creator is absent.
+    def external_mcp_available?
+      return @external_mcp_available if defined?(@external_mcp_available)
+
+      # Cheap attachment check first (reads mcp_metadata, no query) so a
+      # server-less agent never triggers a permission lookup.
+      creator = agent.creator
+      @external_mcp_available =
+        agent.mcp_server_ids.present? &&
+        creator.present? &&
+        creator.has_permission?("mcp.tools.execute")
     end
 
     # Maximum agentic loop iterations
@@ -103,6 +132,13 @@ module Ai
       arguments = JSON.parse(arguments) if arguments.is_a?(String)
 
       Rails.logger.info "[AgentToolBridge] Dispatching tool: #{tool_name} for agent #{agent.id}"
+
+      # External MCP tools are proxied to their origin server via the sync client,
+      # not the platform registrar. Resolve against the (permission-gated) index.
+      if tool_name.to_s.start_with?(EXTERNAL_TOOL_PREFIX) && external_tool_index.key?(tool_name.to_s)
+        args = arguments.is_a?(Hash) ? arguments : {}
+        return dispatch_external_mcp_tool(tool_name.to_s, args)
+      end
 
       result = Ai::Tools::McpPlatformToolRegistrar.execute_tool(
         "platform.#{tool_name}",
@@ -437,6 +473,12 @@ module Ai
     end
 
     def build_tool_definitions
+      platform_tool_definitions + external_mcp_tool_definitions
+    end
+
+    def platform_tool_definitions
+      return [] unless platform_tools_enabled?
+
       # When allowed_tools is explicitly configured, use the full registry (agent: nil)
       # to skip per-tool permitted? checks — the whitelist IS the authorization gate.
       # Without an explicit whitelist, use agent-scoped definitions for permission
@@ -452,6 +494,123 @@ module Ai
       end
 
       definitions.map { |defn| convert_to_llm_tool(defn) }
+    end
+
+    # LLM tool definitions for the agent's attached external MCP tools. Empty
+    # unless external MCP is available (attached + creator permitted). The
+    # combined list is capped downstream by the same provider tool-count filter
+    # that governs platform tools (see #execute_tool_loop), so no separate cap
+    # is applied here.
+    def external_mcp_tool_definitions
+      external_tool_index.map do |name, tool|
+        convert_mcp_tool_to_llm(name, tool)
+      end
+    end
+
+    # Map of LLM-facing name => McpTool for this agent's attached, connected,
+    # enabled external tools. Built once; the single source of truth for both
+    # advertisement and dispatch resolution. Empty unless external_mcp_available?.
+    def external_tool_index
+      @external_tool_index ||= build_external_tool_index
+    end
+
+    def build_external_tool_index
+      return {} unless external_mcp_available?
+
+      index = {}
+      agent.available_mcp_tools.each do |tool|
+        name = namespaced_mcp_name(tool)
+        if index.key?(name)
+          # Two tool names that slug to the same LLM name — keep the first and
+          # log the drop rather than silently shadow one.
+          Rails.logger.warn "[AgentToolBridge] Duplicate external MCP tool name " \
+                            "#{name} for agent #{agent.id} — keeping first, dropping #{tool.id}"
+          next
+        end
+        index[name] = tool
+      end
+      index
+    end
+
+    # mcp__<server>__<tool>, sanitized to the OpenAI function-name charset. The
+    # exact name is stored in the index, so slugging never breaks dispatch.
+    def namespaced_mcp_name(tool)
+      server_part = mcp_slug(tool.mcp_server&.name.presence || tool.mcp_server_id)
+      "#{EXTERNAL_TOOL_PREFIX}#{server_part}__#{mcp_slug(tool.name)}"
+    end
+
+    def mcp_slug(value)
+      value.to_s.strip.downcase.gsub(/[^a-z0-9]+/, "_").gsub(/\A_+|_+\z/, "").presence || "x"
+    end
+
+    def convert_mcp_tool_to_llm(name, tool)
+      schema = tool.input_schema
+      schema = {} unless schema.is_a?(Hash)
+      schema = { "type" => "object", "properties" => {}, "required" => [] } if schema.blank?
+
+      {
+        name: name,
+        description: mcp_tool_description(tool),
+        parameters: schema
+      }
+    end
+
+    def mcp_tool_description(tool)
+      desc = tool.try(:description)
+      return desc if desc.present?
+
+      "External MCP tool #{tool.name} (server: #{tool.mcp_server&.name})"
+    end
+
+    # Proxy an external MCP tool call through the synchronous client. Gates on the
+    # coarse permission (defense in depth — the index is already gated) and the
+    # per-tool Mcp::PermissionValidator, records an mcp_tool_executions row, and
+    # returns the same [truncated_json, full_result] shape the loop expects.
+    def dispatch_external_mcp_tool(tool_name, arguments)
+      mcp_tool = external_tool_index[tool_name]
+
+      unless external_mcp_available?
+        return [{ error: "Permission denied", tool: tool_name,
+                  message: "Agent lacks mcp.tools.execute" }.to_json, nil]
+      end
+
+      creator = agent.creator
+      unless mcp_tool.can_execute?(user: creator, account: account)
+        status = mcp_tool.authorization_status(user: creator, account: account)
+        message = Array(status[:errors]).map { |e| e[:message] }.join("; ")
+        Rails.logger.warn "[AgentToolBridge] External MCP permission denied: #{tool_name} - #{message}"
+        return [{ error: "Permission denied", tool: tool_name, message: message }.to_json, nil]
+      end
+
+      execution = mcp_tool.mcp_tool_executions.create!(
+        user: creator, status: "running", parameters: arguments, started_at: Time.current
+      )
+      started = Time.current
+
+      begin
+        result = ::Mcp::SyncExecutionService.new(
+          server: mcp_tool.mcp_server,
+          tool: mcp_tool,
+          parameters: arguments,
+          user: creator,
+          account: account
+        ).execute
+
+        execution.update!(
+          status: "completed",
+          result: (result.is_a?(Hash) ? result : { "value" => result }),
+          completed_at: Time.current,
+          duration_ms: ((Time.current - started) * 1000).round
+        )
+        [truncate_result(result.to_json), result]
+      rescue StandardError => e
+        execution.update!(
+          status: "failed", error_message: e.message,
+          completed_at: Time.current, duration_ms: ((Time.current - started) * 1000).round
+        )
+        Rails.logger.error "[AgentToolBridge] External MCP tool error: #{tool_name} - #{e.message}"
+        [{ error: "Tool execution failed", tool: tool_name, message: e.message }.to_json, nil]
+      end
     end
 
     # Narrow the registry to the agent's tool families (IMP-011ac658a671). Without

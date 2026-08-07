@@ -9,6 +9,12 @@ module McpTokenAuthentication
 
   PROTECTED_RESOURCE_PATH = "/.well-known/oauth-protected-resource"
 
+  # Bound the bcrypt work an attacker can force on the federation arm: after this
+  # many failed attempts for an organization within the window, reject fast (no
+  # bcrypt) until it expires. Valid callers never fail, so are never throttled.
+  FEDERATION_AUTH_FAILURE_LIMIT = 20
+  FEDERATION_AUTH_FAILURE_WINDOW = 60 # seconds
+
   private
 
   def authenticate_mcp_request
@@ -17,6 +23,13 @@ module McpTokenAuthentication
     # the NodeInstance as the MCP principal. Falls through to the OAuth path when a
     # cert is absent or doesn't verify — the existing User/OAuth flow is unchanged.
     return if authenticate_via_node_mtls
+
+    # Federation arm (cross-plane MCP): a peer Powernode deployment presents its
+    # shared bearer token + X-Federation-Organization header. Only fires when that
+    # header is present (OAuth/mTLS clients never send it), so those paths are
+    # unchanged. A federation-signalled request that fails verification is
+    # rejected here — it never falls through to the OAuth path.
+    return if authenticate_via_federation_partner
 
     token_string = extract_bearer_token
 
@@ -52,6 +65,58 @@ module McpTokenAuthentication
     @current_account = principal.account
     @current_user = nil
     true
+  end
+
+  # Federation principal arm. Returns true when the request carries a federation
+  # signal (X-Federation-Organization header) — either resolving a verified peer
+  # to a default-deny federation principal, or rejecting an invalid one with 401.
+  # Returns false only when NO federation header is present, so a non-federation
+  # request falls through to the OAuth path untouched. Fail-closed throughout.
+  def authenticate_via_federation_partner
+    org = request.headers["X-Federation-Organization"]
+    return false if org.blank?
+
+    # From here the request is federation-signalled: it succeeds or is rejected,
+    # never silently downgraded to OAuth.
+    if federation_auth_throttled?(org)
+      render_oauth_unauthorized("Too many federation authentication attempts", error_code: "federation_throttled")
+      return true
+    end
+
+    partner = ::FederationPartner.for_inbound(organization_id: org, token: extract_bearer_token)
+    unless partner
+      record_federation_auth_failure(org)
+      render_oauth_unauthorized("Invalid federation credentials", error_code: "federation_invalid")
+      return true
+    end
+
+    unless partner.account&.active?
+      render_oauth_unauthorized("Federation account inactive", error_code: "account_inactive")
+      return true
+    end
+
+    @current_mcp_principal = ::Mcp::Principal.for_federation_partner(partner)
+    @current_account = partner.account
+    @current_user = nil
+    partner.increment_request_count!
+    true
+  end
+
+  def federation_auth_failure_key(org)
+    "mcp:fed_auth_fail:#{org}"
+  end
+
+  def federation_auth_throttled?(org)
+    Rails.cache.read(federation_auth_failure_key(org)).to_i >= FEDERATION_AUTH_FAILURE_LIMIT
+  end
+
+  # Atomic increment; seed with a TTL on the first failure (cache stores that do
+  # not auto-create on increment return nil).
+  def record_federation_auth_failure(org)
+    key = federation_auth_failure_key(org)
+    if Rails.cache.increment(key).nil?
+      Rails.cache.write(key, 1, expires_in: FEDERATION_AUTH_FAILURE_WINDOW)
+    end
   end
 
   def current_mcp_principal

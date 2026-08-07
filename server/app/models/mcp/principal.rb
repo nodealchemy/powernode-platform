@@ -164,6 +164,14 @@ module Mcp
         new(kind: :user, account: user.account, user: user, subject_id: user.id)
       end
 
+      # Cross-plane (federation) principal: an authenticated remote FederationPartner
+      # invoking a tool on THIS plane. Bound to the LOCAL account that owns the
+      # partner row, and default-deny like an instance — scoped to the partner's
+      # allowed_capabilities and never destroy-shaped (see #may_invoke?).
+      def for_federation_partner(partner)
+        new(kind: :federation, account: partner.account, subject_id: partner.id, federation_partner: partner)
+      end
+
       # @return [Principal, nil] nil when the CN resolves to no live instance
       #   (or no resolver is injected) — callers fall through to the OAuth path.
       def for_instance_cn(cn)
@@ -177,14 +185,15 @@ module Mcp
       end
     end
 
-    attr_reader :kind, :account, :user, :node_instance, :subject_id
+    attr_reader :kind, :account, :user, :node_instance, :federation_partner, :subject_id
 
-    def initialize(kind:, account:, subject_id:, user: nil, node_instance: nil)
+    def initialize(kind:, account:, subject_id:, user: nil, node_instance: nil, federation_partner: nil)
       @kind = kind
       @account = account
       @subject_id = subject_id
       @user = user
       @node_instance = node_instance
+      @federation_partner = federation_partner
     end
 
     def user?
@@ -195,12 +204,24 @@ module Mcp
       kind == :instance
     end
 
+    def federation?
+      kind == :federation
+    end
+
+    # Non-user principals (instance, federation) are DEFAULT-DENY and scoped to a
+    # tool allowlist. The MCP controller gates every door on this, so a restricted
+    # principal cannot reach tools/resources/prompts it was not granted.
+    def restricted?
+      instance? || federation?
+    end
+
     # The capability tokens used to scope the tool catalog. nil => unrestricted
     # (users keep their existing permission-based behavior). For an instance, its
     # declared capabilities (an empty list scopes to read-shape/introspection
     # tools — default-deny on mutating tools).
     def capability_scope
       return nil if user?
+      return Array(federation_partner&.allowed_capabilities).map(&:to_s) if federation?
 
       Array(node_instance.try(:declared_capabilities)).map(&:to_s)
     end
@@ -227,9 +248,10 @@ module Mcp
     end
 
     def granted_tool_patterns
-      return [] unless instance?
+      return Array(self.class.tool_grant_resolver.call(node_instance)).map(&:to_s) if instance?
+      return Array(federation_partner&.allowed_capabilities).map(&:to_s) if federation?
 
-      Array(self.class.tool_grant_resolver.call(node_instance)).map(&:to_s)
+      []
     end
 
     private
