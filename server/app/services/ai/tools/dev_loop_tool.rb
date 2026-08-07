@@ -359,6 +359,13 @@ module Ai
         end
         return error_result(pairing_error) if pairing_error
 
+        # Credit-loop half B (IMP-5f8a744b8892): a passed outcome resolves the
+        # claim-time injections positively. Uses the FINAL outcome — a G10
+        # guardrail remap to blocked deliberately does not credit — and
+        # failed/blocked leave the injections unresolved (that depression is
+        # the intended signal for learnings that get injected but don't help).
+        credit_injected_learnings!(task) if outcome == "passed"
+
         loop_record.reload
         all_tasks_completed = loop_record.all_tasks_completed?
         # IMP-af21b11d476c: this was the ONLY place manual/claude_code loops ever
@@ -692,6 +699,17 @@ module Ai
         # dev_complete_task but was never handed anything back on the next claim.
         relevant = relevant_compound_learnings(task)
         ctx[:relevant_learnings] = relevant if relevant.present?
+        # Credit-loop half A (IMP-5f8a744b8892): remember exactly which
+        # learnings this claim injected so complete_task can resolve the
+        # neutral injections positively on a passed outcome. Without this the
+        # injections stay unresolved forever and the corpus degrades in
+        # proportion to use (hard 0.0 effectiveness at 3 injections, promotion
+        # barred, recall ranking inverted). Written UNCONDITIONALLY (even as
+        # []) so a reclaim whose retrieval returns nothing can never inherit —
+        # and later credit — a previous claim's ids.
+        task.update!(metadata: task.metadata.merge(
+          "injected_learning_ids" => relevant.map { |l| l[:id] }
+        ))
 
         base = config["base_context_files"]
         if base.present?
@@ -703,6 +721,21 @@ module Ai
           ctx[:base_context_contents] = contents if contents.present?
         end
         ctx
+      end
+
+      # Credit-loop half B (see complete_task): resolve this claim's injections
+      # positively via the learning service, then clear the marker so an
+      # operator resolution or replayed report cannot double-credit. Best-effort
+      # — a crediting hiccup must never fail the completion itself.
+      def credit_injected_learnings!(task)
+        ids = Array(task.metadata["injected_learning_ids"])
+        return if ids.empty?
+
+        ::Ai::Learning::CompoundLearningService.new(account: account)
+          .credit_injections!(learning_ids: ids)
+        task.update!(metadata: task.metadata.except("injected_learning_ids"))
+      rescue StandardError => e
+        Rails.logger.warn("[DevLoopTool] credit_injected_learnings failed for #{task.task_key}: #{e.message}")
       end
 
       # C3: reuses Ai::Learning::CompoundLearningService's existing retrieval/

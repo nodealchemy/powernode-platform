@@ -806,6 +806,25 @@ module Ai
         false
       end
 
+      # Resolve neutral injections positively by EXACT id — the dev-loop drain
+      # path analog of boost_injected_learnings_on_success (private, below),
+      # which infers membership from a time window on the agent-execution path.
+      # The drain path knows precisely which learnings its claim injected
+      # (task metadata), so no window heuristics. Public: called across the
+      # service boundary by Ai::Tools::DevLoopTool#complete_task.
+      def credit_injections!(learning_ids:)
+        return if Array(learning_ids).empty?
+
+        Ai::CompoundLearning.for_account(@account.id)
+          .where(id: learning_ids, status: %w[active verified])
+          .find_each do |learning|
+            learning.record_positive_outcome!
+            learning.update_column(:confidence_score, [ learning.confidence_score + 0.02, 1.0 ].min)
+          end
+      rescue StandardError => e
+        Rails.logger.warn("[CompoundLearning] credit_injections failed: #{e.message}")
+      end
+
       private
 
       SORTABLE_COLUMNS = %w[created_at importance_score effectiveness_score injection_count confidence_score updated_at].freeze
