@@ -213,15 +213,29 @@ module Devops
         git_repository_id: repository&.id
       ).where.not(external_id: seen_external_ids)
 
-      count = stale.count
-      return 0 if count.zero?
+      stale_ids = stale.pluck(:id)
+      return 0 if stale_ids.empty?
 
       Rails.logger.info(
-        "[RunnerLifecycleService] pruning #{count} #{scope_name} runner row(s) for credential " \
+        "[RunnerLifecycleService] pruning #{stale_ids.size} #{scope_name} runner row(s) for credential " \
         "#{credential.id} with no upstream counterpart"
       )
-      stale.delete_all
-      count
+
+      # ai_runner_dispatches has an FK to git_runners with NO on_delete, and
+      # Ai::RunnerDispatchService stamps git_runner permanently — so deleting a
+      # runner that ever ran a job raises InvalidForeignKey. That exception is
+      # swallowed by sync_scope_runners' rescue, which means the prune silently
+      # never ran for exactly the runners that did work, the synced count came
+      # back 0, and the whole thing was logged as "runner sync not available"
+      # — a provider-capability message for a foreign-key bug. Worse, inside a
+      # transaction the violation poisons every subsequent statement.
+      #
+      # Null the pointer rather than cascading the delete: the dispatch is
+      # history worth keeping, git_runner_id is `optional: true`, and the
+      # runner it referenced no longer exists anywhere to point at.
+      ::Ai::RunnerDispatch.where(git_runner_id: stale_ids).update_all(git_runner_id: nil)
+      ::Devops::GitRunner.where(id: stale_ids).delete_all
+      stale_ids.size
     end
 
     # GitHub wraps runners in {runners:}, Gitea/GitLab return array

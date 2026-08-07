@@ -345,6 +345,27 @@ RSpec.describe Devops::RunnerLifecycleService do
       expect(Devops::GitRunner.where(external_id: "99")).to exist
     end
 
+    # Review finding: ai_runner_dispatches has an FK to git_runners with no
+    # on_delete, and Ai::RunnerDispatchService stamps git_runner permanently. So
+    # delete_all on a runner that ever ran a job raises InvalidForeignKey, which
+    # sync_scope_runners' `rescue StandardError` swallows — the prune silently
+    # never runs for exactly the runners that did work, AND the method returns 0
+    # instead of the real synced count, disguised as "provider doesn't support
+    # runners". My original specs missed it because no fixture had a dispatch.
+    it "still prunes a runner that has dispatch history, and does not abort the sync" do
+      gone = existing_runner("99", "fleet-had-a-job")
+      session  = create(:ai_worktree_session, account: account)
+      worktree = create(:ai_worktree, account: account, worktree_session: session)
+      create(:ai_runner_dispatch, account: account, git_runner: gone,
+                                  worktree: worktree, worktree_session: session, status: "completed")
+      allow(mock_client).to receive(:list_runners).and_return([ runner_payload("1", "runner-1") ])
+
+      synced = service.sync_runners(credential_id: credential.id)
+
+      expect(Devops::GitRunner.where(external_id: "99")).not_to exist
+      expect(synced).to be >= 1, "sync returned #{synced}; an FK failure was swallowed and reported as a no-op sync"
+    end
+
     # Absence from ONE scope's listing says nothing about another scope.
     it "does NOT prune rows belonging to a different credential" do
       other_cred = create(:git_provider_credential, account: account, provider: provider)
