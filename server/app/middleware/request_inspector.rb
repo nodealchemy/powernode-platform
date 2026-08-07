@@ -138,7 +138,7 @@ class RequestInspector
 
     # Check for suspicious patterns in request
     check_query_string(request, result)
-    check_request_body(request, result)
+    check_request_body(request, result) unless body_inspection_exempt?(request)
     check_user_agent(request, result)
     check_headers(request, result)
     check_request_rate(request, result)
@@ -372,6 +372,35 @@ class RequestInspector
       path.start_with?("/api/v1/system/worker_api/") ||
       path.start_with?("/api/v1/system/federation_api/") ||
       path.start_with?("/api/v1/internal/")
+  end
+
+  # The MCP streamable-HTTP endpoint (external MCP clients, e.g. Claude Code).
+  # OAuth-gated at the controller; its tool payloads legitimately carry CODE —
+  # improvement offers, learnings, knowledge entries — which the anonymous body
+  # patterns structurally misread as attacks: backtick-quoted spans score as
+  # command injection (+10 each) and the boundary-less /on\w+\s*=/ XSS pattern
+  # matches ordinary Ruby ("…tion_report ="). On 2026-08-07 a batch of
+  # create_improvement calls crossed suspicious_request_limit this way and the
+  # platform IP-blocked its own improvement pipeline for an hour — the same
+  # self-brick class as the node_api and /api/v1/internal/ incidents above.
+  # This middleware runs ahead of routing, so request.path is RAW PATH_INFO —
+  # the trailing-slash and .format variants Rails later collapses onto the same
+  # controller action are still literally present here. The pattern must accept
+  # exactly what the router accepts for this action, or an ordinary client
+  # footgun (trailing-slash base URL, appended .json) reproduces the incident.
+  MCP_MESSAGE_PATH_PATTERN = %r{\A/api/v1/mcp/message/?(\.\w+)?\z}
+
+  # Deliberately NARROWER than trusted_path?: only the request-BODY content
+  # heuristics are skipped, and only on the MCP message endpoint. Query-string,
+  # user-agent, rate, and payload-size checks still run, and an IP that is
+  # already blocked still gets 403 here — this endpoint is reachable from
+  # outside, so it must keep its DDoS posture. Note the exemption is purely
+  # path-based: the middleware does not verify the OAuth token (that stays the
+  # controller's job, which 401s before parsing any body), so an anonymous
+  # attack-shaped body POSTed here skips BODY scoring only — it still accrues
+  # rate score and still hits an existing block.
+  def body_inspection_exempt?(request)
+    request.path.match?(MCP_MESSAGE_PATH_PATTERN)
   end
 
   def api_request?(request)

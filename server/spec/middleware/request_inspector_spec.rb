@@ -117,6 +117,85 @@ RSpec.describe RequestInspector do
     end
   end
 
+  # Live incident, 2026-08-07 (~19:22): a batch of MCP create_improvement calls
+  # — whose payloads legitimately carry code (backtick-quoted spans, Ruby
+  # assignments like "…tion_report =") — scored as command-injection/XSS,
+  # crossed suspicious_request_limit, and the platform IP-blocked its own
+  # improvement pipeline for an hour. The MCP channel is OAuth-authenticated at
+  # the controller, so the anonymous BODY heuristics don't apply — but unlike
+  # the mTLS trusted_path? prefixes it stays fully rate-checked, UA-checked,
+  # size-checked, and block-ENFORCED (an already-blocked IP still 403s here).
+  describe 'authenticated MCP channel body exemption' do
+    let(:code_bearing_body) do
+      '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"create_improvement",' \
+        '"arguments":{"fix":"Change to `rescue StandardError => e` and log `Rails.logger.warn`",' \
+        '"description":"@composition_report = verdict.report_entries"}}}'
+    end
+
+    def inspect_post(path:, body:, ip: '203.0.113.7')
+      env = Rack::MockRequest.env_for(path, method: 'POST', input: body)
+      env['REMOTE_ADDR'] = ip
+      env['HTTP_USER_AGENT'] = 'Mozilla/5.0 (X11; Linux x86_64)'
+      env['HTTP_ACCEPT'] = 'application/json'
+      middleware.send(:inspect_request, Rack::Request.new(env))
+    end
+
+    it 'does not score a code-bearing MCP tool payload as an attack' do
+      result = inspect_post(path: '/api/v1/mcp/message', body: code_bearing_body)
+
+      expect(result[:suspicious]).to be(false)
+      expect(result[:score]).to eq(0)
+    end
+
+    # This middleware runs ahead of routing, so request.path is RAW PATH_INFO:
+    # a trailing slash or format suffix is still literally present here even
+    # though Rails dispatches all of these to the same controller action. An
+    # exact-string exemption silently reproduces the incident for any client
+    # that joins a trailing-slash base URL or appends .json.
+    it 'exempts routed path variants of the MCP endpoint (trailing slash, format suffix)' do
+      [ '/api/v1/mcp/message/', '/api/v1/mcp/message.json' ].each do |variant|
+        result = inspect_post(path: variant, body: code_bearing_body)
+
+        expect(result[:score]).to eq(0), "expected #{variant} to be exempt, scored #{result[:score]}"
+      end
+    end
+
+    it 'does not exempt paths that merely start with the MCP endpoint string' do
+      result = inspect_post(path: '/api/v1/mcp/message_extra', body: code_bearing_body)
+
+      expect(result[:suspicious]).to be(true)
+    end
+
+    it 'still scores the same body as an attack on any other API path' do
+      result = inspect_post(path: '/api/v1/widgets', body: code_bearing_body)
+
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:command_injection)
+    end
+
+    it 'still applies the rapid-request rate check on the MCP path' do
+      allow(middleware).to receive(:get_rapid_request_count)
+        .and_return(RequestInspector::THRESHOLDS[:rapid_request_threshold] + 1)
+
+      result = inspect_post(path: '/api/v1/mcp/message', body: code_bearing_body)
+
+      expect(result[:threats].map { |t| t[:type] }).to include(:rapid_requests)
+    end
+
+    it 'still enforces an existing IP block on the MCP path' do
+      ip = '198.51.100.77'
+      middleware.send(:block_ip, ip)
+
+      env = Rack::MockRequest.env_for('/api/v1/mcp/message', method: 'POST', input: code_bearing_body)
+      env['REMOTE_ADDR'] = ip
+      env['HTTP_USER_AGENT'] = 'Mozilla/5.0 (X11; Linux x86_64)'
+      status, headers, _body = middleware.call(env)
+
+      expect(status).to eq(403)
+      expect(headers['X-Request-Blocked']).to eq('true')
+    end
+  end
+
   describe 'progressive blocking after repeated suspicious requests' do
     let(:ip) { '203.0.113.99' }
     let(:malicious_query) { 'id=1 UNION SELECT password FROM users' }
