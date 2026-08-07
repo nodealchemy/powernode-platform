@@ -207,6 +207,7 @@ module Ai
         # Campaign 019f5885 inc9 — native module-build batch orchestration
         "system_dispatch_module_build_batch" => "Ai::Tools::SystemFleetTool",
         "system_cancel_module_build_batch" => "Ai::Tools::SystemFleetTool",
+        "system_rollback_module_version" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice 6a — GitOps reconciler MCP surface
         "system_gitops_register_repository" => "Ai::Tools::SystemFleetTool",
         "system_gitops_sync_repository" => "Ai::Tools::SystemFleetTool",
