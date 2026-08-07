@@ -77,25 +77,32 @@ module Ai
       private
 
       def query_learnings(params)
-        scope = Ai::CompoundLearning.where(account: account)
-        scope = scope.where(category: params[:category]) if params[:category].present?
-        scope = scope.where(scope: params[:scope]) if params[:scope].present?
-        scope = scope.where(status: params[:status] || "active")
-
-        if params[:query].present?
-          keywords = params[:query].downcase.split(/\s+/).first(5)
-          keywords.each do |kw|
-            sanitized = Ai::CompoundLearning.sanitize_sql_like(kw)
-            scope = scope.where("LOWER(title) LIKE ? OR LOWER(content) LIKE ?", "%#{sanitized}%", "%#{sanitized}%")
-          end
-        end
-
         limit = (params[:limit] || 20).to_i.clamp(1, 50)
-        learnings = scope.order(importance_score: :desc, created_at: :desc).limit(limit)
+
+        # IMP-3470890a626f: a query routes through the service's embedding-first
+        # retrieval (OR keyword fallback) — the old per-keyword .where chain
+        # ANDed every word into the same row, so multi-word intent queries
+        # returned nothing while each single word matched plenty. The no-query
+        # form stays a plain filtered listing.
+        if params[:query].present?
+          learnings = ::Ai::Learning::CompoundLearningService.new(account: account).search_learnings(
+            query: params[:query],
+            category: params[:category],
+            learning_scope: params[:scope],
+            status: params[:status],
+            limit: limit
+          )
+        else
+          scope = Ai::CompoundLearning.where(account: account)
+          scope = scope.where(category: params[:category]) if params[:category].present?
+          scope = scope.where(scope: params[:scope]) if params[:scope].present?
+          scope = scope.where(status: params[:status] || "active")
+          learnings = scope.order(importance_score: :desc, created_at: :desc).limit(limit)
+        end
 
         {
           success: true,
-          count: learnings.count,
+          count: learnings.size,
           learnings: learnings.map { |l| serialize_learning(l) }
         }
       end

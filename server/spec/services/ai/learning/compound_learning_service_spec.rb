@@ -1055,4 +1055,41 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       expect(results.length).to eq(1)
     end
   end
+
+  # IMP-3470890a626f — the MCP recall surface. Two pins the tool-level specs
+  # cannot provide: the keyword fallback must surface VERIFIED learnings (the
+  # most trusted tier — .active alone made status-less recall silently depend
+  # on embedding availability), and the embedding-present branch must actually
+  # route through semantic_search.
+  describe "#search_learnings" do
+    it "surfaces verified learnings on the keyword fallback" do
+      # File-level before stubs the embedding double's generate to nil, which
+      # is exactly the keyword-fallback condition.
+      verified = create(:ai_compound_learning, account: account, status: "verified",
+                        content: "Widget reconciliation must be idempotent")
+
+      results = service.search_learnings(query: "widget reconciliation")
+
+      expect(results.map(&:id)).to include(verified.id)
+    end
+
+    it "routes through semantic_search when an embedding is available" do
+      learning = create(:ai_compound_learning, account: account, status: "active",
+                        content: "Semantic-only match, no keyword overlap")
+      embedding = Array.new(1536, 0.1)
+      # The file-level before replaces EmbeddingService.new with a shared
+      # double — stub THAT double, not any_instance (which can never reach it).
+      allow(embedding_service).to receive(:generate).and_return(embedding)
+      allow(Ai::CompoundLearning).to receive(:semantic_search).and_return([ learning ])
+
+      results = service.search_learnings(query: "completely different wording")
+
+      # No .with on the kwargs: RSpec's recorded-kwargs comparison false-negatives
+      # here (identical args print as "received 0 times"). Branch selection is
+      # the load-bearing pin; the call's own args belong to semantic_search's
+      # unit specs.
+      expect(Ai::CompoundLearning).to have_received(:semantic_search)
+      expect(results.map(&:id)).to eq([ learning.id ])
+    end
+  end
 end
