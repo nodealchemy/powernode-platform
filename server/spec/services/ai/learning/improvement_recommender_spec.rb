@@ -386,5 +386,55 @@ RSpec.describe Ai::Learning::ImprovementRecommender, type: :service do
         expect(result).to be_nil
       end
     end
+
+    # apply_recommendation! had no prompt_refinement branch, so it fell to the
+    # bare `else recommendation.apply!(user)` — which only flips status. An
+    # operator saw "Refine prompt for 'X' based on 5 compound learnings",
+    # approved it, and the row read `applied` while the skill's prompt was
+    # never touched. A false actuator is worse than a dropped one: the audit
+    # trail asserts the change landed.
+    #
+    # Note the proposer stores NO refined prompt — only title, description,
+    # learning_ids and effectiveness — so there was never anything to write.
+    # The refinement has to be produced at apply time via the existing
+    # EvolutionService#propose_evolution, which gathers the same compound
+    # learnings and builds the evolved prompt.
+    context "with a prompt_refinement recommendation" do
+      let(:skill) { create(:ai_skill, account: account, system_prompt: "ORIGINAL PROMPT") }
+      let!(:recommendation) do
+        create(:ai_improvement_recommendation,
+               :pending,
+               account: account,
+               recommendation_type: "prompt_refinement",
+               target_type: "Ai::Skill",
+               target_id: skill.id)
+      end
+
+      it "actually activates a refined prompt version for the skill" do
+        service.apply_recommendation!(recommendation.id, user: user)
+
+        active = Ai::SkillVersion.where(ai_skill_id: skill.id, is_active: true).first
+        expect(active).to be_present, "no active SkillVersion was created — the prompt was never refined"
+        expect(active.system_prompt).to be_present
+        expect(active.change_type).to eq("evolution")
+      end
+
+      it "marks the recommendation applied once the refinement landed" do
+        service.apply_recommendation!(recommendation.id, user: user)
+
+        expect(recommendation.reload.status).to eq("applied")
+      end
+
+      # The load-bearing one. If no refinement can be produced, the row must
+      # NOT claim it was applied — that is the defect, restated.
+      it "does NOT mark it applied when no refined version could be produced" do
+        allow_any_instance_of(Ai::SkillGraph::EvolutionService)
+          .to receive(:propose_evolution).and_return(nil)
+
+        service.apply_recommendation!(recommendation.id, user: user)
+
+        expect(recommendation.reload.status).not_to eq("applied")
+      end
+    end
   end
 end

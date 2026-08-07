@@ -43,6 +43,8 @@ module Ai
           apply_skill_evolution(recommendation, user)
         when "skill_creation"
           apply_skill_creation(recommendation, user)
+        when "prompt_refinement"
+          return nil unless apply_prompt_refinement(recommendation, target, user)
         else
           recommendation.apply!(user)
         end
@@ -106,6 +108,55 @@ module Ai
       # skill_health recommendations (Ai::Learning::TrajectoryAnalyzer's
       # nightly low-success-rate signal) carry no proposed_version_id and
       # have nothing to activate — applying one just acknowledges review.
+      # Approving a prompt_refinement used to fall through to the bare
+      # `else recommendation.apply!(user)`, which only flips status — so the
+      # operator approved "Refine prompt for 'X' based on 5 compound
+      # learnings", the row read `applied`, and the skill's prompt was never
+      # touched. A false actuator is worse than a dropped one, because the
+      # audit trail asserts the change landed.
+      #
+      # There was nothing to write: SelfLearningService#propose_prompt_refinements
+      # records only a title, description, learning_ids and effectiveness — it
+      # never computes a refined prompt. So the refinement has to be PRODUCED
+      # here, and EvolutionService#propose_evolution already does exactly that
+      # (same nearest-neighbour compound-learning gather, build_evolved_prompt,
+      # a new inactive SkillVersion). Reusing it also inherits the F5
+      # clone-on-evolve guarantee: a global is_system skill is redirected onto
+      # this account's editable clone instead of being versioned in place.
+      #
+      # An already-proposed version wins if one is present, mirroring
+      # apply_skill_evolution — that keeps the two paths convergent if a
+      # future proposer starts precomputing the version.
+      #
+      # Returns falsy when no refined version could be produced, and the
+      # caller then refuses to mark the recommendation applied. That refusal
+      # IS the fix: propose_evolution rescues internally and returns nil, so
+      # without it a failed refinement would still report success.
+      def apply_prompt_refinement(recommendation, target, user)
+        service = Ai::SkillGraph::EvolutionService.new(@account)
+
+        version_id = recommendation.recommended_config.is_a?(Hash) ? recommendation.recommended_config["proposed_version_id"] : nil
+        version =
+          if version_id.present?
+            service.activate_version(version_id: version_id)
+          else
+            proposed = service.propose_evolution(skill_id: target.id)
+            proposed && service.activate_version(version_id: proposed.id)
+          end
+
+        unless version
+          Rails.logger.warn(
+            "[ImprovementRecommender] prompt_refinement #{recommendation.id} produced no refined " \
+            "version for skill #{target.id} — leaving the recommendation unapplied rather than " \
+            "reporting a refinement that did not happen"
+          )
+          return nil
+        end
+
+        recommendation.apply!(user)
+        version
+      end
+
       def apply_skill_evolution(recommendation, user)
         version_id = recommendation.recommended_config["proposed_version_id"]
         Ai::SkillGraph::EvolutionService.new(@account).activate_version(version_id: version_id) if version_id.present?
