@@ -153,8 +153,6 @@ module Devops
       runners_data = extract_runners_list(result)
       return 0 unless runners_data.is_a?(Array)
 
-      seen_external_ids = []
-
       runners_data.each do |runner_data|
         data = runner_data.is_a?(Hash) ? runner_data.stringify_keys : runner_data
         ::Devops::GitRunner.sync_from_provider(
@@ -163,79 +161,13 @@ module Devops
           scope: scope_name,
           repository: repository
         )
-        seen_external_ids << data["id"].to_s if data.is_a?(Hash)
         synced += 1
       end
-
-      prune_absent_runners(credential, scope_name, repository, seen_external_ids)
 
       synced
     rescue StandardError => e
       Rails.logger.warn "Runner sync not available for scope #{api_scope}: #{e.message}"
       0
-    end
-
-    # The sync was upsert-only, so a row whose upstream runner had vanished
-    # survived forever. Fleet builders register EPHEMERAL and the provider drops
-    # each after one job, so every sync that caught one mid-life left a
-    # permanent "offline" phantom — 51 local rows against 4 upstream by
-    # 2026-08-07, which makes the runner view useless for spotting a genuinely
-    # offline runner, the one thing it exists for.
-    #
-    # The provider's listing is authoritative FOR THE SCOPE IT DESCRIBES, so a
-    # row that scope no longer returns has no upstream counterpart. Two things
-    # bound the delete:
-    #
-    #   1. REFUSE TO PRUNE ON AN EMPTY LISTING. extract_runners_list degrades
-    #      every unexpected response shape to [] — an auth failure, a changed
-    #      envelope, a partial outage — so pruning on empty would wipe an entire
-    #      scope on a transient hiccup. That is far worse than the phantoms this
-    #      removes. The cost is that a scope whose runners have all genuinely
-    #      disappeared never self-cleans; that is the right trade and it is why
-    #      this is not simply `where.not(id: seen)`.
-    #   2. SCOPE THE DELETE EXACTLY to the credential + runner_scope +
-    #      repository just listed. Absence from one scope's listing says nothing
-    #      about any other scope, and a nil repository correctly narrows to
-    #      git_repository_id IS NULL rather than matching every repo's rows.
-    #
-    # Note this deliberately does NOT consult System::CiRunnerLease the way the
-    # operator's backlog-clearing script does: that model lives in the system
-    # extension and core must never depend on an extension. It is not needed
-    # here anyway — the lease guard exists to protect a builder mid-job, but a
-    # runner absent from the authoritative listing is already gone upstream, so
-    # the row is stale regardless of what a lease still believes.
-    def prune_absent_runners(credential, scope_name, repository, seen_external_ids)
-      return 0 if seen_external_ids.empty?
-
-      stale = ::Devops::GitRunner.where(
-        git_provider_credential_id: credential.id,
-        runner_scope: scope_name,
-        git_repository_id: repository&.id
-      ).where.not(external_id: seen_external_ids)
-
-      stale_ids = stale.pluck(:id)
-      return 0 if stale_ids.empty?
-
-      Rails.logger.info(
-        "[RunnerLifecycleService] pruning #{stale_ids.size} #{scope_name} runner row(s) for credential " \
-        "#{credential.id} with no upstream counterpart"
-      )
-
-      # ai_runner_dispatches has an FK to git_runners with NO on_delete, and
-      # Ai::RunnerDispatchService stamps git_runner permanently — so deleting a
-      # runner that ever ran a job raises InvalidForeignKey. That exception is
-      # swallowed by sync_scope_runners' rescue, which means the prune silently
-      # never ran for exactly the runners that did work, the synced count came
-      # back 0, and the whole thing was logged as "runner sync not available"
-      # — a provider-capability message for a foreign-key bug. Worse, inside a
-      # transaction the violation poisons every subsequent statement.
-      #
-      # Null the pointer rather than cascading the delete: the dispatch is
-      # history worth keeping, git_runner_id is `optional: true`, and the
-      # runner it referenced no longer exists anywhere to point at.
-      ::Ai::RunnerDispatch.where(git_runner_id: stale_ids).update_all(git_runner_id: nil)
-      ::Devops::GitRunner.where(id: stale_ids).delete_all
-      stale_ids.size
     end
 
     # GitHub wraps runners in {runners:}, Gitea/GitLab return array

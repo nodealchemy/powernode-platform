@@ -294,91 +294,17 @@ RSpec.describe Devops::RunnerLifecycleService do
     end
   end
 
-  # The scope sync was upsert-only: it never reconciled the local set against
-  # the set the provider returned, so a row whose upstream runner had vanished
-  # survived forever. Fleet builders register EPHEMERAL and Gitea drops each
-  # after one job, so every sync that caught one mid-life left a permanent
-  # "offline" phantom. Observed 2026-08-07: 51 rows locally, 4 upstream.
-  describe "pruning runners that no longer exist upstream" do
-    def runner_payload(id, name)
-      { "id" => id, "name" => name, "status" => "online", "busy" => false,
-        "labels" => [], "os" => "linux", "architecture" => "amd64", "version" => "2.0" }
-    end
-
-    def existing_runner(external_id, name, scope: "repository", repo: repository)
-      Devops::GitRunner.create!(
-        account: account, git_provider_credential_id: credential.id,
-        git_repository_id: repo&.id, runner_scope: scope,
-        external_id: external_id, name: name, status: "offline", busy: false
-      )
-    end
-
-    it "deletes a row whose runner is absent from the provider listing" do
-      existing_runner("99", "fleet-ephemeral-gone")
-      allow(mock_client).to receive(:list_runners).and_return([ runner_payload("1", "runner-1") ])
-
-      service.sync_runners(credential_id: credential.id)
-
-      expect(Devops::GitRunner.where(external_id: "99")).not_to exist
-      expect(Devops::GitRunner.where(external_id: "1")).to exist
-    end
-
-    # THE load-bearing guard. extract_runners_list degrades ANY unexpected
-    # response shape to [] — an auth failure, a changed envelope, a partial
-    # outage. Pruning on an empty list would delete every runner in the scope
-    # on a transient provider hiccup, which is far worse than the phantoms.
-    it "does NOT prune when the provider returns an empty list" do
-      existing_runner("99", "fleet-still-real")
-      allow(mock_client).to receive(:list_runners).and_return([])
-
-      service.sync_runners(credential_id: credential.id)
-
-      expect(Devops::GitRunner.where(external_id: "99")).to exist
-    end
-
-    it "does NOT prune when the listing call raises" do
-      existing_runner("99", "fleet-still-real")
-      allow(mock_client).to receive(:list_runners).and_raise(StandardError, "provider down")
-
-      service.sync_runners(credential_id: credential.id)
-
-      expect(Devops::GitRunner.where(external_id: "99")).to exist
-    end
-
-    # Review finding: ai_runner_dispatches has an FK to git_runners with no
-    # on_delete, and Ai::RunnerDispatchService stamps git_runner permanently. So
-    # delete_all on a runner that ever ran a job raises InvalidForeignKey, which
-    # sync_scope_runners' `rescue StandardError` swallows — the prune silently
-    # never runs for exactly the runners that did work, AND the method returns 0
-    # instead of the real synced count, disguised as "provider doesn't support
-    # runners". My original specs missed it because no fixture had a dispatch.
-    it "still prunes a runner that has dispatch history, and does not abort the sync" do
-      gone = existing_runner("99", "fleet-had-a-job")
-      session  = create(:ai_worktree_session, account: account)
-      worktree = create(:ai_worktree, account: account, worktree_session: session)
-      create(:ai_runner_dispatch, account: account, git_runner: gone,
-                                  worktree: worktree, worktree_session: session, status: "completed")
-      allow(mock_client).to receive(:list_runners).and_return([ runner_payload("1", "runner-1") ])
-
-      synced = service.sync_runners(credential_id: credential.id)
-
-      expect(Devops::GitRunner.where(external_id: "99")).not_to exist
-      expect(synced).to be >= 1, "sync returned #{synced}; an FK failure was swallowed and reported as a no-op sync"
-    end
-
-    # Absence from ONE scope's listing says nothing about another scope.
-    it "does NOT prune rows belonging to a different credential" do
-      other_cred = create(:git_provider_credential, account: account, provider: provider)
-      foreign = Devops::GitRunner.create!(
-        account: account, git_provider_credential_id: other_cred.id,
-        runner_scope: "repository", external_id: "99", name: "other-cred-runner",
-        status: "offline", busy: false
-      )
-      allow(mock_client).to receive(:list_runners).and_return([ runner_payload("1", "runner-1") ])
-
-      service.sync_runners(credential_id: credential.id)
-
-      expect(Devops::GitRunner.where(id: foreign.id)).to exist
-    end
-  end
+  # The prune added in faf33402c is REVERTED (see that revert's commit message).
+  # /code-review found three independent ways it could delete LIVE runners:
+  # an unpaginated provider listing (only page 1 comes back, so page-2 runners
+  # look absent every sync), a repo-less prune covering scopes the sweep never
+  # lists, and a partial-sweep failure whose union is non-empty but missing an
+  # entire scope. Its specs are removed with it rather than left asserting
+  # behaviour that no longer exists.
+  #
+  # The phantom-row problem it targeted is real and still open (51 local rows
+  # against 4 upstream). A correct fix needs paginated listings and a
+  # scope-completeness signal, neither of which exists today; the operator's
+  # scripts/prune-stale-git-runners.rb remains the supported way to clear the
+  # backlog in the meantime.
 end
