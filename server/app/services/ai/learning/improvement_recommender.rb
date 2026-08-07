@@ -141,7 +141,7 @@ module Ai
             service.activate_version(version_id: version_id)
           else
             proposed = service.propose_evolution(skill_id: target.id)
-            proposed && service.activate_version(version_id: proposed.id)
+            proposed && meaningful_refinement?(proposed) && service.activate_version(version_id: proposed.id)
           end
 
         unless version
@@ -155,6 +155,31 @@ module Ai
 
         recommendation.apply!(user)
         version
+      end
+
+      # propose_evolution SUCCEEDS even when the skill has no KG embedding or no
+      # near-neighbour learnings: build_evolved_prompt then returns the previous
+      # prompt plus a regenerated "# Skill context: ..." footer and nothing
+      # else. Activating that and marking the recommendation applied would be
+      # the very defect this branch was added to fix — an audit trail asserting
+      # a refinement that did not happen — just one level further in. Worse, it
+      # compounds: each apply builds on the last version's prompt, accreting
+      # footers.
+      #
+      # learning_count is recorded by propose_evolution itself, so this asks the
+      # service what it actually incorporated rather than diffing prompt text,
+      # which would be fragile against the footer's exact format.
+      def meaningful_refinement?(version)
+        meta = version.metadata.respond_to?(:with_indifferent_access) ? version.metadata.with_indifferent_access : {}
+        return true if meta[:learning_count].to_i.positive?
+
+        Rails.logger.warn(
+          "[ImprovementRecommender] discarding proposed version #{version.id} for skill " \
+          "#{version.ai_skill_id}: no compound learnings were incorporated, so the 'evolved' prompt " \
+          "differs from the current one only by a regenerated context footer"
+        )
+        version.destroy
+        false
       end
 
       def apply_skill_evolution(recommendation, user)
