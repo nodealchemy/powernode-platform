@@ -62,4 +62,86 @@ RSpec.describe Ai::Autonomy::ObservationPipelineService do
 
     service.run
   end
+
+  # A sensor whose every row fails validation is INDISTINGUISHABLE from a sensor
+  # that legitimately had nothing to report: both contribute zero observations,
+  # and the only trace is a per-row warning that reads exactly like a routine
+  # dedup rejection. That is why CodeChangeSensor's enum mismatch survived from
+  # the day it was written — it rejected 100% of its output for its whole life
+  # and no signal anywhere said so; it was found by reading code.
+  #
+  # Observations are the O in the OODA path, so a silently dead sensor degrades
+  # every downstream agent decision with no error to trace it to.
+  describe "rejected-observation accounting" do
+    def sensor_returning(rows)
+      Class.new do
+        define_singleton_method(:name) { "SpecDeadSensor" }
+        define_method(:initialize) { |account:, agent:| }
+        define_method(:collect) { rows }
+      end
+    end
+
+    # Rows that cannot validate: sensor_type is outside SENSOR_TYPES, which is
+    # exactly the CodeChangeSensor failure.
+    def invalid_row
+      { account: account, agent: agent, sensor_type: "not_a_real_sensor_type",
+        observation_type: "opportunity", severity: "info", title: "doomed" }
+    end
+
+    it "reports how many observations each sensor had rejected" do
+      allow(service).to receive(:resolve_sensors).and_return([ sensor_returning([ invalid_row, invalid_row ]) ])
+
+      result = service.run
+
+      expect(result.rejected_count).to eq(2)
+      expect(result.rejected_by_sensor["SpecDeadSensor"]).to eq(2)
+    end
+
+    # THE load-bearing one: a fully-dead sensor must be distinguishable from a
+    # quiet one. Both return zero observations, so only a distinct signal can
+    # separate them — and separating them is the entire point of the task.
+    it "emits a distinct signal for a sensor that produced nothing but rejections" do
+      allow(service).to receive(:resolve_sensors).and_return([ sensor_returning([ invalid_row ]) ])
+
+      expect(Rails.logger).to receive(:error).with(/SpecDeadSensor.*rejected/i)
+
+      service.run
+    end
+
+    it "does NOT emit that signal for a sensor that simply had nothing to report" do
+      allow(service).to receive(:resolve_sensors).and_return([ sensor_returning([]) ])
+
+      expect(Rails.logger).not_to receive(:error)
+
+      result = service.run
+      expect(result.rejected_count).to eq(0)
+    end
+
+    # A sensor that mostly works but drops one row is a different condition from
+    # a dead one, and must not be reported as dead.
+    it "does not call a partially-rejecting sensor dead" do
+      valid = { account: account, agent: agent, sensor_type: "governance",
+                observation_type: "opportunity", severity: "info", title: "real" }
+      allow(service).to receive(:resolve_sensors).and_return([ sensor_returning([ valid, invalid_row ]) ])
+
+      expect(Rails.logger).not_to receive(:error)
+
+      result = service.run
+      expect(result.size).to eq(1)
+      expect(result.rejected_count).to eq(1)
+    end
+
+    # run_for_account is what the cron calls; the count has to survive that hop
+    # or nothing an operator reads will ever show it.
+    it "surfaces rejections in the run_for_account summary" do
+      allow_any_instance_of(described_class).to receive(:resolve_sensors)
+        .and_return([ sensor_returning([ invalid_row ]) ])
+      create(:ai_ralph_loop, account: account, default_agent: agent,
+                             scheduling_mode: "autonomous", schedule_paused: false, status: "running")
+
+      summary = described_class.run_for_account(account)
+
+      expect(summary[:observations_rejected]).to eq(1)
+    end
+  end
 end
