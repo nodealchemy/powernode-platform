@@ -254,10 +254,20 @@ Phased, each phase independently valuable:
   `SoftRecomposePreflight` now hard-refuses unless every entry in
   `CriticalSoftRebootMounts` is provably configured to survive; an
   unknown unit counts as "does not survive".
-  **Unblocking work**: ship a `persist.mount` drop-in
-  (`DefaultDependencies=no`, no `umount.target` conflict) via the
-  base-os/system-base module, then re-check. Until then a full reboot
-  remains the way to apply a `reboot_required` composition.
+  **Unblocking work — DONE 2026-08-07**: `powernode-system-base` now
+  ships `/etc/systemd/system/persist.mount.d/10-soft-reboot-survival.conf`
+  (`DefaultDependencies=no`, which also drops the implicit
+  `umount.target` conflict). Verified by installing that exact file on a
+  live pivot node: properties flip as intended, the mount stays active,
+  and the agent's real preflight goes from refusal to pass and back when
+  removed. Drop-ins do apply to `persist.mount` even though it has **no
+  unit file** — systemd synthesizes it from `/proc/self/mountinfo`, and
+  the drop-in still shows up in `DropInPaths`.
+  The module is `reboot_required: false`, so it reaches running nodes via
+  hot-reconcile; systemd only picks the drop-in up after a
+  `daemon-reload` or the next boot, and until it does the preflight keeps
+  refusing (fails closed). **Still needs a module build + publish** to
+  actually reach the fleet.
 - [ ] **STILL REQUIRED before first fleet soft-reboot**: empirical
   verification on a scratch VM, now of the *post-drop-in* behavior —
   `/persist`, the erofs loop mounts under `/run/powernode/modules`, the
