@@ -341,6 +341,8 @@ module Ai
         "dispatch_to_runner" => "Ai::Tools::RunnerDispatchTool",
         # Gitea Actions: secrets management + workflow_dispatch + run monitoring.
         # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — operator-driven CI).
+        "list_git_runners"               => "Ai::Tools::GitRunnerInventoryTool",
+        "prune_stale_git_runners"        => "Ai::Tools::GitRunnerInventoryTool",
         "set_gitea_action_secret"        => "Ai::Tools::GiteaActionsTool",
         "set_gitea_action_secrets_bulk"  => "Ai::Tools::GiteaActionsTool",
         "list_gitea_action_secrets"      => "Ai::Tools::GiteaActionsTool",

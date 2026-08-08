@@ -137,6 +137,7 @@ module Mcp
         *decommission*
         *delete*
         *purge*
+        *prune*
         *revoke*
         *rotate*
         *drain_*
