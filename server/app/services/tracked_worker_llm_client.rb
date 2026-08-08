@@ -20,9 +20,18 @@ class TrackedWorkerLlmClient
 
   TRACKED_METHODS = %i[complete complete_structured complete_with_tools].freeze
 
-  def initialize(inner_client:, agent:, execution_context_type: nil)
+  # `account:` is the account USING the agent. It matters for GLOBAL agents
+  # (account_id nil), which are shared platform-wide and adopted per-account via
+  # Ai::Agent#using_account — exactly what AgentBackedService#resolve_service_agent
+  # returns. Without it, create_execution_record built the row with
+  # `account: @agent.account` => nil, create! failed "Account must exist", and
+  # the rescue below swallowed it: no execution, no cost, no tokens, no budget
+  # debit, while the LLM call itself succeeded. Every global agent reaching this
+  # decorator was silently untracked.
+  def initialize(inner_client:, agent:, execution_context_type: nil, account: nil)
     @inner  = inner_client
     @agent  = agent
+    @account = account
     @execution_context_type = execution_context_type
   end
 
@@ -88,7 +97,10 @@ class TrackedWorkerLlmClient
   def create_execution_record(method, messages, opts)
     Ai::AgentExecution.create!(
       agent: @agent,
-      account: @agent.account,
+      # Explicit using-account first; an account-owned agent still falls back to
+      # its own. nil for both is a genuinely unattributable call and will fail
+      # validation loudly in the log rather than pretending it recorded.
+      account: @account || @agent.account,
       user: resolve_user,
       provider: @agent.resolved_provider || @agent.provider,
       status: "running",
