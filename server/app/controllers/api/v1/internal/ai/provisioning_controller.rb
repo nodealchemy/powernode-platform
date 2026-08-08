@@ -44,6 +44,26 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     service = ::Ai::Missions::ComposerRouter.new(account: @mission.account, mission: @mission).select
     plan = service.compose!
 
+    # PlanComposerService returns `{ clarification_needed: true, ... }` — NOT a
+    # plan — when the account has 2+ providers and the brief carries no usable
+    # preferred_provider. That Hash must never reach persist_plan_pointer /
+    # `plan&.id`: it raises NoMethodError, the blanket rescue below turns it into
+    # a 422 reading "undefined method `id'", and AiProvisioningComposePlanJob
+    # burns its retries and leaves the mission dead in compose_plan. Net effect
+    # before this guard: NO account with more than one configured provider could
+    # compose a provisioning plan at all (IMP 019fe1d8, found by the
+    # platform-autonomy-dryrun P1 baseline against a 2-provider account).
+    #
+    # Handled exactly as the PUBLIC path does
+    # (concerns/ai/missions/plan_composition_actions.rb) so the two cannot drift.
+    if plan.is_a?(Hash) && plan[:clarification_needed]
+      return render_error(
+        plan[:message] || "Multiple providers configured — clarify before composing",
+        status: :unprocessable_content,
+        details: plan.except(:clarification_needed)
+      )
+    end
+
     persist_plan_pointer(plan)
     render_success(plan_id: plan&.id, mission_id: @mission.id)
   rescue StandardError => e
