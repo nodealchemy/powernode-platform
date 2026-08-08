@@ -68,6 +68,11 @@ RSpec.describe Ai::Tools::DevLoopTool, "#delegate_ralph_task" do
     expect(result[:outcome]).to eq("passed")
     expect(task.reload.status).to eq("passed")
     expect(ralph_loop.ralph_iterations.count).to eq(1)
+    # IMP-f2b3e9a67d11 — DELIBERATE: a delegated completion is the sub-agent's
+    # own attestation (no test evidence crosses the A2A boundary), so the pass
+    # records as attested and must not read as verified.
+    expect(result[:verification]).to eq("unverified")
+    expect(ralph_loop.ralph_iterations.last.checks_passed).to be(false)
   end
 
   it "awaits and records a failed outcome when the agent fails" do

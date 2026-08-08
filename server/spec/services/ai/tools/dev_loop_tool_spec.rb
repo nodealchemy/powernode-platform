@@ -748,12 +748,15 @@ RSpec.describe Ai::Tools::DevLoopTool do
     end
 
     it "transitions the linked recommendation to applied when the task passes" do
+      # Green evidence required since IMP-f2b3e9a67d11: an unevidenced pass is
+      # attested-only and deliberately does NOT close the offer.
       result = tool.execute(params: {
         action: "dev_complete_task",
         loop_id: ralph_loop.id,
         task_key: "IMP-99",
         outcome: "passed",
-        summary: "Fixed the lint finding"
+        summary: "Fixed the lint finding",
+        check_results: { "rspec" => "12 examples, 0 failures" }
       })
 
       expect(result[:success]).to be true
@@ -962,6 +965,61 @@ RSpec.describe Ai::Tools::DevLoopTool do
     end
   end
 
+  # IMP-f2b3e9a67d11 — the bridge recorded a self-attested "passed" as verified
+  # (checks_passed hardcoded true) and flipped the linked offer to applied on
+  # it. The platform cannot execute an external executor's suite, so the
+  # enforceable contract is evidence adjudication over check_results: a pass
+  # whose own tallies ALL show failures is REJECTED outright; a pass with no
+  # parseable test evidence records as attested (checks_passed false) and does
+  # NOT auto-apply the linked offer; red-first tallies alongside any green
+  # tally stay verified (honest red-first evidence must not read as failure).
+  describe "dev_complete_task evidence adjudication" do
+    let!(:recommendation) do
+      create(:ai_improvement_recommendation, :approved, account: account,
+                                                        recommendation_type: "code_lint")
+    end
+    let!(:adj_task) do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "adj-task", priority: 5,
+                             metadata: { "recommendation_id" => recommendation.id })
+    end
+
+    before { tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id }) }
+
+    def complete_with(check_results)
+      params = { action: "dev_complete_task", loop_id: ralph_loop.id,
+                 task_key: "adj-task", outcome: "passed", summary: "done" }
+      params[:check_results] = check_results if check_results
+      tool.execute(params: params)
+    end
+
+    it "rejects a passed outcome whose own evidence shows only failing tallies" do
+      result = complete_with({ "rspec" => "90 examples, 1 failure" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/contradicted/i)
+      expect(adj_task.reload.status).to eq("in_progress")
+      expect(recommendation.reload.status).to eq("approved")
+    end
+
+    it "records an unevidenced pass as attested and does not auto-apply the linked offer" do
+      result = complete_with(nil)
+
+      expect(result[:success]).to be true
+      expect(adj_task.reload.status).to eq("passed")
+      expect(recommendation.reload.status).to eq("approved")
+      expect(Ai::RalphIteration.find_by(ralph_task_id: adj_task.id).checks_passed).to be(false)
+    end
+
+    it "verifies a pass whose green tally coexists with red-first evidence" do
+      result = complete_with({ "rspec" => "90 examples, 0 failures",
+                               "red_first" => "5 examples, 5 failures before the fix" })
+
+      expect(result[:success]).to be true
+      expect(recommendation.reload.status).to eq("applied")
+      expect(Ai::RalphIteration.find_by(ralph_task_id: adj_task.id).checks_passed).to be(true)
+    end
+  end
+
   # IMP-5f8a744b8892 — record_injection! at claim depresses effectiveness until
   # an outcome resolves it, and the drain path never resolved one: at 3
   # injections a learning hard-scored 0.0 (promotion barred, recall ranking
@@ -993,11 +1051,26 @@ RSpec.describe Ai::Tools::DevLoopTool do
       task = ralph_loop.ralph_tasks.find_by(task_key: "credit-task")
       expect(task.metadata["injected_learning_ids"]).to eq([ learning.id ])
 
+      # Verified evidence required since IMP-f2b3e9a67d11 — an attested-only
+      # pass must not inflate learning effectiveness.
       tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.id,
-                             task_key: "credit-task", outcome: "passed", summary: "done" })
+                             task_key: "credit-task", outcome: "passed", summary: "done",
+                             check_results: { "rspec" => "8 examples, 0 failures" } })
 
       expect(learning.reload.positive_outcome_count).to eq(1)
       expect(task.reload.metadata).not_to have_key("injected_learning_ids")
+    end
+
+    it "does not credit injections on an attested-only pass" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "attested-task", priority: 5,
+             description: "Fix widget reconciliation idempotency across retries",
+             acceptance_criteria: "Reconciliation is idempotent")
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+      tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.id,
+                             task_key: "attested-task", outcome: "passed", summary: "trust me" })
+
+      expect(learning.reload.positive_outcome_count).to eq(0)
     end
 
     it "leaves injections unresolved when the task fails" do
