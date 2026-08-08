@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_07_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_08_054500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9463,6 +9463,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_07_180000) do
     t.uuid "instance_pool_id"
     t.text "key"
     t.datetime "last_heartbeat_at"
+    t.datetime "last_sync_attempted_at"
     t.datetime "last_synced_at"
     t.decimal "latitude", precision: 10, scale: 7, comment: "Latitude coordinate"
     t.datetime "lease_expires_at"
@@ -9501,6 +9502,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_07_180000) do
     t.index ["instance_pool_id", "pool_state", "pool_warming_started_at"], name: "idx_node_instances_pool_acquire", where: "(instance_pool_id IS NOT NULL)"
     t.index ["instance_pool_id"], name: "index_system_node_instances_on_instance_pool_id"
     t.index ["last_heartbeat_at"], name: "index_system_node_instances_on_last_heartbeat_at"
+    t.index ["last_sync_attempted_at"], name: "index_system_node_instances_on_last_sync_attempted_at"
     t.index ["last_synced_at"], name: "index_system_node_instances_on_last_synced_at"
     t.index ["lifecycle_class", "lease_expires_at"], name: "idx_node_instances_task_scoped_lease", where: "(lifecycle_class IS NOT NULL)"
     t.index ["mac_address"], name: "index_system_node_instances_on_mac_address", unique: true, where: "(mac_address IS NOT NULL)"
