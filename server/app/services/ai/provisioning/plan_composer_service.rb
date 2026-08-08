@@ -689,13 +689,58 @@ module Ai
         return nil unless defined?(::System::ProviderRegion)
 
         @region_cache ||= {}
-        wanted = Array(brief["regions"] || brief[:regions]).first.to_s
+        all_wanted = Array(brief["regions"] || brief[:regions]).map { |r| r.to_s.strip }.reject(&:empty?)
+        wanted = all_wanted.first.to_s
+
+        # Placement currently collapses to ONE region: every instance in the
+        # step lands on all_wanted.first and the rest of the operator's stated
+        # regions are dropped. That is a real scope reduction — a brief asking
+        # for dna AND rna gets a single-node deployment — and it used to happen
+        # with no signal at all. Distributing across regions means emitting one
+        # provisioning step per region (safe from #mergeable?, which only
+        # collapses steps agreeing on template+region+instance_type) and is
+        # tracked separately; until then this must at least be visible.
+        if all_wanted.size > 1 && !@multi_region_warned
+          @multi_region_warned = true
+          Rails.logger.warn(
+            "[PlanComposerService] brief names #{all_wanted.size} regions #{all_wanted.inspect} for " \
+              "account=#{account&.id}, but placement uses only #{wanted.inspect} — the remaining " \
+              "#{(all_wanted - [wanted]).inspect} will NOT be provisioned."
+          )
+        end
+
         cache_key = [account_provider_override&.id, wanted]
         return @region_cache[cache_key] if @region_cache.key?(cache_key)
 
         scope = ::System::ProviderRegion.where(account_id: account.id)
         scope = scope.where(provider_id: account_provider_override.id) if account_provider_override
-        match = wanted.empty? ? nil : scope.where(name: wanted).first
+
+        # Match region_code as well as name (IMP 019fe1e0-0b8a). region_code is
+        # the canonical identifier — for Proxmox the adapter's own doc states
+        # "regions model PVE nodes, so region_code IS the node name" — and a
+        # brief or operator naturally writes that, not the display name. Matching
+        # on name alone left a region findable only by a string nobody uses.
+        match = if wanted.empty?
+                  nil
+                else
+                  needle = wanted.downcase
+                  scope.detect { |r| r.region_code.to_s.downcase == needle || r.name.to_s.downcase == needle }
+                end
+
+        # The fallback stays — a sloppy region string should not hard-fail
+        # composition — but it must not be SILENT. Landing on an arbitrary
+        # region is a real placement decision the operator never made, and on a
+        # multi-node cluster it is a wrong-node deployment that reads normal in
+        # the plan. Warn only when there was an intent to contradict.
+        if match.nil? && !wanted.empty?
+          Rails.logger.warn(
+            "[PlanComposerService] no region matching #{wanted.inspect} for account=#{account&.id} " \
+              "(known: #{scope.map { |r| r.region_code.presence || r.name }.inspect}); " \
+              "falling back to #{(scope.first&.region_code || scope.first&.name).inspect} — " \
+              "placement will NOT be where the brief asked."
+          )
+        end
+
         @region_cache[cache_key] = match || scope.first
       end
 

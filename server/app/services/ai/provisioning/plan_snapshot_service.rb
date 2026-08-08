@@ -147,6 +147,11 @@ module Ai
           if (region = resolve_region_label(inputs))
             bits << region
           end
+          # Last, but never omitted: boot_mode is what makes the difference
+          # between a Powernode node and an inert cloud VM.
+          if (template = resolve_template_label(inputs))
+            bits << template
+          end
         elsif skill == "scale_project"
           if (inst = resolve_instance_label(inputs))
             bits << inst
@@ -187,6 +192,21 @@ module Ai
 
       def resolve_region_label(inputs)
         provision_label_resolver&.region_label(account: account, inputs: inputs)
+      rescue StandardError
+        nil
+      end
+
+      # The template (with boot_mode) the step will actually use. Surfaced at
+      # the approval gate because boot_mode decides whether the provisioned node
+      # carries the agent at all — a plan that resolved to the wrong template
+      # otherwise reads completely normal here (IMP 019fe1e0-0b8a).
+      # respond_to? guards a resolver from an older extension build that
+      # predates this method.
+      def resolve_template_label(inputs)
+        resolver = provision_label_resolver
+        return nil unless resolver.respond_to?(:template_label)
+
+        resolver.template_label(account: account, inputs: inputs)
       rescue StandardError
         nil
       end
