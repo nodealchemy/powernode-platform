@@ -171,9 +171,23 @@ module Ai
           # otherwise stored raw.
           scrubbed_output = ::DataManagement::Sanitizer.sanitize_output(result[:output])
 
+          # IMP-aa8a2f58e01e: result[:checks_passed] is the executor's SELF-REPORT.
+          # Adjudicate it against the run's own transcript with the same tally
+          # vocabulary as the dev-loop bridge before anything records or acts on
+          # it: a green tally verifies, a failing tally contradicts (the task is
+          # NOT passed below), and prose-only evidence records as attested
+          # (checks_passed false) while still passing. When the G1 sandboxed-test
+          # gate dispatches, its async callback later overwrites this with
+          # stronger evidence.
+          evidence_verdict =
+            if result[:checks_passed]
+              ::Ai::Ralph::TestVerificationService
+                .adjudicate_check_results("output" => scrubbed_output.to_s)[:verdict]
+            end
+
           iteration.complete!(
             output: scrubbed_output,
-            checks_passed: result[:checks_passed],
+            checks_passed: result[:checks_passed] && evidence_verdict == :verified,
             commit_sha: result[:commit_sha],
             learning: extract_learning(scrubbed_output)
           )
@@ -226,6 +240,10 @@ module Ai
             # Don't trust the executor's self-reported checks_passed — run the
             # suite in a sandbox and let the async callback resolve the task.
             dispatch_real_test_verification(iteration, task)
+          elsif result[:checks_passed] && evidence_verdict == :contradicted
+            # The transcript carries a failing tally despite the claimed pass —
+            # treat it as failed checks, never as a pass.
+            update_progress("Task #{task.task_key}: transcript contradicts claimed pass — will retry")
           elsif result[:checks_passed]
             task.pass!(iteration_number: iteration.iteration_number)
             task.reset! if task.repeating?

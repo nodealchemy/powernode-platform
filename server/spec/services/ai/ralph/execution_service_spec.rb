@@ -1076,4 +1076,44 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
       end
     end
   end
+
+  # ===========================================================================
+  # IMP-aa8a2f58e01e: the trust-fall pass path (real-test gate OFF) adjudicates
+  # the run's own transcript instead of trusting result[:checks_passed].
+  # Verified tally → checks_passed true; no machine evidence → pass but record
+  # attested (false); transcript CONTRADICTS the claim → do not pass, retry.
+  # ===========================================================================
+
+  describe "transcript evidence adjudication on the direct pass path" do
+    let(:loop_status) { "running" }
+    let(:task) { create(:ai_ralph_task, :in_progress, ralph_loop: ralph_loop) }
+    let(:iteration) do
+      create(:ai_ralph_iteration, :running, ralph_loop: ralph_loop, ralph_task: task, iteration_number: 1)
+    end
+
+    before { ralph_loop.update!(configuration: { "real_test_execution" => false }) }
+
+    def run!(output)
+      result = { output: output, checks_passed: true, commit_sha: "abc123", tokens: {}, cost: 0 }
+      service.send(:process_successful_iteration, iteration, task, result)
+    end
+
+    it "records checks_passed true when the transcript carries a green tally" do
+      run!("ran the suite\n12 examples, 0 failures")
+      expect(task.reload.status).to eq("passed")
+      expect(iteration.reload.checks_passed).to be(true)
+    end
+
+    it "passes but records attested (checks_passed false) when the transcript has no machine evidence" do
+      run!("did the work, everything looks good")
+      expect(task.reload.status).to eq("passed")
+      expect(iteration.reload.checks_passed).to be(false)
+    end
+
+    it "does NOT pass when the transcript contradicts the claimed pass" do
+      run!("ran the suite\n12 examples, 3 failures")
+      expect(task.reload.status).to eq("in_progress")
+      expect(iteration.reload.checks_passed).to be(false)
+    end
+  end
 end

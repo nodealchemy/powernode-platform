@@ -169,6 +169,15 @@ RSpec.describe Ai::Tools::CampaignTool do
     expect(exec(action: "campaign_record_increment", campaign_id: id)[:success]).to be false
   end
 
+  it "campaign_record_increment passes check_results through to evidence adjudication (IMP-aa8a2f58e01e)" do
+    id = exec(action: "campaign_start", name: "Obs")[:data][:campaign][:id]
+    exec(action: "campaign_record_increment", campaign_id: id, title: "Evidenced",
+         check_results: { "rspec" => "12 examples, 0 failures" })
+    iter = Ai::Campaign.find(id).ralph_loops.first.ralph_iterations.last
+    expect(iter.checks_passed).to be(true)
+    expect(iter.check_results["evidence_verdict"]).to eq("verified")
+  end
+
   it "campaign_start creates a campaign + a campaign-scoped loop" do
     res = exec(action: "campaign_start", name: "Audit billing", decision_authority: "trusted")
     expect(res[:success]).to be true
