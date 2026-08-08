@@ -23,6 +23,10 @@ module Ai
     # #classify_with_llm so test specs can stub the seam while real merge,
     # normalization, and missing-field logic still runs.
     class IntentCaptureService
+      # Supplies resolve_service_agent — used to attribute this service's LLM
+      # calls to an agent so they are recorded (IMP 019fe1da).
+      include AgentBackedService
+
       BRIEF_SCHEMA = {
         intent: :string,
         use_case: :string,
@@ -53,6 +57,15 @@ module Ai
       DEFAULT_TEMPERATURE = 0.2
       DEFAULT_MAX_TOKENS = 1024
       CLASSIFY_MAX_TOKENS = 64
+
+      # The provider catalog is supplied by the system extension. Core mode has
+      # none, and its absence has a defined meaning throughout this subsystem
+      # (see PlanComposerService#resolve_provider_choice): "no providers
+      # configured", not "reject everything". Extracted as a predicate so the
+      # core-mode path is directly testable without unloading the extension.
+      def self.provider_catalog_available?
+        defined?(::System::Provider).present?
+      end
 
       attr_reader :account, :user, :conversation
 
@@ -180,8 +193,16 @@ module Ai
         @llm_client ||= build_llm_client
       end
 
+      # Wrapped so every LLM call this service makes lands an Ai::AgentExecution
+      # — token counts, cost_usd, performance_metrics and the budget debit
+      # (IMP 019fe1da). #tracked_client_for wraps WITHOUT re-routing which
+      # provider serves the call; see its doc for why that distinction matters
+      # and why there is no double-debit.
       def build_llm_client
-        WorkerLlmClient.for_account(account)
+        tracked_client_for(
+          WorkerLlmClient.for_account(account),
+          slugs: ::Ai::Provisioning::TrackingAgents::SLUGS
+        )
       rescue StandardError => e
         Rails.logger.warn("[IntentCaptureService] LLM client unavailable: #{e.message}")
         nil
@@ -383,6 +404,11 @@ module Ai
         out["compliance"] = Array(out["compliance"]).map(&:to_s).uniq
         out["data_residency"] = Array(out["data_residency"]).map(&:to_s).uniq
 
+        # Resolve preferred_provider against what the account ACTUALLY has,
+        # BEFORE the local-provider scrub below — that scrub keys off the
+        # provider TYPE, and an operator naturally writes the provider's NAME.
+        out["preferred_provider"] = normalize_preferred_provider(out["preferred_provider"])
+
         # Local-provider regions are meaningless — runs on the operator's own
         # hardware. Belt-and-suspenders to the prompt rule above: if the LLM
         # still extracts a cloud-style region alongside a local provider,
@@ -402,7 +428,8 @@ module Ai
         latency["p99"] = latency["p99"]&.to_i unless latency["p99"].nil?
         out["latency_targets_ms"] = latency
 
-        out["preferred_provider"] = out["preferred_provider"]&.to_s if out["preferred_provider"]
+        # (preferred_provider is normalized above, before the local-provider
+        # region scrub that depends on its resolved TYPE.)
 
         # M3 "Run My Code" fields — string_or_nil. Coerce non-nil values to
         # String; leave explicit nils alone so the plan composer can branch
@@ -414,6 +441,59 @@ module Ai
         out["runtime_hint"] = out["runtime_hint"].downcase if out["runtime_hint"].is_a?(String)
 
         out
+      end
+
+      # Resolve the LLM's free-text provider reference to a provider_type the
+      # account actually has, or nil (IMP 019fe1e0-71b1).
+      #
+      # The extracted value was previously stringified and trusted. Observed
+      # failure: an objective naming "the 'IPNode PVE' provider" yielded
+      # 'pro_cloud' — a type absent from that account — which matched nothing in
+      # PlanComposerService#resolve_provider_choice and degraded to the
+      # clarification path. The more dangerous variant is a hallucinated type
+      # that DOES match some other configured provider: that silently routes the
+      # whole plan to the wrong cloud with no error and no operator signal.
+      #
+      # Accepts provider_type, display name, or id because operators write the
+      # NAME; normalizes to provider_type, which is what the downstream matcher
+      # compares against.
+      def normalize_preferred_provider(raw)
+        return nil if raw.blank?
+
+        value = raw.to_s.strip
+        return value if value.empty?
+        # Core mode: no catalog to validate against. Nulling every value here
+        # would be a regression, not a safety win.
+        return value unless self.class.provider_catalog_available?
+
+        providers = ::System::Provider.where(account_id: account.id, enabled: true).to_a
+        # No providers configured is an existing, defined state ("legacy/test
+        # path" per resolve_provider_choice) — nothing to validate against.
+        return value if providers.empty?
+
+        needle = value.downcase
+        match = providers.find do |p|
+          p.provider_type.to_s.downcase == needle ||
+            p.name.to_s.downcase == needle ||
+            p.id.to_s.downcase == needle
+        end
+        return match.provider_type.to_s if match
+
+        # Deliberately NOT nulled. An unconfigured value and nil both reach the
+        # same place downstream (resolve_provider_choice matches nothing and
+        # falls through to clarification), so discarding it would change no
+        # outcome while throwing away a real signal — the operator asked for
+        # something they have not configured, which is worth keeping in the
+        # brief and worth saying out loud. Whether that should instead become a
+        # distinct "you asked for X, which isn't configured" response is a
+        # product decision, not this defect's to make.
+        Rails.logger.warn(
+          "[IntentCaptureService] preferred_provider #{value.inspect} for " \
+            "account=#{account&.id} matches no configured provider " \
+            "#{providers.map { |p| [p.name, p.provider_type] }.inspect}; leaving it on the " \
+            "brief — the composer will ask which provider to use."
+        )
+        value
       end
 
       def missing_fields_for(brief)
