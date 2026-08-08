@@ -575,6 +575,10 @@ Rails.application.routes.draw do
           get "observation_pipeline/accounts", to: "autonomy#observation_accounts"
           post "observation_pipeline/run", to: "autonomy#run_observation_pipeline"
 
+          # OODA closure driver (worker → server) — IMP-e041c835a40d
+          get "closure_driver/accounts", to: "autonomy#closure_accounts"
+          post "closure_driver/run", to: "autonomy#run_closure_driver"
+
           # Autonomy goal maintenance (worker → server)
           post "goals/maintenance", to: "autonomy#goals_maintenance"
 

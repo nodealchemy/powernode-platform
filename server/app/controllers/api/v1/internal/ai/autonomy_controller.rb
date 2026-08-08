@@ -30,6 +30,25 @@ module Api
             render_success(result)
           end
 
+          # GET /api/v1/internal/ai/closure_driver/accounts
+          # Accounts worth an OODA closure tick (IMP-e041c835a40d). Empty when
+          # the driver is disabled — keeps the worker cron dumb and cheap: it
+          # ticks every 15 min regardless, and this is where "off" is decided.
+          def closure_accounts
+            return render_success([]) unless ::Ai::Autonomy::ClosureDriverService.enabled?
+
+            render_success(::Ai::AgentGoal.where(status: "active").distinct.pluck(:account_id))
+          end
+
+          # POST /api/v1/internal/ai/closure_driver/run
+          # One closure-driver tick for one account. The service enforces the
+          # activation gates itself (cadence flag, kill switch, control-plane
+          # fence, budgets) — this endpoint just invokes and reports.
+          def run_closure_driver
+            account = Account.find(params[:account_id])
+            render_success(::Ai::Autonomy::ClosureDriverService.new(account: account).run)
+          end
+
           # POST /api/v1/internal/ai/goals/maintenance
           # Auto-abandon stale goals across all accounts
           def goals_maintenance
