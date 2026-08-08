@@ -88,6 +88,62 @@ module AgentBackedService
     )
   end
 
+  # Wrap an ALREADY-BUILT worker client so its calls land Ai::AgentExecution
+  # records, without changing which provider serves them (IMP 019fe1da).
+  #
+  # Use this — rather than #build_agent_client — for services that historically
+  # called WorkerLlmClient.for_account directly. #build_agent_client constructs
+  # WorkerLlmClient.new(agent_id:), which re-routes the call to the AGENT's
+  # provider; for an existing service that is a live change to which provider
+  # answers, separate from simply making the call visible. Here the inner client
+  # (and so the model and provider actually used) is untouched.
+  #
+  # No double-debit: WorkerLlmClient#track_llm_usage! bails on
+  # `return unless @agent_id`, and .for_account never sets one, so an inner
+  # client built that way cannot debit. Ai::AgentExecution#propagate_cost_to_budget
+  # becomes the single debit path. Do NOT pass an inner client built WITH an
+  # agent_id unless it also has skip_budget_tracking: true.
+  #
+  # Returns the inner client unchanged when no agent resolves — losing telemetry
+  # is acceptable, breaking the caller is not.
+  #
+  # Pass `agent:` when the caller already knows the real actor (e.g. a skill
+  # executor invoked BY an agent) — that is a truer attribution than any slug
+  # lookup. Pass `slugs:` for services with no agent of their own. Supplying
+  # neither leaves the client unwrapped: mis-attributing cost to an unrelated
+  # agent is worse than not recording it.
+  #
+  # @param inner [WorkerLlmClient, nil]
+  # @param agent [Ai::Agent, nil] explicit attribution target, wins over slugs
+  # @param slugs [Array<String>] candidate agent slugs, best fit first
+  def tracked_client_for(inner, agent: nil, slugs: [], context: nil)
+    return inner if inner.nil?
+
+    agent ||= (Array(slugs).any? ? resolve_tracking_agent(slugs) : nil)
+    return inner unless agent
+
+    TrackedWorkerLlmClient.new(
+      inner_client: inner,
+      agent: agent,
+      execution_context_type: context || "service:#{self.class.name}"
+    )
+  end
+
+  # First resolvable agent from an ordered slug list. Slug lookup rather than
+  # semantic discovery: these are infrastructure paths where a deterministic,
+  # cheap resolution beats a better-but-variable one.
+  def resolve_tracking_agent(slugs)
+    agent = Array(slugs).lazy.filter_map { |s| resolve_service_agent(s) }.first
+    if agent.nil?
+      Rails.logger.info(
+        "[#{self.class.name}] no service agent among #{Array(slugs).inspect} for " \
+          "account=#{service_account&.id}; LLM calls will run UNTRACKED " \
+          "(no execution record, no cost attribution, no budget debit)."
+      )
+    end
+    agent
+  end
+
   # Resolve model from the agent's selection triple (#37): pinned model, else the
   # cost/capability selector pick across any active provider, else provider default.
   def agent_model(agent)

@@ -17,6 +17,9 @@ module Ai
     # recipes. They share patterns: shortlist candidates → LLM-design →
     # validate → return for confirmation.
     class DesignAgentTeamFromIntentExecutor
+      # Supplies tracked_client_for (IMP 019fe1da).
+      include AgentBackedService
+
       MAX_SHORTLIST_AGENTS = 20
       MAX_MEMBERS          = 6
       DEFAULT_STRATEGY     = "sequential"
@@ -128,8 +131,15 @@ module Ai
       # === LLM-driven design ============================================
 
       def generate_team_design(intent, existing_agents, suggested_name, max_members, preferred_strategy)
+        # Wrapped so the design call lands an Ai::AgentExecution (IMP 019fe1da).
+        # Attributed to the INVOKING agent only: this is skill design, not
+        # provisioning, so falling back to a provisioning agent would file the
+        # cost under the wrong actor. With no invoking agent the call stays
+        # untracked rather than mis-attributed. The openai preference and the
+        # provider that serves the call are unchanged — this only wraps.
         llm = ::WorkerLlmClient.for_account(@account, provider_type: "openai") ||
               ::WorkerLlmClient.for_account(@account)
+        llm = tracked_client_for(llm, agent: @agent)
         return { error: "No LLM provider configured for account" } unless llm
 
         messages = build_design_messages(intent, existing_agents, suggested_name, max_members, preferred_strategy)
