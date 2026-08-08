@@ -4,6 +4,13 @@ module Ai
   class AgentBudget < ApplicationRecord
     self.table_name = "ai_agent_budgets"
 
+    # The allocation IS the total budget. Four call sites (context injector,
+    # governance resource-abuse remediation, budget sensor, agent autonomy
+    # tool) address it as allocated_cents — including the governance WRITE
+    # path (update!(allocated_cents: ...)), which never worked before this
+    # alias existed (IMP-05675d82db79).
+    alias_attribute :allocated_cents, :total_budget_cents
+
     # ==========================================
     # Constants
     # ==========================================

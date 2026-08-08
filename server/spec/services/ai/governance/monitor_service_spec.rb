@@ -70,4 +70,26 @@ RSpec.describe Ai::Governance::MonitorService, type: :service do
       end
     end
   end
+  # IMP-05675d82db79 — the resource_abuse auto-remediation halves the agent's
+  # budget via update!(allocated_cents:), which raised NoMethodError since the
+  # method never existed: the remediation NEVER ran. First coverage of this path.
+  describe '#auto_remediate! resource_abuse' do
+    let(:user)     { create(:user, account: account) }
+    let(:provider) { create(:ai_provider, account: account) }
+    let(:agent)    { create(:ai_agent, account: account, creator: user, provider: provider, status: 'active') }
+    let!(:budget)  { create(:ai_agent_budget, account: account, agent: agent, total_budget_cents: 10_000) }
+    let(:report) do
+      Ai::GovernanceReport.create!(
+        account: account, subject_agent: agent, report_type: 'resource_abuse',
+        severity: 'critical', status: 'open', evidence: { 'spend' => 'excessive' }
+      )
+    end
+
+    it 'halves the budget allocation and marks the report remediated' do
+      service.auto_remediate!(report: report)
+
+      expect(budget.reload.total_budget_cents).to eq(5_000)
+      expect(report.reload.auto_remediated).to be(true)
+    end
+  end
 end
