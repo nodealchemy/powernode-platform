@@ -216,6 +216,50 @@ module AgentBackedService
     nil
   end
 
+  # May the resolver's model be SUBSTITUTED for this call?
+  #
+  # The seams that already apply a resolution (provider_execution.rb:92,
+  # task_executor.rb:492) drive free-form conversations, where any model yields
+  # usable output. A caller that needs a specific structured shape — JSON
+  # conforming to a schema, say — has an output contract the resolver knows
+  # nothing about, and its candidate set is not filtered by capability.
+  #
+  # So: substitute freely for :text. For a structured contract, substitute only
+  # when there is no substitution to be unsafe about (the resolver landed on the
+  # baseline anyway). This is deliberately conservative — the alternative needs a
+  # per-model structured-output capability signal that does not exist here yet,
+  # and inventing one from model-name guesswork is how you get a silent breakage
+  # of exactly the kind this guards against. Relax it when that signal exists.
+  #
+  # Declining is NOT the same as discarding: the decision is still persisted and
+  # then annotated as considered-but-not-applied. A decision recorded with its
+  # reason is MORE complete governance data than one silently applied.
+  def resolution_applicable?(resolution, output_contract)
+    return true if resolution.nil?
+    return true if output_contract.nil? || output_contract.to_sym == :text
+
+    baseline = resolution.respond_to?(:baseline_model) ? resolution.baseline_model : nil
+    resolution.model.to_s == baseline.to_s
+  end
+
+  # Record on the persisted decision that its recommendation was declined, and
+  # why, so the routing oracle reads as "considered, not applied" rather than
+  # implying a substitution that never happened.
+  def annotate_unapplied_resolution!(decision_id, reason:, delivered_model:)
+    return if decision_id.blank?
+
+    decision = ::Ai::RoutingDecision.find_by(id: decision_id)
+    return unless decision
+
+    rationale = decision.rationale.is_a?(Hash) ? decision.rationale.dup : {}
+    rationale["applied"] = false
+    rationale["not_applied_reason"] = reason
+    rationale["delivered_model"] = delivered_model
+    decision.update_columns(rationale: rationale)
+  rescue StandardError => e
+    Rails.logger.warn("[AgentBackedService] could not annotate routing decision #{decision_id}: #{e.message}")
+  end
+
   # The Ai::RoutingDecision id from the most recent #resolve_task_tier call, for
   # callers to pass as routing_decision_id: into a TrackedWorkerLlmClient call so
   # the resulting Ai::AgentExecution gets linked and the decision's outcome can

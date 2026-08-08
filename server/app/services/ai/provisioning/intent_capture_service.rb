@@ -243,9 +243,28 @@ module Ai
                        )
                      end
 
+        baseline_model = resolve_model
         call_opts = opts.dup
-        call_opts[:model] = resolution&.model.presence || resolve_model
-        call_opts[:effort] = resolution.effort if resolution&.effort.present?
+
+        # This seam's output contract is JSON conforming to BRIEF_SCHEMA, which
+        # the resolver cannot reason about — a downgrade to a reasoning-tier
+        # model once returned prose and emptied the brief. Substitution is
+        # therefore declined here, but the decision is still recorded and
+        # annotated with why, so the routing oracle stays complete.
+        if resolution && !resolution_applicable?(resolution, :structured_json)
+          annotate_unapplied_resolution!(
+            routing_decision_id,
+            reason: "caller requires structured JSON (BRIEF_SCHEMA); substituting " \
+                    "#{resolution.model.inspect} for #{baseline_model.inspect} is not " \
+                    "permitted without a verified structured-output capability signal",
+            delivered_model: baseline_model
+          )
+          call_opts[:model] = baseline_model
+        else
+          call_opts[:model] = resolution&.model.presence || baseline_model
+          call_opts[:effort] = resolution.effort if resolution&.effort.present?
+        end
+
         call_opts[:routing_decision_id] = routing_decision_id if routing_decision_id
 
         client.complete(**call_opts)
@@ -351,11 +370,25 @@ module Ai
 
       def parse_brief_json(content)
         json = extract_json_object(content)
-        return nil unless json.is_a?(Hash)
+        unless json.is_a?(Hash)
+          # Previously the ONLY silent path here. A model that answers in prose
+          # instead of JSON — which is what a reasoning-tier substitution did —
+          # returned nil from here, the caller merged {} onto an empty base, and
+          # the operator eventually saw "CompositionError: intent is required",
+          # naming neither the model nor the parse miss. Never silent again.
+          Rails.logger.warn(
+            "[IntentCaptureService] brief response contained no JSON object " \
+              "(got #{json.class}); excerpt: #{content.to_s.strip[0, 200].inspect}"
+          )
+          return nil
+        end
 
         json.deep_stringify_keys
       rescue JSON::ParserError => e
-        Rails.logger.warn("[IntentCaptureService] Brief JSON parse failed: #{e.message}")
+        Rails.logger.warn(
+          "[IntentCaptureService] Brief JSON parse failed: #{e.message}; " \
+            "excerpt: #{content.to_s.strip[0, 200].inspect}"
+        )
         nil
       end
 
