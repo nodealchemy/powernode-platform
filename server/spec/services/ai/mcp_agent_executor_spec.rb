@@ -281,6 +281,28 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
     #
     # Request-level counterpart:
     #   spec/requests/api/v1/internal/ai/execution_contexts_working_memory_spec.rb
+    # IMP-e55984da015d — the injector's token_estimate + breakdown were held
+    # in memory and discarded; per-operation context size is now persisted
+    # into the execution's performance_metrics jsonb (update_columns: the
+    # execution is mid-flight, and completed-execution validations must not
+    # fire on a metrics write).
+    it 'persists the context token metrics onto the execution record' do
+      real_execution = create(:ai_agent_execution, account: account, agent: agent)
+      injector = instance_double(Ai::Memory::ContextInjectorService)
+      allow(Ai::Memory::ContextInjectorService).to receive(:new).and_return(injector)
+      allow(injector).to receive(:build_context).and_return(
+        context: "## Known Facts\nx", token_estimate: 123,
+        breakdown: { factual: 100, working: 23 }
+      )
+      persisting = described_class.new(agent: agent, execution: real_execution, account: account)
+
+      persisting.send(:build_execution_context, { "input" => "test" })
+
+      ctx = real_execution.reload.performance_metrics["context"]
+      expect(ctx["total_tokens"]).to eq(123)
+      expect(ctx["sections"]).to eq({ "factual" => 100, "working" => 23 })
+    end
+
     it 'reads working memory without proactively hydrating it from the database' do
       expect_any_instance_of(Ai::Memory::WorkingMemoryService).not_to receive(:load_from_database)
 

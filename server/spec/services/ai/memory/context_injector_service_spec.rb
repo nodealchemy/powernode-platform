@@ -35,6 +35,18 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
 
         expect(result[:breakdown]).to include(:factual, :working, :experiential)
       end
+
+      # IMP-e55984da015d — the breakdown used to hold presence flags (0/1),
+      # which made per-section context size unmeasurable. It now carries the
+      # section's TOKEN count: any real factual section is > 1 token, which
+      # a presence flag can never be.
+      it 'carries per-section token counts, not presence flags' do
+        result = service.build_context(include_types: %w[factual])
+
+        expect(result[:breakdown][:factual]).to be > 1
+        expect(result[:breakdown][:working]).to eq(0)
+        expect(result[:breakdown].values.sum).to eq(result[:token_estimate])
+      end
     end
 
     context 'with experiential memories and query' do
