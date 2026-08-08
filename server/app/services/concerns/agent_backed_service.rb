@@ -84,6 +84,9 @@ module AgentBackedService
     TrackedWorkerLlmClient.new(
       inner_client: client,
       agent: agent,
+      # Same global-agent fix as #tracked_client_for: every caller here that
+      # resolved a GLOBAL agent has been silently untracked.
+      account: service_account,
       execution_context_type: "service:#{self.class.name}"
     )
   end
@@ -125,6 +128,10 @@ module AgentBackedService
     TrackedWorkerLlmClient.new(
       inner_client: inner,
       agent: agent,
+      # The USING account — resolve_service_agent can return a GLOBAL agent
+      # (account_id nil), whose executions would otherwise fail validation and
+      # be silently dropped.
+      account: service_account,
       execution_context_type: context || "service:#{self.class.name}"
     )
   end
