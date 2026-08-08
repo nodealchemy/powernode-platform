@@ -58,6 +58,10 @@ module Ai
       DEFAULT_MAX_TOKENS = 1024
       CLASSIFY_MAX_TOKENS = 64
 
+      # Explicit task_type for the routing governance record, so escalations on
+      # this seam are attributable rather than pooled under a generic default.
+      TIER_TASK_TYPE = "provisioning_intent_capture"
+
       # The provider catalog is supplied by the system extension. Core mode has
       # none, and its absence has a defined meaning throughout this subsystem
       # (see PlanComposerService#resolve_provider_choice): "no providers
@@ -199,17 +203,52 @@ module Ai
       # provider serves the call; see its doc for why that distinction matters
       # and why there is no double-debit.
       def build_llm_client
-        tracked_client_for(
-          WorkerLlmClient.for_account(account),
-          slugs: ::Ai::Provisioning::TrackingAgents::SLUGS
-        )
+        tracked_client_for(WorkerLlmClient.for_account(account), agent: tracking_agent)
       rescue StandardError => e
         Rails.logger.warn("[IntentCaptureService] LLM client unavailable: #{e.message}")
         nil
       end
 
+      # Memoized so the client wrap and the tier resolution attribute to the SAME
+      # agent, and so the lookup happens once per service instance rather than
+      # per LLM call. nil is a valid outcome (core mode / unseeded account): the
+      # client stays unwrapped and no tier is resolved.
+      def tracking_agent
+        return @tracking_agent if defined?(@tracking_agent)
+
+        @tracking_agent = resolve_tracking_agent(::Ai::Provisioning::TrackingAgents::SLUGS)
+      end
+
+      # Governed per-task tier resolution (IMP-019fe1da, fifth oracle).
+      #
+      # resolve_task_tier is gated on ai_task_tier_routing_enabled: with the gate
+      # OFF it returns nil immediately, no resolver call at all, and this method
+      # sends exactly the model it always did. With it ON it persists an
+      # Ai::RoutingDecision + Ai::TaskComplexityAssessment and returns the
+      # Resolution.
+      #
+      # The resolution is APPLIED, not merely recorded. Persisting a decision
+      # that says "escalate to X" while still calling Y would make the routing
+      # oracle actively misleading — worse than the empty table it replaces.
+      # routing_decision_id rides along so TrackedWorkerLlmClient can link the
+      # decision to the execution it creates, which is what lets
+      # Ai::AgentExecution#record_routing_decision_outcome close the loop.
       def safe_complete(client, **opts)
-        client.complete(model: resolve_model, **opts)
+        agent = tracking_agent
+        resolution = if agent
+                       resolve_task_tier(
+                         agent: agent,
+                         task_type: TIER_TASK_TYPE,
+                         messages: Array(opts[:messages])
+                       )
+                     end
+
+        call_opts = opts.dup
+        call_opts[:model] = resolution&.model.presence || resolve_model
+        call_opts[:effort] = resolution.effort if resolution&.effort.present?
+        call_opts[:routing_decision_id] = routing_decision_id if routing_decision_id
+
+        client.complete(**call_opts)
       rescue WorkerLlmClient::WorkerLlmError => e
         Rails.logger.warn("[IntentCaptureService] LLM call failed: #{e.message}")
         nil
