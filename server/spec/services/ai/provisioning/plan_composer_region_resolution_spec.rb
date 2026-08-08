@@ -110,22 +110,18 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "region resolution", type:
       )
     end
 
-    it "warns that the extra regions will not be provisioned" do
-      # Placement still collapses to the first region — distributing across
-      # regions is tracked separately — but a brief asking for dna AND rna
-      # quietly becoming a single-node deployment must not be silent.
-      expect(Rails.logger).to receive(:warn).with(/names 2 regions.*will NOT be provisioned/m)
-      resolve(%w[dna rna])
-    end
-
-    it "names the dropped regions explicitly, not just the count" do
-      expect(Rails.logger).to receive(:warn).with(/\["rna"\]/)
-      resolve(%w[dna rna])
-    end
-
-    it "still resolves to the first named region" do
-      allow(Rails.logger).to receive(:warn)
+    # This resolver deliberately returns only the FIRST region — it stamps the
+    # initial provider_region_id, and #fan_out_regions! then splits the step
+    # across every named region. The earlier "the rest will NOT be provisioned"
+    # warning was removed alongside that change: it would now be false.
+    # Distribution itself is covered by plan_composer_multi_region_spec.rb.
+    it "returns the first named region" do
       expect(resolve(%w[dna rna])).to eq(dna)
+    end
+
+    it "does not warn that the other regions are dropped — they are not" do
+      expect(Rails.logger).not_to receive(:warn).with(/will NOT be provisioned/)
+      resolve(%w[dna rna])
     end
   end
 
