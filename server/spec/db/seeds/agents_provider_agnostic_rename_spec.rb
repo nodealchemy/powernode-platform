@@ -62,8 +62,17 @@ RSpec.describe "provider-agnostic agent rename (claude_agents_seed)" do
     # GLOBAL, matching the real shape: these platform-provided skills are
     # seeded global (account_id nil) by ai_skills_seed.rb, and the assignment
     # seed binds via Ai::Skill.global.find_by(slug:) for a deterministic match.
+    # The FULL bound-slug universe is required since IMP-dd2904d87d6d: the
+    # assignment seed fails loud (writing nothing) on any missing slug, so a
+    # partial fixture set would abort the whole load.
     let!(:skills) do
-      %w[product-management business-search technical-researcher data].map do |slug|
+      %w[
+        product-management business-search technical-researcher data
+        sre-incident-response devops-engineer security-analyst
+        knowledge-system-curator skill-management productivity powernode-dev
+        design-skill-from-intent design-agent-team-from-intent
+        marketing legal bio-research finance sales customer-support
+      ].map do |slug|
         create(:ai_skill, :global, slug: slug, status: "active")
       end
     end

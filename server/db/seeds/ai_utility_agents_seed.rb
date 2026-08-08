@@ -612,10 +612,14 @@ specialist_created = 0
 specialist_updated = 0
 
 SPECIALIST_SKILLS.each do |attrs|
-  skill = Ai::Skill.find_or_initialize_by(
-    account: admin_account,
-    slug: attrs[:slug]
-  )
+  # GLOBAL, not admin-account-scoped (IMP-dd2904d87d6d): the account-scoped
+  # finder here was an oversight — UTILITY_AGENTS above seeds global — and it
+  # made these skills invisible to every Ai::Skill.global lookup, so the
+  # platform binding seed silently dropped their bindings for months (and its
+  # new fail-loud validation would reject them outright).
+  # find_or_initialize_global converts a live account-scoped row in place
+  # (id stable), so existing deployments migrate on their next seed.
+  skill = Ai::Skill.find_or_initialize_global(slug: attrs[:slug])
 
   is_new = skill.new_record?
 

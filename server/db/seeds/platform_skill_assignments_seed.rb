@@ -16,9 +16,14 @@ end
 platform_skills_assigned = 0
 
 platform_skill_assignments = {
+  # NOTE (IMP-dd2904d87d6d): seven previously-bound slugs never existed as
+  # skills and were silently dropped for months — incident-analysis,
+  # performance-tuning, devops-automation, content-localization, user-research,
+  # compliance-review, security-audit. They are removed below (the seed now
+  # fails loud on unknown slugs); authoring those specialist skills is tracked
+  # as its own improvement offer. Re-add the binding WITH the skill.
   'Infrastructure Health Monitor' => %w[
-    sre-incident-response devops-engineer incident-analysis
-    performance-tuning security-analyst
+    sre-incident-response devops-engineer security-analyst
   ],
   'Knowledge Graph Curator' => %w[
     knowledge-system-curator data skill-management
@@ -31,16 +36,14 @@ platform_skill_assignments = {
     design-agent-team-from-intent
   ],
   'Process Automation Optimizer' => %w[
-    devops-automation productivity incident-analysis
-    product-management
+    productivity product-management
   ],
   'Visual Design Assistant' => %w[
-    content-localization marketing product-management
-    user-research
+    marketing product-management
   ],
   'Research Analyst' => %w[
     technical-researcher data knowledge-system-curator
-    business-search user-research
+    business-search
   ],
   # Strategic Planner — planning/analysis domain skills. Previously inherited
   # SYSTEM-extension infra skills (system-platform-deploy etc.) via the
@@ -50,13 +53,13 @@ platform_skill_assignments = {
     product-management business-search technical-researcher data
   ],
   'Legal & Compliance Analyst' => %w[
-    legal compliance-review security-audit
+    legal
   ],
   'Life Sciences Research Analyst' => %w[
     bio-research technical-researcher
   ],
   'Finance Operations Analyst' => %w[
-    finance data compliance-review
+    finance data
   ],
   'Sales Operations Specialist' => %w[
     sales marketing business-search
@@ -65,6 +68,21 @@ platform_skill_assignments = {
     customer-support knowledge-system-curator productivity
   ]
 }
+
+# Fail LOUD on unknown slugs (IMP-dd2904d87d6d): `next unless skill` silently
+# dropped bindings, under-provisioning specialist agents for months. Mirrors
+# the system extension's SkillBindings.validate! pattern — collect EVERY
+# missing slug, one raise with the full list, before any row is written.
+# Matches the loop's exact lookup (global + active): an inactive skill would
+# otherwise pass validation and still be dropped silently.
+bound_slugs = platform_skill_assignments.values.flatten.uniq
+known_slugs = Ai::Skill.global.where(slug: bound_slugs, status: 'active').pluck(:slug)
+missing_slugs = bound_slugs - known_slugs
+if missing_slugs.any?
+  raise "[PlatformSkills] #{missing_slugs.size} bound skill slug(s) have no active global skill: " \
+        "#{missing_slugs.sort.join(', ')} — author the skill(s) or remove the binding(s). " \
+        "Nothing was assigned."
+end
 
 platform_skill_assignments.each do |agent_name, slugs|
   agent = Ai::Agent.resolve_for(admin_account.id, name: agent_name)
