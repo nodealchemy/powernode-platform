@@ -31,6 +31,54 @@ check standardized and repeatable instead of heroic.
 | Routing posture | **Report-first**: record + grade every routing decision; flip to enforcement after 2–3 baselines define normal |
 | Approvals | Baseline run: operator approves `review_plan`/`handoff` live (approval UX is under test). Repeat runs: harness approves its own `dryrun-`-marked missions individually |
 
+### 2.1 Amendment — 2026-08-08: P1 runs on ops-hub, not dev-cell
+
+The original Environment decision assumed the dev-cell platform could drive real
+provisioning. **It cannot.** dev-cell's `powernode_development` is a `db:seed` fixture
+shell (every row stamped 2026-08-03 19:01), verified 2026-08-08:
+
+| Required by P1 | dev-cell | ops-hub |
+|---|---|---|
+| `IPNode PVE` provider + credentials | absent — only a `Pro Cloud` stub with `us-east-1`/`us-west-1` regions | present |
+| `ai_agents` | 0 | 29 (all active) |
+| `ai_providers` / credentials | 0 / 0 | 4 / 3 |
+| node instances / missions / disk-image publications | 0 / 0 / 0 | 145 / 0 / present |
+| node modules | 6 fixtures, **all artifact-less**; no `docker-engine` module | real registry |
+
+The P0 setup steps that said "create a ProviderRegion **for the IPNode PVE provider**"
+were written against ops-hub state read through `dev-cell-mcp-proxy.js`, which forwards
+to ops-hub — ops-hub's platform was mistaken for dev-cell's.
+
+**Operator decision (2026-08-08): amend the Environment row — P1 executes against the
+ops-hub platform.** The `dryrun-` prefix remains the blast-radius boundary and is now the
+*only* isolation between the run and a live self-hosted control plane, so §8's rails are
+load-bearing rather than belt-and-braces. Specifically: ops-hub's own node, instances, and
+module assignments are out of scope for every agent action in the run, and the 2026-07
+CVE-storm self-detach outage is the standing precedent for why.
+
+Consequences accepted with the amendment:
+
+- The run spends ops-hub's LLM budget (16 agent budgets, $280 allocated, $0 spent at
+  amendment time) against the §2 ceiling of $5.
+- The run writes `RoutingDecision`/`AgentExecution`/mission rows into the live control
+  plane rather than a throwaway DB.
+- **P0 deployment to ops-hub — only one of the three fixes actually gates the run.**
+  ops-hub runs clean `develop`, which predates all three measurement fixes (verified by
+  hashing: its copies of the four P0 files are byte-identical to `develop`). Measured
+  against ops-hub's *actual* configuration, 2026-08-08:
+
+  | P0 fix | Effect on ops-hub | Gates P1? |
+  |---|---|---|
+  | cost attribution (`resolved_model`) | **No-op here.** The bug bites *provider-agnostic* agents; all 29 ops-hub agents are pinned at `mcp_metadata.model_config.model` (15 Sonnet-5, 5 Opus-4.8, 3 Haiku-4.5, 3 Fable-5, 3 gpt-4o-mini), and `Ai::Agent#model` (`concerns/ai/agent/mcp_tool.rb:99`) reads exactly that path — so cost already attributes correctly | no |
+  | `allocated_cents` | Real, but **rescued, not fatal**: `inject_self_awareness` catches `StandardError`, so the `NoMethodError` at `context_injector_service.rb:421` silently drops the entire Self-Awareness section (trust score, budget line, 24h execution stats) from every context where a budget row exists | no — degrades context fidelity |
+  | context token metrics | Genuinely absent — nothing persists `token_estimate`/per-section breakdown into `ai_agent_executions.performance_metrics` | **yes** — §3's context-efficiency oracle is empty without it |
+
+  So the deploy is justified by the context-metrics fix (and is worth having for the other
+  two), **not** by an imminent crash or a zeroed ledger. An earlier draft of this amendment
+  claimed both; both were wrong — the pin check had read `mcp_metadata->>'model'` instead of
+  `mcp_metadata->'model_config'->>'model'`, and the `NoMethodError` had not been traced to
+  its enclosing rescue.
+
 ## 3. Measurement dimensions and their oracles
 
 All oracles already exist as persisted records; the dry-run reads them, it does not

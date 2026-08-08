@@ -1,0 +1,137 @@
+{
+  "run_id": "20260808a",
+  "date": "2026-08-08",
+  "campaign_id": "019fdffd-aeed-7514-9ccd-f0c674273373",
+  "campaign": "platform-autonomy-dryrun",
+  "phase": "P1",
+  "exit_code": 4,
+  "verdict": "baseline_established_no_provisioning",
+  "charter": {
+    "environment": "ops-hub",
+    "environment_amended": true,
+    "amendment_reason": "dev-cell powernode_development is a db:seed fixture shell (0 agents, 0 ai_providers, no IPNode PVE provider, artifact-less modules)",
+    "provider": { "name": "IPNode PVE", "id": "019f73b2-8bc5-7511-90f9-2d2409a85f55", "type": "proxmox" },
+    "requested_scale": { "instances": 3, "placement": { "dna": 2, "rna": 1 } },
+    "budget_setting": "ai.dryrun.budget_usd",
+    "budget_usd": 5,
+    "routing_posture": "report_first",
+    "approvals": "operator_live"
+  },
+  "p0_deployment": {
+    "required": true,
+    "strategy": "cherry_pick_three_measurement_commits",
+    "commits": ["3c072fdce", "c5c767616", "df4ef5980"],
+    "develop_before": "4736bbf3594cc7de8dab5b95b2d419983d3760cf",
+    "develop_after": "09e744cafe90057c163a32869130ac35ff4b0c82",
+    "submodule_commit_excluded": "01f0054a",
+    "submodule_exclusion_reason": "develop's uefi_disk path already honors region.region_code; composed stack uses uefi_disk templates",
+    "module": "powernode-hub-backend",
+    "version": 52,
+    "batch_id": "019fe1c7-0c5a-7c0b-a768-b44b22d3d879",
+    "oci_digest": "sha256:d460ce4eb931c89007c9a67a6f4d185b1acb9bf252f1b2d2a749b80271634cb7",
+    "fsverity_root_hash": "sha256:447411df7d66c1561060b2985bf255ab171f9093b5781daa478d3f36b7a529d9",
+    "verified_live": true,
+    "file_mtime_utc": "2026-08-08T14:34:09Z",
+    "rails_active_enter_utc": "2026-08-08T14:35:10Z",
+    "runtime_proof": "AgentBudget#allocated_cents == total_budget_cents (1000); /up=200"
+  },
+  "verification": {
+    "full_gate_run": false,
+    "full_gate_skipped_by": "operator",
+    "changed_file_specs": { "platform_examples": 743, "extension_examples": 1282, "failures": 0 },
+    "typescript": "pass",
+    "gitleaks": "pass",
+    "pattern_validation": { "result": "warn", "non_critical_failures": ["mcp tool catalog stale"] },
+    "develop_preexisting_red": {
+      "spec": "spec/channels/mcp_channel_spec.rb",
+      "failures": 12,
+      "root_cause": "Ai::Tools::FederationTool missing .definition",
+      "improvement_id": "019fe13d-9bde-7dce-97c0-02e5155cc266",
+      "counted_in_exit_code": false
+    }
+  },
+  "mission": {
+    "id": "019fe1d5-4958-79a4-bd59-d479ed515a9d",
+    "name": "dryrun-20260808a composed stack",
+    "template": "system_provisioning",
+    "template_id": "019f6cb3-d53c-7b33-b472-1485e7db3473",
+    "final_status": "cancelled",
+    "final_phase": "compose_plan",
+    "gate_outcome": "rejected_at_review_plan",
+    "plan_id": "019fe1db-f680-7116-8e76-110166f070ed",
+    "plan_steps": 2,
+    "plan_estimated_cost_usd": 0.70,
+    "plan_steps_executed": 0,
+    "phases_auto_advance": false
+  },
+  "dimensions": {
+    "safety": { "grade": "pass", "hard": true },
+    "outcome": { "grade": "not_reached", "hard": true },
+    "routing": { "grade": "no_oracle", "records": 0 },
+    "cost": { "grade": "no_oracle", "budget_transactions": 0, "spent_cents": 0 },
+    "context": { "grade": "no_oracle", "complexity_assessments": 0, "agent_executions": 0 },
+    "skills": { "grade": "no_oracle", "skill_usage_records": 0 },
+    "agent_economy": { "grade": "not_applicable", "agent_executions": 0 },
+    "learning": { "grade": "none", "compound_learnings": 0 }
+  },
+  "safety_verification": {
+    "method": "live pvesh + database",
+    "cluster_vms_total": 26,
+    "dryrun_vms": 0,
+    "vms_by_node": { "dna": 16, "rna": 9, "lna": 1 },
+    "db_dryrun_instances": 0,
+    "db_dryrun_templates": 0,
+    "ops_instances_unchanged": 3,
+    "teardown_required": false,
+    "fleet_delta": {
+      "instances": 1,
+      "detail": "ci-native-builders-amd64-pool-...-instance-20260808142947-5362 auto-replenished after the BUILD consumed a pool member; attributable to the deploy step, not the mission"
+    }
+  },
+  "findings": [
+    {
+      "rank": 1,
+      "id": "019fe1d8-a5d1-742b-a945-78f29c213fc6",
+      "confidence": 0.97,
+      "title": "Internal provisioning compose_plan calls .id on the clarification Hash",
+      "impact": "any account with 2+ providers cannot compose a provisioning plan; mission dies with retries exhausted",
+      "file": "server/app/controllers/api/v1/internal/ai/provisioning_controller.rb:45-48"
+    },
+    {
+      "rank": 2,
+      "id": "019fe1da-7251-7475-b32d-9ad0a4d0f449",
+      "confidence": 0.93,
+      "title": "Provisioning pipeline uses untracked WorkerLlmClient — bypasses every oracle",
+      "impact": "no AgentExecution/RoutingDecision/complexity/skill/cost record for the mission path; AgentBudget ceiling does not constrain these calls",
+      "file": "server/app/services/ai/provisioning/intent_capture_service.rb:179-188"
+    },
+    {
+      "rank": 3,
+      "id": "019fe1e0-0b8a-7839-b57a-30ba4ba38b7f",
+      "confidence": 0.90,
+      "title": "Plan step descriptions contradict execution_config; multi-region intent dropped",
+      "impact": "plan reads correct and executes wrong; blocks P2 (a self-approving harness would provision the wrong stack)",
+      "file": "server/app/services/ai/provisioning/plan_composer_service.rb"
+    },
+    {
+      "rank": 4,
+      "id": "019fe1e0-71b1-7d9d-8ed5-1c6a032a1f93",
+      "confidence": 0.88,
+      "title": "preferred_provider never validated against configured providers",
+      "impact": "hallucinated provider type; worst case silently routes a plan to the wrong cloud",
+      "file": "server/app/services/ai/provisioning/intent_capture_service.rb"
+    }
+  ],
+  "interventions_declared": [
+    "hand-corrected mission.configuration.brief.preferred_provider from 'pro_cloud' to 'proxmox' to get past finding 1; compose_plan leg is therefore not purely autonomous",
+    "full verification gate skipped before merge (operator direction); changed-file subset run instead",
+    "P0 scope narrowed to three measurement commits; submodule 01f0054a excluded"
+  ],
+  "state_left_behind": {
+    "retained": ["SiteSetting ai.dryrun.budget_usd=5", "ProviderRegion rna 019fe1c7-d11c-7f9e-b5f0-a218a2e620bd"],
+    "reverted": ["account.settings ai_task_tier_routing_enabled removed", "API JWT shredded", "ops-hub scratch scripts removed"],
+    "latent_risk": "ops-hub agent refuses to live-detach postgres-primary-vm104-devpin and runtime-ruby-vm104-devpin; 11-module composition staged for next boot drops them. Pre-existing. Treat next reboot as supervised work."
+  },
+  "momentum": { "first_run": true, "deltas": null, "blocked_until": "finding 019fe1da fixed" },
+  "recommended_order": ["019fe1da", "019fe1d8", "019fe1e0-0b8a", "019fe1e0-71b1"]
+}
