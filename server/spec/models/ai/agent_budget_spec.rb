@@ -202,4 +202,22 @@ RSpec.describe Ai::AgentBudget, type: :model do
       expect(child_budget.currency).to eq(budget.currency)
     end
   end
+  # IMP-05675d82db79 (dry-run campaign P0.2) — four call sites (context
+  # injector budget line, governance resource-abuse remediation, budget
+  # sensor payload, agent autonomy tool) invoked #allocated_cents, which
+  # did not exist. It aliases total_budget_cents — the allocation IS the
+  # total — including the WRITE path the governance remediation uses.
+  describe 'allocated_cents alias' do
+    let(:alias_budget) { create(:ai_agent_budget, account: account, agent: agent, total_budget_cents: 10_000) }
+
+    it 'reads the total budget' do
+      expect(alias_budget.allocated_cents).to eq(10_000)
+    end
+
+    it 'writes through update! (the governance halving path)' do
+      alias_budget.update!(allocated_cents: (alias_budget.allocated_cents * 0.5).to_i)
+
+      expect(alias_budget.reload.total_budget_cents).to eq(5_000)
+    end
+  end
 end
