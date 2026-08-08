@@ -158,3 +158,107 @@ begin until F2 is fixed.
   refuses to live-detach `postgres-primary-vm104-devpin` and `runtime-ruby-vm104-devpin` and has
   staged an 11-module composition for next boot in which they are dropped. Those carry PostgreSQL
   and the Ruby runtime. Treat the next ops-hub reboot as supervised work.
+
+---
+
+## Addendum — run `20260808b` (re-run after the F1/F2/F3/F4 deploy)
+
+Same campaign, same day, after shipping the four fixes this baseline surfaced.
+Mission `019fe368-9669-7cd2-b39d-88b862a4ce32`, cancelled at `review_plan`;
+**nothing provisioned** (live check: 0 `dryrun-*` instances).
+
+**The point of the re-run was the measurement apparatus, and it now works.**
+One real LLM call through `IntentCaptureService`:
+
+| Oracle | run a | run b |
+|---|---|---|
+| `Ai::AgentExecution` | 0 | **1** (`completed`, agent `system-topology-designer`) |
+| `cost_usd` | — | **0.0004** (real model id, not the silent 0.0) |
+| tokens / `performance_metrics` | — | **873** total / **825** prompt |
+| budget `spent_cents` | 0 | **6** — the ceiling is reachable *and* enforceable |
+| `RoutingDecision` | 0 | 0 — **by design**, awaiting the `resolve_task_tier` decision |
+
+### What the re-run proved, and what it exposed
+
+- **F1 verified in production.** The failure changed from
+  `undefined method 'id' for {...}:Hash` to the platform's real question:
+  *"I see you have multiple cloud providers configured (Local QEMU, Proxmox).
+  Which would you like to use?"*
+- **F4 did not rescue the run, instructively.** Extraction again produced
+  `preferred_provider: "pro_cloud"` from an objective naming "IPNode PVE".
+  F4 resolves names and ids; it cannot rescue a hallucinated type matching
+  nothing. Nulling it (the original proposal) would have reached the identical
+  clarification outcome — confirming the narrowing was correct, and that the
+  real defect is the extraction prompt.
+- **F2 shipped clean and did not work.** `AgentExecution` stayed at **0**.
+  Both tracking agents are **global** (`account_id: nil`), so the decorator
+  built the row with `account: @agent.account` → nil → `create!` failed
+  `Account must exist` → its own `rescue` swallowed it. Every downstream signal
+  looked right — `build_llm_client` returned a `TrackedWorkerLlmClient`,
+  `resolve_tracking_agent` returned the correct agent — and it recorded nothing.
+  Fixed in `a1b6bb7a3` by threading the *using* account through both entry
+  points, which also repairs the **pre-existing** case: every
+  `#build_agent_client` caller resolving a global agent has been silently
+  untracked all along.
+
+### Deploy notes
+
+Core-only both times; `powernode-extension-system` remains unbuildable
+(stage-1.5 Vite, parent clone skew between `git.powernode.org` and
+`git.powernode.net`), so F3's template label is not yet visible at the gate and
+core degrades via its `respond_to?` guard.
+
+A verification trap worth recording: after the first deploy the rails process
+start (`21:56:52.572`) preceded the file write (`21:56:52.736`) by 164ms. A
+`rails runner` check would have passed regardless, because a fresh runner always
+reads current disk — it says nothing about the long-lived process. Resolved with
+`daemon-reload` + an explicit restart, putting process start 112s after the file.
+
+### Still open
+
+1. `resolve_task_tier` — the fifth oracle; changes model selection (operator decision)
+2. `019fe351-7d10` — distribute placement across regions (P1's dna+rna requirement)
+3. `019fe370-e6c8` — `SemanticToolDiscovery#generate_embedding` unanswered by the decorator
+4. Builder parent-source skew — blocks every extension deploy
+5. ops-hub staged compose drops postgres+ruby at next boot — supervised reboot
+
+---
+
+## Addendum 2 — all five §3 oracles live (2026-08-08 22:40)
+
+`resolve_task_tier` wired into the provisioning LLM seam (commit `424e15311`,
+hub-backend **v55**). Verified live with the gate on, then reverted:
+
+| Oracle | state |
+|---|---|
+| `Ai::AgentExecution` | ✅ 2 |
+| cost / tokens / `performance_metrics` | ✅ `cost_usd`, 916 tokens |
+| `Ai::TaskComplexityAssessment` | ✅ `simple`, tier `economy`, **`input_token_count` 801** |
+| `Ai::RoutingDecision` | ✅ 1, linked to both the execution and the assessment |
+| budget debit | ✅ reachable and enforceable |
+
+The decision record is a real governed outcome, not a stub:
+`decision_reason "downgrade reasoning→light (simple 0.225)"`, `strategy_used
+cost_optimized`, `outcome succeeded`, `actual_cost_usd 0.0002`,
+`actual_latency_ms 2426`, `latency_seam agent_execution`.
+
+**baseline_model `gpt-4o` → delivered_model `gpt-4o-mini-2024-07-18`** — the
+resolution is APPLIED, not merely recorded. Recording an escalation while
+calling something else would have made this oracle actively misleading; the
+delivered-model delta is the evidence it does not.
+
+F4's diagnostic also fired correctly in production:
+`preferred_provider "pro_cloud" ... matches no configured provider
+[["local-qemu","local_qemu"],["IPNode PVE","proxmox"]]` — the silent
+misextraction that broke run `a` is now loud.
+
+### Operator error during this stretch, recorded
+
+A build was dispatched from `/tmp/d4.rb` on ops-hub — a **stale script from
+2026-08-04 belonging to another session** — because a failed command was re-run
+without the `tee` that writes the intended script. It planned hub-backend AND
+the broken extension-system at a 4-day-old core sha; completing would have
+regressed ops-hub past every fix in this report. Caught from the output (two
+modules where one was planned), batch and running task cancelled, containment
+verified: no version created, `current_version_id` unchanged. Subsequent
+dispatches verify the remote script's md5 against local before executing.
