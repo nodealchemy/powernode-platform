@@ -361,6 +361,37 @@ else
     failed_checks=$((failed_checks + 1))
 fi
 
+# Untracked LLM clients (IMP 019fe1da). WorkerLlmClient.for_account returns a
+# client that creates NO Ai::AgentExecution — so its calls are invisible to the
+# routing/cost/context oracles, and because WorkerLlmClient#track_llm_usage!
+# bails without an @agent_id, they cannot debit an Ai::AgentBudget either. The
+# whole provisioning pipeline was built this way and nobody noticed until a live
+# dry-run measured zeros across every oracle. App services must hand the result
+# to AgentBackedService#tracked_client_for (or use #build_agent_client).
+#
+# Counts for_account call sites in app/services that are NOT wrapped: a file is
+# considered compliant when it also mentions tracked_client_for or
+# build_agent_client. worker_llm_client.rb itself is excluded (it's the class),
+# as is the tracked decorator.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No untracked WorkerLlmClient.for_account in app services... "
+untracked_llm=0
+while IFS= read -r f; do
+    case "$f" in
+        */worker_llm_client.rb|*/tracked_worker_llm_client.rb|*/concerns/agent_backed_service.rb) continue ;;
+    esac
+    if ! grep -qE 'tracked_client_for|build_agent_client' "$f"; then
+        untracked_llm=$((untracked_llm + 1))
+    fi
+done < <(grep -rlE 'WorkerLlmClient\.for_account' server/app 2>/dev/null)
+if [[ "$untracked_llm" -eq 0 ]]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} ($untracked_llm file(s) call WorkerLlmClient.for_account without tracked_client_for/build_agent_client — their LLM calls record nothing and cannot debit a budget)"
+    failed_checks=$((failed_checks + 1))
+fi
+
 echo ""
 echo -e "${BLUE}## Code Quality Patterns${NC}"
 

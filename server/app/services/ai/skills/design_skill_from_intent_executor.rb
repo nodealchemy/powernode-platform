@@ -20,6 +20,9 @@ module Ai
     # separate `create_recipe_skill` action that persists the Ai::Skill row
     # with metadata.recipe populated.
     class DesignSkillFromIntentExecutor
+      # Supplies tracked_client_for (IMP 019fe1da).
+      include AgentBackedService
+
       MAX_SHORTLIST_TOOLS = 20
       MAX_RECIPE_STEPS    = 8
 
@@ -128,8 +131,15 @@ module Ai
         # OpenAI-compatible provider preferred — Anthropic's structured-output
         # path doesn't reliably return JSON-only via the worker. Falling back
         # to default if openai isn't configured.
+        # Wrapped so the design call lands an Ai::AgentExecution (IMP 019fe1da).
+        # Attributed to the INVOKING agent only: this is skill design, not
+        # provisioning, so falling back to a provisioning agent would file the
+        # cost under the wrong actor. With no invoking agent the call stays
+        # untracked rather than mis-attributed. The openai preference and the
+        # provider that serves the call are unchanged — this only wraps.
         llm = ::WorkerLlmClient.for_account(@account, provider_type: "openai") ||
               ::WorkerLlmClient.for_account(@account)
+        llm = tracked_client_for(llm, agent: @agent)
         return { error: "No LLM provider configured for account" } unless llm
 
         messages = build_design_messages(intent, shortlist, suggested_name, max_steps)

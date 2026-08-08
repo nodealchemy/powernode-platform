@@ -32,6 +32,10 @@ module Ai
     # inject a fixture proposal without exercising provider plumbing —
     # mirrors the seam in `IntentCaptureService` from the M0 sprint.
     class AdaptationProposerService
+      # Supplies tracked_client_for / resolve_service_agent so this service's
+      # LLM calls are recorded rather than invisible (IMP 019fe1da).
+      include AgentBackedService
+
       class MissionMissingError < StandardError; end
       # ArgumentError so MCP/tool callers that already funnel ArgumentError
       # into an error envelope get a clean message for free.
@@ -232,9 +236,17 @@ module Ai
         }
       end
 
+      # Wrapped so this service's LLM calls land Ai::AgentExecution records —
+      # cost, tokens, performance_metrics and the budget debit (IMP 019fe1da).
+      # #tracked_client_for wraps without re-routing which provider serves the
+      # call; see its doc for why, and for why there is no double-debit.
       def build_llm_client
         return nil unless defined?(::WorkerLlmClient)
-        ::WorkerLlmClient.for_account(account)
+
+        tracked_client_for(
+          ::WorkerLlmClient.for_account(account),
+          slugs: ::Ai::Provisioning::TrackingAgents::SLUGS
+        )
       rescue StandardError => e
         Rails.logger.warn("[AdaptationProposerService] LLM client unavailable: #{e.message}")
         nil
