@@ -207,7 +207,12 @@ module Ai
     end
 
     def calculate_cost(tokens)
-      model_id = output_data&.dig("model_used") || agent&.model
+      # agent.model is only the mcp_metadata PIN accessor — nil for every
+      # provider-agnostic agent (the recommended configuration), which
+      # silently priced their executions at $0.00. resolved_model honors a
+      # pin when present and otherwise resolves through AgentModelSelector
+      # (IMP-affe7f6816e8).
+      model_id = output_data&.dig("model_used") || agent&.resolved_model
 
       # Token breakdown stored in output_data (from worker) or performance_metrics (from tracked client)
       input_tokens = output_data&.dig("prompt_tokens")&.to_i ||
@@ -243,7 +248,10 @@ module Ai
       cost_cents = (cost_usd * 100).round
       budget.debit!(cost_cents, execution: self, metadata: {
         provider: provider&.name,
-        model: agent&.model,
+        # resolved_model, not the pin accessor — see calculate_cost
+        # (IMP-affe7f6816e8): the ledger's per-model index is empty for
+        # unpinned agents otherwise.
+        model: agent&.resolved_model,
         tokens: tokens_used
       })
     rescue StandardError => e
