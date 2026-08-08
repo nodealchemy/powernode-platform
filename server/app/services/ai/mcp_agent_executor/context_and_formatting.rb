@@ -40,6 +40,7 @@ class Ai::McpAgentExecutor
           ].compact.join("\n\n")
           base_context[:memory_breakdown] = memory_result[:breakdown]
           base_context[:memory_tokens_used] = memory_result[:token_estimate]
+          persist_context_metrics(memory_result)
         end
       rescue StandardError => e
         Rails.logger.warn "[ContextAndFormatting] Memory context injection failed: #{e.message}"
@@ -190,6 +191,28 @@ class Ai::McpAgentExecutor
       else
         -32603 # Internal error
       end
+    end
+
+    # IMP-e55984da015d — the injector's token metrics were computed and
+    # discarded, leaving per-operation context size unmeasurable. Persisted
+    # into the execution's performance_metrics jsonb (no new table).
+    # update_columns deliberately: the execution is mid-flight and a
+    # metrics write must neither fire completed-execution validations nor
+    # bump callbacks. Best-effort — a metrics write must never fail the
+    # execution. Only real AgentExecution records qualify (specs pass
+    # doubles; guard on update_columns support + persistence).
+    def persist_context_metrics(memory_result)
+      return unless @execution.respond_to?(:update_columns) && @execution.respond_to?(:persisted?) && @execution.persisted?
+
+      merged = (@execution.performance_metrics || {}).merge(
+        "context" => {
+          "total_tokens" => memory_result[:token_estimate],
+          "sections" => (memory_result[:breakdown] || {}).transform_keys(&:to_s)
+        }
+      )
+      @execution.update_columns(performance_metrics: merged)
+    rescue StandardError => e
+      Rails.logger.warn "[ContextAndFormatting] context metrics persistence failed: #{e.message}"
     end
   end
 end

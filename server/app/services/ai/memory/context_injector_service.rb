@@ -20,6 +20,9 @@ module Ai
         budget_chars = token_budget * CHARS_PER_TOKEN
         context_parts = []
         used_chars = 0
+        # Per-section char accounting (IMP-e55984da015d) — the breakdown
+        # carries real token counts per section, not presence flags.
+        section_chars = Hash.new(0)
 
         # Determine which memory types to include
         types = include_types || %w[factual working experiential trajectories shared_learnings compound_learnings experience_replays graph_rag goals observations self_awareness]
@@ -29,6 +32,7 @@ module Ai
           factual_context, factual_chars = inject_factual_memory(budget_chars - used_chars, task)
           context_parts << factual_context if factual_context.present?
           used_chars += factual_chars
+          section_chars[:factual] = factual_chars
         end
 
         # 2. Include working memory (current task state). No `task.present?`
@@ -41,6 +45,7 @@ module Ai
           working_context, working_chars = inject_working_memory(budget_chars - used_chars, task)
           context_parts << working_context if working_context.present?
           used_chars += working_chars
+          section_chars[:working] = working_chars
         end
 
         # 3. Include relevant experiential memories
@@ -52,6 +57,7 @@ module Ai
           )
           context_parts << experiential_context if experiential_context.present?
           used_chars += exp_chars
+          section_chars[:experiential] = exp_chars
         end
 
         # 4. Include relevant trajectory memories
@@ -63,6 +69,7 @@ module Ai
           )
           context_parts << trajectory_context if trajectory_context.present?
           used_chars += traj_chars
+          section_chars[:trajectories] = traj_chars
         end
 
         # 5. Include shared knowledge from pgvector semantic search
@@ -74,6 +81,7 @@ module Ai
           )
           context_parts << learnings_context if learnings_context.present?
           used_chars += learnings_chars
+          section_chars[:shared_knowledge] = learnings_chars
         end
 
         # 6. Include compound learnings from the learning loop
@@ -85,6 +93,7 @@ module Ai
           )
           context_parts << compound_context if compound_context.present?
           used_chars += compound_chars
+          section_chars[:compound_learnings] = compound_chars
         end
 
         # 6.5. Include experience replays (few-shot examples)
@@ -96,6 +105,7 @@ module Ai
           )
           context_parts << replay_context if replay_context.present?
           used_chars += replay_chars
+          section_chars[:experience_replays] = replay_chars
         end
 
         # 7. Include GraphRAG context (knowledge graph + RAG fusion)
@@ -107,6 +117,7 @@ module Ai
           )
           context_parts << graph_rag_context if graph_rag_context.present?
           used_chars += graph_rag_chars
+          section_chars[:graph_rag] = graph_rag_chars
         end
 
         # 8. Include active goals (autonomy context)
@@ -114,6 +125,7 @@ module Ai
           goals_context, goals_chars = inject_goals(budget_chars - used_chars)
           context_parts << goals_context if goals_context.present?
           used_chars += goals_chars
+          section_chars[:goals] = goals_chars
         end
 
         # 9. Include recent unprocessed observations (autonomy context)
@@ -121,6 +133,7 @@ module Ai
           obs_context, obs_chars = inject_observations(budget_chars - used_chars)
           context_parts << obs_context if obs_context.present?
           used_chars += obs_chars
+          section_chars[:observations] = obs_chars
         end
 
         # 10. Include self-awareness (trust, performance, budget)
@@ -128,24 +141,21 @@ module Ai
           self_context, self_chars = inject_self_awareness(budget_chars - used_chars)
           context_parts << self_context if self_context.present?
           used_chars += self_chars
+          section_chars[:self_awareness] = self_chars
         end
 
         {
           context: context_parts.join("\n\n"),
           token_estimate: (used_chars / CHARS_PER_TOKEN.to_f).ceil,
-          breakdown: {
-            factual: context_parts.count { |p| p.start_with?("## Known Facts") },
-            working: context_parts.count { |p| p.start_with?("## Current State") },
-            experiential: context_parts.count { |p| p.start_with?("## Relevant Experience") },
-            trajectories: context_parts.count { |p| p.start_with?("## Past Trajectories") },
-            shared_knowledge: context_parts.count { |p| p.start_with?("## Shared Knowledge") },
-            compound_learnings: context_parts.count { |p| p.start_with?("## Compound Learnings") },
-            experience_replays: context_parts.count { |p| p.start_with?("## Experience Replays") },
-            graph_rag: context_parts.count { |p| p.start_with?("## Graph Knowledge") },
-            goals: context_parts.count { |p| p.start_with?("## Active Goals") },
-            observations: context_parts.count { |p| p.start_with?("## Recent Observations") },
-            self_awareness: context_parts.count { |p| p.start_with?("## Self Awareness") }
-          }
+          # Real per-section token counts (IMP-e55984da015d); every section
+          # key is always present (0 when skipped) so consumers keep a
+          # stable shape. Rounded so the values sum to token_estimate only
+          # approximately — exactness is asserted at the char level.
+          breakdown: %i[factual working experiential trajectories shared_knowledge
+                        compound_learnings experience_replays graph_rag goals
+                        observations self_awareness].index_with do |key|
+            (section_chars[key] / CHARS_PER_TOKEN.to_f).ceil
+          end
         }
       end
 
