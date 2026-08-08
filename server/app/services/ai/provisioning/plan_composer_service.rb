@@ -427,6 +427,85 @@ module Ai
         end
 
         collapse_consecutive_same_target_steps!(plan)
+        # AFTER the collapse, and the ordering is load-bearing: collapse is what
+        # sums duplicate counts into the single total this pass then divides.
+        fan_out_regions!(plan, brief)
+      end
+
+      # Skills whose steps carry an instance count worth distributing.
+      FAN_OUT_SKILLS = %w[provision_full_stack].freeze
+
+      # Distribute a provisioning step across EVERY region the brief names
+      # (IMP 019fe351-7d10).
+      #
+      # Placement previously collapsed to Array(regions).first with the full
+      # instance count, so "dna AND rna" silently became a single-node
+      # deployment. Here each provision_full_stack step becomes one step per
+      # resolved region, with the count split across them.
+      #
+      # Siblings are APPENDED (numbered after every existing step) rather than
+      # inserted. Inserting would mean shifting every later step_number and
+      # rewriting every dependency pointing past the insertion — the same
+      # bookkeeping that makes #merge_step_pair! hairy — for no benefit, since
+      # execution is topological rather than numeric. Instead every step that
+      # depended on the original gains a dependency on each sibling, so a
+      # dependent still waits for ALL the provisioning it waited for before.
+      #
+      # Safe against the collapse pass: #mergeable? requires template_id AND
+      # provider_region_id AND provider_instance_type_id to match, so per-region
+      # siblings are never re-merged.
+      def fan_out_regions!(plan, brief)
+        regions = resolve_regions_for_brief(brief)
+        return if regions.size < 2
+
+        steps = plan.steps.reload.order(:step_number).to_a
+        next_number = steps.map { |s| s.step_number.to_i }.max.to_i
+
+        steps.each do |step|
+          cfg = step.execution_config.is_a?(Hash) ? step.execution_config.deep_stringify_keys : {}
+          next unless FAN_OUT_SKILLS.include?(cfg["skill"].to_s)
+
+          inputs = cfg["inputs"] || {}
+          total = (Integer(inputs["count"] || 1) rescue 1)
+          shares = split_count_across(total, regions.size)
+          next if shares.size < 2 # fewer instances than regions — nothing to split
+
+          origin_number = step.step_number.to_i
+          sibling_numbers = []
+
+          first_cfg = cfg.deep_dup
+          first_cfg["inputs"] = inputs.merge("count" => shares.first,
+                                             "provider_region_id" => regions.first.id)
+          step.update!(execution_config: first_cfg)
+
+          shares.drop(1).each_with_index do |share, i|
+            next_number += 1
+            sib_cfg = cfg.deep_dup
+            sib_cfg["inputs"] = inputs.merge("count" => share,
+                                             "provider_region_id" => regions[i + 1].id)
+            plan.steps.create!(
+              step_number: next_number,
+              step_type: step.step_type,
+              description: step.description,
+              dependencies: Array(step.dependencies).map(&:to_i),
+              execution_config: sib_cfg
+            )
+            sibling_numbers << next_number
+          end
+
+          plan.steps.reload.each do |other|
+            deps = Array(other.dependencies).map(&:to_i)
+            next unless deps.include?(origin_number)
+            next if sibling_numbers.include?(other.step_number.to_i)
+
+            other.update!(dependencies: (deps + sibling_numbers).uniq)
+          end
+
+          Rails.logger.info(
+            "[PlanComposerService] fanned step #{origin_number} across " \
+              "#{regions.map { |r| r.region_code.presence || r.name }.inspect} as #{shares.inspect} (total #{total})"
+          )
+        end
       end
 
       # Step-collapse pass — fixes 1-instance-brief → N-step over-decomposition.
@@ -692,22 +771,13 @@ module Ai
         all_wanted = Array(brief["regions"] || brief[:regions]).map { |r| r.to_s.strip }.reject(&:empty?)
         wanted = all_wanted.first.to_s
 
-        # Placement currently collapses to ONE region: every instance in the
-        # step lands on all_wanted.first and the rest of the operator's stated
-        # regions are dropped. That is a real scope reduction — a brief asking
-        # for dna AND rna gets a single-node deployment — and it used to happen
-        # with no signal at all. Distributing across regions means emitting one
-        # provisioning step per region (safe from #mergeable?, which only
-        # collapses steps agreeing on template+region+instance_type) and is
-        # tracked separately; until then this must at least be visible.
-        if all_wanted.size > 1 && !@multi_region_warned
-          @multi_region_warned = true
-          Rails.logger.warn(
-            "[PlanComposerService] brief names #{all_wanted.size} regions #{all_wanted.inspect} for " \
-              "account=#{account&.id}, but placement uses only #{wanted.inspect} — the remaining " \
-              "#{(all_wanted - [wanted]).inspect} will NOT be provisioned."
-          )
-        end
+        # This returns the FIRST region only, and that is now correct rather
+        # than a silent narrowing: #merge_resolved_inputs! uses it to stamp an
+        # initial provider_region_id, and #fan_out_regions! afterwards splits
+        # the step across every region the brief names (IMP 019fe351-7d10).
+        # The "only the first region is honoured" warning that used to live here
+        # was removed with that change — it would now assert the extra regions
+        # are dropped while the fan-out pass provisions them.
 
         cache_key = [account_provider_override&.id, wanted]
         return @region_cache[cache_key] if @region_cache.key?(cache_key)
@@ -720,12 +790,7 @@ module Ai
         # "regions model PVE nodes, so region_code IS the node name" — and a
         # brief or operator naturally writes that, not the display name. Matching
         # on name alone left a region findable only by a string nobody uses.
-        match = if wanted.empty?
-                  nil
-                else
-                  needle = wanted.downcase
-                  scope.detect { |r| r.region_code.to_s.downcase == needle || r.name.to_s.downcase == needle }
-                end
+        match = wanted.empty? ? nil : match_region(scope, wanted)
 
         # The fallback stays — a sloppy region string should not hard-fail
         # composition — but it must not be SILENT. Landing on an arbitrary
@@ -771,6 +836,61 @@ module Ai
       # latter is load-bearing: it's what keeps the sibling
       # ::System::NodeModule lookup in #attach_role_module_to_template!
       # unreached in core mode, without needing its own separate guard.
+      # Match one brief region string against a scope of System::ProviderRegion.
+      # region_code first — it is the canonical identifier (for Proxmox the
+      # adapter states "regions model PVE nodes, so region_code IS the node
+      # name") — then display name. Case- and whitespace-insensitive.
+      def match_region(scope, wanted)
+        needle = wanted.to_s.strip.downcase
+        return nil if needle.empty?
+
+        scope.detect { |r| r.region_code.to_s.downcase == needle || r.name.to_s.downcase == needle }
+      end
+
+      # EVERY region the brief names, resolved and de-duplicated, in brief order
+      # (IMP 019fe351-7d10). Unlike #resolve_region_for_brief this does NOT fall
+      # back to an arbitrary region: a name that resolves to nothing is skipped
+      # and warned about, because substituting a region the operator never named
+      # is exactly the silent misplacement this work exists to remove.
+      def resolve_regions_for_brief(brief, account_provider_override: @account_provider_override)
+        return [] unless defined?(::System::ProviderRegion)
+
+        wanted = Array(brief["regions"] || brief[:regions]).map { |r| r.to_s.strip }.reject(&:empty?)
+        return [] if wanted.empty?
+
+        scope = ::System::ProviderRegion.where(account_id: account.id)
+        scope = scope.where(provider_id: account_provider_override.id) if account_provider_override
+        scope = scope.to_a
+
+        resolved = wanted.filter_map do |name|
+          match_region(scope, name).tap do |m|
+            next if m
+
+            Rails.logger.warn(
+              "[PlanComposerService] brief region #{name.inspect} matches no region for " \
+                "account=#{account&.id} (known: #{scope.map { |r| r.region_code.presence || r.name }.inspect}); " \
+                "it will NOT be provisioned."
+            )
+          end
+        end
+        resolved.uniq(&:id)
+      end
+
+      # Split `total` instances across `n` regions, remainder to the earliest.
+      # Never emits a zero share: with fewer instances than regions the caller
+      # gets FEWER steps rather than steps that provision nothing.
+      #   (4,2) => [2,2]   (3,2) => [2,1]   (5,3) => [2,2,1]   (1,3) => [1]
+      def split_count_across(total, n)
+        total = total.to_i
+        n = n.to_i
+        return [] if total <= 0 || n <= 0
+
+        n = total if n > total
+        base = total / n
+        rem  = total % n
+        Array.new(n) { |i| base + (i < rem ? 1 : 0) }
+      end
+
       def resolve_default_template
         return nil unless defined?(::System::NodeTemplate)
 
