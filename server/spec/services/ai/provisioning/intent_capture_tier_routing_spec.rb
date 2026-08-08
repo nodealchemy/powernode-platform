@@ -16,10 +16,18 @@ require "rails_helper"
 #      TaskTierResolver.enabled_for?(account), so with the gate off the call is
 #      byte-identical to before — same model, no resolver invocation at all.
 #
-#   2. APPLIED, not merely recorded. When a resolution comes back it must drive
-#      the model/effort actually sent. Persisting a RoutingDecision saying
-#      "escalate to X" while still calling Y would make the routing oracle
-#      actively misleading — worse than the empty table it replaces.
+#   2. APPLIED WHERE SAFE. A resolution that does not substitute (its model is
+#      the baseline) drives the model/effort actually sent.
+#
+#      SUPERSEDED FRAMING, kept because the correction matters: this originally
+#      read "applied, not merely recorded — recording a decision while calling
+#      something else makes the oracle actively misleading". That posed a false
+#      binary and cost a live run: the resolver downgraded intent capture to a
+#      reasoning-tier model, which answered in prose, and the brief came back
+#      empty. The third option is to record the decision AND record that it was
+#      declined, with the reason — strictly more governance data than a silent
+#      application, and no breakage. This seam's structured-output contract is
+#      enforced in intent_capture_contract_spec.rb.
 RSpec.describe Ai::Provisioning::IntentCaptureService, "tier routing", type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
@@ -57,9 +65,15 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "tier routing", type: :se
   end
 
   context "when the routing gate is ON" do
+    # baseline_model == model: the resolver did NOT substitute, so there is
+    # nothing for the structured-output contract to be unsafe about and the
+    # resolution applies. A SUBSTITUTING resolution is declined here — see
+    # intent_capture_contract_spec.rb, which covers that path and the
+    # considered-but-not-applied annotation.
     let(:resolution) do
       instance_double(::Ai::Routing::TaskTierResolver::Resolution,
-                      model: "claude-opus-4-8", effort: "high", tier: :reasoning)
+                      model: "claude-opus-4-8", effort: "high", tier: :reasoning,
+                      baseline_model: "claude-opus-4-8")
     end
 
     before do
@@ -68,7 +82,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "tier routing", type: :se
       allow(service).to receive(:routing_decision_id).and_return("rd-123")
     end
 
-    it "USES the resolved model rather than the baseline one" do
+    it "applies a non-substituting resolution's model" do
       expect(client).to receive(:complete)
         .with(hash_including(model: "claude-opus-4-8")).and_return(response)
       service.capture(natural_language: "provision a node")
