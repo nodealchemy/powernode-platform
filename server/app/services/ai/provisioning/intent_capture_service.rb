@@ -62,6 +62,15 @@ module Ai
       # this seam are attributable rather than pooled under a generic default.
       TIER_TASK_TYPE = "provisioning_intent_capture"
 
+      # Keep in sync with CostEstimatorService::LOCAL_PROVIDER_TYPES and
+      # TopologyRendererService::LOCAL_PROVIDER_TYPES.
+      LOCAL_PROVIDER_TYPES = %w[local_qemu].freeze
+
+      # Provider identifiers shorter than this are too collision-prone to use
+      # as deterministic text evidence (a 2-char name would substring-match
+      # half the dictionary).
+      MIN_EVIDENCE_NEEDLE_LENGTH = 3
+
       # The provider catalog is supplied by the system extension. Core mode has
       # none, and its absence has a defined meaning throughout this subsystem
       # (see PlanComposerService#resolve_provider_choice): "no providers
@@ -92,7 +101,7 @@ module Ai
         ) || {}
 
         merged = deep_merge_brief(base, normalize_brief(extracted))
-        coerced = coerce_brief(merged)
+        coerced = coerce_brief(merged, evidence_text: natural_language)
 
         result = { brief: coerced, missing_fields: missing_fields_for(coerced) }
         result.merge!(cap_exceeded_attributes) if @cap_exceeded_payload
@@ -111,7 +120,7 @@ module Ai
         ) || {}
 
         merged = deep_merge_brief(base, normalize_brief(extracted))
-        coerced = coerce_brief(merged)
+        coerced = coerce_brief(merged, evidence_text: clarification)
 
         result = { brief: coerced, missing_fields: missing_fields_for(coerced) }
         result.merge!(cap_exceeded_attributes) if @cap_exceeded_payload
@@ -311,14 +320,7 @@ module Ai
             data_residency: array of country/region codes the data must stay in
             preferred_provider: string id of a cloud provider, or null
 
-          Provider extraction rule: if the operator names a specific provider
-          (AWS, Hetzner, DigitalOcean, GCP, Azure, Vultr, Linode, OpenStack,
-          Local QEMU/KVM, LocalQemu, "local hypervisor", Pro Cloud), populate
-          `preferred_provider` with the lowercase canonical identifier — e.g.
-          "aws", "hetzner", "digitalocean", "gcp", "azure", "vultr", "linode",
-          "openstack", "local_qemu" (for Local QEMU/KVM and any "local
-          hypervisor" / "on-box" phrasing), "pro_cloud" (Powernode-managed
-          pool). If no provider is mentioned, leave it null (do NOT guess).
+          #{provider_extraction_rule.chomp}
 
           Local provider regions rule: when `preferred_provider` is
           "local_qemu" (or any other local-hypervisor provider — runs on the
@@ -349,6 +351,50 @@ module Ai
           Operator message:
           #{natural_language}
         PROMPT
+      end
+
+      # The provider rule is built from the account's ACTUAL catalog when one
+      # exists. `preferred_provider` is a choice from an authoritative,
+      # enumerable set — free-generating it from a generic cloud vocabulary is
+      # what produced 'pro_cloud'/'local_qemu' from objectives naming
+      # "IPNode PVE" (three live misextractions, 2026-08-08/09; the old list
+      # did not even contain "proxmox"). The LLM's job is reduced to selecting
+      # from the closed set; #provider_evidenced_in_text then overrides it
+      # deterministically whenever the operator named a provider outright.
+      #
+      # An unconfigured provider is copied VERBATIM, not nulled: the composer's
+      # clarification path uses that signal to say "you asked for X, which
+      # isn't configured" instead of blankly asking which provider to use.
+      def provider_extraction_rule
+        providers = configured_providers
+        if providers.any?
+          catalog = providers.map do |p|
+            %(  - "#{p.name}" (id #{p.id}) -> #{p.provider_type})
+          end.join("\n")
+          <<~RULE
+            Provider extraction rule: this account's configured providers are a
+            CLOSED SET. The only valid `preferred_provider` values are the ->
+            tokens below:
+            #{catalog}
+            If the operator references one of these providers (by name, token,
+            or id), set `preferred_provider` to its -> token EXACTLY as listed.
+            If the operator names a provider that is NOT in this list, copy the
+            name they wrote verbatim so the platform can tell them it is not
+            configured. If no provider is mentioned, leave it null. NEVER
+            invent, translate, or substitute a provider identifier.
+          RULE
+        else
+          <<~RULE
+            Provider extraction rule: if the operator names a specific provider
+            (AWS, Hetzner, DigitalOcean, GCP, Azure, Vultr, Linode, OpenStack,
+            Local QEMU/KVM, LocalQemu, "local hypervisor", Pro Cloud), populate
+            `preferred_provider` with the lowercase canonical identifier — e.g.
+            "aws", "hetzner", "digitalocean", "gcp", "azure", "vultr", "linode",
+            "openstack", "local_qemu" (for Local QEMU/KVM and any "local
+            hypervisor" / "on-box" phrasing), "pro_cloud" (Powernode-managed
+            pool). If no provider is mentioned, leave it null (do NOT guess).
+          RULE
+        end
       end
 
       def build_classify_prompt(natural_language)
@@ -461,7 +507,7 @@ module Ai
         end
       end
 
-      def coerce_brief(brief)
+      def coerce_brief(brief, evidence_text: nil)
         out = brief.dup
         out["intent"] = out["intent"]&.to_s
         out["use_case"] = out["use_case"]&.to_s
@@ -481,16 +527,24 @@ module Ai
         # provider TYPE, and an operator naturally writes the provider's NAME.
         out["preferred_provider"] = normalize_preferred_provider(out["preferred_provider"])
 
-        # Local-provider regions are meaningless — runs on the operator's own
-        # hardware. Belt-and-suspenders to the prompt rule above: if the LLM
-        # still extracts a cloud-style region alongside a local provider,
-        # scrub it so the downstream composer doesn't try to resolve a
-        # non-existent zone. Keep this list synchronized with
-        # CostEstimatorService::LOCAL_PROVIDER_TYPES.
-        local_providers = %w[local_qemu]
-        if out["preferred_provider"] && local_providers.include?(out["preferred_provider"].to_s)
-          out["regions"] = []
+        # Deterministic text evidence beats generative extraction: when the
+        # operator's own words name exactly one configured provider, that IS
+        # the preferred provider — no LLM opinion can change it. This is the
+        # fix for three live misextractions (2026-08-08/09) where objectives
+        # naming "the 'IPNode PVE' provider" yielded 'pro_cloud' twice and
+        # 'local_qemu' once; the last was configured, passed validation, and
+        # the scrub below then silently destroyed regions ["dna","rna"].
+        evidenced = provider_evidenced_in_text(evidence_text)
+        if evidenced && out["preferred_provider"] != evidenced.provider_type.to_s
+          Rails.logger.info(
+            "[IntentCaptureService] preferred_provider #{out['preferred_provider'].inspect} " \
+              "overridden by text evidence: operator named #{evidenced.name.inspect} " \
+              "(#{evidenced.provider_type})"
+          )
+          out["preferred_provider"] = evidenced.provider_type.to_s
         end
+
+        apply_local_provider_region_scrub!(out, evidenced)
 
         unless out["budget_cap_usd_monthly"].nil?
           out["budget_cap_usd_monthly"] = out["budget_cap_usd_monthly"].to_f
@@ -534,13 +588,12 @@ module Ai
 
         value = raw.to_s.strip
         return value if value.empty?
-        # Core mode: no catalog to validate against. Nulling every value here
-        # would be a regression, not a safety win.
-        return value unless self.class.provider_catalog_available?
 
-        providers = ::System::Provider.where(account_id: account.id, enabled: true).to_a
-        # No providers configured is an existing, defined state ("legacy/test
-        # path" per resolve_provider_choice) — nothing to validate against.
+        # Core mode has no catalog to validate against (nulling every value
+        # would be a regression, not a safety win), and zero configured
+        # providers is an existing, defined state ("legacy/test path" per
+        # resolve_provider_choice) — nothing to validate against either way.
+        providers = configured_providers
         return value if providers.empty?
 
         needle = value.downcase
@@ -566,6 +619,108 @@ module Ai
             "brief — the composer will ask which provider to use."
         )
         value
+      end
+
+      # The account's enabled provider catalog, or [] in core mode / when none
+      # are configured. Memoized per service instance: the prompt builder, the
+      # validator, the text-evidence matcher, and the region scrub must all see
+      # the same list within one capture/refine pass.
+      def configured_providers
+        return @configured_providers if defined?(@configured_providers)
+
+        @configured_providers =
+          if self.class.provider_catalog_available?
+            ::System::Provider.where(account_id: account.id, enabled: true).to_a
+          else
+            []
+          end
+      end
+
+      # Deterministic resolution layer: returns the single configured provider
+      # the operator's utterance names (by display name, provider_type, or id),
+      # or nil when the text names zero — or more than one, where picking is
+      # genuinely ambiguous and the LLM's constrained extraction stands.
+      #
+      # Matching is intentionally dumb string work: normalized (case-folded,
+      # [-_ ] collapsed) whole-token inclusion. Dumb is the point — this layer
+      # exists because it cannot hallucinate.
+      def provider_evidenced_in_text(text)
+        return nil if text.blank?
+
+        haystack = normalize_evidence(text)
+        matches = configured_providers.select do |provider|
+          [provider.name, provider.provider_type, provider.id].any? do |identifier|
+            needle = normalize_evidence(identifier.to_s)
+            next false if needle.length < MIN_EVIDENCE_NEEDLE_LENGTH
+
+            haystack.match?(/(?<![[:alnum:]])#{Regexp.escape(needle)}(?![[:alnum:]])/)
+          end
+        end
+        matches.size == 1 ? matches.first : nil
+      end
+
+      def normalize_evidence(str)
+        str.to_s.downcase.gsub(/[-_\s]+/, " ").strip
+      end
+
+      # Local-provider regions scrub, data-driven (was: unconditional emptying
+      # keyed on a hardcoded type list — which, combined with a misextracted
+      # provider, silently destroyed real multi-region intent).
+      #
+      # - Regions the local provider has CONFIGURED (ProviderRegion.region_code)
+      #   are real placement intent and survive.
+      # - A local pick that is UNCORROBORATED by the operator's text and whose
+      #   scrub would drop regions belonging to a DIFFERENT configured provider
+      #   is the misextraction signature: demote the pick to nil (the composer
+      #   asks which provider) and keep the regions. Never silently reroute.
+      # - Otherwise scrub as before: unconfigured cloud-style regions alongside
+      #   a local provider are confused intent, and the composer would try to
+      #   resolve a non-existent zone.
+      def apply_local_provider_region_scrub!(out, evidenced)
+        type = out["preferred_provider"].to_s
+        return unless LOCAL_PROVIDER_TYPES.include?(type)
+
+        regions = Array(out["regions"])
+        return if regions.empty?
+
+        provider = configured_providers.find { |p| p.provider_type.to_s == type }
+        unless provider
+          # Core mode / unconfigured local type: no region data to consult —
+          # preserve the original unconditional behavior.
+          out["regions"] = []
+          return
+        end
+
+        allowed = provider.provider_regions.pluck(:region_code).map { |c| c.to_s.downcase }
+        kept, dropped = regions.partition { |r| allowed.include?(r.to_s.downcase) }
+        return if dropped.empty?
+
+        corroborated = evidenced && evidenced.id == provider.id
+        if !corroborated && regions_belong_to_other_provider?(dropped, provider)
+          Rails.logger.warn(
+            "[IntentCaptureService] demoting uncorroborated preferred_provider " \
+              "#{type.inspect}: scrubbing would drop regions #{dropped.inspect}, which are " \
+              "configured on a different provider for account=#{account&.id}. Keeping the " \
+              "regions and letting the composer ask which provider to use."
+          )
+          out["preferred_provider"] = nil
+          return
+        end
+
+        Rails.logger.warn(
+          "[IntentCaptureService] dropping regions #{dropped.inspect} — not configured on " \
+            "local provider #{provider.name.inspect} (#{type}) for account=#{account&.id}"
+        )
+        out["regions"] = kept
+      end
+
+      def regions_belong_to_other_provider?(regions, provider)
+        other_codes = ::System::ProviderRegion
+                      .where(account_id: account.id)
+                      .where.not(provider_id: provider.id)
+                      .pluck(:region_code)
+                      .map { |c| c.to_s.downcase }
+        regions.any? { |r| other_codes.include?(r.to_s.downcase) }
       end
 
       def missing_fields_for(brief)

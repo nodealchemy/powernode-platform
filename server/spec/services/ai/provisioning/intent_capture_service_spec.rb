@@ -188,7 +188,19 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, type: :service do
         expect(result[:brief]["preferred_provider"]).to eq("aws")
       end
 
-      it "build_brief_prompt instructs the LLM how to populate preferred_provider" do
+      it "build_brief_prompt enumerates the account's configured providers as a closed set" do
+        # The account factory bootstraps a "Pro Cloud" provider (M1 self-serve),
+        # so this account has a catalog and the prompt must enumerate IT — not
+        # the generic cloud vocabulary, whose open-ended identifiers are what
+        # produced misextractions like 'pro_cloud' for a Proxmox provider.
+        prompt = service.send(:build_brief_prompt, "deploy on Hetzner", {}, :capture)
+        expect(prompt).to include("preferred_provider")
+        expect(prompt).to include("CLOSED SET")
+        expect(prompt).to include("Pro Cloud")
+      end
+
+      it "build_brief_prompt falls back to the generic provider rule without a catalog" do
+        allow(described_class).to receive(:provider_catalog_available?).and_return(false)
         prompt = service.send(:build_brief_prompt, "deploy on Hetzner", {}, :capture)
         expect(prompt).to include("preferred_provider")
         expect(prompt).to match(/AWS|Hetzner|DigitalOcean|GCP|Azure/i)
