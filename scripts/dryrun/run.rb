@@ -28,6 +28,9 @@ OptionParser.new do |o|
   o.on("--json PATH")    { |v| opts[:json] = v }
   o.on("--no-cleanup")   { opts[:cleanup] = false }
   o.on("--expected-count N", Integer) { |v| opts[:expected_count] = v }
+  o.on("--compose-timeout SEC", Integer) { |v| opts[:compose_timeout] = v }
+  o.on("--execute-timeout SEC", Integer) { |v| opts[:execute_timeout] = v }
+  o.on("--poll-interval SEC", Integer)   { |v| opts[:poll_interval] = v }
 end.parse!(ARGV.reject { |a| a == "run.rb" })
 
 abort("--account is required") unless opts[:account]
@@ -50,10 +53,15 @@ objective = opts[:objective] ||
             "Initial scale 3, target 3, steady growth. Monthly budget cap 5 USD. Every " \
             "created artifact must carry the dryrun- name prefix."
 
-result = Ai::Provisioning::DryrunHarness.new(
+harness_opts = {
   account: account, user: user, objective: objective, run_id: run_id,
   cleanup: opts[:cleanup], expected_count: opts[:expected_count]
-).run
+}
+harness_opts[:compose_timeout] = opts[:compose_timeout] if opts[:compose_timeout]
+harness_opts[:execute_timeout] = opts[:execute_timeout] if opts[:execute_timeout]
+harness_opts[:poll_interval]   = opts[:poll_interval]   if opts[:poll_interval]
+
+result = Ai::Provisioning::DryrunHarness.new(**harness_opts).run
 
 File.write(opts[:md], result.to_markdown) if opts[:md]
 File.write(opts[:json], JSON.pretty_generate(result.to_h)) if opts[:json]
@@ -64,4 +72,6 @@ result.findings.each { |f| warn "  [#{f.severity}] #{f.dimension}: #{f.detail}" 
 
 # stdout: machine-readable one-liner; exit code = finding count.
 puts JSON.generate(result.to_h.slice(:run_id, :passed, :exit_code, :oracles))
-exit(result.exit_code)
+# Clamp to a byte: a POSIX exit code wraps mod 256, so 256 findings would
+# otherwise exit 0 (a false pass). Any finding still exits non-zero.
+exit([ result.exit_code, 255 ].min)

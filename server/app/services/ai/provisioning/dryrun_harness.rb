@@ -4,17 +4,27 @@ module Ai
   module Provisioning
     # P2 — the repeatable, headless platform-autonomy dry-run.
     #
-    # Encodes the zero-intervention PASS proven live in run 20260809g into a
-    # single reusable driver: create a `dryrun-<runId>` mission, drive it
-    # through the real service pipeline (capture → compose → execute → verify),
-    # approve its OWN gates individually (never batch — only for the mission it
-    # created, only when marked dryrun), then grade the outcome against the
-    # protocol §5 oracles and tear the stack down.
+    # OBSERVER MODE. The harness is a *supervisor*, not a driver: it creates a
+    # `dryrun-<runId>` mission, then lets the REAL provisioning pipeline
+    # self-drive — exactly as the operator-in-the-loop runs (a–g) did — while
+    # the harness only (a) approves its OWN gates, one at a time, and (b) grades
+    # the outcome against the protocol §5 oracles and tears the stack down.
     #
-    # It is deliberately service-layer (not HTTP): the same object runs in a
-    # spec against stubbed providers and live on ops-hub via `rails runner`,
-    # exercising the actual phase machinery (F6 auto-advance, the F-d artifact
-    # gates, F2 live verification) rather than reimplementing it.
+    # Phase execution (capture → compose → execute → verify) happens where it
+    # lives in production: the worker's AiProvisioning*Job POST to the internal
+    # ProvisioningController, whose actions run the real services and self-advance
+    # (F6). The harness never re-implements that stitching — so a regression in
+    # the controllers, the runner, or F6 surfaces here instead of hiding behind a
+    # parallel in-process reimplementation.
+    #
+    # The ONE seam that differs between live and spec is who *pumps* the async
+    # work between the harness's phase polls:
+    #   - LIVE  (rails runner on ops-hub): `phase_pump` is nil → the harness
+    #     sleeps and polls; the standalone worker drains the job queue over HTTP.
+    #   - SPEC  (no worker): the caller injects a `phase_pump` that synchronously
+    #     drains the enqueued phase/step jobs by POSTing to the real internal
+    #     endpoints, so the controllers run in-process, one request at a time.
+    # The harness's supervisory code is byte-identical in both.
     #
     #   result = DryrunHarness.new(account:, user:, objective:, run_id: "20260809h").run
     #   result.exit_code   # == result.findings.size (0 = clean pass)
@@ -22,10 +32,15 @@ module Ai
     #
     # SAFETY: every artifact carries the `dryrun-<runId>` prefix (the
     # blast-radius boundary); teardown terminates ONLY instances under that
-    # prefix; the account's routing gate is restored to its prior value on the
-    # way out whether the run passes, fails, or raises.
+    # prefix, account-scoped, LIKE-escaped; the account's routing gate is
+    # restored to its prior value on the way out whether the run passes, fails,
+    # or raises.
     class DryrunHarness
       GATE_SETTING = "ai_task_tier_routing_enabled"
+      # A supervised run always approves handoff to reach adapting; handoff is a
+      # gate, never a valid resting place (M5: a second-signature account parks
+      # there, and grading that as terminal would be a false PASS).
+      TERMINAL_PHASES = %w[adapting completed].freeze
 
       Finding = Struct.new(:dimension, :detail, :severity, keyword_init: true) do
         def to_h = { dimension: dimension, detail: detail, severity: severity }
@@ -58,15 +73,33 @@ module Ai
         end
       end
 
+      # @param phase_pump [#call, nil] spec-only driver that drains enqueued
+      #   phase/step jobs and returns the count processed; nil ⇒ live (sleep+poll).
+      # @param compose_timeout/execute_timeout [Numeric] seconds to wait for the
+      #   pipeline to reach the review_plan and handoff gates respectively.
       def initialize(account:, user:, objective:, run_id:, cleanup: true, auto_approve: true,
-                     expected_count: nil)
+                     expected_count: nil, phase_pump: nil, poll_interval: 2,
+                     compose_timeout: 120, execute_timeout: 900)
         @account = account
         @user = user
         @objective = objective
         @run_id = run_id.to_s
+        # M4: run_id is the teardown blast-radius boundary and is interpolated
+        # into a SQL LIKE. Reject anything but [alnum-hyphen] so an operator can
+        # never pass a LIKE metacharacter ('%' matches every dryrun instance on
+        # the box; '_' is a single-char wildcard) or a prefix that subsumes
+        # another run.
+        unless @run_id.match?(/\A[A-Za-z0-9][A-Za-z0-9-]*\z/)
+          raise ArgumentError,
+                "run_id must be alphanumeric/hyphen (got #{@run_id.inspect}) — it scopes teardown"
+        end
         @cleanup = cleanup
         @auto_approve = auto_approve
         @expected_count = expected_count
+        @phase_pump = phase_pump
+        @poll_interval = poll_interval
+        @compose_timeout = compose_timeout
+        @execute_timeout = execute_timeout
         @findings = []
         @started_at = Time.current
         @mission_id = nil
@@ -77,93 +110,84 @@ module Ai
         mission = nil
         begin
           mission = create_and_start_mission!
-          brief = capture_intent!(mission)
-          plan = compose_plan!(mission, brief)
-          if plan
-            approve_gate!(mission, "review_plan")
-            execute!(mission, plan)
-            verify!(mission)
-            approve_gate!(mission, "handoff")
-            grade!(mission, plan, brief)
-          end
-          build_result(mission)
+          drive!(mission)
         ensure
-          teardown!(mission) if @cleanup
-          restore_gate!(prior_gate)
+          # M3: teardown must never rob the account of its gate restore. Nest so
+          # a raise in finalize! (cancel / teardown / instance query) still runs
+          # restore_gate!.
+          begin
+            finalize!(mission) if mission
+          ensure
+            restore_gate!(prior_gate)
+          end
         end
+        # build_result runs AFTER finalize! so teardown findings (M3) are counted
+        # in the exit code. It is skipped only when the body raised (a hard error
+        # the caller must see) — the safety-guard raises are exactly that.
+        build_result(mission)
       end
 
       private
 
       def name_prefix = "dryrun-#{@run_id}"
 
-      def enable_gate!
-        settings = @account.settings.is_a?(Hash) ? @account.settings : {}
-        prior = settings[GATE_SETTING]
-        @account.update!(settings: settings.merge(GATE_SETTING => true))
-        prior
-      end
-
-      def restore_gate!(prior)
-        settings = @account.reload.settings.is_a?(Hash) ? @account.settings : {}
-        if prior.nil?
-          settings.delete(GATE_SETTING)
-        else
-          settings[GATE_SETTING] = prior
+      # ---- supervision ---------------------------------------------------
+      # Supervise the real pipeline to completion. The harness only approves its
+      # own gates; capture/compose/execute/verify run on the worker (live) or
+      # the injected pump (spec), never re-implemented here.
+      def drive!(mission)
+        if await_phase(mission, "review_plan", gate: true, timeout: @compose_timeout)
+          if approve_gate!(mission, "review_plan") &&
+             await_phase(mission, "handoff", gate: true, timeout: @execute_timeout)
+            approve_gate!(mission, "handoff")
+            await_phase(mission, "adapting", gate: false, timeout: @poll_interval * 5)
+          end
         end
-        @account.update!(settings: settings)
+        record_stall_findings!(mission)
+        grade!(mission)
       end
 
-      def create_and_start_mission!
-        mission = ::Ai::Mission.create!(
-          account: @account, created_by: @user, mission_type: "infrastructure",
-          name: name_prefix, objective: @objective, status: "draft",
-          configuration: { "dryrun" => true, "dryrun_run_id" => @run_id }
-        )
-        ::Ai::Missions::OrchestratorService.new(mission: mission).start!
-        @mission_id = mission.id
-        mission.reload
-      end
+      # Poll (or pump) until the mission reaches `phase`. Returns true on reach,
+      # false on timeout / a failure park / no-progress. The failure DETAIL is
+      # recorded by record_stall_findings! so the wording stays in one place.
+      def await_phase(mission, phase, gate:, timeout:)
+        deadline = monotonic + timeout
+        loop do
+          m = uncached_reload(mission)
+          reached = m.current_phase.to_s == phase && (!gate || m.awaiting_approval?)
+          return true if reached
+          return false if %w[failed cancelled].include?(m.status.to_s)
+          # Any phase that records an error_message has failed and will not
+          # self-advance (F2 parks an unhealthy verify this way; a composer/
+          # capture failure similarly) — stop waiting immediately rather than
+          # sleeping to the deadline live (S4).
+          return false if m.error_message.present?
+          return false if monotonic > deadline
 
-      def capture_intent!(mission)
-        result = ::Ai::Provisioning::IntentCaptureService
-                 .new(account: @account, user: @user, conversation: mission.conversation)
-                 .capture(natural_language: @objective)
-        brief = result[:brief]
-        missing = Array(result[:missing_fields])
-        cfg = mission.configuration.deep_dup
-        cfg["brief"] = brief
-        cfg["brief_missing_fields"] = missing.map(&:to_s)
-        mission.update_columns(configuration: cfg)
-
-        add_finding("extraction", "brief incomplete: missing #{missing.inspect}", :high) if missing.any?
-        ::Ai::Missions::OrchestratorService.new(mission: mission).advance!(expected_phase: "capture_intent") if missing.empty?
-        brief
-      end
-
-      def compose_plan!(mission, _brief)
-        service = ::Ai::Missions::ComposerRouter.new(account: @account, mission: mission).select
-        plan = service.compose!
-        if plan.nil?
-          add_finding("compose", "composer returned no plan (cost cap / failure)", :high)
-          return nil
+          progressed = pump_or_sleep
+          # A pump that drained zero jobs without reaching the phase means the
+          # in-process pipeline has stalled — don't spin real-time to the
+          # deadline (live has no pump; it legitimately sleeps and re-polls).
+          return false if @phase_pump && progressed.to_i.zero?
         end
-        if plan.is_a?(Hash) && plan[:clarification_needed]
-          add_finding("compose", "unexpected clarification: #{plan[:message]}", :high)
-          return nil
-        end
-        mission.reload
-        # compose! persisted the pointer; drive the phase forward as F6 would.
-        ::Ai::Missions::OrchestratorService.new(mission: mission).advance!(expected_phase: "compose_plan")
-        plan
+      end
+
+      def pump_or_sleep
+        return @phase_pump.call if @phase_pump
+
+        sleep(@poll_interval)
+        0
       end
 
       def approve_gate!(mission, gate)
-        mission.reload
-        return unless mission.current_phase.to_s == gate
+        mission = uncached_reload(mission)
+        unless mission.current_phase.to_s == gate
+          add_finding("gate", "expected to approve '#{gate}' but mission is at '#{mission.current_phase}'", :high)
+          return false
+        end
         unless @auto_approve
-          add_finding("gate", "auto-approve disabled; halted at #{gate}", :info)
-          return
+          add_finding("gate", "auto-approve disabled; halted at #{gate}", :high)
+          return false
         end
         # SAFETY: only ever approve the dryrun mission this harness created.
         unless mission.name.to_s.start_with?("dryrun-")
@@ -171,38 +195,136 @@ module Ai
         end
         ::Ai::Missions::OrchestratorService.new(mission: mission)
           .handle_approval!(gate: gate, user: @user, decision: "approved")
+        # M5: the approval must actually move the mission off the gate. A
+        # second-signature gate (Business+ plans) records the first approval and
+        # stays put — headless we can never supply a second DISTINCT approver, so
+        # fail loudly instead of letting grade! bless a parked mission as PASS.
+        after = uncached_reload(mission)
+        if after.current_phase.to_s == gate
+          add_finding("gate", "approved '#{gate}' but mission did not advance (second-signature required?)", :high)
+          return false
+        end
+        true
       end
 
-      def execute!(mission, plan)
-        ::Ai::Provisioning::SkillCompositionRunner
-          .new(account: @account, mission: mission, plan: plan).execute!
+      # ---- setup / teardown ----------------------------------------------
+      # S4: settings is the account's DB-driven config surface; an unlocked
+      # read-modify-write of the whole hash clobbers any concurrent writer.
+      # Lock the row for both the enable and the restore.
+      def enable_gate!
+        @account.with_lock do
+          settings = @account.settings.is_a?(Hash) ? @account.settings : {}
+          prior = settings[GATE_SETTING]
+          @account.update!(settings: settings.merge(GATE_SETTING => true))
+          prior
+        end
       end
 
-      def verify!(mission)
-        # The runner's F6 advance moves execute→verify; run the real
-        # verification (F2) and record its verdict on the mission the same way
-        # the internal endpoint does.
+      def restore_gate!(prior)
+        @account.with_lock do
+          settings = @account.settings.is_a?(Hash) ? @account.settings : {}
+          if prior.nil?
+            settings.delete(GATE_SETTING)
+          else
+            settings[GATE_SETTING] = prior
+          end
+          @account.update!(settings: settings)
+        end
+      end
+
+      def create_and_start_mission!
+        # M4: two concurrent runs whose ids prefix-subsume each other would let
+        # one teardown catch the other's instances. Refuse to start when another
+        # live dryrun mission already exists for this account.
+        active = ::Ai::Mission
+                 .where(account_id: @account.id, mission_type: "infrastructure")
+                 .where("name LIKE ?", "dryrun-%")
+                 .where.not(status: ::Ai::Mission::TERMINAL_STATUSES)
+        if active.exists?
+          raise "refusing to start: a live dryrun mission already exists for this account " \
+                "(#{active.first.name}) — concurrent dryruns can cross blast radius"
+        end
+
+        mission = ::Ai::Mission.create!(
+          account: @account, created_by: @user, mission_type: "infrastructure",
+          name: name_prefix, objective: @objective, status: "draft",
+          configuration: { "dryrun" => true, "dryrun_run_id" => @run_id }
+        )
+        # start! dispatches the capture_intent job — the pipeline drives itself
+        # from here (worker live, injected pump in-spec).
+        ::Ai::Missions::OrchestratorService.new(mission: mission).start!
+        @mission_id = mission.id
         mission.reload
-        return unless mission.current_phase.to_s == "verify"
-        verification = ::Ai::Provisioning::VerificationService
-                       .new(account: @account, mission: mission).verify
-        cfg = mission.configuration.deep_dup
-        cfg["verification"] = { "healthy" => verification[:healthy],
-                                "checks" => verification[:checks].map(&:deep_stringify_keys) }
-        mission.update_columns(configuration: cfg)
+      end
 
-        if verification[:healthy]
-          # Healthy → advance verify→handoff (what the internal endpoint does).
-          ::Ai::Missions::OrchestratorService.new(mission: mission).advance!(expected_phase: "verify")
-        else
-          # Unhealthy → the phase FAILS: stay put, record the divergence.
-          failing = verification[:checks].reject { |c| c[:ok] }
-          add_finding("verify", "verification failed: #{failing.first(3).map { |c| c[:detail] }.join('; ')}", :high)
+      # Always runs (pass, fail, or stall). Order matters:
+      #   1. cancel the harness's OWN mission — M1 (a live/adapting mission would
+      #      block every future run) and M2 (a stalled run must terminalize the
+      #      pipeline before sweeping, not tear down under a still-live worker).
+      #   2. tear down the instances (only when @cleanup), recording completeness.
+      def finalize!(mission)
+        cancel_mission!(mission)
+        teardown!(mission) if @cleanup
+      end
+
+      def cancel_mission!(mission)
+        m = uncached_reload(mission)
+        return if ::Ai::Mission::TERMINAL_STATUSES.include?(m.status.to_s)
+
+        ::Ai::Missions::OrchestratorService.new(mission: m).cancel!(reason: "dryrun harness teardown")
+      rescue StandardError => e
+        Rails.logger.warn("[DryrunHarness] cancel of mission #{m&.id} failed: #{e.message}")
+      end
+
+      def teardown!(mission)
+        return unless defined?(::System::ProvisioningService)
+
+        svc = ::System::ProvisioningService.new
+        failed = []
+        dryrun_instances.each do |i|
+          next if i.status.to_s == "terminated"
+
+          # M3: terminate_instance returns Runtime::Result.err on provider refusal
+          # (it does NOT raise) — capture that, don't discard it.
+          result = svc.terminate_instance(instance: i)
+          failed << i.name if result.respond_to?(:success?) && !result.success?
+        rescue StandardError => e
+          failed << i.name
+          Rails.logger.warn("[DryrunHarness] teardown of #{i.name} failed: #{e.message}")
+        end
+
+        # S1/M3: teardown completeness (protocol §5 HARD criterion) is a FINDING,
+        # not just a log line — it must move the exit code so CI/cron can't read a
+        # leaked stack as a clean pass. build_result runs after finalize! so this
+        # is counted.
+        leftover = dryrun_instances.reject { |i| i.status.to_s == "terminated" }
+        if leftover.any?
+          add_finding("teardown", "teardown incomplete: #{leftover.size} instance(s) still present under " \
+                                  "#{name_prefix} (#{leftover.map(&:name).join(', ')})", :high)
+        elsif failed.any?
+          add_finding("teardown", "terminate reported failure for #{failed.uniq.join(', ')}", :high)
         end
       end
 
       # ---- §5 grading ----------------------------------------------------
-      def grade!(mission, plan, brief)
+      # Record WHY the pipeline halted short of a terminal phase, in one place.
+      def record_stall_findings!(mission)
+        m = uncached_reload(mission)
+        reason = m.error_message.presence
+        case m.current_phase.to_s
+        when "capture_intent"
+          missing = m.configuration.is_a?(Hash) ? m.configuration["brief_missing_fields"] : nil
+          add_finding("extraction", "brief incomplete, parked at capture_intent#{" (missing #{missing.inspect})" if missing.present?}", :high)
+        when "compose_plan"
+          add_finding("compose", "composer produced no plan#{" (#{reason})" if reason}", :high) unless plan_pointer(m)
+        when "verify"
+          add_finding("verify", "verification failed: #{reason || 'unhealthy'}", :high)
+        end
+      end
+
+      def grade!(mission)
+        brief = (mission.configuration.is_a?(Hash) ? mission.configuration["brief"] : nil) || {}
+        plan = resolve_plan(mission)
         instances = dryrun_instances
         expected = @expected_count || brief.dig("scale", "initial").to_i
 
@@ -227,45 +349,81 @@ module Ai
           add_finding("routing", "#{execution_count} LLM execution(s) but no RoutingDecision despite the gate", :low)
         end
         # Budget (F7): the snapshot surfaces a budget block when the brief caps.
-        if brief["budget_cap_usd_monthly"].present?
+        if plan && brief["budget_cap_usd_monthly"].present?
           snapshot = ::Ai::Provisioning::PlanSnapshotService.new(account: @account).snapshot(plan: plan)
           add_finding("budget", "snapshot did not surface a budget block", :low) if snapshot[:budget].nil?
+        end
+
+        # S1: a plan with docker_provision legs must yield DockerHosts — run g's
+        # headline oracle. Grading 0-as-fine would let the container-runtime
+        # handshake silently regress.
+        if plan_has_docker_leg?(plan) && docker_host_count.zero?
+          add_finding("docker", "plan has docker_provision leg(s) but no DockerHost was recorded", :medium)
+        end
+
+        # M2: the run must actually reach a terminal (adapting/completed) phase.
+        # A silently parked mission with instances present would otherwise grade
+        # PASS. S7: suppress this generic finding when a more specific stall
+        # reason (compose/verify/extraction/gate) already names the same defect —
+        # one defect, one finding, so the exit code stays a faithful count.
+        final = uncached_reload(mission).current_phase.to_s
+        already_explained = @findings.any? { |f| %w[compose verify extraction gate].include?(f.dimension) }
+        unless TERMINAL_PHASES.include?(final) || already_explained
+          add_finding("phase", "mission never reached adapting/completed (parked at '#{final}')", :high)
         end
       end
 
       def build_result(mission)
         Result.new(
-          run_id: @run_id, mission_id: mission&.id, reached_phase: mission&.reload&.current_phase,
+          run_id: @run_id, mission_id: mission&.id,
+          reached_phase: mission && uncached_reload(mission).current_phase,
           findings: @findings,
           oracles: {
             "instances" => dryrun_instances.size,
             "docker_hosts" => docker_host_count,
             "skill_usage" => skill_usage_count,
+            # account-wide, time-windowed best-effort — see the oracle queries.
             "llm_executions" => execution_count,
             "routing_decisions" => routing_count,
-            "verify_healthy" => mission&.configuration&.dig("verification", "healthy")
+            "verify_healthy" => (mission&.configuration&.dig("verification", "healthy") ||
+              mission&.configuration&.dig("verification_result", "healthy")) == true
           }
         )
       end
 
-      def teardown!(mission)
-        return unless defined?(::System::ProvisioningService)
+      # A synthesized plan carries one docker_provision leg per instance; if any
+      # exists, the run is expected to produce DockerHosts.
+      def plan_has_docker_leg?(plan)
+        return false unless plan
 
-        svc = ::System::ProvisioningService.new
-        dryrun_instances.each do |i|
-          next if i.status.to_s == "terminated"
-
-          svc.terminate_instance(instance: i)
-        rescue StandardError => e
-          Rails.logger.warn("[DryrunHarness] teardown of #{i.name} failed: #{e.message}")
+        steps = plan.respond_to?(:steps) ? plan.steps.to_a : Array(plan)
+        steps.any? do |s|
+          cfg = s.respond_to?(:execution_config) ? (s.execution_config || {}) : {}
+          (cfg["skill"] || cfg[:skill]).to_s == "docker_provision"
         end
+      rescue StandardError
+        false
       end
 
-      # ---- oracle queries ------------------------------------------------
+      # ---- oracle / plan queries -----------------------------------------
+      def plan_pointer(mission)
+        mission.configuration.is_a?(Hash) ? mission.configuration.dig("plan", "plan_id") : nil
+      end
+
+      def resolve_plan(mission)
+        id = plan_pointer(mission)
+        return nil unless id && defined?(::Ai::GoalPlan)
+
+        ::Ai::GoalPlan.find_by(id: id)
+      end
+
       def dryrun_instances
         return [] unless defined?(::System::NodeInstance)
 
-        ::System::NodeInstance.where("name LIKE ?", "#{name_prefix}%").to_a
+        # M4: escape LIKE metacharacters in the prefix and scope to THIS account
+        # so teardown/grading can never reach another run's or tenant's instances.
+        like = "#{ActiveRecord::Base.sanitize_sql_like(name_prefix)}%"
+        ::System::NodeInstance.where(account_id: @account.id).where("name LIKE ?", like).to_a
       end
 
       def docker_host_count
@@ -274,11 +432,13 @@ module Ai
         ::Devops::DockerHost.where(node_instance_id: dryrun_instances.map(&:id)).count
       end
 
+      # S2: mission-scoped by design. The old rescue fell back to an account-wide
+      # ALL-TIME provisioning_step count that prior runs make positive — masking
+      # both a query error and a genuine zero. The metadata->>'mission_id' query
+      # is valid (jsonb column; the runner writes mission_id), so no fallback.
       def skill_usage_count
         ::Ai::SkillUsageRecord.where(account_id: @account.id)
           .where("metadata->>'mission_id' = ?", @mission_id.to_s).count
-      rescue StandardError
-        ::Ai::SkillUsageRecord.where(account_id: @account.id, execution_type: "provisioning_step").count
       end
 
       def routing_count
@@ -292,6 +452,13 @@ module Ai
       rescue StandardError
         0
       end
+
+      def uncached_reload(mission)
+        # rails-runner poll loops otherwise serve stale rows from the query cache.
+        mission.class.uncached { mission.reload }
+      end
+
+      def monotonic = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       def add_finding(dimension, detail, severity)
         @findings << Finding.new(dimension: dimension, detail: detail, severity: severity)
