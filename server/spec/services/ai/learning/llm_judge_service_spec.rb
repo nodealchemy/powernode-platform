@@ -227,6 +227,52 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       end
     end
 
+    # The judge's output contract is strict JSON scores parsed by
+    # #parse_evaluation — a reasoning-tier substitution that answers in prose
+    # silently degrades every score to the 3/3/3/5 defaults. A SUBSTITUTING
+    # resolution is therefore declined (baseline model sent, decision annotated
+    # considered-but-not-applied), mirroring IntentCaptureService.
+    context "gate ON with a SUBSTITUTING resolution (JSON-output guard)" do
+      before { account.update!(settings: { "ai_task_tier_routing_enabled" => true }) }
+
+      let(:judge_response) do
+        Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+                               usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+      end
+      let(:derived_default) { judge_agent.resolved_model }
+      let(:resolution) do
+        instance_double(Ai::Routing::TaskTierResolver::Resolution,
+                        model: "some-reasoning-model", effort: "high", tier: :reasoning,
+                        baseline_model: derived_default)
+      end
+
+      before do
+        allow(service).to receive(:resolve_task_tier).and_return(resolution)
+        allow(service).to receive(:routing_decision_id).and_return("rd-9")
+        allow(service).to receive(:annotate_unapplied_resolution!)
+      end
+
+      it "declines the substitution — judges with the baseline model and reflects it in evaluator_model" do
+        expect(client).to receive(:complete) do |**opts|
+          expect(opts[:model]).to eq(derived_default)
+          expect(opts[:effort]).to be_nil
+          judge_response
+        end
+        service.evaluate(agent_output: "Test output")
+        expect(service.evaluator_model).to eq(derived_default)
+      end
+
+      it "annotates the decision as considered-but-not-applied, with the delivered model" do
+        allow(client).to receive(:complete).and_return(judge_response)
+        expect(service).to receive(:annotate_unapplied_resolution!) do |id, reason:, delivered_model:|
+          expect(id).to eq("rd-9")
+          expect(reason).to match(/json/i)
+          expect(delivered_model).to eq(derived_default)
+        end
+        service.evaluate(agent_output: "Test output")
+      end
+    end
+
     context "gate ON but the caller explicitly pinned evaluator_model" do
       before { account.update!(settings: { "ai_task_tier_routing_enabled" => true }) }
 
@@ -239,6 +285,26 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
         )
         pinned_service.evaluate(agent_output: "Test output")
       end
+    end
+  end
+
+  describe "parse misses are loud" do
+    # "A silently-unparseable judge degrades learning invisibly" — when the
+    # response yields no parseable JSON the neutral 3/3/3/5 defaults are
+    # applied, which is invisible in every downstream metric. The defaults
+    # stay (fail-soft is correct here) but the miss must be logged.
+    it "warns when the judge response contains no JSON object" do
+      expect(Rails.logger).to receive(:warn).with(/no JSON|parse/i).at_least(:once)
+      allow(Rails.logger).to receive(:warn).and_call_original
+      result = service.send(:parse_evaluation, "I think this output is quite good overall.")
+      expect(result[:scores]["correctness"]).to eq(3)
+    end
+
+    it "warns when the JSON fails to parse" do
+      expect(Rails.logger).to receive(:warn).with(/no JSON|parse/i).at_least(:once)
+      allow(Rails.logger).to receive(:warn).and_call_original
+      result = service.send(:parse_evaluation, '{"correctness": broken')
+      expect(result[:scores]["correctness"]).to eq(3)
     end
   end
 

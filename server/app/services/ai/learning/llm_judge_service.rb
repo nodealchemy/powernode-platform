@@ -86,10 +86,25 @@ module Ai
         # articulable override, same precedence the resolver itself gives an
         # agent-level model pin. Gated OFF by default ⇒ resolve_task_tier
         # returns nil, model/effort unchanged.
+        # The judge's output contract is strict JSON scores parsed by
+        # #parse_evaluation — a reasoning-tier substitution that answers in
+        # prose degrades every score to the neutral 3/3/3/5 defaults, which is
+        # invisible downstream. A substituting resolution is declined (decision
+        # recorded + annotated), mirroring IntentCaptureService#safe_complete.
         if @explicit_evaluator_model.blank? &&
            (resolution = resolve_task_tier(agent: agent, task_type: "analysis", messages: messages))
-          model = resolution.model.presence || model
-          effort = resolution.effort
+          if resolution_applicable?(resolution, :structured_json)
+            model = resolution.model.presence || model
+            effort = resolution.effort
+          else
+            annotate_unapplied_resolution!(
+              routing_decision_id,
+              reason: "judge output contract is strict JSON scores; substituting " \
+                      "#{resolution.model.inspect} for #{model.inspect} is not permitted " \
+                      "without a verified structured-output capability signal",
+              delivered_model: model
+            )
+          end
         end
 
         # Expose the model actually used so EvaluationService can audit it.
@@ -113,7 +128,16 @@ module Ai
         return default_scores unless response
 
         json_match = response.to_s.match(/\{[^}]+\}/)
-        return default_scores unless json_match
+        unless json_match
+          # A silently-unparseable judge degrades learning invisibly: the
+          # neutral defaults below are indistinguishable from a real mediocre
+          # score in every downstream metric. Fail-soft stays; silence doesn't.
+          Rails.logger.warn(
+            "[LlmJudge] evaluation response contained no JSON object; applying neutral " \
+              "default scores; excerpt: #{response.to_s.strip[0, 200].inspect}"
+          )
+          return default_scores
+        end
 
         parsed = JSON.parse(json_match[0])
 
@@ -125,7 +149,11 @@ module Ai
         }
 
         { scores: scores, feedback: parsed["feedback"] }
-      rescue JSON::ParserError
+      rescue JSON::ParserError => e
+        Rails.logger.warn(
+          "[LlmJudge] evaluation JSON parse failed: #{e.message}; applying neutral " \
+            "default scores; excerpt: #{response.to_s.strip[0, 200].inspect}"
+        )
         default_scores
       end
 

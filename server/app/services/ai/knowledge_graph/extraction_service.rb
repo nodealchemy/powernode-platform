@@ -224,9 +224,27 @@ module Ai
           # inc4: governed per-task tier routing ("extraction" — bulk KG
           # extraction has no escalation basis of its own). Gated OFF by
           # default ⇒ resolve_task_tier returns nil, model/effort unchanged.
+          #
+          # This seam's output contract is structured JSON (EXTRACTION_SCHEMA),
+          # which the resolver cannot reason about — the same shape whose
+          # substitution broke intent capture (a reasoning-tier model answered
+          # in prose and the brief came back empty; here the parse miss would
+          # silently empty the graph). Substitution is declined, the decision
+          # recorded and annotated with why, so the routing oracle stays
+          # complete. Same guard as IntentCaptureService#safe_complete.
           if agent && (resolution = resolve_task_tier(agent: agent, task_type: "extraction", messages: messages))
-            call_model = resolution.model.presence || model
-            call_effort = resolution.effort
+            if resolution_applicable?(resolution, :structured_json)
+              call_model = resolution.model.presence || model
+              call_effort = resolution.effort
+            else
+              annotate_unapplied_resolution!(
+                routing_decision_id,
+                reason: "caller requires structured JSON (EXTRACTION_SCHEMA); substituting " \
+                        "#{resolution.model.inspect} for #{model.inspect} is not permitted " \
+                        "without a verified structured-output capability signal",
+                delivered_model: model
+              )
+            end
           end
 
           response = client.complete_structured(
