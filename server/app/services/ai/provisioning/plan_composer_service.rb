@@ -430,6 +430,9 @@ module Ai
         # AFTER the collapse, and the ordering is load-bearing: collapse is what
         # sums duplicate counts into the single total this pass then divides.
         fan_out_regions!(plan, brief)
+        # AFTER the fan-out — docker wiring maps onto the FINAL provision-step
+        # layout (per-region siblings included), not the pre-split step.
+        wire_docker_provision_steps!(plan)
       end
 
       # Skills whose steps carry an instance count worth distributing.
@@ -504,6 +507,97 @@ module Ai
           Rails.logger.info(
             "[PlanComposerService] fanned step #{origin_number} across " \
               "#{regions.map { |r| r.region_code.presence || r.name }.inspect} as #{shares.inspect} (total #{total})"
+          )
+        end
+      end
+
+      # Wire docker_provision steps to the instances their predecessors will
+      # create (F-a, IMP 019fe5d6-f429). The LLM decomposition emits ONE
+      # docker step depending on the provision steps, with no inputs — but
+      # DockerProvisionExecutor takes a single node_instance_id, and instance
+      # ids do not exist at compose time. Observed live (dryrun 20260809b):
+      # the unwired step raised 'missing required input: node_instance_id' and
+      # the handshake leg never ran.
+      #
+      # Rewrite: each unwired docker step becomes ONE STEP PER INSTANCE —
+      # for every provision step with count k, k docker siblings wired via the
+      # runner's cross-step mechanism (`depends_on_outputs`, integer `select`
+      # indexing into that step's outputs.node_instance_ids) and depending
+      # ONLY on their own provision step, so one region's docker failure
+      # neither blocks nor implicates the other's leg. Mirrors the fan-out
+      # pattern: first sibling reuses the original row, downstream dependents
+      # are repointed onto all siblings.
+      def wire_docker_provision_steps!(plan)
+        steps = plan.steps.reload.order(:step_number).to_a
+        provision_steps = steps.select do |s|
+          FAN_OUT_SKILLS.include?((s.execution_config || {})["skill"].to_s)
+        end
+        next_number = steps.map { |s| s.step_number.to_i }.max.to_i
+
+        steps.each do |step|
+          cfg = step.execution_config.is_a?(Hash) ? step.execution_config.deep_stringify_keys : {}
+          next unless cfg["skill"].to_s == "docker_provision"
+          # Already wired (an explicit id or an existing mapping is a
+          # deliberate compose-time choice) — leave it alone.
+          next if cfg["depends_on_outputs"].present?
+          next if (cfg["inputs"] || {})["node_instance_id"].present?
+
+          if provision_steps.empty?
+            Rails.logger.warn(
+              "[PlanComposerService] docker_provision step #{step.step_number} has no provision step " \
+                "to wire node_instance_id from; leaving it unwired"
+            )
+            next
+          end
+
+          origin_number = step.step_number.to_i
+          targets = provision_steps.flat_map do |p|
+            count = (Integer((p.execution_config.dig("inputs", "count") || 1)) rescue 1)
+            Array.new([ count, 1 ].max) { |idx| [ p, idx ] }
+          end
+
+          sibling_numbers = []
+          targets.each_with_index do |(p, idx), i|
+            sib_cfg = cfg.deep_dup
+            sib_cfg["depends_on_outputs"] = {
+              "node_instance_id" => {
+                "from_step" => p.step_number.to_i,
+                "path" => "outputs.node_instance_ids",
+                "select" => idx
+              }
+            }
+            description = "#{step.description.presence || 'Docker provision'} · instance #{i + 1} of #{targets.size}"
+
+            if i.zero?
+              step.update!(description: description,
+                           dependencies: [ p.step_number.to_i ],
+                           execution_config: sib_cfg)
+            else
+              next_number += 1
+              plan.steps.create!(
+                step_number: next_number,
+                step_type: step.step_type,
+                description: description,
+                dependencies: [ p.step_number.to_i ],
+                execution_config: sib_cfg
+              )
+              sibling_numbers << next_number
+            end
+          end
+
+          plan.steps.reload.each do |other|
+            deps = Array(other.dependencies).map(&:to_i)
+            next unless deps.include?(origin_number)
+            next if sibling_numbers.include?(other.step_number.to_i)
+            next if other.id == step.id
+
+            other.update!(dependencies: (deps + sibling_numbers).uniq)
+          end
+
+          Rails.logger.info(
+            "[PlanComposerService] wired docker_provision step #{origin_number} into " \
+              "#{targets.size} per-instance step(s) across provision steps " \
+              "#{provision_steps.map(&:step_number).inspect}"
           )
         end
       end
