@@ -129,5 +129,79 @@ RSpec.describe Ai::KnowledgeGraph::ExtractionService, type: :service do
         expect(decision.rationale.dig("complexity", "task_type")).to eq("extraction")
       end
     end
+
+    # This seam's output contract is structured JSON (EXTRACTION_SCHEMA) — the
+    # same shape that broke intent capture when a reasoning-tier substitution
+    # answered in prose. A resolution that would substitute a different model is
+    # declined (baseline sent, decision annotated considered-but-not-applied);
+    # a non-substituting resolution still applies. Mirrors
+    # intent_capture_tier_routing_spec.rb / intent_capture_contract_spec.rb.
+    context "gate ON with a SUBSTITUTING resolution (structured-output guard)" do
+      let(:response) do
+        Ai::Llm::Response.new(content: '{"entities": [], "relations": []}',
+                               usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 })
+      end
+      let(:resolution) do
+        instance_double(Ai::Routing::TaskTierResolver::Resolution,
+                        model: "some-reasoning-model", effort: "high", tier: :reasoning,
+                        baseline_model: "claude-sonnet-5")
+      end
+
+      before do
+        account.update!(settings: { "ai_task_tier_routing_enabled" => true })
+        allow(service).to receive(:resolve_task_tier).and_return(resolution)
+        allow(service).to receive(:routing_decision_id).and_return("rd-123")
+        allow(service).to receive(:annotate_unapplied_resolution!)
+      end
+
+      it "declines the substitution — sends the baseline model without the resolver's effort" do
+        expect(client).to receive(:complete_structured) do |**opts|
+          expect(opts[:model]).to eq("claude-sonnet-5")
+          expect(opts[:effort]).to be_nil
+          response
+        end
+        service.extract_from_text(text: "Ruby uses Rails.")
+      end
+
+      it "annotates the decision as considered-but-not-applied, with the delivered model" do
+        allow(client).to receive(:complete_structured).and_return(response)
+        expect(service).to receive(:annotate_unapplied_resolution!) do |id, reason:, delivered_model:|
+          expect(id).to eq("rd-123")
+          expect(reason).to match(/structured/i)
+          expect(delivered_model).to eq("claude-sonnet-5")
+        end
+        service.extract_from_text(text: "Ruby uses Rails.")
+      end
+
+      it "still links the routing decision to the execution the call creates" do
+        expect(client).to receive(:complete_structured)
+          .with(hash_including(routing_decision_id: "rd-123")).and_return(response)
+        service.extract_from_text(text: "Ruby uses Rails.")
+      end
+    end
+
+    context "gate ON with a NON-substituting resolution" do
+      let(:response) do
+        Ai::Llm::Response.new(content: '{"entities": [], "relations": []}',
+                               usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 })
+      end
+      let(:resolution) do
+        instance_double(Ai::Routing::TaskTierResolver::Resolution,
+                        model: "claude-sonnet-5", effort: "low", tier: :light,
+                        baseline_model: "claude-sonnet-5")
+      end
+
+      before do
+        account.update!(settings: { "ai_task_tier_routing_enabled" => true })
+        allow(service).to receive(:resolve_task_tier).and_return(resolution)
+        allow(service).to receive(:routing_decision_id).and_return("rd-456")
+      end
+
+      it "applies the resolution's model and effort" do
+        expect(client).to receive(:complete_structured)
+          .with(hash_including(model: "claude-sonnet-5", effort: "low")).and_return(response)
+        service.extract_from_text(text: "Ruby uses Rails.")
+      end
+    end
   end
 end
