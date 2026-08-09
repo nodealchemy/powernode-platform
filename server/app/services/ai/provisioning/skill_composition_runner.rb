@@ -404,13 +404,17 @@ module Ai
         duration_ms = if started_at
                         ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round
                       end
-        ::Ai::SkillUsageRecord.create!(
-          account_id: account_id,
-          ai_skill_id: skill.id,
+        # Route through Ai::Skill#record_usage! (not a bare create!) so the
+        # skill's usage_count / effectiveness counters move — otherwise F5
+        # rows accumulate while F4's single-usage effectiveness gate never
+        # fires on the mission path (adversarial review of IMP-019fe817).
+        # account: is the USING account (the skill may be global).
+        skill.record_usage!(
           outcome: outcome,
           duration_ms: duration_ms,
-          execution_type: "provisioning_step",
           execution_id: step_id(step),
+          execution_type: "provisioning_step",
+          account: @account,
           metadata: {
             "mission_id" => (mission.respond_to?(:id) ? mission.id : nil),
             "step_number" => step.step_number.to_i,
@@ -435,7 +439,10 @@ module Ai
       # display-name fallback for any skill registered off-convention.
       def resolve_skill_for_usage(account_id, skill_name)
         dashed = skill_name.tr("_", "-")
-        candidate_slugs = [ skill_name, dashed, "system-#{dashed}" ].uniq
+        # system-prefixed first, matching resolve_executor's System:: > Ai::
+        # namespace precedence (adversarial review): the executor that ran is
+        # system-registered, so its slug wins over a bare/dashed collision.
+        candidate_slugs = [ "system-#{dashed}", dashed, skill_name ].uniq
         candidate_slugs.each do |slug|
           skill = ::Ai::Skill.resolve_for(account_id, slug: slug)
           return skill if skill

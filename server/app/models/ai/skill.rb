@@ -236,14 +236,23 @@ module Ai
       update!(is_enabled: false)
     end
 
-    def record_usage!(outcome:, agent: nil, duration_ms: nil, execution_id: nil, execution_type: nil)
+    # `account:` overrides which account the usage row is billed to — needed
+    # because a GLOBAL skill (account_id nil) still gets used by a specific
+    # account, and SkillUsageRecord#account is a required FK (IMP 019fe817).
+    # Callers holding the using-account (e.g. the provisioning runner) pass it;
+    # otherwise it defaults to the skill's own account, preserving prior
+    # behavior for account-scoped skills. `metadata:` carries call-site context
+    # (mission_id, step_number, …).
+    def record_usage!(outcome:, agent: nil, duration_ms: nil, execution_id: nil,
+                      execution_type: nil, account: self.account, metadata: {})
       usage_records.create!(
         account: account,
         ai_agent_id: agent&.id,
         outcome: outcome,
         duration_ms: duration_ms,
         execution_id: execution_id,
-        execution_type: execution_type
+        execution_type: execution_type,
+        metadata: metadata
       )
 
       increment!(:usage_count)

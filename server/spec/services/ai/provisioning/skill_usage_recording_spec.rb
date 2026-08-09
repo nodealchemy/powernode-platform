@@ -80,6 +80,31 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner, "skill usage recording"
     expect(record.metadata["step_number"]).to eq(1)
   end
 
+  # IMP 019fe817 follow-on: recording must go through Ai::Skill#record_usage!
+  # so the effectiveness counters move — a bare SkillUsageRecord.create!
+  # leaves usage_count at 0 and effectiveness frozen, defeating F4's
+  # single-usage recalc gate on the mission path (adversarial review finding).
+  it "bumps the skill's usage counters and effectiveness, not just the row" do
+    fake_executor_class.execute_result = { success: true, data: {} }
+
+    runner.execute_step!(step)
+
+    skill.reload
+    expect(skill.usage_count).to eq(1)
+    expect(skill.positive_usage_count).to eq(1)
+    expect(skill.last_used_at).to be_present
+    expect(skill.usage_success_rate).to eq(1.0)
+  end
+
+  it "counts a global (account-less) skill's usage under the USING account, not nil" do
+    skill.update!(account_id: nil) # resolve_for deliberately returns globals
+    fake_executor_class.execute_result = { success: true, data: {} }
+
+    expect { runner.execute_step!(step) }.to change(Ai::SkillUsageRecord, :count).by(1)
+    expect(Ai::SkillUsageRecord.last.account_id).to eq(account.id)
+    expect(skill.reload.usage_count).to eq(1)
+  end
+
   it "records a failure usage row when the executor fails" do
     fake_executor_class.execute_result = { success: false, error: "boom" }
 
