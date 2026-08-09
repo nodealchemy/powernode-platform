@@ -149,4 +149,71 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "docker_provision wiring",
     expect(dockers.size).to eq(1)
     expect(dockers.first.execution_config).not_to have_key("depends_on_outputs")
   end
+
+  # F-1 (IMP 019fe76e-6a43): the LLM decomposition NONDETERMINISTICALLY omits
+  # the container-runtime leg — run 20260809c's plan had docker steps, run
+  # 20260809d's (identical objective, use case naming 'the container-runtime
+  # handshake') had none. Whether a stated requirement exists in the plan is
+  # not the LLM's decision: when the brief demands runtime work and the
+  # decomposition emitted no docker_provision step, append one — the wiring
+  # pass then fans and wires it exactly as if the LLM had emitted it.
+  describe "#ensure_runtime_leg!" do
+    let(:runtime_brief) do
+      { "use_case" => "an end-to-end platform-validation test workload exercising " \
+                      "provisioning, module assignment, and the container-runtime handshake" }
+    end
+
+    def ensure!(brief)
+      service.send(:ensure_runtime_leg!, plan, brief)
+      plan.steps.reload.order(:step_number).to_a
+    end
+
+    it "appends a docker step when the brief demands runtime work and none exists" do
+      provision_step!(1, 2)
+      provision_step!(2, 1)
+
+      steps = ensure!(runtime_brief)
+      dockers = docker_steps(steps)
+      expect(dockers.size).to eq(1)
+      expect(Array(dockers.first.dependencies).map(&:to_i)).to match_array([1, 2])
+      expect(dockers.first.execution_config["on_failure"]).to eq("rollback")
+    end
+
+    it "the appended step is then fanned + wired by the wiring pass (the run-d shape)" do
+      provision_step!(1, 2)
+      provision_step!(2, 1)
+      ensure!(runtime_brief)
+
+      dockers = docker_steps(wire!)
+      expect(dockers.size).to eq(3)
+      expect(dockers.map { |s| m = s.execution_config.dig("depends_on_outputs", "node_instance_id"); [m["from_step"], m["select"]] })
+        .to match_array([[1, 0], [1, 1], [2, 0]])
+    end
+
+    it "does nothing when the decomposition already emitted a docker step" do
+      provision_step!(1, 1)
+      docker_step!(2, [1])
+      steps = ensure!(runtime_brief)
+      expect(docker_steps(steps).size).to eq(1)
+    end
+
+    it "does nothing when the brief does not demand runtime work" do
+      provision_step!(1, 1)
+      steps = ensure!("use_case" => "a plain postgres database", "intent" => "provision a db")
+      expect(docker_steps(steps)).to be_empty
+    end
+
+    it "honors runtime_hint: docker as the demand signal" do
+      provision_step!(1, 1)
+      steps = ensure!("use_case" => "run my app", "runtime_hint" => "docker")
+      expect(docker_steps(steps).size).to eq(1)
+    end
+
+    it "warns and appends nothing when there are no provision steps to hang it on" do
+      expect(Rails.logger).to receive(:warn).with(/no provision step/i).at_least(:once)
+      allow(Rails.logger).to receive(:warn).and_call_original
+      steps = ensure!(runtime_brief)
+      expect(docker_steps(steps)).to be_empty
+    end
+  end
 end
