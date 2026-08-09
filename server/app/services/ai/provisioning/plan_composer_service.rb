@@ -146,6 +146,21 @@ module Ai
         return plan unless plan
 
         rewrite_steps!(plan, brief)
+
+        # Compose-time prerequisite validation (IMP 019fe647): the rewritten
+        # plan's skills are final here, so ask the extension whether they can
+        # actually run against the chosen template (e.g. docker_provision
+        # needs an SDWAN overlay). Issues surface as the SAME clarification
+        # shape resolve_provider_choice uses — every caller already renders
+        # it — instead of runtime step failures the review gate never saw
+        # coming. NOTE: the un-persisted plan is deliberately abandoned here;
+        # no pointer is written, so a corrected retry recomposes fresh.
+        prereq_clarification = check_plan_prerequisites(
+          skills: plan.steps.reload.filter_map { |s| (s.execution_config || {})["skill"].presence },
+          template_id: resolve_template(brief)&.id
+        )
+        return prereq_clarification if prereq_clarification
+
         attach_role_module_to_template!(brief)
         append_deploy_app_code_step!(plan, brief) if brief["repo_url"].present?
         persist_plan_pointer!(plan)
@@ -509,6 +524,36 @@ module Ai
               "#{regions.map { |r| r.region_code.presence || r.name }.inspect} as #{shares.inspect} (total #{total})"
           )
         end
+      end
+
+      # Compose-time prerequisite check via the `provision_prerequisites`
+      # extension seam (IMP 019fe647). Returns a clarification Hash when the
+      # checker reports issues, nil otherwise. Core mode (no checker) is a
+      # no-op, and a BROKEN checker fails OPEN with a warning — prerequisite
+      # advice must never be the thing that blocks all composition.
+      def check_plan_prerequisites(skills:, template_id:)
+        checker = ::Powernode::ExtensionRegistry.provider(:provision_prerequisites)
+        return nil unless checker
+
+        issues = Array(checker.check(account: account, template_id: template_id,
+                                     skills: Array(skills).uniq))
+        return nil if issues.empty?
+
+        Rails.logger.warn(
+          "[PlanComposerService] compose-time prerequisites unmet for mission=#{mission&.id}: " \
+            "#{issues.inspect[0, 400]}"
+        )
+        {
+          clarification_needed: true,
+          message: "This plan has unmet prerequisites: #{issues.join('; ')}",
+          prerequisite_issues: issues
+        }
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[PlanComposerService] prerequisite check failed (#{e.class}: #{e.message[0, 150]}); " \
+            "proceeding without compose-time validation"
+        )
+        nil
       end
 
       # Wire docker_provision steps to the instances their predecessors will
