@@ -445,9 +445,67 @@ module Ai
         # AFTER the collapse, and the ordering is load-bearing: collapse is what
         # sums duplicate counts into the single total this pass then divides.
         fan_out_regions!(plan, brief)
+        # AFTER the fan-out and BEFORE the wiring: append the runtime leg the
+        # decomposition nondeterministically omits, so the wiring pass fans +
+        # wires an appended step exactly as it would an LLM-emitted one.
+        ensure_runtime_leg!(plan, brief)
         # AFTER the fan-out — docker wiring maps onto the FINAL provision-step
         # layout (per-region siblings included), not the pre-split step.
         wire_docker_provision_steps!(plan)
+      end
+
+      # Brief signals that the operator's stated intent includes container-
+      # runtime work. Deliberately narrow: an explicit runtime_hint of docker,
+      # or docker/container language in the use_case/intent the extractor
+      # carried over verbatim.
+      RUNTIME_LEG_SIGNALS = /\b(docker|containers?[- ]?|container-runtime)/i
+
+      # Deterministic decomposition-completeness pass (F-1, IMP 019fe76e-6a43).
+      # Run 20260809c's decomposition emitted docker_provision steps; run
+      # 20260809d's — identical objective, use case naming 'the
+      # container-runtime handshake' — emitted none, and the handshake leg
+      # simply didn't exist. Whether a requirement the brief STATES appears in
+      # the plan is not the LLM's decision (same closed-set philosophy as
+      # IMP-019fe47a): when the brief demands runtime work and the plan has no
+      # docker step, append one depending on every provision step;
+      # #wire_docker_provision_steps! then fans it per-instance.
+      def ensure_runtime_leg!(plan, brief)
+        return unless brief_demands_runtime?(brief)
+
+        steps = plan.steps.reload.to_a
+        return if steps.any? { |s| (s.execution_config || {})["skill"].to_s == "docker_provision" }
+
+        provision_numbers = steps
+                            .select { |s| FAN_OUT_SKILLS.include?((s.execution_config || {})["skill"].to_s) }
+                            .map { |s| s.step_number.to_i }
+        if provision_numbers.empty?
+          Rails.logger.warn(
+            "[PlanComposerService] brief demands container-runtime work but the plan has " \
+              "no provision step to hang a docker leg on; leaving the plan as decomposed"
+          )
+          return
+        end
+
+        next_number = steps.map { |s| s.step_number.to_i }.max.to_i + 1
+        plan.steps.create!(
+          step_number: next_number,
+          step_type: "provisioning_skill",
+          description: "Docker provision",
+          dependencies: provision_numbers,
+          execution_config: { "skill" => "docker_provision", "inputs" => {},
+                              "on_failure" => "rollback" }
+        )
+        Rails.logger.info(
+          "[PlanComposerService] decomposition omitted the runtime leg the brief demands — " \
+            "appended docker_provision step #{next_number} (deps #{provision_numbers.inspect})"
+        )
+      end
+
+      def brief_demands_runtime?(brief)
+        return false unless brief.is_a?(Hash)
+        return true if brief["runtime_hint"].to_s.casecmp?("docker")
+
+        [ brief["use_case"], brief["intent"] ].any? { |t| t.to_s.match?(RUNTIME_LEG_SIGNALS) }
       end
 
       # Skills whose steps carry an instance count worth distributing.
