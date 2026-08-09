@@ -15,11 +15,20 @@ module Ai
     #      calls back into this method via the internal API; here we resolve
     #      the skill executor, run it with the step's inputs, mark progress,
     #      and dispatch any newly-unblocked successors. On step failure with
-    #      execution_config[:on_failure] == "rollback", we walk completed
-    #      predecessors in reverse and call rollback_step! on each.
+    #      execution_config[:on_failure] == "rollback", we compensate the
+    #      FAILED STEP'S OWN recorded resources — and nothing else. Rollback
+    #      previously walked completed predecessors and, live (dryrun
+    #      20260809b, IMP 019fe5d7-1089), terminated a sibling step's healthy
+    #      instance 20s after its successful provision, triggered by a step
+    #      that had failed on input validation and created nothing. Whether
+    #      healthy siblings should survive a partial plan failure is a
+    #      disposition question that belongs to the verify phase and the
+    #      operator gates, not to an automatic unwind.
     #   3. rollback_step!(step) — invokes the executor's descriptor[:rollback]
     #      method (if any) with the step's previously-recorded outputs, then
-    #      marks the step as rolled back / failed.
+    #      marks the step as rolled back / failed. A hook that REPORTS failure
+    #      ({ success: false, errors: }) is surfaced as rollback_failed, not
+    #      swallowed — live, a VM that survived its own rollback was invisible.
     #
     # Each transition emits two side effects (best-effort, logged on failure):
     #   - mission.conversation.add_system_message — chat surface activity
@@ -176,7 +185,22 @@ module Ai
           outputs = recorded_outputs_for(step)
           executor = build_executor(executor_class)
           if executor.respond_to?(rollback_hook)
-            executor.public_send(rollback_hook, **rollback_kwargs(outputs))
+            hook_result = executor.public_send(rollback_hook, **rollback_kwargs(outputs))
+            # A hook that REPORTS failure must not be swallowed (dryrun
+            # 20260809b: one instance survived its own rollback and nothing
+            # recorded why). Fail the rollback loudly instead of stamping
+            # rolled_back over resources that are still alive.
+            if hook_result.is_a?(Hash) &&
+               (hook_result[:success] == false || hook_result["success"] == false)
+              errors = hook_result[:errors] || hook_result["errors"]
+              Rails.logger.error(
+                "[SkillCompositionRunner] rollback for step #{step_id(step)} reported failure: " \
+                  "#{errors.inspect[0, 300]}"
+              )
+              announce_step(step, status: "rollback_failed",
+                            outputs: { errors: errors }, error: "rollback reported failure")
+              return { success: false, errors: errors }
+            end
           end
         end
 
@@ -476,17 +500,12 @@ module Ai
 
         return unless on_failure.to_s == "rollback"
 
-        completed_predecessors_in_reverse(step).each do |prev|
-          rollback_step!(prev)
-        end
-      end
-
-      def completed_predecessors_in_reverse(failed_step)
-        ordered = steps_in_order
-        failed_number = failed_step.step_number.to_i
-        ordered
-          .select { |s| s.step_number.to_i < failed_number && step_status(s) == "completed" }
-          .sort_by { |s| -s.step_number.to_i }
+        # Compensate ONLY the failed step's own recorded resources (a retried
+        # step's prior partial success is the legitimate target; a first-run
+        # validation failure recorded nothing and rolls back nothing).
+        # Completed siblings' infrastructure survives — verify (F2) and the
+        # operator gates own its disposition (IMP 019fe5d7-1089).
+        rollback_step!(step)
       end
 
       # ===== Side effects =====

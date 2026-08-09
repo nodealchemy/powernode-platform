@@ -21,7 +21,7 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
   let(:fake_executor_class) do
     Class.new do
       class << self
-        attr_accessor :execute_result, :execute_calls, :rollback_calls
+        attr_accessor :execute_result, :execute_calls, :rollback_calls, :rollback_result
       end
 
       def self.descriptor
@@ -44,6 +44,7 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
       def rollback(**outputs)
         self.class.rollback_calls ||= []
         self.class.rollback_calls << outputs
+        self.class.rollback_result || { success: true }
       end
     end
   end
@@ -61,6 +62,7 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
     fake_executor_class.execute_result = nil
     fake_executor_class.execute_calls = []
     fake_executor_class.rollback_calls = []
+    fake_executor_class.rollback_result = nil
 
     allow(MissionChannel).to receive(:broadcast_mission_event)
     allow(conversation).to receive(:add_system_message)
@@ -189,19 +191,45 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
 
     context "when the executor raises with on_failure: rollback" do
       before do
-        # step1 + step2 already complete; step3 will fail and trigger rollback.
+        # step1 + step2 already complete WITH recorded resources; step3 fails.
+        # F-b (IMP 019fe5d7-1089, dryrun 20260809b): rollback previously walked
+        # completed predecessors and terminated a SIBLING step's healthy
+        # instance 20s after its successful provision — a step that failed on
+        # input validation, having created nothing, destroyed good
+        # infrastructure. Rollback scope is now the FAILED STEP'S OWN recorded
+        # resources, nothing else; disposition of healthy siblings belongs to
+        # verify (F2) and the operator gates.
         step1.status = "completed"
+        step1.metadata = { "last_outputs" => { "outputs" => { "node_instance_ids" => %w[a-1 a-2] } } }
         step2.status = "completed"
+        step2.metadata = { "last_outputs" => { "outputs" => { "node_instance_ids" => %w[b-1] } } }
         fake_executor_class.execute_result = StandardError.new("provider 500")
       end
 
-      it "rolls back completed predecessors in reverse step_number order" do
+      it "compensates ONLY the failed step — completed siblings' resources survive" do
         result = runner.execute_step!(step3)
 
         expect(result[:success]).to be false
         expect(result[:error]).to eq("provider 500")
-        # Two completed predecessors (step1, step2); each rollback hook fires.
-        expect(fake_executor_class.rollback_calls.size).to eq(2)
+        rolled_ids = fake_executor_class.rollback_calls.flat_map { |c| Array(c[:node_instance_ids]) }
+        expect(rolled_ids).not_to include("a-1", "a-2", "b-1")
+      end
+
+      it "invokes the failed step's own rollback hook with its own recorded outputs" do
+        # A retried step may carry outputs from a prior partial success — those
+        # ARE this step's resources and are the legitimate compensation target.
+        step3.metadata = { "last_outputs" => { "outputs" => { "node_instance_ids" => %w[c-9] } } }
+        runner.execute_step!(step3)
+
+        expect(fake_executor_class.rollback_calls.size).to eq(1)
+        expect(fake_executor_class.rollback_calls.last).to include(node_instance_ids: %w[c-9])
+      end
+
+      it "rolls back NOTHING when the failed step recorded no outputs" do
+        # The 20260809b shape: input validation failed before anything was
+        # created — there is nothing of this step's to compensate.
+        runner.execute_step!(step3)
+        expect(fake_executor_class.rollback_calls.flat_map { |c| Array(c[:node_instance_ids]) }).to be_empty
       end
     end
   end
@@ -233,6 +261,19 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
       expect(result[:success]).to be true
       expect(step1.status).to eq("failed")
       expect(step1.result_summary[:rolled_back]).to be true
+    end
+
+    it "surfaces a hook that reports failure instead of swallowing it" do
+      # 20260809b: the provision rollback hook returned
+      # { success: false, errors: [...] } for one instance and the runner
+      # discarded it — the surviving VM's non-termination was invisible.
+      fake_executor_class.rollback_result = { success: false,
+                                              errors: [{ resource: "node_instance", id: "n-1", error: "VM is locked" }] }
+      result = runner.rollback_step!(step1)
+      expect(result[:success]).to be false
+      expect(MissionChannel).to have_received(:broadcast_mission_event).with(
+        mission.id, "provisioning_step_changed", hash_including(status: "rollback_failed")
+      )
     end
 
     it "emits a rolled_back broadcast" do
