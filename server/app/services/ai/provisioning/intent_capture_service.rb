@@ -37,6 +37,7 @@ module Ai
         latency_targets_ms: { p99: :integer },
         data_residency: :array,
         preferred_provider: :string_or_nil,
+        preferred_template: :string_or_nil,
         # M3 "Run My Code" fields — populated when the operator references a
         # Git repo and wants its code deployed onto the provisioned instance.
         # All optional: when null, the plan stays a pure provisioning plan and
@@ -319,8 +320,11 @@ module Ai
             latency_targets_ms: { p99: int }
             data_residency: array of country/region codes the data must stay in
             preferred_provider: string id of a cloud provider, or null
+            preferred_template: name of a node template to provision from, or null
 
           #{provider_extraction_rule.chomp}
+
+          #{template_selection_rule.chomp}
 
           Local provider regions rule: when `preferred_provider` is
           "local_qemu" (or any other local-hypervisor provider — runs on the
@@ -395,6 +399,31 @@ module Ai
             pool). If no provider is mentioned, leave it null (do NOT guess).
           RULE
         end
+      end
+
+      # Same closed-set principle as providers (IMP 019fe3a7-266d): the
+      # account's node templates are enumerable and authoritative, and the
+      # template decides boot_mode — which decides whether the provisioned node
+      # carries the agent at all. boot_mode is surfaced per entry because an
+      # operator writing "the uefi one" gives the LLM something to select on.
+      # No generic fallback: without a catalog there is nothing to constrain
+      # against, and the schema line above already defines the field.
+      def template_selection_rule
+        templates = configured_templates
+        return "" if templates.empty?
+
+        catalog = templates.map do |t|
+          boot = t.config.is_a?(Hash) ? t.config["boot_mode"] : nil
+          %(  - "#{t.name}" (id #{t.id}) [boot_mode #{boot.presence || 'cloud_init'}])
+        end.join("\n")
+        <<~RULE
+          Template rule: this account's node templates are a CLOSED SET:
+          #{catalog}
+          If the operator references one of these templates (by name or id),
+          set `preferred_template` to its name EXACTLY as listed. If they name
+          a template NOT in this list, copy the name they wrote verbatim. If no
+          template is mentioned, leave it null. NEVER invent a template name.
+        RULE
       end
 
       def build_classify_prompt(natural_language)
@@ -479,6 +508,7 @@ module Ai
           "latency_targets_ms" => { "p99" => nil },
           "data_residency" => [],
           "preferred_provider" => nil,
+          "preferred_template" => nil,
           "repo_url" => nil,
           "branch" => nil,
           "start_command" => nil,
@@ -545,6 +575,19 @@ module Ai
         end
 
         apply_local_provider_region_scrub!(out, evidenced)
+
+        # Template choice follows the same three layers as provider choice
+        # (IMP 019fe3a7-266d): normalize against the catalog, then let
+        # deterministic text evidence beat the LLM's extraction.
+        out["preferred_template"] = normalize_preferred_template(out["preferred_template"])
+        evidenced_template = template_evidenced_in_text(evidence_text)
+        if evidenced_template && out["preferred_template"] != evidenced_template.name.to_s
+          Rails.logger.info(
+            "[IntentCaptureService] preferred_template #{out['preferred_template'].inspect} " \
+              "overridden by text evidence: operator named #{evidenced_template.name.inspect}"
+          )
+          out["preferred_template"] = evidenced_template.name.to_s
+        end
 
         unless out["budget_cap_usd_monthly"].nil?
           out["budget_cap_usd_monthly"] = out["budget_cap_usd_monthly"].to_f
@@ -621,6 +664,46 @@ module Ai
         value
       end
 
+      # Normalize the LLM's template reference to the configured template's
+      # canonical NAME (accepting name or id), keep-with-warn for values the
+      # account does not have — identical contract to
+      # #normalize_preferred_provider, for the same reasons.
+      def normalize_preferred_template(raw)
+        return nil if raw.blank?
+
+        value = raw.to_s.strip
+        return value if value.empty?
+
+        templates = configured_templates
+        return value if templates.empty?
+
+        needle = value.downcase
+        match = templates.find do |t|
+          t.name.to_s.downcase == needle || t.id.to_s.downcase == needle
+        end
+        return match.name.to_s if match
+
+        Rails.logger.warn(
+          "[IntentCaptureService] preferred_template #{value.inspect} for " \
+            "account=#{account&.id} matches no configured template " \
+            "#{templates.map(&:name).inspect}; leaving it on the brief."
+        )
+        value
+      end
+
+      # The account's node-template catalog, or [] in core mode. Memoized for
+      # the same single-pass consistency reasons as #configured_providers.
+      def configured_templates
+        return @configured_templates if defined?(@configured_templates)
+
+        @configured_templates =
+          if defined?(::System::NodeTemplate)
+            ::System::NodeTemplate.where(account_id: account.id).to_a
+          else
+            []
+          end
+      end
+
       # The account's enabled provider catalog, or [] in core mode / when none
       # are configured. Memoized per service instance: the prompt builder, the
       # validator, the text-evidence matcher, and the region scrub must all see
@@ -640,16 +723,29 @@ module Ai
       # the operator's utterance names (by display name, provider_type, or id),
       # or nil when the text names zero — or more than one, where picking is
       # genuinely ambiguous and the LLM's constrained extraction stands.
-      #
+      def provider_evidenced_in_text(text)
+        sole_record_evidenced_in_text(configured_providers, text) do |provider|
+          [provider.name, provider.provider_type, provider.id]
+        end
+      end
+
+      # Same layer for node templates (name or id — templates have no type).
+      def template_evidenced_in_text(text)
+        sole_record_evidenced_in_text(configured_templates, text) do |template|
+          [template.name, template.id]
+        end
+      end
+
       # Matching is intentionally dumb string work: normalized (case-folded,
       # [-_ ] collapsed) whole-token inclusion. Dumb is the point — this layer
-      # exists because it cannot hallucinate.
-      def provider_evidenced_in_text(text)
-        return nil if text.blank?
+      # exists because it cannot hallucinate. Exactly one matched record is
+      # evidence; zero or several is not.
+      def sole_record_evidenced_in_text(records, text)
+        return nil if text.blank? || records.empty?
 
         haystack = normalize_evidence(text)
-        matches = configured_providers.select do |provider|
-          [provider.name, provider.provider_type, provider.id].any? do |identifier|
+        matches = records.select do |record|
+          yield(record).any? do |identifier|
             needle = normalize_evidence(identifier.to_s)
             next false if needle.length < MIN_EVIDENCE_NEEDLE_LENGTH
 
