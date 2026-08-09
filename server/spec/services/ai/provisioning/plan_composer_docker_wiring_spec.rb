@@ -117,6 +117,39 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "docker_provision wiring",
     end
   end
 
+  # IMP 019fe7e0 (dryrun-20260809e): the decomposition emitted TWO docker
+  # steps and the fan produced N-docker × M-instance duplicates (6 steps for
+  # 3 instances, each covered twice). Redundant unwired docker steps collapse
+  # to one BEFORE the fan, so N instances get exactly N docker steps.
+  it "collapses duplicate unwired docker steps so each instance gets exactly one" do
+    provision_step!(1, 2)
+    docker_step!(2, [1, 4])
+    docker_step!(3, [1, 4])
+    provision_step!(4, 1)
+
+    dockers = docker_steps(wire!)
+    expect(dockers.size).to eq(3)
+    expect(dockers.map { |s| m = s.execution_config.dig("depends_on_outputs", "node_instance_id"); [m["from_step"], m["select"]] })
+      .to match_array([[1, 0], [1, 1], [4, 0]])
+  end
+
+  it "repoints a dependent of a dropped duplicate onto the survivor" do
+    provision_step!(1, 1)
+    docker_step!(2, [1])
+    docker_step!(3, [1])
+    downstream = plan.steps.create!(
+      step_number: 4, step_type: "provisioning_skill", description: "after both dockers",
+      dependencies: [2, 3],
+      execution_config: { "skill" => "deploy_app_code", "inputs" => {}, "on_failure" => "continue" }
+    )
+
+    steps = wire!
+    docker_numbers = docker_steps(steps).map { |s| s.step_number.to_i }
+    deps = Array(downstream.reload.dependencies).map(&:to_i)
+    expect(deps).not_to include(3)                 # the dropped duplicate is gone from deps
+    expect((deps & docker_numbers)).not_to be_empty # still depends on a real docker step
+  end
+
   it "leaves a docker step alone when it already carries depends_on_outputs" do
     provision_step!(1, 2)
     docker_step!(2, [1], config_extra: {

@@ -630,7 +630,48 @@ module Ai
       # neither blocks nor implicates the other's leg. Mirrors the fan-out
       # pattern: first sibling reuses the original row, downstream dependents
       # are repointed onto all siblings.
+      # Keep at most ONE unwired docker_provision step (IMP 019fe7e0). Extra
+      # ones the decomposition emitted are redundant — the fan produces one
+      # docker step per instance from a single template. Already-wired docker
+      # steps (explicit id / depends_on_outputs) are deliberate and untouched;
+      # downstream dependents are repointed off any dropped step onto the
+      # survivor so the DAG stays connected.
+      def collapse_redundant_docker_steps!(plan)
+        unwired = plan.steps.reload.order(:step_number).select do |s|
+          cfg = s.execution_config.is_a?(Hash) ? s.execution_config : {}
+          cfg["skill"].to_s == "docker_provision" &&
+            cfg["depends_on_outputs"].blank? &&
+            (cfg["inputs"] || {})["node_instance_id"].blank?
+        end
+        return if unwired.size < 2
+
+        survivor = unwired.first
+        redundant = unwired.drop(1)
+        redundant_numbers = redundant.map { |s| s.step_number.to_i }
+
+        plan.steps.reload.each do |other|
+          deps = Array(other.dependencies).map(&:to_i)
+          next if (deps & redundant_numbers).empty?
+
+          repointed = deps.map { |d| redundant_numbers.include?(d) ? survivor.step_number.to_i : d }
+          other.update!(dependencies: repointed.uniq) unless other.id == survivor.id
+        end
+        redundant.each(&:destroy!)
+        Rails.logger.info(
+          "[PlanComposerService] collapsed #{redundant.size} redundant docker_provision step(s) " \
+            "into ##{survivor.step_number} before fan-out (IMP 019fe7e0)"
+        )
+      end
+
       def wire_docker_provision_steps!(plan)
+        # Collapse redundant unwired docker steps FIRST (IMP 019fe7e0):
+        # the LLM decomposition sometimes emits more than one docker_provision
+        # step, and fanning each independently produced N-docker × M-instance
+        # duplicates (dryrun-20260809e: 2 emitted × 3 instances = 6 steps,
+        # every instance covered twice). One unwired docker step is all the
+        # fan needs — it produces exactly one per provisioned instance.
+        collapse_redundant_docker_steps!(plan)
+
         steps = plan.steps.reload.order(:step_number).to_a
         provision_steps = steps.select do |s|
           FAN_OUT_SKILLS.include?((s.execution_config || {})["skill"].to_s)
