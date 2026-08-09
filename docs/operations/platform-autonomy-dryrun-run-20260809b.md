@@ -60,6 +60,10 @@ rollback **destroyed a sibling step's healthy instance**.
 2. **F-b · `019fe5d7-1089` · rollback blast radius crosses steps** — a step that failed on
    input validation (created NOTHING) terminated a sibling step's healthy instance 20s
    after its successful provision. Rollback must scope to the failed step's OWN resources.
+   **CORRECTED in run 20260809c's report**: the rollback destroyed BOTH of step 1's
+   instances, not one — the second (9002) fell at 09:40 after a ~22-minute graceful-shutdown
+   wait, overtaking the operator's retain decision. "One VM survived its rollback" was a
+   mid-flight observation, not the end state.
 3. **F-c · `019fe5d0-d68f` · job-path compose silently returns no plan** — twice, ~8s each,
    zero GoalPlans, no log; the identical brief composed fine in a fresh runner.
 4. **F-d · `019fe5d0-ed2d` · orchestrator advances without the phase artifact** — moved
