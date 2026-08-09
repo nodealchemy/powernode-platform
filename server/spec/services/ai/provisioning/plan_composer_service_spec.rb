@@ -91,18 +91,34 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
       end
     end
 
-    it "maps suggested actions to the closest allowlisted executor" do
+    it "synthesizes deterministically — the LLM decomposer is never invoked for a recognized brief" do
+      expect_any_instance_of(Ai::Autonomy::GoalDecompositionService).not_to receive(:decompose)
       plan = service.compose!
-      skills = plan.steps.in_order.pluck(:execution_config).map { |c| c["skill"] }
-      expect(skills[0]).to eq("provision_full_stack")
-      expect(skills[1]).to eq("sdwan_failover")
-      expect(skills[2]).to eq("rolling_module_upgrade")
+      expect(plan).to be_a(Ai::GoalPlan)
     end
 
-    it "preserves dependencies as an Array of step numbers" do
-      plan = service.compose!
-      step2 = plan.steps.find_by(step_number: 2)
-      expect(step2.dependencies).to eq([1])
+    # The decompose + rewrite pipeline survives as the fallback for direct
+    # instantiation with a brief the ComposerRouter would NOT route here
+    # (no recognized use_case, no regions/provider/hint/scale). These pin the
+    # rewrite passes — skill mapping and dependency renumbering.
+    context "legacy decompose fallback (unrecognized brief)" do
+      let(:brief) do
+        { "intent" => "Spin up a 3-node Postgres cluster", "use_case" => "Primary OLTP" }
+      end
+
+      it "maps suggested actions to the closest allowlisted executor" do
+        plan = service.compose!
+        skills = plan.steps.in_order.pluck(:execution_config).map { |c| c["skill"] }
+        expect(skills[0]).to eq("provision_full_stack")
+        expect(skills[1]).to eq("sdwan_failover")
+        expect(skills[2]).to eq("rolling_module_upgrade")
+      end
+
+      it "preserves dependencies as an Array of step numbers" do
+        plan = service.compose!
+        step2 = plan.steps.find_by(step_number: 2)
+        expect(step2.dependencies).to eq([1])
+      end
     end
 
     it "raises BriefMissingError when the mission has no brief" do
@@ -254,9 +270,27 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
 
   describe "step-collapse pass" do
     # The LLM sometimes over-decomposes a simple intent into a chain of
-    # identical sequential provisioning steps. After rewrite_steps! we walk
-    # the DAG and merge consecutive same-target steps so a 1-instance brief
-    # collapses to a single executable step.
+    # identical sequential provisioning steps. On the legacy decompose
+    # fallback (unrecognized briefs) rewrite_steps! merges consecutive
+    # same-target steps; recognized briefs never need this — deterministic
+    # synthesis emits the right step count in the first place.
+    let(:legacy_brief) do
+      # Unrecognized on purpose: no known use_case, regions, provider,
+      # runtime hint, or scale — so compose! takes the decompose fallback.
+      { "intent" => "Spin up the workload", "use_case" => "Primary OLTP" }
+    end
+
+    let(:legacy_mission) do
+      create(
+        :ai_mission,
+        account: account,
+        created_by: user,
+        mission_type: "infrastructure",
+        custom_phases: [{ "key" => "compose_plan", "label" => "Compose plan", "order" => 0 }],
+        configuration: { "brief" => legacy_brief }
+      )
+    end
+
     let(:single_instance_brief) do
       brief.merge("scale" => { "initial" => 1, "target" => 1, "growth_profile" => "steady" })
     end
@@ -300,7 +334,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
         { description: "Provision once more",  config: { "action" => "provision new stack" }, dependencies: [2] }
       ])
 
-      svc = described_class.new(account: account, mission: single_instance_mission)
+      svc = described_class.new(account: account, mission: legacy_mission)
       plan = svc.compose!
 
       expect(plan.steps.count).to eq(1)
@@ -310,7 +344,9 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
       expect(step.dependencies).to eq([])
     end
 
-    it "produces exactly one step for a 1-instance brief even when the LLM over-decomposes" do
+    it "produces exactly one step for a 1-instance brief — synthesis emits it directly" do
+      # Recognized brief (scale.initial=1): the decomposer is bypassed, so
+      # over-decomposition can no longer occur; the shape is built, not repaired.
       stub_decomposition_with([
         { description: "Stand up the workload",   config: { "action" => "provision new stack" }, dependencies: [] },
         { description: "Stand it up again",       config: { "action" => "provision new stack" }, dependencies: [1] },
@@ -321,6 +357,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
       plan = svc.compose!
 
       expect(plan.steps.count).to eq(1)
+      expect(plan.steps.first.execution_config["inputs"]["count"]).to eq(1)
     end
 
     it "leaves two same-skill steps alone when their target regions differ" do
@@ -329,7 +366,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
         { description: "Provision region B", config: { "action" => "provision new stack", "inputs" => { "provider_region_id" => "region-b" } }, dependencies: [1] }
       ])
 
-      svc = described_class.new(account: account, mission: single_instance_mission)
+      svc = described_class.new(account: account, mission: legacy_mission)
       plan = svc.compose!
 
       expect(plan.steps.count).to eq(2)
@@ -337,23 +374,35 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
       expect(regions).to eq(["region-a", "region-b"])
     end
 
-    it "collapses a same-fingerprint parallel-branch fan-out for a 1-instance brief" do
-      # step 2 and step 3 both depend on step 1 (a fan-out, not a linear
-      # chain). collapse_redundant_provisioning_clusters! groups by fingerprint
-      # (template_id + provider_region_id + provider_instance_type_id) and folds
-      # any group >1 regardless of DAG shape — here all three share the same
-      # nil/nil/nil fingerprint and the brief's scale.initial is 1, so a
-      # 1-instance brief must produce a single provision step.
-      stub_decomposition_with([
-        { description: "Root provision",      config: { "action" => "provision new stack" }, dependencies: [] },
-        { description: "Branch A provision",  config: { "action" => "provision new stack" }, dependencies: [1] },
-        { description: "Branch B provision",  config: { "action" => "provision new stack" }, dependencies: [1] }
-      ])
-
+    it "collapses a same-fingerprint parallel-branch fan-out down to the brief's scale.initial" do
+      # Pass-level pin for the safety net: step 2 and step 3 both depend on
+      # step 1 (a fan-out, not a linear chain).
+      # collapse_redundant_provisioning_clusters! groups by fingerprint
+      # (template_id + provider_region_id + provider_instance_type_id), folds
+      # any group >1 regardless of DAG shape, and clamps the merged count to
+      # the mission brief's scale.initial. Driven directly because compose!
+      # no longer produces this shape for a recognized brief — the pass now
+      # serves compact_existing_plan! (cached pre-synthesis plans) and the
+      # legacy fallback.
       svc = described_class.new(account: account, mission: single_instance_mission)
-      plan = svc.compose!
+      goal = Ai::AgentGoal.create!(
+        account: account, agent: agent, title: "Goal", goal_type: "creation",
+        status: "pending", priority: 3, progress: 0.0, success_criteria: {}
+      )
+      plan = Ai::GoalPlan.create!(account: account, goal: goal, agent: agent,
+                                  status: "draft", version: 1, plan_data: {})
+      [[1, []], [2, [1]], [3, [1]]].each do |number, deps|
+        plan.steps.create!(
+          step_number: number, step_type: "provisioning_skill", description: "provision",
+          dependencies: deps,
+          execution_config: { "skill" => "provision_full_stack", "inputs" => { "count" => 1 },
+                              "on_failure" => "rollback" }
+        )
+      end
 
-      expect(plan.steps.count).to eq(1)
+      svc.send(:collapse_redundant_provisioning_clusters!, plan)
+
+      expect(plan.steps.reload.count).to eq(1)
       expect(plan.steps.first.execution_config["inputs"]["count"]).to eq(1)
     end
   end

@@ -141,11 +141,31 @@ module Ai
         @account_provider_override = provider_choice
 
         goal = find_or_create_goal!(brief)
-        plan = decompose_goal!(goal)
 
-        return plan unless plan
+        # Deterministic synthesis for RECOGNIZED provisioning scenarios
+        # (IMP 019fe7f0; subsumes the F-1 runtime-leg guard IMP 019fe76e and
+        # the docker dedup IMP 019fe7e0). The brief fully determines the plan
+        # — scale.initial, regions, preferred template/provider, runtime
+        # demand — yet the LLM decomposition produced a differently broken
+        # DAG for the SAME brief on consecutive runs (dryrun c–f: 0 docker
+        # steps, then 6 for 3 instances, then 18 instances for a 3-instance
+        # brief). Synthesizing from the brief removes the variance at the
+        # root instead of patching one dimension of it per incident.
+        #
+        # Gated on the SAME predicate ComposerRouter routes with, so the
+        # synthesis triggers on exactly the recognized set; every production
+        # entry point reaches this service through that router. The LLM
+        # decompose + rewrite pipeline below stays as the fallback for
+        # direct instantiation with an unrecognized brief, and its passes
+        # still serve compact_existing_plan! on cached plans.
+        if ::Ai::Missions::ComposerRouter.deterministic_provisioning?(brief)
+          plan = synthesize_plan!(goal, brief)
+        else
+          plan = decompose_goal!(goal)
+          return plan unless plan
 
-        rewrite_steps!(plan, brief)
+          rewrite_steps!(plan, brief)
+        end
 
         # Compose-time prerequisite validation (IMP 019fe647): the rewritten
         # plan's skills are final here, so ask the extension whether they can
@@ -396,6 +416,109 @@ module Ai
 
       def decompose_goal!(goal)
         Ai::Autonomy::GoalDecompositionService.new(account: account).decompose(goal)
+      end
+
+      # ----- Deterministic synthesis (recognized provisioning scenarios) ----
+      #
+      # Build the plan the brief specifies — nothing more, nothing less:
+      #
+      #   * provision_full_stack steps whose counts sum to scale.initial,
+      #     split across every region the brief names (remainder to the
+      #     earliest, never a zero share; no/unresolvable regions → one
+      #     full-count step on the existing fallback resolution),
+      #   * when the brief demands container-runtime work, one wired
+      #     docker_provision step PER INSTANCE, depending only on its own
+      #     provision step (the same shape wire_docker_provision_steps!
+      #     repairs LLM output into).
+      #
+      # The run-d/e/f defect classes are impossible by construction here:
+      # counts sum to the brief's total, the runtime leg exists iff demanded,
+      # and there is no independent docker step-set to duplicate.
+      def synthesize_plan!(goal, brief)
+        plan = create_synthesized_plan!(goal)
+
+        regions = resolve_regions_for_brief(brief)
+        total = begin
+          Integer(brief.dig("scale", "initial") || 1)
+        rescue ArgumentError, TypeError
+          1
+        end
+        total = 1 if total < 1
+
+        shares = regions.empty? ? [total] : split_count_across(total, regions.size)
+
+        provision_steps = shares.each_with_index.map do |share, idx|
+          inputs = { "count" => share }
+          inputs["provider_region_id"] = regions[idx].id if regions[idx]
+          inputs["brief"] = brief
+          merge_resolved_inputs!(inputs, brief, "provision_full_stack")
+
+          plan.steps.create!(
+            step_number: idx + 1,
+            step_type: "provisioning_skill",
+            description: synthesized_provision_description(brief, regions[idx], share),
+            dependencies: [],
+            execution_config: { "skill" => "provision_full_stack", "inputs" => inputs,
+                                "on_failure" => "rollback" }
+          )
+        end
+
+        synthesize_docker_legs!(plan, brief, provision_steps)
+        plan
+      end
+
+      def create_synthesized_plan!(goal)
+        latest_version = Ai::GoalPlan.for_goal(goal.id).maximum(:version) || 0
+        Ai::GoalPlan.create!(
+          account: account,
+          goal: goal,
+          agent: goal.agent,
+          status: "draft",
+          version: latest_version + 1,
+          plan_data: { "composer" => "deterministic_synthesis" }
+        )
+      end
+
+      def synthesized_provision_description(brief, region, share)
+        target = brief["use_case"].presence || brief["intent"].presence || "workload"
+        where = region ? " in #{region.region_code.presence || region.name}" : ""
+        "Provision #{share} instance(s)#{where} for: #{target.to_s.truncate(120)}"
+      end
+
+      # One docker_provision step per instance, wired via the runner's
+      # cross-step mechanism and depending only on its own provision step —
+      # so one region's docker failure neither blocks nor implicates the
+      # other's leg. Numbered after every provision step.
+      def synthesize_docker_legs!(plan, brief, provision_steps)
+        return unless brief_demands_runtime?(brief)
+
+        next_number = provision_steps.map { |s| s.step_number.to_i }.max.to_i
+        targets = provision_steps.flat_map do |p|
+          count = (p.execution_config.dig("inputs", "count") || 1).to_i
+          Array.new([count, 1].max) { |idx| [p, idx] }
+        end
+
+        targets.each_with_index do |(p, idx), i|
+          next_number += 1
+          plan.steps.create!(
+            step_number: next_number,
+            step_type: "provisioning_skill",
+            description: "Docker provision · instance #{i + 1} of #{targets.size}",
+            dependencies: [p.step_number.to_i],
+            execution_config: {
+              "skill" => "docker_provision",
+              "inputs" => { "brief" => brief },
+              "depends_on_outputs" => {
+                "node_instance_id" => {
+                  "from_step" => p.step_number.to_i,
+                  "path" => "outputs.node_instance_ids",
+                  "select" => idx
+                }
+              },
+              "on_failure" => "rollback"
+            }
+          )
+        end
       end
 
       # Stamps the new plan's id onto `mission.configuration["plan"]["plan_id"]`
