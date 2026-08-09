@@ -61,30 +61,38 @@ module Ai
       # role module (ROLE_MODULE_FOR_USE_CASE), OR it carries provisioning fields:
       # a non-empty regions list, a preferred_provider, a runtime_hint that maps
       # to a known runtime module (RUNTIME_HINT_TO_MODULE), or scale.initial > 0.
-      def deterministic_provisioning?(brief)
+      #
+      # Class-level because it is pure on the brief, and PlanComposerService gates
+      # its deterministic synthesis on the SAME predicate that routed the brief
+      # there — one source of truth for "recognized provisioning scenario".
+      def self.deterministic_provisioning?(brief)
         return false unless brief.is_a?(Hash)
 
         recognized_use_case?(brief) || provisioning_shaped_fields?(brief)
       end
 
-      private
+      def deterministic_provisioning?(brief)
+        self.class.deterministic_provisioning?(brief)
+      end
 
-      def recognized_use_case?(brief)
+      def self.recognized_use_case?(brief)
         use_case = brief["use_case"].to_s.strip.downcase
         return false if use_case.empty?
 
         ::Ai::Provisioning::PlanComposerService::ROLE_MODULE_FOR_USE_CASE.key?(use_case)
       end
+      private_class_method :recognized_use_case?
 
-      def provisioning_shaped_fields?(brief)
+      def self.provisioning_shaped_fields?(brief)
         return true if Array(brief["regions"]).reject { |r| r.to_s.strip.empty? }.any?
         return true if brief["preferred_provider"].to_s.strip.present?
         return true if known_runtime_hint?(brief)
 
         positive_scale_initial?(brief)
       end
+      private_class_method :provisioning_shaped_fields?
 
-      def known_runtime_hint?(brief)
+      def self.known_runtime_hint?(brief)
         hint = brief["runtime_hint"].to_s.strip.downcase
         return false if hint.empty?
 
@@ -93,8 +101,9 @@ module Ai
         # maps to a module — a hint of "none" (maps to nil) is not a provision signal.
         map.key?(hint) && map[hint].present?
       end
+      private_class_method :known_runtime_hint?
 
-      def positive_scale_initial?(brief)
+      def self.positive_scale_initial?(brief)
         scale = brief["scale"]
         return false unless scale.is_a?(Hash)
 
@@ -102,6 +111,9 @@ module Ai
       rescue ArgumentError, TypeError
         false
       end
+      private_class_method :positive_scale_initial?
+
+      private
 
       def log_choice(composer, reason)
         Rails.logger.info(
