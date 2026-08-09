@@ -98,10 +98,35 @@ last-mile actuation, and why the run ends **Outcome FAIL** with artifacts retain
 
 ## 6. Retained state / next-run notes
 
-- **Retained (forensics)**: VMs **9002** (`…-1-b030de-…3c51`) and **9008** (`…-2-e0e538-…dad8`)
-  on dna, running, un-enrolled; NodeInstance rows incl. phantom `…-1-07f686-…0ed6`;
-  Node rows for all three. Manual cleanup: terminate by instance id (NOT by name prefix — F3),
-  then delete the phantom row after F1 forensics.
+- ~~Retained (forensics)~~ **Torn down 2026-08-09 ~04:52** (operator-directed): VMs 9002 +
+  9008 terminated through `ProvisioningService#terminate_instance` by instance id, verified
+  gone on live pvesh (cluster back to 26 VMs); rows `terminated`. The phantom row is kept
+  pending F1 cleanup. The platform's terminate seam passed its first live test in the process.
 - Routing gate OFF (per-run posture, re-enable deliberately); rna ProviderRegion retained.
 - Recommended order before the next run: **F1 → F2 → F4** (the execute/verify stratum),
   then F3+F6 (rails), then F5 (oracle). F2 hard-blocks P2.
+
+## Addendum — F1 root cause (forensics, 2026-08-09 ~05:10)
+
+The phantom was not a lost API call. From dna's pveproxy access log (times UTC):
+
+| ~UTC | Call | Result |
+|---|---|---|
+| 04:08:29 | dna cidata ISO upload + `POST /nodes/dna/qemu` (VM 9002) | 200 |
+| 04:08:31 | **rna cidata ISO upload — same shared storage, same `cidata-9002.iso` name** | 200 — **overwrote 9002's seed** |
+| 04:08:33 | VM 9002 start · `POST /nodes/rna/qemu` | start 200 · **create 500 (vmid already exists)** |
+
+Chain: (1) both concurrent steps drew **vmid 9002** from `/cluster/nextid`, which reserves
+nothing; (2) the seed name is keyed on vmid alone, so the rna step's upload replaced the dna
+step's seed — **VM 9002 booted holding the rna instance's enrollment identity** and enrolled
+as it (identity cross-contamination; 9002's own row never enrolled — that's F4's 422 noise);
+(3) the rna create's 500 correctly marked its row `:error` — and then VM 9002's heartbeats,
+authenticated as the rna instance, **self-healed the row `error → running`** via the
+IMP-42cf03360656 AASM transition. `verify` (F2) then blessed it from the DB.
+
+Fix (extension, red-first, `proxmox_provisioning_race_spec.rb`): instance-keyed seed names on
+both transports (ISO + cicustom snippets); a process-local vmid reservation ledger in
+`allocate_next_vmid!`; a bounded re-allocate-and-retry on vmid-conflict create 500s;
+`mark_running` guarded so cloud/dynamic rows without `cloud_instance_id` can never be
+heartbeat-healed to running (physical instances keep the stranded-row self-heal); and
+`ProvisioningService` refuses a provider "success" carrying no `cloud_instance_id`.
