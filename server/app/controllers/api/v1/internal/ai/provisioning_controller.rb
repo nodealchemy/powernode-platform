@@ -114,23 +114,42 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
   def verify
     slo_targets = (@mission.configuration.is_a?(Hash) ? @mission.configuration["slo_targets"] : nil) || {}
 
-    # M2 stub — a real probe would sample provisioned resource health here
-    # (provisioner outputs, fleet signals, monitoring rollups). Mark healthy
-    # and let the next phase run.
-    healthy = true
+    # Real verification (F2, IMP 019fe4c4-c7c4) — plan/step/live-provider
+    # reconciliation via VerificationService. The old stub marked every
+    # mission healthy and advanced; live it blessed a phantom instance in
+    # 0.23s. Verification that cannot block is theater, so an unhealthy
+    # result FAILS THE PHASE: no advance, error recorded, operator retries
+    # the phase (or cancels) once the divergence is addressed.
+    verification = ::Ai::Provisioning::VerificationService
+                     .new(account: @mission.account, mission: @mission).verify
+    healthy = verification[:healthy]
     checked_at = Time.current.iso8601
 
-    record_verification(slo_targets: slo_targets, healthy: healthy, checked_at: checked_at)
-
-    orchestrator = ::Ai::Missions::OrchestratorService.new(mission: @mission)
-    orchestrator.advance!(
-      result: { verification: { healthy: healthy, checked_at: checked_at } },
-      expected_phase: "verify"
+    record_verification(
+      slo_targets: slo_targets, healthy: healthy, checked_at: checked_at,
+      checks: verification[:checks]
     )
+
+    if healthy
+      orchestrator = ::Ai::Missions::OrchestratorService.new(mission: @mission)
+      orchestrator.advance!(
+        result: { verification: { healthy: healthy, checked_at: checked_at } },
+        expected_phase: "verify"
+      )
+    else
+      failing = verification[:checks].reject { |c| c[:ok] }
+      summary = failing.first(3).map { |c| "#{c[:name]}: #{c[:detail]}" }.join("; ")
+      Rails.logger.error(
+        "[Internal::Ai::Provisioning#verify] mission=#{@mission.id} UNHEALTHY " \
+          "(#{failing.size} failing check(s)): #{summary}"
+      )
+      @mission.update!(error_message: "verification failed: #{summary}"[0, 500])
+    end
 
     render_success(
       mission_id: @mission.id,
       healthy: healthy,
+      checks: verification[:checks],
       slo_targets: slo_targets,
       checked_at: checked_at,
       phase: @mission.reload.current_phase
@@ -242,14 +261,15 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
   # Persist the verification result on the mission's configuration so it
   # rides through the phase_history alongside the phase exit and is visible
   # to operators / the adapting phase consumers.
-  def record_verification(slo_targets:, healthy:, checked_at:)
+  def record_verification(slo_targets:, healthy:, checked_at:, checks: [])
     return unless @mission
 
     cfg = @mission.configuration.is_a?(Hash) ? @mission.configuration.deep_dup : {}
     cfg["verification"] = {
       "healthy" => healthy,
       "checked_at" => checked_at,
-      "slo_targets" => slo_targets
+      "slo_targets" => slo_targets,
+      "checks" => checks.map { |c| c.deep_stringify_keys }
     }
     @mission.update_columns(configuration: cfg)
   end
