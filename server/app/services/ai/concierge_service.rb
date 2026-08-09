@@ -677,6 +677,30 @@ module Ai
       decision = (params["decision"] || params[:decision] || "approved").to_s
       comment = params["comment"] || params[:comment]
 
+      # An Approve card can be confirmed stale — a duplicate click, a second
+      # operator, or a replayed conversation after the mission has moved on.
+      # Unguarded, handle_approval! would record the decision against whatever
+      # phase the mission is at NOW and advance (or roll back) it — a phase
+      # skip on live infrastructure. Mirror the guard the gateway path already
+      # has (Ai::Mission#on_approval_decision): the mission must be sitting at
+      # an approval gate, and the card's gate must be the gate it is sitting at.
+      unless mission.awaiting_approval?
+        @conversation.add_assistant_message(
+          "⚠️ **#{mission.name}** isn't awaiting approval (currently at " \
+          "**#{mission.current_phase&.humanize}**) — this card looks stale, so I didn't apply it."
+        )
+        return
+      end
+
+      current_gate = ::Ai::MissionApproval.gate_for_phase(mission.current_phase, mission: mission)
+      if ::Ai::MissionApproval.gate_for_phase(gate, mission: mission) != current_gate
+        @conversation.add_assistant_message(
+          "⚠️ **#{mission.name}** is awaiting approval at **#{mission.current_phase&.humanize}**, " \
+          "not **#{gate.humanize}** — this card looks stale, so I didn't apply it."
+        )
+        return
+      end
+
       ::Ai::Missions::OrchestratorService.new(mission: mission).handle_approval!(
         gate: gate, user: @user, decision: decision, comment: comment
       )

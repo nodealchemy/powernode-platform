@@ -267,6 +267,40 @@ RSpec.describe Ai::ConciergeService do
         })
         expect(conversation.messages.last.content).to include("couldn't find")
       end
+
+      it "declines a stale confirm when the mission is no longer awaiting approval" do
+        mission.update!(current_phase: "execute")
+        expect(Ai::Missions::OrchestratorService).not_to receive(:new)
+
+        service.handle_confirmed_action("approve_mission_gate", {
+          "mission_id" => mission.id, "gate" => "review_plan", "decision" => "approved"
+        })
+
+        expect(mission.reload.current_phase).to eq("execute")
+        expect(conversation.messages.last.content).to include("isn't awaiting approval")
+      end
+
+      it "declines a confirm naming a gate other than the one the mission is at" do
+        expect(Ai::Missions::OrchestratorService).not_to receive(:new)
+
+        service.handle_confirmed_action("approve_mission_gate", {
+          "mission_id" => mission.id, "gate" => "handoff", "decision" => "approved"
+        })
+
+        expect(mission.reload.current_phase).to eq("review_plan")
+        expect(conversation.messages.last.content).to include("stale")
+      end
+
+      it "declines a stale rejection the same way" do
+        mission.update!(current_phase: "execute")
+        expect(Ai::Missions::OrchestratorService).not_to receive(:new)
+
+        service.handle_confirmed_action("approve_mission_gate", {
+          "mission_id" => mission.id, "gate" => "review_plan", "decision" => "rejected"
+        })
+
+        expect(mission.reload.current_phase).to eq("execute")
+      end
     end
 
     context "unknown action" do
