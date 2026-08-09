@@ -55,6 +55,7 @@ const HOST_APP_IDS = [
   // Shared components
   '@/shared/components/approval-chains/ApprovalChainList',
   '@/shared/components/autonomy/AutonomyPolicyGroup',
+  '@/shared/components/charts',
   '@/shared/components/concierge/ConciergeActionCard',
   '@/shared/components/entity',
   '@/shared/components/layout/PageContainer',
@@ -92,6 +93,7 @@ const HOST_APP_IDS = [
   // Shared utils
   '@/shared/utils/formatters',
   '@/shared/utils/logger',
+  '@/shared/utils/workflowLayout',
 ] as const;
 
 /**
