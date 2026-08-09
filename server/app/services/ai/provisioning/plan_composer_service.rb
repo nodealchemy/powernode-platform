@@ -758,7 +758,7 @@ module Ai
         instance_type = resolve_instance_type_for(region, account_provider_override: account_provider_override)
         inputs["provider_instance_type_id"] ||= instance_type&.id
 
-        inputs["template_id"] ||= resolve_default_template&.id
+        inputs["template_id"] ||= resolve_template(brief)&.id
       end
 
       def resolve_region_for_brief(brief, account_provider_override: nil)
@@ -891,6 +891,41 @@ module Ai
         Array.new(n) { |i| base + (i < rem ? 1 : 0) }
       end
 
+      # The template the plan will actually provision from: the brief's
+      # preferred_template when it resolves, else the oldest-template default
+      # (IMP 019fe3a7-266d — the default alone picked ops-hub's "base", blank
+      # boot_mode => cloud_init => no agent, while the step prose named the
+      # right template; run 20260808a F3).
+      def resolve_template(brief)
+        resolve_template_for_brief(brief) || resolve_default_template
+      end
+
+      # Resolve the brief's preferred_template by NAME or id, case-insensitively.
+      # Falls back to nil — loudly. Substituting a template the operator never
+      # named is a real boot-mode decision they didn't make; the gate label
+      # (plan_snapshot template_label) is what makes the fallback visible.
+      def resolve_template_for_brief(brief)
+        return nil unless defined?(::System::NodeTemplate)
+
+        wanted = (brief["preferred_template"] || brief[:preferred_template]).to_s.strip
+        return nil if wanted.empty?
+
+        @template_cache ||= {}
+        return @template_cache[wanted] if @template_cache.key?(wanted)
+
+        needle = wanted.downcase
+        scope = ::System::NodeTemplate.where(account_id: account.id).to_a
+        match = scope.detect { |t| t.name.to_s.downcase == needle || t.id.to_s.downcase == needle }
+        unless match
+          Rails.logger.warn(
+            "[PlanComposerService] brief preferred_template #{wanted.inspect} matches no template " \
+              "for account=#{account&.id} (known: #{scope.map(&:name).inspect}); " \
+              "falling back to the default template."
+          )
+        end
+        @template_cache[wanted] = match
+      end
+
       def resolve_default_template
         return nil unless defined?(::System::NodeTemplate)
 
@@ -920,7 +955,10 @@ module Ai
       # if Slice A hasn't seeded the named module yet, log and skip rather
       # than fail the whole compose. Idempotent via find_or_create_by!.
       def attach_role_module_to_template!(brief)
-        template = resolve_default_template
+        # The CHOSEN template — attaching the workload module to the default
+        # while provisioning from the brief's template would configure a
+        # template the plan never uses.
+        template = resolve_template(brief)
         return unless template
 
         module_name = role_module_name_for(brief)
