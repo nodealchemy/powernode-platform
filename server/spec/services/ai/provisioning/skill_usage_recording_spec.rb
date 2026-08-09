@@ -31,7 +31,15 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner, "skill usage recording"
       execution_config: { "skill" => "provision_full_stack", "inputs" => {}, "on_failure" => "continue" }
     )
   end
-  let!(:skill) { create(:ai_skill, account: account, name: "provision_full_stack") }
+  # Production shape (IMP 019fe817): the executor's config["skill"] is the
+  # snake_case id "provision_full_stack"; the seeded Ai::Skill carries a
+  # TITLE-CASE display name and the system-dasherized slug. The old fixture
+  # named the skill "provision_full_stack" so a name lookup matched in-spec
+  # while live recorded 0 — this fixture reproduces the real mismatch.
+  let!(:skill) do
+    create(:ai_skill, account: account, name: "Provision Full Stack",
+                      slug: "system-provision-full-stack")
+  end
 
   let(:fake_executor_class) do
     Class.new do
@@ -77,6 +85,23 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner, "skill usage recording"
 
     expect { runner.execute_step!(step) }.to change(Ai::SkillUsageRecord, :count).by(1)
     expect(Ai::SkillUsageRecord.last.outcome).to eq("failure")
+  end
+
+  it "resolves an account-override skill over a global one sharing the slug" do
+    global = create(:ai_skill, account: nil, name: "Provision Full Stack (global)",
+                               slug: "system-provision-full-stack")
+    fake_executor_class.execute_result = { success: true, data: {} }
+
+    runner.execute_step!(step)
+    expect(Ai::SkillUsageRecord.last.ai_skill_id).to eq(skill.id)
+    expect(Ai::SkillUsageRecord.last.ai_skill_id).not_to eq(global.id)
+  end
+
+  it "still matches a skill registered under the bare snake-case slug (no system- prefix)" do
+    skill.update!(slug: "provision_full_stack")
+    fake_executor_class.execute_result = { success: true, data: {} }
+
+    expect { runner.execute_step!(step) }.to change(Ai::SkillUsageRecord, :count).by(1)
   end
 
   it "never lets recording break the step when no Ai::Skill row matches" do

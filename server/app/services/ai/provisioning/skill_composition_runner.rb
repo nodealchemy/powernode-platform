@@ -398,8 +398,7 @@ module Ai
         account_id = @account.respond_to?(:id) ? @account.id : nil
         return if account_id.blank?
 
-        skill = ::Ai::Skill.find_by(account_id: account_id, name: skill_name) ||
-                ::Ai::Skill.find_by(account_id: nil, name: skill_name)
+        skill = resolve_skill_for_usage(account_id, skill_name)
         return unless skill
 
         duration_ms = if started_at
@@ -423,6 +422,25 @@ module Ai
           "[SkillCompositionRunner] skill-usage recording failed for #{skill_name.inspect}: " \
             "#{e.class}: #{e.message[0, 150]}"
         )
+      end
+
+      # Resolve config["skill"] (the snake_case executor id, e.g.
+      # "provision_full_stack") to its Ai::Skill row (IMP 019fe817). Skills
+      # are seeded with a SLUG, not the snake id: SkillBindings derives it as
+      # "system-<class.dasherize>", so provision_full_stack → the
+      # "system-provision-full-stack" slug while the display NAME is
+      # "Provision Full Stack". The original find_by(name:) missed every real
+      # skill (live oracle read 0). Try, account-override-first: the bare id
+      # as a slug, its dasherized form, and the system-prefixed form; then a
+      # display-name fallback for any skill registered off-convention.
+      def resolve_skill_for_usage(account_id, skill_name)
+        dashed = skill_name.tr("_", "-")
+        candidate_slugs = [ skill_name, dashed, "system-#{dashed}" ].uniq
+        candidate_slugs.each do |slug|
+          skill = ::Ai::Skill.resolve_for(account_id, slug: slug)
+          return skill if skill
+        end
+        ::Ai::Skill.resolve_for(account_id, name: skill_name)
       end
 
       # F6 (IMP 019fe4c5-03a4): execute previously completed its last step and
