@@ -138,22 +138,26 @@ module Ai
           raise "skill not found: #{skill_name}" unless executor_class
 
           mark_executing(step)
+          started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           result = invoke_executor(executor_class, inputs)
 
           if result_success?(result)
             outputs = result_outputs(result)
             mark_completed(step, outputs)
+            record_skill_usage(step, skill_name, "success", started_at)
             announce_step(step, status: "completed", outputs: outputs)
             dispatch_unblocked_successors(step)
             advance_mission_if_dag_complete!
             { success: true, outputs: outputs, error: nil }
           else
             error_message = result_error(result) || "skill returned non-success"
+            record_skill_usage(step, skill_name, "failure", started_at)
             handle_failure(step, error_message, on_failure)
             { success: false, outputs: {}, error: error_message }
           end
         rescue StandardError => e
           Rails.logger.error("[SkillCompositionRunner] step #{step_id(step)} raised: #{e.class}: #{e.message}")
+          record_skill_usage(step, skill_name, "failure", started_at)
           handle_failure(step, e.message, on_failure)
           { success: false, outputs: {}, error: e.message }
         end
@@ -379,6 +383,46 @@ module Ai
 
       def step_status(step)
         step.respond_to?(:status) ? step.status.to_s : "pending"
+      end
+
+      # F5 (IMP 019fe4c5-19a8): protocol §3's skill-utilization oracle reads
+      # ai_skill_usage_records, which only Ai::McpAgentExecutor wrote — the
+      # mission path bypassed it and every dry-run graded skills NO ORACLE
+      # despite executing provisioning skills. The runner is the mission
+      # path's execution seam; record here. Best-effort: the oracle must
+      # never break the step it measures, and an account/skill mismatch
+      # (unseeded skill, unit-test doubles) is a silent skip.
+      def record_skill_usage(step, skill_name, outcome, started_at)
+        return if skill_name.blank?
+
+        account_id = @account.respond_to?(:id) ? @account.id : nil
+        return if account_id.blank?
+
+        skill = ::Ai::Skill.find_by(account_id: account_id, name: skill_name) ||
+                ::Ai::Skill.find_by(account_id: nil, name: skill_name)
+        return unless skill
+
+        duration_ms = if started_at
+                        ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round
+                      end
+        ::Ai::SkillUsageRecord.create!(
+          account_id: account_id,
+          ai_skill_id: skill.id,
+          outcome: outcome,
+          duration_ms: duration_ms,
+          execution_type: "provisioning_step",
+          execution_id: step_id(step),
+          metadata: {
+            "mission_id" => (mission.respond_to?(:id) ? mission.id : nil),
+            "step_number" => step.step_number.to_i,
+            "skill" => skill_name
+          }.compact
+        )
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[SkillCompositionRunner] skill-usage recording failed for #{skill_name.inspect}: " \
+            "#{e.class}: #{e.message[0, 150]}"
+        )
       end
 
       # F6 (IMP 019fe4c5-03a4): execute previously completed its last step and
