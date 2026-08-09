@@ -145,6 +145,7 @@ module Ai
             mark_completed(step, outputs)
             announce_step(step, status: "completed", outputs: outputs)
             dispatch_unblocked_successors(step)
+            advance_mission_if_dag_complete!
             { success: true, outputs: outputs, error: nil }
           else
             error_message = result_error(result) || "skill returned non-success"
@@ -378,6 +379,23 @@ module Ai
 
       def step_status(step)
         step.respond_to?(:status) ? step.status.to_s : "pending"
+      end
+
+      # F6 (IMP 019fe4c5-03a4): execute previously completed its last step and
+      # sat until an operator advanced by hand. The runner is the only
+      # component that knows when the DAG is done — advance the mission out of
+      # execute itself. Best-effort: an advance failure must not fail the
+      # step that just legitimately completed.
+      def advance_mission_if_dag_complete!
+        steps = steps_in_order
+        return if steps.empty?
+        return unless steps.all? { |s| step_status(s) == "completed" }
+
+        orchestrator.advance!(expected_phase: "execute")
+      rescue StandardError => e
+        Rails.logger.error(
+          "[SkillCompositionRunner] DAG complete but mission advance failed: #{e.class}: #{e.message}"
+        )
       end
 
       def record_outputs(step, outputs)
