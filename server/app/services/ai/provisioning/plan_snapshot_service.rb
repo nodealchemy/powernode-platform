@@ -32,13 +32,45 @@ module Ai
       # @param plan [Ai::GoalPlan]
       # @return [Hash] rich plan snapshot
       def snapshot(plan:)
+        estimate = build_cost_estimate(plan)
         {
           plan_id: plan.id,
           dag: build_dag(plan),
-          cost_estimate: build_cost_estimate(plan),
+          cost_estimate: estimate,
           topology_preview: build_topology_preview(plan),
-          risk: build_risk(plan)
+          risk: build_risk(plan),
+          budget: build_budget(plan, estimate)
+        }.compact
+      end
+
+      # F7 (IMP 019fe4c5-2e24): the brief states a monthly cap and the
+      # snapshot states an estimate — and no surface ever compared them
+      # ($5 cap vs $42 and $168 estimates sailed through both operator
+      # gates unflagged). Surface the comparison as a first-class field so
+      # the approver — and P2's auto-approver — sees the overage.
+      def build_budget(plan, estimate)
+        brief = plan_brief(plan)
+        cap = brief && (brief["budget_cap_usd_monthly"] || brief[:budget_cap_usd_monthly])
+        return nil if cap.blank?
+
+        cap = cap.to_f
+        est = ((estimate || {})[:monthly_usd] || (estimate || {})["monthly_usd"]).to_f
+        {
+          cap_usd_monthly: cap,
+          estimate_usd_monthly: est,
+          within_budget: est <= cap,
+          overage_usd_monthly: [ (est - cap).round(2), 0.0 ].max
         }
+      end
+
+      # The composer stamps the brief onto every step's inputs — read it back
+      # from the first step that carries one.
+      def plan_brief(plan)
+        plan.steps.each do |s|
+          brief = (s.execution_config || {}).dig("inputs", "brief")
+          return brief if brief.is_a?(Hash)
+        end
+        nil
       end
 
       private

@@ -956,6 +956,29 @@ module Ai
         inputs["provider_instance_type_id"] ||= instance_type&.id
 
         inputs["template_id"] ||= resolve_template(brief)&.id
+
+        # F3 (IMP 019fe4c4-e813): naming provenance. The charter's dryrun-
+        # prefix never reached the substrate — VMs came out template-named
+        # and prefix-targeted teardown/audit missed every artifact. Thread
+        # the mission's marker into the executor (which prefixes node names,
+        # from which instance names derive) and stamp mission_id so created
+        # nodes/instances are provenance-queryable regardless of naming.
+        inputs["mission_id"] ||= mission&.id
+        prefix = provenance_name_prefix
+        inputs["name_prefix"] ||= prefix if prefix
+      end
+
+      # Explicit configuration.name_prefix wins; a dryrun run id derives the
+      # charter's blast-radius prefix; anything else means no prefix opinion.
+      def provenance_name_prefix
+        cfg = mission&.configuration
+        return nil unless cfg.is_a?(Hash)
+
+        explicit = cfg["name_prefix"].presence
+        return explicit if explicit
+
+        run_id = cfg["dryrun_run_id"].presence
+        run_id ? "dryrun-#{run_id}" : nil
       end
 
       def resolve_region_for_brief(brief, account_provider_override: nil)
