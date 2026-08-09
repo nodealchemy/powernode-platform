@@ -129,10 +129,12 @@ RSpec.describe "Internal AI provisioning compose_plan routing", type: :request d
     end
   end
 
-  describe "(c) over-budget (compose! -> nil) -> success with nil plan_id" do
-    # Cost-cap path: the chosen composer returns nil. Behavior is unchanged —
-    # we render_success with plan_id nil and do NOT fall back to the other
-    # composer (both are cost-capped).
+  describe "(c) over-budget (compose! -> nil) -> LOUD 422 with the cap payload" do
+    # Cost-cap path: the chosen composer returns nil. This used to render
+    # SUCCESS with plan_id: null — the F-c silent-death shape (IMP
+    # 019fe5d0-d68f). It is now a 422 carrying requires_upgrade + the cap
+    # payload, the mission records why, and we still never fall back to the
+    # other composer (both are cost-capped).
     let(:provisioning_brief) do
       {
         "intent" => "Spin up a cache tier",
@@ -143,19 +145,21 @@ RSpec.describe "Internal AI provisioning compose_plan routing", type: :request d
     end
     let(:mission) { create_mission(provisioning_brief) }
 
-    it "returns success with a nil plan_id and never tries the other composer" do
+    it "returns 422 with the cap details, records the reason, and never tries the other composer" do
       composer = instance_double(::Ai::Provisioning::PlanComposerService)
       expect(::Ai::Provisioning::PlanComposerService).to receive(:new).and_return(composer)
       expect(composer).to receive(:compose!).and_return(nil)
+      allow(composer).to receive(:cap_exceeded_payload).and_return({ spent: 0.5, cap: 0.5, remaining: 0.0 })
       expect(::Ai::Missions::MissionComposer).not_to receive(:new)
 
       post_compose(mission)
 
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(:unprocessable_content)
       body = JSON.parse(response.body)
-      expect(body["success"]).to be true
-      expect(body["data"]["plan_id"]).to be_nil
-      expect(body["data"]["mission_id"]).to eq(mission.id)
+      expect(body["success"]).to be false
+      expect(body["error"]).to match(/cost cap/i)
+      expect(mission.reload.error_message.to_s).to match(/cost cap/i)
+      expect(mission.current_phase).not_to eq("review_plan")
     end
   end
 

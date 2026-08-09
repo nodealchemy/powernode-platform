@@ -53,6 +53,13 @@ module Ai
           return mission
         end
 
+        # F-d (IMP 019fe5d0-ed2d): a phase's artifact must exist before the
+        # mission may leave it. Observed live (dryrun 20260809b): an advance
+        # out of compose_plan succeeded with NO plan in existence, handing
+        # review_plan nothing to review. Scoped to infrastructure missions —
+        # other mission types carry different artifacts.
+        assert_phase_artifact!
+
         record_phase_exit(result)
 
         next_phase = determine_next_phase
@@ -246,6 +253,36 @@ module Ai
       end
 
       private
+
+      # Per-phase artifact preconditions for infrastructure missions (F-d).
+      # capture_intent's artifact is a COMPLETE brief (present, and the
+      # capture endpoint's recorded brief_missing_fields empty);
+      # compose_plan's is the stamped plan pointer. Gates (review_plan,
+      # handoff) advance through handle_approval!, whose precondition IS the
+      # approval; other phases carry no compose-side artifact to assert.
+      def assert_phase_artifact!
+        return unless mission.mission_type.to_s == "infrastructure"
+
+        cfg = mission.configuration.is_a?(Hash) ? mission.configuration : {}
+        case mission.current_phase.to_s
+        when "capture_intent"
+          if cfg["brief"].blank?
+            raise OrchestrationError,
+                  "cannot advance out of capture_intent: no brief has been captured"
+          end
+          missing = Array(cfg["brief_missing_fields"]).map(&:to_s).reject(&:blank?)
+          if missing.any?
+            raise OrchestrationError,
+                  "cannot advance out of capture_intent: brief is missing #{missing.join(', ')}"
+          end
+        when "compose_plan"
+          if cfg.dig("plan", "plan_id").blank?
+            raise OrchestrationError,
+                  "cannot advance out of compose_plan: no composed plan (plan_id absent) — " \
+                  "review_plan would have nothing to review"
+          end
+        end
+      end
 
       # Extract a stable step identifier from whatever shape the caller hands us.
       # Accepts AR records (Ai::GoalPlanStep), Hashes ({ step_id:, step_number: }),

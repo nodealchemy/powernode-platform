@@ -153,6 +153,30 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
         )
       end
 
+      # F6 (IMP 019fe4c5-03a4): execute previously completed its last step and
+      # SAT there until an operator called /advance by hand. The runner is the
+      # only component that knows when the DAG is done — it advances the
+      # mission out of execute itself.
+      it "advances the mission out of execute when the LAST step completes" do
+        [ step1, step2, step3 ].each { |s| s.status = "completed" }
+        orchestrator = instance_double(Ai::Missions::OrchestratorService)
+        allow(runner).to receive(:orchestrator).and_return(orchestrator)
+        allow(orchestrator).to receive(:broadcast_step_event!)
+        expect(orchestrator).to receive(:advance!).with(hash_including(expected_phase: "execute"))
+
+        runner.execute_step!(step4)
+      end
+
+      it "does NOT advance while steps remain" do
+        step1.status = "completed"
+        orchestrator = instance_double(Ai::Missions::OrchestratorService)
+        allow(runner).to receive(:orchestrator).and_return(orchestrator)
+        allow(orchestrator).to receive(:broadcast_step_event!)
+        expect(orchestrator).not_to receive(:advance!)
+
+        runner.execute_step!(step2)
+      end
+
       it "emits a step_changed broadcast and a system message" do
         runner.execute_step!(step1)
 
@@ -297,6 +321,10 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
   end
 
   describe "#execute_step! — cross-step data flow (depends_on_outputs)" do
+    # These plans complete their whole DAG in one step-execution, which would
+    # now trigger the F6 end-of-DAG advance — not this describe's concern.
+    before { allow(runner).to receive(:advance_mission_if_dag_complete!) }
+
     # A provider step produces nested array outputs; a consumer step declares
     # depends_on_outputs to pull a scalar from the provider's recorded outputs.
     # Mirrors the real provision_full_stack → deploy_app_code contract, where

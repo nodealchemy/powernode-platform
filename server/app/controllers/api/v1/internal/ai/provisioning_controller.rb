@@ -20,7 +20,20 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     result = service.capture(natural_language: natural_language, prior_brief: prior_brief)
 
     persist_brief(result)
-    render_success(result)
+
+    # F6 (IMP 019fe4c5-03a4): the phase advances ITSELF when its completion
+    # criteria hold — a complete brief. With fields missing the mission stays
+    # here awaiting clarification, and what's missing is recorded on the
+    # config so the orchestrator's artifact gate (F-d) and any UI can see it.
+    missing = Array(result[:missing_fields] || result["missing_fields"])
+    advanced = false
+    if missing.empty? && @mission.current_phase.to_s == "capture_intent"
+      ::Ai::Missions::OrchestratorService.new(mission: @mission)
+        .advance!(expected_phase: "capture_intent")
+      advanced = true
+    end
+
+    render_success(result.merge(advanced: advanced, phase: @mission.reload.current_phase))
   rescue StandardError => e
     Rails.logger.error("[Internal::Ai::Provisioning#capture_intent] #{e.class}: #{e.message}")
     render_error("Capture intent failed: #{e.message}", status: :unprocessable_content)
@@ -64,8 +77,41 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
       )
     end
 
+    # F-c (IMP 019fe5d0-d68f): a nil composer result previously rendered
+    # SUCCESS with plan_id: null and the mission died silently in
+    # compose_plan. A phase that produced no artifact has not completed —
+    # say so. The cost-cap nil carries its payload (UpgradeRequiredCard);
+    # any other nil is a composition failure.
+    if plan.nil?
+      cap = service.respond_to?(:cap_exceeded_payload) ? service.cap_exceeded_payload : nil
+      reason = if cap
+                 "compose_plan blocked: LLM cost cap exceeded " \
+                 "(spent $#{cap[:spent] || cap['spent']}, cap $#{cap[:cap] || cap['cap']})"
+               else
+                 "compose_plan produced no plan (composer returned nil — decomposition " \
+                 "failure or parse miss; see logs)"
+               end
+      @mission.update!(error_message: reason)
+      Rails.logger.error("[Internal::Ai::Provisioning#compose_plan] mission=#{@mission.id} #{reason}")
+      return render_error(reason, status: :unprocessable_content,
+                          details: cap ? { requires_upgrade: true }.merge(cap.to_h) : {})
+    end
+
     persist_plan_pointer(plan)
-    render_success(plan_id: plan&.id, mission_id: @mission.id)
+
+    # F6: compose advances itself once the plan pointer is stamped — the
+    # artifact gate (F-d) it passes through is the same one that blocks a
+    # bare manual advance.
+    advanced = false
+    if @mission.reload.configuration.dig("plan", "plan_id").present? &&
+       @mission.current_phase.to_s == "compose_plan"
+      ::Ai::Missions::OrchestratorService.new(mission: @mission)
+        .advance!(expected_phase: "compose_plan")
+      advanced = true
+    end
+
+    render_success(plan_id: plan&.id, mission_id: @mission.id,
+                   advanced: advanced, phase: @mission.reload.current_phase)
   rescue StandardError => e
     Rails.logger.error("[Internal::Ai::Provisioning#compose_plan] #{e.class}: #{e.message}")
     render_error("Compose plan failed: #{e.message}", status: :unprocessable_content)
@@ -238,6 +284,9 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
 
     cfg = @mission.configuration.is_a?(Hash) ? @mission.configuration.deep_dup : {}
     cfg["brief"] = result[:brief] || result["brief"] || cfg["brief"]
+    # Recorded so the orchestrator's capture_intent artifact gate (F-d) and
+    # any surface can see WHY the phase is holding; cleared once complete.
+    cfg["brief_missing_fields"] = Array(result[:missing_fields] || result["missing_fields"]).map(&:to_s)
     @mission.update_columns(configuration: cfg) if cfg["brief"].present?
   end
 
