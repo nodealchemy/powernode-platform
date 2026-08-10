@@ -296,4 +296,34 @@ RSpec.describe Ai::RalphTask, type: :model do
       expect(task.task_details[:claimed_duration_seconds]).to be_a(Integer)
     end
   end
+
+  describe "#apply_operator_edit!" do
+    let(:task) { create(:ai_ralph_task, ralph_loop: loop_record, acceptance_criteria: "original") }
+
+    # The lock reloads, which would silently DISCARD a caller's pre-assignment
+    # rather than raising as the old task-row with_lock did. Fail loudly instead
+    # of losing the write.
+    it "refuses a record with unpersisted changes" do
+      task.acceptance_criteria = "assigned in memory"
+
+      expect { task.apply_operator_edit!({ "description" => "x" }) }
+        .to raise_error(ArgumentError, /clean record/)
+    end
+
+    it "serializes on the loop row, which is the mutex the claim path holds" do
+      expect(loop_record).to receive(:with_lock).and_call_original
+      allow(task).to receive(:ralph_loop).and_return(loop_record)
+
+      task.apply_operator_edit!({ "description" => "amended" })
+
+      expect(task.reload.description).to eq("amended")
+    end
+
+    it "truncates a long note so the journal cannot grow the claim payload" do
+      task.apply_operator_edit!({}, note: "y" * 5_000)
+
+      stored = task.reload.metadata["operator_notes"].last["note"]
+      expect(stored.bytesize).to be <= Ai::RalphTask::OPERATOR_JOURNAL_VALUE_LIMIT + 3
+    end
+  end
 end

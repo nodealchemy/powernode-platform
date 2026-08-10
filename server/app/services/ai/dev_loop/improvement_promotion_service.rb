@@ -94,9 +94,16 @@ module Ai
 
         # The model owns the metadata write so it happens inside the row lock —
         # pre-assigning task.metadata here would make with_lock refuse the record.
+        # author: the journal is the improvement queue's auditability guarantee, and
+        # without this every direction recorded at (re-)approval wrote author nil
+        # while the dev_update_task seam wrote user:<id> — so two operators issuing
+        # conflicting directions could not be told apart. rec.approve!(user) runs
+        # immediately before this in ImprovementTool#approve_improvement.
+        approver = recommendation.approved_by
         task.apply_operator_edit!(
           { "acceptance_criteria" => directed_criteria(task.acceptance_criteria, prior) },
           note: "Operator direction recorded at re-approval: #{direction}",
+          author: (approver && "user:#{approver.id}"),
           meta: { "operator_direction" => direction }
         )
       end

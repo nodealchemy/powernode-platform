@@ -501,16 +501,32 @@ module Ai
                              "got #{attrs[field].class.name}"
       end
       extra_meta = meta.to_h.stringify_keys
+                       .transform_values { |v| v.is_a?(String) ? v.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) : v }
       stamp = Time.current.iso8601
       changed = []
 
-      # with_lock: metadata is a whole-column read-modify-write, and the claim
-      # path does the same thing under a lock (claimed_by / claimed_holder /
-      # claimed_at). The READ has to happen inside the lock too — with_lock
-      # reloads, so a hash built beforehand is already stale and would clobber a
-      # concurrent claim's stamps, breaking re-claim and #stale?.
+      # The reload below silently DISCARDS unpersisted changes, where the previous
+      # task-row with_lock raised on them. Keep the loud contract: a caller that
+      # pre-assigns (rather than passing attrs/meta) must fail, not lose its write.
+      if changed?
+        raise ArgumentError, "apply_operator_edit! requires a clean record; " \
+                             "pass changes via attrs/meta instead of assigning first " \
+                             "(dirty: #{changes.keys.join(', ')})"
+      end
+
+      # Lock the LOOP, not this row. metadata is a whole-column read-modify-write
+      # and the claim path does the same thing (claimed_by / claimed_holder /
+      # claimed_at) — but it holds `loop_record.with_lock` and writes the task
+      # INSIDE it, so a task-row lock here would never serialize against it. The
+      # two would interleave and the claim's merge, computed from a pre-edit read,
+      # would silently drop operator_edits/operator_notes/operator_direction.
+      # Losing operator_direction is not cosmetic: strip_direction keys off it, so
+      # the next re-approval stacks a second contradictory header.
       #
-      with_lock do
+      # The READ must be inside the lock too — a hash built beforehand is stale by
+      # definition. Hence the explicit reload.
+      ralph_loop.with_lock do
+        reload
         merged = (metadata.presence || {}).merge(extra_meta)
         changed << "metadata" if extra_meta.any? && merged != metadata
 
@@ -528,7 +544,8 @@ module Ai
         if note.present?
           changed << "note"
           merged["operator_notes"] = (Array(merged["operator_notes"]) +
-                                      [{ "note" => note.to_s, "author" => author, "at" => stamp }])
+                                      [{ "author" => author, "at" => stamp,
+                                         "note" => note.to_s.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) }])
                                      .last(OPERATOR_JOURNAL_LIMIT)
         end
 
