@@ -26,9 +26,14 @@ module Ai
 
       Result = Struct.new(:ralph_loop, :ralph_task, :created, :requeued, keyword_init: true)
 
-      def initialize(recommendation:)
+      # `direction` is the operator's post-discovery decision, captured at approval
+      # time. Offers that surface a genuine fork ("delete it OR wire it") used to
+      # promote that fork verbatim into the brief, so the executor re-litigated a
+      # decision the operator had already made off-record.
+      def initialize(recommendation:, direction: nil)
         @recommendation = recommendation
         @account = recommendation.account
+        @direction = direction.presence
       end
 
       def call
@@ -47,7 +52,14 @@ module Ai
         if created
           task.assign_attributes(task_attributes(recommendation))
           task.save!
-        elsif task.status.in?(%w[failed blocked]) || unverified_pass?(task)
+        elsif direction
+          # Re-approving with a direction is how an operator revises a decision on
+          # an already-promoted offer; applying it only on create would silently
+          # drop the revision (the common case, since the offer is already promoted).
+          apply_direction!(task)
+        end
+
+        if !created && (task.status.in?(%w[failed blocked]) || unverified_pass?(task))
           # IMP-938f68b16a1a: re-approving an offer whose promoted task already
           # failed/blocked previously returned it untouched -- dev_next_task
           # only ever claims pending tasks, so the operator's retry intent was
@@ -65,7 +77,27 @@ module Ai
 
       private
 
-      attr_reader :account, :recommendation
+      attr_reader :account, :recommendation, :direction
+
+      # Applies a direction to an ALREADY-promoted task, journalling the prior
+      # brief through the same operator-edit trail dev_update_task writes.
+      def apply_direction!(task)
+        meta = (task.metadata.presence || {}).dup
+        return if meta["operator_direction"] == direction
+
+        meta["operator_direction"] = direction
+        task.metadata = meta
+        task.apply_operator_edit!(
+          { "acceptance_criteria" => directed_criteria(task.acceptance_criteria) },
+          note: "Operator direction recorded at re-approval: #{direction}"
+        )
+      end
+
+      # The direction goes FIRST. It is the one line that must survive an executor
+      # skimming a brief whose tail is verifier evidence.
+      def directed_criteria(base)
+        "OPERATOR DIRECTION (decided at approval — do not re-litigate): #{direction}\n\n#{base}"
+      end
 
       def find_or_create_loop
         account.ai_ralph_loops.find_or_create_by!(name: LOOP_NAME) do |l|
@@ -119,6 +151,7 @@ module Ai
           priority: priority_for(rec),
           execution_type: "agent",
           metadata: {
+            "operator_direction" => direction,
             "recommendation_id" => rec.id,
             "kind" => rec.recommendation_type,
             "files" => evidence["files"],
@@ -137,8 +170,9 @@ module Ai
       def acceptance_criteria(rec, evidence)
         fix = rec.recommended_config.is_a?(Hash) ? rec.recommended_config["fix"] : nil
         detail = evidence["description"].presence || fix.presence || "Resolve the finding."
-        "Re-verify the finding holds on current code. Write a failing spec FIRST and confirm it is red. " \
-          "Then: #{detail} Run /code-review on the diff before committing."
+        base = "Re-verify the finding holds on current code. Write a failing spec FIRST and confirm it is red. " \
+               "Then: #{detail} Run /code-review on the diff before committing."
+        direction ? directed_criteria(base) : base
       end
 
       # confidence 0..1 -> 0..20 band; audit S1 findings (priority 30) still outrank.

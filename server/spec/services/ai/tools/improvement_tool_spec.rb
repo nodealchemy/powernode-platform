@@ -146,6 +146,33 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(Ai::ImprovementRecommendation.find(rec_id).status).to eq("approved")
     end
 
+    it "carries an operator direction onto the promoted task's brief" do
+      rec_id = create_offer[:data][:recommendation][:id]
+
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                      direction: "DELETE the machinery — do not wire it." })
+
+      expect(result[:success]).to be true
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      task = loop_record.ralph_tasks.find_by(task_key: result[:data][:task_key])
+      expect(task.acceptance_criteria).to include("DELETE the machinery — do not wire it.")
+      expect(task.metadata["operator_direction"]).to eq("DELETE the machinery — do not wire it.")
+    end
+
+    it "applies a direction given on re-approval of an already-promoted offer" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
+
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                      direction: "Scope narrowed to deletion only." })
+
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      task = loop_record.ralph_tasks.find_by(task_key: result[:data][:task_key])
+      expect(task.metadata["operator_direction"]).to eq("Scope narrowed to deletion only.")
+      expect(task.acceptance_criteria).to include("Scope narrowed to deletion only.")
+      expect(loop_record.ralph_tasks.count).to eq(1)
+    end
+
     it "is idempotent — approving twice does not create a duplicate task" do
       rec_id = create_offer[:data][:recommendation][:id]
       first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })

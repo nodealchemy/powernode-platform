@@ -28,6 +28,7 @@ module Ai
             agent_id: { type: "string", required: false, description: "Agent (UUID/slug/name) to drain the dev-improve loop when enabling autonomy" },
             max_iterations_per_day: { type: "integer", required: false, description: "Daily iteration cap for unattended autonomy" },
             reason: { type: "string", required: false, description: "Reason for revert_improvement" },
+            direction: { type: "string", required: false, description: "Operator decision pinned onto the promoted task's brief (approve_improvement)" },
             title: { type: "string", required: false, description: "Short finding title" },
             description: { type: "string", required: false, description: "What to fix and why" },
             files: { type: "array", required: false, description: "Files the finding touches" },
@@ -80,7 +81,11 @@ module Ai
             description: "Approve an offer and promote it to a dev-improve Ralph Loop task that /dev-loop drains. " \
                          "No-op (halted) when the account kill switch is active.",
             parameters: {
-              recommendation_id: { type: "string", required: true, description: "Recommendation to approve" }
+              recommendation_id: { type: "string", required: true, description: "Recommendation to approve" },
+              direction: { type: "string", required: false,
+                           description: "Operator decision to pin onto the task's brief — use when the offer " \
+                                        "presents a fork (e.g. 'delete it OR wire it') and you have chosen, so " \
+                                        "the executor does not re-litigate it. Applied on re-approval too." }
             }
           },
           "dismiss_improvement" => {
@@ -259,7 +264,9 @@ module Ai
         end
 
         rec.approve!(user) unless rec.status == "approved"
-        result = Ai::DevLoop::ImprovementPromotionService.new(recommendation: rec).call
+        result = Ai::DevLoop::ImprovementPromotionService.new(
+          recommendation: rec, direction: params[:direction]
+        ).call
         loop_record = result.ralph_loop
 
         response = {
