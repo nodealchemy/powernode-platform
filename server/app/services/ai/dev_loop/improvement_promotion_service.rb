@@ -32,10 +32,17 @@ module Ai
       # time. Offers that surface a genuine fork ("delete it OR wire it") used to
       # promote that fork verbatim into the brief, so the executor re-litigated a
       # decision the operator had already made off-record.
-      def initialize(recommendation:, direction: nil)
+      # `actor` is the user issuing THIS call. recommendation.approved_by is not a
+      # substitute: apply_direction! only runs on the re-approval path, where the
+      # rec is already "approved" and ImprovementTool's `rec.approve!(user) unless
+      # approved` is therefore skipped — so approved_by still names the FIRST
+      # approver. Attributing Bob's direction to Alice is exactly the confusion the
+      # journal exists to prevent.
+      def initialize(recommendation:, direction: nil, actor: nil)
         @recommendation = recommendation
         @account = recommendation.account
         @direction = direction.presence
+        @actor = actor
       end
 
       def call
@@ -84,7 +91,7 @@ module Ai
 
       private
 
-      attr_reader :account, :recommendation, :direction
+      attr_reader :account, :recommendation, :direction, :actor
 
       # Applies a direction to an ALREADY-promoted task, journalling the prior
       # brief through the same operator-edit trail dev_update_task writes.
@@ -95,15 +102,15 @@ module Ai
         # The model owns the metadata write so it happens inside the row lock —
         # pre-assigning task.metadata here would make with_lock refuse the record.
         # author: the journal is the improvement queue's auditability guarantee, and
-        # without this every direction recorded at (re-)approval wrote author nil
+        # without it every direction recorded at (re-)approval wrote author nil
         # while the dev_update_task seam wrote user:<id> — so two operators issuing
-        # conflicting directions could not be told apart. rec.approve!(user) runs
-        # immediately before this in ImprovementTool#approve_improvement.
-        approver = recommendation.approved_by
+        # conflicting directions could not be told apart. Falls back to the first
+        # approver only when no acting user was threaded through.
+        who = actor || recommendation.approved_by
         task.apply_operator_edit!(
           { "acceptance_criteria" => directed_criteria(task.acceptance_criteria, prior) },
           note: "Operator direction recorded at re-approval: #{direction}",
-          author: (approver && "user:#{approver.id}"),
+          author: (who && "user:#{who.id}"),
           meta: { "operator_direction" => direction }
         )
       end

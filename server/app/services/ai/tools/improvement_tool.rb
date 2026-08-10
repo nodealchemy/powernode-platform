@@ -265,7 +265,7 @@ module Ai
 
         rec.approve!(user) unless rec.status == "approved"
         result = Ai::DevLoop::ImprovementPromotionService.new(
-          recommendation: rec, direction: params[:direction]
+          recommendation: rec, direction: params[:direction], actor: user
         ).call
         loop_record = result.ralph_loop
 
