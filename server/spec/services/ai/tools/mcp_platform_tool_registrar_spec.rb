@@ -11,6 +11,28 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
     described_class.instance_variable_set(:@tool_classes, nil)
   end
 
+  # IMP-019fe13d: register_all! reads tool_class.definition OUTSIDE its per-tool
+  # rescue, so one class inheriting BaseTool's NotImplementedError aborts the whole
+  # sweep. Sweeping here names the offender instead of failing as an opaque raise
+  # inside register_all!, and catches the NEXT tool that forgets.
+  describe "every registered tool class" do
+    it "implements .definition" do
+      missing = Ai::Tools::PlatformApiToolRegistry.all_tools.values.uniq.filter_map do |class_name|
+        klass = class_name.safe_constantize
+        next unless klass
+
+        begin
+          klass.definition
+          nil
+        rescue NotImplementedError
+          class_name
+        end
+      end
+
+      expect(missing).to be_empty, "tool classes missing .definition: #{missing.join(', ')}"
+    end
+  end
+
   describe ".register_all!" do
     it "registers all unique tool classes to the MCP registry" do
       registry = instance_double(::Mcp::RegistryService)
