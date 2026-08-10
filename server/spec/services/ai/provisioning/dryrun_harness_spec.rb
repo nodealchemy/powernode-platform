@@ -94,7 +94,6 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
     when "AiProvisioningComposePlanJob"   then [ "#{base}/compose_plan", {} ]
     when "AiProvisioningExecuteJob"       then [ "#{base}/execute", {} ]
     when "AiProvisioningVerifyJob"        then [ "#{base}/verify", {} ]
-    when "AiProvisioningHandoffJob"       then [ "#{base}/handoff", {} ]
     when "AiProvisioningStepJob"
       [ "#{base}/steps/#{job[:args]['step_id']}/execute", { runner_id: job[:args]["runner_id"] } ]
     when "AiMissionCleanupJob" then [ :ignore, nil ] # dispatched by cancel! on teardown

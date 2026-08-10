@@ -205,34 +205,6 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     render_error("Verify failed: #{e.message}", status: :unprocessable_content)
   end
 
-  # POST /api/v1/internal/ai/provisioning/missions/:mission_id/handoff
-  #
-  # Phase-5 entry point. Creates a single Ai::RalphLoop bound to the mission
-  # — its iterations are driven by FleetAutonomyService.tick! (60s) rather
-  # than the loop's own scheduler, so we keep `scheduling_mode: "manual"`
-  # and `max_iterations: 0` to disable internal scheduling. Then advances
-  # the mission to the long-lived `adapting` phase.
-  def handoff
-    ralph_loop = build_ralph_loop_for_mission!
-
-    orchestrator = ::Ai::Missions::OrchestratorService.new(mission: @mission)
-    orchestrator.advance!(
-      result: { handoff: { ralph_loop_id: ralph_loop.id } },
-      expected_phase: "handoff"
-    )
-
-    notify_handoff!(ralph_loop)
-
-    render_success(
-      mission_id: @mission.id,
-      ralph_loop_id: ralph_loop.id,
-      phase: @mission.reload.current_phase
-    )
-  rescue StandardError => e
-    Rails.logger.error("[Internal::Ai::Provisioning#handoff] #{e.class}: #{e.message}")
-    render_error("Handoff failed: #{e.message}", status: :unprocessable_content)
-  end
-
   # POST /api/v1/internal/ai/provisioning/missions/:mission_id/steps/:step_id/execute
   #
   # Invoked by AiProvisioningStepJob — one POST per step in the DAG layer
@@ -323,48 +295,4 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     @mission.update_columns(configuration: cfg)
   end
 
-  # Build the per-mission Ai::RalphLoop. Iterations are driven by
-  # FleetAutonomyService.tick! rather than the loop's internal scheduler,
-  # so we keep scheduling_mode: "manual" + max_iterations: 0 (unbounded).
-  def build_ralph_loop_for_mission!
-    return @mission.ralph_loops.first if @mission.respond_to?(:ralph_loops) && @mission.ralph_loops.any?
-
-    ::Ai::RalphLoop.create!(
-      id: ::UUID7.generate,
-      account: @mission.account,
-      mission: @mission,
-      name: "Provisioning adaptation: #{@mission.name}".truncate(255),
-      status: "pending",
-      scheduling_mode: "manual",
-      max_iterations: 0,
-      configuration: {
-        "source" => "system_provisioning",
-        "mission_id" => @mission.id,
-        "driven_by" => "FleetAutonomyService"
-      }
-    )
-  end
-
-  # Best-effort handoff announcement. Posts a system message into the
-  # mission's conversation so the user sees a clear "we're now adapting"
-  # marker, and broadcasts a mission-level event so the UI can react.
-  def notify_handoff!(ralph_loop)
-    payload = {
-      mission_id: @mission.id,
-      ralph_loop_id: ralph_loop.id,
-      phase: "adapting"
-    }
-    ::MissionChannel.broadcast_mission_event(@mission.id, "mission_handed_off", payload)
-
-    conversation = @mission.respond_to?(:conversation) ? @mission.conversation : nil
-    return unless conversation
-
-    conversation.add_system_message(
-      "Provisioning handed off — adaptation loop active.",
-      activity_type: "mission_handed_off",
-      metadata: payload
-    )
-  rescue StandardError => e
-    Rails.logger.warn("[Internal::Ai::Provisioning#notify_handoff!] #{e.class}: #{e.message}")
-  end
 end

@@ -258,15 +258,15 @@ Rails.application.routes.draw do
         end
 
         # AI provisioning phase-job endpoints (capture_intent, compose_plan,
-        # execute, verify, handoff) invoked by AiProvisioning*Job → server-side
-        # services.
+        # execute, verify) invoked by AiProvisioning*Job → server-side services.
+        # No handoff endpoint: that phase is a pure approval gate, advanced by
+        # OrchestratorService#handle_approval! rather than by a phase job.
         namespace :ai do
           scope "provisioning/missions/:mission_id", controller: "provisioning" do
             post :capture_intent
             post :compose_plan
             post :execute
             post :verify
-            post :handoff
             # Per-step DAG execution — AiProvisioningStepJob → execute_step!
             post "steps/:step_id/execute", action: :execute_step
           end
