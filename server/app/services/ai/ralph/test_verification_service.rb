@@ -105,31 +105,35 @@ module Ai
       # "Verification evidence" — adjudicated :verified and AUTO-APPLIED its
       # offer with zero tests run. Over-crediting is the dangerous direction:
       # nothing alerts, the funnel just reads as approved-and-applied.
-      # They are split so a bare count must earn its scope (see TEST_SCOPED_KEY).
+      # They are split so a bare count must earn its scope (see #test_scoped?).
       TEST_NOUN_TOTAL_KEY = /\A(?:\w*_)?(?:examples?|tests?|specs?)(?:_count)?\z/i
       BARE_TOTAL_KEY      = /\A(?:\w*_)?(?:passed|passes)(?:_count)?\z/i
-      TOTAL_COUNT_KEY     = Regexp.union(TEST_NOUN_TOTAL_KEY, BARE_TOTAL_KEY)
       FAIL_COUNT_KEY      = /\A(?:\w*_)?(?:failures?|failed|errors?)(?:_count)?\z/i
+      # A fail count with no qualifier, or one sharing the total's qualifier, is
+      # the suite's own. Anything else ("secret_scan_errors", "tsc_errors") is a
+      # DIFFERENT check reported alongside — see #relevant_failures.
+      PLAIN_FAIL_KEY = /\A(?:failures?|failed|errors?)(?:_count)?\z/i
+      # The \w*_ prefix on the total accepts any qualifier, including ones that
+      # invert the meaning: "skipped_specs"/"pending_examples" counted as the
+      # PASSED total and adjudicated verified on evidence that zero tests passed.
+      NON_PASSING_PREFIX = /\A(?:skipped|pending|filtered|deleted|ignored|todo|disabled)_/i
 
-      # Token match (not substring) on any ANCESTOR key, so {"rspec" => {"passed"
-      # => 173, "failures" => 0}} — the honest shape IMP-60f457f6e8a6 exists to
-      # credit — still counts, while {"gate" => {"passed" => 6, "failed" => 0}}
-      # does not. Derived from FRAMEWORKS so a new runner stays in sync.
-      #
-      # Tokens, because a substring union credits any key CONTAINING the letters:
-      # "latest", "inspection" and "attestation" all contain test/spec, which
-      # would wave through the very gate/step counters this exists to reject.
-      # Splitting on non-alphanumerics keeps "go_test" working while excluding
-      # "latest", and downcasing accepts "RSpec".
-      TEST_SCOPE_TOKENS = (FRAMEWORKS.map { |f| f[:framework] }.uniq +
-                           %w[test tests spec specs suite]).freeze
+      # Scope requires a RUNNER NAME, not a test-sounding word. Generic tokens
+      # (test/spec/suite) let "test_plan", "spec_review" and a gate nested under
+      # "specs" re-open the bare-count hole this exists to close — a plan or a
+      # review is not a test run. Framework names are unambiguous, and are read
+      # from FRAMEWORKS so a new runner stays in sync.
+      TEST_FRAMEWORK_NAMES = FRAMEWORKS.map { |f| f[:framework] }.uniq.freeze
 
       # Scope is inherited from ANY ancestor, not just the immediate parent:
       # runner -> summary -> counts is one of the commonest evidence layouts, and
       # keying on the closest ancestor alone ("summary") strands it as unverified.
+      # Separators are stripped rather than split on, so "go_test" normalises to
+      # "gotest" and matches, while "latest" still cannot match anything.
       def self.test_scoped?(ancestors)
         ancestors.any? do |key|
-          key.to_s.downcase.split(/[^a-z0-9]+/).any? { |tok| TEST_SCOPE_TOKENS.include?(tok) }
+          normalized = key.to_s.downcase.gsub(/[^a-z0-9]/, "")
+          TEST_FRAMEWORK_NAMES.any? { |framework| normalized.include?(framework) }
         end
       end
       private_class_method :test_scoped?
@@ -152,16 +156,13 @@ module Ai
       # count wearing a total's noun, never the denominator).
       def self.hash_node_tally(hash, ancestors = [])
         ints = hash.filter_map { |k, v| [k.to_s, v] if v.is_a?(Integer) }.to_h
-        candidates = ints.reject { |k, _| k.match?(/fail|error/i) }
+        candidates = ints.reject { |k, _| k.match?(/fail|error/i) || k.match?(NON_PASSING_PREFIX) }
         # Prefer a test noun when the node carries both; picking by hash order
         # let a bare "passed" shadow a qualifying "examples" in the same node and
         # reject the whole tally.
         total_key, total = candidates.find { |k, _| k.match?(TEST_NOUN_TOTAL_KEY) } ||
                            candidates.find { |k, _| k.match?(BARE_TOTAL_KEY) }
-        # MAX, not first-match: FAIL_COUNT_KEY matches errors/failed/failures
-        # alike, so a pytest-shaped {tests:, errors: 0, failed: 2} node picked
-        # errors:0 and adjudicated GREEN while reporting two failures.
-        failures = ints.select { |k, _| k.match?(FAIL_COUNT_KEY) }.values.max
+        failures = total_key && relevant_failures(ints, total_key).max
         return nil if total.nil? || failures.nil?
         # A bare passed/passes total is only test evidence when some enclosing key
         # names a test runner; unscoped, it is any pass/fail counter at all.
@@ -170,6 +171,25 @@ module Ai
         { framework: "structured", passed: total, failures: failures }
       end
       private_class_method :hash_node_tally
+
+      # The failure counts belonging to THIS suite: unqualified ones, plus any
+      # sharing the total's qualifier ("batch_examples" pairs with
+      # "batch_failures"). Taking the max over every fail-named key instead made
+      # a green suite reported beside an unrelated counter — {examples: 120,
+      # failures: 0, secret_scan_errors: 1} — adjudicate :contradicted, which
+      # HARD-REFUSES the executor's pass and strands the task in_progress. A
+      # gitleaks or tsc count is a different check, not this suite's failures.
+      # Returning [] (so #max is nil, so no tally) is the safe direction: a lone
+      # unrelated error count credits nothing rather than contradicting.
+      def self.relevant_failures(ints, total_key)
+        prefix = total_key[/\A(\w*?_)(?=examples?|tests?|specs?|passed|passes)/i, 1]
+        ints.select do |k, _|
+          next false unless k.match?(FAIL_COUNT_KEY)
+
+          k.match?(PLAIN_FAIL_KEY) || (prefix && k.downcase.start_with?(prefix.downcase))
+        end.values
+      end
+      private_class_method :relevant_failures
 
       # Strings from arbitrarily nested hash/array evidence, depth-capped.
       def self.deep_string_values(value, depth = 0)

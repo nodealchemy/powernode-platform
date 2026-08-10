@@ -177,6 +177,31 @@ RSpec.describe Ai::Ralph::TestVerificationService do
       expect(verdict_of({ "rspec" => { "passed" => 173, "failures" => 0 } })).to eq(:verified)
     end
 
+    it "ignores a non-test error count beside a green suite" do
+      expect(verdict_of({ "examples" => 120, "failures" => 0, "secret_scan_errors" => 1 })).to eq(:verified)
+    end
+
+    it "does not read a lone non-test error count as a test failure" do
+      expect(verdict_of({ "tests" => 40, "tsc_errors" => 3 })).to eq(:unverified)
+    end
+
+    it "pairs a prefixed total with its matching prefixed failure count" do
+      expect(verdict_of({ "batch_examples" => 173, "batch_failures" => 0 })).to eq(:verified)
+    end
+
+    it "does not treat a non-passing test count as the passed total" do
+      expect(verdict_of({ "skipped_specs" => 7, "failures" => 0 })).to eq(:unverified)
+      expect(verdict_of({ "pending_examples" => 3, "failures" => 0 })).to eq(:unverified)
+      expect(verdict_of({ "filtered_tests" => 2, "failures" => 0 })).to eq(:unverified)
+    end
+
+    it "does not accept a merely test-sounding ancestor as runner scope" do
+      expect(verdict_of({ "test_plan" => { "steps_passed" => 4, "failed" => 0 } })).to eq(:unverified)
+      expect(verdict_of({ "spec_review" => { "passed" => 3, "failed" => 0 } })).to eq(:unverified)
+      expect(verdict_of({ "specs" => { "validate_gate" => { "passed" => 6, "failed" => 0 } } }))
+        .to eq(:unverified)
+    end
+
     it "contradicts a node whose first fail-named key is zero but another reports failures" do
       expect(verdict_of({ "rspec" => { "tests" => 10, "errors" => 0, "failed" => 2 } })).to eq(:contradicted)
     end
