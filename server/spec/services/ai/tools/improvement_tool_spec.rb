@@ -187,6 +187,20 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(task.acceptance_criteria).not_to include("DELETE it.")
     end
 
+    it "strips a multi-paragraph prior direction entirely, not just its first line" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                             direction: "DELETE it.\n\nRationale: the machinery has no consumer." })
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                      direction: "Actually WIRE it." })
+
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      criteria = loop_record.ralph_tasks.find_by(task_key: result[:data][:task_key]).acceptance_criteria
+      expect(criteria).to include("Actually WIRE it.")
+      expect(criteria).not_to include("Rationale: the machinery has no consumer.")
+      expect(criteria).not_to include("DELETE it.")
+    end
+
     it "warns when a direction cannot reach an already-claimed executor" do
       rec_id = create_offer[:data][:recommendation][:id]
       first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })

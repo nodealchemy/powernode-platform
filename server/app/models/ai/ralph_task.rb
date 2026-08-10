@@ -422,8 +422,14 @@ module Ai
     # persists happily and then raises NameError the moment anything calls
     # #executor — including Ai::Ralph::TaskExecutor#resolve_executor, which runs in
     # a request path. The REST task_params does not permit it either.
+    #
+    # `executor_id` goes with it. Without executor_type the polymorphic
+    # association never resolves, so promoted tasks (which never set the type)
+    # would accept a "pin" that #executor ignores entirely — resolve_executor
+    # falls through to the loop default agent while dev_update_task reports
+    # success. An editable field that cannot affect behaviour is worse than none.
     OPERATOR_EDITABLE_FIELDS = %w[
-      description acceptance_criteria priority execution_type executor_id
+      description acceptance_criteria priority execution_type
       capability_match_strategy required_capabilities delegation_config
     ].freeze
 
@@ -451,42 +457,66 @@ module Ai
       elsif terminal?
         "task #{task_key} is #{status} (terminal) — the amendment is recorded but will " \
           "not be delivered unless the task is re-queued."
+      elsif status == "blocked"
+        # Not in TERMINAL_STATUSES, but dev_next_task claims only `pending`, so a
+        # blocked task is undeliverable too — and it is the state most likely to
+        # BE amended (a scope-guardrail park, or an operator answering the
+        # question that blocked it).
+        "task #{task_key} is blocked — dev_next_task claims only pending tasks, so the " \
+          "amendment is recorded but will not be delivered until the task is re-queued " \
+          "(dev_complete_task disposition or re-approval)."
       elsif execution_type == "human"
         "task #{task_key} has execution_type \"human\" — dev_next_task skips human tasks, so it " \
           "stays pending in dev_list_tasks but will never be handed to a drain session."
       end
     end
 
-    def apply_operator_edit!(attrs, note: nil, author: nil)
+    # `meta` adds caller-owned metadata keys (e.g. operator_direction) written
+    # inside the same lock. Callers must NOT pre-assign task.metadata themselves:
+    # with_lock refuses a record with unpersisted changes, and a hash built before
+    # the reload is stale by definition.
+    def apply_operator_edit!(attrs, note: nil, author: nil, meta: {})
       # compact: an MCP/LLM caller routinely sends `null` for a declared-but-unset
       # optional param. Without this, nil != current value reads as an intentional
       # change and blanks the field — `acceptance_criteria: null` would silently
       # erase the entire executor brief. There is no "clear this field" use case.
       attrs = attrs.to_h.stringify_keys.slice(*OPERATOR_EDITABLE_FIELDS).compact
-      meta = (metadata.presence || {}).dup
+      extra_meta = meta.to_h.stringify_keys
       stamp = Time.current.iso8601
       changed = []
 
-      attrs.each do |field, value|
-        previous = public_send(field)
-        next if previous.to_s == value.to_s
+      # with_lock: metadata is a whole-column read-modify-write, and the claim
+      # path does the same thing under a lock (claimed_by / claimed_holder /
+      # claimed_at). The READ has to happen inside the lock too — with_lock
+      # reloads, so a hash built beforehand is already stale and would clobber a
+      # concurrent claim's stamps, breaking re-claim and #stale?.
+      #
+      with_lock do
+        merged = (metadata.presence || {}).merge(extra_meta)
+        changed << "metadata" if extra_meta.any? && merged != metadata
 
-        changed << field
-        meta["operator_edits"] = Array(meta["operator_edits"]) +
-                                 [{ "field" => field, "previous" => previous, "author" => author, "at" => stamp }]
+        attrs.each do |field, value|
+          previous = public_send(field)
+          next if previous.to_s == value.to_s
+
+          changed << field
+          merged["operator_edits"] = Array(merged["operator_edits"]) +
+                                     [{ "field" => field, "previous" => previous, "author" => author, "at" => stamp }]
+        end
+
+        if note.present?
+          changed << "note"
+          merged["operator_notes"] = Array(merged["operator_notes"]) +
+                                     [{ "note" => note.to_s, "author" => author, "at" => stamp }]
+        end
+
+        next if changed.empty?
+
+        assign_attributes(attrs)
+        self.metadata = merged
+        save!
       end
 
-      if note.present?
-        changed << "note"
-        meta["operator_notes"] = Array(meta["operator_notes"]) +
-                                 [{ "note" => note.to_s, "author" => author, "at" => stamp }]
-      end
-
-      return changed if changed.empty?
-
-      assign_attributes(attrs)
-      self.metadata = meta
-      save!
       changed
     end
 

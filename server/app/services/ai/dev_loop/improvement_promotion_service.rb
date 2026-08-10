@@ -84,14 +84,15 @@ module Ai
       # Applies a direction to an ALREADY-promoted task, journalling the prior
       # brief through the same operator-edit trail dev_update_task writes.
       def apply_direction!(task)
-        meta = (task.metadata.presence || {}).dup
-        return if meta["operator_direction"] == direction
+        prior = task.metadata.is_a?(Hash) ? task.metadata["operator_direction"] : nil
+        return if prior == direction
 
-        meta["operator_direction"] = direction
-        task.metadata = meta
+        # The model owns the metadata write so it happens inside the row lock —
+        # pre-assigning task.metadata here would make with_lock refuse the record.
         task.apply_operator_edit!(
-          { "acceptance_criteria" => directed_criteria(task.acceptance_criteria) },
-          note: "Operator direction recorded at re-approval: #{direction}"
+          { "acceptance_criteria" => directed_criteria(task.acceptance_criteria, prior) },
+          note: "Operator direction recorded at re-approval: #{direction}",
+          meta: { "operator_direction" => direction }
         )
       end
 
@@ -102,12 +103,19 @@ module Ai
       # otherwise stacks headers, and since each one reads "do not re-litigate" the
       # executor receives N mutually contradictory orders — the exact failure this
       # feature exists to prevent. The newest direction is the operative one.
-      def directed_criteria(base)
-        "#{DIRECTION_PREFIX}#{direction}\n\n#{strip_direction(base)}"
+      def directed_criteria(base, prior = nil)
+        "#{DIRECTION_PREFIX}#{direction}\n\n#{strip_direction(base, prior)}"
       end
 
-      def strip_direction(text)
-        text.to_s.sub(/\A#{Regexp.escape(DIRECTION_PREFIX)}.*?\n\n/m, "")
+      # Strips the EXACT prior header using the direction stored in metadata,
+      # rather than a lazy /\A…\n\n/m match. A multi-paragraph direction ends at
+      # its first blank line, so the regex left the superseded rationale sitting
+      # directly under the new order — contradictory text that a header COUNT
+      # assertion cannot see.
+      def strip_direction(text, prior)
+        return text.to_s if prior.blank?
+
+        text.to_s.sub("#{DIRECTION_PREFIX}#{prior}\n\n", "")
       end
 
       def find_or_create_loop

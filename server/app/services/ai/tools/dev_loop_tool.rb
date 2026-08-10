@@ -119,7 +119,6 @@ module Ai
               priority: { type: "integer", required: false, description: "Requeue priority (higher drains first)" },
               execution_type: { type: "string", required: false,
                                 description: Ai::RalphTask::EXECUTION_TYPES.join(" | ") },
-              executor_id: { type: "string", required: false, description: "Pin a specific executor" },
               required_capabilities: { type: "array", required: false,
                                        description: "Capabilities an executor must match" },
               capability_match_strategy: { type: "string", required: false,
