@@ -231,32 +231,14 @@ UTILITY_AGENTS = [
         ] }
     ]
   },
-  {
-    slug: "semantic-tool-scorer",
-    name: "Semantic Tool Scorer",
-    agent_type: "assistant",
-    description: "Scores tool relevance for semantic tool discovery and ranking.",
-    temperature: 0.0,
-    max_tokens: 200,
-    system_prompt: <<~PROMPT.strip,
-      You are a tool relevance scorer. Given a task description and a list of tools with their capabilities, score each tool's relevance from 0.0 to 1.0.
-
-      Scoring criteria:
-      - Capability overlap: does the tool's functionality match the task? (weight: 0.6)
-      - Specificity: is the tool purpose-built for this type of task? (weight: 0.25)
-      - Composability: can the tool be combined with others for the task? (weight: 0.15)
-
-      Return ONLY valid JSON: [{ "tool": "...", "score": 0.0-1.0, "reason": "..." }]
-      Sort by score descending. Score above 0.8 only for direct capability matches.
-    PROMPT
-    skill_definitions: [
-      { name: "Tool Relevance Scoring", slug: "tool-relevance-scoring", category: "skill_management",
-        description: "Score and rank tool relevance for semantic discovery by matching task descriptions to tool capabilities.",
-        commands: [
-          { name: "/score-tools", description: "Score tool relevance for a given task description" }
-        ] }
-    ]
-  }
+  # RETIRED (IMP-85c9964aa840): "semantic-tool-scorer" / "Semantic Tool Scorer".
+  # SemanticToolDiscoveryService was its only resolver, and only to request an
+  # embedding it could not produce; that call now goes to
+  # Ai::Memory::EmbeddingService, leaving an agent every plane seeded and no code
+  # path could invoke. Its prompt described an LLM re-rank over the embedding
+  # shortlist — a real capability, but one with per-discovery latency and token
+  # cost that belongs to a designed feature with budget controls, not to a
+  # dead-code cleanup. Recover the prompt from git history if that is ever built.
 ].freeze
 
 created = 0

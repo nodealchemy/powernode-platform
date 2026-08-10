@@ -49,7 +49,9 @@ KEEP_AGENT_NAMES = [
   "RAG Reranker",
   "RAG Query Engine",
   "Intent Classifier",
-  "Semantic Tool Scorer",
+  # semantic-tool-scorer retired (IMP-85c9964aa840) — no longer seeded, so
+  # protecting it here would preserve rows on planes that already have one while
+  # naming an agent no seed creates.
   # Example extension agents (dynamically created, must survive seeds)
   "Example Overseer"
 ].freeze
