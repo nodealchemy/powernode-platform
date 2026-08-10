@@ -433,11 +433,6 @@ module Ai
       capability_match_strategy required_capabilities delegation_config
     ].freeze
 
-    # Append-only, attributed operator note.
-    def add_operator_note!(text, author: nil)
-      apply_operator_edit!({}, note: text, author: author)
-    end
-
     # Applies an operator amendment and returns the list of fields that actually
     # changed. Raises ActiveRecord::RecordInvalid on a bad value rather than
     # persisting it — the caller surfaces the validation message.

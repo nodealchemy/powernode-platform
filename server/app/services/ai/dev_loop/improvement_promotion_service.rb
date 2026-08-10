@@ -61,7 +61,12 @@ module Ai
           apply_direction!(task)
         end
 
-        if !created && (task.status.in?(%w[failed blocked]) || unverified_pass?(task))
+        # `skipped` belongs here for the same reason as failed/blocked: it is
+        # terminal, apply_linked_recommendation! never runs for it, dev_next_task
+        # claims only pending, and dev_complete_task refuses it — so its offer sits
+        # at approved with no route back, which is the exact stranding this branch
+        # exists to undo. A dismissal cascade produces skipped routinely.
+        if !created && (task.status.in?(%w[failed blocked skipped]) || unverified_pass?(task))
           # IMP-938f68b16a1a: re-approving an offer whose promoted task already
           # failed/blocked previously returned it untouched -- dev_next_task
           # only ever claims pending tasks, so the operator's retry intent was

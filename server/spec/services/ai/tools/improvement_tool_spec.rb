@@ -213,6 +213,19 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(result[:data][:direction_warning]).to match(/in_progress/)
     end
 
+    it "re-queues a skipped task on re-approval rather than stranding its offer" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      task = loop_record.ralph_tasks.find_by(task_key: first[:data][:task_key])
+      task.update!(status: "skipped")
+
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
+
+      expect(result[:data][:task_requeued]).to be true
+      expect(task.reload.status).to eq("pending")
+    end
+
     it "is idempotent — approving twice does not create a duplicate task" do
       rec_id = create_offer[:data][:recommendation][:id]
       first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
