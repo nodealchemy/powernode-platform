@@ -269,6 +269,10 @@ module Ai
         }.compact
       rescue ActiveRecord::RecordInvalid => e
         error_result(e.record.errors.full_messages.join("; "))
+      rescue ArgumentError => e
+        # Shape rejection from RalphTask::OPERATOR_FIELD_SHAPES — fail at the seam
+        # rather than persisting a scalar that raises TypeError later.
+        error_result(e.message)
       end
 
       def find_task(loop_record, key)

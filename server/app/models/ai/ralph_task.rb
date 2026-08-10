@@ -433,6 +433,23 @@ module Ai
       capability_match_strategy required_capabilities delegation_config
     ].freeze
 
+    # The two jsonb editables need a shape check for the same reason executor_type
+    # is excluded: nothing validates them, so a scalar persists and only raises
+    # much later, away from the seam that accepted it. `delegation_config: 3600`
+    # made #execution_timeout and #has_fallback? raise TypeError on the delegation
+    # path; `required_capabilities: "ruby"` breaks the (required_capabilities -
+    # slugs) subtraction in A2A discovery. The REST task_params constrains both
+    # via strong params; the MCP seam had no equivalent.
+    OPERATOR_FIELD_SHAPES = { "delegation_config" => Hash, "required_capabilities" => Array }.freeze
+
+    # Cap on the append-only operator journal. metadata rides EVERY dev_next_task
+    # claim payload (task_details is returned verbatim), and each entry stores the
+    # full prior value — so uncapped, N brief amendments put N copies of the brief
+    # in front of the executor on every claim. Same reasoning as DevLoopTool's
+    # BASE_CONTEXT_*_LIMIT budgets on that payload.
+    OPERATOR_JOURNAL_LIMIT = 10
+    OPERATOR_JOURNAL_VALUE_LIMIT = 2_048
+
     # Applies an operator amendment and returns the list of fields that actually
     # changed. Raises ActiveRecord::RecordInvalid on a bad value rather than
     # persisting it — the caller surfaces the validation message.
@@ -476,6 +493,13 @@ module Ai
       # change and blanks the field — `acceptance_criteria: null` would silently
       # erase the entire executor brief. There is no "clear this field" use case.
       attrs = attrs.to_h.stringify_keys.slice(*OPERATOR_EDITABLE_FIELDS).compact
+      OPERATOR_FIELD_SHAPES.each do |field, shape|
+        next unless attrs.key?(field)
+        next if attrs[field].is_a?(shape)
+
+        raise ArgumentError, "#{field} must be #{shape == Hash ? 'an object' : 'an array'}, " \
+                             "got #{attrs[field].class.name}"
+      end
       extra_meta = meta.to_h.stringify_keys
       stamp = Time.current.iso8601
       changed = []
@@ -495,14 +519,17 @@ module Ai
           next if previous.to_s == value.to_s
 
           changed << field
-          merged["operator_edits"] = Array(merged["operator_edits"]) +
-                                     [{ "field" => field, "previous" => previous, "author" => author, "at" => stamp }]
+          merged["operator_edits"] = (Array(merged["operator_edits"]) +
+                                      [{ "field" => field, "author" => author, "at" => stamp,
+                                         "previous" => previous.to_s.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) }])
+                                     .last(OPERATOR_JOURNAL_LIMIT)
         end
 
         if note.present?
           changed << "note"
-          merged["operator_notes"] = Array(merged["operator_notes"]) +
-                                     [{ "note" => note.to_s, "author" => author, "at" => stamp }]
+          merged["operator_notes"] = (Array(merged["operator_notes"]) +
+                                      [{ "note" => note.to_s, "author" => author, "at" => stamp }])
+                                     .last(OPERATOR_JOURNAL_LIMIT)
         end
 
         next if changed.empty?

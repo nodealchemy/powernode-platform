@@ -1182,6 +1182,28 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(result[:warning]).to match(/human/)
     end
 
+    it "refuses a non-Hash delegation_config instead of persisting a later TypeError" do
+      result = update(delegation_config: 3600)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/delegation_config/)
+      expect { task.reload.execution_timeout }.not_to raise_error
+    end
+
+    it "refuses a non-Array required_capabilities" do
+      result = update(required_capabilities: "ruby")
+
+      expect(result[:success]).to be false
+      expect(task.reload.required_capabilities).not_to eq("ruby")
+    end
+
+    it "caps the operator journal so it cannot grow the claim payload without bound" do
+      12.times { |i| update(acceptance_criteria: "#{'x' * 400}#{i}") }
+
+      expect(task.reload.metadata["operator_edits"].size)
+        .to be <= Ai::RalphTask::OPERATOR_JOURNAL_LIMIT
+    end
+
     it "rejects an unknown field rather than silently dropping it" do
       result = update(status: "passed")
 
