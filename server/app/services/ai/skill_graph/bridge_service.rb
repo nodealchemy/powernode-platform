@@ -18,13 +18,16 @@ module Ai
         # unscoped association returns an arbitrary account's node — this
         # bridge would then UPDATE another tenant's copy instead of creating
         # this account's (IMP-059e6c5af2bf).
-        node = Ai::KnowledgeGraphNode.find_by(ai_skill_id: skill.id, account_id: account.id)
+        node = Ai::KnowledgeGraphNode.find_by(ai_skill_id: skill.id, account_id: account.id) ||
+               adoptable_slot_node(skill)
 
         text = build_embedding_text(skill)
         embedding = embedding_service.generate(text)
 
         if node.present?
           node.update!(
+            ai_skill_id: skill.id,
+            entity_type: "skill",
             name: skill.name,
             description: skill.description,
             properties: build_skill_properties(skill),
@@ -190,6 +193,37 @@ module Ai
       end
 
       private
+
+      # ai_knowledge_graph_nodes carries a SECOND partial-unique index over active
+      # rows — (account_id, name, node_type) — besides the (account_id,
+      # ai_skill_id) one sync_skill looks up by. When the KG pipeline has already
+      # extracted an entity under this skill's name, that slot is taken, and
+      # GraphService#create_node (a bare create! that rescues only RecordInvalid)
+      # raised RecordNotUnique into sync_skill's blanket rescue: logged, nil
+      # returned, skill silently absent from the graph. On a plane with a
+      # populated graph that is every colliding skill on every re-seed
+      # (IMP-019fe968).
+      #
+      # Adopt the occupant only when it is unowned. A node already bound to a
+      # DIFFERENT skill is not ours to take — re-pointing its ai_skill_id would
+      # steal that skill's node and merely move the collision — so decline and
+      # say so, rather than corrupting the graph quietly.
+      def adoptable_slot_node(skill)
+        occupant = Ai::KnowledgeGraphNode.find_by(
+          account_id: account.id,
+          name: skill.name,
+          node_type: "entity",
+          status: "active"
+        )
+        return nil if occupant.nil?
+        return occupant if occupant.ai_skill_id.nil? || occupant.ai_skill_id == skill.id
+
+        Rails.logger.warn(
+          "[SkillGraph::BridgeService] skill #{skill.id} (#{skill.name.inspect}) collides with " \
+          "node #{occupant.id}, already bound to skill #{occupant.ai_skill_id}; not adopting"
+        )
+        nil
+      end
 
       def graph_service
         @graph_service ||= Ai::KnowledgeGraph::GraphService.new(account)

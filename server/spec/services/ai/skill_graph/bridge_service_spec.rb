@@ -33,6 +33,66 @@ RSpec.describe Ai::SkillGraph::BridgeService, type: :service do
       expect(node.embedding).to be_present
     end
 
+    # IMP-019fe968: re-seeding logged ~107 duplicate-key errors per account.
+    # ai_knowledge_graph_nodes carries TWO partial-unique indexes over active
+    # rows — (account_id, ai_skill_id) and (account_id, name, node_type) — but
+    # the guard here only looks up by ai_skill_id, and does not filter status.
+    # GraphService#create_node is a bare create! that rescues only RecordInvalid,
+    # so a RecordNotUnique falls through to sync_skill's blanket rescue: logged,
+    # returns nil, skill silently absent from the graph.
+    describe "idempotency (IMP-019fe968)" do
+      it "is a no-op-ish update when re-synced, not a second insert" do
+        first = service.sync_skill(skill)
+
+        expect { @second = service.sync_skill(skill) }
+          .not_to change { Ai::KnowledgeGraphNode.where(account: account).count }
+        expect(@second).to be_present
+        expect(@second.id).to eq(first.id)
+      end
+
+      it "adopts an existing active node that already occupies the (name, node_type) slot" do
+        squatter = Ai::KnowledgeGraphNode.create!(
+          account: account, name: "Code Review", node_type: "entity",
+          entity_type: "technology", description: "extracted earlier by the KG pipeline",
+          status: "active", confidence: 1.0
+        )
+
+        node = service.sync_skill(skill)
+
+        expect(node).to be_present, "sync_skill returned nil — the unique violation was swallowed"
+        expect(node.id).to eq(squatter.id)
+        expect(node.ai_skill_id).to eq(skill.id)
+      end
+
+      it "refuses to hijack a slot already bound to a different skill" do
+        other_skill = create(:ai_skill, account: account, name: "Other Skill", category: "productivity")
+        owned = Ai::KnowledgeGraphNode.create!(
+          account: account, name: "Code Review", node_type: "entity",
+          entity_type: "skill", ai_skill_id: other_skill.id,
+          description: "belongs to another skill", status: "active", confidence: 1.0
+        )
+
+        expect(service.sync_skill(skill)).to be_nil
+        expect(owned.reload.ai_skill_id).to eq(other_skill.id)
+      end
+
+      it "does not resurrect an archived node into a colliding active slot" do
+        Ai::KnowledgeGraphNode.create!(
+          account: account, name: "Code Review (old)", node_type: "entity",
+          entity_type: "skill", ai_skill_id: skill.id, description: "stale",
+          status: "archived", confidence: 1.0
+        )
+
+        node = service.sync_skill(skill)
+
+        expect(node).to be_present, "sync_skill returned nil — the unique violation was swallowed"
+        expect(node.status).to eq("active")
+        expect(
+          Ai::KnowledgeGraphNode.where(account: account, ai_skill_id: skill.id, status: "active").count
+        ).to eq(1)
+      end
+    end
+
     it "stores skill properties on the node" do
       node = service.sync_skill(skill)
       expect(node.properties["category"]).to eq("productivity")
