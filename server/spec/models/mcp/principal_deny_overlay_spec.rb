@@ -115,8 +115,15 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
       end
     end
 
+    # 16 since fb00c85ed added *prune* alongside the GitRunner prune action
+    # (IMP-5df6d59aaa5c). That addition is correct — pruning is destroy-shaped
+    # and must be denied to instance principals — but the commit did not update
+    # this count, so the guard has been red on develop ever since. That is the
+    # guard working: every change to the deny list is meant to be acknowledged
+    # HERE, deliberately, rather than slipping in unreviewed. Bump this only
+    # after confirming the new pattern belongs.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(15)
+      expect(patterns.size).to eq(16)
     end
   end
 
