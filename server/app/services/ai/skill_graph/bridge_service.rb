@@ -18,7 +18,12 @@ module Ai
         # unscoped association returns an arbitrary account's node — this
         # bridge would then UPDATE another tenant's copy instead of creating
         # this account's (IMP-059e6c5af2bf).
-        node = Ai::KnowledgeGraphNode.find_by(ai_skill_id: skill.id, account_id: account.id) ||
+        # status: "active" matters. Both unique indexes are PARTIAL over active
+        # rows, so archived duplicates are legal — and without this filter an
+        # archived skill-bound row is returned, shadowing the adoption fallback
+        # entirely; reviving and renaming it into an occupied slot then hits the
+        # very violation this method exists to avoid.
+        node = Ai::KnowledgeGraphNode.find_by(ai_skill_id: skill.id, account_id: account.id, status: "active") ||
                adoptable_slot_node(skill)
 
         text = build_embedding_text(skill)
@@ -204,10 +209,14 @@ module Ai
       # populated graph that is every colliding skill on every re-seed
       # (IMP-019fe968).
       #
-      # Adopt the occupant only when it is unowned. A node already bound to a
-      # DIFFERENT skill is not ours to take — re-pointing its ai_skill_id would
-      # steal that skill's node and merely move the collision — so decline and
-      # say so, rather than corrupting the graph quietly.
+      # Adopt the occupant only when NOTHING else owns it. "Unowned" cannot mean
+      # merely `ai_skill_id.nil?`: an agent's node carries its link in
+      # metadata.ai_agent_id and a data source's in the ai_data_source_id column,
+      # so both look unowned by that test. Adopting an agent's node is not a near
+      # miss — sync_agent finds its node by entity_type "agent" + that metadata
+      # key, so overwriting entity_type to "skill" destroys the agent's node data
+      # AND permanently breaks its sync, which then collides on this same slot
+      # forever. Decline anything already claimed, and say which owner.
       def adoptable_slot_node(skill)
         occupant = Ai::KnowledgeGraphNode.find_by(
           account_id: account.id,
@@ -216,12 +225,28 @@ module Ai
           status: "active"
         )
         return nil if occupant.nil?
-        return occupant if occupant.ai_skill_id.nil? || occupant.ai_skill_id == skill.id
+        return occupant if occupant.ai_skill_id == skill.id
+
+        owner = other_owner_of(occupant)
+        return occupant if owner.nil?
 
         Rails.logger.warn(
           "[SkillGraph::BridgeService] skill #{skill.id} (#{skill.name.inspect}) collides with " \
-          "node #{occupant.id}, already bound to skill #{occupant.ai_skill_id}; not adopting"
+          "node #{occupant.id}, already owned by #{owner}; not adopting"
         )
+        nil
+      end
+
+      # Nil when the node is genuinely unclaimed (e.g. an extraction-pipeline
+      # entity), else a short description of who holds it.
+      def other_owner_of(node)
+        return "skill #{node.ai_skill_id}" if node.ai_skill_id.present?
+        return "data source #{node.ai_data_source_id}" if node.ai_data_source_id.present?
+
+        agent_id = node.metadata.is_a?(Hash) ? node.metadata["ai_agent_id"] : nil
+        return "agent #{agent_id}" if agent_id.present?
+        return "entity_type=#{node.entity_type}" if node.entity_type == "agent"
+
         nil
       end
 

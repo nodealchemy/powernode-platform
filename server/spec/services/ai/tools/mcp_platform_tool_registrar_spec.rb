@@ -17,9 +17,13 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
   # inside register_all!, and catches the NEXT tool that forgets.
   describe "every registered tool class" do
     it "implements .definition" do
+      # A safe_constantize miss is collected too, not skipped. Skipping would
+      # make the sweep vacuous for exactly the entries that need it most — a
+      # dangling registry entry resolves to nil, and tool_classes already drops
+      # those with a log line, so nothing else would ever notice.
       missing = Ai::Tools::PlatformApiToolRegistry.all_tools.values.uniq.filter_map do |class_name|
         klass = class_name.safe_constantize
-        next unless klass
+        next "#{class_name} (does not resolve)" unless klass
 
         begin
           klass.definition
