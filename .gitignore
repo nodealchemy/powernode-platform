@@ -278,6 +278,11 @@ dist
 .claude/worktrees/
 .claude/*.lock
 
+# Per-machine Claude Code settings — absolute local paths, machine-specific MCP
+# endpoints, and per-operator permission grants. Never shared; .claude/settings.json
+# is the committable one.
+.claude/settings.local.json
+
 # Generated Claude Code agent skeletons (regenerate via: rails claude:sync_agents /
 # scripts/sync-claude-agents.sh) — scoped to this subdir so hand-authored agents
 # elsewhere under .claude/agents/ stay committable.
