@@ -1,8 +1,40 @@
 # Runbook — ops-hub soft-recompose (devpin dedup + system-base bump)
 
-**Status**: **ATTEMPT 1 FAILED 2026-08-10 — do not retry until the logging gap below is fixed**
+**Status**: attempt 1 failed 2026-08-10; **observability now fixed — ready for
+attempt 2 in an operator window**
 **Node**: ops-hub (VM 600 on dna, 10.125.0.227)
 **Requires**: an operator present for the whole window
+
+## Observability — done 2026-08-10 13:16, re-check before each attempt
+
+The journal is now written to **durable storage**, which attempt 1 lacked:
+
+```
+mkdir -p /persist/var/log/journal /var/log/journal
+mount --bind /persist/var/log/journal /var/log/journal
+systemctl restart systemd-journald
+```
+
+Capped so it can never crowd the database sharing `/persist`
+(`/etc/systemd/journald.conf.d/90-persist-cap.conf`: `SystemMaxUse=2G`,
+`SystemKeepFree=20G`). Verified writing: `/persist/var/log/journal/<machine-id>/system.journal`.
+
+**IMPORTANT — the bind mount is per-boot.** `/` is a tmpfs-upper overlay, so the
+mount and the journald drop-in do NOT survive a reboot; only the DATA on
+`/persist` does. That is enough for diagnosis, but it means:
+
+- **Re-run the three commands above as a preflight step** for every attempt,
+  and confirm `findmnt /var/log/journal` shows `/dev/sda2` before executing.
+- After a recovery reset, read the failed boot with
+  **`journalctl -D /persist/var/log/journal --list-boots`** and then
+  `journalctl -D /persist/var/log/journal -b -1`.
+- Making this durable across boots properly is a module change (ship the mount),
+  not an ad-hoc command — worth doing separately.
+
+Still to do at attempt 2: write the execute log to **`/persist/softrc-exec.log`,
+not `/run`** (attempt 1's log died with the recovery reset), and consider
+capturing `qm terminal 600` for the switch window — the only channel that
+survives userspace dying.
 
 ## Attempt 1 — 2026-08-10 12:56 UTC — FAILED, ~10 min outage, no regression
 
