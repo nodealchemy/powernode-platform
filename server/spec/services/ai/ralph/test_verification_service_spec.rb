@@ -211,6 +211,12 @@ RSpec.describe Ai::Ralph::TestVerificationService do
       expect(verdict_of({ "inspection" => { "passed" => 6, "failed" => 0 } })).to eq(:unverified)
     end
 
+    it "does not grant scope to a key merely containing a framework name" do
+      expect(verdict_of({ "rspec_migration_plan" => { "passed" => 6, "failed" => 0 } })).to eq(:unverified)
+      expect(verdict_of({ "cargo_cult_refactor" => { "passed" => 3, "failed" => 0 } })).to eq(:unverified)
+      expect(verdict_of({ "gotest_plan" => { "passed" => 4, "failed" => 0 } })).to eq(:unverified)
+    end
+
     it "matches test scope case-insensitively and across underscores" do
       expect(verdict_of({ "RSpec" => { "passed" => 173, "failures" => 0 } })).to eq(:verified)
       expect(verdict_of({ "go_test" => { "passed" => 3, "failed" => 0 } })).to eq(:verified)

@@ -130,10 +130,16 @@ module Ai
       # keying on the closest ancestor alone ("summary") strands it as unverified.
       # Separators are stripped rather than split on, so "go_test" normalises to
       # "gotest" and matches, while "latest" still cannot match anything.
+      #
+      # EQUALITY, not include?: a substring test grants scope to any key merely
+      # CONTAINING a runner's name, so "rspec_migration_plan" and
+      # "cargo_cult_refactor" qualified — re-opening the bare-count hole from the
+      # other side, and contradicting this file's own rule that a plan or a review
+      # is not a test run.
       def self.test_scoped?(ancestors)
         ancestors.any? do |key|
           normalized = key.to_s.downcase.gsub(/[^a-z0-9]/, "")
-          TEST_FRAMEWORK_NAMES.any? { |framework| normalized.include?(framework) }
+          TEST_FRAMEWORK_NAMES.include?(normalized)
         end
       end
       private_class_method :test_scoped?
