@@ -120,7 +120,6 @@ module Ai
               execution_type: { type: "string", required: false,
                                 description: Ai::RalphTask::EXECUTION_TYPES.join(" | ") },
               executor_id: { type: "string", required: false, description: "Pin a specific executor" },
-              executor_type: { type: "string", required: false, description: "Executor class for executor_id" },
               required_capabilities: { type: "array", required: false,
                                        description: "Capabilities an executor must match" },
               capability_match_strategy: { type: "string", required: false,
@@ -252,7 +251,7 @@ module Ai
           )
         end
 
-        attrs = params.to_h.stringify_keys.slice(*Ai::RalphTask::OPERATOR_EDITABLE_FIELDS)
+        attrs = params.to_h.stringify_keys.slice(*Ai::RalphTask::OPERATOR_EDITABLE_FIELDS).compact
         note = params[:note]
         if attrs.empty? && note.blank?
           return error_result("Nothing to update — supply a note or one of: " \
@@ -267,23 +266,10 @@ module Ai
           loop: { id: loop_record.id, name: loop_record.name },
           task: task.reload.task_details,
           changed: changed,
-          warning: amendment_warning(task)
+          warning: task.amendment_delivery_warning
         }.compact
       rescue ActiveRecord::RecordInvalid => e
         error_result(e.record.errors.full_messages.join("; "))
-      end
-
-      # An amendment only reaches an executor through a FUTURE dev_next_task
-      # payload, so say so when that will not happen: an in_progress claim already
-      # handed over the old brief, and a terminal task is never handed out again.
-      def amendment_warning(task)
-        if task.in_progress?
-          "task #{task.task_key} is in_progress — its executor already holds the previous brief; " \
-            "the amendment lands only if the task is re-queued or re-claimed."
-        elsif task.terminal?
-          "task #{task.task_key} is #{task.status} (terminal) — the amendment is recorded but will " \
-            "not be delivered unless the task is re-queued."
-        end
       end
 
       def find_task(loop_record, key)

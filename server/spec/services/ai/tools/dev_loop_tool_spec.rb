@@ -1154,6 +1154,34 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(result[:warning]).to match(/passed/)
     end
 
+    it "ignores an explicit null instead of erasing the field" do
+      result = update(description: nil, note: "just a note")
+
+      expect(result[:success]).to be true
+      expect(result[:changed]).to eq(["note"])
+      expect(task.reload.description).to eq("Original title")
+    end
+
+    it "does not erase the brief when acceptance_criteria arrives as null" do
+      update(acceptance_criteria: nil, note: "x")
+
+      expect(task.reload.acceptance_criteria).to eq("Original criteria")
+    end
+
+    it "refuses executor_type, which is unvalidated and would break task.executor" do
+      result = update(executor_type: "Agent")
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/executor_type/)
+    end
+
+    it "warns that a task amended to execution_type human will never be drained" do
+      result = update(execution_type: "human")
+
+      expect(result[:success]).to be true
+      expect(result[:warning]).to match(/human/)
+    end
+
     it "rejects an unknown field rather than silently dropping it" do
       result = update(status: "passed")
 

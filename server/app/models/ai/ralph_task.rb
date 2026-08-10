@@ -417,8 +417,13 @@ module Ai
     # dev_complete_task, and hand-editing it would desynchronise the queue counts
     # and the iteration record. Same reasoning for position/execution_attempts/
     # reverted_at — loop bookkeeping, not operator intent.
+    # `executor_type` is absent on purpose. It is the polymorphic type half of the
+    # executor association and has NO inclusion validation, so an arbitrary string
+    # persists happily and then raises NameError the moment anything calls
+    # #executor — including Ai::Ralph::TaskExecutor#resolve_executor, which runs in
+    # a request path. The REST task_params does not permit it either.
     OPERATOR_EDITABLE_FIELDS = %w[
-      description acceptance_criteria priority execution_type executor_id executor_type
+      description acceptance_criteria priority execution_type executor_id
       capability_match_strategy required_capabilities delegation_config
     ].freeze
 
@@ -435,8 +440,29 @@ module Ai
     # value. The offer text carries the discovery `verifier_evidence`, and that
     # provenance is what makes the improvement queue auditable; an edit may replace
     # it, but must not make the original unrecoverable.
+    # An amendment only reaches an executor through a FUTURE dev_next_task payload,
+    # so name the cases where that will not happen. Shared by every amendment seam
+    # (dev_update_task and approve_improvement's direction) — an operator who gets
+    # `success: true` must not be left assuming delivery.
+    def amendment_delivery_warning
+      if in_progress?
+        "task #{task_key} is in_progress — its executor already holds the previous brief; " \
+          "the amendment lands only if the task is re-queued or re-claimed."
+      elsif terminal?
+        "task #{task_key} is #{status} (terminal) — the amendment is recorded but will " \
+          "not be delivered unless the task is re-queued."
+      elsif execution_type == "human"
+        "task #{task_key} has execution_type \"human\" — dev_next_task skips human tasks, so it " \
+          "stays pending in dev_list_tasks but will never be handed to a drain session."
+      end
+    end
+
     def apply_operator_edit!(attrs, note: nil, author: nil)
-      attrs = attrs.to_h.stringify_keys.slice(*OPERATOR_EDITABLE_FIELDS)
+      # compact: an MCP/LLM caller routinely sends `null` for a declared-but-unset
+      # optional param. Without this, nil != current value reads as an intentional
+      # change and blanks the field — `acceptance_criteria: null` would silently
+      # erase the entire executor brief. There is no "clear this field" use case.
+      attrs = attrs.to_h.stringify_keys.slice(*OPERATOR_EDITABLE_FIELDS).compact
       meta = (metadata.presence || {}).dup
       stamp = Time.current.iso8601
       changed = []
