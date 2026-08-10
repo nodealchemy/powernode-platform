@@ -39,7 +39,13 @@ module Ai
             await: { type: "boolean", required: false, description: "Block until the delegated agent finishes" },
             timeout: { type: "integer", required: false, description: "Await timeout seconds (max 300)" },
             budget_cents: { type: "integer", required: false, description: "Budget for the delegated task" },
-            holder: { type: "string", required: false, description: "Driver identity (lease holder) for campaign-loop pulls" }
+            holder: { type: "string", required: false, description: "Driver identity (lease holder) for campaign-loop pulls" },
+            description: { type: "string", required: false, description: "Task title (dev_update_task)" },
+            acceptance_criteria: { type: "string", required: false, description: "Executor-facing brief (dev_update_task)" },
+            priority: { type: "integer", required: false, description: "Queue priority (dev_update_task)" },
+            note: { type: "string", required: false, description: "Append-only operator note (dev_update_task)" },
+            required_capabilities: { type: "array", required: false, description: "Capabilities an executor must match" },
+            capability_match_strategy: { type: "string", required: false, description: "all | any | weighted" }
           }
         }
       end
@@ -95,6 +101,32 @@ module Ai
               timeout: { type: "integer", required: false, description: "Await timeout seconds (max 300)" },
               budget_cents: { type: "integer", required: false, description: "Budget for the delegated task" }
             }
+          },
+          "dev_update_task" => {
+            description: "Amend a queued task's brief or routing AFTER it was created — the seam for a decision " \
+                         "the operator made post-approval (scope narrowed, one of two offered directions chosen). " \
+                         "Edits reach the executor on the next dev_next_task claim. Overwrites are journalled with " \
+                         "their prior value in metadata.operator_edits; `note` appends without touching the brief. " \
+                         "Cannot change status — use dev_complete_task for transitions.",
+            parameters: {
+              loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
+              task_key: { type: "string", required: true, description: "Task key (or task UUID) to amend" },
+              note: { type: "string", required: false,
+                      description: "Append an attributed operator note, leaving the brief intact" },
+              description: { type: "string", required: false, description: "Replace the task title" },
+              acceptance_criteria: { type: "string", required: false,
+                                     description: "Replace the executor-facing brief" },
+              priority: { type: "integer", required: false, description: "Requeue priority (higher drains first)" },
+              execution_type: { type: "string", required: false,
+                                description: Ai::RalphTask::EXECUTION_TYPES.join(" | ") },
+              executor_id: { type: "string", required: false, description: "Pin a specific executor" },
+              executor_type: { type: "string", required: false, description: "Executor class for executor_id" },
+              required_capabilities: { type: "array", required: false,
+                                       description: "Capabilities an executor must match" },
+              capability_match_strategy: { type: "string", required: false,
+                                           description: Ai::RalphTask::CAPABILITY_STRATEGIES.join(" | ") },
+              delegation_config: { type: "object", required: false, description: "Delegation settings" }
+            }
           }
         }
       end
@@ -109,6 +141,7 @@ module Ai
         when "dev_next_task" then next_task(params)
         when "dev_complete_task" then complete_task(params)
         when "dev_list_tasks" then list_tasks(params)
+        when "dev_update_task" then update_task(params)
         when "delegate_ralph_task" then delegate_ralph_task(params)
         else
           error_result("Unknown action: #{params[:action]}")
@@ -193,6 +226,70 @@ module Ai
           tasks: tasks.map(&:task_details),
           queue: queue_snapshot(loop_record)
         }
+      end
+
+      # Keys that steer the call rather than name a task attribute to amend.
+      UPDATE_CONTROL_KEYS = %w[action loop_id task_key note].freeze
+
+      def update_task(params)
+        loop_record = find_loop(params[:loop_id])
+        return error_result("Ralph loop not found") unless loop_record
+
+        task = find_task(loop_record, params[:task_key])
+        return error_result("Task not found: #{params[:task_key]}") unless task
+
+        supplied = params.to_h.keys.map(&:to_s) - UPDATE_CONTROL_KEYS
+        # Only reject keys that ARE task columns but are not operator-editable —
+        # naming `status` should fail loudly rather than be dropped on the floor.
+        # Unknown non-column keys are ignored so harness/transport noise can't
+        # turn a valid amendment into an error.
+        protected_keys = supplied & (Ai::RalphTask.column_names - Ai::RalphTask::OPERATOR_EDITABLE_FIELDS)
+        if protected_keys.any?
+          return error_result(
+            "Cannot edit #{protected_keys.join(', ')} via dev_update_task. " \
+            "Status transitions go through dev_complete_task; loop bookkeeping is not operator-editable. " \
+            "Editable: #{Ai::RalphTask::OPERATOR_EDITABLE_FIELDS.join(', ')}."
+          )
+        end
+
+        attrs = params.to_h.stringify_keys.slice(*Ai::RalphTask::OPERATOR_EDITABLE_FIELDS)
+        note = params[:note]
+        if attrs.empty? && note.blank?
+          return error_result("Nothing to update — supply a note or one of: " \
+                              "#{Ai::RalphTask::OPERATOR_EDITABLE_FIELDS.join(', ')}.")
+        end
+
+        changed = task.apply_operator_edit!(attrs, note: note, author: claimant_ref)
+        return error_result("No change — the supplied values already match the task.") if changed.empty?
+
+        {
+          success: true,
+          loop: { id: loop_record.id, name: loop_record.name },
+          task: task.reload.task_details,
+          changed: changed,
+          warning: amendment_warning(task)
+        }.compact
+      rescue ActiveRecord::RecordInvalid => e
+        error_result(e.record.errors.full_messages.join("; "))
+      end
+
+      # An amendment only reaches an executor through a FUTURE dev_next_task
+      # payload, so say so when that will not happen: an in_progress claim already
+      # handed over the old brief, and a terminal task is never handed out again.
+      def amendment_warning(task)
+        if task.in_progress?
+          "task #{task.task_key} is in_progress — its executor already holds the previous brief; " \
+            "the amendment lands only if the task is re-queued or re-claimed."
+        elsif task.terminal?
+          "task #{task.task_key} is #{task.status} (terminal) — the amendment is recorded but will " \
+            "not be delivered unless the task is re-queued."
+        end
+      end
+
+      def find_task(loop_record, key)
+        return nil if key.blank?
+
+        loop_record.ralph_tasks.find_by(task_key: key) || loop_record.ralph_tasks.find_by(id: key)
       end
 
       # Per-holder concurrent claims: a single user may run several driver lanes

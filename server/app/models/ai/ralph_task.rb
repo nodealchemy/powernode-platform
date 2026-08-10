@@ -404,6 +404,66 @@ module Ai
       delegation_config["timeout_seconds"] || 3600
     end
 
+    # ==================== Operator Amendment ====================
+
+    # A promoted task's brief was write-once until now: ImprovementPromotionService
+    # composed `acceptance_criteria` at approval time and nothing could amend it,
+    # so a decision the operator made AFTER approving (scope narrowed, one of two
+    # offered directions chosen) had no way onto the record the executor actually
+    # reads. Both this and #apply_operator_edit! ride to the executor inside
+    # #task_details, which dev_next_task returns verbatim.
+    #
+    # `status` is deliberately absent: it is owned by the AASM transitions behind
+    # dev_complete_task, and hand-editing it would desynchronise the queue counts
+    # and the iteration record. Same reasoning for position/execution_attempts/
+    # reverted_at — loop bookkeeping, not operator intent.
+    OPERATOR_EDITABLE_FIELDS = %w[
+      description acceptance_criteria priority execution_type executor_id executor_type
+      capability_match_strategy required_capabilities delegation_config
+    ].freeze
+
+    # Append-only, attributed operator note.
+    def add_operator_note!(text, author: nil)
+      apply_operator_edit!({}, note: text, author: author)
+    end
+
+    # Applies an operator amendment and returns the list of fields that actually
+    # changed. Raises ActiveRecord::RecordInvalid on a bad value rather than
+    # persisting it — the caller surfaces the validation message.
+    #
+    # Every overwrite is journalled into metadata["operator_edits"] with its prior
+    # value. The offer text carries the discovery `verifier_evidence`, and that
+    # provenance is what makes the improvement queue auditable; an edit may replace
+    # it, but must not make the original unrecoverable.
+    def apply_operator_edit!(attrs, note: nil, author: nil)
+      attrs = attrs.to_h.stringify_keys.slice(*OPERATOR_EDITABLE_FIELDS)
+      meta = (metadata.presence || {}).dup
+      stamp = Time.current.iso8601
+      changed = []
+
+      attrs.each do |field, value|
+        previous = public_send(field)
+        next if previous.to_s == value.to_s
+
+        changed << field
+        meta["operator_edits"] = Array(meta["operator_edits"]) +
+                                 [{ "field" => field, "previous" => previous, "author" => author, "at" => stamp }]
+      end
+
+      if note.present?
+        changed << "note"
+        meta["operator_notes"] = Array(meta["operator_notes"]) +
+                                 [{ "note" => note.to_s, "author" => author, "at" => stamp }]
+      end
+
+      return changed if changed.empty?
+
+      assign_attributes(attrs)
+      self.metadata = meta
+      save!
+      changed
+    end
+
     # ==================== Summary Methods ====================
 
     def task_summary

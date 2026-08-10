@@ -59,7 +59,7 @@ module Ai
       # Autonomous Improvement Campaigns + discovery/delegation control plane: surface the
       # campaign_* queue/delegation tools and the dev-loop drain tools when the user talks
       # about campaigns, the proposal/discovery queue, delegation, or draining a loop.
-      "campaign" => /\A(campaign_|dev_next_task|dev_complete_task|dev_list_tasks|delegate_ralph_task)/,
+      "campaign" => /\A(campaign_|dev_next_task|dev_complete_task|dev_list_tasks|dev_update_task|delegate_ralph_task)/,
       # Remaining feature areas — so the concierge can reach EVERY platform capability.
       "mission" => /\A(get_mission_status|mission_|list_missions|create_mission|start_mission)/,
       "rag" => /\A(query_knowledge_base|list_knowledge_bases|create_knowledge_base|add_document|process_document|search_documents|delete_document)/,

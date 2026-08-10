@@ -25,7 +25,8 @@ RSpec.describe Ai::Tools::DevLoopTool do
 
     it "exposes the bridge actions" do
       expect(described_class.action_definitions.keys)
-        .to contain_exactly("dev_next_task", "dev_complete_task", "delegate_ralph_task", "dev_list_tasks")
+        .to contain_exactly("dev_next_task", "dev_complete_task", "delegate_ralph_task", "dev_list_tasks",
+                            "dev_update_task")
     end
   end
 
@@ -1083,6 +1084,100 @@ RSpec.describe Ai::Tools::DevLoopTool do
                              task_key: "fail-task", outcome: "failed", summary: "did not work" })
 
       expect(learning.reload.positive_outcome_count).to eq(0)
+    end
+  end
+
+  describe "dev_update_task" do
+    let!(:task) do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "IMP-abc123", priority: 5,
+             description: "Original title",
+             acceptance_criteria: "Original criteria",
+             metadata: { "recommendation_id" => "rec-1", "verifier_evidence" => "proved on HEAD" })
+    end
+
+    def update(**params)
+      tool.execute(params: { action: "dev_update_task", loop_id: ralph_loop.name,
+                             task_key: "IMP-abc123" }.merge(params))
+    end
+
+    it "amends the executor-facing brief so a post-promotion direction reaches dev_next_task" do
+      result = update(acceptance_criteria: "DELETE the machinery. Do not wire it.")
+
+      expect(result[:success]).to be true
+      expect(result[:changed]).to include("acceptance_criteria")
+      expect(task.reload.acceptance_criteria).to eq("DELETE the machinery. Do not wire it.")
+
+      claimed = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+      expect(claimed[:task][:acceptance_criteria]).to eq("DELETE the machinery. Do not wire it.")
+    end
+
+    it "preserves the pre-edit acceptance_criteria so discovery provenance stays recoverable" do
+      update(acceptance_criteria: "Rewritten")
+
+      history = task.reload.metadata["operator_edits"]
+      expect(history.last["field"]).to eq("acceptance_criteria")
+      expect(history.last["previous"]).to eq("Original criteria")
+      expect(task.metadata["verifier_evidence"]).to eq("proved on HEAD")
+    end
+
+    it "appends attributed notes without disturbing the brief" do
+      update(note: "Operator: delete, do not wire")
+
+      expect(task.reload.metadata["operator_notes"].last["note"]).to eq("Operator: delete, do not wire")
+      expect(task.metadata["operator_notes"].last["author"]).to eq("user:#{user.id}")
+      expect(task.acceptance_criteria).to eq("Original criteria")
+    end
+
+    it "edits routing and priority fields" do
+      result = update(priority: 25, execution_type: "human", required_capabilities: %w[ruby])
+
+      expect(result[:success]).to be true
+      expect(task.reload.priority).to eq(25)
+      expect(task.execution_type).to eq("human")
+      expect(task.required_capabilities).to eq(%w[ruby])
+    end
+
+    it "warns when amending an in_progress task whose executor already holds the old brief" do
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+
+      result = update(acceptance_criteria: "Changed mid-flight")
+
+      expect(result[:success]).to be true
+      expect(result[:warning]).to match(/in_progress/)
+    end
+
+    it "warns when amending a terminal task that will never be re-delivered" do
+      task.update!(status: "passed")
+
+      result = update(note: "post-hoc")
+
+      expect(result[:warning]).to match(/passed/)
+    end
+
+    it "rejects an unknown field rather than silently dropping it" do
+      result = update(status: "passed")
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/status/)
+    end
+
+    it "requires at least one change" do
+      expect(update[:success]).to be false
+    end
+
+    it "validates the edit instead of persisting garbage" do
+      result = update(execution_type: "telepathy")
+
+      expect(result[:success]).to be false
+      expect(task.reload.execution_type).not_to eq("telepathy")
+    end
+
+    it "returns not-found for an unknown task key" do
+      result = tool.execute(params: { action: "dev_update_task", loop_id: ralph_loop.name,
+                                      task_key: "nope", note: "x" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/not found/i)
     end
   end
 end
