@@ -500,8 +500,14 @@ module Ai
         raise ArgumentError, "#{field} must be #{shape == Hash ? 'an object' : 'an array'}, " \
                              "got #{attrs[field].class.name}"
       end
-      extra_meta = meta.to_h.stringify_keys
-                       .transform_values { |v| v.is_a?(String) ? v.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) : v }
+      # operator_direction is EXEMPT from truncation: ImprovementPromotionService
+      # #strip_direction removes the prior header by exact string match against
+      # this stored value, so a truncated copy matches nothing and the next
+      # revision stacks a second contradictory "do not re-litigate" order — the
+      # very failure the direction feature exists to prevent.
+      extra_meta = meta.to_h.stringify_keys.map do |k, v|
+        [k, (v.is_a?(String) && k != "operator_direction") ? v.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) : v]
+      end.to_h
       stamp = Time.current.iso8601
       changed = []
 

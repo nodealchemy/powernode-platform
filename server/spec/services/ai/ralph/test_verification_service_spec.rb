@@ -177,9 +177,19 @@ RSpec.describe Ai::Ralph::TestVerificationService do
       expect(verdict_of({ "rspec" => { "passed" => 173, "failures" => 0 } })).to eq(:verified)
     end
 
+    # The key is errors_outside_of_examples_COUNT — that is what rspec-core's
+    # JSON formatter actually emits (json_formatter.rb:30). An earlier version of
+    # this spec asserted the bare spelling, which does not exist, so it passed
+    # while the real shape adjudicated :verified.
     it "does not verify RSpec's own JSON summary when files failed to load" do
       expect(verdict_of({ "example_count" => 10, "failure_count" => 0,
-                          "pending_count" => 0, "errors_outside_of_examples" => 3 }))
+                          "pending_count" => 0, "errors_outside_of_examples_count" => 3 }))
+        .to eq(:contradicted)
+    end
+
+    it "handles the same summary nested under a wrapper key" do
+      expect(verdict_of({ "summary" => { "example_count" => 10, "failure_count" => 0,
+                                         "errors_outside_of_examples_count" => 3 } }))
         .to eq(:contradicted)
     end
 

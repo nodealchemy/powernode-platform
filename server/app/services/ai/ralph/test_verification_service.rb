@@ -118,7 +118,12 @@ module Ai
       # fail noun, so the end-anchored pattern below excluded it from the failure
       # set while /fail|error/ still barred it from being the total: the node then
       # adjudicated {passed: 10, failures: 0} and auto-applied the offer.
-      PLAIN_FAIL_KEY = /\A(?:(?:failures?|failed|errors?)(?:_count)?|errors_outside_of_examples)\z/i
+      # NOTE the _count suffix: rspec-core's JSON formatter emits
+      # `errors_outside_of_examples_count` (json_formatter.rb:30), NOT the bare
+      # form. Matching only the bare spelling left the real shape slipping
+      # through while a spec asserting the non-existent one passed.
+      PLAIN_FAIL_KEY =
+        /\A(?:(?:failures?|failed|errors?)(?:_count)?|errors_outside_of_examples(?:_count)?)\z/i
       # The \w*_ prefix on the total accepts any qualifier, including ones that
       # invert the meaning: "skipped_specs"/"pending_examples" counted as the
       # PASSED total and adjudicated verified on evidence that zero tests passed.
