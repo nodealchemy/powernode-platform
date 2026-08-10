@@ -173,6 +173,32 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(loop_record.ralph_tasks.count).to eq(1)
     end
 
+    it "replaces a prior direction instead of stacking contradictory headers" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                             direction: "DELETE it." })
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                      direction: "Actually WIRE it." })
+
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      task = loop_record.ralph_tasks.find_by(task_key: result[:data][:task_key])
+      expect(task.acceptance_criteria.scan("OPERATOR DIRECTION").size).to eq(1)
+      expect(task.acceptance_criteria).to include("Actually WIRE it.")
+      expect(task.acceptance_criteria).not_to include("DELETE it.")
+    end
+
+    it "warns when a direction cannot reach an already-claimed executor" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      loop_record.ralph_tasks.find_by(task_key: first[:data][:task_key]).update!(status: "in_progress")
+
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                      direction: "Scope narrowed." })
+
+      expect(result[:data][:direction_warning]).to match(/in_progress/)
+    end
+
     it "is idempotent — approving twice does not create a duplicate task" do
       rec_id = create_offer[:data][:recommendation][:id]
       first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })

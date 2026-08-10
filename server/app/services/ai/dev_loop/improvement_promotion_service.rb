@@ -10,6 +10,8 @@ module Ai
     # The created task carries a recommendation_id back-link; the dev_loop bridge
     # (DevLoopTool) drains it via /dev-loop dev-improve with no bridge change.
     class ImprovementPromotionService
+      DIRECTION_PREFIX = "OPERATOR DIRECTION (decided at approval — do not re-litigate): "
+
       LOOP_NAME = "dev-improve"
       LOOP_SPEC_PATH = ".claude/loops/dev-improve/PROMPT.md"
       LOOP_BRANCH = "dev-loop/dev-improve"
@@ -95,8 +97,17 @@ module Ai
 
       # The direction goes FIRST. It is the one line that must survive an executor
       # skimming a brief whose tail is verifier evidence.
+      #
+      # Any PRIOR direction is stripped before re-prefixing. Revising a decision
+      # otherwise stacks headers, and since each one reads "do not re-litigate" the
+      # executor receives N mutually contradictory orders — the exact failure this
+      # feature exists to prevent. The newest direction is the operative one.
       def directed_criteria(base)
-        "OPERATOR DIRECTION (decided at approval — do not re-litigate): #{direction}\n\n#{base}"
+        "#{DIRECTION_PREFIX}#{direction}\n\n#{strip_direction(base)}"
+      end
+
+      def strip_direction(text)
+        text.to_s.sub(/\A#{Regexp.escape(DIRECTION_PREFIX)}.*?\n\n/m, "")
       end
 
       def find_or_create_loop
