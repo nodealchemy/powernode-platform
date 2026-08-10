@@ -1,7 +1,50 @@
 # Runbook — ops-hub soft-recompose (devpin dedup + system-base bump)
 
-**Status**: scheduled, not yet executed · **Node**: ops-hub (VM 600 on dna, 10.125.0.227)
-**Prepared**: 2026-08-10 · **Requires**: an operator present for the whole window
+**Status**: **ATTEMPT 1 FAILED 2026-08-10 — do not retry until the logging gap below is fixed**
+**Node**: ops-hub (VM 600 on dna, 10.125.0.227)
+**Requires**: an operator present for the whole window
+
+## Attempt 1 — 2026-08-10 12:56 UTC — FAILED, ~10 min outage, no regression
+
+Preflight passed, a fresh prepare succeeded, and the prepared root was verified
+to carry all six deployed markers. `--execute` was launched detached. Then:
+
+- 12:56:22 execute launched
+- 12:56–13:03 **no userspace at all**: guest agent down, sshd refused, rails and
+  HTTPS dead. ICMP answered throughout, so the kernel and network stack were fine
+  — the soft-reboot switched roots and userspace never came up.
+- 13:03:23 `qm reset 600` (the documented fallback)
+- 13:03:32 sshd · 13:04:03 guest agent · **13:06:08 rails 200**
+
+Outcome: node healthy on the previous composition, **deploy intact** (all six
+markers, hub-backend v68), **dedup NOT done** — the refusal returned naming the
+same devpin pair. The cold boot declined to promote the staged set:
+`lkg_capture:stale_breadcrumb: breadcrumb is from boot 22b4cb0a… but this is boot
+1c261037… — refusing to promote a set this boot did not compose`.
+
+### Why the cause is unknown — fix this BEFORE attempt 2
+
+**The evidence was destroyed by the recovery.** Two compounding mistakes:
+
+1. The execute log was written to `/run/softrc-exec.log`. `/run` survives a
+   *soft*-reboot but **not** the `qm reset` used to recover — so the log went
+   with the fix.
+2. The journal is **volatile** on this node (`/var/log/journal` does not exist;
+   `journalctl --list-boots` shows only the current boot). The previous boot's
+   logs, including the entire failure window, are unrecoverable.
+
+So attempt 1 cost an outage and produced **no diagnostic information at all**.
+Before attempt 2:
+
+- Enable a persistent journal (`mkdir -p /var/log/journal` + `systemctl
+  restart systemd-journald`, or the equivalent module change so it survives
+  recompose) and confirm `journalctl --list-boots` shows more than one boot.
+- Write the execute log to **`/persist`**, not `/run`.
+- Consider capturing the serial console (`qm terminal 600`) for the switch
+  window, since it is the only channel that survives userspace dying.
+
+Without those, a repeat failure is equally unanalyzable and simply buys another
+outage.
 
 ## Why this exists
 
