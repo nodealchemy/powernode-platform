@@ -19,8 +19,8 @@ Capped so it can never crowd the database sharing `/persist`
 (`/etc/systemd/journald.conf.d/90-persist-cap.conf`: `SystemMaxUse=2G`,
 `SystemKeepFree=20G`). Verified writing: `/persist/var/log/journal/<machine-id>/system.journal`.
 
-**IMPORTANT — the bind mount is per-boot.** `/` is a tmpfs-upper overlay, so the
-mount and the journald drop-in do NOT survive a reboot; only the DATA on
+**IMPORTANT — the commands above are per-boot.** `/` is a tmpfs-upper overlay,
+so the mount and the journald drop-in do NOT survive a reboot; only the DATA on
 `/persist` does. That is enough for diagnosis, but it means:
 
 - **Re-run the three commands above as a preflight step** for every attempt,
@@ -28,8 +28,19 @@ mount and the journald drop-in do NOT survive a reboot; only the DATA on
 - After a recovery reset, read the failed boot with
   **`journalctl -D /persist/var/log/journal --list-boots`** and then
   `journalctl -D /persist/var/log/journal -b -1`.
-- Making this durable across boots properly is a module change (ship the mount),
-  not an ad-hoc command — worth doing separately.
+
+### The durable fix is shipped, but not yet in effect here
+
+`modules/persist-journal` (extension `develop` @ `47110380`) does this properly:
+an early-boot `persist-journal.service` + `var-log-journal.mount` pair ordered
+**before `systemd-journal-flush.service`**, so journald never concludes the node
+has no persistent journal, plus a capped journald drop-in. Modelled on
+`persist-home`.
+
+It takes effect only once the module is **built and assigned to the node** —
+neither of which has happened. Until then ops-hub relies on the per-boot
+commands above. Assigning it is also a composition change, so it belongs in a
+window, not bolted onto an attempt.
 
 Still to do at attempt 2: write the execute log to **`/persist/softrc-exec.log`,
 not `/run`** (attempt 1's log died with the recovery reset), and consider
