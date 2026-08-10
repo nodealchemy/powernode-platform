@@ -111,7 +111,25 @@ module Ai
     has_many :child_skills, class_name: "Ai::Skill", foreign_key: "parent_skill_id", dependent: :nullify
     has_many :agent_skills, class_name: "Ai::AgentSkill", foreign_key: "ai_skill_id", dependent: :destroy
     has_many :agents, class_name: "Ai::Agent", through: :agent_skills, source: :agent
-    has_one :knowledge_graph_node, class_name: "Ai::KnowledgeGraphNode", foreign_key: "ai_skill_id", dependent: :nullify
+    # Scoped to active: idx_kg_nodes_unique_active_skill is PARTIAL (ai_skill_id
+    # NOT NULL AND status = 'active'), so several rows may legally share one
+    # ai_skill_id provided only one is active — and two producers create exactly
+    # that state (knowledge_graph_controller permits :status on update_node, and
+    # KnowledgeGraphNode#merge_into! keeps ai_skill_id on the merged row).
+    # Unscoped, this returned an arbitrary row among them, and readers could not
+    # tell a live node from an archived or merged one. Four readers already
+    # hand-filtered `status == "active"`, which is the semantics this makes
+    # uniform. All 19 readers were checked for nil-safety before scoping.
+    #
+    # WHAT THIS DOES NOT FIX: the index is unique on [account_id, ai_skill_id],
+    # and sync_to_knowledge_graph gives a GLOBAL skill one active node PER
+    # ACCOUNT by design — so for a global skill this still returns an arbitrary
+    # tenant's node. That is why BridgeService#sync_skill refuses to use this
+    # association at all and looks up account-scoped (IMP-059e6c5af2bf).
+    # #kg_confidence, EvolutionService and SelfLearningService remain exposed to
+    # the cross-tenant read; tracked separately, not closed here.
+    has_one :knowledge_graph_node, -> { where(status: "active") },
+            class_name: "Ai::KnowledgeGraphNode", foreign_key: "ai_skill_id", dependent: :nullify
     has_many :versions, class_name: "Ai::SkillVersion", foreign_key: "ai_skill_id", dependent: :destroy
     has_many :usage_records, class_name: "Ai::SkillUsageRecord", foreign_key: "ai_skill_id", dependent: :destroy
     has_many :proposals, class_name: "Ai::SkillProposal", foreign_key: "created_skill_id", dependent: :nullify

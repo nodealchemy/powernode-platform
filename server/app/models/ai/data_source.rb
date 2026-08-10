@@ -23,6 +23,17 @@ module Ai
              foreign_key: "ai_data_source_id", dependent: :destroy
     has_many :content_drafts, class_name: "Ai::ContentDraft",
              foreign_key: "ai_data_source_id", dependent: :destroy
+    # DELIBERATELY UNSCOPED, unlike Ai::Skill's (IMP-8eb424f427bc). The offer
+    # called these two "the same unscoped shape, fix both or neither", but they
+    # are not equivalent: index_ai_kg_nodes_on_ai_data_source_id is a plain
+    # partial index, NOT unique, so several ACTIVE nodes may already share this
+    # FK — an active-scope would not make this association deterministic, and
+    # would make things worse. DataSourceGraph::BridgeService#sync_data_source
+    # currently finds an archived node and revives it (self-healing); scoped, it
+    # would take the create branch and add a duplicate that no index prevents.
+    # There is also no before_destroy archive hook here (Ai::Skill has one), so a
+    # scoped dependent: :nullify would leave a dangling ai_data_source_id on any
+    # non-active node, unenforced by any FK constraint. Tracked separately.
     has_one :knowledge_graph_node, class_name: "Ai::KnowledgeGraphNode",
             foreign_key: "ai_data_source_id", dependent: :nullify
 

@@ -60,4 +60,40 @@ RSpec.describe Ai::Skill, type: :model do
       expect(summary[:trust_level]).to eq("review")
     end
   end
+
+  # IMP-8eb424f427bc. idx_kg_nodes_unique_active_skill is PARTIAL (ai_skill_id
+  # NOT NULL AND status = 'active'), so several rows may share one ai_skill_id as
+  # long as only one is active. knowledge_graph_node was unscoped, so it returned
+  # an arbitrary row among them and ~19 readers could not tell.
+  describe "#knowledge_graph_node scoping" do
+    let(:account) { create(:account) }
+    let(:skill)   { create(:ai_skill, account: account) }
+
+    # after_commit :sync_to_knowledge_graph already creates an ACTIVE node on
+    # skill create, so these drive the archived state off that real node rather
+    # than fabricating a second one — otherwise the callback's node satisfies the
+    # assertion and the spec proves nothing.
+    let!(:original) { skill.reload.knowledge_graph_node || raise("callback did not create a node") }
+
+    it "returns the active node when an archived duplicate shares the FK" do
+      original.update!(status: "archived")
+      replacement = create(:ai_knowledge_graph_node, account: account, entity_type: "skill",
+                           ai_skill_id: skill.id, status: "active")
+
+      expect(original.id).to be < replacement.id # the archived row is found first unscoped
+      expect(skill.reload.knowledge_graph_node).to eq(replacement)
+    end
+
+    it "returns nil rather than a stale node when the only node is archived" do
+      original.update!(status: "archived")
+
+      expect(skill.reload.knowledge_graph_node).to be_nil
+    end
+
+    it "returns nil rather than a merged node" do
+      original.update!(status: "merged")
+
+      expect(skill.reload.knowledge_graph_node).to be_nil
+    end
+  end
 end
