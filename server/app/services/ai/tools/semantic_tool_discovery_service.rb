@@ -3,7 +3,6 @@
 module Ai
   module Tools
     class SemanticToolDiscoveryService
-      include AgentBackedService
       CACHE_TTL = 6.hours
       CACHE_PREFIX = "tool_discovery"
       SIMILARITY_THRESHOLD = 0.3
@@ -218,19 +217,23 @@ module Ai
         provider = find_embedding_provider
         return nil unless provider
 
-        provider.generate_embedding(text)
+        provider.generate(text)
       rescue StandardError => e
         Rails.logger.warn "[SemanticToolDiscovery] Embedding generation failed: #{e.message}"
         nil
       end
 
+      # IMP-019fe370: this used to build an agent CHAT client
+      # (TrackedWorkerLlmClient -> WorkerLlmClient) and call generate_embedding on
+      # it. Neither answers that method, so every call raised NoMethodError through
+      # method_missing, was swallowed by the rescue above, and semantic discovery
+      # ran on nil embeddings — permanently degraded to keyword matching, silently.
+      # Ai::Memory::EmbeddingService is the account's real embedding seam (the same
+      # one RagService and memory storage use) and caches in Redis.
       def find_embedding_provider
         return @embedding_provider if defined?(@embedding_provider)
 
-        @embedding_provider = if @account
-          agent = resolve_service_agent("semantic-tool-scorer", fallback_name: "Semantic Tool Scorer")
-          build_agent_client(agent) if agent
-        end
+        @embedding_provider = (::Ai::Memory::EmbeddingService.new(account: @account) if @account)
       end
 
       def cosine_similarity(vec_a, vec_b)
