@@ -386,5 +386,82 @@ RSpec.describe Ai::Learning::ImprovementRecommender, type: :service do
         expect(result).to be_nil
       end
     end
+
+    # apply_recommendation! had no prompt_refinement branch, so it fell to the
+    # bare `else recommendation.apply!(user)` — which only flips status. An
+    # operator saw "Refine prompt for 'X' based on 5 compound learnings",
+    # approved it, and the row read `applied` while the skill's prompt was
+    # never touched. A false actuator is worse than a dropped one: the audit
+    # trail asserts the change landed.
+    #
+    # Note the proposer stores NO refined prompt — only title, description,
+    # learning_ids and effectiveness — so there was never anything to write.
+    # The refinement has to be produced at apply time via the existing
+    # EvolutionService#propose_evolution, which gathers the same compound
+    # learnings and builds the evolved prompt.
+    context "with a prompt_refinement recommendation" do
+      let(:skill) { create(:ai_skill, account: account, system_prompt: "ORIGINAL PROMPT") }
+      let!(:recommendation) do
+        create(:ai_improvement_recommendation,
+               :pending,
+               account: account,
+               recommendation_type: "prompt_refinement",
+               target_type: "Ai::Skill",
+               target_id: skill.id)
+      end
+
+      # A version that actually incorporated learnings. propose_evolution has
+      # its own spec; what is under test here is what apply_prompt_refinement
+      # does with the result, so the proposal is stubbed rather than built from
+      # a KG embedding fixture.
+      def proposal_with(learning_count:)
+        Ai::SkillVersion.create!(
+          account: account, ai_skill: skill, version: "9",
+          change_type: "evolution", system_prompt: "ORIGINAL PROMPT\n\n# Improvements from learned patterns\n- x",
+          is_active: false, is_ab_variant: false, effectiveness_score: 0.0,
+          usage_count: 0, success_count: 0, failure_count: 0,
+          change_reason: "spec", metadata: { learning_count: learning_count }
+        )
+      end
+
+      it "activates the refined prompt version and marks the recommendation applied" do
+        allow_any_instance_of(Ai::SkillGraph::EvolutionService)
+          .to receive(:propose_evolution).and_return(proposal_with(learning_count: 3))
+
+        service.apply_recommendation!(recommendation.id, user: user)
+
+        active = Ai::SkillVersion.where(ai_skill_id: skill.id, is_active: true).first
+        expect(active).to be_present, "no active SkillVersion was activated — the prompt was never refined"
+        expect(active.change_type).to eq("evolution")
+        expect(recommendation.reload.status).to eq("applied")
+      end
+
+      # The load-bearing one. If no refinement can be produced, the row must
+      # NOT claim it was applied — that is the defect, restated.
+      it "does NOT mark it applied when no refined version could be produced" do
+        allow_any_instance_of(Ai::SkillGraph::EvolutionService)
+          .to receive(:propose_evolution).and_return(nil)
+
+        service.apply_recommendation!(recommendation.id, user: user)
+
+        expect(recommendation.reload.status).not_to eq("applied")
+      end
+
+      # Review finding: propose_evolution SUCCEEDS when the skill has no KG
+      # embedding or no near-neighbour learnings — build_evolved_prompt then
+      # returns the previous prompt plus a regenerated "# Skill context: ..."
+      # footer and nothing else. Activating that and marking the row applied is
+      # the same false-actuator defect one level in, and it compounds: each
+      # apply builds on the last version's prompt, accreting footers.
+      it "does NOT mark it applied when the proposal incorporated no learnings" do
+        allow_any_instance_of(Ai::SkillGraph::EvolutionService)
+          .to receive(:propose_evolution).and_return(proposal_with(learning_count: 0))
+
+        service.apply_recommendation!(recommendation.id, user: user)
+
+        expect(recommendation.reload.status).not_to eq("applied")
+        expect(Ai::SkillVersion.where(ai_skill_id: skill.id, is_active: true)).not_to exist
+      end
+    end
   end
 end

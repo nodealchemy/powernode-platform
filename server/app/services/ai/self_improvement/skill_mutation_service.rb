@@ -24,12 +24,18 @@ module Ai
         end
       end
 
+      # SQL success-rate over usage records. The table stores `outcome`
+      # (string, see Ai::SkillUsageRecord::OUTCOMES) — there is no boolean
+      # `success` column; querying one was the schema drift that kept the
+      # weekly auto-evolution cron from ever completing (IMP-136447f24ceb).
+      SUCCESS_RATE_SQL = "AVG(CASE WHEN ai_skill_usage_records.outcome = 'success' THEN 1.0 ELSE 0.0 END)"
+
       def auto_mutate_underperforming!(threshold: 0.4)
         mutated = 0
         Ai::Skill.where(account: @account, status: "active")
           .joins(:usage_records)
           .group("ai_skills.id")
-          .having("AVG(ai_skill_usage_records.success::int) < ?", threshold)
+          .having("#{SUCCESS_RATE_SQL} < ?", threshold)
           .each do |skill|
             result = mutate!(skill: skill, strategy: "failure_analysis")
             mutated += 1 if result
@@ -80,10 +86,14 @@ module Ai
       end
 
       def mutate_from_failures(skill)
-        failures = skill.usage_records.where(success: false).order(created_at: :desc).limit(10)
+        failures = skill.usage_records.failed.order(created_at: :desc).limit(10)
         return nil if failures.empty?
 
-        failure_patterns = failures.map { |f| f.error_message || "unknown error" }.tally
+        # Usage records carry no dedicated error column; writers put whatever
+        # context exists into context_summary or metadata.
+        failure_patterns = failures.map { |f|
+          f.context_summary.presence || f.metadata["error"].presence || "unknown error"
+        }.tally
         failure_context = failure_patterns.map { |err, count| "- #{err} (#{count}x)" }.join("\n")
         create_variant(skill, "failure_analysis", failure_context)
       end
@@ -105,7 +115,7 @@ module Ai
           .where.not(id: skill.id)
           .joins(:usage_records)
           .group("ai_skills.id")
-          .order(Arel.sql("AVG(ai_skill_usage_records.success::int) DESC"))
+          .order(Arel.sql("#{SUCCESS_RATE_SQL} DESC"))
           .limit(3)
 
         return nil if peers.empty?
@@ -117,27 +127,30 @@ module Ai
       def create_variant(skill, strategy, context)
         new_prompt = "#{skill.system_prompt}\n\n[MUTATION: #{strategy}]\nContext:\n#{context}"
 
-        version = Ai::SkillVersion.create!(
-          skill: skill,
-          version_number: (skill.versions.maximum(:version_number) || 0) + 1,
+        # A/B rollout is native to SkillVersion (is_ab_variant + ab_traffic_pct
+        # + record_outcome!/effectiveness) — Ai::AbTest cannot represent a
+        # skill target at all (target_type inclusion allows only
+        # workflow/agent/prompt/model/provider), so the AbTest.create! this
+        # method used to attempt was structurally invalid and rescue-nil'd on
+        # every run. Version string convention follows
+        # SkillGraph::EvolutionService (count + 1, unique per skill).
+        # One active A/B variant per skill: record_outcome!/end_ab_test resolve
+        # THE variant via .ab_variants.first, so retire any prior variant's
+        # flag + traffic slice first (mirrors EvolutionService#start_ab_test).
+        skill.versions.ab_variants.update_all(is_ab_variant: false, ab_traffic_pct: nil)
+
+        Ai::SkillVersion.create!(
+          account: @account,
+          ai_skill: skill,
+          version: (skill.versions.count + 1).to_s,
+          change_type: "ab_test",
+          change_reason: "Auto-mutation (#{strategy})",
           system_prompt: new_prompt.truncate(4000),
-          status: "testing",
+          is_active: false,
+          is_ab_variant: true,
+          ab_traffic_pct: 20.0,
           metadata: { mutation_strategy: strategy }
         )
-
-        # Auto-create A/B test (20% traffic to variant)
-        Ai::AbTest.create!(
-          account: @account,
-          name: "Skill mutation: #{skill.name} - #{strategy}",
-          test_type: "skill_variant",
-          variant_a_id: skill.id,
-          variant_b_id: skill.id,
-          traffic_split: 20,
-          status: "active",
-          metadata: { version_id: version.id, strategy: strategy }
-        ) rescue nil
-
-        version
       end
 
       def build_composite_prompt(components, strategy)

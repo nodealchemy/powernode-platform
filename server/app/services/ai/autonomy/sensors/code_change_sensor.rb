@@ -4,8 +4,15 @@ module Ai
   module Autonomy
     module Sensors
       class CodeChangeSensor < Base
+        # SINGULAR, matching Ai::AgentObservation::SENSOR_TYPES. This is the
+        # value persisted on the row and gated by the inclusion validation —
+        # NOT the duty_cycle_config key, which stays "code_changes" in
+        # ObservationPipelineService#resolve_sensors. Those two vocabularies
+        # are independent and already diverge elsewhere ("recommendations" vs
+        # "recommendation", "peer_agents" vs "peer_agent"), so aligning this
+        # one to the enum does not affect sensor resolution.
         def sensor_type
-          "code_changes"
+          "code_change"
         end
 
         def collect

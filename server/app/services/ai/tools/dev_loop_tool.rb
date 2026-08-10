@@ -326,6 +326,7 @@ module Ai
         summary = params[:summary].to_s
         return error_result("summary is required") if summary.blank?
 
+
         # G10: scope guardrail. A "passed" outcome that touches a protected path
         # (payments/auth/crypto/secrets) or a critical-tier file is NOT silently
         # accepted — it is remapped to a human-gated "blocked" (a park for review).
@@ -337,6 +338,26 @@ module Ai
           guardrail = violation
           outcome = "blocked"
           summary = "[scope-guardrail] #{violation[:summary]} — parked for human review. #{summary}"
+        end
+
+        # IMP-f2b3e9a67d11: adjudicate the executor's own evidence — AFTER the
+        # G10 remap, so a park-for-review pays no scan cost for a verdict the
+        # blocked branch would discard. The bridge cannot run the suite, but a
+        # "passed" whose parsed tallies all show failures is rejected outright,
+        # and a pass with no parseable test evidence records as attested
+        # (checks_passed: false) without auto-applying the linked offer — the
+        # response's `verification` field says which happened.
+        verification = nil
+        if outcome == "passed"
+          adjudication = ::Ai::Ralph::TestVerificationService.adjudicate_check_results(params[:check_results])
+          if adjudication[:verdict] == :contradicted
+            return error_result(
+              "passed outcome contradicted by its own check_results evidence " \
+              "(every parsed tally shows failures: #{adjudication[:tallies].map { |t| "#{t[:framework]}: #{t[:failures]} failures" }.join(', ')}) — " \
+              "fix and re-report, or report outcome=failed"
+            )
+          end
+          verification = adjudication[:verdict]
         end
 
         iteration = nil
@@ -355,9 +376,18 @@ module Ai
           end
 
           iteration = prepare_iteration(loop_record, task, params)
-          record_outcome(loop_record, task, iteration, outcome, summary, params)
+          record_outcome(loop_record, task, iteration, outcome, summary, params,
+                         verification: verification)
         end
         return error_result(pairing_error) if pairing_error
+
+        # Credit-loop half B (IMP-5f8a744b8892): a VERIFIED passed outcome
+        # resolves the claim-time injections positively. Attested-only passes
+        # do not credit (IMP-f2b3e9a67d11: the platform does not trust the
+        # outcome enough to auto-apply the offer, so it must not inflate
+        # learning effectiveness on it either); failed/blocked leave the
+        # injections unresolved — that depression is the intended signal.
+        credit_injected_learnings!(task) if outcome == "passed" && verification == :verified
 
         loop_record.reload
         all_tasks_completed = loop_record.all_tasks_completed?
@@ -390,6 +420,10 @@ module Ai
           queue: queue_snapshot(loop_record.reload),
           all_tasks_completed: all_tasks_completed
         }
+        # Surface the adjudication so an attested-only pass is VISIBLE to the
+        # caller (an unverified pass silently skipping auto-apply otherwise
+        # looks identical to a verified one).
+        response[:verification] = verification.to_s if verification
         # Governance annotation (report-only — no approval lane until an
         # executor consumes it; see audit finding F3-01 for why).
         if Array(params[:files_changed]).size > 5
@@ -448,13 +482,15 @@ module Ai
         end
       end
 
-      def record_outcome(loop_record, task, iteration, outcome, summary, params)
+      def record_outcome(loop_record, task, iteration, outcome, summary, params, verification: nil)
         case outcome
         when "passed"
-          # complete! promotes the learning onto the loop automatically
+          # complete! promotes the learning onto the loop automatically.
+          # checks_passed reflects the ADJUDICATED evidence, never a hardcoded
+          # true (IMP-f2b3e9a67d11): an unevidenced pass records as attested.
           iteration.complete!(
             output: summary,
-            checks_passed: true,
+            checks_passed: verification == :verified,
             commit_sha: params[:commit_sha],
             learning: params[:learning]
           )
@@ -462,7 +498,9 @@ module Ai
           # complete! appends the learning to the loop but doesn't embed it; do the
           # mid-run embed here so the passed path matches the others (G12).
           embed_learning_mid_run(loop_record, params[:learning], task: task, files: params[:files_changed])
-          apply_linked_recommendation!(task)
+          # Only VERIFIED passes close the linked improvement offer — an
+          # attested pass leaves it approved for operator judgment.
+          apply_linked_recommendation!(task) if verification == :verified
         when "failed"
           iteration.fail!(error_message: summary)
           task.fail!(error_message: summary)
@@ -593,10 +631,19 @@ module Ai
                    "Delegated agent #{waited[:status]}").to_s
         iteration = prepare_iteration(loop_record, task,
                                       { check_results: { "delegated_a2a_task" => spawn[:task_id], "agent" => spawn[:agent_name] } })
-        record_outcome(loop_record, task, iteration, outcome, summary, {})
+        # DELIBERATE (IMP-f2b3e9a67d11): a delegated completion is the
+        # sub-agent's own attestation — no test evidence crosses the A2A
+        # boundary — so a delegated pass records as attested (checks_passed
+        # false) and does NOT auto-apply a linked offer. Pre-adjudication this
+        # path hardcoded verified-and-applied, which is exactly the
+        # self-attestation hole this fix closes; the offer stays approved for
+        # operator judgment or an evidence-bearing re-report.
+        record_outcome(loop_record, task, iteration, outcome, summary, {},
+                       verification: (outcome == "passed" ? :unverified : nil))
 
         { success: true, delegated: true, awaited: true, task_key: task.task_key,
-          a2a_task_id: spawn[:task_id], outcome: outcome, task_status: task.reload.status, agent: spawn[:agent_name] }
+          a2a_task_id: spawn[:task_id], outcome: outcome, task_status: task.reload.status, agent: spawn[:agent_name],
+          verification: (outcome == "passed" ? "unverified" : nil) }.compact
       end
 
       # A TOOL-TO-TOOL hop, so it carries this call's instance provenance the
@@ -692,6 +739,17 @@ module Ai
         # dev_complete_task but was never handed anything back on the next claim.
         relevant = relevant_compound_learnings(task)
         ctx[:relevant_learnings] = relevant if relevant.present?
+        # Credit-loop half A (IMP-5f8a744b8892): remember exactly which
+        # learnings this claim injected so complete_task can resolve the
+        # neutral injections positively on a passed outcome. Without this the
+        # injections stay unresolved forever and the corpus degrades in
+        # proportion to use (hard 0.0 effectiveness at 3 injections, promotion
+        # barred, recall ranking inverted). Written UNCONDITIONALLY (even as
+        # []) so a reclaim whose retrieval returns nothing can never inherit —
+        # and later credit — a previous claim's ids.
+        task.update!(metadata: task.metadata.merge(
+          "injected_learning_ids" => relevant.map { |l| l[:id] }
+        ))
 
         base = config["base_context_files"]
         if base.present?
@@ -703,6 +761,21 @@ module Ai
           ctx[:base_context_contents] = contents if contents.present?
         end
         ctx
+      end
+
+      # Credit-loop half B (see complete_task): resolve this claim's injections
+      # positively via the learning service, then clear the marker so an
+      # operator resolution or replayed report cannot double-credit. Best-effort
+      # — a crediting hiccup must never fail the completion itself.
+      def credit_injected_learnings!(task)
+        ids = Array(task.metadata["injected_learning_ids"])
+        return if ids.empty?
+
+        ::Ai::Learning::CompoundLearningService.new(account: account)
+          .credit_injections!(learning_ids: ids)
+        task.update!(metadata: task.metadata.except("injected_learning_ids"))
+      rescue StandardError => e
+        Rails.logger.warn("[DevLoopTool] credit_injected_learnings failed for #{task.task_key}: #{e.message}")
       end
 
       # C3: reuses Ai::Learning::CompoundLearningService's existing retrieval/

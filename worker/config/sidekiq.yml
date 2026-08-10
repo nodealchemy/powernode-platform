@@ -487,6 +487,15 @@
       queue: ai_orchestration
       description: 'Run observation sensors for autonomous agents and create observations'
 
+    # OODA closure driver — drives RalphLoopClosureService cycles for agents
+    # with active goals. Inert until the operator enables the
+    # ai.autonomy.closure_driver_enabled SiteSetting (server-side gate).
+    ai_closure_driver:
+      every: '15m'
+      class: AiClosureDriverJob
+      queue: ai_orchestration
+      description: 'Drive OODA closure cycles for autonomous agents (server-gated, default off)'
+
     # Goal maintenance - auto-abandon stale goals
     ai_goal_maintenance:
       cron: '30 4 * * *'  # Daily at 4:30 AM UTC

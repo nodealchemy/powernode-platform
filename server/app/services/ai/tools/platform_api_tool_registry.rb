@@ -206,6 +206,8 @@ module Ai
         "system_list_disk_image_webhooks" => "Ai::Tools::SystemFleetTool",
         # Campaign 019f5885 inc9 — native module-build batch orchestration
         "system_dispatch_module_build_batch" => "Ai::Tools::SystemFleetTool",
+        "system_cancel_module_build_batch" => "Ai::Tools::SystemFleetTool",
+        "system_rollback_module_version" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice 6a — GitOps reconciler MCP surface
         "system_gitops_register_repository" => "Ai::Tools::SystemFleetTool",
         "system_gitops_sync_repository" => "Ai::Tools::SystemFleetTool",
@@ -339,6 +341,8 @@ module Ai
         "dispatch_to_runner" => "Ai::Tools::RunnerDispatchTool",
         # Gitea Actions: secrets management + workflow_dispatch + run monitoring.
         # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — operator-driven CI).
+        "list_git_runners"               => "Ai::Tools::GitRunnerInventoryTool",
+        "prune_stale_git_runners"        => "Ai::Tools::GitRunnerInventoryTool",
         "set_gitea_action_secret"        => "Ai::Tools::GiteaActionsTool",
         "set_gitea_action_secrets_bulk"  => "Ai::Tools::GiteaActionsTool",
         "list_gitea_action_secrets"      => "Ai::Tools::GiteaActionsTool",

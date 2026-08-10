@@ -169,7 +169,7 @@ module Ai
       # hand-assemble those three steps (previously manual/instruction-dependent).
       # Idempotent on task_key.
       def record_increment!(campaign, title:, summary: nil, task_key: nil, decision_type: "build",
-                            rationale: nil, status: "passed", metadata: {})
+                            rationale: nil, status: "passed", metadata: {}, check_results: {})
         loop_record = campaign.ralph_loops.order(:created_at).first
         raise ArgumentError, "campaign has no loop to record against" unless loop_record
 
@@ -194,7 +194,8 @@ module Ai
           task.metadata = (task.metadata || {}).merge(metadata)
           task.save!
 
-          iteration = record_iteration!(loop_record, task, status: status, summary: summary.presence || title, metadata: metadata)
+          iteration = record_iteration!(loop_record, task, status: status, summary: summary.presence || title,
+                                        metadata: metadata, check_results: check_results)
 
           decision = campaign.record_decision!(
             decision_type: decision_type, title: title, rationale: rationale,
@@ -235,18 +236,28 @@ module Ai
       # /improve + /dev-loop) otherwise have NO iteration history. This fills it in.
       # Idempotent-ish: re-recording the same task adds a new iteration row (each run
       # is a real iteration); callers pass a stable task_key for the task itself.
-      def record_iteration!(loop_record, task, status:, summary:, metadata: {})
+      def record_iteration!(loop_record, task, status:, summary:, metadata: {}, check_results: {})
         iter_status = case status
                       when "failed" then "failed"
                       when "skipped" then "skipped"
                       else "completed"
                       end
+        # checks_passed is a VERIFIED claim, adjudicated with the same vocabulary
+        # as the dev-loop bridge (IMP-aa8a2f58e01e): a passed increment records
+        # true only when its evidence carries a green machine tally. Unlike the
+        # bridge this seam never REJECTS a contradicted increment — it is history
+        # recording, and the revert metric is the backstop — but an attested or
+        # contradicted pass records false.
+        evidence = check_results.is_a?(Hash) ? check_results : {}
+        adjudication = Ai::Ralph::TestVerificationService.adjudicate_check_results(evidence)
         now = Time.current
         number = (loop_record.ralph_iterations.maximum(:iteration_number) || 0) + 1
         loop_record.ralph_iterations.create!(
           iteration_number: number, ralph_task: task, status: iter_status,
           started_at: now, completed_at: now, duration_ms: 0,
-          checks_passed: (status == "passed"), ai_output: summary,
+          checks_passed: (status == "passed" && adjudication[:verdict] == :verified),
+          ai_output: summary,
+          check_results: evidence.merge("evidence_verdict" => adjudication[:verdict].to_s),
           git_branch: loop_record.branch, git_commit_sha: metadata["commit"]
         )
       rescue ActiveRecord::RecordInvalid => e

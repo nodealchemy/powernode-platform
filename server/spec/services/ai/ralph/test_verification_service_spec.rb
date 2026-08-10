@@ -144,4 +144,49 @@ RSpec.describe Ai::Ralph::TestVerificationService do
       expect(result).to include(success: false, ran: false)
     end
   end
+
+  # IMP-f2b3e9a67d11 — evidence adjudication for the MCP dev-loop bridge.
+  # Reuses parse_counts across every framework this service already speaks, so
+  # a non-Ruby executor's honest green evidence is never downgraded to
+  # attested just for not being rspec-shaped.
+  describe ".adjudicate_check_results" do
+    def verdict_of(check_results)
+      described_class.adjudicate_check_results(check_results)[:verdict]
+    end
+
+    it "verifies an rspec green tally" do
+      expect(verdict_of({ "rspec" => "90 examples, 0 failures" })).to eq(:verified)
+    end
+
+    it "verifies pytest-style green evidence" do
+      expect(verdict_of({ "pytest" => "12 passed in 3.4s" })).to eq(:verified)
+    end
+
+    it "verifies go-test-style green evidence" do
+      expect(verdict_of({ "go_test" => "ok  github.com/x/agent/internal/dockerd  0.029s" })).to eq(:verified)
+    end
+
+    it "contradicts a pass whose only tallies fail" do
+      expect(verdict_of({ "rspec" => "90 examples, 1 failure" })).to eq(:contradicted)
+      expect(verdict_of({ "go_test" => "--- FAIL: TestReconcile (0.01s)" })).to eq(:contradicted)
+    end
+
+    it "stays verified when red-first evidence coexists with a green tally" do
+      expect(verdict_of({ "rspec" => "90 examples, 0 failures",
+                          "red_first" => "5 examples, 5 failures before the fix" })).to eq(:verified)
+    end
+
+    it "is unverified for prose-only evidence or none" do
+      expect(verdict_of({ "note" => "all good, trust me" })).to eq(:unverified)
+      expect(verdict_of(nil)).to eq(:unverified)
+    end
+
+    it "does not treat a nothing-ran tally as green evidence" do
+      expect(verdict_of({ "rspec" => "0 examples, 0 failures" })).to eq(:unverified)
+    end
+
+    it "adjudicates strings inside nested structured evidence" do
+      expect(verdict_of({ "rspec" => { "summary" => "12 examples, 0 failures" } })).to eq(:verified)
+    end
+  end
 end

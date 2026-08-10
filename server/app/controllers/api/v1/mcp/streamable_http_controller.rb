@@ -31,6 +31,7 @@ module Api
         # params.uri (2026-07-28 Streamable HTTP request metadata).
         NAME_HEADER_METHODS = %w[tools/call resources/read prompts/get].freeze
 
+
         # CacheableResult hints for stateless-era (2026-07-28) responses.
         # All catalogs are principal/account-scoped → cacheScope "private".
         LIST_RESULT_TTL_MS = 300_000 # 5 min freshness hint for list endpoints
@@ -617,14 +618,41 @@ module Api
               )
             rescue ArgumentError => e
               if e.message.start_with?("Unknown platform tool")
+                # Thread the principal through. Passing only `account:` left
+                # ai.introspection.view unenforceable AND the registrar's
+                # per-agent rate limiter dead, since both need context this
+                # call was discarding. instance_authorized mirrors the sibling
+                # branch above: a restricted principal is already gated against
+                # the granted tool name at tools/call and holds no User.
                 result = ::Ai::Introspection::McpToolRegistrar.execute_tool(
                   tool_name,
                   params: arguments.symbolize_keys,
-                  account: current_account
+                  account: current_account,
+                  user: current_user,
+                  # restricted?, matching the sibling branch at the top of this
+                  # same rescue. instance? left FEDERATION principals denied:
+                  # one whose allowed_capabilities include platform.health
+                  # passes may_invoke? above, lands here with instance_authorized
+                  # false and user nil (federation principals carry no User), and
+                  # is refused by a gate that had already authorized it.
+                  instance_authorized: current_mcp_principal&.restricted? || false,
+                  agent_id: mcp_client_agent&.id
                 )
               else
                 result = { success: false, error: e.message }
               end
+            rescue ::Ai::Introspection::RateLimiter::RateLimitExceeded => e
+              # Threading agent_id above re-armed this limiter, which had been
+              # dead on this path because the call discarded the agent. Its
+              # RateLimitExceeded is a StandardError, not an ArgumentError, so
+              # without this clause it escaped to the controller's generic
+              # handler and surfaced as a JSON-RPC -32603 "internal error" with
+              # retry_after discarded — an unretryable-looking failure for a
+              # condition that is purely retryable. Shaped like the sibling
+              # error result below, and like Ai::AgentToolBridgeService's
+              # existing handling of the same exception.
+              result = { success: false, error: e.message,
+                         rate_limited: true, retry_after: e.retry_after }
             end
           else
             protocol_service = build_protocol_service

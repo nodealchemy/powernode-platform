@@ -22,8 +22,10 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
     end
 
     it "records a RalphIteration (fills CC-driven iteration history)" do
+      # Verified evidence required for checks_passed since IMP-aa8a2f58e01e.
       result = driver.record_increment!(campaign, title: "Increment 1", summary: "did it",
-                                        metadata: { "commit" => "abc1234" })
+                                        metadata: { "commit" => "abc1234" },
+                                        check_results: { "rspec" => "12 examples, 0 failures" })
       loop_ = campaign.ralph_loops.first
       iter = loop_.ralph_iterations.order(:iteration_number).last
       expect(iter).to have_attributes(status: "completed", iteration_number: 1,
@@ -42,6 +44,25 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
       driver.record_increment!(campaign, title: "Broke", task_key: "x", status: "failed")
       iter = campaign.ralph_loops.first.ralph_iterations.last
       expect(iter).to have_attributes(status: "failed", checks_passed: false)
+    end
+
+    # IMP-aa8a2f58e01e — this seam hardcoded checks_passed true for any passed
+    # increment; it now adjudicates evidence with the same vocabulary as the
+    # dev-loop bridge. Unlike the bridge it does not REJECT contradicted
+    # increments (this is history recording; the revert metric backstops) —
+    # but nothing unverified may record as a verified check.
+    it "records an unevidenced pass as attested (checks_passed false)" do
+      driver.record_increment!(campaign, title: "NoEv", task_key: "noev")
+      iter = campaign.ralph_loops.first.ralph_iterations.last
+      expect(iter.checks_passed).to be(false)
+      expect(iter.status).to eq("completed")
+    end
+
+    it "records checks_passed false when the evidence contradicts the pass" do
+      driver.record_increment!(campaign, title: "Bad", task_key: "bad",
+                               check_results: { "rspec" => "12 examples, 3 failures" })
+      iter = campaign.ralph_loops.first.ralph_iterations.last
+      expect(iter.checks_passed).to be(false)
     end
 
     it "is idempotent on task_key (re-recording does not double-count)" do

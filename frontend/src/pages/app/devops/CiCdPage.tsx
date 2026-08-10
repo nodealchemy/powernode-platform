@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { LayoutDashboard, Workflow, Server } from 'lucide-react';
+import { LayoutDashboard, Workflow, Server, Package } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { CiCdOverviewTab } from '@/pages/app/devops/CiCdOverviewTab';
 import { PipelinesPage } from '@/pages/app/devops/PipelinesPage';
 import { RunnersPage as AiPipelinesRunnersPage } from '@/features/devops/pipelines';
+import { ModuleBuildsPage } from '@/features/devops/module-builds';
 
 const tabs = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} />, path: '/' },
   { id: 'pipelines', label: 'Pipelines', icon: <Workflow size={16} />, path: '/pipelines' },
   { id: 'runners', label: 'Runners', icon: <Server size={16} />, path: '/runners' },
+  { id: 'module-builds', label: 'Module Builds', icon: <Package size={16} />, path: '/module-builds' },
 ];
 
 export const CiCdPage: React.FC = () => {
@@ -20,6 +22,7 @@ export const CiCdPage: React.FC = () => {
     const path = location.pathname;
     if (path.includes('/ci-cd/pipelines')) return 'pipelines';
     if (path.includes('/ci-cd/runners')) return 'runners';
+    if (path.includes('/ci-cd/module-builds')) return 'module-builds';
     return 'overview';
   };
 
@@ -81,6 +84,9 @@ export const CiCdPage: React.FC = () => {
         </TabPanel>
         <TabPanel tabId="runners" activeTab={activeTab}>
           <AiPipelinesRunnersPage onActionsReady={handleActionsReady} />
+        </TabPanel>
+        <TabPanel tabId="module-builds" activeTab={activeTab}>
+          <ModuleBuildsPage onActionsReady={handleActionsReady} />
         </TabPanel>
       </TabContainer>
     </PageContainer>

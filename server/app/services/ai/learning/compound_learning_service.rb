@@ -806,6 +806,44 @@ module Ai
         false
       end
 
+      # Resolve neutral injections positively by EXACT id — the dev-loop drain
+      # path analog of boost_injected_learnings_on_success (private, below),
+      # which infers membership from a time window on the agent-execution path.
+      # The drain path knows precisely which learnings its claim injected
+      # (task metadata), so no window heuristics. Public: called across the
+      # service boundary by Ai::Tools::DevLoopTool#complete_task.
+      # MCP recall surface (query_learnings): the same embedding-first
+      # retrieval + effective_importance ranking as context injection, WITHOUT
+      # record_injection! — an MCP query has no completing execution to credit,
+      # so counting it as an injection would depress effectiveness exactly the
+      # way the uncredited dev-loop injections did (IMP-5f8a744b8892).
+      # record_access! only (usage telemetry with no effectiveness impact).
+      # Post-filters subset the retrieved candidate set (30 semantic / 20
+      # keyword), so a tight filter can return fewer than limit — acceptable
+      # for a recall surface; the no-query browse path in the tool remains a
+      # plain filtered listing.
+      def search_learnings(query:, category: nil, learning_scope: nil, status: nil, limit: 20)
+        candidates = ranked_learning_candidates(query.to_s)
+        candidates = candidates.select { |l| l.category == category } if category.present?
+        candidates = candidates.select { |l| l.scope == learning_scope } if learning_scope.present?
+        candidates = candidates.select { |l| l.status == status } if status.present?
+
+        candidates.first(limit).each(&:record_access!)
+      end
+
+      def credit_injections!(learning_ids:)
+        return if Array(learning_ids).empty?
+
+        Ai::CompoundLearning.for_account(@account.id)
+          .where(id: learning_ids, status: %w[active verified])
+          .find_each do |learning|
+            learning.record_positive_outcome!
+            learning.update_column(:confidence_score, [ learning.confidence_score + 0.02, 1.0 ].min)
+          end
+      rescue StandardError => e
+        Rails.logger.warn("[CompoundLearning] credit_injections failed: #{e.message}")
+      end
+
       private
 
       SORTABLE_COLUMNS = %w[created_at importance_score effectiveness_score injection_count confidence_score updated_at].freeze
@@ -898,10 +936,21 @@ module Ai
         keywords = query.downcase.split(/\s+/).reject { |w| w.length < 3 }.first(5)
         return Ai::CompoundLearning.none if keywords.empty?
 
-        conditions = keywords.map { |kw| "LOWER(content) LIKE '%#{Ai::CompoundLearning.sanitize_sql_like(kw)}%'" }
-        Ai::CompoundLearning.active
+        # Parameterized, never string-built: sanitize_sql_like escapes LIKE
+        # wildcards but NOT quotes, so interpolating it into a raw SQL string
+        # broke (and was injectable) for any query containing an apostrophe —
+        # which matters now that MCP query_learnings routes user-typed queries
+        # here. Title included for parity with the old tool-side matcher.
+        conditions = Array.new(keywords.size) { "(LOWER(title) LIKE ? OR LOWER(content) LIKE ?)" }.join(" OR ")
+        patterns = keywords.flat_map { |kw| pattern = "%#{Ai::CompoundLearning.sanitize_sql_like(kw)}%"; [ pattern, pattern ] }
+        # active + verified — the same surfacing set semantic_search uses.
+        # `.active` alone excluded the MOST TRUSTED tier from the fallback,
+        # which made status-less recall silently depend on embedding-service
+        # availability (and falsified this file's own "both retrieval paths"
+        # comment on ranked_learning_candidates).
+        Ai::CompoundLearning.where(status: %w[active verified])
           .for_account(@account.id)
-          .where(conditions.join(" OR "))
+          .where(conditions, *patterns)
           .order(importance_score: :desc)
           .limit(20)
       end

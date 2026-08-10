@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_06_162300) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_08_054500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9218,6 +9218,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_162300) do
     t.uuid "account_id", null: false
     t.datetime "awaiting_signature_at"
     t.string "base_sha", null: false
+    t.datetime "cancelled_at"
     t.datetime "completed_at"
     t.datetime "created_at", null: false
     t.datetime "dispatched_at"
@@ -9462,6 +9463,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_162300) do
     t.uuid "instance_pool_id"
     t.text "key"
     t.datetime "last_heartbeat_at"
+    t.datetime "last_sync_attempted_at"
     t.datetime "last_synced_at"
     t.decimal "latitude", precision: 10, scale: 7, comment: "Latitude coordinate"
     t.datetime "lease_expires_at"
@@ -9500,6 +9502,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_162300) do
     t.index ["instance_pool_id", "pool_state", "pool_warming_started_at"], name: "idx_node_instances_pool_acquire", where: "(instance_pool_id IS NOT NULL)"
     t.index ["instance_pool_id"], name: "index_system_node_instances_on_instance_pool_id"
     t.index ["last_heartbeat_at"], name: "index_system_node_instances_on_last_heartbeat_at"
+    t.index ["last_sync_attempted_at"], name: "index_system_node_instances_on_last_sync_attempted_at"
     t.index ["last_synced_at"], name: "index_system_node_instances_on_last_synced_at"
     t.index ["lifecycle_class", "lease_expires_at"], name: "idx_node_instances_task_scoped_lease", where: "(lifecycle_class IS NOT NULL)"
     t.index ["mac_address"], name: "index_system_node_instances_on_mac_address", unique: true, where: "(mac_address IS NOT NULL)"
@@ -9626,6 +9629,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_162300) do
   create_table "system_node_modules", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.boolean "auto_generated", default: false, null: false
+    t.boolean "auto_promote", default: true, null: false
     t.jsonb "capabilities", default: [], null: false, comment: "Capability tags this module provides (denormalized from manifest.dependencies.provides) — queried by ManifestImportService for capability:foo dependency resolution."
     t.uuid "category_id"
     t.jsonb "config", default: {}, null: false

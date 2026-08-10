@@ -154,9 +154,10 @@ module Devops
       return 0 unless runners_data.is_a?(Array)
 
       runners_data.each do |runner_data|
+        data = runner_data.is_a?(Hash) ? runner_data.stringify_keys : runner_data
         ::Devops::GitRunner.sync_from_provider(
           credential,
-          runner_data.is_a?(Hash) ? runner_data.stringify_keys : runner_data,
+          data,
           scope: scope_name,
           repository: repository
         )

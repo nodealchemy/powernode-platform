@@ -155,7 +155,30 @@ module Ai
           end
         end
 
-        def execute_tool(tool_id, params:, account:, agent_id: nil)
+        # required_permissions: ["ai.introspection.view"] is declared on all
+        # nine tool manifests above, but until 2026-08-07 it was consumed only
+        # by build_manifest — this method was a bare `case tool_id` reached from
+        # the MCP controller with no user and no principal, so nine
+        # account-wide observability tools, including platform.cost_analysis,
+        # were served to any holder of a valid MCP token. Observability being
+        # the UNGUARDED surface is the wrong way round for a control plane that
+        # carries governance data.
+        #
+        # Authorization is checked here rather than only at the call site so a
+        # future caller inherits the gate instead of rediscovering the hole.
+        #
+        # instance_authorized: mirrors the contract McpPlatformToolRegistrar
+        # uses on the sibling branch of the same controller rescue — a
+        # restricted principal reaching this point was already gated against
+        # the granted tool NAME at tools/call, and holds no User to carry a
+        # permission. Default-deny otherwise: no user and no upstream
+        # authorization means no access, which is precisely the shape the
+        # controller used to call with.
+        def execute_tool(tool_id, params:, account:, user: nil, instance_authorized: false, agent_id: nil)
+          unless introspection_authorized?(user, instance_authorized)
+            return { success: false, error: "Permission denied: ai.introspection.view required" }
+          end
+
           if agent_id
             Ai::Introspection::RateLimiter.check!(agent_id: agent_id)
           end
@@ -212,6 +235,17 @@ module Ai
             rate_limited: true,
             rate_limit: { max_calls: 10, window_seconds: 60 }
           }
+        end
+
+        # has_permission? (not permission_names.include?) per the backend
+        # convention — it short-circuits system.admin, so an admin is not
+        # dependent on the catalog expansion that made this permission
+        # unsatisfiable in the first place.
+        def introspection_authorized?(user, instance_authorized)
+          return true if instance_authorized
+          return false if user.nil?
+
+          user.has_permission?("ai.introspection.view")
         end
 
         def metrics_service(account)

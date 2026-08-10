@@ -879,3 +879,18 @@ Rails.logger.info "[Seeds] Created/Updated GLOBAL Powernode Concierge skill"
 puts "  ✅ Global AI skills: #{Ai::Skill.global.where(is_system: true).count} (instances: #{seed_instances})"
 
 Rails.logger.info "[Seeds] AI Skills seeding complete: #{created_count + 1} skills, #{server_link_count} MCP server links, #{hosted_server_count} hosted servers"
+
+# IMP-059e6c5af2bf: global skills never fire the per-account KG sync hook (a
+# global row has no account context), so without this the seeded core skills —
+# including the two skill-authoring entry points — are invisible to
+# discover_skills seeds and the ConciergeRouter in every account. Sync each
+# account's copies here; the bridge is idempotent (update-or-create per
+# account) and degrades gracefully without an embedding service. Accounts
+# created between deploys pick the copies up on the next seed run.
+Account.find_each do |acct|
+  results = Ai::SkillGraph::BridgeService.new(acct).sync_all_skills
+  Rails.logger.info "[Seeds] KG skill sync for account #{acct.id}: #{results.inspect}"
+rescue StandardError => e
+  Rails.logger.warn "[Seeds] KG skill sync failed for account #{acct.id}: #{e.class}: #{e.message}"
+end
+puts "  ✅ Knowledge-graph skill sync: #{Account.count} account(s)"

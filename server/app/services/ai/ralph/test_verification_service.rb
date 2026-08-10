@@ -30,6 +30,71 @@ module Ai
 
       MAX_OUTPUT_CHARS = 20_000
 
+      # Server-side adjudication of an EXTERNAL executor's self-reported
+      # check_results (IMP-f2b3e9a67d11). The MCP dev-loop bridge cannot
+      # execute the executor's suite — the code lives in the executor's own
+      # checkout — so the enforceable contract is over the evidence itself,
+      # parsed with the SAME parse_counts every framework path uses (rspec,
+      # pytest, jest, gotest, cargo — one vocabulary, no second regex):
+      #
+      #   any zero-failure tally       → :verified    (red-first tallies with
+      #                                                failures may coexist)
+      #   tallies present, ALL failing → :contradicted (the pass is rejected)
+      #   no parseable tallies         → :unverified  (recorded as attested;
+      #                                                no auto-apply)
+      #
+      # A parsed passed_count with a nil failed_count reads as green — the
+      # frameworks only print failure counts when failures exist — but a tally
+      # whose counts show NOTHING ran ("0 examples, 0 failures": a typo'd
+      # filter, an empty glob) is not green evidence; it drops to :unverified.
+      # Values are size-capped like the runner path's output, and nested
+      # hashes/arrays are flattened so structured evidence still adjudicates.
+      # KNOWN, ACCEPTED LIMITS of a coarse honesty filter: fabricated-but-
+      # plausible evidence passes, and the any-green rule means a clean tally
+      # under ONE key can mask failing tallies under another (the price of
+      # tolerating red-first evidence without per-key naming heuristics). The
+      # ungameable backstop remains the revert metric; what IS caught here is
+      # a pass whose own evidence shows only failures, or none at all.
+      def self.adjudicate_check_results(check_results)
+        values = deep_string_values(check_results).map { |v| v[0, MAX_OUTPUT_CHARS] }
+        parser = new
+        frameworks = FRAMEWORKS.map { |f| f[:framework] }.uniq
+
+        tallies = values.flat_map do |value|
+          frameworks.filter_map do |framework|
+            counts = parser.parse_counts(framework, value)
+            next if counts[:passed_count].nil? && counts[:failed_count].nil?
+
+            { framework: framework, passed: counts[:passed_count], failures: counts[:failed_count].to_i }
+          end
+        end
+
+        green = tallies.any? do |t|
+          t[:failures].zero? && (t[:passed].nil? || t[:passed].positive?)
+        end
+        failing = tallies.any? { |t| t[:failures].positive? }
+
+        verdict =
+          if green then :verified
+          elsif failing then :contradicted
+          else :unverified
+          end
+        { verdict: verdict, tallies: tallies }
+      end
+
+      # Strings from arbitrarily nested hash/array evidence, depth-capped.
+      def self.deep_string_values(value, depth = 0)
+        return [] if depth > 4
+
+        case value
+        when String then [ value ]
+        when Hash   then value.values.flat_map { |v| deep_string_values(v, depth + 1) }
+        when Array  then value.flat_map { |v| deep_string_values(v, depth + 1) }
+        else []
+        end
+      end
+      private_class_method :deep_string_values
+
       # runner: a callable responding to #call(command:, dir:, timeout_seconds:)
       #   and returning { stdout:, stderr:, exit_code: }. Optional — only #verify
       #   needs it; the async callback uses #evaluate (parse-only, no runner).

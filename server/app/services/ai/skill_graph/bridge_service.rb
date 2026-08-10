@@ -13,7 +13,12 @@ module Ai
 
       # Create/update KG node linked to a skill, generate pgvector embedding
       def sync_skill(skill)
-        node = skill.knowledge_graph_node
+        # Account-scoped lookup, never the bare has_one: a GLOBAL skill carries
+        # one node copy per account (nodes require an account), and the
+        # unscoped association returns an arbitrary account's node — this
+        # bridge would then UPDATE another tenant's copy instead of creating
+        # this account's (IMP-059e6c5af2bf).
+        node = Ai::KnowledgeGraphNode.find_by(ai_skill_id: skill.id, account_id: account.id)
 
         text = build_embedding_text(skill)
         embedding = embedding_service.generate(text)

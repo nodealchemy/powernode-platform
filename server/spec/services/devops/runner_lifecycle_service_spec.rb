@@ -293,4 +293,18 @@ RSpec.describe Devops::RunnerLifecycleService do
       end
     end
   end
+
+  # The prune added in faf33402c is REVERTED (see that revert's commit message).
+  # /code-review found three independent ways it could delete LIVE runners:
+  # an unpaginated provider listing (only page 1 comes back, so page-2 runners
+  # look absent every sync), a repo-less prune covering scopes the sweep never
+  # lists, and a partial-sweep failure whose union is non-empty but missing an
+  # entire scope. Its specs are removed with it rather than left asserting
+  # behaviour that no longer exists.
+  #
+  # The phantom-row problem it targeted is real and still open (51 local rows
+  # against 4 upstream). A correct fix needs paginated listings and a
+  # scope-completeness signal, neither of which exists today; the operator's
+  # scripts/prune-stale-git-runners.rb remains the supported way to clear the
+  # backlog in the meantime.
 end

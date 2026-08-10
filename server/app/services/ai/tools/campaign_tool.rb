@@ -185,7 +185,11 @@ module Ai
               task_key: { type: "string", required: false, description: "Stable key for idempotency" },
               decision_type: { type: "string", required: false, description: "build|unblock|skip|remove|defer|policy|escalate (default build)" },
               rationale: { type: "string", required: false, description: "Why this increment was done / decided" },
-              status: { type: "string", required: false, description: "passed (default) | failed | skipped" }
+              status: { type: "string", required: false, description: "passed (default) | failed | skipped" },
+              check_results: { type: "object", required: false,
+                               description: "Verification evidence (e.g. {\"rspec\": \"12 examples, 0 failures\"}). " \
+                                            "A passed increment records checks_passed=true ONLY when this carries " \
+                                            "a green machine tally; without it the pass records as attested." }
             }
           },
           "campaign_check_rebase" => {
@@ -425,7 +429,7 @@ module Ai
             title: params[:title], summary: params[:summary], task_key: params[:task_key],
             decision_type: params[:decision_type].presence || "build",
             rationale: params[:rationale], status: params[:status].presence || "passed",
-            metadata: params[:metadata] || {}
+            metadata: params[:metadata] || {}, check_results: params[:check_results] || {}
           )
         )
       rescue ArgumentError => e

@@ -91,6 +91,16 @@ module Permissions
     "ai.credentials.test" => "Test AI provider credentials",
 
     # AI Orchestration - Agents
+    # Declared nine times in Ai::Introspection::McpToolRegistrar but absent
+    # from this catalog until 2026-08-07, which made it BOTH unenforced on the
+    # MCP path AND unsatisfiable on the Mcp::PermissionValidator path: that
+    # resolves through user.permission_names, which expands system.admin to
+    # Permissions.all_permissions.keys rather than short-circuiting the way
+    # has_permission? does, so a string missing from here is held by nobody at
+    # all — not even a system admin. Gates the nine account-wide observability
+    # tools (platform.health/metrics/infrastructure/cost_analysis/...), which
+    # carry health AND financial data.
+    "ai.introspection.view" => "View platform introspection tools (health, metrics, infrastructure, cost analysis)",
     "ai.agents.read" => "View AI agents",
     "ai.agents.create" => "Create AI agents",
     "ai.agents.update" => "Update own AI agents",
@@ -585,6 +595,11 @@ module Permissions
     "system.ci_runner_leases.update"             => "Release a CI runner lease (deregister + recycle the instance)",
     # Campaign 019f5885 inc9 — native module-build batch orchestration.
     "system.module_builds.dispatch"              => "Plan + dispatch a native module-build batch (lease builders, create ci.module_build tasks)",
+    # Separate from .dispatch on purpose: .dispatch reaches only the
+    # system_worker role (leaked-token blast-radius bound), and gating the
+    # kill switch on it would leave a human operator unable to stop a batch
+    # they can see running. Granted to admin/manager by the system extension.
+    "system.module_builds.cancel"                => "Stop a running native module-build batch (cancel member tasks, release builder leases, halt further dispatch)",
     # Campaign 019f6084 inc2 — agent-pollable build-completion barrier
     # (ModuleBuildBatch read API). Adjacent to .dispatch because that's the
     # existing precedent for this permission name; the admin/manager grant
