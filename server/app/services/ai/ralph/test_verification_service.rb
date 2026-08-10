@@ -112,7 +112,13 @@ module Ai
       # A fail count with no qualifier, or one sharing the total's qualifier, is
       # the suite's own. Anything else ("secret_scan_errors", "tsc_errors") is a
       # DIFFERENT check reported alongside — see #relevant_failures.
-      PLAIN_FAIL_KEY = /\A(?:failures?|failed|errors?)(?:_count)?\z/i
+      # errors_outside_of_examples is RSpec's own JSON key for "files failed to
+      # load" — a SUITE-level error count, not a different check's, and the single
+      # commonest "0 failures but nothing really ran" shape. It does not end in a
+      # fail noun, so the end-anchored pattern below excluded it from the failure
+      # set while /fail|error/ still barred it from being the total: the node then
+      # adjudicated {passed: 10, failures: 0} and auto-applied the offer.
+      PLAIN_FAIL_KEY = /\A(?:(?:failures?|failed|errors?)(?:_count)?|errors_outside_of_examples)\z/i
       # The \w*_ prefix on the total accepts any qualifier, including ones that
       # invert the meaning: "skipped_specs"/"pending_examples" counted as the
       # PASSED total and adjudicated verified on evidence that zero tests passed.
@@ -190,9 +196,13 @@ module Ai
       def self.relevant_failures(ints, total_key)
         prefix = total_key[/\A(\w*?_)(?=examples?|tests?|specs?|passed|passes)/i, 1]
         ints.select do |k, _|
+          # PLAIN_FAIL_KEY first: FAIL_COUNT_KEY is end-anchored on a fail noun, so
+          # it rejects errors_outside_of_examples and would gate it out before the
+          # suite-level check below ever ran.
+          next true if k.match?(PLAIN_FAIL_KEY)
           next false unless k.match?(FAIL_COUNT_KEY)
 
-          k.match?(PLAIN_FAIL_KEY) || (prefix && k.downcase.start_with?(prefix.downcase))
+          prefix && k.downcase.start_with?(prefix.downcase)
         end.values
       end
       private_class_method :relevant_failures
