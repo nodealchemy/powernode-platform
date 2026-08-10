@@ -74,15 +74,50 @@ RSpec.describe Ai::DevLoop::ImprovementPromotionService do
       expect(second.ralph_task.status).to eq("pending")
     end
 
-    it "does NOT disturb an already-passed task on re-approval" do
+    # IMP-60f457f6e8a6: "passed" alone is not proof the work closed the offer.
+    # DevLoopTool only applies the linked recommendation when the evidence
+    # adjudicated :verified, recording checks_passed on the iteration; an
+    # attested-only pass left the offer at approved with NO way back — the task
+    # is terminal, dev_next_task claims only pending, and dev_complete_task
+    # refuses a passed task. Re-approval is that missing seam, so the invariant
+    # narrows from "never disturb a passed task" to "never disturb a VERIFIED
+    # passed task".
+    def pass_task!(task, loop_record, checks_passed:)
+      task.start!
+      create(:ai_ralph_iteration, ralph_loop: loop_record, ralph_task: task,
+                                  status: "completed", checks_passed: checks_passed)
+      task.pass!(iteration_number: 1)
+      expect(task.reload.status).to eq("passed")
+    end
+
+    it "does NOT disturb a passed task whose evidence verified" do
       first = described_class.new(recommendation: recommendation).call
-      first.ralph_task.start!
-      first.ralph_task.pass!(iteration_number: 1)
-      expect(first.ralph_task.reload.status).to eq("passed")
+      pass_task!(first.ralph_task, first.ralph_loop, checks_passed: true)
 
       second = described_class.new(recommendation: recommendation).call
 
       expect(second.ralph_task.status).to eq("passed")
+    end
+
+    it "re-queues a passed task whose evidence never verified (IMP-60f457f6e8a6)" do
+      first = described_class.new(recommendation: recommendation).call
+      pass_task!(first.ralph_task, first.ralph_loop, checks_passed: false)
+
+      second = described_class.new(recommendation: recommendation).call
+
+      expect(second.ralph_task.id).to eq(first.ralph_task.id)
+      expect(second.ralph_task.status).to eq("pending")
+      expect(second.requeued).to be true
+    end
+
+    it "re-queues a passed task that recorded no evidence at all" do
+      first = described_class.new(recommendation: recommendation).call
+      first.ralph_task.start!
+      first.ralph_task.pass!(iteration_number: 1)
+
+      second = described_class.new(recommendation: recommendation).call
+
+      expect(second.ralph_task.status).to eq("pending")
     end
 
     it "does NOT disturb a task that is still in_progress on re-approval" do

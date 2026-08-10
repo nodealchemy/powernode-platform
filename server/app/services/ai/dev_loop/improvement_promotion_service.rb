@@ -24,7 +24,7 @@ module Ai
         "Commit only to the loop branch — never develop/master, never push"
       )
 
-      Result = Struct.new(:ralph_loop, :ralph_task, :created, keyword_init: true)
+      Result = Struct.new(:ralph_loop, :ralph_task, :created, :requeued, keyword_init: true)
 
       def initialize(recommendation:)
         @recommendation = recommendation
@@ -42,20 +42,25 @@ module Ai
         ralph_loop = find_or_create_loop
         task = ralph_loop.ralph_tasks.find_or_initialize_by(task_key: task_key_for(recommendation))
         created = task.new_record?
+        requeued = false
 
         if created
           task.assign_attributes(task_attributes(recommendation))
           task.save!
-        elsif task.status.in?(%w[failed blocked])
+        elsif task.status.in?(%w[failed blocked]) || unverified_pass?(task)
           # IMP-938f68b16a1a: re-approving an offer whose promoted task already
           # failed/blocked previously returned it untouched -- dev_next_task
           # only ever claims pending tasks, so the operator's retry intent was
           # silently swallowed (no other seam re-queues a non-repeating task).
           # Re-approval is an explicit "try again" signal; honor it.
+          # IMP-60f457f6e8a6 extends the same reasoning to a pass that never
+          # produced verified evidence — see #unverified_pass? for why that is
+          # a stranded task and not a finished one.
           task.reset!
+          requeued = true
         end
 
-        Result.new(ralph_loop: ralph_loop, ralph_task: task, created: created)
+        Result.new(ralph_loop: ralph_loop, ralph_task: task, created: created, requeued: requeued)
       end
 
       private
@@ -77,6 +82,23 @@ module Ai
             "guardrails" => GUARDRAILS
           }
         end
+      end
+
+      # IMP-60f457f6e8a6: "passed" is not proof the offer closed. DevLoopTool
+      # applies the linked recommendation only when the executor's evidence
+      # adjudicated :verified (recorded as the iteration's checks_passed); an
+      # attested-only pass left the offer at approved with NO route back --
+      # passed is terminal, dev_next_task claims only pending tasks, and
+      # dev_complete_task refuses anything not in_progress/blocked. Re-approval
+      # is that missing seam, so the invariant narrows from "never disturb a
+      # passed task" to "never disturb a VERIFIED passed task".
+      #
+      # Any verified iteration counts, not merely the last: a task that failed,
+      # then passed with real evidence, is done and must not be re-queued.
+      # Reaching here already means the offer is still `approved` (the #call
+      # guard), i.e. no pass has yet closed it.
+      def unverified_pass?(task)
+        task.status == "passed" && !task.ralph_iterations.where(checks_passed: true).exists?
       end
 
       def task_key_for(rec)

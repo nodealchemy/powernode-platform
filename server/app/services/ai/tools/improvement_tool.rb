@@ -267,7 +267,14 @@ module Ai
           status: rec.status,
           loop: loop_record.name,
           task_key: result.ralph_task.task_key,
-          task_created: result.created
+          task_created: result.created,
+          # IMP-60f457f6e8a6: re-approval re-opens a task that failed, blocked,
+          # or passed WITHOUT verified evidence. Surface it — task_created:
+          # false reads identically whether the offer was re-queued or the
+          # re-approval was a no-op, and that ambiguity is what left the
+          # stranded-offer path looking like it had no seam at all.
+          task_requeued: result.requeued.present?,
+          task_status: result.ralph_task.status
         }
         merge_loop_halt_status!(response, loop_record)
         response[:next] = "Drain with: /dev-loop #{loop_record.name}"
