@@ -48,7 +48,9 @@ module Ai
       # whose counts show NOTHING ran ("0 examples, 0 failures": a typo'd
       # filter, an empty glob) is not green evidence; it drops to :unverified.
       # Values are size-capped like the runner path's output, and nested
-      # hashes/arrays are flattened so structured evidence still adjudicates.
+      # hashes/arrays are flattened so structured evidence still adjudicates —
+      # both the tally STRINGS inside it and, per deep_count_tallies below, a
+      # node's own integer count pair such as {examples: 173, failures: 0}.
       # KNOWN, ACCEPTED LIMITS of a coarse honesty filter: fabricated-but-
       # plausible evidence passes, and the any-green rule means a clean tally
       # under ONE key can mask failing tallies under another (the price of
@@ -68,6 +70,7 @@ module Ai
             { framework: framework, passed: counts[:passed_count], failures: counts[:failed_count].to_i }
           end
         end
+        tallies += deep_count_tallies(check_results)
 
         green = tallies.any? do |t|
           t[:failures].zero? && (t[:passed].nil? || t[:passed].positive?)
@@ -81,6 +84,48 @@ module Ai
           end
         { verdict: verdict, tallies: tallies }
       end
+
+      # IMP-60f457f6e8a6: structured integer counts are BETTER evidence than a
+      # prose tally, yet deep_string_values drops every non-String, so honest
+      # evidence like {examples: 173, failures: 0} parsed to nothing,
+      # adjudicated :unverified, and left its offer stranded at approved with
+      # no seam to re-supply evidence (43 offers reached that state).
+      #
+      # This branch WIDENS what counts as :verified, and a verified pass
+      # auto-applies its linked offer — so it is deliberately narrow. A node
+      # must carry BOTH an integer test-total/passed count AND an integer
+      # failure count, read from the SAME hash node so sibling keys under
+      # unrelated sections can never be recombined into a green. A lone
+      # {"failures" => 0}, or a non-test pair like {"lint_errors" => 0,
+      # "files_total" => 3}, stays :unverified.
+      TOTAL_COUNT_KEY = /\A(?:\w*_)?(?:examples?|tests?|specs?|passed|passes)(?:_count)?\z/i
+      FAIL_COUNT_KEY  = /\A(?:\w*_)?(?:failures?|failed|errors?)(?:_count)?\z/i
+
+      def self.deep_count_tallies(value, depth = 0)
+        return [] if depth > 4
+
+        case value
+        when Hash
+          nested = value.values.flat_map { |v| deep_count_tallies(v, depth + 1) }
+          (tally = hash_node_tally(value)) ? nested.unshift(tally) : nested
+        when Array then value.flat_map { |v| deep_count_tallies(v, depth + 1) }
+        else []
+        end
+      end
+      private_class_method :deep_count_tallies
+
+      # A single hash node's own integer counts, or nil when it is not a tally.
+      # The total must not itself be fail-named ("failed_examples" is a failure
+      # count wearing a total's noun, never the denominator).
+      def self.hash_node_tally(hash)
+        ints = hash.filter_map { |k, v| [k.to_s, v] if v.is_a?(Integer) }.to_h
+        total = ints.find { |k, _| k.match?(TOTAL_COUNT_KEY) && !k.match?(/fail|error/i) }&.last
+        failures = ints.find { |k, _| k.match?(FAIL_COUNT_KEY) }&.last
+        return nil if total.nil? || failures.nil?
+
+        { framework: "structured", passed: total, failures: failures }
+      end
+      private_class_method :hash_node_tally
 
       # Strings from arbitrarily nested hash/array evidence, depth-capped.
       def self.deep_string_values(value, depth = 0)

@@ -188,5 +188,47 @@ RSpec.describe Ai::Ralph::TestVerificationService do
     it "adjudicates strings inside nested structured evidence" do
       expect(verdict_of({ "rspec" => { "summary" => "12 examples, 0 failures" } })).to eq(:verified)
     end
+
+    # IMP-60f457f6e8a6 — integer counts are BETTER evidence than a prose tally,
+    # but deep_string_values dropped every non-String, so honest structured
+    # evidence adjudicated :unverified and stranded its offer at approved.
+    context "with structured integer counts" do
+      it "verifies a green count pair, including prefixed keys" do
+        expect(verdict_of({ "examples" => 173, "failures" => 0 })).to eq(:verified)
+        expect(verdict_of({ "batch_examples" => 173, "batch_failures" => 0 })).to eq(:verified)
+        expect(verdict_of({ "tests" => 20, "failed_count" => 0 })).to eq(:verified)
+        expect(verdict_of({ "passed" => 12, "failed" => 0 })).to eq(:verified)
+      end
+
+      it "adjudicates a count pair nested inside evidence" do
+        expect(verdict_of({ "rspec" => { "examples" => 12, "failures" => 0 } })).to eq(:verified)
+      end
+
+      it "contradicts a count pair that shows failures" do
+        expect(verdict_of({ "examples" => 173, "failures" => 2 })).to eq(:contradicted)
+      end
+
+      it "does not treat a structured nothing-ran tally as green" do
+        expect(verdict_of({ "examples" => 0, "failures" => 0 })).to eq(:unverified)
+      end
+
+      # The load-bearing guard: this branch WIDENS what counts as verified, and
+      # a verified pass auto-applies its offer. One stray zero must never
+      # manufacture a green.
+      it "requires both counts in the SAME node and ignores non-test zeroes" do
+        expect(verdict_of({ "failures" => 0 })).to eq(:unverified)
+        expect(verdict_of({ "lint_errors" => 0, "files_total" => 3 })).to eq(:unverified)
+        expect(verdict_of({ "suite_a" => { "failures" => 0 },
+                            "suite_b" => { "examples" => 9 } })).to eq(:unverified)
+      end
+
+      it "does not read a fail-named key as the total" do
+        expect(verdict_of({ "failed_examples" => 0, "failures" => 0 })).to eq(:unverified)
+      end
+
+      it "ignores non-integer counts" do
+        expect(verdict_of({ "examples" => "many", "failures" => 0 })).to eq(:unverified)
+      end
+    end
   end
 end
