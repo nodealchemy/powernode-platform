@@ -5,6 +5,10 @@ module Ai
     class BridgeService
       SKILL_RELATION_TYPES = %w[requires enhances composes succeeds uses].freeze
 
+      # Entity types whose nodes belong to another producer that finds them BY
+      # entity_type — adopting one silently removes it from that reader.
+      OWNED_ENTITY_TYPES = %w[agent team].freeze
+
       attr_reader :account
 
       def initialize(account)
@@ -245,7 +249,13 @@ module Ai
 
         agent_id = node.metadata.is_a?(Hash) ? node.metadata["ai_agent_id"] : nil
         return "agent #{agent_id}" if agent_id.present?
-        return "entity_type=#{node.entity_type}" if node.entity_type == "agent"
+
+        # entity_type backstop for owners whose link lives only in metadata, so a
+        # nil/!Hash metadata column cannot make them read as unowned. "team" is
+        # here for the same reason as "agent": sync_agent_team_edges finds team
+        # nodes by entity_type, so flipping one to "skill" removes it from that
+        # reader permanently.
+        return "entity_type=#{node.entity_type}" if OWNED_ENTITY_TYPES.include?(node.entity_type)
 
         nil
       end
