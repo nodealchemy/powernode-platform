@@ -108,10 +108,14 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
         "provisioning_run_started",
         hash_including(:runner_id, :started_at, step_count: 4, layer_count: 3)
       )
+      # Asserted the top-level activity_type:/metadata: shape until IMP-019fe4c5 —
+      # the instance_double accepted it, so this stayed green while every one of
+      # these messages was actually being dropped by Ai::Message.
       expect(conversation).to have_received(:add_system_message).with(
         a_string_including("Provisioning run started"),
-        hash_including(activity_type: "provisioning_step_progress",
-                       metadata: hash_including(:runner_id, status: "started"))
+        content_metadata: hash_including("activity_type" => "provisioning_step_progress",
+                                         "runner_id" => anything,
+                                         "status" => "started")
       )
     end
 
@@ -187,8 +191,8 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
         )
         expect(conversation).to have_received(:add_system_message).with(
           a_string_including("Step 1 (provision_full_stack) → completed"),
-          hash_including(activity_type: "provisioning_step_progress",
-                         metadata: hash_including(status: "completed"))
+          content_metadata: hash_including("activity_type" => "provisioning_step_progress",
+                                           "status" => "completed")
         )
       end
     end
@@ -416,5 +420,52 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
       @steps.sort_by { |s| s.step_number.to_i }
     end
     def to_a = @steps.to_a
+  end
+
+  # IMP-019fe4c5-3d8e: post_system_message passed activity_type:/metadata: as
+  # top-level kwargs. Ai::Conversation#add_message forwards **options straight into
+  # messages.build, and neither is a column on ai_messages — so every step-progress
+  # message raised ActiveModel::UnknownAttributeError into this method's own rescue
+  # and vanished. This needs a REAL conversation: an instance_double verifies only
+  # add_system_message's (content, **options) signature, which the bad call satisfied.
+  describe "#post_system_message" do
+    let(:real_account)      { create(:account) }
+    let(:real_conversation) { create(:ai_conversation, account: real_account) }
+    let(:real_mission)      { instance_double("Ai::Mission", id: "mission-real-1", conversation: real_conversation) }
+    let(:real_runner) do
+      described_class.new(account: real_account, mission: real_mission, plan: [])
+    end
+
+    it "persists the progress message instead of losing it to the rescue" do
+      expect {
+        real_runner.send(:post_system_message, "step 1 running", status: "running", metadata: { "step_id" => "s1" })
+      }.to change { real_conversation.messages.count }.by(1)
+    end
+
+    it "records the activity type and status where the other activity writers put them" do
+      real_runner.send(:post_system_message, "step 1 running", status: "running", metadata: { "step_id" => "s1" })
+
+      meta = real_conversation.messages.last.content_metadata
+      expect(meta["activity_type"]).to eq(described_class::ACTIVITY_TYPE)
+      expect(meta["status"]).to eq("running")
+      expect(meta["step_id"]).to eq("s1")
+    end
+
+    # Both real call sites pass symbol keys, and one already carries :status —
+    # merging string keys onto that unnormalized would write "status" twice.
+    it "normalizes the symbol-keyed metadata its own callers pass" do
+      real_runner.send(
+        :post_system_message,
+        "Step 2 (docker_provision) → completed",
+        status: "completed",
+        metadata: { step_id: "s2", status: "completed", outputs: { "node_instance_id" => "n1" } }
+      )
+
+      meta = real_conversation.messages.last.content_metadata
+      expect(meta["step_id"]).to eq("s2")
+      expect(meta["status"]).to eq("completed")
+      expect(meta["outputs"]).to eq({ "node_instance_id" => "n1" })
+      expect(meta.keys).to match_array(meta.keys.uniq)
+    end
   end
 end

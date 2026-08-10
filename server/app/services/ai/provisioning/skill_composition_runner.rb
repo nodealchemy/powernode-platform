@@ -642,10 +642,21 @@ module Ai
         conv = mission.respond_to?(:conversation) ? mission.conversation : nil
         return unless conv
 
+        # activity_type/metadata are NOT columns on ai_messages — Ai::Conversation
+        # #add_message forwards **options straight into messages.build, so passing
+        # them at the top level raised UnknownAttributeError into the rescue below
+        # and dropped every step-progress message (IMP-019fe4c5). content_metadata
+        # is where the other activity writers put this.
         conv.add_system_message(
           content,
-          activity_type: ACTIVITY_TYPE,
-          metadata: metadata.merge(runner_id: @runner_id, status: status)
+          # stringify first: both call sites pass symbol keys and one of them
+          # already carries :status/:runner_id, so a raw merge would emit the
+          # same key twice into jsonb.
+          content_metadata: metadata.to_h.stringify_keys.merge(
+            "activity_type" => ACTIVITY_TYPE,
+            "runner_id" => @runner_id,
+            "status" => status
+          )
         )
       rescue StandardError => e
         Rails.logger.warn("[SkillCompositionRunner] system message failed: #{e.class}: #{e.message}")
