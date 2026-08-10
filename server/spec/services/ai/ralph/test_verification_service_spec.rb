@@ -158,6 +158,53 @@ RSpec.describe Ai::Ralph::TestVerificationService do
       expect(verdict_of({ "rspec" => "90 examples, 0 failures" })).to eq(:verified)
     end
 
+    # A verified pass auto-applies its linked offer, so a check summary that ran
+    # no tests must never reach :verified. "passed" is not a test noun — only its
+    # scope makes it one.
+    it "does not verify a gate summary that ran no tests" do
+      expect(verdict_of({ "gate" => { "passed" => 6, "failed" => 0 } })).to eq(:unverified)
+    end
+
+    it "does not verify a shell-step tally that ran no tests" do
+      expect(verdict_of({ "validate_sh" => { "steps_passed" => 4, "errors" => 0 } })).to eq(:unverified)
+    end
+
+    it "does not verify a bare passed/failed pair with no test scope" do
+      expect(verdict_of({ "passed" => 9, "failures" => 0 })).to eq(:unverified)
+    end
+
+    it "still verifies a bare passed count scoped to a test runner" do
+      expect(verdict_of({ "rspec" => { "passed" => 173, "failures" => 0 } })).to eq(:verified)
+    end
+
+    it "contradicts a node whose first fail-named key is zero but another reports failures" do
+      expect(verdict_of({ "rspec" => { "tests" => 10, "errors" => 0, "failed" => 2 } })).to eq(:contradicted)
+    end
+
+    it "does not treat a key merely containing 'test'/'spec' as test scope" do
+      expect(verdict_of({ "latest" => { "passed" => 6, "failed" => 0 } })).to eq(:unverified)
+      expect(verdict_of({ "inspection" => { "passed" => 6, "failed" => 0 } })).to eq(:unverified)
+    end
+
+    it "matches test scope case-insensitively and across underscores" do
+      expect(verdict_of({ "RSpec" => { "passed" => 173, "failures" => 0 } })).to eq(:verified)
+      expect(verdict_of({ "go_test" => { "passed" => 3, "failed" => 0 } })).to eq(:verified)
+    end
+
+    it "inherits test scope from any ancestor, not just the immediate parent" do
+      expect(verdict_of({ "rspec" => { "summary" => { "passed" => 10, "failures" => 0 } } })).to eq(:verified)
+    end
+
+    it "prefers a test-noun total over a bare one in the same node" do
+      expect(verdict_of({ "summary" => { "passed" => 173, "examples" => 173, "failures" => 0 } }))
+        .to eq(:verified)
+    end
+
+    it "still verifies a structured test-noun tally regardless of scope (IMP-60f457f6e8a6)" do
+      expect(verdict_of({ "examples" => 173, "failures" => 0 })).to eq(:verified)
+      expect(verdict_of({ "suite" => { "tests" => 12, "failed" => 0 } })).to eq(:verified)
+    end
+
     it "verifies pytest-style green evidence" do
       expect(verdict_of({ "pytest" => "12 passed in 3.4s" })).to eq(:verified)
     end
@@ -197,7 +244,12 @@ RSpec.describe Ai::Ralph::TestVerificationService do
         expect(verdict_of({ "examples" => 173, "failures" => 0 })).to eq(:verified)
         expect(verdict_of({ "batch_examples" => 173, "batch_failures" => 0 })).to eq(:verified)
         expect(verdict_of({ "tests" => 20, "failed_count" => 0 })).to eq(:verified)
-        expect(verdict_of({ "passed" => 12, "failed" => 0 })).to eq(:verified)
+        # Was `{"passed" => 12, "failed" => 0}` => :verified. Narrowed: a bare
+        # passed/failed pair carries no evidence that a TEST ran, and crediting it
+        # auto-applied offers off gate/step summaries. The test-noun cases above
+        # (this task's actual motivation) are untouched; a bare count now just has
+        # to name its runner.
+        expect(verdict_of({ "rspec" => { "passed" => 12, "failed" => 0 } })).to eq(:verified)
       end
 
       it "adjudicates a count pair nested inside evidence" do

@@ -98,17 +98,50 @@ module Ai
       # unrelated sections can never be recombined into a green. A lone
       # {"failures" => 0}, or a non-test pair like {"lint_errors" => 0,
       # "files_total" => 3}, stays :unverified.
-      TOTAL_COUNT_KEY = /\A(?:\w*_)?(?:examples?|tests?|specs?|passed|passes)(?:_count)?\z/i
-      FAIL_COUNT_KEY  = /\A(?:\w*_)?(?:failures?|failed|errors?)(?:_count)?\z/i
+      # "examples/tests/specs" NAME a test run; "passed/passes" only counts
+      # something. Keeping them in one alternation made any {passed:, failed:}
+      # pair read as test evidence, so a gate/step/lint summary — shapes an
+      # executor legitimately puts in check_results, which is documented only as
+      # "Verification evidence" — adjudicated :verified and AUTO-APPLIED its
+      # offer with zero tests run. Over-crediting is the dangerous direction:
+      # nothing alerts, the funnel just reads as approved-and-applied.
+      # They are split so a bare count must earn its scope (see TEST_SCOPED_KEY).
+      TEST_NOUN_TOTAL_KEY = /\A(?:\w*_)?(?:examples?|tests?|specs?)(?:_count)?\z/i
+      BARE_TOTAL_KEY      = /\A(?:\w*_)?(?:passed|passes)(?:_count)?\z/i
+      TOTAL_COUNT_KEY     = Regexp.union(TEST_NOUN_TOTAL_KEY, BARE_TOTAL_KEY)
+      FAIL_COUNT_KEY      = /\A(?:\w*_)?(?:failures?|failed|errors?)(?:_count)?\z/i
 
-      def self.deep_count_tallies(value, depth = 0)
+      # Token match (not substring) on any ANCESTOR key, so {"rspec" => {"passed"
+      # => 173, "failures" => 0}} — the honest shape IMP-60f457f6e8a6 exists to
+      # credit — still counts, while {"gate" => {"passed" => 6, "failed" => 0}}
+      # does not. Derived from FRAMEWORKS so a new runner stays in sync.
+      #
+      # Tokens, because a substring union credits any key CONTAINING the letters:
+      # "latest", "inspection" and "attestation" all contain test/spec, which
+      # would wave through the very gate/step counters this exists to reject.
+      # Splitting on non-alphanumerics keeps "go_test" working while excluding
+      # "latest", and downcasing accepts "RSpec".
+      TEST_SCOPE_TOKENS = (FRAMEWORKS.map { |f| f[:framework] }.uniq +
+                           %w[test tests spec specs suite]).freeze
+
+      # Scope is inherited from ANY ancestor, not just the immediate parent:
+      # runner -> summary -> counts is one of the commonest evidence layouts, and
+      # keying on the closest ancestor alone ("summary") strands it as unverified.
+      def self.test_scoped?(ancestors)
+        ancestors.any? do |key|
+          key.to_s.downcase.split(/[^a-z0-9]+/).any? { |tok| TEST_SCOPE_TOKENS.include?(tok) }
+        end
+      end
+      private_class_method :test_scoped?
+
+      def self.deep_count_tallies(value, depth = 0, ancestors = [])
         return [] if depth > 4
 
         case value
         when Hash
-          nested = value.values.flat_map { |v| deep_count_tallies(v, depth + 1) }
-          (tally = hash_node_tally(value)) ? nested.unshift(tally) : nested
-        when Array then value.flat_map { |v| deep_count_tallies(v, depth + 1) }
+          nested = value.flat_map { |k, v| deep_count_tallies(v, depth + 1, ancestors + [k.to_s]) }
+          (tally = hash_node_tally(value, ancestors)) ? nested.unshift(tally) : nested
+        when Array then value.flat_map { |v| deep_count_tallies(v, depth + 1, ancestors) }
         else []
         end
       end
@@ -117,11 +150,22 @@ module Ai
       # A single hash node's own integer counts, or nil when it is not a tally.
       # The total must not itself be fail-named ("failed_examples" is a failure
       # count wearing a total's noun, never the denominator).
-      def self.hash_node_tally(hash)
+      def self.hash_node_tally(hash, ancestors = [])
         ints = hash.filter_map { |k, v| [k.to_s, v] if v.is_a?(Integer) }.to_h
-        total = ints.find { |k, _| k.match?(TOTAL_COUNT_KEY) && !k.match?(/fail|error/i) }&.last
-        failures = ints.find { |k, _| k.match?(FAIL_COUNT_KEY) }&.last
+        candidates = ints.reject { |k, _| k.match?(/fail|error/i) }
+        # Prefer a test noun when the node carries both; picking by hash order
+        # let a bare "passed" shadow a qualifying "examples" in the same node and
+        # reject the whole tally.
+        total_key, total = candidates.find { |k, _| k.match?(TEST_NOUN_TOTAL_KEY) } ||
+                           candidates.find { |k, _| k.match?(BARE_TOTAL_KEY) }
+        # MAX, not first-match: FAIL_COUNT_KEY matches errors/failed/failures
+        # alike, so a pytest-shaped {tests:, errors: 0, failed: 2} node picked
+        # errors:0 and adjudicated GREEN while reporting two failures.
+        failures = ints.select { |k, _| k.match?(FAIL_COUNT_KEY) }.values.max
         return nil if total.nil? || failures.nil?
+        # A bare passed/passes total is only test evidence when some enclosing key
+        # names a test runner; unscoped, it is any pass/fail counter at all.
+        return nil if total_key.match?(BARE_TOTAL_KEY) && !test_scoped?(ancestors)
 
         { framework: "structured", passed: total, failures: failures }
       end
