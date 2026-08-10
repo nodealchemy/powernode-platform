@@ -6,6 +6,26 @@ RSpec.describe Ai::Tools::FederationTool do
   let(:account) { create(:account) }
   subject(:tool) { described_class.new(account: account) }
 
+  # IMP-019fe13d: this class inherited BaseTool.definition, which raises. The
+  # registrar calls .definition outside its per-tool rescue, so the miss took
+  # down registration for every tool and with it every McpChannel subscribe.
+  describe ".definition" do
+    it "is implemented rather than inheriting BaseTool's raise" do
+      expect { described_class.definition }.not_to raise_error
+    end
+
+    it "names the tool and declares the action parameter the registrar keys multi-action tools on" do
+      expect(described_class.definition[:name]).to eq("federation")
+      expect(described_class.definition[:parameters]).to have_key(:action)
+    end
+
+    it "declares a parameter for every parameter its actions accept" do
+      declared = described_class.definition[:parameters].keys
+      action_params = described_class.action_definitions.values.flat_map { |a| a[:parameters].keys }.uniq
+      expect(declared).to include(*action_params)
+    end
+  end
+
   describe "#federation_invoke_tool" do
     it "proxies to the resolved partner and returns the remote result" do
       partner = create(:federation_partner, :active, account: account)

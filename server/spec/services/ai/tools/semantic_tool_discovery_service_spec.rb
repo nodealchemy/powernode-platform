@@ -20,6 +20,30 @@ RSpec.describe Ai::Tools::SemanticToolDiscoveryService do
     end
   end
 
+  # IMP-019fe370: the embedding "provider" here was a TrackedWorkerLlmClient wrapping
+  # WorkerLlmClient — a CHAT client. Neither answers generate_embedding, so the call
+  # raised NoMethodError through method_missing, generate_single_embedding's rescue
+  # swallowed it to nil, and semantic discovery silently degraded to keyword matching
+  # on every query and every index run. Pin the real collaborator instead.
+  describe "embedding generation" do
+    it "generates through the account's embedding service" do
+      vector = Array.new(1536, 0.02)
+      allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(vector)
+
+      expect(service.send(:generate_single_embedding, "provision a node")).to eq(vector)
+    end
+
+    it "returns nil rather than raising when the embedding service yields nothing" do
+      allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+
+      expect(service.send(:generate_single_embedding, "provision a node")).to be_nil
+    end
+
+    it "does not route embeddings through a chat client that cannot serve them" do
+      expect(WorkerLlmClient.public_instance_methods).not_to include(:generate_embedding)
+    end
+  end
+
   describe "#discover" do
     before do
       # Mock embedding provider to force keyword fallback
@@ -78,11 +102,14 @@ RSpec.describe Ai::Tools::SemanticToolDiscoveryService do
     end
 
     context "with an embedding provider" do
-      let(:provider) { double("provider") }
+      # Was a bare double answering generate_embedding — a method the real
+      # collaborator never had, so this passed green over the IMP-019fe370 defect
+      # for as long as it existed. Verify against the real seam's interface.
+      let(:provider) { instance_double(Ai::Memory::EmbeddingService) }
 
       before do
         allow(service).to receive(:find_embedding_provider).and_return(provider)
-        allow(provider).to receive(:generate_embedding).and_return(Array.new(1536, 0.1))
+        allow(provider).to receive(:generate).and_return(Array.new(1536, 0.1))
       end
 
       it "caches embeddings for each tool" do

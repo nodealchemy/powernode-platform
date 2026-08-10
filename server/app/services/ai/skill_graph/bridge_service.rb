@@ -5,6 +5,10 @@ module Ai
     class BridgeService
       SKILL_RELATION_TYPES = %w[requires enhances composes succeeds uses].freeze
 
+      # Entity types whose nodes belong to another producer that finds them BY
+      # entity_type — adopting one silently removes it from that reader.
+      OWNED_ENTITY_TYPES = %w[agent team].freeze
+
       attr_reader :account
 
       def initialize(account)
@@ -18,13 +22,21 @@ module Ai
         # unscoped association returns an arbitrary account's node — this
         # bridge would then UPDATE another tenant's copy instead of creating
         # this account's (IMP-059e6c5af2bf).
-        node = Ai::KnowledgeGraphNode.find_by(ai_skill_id: skill.id, account_id: account.id)
+        # status: "active" matters. Both unique indexes are PARTIAL over active
+        # rows, so archived duplicates are legal — and without this filter an
+        # archived skill-bound row is returned, shadowing the adoption fallback
+        # entirely; reviving and renaming it into an occupied slot then hits the
+        # very violation this method exists to avoid.
+        node = Ai::KnowledgeGraphNode.find_by(ai_skill_id: skill.id, account_id: account.id, status: "active") ||
+               adoptable_slot_node(skill)
 
         text = build_embedding_text(skill)
         embedding = embedding_service.generate(text)
 
         if node.present?
           node.update!(
+            ai_skill_id: skill.id,
+            entity_type: "skill",
             name: skill.name,
             description: skill.description,
             properties: build_skill_properties(skill),
@@ -190,6 +202,63 @@ module Ai
       end
 
       private
+
+      # ai_knowledge_graph_nodes carries a SECOND partial-unique index over active
+      # rows — (account_id, name, node_type) — besides the (account_id,
+      # ai_skill_id) one sync_skill looks up by. When the KG pipeline has already
+      # extracted an entity under this skill's name, that slot is taken, and
+      # GraphService#create_node (a bare create! that rescues only RecordInvalid)
+      # raised RecordNotUnique into sync_skill's blanket rescue: logged, nil
+      # returned, skill silently absent from the graph. On a plane with a
+      # populated graph that is every colliding skill on every re-seed
+      # (IMP-019fe968).
+      #
+      # Adopt the occupant only when NOTHING else owns it. "Unowned" cannot mean
+      # merely `ai_skill_id.nil?`: an agent's node carries its link in
+      # metadata.ai_agent_id and a data source's in the ai_data_source_id column,
+      # so both look unowned by that test. Adopting an agent's node is not a near
+      # miss — sync_agent finds its node by entity_type "agent" + that metadata
+      # key, so overwriting entity_type to "skill" destroys the agent's node data
+      # AND permanently breaks its sync, which then collides on this same slot
+      # forever. Decline anything already claimed, and say which owner.
+      def adoptable_slot_node(skill)
+        occupant = Ai::KnowledgeGraphNode.find_by(
+          account_id: account.id,
+          name: skill.name,
+          node_type: "entity",
+          status: "active"
+        )
+        return nil if occupant.nil?
+        return occupant if occupant.ai_skill_id == skill.id
+
+        owner = other_owner_of(occupant)
+        return occupant if owner.nil?
+
+        Rails.logger.warn(
+          "[SkillGraph::BridgeService] skill #{skill.id} (#{skill.name.inspect}) collides with " \
+          "node #{occupant.id}, already owned by #{owner}; not adopting"
+        )
+        nil
+      end
+
+      # Nil when the node is genuinely unclaimed (e.g. an extraction-pipeline
+      # entity), else a short description of who holds it.
+      def other_owner_of(node)
+        return "skill #{node.ai_skill_id}" if node.ai_skill_id.present?
+        return "data source #{node.ai_data_source_id}" if node.ai_data_source_id.present?
+
+        agent_id = node.metadata.is_a?(Hash) ? node.metadata["ai_agent_id"] : nil
+        return "agent #{agent_id}" if agent_id.present?
+
+        # entity_type backstop for owners whose link lives only in metadata, so a
+        # nil/!Hash metadata column cannot make them read as unowned. "team" is
+        # here for the same reason as "agent": sync_agent_team_edges finds team
+        # nodes by entity_type, so flipping one to "skill" removes it from that
+        # reader permanently.
+        return "entity_type=#{node.entity_type}" if OWNED_ENTITY_TYPES.include?(node.entity_type)
+
+        nil
+      end
 
       def graph_service
         @graph_service ||= Ai::KnowledgeGraph::GraphService.new(account)

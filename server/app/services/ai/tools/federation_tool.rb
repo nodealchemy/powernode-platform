@@ -17,6 +17,24 @@ module Ai
     class FederationTool < BaseTool
       REQUIRED_PERMISSION = "ai.federation.invoke"
 
+      # BaseTool.definition raises NotImplementedError, and McpPlatformToolRegistrar
+      # calls it OUTSIDE its per-tool rescue (register_all!), so a tool missing this
+      # aborts registration for every tool after it — and McpChannel#subscribed does
+      # not rescue either, which took down the whole ActionCable MCP transport.
+      def self.definition
+        {
+          name: "federation",
+          description: "Cross-plane MCP: invoke a tool on, or list, this account's federated peer deployments",
+          parameters: {
+            action: { type: "string", required: true, description: "federation_invoke_tool | federation_list_partners" },
+            partner_id: { type: "string", required: false, description: "FederationPartner id (or use organization_id)" },
+            organization_id: { type: "string", required: false, description: "Partner organization id (alternative to partner_id)" },
+            tool: { type: "string", required: false, description: "Remote MCP tool name to invoke, e.g. system_list_templates" },
+            arguments: { type: "object", required: false, description: "Arguments object for the remote tool" }
+          }
+        }
+      end
+
       def self.action_definitions
         {
           "federation_invoke_tool" => {
