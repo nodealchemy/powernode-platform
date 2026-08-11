@@ -90,13 +90,35 @@ RSpec.describe Ai::DevLoop::ImprovementPromotionService do
       expect(task.reload.status).to eq("passed")
     end
 
-    it "does NOT disturb a passed task whose evidence verified" do
+    # REPLACES "does NOT disturb a passed task whose evidence verified"
+    # (IMP-019fed52). That spec keyed on checks_passed as a proxy for "the offer
+    # closed", and the declared-evidence gate split the two: an INFERRED verified
+    # pass records checks_passed: true while the offer stays `approved`. Asserting
+    # such a task must not be re-queued is asserting it stays stranded forever.
+    #
+    # The protection it was really providing is structural, not a proxy: a
+    # genuinely closed offer is `applied`, the service RAISES unless the
+    # recommendation is `approved`, and approve_improvement refuses anything that
+    # is neither pending nor approved. Finished work therefore never reaches here.
+    it "cannot be reached at all for an offer that genuinely closed" do
+      first = described_class.new(recommendation: recommendation).call
+      pass_task!(first.ralph_task, first.ralph_loop, checks_passed: true)
+      recommendation.apply!(nil)
+
+      expect { described_class.new(recommendation: recommendation).call }
+        .to raise_error(ArgumentError, /must be approved/)
+      expect(first.ralph_task.reload.status).to eq("passed")
+    end
+
+    it "re-queues a passed task whose OFFER never closed, even with a verified iteration" do
       first = described_class.new(recommendation: recommendation).call
       pass_task!(first.ralph_task, first.ralph_loop, checks_passed: true)
 
       second = described_class.new(recommendation: recommendation).call
 
-      expect(second.ralph_task.status).to eq("passed")
+      expect(second.ralph_task.id).to eq(first.ralph_task.id)
+      expect(second.ralph_task.status).to eq("pending")
+      expect(second.requeued).to be true
     end
 
     it "re-queues a passed task whose evidence never verified (IMP-60f457f6e8a6)" do

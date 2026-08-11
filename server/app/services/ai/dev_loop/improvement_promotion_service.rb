@@ -90,14 +90,14 @@ module Ai
         # claims only pending, and dev_complete_task refuses it — so its offer sits
         # at approved with no route back, which is the exact stranding this branch
         # exists to undo. A dismissal cascade produces skipped routinely.
-        if !created && (task.status.in?(%w[failed blocked skipped]) || unverified_pass?(task))
+        if !created && (task.status.in?(%w[failed blocked skipped]) || stranded_pass?(task))
           # IMP-938f68b16a1a: re-approving an offer whose promoted task already
           # failed/blocked previously returned it untouched -- dev_next_task
           # only ever claims pending tasks, so the operator's retry intent was
           # silently swallowed (no other seam re-queues a non-repeating task).
           # Re-approval is an explicit "try again" signal; honor it.
           # IMP-60f457f6e8a6 extends the same reasoning to a pass that never
-          # produced verified evidence — see #unverified_pass? for why that is
+          # closed its offer — see #stranded_pass? for why that is
           # a stranded task and not a finished one.
           task.reset!
           requeued = true
@@ -145,6 +145,12 @@ module Ai
               ->(current) { directed_criteria(current, task.metadata.is_a?(Hash) ? task.metadata["operator_direction"] : nil) } },
           note: note,
           author: (who && "user:#{who.id}"),
+          # Tags the journal entry so DevLoopTool#self_amended_brief? can tell an
+          # OPERATOR's approval-time direction from an executor rewriting its own
+          # brief. Without it the two are byte-identical when the operator and the
+          # drain session are the same user — which is every directed offer in
+          # core mode — and the offer could never auto-apply again.
+          edit_source: "approval_direction",
           # nil (not "") so the key is dropped rather than left as an empty string
           # that strip_direction would then try to match on the next revision.
           meta: { "operator_direction" => (clearing_direction? ? nil : direction) }
@@ -210,8 +216,22 @@ module Ai
       # then passed with real evidence, is done and must not be re-queued.
       # Reaching here already means the offer is still `approved` (the #call
       # guard), i.e. no pass has yet closed it.
-      def unverified_pass?(task)
-        task.status == "passed" && !task.ralph_iterations.where(checks_passed: true).exists?
+      # A passed task whose OFFER never closed. Keyed on the offer, not on
+      # checks_passed (IMP-019fed52).
+      #
+      # The old predicate asked "did any iteration record checks_passed?", which
+      # was a proxy for "did the offer close" only while those two moved together.
+      # The declared-evidence gate split them: an INFERRED verified pass still
+      # records checks_passed: true but no longer auto-applies, so the proxy
+      # answered "closed" for an offer that was still `approved` — reviving the
+      # exact permanent stranding IMP-60f457f6e8a6 fixed, this time for every
+      # executor that has not adopted the contract.
+      #
+      # Reaching here already means the recommendation is pending/approved (the
+      # #call guard) — i.e. it did NOT close. So a passed task here is stranded by
+      # definition, and re-approval is the operator's explicit retry signal.
+      def stranded_pass?(task)
+        task.status == "passed"
       end
 
       def task_key_for(rec)

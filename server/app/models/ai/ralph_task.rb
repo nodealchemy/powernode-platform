@@ -513,7 +513,7 @@ module Ai
       reload
     end
 
-    def apply_operator_edit!(attrs, note: nil, author: nil, meta: {})
+    def apply_operator_edit!(attrs, note: nil, author: nil, meta: {}, edit_source: nil)
       # compact: an MCP/LLM caller routinely sends `null` for a declared-but-unset
       # optional param. Without this, nil != current value reads as an intentional
       # change and blanks the field — `acceptance_criteria: null` would silently
@@ -585,7 +585,8 @@ module Ai
           changed << field
           patch["operator_edits"] = (Array(patch["operator_edits"].presence || current["operator_edits"]) +
                                      [{ "field" => field, "author" => author, "at" => stamp,
-                                        "previous" => previous.to_s.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) }])
+                                        "source" => edit_source,
+                                        "previous" => previous.to_s.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) }.compact])
                                     .last(OPERATOR_JOURNAL_LIMIT)
         end
 

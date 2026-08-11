@@ -289,6 +289,33 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(task.reload.status).to eq("pending")
     end
 
+    # IMP-019fed52 regression guard. The declared-evidence gate split
+    # checks_passed from "the offer closed": an INFERRED verified pass records
+    # checks_passed: true but does NOT auto-apply. Keyed on checks_passed, the
+    # re-queue predicate read that as "done" and stranded the offer at approved
+    # forever — the exact state IMP-60f457f6e8a6 fixed.
+    it "re-queues a passed task whose offer never closed (inferred evidence)" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      task = loop_record.ralph_tasks.find_by(task_key: first[:data][:task_key])
+
+      dev = Ai::Tools::DevLoopTool.new(account: account, user: user)
+      dev.execute(params: { action: "dev_next_task", loop_id: loop_record.name })
+      dev.execute(params: { action: "dev_complete_task", loop_id: loop_record.name,
+                            task_key: task.task_key, outcome: "passed", summary: "done",
+                            check_results: { "rspec" => "173 examples, 0 failures" } })
+
+      # Inferred: the pass is recorded but the offer stayed approved.
+      expect(task.reload.status).to eq("passed")
+      expect(Ai::ImprovementRecommendation.find(rec_id).status).to eq("approved")
+
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
+
+      expect(result[:data][:task_requeued]).to be true
+      expect(task.reload.status).to eq("pending")
+    end
+
     it "is idempotent — approving twice does not create a duplicate task" do
       rec_id = create_offer[:data][:recommendation][:id]
       first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
