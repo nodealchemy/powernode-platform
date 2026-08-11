@@ -17,6 +17,15 @@ module Ai
       # Create/update the KG node linked to a data source, regenerating the
       # pgvector embedding from its name/description/type/endpoint names.
       def sync_data_source(ds)
+        # DELIBERATELY the bare association — do NOT "fix" this to a scoped read
+        # by analogy with Ai::Skill (019fedd4 / 019ff1eb scoped 15 skill reads).
+        # A data source is never global (ai_data_sources.account_id is NOT NULL,
+        # no GloballyScopable), so there is no per-account fan-out to disambiguate
+        # and an account scope here can only ever be a no-op. And the revive branch
+        # below is why a STATUS scope is actively harmful: it finds an archived
+        # node and revives it, so scoped it would take the create branch and add a
+        # duplicate that index_ai_kg_nodes_on_ai_data_source_id — partial, NOT
+        # unique — does not prevent. See the has_one comment on Ai::DataSource.
         node = ds.knowledge_graph_node
 
         text = build_embedding_text(ds)

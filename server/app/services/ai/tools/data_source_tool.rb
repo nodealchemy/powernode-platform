@@ -1620,6 +1620,9 @@ module Ai
           positive_usage_count: ds.positive_usage_count,
           negative_usage_count: ds.negative_usage_count,
           usage_success_rate: ds.usage_success_rate,
+          # Bare association by design — a data source is never global, so there is
+          # no cross-tenant read to scope away here (cf. 019ff1eb). See the has_one
+          # comment on Ai::DataSource for why a status scope is harmful too.
           kg_confidence: ds.knowledge_graph_node&.confidence,
           last_used_at: ds.last_used_at&.iso8601,
           health_status: ds.health_status,
