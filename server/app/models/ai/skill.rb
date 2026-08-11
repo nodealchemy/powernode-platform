@@ -130,6 +130,20 @@ module Ai
     # the cross-tenant read; tracked separately, not closed here.
     has_one :knowledge_graph_node, -> { where(status: "active") },
             class_name: "Ai::KnowledgeGraphNode", foreign_key: "ai_skill_id", dependent: :nullify
+
+    # Account-scoped reader — use this, NOT the has_one, anywhere an account is in
+    # hand. The unique index is per [account_id, ai_skill_id] and
+    # sync_to_knowledge_graph gives a GLOBAL skill one active node PER ACCOUNT by
+    # design, so the association returns an arbitrary tenant's node for a global
+    # skill and a reader would compute this account's numbers from another's.
+    # Same lookup SkillGraph::BridgeService#sync_skill already uses for exactly
+    # this reason (IMP-059e6c5af2bf). For an account-owned skill this is
+    # equivalent to the association.
+    def knowledge_graph_node_for(account_id)
+      return nil if account_id.blank?
+
+      Ai::KnowledgeGraphNode.find_by(ai_skill_id: id, account_id: account_id, status: "active")
+    end
     has_many :versions, class_name: "Ai::SkillVersion", foreign_key: "ai_skill_id", dependent: :destroy
     has_many :usage_records, class_name: "Ai::SkillUsageRecord", foreign_key: "ai_skill_id", dependent: :destroy
     has_many :proposals, class_name: "Ai::SkillProposal", foreign_key: "created_skill_id", dependent: :nullify

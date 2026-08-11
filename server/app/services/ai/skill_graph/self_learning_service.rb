@@ -108,8 +108,12 @@ module Ai
 
         proposals = []
         Ai::Skill.for_account(account.id).active.find_each do |skill|
-          # Find compound learnings relevant to this skill
-          embedding = skill.knowledge_graph_node&.embedding
+          # Account-scoped, not the bare has_one: for_account is
+          # where(account_id: [nil, account_id]), so this loop INCLUDES global
+          # skills — and a global skill has one active node per account, so the
+          # association would hand back an arbitrary tenant's embedding and rank
+          # this account's learnings against it (IMP-019fedd4).
+          embedding = skill.knowledge_graph_node_for(account.id)&.embedding
           next unless embedding
 
           learnings = Ai::CompoundLearning.active

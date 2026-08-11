@@ -65,6 +65,42 @@ RSpec.describe Ai::Skill, type: :model do
   # NOT NULL AND status = 'active'), so several rows may share one ai_skill_id as
   # long as only one is active. knowledge_graph_node was unscoped, so it returned
   # an arbitrary row among them and ~19 readers could not tell.
+  # IMP-019fedd4 (partial). The unique index is per [account_id, ai_skill_id] and
+  # sync_to_knowledge_graph gives a GLOBAL skill one active node PER ACCOUNT by
+  # design, so the bare has_one returns an arbitrary tenant's node for a global
+  # skill. This is the account-scoped reader that callers holding an account must
+  # use — the same lookup shape SkillGraph::BridgeService#sync_skill already uses
+  # for exactly this reason (IMP-059e6c5af2bf).
+  describe "#knowledge_graph_node_for" do
+    let(:account_a) { create(:account) }
+    let(:account_b) { create(:account) }
+    let(:global_skill) { create(:ai_skill, account: nil, is_system: true, name: "Global Reviewer") }
+
+    it "returns the requesting account's node, not an arbitrary tenant's" do
+      node_a = create(:ai_knowledge_graph_node, account: account_a, entity_type: "skill",
+                      ai_skill_id: global_skill.id, status: "active", confidence: 0.9)
+      node_b = create(:ai_knowledge_graph_node, account: account_b, entity_type: "skill",
+                      ai_skill_id: global_skill.id, status: "active", confidence: 0.1)
+
+      expect(global_skill.knowledge_graph_node_for(account_a.id)).to eq(node_a)
+      expect(global_skill.knowledge_graph_node_for(account_b.id)).to eq(node_b)
+    end
+
+    it "returns nil when this account has no node, rather than another account's" do
+      create(:ai_knowledge_graph_node, account: account_b, entity_type: "skill",
+             ai_skill_id: global_skill.id, status: "active")
+
+      expect(global_skill.knowledge_graph_node_for(account_a.id)).to be_nil
+    end
+
+    it "ignores a non-active node for the requesting account" do
+      create(:ai_knowledge_graph_node, account: account_a, entity_type: "skill",
+             ai_skill_id: global_skill.id, status: "archived")
+
+      expect(global_skill.knowledge_graph_node_for(account_a.id)).to be_nil
+    end
+  end
+
   describe "#knowledge_graph_node scoping" do
     let(:account) { create(:account) }
     let(:skill)   { create(:ai_skill, account: account) }
