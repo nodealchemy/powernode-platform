@@ -80,7 +80,15 @@ module Ai
               task_key: { type: "string", required: true, description: "Task key being reported" },
               outcome: { type: "string", required: true, description: "passed | failed | blocked | skipped" },
               summary: { type: "string", required: true, description: "What was done / why it failed, blocked, or was skipped" },
-              check_results: { type: "object", required: false, description: "Verification evidence (specs run, results)" },
+              check_results: { type: "object", required: false,
+                               description: "Verification evidence. DECLARE it to get automatic credit: " \
+                                            "{\"evidence\": {\"framework\": \"rspec\", \"passed\": 173, " \
+                                            "\"failed\": 0, \"command\": \"bundle exec rspec …\"}} — an array " \
+                                            "for several suites. A declared block is adjudicated on its own " \
+                                            "fields alone (surrounding gate/lint summaries are ignored, so they " \
+                                            "can neither credit nor contradict it) and ALL declared suites must " \
+                                            "be green. Anything else is INFERRED by parsing: it still records a " \
+                                            "pass, but will NOT auto-apply the linked improvement offer." },
               learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
               git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
               commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
@@ -319,7 +327,14 @@ module Ai
       def self_amended_brief?(task)
         edits = task.metadata.is_a?(Hash) ? task.metadata["operator_edits"] : nil
         Array(edits).any? do |e|
-          e.is_a?(Hash) && BRIEF_FIELDS.include?(e["field"]) && e["author"] == claimant_ref
+          next false unless e.is_a?(Hash)
+          # An operator's approval-time direction is not self-serving even when it
+          # carries the same author string — in core mode the operator and the
+          # drain session ARE the same user, so without this exemption every
+          # directed offer would be permanently barred from auto-applying.
+          next false if e["source"] == "approval_direction"
+
+          BRIEF_FIELDS.include?(e["field"]) && e["author"] == claimant_ref
         end
       end
 
@@ -485,6 +500,7 @@ module Ai
         # (checks_passed: false) without auto-applying the linked offer — the
         # response's `verification` field says which happened.
         verification = nil
+        evidence_source = nil
         if outcome == "passed"
           adjudication = ::Ai::Ralph::TestVerificationService.adjudicate_check_results(params[:check_results])
           if adjudication[:verdict] == :contradicted
@@ -495,6 +511,7 @@ module Ai
             )
           end
           verification = adjudication[:verdict]
+          evidence_source = adjudication[:source]
         end
 
         iteration = nil
@@ -514,7 +531,7 @@ module Ai
 
           iteration = prepare_iteration(loop_record, task, params)
           record_outcome(loop_record, task, iteration, outcome, summary, params,
-                         verification: verification)
+                         verification: verification, evidence_source: evidence_source)
         end
         return error_result(pairing_error) if pairing_error
 
@@ -619,7 +636,8 @@ module Ai
         end
       end
 
-      def record_outcome(loop_record, task, iteration, outcome, summary, params, verification: nil)
+      def record_outcome(loop_record, task, iteration, outcome, summary, params,
+                         verification: nil, evidence_source: nil)
         case outcome
         when "passed"
           # complete! promotes the learning onto the loop automatically.
@@ -635,9 +653,18 @@ module Ai
           # complete! appends the learning to the loop but doesn't embed it; do the
           # mid-run embed here so the passed path matches the others (G12).
           embed_learning_mid_run(loop_record, params[:learning], task: task, files: params[:files_changed])
-          # Only VERIFIED passes close the linked improvement offer — an
-          # attested pass leaves it approved for operator judgment.
-          apply_linked_recommendation!(task) if verification == :verified
+          # Closing an offer is the one IRREVERSIBLE, self-crediting act here, so
+          # it requires DECLARED evidence (IMP-019fed52): a verdict inferred by
+          # sniffing key names may still record checks_passed, but it can no
+          # longer close an offer on a guessed number. Everything else about a
+          # verified pass is unchanged.
+          if verification == :verified && evidence_source != :declared
+            Rails.logger.info(
+              "[DevLoopTool] #{task.task_key} verified from INFERRED evidence — not auto-applying its offer. " \
+              "Declare check_results[:evidence] = {framework:, passed:, failed:} to close it automatically."
+            )
+          end
+          apply_linked_recommendation!(task) if verification == :verified && evidence_source == :declared
         when "failed"
           iteration.fail!(error_message: summary)
           task.fail!(error_message: summary)

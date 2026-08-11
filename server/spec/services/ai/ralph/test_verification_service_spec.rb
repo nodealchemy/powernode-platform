@@ -154,6 +154,97 @@ RSpec.describe Ai::Ralph::TestVerificationService do
       described_class.adjudicate_check_results(check_results)[:verdict]
     end
 
+    def source_of(check_results)
+      described_class.adjudicate_check_results(check_results)[:source]
+    end
+
+    # THE EVIDENCE CONTRACT. Six rounds of key-name heuristics over free-form
+    # JSON each traded one misclassification for another, because the input has
+    # no closed set of key names to reason about. A declared block removes the
+    # guessing instead of retuning it: it is adjudicated on its own declared
+    # fields, and it is the ONLY source permitted to auto-apply an offer.
+    describe "declared evidence block" do
+      it "verifies from the declared fields alone" do
+        result = described_class.adjudicate_check_results(
+          "evidence" => { "framework" => "rspec", "passed" => 173, "failed" => 0 }
+        )
+
+        expect(result[:verdict]).to eq(:verified)
+        expect(result[:source]).to eq(:declared)
+      end
+
+      it "contradicts a declared failure" do
+        expect(verdict_of("evidence" => { "framework" => "rspec", "passed" => 10, "failed" => 2 }))
+          .to eq(:contradicted)
+      end
+
+      it "is not fooled by surrounding non-test noise the sniffer would misread" do
+        result = described_class.adjudicate_check_results(
+          "evidence" => { "framework" => "rspec", "passed" => 12, "failed" => 0 },
+          "gate" => { "steps_passed" => 4, "errors" => 0 },
+          "notes" => "specs: 2"
+        )
+
+        expect(result[:verdict]).to eq(:verified)
+        expect(result[:source]).to eq(:declared)
+        expect(result[:tallies].size).to eq(1)
+      end
+
+      it "accepts several declared suites and contradicts if any failed" do
+        expect(verdict_of("evidence" => [
+          { "framework" => "rspec", "passed" => 10, "failed" => 0 },
+          { "framework" => "gotest", "passed" => 3, "failed" => 1 }
+        ])).to eq(:contradicted)
+      end
+
+      it "falls back to inference when the block is malformed rather than trusting it" do
+        result = described_class.adjudicate_check_results(
+          "evidence" => { "framework" => "rspec" },
+          "rspec" => "90 examples, 0 failures"
+        )
+
+        expect(result[:verdict]).to eq(:verified)
+        expect(result[:source]).to eq(:inferred)
+      end
+
+      it "marks a sniffed verdict as inferred, never declared" do
+        expect(source_of("rspec" => "90 examples, 0 failures")).to eq(:inferred)
+        expect(source_of({})).to eq(:inferred)
+      end
+
+      it "does not let a green suite carry a sibling that ran nothing" do
+        expect(verdict_of("evidence" => [
+          { "framework" => "rspec", "passed" => 173, "failed" => 0 },
+          { "framework" => "jest", "passed" => 0, "failed" => 0 }
+        ])).to eq(:unverified)
+      end
+
+      it "falls back to inference when ONE entry of an array is malformed" do
+        # Otherwise the red entry (omitting passed) is dropped and the green one
+        # verifies — burying the failure the contract forbids burying.
+        result = described_class.adjudicate_check_results(
+          "evidence" => [ { "framework" => "rspec", "passed" => 173, "failed" => 0 },
+                          { "framework" => "jest", "failed" => 3 } ]
+        )
+
+        expect(result[:source]).to eq(:inferred)
+      end
+
+      it "refuses a framework that is not a real test runner" do
+        result = described_class.adjudicate_check_results(
+          "evidence" => { "framework" => "validate.sh", "passed" => 6, "failed" => 0 }
+        )
+
+        expect(result[:source]).to eq(:inferred)
+        expect(result[:verdict]).to eq(:unverified)
+      end
+
+      it "treats zero declared tests as not-green (nothing ran)" do
+        expect(verdict_of("evidence" => { "framework" => "rspec", "passed" => 0, "failed" => 0 }))
+          .to eq(:unverified)
+      end
+    end
+
     it "verifies an rspec green tally" do
       expect(verdict_of({ "rspec" => "90 examples, 0 failures" })).to eq(:verified)
     end

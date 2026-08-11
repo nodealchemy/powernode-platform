@@ -749,15 +749,16 @@ RSpec.describe Ai::Tools::DevLoopTool do
     end
 
     it "transitions the linked recommendation to applied when the task passes" do
-      # Green evidence required since IMP-f2b3e9a67d11: an unevidenced pass is
-      # attested-only and deliberately does NOT close the offer.
+      # DECLARED evidence required since IMP-019fed52: an unevidenced pass is
+      # attested-only, and an INFERRED (sniffed) one records the pass but no
+      # longer closes the offer. Only a declared block auto-applies.
       result = tool.execute(params: {
         action: "dev_complete_task",
         loop_id: ralph_loop.id,
         task_key: "IMP-99",
         outcome: "passed",
         summary: "Fixed the lint finding",
-        check_results: { "rspec" => "12 examples, 0 failures" }
+        check_results: { "evidence" => { "framework" => "rspec", "passed" => 12, "failed" => 0 } }
       })
 
       expect(result[:success]).to be true
@@ -1012,7 +1013,7 @@ RSpec.describe Ai::Tools::DevLoopTool do
     end
 
     it "verifies a pass whose green tally coexists with red-first evidence" do
-      result = complete_with({ "rspec" => "90 examples, 0 failures",
+      result = complete_with({ "evidence" => { "framework" => "rspec", "passed" => 90, "failed" => 0 },
                                "red_first" => "5 examples, 5 failures before the fix" })
 
       expect(result[:success]).to be true
@@ -1251,7 +1252,8 @@ RSpec.describe Ai::Tools::DevLoopTool do
         tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.name,
                                task_key: "IMP-linked", outcome: "passed",
                                summary: "done",
-                               check_results: { "rspec" => "3 examples, 0 failures" } })
+                               check_results: { "evidence" => { "framework" => "rspec",
+                                                                "passed" => 3, "failed" => 0 } } })
       end
 
       it "auto-applies when the brief was never amended by the reporter" do
@@ -1264,9 +1266,13 @@ RSpec.describe Ai::Tools::DevLoopTool do
         tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
         tool.execute(params: { action: "dev_update_task", loop_id: ralph_loop.name,
                                task_key: "IMP-linked", acceptance_criteria: "trivially satisfiable" })
+        # DECLARED evidence deliberately: otherwise the inferred-source rule would
+        # withhold credit on its own and these would pass even with the
+        # self-amend guard removed.
         tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.name,
                                task_key: "IMP-linked", outcome: "passed", summary: "done",
-                               check_results: { "rspec" => "3 examples, 0 failures" } })
+                               check_results: { "evidence" => { "framework" => "rspec",
+                                                                "passed" => 3, "failed" => 0 } } })
 
         expect(recommendation.reload.status).to eq("approved")
       end
@@ -1277,9 +1283,13 @@ RSpec.describe Ai::Tools::DevLoopTool do
                                task_key: "IMP-linked", outcome: "blocked", summary: "parking it" })
         tool.execute(params: { action: "dev_update_task", loop_id: ralph_loop.name,
                                task_key: "IMP-linked", acceptance_criteria: "trivially satisfiable" })
+        # DECLARED evidence deliberately: otherwise the inferred-source rule would
+        # withhold credit on its own and these would pass even with the
+        # self-amend guard removed.
         tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.name,
                                task_key: "IMP-linked", outcome: "passed", summary: "done",
-                               check_results: { "rspec" => "3 examples, 0 failures" } })
+                               check_results: { "evidence" => { "framework" => "rspec",
+                                                                "passed" => 3, "failed" => 0 } } })
 
         expect(recommendation.reload.status).to eq("approved")
       end

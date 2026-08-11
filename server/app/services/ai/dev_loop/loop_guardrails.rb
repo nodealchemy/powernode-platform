@@ -31,6 +31,7 @@ module Ai
       # Closing cluster — verification, autonomy, honesty, stop-rule, refusal.
       TAIL = [
         "Run the verification gate before reporting done: scripts/validate.sh (specs + tsc + pattern-validation + gitleaks) or the targeted specs/tsc/pattern-validation for what you changed — do not rely on '/verify' (Claude-only)",
+        "DECLARE your test evidence when reporting: check_results.evidence = {framework, passed, failed, command} (an array for several suites). A declared block is judged on its own fields and ALL suites must be green; anything else is inferred by parsing and will NOT close the linked improvement offer",
         "You are operating autonomously — the user is not watching and cannot answer mid-task. Do not pause to ask permission before a reversible action that follows from the task; proceed. Before ending a turn, if your final message is a plan, a question, or a promise ('I'll…', 'next…') rather than completed work, do that work now with a tool call instead of ending on the promise",
         "Ground every progress or completion claim in a tool result from this session: audit each claim against real evidence before reporting it, and say plainly when a step failed, was skipped, or is unverified — never report success you cannot point to",
         "After 3 failed attempts on the same task, report outcome=failed and stop",

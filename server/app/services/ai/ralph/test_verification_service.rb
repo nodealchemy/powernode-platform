@@ -57,7 +57,33 @@ module Ai
       # tolerating red-first evidence without per-key naming heuristics). The
       # ungameable backstop remains the revert metric; what IS caught here is
       # a pass whose own evidence shows only failures, or none at all.
+      # THE EVIDENCE CONTRACT (IMP-019fed52). An executor may DECLARE its result
+      # instead of leaving it to be inferred:
+      #
+      #   check_results: { "evidence" => { "framework" => "rspec",
+      #                                    "passed" => 173, "failed" => 0,
+      #                                    "command" => "bundle exec rspec …" } }
+      #   (an Array of those is accepted for a multi-suite run)
+      #
+      # A declared block is adjudicated on its own fields and nothing else — the
+      # surrounding hash is ignored entirely, so a gate/lint/coverage summary
+      # sitting beside it can neither credit nor contradict the run. That is the
+      # point: six rounds of key-name heuristics over free-form JSON each traded
+      # one misclassification for another, because the input has no closed set of
+      # key names to reason over. This removes the guessing rather than retuning
+      # it.
+      #
+      # The returned :source says which path decided — :declared or :inferred.
+      # DevLoopTool permits auto-applying an improvement offer ONLY on :declared,
+      # so a guessed number can no longer close an offer by itself. Inference is
+      # retained (and still yields :verified for reporting) because two callers
+      # have no contract to give: ExecutionService adjudicates raw agent OUTPUT
+      # text, and CampaignDriver records history from free-form evidence.
       def self.adjudicate_check_results(check_results)
+        if (declared = declared_tallies(check_results))
+          return { verdict: declared_verdict_for(declared), tallies: declared, source: :declared }
+        end
+
         values = deep_string_values(check_results).map { |v| v[0, MAX_OUTPUT_CHARS] }
         parser = new
         frameworks = FRAMEWORKS.map { |f| f[:framework] }.uniq
@@ -72,18 +98,81 @@ module Ai
         end
         tallies += deep_count_tallies(check_results)
 
-        green = tallies.any? do |t|
-          t[:failures].zero? && (t[:passed].nil? || t[:passed].positive?)
-        end
-        failing = tallies.any? { |t| t[:failures].positive? }
-
-        verdict =
-          if green then :verified
-          elsif failing then :contradicted
-          else :unverified
-          end
-        { verdict: verdict, tallies: tallies }
+        { verdict: verdict_for(tallies), tallies: tallies, source: :inferred }
       end
+
+      # DECLARED evidence is judged ALL-green, not any-green. Inference tolerates a
+      # failing tally beside a passing one because the loop REQUIRES red-first
+      # evidence and both end up in the same free-form blob. A declaration is a
+      # complete statement of what the executor ran, so any declared failure
+      # contradicts the pass — you do not get to declare the green suite and bury
+      # the red one.
+      def self.declared_verdict_for(tallies)
+        return :contradicted if tallies.any? { |t| t[:failures].to_i.positive? }
+        # ALL, not any: with `any?` a suite that ran nothing (passed 0, failed 0)
+        # rode in on a sibling's green and still auto-applied the offer — the
+        # nothing-ran guard this class documents was unreachable for multi-suite
+        # declarations.
+        return :verified if tallies.all? { |t| t[:passed].to_i.positive? }
+
+        :unverified
+      end
+      private_class_method :declared_verdict_for
+
+      # Inference path: any zero-failure tally wins, per the red-first tolerance
+      # documented above.
+      def self.verdict_for(tallies)
+        green = tallies.any? { |t| t[:failures].zero? && (t[:passed].nil? || t[:passed].positive?) }
+        return :verified if green
+        return :contradicted if tallies.any? { |t| t[:failures].positive? }
+
+        :unverified
+      end
+
+      # nil when no usable contract is present, so the caller falls back to
+      # inference. A MALFORMED block falls back rather than being trusted or
+      # hard-failing: a half-filled contract is not better evidence than the
+      # prose beside it, and refusing outright would make adopting the contract
+      # riskier than ignoring it.
+      def self.declared_tallies(check_results)
+        return nil unless check_results.is_a?(Hash)
+
+        raw = check_results["evidence"] || check_results[:evidence]
+        entries = raw.is_a?(Array) ? raw : [ raw ]
+        tallies = entries.map { |e| declared_tally(e) }
+        # ALL-or-nothing. filter_map silently narrowed a declaration to its
+        # parseable subset, so declaring [{rspec 173/0}, {jest failed: 3}] — the
+        # red entry omitting `passed` — dropped the red one and verified on the
+        # green, which is exactly the "declare the green suite and bury the red
+        # one" this contract forbids. A partly-malformed declaration is not a
+        # declaration; fall back to inference.
+        return nil if tallies.any?(&:nil?)
+
+        tallies.presence
+      end
+      private_class_method :declared_tallies
+
+      def self.declared_tally(entry)
+        return nil unless entry.is_a?(Hash)
+
+        e = entry.transform_keys(&:to_s)
+        framework = e["framework"].to_s.strip
+        passed = e["passed"]
+        failed = e["failed"]
+        # Both counts required and integral: "passed: 12" alone cannot show that
+        # nothing failed, and a string count is a prose tally wearing a contract.
+        return nil if framework.empty?
+        # Must name a RUNNER. The inference path already refuses to credit a
+        # gate/lint summary, and this is the only source that can auto-apply an
+        # offer — so "framework": "validate.sh" must not buy what
+        # {"gate" => {...}} cannot. Unknown runners fall back to inference rather
+        # than being trusted.
+        return nil unless TEST_FRAMEWORK_NAMES.include?(framework.downcase.gsub(/[^a-z0-9]/, ""))
+        return nil unless passed.is_a?(Integer) && failed.is_a?(Integer)
+
+        { framework: framework, passed: passed, failures: failed, declared: true }
+      end
+      private_class_method :declared_tally
 
       # IMP-60f457f6e8a6: structured integer counts are BETTER evidence than a
       # prose tally, yet deep_string_values drops every non-String, so honest
