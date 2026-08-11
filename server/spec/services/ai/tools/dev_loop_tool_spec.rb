@@ -1294,6 +1294,30 @@ RSpec.describe Ai::Tools::DevLoopTool do
         expect(recommendation.reload.status).to eq("approved")
       end
 
+      # The guard cannot rely on the operator_edits ARRAY: apply_operator_edit!
+      # caps it at OPERATOR_JOURNAL_LIMIT, and every editable field journals an
+      # entry — so enough trivial edits evict the brief edit and buy back the
+      # credit. Recorded separately and uncapped.
+      it "withholds credit even after the brief edit is evicted from the capped journal" do
+        tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+        tool.execute(params: { action: "dev_update_task", loop_id: ralph_loop.name,
+                               task_key: "IMP-linked", acceptance_criteria: "trivially satisfiable" })
+        # Flood the journal past its cap with real (priority) changes.
+        (1..12).each do |i|
+          tool.execute(params: { action: "dev_update_task", loop_id: ralph_loop.name,
+                                 task_key: "IMP-linked", priority: (i % 2).zero? ? 3 : 4 })
+        end
+        edits = linked.reload.metadata["operator_edits"]
+        expect(edits.map { |e| e["field"] }).not_to include("acceptance_criteria") # evicted
+
+        tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.name,
+                               task_key: "IMP-linked", outcome: "passed", summary: "done",
+                               check_results: { "evidence" => { "framework" => "rspec",
+                                                                "passed" => 3, "failed" => 0 } } })
+
+        expect(recommendation.reload.status).to eq("approved")
+      end
+
       it "still auto-applies when a DIFFERENT principal amended the brief" do
         linked.apply_operator_edit!({ "acceptance_criteria" => "operator narrowed it" },
                                     author: "user:some-operator")

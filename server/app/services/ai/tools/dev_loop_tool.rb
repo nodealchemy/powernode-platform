@@ -87,8 +87,11 @@ module Ai
                                             "for several suites. A declared block is adjudicated on its own " \
                                             "fields alone (surrounding gate/lint summaries are ignored, so they " \
                                             "can neither credit nor contradict it) and ALL declared suites must " \
-                                            "be green. Anything else is INFERRED by parsing: it still records a " \
-                                            "pass, but will NOT auto-apply the linked improvement offer." },
+                                            "be green — so declare only the FINAL green runs and keep a red-first " \
+                                            "run in a plain key beside it, never inside evidence. Anything else is " \
+                                            "INFERRED by parsing: it still records a pass, but will NOT auto-apply " \
+                                            "the linked improvement offer (the response says which via " \
+                                            "evidence_source)." },
               learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
               git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
               commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
@@ -298,10 +301,6 @@ module Ai
         error_result(e.message)
       end
 
-      # Fields that define what "done" means for the task. An amendment can only
-      # lower the bar the executor is judged against through one of these.
-      BRIEF_FIELDS = %w[description acceptance_criteria].freeze
-
       # IMP-3c15b871f6bd. The abuse shape is self-serving: weaken the brief you
       # are about to be judged against, then report passed — a :verified
       # adjudication auto-applies the linked improvement offer, closing it as
@@ -325,17 +324,13 @@ module Ai
       # judgement. Keyed on the journal, so status juggling cannot evade it —
       # operator_edits records the author of every brief edit.
       def self_amended_brief?(task)
-        edits = task.metadata.is_a?(Hash) ? task.metadata["operator_edits"] : nil
-        Array(edits).any? do |e|
-          next false unless e.is_a?(Hash)
-          # An operator's approval-time direction is not self-serving even when it
-          # carries the same author string — in core mode the operator and the
-          # drain session ARE the same user, so without this exemption every
-          # directed offer would be permanently barred from auto-applying.
-          next false if e["source"] == "approval_direction"
-
-          BRIEF_FIELDS.include?(e["field"]) && e["author"] == claimant_ref
-        end
+        # Reads the dedicated, UNCAPPED record rather than scanning
+        # operator_edits: that journal is truncated to OPERATOR_JOURNAL_LIMIT, so
+        # scanning it let a flood of trivial edits evict the brief edit and
+        # restore the credit. RalphTask#apply_operator_edit! maintains this key
+        # and deliberately omits an operator's approval-time direction.
+        amended_by = task.metadata.is_a?(Hash) ? task.metadata["brief_amended_by"] : nil
+        Array(amended_by).include?(claimant_ref)
       end
 
       def find_task(loop_record, key)
@@ -578,6 +573,19 @@ module Ai
         # caller (an unverified pass silently skipping auto-apply otherwise
         # looks identical to a verified one).
         response[:verification] = verification.to_s if verification
+        # WHICH path decided, and whether the offer actually closed. Without
+        # these, a :verified pass from INFERRED evidence is byte-identical to a
+        # declared one — the executor sees "verified", the offer silently stays
+        # approved, and a malformed declaration (e.g. string counts, which
+        # declared_tally rejects) is indistinguishable from a good one.
+        if evidence_source
+          response[:evidence_source] = evidence_source.to_s
+          if verification == :verified && evidence_source != :declared
+            response[:auto_apply_skipped] =
+              "verified from INFERRED evidence — the linked offer stays approved. Declare " \
+              "check_results.evidence = {framework:, passed:, failed:} to close it automatically."
+          end
+        end
         # Governance annotation (report-only — no approval lane until an
         # executor consumes it; see audit finding F3-01 for why).
         if Array(params[:files_changed]).size > 5

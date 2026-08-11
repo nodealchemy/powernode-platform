@@ -447,6 +447,10 @@ module Ai
     # full prior value — so uncapped, N brief amendments put N copies of the brief
     # in front of the executor on every claim. Same reasoning as DevLoopTool's
     # BASE_CONTEXT_*_LIMIT budgets on that payload.
+    # Fields that define what "done" means. An amendment can only lower the bar
+    # the executor is judged against through one of these.
+    BRIEF_FIELDS = %w[description acceptance_criteria].freeze
+
     OPERATOR_JOURNAL_LIMIT = 10
     OPERATOR_JOURNAL_VALUE_LIMIT = 2_048
 
@@ -583,6 +587,18 @@ module Ai
           next if previous.to_s == value.to_s
 
           changed << field
+          # Recorded OUTSIDE the capped journal. The credit guard keys on THIS,
+          # not on operator_edits: that array is truncated to
+          # OPERATOR_JOURNAL_LIMIT on every write and EVERY editable field
+          # journals an entry, so a handful of trivial edits (priority flips)
+          # evicted the brief edit and bought the credit back. Bounded by the
+          # number of distinct authors, not by edit count. An operator's
+          # approval-time direction is deliberately excluded — that is the
+          # operator's own decision, not an executor amending its own brief.
+          if BRIEF_FIELDS.include?(field) && author.present? && edit_source != "approval_direction"
+            patch["brief_amended_by"] =
+              (Array(patch["brief_amended_by"].presence || current["brief_amended_by"]) + [ author ]).uniq
+          end
           patch["operator_edits"] = (Array(patch["operator_edits"].presence || current["operator_edits"]) +
                                      [{ "field" => field, "author" => author, "at" => stamp,
                                         "source" => edit_source,
