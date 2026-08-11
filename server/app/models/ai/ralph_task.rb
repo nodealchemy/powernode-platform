@@ -542,6 +542,16 @@ module Ai
         patch = extra_meta.dup
         changed << "metadata" if extra_meta.any? && current.merge(extra_meta) != current
 
+        # A callable value is evaluated HERE, inside the lock, against
+        # post-reload state, and receives the field's current value. Callers
+        # deriving a new value from the existing one (e.g. prefixing a direction
+        # onto the current brief) MUST use this form: computing it before the
+        # call reads pre-lock state and silently overwrites whatever committed in
+        # between.
+        attrs = attrs.to_h do |field, value|
+          [field, value.respond_to?(:call) ? value.call(public_send(field)) : value]
+        end
+
         attrs.each do |field, value|
           previous = public_send(field)
           next if previous.to_s == value.to_s

@@ -201,6 +201,41 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(criteria).not_to include("DELETE it.")
     end
 
+    it "clears a pinned direction when re-approved with an empty one" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                             direction: "DELETE it." })
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                      direction: "" })
+
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      task = loop_record.ralph_tasks.find_by(task_key: result[:data][:task_key])
+      expect(task.acceptance_criteria).not_to include("OPERATOR DIRECTION")
+      expect(task.acceptance_criteria).not_to include("DELETE it.")
+      expect(task.metadata["operator_direction"]).to be_nil
+    end
+
+    it "recomputes the brief inside the lock so a concurrent amendment is not overwritten" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      task = loop_record.ralph_tasks.find_by(task_key: first[:data][:task_key])
+
+      # Simulate dev_update_task committing between the service's read and the
+      # model's lock: the amendment must survive, prefixed rather than discarded.
+      allow_any_instance_of(Ai::RalphTask).to receive(:with_lock).and_wrap_original do |m, &blk|
+        Ai::RalphTask.where(id: task.id).update_all(acceptance_criteria: "AMENDED CONCURRENTLY")
+        m.call(&blk)
+      end
+
+      tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                             direction: "WIRE it." })
+
+      criteria = task.reload.acceptance_criteria
+      expect(criteria).to include("WIRE it.")
+      expect(criteria).to include("AMENDED CONCURRENTLY")
+    end
+
     it "warns when a direction cannot reach an already-claimed executor" do
       rec_id = create_offer[:data][:recommendation][:id]
       first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })

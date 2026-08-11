@@ -41,9 +41,20 @@ module Ai
       def initialize(recommendation:, direction: nil, actor: nil)
         @recommendation = recommendation
         @account = recommendation.account
-        @direction = direction.presence
+        # Raw, NOT .presence: "" and nil must be distinguishable. `.presence`
+        # collapsed them, so there was no input meaning "remove the direction I
+        # set earlier" — a superseded do-not-re-litigate order stayed pinned with
+        # no seam to clear it, and the dev_update_task workaround desynced
+        # metadata["operator_direction"] and reintroduced header stacking.
+        @direction = direction
+        @direction_given = !direction.nil?
         @actor = actor
       end
+
+      # Supplied at all (including "" to clear) vs. omitted entirely.
+      def direction_given? = @direction_given
+
+      def clearing_direction? = direction_given? && @direction.to_s.strip.empty?
 
       def call
         raise ArgumentError, "recommendation must be approved" unless recommendation.status == "approved"
@@ -61,7 +72,7 @@ module Ai
         if created
           task.assign_attributes(task_attributes(recommendation))
           task.save!
-        elsif direction
+        elsif direction_given?
           # Re-approving with a direction is how an operator revises a decision on
           # an already-promoted offer; applying it only on create would silently
           # drop the revision (the common case, since the offer is already promoted).
@@ -97,7 +108,7 @@ module Ai
       # brief through the same operator-edit trail dev_update_task writes.
       def apply_direction!(task)
         prior = task.metadata.is_a?(Hash) ? task.metadata["operator_direction"] : nil
-        return if prior == direction
+        return if prior.to_s == direction.to_s
 
         # The model owns the metadata write so it happens inside the row lock —
         # pre-assigning task.metadata here would make with_lock refuse the record.
@@ -107,11 +118,23 @@ module Ai
         # conflicting directions could not be told apart. Falls back to the first
         # approver only when no acting user was threaded through.
         who = actor || recommendation.approved_by
+        note = if clearing_direction?
+          "Operator direction CLEARED at re-approval (was: #{prior})"
+        else
+          "Operator direction recorded at re-approval: #{direction}"
+        end
+
+        # A LAMBDA, not a computed string: apply_operator_edit! evaluates it inside
+        # the row lock against post-reload state. Computing the brief here would
+        # read pre-lock state and silently discard any dev_update_task amendment
+        # that committed between this read and the lock.
         task.apply_operator_edit!(
-          { "acceptance_criteria" => directed_criteria(task.acceptance_criteria, prior) },
-          note: "Operator direction recorded at re-approval: #{direction}",
+          { "acceptance_criteria" => ->(current) { directed_criteria(current, prior) } },
+          note: note,
           author: (who && "user:#{who.id}"),
-          meta: { "operator_direction" => direction }
+          # nil (not "") so the key is dropped rather than left as an empty string
+          # that strip_direction would then try to match on the next revision.
+          meta: { "operator_direction" => (clearing_direction? ? nil : direction) }
         )
       end
 
@@ -123,7 +146,11 @@ module Ai
       # executor receives N mutually contradictory orders — the exact failure this
       # feature exists to prevent. The newest direction is the operative one.
       def directed_criteria(base, prior = nil)
-        "#{DIRECTION_PREFIX}#{direction}\n\n#{strip_direction(base, prior)}"
+        stripped = strip_direction(base, prior)
+        # Clearing removes the header and leaves the brief as it was.
+        return stripped if clearing_direction?
+
+        "#{DIRECTION_PREFIX}#{direction}\n\n#{stripped}"
       end
 
       # Strips the EXACT prior header using the direction stored in metadata,
@@ -189,7 +216,7 @@ module Ai
           priority: priority_for(rec),
           execution_type: "agent",
           metadata: {
-            "operator_direction" => direction,
+            "operator_direction" => direction.presence,
             "recommendation_id" => rec.id,
             "kind" => rec.recommendation_type,
             "files" => evidence["files"],
@@ -210,7 +237,7 @@ module Ai
         detail = evidence["description"].presence || fix.presence || "Resolve the finding."
         base = "Re-verify the finding holds on current code. Write a failing spec FIRST and confirm it is red. " \
                "Then: #{detail} Run /code-review on the diff before committing."
-        direction ? directed_criteria(base) : base
+        direction.present? ? directed_criteria(base) : base
       end
 
       # confidence 0..1 -> 0..20 band; audit S1 findings (priority 30) still outrank.
