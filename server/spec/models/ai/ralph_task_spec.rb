@@ -310,13 +310,30 @@ RSpec.describe Ai::RalphTask, type: :model do
         .to raise_error(ArgumentError, /clean record/)
     end
 
-    it "serializes on the loop row, which is the mutex the claim path holds" do
-      expect(loop_record).to receive(:with_lock).and_call_original
-      allow(task).to receive(:ralph_loop).and_return(loop_record)
+    # Lock choice is a DEADLOCK question. dev_complete_task takes the task row and
+    # then reaches the loop row (via add_learning); an earlier version of this
+    # method took loop-then-task, an AB/BA inversion. Same order as
+    # complete_task = no cycle.
+    it "locks the task row, matching dev_complete_task's order" do
+      expect(task).to receive(:with_lock).and_call_original
 
       task.apply_operator_edit!({ "description" => "amended" })
 
       expect(task.reload.description).to eq("amended")
+    end
+
+    # The task lock does not serialize against the claim path (which writes under
+    # the LOOP lock), so the metadata write must merge only our own keys rather
+    # than rewriting the column.
+    it "preserves concurrently-written claim keys instead of clobbering them" do
+      task.update!(metadata: task.metadata.merge("claimed_by" => "user:99", "claimed_at" => "t0"))
+
+      task.apply_operator_edit!({ "description" => "amended" }, note: "hi")
+
+      meta = task.reload.metadata
+      expect(meta["claimed_by"]).to eq("user:99")
+      expect(meta["claimed_at"]).to eq("t0")
+      expect(meta["operator_notes"].last["note"]).to eq("hi")
     end
 
     it "truncates a long note so the journal cannot grow the claim payload" do

@@ -520,46 +520,55 @@ module Ai
                              "(dirty: #{changes.keys.join(', ')})"
       end
 
-      # Lock the LOOP, not this row. metadata is a whole-column read-modify-write
-      # and the claim path does the same thing (claimed_by / claimed_holder /
-      # claimed_at) — but it holds `loop_record.with_lock` and writes the task
-      # INSIDE it, so a task-row lock here would never serialize against it. The
-      # two would interleave and the claim's merge, computed from a pre-edit read,
-      # would silently drop operator_edits/operator_notes/operator_direction.
-      # Losing operator_direction is not cosmetic: strip_direction keys off it, so
-      # the next re-approval stacks a second contradictory header.
+      # LOCK THE TASK ROW, and touch ONLY our own metadata keys.
       #
-      # The READ must be inside the lock too — a hash built beforehand is stale by
-      # definition. Hence the explicit reload.
-      ralph_loop.with_lock do
+      # Lock choice is a deadlock question, not just a serialization one.
+      # dev_complete_task takes task.with_lock and then reaches the LOOP row
+      # (record_outcome -> iteration.complete! -> RalphLoop#add_learning), i.e.
+      # task->loop. An earlier version of this method took loop->task, which is a
+      # textbook AB/BA inversion: an operator amending while an executor reports
+      # deadlocks, and Postgres aborts one side with ActiveRecord::Deadlocked,
+      # unrescued at either seam. Same order as complete_task = no cycle.
+      #
+      # That alone would not serialize against the CLAIM path, which writes
+      # claimed_by/claimed_holder/claimed_at under the LOOP lock. So instead of
+      # rewriting the whole jsonb column, the metadata write is a SQL-level merge
+      # of just the keys we own — a concurrent claim's keys survive because we
+      # never write them back. Serializing everything on one mutex would need all
+      # three writers changed at once; tracked as 019fedd5-c1a4.
+      with_lock do
         reload
-        merged = (metadata.presence || {}).merge(extra_meta)
-        changed << "metadata" if extra_meta.any? && merged != metadata
+        current = metadata.presence || {}
+        patch = extra_meta.dup
+        changed << "metadata" if extra_meta.any? && current.merge(extra_meta) != current
 
         attrs.each do |field, value|
           previous = public_send(field)
           next if previous.to_s == value.to_s
 
           changed << field
-          merged["operator_edits"] = (Array(merged["operator_edits"]) +
-                                      [{ "field" => field, "author" => author, "at" => stamp,
-                                         "previous" => previous.to_s.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) }])
-                                     .last(OPERATOR_JOURNAL_LIMIT)
+          patch["operator_edits"] = (Array(patch["operator_edits"].presence || current["operator_edits"]) +
+                                     [{ "field" => field, "author" => author, "at" => stamp,
+                                        "previous" => previous.to_s.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) }])
+                                    .last(OPERATOR_JOURNAL_LIMIT)
         end
 
         if note.present?
           changed << "note"
-          merged["operator_notes"] = (Array(merged["operator_notes"]) +
-                                      [{ "author" => author, "at" => stamp,
-                                         "note" => note.to_s.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) }])
-                                     .last(OPERATOR_JOURNAL_LIMIT)
+          patch["operator_notes"] = (Array(current["operator_notes"]) +
+                                     [{ "author" => author, "at" => stamp,
+                                        "note" => note.to_s.truncate(OPERATOR_JOURNAL_VALUE_LIMIT) }])
+                                    .last(OPERATOR_JOURNAL_LIMIT)
         end
 
         next if changed.empty?
 
-        assign_attributes(attrs)
-        self.metadata = merged
-        save!
+        update!(attrs) if attrs.any?
+        # `||` merges at the top level, so only the keys in `patch` are replaced.
+        self.class.where(id: id).update_all([
+          "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb", patch.to_json
+        ])
+        reload
       end
 
       changed
