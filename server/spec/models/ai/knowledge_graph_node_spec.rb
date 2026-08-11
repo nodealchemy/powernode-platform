@@ -68,10 +68,17 @@ RSpec.describe Ai::KnowledgeGraphNode, type: :model do
     end
 
     describe ".for_data_source" do
+      # Drive off the node the data source's own after_commit sync creates, rather
+      # than fabricating a second one and linking it: idx_kg_nodes_unique_data_source
+      # (019ff21c) now enforces one node per data source, so a fabricated duplicate
+      # raises RecordNotUnique before the assertion is ever reached.
       it "filters by the ai_data_source_id foreign key" do
         data_source = create(:ai_data_source, account: account)
-        linked = create(:ai_knowledge_graph_node, :data_source_node, account: account)
-        linked.update_columns(ai_data_source_id: data_source.id)
+        linked = described_class.find_by(ai_data_source_id: data_source.id)
+        if linked.nil?
+          linked = create(:ai_knowledge_graph_node, :data_source_node, account: account)
+          linked.update_columns(ai_data_source_id: data_source.id)
+        end
         unlinked = create(:ai_knowledge_graph_node, :data_source_node, account: account)
 
         results = described_class.for_data_source(data_source.id)

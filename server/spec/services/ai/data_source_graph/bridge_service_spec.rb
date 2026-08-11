@@ -18,6 +18,65 @@ RSpec.describe Ai::DataSourceGraph::BridgeService, type: :service do
       .to receive(:generate).and_return(Array.new(1536, 0.1))
   end
 
+  # 019ff21c. index_ai_kg_nodes_on_ai_data_source_id was a PARTIAL index, not
+  # UNIQUE, so multiple KG nodes for one data source were legal and unprevented —
+  # which made the bare has_one return an ARBITRARY one of them, including to
+  # #effectiveness_score's kg_confidence term.
+  #
+  # The invariant sync_data_source actually implements is at most ONE node per
+  # data source TOTAL, not one per status: its revive branch flips an existing
+  # node back to status "active" rather than creating a second, and it is the only
+  # writer of ai_data_source_id on a node. The index now enforces exactly that,
+  # which makes the association deterministic WITHOUT a scope — a status scope
+  # here would send the revive path down the create branch and manufacture the
+  # very duplicate this closes.
+  describe "one KG node per data source (uniqueness)" do
+    let(:data_source) { create(:ai_data_source, account: account, name: "Ledger API") }
+
+    def node_for(ds, status: "active")
+      Ai::KnowledgeGraphNode.create!(
+        account: account, name: "n-#{SecureRandom.hex(4)}", node_type: "entity",
+        entity_type: "data_source", status: status, confidence: 1.0,
+        ai_data_source_id: ds.id
+      )
+    end
+
+    it "refuses a second node for the same data source" do
+      node_for(data_source)
+
+      expect { node_for(data_source) }.to raise_error(ActiveRecord::RecordNotUnique)
+    end
+
+    it "refuses a second node even when the first is archived" do
+      node_for(data_source, status: "archived")
+
+      expect { node_for(data_source) }.to raise_error(ActiveRecord::RecordNotUnique)
+    end
+
+    it "still allows nodes that belong to no data source" do
+      expect {
+        2.times do
+          Ai::KnowledgeGraphNode.create!(
+            account: account, name: "plain-#{SecureRandom.hex(4)}", node_type: "entity",
+            entity_type: "technology", status: "active", confidence: 1.0
+          )
+        end
+      }.not_to raise_error
+    end
+
+    # The control the index must not break: an archived node is REVIVED, not
+    # duplicated. This is the regression a status-scoped read would have caused.
+    it "revives an archived node rather than creating a second" do
+      existing = node_for(data_source, status: "archived")
+
+      result = service.sync_data_source(data_source)
+
+      expect(result).to eq(existing)
+      expect(existing.reload.status).to eq("active")
+      expect(Ai::KnowledgeGraphNode.where(ai_data_source_id: data_source.id).count).to eq(1)
+    end
+  end
+
   describe "#sync_data_source" do
     let(:data_source) do
       create(

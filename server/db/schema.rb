@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_11_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_11_190000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2723,7 +2723,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_140000) do
     t.index ["account_id", "entity_type", "knowledge_base_id"], name: "idx_kg_nodes_code_entities", where: "(((node_type)::text = 'code_entity'::text) AND ((status)::text = 'active'::text))"
     t.index ["account_id", "name", "node_type"], name: "index_ai_kg_nodes_unique_active", unique: true, where: "((status)::text = 'active'::text)"
     t.index ["account_id"], name: "index_ai_knowledge_graph_nodes_on_account_id"
-    t.index ["ai_data_source_id"], name: "index_ai_kg_nodes_on_ai_data_source_id", where: "(ai_data_source_id IS NOT NULL)"
+    t.index ["ai_data_source_id"], name: "idx_kg_nodes_unique_data_source", unique: true, where: "(ai_data_source_id IS NOT NULL)"
     t.index ["ai_skill_id"], name: "index_ai_knowledge_graph_nodes_on_ai_skill_id"
     t.index ["embedding"], name: "index_ai_knowledge_graph_nodes_on_embedding", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["entity_type"], name: "index_ai_knowledge_graph_nodes_on_entity_type"
