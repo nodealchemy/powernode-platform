@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_08_054500) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_11_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2736,7 +2736,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_08_054500) do
     t.index ["path"], name: "index_ai_knowledge_graph_nodes_on_path", using: :gist
     t.index ["source_document_id"], name: "index_ai_knowledge_graph_nodes_on_source_document_id"
     t.index ["status"], name: "index_ai_knowledge_graph_nodes_on_status"
-    t.check_constraint "node_type::text = ANY (ARRAY['entity'::character varying::text, 'concept'::character varying::text, 'relation'::character varying::text, 'attribute'::character varying::text, 'code_entity'::character varying::text])", name: "check_ai_kg_node_type"
+    t.check_constraint "node_type::text = ANY (ARRAY['entity'::character varying::text, 'concept'::character varying::text, 'relation'::character varying::text, 'attribute'::character varying::text, 'code_entity'::character varying::text, 'content'::character varying::text])", name: "check_ai_kg_node_type"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'merged'::character varying::text, 'archived'::character varying::text])", name: "check_ai_kg_node_status"
   end
 

@@ -10,6 +10,7 @@ module Ai
       causes precedes follows custom
       requires enhances composes succeeds uses
       imports calls defines inherits implements contains
+      references
     ].freeze
 
     # Associations

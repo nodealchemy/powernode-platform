@@ -78,7 +78,7 @@ class ContentLinkService
       Ai::KnowledgeGraphNode.create!(
         account: @account,
         name: page.title,
-        node_type: "entity",
+        node_type: "content",
         entity_type: "page",
         status: "active",
         confidence: 1.0,
@@ -106,7 +106,7 @@ class ContentLinkService
     return [] unless source_node&.embedding.present?
 
     neighbors = Ai::KnowledgeGraphNode
-      .where(account: @account, entity_type: %w[page article])
+      .where(account: @account, node_type: "content", entity_type: %w[page article])
       .where.not(id: source_node.id)
       .where.not(embedding: nil)
       .nearest_neighbors(:embedding, source_node.embedding, distance: "cosine")
@@ -126,7 +126,7 @@ class ContentLinkService
 
   def find_page_node(page)
     Ai::KnowledgeGraphNode
-      .where(account: @account, entity_type: "page")
+      .where(account: @account, node_type: "content", entity_type: "page")
       .where("metadata->>'content_id' = ?", page.id.to_s)
       .first
   end
@@ -142,14 +142,14 @@ class ContentLinkService
 
   def find_or_create_article_node(article)
     node = Ai::KnowledgeGraphNode
-      .where(account: @account, entity_type: "article")
+      .where(account: @account, node_type: "content", entity_type: "article")
       .where("metadata->>'content_id' = ?", article.id.to_s)
       .first
 
     node || Ai::KnowledgeGraphNode.create!(
       account: @account,
       name: article.title,
-      node_type: "entity",
+      node_type: "content",
       entity_type: "article",
       status: "active",
       confidence: 1.0,

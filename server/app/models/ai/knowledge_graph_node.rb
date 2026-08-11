@@ -6,11 +6,17 @@ module Ai
 
     has_neighbors :embedding
 
-    NODE_TYPES = %w[entity concept relation attribute code_entity].freeze
+    # "content" is deliberately NOT "entity". (account_id, name, node_type) is
+    # uniquely indexed over active rows, so giving pages/articles their own
+    # node_type moves free-form content TITLES out of the namespace that skills,
+    # agents and teams share — the collision becomes structurally impossible
+    # rather than avoided by a naming convention, and it needs no migration.
+    NODE_TYPES = %w[entity concept relation attribute code_entity content].freeze
     ENTITY_TYPES = %w[
       person organization technology event location skill agent team custom
       file directory class module method function variable type_definition interface constant
       data_source
+      page article
     ].freeze
     STATUSES = %w[active merged archived].freeze
 
