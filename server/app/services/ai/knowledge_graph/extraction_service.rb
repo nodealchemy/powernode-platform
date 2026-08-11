@@ -335,8 +335,17 @@ module Ai
           embedding = @embedding_service.generate(embedding_text)
 
           if embedding && @account.ai_knowledge_graph_nodes.active.with_embeddings.exists?
+            # node_type-scoped, like the two NAME dedup paths above. This method
+            # only ever creates entities, but the candidate pool was every
+            # embedded node in the account — so a semantically similar node of
+            # another KIND was adopted AS the entity: record_mention! on it and
+            # extractor edges hung off it. Skill nodes were always exposed;
+            # content nodes (pages/articles, embedded via
+            # generate_page_embedding!) joined the pool when node_type "content"
+            # was registered (019ff111).
             candidates = @account.ai_knowledge_graph_nodes
               .active
+              .where(node_type: "entity")
               .nearest_neighbors(:embedding, embedding, distance: "cosine")
               .first(3)
 
