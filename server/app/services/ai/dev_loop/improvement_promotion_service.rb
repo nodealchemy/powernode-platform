@@ -10,6 +10,7 @@ module Ai
     # The created task carries a recommendation_id back-link; the dev_loop bridge
     # (DevLoopTool) drains it via /dev-loop dev-improve with no bridge change.
     class ImprovementPromotionService
+      DIRECTION_MAX = 4_096
       DIRECTION_PREFIX = "OPERATOR DIRECTION (decided at approval — do not re-litigate): "
 
       LOOP_NAME = "dev-improve"
@@ -46,7 +47,12 @@ module Ai
         # set earlier" — a superseded do-not-re-litigate order stayed pinned with
         # no seam to clear it, and the dev_update_task workaround desynced
         # metadata["operator_direction"] and reintroduced header stacking.
-        @direction = direction
+        # Bounded here, at the single seam: metadata["operator_direction"] is
+        # exempt from journal truncation (strip_direction needs an exact match),
+        # and the same string is ALSO prefixed onto acceptance_criteria — so an
+        # unbounded direction rides every dev_next_task claim payload twice.
+        # Truncating once, before both writes, keeps them identical.
+        @direction = direction.is_a?(String) ? direction.truncate(DIRECTION_MAX) : direction
         @direction_given = !direction.nil?
         @actor = actor
       end
@@ -128,8 +134,15 @@ module Ai
         # the row lock against post-reload state. Computing the brief here would
         # read pre-lock state and silently discard any dev_update_task amendment
         # that committed between this read and the lock.
+        # `prior` is re-read INSIDE the lambda (which apply_operator_edit! evaluates
+        # after its reload), NOT captured from the pre-lock read above. Two
+        # operators re-approving concurrently both see prior=nil out here; the
+        # second would then strip with nil against the first's already-committed
+        # brief and prefix a SECOND contradictory header. The pre-lock `prior` is
+        # only an early-exit hint; correctness lives in the lambda.
         task.apply_operator_edit!(
-          { "acceptance_criteria" => ->(current) { directed_criteria(current, prior) } },
+          { "acceptance_criteria" =>
+              ->(current) { directed_criteria(current, task.metadata.is_a?(Hash) ? task.metadata["operator_direction"] : nil) } },
           note: note,
           author: (who && "user:#{who.id}"),
           # nil (not "") so the key is dropped rather than left as an empty string
@@ -161,7 +174,10 @@ module Ai
       def strip_direction(text, prior)
         return text.to_s if prior.blank?
 
-        text.to_s.sub("#{DIRECTION_PREFIX}#{prior}\n\n", "")
+        # delete_prefix, not sub: sub removes the first occurrence ANYWHERE, so a
+        # brief quoting the prior direction in its body would have the quote
+        # stripped and the real leading header left in place — stacking headers.
+        text.to_s.delete_prefix("#{DIRECTION_PREFIX}#{prior}\n\n")
       end
 
       def find_or_create_loop

@@ -286,7 +286,10 @@ module Ai
         # A direction pinned onto a task the executor has already claimed (or that
         # is terminal) is recorded but never delivered. Distinct key from :warning,
         # which merge_loop_halt_status! owns — a halted loop must not mask this.
-        if params[:direction].present? && (w = result.ralph_task.amendment_delivery_warning)
+        # key?, not present?: clearing a direction ("" ) is an amendment too, and
+        # an executor holding the brief WITH the retracted order is precisely who
+        # needs telling.
+        if params.key?(:direction) && (w = result.ralph_task.amendment_delivery_warning)
           response[:direction_warning] = w
         end
 

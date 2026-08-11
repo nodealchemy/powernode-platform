@@ -575,8 +575,13 @@ module Ai
 
         update!(attrs) if attrs.any?
         # `||` merges at the top level, so only the keys in `patch` are replaced.
+        # updated_at is bumped explicitly: update_all skips callbacks AND
+        # timestamps, so a note-only amendment (which takes no `attrs` path)
+        # returned success while task_details still showed the pre-amendment
+        # updated_at, and improvement_scoreboard's updated_at window missed it.
         self.class.where(id: id).update_all([
-          "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb", patch.to_json
+          "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb, updated_at = ?",
+          patch.to_json, Time.current
         ])
         reload
       end

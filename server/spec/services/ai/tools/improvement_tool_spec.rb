@@ -236,6 +236,34 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(criteria).to include("AMENDED CONCURRENTLY")
     end
 
+    it "warns on the CLEAR path too — the executor still holds the retracted order" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                     direction: "DELETE it." })
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      loop_record.ralph_tasks.find_by(task_key: first[:data][:task_key]).update!(status: "in_progress")
+
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                      direction: "" })
+
+      expect(result[:data][:direction_warning]).to match(/in_progress/)
+    end
+
+    it "bounds an oversized direction identically in metadata and the brief" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      huge = "D" * 9_000
+
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                      direction: huge })
+
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      task = loop_record.ralph_tasks.find_by(task_key: result[:data][:task_key])
+      stored = task.metadata["operator_direction"]
+      expect(stored.length).to be <= Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX
+      # Identical in both places, or strip_direction's exact match breaks.
+      expect(task.acceptance_criteria).to include(stored)
+    end
+
     it "warns when a direction cannot reach an already-claimed executor" do
       rec_id = create_offer[:data][:recommendation][:id]
       first = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id })
