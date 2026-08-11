@@ -45,7 +45,13 @@ module Ai
             priority: { type: "integer", required: false, description: "Queue priority (dev_update_task)" },
             note: { type: "string", required: false, description: "Append-only operator note (dev_update_task)" },
             required_capabilities: { type: "array", required: false, description: "Capabilities an executor must match" },
-            capability_match_strategy: { type: "string", required: false, description: "all | any | weighted" }
+            capability_match_strategy: { type: "string", required: false, description: "all | any | weighted" },
+            # Kept in sync with action_definitions["dev_update_task"] on purpose:
+            # the per-action MCP schema comes from there, but the LLM agent
+            # tool-calling path reads THIS flat one, so an omission here silently
+            # denies agents a parameter the MCP surface advertises.
+            execution_type: { type: "string", required: false, description: "agent | pipeline | a2a_task | container | human | community" },
+            delegation_config: { type: "object", required: false, description: "Delegation settings (dev_update_task)" }
           }
         }
       end
