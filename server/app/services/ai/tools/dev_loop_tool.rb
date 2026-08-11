@@ -370,11 +370,14 @@ module Ai
         loop_record.start! if loop_record.can_start?
         task.start!
         task.record_execution_attempt!
-        task.update!(metadata: (task.metadata || {}).merge(
+        # Targeted merge: this runs under the LOOP lock while dev_complete_task
+        # and dev_update_task write the same column under the TASK lock, so a
+        # whole-column rewrite here would drop their keys.
+        task.merge_metadata!(
           "claimed_by" => claimant_ref,
           "claimed_holder" => normalized_holder(holder),
           "claimed_at" => Time.current.iso8601
-        ))
+        )
 
         task_payload(loop_record, task)
       end
@@ -737,15 +740,15 @@ module Ai
           task: delegation_brief(loop_record, task), budget_cents: params[:budget_cents]
         })
         unless spawn[:success]
-          task.update!(metadata: (task.metadata || {}).merge("delegation_error" => spawn[:error]))
+          task.merge_metadata!("delegation_error" => spawn[:error])
           return error_result("Delegation failed: #{spawn[:error]}")
         end
 
-        task.update!(metadata: (task.metadata || {}).merge(
+        task.merge_metadata!(
           "delegated_to" => spawn[:agent_id], "delegated_agent_name" => spawn[:agent_name],
           "a2a_task_id" => spawn[:task_id], "delegated_at" => Time.current.iso8601,
           "claimed_by" => "agent:#{spawn[:agent_id]}"
-        ))
+        )
 
         return delegation_submitted(task, spawn) unless params[:await]
 
@@ -892,9 +895,7 @@ module Ai
         # barred, recall ranking inverted). Written UNCONDITIONALLY (even as
         # []) so a reclaim whose retrieval returns nothing can never inherit —
         # and later credit — a previous claim's ids.
-        task.update!(metadata: task.metadata.merge(
-          "injected_learning_ids" => relevant.map { |l| l[:id] }
-        ))
+        task.merge_metadata!("injected_learning_ids" => relevant.map { |l| l[:id] })
 
         base = config["base_context_files"]
         if base.present?
@@ -918,7 +919,12 @@ module Ai
 
         ::Ai::Learning::CompoundLearningService.new(account: account)
           .credit_injections!(learning_ids: ids)
-        task.update!(metadata: task.metadata.except("injected_learning_ids"))
+        # Key REMOVAL, so jsonb `-` rather than the `||` merge — same reason:
+        # rewriting the whole column would drop concurrent writers' keys.
+        Ai::RalphTask.where(id: task.id)
+                     .update_all([ "metadata = COALESCE(metadata, '{}'::jsonb) - ?, updated_at = ?",
+                                   "injected_learning_ids", Time.current ])
+        task.reload
       rescue StandardError => e
         Rails.logger.warn("[DevLoopTool] credit_injected_learnings failed for #{task.task_key}: #{e.message}")
       end

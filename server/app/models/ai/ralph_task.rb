@@ -111,10 +111,10 @@ module Ai
     def block!(reason: nil, blocked_for: nil)
       raise InvalidTransitionError, "Cannot block task in #{status} status" unless can_block?
 
-      attrs = { status: "blocked", error_message: reason }
-      attrs[:metadata] = (metadata || {}).merge("blocked_for" => blocked_for) if blocked_for.present?
-
-      update!(attrs)
+      update!(status: "blocked", error_message: reason)
+      # Targeted merge, not a whole-column rewrite: this runs under the task-row
+      # lock while the claim path writes the same column under the LOOP lock.
+      merge_metadata!("blocked_for" => blocked_for) if blocked_for.present?
     end
 
     def skip!(reason: nil)
@@ -487,6 +487,32 @@ module Ai
     # inside the same lock. Callers must NOT pre-assign task.metadata themselves:
     # with_lock refuses a record with unpersisted changes, and a hash built before
     # the reload is stale by definition.
+    # Targeted jsonb merge for the metadata column — the ONLY sanctioned way to
+    # write it.
+    #
+    # metadata has several independent writers (the claim stamps, block!'s
+    # blocked_for, delegation bookkeeping, injected_learning_ids, operator edits)
+    # and they do NOT share a lock: the claim path holds the loop row while
+    # dev_complete_task holds the task row. Any whole-column rewrite therefore
+    # drops whatever another writer committed in between — losing blocked_for
+    # breaks #blocked_reason, losing the claim stamps breaks re-claim and #stale?.
+    # `||` replaces only the keys in `patch`, which makes the differing locks
+    # harmless instead of requiring one shared mutex across all of them.
+    #
+    # updated_at is bumped explicitly because update_all skips callbacks AND
+    # timestamps — without it a metadata-only write left task_details showing a
+    # stale updated_at and fell outside improvement_scoreboard's window.
+    def merge_metadata!(patch)
+      patch = patch.to_h.stringify_keys
+      return self if patch.empty?
+
+      self.class.where(id: id).update_all([
+        "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb, updated_at = ?",
+        patch.to_json, Time.current
+      ])
+      reload
+    end
+
     def apply_operator_edit!(attrs, note: nil, author: nil, meta: {})
       # compact: an MCP/LLM caller routinely sends `null` for a declared-but-unset
       # optional param. Without this, nil != current value reads as an intentional
@@ -575,15 +601,7 @@ module Ai
 
         update!(attrs) if attrs.any?
         # `||` merges at the top level, so only the keys in `patch` are replaced.
-        # updated_at is bumped explicitly: update_all skips callbacks AND
-        # timestamps, so a note-only amendment (which takes no `attrs` path)
-        # returned success while task_details still showed the pre-amendment
-        # updated_at, and improvement_scoreboard's updated_at window missed it.
-        self.class.where(id: id).update_all([
-          "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb, updated_at = ?",
-          patch.to_json, Time.current
-        ])
-        reload
+        merge_metadata!(patch)
       end
 
       changed

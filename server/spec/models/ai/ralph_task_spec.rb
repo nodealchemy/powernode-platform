@@ -297,6 +297,51 @@ RSpec.describe Ai::RalphTask, type: :model do
     end
   end
 
+  # IMP-019fee80. metadata has several independent writers that do NOT share a
+  # lock (the claim stamps under the LOOP row, block!/dev_complete_task and
+  # dev_update_task under the TASK row), so any whole-column rewrite drops
+  # whatever another writer committed in between. merge_metadata! is the only
+  # sanctioned write.
+  describe "#merge_metadata!" do
+    let(:task) { create(:ai_ralph_task, ralph_loop: loop_record) }
+
+    it "replaces only the supplied keys" do
+      task.merge_metadata!("claimed_by" => "user:1", "claimed_at" => "t0")
+      task.merge_metadata!("blocked_for" => "review")
+
+      meta = task.reload.metadata
+      expect(meta["claimed_by"]).to eq("user:1")
+      expect(meta["claimed_at"]).to eq("t0")
+      expect(meta["blocked_for"]).to eq("review")
+    end
+
+    it "bumps updated_at (update_all skips timestamps)" do
+      task.update!(description: "seed")
+      before = task.reload.updated_at
+
+      task.merge_metadata!("blocked_for" => "review")
+
+      expect(task.reload.updated_at).to be > before
+    end
+
+    it "is a no-op for an empty patch" do
+      expect { task.merge_metadata!({}) }.not_to change { task.reload.updated_at }
+    end
+
+    # The invariant the whole offer is about: block! must not clobber the claim
+    # stamps written under a different lock.
+    it "block! preserves concurrently-written claim stamps" do
+      task.merge_metadata!("claimed_by" => "user:99", "claimed_at" => "t0")
+      task.start!
+
+      task.block!(reason: "parked", blocked_for: "review")
+
+      meta = task.reload.metadata
+      expect(meta["claimed_by"]).to eq("user:99")
+      expect(meta["blocked_for"]).to eq("review")
+    end
+  end
+
   describe "#apply_operator_edit!" do
     let(:task) { create(:ai_ralph_task, ralph_loop: loop_record, acceptance_criteria: "original") }
 
