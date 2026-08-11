@@ -1209,40 +1209,88 @@ RSpec.describe Ai::Tools::DevLoopTool do
         .to be <= Ai::RalphTask::OPERATOR_JOURNAL_LIMIT
     end
 
-    # IMP-3c15b871f6bd. The abuse shape is self-serving: claim a task, weaken the
-    # brief you are about to be judged against, report passed — a :verified
-    # adjudication then auto-applies the linked offer. Refuse the brief edit only
-    # when the SAME principal currently holds the claim.
-    it "refuses to let the current claimant rewrite the brief it will be judged against" do
+    # IMP-3c15b871f6bd. Editing stays OPEN — an earlier refusal-based guard was
+    # both bypassable (self-report blocked, amend, then blocked->passed is legal)
+    # and harmful (a genuine drain claims and amends from the same session). What
+    # is withheld is the automatic CREDIT; see the auto-apply specs below.
+    it "allows the claimant to narrow its own brief" do
       tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
 
-      result = update(acceptance_criteria: "trivially satisfiable")
-
-      expect(result[:success]).to be false
-      expect(result[:error]).to match(/claimed by you/i)
-      expect(task.reload.acceptance_criteria).to eq("Original criteria")
-    end
-
-    it "refuses a self-claimed description rewrite for the same reason" do
-      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
-
-      expect(update(description: "something easier")[:success]).to be false
-    end
-
-    it "still allows the claimant to append a note — that cannot weaken the brief" do
-      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
-
-      result = update(note: "blocked on a missing fixture")
+      result = update(acceptance_criteria: "narrowed after investigating")
 
       expect(result[:success]).to be true
-      expect(task.reload.metadata["operator_notes"].last["note"]).to eq("blocked on a missing fixture")
+      expect(task.reload.acceptance_criteria).to eq("narrowed after investigating")
     end
 
-    it "allows an operator to amend a task claimed by someone else" do
-      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
-      task.reload.update!(metadata: task.metadata.merge("claimed_by" => "agent:someone-else"))
+    it "refuses every amendment while the kill switch is active" do
+      allow(account).to receive(:ai_suspended?).and_return(true)
 
-      expect(update(acceptance_criteria: "operator amendment")[:success]).to be true
+      result = update(note: "should not land")
+
+      expect(result[:halted]).to be true
+      expect(result[:reason]).to eq("emergency_halt")
+      expect(task.reload.metadata["operator_notes"]).to be_nil
+    end
+
+    # The control that replaced the refusal guard. Must hold through the exact
+    # bypass that killed the previous design: self-report blocked, amend, then
+    # blocked -> passed.
+    describe "self-amended brief withholds automatic credit" do
+      let(:recommendation) do
+        create(:ai_improvement_recommendation, account: account, status: "approved",
+               recommendation_type: "code_lint")
+      end
+      let!(:linked) do
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "IMP-linked", priority: 9,
+               acceptance_criteria: "Original criteria",
+               metadata: { "recommendation_id" => recommendation.id })
+      end
+
+      def claim_and_pass!
+        tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+        tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.name,
+                               task_key: "IMP-linked", outcome: "passed",
+                               summary: "done",
+                               check_results: { "rspec" => "3 examples, 0 failures" } })
+      end
+
+      it "auto-applies when the brief was never amended by the reporter" do
+        claim_and_pass!
+
+        expect(recommendation.reload.status).to eq("applied")
+      end
+
+      it "withholds the credit when the reporter amended the brief" do
+        tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+        tool.execute(params: { action: "dev_update_task", loop_id: ralph_loop.name,
+                               task_key: "IMP-linked", acceptance_criteria: "trivially satisfiable" })
+        tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.name,
+                               task_key: "IMP-linked", outcome: "passed", summary: "done",
+                               check_results: { "rspec" => "3 examples, 0 failures" } })
+
+        expect(recommendation.reload.status).to eq("approved")
+      end
+
+      it "still withholds it when the amendment is laundered through a blocked hop" do
+        tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+        tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.name,
+                               task_key: "IMP-linked", outcome: "blocked", summary: "parking it" })
+        tool.execute(params: { action: "dev_update_task", loop_id: ralph_loop.name,
+                               task_key: "IMP-linked", acceptance_criteria: "trivially satisfiable" })
+        tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.name,
+                               task_key: "IMP-linked", outcome: "passed", summary: "done",
+                               check_results: { "rspec" => "3 examples, 0 failures" } })
+
+        expect(recommendation.reload.status).to eq("approved")
+      end
+
+      it "still auto-applies when a DIFFERENT principal amended the brief" do
+        linked.apply_operator_edit!({ "acceptance_criteria" => "operator narrowed it" },
+                                    author: "user:some-operator")
+        claim_and_pass!
+
+        expect(recommendation.reload.status).to eq("applied")
+      end
     end
 
     it "rejects an unknown field rather than silently dropping it" do

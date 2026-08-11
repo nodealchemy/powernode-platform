@@ -239,6 +239,15 @@ module Ai
         loop_record = find_loop(params[:loop_id])
         return error_result("Ralph loop not found") unless loop_record
 
+        # Kill switch, matching both sibling write actions. Without it an
+        # emergency halt stopped executors CLAIMING and REPORTING work while
+        # still letting any principal rewrite task state — and this action is
+        # reachable by agent and instance principals, which is the whole threat
+        # model the credit guard below addresses.
+        if account.respond_to?(:ai_suspended?) && account.ai_suspended?
+          return { success: true, halted: true, reason: "emergency_halt", task_key: params[:task_key] }
+        end
+
         task = find_task(loop_record, params[:task_key])
         return error_result("Task not found: #{params[:task_key]}") unless task
 
@@ -258,10 +267,6 @@ module Ai
 
         attrs = params.to_h.stringify_keys.slice(*Ai::RalphTask::OPERATOR_EDITABLE_FIELDS).compact
         note = params[:note]
-
-        if (refusal = self_claimed_brief_edit_refusal(task, attrs))
-          return error_result(refusal)
-        end
         if attrs.empty? && note.blank?
           return error_result("Nothing to update — supply a note or one of: " \
                               "#{Ai::RalphTask::OPERATOR_EDITABLE_FIELDS.join(', ')}.")
@@ -285,41 +290,37 @@ module Ai
         error_result(e.message)
       end
 
-      # Fields that define what "done" means for the task. Editing these is the
-      # only way an amendment can lower the bar the executor is judged against.
+      # Fields that define what "done" means for the task. An amendment can only
+      # lower the bar the executor is judged against through one of these.
       BRIEF_FIELDS = %w[description acceptance_criteria].freeze
 
-      # IMP-3c15b871f6bd. dev_update_task is documented as an OPERATOR seam, but
-      # it is reachable by anything that can claim a task, so the abuse shape is
-      # self-serving: claim a task, weaken the brief, report passed — a :verified
-      # adjudication then auto-applies the linked improvement offer, and the edit
-      # is journalled with the executor's own ref as though it were operator
-      # intent.
+      # IMP-3c15b871f6bd. The abuse shape is self-serving: weaken the brief you
+      # are about to be judged against, then report passed — a :verified
+      # adjudication auto-applies the linked improvement offer, closing it as
+      # though the original finding were addressed.
       #
-      # The guard is the CONFLICT OF INTEREST, not the principal kind or a
-      # permission. Both of those proxies were considered and rejected: on this
-      # deployment the operator reaches MCP as an instance principal (the dev-cell
-      # drives the loop as `instance:<id>`), so refusing agent:/instance: — or
-      # requiring a permission that an instance principal cannot present, since
-      # enforce_permission! returns early for them — would lock the real operator
-      # out of the tool while leaving a user-principal executor free to do exactly
-      # what this prevents. Holding the claim is the thing that actually creates
-      # the conflict, and it is available on the row.
+      # This guards the CREDIT, not the edit, after two earlier designs failed:
+      #   - Refusing agent:/instance: principals, or requiring a permission, is
+      #     backwards here. The operator reaches MCP as an INSTANCE principal
+      #     (dev-cell drives the loop), and enforce_permission! returns early for
+      #     instance principals — so both proxies could only refuse the operator
+      #     while leaving a user-principal executor free.
+      #   - Refusing a self-claimed brief edit was BOTH bypassable and harmful:
+      #     an executor drops out of in_progress with dev_complete_task(blocked),
+      #     amends, then passes (blocked -> passed is a legal transition); while a
+      #     genuine drain session, where the claim and the amendment come from the
+      #     same session, was blocked from narrowing a brief at all.
       #
-      # Deliberately narrow: notes and routing fields stay open (a note cannot
-      # lower the bar), amendments to unclaimed/pending/blocked tasks stay open,
-      # and amending a task claimed by SOMEONE ELSE stays open — that is an
-      # operator overriding an executor, which is the whole point of the seam.
-      def self_claimed_brief_edit_refusal(task, attrs)
-        return nil unless task.in_progress?
-        return nil if (attrs.keys & BRIEF_FIELDS).empty?
-
-        claimed_by = task.metadata.is_a?(Hash) ? task.metadata["claimed_by"] : nil
-        return nil if claimed_by.blank? || claimed_by != claimant_ref
-
-        "Refusing to edit #{BRIEF_FIELDS.join('/')} on #{task.task_key}: it is currently claimed by you " \
-        "(#{claimed_by}). An executor must not rewrite the brief it will be judged against — report the " \
-        "task (dev_complete_task) or have another principal amend it. Notes and routing fields are still editable."
+      # Editing stays open. What closes is the automatic credit: if the principal
+      # reporting the outcome is also the one that amended the brief, the pass is
+      # recorded as attested and the offer stays `approved` for operator
+      # judgement. Keyed on the journal, so status juggling cannot evade it —
+      # operator_edits records the author of every brief edit.
+      def self_amended_brief?(task)
+        edits = task.metadata.is_a?(Hash) ? task.metadata["operator_edits"] : nil
+        Array(edits).any? do |e|
+          e.is_a?(Hash) && BRIEF_FIELDS.include?(e["field"]) && e["author"] == claimant_ref
+        end
       end
 
       def find_task(loop_record, key)
@@ -662,6 +663,17 @@ module Ai
 
         recommendation = account.ai_improvement_recommendations.find_by(id: rec_id)
         return unless recommendation&.status == "approved"
+
+        # Self-amended brief => no automatic credit. The work may well be right,
+        # but the reporter moved the goalposts, so an operator decides rather than
+        # the offer closing itself.
+        if self_amended_brief?(task)
+          Rails.logger.warn(
+            "[DevLoopTool] NOT auto-applying #{rec_id} for #{task.task_key}: its brief was amended by " \
+            "#{claimant_ref}, the same principal reporting the outcome — leaving the offer approved for review"
+          )
+          return
+        end
 
         # apply!(user) reassigns approved_by — an agent-driven pass has no `user`
         # (BaseTool#user is nil for agent callers), so fall back to whoever
