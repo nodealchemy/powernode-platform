@@ -98,13 +98,13 @@ module Ai
 
             unmatched.each do |cap|
               cap_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: cap)
-              cap_node = cap_skill&.knowledge_graph_node
+              cap_node = cap_skill&.knowledge_graph_node_for(@account.id)
               next(still_unmatched << cap) unless cap_node&.status == "active"
 
               # Check if any agent capability is graph-adjacent
               found_via_graph = agent_caps.any? do |agent_cap|
                 agent_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: agent_cap)
-                agent_node = agent_skill&.knowledge_graph_node
+                agent_node = agent_skill&.knowledge_graph_node_for(@account.id)
                 next false unless agent_node&.status == "active"
                 path = graph_service.shortest_path(source: agent_node, target: cap_node)
                 path.is_a?(Array) && path.size <= 2

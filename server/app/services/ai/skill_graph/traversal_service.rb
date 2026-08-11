@@ -74,7 +74,7 @@ module Ai
         total_skill_nodes = 0
 
         skills.each do |skill|
-          node = skill.knowledge_graph_node
+          node = skill.knowledge_graph_node_for(account.id)
           next unless node&.status == "active"
 
           total_skill_nodes += 1

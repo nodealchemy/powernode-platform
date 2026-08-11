@@ -165,12 +165,12 @@ module Ai
         # Graph distance scoring boost
         begin
           cap_skill = Ai::Skill.for_account(account.id).active.find_by(slug: capability)
-          cap_node = cap_skill&.knowledge_graph_node
+          cap_node = cap_skill&.knowledge_graph_node_for(account.id)
           if cap_node&.status == "active"
             agent_skill_slugs = agent_skills
             agent_skill_records = Ai::Skill.for_account(account.id).active.where(slug: agent_skill_slugs)
             agent_skill_records.each do |s|
-              skill_node = s.knowledge_graph_node
+              skill_node = s.knowledge_graph_node_for(account.id)
               next unless skill_node&.status == "active"
               path = Ai::KnowledgeGraph::GraphService.new(account).shortest_path(
                 source: skill_node, target: cap_node
@@ -246,7 +246,7 @@ module Ai
 
       def find_nearest_skill_via_graph(capability_slug)
         cap_skill = Ai::Skill.for_account(account.id).active.find_by(slug: capability_slug)
-        cap_node = cap_skill&.knowledge_graph_node
+        cap_node = cap_skill&.knowledge_graph_node_for(account.id)
         return nil unless cap_node&.status == "active"
 
         neighbors = Ai::KnowledgeGraph::GraphService.new(account).find_neighbors(

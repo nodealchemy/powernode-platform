@@ -33,7 +33,7 @@ module Ai
             graph_service = Ai::KnowledgeGraph::GraphService.new(account)
             adjacent = []
             skills.active.each do |skill|
-              node = skill.knowledge_graph_node
+              node = skill.knowledge_graph_node_for(account.id)
               next unless node&.status == "active"
               neighbors = graph_service.find_neighbors(node: node, depth: 1, relation_types: %w[requires related_to])
               neighbors.each do |n|
@@ -76,7 +76,7 @@ module Ai
           if account.ai_knowledge_graph_nodes.active.skill_nodes.exists?
             graph_service = Ai::KnowledgeGraph::GraphService.new(account)
             skills.active.each do |skill|
-              node = skill.knowledge_graph_node
+              node = skill.knowledge_graph_node_for(account.id)
               next unless node&.status == "active"
               neighbors = graph_service.find_neighbors(node: node, depth: 1, relation_types: %w[requires related_to])
               names = neighbors.map { |n| n[:name] }.compact

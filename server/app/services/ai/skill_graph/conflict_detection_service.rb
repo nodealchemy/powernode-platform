@@ -265,7 +265,7 @@ module Ai
 
         orphan_skills.find_each do |skill|
           # Also check for KG edges
-          node = skill.knowledge_graph_node
+          node = skill.knowledge_graph_node_for(account.id)
           if node
             edge_count = account.ai_knowledge_graph_edges.active
               .where("source_node_id = :nid OR target_node_id = :nid", nid: node.id)

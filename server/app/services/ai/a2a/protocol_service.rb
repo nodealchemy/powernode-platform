@@ -459,7 +459,7 @@ module Ai
           agent_skill_slugs.each do |agent_slug|
             unless node_cache.key?(agent_slug)
               agent_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: agent_slug)
-              node_cache[agent_slug] = agent_skill&.knowledge_graph_node
+              node_cache[agent_slug] = agent_skill&.knowledge_graph_node_for(@account.id)
             end
             agent_node = node_cache[agent_slug]
             next unless agent_node&.status == "active"

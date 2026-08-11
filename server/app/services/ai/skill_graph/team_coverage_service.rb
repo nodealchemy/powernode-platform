@@ -166,7 +166,7 @@ module Ai
       def collect_team_skills(team)
         team.members.includes(agent: :skills).flat_map do |member|
           member.agent.skills.active.map do |skill|
-            node = skill.knowledge_graph_node
+            node = skill.knowledge_graph_node_for(account.id)
             {
               agent_id: member.ai_agent_id,
               agent_name: member.agent.name,

@@ -306,8 +306,8 @@ module Ai
       end
 
       def merge_knowledge_graph_node(winner, loser)
-        winner_node = winner.knowledge_graph_node
-        loser_node = loser.knowledge_graph_node
+        winner_node = winner.knowledge_graph_node_for(account.id)
+        loser_node = loser.knowledge_graph_node_for(account.id)
         return unless loser_node
 
         if winner_node

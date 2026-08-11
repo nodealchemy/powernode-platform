@@ -151,7 +151,7 @@ module Ai
 
       # Use pgvector nearest_neighbors to suggest relationships with confidence scores
       def auto_detect_relationships(skill, similarity_threshold: 0.7)
-        node = skill.knowledge_graph_node
+        node = skill.knowledge_graph_node_for(account.id)
         return [] unless node&.embedding.present?
 
         # Find similar skill nodes via pgvector

@@ -113,6 +113,22 @@ check_pattern "Permission-based authorization" \
     "grep -r 'require_permission' server/app/controllers/ | wc -l" \
     "positive" "10"
 
+# Tenancy guard for the skill knowledge-graph reader. Ai::Skill#knowledge_graph_node
+# is a bare has_one: the unique index is per [account_id, ai_skill_id] and
+# sync_to_knowledge_graph gives a GLOBAL skill (account_id nil) one active node PER
+# ACCOUNT by design, so for a global skill the association returns an ARBITRARY
+# tenant's node. Callers holding an account must use #knowledge_graph_node_for.
+# 019fedd4 / 019ff1eb converted 15 app call sites across 11 files; this keeps the
+# 16th from appearing.
+#
+# app/ only — specs legitimately exercise the association itself (its active-only
+# scoping is IMP-8eb424f427bc's coverage), so they are deliberately not scanned.
+# `ds.` is excluded: Ai::DataSource has its OWN knowledge_graph_node association
+# with a different (non-unique) index and its own tenancy question — see 019ff1eb.
+check_pattern "Skill KG-node reads are account-scoped (no bare has_one in app/)" \
+    "grep -rn '\.knowledge_graph_node\b' server/app/ --include=*.rb | grep -v 'knowledge_graph_node_for\|knowledge_graph_nodes' | grep -v 'ds\.knowledge_graph_node' | wc -l" \
+    "empty" "0"
+
 # Cross-tenant IDOR guard: api/v1 controllers must not query account-scoped
 # models through a bare-constant receiver on a user param (Model.find(params[..]),
 # Model.find_by(id: params[..]), Model.all). The check-account-scoping.sh guard

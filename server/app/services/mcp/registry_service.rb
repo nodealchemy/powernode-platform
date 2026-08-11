@@ -650,7 +650,7 @@ module Mcp
 
     required_capabilities.each do |cap|
       cap_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: cap)
-      cap_node = cap_skill&.knowledge_graph_node
+      cap_node = cap_skill&.knowledge_graph_node_for(@account.id)
       next unless cap_node&.status == "active"
 
       neighbors = graph_service.find_neighbors(node: cap_node, depth: 1, relation_types: %w[requires related_to])
