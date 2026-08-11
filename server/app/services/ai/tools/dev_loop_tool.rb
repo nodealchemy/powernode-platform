@@ -498,13 +498,7 @@ module Ai
         evidence_source = nil
         if outcome == "passed"
           adjudication = ::Ai::Ralph::TestVerificationService.adjudicate_check_results(params[:check_results])
-          if adjudication[:verdict] == :contradicted
-            return error_result(
-              "passed outcome contradicted by its own check_results evidence " \
-              "(every parsed tally shows failures: #{adjudication[:tallies].map { |t| "#{t[:framework]}: #{t[:failures]} failures" }.join(', ')}) — " \
-              "fix and re-report, or report outcome=failed"
-            )
-          end
+          return error_result(contradiction_error(adjudication)) if adjudication[:verdict] == :contradicted
           verification = adjudication[:verdict]
           evidence_source = adjudication[:source]
         end
@@ -641,6 +635,33 @@ module Ai
         when "blocked" then task.can_block?
         when "skipped" then task.can_skip?
         else false
+        end
+      end
+
+      # The two adjudication paths contradict for DIFFERENT reasons, and saying
+      # which is the difference between a message that teaches the fix and one
+      # that reads like a bug. The old single message claimed "every parsed tally
+      # shows failures", true of neither: DECLARED is ALL-green so one failure
+      # contradicts even beside a passing suite, and INFERRED can contradict with
+      # a 0-failure/0-passed tally present. Offer 019fed52 was filed off that
+      # wording — it concluded the adjudicator mishandled red-first, when the
+      # contract routes red-first safely and the message just never said how.
+      #
+      # Names only the FAILING suites: listing a green one as evidence against the
+      # pass is what made the old message read as a false positive.
+      def contradiction_error(adjudication)
+        failing = Array(adjudication[:tallies])
+                  .select { |t| t[:failures].to_i.positive? }
+                  .map { |t| "#{t[:framework]}: #{t[:failures]}" }.join(", ")
+
+        if adjudication[:source] == :declared
+          "passed outcome contradicted by its own DECLARED evidence — declared suites must ALL be green, " \
+            "and these reported failures (#{failing}). Declare only the FINAL GREEN runs and put a red-first " \
+            "run in a plain key beside evidence (e.g. red_first: \"5 examples, 5 failures before the fix\"), " \
+            "never inside it — or report outcome=failed"
+        else
+          "passed outcome contradicted by its own check_results evidence — no parsed tally shows a clean run, " \
+            "and these show failures (#{failing}) — fix and re-report, or report outcome=failed"
         end
       end
 

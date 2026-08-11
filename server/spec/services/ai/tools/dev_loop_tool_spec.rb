@@ -1003,6 +1003,43 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(recommendation.reload.status).to eq("approved")
     end
 
+    # The refusal message was inaccurate on BOTH paths and taught nothing. It
+    # claimed "every parsed tally shows failures", which is false for a DECLARED
+    # block (ALL-green: any single failure contradicts, even beside a green) and
+    # also false for inference (a 0-failure/0-passed tally is not green but shows
+    # no failures). Offer 019fed52 was filed off that wording, concluding the
+    # adjudicator mishandled red-first when in fact the contract routes red-first
+    # safely — the message just never said how.
+    it "names only the failing suites and teaches the red-first split, when DECLARED" do
+      result = complete_with({ "evidence" => [
+        { "framework" => "rspec", "passed" => 12, "failed" => 0 },
+        { "framework" => "jest",  "passed" => 0,  "failed" => 3 }
+      ] })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/jest: 3/)
+      expect(result[:error]).not_to match(/every parsed tally/)
+      expect(result[:error]).not_to match(/rspec/)          # the green one is not evidence against
+      expect(result[:error]).to match(/red_first/)          # tells the executor where it belongs
+    end
+
+    it "still refuses a declared green+red pair and leaves the task in_progress" do
+      complete_with({ "evidence" => [
+        { "framework" => "rspec", "passed" => 12, "failed" => 0 },
+        { "framework" => "jest",  "passed" => 0,  "failed" => 3 }
+      ] })
+
+      expect(adj_task.reload.status).to eq("in_progress")
+      expect(recommendation.reload.status).to eq("approved")
+    end
+
+    it "does not claim every tally failed on the INFERRED path either" do
+      result = complete_with({ "rspec" => "90 examples, 1 failure" })
+
+      expect(result[:error]).not_to match(/every parsed tally/)
+      expect(result[:error]).to match(/rspec: 1/)
+    end
+
     it "records an unevidenced pass as attested and does not auto-apply the linked offer" do
       result = complete_with(nil)
 
