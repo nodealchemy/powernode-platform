@@ -82,7 +82,10 @@ module Ai
         current_version = skill.versions.active.first
 
         # Gather compound learnings relevant to this skill
-        embedding = skill.knowledge_graph_node&.embedding
+        # Account-scoped: a global skill carries one node PER ACCOUNT, so the bare
+        # has_one would seed this account's learning context from another
+        # tenant's embedding (IMP-019fedd4).
+        embedding = skill.knowledge_graph_node_for(account.id)&.embedding
         learning_context = ""
 
         if embedding

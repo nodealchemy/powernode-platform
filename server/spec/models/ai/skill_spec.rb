@@ -71,6 +71,94 @@ RSpec.describe Ai::Skill, type: :model do
   # skill. This is the account-scoped reader that callers holding an account must
   # use — the same lookup shape SkillGraph::BridgeService#sync_skill already uses
   # for exactly this reason (IMP-059e6c5af2bf).
+  # IMP-019fedd4, the half left open by f5cdfc8ca. recalculate_effectiveness!
+  # weighted kg_confidence at 0.3 off the bare has_one, so a GLOBAL skill's single
+  # effectiveness_score column was computed from whichever tenant's node the DB
+  # happened to return — non-deterministic, and one account's data leaking into a
+  # score every other account reads.
+  #
+  # effectiveness_score is one global column, so there is no per-tenant answer to
+  # give a global skill. It therefore gets the NEUTRAL 0.5 the method already uses
+  # when no node exists: deterministic, and no cross-tenant read. An account-owned
+  # skill keeps using its own account's node.
+  #
+  # Assertions are RELATIVE (against a no-node control, or against the score
+  # moving) so they do not encode the unrelated usage/compound-learning terms.
+  describe "#recalculate_effectiveness! tenant scoping" do
+    let(:account_a) { create(:account) }
+    let(:account_b) { create(:account) }
+
+    # NB: skill.update! re-syncs the skill's KG node and RESETS its confidence
+    # (measured: 0.0 -> 1.0), so a helper that saves the skill destroys the very
+    # value it is about to measure. Usage counts are therefore seeded at creation,
+    # and confidence is set immediately before each recalculation with no
+    # intervening skill save.
+    def recalc(skill)
+      skill.recalculate_effectiveness!
+      skill.reload.effectiveness_score
+    end
+
+    def scored_with(skill, account_id, confidence)
+      skill.knowledge_graph_node_for(account_id).update!(confidence: confidence)
+      recalc(skill)
+    end
+
+    def global_skill(name)
+      create(:ai_skill, account: nil, is_system: true, name: name,
+                        positive_usage_count: 8, negative_usage_count: 2)
+    end
+
+    def owned_skill(name)
+      create(:ai_skill, account: account_a, name: name,
+                        positive_usage_count: 8, negative_usage_count: 2)
+    end
+
+    # The control: a global skill with NO node anywhere already takes the 0.5
+    # neutral path, so a global skill WITH foreign nodes must score identically.
+    it "scores a GLOBAL skill as if it had no node, not off a foreign tenant's" do
+      with_foreign = global_skill("Global Foreign")
+      create(:ai_knowledge_graph_node, account: account_a, entity_type: "skill",
+             ai_skill_id: with_foreign.id, status: "active", confidence: 1.0)
+      create(:ai_knowledge_graph_node, account: account_b, entity_type: "skill",
+             ai_skill_id: with_foreign.id, status: "active", confidence: 0.0)
+      control = global_skill("Global Control")
+
+      expect(recalc(with_foreign)).to eq(recalc(control))
+    end
+
+    it "is deterministic for a global skill whichever tenant's node happens to exist" do
+      high = global_skill("G High")
+      low  = global_skill("G Low")
+      create(:ai_knowledge_graph_node, account: account_a, entity_type: "skill",
+             ai_skill_id: high.id, status: "active", confidence: 1.0)
+      create(:ai_knowledge_graph_node, account: account_b, entity_type: "skill",
+             ai_skill_id: low.id, status: "active", confidence: 0.0)
+
+      expect(recalc(high)).to eq(recalc(low))
+    end
+
+    # An account-owned skill must still be sensitive to ITS OWN node...
+    it "still tracks an account-owned skill's own node confidence" do
+      skill = owned_skill("Owned Scorer")
+
+      high = scored_with(skill, account_a.id, 1.0)
+      low  = scored_with(skill, account_a.id, 0.0)
+
+      expect(low).to be < high
+    end
+
+    # ...and insensitive to any other tenant's.
+    it "ignores another tenant's node for an account-owned skill" do
+      skill = owned_skill("Owned Isolated")
+      before = scored_with(skill, account_a.id, 0.5)
+
+      create(:ai_knowledge_graph_node, account: account_b, entity_type: "skill",
+             ai_skill_id: skill.id, status: "active", confidence: 1.0)
+
+      expect(scored_with(skill, account_a.id, 0.5)).to eq(before)
+    end
+  end
+
   describe "#knowledge_graph_node_for" do
     let(:account_a) { create(:account) }
     let(:account_b) { create(:account) }

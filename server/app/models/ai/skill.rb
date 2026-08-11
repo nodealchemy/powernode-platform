@@ -300,7 +300,12 @@ module Ai
     end
 
     def recalculate_effectiveness!
-      kg_confidence = knowledge_graph_node&.confidence || 0.5
+      # Account-scoped, NEVER the bare has_one. effectiveness_score is ONE global
+      # column, so a global skill (account_id nil) has no per-tenant answer to give
+      # and takes the same neutral 0.5 as a skill with no node at all. Reading the
+      # has_one here weighted 0.3 of every account's score by whichever tenant's
+      # node the DB happened to return (IMP-019fedd4).
+      kg_confidence = (account_id && knowledge_graph_node_for(account_id)&.confidence) || 0.5
       usage_rate = usage_success_rate
       learning_eff = compound_learning_effectiveness
 
