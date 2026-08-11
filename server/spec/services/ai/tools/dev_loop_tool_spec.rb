@@ -1137,8 +1137,13 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(task.required_capabilities).to eq(%w[ruby])
     end
 
+    # Claimed by ANOTHER principal: an operator overriding an executor, which is
+    # the seam's purpose — allowed, but warned, because that executor already
+    # holds the old brief. (Self-claimed brief edits are refused outright; see
+    # the conflict-of-interest specs below.)
     it "warns when amending an in_progress task whose executor already holds the old brief" do
       tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+      task.reload.update!(metadata: task.metadata.merge("claimed_by" => "agent:other-drain"))
 
       result = update(acceptance_criteria: "Changed mid-flight")
 
@@ -1202,6 +1207,42 @@ RSpec.describe Ai::Tools::DevLoopTool do
 
       expect(task.reload.metadata["operator_edits"].size)
         .to be <= Ai::RalphTask::OPERATOR_JOURNAL_LIMIT
+    end
+
+    # IMP-3c15b871f6bd. The abuse shape is self-serving: claim a task, weaken the
+    # brief you are about to be judged against, report passed — a :verified
+    # adjudication then auto-applies the linked offer. Refuse the brief edit only
+    # when the SAME principal currently holds the claim.
+    it "refuses to let the current claimant rewrite the brief it will be judged against" do
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+
+      result = update(acceptance_criteria: "trivially satisfiable")
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/claimed by you/i)
+      expect(task.reload.acceptance_criteria).to eq("Original criteria")
+    end
+
+    it "refuses a self-claimed description rewrite for the same reason" do
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+
+      expect(update(description: "something easier")[:success]).to be false
+    end
+
+    it "still allows the claimant to append a note — that cannot weaken the brief" do
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+
+      result = update(note: "blocked on a missing fixture")
+
+      expect(result[:success]).to be true
+      expect(task.reload.metadata["operator_notes"].last["note"]).to eq("blocked on a missing fixture")
+    end
+
+    it "allows an operator to amend a task claimed by someone else" do
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+      task.reload.update!(metadata: task.metadata.merge("claimed_by" => "agent:someone-else"))
+
+      expect(update(acceptance_criteria: "operator amendment")[:success]).to be true
     end
 
     it "rejects an unknown field rather than silently dropping it" do

@@ -258,6 +258,10 @@ module Ai
 
         attrs = params.to_h.stringify_keys.slice(*Ai::RalphTask::OPERATOR_EDITABLE_FIELDS).compact
         note = params[:note]
+
+        if (refusal = self_claimed_brief_edit_refusal(task, attrs))
+          return error_result(refusal)
+        end
         if attrs.empty? && note.blank?
           return error_result("Nothing to update — supply a note or one of: " \
                               "#{Ai::RalphTask::OPERATOR_EDITABLE_FIELDS.join(', ')}.")
@@ -279,6 +283,43 @@ module Ai
         # Shape rejection from RalphTask::OPERATOR_FIELD_SHAPES — fail at the seam
         # rather than persisting a scalar that raises TypeError later.
         error_result(e.message)
+      end
+
+      # Fields that define what "done" means for the task. Editing these is the
+      # only way an amendment can lower the bar the executor is judged against.
+      BRIEF_FIELDS = %w[description acceptance_criteria].freeze
+
+      # IMP-3c15b871f6bd. dev_update_task is documented as an OPERATOR seam, but
+      # it is reachable by anything that can claim a task, so the abuse shape is
+      # self-serving: claim a task, weaken the brief, report passed — a :verified
+      # adjudication then auto-applies the linked improvement offer, and the edit
+      # is journalled with the executor's own ref as though it were operator
+      # intent.
+      #
+      # The guard is the CONFLICT OF INTEREST, not the principal kind or a
+      # permission. Both of those proxies were considered and rejected: on this
+      # deployment the operator reaches MCP as an instance principal (the dev-cell
+      # drives the loop as `instance:<id>`), so refusing agent:/instance: — or
+      # requiring a permission that an instance principal cannot present, since
+      # enforce_permission! returns early for them — would lock the real operator
+      # out of the tool while leaving a user-principal executor free to do exactly
+      # what this prevents. Holding the claim is the thing that actually creates
+      # the conflict, and it is available on the row.
+      #
+      # Deliberately narrow: notes and routing fields stay open (a note cannot
+      # lower the bar), amendments to unclaimed/pending/blocked tasks stay open,
+      # and amending a task claimed by SOMEONE ELSE stays open — that is an
+      # operator overriding an executor, which is the whole point of the seam.
+      def self_claimed_brief_edit_refusal(task, attrs)
+        return nil unless task.in_progress?
+        return nil if (attrs.keys & BRIEF_FIELDS).empty?
+
+        claimed_by = task.metadata.is_a?(Hash) ? task.metadata["claimed_by"] : nil
+        return nil if claimed_by.blank? || claimed_by != claimant_ref
+
+        "Refusing to edit #{BRIEF_FIELDS.join('/')} on #{task.task_key}: it is currently claimed by you " \
+        "(#{claimed_by}). An executor must not rewrite the brief it will be judged against — report the " \
+        "task (dev_complete_task) or have another principal amend it. Notes and routing fields are still editable."
       end
 
       def find_task(loop_record, key)
