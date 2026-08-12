@@ -456,6 +456,66 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       expect(enqueued.first.first).to eq("AiProvisioningStepJob")
     end
 
+    it "re-dispatches ONLY the steps that were never enqueued, when a layer was partly enqueued" do
+      # Not reachable through today's composers — persist_diff_plan! chains
+      # every diff, so layer 1 is always exactly one step — but the all-or-
+      # nothing stamp made it a trap for the first composer that fans out: a
+      # raise on the 2nd of 2 enqueues left step A queued and NOTHING stamped,
+      # so the retry re-enqueued A as well. Stamping per step at enqueue is what
+      # makes the retry set exact.
+      stub_gate(gate_answering("auto_apply_within_bounds",
+                               approval_request_id: SecureRandom.uuid, authority: "approval"))
+      plan = build_diff_plan!(steps: [
+        { "skill" => "scale_project", "on_failure" => "continue",
+          "inputs" => { "change_type" => "scale_horizontal", "desired_replica_count" => 4,
+                        "project_id" => mission.id, "target_count" => 2,
+                        "scaling_strategy" => "add_replicas" } },
+        { "skill" => "attach_storage", "on_failure" => "continue",
+          "inputs" => { "mission_id" => mission.id } }
+      ])
+      # Fan the two appended steps out into one layer, then fail the 2nd enqueue.
+      service.dispatch!(plan: plan) rescue nil
+      appended = live_plan.reload.steps.order(:step_number).to_a.last(2)
+      appended.each { |s| s.update!(status: "pending", dependencies: [], metadata: {}) }
+      plan.update!(status: "draft")
+
+      calls = 0
+      allow(WorkerJobService).to receive(:enqueue_job) do |*_a|
+        calls += 1
+        raise RuntimeError, "redis blip" if calls == 2
+        true
+      end
+      service.dispatch!(plan: plan.reload)
+
+      stamped, unstamped = appended.map(&:reload).partition { |s| s.metadata["adaptation_dispatched"].present? }
+      expect(stamped.size).to eq(1)
+      expect(unstamped.size).to eq(1)
+
+      enqueued = []
+      allow(WorkerJobService).to receive(:enqueue_job) { |*args| enqueued << args[1][:args][:step_id]; true }
+      service.dispatch!(plan: plan.reload)
+
+      # Only the unstamped one is re-enqueued — the already-queued step is not
+      # handed a second job.
+      expect(enqueued).to eq([ unstamped.first.id ])
+    end
+
+    it "reports already_applied — not applied_dispatch_failed — when a run is already in flight" do
+      # execute_appended!'s in-flight arm returns dispatched: 0 with
+      # already_running: true. Labelling that `applied_dispatch_failed` told the
+      # caller to re-run work that is currently executing.
+      stub_gate(gate_answering("auto_apply_within_bounds"))
+      plan = build_diff_plan!
+      service.dispatch!(plan: plan)
+      appended = live_plan.reload.steps.order(:step_number).last
+      appended.update!(status: "executing")
+
+      result = service.dispatch!(plan: plan.reload)
+
+      expect(result[:gate]).to eq(described_class::GATE_ALREADY_APPLIED)
+      expect(result[:dispatched]).to be false
+    end
+
     it "still REFUSES when an appended step is already past pending" do
       stub_gate(gate_answering("auto_apply_within_bounds"))
       plan = build_diff_plan!
@@ -632,6 +692,10 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       expect(plan.reload.status).to eq("failed")
       # The whole point: no fabricated EFFECTIVE in the ground-truth table.
       expect(gate).not_to have_received(:record_adaptation_outcome!)
+      # And the operator is told WHY. The reason was derived from the adaptation's
+      # own checks, which all pass in exactly these two new failure modes, so it
+      # persisted an empty explanation for the only cases this closed.
+      expect(plan.validation_result["failure_reason"]).to match(/live_reconciliation|reconciler/i)
     end
 
     it "FAILS CLOSED when the reconciler answers for only some of the adaptation's instances" do
@@ -652,6 +716,7 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
 
       expect(result[:healthy]).to be false
       expect(gate).not_to have_received(:record_adaptation_outcome!)
+      expect(plan.reload.validation_result["failure_reason"]).to match(/not answered for|i-4/i)
     end
 
     it "still treats core mode (no reconciler) as verifiable, not as a blocker" do
@@ -799,6 +864,7 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
 
       first, second = live_plan.reload.steps.order(:step_number).to_a.last(2)
       runner = build_runner
+      orchestrator = runner.orchestrator
       failing = Class.new do
         def self.descriptor = { rollback: nil }
         def execute(**_inputs) = { success: false, error: "provider rejected the request" }
@@ -813,6 +879,12 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       expect(second.reload.status).to eq("failed")
       expect(plan.reload.status).to eq("failed")
       expect(gate).not_to have_received(:record_adaptation_outcome!)
+      # ...and ANNOUNCED. Every other status transition in this runner emits the
+      # canonical provisioning_step_changed event; flipping these silently left a
+      # subscribed console rendering them `pending` forever while the rows said
+      # otherwise.
+      expect(orchestrator).to have_received(:broadcast_step_event!)
+        .with(hash_including(step: second, status: "failed"))
     end
 
     it "still advances a mission adapted while it was in the EXECUTE phase" do

@@ -415,15 +415,25 @@ module Ai
         # and a caller reading true would believe work was in flight when none
         # had been enqueued.
         dispatched = run[:dispatched].to_i.positive?
-        stamp_dispatched!(steps, run[:runner_id]) if dispatched
+
+        # The runner's in-flight arm means a run is UNDER WAY, not that the
+        # dispatch failed. Labelling it applied_dispatch_failed told the caller
+        # to re-run work that is currently executing, while the very next line
+        # said "already in flight".
+        unless dispatched
+          gate = run[:already_running] ? GATE_ALREADY_APPLIED : GATE_APPLIED_DISPATCH_FAILED
+          detail = run[:already_running] ? "a run is already in flight for these steps" :
+                                           "runner enqueued nothing — re-run to dispatch"
+          return base.merge(gate: gate, dispatched: false, live_plan_id: live_plan.id,
+                            appended_step_numbers: numbers, runner_id: run[:runner_id],
+                            detail: detail)
+        end
 
         base.merge(
-          gate: dispatched ? base[:gate] : GATE_APPLIED_DISPATCH_FAILED,
-          dispatched: dispatched,
+          dispatched: true,
           live_plan_id: live_plan.id,
           appended_step_numbers: numbers,
-          runner_id: run[:runner_id],
-          detail: dispatched ? base[:detail] : "runner dispatched no step (a run is already in flight)"
+          runner_id: run[:runner_id]
         )
       end
 
@@ -438,14 +448,14 @@ module Ai
       # discriminator is therefore "did ANY of these steps get handed to a
       # runner", not "were they all".
       def resume_or_refuse(plan, live_plan, existing, base)
-        never_enqueued = existing.none? { |s| dispatch_stamp(s).present? }
+        resumable = resumable_steps(existing, live_plan)
 
-        if never_enqueued && existing.all? { |s| s.status.to_s == "pending" }
+        if resumable.any?
           Rails.logger.info(
-            "[AdaptationDispatchService] plan #{plan.id} was appended but never enqueued — " \
-            "re-dispatching #{existing.size} step(s)."
+            "[AdaptationDispatchService] plan #{plan.id}: #{resumable.size} appended step(s) " \
+            "were never enqueued — re-dispatching."
           )
-          return dispatch_appended!(plan, live_plan, existing, base, claim: plan.status.to_s == "draft")
+          return dispatch_appended!(plan, live_plan, resumable, base, claim: plan.status.to_s == "draft")
         end
 
         Rails.logger.info(
@@ -459,21 +469,27 @@ module Ai
         )
       end
 
-      # Record that these steps were handed to a runner. This is the ONLY thing
-      # that distinguishes "appended and enqueued" from "appended and never
-      # enqueued" — both leave the rows `pending` until a worker picks them up,
-      # so without it re-entry has to guess, and either guess is a permanent
-      # stall or a duplicate enqueue.
-      def stamp_dispatched!(steps, runner_id)
-        Array(steps).each do |step|
-          meta = step.metadata.is_a?(Hash) ? step.metadata.dup : {}
-          meta[DISPATCH_STAMP_KEY] = { "runner_id" => runner_id, "at" => Time.current.iso8601 }
-          step.update_columns(metadata: meta, updated_at: Time.current)
+      # Which appended steps should a re-entry hand to the runner?
+      #
+      # Exactly those that are PENDING, carry no dispatch stamp (so no worker
+      # has ever been given them — see SkillCompositionRunner#stamp_dispatched!),
+      # and are READY, meaning every dependency has completed.
+      #
+      # Readiness is what keeps this from running a chained adaptation out of
+      # order: a layer-2 step is legitimately pending and unstamped while
+      # layer 1 is still executing, and re-dispatching it would run it before
+      # its predecessor. The ordinary successor dispatch owns that step; this
+      # only ever resumes work nothing else will pick up.
+      def resumable_steps(existing, live_plan)
+        completed = live_plan.steps.select { |s| s.status.to_s == "completed" }
+                             .map { |s| s.step_number.to_i }.to_set
+
+        existing.select do |s|
+          next false unless s.status.to_s == "pending"
+          next false if dispatch_stamp(s).present?
+
+          Array(s.dependencies).map(&:to_i).all? { |d| completed.include?(d) }
         end
-      rescue StandardError => e
-        # Losing the stamp costs a redundant enqueue on re-entry (harmless — the
-        # runner's per-step guard refuses the second), never a double provision.
-        Rails.logger.warn("[AdaptationDispatchService] dispatch stamp failed: #{e.message}")
       end
 
       def dispatch_stamp(step)
@@ -652,12 +668,7 @@ module Ai
       # checks at all. Unverifiable-and-declared is not the same as unanswered,
       # and the failing form of that same check was already caught above.
       def instances_fully_scored?(steps, checks)
-        ids = steps.flat_map { |s| produced_instance_ids(s) }.uniq
-        return true if ids.empty?
-        return true if Array(checks).any? { |c| c[:name].to_s == LIVE_RECONCILIATION_CHECK }
-
-        scored = Array(checks).filter_map { |c| c[:name].to_s[/\Ainstance_(.+)\z/, 1] }.to_set
-        ids.all? { |id| scored.include?(id) }
+        unanswered_instance_ids(steps, checks).empty?
       end
 
       def produced_instance_ids(step)
@@ -677,15 +688,44 @@ module Ai
         Rails.logger.warn("[AdaptationDispatchService] step mirror failed for #{plan.id}: #{e.message}")
       end
 
+      # Why this adaptation was scored unhealthy, in the operator's words.
+      #
+      # Must cover every branch #adaptation_healthy? can fail on, not just the
+      # adaptation's own checks. In BOTH fail-closed modes this commit added —
+      # a raising reconciler, and one that answers for only some instances —
+      # every `:mine` check passes and every step completed, so deriving the
+      # reason from those alone persisted `"... failed for plan <uuid>: "` with
+      # nothing after the colon. The two conditions most in need of an
+      # explanation were the two that got none.
       def unhealthy_reason(plan, steps, checks)
         failed_steps = steps.reject { |s| s.status.to_s == "completed" }
         if failed_steps.any?
           return "adaptation step(s) #{failed_steps.map(&:step_number).join(', ')} did not complete"[0, 500]
         end
 
-        failing = own_checks(steps, checks).reject { |c| c[:ok] }
-        summary = failing.first(3).map { |c| "#{c[:name]}: #{c[:detail]}" }.join("; ")
-        "post-adapt verification failed for plan #{plan.id}: #{summary}"[0, 500]
+        buckets = bucketed_checks(steps, checks)
+        failing = (buckets[:global] + buckets[:mine]).reject { |c| c[:ok] == true }
+        if failing.any?
+          summary = failing.first(3).map { |c| "#{c[:name]}: #{c[:detail]}" }.join("; ")
+          return "post-adapt verification failed for plan #{plan.id}: #{summary}"[0, 500]
+        end
+
+        unanswered = unanswered_instance_ids(steps, checks)
+        if unanswered.any?
+          return "post-adapt verification incomplete for plan #{plan.id}: instance(s) " \
+                 "#{unanswered.first(5).join(', ')} were not answered for by the live reconciler"[0, 500]
+        end
+
+        "post-adapt verification failed for plan #{plan.id}"
+      end
+
+      def unanswered_instance_ids(steps, checks)
+        ids = steps.flat_map { |s| produced_instance_ids(s) }.uniq
+        return [] if ids.empty?
+        return [] if Array(checks).any? { |c| c[:name].to_s == LIVE_RECONCILIATION_CHECK }
+
+        scored = Array(checks).filter_map { |c| c[:name].to_s[/\Ainstance_(.+)\z/, 1] }.to_set
+        ids.reject { |id| scored.include?(id) }
       end
     end
   end

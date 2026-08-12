@@ -104,10 +104,14 @@ module Ai
                          "approval gate as action_type project.adapt_<change_type> — the same queue the " \
                          "sensor-driven proposals use — so the operator's intervention policies decide " \
                          "between immediate application and require-approval. Returns the plan id, its " \
-                         "steps, and an explicit gate disposition: `routed` (a gate holds it), " \
-                         "`auto_apply_within_bounds` (applied — the steps were appended onto the " \
-                         "mission's live plan and dispatched), or `parked_gate_unavailable` (no gate " \
-                         "could answer; the plan stays in draft and NOTHING ran).",
+                         "steps, and an explicit gate disposition — one of: `routed` (a gate holds " \
+                         "it for a decision; nothing ran), `auto_apply_within_bounds` (applied — the " \
+                         "steps were appended onto the mission's live plan and dispatched), " \
+                         "`parked_gate_unavailable` (no gate could answer; the plan stays in draft " \
+                         "and NOTHING ran), `applied_dispatch_failed` (the steps WERE appended but " \
+                         "none was enqueued — re-run this action to dispatch them), or " \
+                         "`already_applied` (the steps are appended and a run is in flight or " \
+                         "finished; re-running does nothing).",
             parameters: {
               mission_id: { type: "string", required: true, description: "Infrastructure mission ID" },
               change_type: { type: "string", required: true,

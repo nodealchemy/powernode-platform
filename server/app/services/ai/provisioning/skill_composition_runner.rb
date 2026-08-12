@@ -358,6 +358,35 @@ module Ai
           },
           queue: "ai_execution"
         )
+        stamp_dispatched!(step)
+      end
+
+      # Record, PER STEP and immediately after its own enqueue, that this step
+      # was handed to a worker. AdaptationDispatchService reads it back to decide
+      # what a re-entry should re-dispatch.
+      #
+      # Per step, not per call, because a layer is enqueued one job at a time: a
+      # raise partway through leaves earlier steps queued, and an all-or-nothing
+      # stamp written after the loop would record nothing — so the retry would
+      # re-enqueue an already-queued step. Two jobs against one step row is not
+      # merely wasteful: `execute_step!`'s in-flight guard is an unlocked
+      # read-then-write, so two workers can both read `pending` and both invoke
+      # the executor. (Not reachable through today's composers —
+      # `persist_diff_plan!` chains every diff, so a layer is always one step —
+      # but the shape is a trap for the first composer that fans out.)
+      #
+      # Best-effort: losing a stamp costs a redundant enqueue on re-entry, never
+      # a lost dispatch.
+      def stamp_dispatched!(step)
+        return unless step.respond_to?(:metadata) && step.respond_to?(:update_columns)
+
+        meta = step.metadata.is_a?(Hash) ? step.metadata.dup : {}
+        meta[::Ai::Provisioning::AdaptationDispatchService::DISPATCH_STAMP_KEY] = {
+          "runner_id" => @runner_id, "at" => Time.current.iso8601
+        }
+        step.update_columns(metadata: meta, updated_at: Time.current)
+      rescue StandardError => e
+        Rails.logger.warn("[SkillCompositionRunner] dispatch stamp failed for step #{step_id(step)}: #{e.message}")
       end
 
       # After a step completes, any successor whose remaining dependencies
@@ -559,7 +588,13 @@ module Ai
                          .map { |s| s.step_number.to_i }.to_set
         return if failed.empty?
 
-        loop do
+        # BOUNDED by the sibling count. Termination otherwise depends on
+        # mark_failed actually changing the status, and mark_failed is
+        # deliberately defensive — it no-ops for a duck-typed step responding to
+        # neither `fail!` nor `update!`, which this runner explicitly accepts —
+        # while step_status returns "pending" for anything without `status`.
+        # That pair spins a worker instead of raising.
+        siblings.size.times do
           newly = siblings.select do |s|
             step_status(s) == "pending" &&
               Array(s.dependencies).map(&:to_i).any? { |d| failed.include?(d) }
@@ -567,7 +602,12 @@ module Ai
           break if newly.empty?
 
           newly.each do |s|
-            mark_failed(s, "predecessor adaptation step failed — never dispatched")
+            reason = "predecessor adaptation step failed — never dispatched"
+            mark_failed(s, reason)
+            # ANNOUNCE, like every other status transition here. Flipping these
+            # silently left a console subscribed to MissionChannel rendering
+            # them `pending` indefinitely while the rows said otherwise.
+            announce_step(s, status: "failed", outputs: { error: reason }, error: reason)
             failed << s.step_number.to_i
           end
         end
