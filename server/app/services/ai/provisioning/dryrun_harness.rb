@@ -284,9 +284,11 @@ module Ai
           @soak_pump ? @soak_pump.call : sleep(@poll_interval)
 
           m = uncached_reload(mission)
-          if ::Ai::Mission::TERMINAL_STATUSES.include?(m.status.to_s)
-            # The sensor stops watching a non-active mission, so the rest of the
-            # window would observe nothing while reporting a full soak.
+          unless m.status.to_s == "active"
+            # ACTIVE, not merely non-terminal: the sensor's scope is
+            # `status: "active"`, so a PAUSED mission is just as unobserved as a
+            # cancelled one, and the rest of the window would see nothing while
+            # reporting a full soak.
             @soak_stop_reason = "mission_#{m.status}"
             add_finding("soak", "mission left the observable state mid-soak (status='#{m.status}') " \
                                 "after #{iterations} iteration(s)", :high)
