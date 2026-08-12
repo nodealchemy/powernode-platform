@@ -286,9 +286,14 @@ module Ai
           end
 
           if budget_exhausted?
+            # Stopping is the safe direction, so the ceiling acts on the
+            # account-wide window it can actually measure (executions carry no
+            # mission link). The FINDING says so rather than claiming the soak
+            # itself spent it — on a busy account it may not have.
             @soak_stop_reason = "budget_ceiling"
-            add_finding("soak", "soak stopped at the LLM budget ceiling " \
-                                "($#{format('%.4f', llm_spend_usd)} of $#{budget_ceiling_usd})", :high)
+            add_finding("soak", "soak stopped at the LLM budget ceiling: $#{format('%.4f', llm_spend_usd)} " \
+                                "spent account-wide since the run started, ceiling $#{budget_ceiling_usd} " \
+                                "(#{BUDGET_SETTING})", :medium)
             break
           end
 
@@ -491,11 +496,22 @@ module Ai
         []
       end
 
-      # Volumes still pointing at a terminated instance under this run's prefix.
-      # Traversed through the association rather than the volume model so the
-      # check reads whatever storage the instance actually carries.
+      # Volumes still pointing at an instance THIS RUN saw terminated, under this
+      # run's prefix. Traversed through the association rather than the volume
+      # model so the check reads whatever storage the instance actually carries.
+      #
+      # Scoped to the run's own window on purpose. Terminating an instance does
+      # not detach its volumes, so every instance the harness itself sweeps ends
+      # up looking exactly like this — a real gap (the sweep leaks volumes), but
+      # a separate one, and halting a LATER teardown over it would strand a fleet
+      # to protest something that teardown cannot fix. What this catches is a
+      # removal that dropped its instance and left the storage behind while the
+      # run is still live, which is the leak the charter stops for.
       def dangling_volume_attachments
-        dryrun_instances.select { |i| i.status.to_s == "terminated" }.flat_map do |instance|
+        window = @started_at || 1.hour.ago
+        dryrun_instances.select { |i|
+          i.status.to_s == "terminated" && i.updated_at.present? && i.updated_at >= window
+        }.flat_map do |instance|
           next [] unless instance.respond_to?(:provider_volumes)
 
           instance.provider_volumes.pluck(:id).map { |vid| { instance: instance.name, volume_id: vid } }
