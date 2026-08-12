@@ -627,6 +627,28 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
         .to eq([ "running" ])
     end
 
+    it "can still tear itself down when a SHORTER-prefixed neighbour owns nothing" do
+      # The neighbour's fleet query is `dryrun-<runId>%`, which also matches THIS
+      # run's `dryrun-<runId>extra-…` instances. Read naively, a retained run
+      # refuses its own teardown while naming a neighbour that owns nothing —
+      # reachable from a legal sequence (clean run, then a longer-prefixed one).
+      Ai::Mission.create!(account: account, created_by: user, mission_type: "infrastructure",
+                          name: "dryrun-#{run_id}", objective: "swept clean", status: "completed")
+
+      longer_id = "#{run_id}extra"
+      described_class.new(account: account, user: user, objective: objective, run_id: longer_id,
+                          cleanup: false, phase_pump: worker_pump,
+                          compose_timeout: 30, execute_timeout: 60).run
+      expect(System::NodeInstance.where("name LIKE ?", "dryrun-#{longer_id}%").count).to eq(3)
+
+      result = described_class.new(account: account, user: user, objective: objective,
+                                   run_id: longer_id).teardown_only!
+
+      expect(System::NodeInstance.where("name LIKE ?", "dryrun-#{longer_id}%").pluck(:status).uniq)
+        .to eq([ "terminated" ])
+      expect(result.findings.map(&:dimension)).not_to include("teardown")
+    end
+
     it "does not report a clean PASS for a teardown that found nothing to tear down" do
       # A mistyped run_id must not exit 0 with a green report: "swept nothing"
       # and "there was nothing to sweep" are the same output otherwise.

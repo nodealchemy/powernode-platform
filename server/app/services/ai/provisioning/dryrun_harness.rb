@@ -51,7 +51,11 @@ module Ai
       GATE_PRIOR_SETTING   = "ai_dryrun_gate_prior"
       # How long a gate claim counts as alive before its mission exists — the
       # window between enable_gate! and create_and_start_mission!, which a
-      # concurrent run must not reap out from under.
+      # concurrent run must not reap out from under. One-sided by design: a run
+      # that somehow takes longer than this to create its mission can have its
+      # claim reaped and then run with the gate off, which costs it the routing
+      # oracle (visible as a `routing` finding), not the fleet. The opposite
+      # choice — never reaping — is what latches the gate on forever.
       HOLDER_GRACE_SECONDS = 120
       # The provisioning legs are DONE at one of these; a supervised run always
       # approves handoff to reach adapting, because handoff is a gate, never a
@@ -694,15 +698,28 @@ module Ai
       end
 
       # Whether a `dryrun-<runId>` prefix still has non-terminated instances of
-      # its own. Account-scoped and LIKE-escaped like every other prefix query.
+      # ITS OWN. Account-scoped and LIKE-escaped like every other prefix query.
+      #
+      # "Of its own" is the whole difficulty: when the neighbour's prefix
+      # subsumes this run's, its LIKE also matches this run's instances
+      # (`dryrun-evo-10-node-1` starts with `dryrun-evo-1`), so a retained
+      # `evo-10` would refuse its own teardown while naming an `evo-1` that owns
+      # nothing standing — a deadlock, from a legal sequence. Subtract this run's
+      # instances in exactly that direction. Never in the other one: when THIS
+      # run is the shorter prefix, every neighbour instance legitimately starts
+      # with it, and subtracting would blind the check completely.
       def standing_fleet?(prefix)
         return false unless defined?(::System::NodeInstance)
 
         like = "#{ActiveRecord::Base.sanitize_sql_like(prefix.to_s)}%"
-        ::System::NodeInstance.where(account_id: @account.id)
-                              .where("name LIKE ?", like)
-                              .where.not(status: "terminated")
-                              .exists?
+        scope = ::System::NodeInstance.where(account_id: @account.id)
+                                      .where("name LIKE ?", like)
+                                      .where.not(status: "terminated")
+        if name_prefix.start_with?(prefix.to_s) && name_prefix != prefix.to_s
+          mine = "#{ActiveRecord::Base.sanitize_sql_like(name_prefix)}%"
+          scope = scope.where.not("name LIKE ?", mine)
+        end
+        scope.exists?
       end
 
       def cancel_mission!(mission)
