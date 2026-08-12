@@ -416,6 +416,29 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
                                  .where.not(status: "terminated").count).to eq(2)
     end
 
+    it "still reports an orphan under --no-cleanup, where there is no sweep to halt" do
+      # The halt is the consequence; the ORACLE is the point. A retained run is
+      # exactly the forensics case, so it must not be the one that says nothing.
+      reported = false
+      pump = lambda do
+        soak_pump.call
+        next 1 if reported
+
+        reported = true
+        mission = Ai::Mission.find_by(name: "dryrun-#{run_id}")
+        plan = Ai::GoalPlan.find(mission.configuration.dig("plan", "plan_id"))
+        step = plan.steps.order(:step_number).last
+        step.update!(metadata: (step.metadata || {}).merge(
+          "last_outputs" => { "outputs" => { "orphans" => [ { "resource" => "provider_volume", "ids" => %w[v-1] } ] } }
+        ))
+        1
+      end
+
+      result = harness(soak: true, soak_pump: pump, soak_max_iterations: 2, cleanup: false).run
+
+      expect(result.findings.map(&:dimension)).to include("orphan")
+    end
+
     it "terminalizes the pipeline but leaves the fleet standing under --no-cleanup" do
       result = soak_harness(cleanup: false).run
 

@@ -448,15 +448,20 @@ module Ai
       #      against a fleet that is about to be swept. Unconditional, exactly as
       #      before: `--no-cleanup` opts out of the SWEEP, never out of stopping
       #      the pipeline.
-      #   2. assert the zero-orphan family, and HALT before the sweep if it fails
-      #      (charter §9 stop condition) so forensics see the leak against a
-      #      fleet that still matches the plan.
-      #   3. tear down the instances (only when @cleanup), recording completeness.
+      #   2. assert the zero-orphan family — ALWAYS, `--no-cleanup` included: the
+      #      halt is only the consequence, the oracle is the point, and a
+      #      retained run is precisely the forensics case that must not be the
+      #      one that says nothing.
+      #   3. HALT before the sweep when that oracle fails (charter §9 stop
+      #      condition) so the leak is read against a fleet that still matches
+      #      the plan.
+      #   4. tear down the instances (only when @cleanup), recording completeness.
       def finalize!(mission)
         cancel_mission!(mission) if mission
+        orphaned = record_orphan_findings!(mission)
         return unless @cleanup
 
-        if record_orphan_findings!(mission)
+        if orphaned
           @halt_before_teardown = true
           Rails.logger.warn("[DryrunHarness] orphan(s) present under #{name_prefix} — " \
                             "halting before teardown; sweep with the explicit teardown command " \
