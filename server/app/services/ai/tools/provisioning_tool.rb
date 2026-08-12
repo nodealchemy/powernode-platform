@@ -117,10 +117,11 @@ module Ai
               change_type: { type: "string", required: true,
                              description: "One of: #{adapt_change_types.join(', ')}. " \
                                           "NOTE: `cost_control` is accepted by the schema but is NOT " \
-                                          "currently actuatable — it scales IN, and no scale-in strategy " \
-                                          "exists yet, so every call fails. Pending `remove_replicas` " \
-                                          "(IMP-216a6dbc7e32). Do not retry it; it will not begin working " \
-                                          "without that change." },
+                                          "currently actuatable — it scales IN, and while the scaling " \
+                                          "skill now offers `remove_replicas`, nothing composes a " \
+                                          "scale-in step yet (no delta, no inputs), so every call " \
+                                          "fails. Do not retry it; it will not begin working without " \
+                                          "a scale-in composer." },
               metric: { type: "string", required: false,
                         description: "Optional metric that motivated the change (e.g. p99_latency_ms)" },
               details: { type: "object", required: false,
