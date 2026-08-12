@@ -40,6 +40,10 @@ module Ai
       # ArgumentError so MCP/tool callers that already funnel ArgumentError
       # into an error envelope get a clean message for free.
       class UnknownChangeTypeError < ArgumentError; end
+      # Requestable and well-formed, but not actuatable yet. ArgumentError for
+      # the same reason as above — callers already funnel it into an error
+      # envelope with the message intact.
+      class UnsupportedChangeTypeError < ArgumentError; end
 
       # Maps a signal kind (and optional payload metric) to the canonical
       # change_type used by the proposer + intervention policy resolver.
@@ -58,6 +62,14 @@ module Ai
         attach_storage
         configure_sdwan_for_project
       ].freeze
+
+      # Change types the deterministic composer fully owns. Every
+      # sensor-derived signal lands in this set (CHANGE_TYPES maps them to
+      # scale_horizontal / cost_control, and region_count drift to relocate),
+      # so the autonomous path is deterministic end-to-end. Change types only
+      # an operator can request (schema_change, security_change) still route
+      # to the LLM — see #build_steps_for.
+      DETERMINISTIC_CHANGE_TYPES = %w[scale_horizontal cost_control relocate].freeze
 
       DEFAULT_SKILL_FOR_CHANGE = {
         "scale_horizontal" => "scale_project",
@@ -78,6 +90,77 @@ module Ai
       # request, so downstream consumers can tell an operator-initiated
       # adaptation apart from a sensor-initiated one.
       EXPLICIT_SIGNAL_KIND = "operator.adaptation_request"
+
+      # Inputs describing the footprint a mission already runs, read off its
+      # original provisioning plan so a scale-out replicates that footprint
+      # rather than inventing a new one — see #existing_footprint.
+      #
+      # KNOWN LIMITATION, stated plainly so this is not read as a guarantee:
+      # `network_id` and `with_storage_gb` are the keys that would make a
+      # composed scale-out arrive with an SDWAN peer and a volume instead of
+      # bare compute, and the provisioning primitive does thread both. But
+      # PlanComposerService does not currently STAMP either key onto the
+      # `provision_full_stack` step it composes (it merges only count,
+      # dry_run, region, instance type and template), so in practice they are
+      # absent from the plan this reads and every composed scale-out is
+      # compute-only today. The threading below is correct and takes effect
+      # the moment the composer supplies them; until then this is plumbing,
+      # not a working guarantee. Tracked as a separate offer.
+      FOOTPRINT_KEYS = %w[
+        template_id
+        provider_region_id
+        provider_instance_type_id
+        network_id
+        with_storage_gb
+      ].freeze
+
+      # The only additive scaling strategy the `scale_project` skill offers.
+      # A plain string flowing through the skill-resolution seam (slug →
+      # bound executor) — core deliberately does not reference the extension
+      # executor or its strategy list.
+      SCALE_OUT_STRATEGY = "add_replicas"
+
+      # Kwargs the `scale_project` skill requires. Mirrored core-side (core
+      # cannot read the executor's descriptor across the skill seam); the
+      # extension-side contract spec asserts this list still matches the
+      # executor's own required inputs, so the two cannot drift silently.
+      SCALE_PROJECT_REQUIRED_INPUTS = %w[
+        project_id
+        target_count
+        scaling_strategy
+      ].freeze
+
+      # Fallback ceiling on a single scale-out step, used only when the
+      # mission declares no `watch_policies.max_scale_out_delta`. The skill
+      # that actuates the step enforces its own bound and rejects anything
+      # above it; core cannot read that bound (it belongs to the executor
+      # behind the skill seam), so this mirrors it as a documented core-side
+      # default rather than importing it. See #max_scale_out_delta.
+      DEFAULT_MAX_SCALE_OUT_DELTA = 50
+
+      # Compute-side footprint keys the scaling skill requires for an
+      # additive strategy. Without all three the step cannot bind, so the
+      # composer declines rather than emitting it (see #scale_out_inputs).
+      COMPUTE_FOOTPRINT_KEYS = %w[
+        template_id
+        provider_region_id
+        provider_instance_type_id
+      ].freeze
+
+      # How often a repeating decline may log. See #log_decline_throttled.
+      DECLINE_LOG_INTERVAL = 1.hour
+
+      # Change types that remain REQUESTABLE — so the advertised MCP schema
+      # stays stable across INC-4 — but cannot be actuated yet. An operator
+      # asking for one gets this reason instead of a generic "nothing could
+      # be composed".
+      UNSUPPORTED_CHANGE_TYPES = {
+        "cost_control" =>
+          "cost_control is not supported until a scale-in strategy exists " \
+          "(INC-4 / `remove_replicas`): it scales IN, and the scaling skill " \
+          "offers only additive strategies, so any composed step would fail " \
+          "at execution."
+      }.freeze
 
       DEFAULT_TEMPERATURE = 0.2
       DEFAULT_MAX_TOKENS  = 1024
@@ -130,6 +213,15 @@ module Ai
           raise UnknownChangeTypeError,
                 "Unknown change_type '#{change_type}' — must be one of: " \
                 "#{REQUESTABLE_CHANGE_TYPES.join(', ')}"
+        end
+
+        # Interactive caller — give it the actionable reason rather than
+        # letting composition return an empty result the caller can only
+        # report as "nothing could be composed". The sensor path stays silent
+        # (it declines inside the composer); only this one raises, matching
+        # this method's documented raise-don't-swallow contract.
+        if (reason = UNSUPPORTED_CHANGE_TYPES[normalized])
+          raise UnsupportedChangeTypeError, reason
         end
 
         signal = explicit_signal(normalized, metric: metric, details: details)
@@ -321,16 +413,43 @@ module Ai
 
       # ----- step composition ---------------------------------------------
 
+      # DETERMINISTIC-FIRST. The LLM used to run first and win whenever it
+      # returned anything allowlisted — #sanitize_steps validates the skill
+      # slug and injects mission_id, nothing else — so with an active provider
+      # credential (the production default) the deterministic composer below
+      # never ran. LLM steps shipped without `project_id` / `target_count` /
+      # `scaling_strategy` and failed at execution with "missing required
+      # input: project_id", and the cost_control decline was unreachable.
+      #
+      # The deterministic composer is the one that knows the executor
+      # contract, so it OWNS every change type it can compose — which is
+      # every sensor-derived one. The LLM is reserved for change types only an
+      # operator can request, where there is no structured composition to use.
+      # This mirrors the provisioning decomposition redesign, which replaced
+      # LLM decomposition with deterministic synthesis for recognized briefs.
+      #
+      # An EMPTY deterministic result is a decision (converged, or a declined
+      # cost_control), never a miss — it must not fall through to the LLM.
       def build_steps_for(signal, change_type)
-        # Try the LLM first; fall back to the heuristic when it returns nothing.
+        if DETERMINISTIC_CHANGE_TYPES.include?(change_type)
+          return stamp_composition_source!(heuristic_steps(signal, change_type), "deterministic")
+        end
+
         from_llm = safe_call { diff_from_llm(signal: signal, change_type: change_type) }
         sanitized = sanitize_steps(from_llm)
         if sanitized.any?
           decorate_with_signal_metadata!(sanitized, signal)
-          return sanitized
+          return stamp_composition_source!(sanitized, "llm")
         end
 
-        heuristic_steps(signal, change_type)
+        stamp_composition_source!(heuristic_steps(signal, change_type), "deterministic")
+      end
+
+      # Provenance stamp so an operator reading a persisted plan can tell
+      # which composer produced each step. Lives at step level rather than in
+      # `inputs` so it never reaches an executor as a kwarg.
+      def stamp_composition_source!(steps, source)
+        Array(steps).each { |step| step["composed_by"] = source }
       end
 
       # Mirror the heuristic path: ensure correlation_id from the originating
@@ -362,10 +481,25 @@ module Ai
 
         case change_type
         when "scale_horizontal"
-          inputs["desired_replica_count"] = recommended_replica_count(payload)
+          scale_inputs = scale_out_inputs(payload)
+          return [] if scale_inputs.nil?
+
+          inputs.merge!(scale_inputs)
         when "cost_control"
-          inputs["target_cost_usd"] = payload["target_usd"]
-          inputs["desired_replica_count"] = downscale_replica_count
+          # A cost breach implies scaling IN, and no scale-in strategy exists:
+          # the `scale_project` skill offers only additive strategies. Any
+          # step composed here would name an actuator it cannot bind to —
+          # it fails at execution with `missing required input: project_id` —
+          # which is exactly what shaping to the executor contract forbids.
+          # Declining is the honest composition. INC-4 (IMP-216a6dbc7e32)
+          # adds `remove_replicas`; wire this branch up then.
+          log_decline_throttled(
+            "cost_control",
+            "[AdaptationProposerService] declining to compose cost_control for " \
+            "mission=#{mission.id}: no scale-in strategy available " \
+            "(target_usd=#{payload['target_usd'].inspect})"
+          )
+          return []
         when "relocate"
           inputs["target_regions"] = brief_regions
         end
@@ -388,18 +522,227 @@ module Ai
 
           inputs = h["inputs"].is_a?(Hash) ? h["inputs"] : {}
           inputs["mission_id"] ||= mission.id
+          next nil unless bindable?(skill, inputs)
+
           on_failure = %w[rollback continue].include?(h["on_failure"]) ? h["on_failure"] : "rollback"
 
           { "skill" => skill, "inputs" => inputs, "on_failure" => on_failure }
         end
       end
 
-      def recommended_replica_count(payload)
-        # SLO violation → scale up. Use breach_pct to pick a step.
-        breach = payload["breach_pct"].to_f
-        current = brief_initial_replicas
-        return nil unless current.positive?
+      # A composed step must carry the kwargs its executor requires, NO MATTER
+      # which composer produced it. The deterministic path supplies them by
+      # construction, but #sanitize_steps validates only the skill slug, so an
+      # LLM-composed `scale_project` (still reachable for the operator-only
+      # change types) could otherwise ship without `project_id` /
+      # `target_count` / `scaling_strategy` and fail at execution with
+      # "missing required input: project_id" — the exact defect the
+      # deterministic-first inversion removed from the sensor lanes. Dropping
+      # the step here lets the diff fall through to a composition that binds,
+      # rather than persisting one that cannot.
+      def bindable?(skill, inputs)
+        return true unless skill == "scale_project"
 
+        missing = SCALE_PROJECT_REQUIRED_INPUTS.reject { |key| inputs[key].present? }
+        return true if missing.empty?
+
+        Rails.logger.warn(
+          "[AdaptationProposerService] dropping scale_project step for mission=#{mission.id}: " \
+          "missing required executor inputs #{missing.inspect}"
+        )
+        false
+      end
+
+      # Composes the scale-out half of a `scale_horizontal` adaptation, or nil
+      # when there is nothing to do. Returning nil collapses the whole diff to
+      # empty, so the proposer produces no plan at all — that is what makes a
+      # converged system quiet.
+      #
+      # Two different semantics share this branch and must not be conflated:
+      #
+      #   DRIFT — the signal carries both the ground truth (`observed`) and
+      #     the declared `target`, so the correct action is to CONVERGE: close
+      #     exactly the observed gap. Composing off `brief.scale.initial`
+      #     instead ignored the observation entirely, and because the drift
+      #     sensor derives its expected replica count FROM that same brief
+      #     value, every drift proposal landed exactly one above the target
+      #     and re-fired on the next tick — a ratchet, not a correction.
+      #
+      #   SLO — a latency/availability breach has no replica target to
+      #     converge on, so the deliberate +1/+2 stepping off the brief is
+      #     correct and is preserved verbatim below.
+      def scale_out_inputs(payload)
+        # Read the observation ONCE and thread it through. Two independent
+        # reads race the metrics collector on the same 60s tick chain: a row
+        # landing between them makes the delta non-positive (the proposal
+        # silently vanishes) or overshoots the target.
+        observed = observed_replica_count(payload)
+        return nil if observed.nil?
+
+        desired = recommended_replica_count(payload, observed: observed)
+        return nil if desired.nil?
+
+        delta = desired - observed
+        if delta <= 0
+          # Converged (0) or over-provisioned (<0). `scale_project` offers
+          # only additive strategies, so there is no scale-IN to compose:
+          # emitting an add_replicas step for an over-count would grow a
+          # fleet that is already too large. Stay quiet instead.
+          log_decline_throttled(
+            "no_scale_out",
+            "[AdaptationProposerService] no scale-out composed mission=#{mission.id} " \
+            "observed=#{observed} desired=#{desired} (delta=#{delta})"
+          )
+          return nil
+        end
+
+        # Decline at COMPOSE time when the compute-side footprint is unknown.
+        # A mission composed by a path that emits no template (or whose
+        # original plan is gone) yields no template/region/instance-type, and
+        # the scaling skill rejects `add_replicas` without all three. Since
+        # #auto_apply? only measures the replica ceiling, an auto-apply policy
+        # would happily dispatch a step we already know cannot bind — the
+        # exact failure this composition exists to remove. Decline instead.
+        footprint = existing_footprint
+        missing = COMPUTE_FOOTPRINT_KEYS.reject { |key| footprint[key].present? }
+        if missing.any?
+          log_decline_throttled(
+            "missing_footprint",
+            "[AdaptationProposerService] no scale-out composed mission=#{mission.id}: " \
+            "unresolved footprint #{missing.inspect} — cannot bind #{SCALE_OUT_STRATEGY}"
+          )
+          return nil
+        end
+
+        # Bound a single step. The actuating skill rejects a delta above its
+        # own ceiling outright, so an unclamped delta composes a step that
+        # cannot bind. Clamping converges across successive passes instead —
+        # each pass closes up to the ceiling, monotonically toward target.
+        delta = [ delta, max_scale_out_delta ].min
+
+        # What this step actually REACHES, which is below `desired` whenever
+        # the delta was clamped. #auto_apply? measures this against
+        # `auto_scale_max_replicas`, so reporting the unreachable absolute
+        # would refuse auto-apply for a step well inside policy and strand
+        # the multi-pass convergence above, which only works unattended.
+        reachable = observed + delta
+
+        {
+          # Absolute count this step reaches — the policy-facing value
+          # #auto_apply? measures, and what the step description renders.
+          "desired_replica_count" => reachable,
+          # Executor-facing kwargs. `target_count` is a DELTA ("number of new
+          # instances"), NOT an absolute count — passing the absolute here
+          # would provision `desired` instances on top of the `observed` ones
+          # already running.
+          "project_id" => mission.id,
+          "target_count" => delta,
+          "scaling_strategy" => SCALE_OUT_STRATEGY
+        }.merge(footprint)
+      end
+
+      # Where the mission is scaling FROM — the LIVE fleet, never the brief.
+      #
+      # Drift carries the observation in its own payload. An SLO breach's
+      # `observed` is the breached metric (latency, availability), not a
+      # replica count, so its live count comes from the mission's latest
+      # observations — the same blob the drift sensor samples. The brief is a
+      # last resort only, for a mission with no observation yet.
+      #
+      # This baseline MUST be live. Stepping off `brief.scale.initial` makes
+      # `desired_replica_count` a CONSTANT, so #auto_apply?'s
+      # `auto_scale_max_replicas` ceiling never binds to the actual fleet:
+      # every tick recomputes the same "within cap" number while the fleet
+      # grows by the step size (3 → 5 → 7 → 9), each step reporting
+      # auto_apply: true. That is the same ratchet this service removes from
+      # the drift path, and it must not be reintroduced here.
+      # A real 0 is an OBSERVATION ("nothing is running"), not "unknown", and
+      # the two must not collapse: a fleet that is fully down while a critical
+      # availability breach fires is the strongest case for scaling out, and
+      # `primary_signal` sorts that breach ahead of the medium replica-drift
+      # signal, so the SLO path is the one that has to compose it. Only a
+      # genuine absence of any reading returns nil.
+      def observed_replica_count(payload)
+        return payload["observed"].to_i if replica_drift?(payload)
+
+        # SLO breaches carry the fleet size alongside the breached metric
+        # (`observed` there is latency/availability, not a count). The sensor
+        # that samples the telemetry is the ONLY reader — core does not query
+        # metrics itself, which would both duplicate the sampler and make core
+        # depend on an extension.
+        #
+        # Absent means "cannot see the fleet", and that is NOT the same
+        # statement as "the fleet is at its declared initial size". Falling
+        # back to `brief.scale.initial` here would make the baseline a
+        # constant, which is precisely the ratchet documented above: every
+        # tick would recompute the same "within cap" number while the fleet
+        # grew. An unobservable fleet must DECLINE, never degrade to intent.
+        count = payload["replica_count"]
+        count.nil? ? nil : count.to_i
+      end
+
+      # DB-driven per the platform's config convention: the mission's own
+      # `watch_policies` owns this, alongside `auto_scale_max_replicas`.
+      # Falls back to the documented core-side default.
+      # Bounded ABOVE by the core-side default as well: a mission configuring
+      # 100 against an actuator that refuses anything over its own ceiling
+      # would compose exactly the unbindable step this clamp exists to
+      # prevent. Config may only lower the bound, never raise it.
+      def max_scale_out_delta
+        configured = watch_policies["max_scale_out_delta"].to_i
+        return DEFAULT_MAX_SCALE_OUT_DELTA unless configured.positive?
+
+        [ configured, DEFAULT_MAX_SCALE_OUT_DELTA ].min
+      end
+
+      # Preference order MIRRORS the drift sensor's: the metric rows the
+      # collector actually writes on every tick first, then the legacy
+      # `latest_observations` config blob, which only bootstrap and spec
+      # missions carry.
+      #
+      # Reading the config blob alone would be a TEST-ONLY fix: the metrics
+      # collector writes metric ROWS and never writes back to
+      # `configuration`, so wherever metrics really flow the blob is absent,
+      # this returns nil, and the baseline silently falls back to the brief —
+      # restoring the exact ratchet the caller's comment forbids.
+      #
+      # A real 0 is a meaningful observation (nothing came up) and must be
+      # preserved, not treated as "no reading" — hence nil-checks rather than
+      # truthiness throughout.
+      # These declines re-evaluate on every tick, so an unthrottled log would
+      # repeat forever for a persistent breach. Keyed per mission and reason
+      # so distinct causes still surface independently.
+      #
+      # Fails OPEN: with no usable cache (null store, or a backend that
+      # errors) the message is logged rather than dropped — a repeated log is
+      # a smaller problem than a silently lost one.
+      def log_decline_throttled(reason, message)
+        store = Rails.cache
+        if store.nil? || store.is_a?(::ActiveSupport::Cache::NullStore)
+          Rails.logger.info(message)
+          return
+        end
+
+        key = "adaptation_proposer:decline:#{mission.id}:#{reason}"
+        return unless store.write(key, true, expires_in: DECLINE_LOG_INTERVAL, unless_exist: true)
+
+        Rails.logger.info(message)
+      rescue StandardError
+        Rails.logger.info(message)
+      end
+
+      def recommended_replica_count(payload, observed:)
+        # Drift → converge on the declared target.
+        return payload["target"].to_i if replica_drift?(payload)
+
+        # SLO violation → step up from the LIVE count. The +1/+2 stepping is
+        # deliberate — an SLO breach has no replica target to converge on —
+        # so only the BASELINE changes here, never the step size. `observed`
+        # is threaded in (never re-read) and may legitimately be 0.
+        current = observed
+        return nil if current.nil?
+
+        breach = payload["breach_pct"].to_f
         delta = if breach >= 50.0 then 2
         elsif breach >= 25.0 then 1
         else 1
@@ -408,14 +751,57 @@ module Ai
         current + delta
       end
 
-      def downscale_replica_count
-        current = brief_initial_replicas
-        return nil unless current >= 2
-        current - 1
+      def replica_drift?(payload)
+        payload["drift_type"].to_s == "replica_count" &&
+          payload["observed"].present? && payload["target"].present?
       end
 
-      def brief_initial_replicas
-        brief.dig("scale", "initial").to_i
+      # The footprint the mission already runs, read off the provisioning plan
+      # it was built from (`configuration.plan.plan_id` — the same seam
+      # VerificationService resolves). A scale-out must land on the same
+      # template/region/instance-type, and must carry the same network and
+      # per-instance storage, otherwise the new replicas come up as bare
+      # compute: no SDWAN peer, no volume.
+      #
+      # Missing keys are omitted rather than nil-filled so the executor's own
+      # required-input check fails loud instead of silently provisioning a
+      # degraded replica.
+      def existing_footprint
+        @existing_footprint ||= original_provision_inputs
+          .slice(*FOOTPRINT_KEYS)
+          .reject { |_k, v| v.nil? }
+      end
+
+      def original_provision_inputs
+        plan_id = mission.configuration.is_a?(Hash) ? mission.configuration.dig("plan", "plan_id") : nil
+        return {} if plan_id.blank?
+
+        # Account-scoped: `plan_id` comes off mission configuration, and an
+        # unscoped lookup would read another tenant's plan if it were ever
+        # wrong. Scope regardless of likelihood.
+        plan = ::Ai::GoalPlan.where(account_id: account.id).find_by(id: plan_id)
+        return {} unless plan
+
+        # The provisioning step is the one that named a template — matching on
+        # that rather than on a skill slug keeps this agnostic to which
+        # provisioning skill composed the original plan.
+        #
+        # KNOWN GAP (deferred, needs a placement decision): a multi-region
+        # mission fans out into one provision step PER REGION, and this takes
+        # the first. There is nothing here to tie-break on — neither the drift
+        # nor the SLO signal payload carries a region (both are mission-wide
+        # aggregates: `actual_replica_count` is a total, not a per-region
+        # count), so "which region absorbs the scale-out" is an unanswered
+        # placement-policy question (spread evenly? fill the emptiest? follow
+        # operator policy?) rather than a lookup bug. Picking the first region
+        # is at least deterministic and matches the mission's own first step.
+        step = plan.steps.in_order.detect { |s| step_config(s).dig("inputs", "template_id").present? }
+        return {} unless step
+
+        step_config(step)["inputs"] || {}
+      rescue StandardError => e
+        Rails.logger.warn("[AdaptationProposerService] footprint lookup failed: #{e.message}")
+        {}
       end
 
       def brief_regions

@@ -112,7 +112,11 @@ module Ai
                         description: "Optional metric that motivated the change (e.g. p99_latency_ms)" },
               details: { type: "object", required: false,
                          description: "Optional structured payload merged into the adaptation signal " \
-                                      "(observed, target, breach_pct, target_usd, correlation_id, …)" },
+                                      "(observed, target, breach_pct, target_usd, correlation_id, …). " \
+                                      "For scale_horizontal, include `replica_count` — the fleet's " \
+                                      "CURRENT replica count. The sensor supplies it on autonomous " \
+                                      "signals, but an operator-initiated request has no sensor, and " \
+                                      "the proposer declines rather than assuming the declared size." },
               proposed_change: { type: "object", required: false,
                                  description: "Legacy envelope: { change_type|kind: String, …details }. " \
                                               "Explicit change_type/metric/details take precedence." }

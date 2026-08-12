@@ -33,8 +33,49 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
 
   let(:watch_policies) { { "auto_scale_max_replicas" => 5 } }
 
-  let(:mission) do
-    create(
+  # Production shape: an active infrastructure mission was composed FROM a
+  # provisioning plan, and that plan's provision step is where the adaptation
+  # composer reads the footprint (template / region / instance type) a
+  # scale-out must replicate. Without it the composer declines rather than
+  # emitting an add_replicas step the scaling skill would reject, so these
+  # fixtures carry the plan a real mission always has.
+  let(:provisioning_footprint) do
+    {
+      "template_id" => "tmpl-fixture",
+      "provider_region_id" => "region-fixture",
+      "provider_instance_type_id" => "itype-fixture"
+    }
+  end
+
+  def stamp_provisioning_plan!(target)
+    goal = Ai::AgentGoal.create!(
+      account: account, agent: agent, title: "Provision",
+      description: "initial provisioning", goal_type: "improvement",
+      status: "pending", priority: 3, progress: 0.0,
+      success_criteria: {}, metadata: {}
+    )
+    plan = Ai::GoalPlan.create!(
+      account: account, goal: goal, agent: agent, status: "draft",
+      version: 1, plan_data: { "kind" => "provisioning" }
+    )
+    plan.steps.create!(
+      step_number: 1, step_type: "provisioning_skill", status: "pending",
+      description: "Provision full stack",
+      execution_config: { "skill" => "provision_full_stack",
+                          "inputs" => provisioning_footprint,
+                          "on_failure" => "rollback" },
+      dependencies: []
+    )
+    target.update!(configuration: target.configuration.merge(
+      "plan" => { "plan_id" => plan.id }
+    ))
+    target
+  end
+
+  # `let!` so the fixture plan + its goal exist BEFORE any example body runs —
+  # otherwise the goal-count assertions would capture this fixture's goal.
+  let!(:mission) do
+    m = create(
       :ai_mission,
       account: account,
       created_by: user,
@@ -45,7 +86,9 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         "slo_targets" => slo_targets,
         "watch_policies" => watch_policies
       }
-    ).tap { |m| m.update_columns(status: "active") }
+    )
+    m.update_columns(status: "active")
+    stamp_provisioning_plan!(m.reload)
   end
 
   subject(:service) { described_class.new(account: account, mission: mission) }
@@ -63,6 +106,11 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         "observed" => 500.0,
         "target" => 250.0,
         "breach_pct" => 100.0,
+        # ProjectSloSensor stamps the observed fleet size onto every SLO
+        # violation: `observed` above is the breached METRIC, so the replica
+        # count has to ride alongside it. The proposer reads only this — it
+        # never substitutes brief.scale.initial for an unobservable fleet.
+        "replica_count" => 3,
         "correlation_id" => "project_slo:#{mission.id}:111"
       },
       fingerprint: "project_slo_violation:#{mission.id}:p99_latency_ms"
@@ -136,11 +184,15 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       expect(desired).to eq(5)
     end
 
-    it "treats project_cost_breach as cost_control change_type" do
-      plan = service.propose_from_signals(signals: [cost_signal])
-      first_step = plan.steps.in_order.first
-      expect(first_step.execution_config.dig("inputs", "change_type")).to eq("cost_control")
-      expect(first_step.execution_config.dig("inputs", "target_cost_usd")).to eq(200.0)
+    it "declines to compose for project_cost_breach while no scale-in strategy exists" do
+      # Was: asserted a composed cost_control step carrying target_cost_usd.
+      # That step named `scale_project` but carried none of its required
+      # kwargs (project_id / target_count / scaling_strategy), so it could
+      # only ever fail at execution with "missing required input:
+      # project_id" — a cost breach implies scaling IN, and the skill offers
+      # only additive strategies. Declining is the correct composition until
+      # INC-4 (IMP-216a6dbc7e32) lands `remove_replicas`.
+      expect(service.propose_from_signals(signals: [cost_signal])).to be_nil
     end
 
     it "treats region drift as relocate change_type and emits relocate_workload" do
@@ -166,14 +218,20 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
     end
 
     it "reuses an existing adaptation goal across multiple signals" do
+      # Second signal must be one that actually COMPOSES, otherwise the
+      # assertion passes trivially without ever reaching find_or_create_goal!
+      # — cost_control now declines before that point.
       service.propose_from_signals(signals: [slo_signal])
-      expect { service.propose_from_signals(signals: [cost_signal]) }
+      expect { service.propose_from_signals(signals: [region_drift_signal]) }
         .not_to change(Ai::AgentGoal, :count)
     end
 
     it "increments plan version on subsequent proposals" do
+      # Second signal is region drift rather than a cost breach: cost_control
+      # no longer composes at all (see the decline spec above), so it cannot
+      # produce the second plan this assertion needs.
       first = service.propose_from_signals(signals: [slo_signal])
-      second = service.propose_from_signals(signals: [cost_signal])
+      second = service.propose_from_signals(signals: [region_drift_signal])
       expect(second.version).to eq(first.version + 1)
     end
 
@@ -181,7 +239,11 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       allow_any_instance_of(described_class).to receive(:diff_from_llm).and_return([
         {
           "skill" => "scale_project",
-          "inputs" => { "desired_replica_count" => 4, "change_type" => "scale_horizontal" },
+          # A "valid" scale_project proposal must carry the executor's
+          # required kwargs — without them the step is dropped as unbindable.
+          "inputs" => { "desired_replica_count" => 4, "change_type" => "scale_horizontal",
+                        "project_id" => "mission-x", "target_count" => 1,
+                        "scaling_strategy" => "add_replicas" },
           "on_failure" => "rollback"
         },
         {
@@ -191,7 +253,11 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         }
       ])
 
-      plan = service.propose_from_signals(signals: [slo_signal])
+      # Driven through an operator-only change type: composition is now
+      # deterministic-first, so scale_horizontal (and every other
+      # sensor-derived change type) never consults the LLM. schema_change has
+      # no deterministic composition, so it is where the LLM still composes.
+      plan = service.propose_change(change_type: "schema_change")[:plan]
       skills = plan.steps.in_order.pluck(:execution_config).map { |c| c["skill"] }
       expect(skills).to eq(%w[scale_project configure_sdwan_for_project])
     end
@@ -201,10 +267,10 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         { "skill" => "drop_database", "inputs" => {}, "on_failure" => "rollback" }
       ])
 
-      plan = service.propose_from_signals(signals: [slo_signal])
+      plan = service.propose_change(change_type: "schema_change")[:plan]
       # Falls back to the heuristic skill list — never invokes drop_database.
       skills = plan.steps.in_order.pluck(:execution_config).map { |c| c["skill"] }
-      expect(skills).to eq(["scale_project"])
+      expect(skills).to eq(["attach_storage"])
     end
 
     it "routes the resulting plan through ApprovalWorkflowService" do
@@ -220,14 +286,17 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       service.propose_from_signals(signals: [slo_signal])
     end
 
-    it "tags the action_type with the change_type for cost_breach" do
+    it "requests no approval for a cost_breach, because nothing is composed" do
+      # Was: asserted approval routing tagged "project.adapt_cost_control".
+      # Approval routing is downstream of composition, so declining to
+      # compose (above) necessarily means a cost breach no longer routes.
+      # Pinning that consequence explicitly rather than leaving it implied:
+      # restoring cost_control actuation in INC-4 must restore this too.
       approval_double = instance_double(Ai::Autonomy::ApprovalWorkflowService)
       allow(Ai::Autonomy::ApprovalWorkflowService).to receive(:new).and_return(approval_double)
-      expect(approval_double).to receive(:request_approval).with(
-        hash_including(action_type: "project.adapt_cost_control")
-      )
+      expect(approval_double).not_to receive(:request_approval)
 
-      service.propose_from_signals(signals: [cost_signal])
+      expect(service.propose_from_signals(signals: [cost_signal])).to be_nil
     end
 
     it "swallows exceptions and returns nil when persistence fails" do
@@ -284,6 +353,15 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       allow_any_instance_of(described_class).to receive(:llm_client).and_return(fake_llm_client)
     end
 
+    # Composition is deterministic-first: every sensor-derived change type is
+    # composed without consulting the LLM. These examples therefore drive
+    # `schema_change` — an operator-only change type with no deterministic
+    # composition — which is the lane where the LLM is still the composer.
+    # Its heuristic fallback skill is `attach_storage`.
+    def llm_composed_plan
+      service.propose_change(change_type: "schema_change")[:plan]
+    end
+
     it "produces a diff plan when the LLM returns a valid scale_project step" do
       fake_llm_client.next_response = llm_response_class.new(
         status: true,
@@ -291,14 +369,16 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
           [
             {
               "skill": "scale_project",
-              "inputs": { "desired_replica_count": 6, "change_type": "scale_horizontal" },
+              "inputs": { "desired_replica_count": 6, "change_type": "scale_horizontal",
+                          "project_id": "mission-x", "target_count": 2,
+                          "scaling_strategy": "add_replicas" },
               "on_failure": "rollback"
             }
           ]
         JSON
       )
 
-      plan = service.propose_from_signals(signals: [slo_signal])
+      plan = llm_composed_plan
 
       expect(plan).to be_a(Ai::GoalPlan)
       first = plan.steps.in_order.first
@@ -314,11 +394,11 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         content: '[{"skill": "drop_database", "inputs": {}, "on_failure": "rollback"}]'
       )
 
-      plan = service.propose_from_signals(signals: [slo_signal])
+      plan = llm_composed_plan
       skills = plan.steps.in_order.pluck(:execution_config).map { |c| c["skill"] }
       # `drop_database` is not in ADAPTATION_SKILLS — sanitize_steps drops it,
       # the array is empty, build_steps_for falls through to heuristic_steps.
-      expect(skills).to eq(["scale_project"])
+      expect(skills).to eq(["attach_storage"])
     end
 
     it "rescues malformed JSON, logs a warning, and falls back to the heuristic" do
@@ -331,11 +411,11 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
 
       allow(Rails.logger).to receive(:warn).and_call_original
 
-      plan = service.propose_from_signals(signals: [slo_signal])
+      plan = llm_composed_plan
 
       expect(Rails.logger).to have_received(:warn).with(a_string_matching(/diff JSON parse failed/))
       expect(plan).to be_a(Ai::GoalPlan)
-      expect(plan.steps.in_order.first.execution_config["skill"]).to eq("scale_project")
+      expect(plan.steps.in_order.first.execution_config["skill"]).to eq("attach_storage")
     end
 
     it "does NOT enforce mission.brief budget_cap_usd_monthly at this layer" do
@@ -344,23 +424,70 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       # concern (operator approval policy resolver + ApprovalWorkflowService).
       # Pinning this so a future refactor that moves enforcement upstream is
       # an intentional decision rather than incidental.
+      #
+      # Uses attach_storage rather than scale_project: an expensive step still
+      # passes through, but a scale_project step is additionally required to
+      # carry its executor's kwargs (see the guard example below), so it would
+      # confound the two contracts.
       expect(default_brief["budget_cap_usd_monthly"]).to eq(200.0)
 
       fake_llm_client.next_response = llm_response_class.new(
         status: true,
         content: <<~JSON
           [{
-            "skill": "scale_project",
-            "inputs": { "desired_replica_count": 100, "estimated_cost_usd_monthly": 10000 },
+            "skill": "attach_storage",
+            "inputs": { "size_gb": 100, "estimated_cost_usd_monthly": 10000 },
             "on_failure": "rollback"
           }]
         JSON
       )
 
-      plan = service.propose_from_signals(signals: [slo_signal])
+      plan = llm_composed_plan
       inputs = plan.steps.in_order.first.execution_config["inputs"]
-      expect(inputs["desired_replica_count"]).to eq(100)
+      expect(inputs["size_gb"]).to eq(100)
       expect(inputs["estimated_cost_usd_monthly"]).to eq(10000)
+    end
+
+    it "DROPS an LLM scale_project step that lacks the executor's required kwargs" do
+      # The allowlist validates the skill slug only, so without this guard an
+      # LLM-composed scale_project ships with no project_id / target_count /
+      # scaling_strategy and dies at execution with "missing required input:
+      # project_id" — the exact failure the deterministic-first inversion
+      # removed from the sensor lanes. The guard applies to ANY composed
+      # scale_project step, whichever composer produced it.
+      fake_llm_client.next_response = llm_response_class.new(
+        status: true,
+        content: <<~JSON
+          [{
+            "skill": "scale_project",
+            "inputs": { "desired_replica_count": 100 },
+            "on_failure": "rollback"
+          }]
+        JSON
+      )
+
+      plan = llm_composed_plan
+      skills = plan.steps.in_order.pluck(:execution_config).map { |c| c["skill"] }
+      # Dropped, so the diff falls through to a composition that binds.
+      expect(skills).not_to include("scale_project")
+      expect(skills).to eq(["attach_storage"])
+    end
+
+    it "KEEPS an LLM scale_project step that does carry them" do
+      fake_llm_client.next_response = llm_response_class.new(
+        status: true,
+        content: <<~JSON
+          [{
+            "skill": "scale_project",
+            "inputs": { "project_id": "mission-x", "target_count": 2,
+                        "scaling_strategy": "add_replicas" },
+            "on_failure": "rollback"
+          }]
+        JSON
+      )
+
+      plan = llm_composed_plan
+      expect(plan.steps.in_order.first.execution_config["skill"]).to eq("scale_project")
     end
 
     it "preserves the LLM-suggested skill verbatim while action_type derives from the signal" do

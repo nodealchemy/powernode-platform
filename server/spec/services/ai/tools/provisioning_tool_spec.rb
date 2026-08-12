@@ -439,12 +439,37 @@ RSpec.describe Ai::Tools::ProvisioningTool do
         .to receive(:diff_from_llm).and_return(nil)
     end
 
-    let(:adapt_mission) do
-      create_mission!(brief: {
+    # `let!` so the fixture plan exists BEFORE any example body runs —
+    # otherwise plan-count assertions would capture this fixture's plan.
+    let!(:adapt_mission) do
+      m = create_mission!(brief: {
         "intent" => "3-node web stack",
         "scale" => { "initial" => 3, "target" => 5, "growth_profile" => "linear" },
         "regions" => %w[us-east-1 us-west-2]
       })
+      # Production shape: the mission carries the provisioning plan whose
+      # provision step names the footprint (template / region / instance
+      # type) a scale-out must replicate. Without it the adaptation composer
+      # declines rather than emitting a step the scaling skill would reject.
+      goal = create_goal_for(m)
+      plan = ::Ai::GoalPlan.create!(
+        account: account, goal: goal, agent: agent, status: "draft",
+        version: 1, plan_data: { "kind" => "provisioning" }
+      )
+      plan.steps.create!(
+        step_number: 1, step_type: "provisioning_skill", status: "pending",
+        description: "Provision full stack",
+        execution_config: {
+          "skill" => "provision_full_stack",
+          "inputs" => { "template_id" => "tmpl-fixture",
+                        "provider_region_id" => "region-fixture",
+                        "provider_instance_type_id" => "itype-fixture" },
+          "on_failure" => "rollback"
+        },
+        dependencies: []
+      )
+      m.update!(configuration: m.configuration.merge("plan" => { "plan_id" => plan.id }))
+      m
     end
 
     def stub_approval_workflow(returning: nil)
@@ -470,7 +495,11 @@ RSpec.describe Ai::Tools::ProvisioningTool do
                mission_id: adapt_mission.id,
                change_type: "scale_horizontal",
                metric: "p99_latency_ms",
-               details: { "breach_pct" => 100.0, "observed" => 500.0, "target" => 250.0 })
+               # replica_count: the operator path has no sensor to observe the
+               # fleet, so the caller supplies it. Without it the proposer
+               # declines rather than guessing from the brief.
+               details: { "breach_pct" => 100.0, "observed" => 500.0, "target" => 250.0,
+                          "replica_count" => 3 })
 
       expect(r[:success]).to be true
       expect(r[:data]).not_to have_key(:todo)
@@ -507,7 +536,14 @@ RSpec.describe Ai::Tools::ProvisioningTool do
       expect(r[:data][:summary]).to be_present
     end
 
-    it "derives the action_type from the requested change_type (cost_control)" do
+    it "fails an operator cost_control request with a clear reason rather than an unbindable plan" do
+      # Was: asserted a composed cost_control plan whose first step named
+      # `scale_project`. That step carried none of the skill's required
+      # kwargs, so approving it produced "missing required input:
+      # project_id" at execution. A cost breach implies scaling IN and no
+      # scale-in strategy exists yet, so the proposer declines and the
+      # operator gets an immediate, explicit failure instead.
+      # INC-4 (IMP-216a6dbc7e32) adds `remove_replicas`; restore then.
       workflow = stub_approval_workflow
 
       r = call("platform_provisioning_adapt",
@@ -515,13 +551,9 @@ RSpec.describe Ai::Tools::ProvisioningTool do
                change_type: "cost_control",
                details: { "target_usd" => 200.0 })
 
-      expect(r[:success]).to be true
-      expect(workflow).to have_received(:request_approval).with(
-        hash_including(action_type: "project.adapt_cost_control")
-      )
-      first_step = r[:data][:adaptation_plan][:steps].first
-      expect(first_step[:skill]).to eq("scale_project")
-      expect(first_step[:inputs]["target_cost_usd"]).to eq(200.0)
+      expect(r[:success]).to be false
+      expect(r[:error]).to include("cost_control")
+      expect(workflow).not_to have_received(:request_approval)
     end
 
     it "still returns the plan when approval routing is inert (core mode returns nil)" do
@@ -543,7 +575,8 @@ RSpec.describe Ai::Tools::ProvisioningTool do
 
       r = call("platform_provisioning_adapt",
                mission_id: adapt_mission.id,
-               proposed_change: { "kind" => "scale_horizontal", "breach_pct" => 100.0 })
+               proposed_change: { "kind" => "scale_horizontal", "breach_pct" => 100.0,
+                                  "replica_count" => 3 })
 
       expect(r[:success]).to be true
       expect(r[:data][:change_type]).to eq("scale_horizontal")
