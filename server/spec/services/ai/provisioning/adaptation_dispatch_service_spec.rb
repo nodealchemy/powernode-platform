@@ -516,6 +516,38 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       expect(result[:dispatched]).to be false
     end
 
+    # THE INTERLEAVING, driven rather than described: dispatch_step_job enqueues
+    # and THEN stamps, so a worker that picks the job up and completes the step
+    # in between has already persisted metadata["last_outputs"]. A stamp that
+    # rewrites the whole metadata hash from its pre-enqueue snapshot loses it.
+    def enqueue_that_completes_the_step!(instance_ids: %w[i-3 i-4])
+      allow(WorkerJobService).to receive(:enqueue_job) do |_job, opts|
+        step = Ai::GoalPlanStep.find(opts[:args][:step_id])
+        step.update!(
+          status: "completed",
+          metadata: step.metadata.merge(
+            "last_outputs" => { "outputs" => { "node_instance_ids" => instance_ids },
+                                "failures" => [] }
+          )
+        )
+        true
+      end
+    end
+
+    it "does not clobber last_outputs when the worker completes between enqueue and stamp" do
+      stub_gate(gate_answering("auto_apply_within_bounds"))
+      enqueue_that_completes_the_step!
+      plan = build_diff_plan!
+
+      service.dispatch!(plan: plan)
+
+      appended = live_plan.reload.steps.order(:step_number).last
+      # BOTH writers must survive — the worker's outputs and the dispatch stamp.
+      expect(appended.metadata.dig("last_outputs", "outputs", "node_instance_ids"))
+        .to eq(%w[i-3 i-4])
+      expect(appended.metadata["adaptation_dispatched"]).to be_present
+    end
+
     it "still REFUSES when an appended step is already past pending" do
       stub_gate(gate_answering("auto_apply_within_bounds"))
       plan = build_diff_plan!
@@ -733,6 +765,35 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
 
       result = service.settle!(adaptation_plan_ids: [ plan.id ])
 
+      expect(result[:healthy]).to be true
+      expect(gate).to have_received(:record_adaptation_outcome!)
+    end
+
+    # The downstream consequence of the enqueue/stamp interleaving, asserted on
+    # the settle rather than on the metadata helper — a spec that only checked
+    # the merge in isolation would not be evidence that the lane is honest.
+    it "scores a real instance set after the worker-completes-mid-dispatch interleaving" do
+      gate = gate_answering("auto_apply_within_bounds")
+      allow(gate).to receive(:record_adaptation_outcome!).and_return(nil)
+      stub_gate(gate)
+      stub_confirming_verifier
+      allow(WorkerJobService).to receive(:enqueue_job) do |_job, opts|
+        step = Ai::GoalPlanStep.find(opts[:args][:step_id])
+        step.update!(status: "completed",
+                     metadata: step.metadata.merge(
+                       "last_outputs" => { "outputs" => { "node_instance_ids" => %w[i-3 i-4] },
+                                           "failures" => [] }))
+        true
+      end
+      plan = build_diff_plan!
+      service.dispatch!(plan: plan)
+
+      result = service.settle!(adaptation_plan_ids: [ plan.id ])
+
+      # A successful adaptation must settle successfully. Losing last_outputs
+      # makes step_N_count read "provisioned 0/2" and fails an adaptation that
+      # in fact worked — so the fingerprint-clear -> effective arc never fires
+      # for it and the outcome table simply never learns the remediation landed.
       expect(result[:healthy]).to be true
       expect(gate).to have_received(:record_adaptation_outcome!)
     end

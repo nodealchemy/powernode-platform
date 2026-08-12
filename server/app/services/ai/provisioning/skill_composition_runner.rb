@@ -377,14 +377,38 @@ module Ai
       #
       # Best-effort: losing a stamp costs a redundant enqueue on re-entry, never
       # a lost dispatch.
+      #
+      # ATOMIC KEY MERGE, not a whole-hash write. The stamp lands AFTER the
+      # enqueue, so a worker can pick the job up and finish the step first —
+      # `mark_completed` has then already persisted `metadata["last_outputs"]`.
+      # Rewriting the whole hash from the snapshot this method read before the
+      # enqueue silently dropped those outputs, and three separate readers go
+      # blind when it does:
+      #   - VerificationService counts `outputs.node_instance_ids` against the
+      #     step's declared count, so a scale-out that worked reads
+      #     "provisioned 0/2" and the adaptation is failed with NO outcome —
+      #     the fingerprint-clear -> effective arc never fires for it.
+      #   - `rollback_kwargs` loses the ids, so a compensating rollback no-ops
+      #     and live infrastructure survives it (the failure this runner's own
+      #     rollback comments record from dryrun 20260809b).
+      #   - `merge_depends_on_outputs` starves a chained successor of the values
+      #     it was supposed to inherit.
+      # A re-read-then-write would only narrow the window, not close it; the
+      # `||` merge is resolved by Postgres inside the UPDATE, so both writers
+      # survive whatever the interleaving.
       def stamp_dispatched!(step)
-        return unless step.respond_to?(:metadata) && step.respond_to?(:update_columns)
+        return unless step.respond_to?(:id) && step.class.respond_to?(:where)
 
-        meta = step.metadata.is_a?(Hash) ? step.metadata.dup : {}
-        meta[::Ai::Provisioning::AdaptationDispatchService::DISPATCH_STAMP_KEY] = {
-          "runner_id" => @runner_id, "at" => Time.current.iso8601
-        }
-        step.update_columns(metadata: meta, updated_at: Time.current)
+        stamp = {
+          ::Ai::Provisioning::AdaptationDispatchService::DISPATCH_STAMP_KEY => {
+            "runner_id" => @runner_id, "at" => Time.current.iso8601
+          }
+        }.to_json
+
+        step.class.where(id: step.id).update_all(
+          [ "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb, updated_at = ?",
+            stamp, Time.current ]
+        )
       rescue StandardError => e
         Rails.logger.warn("[SkillCompositionRunner] dispatch stamp failed for step #{step_id(step)}: #{e.message}")
       end
