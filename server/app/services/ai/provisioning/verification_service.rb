@@ -42,8 +42,10 @@ module Ai
 
         checks = []
         expectations = []
+        steps = plan.steps.order(:step_number).to_a
+        removed = removed_instance_ids(steps)
 
-        plan.steps.order(:step_number).each do |step|
+        steps.each do |step|
           cfg = step.execution_config.is_a?(Hash) ? step.execution_config.deep_stringify_keys : {}
           next if cfg["skill"].blank?
 
@@ -57,13 +59,19 @@ module Ai
           checks << check("#{prefix}_failures", failures.empty?,
                           failures.empty? ? "no recorded failures" : "recorded failures: #{failures.inspect[0, 300]}")
 
+          if removal_scaling?(step_inputs(cfg))
+            checks << removal_check(prefix, outs)
+            next
+          end
+
           ids = Array(outs.dig("outputs", "node_instance_ids")).map(&:to_s)
           expected = declared_instance_count(cfg)
           if expected.positive? || ids.any?
             checks << check("#{prefix}_count", ids.size == expected,
                             "provisioned #{ids.size}/#{expected} instances")
             region_id = cfg.dig("inputs", "provider_region_id")
-            ids.each { |id| expectations << { node_instance_id: id, provider_region_id: region_id } }
+            live = ids.reject { |id| removed.include?(id) }
+            live.each { |id| expectations << { node_instance_id: id, provider_region_id: region_id } }
           end
         end
 
@@ -101,7 +109,7 @@ module Ai
       # so an unscoped fallback would expect N and see 0 — failing that step,
       # and therefore the mission, permanently and unfixably.
       def declared_instance_count(cfg)
-        inputs = cfg["inputs"].is_a?(Hash) ? cfg["inputs"] : {}
+        inputs = step_inputs(cfg)
         declared = inputs["count"]
         if declared.blank? && additive_scaling?(inputs)
           declared = inputs["target_count"]
@@ -109,9 +117,58 @@ module Ai
         declared.to_i
       end
 
+      def step_inputs(cfg)
+        cfg["inputs"].is_a?(Hash) ? cfg["inputs"] : {}
+      end
+
       def additive_scaling?(inputs)
         inputs["scaling_strategy"].to_s ==
           ::Ai::Provisioning::AdaptationProposerService::SCALE_OUT_STRATEGY
+      end
+
+      def removal_scaling?(inputs)
+        inputs["scaling_strategy"].to_s ==
+          ::Ai::Provisioning::AdaptationProposerService::REMOVAL_STRATEGY
+      end
+
+      # A removal's success is that the victims are GONE — with their peers,
+      # membership mirrors and volumes — never that N instances exist.
+      #
+      # Grading it with the creation oracle above would fail `step_N_count`
+      # PERMANENTLY (a removal returns an empty node_instance_ids by
+      # construction), the mission would verify unhealthy forever, and since
+      # the adaptation lane settles on verification, every later adaptation on
+      # that mission could never settle. One removal would poison the whole
+      # evolution loop, so the branch is explicit rather than emergent from
+      # "expected == 0 and no ids".
+      #
+      # The oracle is the executor's post-teardown ground-truth sweep, recorded
+      # as `outputs.orphans`: it re-reads the peer / volume / instance rows
+      # after the teardown instead of trusting that the teardown returned
+      # success. Empty means the zero-orphan invariant held.
+      def removal_check(prefix, outs)
+        outputs = outs["outputs"].is_a?(Hash) ? outs["outputs"] : {}
+        orphans = Array(outputs["orphans"])
+        detail = "removed #{Array(outputs['removed_node_instance_ids']).size} instance(s), " \
+                 "#{Array(outputs['detached_sdwan_peer_ids']).size} peer(s), " \
+                 "#{Array(outputs['deleted_storage_volume_ids']).size} volume(s)"
+        detail += "; ORPHANS: #{orphans.inspect[0, 300]}" if orphans.any?
+        check("#{prefix}_removal", orphans.empty?, detail)
+      end
+
+      # Instances a removal step took out, across the whole plan.
+      #
+      # A victim was recorded by the step that CREATED it, and those ids are
+      # what reach the live reconciler. Left in, a SUCCESSFUL scale-in makes
+      # the reconciler report a terminated instance as not-running — so the
+      # mission verifies unhealthy forever, blamed on the creating step rather
+      # than the removing one. Collected up front because the removal step
+      # comes after the step whose expectations it invalidates.
+      def removed_instance_ids(steps)
+        steps.flat_map { |step|
+          outs = last_outputs(step)
+          Array(outs.dig("outputs", "removed_node_instance_ids"))
+        }.map(&:to_s).to_set
       end
 
       def last_outputs(step)

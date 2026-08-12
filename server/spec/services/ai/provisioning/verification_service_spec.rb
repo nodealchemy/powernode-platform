@@ -207,6 +207,83 @@ RSpec.describe Ai::Provisioning::VerificationService, type: :service do
     end
   end
 
+  # INC-4 (IMP-216a6dbc7e32): the scale-IN strategy. A removal creates
+  # nothing, so grading it with the instance-creation oracle fails
+  # `step_N_count` permanently — the mission then verifies unhealthy forever
+  # and, because the adaptation lane settles on verification, EVERY later
+  # adaptation on that mission can never settle. One removal would poison the
+  # mission's whole evolution loop. A removal's success is that the victims
+  # are GONE, with their peers and volumes — the executor's post-teardown
+  # ground-truth sweep, recorded as `outputs.orphans`.
+  context "with an appended removal step" do
+    def removal_step!(number:, orphans: [], removed: %w[i-1], status: "completed", failures: [])
+      plan.steps.create!(
+        step_number: number, step_type: "provisioning_skill", description: "Remove replicas",
+        status: status,
+        execution_config: { "skill" => "scale_project", "on_failure" => "rollback",
+                            "adapted_from_plan_id" => SecureRandom.uuid,
+                            "inputs" => { "target_count" => 1,
+                                          "scaling_strategy" => "remove_replicas" } },
+        metadata: { "last_outputs" => {
+          "outputs" => { "node_instance_ids" => [],
+                         "removed_node_instance_ids" => removed,
+                         "detached_sdwan_peer_ids" => %w[p-1],
+                         "deleted_storage_volume_ids" => %w[v-1],
+                         "orphans" => orphans },
+          "failures" => failures
+        } }
+      )
+    end
+
+    it "verifies HEALTHY after a removal and never grades it by an instance count" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      removal_step!(number: 2)
+      stub_verifier(nil)
+
+      result = service.verify
+
+      expect(result[:checks].map { |c| c[:name] }).not_to include("step_2_count")
+      removal_check = result[:checks].find { |c| c[:name] == "step_2_removal" }
+      expect(removal_check[:ok]).to be true
+      expect(result[:healthy]).to be true
+    end
+
+    it "is UNHEALTHY when the removal's own sweep recorded an orphan" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      removal_step!(number: 2,
+                    orphans: [ { "resource" => "sdwan_peer", "ids" => %w[p-9] } ],
+                    failures: [ { "step" => "remove_replicas", "error" => "orphaned resources" } ])
+      stub_verifier(nil)
+
+      result = service.verify
+
+      expect(result[:checks].find { |c| c[:name] == "step_2_removal" }[:ok]).to be false
+      expect(result[:healthy]).to be false
+    end
+
+    # The deeper half of the trap: the victim was recorded by the step that
+    # CREATED it, and that step's expectations are what reach the live
+    # reconciler. Left in, a successful removal makes the reconciler report a
+    # terminated instance as not-running — so the mission verifies unhealthy
+    # forever, from the creating step rather than the removing one.
+    it "drops a removed victim from the CREATING step's live expectations" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      removal_step!(number: 2, removed: %w[i-2])
+      reconciler = double("verifier")
+      seen = nil
+      allow(reconciler).to receive(:reconcile_instances) do |account:, expectations:|
+        seen = expectations
+        expectations.map { |e| { node_instance_id: e[:node_instance_id], ok: true, detail: "running" } }
+      end
+      stub_verifier(reconciler)
+
+      result = service.verify
+
+      expect(seen.map { |e| e[:node_instance_id] }).to eq(%w[i-1])
+      expect(result[:healthy]).to be true
+    end
+  end
+
   context "core mode (no provision_verifier registered)" do
     before { stub_verifier(nil) }
 

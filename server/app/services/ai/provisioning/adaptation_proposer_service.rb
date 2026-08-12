@@ -136,6 +136,17 @@ module Ai
       # executor or its strategy list.
       SCALE_OUT_STRATEGY = "add_replicas"
 
+      # The scale-IN strategy (INC-4). Named here as a plain string for the
+      # same reason as SCALE_OUT_STRATEGY — it flows through the skill seam and
+      # core does not reference the extension's strategy list.
+      #
+      # This is deliberately NOT a second entry in #auto_apply?'s allowlist:
+      # removals never auto-apply regardless of bounds (ratified §4). Core
+      # names it because VERIFICATION has to — a removal creates nothing, so
+      # `VerificationService` must recognise the strategy to avoid grading it
+      # with the instance-creation oracle.
+      REMOVAL_STRATEGY = "remove_replicas"
+
       # Kwargs the `scale_project` skill requires, as the deterministic
       # composer understands them. #bindable? reads requirements live through
       # the skill-resolution seam rather than from this list; it remains as the
@@ -174,10 +185,10 @@ module Ai
       # be composed".
       UNSUPPORTED_CHANGE_TYPES = {
         "cost_control" =>
-          "cost_control is not supported until a scale-in strategy exists " \
-          "(INC-4 / `remove_replicas`): it scales IN, and the scaling skill " \
-          "offers only additive strategies, so any composed step would fail " \
-          "at execution."
+          "cost_control is not supported until this composer can compose a " \
+          "scale-in step: it scales IN, and while the scaling skill now offers " \
+          "`remove_replicas` (INC-4), nothing here derives a scale-in delta or " \
+          "its inputs, so any composed step would fail at execution."
       }.freeze
 
       DEFAULT_TEMPERATURE = 0.2
