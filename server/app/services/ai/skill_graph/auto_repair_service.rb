@@ -306,8 +306,26 @@ module Ai
       end
 
       def merge_knowledge_graph_node(winner, loser)
-        winner_node = winner.knowledge_graph_node_for(account.id)
-        loser_node = loser.knowledge_graph_node_for(account.id)
+        # Scope to the LOSER's account, not the service's. That is where the
+        # duplicate node actually lives, and the two are identical on the
+        # ordinary same-account repair path (`resolve_duplicate` picks both
+        # skills out of this account), so this is a no-op there.
+        #
+        # It is NOT a no-op for `DedupeSkillSeedGlobals`, which constructs this
+        # service as `.new(nil)` on purpose: it merges an account-scoped
+        # duplicate into a GLOBAL survivor, so there is no single account for
+        # the service to carry. Reading `account.id` unconditionally raised
+        # NoMethodError there and aborted the migration inside its transaction
+        # — a `rails db:migrate` failure, not just a red spec.
+        #
+        # `account&.id` rather than `account.id` because a global-vs-global
+        # merge would leave both sides blank; `knowledge_graph_node_for`
+        # already returns nil for a blank account_id, so that case falls
+        # through to the `return unless loser_node` guard below.
+        scope_account_id = loser.account_id || account&.id
+
+        winner_node = winner.knowledge_graph_node_for(scope_account_id)
+        loser_node = loser.knowledge_graph_node_for(scope_account_id)
         return unless loser_node
 
         if winner_node
