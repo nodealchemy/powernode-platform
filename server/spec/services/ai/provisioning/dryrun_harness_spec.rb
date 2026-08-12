@@ -450,5 +450,26 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
         .to eq([ "terminated" ])
       expect(result.passed?).to be(true), "unexpected findings: #{result.findings.map(&:to_h)}"
     end
+
+    it "does not report a clean PASS for a teardown that found nothing to tear down" do
+      # A mistyped run_id must not exit 0 with a green report: "swept nothing"
+      # and "there was nothing to sweep" are the same output otherwise.
+      result = described_class.new(account: account, user: user, objective: objective,
+                                   run_id: "nosuchrun").teardown_only!
+
+      expect(result.passed?).to be(false)
+      expect(result.findings.map(&:dimension)).to include("teardown")
+      expect(result.findings.first.detail).to match(/no mission and no instance/)
+    end
+
+    it "stays quiet when an already-swept run is torn down again (idempotent)" do
+      soak_harness(cleanup: true).run
+
+      result = described_class.new(account: account, user: user, objective: objective,
+                                   run_id: run_id).teardown_only!
+
+      expect(result.findings.map(&:dimension)).not_to include("teardown")
+      expect(result.oracles["instances"]).to eq(3)
+    end
   end
 end

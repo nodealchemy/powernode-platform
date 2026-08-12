@@ -191,6 +191,14 @@ module Ai
       def teardown_only!
         mission = live_mission_for_prefix
         @mission_id = mission&.id
+        # "Swept nothing" and "there was nothing to sweep" produce identical
+        # output otherwise, so a mistyped run_id would exit 0 with a green
+        # report. An already-swept run still has its (terminated) instance rows
+        # under the prefix, so a genuine second teardown stays quiet.
+        if mission.nil? && dryrun_instances.empty?
+          add_finding("teardown", "no mission and no instance exists under #{name_prefix} — " \
+                                  "nothing was torn down (wrong run_id?)", :medium)
+        end
         finalize!(mission)
         build_result(mission)
       end
