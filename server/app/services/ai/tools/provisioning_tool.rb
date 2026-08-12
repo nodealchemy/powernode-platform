@@ -99,11 +99,15 @@ module Ai
           },
           "platform_provisioning_adapt" => {
             description: "Propose an adaptation to a live infrastructure mission. Composes a diff-shaped " \
-                         "Ai::GoalPlan (only the steps that change, appended onto the mission's existing " \
-                         "plan) via Ai::Provisioning::AdaptationProposerService and routes it through the " \
-                         "approval workflow as action_type project.adapt_<change_type>, so the operator's " \
-                         "intervention policies decide auto-apply vs require-approval. Returns the plan id, " \
-                         "its steps, and the approval routing outcome.",
+                         "Ai::GoalPlan (only the steps that change) via " \
+                         "Ai::Provisioning::AdaptationProposerService, then puts it through the fleet " \
+                         "approval gate as action_type project.adapt_<change_type> — the same queue the " \
+                         "sensor-driven proposals use — so the operator's intervention policies decide " \
+                         "between immediate application and require-approval. Returns the plan id, its " \
+                         "steps, and an explicit gate disposition: `routed` (a gate holds it), " \
+                         "`auto_apply_within_bounds` (applied — the steps were appended onto the " \
+                         "mission's live plan and dispatched), or `parked_gate_unavailable` (no gate " \
+                         "could answer; the plan stays in draft and NOTHING ran).",
             parameters: {
               mission_id: { type: "string", required: true, description: "Infrastructure mission ID" },
               change_type: { type: "string", required: true,
@@ -308,12 +312,20 @@ module Ai
         )
       end
 
-      # Operator-initiated adaptation of a live mission. Delegates to
-      # AdaptationProposerService#propose_change — the explicit-request seam
-      # that funnels into the same internal path the ProjectSloSensor-driven
-      # proposals use, so the resulting diff plan is always routed through
-      # Ai::Autonomy::ApprovalWorkflowService as project.adapt_<change_type>.
-      # This action never applies the change itself.
+      # Operator-initiated adaptation of a live mission. Two hops, both shared
+      # with the sensor path:
+      #
+      #   1. AdaptationProposerService#propose_change — the explicit-request
+      #      seam that funnels into the same composition internal the
+      #      ProjectSloSensor-driven proposals use, so the diff plan has an
+      #      identical shape however it was asked for.
+      #   2. AdaptationDispatchService#dispatch! — the `adaptation_gate` seam.
+      #      This is what makes "the operator MCP path joins the same queue"
+      #      true rather than aspirational: an operator cannot get an ungated
+      #      change by asking for it directly.
+      #
+      # Whether the change is APPLIED here is the gate's decision, never this
+      # action's. Read `data[:gate][:dispatched]`.
       def adapt(params)
         mission = find_mission!(params[:mission_id])
         legacy = hash_param(params[:proposed_change])
@@ -344,21 +356,49 @@ module Ai
           )
         end
 
-        approval = result[:approval_request]
+        # The operator path joins the SAME queue as the sensor path: the
+        # composed plan goes through Ai::Provisioning::AdaptationDispatchService
+        # and the `adaptation_gate` seam, which either holds it for a decision,
+        # applies it within operator policy bounds, or parks it.
+        dispatch = dispatch_adaptation(mission, plan)
+
         success_result(
           mission_id: mission.id,
           change_type: result[:change_type],
           plan_id: plan.id,
           summary: adaptation_summary(plan, result[:change_type]),
-          adaptation_plan: serialize_adaptation_plan(plan),
-          approval: {
-            requested: approval.present?,
-            approval_request_id: approval.respond_to?(:id) ? approval.id : nil,
-            status: approval.respond_to?(:status) ? approval.status : nil,
+          adaptation_plan: serialize_adaptation_plan(plan.reload),
+          # An EXPLICIT disposition, replacing `requested: approval.present?`.
+          # That boolean collapsed "no approval was needed" and "the approval
+          # system is not present at all" into the same `false` inside a
+          # success payload implying the change was on its way — an operator
+          # could not tell an applied change from a silently parked one.
+          gate: {
+            disposition: dispatch[:gate],
+            dispatched: dispatch[:dispatched] == true,
+            approval_request_id: dispatch[:approval_request_id],
             action_type: "project.adapt_#{result[:change_type]}",
-            auto_apply: result[:auto_apply] == true
+            within_bounds: dispatch[:within_bounds] == true,
+            detail: dispatch[:detail]
           }
         )
+      end
+
+      # Never let a gate/dispatch failure turn a successfully composed plan into
+      # a tool error — the plan exists either way, and an unresolvable gate is
+      # itself a disposition (parked), which is what the operator needs told.
+      def dispatch_adaptation(mission, plan)
+        ::Ai::Provisioning::AdaptationDispatchService
+          .new(account: account, mission: mission)
+          .dispatch!(plan: plan)
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[ProvisioningTool] adaptation dispatch failed mission=#{mission.id} " \
+          "plan=#{plan.id}: #{e.class}: #{e.message}"
+        )
+        { gate: ::Ai::Provisioning::AdaptationDispatchService::GATE_PARKED,
+          dispatched: false, approval_request_id: nil, within_bounds: false,
+          detail: "dispatch failed: #{e.class}: #{e.message[0, 200]}" }
       end
 
       # The proposer raises for a genuinely unknown change_type (already

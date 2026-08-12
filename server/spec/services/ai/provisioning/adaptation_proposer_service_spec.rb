@@ -295,29 +295,57 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       expect(service.propose_change(change_type: "schema_change")[:plan]).to be_nil
     end
 
-    it "routes the resulting plan through ApprovalWorkflowService" do
+    # IMP-8c37b9e5ccd5 (INC-2), ratified §4: the proposer's embedded
+    # Ai::Autonomy::ApprovalWorkflowService call is REMOVED. The fleet
+    # ApprovalRequest chain + InterventionPolicy is the one policy gate; a
+    # second approval namespace (per-action_type chain, no policy resolution,
+    # no dedup, no consent budget) was explicitly rejected. Composition now
+    # composes and nothing else — gating belongs to
+    # Ai::Provisioning::AdaptationDispatchService via the `adaptation_gate`
+    # seam.
+    it "does NOT route the plan through a second approval namespace" do
       approval_double = instance_double(Ai::Autonomy::ApprovalWorkflowService)
       allow(Ai::Autonomy::ApprovalWorkflowService).to receive(:new).and_return(approval_double)
-      expect(approval_double).to receive(:request_approval).with(
-        hash_including(
-          action_type: "project.adapt_scale_horizontal",
-          description: include(mission.name)
-        )
-      )
+      allow(approval_double).to receive(:request_approval)
 
-      service.propose_from_signals(signals: [slo_signal])
+      plan = service.propose_from_signals(signals: [slo_signal])
+
+      expect(plan).to be_present
+      expect(Ai::Autonomy::ApprovalWorkflowService).not_to have_received(:new)
+      expect(approval_double).not_to have_received(:request_approval)
     end
 
-    it "requests no approval for a cost_breach, because nothing is composed" do
-      # Was: asserted approval routing tagged "project.adapt_cost_control".
-      # Approval routing is downstream of composition, so declining to
-      # compose (above) necessarily means a cost breach no longer routes.
-      # Pinning that consequence explicitly rather than leaving it implied:
-      # restoring cost_control actuation in INC-4 must restore this too.
-      approval_double = instance_double(Ai::Autonomy::ApprovalWorkflowService)
-      allow(Ai::Autonomy::ApprovalWorkflowService).to receive(:new).and_return(approval_double)
-      expect(approval_double).not_to receive(:request_approval)
+    it "no longer reports an approval_request from propose_change" do
+      result = service.propose_change(change_type: "scale_horizontal",
+                                      details: { "breach_pct" => 100.0, "replica_count" => 3 })
 
+      expect(result).not_to have_key(:approval_request)
+      expect(result[:plan]).to be_present
+    end
+
+    # The fingerprint is the key RemediationValidator scores an outcome by.
+    # Without it on the plan, the consumer has nothing to record at execution
+    # time and the sense -> act -> validate arc stays open.
+    it "stamps the triggering signal's fingerprint onto the plan" do
+      plan = service.propose_from_signals(signals: [slo_signal])
+
+      expect(plan.plan_data["signal_fingerprint"])
+        .to eq("project_slo_violation:#{mission.id}:p99_latency_ms")
+    end
+
+    it "omits signal_fingerprint for an operator-initiated request — there is no signal to clear" do
+      result = service.propose_change(change_type: "scale_horizontal",
+                                      details: { "breach_pct" => 100.0, "replica_count" => 3 })
+
+      expect(result[:plan].plan_data).not_to have_key("signal_fingerprint")
+    end
+
+    it "composes nothing for a cost_breach, so there is nothing to gate" do
+      # Was: asserted approval routing tagged "project.adapt_cost_control".
+      # Gating is downstream of composition, so declining to compose (above)
+      # necessarily means a cost breach never reaches a gate at all. Pinning
+      # that consequence explicitly rather than leaving it implied: restoring
+      # cost_control actuation in INC-4 must restore this too.
       expect(service.propose_from_signals(signals: [cost_signal])).to be_nil
     end
 
@@ -536,14 +564,9 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         JSON
       )
 
-      approval_double = instance_double(Ai::Autonomy::ApprovalWorkflowService)
-      allow(Ai::Autonomy::ApprovalWorkflowService).to receive(:new).and_return(approval_double)
-      expect(approval_double).to receive(:request_approval).with(
-        hash_including(action_type: "project.adapt_relocate")
-      )
-
       plan = service.propose_from_signals(signals: [region_drift_signal])
       expect(plan.steps.in_order.first.execution_config["skill"]).to eq("relocate_workload")
+      expect(plan.plan_data["change_type"]).to eq("relocate")
     end
 
     it "does not invoke the LLM when the signal list is empty" do
@@ -588,11 +611,70 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
     end
   end
 
+  # IMP-8c37b9e5ccd5 (INC-2), ratified §4: this is now a DOWNGRADE-ONLY bounds
+  # check. It is core's input to the `adaptation_gate` seam, never a decision
+  # to apply: false parks the plan behind the gate, true merely permits the
+  # gate to grant auto-apply. It may never skip a required gate, and removals
+  # never auto-apply regardless of bounds.
   describe "#auto_apply?" do
+    def plan_with_step!(inputs)
+      goal = Ai::AgentGoal.create!(
+        account: account, agent: agent, title: "Adapt", goal_type: "improvement",
+        status: "pending", priority: 3, progress: 0.0, success_criteria: {}, metadata: {}
+      )
+      plan = Ai::GoalPlan.create!(account: account, goal: goal, agent: agent, status: "draft",
+                                  version: 9, plan_data: { "kind" => "adaptation_diff" })
+      Array(inputs).each_with_index do |cfg, idx|
+        plan.steps.create!(step_number: idx + 1, step_type: "provisioning_skill", status: "pending",
+                           description: "step", execution_config: cfg, dependencies: [])
+      end
+      plan
+    end
+
+    let(:in_bounds_scale_out) do
+      { "skill" => "scale_project", "on_failure" => "rollback",
+        "inputs" => { "change_type" => "scale_horizontal", "desired_replica_count" => 4,
+                      "project_id" => mission.id, "target_count" => 1,
+                      "scaling_strategy" => "add_replicas" } }
+    end
+
     it "returns true when scale_project replica count is within auto-scale ceiling" do
       plan = service.propose_from_signals(signals: [slo_signal])
       # initial=3, breach_pct=100 → desired=5; ceiling=5 → within window.
       expect(service.auto_apply?(plan: plan)).to be true
+    end
+
+    it "returns false when ANY step is outside the additive scale-out shape" do
+      # The previous form SELECTED the scale_project steps and measured only
+      # those, so a plan carrying a relocate alongside one in-bounds scale step
+      # reported true and would have auto-applied a cross-region move.
+      plan = plan_with_step!([
+        in_bounds_scale_out,
+        { "skill" => "relocate_workload", "on_failure" => "rollback",
+          "inputs" => { "project_id" => mission.id, "from_region_id" => "r1",
+                        "to_region_id" => "r2" } }
+      ])
+
+      expect(service.auto_apply?(plan: plan)).to be false
+    end
+
+    it "returns false for a REMOVAL regardless of bounds" do
+      # INC-4's scale-in strategy must never ride the auto-apply lane. The
+      # check is an allowlist of the one additive strategy this composer emits,
+      # so a new strategy name is out of bounds by construction rather than by
+      # a blocklist it could slip past.
+      plan = plan_with_step!([
+        { "skill" => "scale_project", "on_failure" => "rollback",
+          "inputs" => { "change_type" => "scale_horizontal", "desired_replica_count" => 2,
+                        "project_id" => mission.id, "target_count" => 1,
+                        "scaling_strategy" => "remove_replicas" } }
+      ])
+
+      expect(service.auto_apply?(plan: plan)).to be false
+    end
+
+    it "returns false for an empty plan rather than vacuously true" do
+      expect(service.auto_apply?(plan: plan_with_step!([]))).to be false
     end
 
     it "returns false when desired replica count exceeds the ceiling" do

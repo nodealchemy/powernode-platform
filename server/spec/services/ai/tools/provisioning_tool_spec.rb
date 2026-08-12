@@ -472,24 +472,95 @@ RSpec.describe Ai::Tools::ProvisioningTool do
       m
     end
 
-    def stub_approval_workflow(returning: nil)
-      workflow = instance_double(::Ai::Autonomy::ApprovalWorkflowService)
-      allow(::Ai::Autonomy::ApprovalWorkflowService).to receive(:new).and_return(workflow)
-      allow(workflow).to receive(:request_approval).and_return(returning)
-      workflow
+    # IMP-8c37b9e5ccd5 (INC-2): the operator MCP path joins the SAME queue —
+    # `adapt` now hands its composed plan to
+    # Ai::Provisioning::AdaptationDispatchService, which resolves the
+    # `adaptation_gate` seam. With no gate registered the plan parks; a stubbed
+    # gate is how an example asks for a specific disposition.
+    def stub_gate(disposition, approval_request_id: nil)
+      gate = double("adaptation_gate")
+      allow(gate).to receive(:adaptation_disposition)
+        .and_return({ disposition: disposition, approval_request_id: approval_request_id })
+      allow(gate).to receive(:record_adaptation_outcome!).and_return(nil)
+      allow(::Powernode::ExtensionRegistry).to receive(:provider).and_call_original
+      allow(::Powernode::ExtensionRegistry).to receive(:provider)
+        .with(:adaptation_gate).and_return(gate)
+      gate
     end
 
     it "no longer advertises the M0 stub in its action definition" do
       defn = described_class.action_definitions["platform_provisioning_adapt"]
       expect(defn[:description]).not_to match(/todo/i)
       expect(defn[:description]).not_to match(/M0 stub/i)
-      expect(defn[:description]).to match(/approval/i)
+      expect(defn[:description]).to match(/approval|gate/i)
       expect(defn[:parameters]).to have_key(:change_type)
     end
 
-    it "composes a real diff plan and reports the approval routing outcome" do
-      approval_request = double("Ai::ApprovalRequest", id: SecureRandom.uuid, status: "pending")
-      workflow = stub_approval_workflow(returning: approval_request)
+    # The defect this replaces: `approval: { requested: approval.present? }`
+    # collapsed "no approval was needed" and "the approval system is not there
+    # at all" into one `false`, inside a success payload that implies the change
+    # is on its way. An operator reading it could not tell an applied change
+    # from a parked one. The envelope now names the disposition.
+    it "reports parked_gate_unavailable when no adaptation gate is registered" do
+      allow(::Powernode::ExtensionRegistry).to receive(:provider).and_call_original
+      allow(::Powernode::ExtensionRegistry).to receive(:provider)
+        .with(:adaptation_gate).and_return(nil)
+
+      r = call("platform_provisioning_adapt",
+               mission_id: adapt_mission.id,
+               change_type: "scale_horizontal",
+               details: { "breach_pct" => 100.0, "replica_count" => 3 })
+
+      expect(r[:success]).to be true
+      expect(r[:data][:gate][:disposition]).to eq("parked_gate_unavailable")
+      expect(r[:data][:gate][:dispatched]).to be false
+      expect(r[:data][:gate][:detail]).to be_present
+      # Ground truth: parked means parked.
+      expect(::Ai::GoalPlan.find(r[:data][:plan_id]).status).to eq("draft")
+    end
+
+    it "reports routed with the approval request id when the gate holds the plan" do
+      request_id = SecureRandom.uuid
+      stub_gate("routed", approval_request_id: request_id)
+
+      r = call("platform_provisioning_adapt",
+               mission_id: adapt_mission.id,
+               change_type: "scale_horizontal",
+               details: { "breach_pct" => 100.0, "replica_count" => 3 })
+
+      expect(r[:data][:gate][:disposition]).to eq("routed")
+      expect(r[:data][:gate][:approval_request_id]).to eq(request_id)
+      expect(r[:data][:gate][:dispatched]).to be false
+      expect(r[:data][:gate][:action_type]).to eq("project.adapt_scale_horizontal")
+      expect(::Ai::GoalPlan.find(r[:data][:plan_id]).status).to eq("draft")
+    end
+
+    it "dispatches onto the live plan when the gate grants auto-apply within bounds" do
+      allow(WorkerJobService).to receive(:enqueue_job).and_return(true)
+      stub_gate("auto_apply_within_bounds")
+      # An unattended auto-apply requires the mission to declare a ceiling for
+      # core's bounds check; without one core parks the plan no matter what the
+      # gate answers (asserted in the relocate example below).
+      adapt_mission.update!(configuration: adapt_mission.configuration.merge(
+        "watch_policies" => { "auto_scale_max_replicas" => 8 }
+      ))
+      live_plan_id = adapt_mission.configuration.dig("plan", "plan_id")
+      before_steps = ::Ai::GoalPlan.find(live_plan_id).steps.count
+
+      r = call("platform_provisioning_adapt",
+               mission_id: adapt_mission.id,
+               change_type: "scale_horizontal",
+               details: { "breach_pct" => 100.0, "replica_count" => 3 })
+
+      expect(r[:data][:gate][:disposition]).to eq("auto_apply_within_bounds")
+      expect(r[:data][:gate][:dispatched]).to be true
+      # Ground truth: the live plan actually grew, and a step job went out.
+      expect(::Ai::GoalPlan.find(live_plan_id).steps.count).to eq(before_steps + 1)
+      expect(WorkerJobService).to have_received(:enqueue_job).with("AiProvisioningStepJob", anything)
+    end
+
+    it "composes a real diff plan and reports the gate outcome" do
+      stub_gate("routed", approval_request_id: SecureRandom.uuid)
 
       r = call("platform_provisioning_adapt",
                mission_id: adapt_mission.id,
@@ -526,13 +597,11 @@ RSpec.describe Ai::Tools::ProvisioningTool do
       expect(first_step[:inputs]["signal_payload"]["observed"]).to eq(500.0)
       expect(first_step[:inputs]["correlation_id"]).to be_present
 
-      expect(workflow).to have_received(:request_approval).with(
-        hash_including(action_type: "project.adapt_scale_horizontal")
-      )
-      expect(r[:data][:approval][:requested]).to be true
-      expect(r[:data][:approval][:action_type]).to eq("project.adapt_scale_horizontal")
-      expect(r[:data][:approval][:approval_request_id]).to eq(approval_request.id)
-      expect(r[:data][:approval][:status]).to eq("pending")
+      expect(r[:data][:gate][:disposition]).to eq("routed")
+      expect(r[:data][:gate][:action_type]).to eq("project.adapt_scale_horizontal")
+      expect(r[:data][:gate][:approval_request_id]).to be_present
+      # The indistinguishable boolean is gone for good.
+      expect(r[:data]).not_to have_key(:approval)
       expect(r[:data][:summary]).to be_present
     end
 
@@ -544,7 +613,7 @@ RSpec.describe Ai::Tools::ProvisioningTool do
       # scale-in strategy exists yet, so the proposer declines and the
       # operator gets an immediate, explicit failure instead.
       # INC-4 (IMP-216a6dbc7e32) adds `remove_replicas`; restore then.
-      workflow = stub_approval_workflow
+      gate = stub_gate("auto_apply_within_bounds")
 
       r = call("platform_provisioning_adapt",
                mission_id: adapt_mission.id,
@@ -553,11 +622,22 @@ RSpec.describe Ai::Tools::ProvisioningTool do
 
       expect(r[:success]).to be false
       expect(r[:error]).to include("cost_control")
-      expect(workflow).not_to have_received(:request_approval)
+      expect(gate).not_to have_received(:adaptation_disposition)
     end
 
-    it "still returns the plan when approval routing is inert (core mode returns nil)" do
-      stub_approval_workflow(returning: nil)
+    it "parks a relocate behind the gate rather than applying it" do
+      # A relocate is never eligible for auto-apply: the bounds check is an
+      # allowlist of the one additive scale-out strategy, so core hands the
+      # gate auto_apply_eligible: false and the plan waits.
+      captured = nil
+      gate = double("adaptation_gate")
+      allow(gate).to receive(:adaptation_disposition) do |**kw|
+        captured = kw
+        { disposition: "routed", approval_request_id: SecureRandom.uuid }
+      end
+      allow(::Powernode::ExtensionRegistry).to receive(:provider).and_call_original
+      allow(::Powernode::ExtensionRegistry).to receive(:provider)
+        .with(:adaptation_gate).and_return(gate)
 
       # relocate_workload declares 8 required inputs. The heuristic composer
       # supplies none of them and does NOT thread `details` into step inputs,
@@ -581,13 +661,15 @@ RSpec.describe Ai::Tools::ProvisioningTool do
 
       expect(r[:success]).to be true
       expect(r[:data][:plan_id]).to be_present
-      expect(r[:data][:approval][:requested]).to be false
-      expect(r[:data][:approval][:approval_request_id]).to be_nil
+      expect(r[:data][:gate][:disposition]).to eq("routed")
+      expect(r[:data][:gate][:dispatched]).to be false
+      expect(captured[:auto_apply_eligible]).to be false
       expect(r[:data][:adaptation_plan][:steps].first[:skill]).to eq("relocate_workload")
+      expect(::Ai::GoalPlan.find(r[:data][:plan_id]).status).to eq("draft")
     end
 
     it "accepts the legacy proposed_change envelope" do
-      stub_approval_workflow
+      stub_gate("routed")
 
       r = call("platform_provisioning_adapt",
                mission_id: adapt_mission.id,

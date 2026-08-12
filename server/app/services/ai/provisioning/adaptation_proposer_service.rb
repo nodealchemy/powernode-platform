@@ -9,10 +9,18 @@ module Ai
     # skill executors (`scale_project`, `relocate_workload`,
     # `attach_storage`, `configure_sdwan_for_project`).
     #
-    # The plan is then routed through `Ai::Autonomy::ApprovalWorkflowService`
-    # with an `action_type: "project.adapt_<change_type>"` so the operator
-    # policy resolver can choose between auto-apply (low-blast) and
-    # require-approval (high-blast).
+    # This service COMPOSES AND NOTHING ELSE. It used to route the plan through
+    # `Ai::Autonomy::ApprovalWorkflowService` as
+    # `project.adapt_<change_type>`; that call was removed in IMP-8c37b9e5ccd5
+    # (ratified §4). It was a SECOND approval namespace — a per-action_type
+    # chain with no policy resolution, no dedup, and no consent budget — sitting
+    # beside the fleet `ApprovalRequest` chain + `Ai::InterventionPolicy` that
+    # gates every other remediation on this platform. One gate, and this is not
+    # it: `Ai::Provisioning::AdaptationDispatchService` resolves the
+    # `adaptation_gate` seam and owns dispatch.
+    #
+    # `#auto_apply?` survives that removal as a DOWNGRADE-ONLY bounds check —
+    # core's input to the gate, never a decision to apply.
     #
     # The plan returned by `propose_from_signals` is a *diff plan*: only
     # the steps that change. The Skill Composition Runner appends them
@@ -24,9 +32,10 @@ module Ai
     #   - `propose_change`       — operator-driven (MCP
     #     `platform_provisioning_adapt`). Wraps the explicit request in a
     #     signal-shaped envelope and funnels it into the identical
-    #     `compose_and_route!` internal, so approval routing cannot be
-    #     bypassed by asking for a change directly. Raises rather than
-    #     swallowing, because its caller is interactive.
+    #     `compose_and_route!` internal, so an operator cannot get a
+    #     differently-shaped plan by asking for a change directly. Its caller
+    #     then puts the plan through the same gate the sensor path uses.
+    #     Raises rather than swallowing, because its caller is interactive.
     #
     # LLM access is funneled through `#diff_from_llm` so test specs can
     # inject a fixture proposal without exercising provider plumbing —
@@ -203,8 +212,9 @@ module Ai
       # `platform_provisioning_adapt` action calls. It does NOT bypass any of
       # the signal path: the change request is wrapped in a signal-shaped
       # envelope and handed to the same `compose_and_route!` internal, so step
-      # composition, plan persistence and ApprovalWorkflowService routing
-      # (`project.adapt_<change_type>`) are byte-identical to the sensor path.
+      # composition and plan persistence are byte-identical to the sensor path
+      # — and the caller then routes the result through the same
+      # `adaptation_gate`, so both paths join one queue.
       #
       # Unlike `propose_from_signals` (called from a reconciler, where an
       # exception must never cascade) this raises, so an interactive caller
@@ -214,8 +224,9 @@ module Ai
       # @param metric [String, nil] optional metric that motivated the request
       # @param details [Hash, nil] optional structured payload (observed,
       #   target, breach_pct, target_usd, correlation_id, …)
-      # @return [Hash] { plan:, change_type:, signal:, approval_request:,
-      #   auto_apply: } — `plan` is nil when no diff could be composed.
+      # @return [Hash] { plan:, change_type:, signal:, auto_apply: } —
+      #   `plan` is nil when no diff could be composed; `auto_apply` is the
+      #   downgrade-only bounds verdict, not a decision to apply.
       def propose_change(change_type:, metric: nil, details: nil)
         normalized = change_type.to_s.strip
         unless REQUESTABLE_CHANGE_TYPES.include?(normalized)
@@ -237,27 +248,40 @@ module Ai
         compose_and_route!(signal: signal, change_type: normalized)
       end
 
-      # Auto-apply heuristic. Replica scale within
-      # `mission.configuration.watch_policies.auto_scale_max_replicas`
-      # is auto-applied via the `notify_and_proceed` policy. Cross-region
-      # / schema / security plans are always require_approval.
+      # DOWNGRADE-ONLY bounds check (IMP-8c37b9e5ccd5, ratified §4).
+      #
+      # This is NOT a decision to apply. It is core's single contribution to
+      # the gate decision: `Ai::Provisioning::AdaptationDispatchService` hands
+      # the result to the `adaptation_gate` seam as `auto_apply_eligible`.
+      # False PARKS the plan behind the gate; true merely permits the gate —
+      # the fleet ApprovalRequest chain + InterventionPolicy — to grant
+      # immediate application. It may never skip a required gate, and the
+      # dispatcher refuses a gate answer that tries to widen it.
+      #
+      # FAIL-CLOSED ALLOWLIST. The previous form SELECTED the additive
+      # scale_project steps and measured only those, so a plan carrying a
+      # relocate or a storage reshape alongside one in-bounds scale step
+      # reported true and would have auto-applied a cross-region move. Every
+      # step must now be an additive scale-out inside the mission's replica
+      # ceiling; anything else is out of bounds.
+      #
+      # REMOVALS NEVER AUTO-APPLY, regardless of bounds. Stating that as an
+      # allowlist of the one additive strategy this composer emits — rather
+      # than a blocklist of scale-in names — means INC-4's `remove_replicas`,
+      # and any strategy after it, is ineligible by construction instead of by
+      # remembering to add it.
       def auto_apply?(plan:)
         return false unless plan
 
-        replica_steps = plan.steps.select do |s|
-          cfg = step_config(s)
-          cfg["skill"].to_s == "scale_project" &&
-            cfg.dig("inputs", "change_type").to_s == "scale_horizontal"
-        end
-        return false if replica_steps.empty?
+        steps = plan.steps.to_a
+        # An empty plan is not vacuously safe to apply — there is nothing to
+        # have judged in bounds.
+        return false if steps.empty?
 
-        max_replicas = watch_policies.dig("auto_scale_max_replicas")&.to_i
+        max_replicas = watch_policies["auto_scale_max_replicas"]&.to_i
         return false if max_replicas.nil? || max_replicas <= 0
 
-        replica_steps.all? do |s|
-          desired = step_config(s).dig("inputs", "desired_replica_count").to_i
-          desired.positive? && desired <= max_replicas
-        end
+        steps.all? { |s| additive_scale_out_within?(s, max_replicas) }
       rescue StandardError => e
         Rails.logger.warn("[AdaptationProposerService] auto_apply? failed: #{e.message}")
         false
@@ -291,10 +315,11 @@ module Ai
 
       private
 
-      # The single composition+routing path shared by the sensor-driven
+      # The single composition path shared by the sensor-driven
       # (`propose_from_signals`) and the operator-driven (`propose_change`)
       # entrypoints. Nothing may compose a diff plan without passing through
-      # here — that is what keeps approval routing non-bypassable.
+      # here, so every plan reaching the gate has the same shape and carries
+      # the same provenance.
       def compose_and_route!(signal:, change_type:)
         diff_steps = build_steps_for(signal, change_type)
         return empty_result(signal, change_type) if diff_steps.blank?
@@ -302,18 +327,38 @@ module Ai
         plan = persist_diff_plan!(change_type, diff_steps, signal)
         return empty_result(signal, change_type) unless plan
 
+        # Composition ONLY. Gating belongs to
+        # Ai::Provisioning::AdaptationDispatchService via the `adaptation_gate`
+        # seam — see the class doc for why this service no longer routes.
+        # `auto_apply` here is the downgrade-only bounds verdict, not a
+        # decision to apply.
         {
           plan: plan,
           change_type: change_type,
           signal: signal,
-          approval_request: request_approval_for!(plan, change_type, signal),
           auto_apply: auto_apply?(plan: plan)
         }
       end
 
       def empty_result(signal, change_type)
-        { plan: nil, change_type: change_type, signal: signal,
-          approval_request: nil, auto_apply: false }
+        { plan: nil, change_type: change_type, signal: signal, auto_apply: false }
+      end
+
+      # One step of a diff plan is eligible for auto-apply only if it is the
+      # additive scale-out this composer emits, carries a real delta, and lands
+      # at or below the mission's replica ceiling. See #auto_apply? for why
+      # this is an allowlist.
+      def additive_scale_out_within?(step, max_replicas)
+        cfg = step_config(step)
+        return false unless cfg["skill"].to_s == "scale_project"
+
+        inputs = cfg["inputs"].is_a?(Hash) ? cfg["inputs"] : {}
+        return false unless inputs["change_type"].to_s == "scale_horizontal"
+        return false unless inputs["scaling_strategy"].to_s == SCALE_OUT_STRATEGY
+        return false unless inputs["target_count"].to_i.positive?
+
+        desired = inputs["desired_replica_count"].to_i
+        desired.positive? && desired <= max_replicas
       end
 
       # Signal-shaped envelope for an explicit request. Hash form is
@@ -406,6 +451,20 @@ module Ai
       def signal_severity(signal)
         sev = signal.respond_to?(:severity) ? signal.severity : (signal[:severity] || signal["severity"])
         sev.to_s
+      end
+
+      # A sensor Signal carries `fingerprint` as an attribute; the synthetic
+      # envelope #explicit_signal builds for an operator request is a plain Hash
+      # and carries none — nil is the correct, meaningful answer there, not a
+      # gap to fill in. Returns nil rather than "" so the plan_data `.compact`
+      # drops the key entirely.
+      def signal_fingerprint(signal)
+        raw = if signal.respond_to?(:fingerprint)
+          signal.fingerprint
+        else
+          signal[:fingerprint] || signal["fingerprint"]
+        end
+        raw.presence&.to_s
       end
 
       def derive_change_type(signal)
@@ -854,9 +913,14 @@ module Ai
             "kind" => "adaptation_diff",
             "change_type" => change_type,
             "signal_kind" => signal_kind(signal),
+            # The key the remediation outcome is scored by. Absent on the
+            # operator path by design — an explicit request has no sensor
+            # signal that could ever clear, and the consumer refuses to record
+            # an outcome without one rather than manufacture a free EFFECTIVE.
+            "signal_fingerprint" => signal_fingerprint(signal),
             "signal_payload" => signal_payload(signal),
             "mission_id" => mission.id
-          }
+          }.compact
         )
 
         diff_steps.each_with_index do |step_attrs, idx|
@@ -919,37 +983,6 @@ module Ai
         else
           "Adaptation step (#{skill})"
         end
-      end
-
-      # ----- approval routing --------------------------------------------
-
-      def request_approval_for!(plan, change_type, signal)
-        return nil unless defined?(::Ai::Autonomy::ApprovalWorkflowService)
-        return nil unless defined?(::Ai::ApprovalRequest)
-
-        agent = plan.agent
-        return nil unless agent
-
-        action_type = "project.adapt_#{change_type}"
-        description = "Adaptation: #{action_type} for mission #{mission.name}"
-
-        service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account)
-        service.request_approval(
-          agent: agent,
-          action_type: action_type,
-          description: description,
-          request_data: {
-            "mission_id" => mission.id,
-            "plan_id" => plan.id,
-            "change_type" => change_type,
-            "signal_kind" => signal_kind(signal),
-            "signal_payload" => signal_payload(signal),
-            "auto_apply" => auto_apply?(plan: plan)
-          }
-        )
-      rescue StandardError => e
-        Rails.logger.warn("[AdaptationProposerService] approval request failed: #{e.message}")
-        nil
       end
 
       # ----- helpers ------------------------------------------------------
