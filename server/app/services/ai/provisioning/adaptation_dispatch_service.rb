@@ -197,6 +197,15 @@ module Ai
           else
             plan.fail!(reason: unhealthy_reason(plan, steps, verification[:checks]))
             mirror_step_status!(plan, "failed")
+            # A FAILED adaptation has to be recorded too. Scoring only the
+            # healthy branch left the fleet's validate arc blind to this lane
+            # failing: its proposal decisions are exempt from
+            # RemediationValidator#record_proceeded!, so with no row minted here
+            # an adaptation that ran and broke on every tick was
+            # indistinguishable from one nobody had gotten to. The ineffective
+            # row is what lets the streak escalate a lane that cannot fix its
+            # own signal.
+            recorded += 1 if record_outcome!(plan, status: "ineffective")
           end
           [ plan.id, healthy ]
         end
@@ -569,7 +578,7 @@ module Ai
       # on a synthetic fingerprint would score EFFECTIVE for free on the next
       # tick and manufacture a success in the ground-truth table the LEARN step
       # reads.
-      def record_outcome!(plan)
+      def record_outcome!(plan, status: "pending")
         data = plan_data(plan)
         fingerprint = data["signal_fingerprint"].presence
         return false if fingerprint.blank?
@@ -579,7 +588,8 @@ module Ai
 
         gate.record_adaptation_outcome!(
           account: account, mission: mission, plan: plan,
-          fingerprint: fingerprint, signal_kind: data["signal_kind"].to_s
+          fingerprint: fingerprint, signal_kind: data["signal_kind"].to_s,
+          status: status
         )
         true
       rescue StandardError => e

@@ -687,7 +687,11 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
 
       expect(result[:healthy]).to be false
       expect(plan.reload.status).to eq("failed")
-      expect(gate).not_to have_received(:record_adaptation_outcome!)
+      # The failure IS recorded — an INEFFECTIVE outcome, never a fabricated
+      # effective one. Without it the fleet validate arc is blind to this lane
+      # failing, since its proposal decisions are exempt from record_proceeded!.
+      expect(gate).to have_received(:record_adaptation_outcome!)
+        .with(hash_including(status: "ineffective"))
     end
 
     it "mirrors the settled status onto the diff plan's own proposal steps" do
@@ -722,8 +726,11 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
 
       expect(result[:healthy]).to be false
       expect(plan.reload.status).to eq("failed")
-      # The whole point: no fabricated EFFECTIVE in the ground-truth table.
-      expect(gate).not_to have_received(:record_adaptation_outcome!)
+      # The failure IS recorded — an INEFFECTIVE outcome, never a fabricated
+      # effective one. Without it the fleet validate arc is blind to this lane
+      # failing, since its proposal decisions are exempt from record_proceeded!.
+      expect(gate).to have_received(:record_adaptation_outcome!)
+        .with(hash_including(status: "ineffective"))
       # And the operator is told WHY. The reason was derived from the adaptation's
       # own checks, which all pass in exactly these two new failure modes, so it
       # persisted an empty explanation for the only cases this closed.
@@ -747,7 +754,11 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       result = service.settle!(adaptation_plan_ids: [ plan.id ])
 
       expect(result[:healthy]).to be false
-      expect(gate).not_to have_received(:record_adaptation_outcome!)
+      # The failure IS recorded — an INEFFECTIVE outcome, never a fabricated
+      # effective one. Without it the fleet validate arc is blind to this lane
+      # failing, since its proposal decisions are exempt from record_proceeded!.
+      expect(gate).to have_received(:record_adaptation_outcome!)
+        .with(hash_including(status: "ineffective"))
       expect(plan.reload.validation_result["failure_reason"]).to match(/not answered for|i-4/i)
     end
 
@@ -812,7 +823,11 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       result = service.settle!(adaptation_plan_ids: [ plan.id ])
 
       expect(result[:healthy]).to be false
-      expect(gate).not_to have_received(:record_adaptation_outcome!)
+      # The failure IS recorded — an INEFFECTIVE outcome, never a fabricated
+      # effective one. Without it the fleet validate arc is blind to this lane
+      # failing, since its proposal decisions are exempt from record_proceeded!.
+      expect(gate).to have_received(:record_adaptation_outcome!)
+        .with(hash_including(status: "ineffective"))
       expect(plan.reload.status).to eq("failed")
     end
 
@@ -901,7 +916,11 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       # every LATER adaptation on this mission from settling too.
       expect(appended.reload.status).to eq("failed")
       expect(plan.reload.status).to eq("failed")
-      expect(gate).not_to have_received(:record_adaptation_outcome!)
+      # The failure IS recorded — an INEFFECTIVE outcome, never a fabricated
+      # effective one. Without it the fleet validate arc is blind to this lane
+      # failing, since its proposal decisions are exempt from record_proceeded!.
+      expect(gate).to have_received(:record_adaptation_outcome!)
+        .with(hash_including(status: "ineffective"))
     end
 
     it "settles a CHAINED adaptation whose first step fails, instead of waiting on an unreachable second" do
@@ -939,7 +958,11 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       # The unreachable successor is marked, not left dangling.
       expect(second.reload.status).to eq("failed")
       expect(plan.reload.status).to eq("failed")
-      expect(gate).not_to have_received(:record_adaptation_outcome!)
+      # The failure IS recorded — an INEFFECTIVE outcome, never a fabricated
+      # effective one. Without it the fleet validate arc is blind to this lane
+      # failing, since its proposal decisions are exempt from record_proceeded!.
+      expect(gate).to have_received(:record_adaptation_outcome!)
+        .with(hash_including(status: "ineffective"))
       # ...and ANNOUNCED. Every other status transition in this runner emits the
       # canonical provisioning_step_changed event; flipping these silently left a
       # subscribed console rendering them `pending` forever while the rows said
