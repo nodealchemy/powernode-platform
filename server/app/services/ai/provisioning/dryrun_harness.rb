@@ -30,6 +30,14 @@ module Ai
     #   result.exit_code   # == result.findings.size (0 = clean pass)
     #   result.to_markdown / result.to_h
     #
+    # SOAK MODE (`soak: true`, INC-5) adds one leg after the provisioning ones:
+    # the mission is HELD active at `adapting` for a bounded window so the
+    # evolution loop has a baseline to observe, then torn down as usual. The
+    # supervisory posture does not change — a soak still refuses a non-dryrun
+    # subject, approves only its own gates, and sweeps only its own prefix.
+    # `teardown_only!` is the same finalize path on its own, for a run left
+    # standing.
+    #
     # SAFETY: every artifact carries the `dryrun-<runId>` prefix (the
     # blast-radius boundary); teardown terminates ONLY instances under that
     # prefix, account-scoped, LIKE-escaped; the account's routing gate is
