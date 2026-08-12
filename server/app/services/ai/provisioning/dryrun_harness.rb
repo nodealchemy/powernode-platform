@@ -49,6 +49,10 @@ module Ai
       # holds it, and the account's own value from before the first holder.
       GATE_HOLDERS_SETTING = "ai_dryrun_gate_holders"
       GATE_PRIOR_SETTING   = "ai_dryrun_gate_prior"
+      # How long a gate claim counts as alive before its mission exists — the
+      # window between enable_gate! and create_and_start_mission!, which a
+      # concurrent run must not reap out from under.
+      HOLDER_GRACE_SECONDS = 120
       # The provisioning legs are DONE at one of these; a supervised run always
       # approves handoff to reach adapting, because handoff is a gate, never a
       # valid resting place (M5: a second-signature account parks there, and
@@ -199,7 +203,9 @@ module Ai
       # it, and silently rewriting an account's settings from a cleanup command
       # is not this command's business.
       def teardown_only!
-        refuse_overlapping_teardown!
+        # exclude_self: true — the run's own mission is what this command is here
+        # to finish; only a NEIGHBOUR's blast radius may block it.
+        refuse_overlapping_runs!("tear down", exclude_self: true)
         # ANY status, not just live: after a `--no-cleanup` soak the mission is
         # already cancelled, and it is the only handle on the plan whose steps
         # carry the actuator's recorded orphans. Cancelling is a no-op on a
@@ -414,11 +420,13 @@ module Ai
       def enable_gate!
         @account.with_lock do
           settings = settings_hash
-          holders = Array(settings[GATE_HOLDERS_SETTING]).map(&:to_s)
-          # First holder captures the account's own value; later ones must not
-          # capture a predecessor's `true`.
-          settings[GATE_PRIOR_SETTING] = settings[GATE_SETTING] if holders.empty?
-          settings[GATE_HOLDERS_SETTING] = (holders | [ @run_id ])
+          holders = live_holders(settings)
+          # Capture the account's own value only when nobody has captured it
+          # yet. `holders.empty?` alone is not that test: a hard-killed run
+          # leaves the gate ON with its prior retained, and recapturing then
+          # would record `true` as the account's own value and latch it forever.
+          settings[GATE_PRIOR_SETTING] = settings[GATE_SETTING] unless settings.key?(GATE_PRIOR_SETTING)
+          settings[GATE_HOLDERS_SETTING] = holders.merge(@run_id => Time.current.utc.iso8601)
           settings[GATE_SETTING] = true
           @account.update!(settings: settings)
         end
@@ -428,7 +436,7 @@ module Ai
       def restore_gate!(_prior = nil)
         @account.with_lock do
           settings = settings_hash
-          holders = Array(settings[GATE_HOLDERS_SETTING]).map(&:to_s) - [ @run_id ]
+          holders = live_holders(settings).except(@run_id)
           if holders.any?
             # Another run is still inside its window — leave the gate enabled for
             # it and only drop this run's claim.
@@ -441,6 +449,47 @@ module Ai
           end
           @account.update!(settings: settings)
         end
+      end
+
+      # Holders minus the dead ones. Without this, a hard-killed run's claim
+      # would be honoured forever: every later restore would take the "someone
+      # is still running" arm, so NO run would ever hand the gate back, and an
+      # operator who reset the setting by hand would find it re-enabled by the
+      # next run and never restored again.
+      #
+      # A holder is alive while its own dryrun mission is live, OR while it is
+      # inside the grace window — the seconds between claiming the gate and
+      # creating that mission, during which a concurrent run must not reap it.
+      # { run_id => claimed_at_iso8601 }; an older array-shaped value degrades to
+      # "no timestamp", i.e. alive only while its mission is.
+      def live_holders(settings)
+        raw = settings[GATE_HOLDERS_SETTING]
+        claims =
+          case raw
+          when Hash  then raw.transform_keys(&:to_s)
+          when Array then raw.to_h { |r| [ r.to_s, nil ] }
+          else {}
+          end
+        return {} if claims.empty?
+
+        live = ::Ai::Mission
+               .where(account_id: @account.id, mission_type: "infrastructure")
+               .where(name: claims.keys.map { |r| "dryrun-#{r}" })
+               .where.not(status: ::Ai::Mission::TERMINAL_STATUSES)
+               .pluck(:name).to_set
+
+        claims.select do |run_id, claimed_at|
+          live.include?("dryrun-#{run_id}") || within_holder_grace?(claimed_at)
+        end
+      end
+
+      def within_holder_grace?(claimed_at)
+        return false if claimed_at.blank?
+
+        Time.zone.parse(claimed_at.to_s).present? &&
+          Time.zone.parse(claimed_at.to_s) > HOLDER_GRACE_SECONDS.seconds.ago
+      rescue StandardError
+        false
       end
 
       def settings_hash
@@ -462,21 +511,14 @@ module Ai
         # observe it. Compared in Ruby over the (small) live set rather than in
         # SQL, so the prefix test is the same code in both directions and no
         # LIKE-escaping subtlety can widen it.
-        overlapping = ::Ai::Mission
-                      .where(account_id: @account.id, mission_type: "infrastructure")
-                      .where("name LIKE ?", "dryrun-%")
-                      .where.not(status: ::Ai::Mission::TERMINAL_STATUSES)
-                      .find { |m| prefixes_overlap?(m.name.to_s, name_prefix) }
-        if overlapping
-          raise "refusing to start: run '#{name_prefix}' overlaps the blast radius of live dryrun " \
-                "mission '#{overlapping.name}' — one run's teardown would sweep the other's instances"
-        end
+        # exclude_self: false — at START, a live mission with exactly this run's
+        # name IS the collision (a second process on the same run_id).
+        refuse_overlapping_runs!("start", exclude_self: false)
 
-        # ...and the same test against INSTANCES, which now routinely outlive
-        # their mission: a `--no-cleanup` neighbour and a halted-before-teardown
-        # run both leave a standing fleet behind a terminal mission. This run has
-        # created nothing yet, so anything already inside its blast radius is
-        # someone else's — it would be mis-graded as this run's outcome and then
+        # ...plus anything standing inside this run's own prefix that no dryrun
+        # mission accounts for (a deleted mission, a hand-made instance). This
+        # run has created nothing yet, so whatever is already there is someone
+        # else's: it would be mis-graded as this run's outcome and then
         # terminated by this run's sweep.
         standing = dryrun_instances.reject { |i| i.status.to_s == "terminated" }
         if standing.any?
@@ -624,28 +666,43 @@ module Ai
           .first
       end
 
-      # The sweep is the most dangerous thing this class does, and
-      # `--teardown-only` reaches it without passing the start-time guard. A
-      # neighbour whose prefix this one subsumes (`evo-1` sweeping `evo-10`)
-      # would lose its fleet, so re-run the same overlap test here.
+      # ONE overlap rule, applied at both dangerous moments: before a run starts,
+      # and before `--teardown-only` sweeps (which never passed the start guard).
       #
-      # Covered: any neighbour whose mission is still live. NOT covered: a
-      # neighbour whose mission is already terminal while its fleet stands —
-      # that one is unreachable for a legally started run (the start-time
-      # standing-instance guard refuses either run before it can exist), but it
-      # is not re-derived here, so a hand-built pair of nested retained fleets
-      # would still be swept together.
-      def refuse_overlapping_teardown!
-        neighbour = ::Ai::Mission
-                    .where(account_id: @account.id, mission_type: "infrastructure")
-                    .where("name LIKE ?", "dryrun-%")
-                    .where.not(status: ::Ai::Mission::TERMINAL_STATUSES)
-                    .where.not(name: name_prefix)
-                    .find { |m| prefixes_overlap?(m.name.to_s, name_prefix) }
+      # A neighbour is in the way when its prefix overlaps this one AND it is
+      # either still live or still has a standing fleet. Both halves are load-
+      # bearing, and the fleet half is not symmetric with a name test: run
+      # `evo-1` retained with `--no-cleanup` leaves instances named
+      # `dryrun-evo-1-…`, which a later `evo-10` cannot see by prefix (its own
+      # query is `dryrun-evo-10%`) — but `evo-1`'s sweep would take evo-10's
+      # fleet. Asking each overlapping MISSION whether its own prefix still has
+      # instances catches that direction as well as the obvious one.
+      def refuse_overlapping_runs!(moment, exclude_self:)
+        scope = ::Ai::Mission
+                .where(account_id: @account.id, mission_type: "infrastructure")
+                .where("name LIKE ?", "dryrun-%")
+        scope = scope.where.not(name: name_prefix) if exclude_self
+        neighbour = scope
+                    .select { |m| prefixes_overlap?(m.name.to_s, name_prefix) }
+                    .find { |m| !::Ai::Mission::TERMINAL_STATUSES.include?(m.status.to_s) || standing_fleet?(m.name) }
         return unless neighbour
 
-        raise "refusing to tear down: sweeping '#{name_prefix}' overlaps the blast radius of live " \
-              "dryrun mission '#{neighbour.name}' — it would terminate that run's instances"
+        state = ::Ai::Mission::TERMINAL_STATUSES.include?(neighbour.status.to_s) ? "retained fleet of" : "live"
+        raise "refusing to #{moment}: run '#{name_prefix}' overlaps the blast radius of the #{state} " \
+              "dryrun mission '#{neighbour.name}' — one run's sweep would terminate the other's " \
+              "instances. Tear that run down first."
+      end
+
+      # Whether a `dryrun-<runId>` prefix still has non-terminated instances of
+      # its own. Account-scoped and LIKE-escaped like every other prefix query.
+      def standing_fleet?(prefix)
+        return false unless defined?(::System::NodeInstance)
+
+        like = "#{ActiveRecord::Base.sanitize_sql_like(prefix.to_s)}%"
+        ::System::NodeInstance.where(account_id: @account.id)
+                              .where("name LIKE ?", like)
+                              .where.not(status: "terminated")
+                              .exists?
       end
 
       def cancel_mission!(mission)

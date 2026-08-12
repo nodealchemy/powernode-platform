@@ -28,7 +28,10 @@ raise `--execute-timeout` for large fleets on slow providers).
 **Operator hazard**: the harness restores the routing gate and cancels its own
 mission in an `ensure` block. A `SIGKILL` or a killed terminal mid-run skips that
 cleanup — leaving the account's routing gate enabled, the mission `active`, and
-any provisioned instances leaked. If you must abort, prefer Ctrl-C (which runs
+any provisioned instances leaked. The gate's stale-claim reaping means the NEXT
+run restores it correctly (`ai_task_tier_routing_enabled` plus its two
+bookkeeping keys, `ai_dryrun_gate_holders` and `ai_dryrun_gate_prior`), but
+nothing cancels the mission or sweeps the fleet for you. If you must abort, prefer Ctrl-C (which runs
 `ensure`); if the process was hard-killed, manually cancel the `dryrun-<runId>`
 mission and re-check the account's `ai_task_tier_routing_enabled` setting — or run
 the harness's own recovery, which does the first half for you:
@@ -39,7 +42,7 @@ bundle exec rails runner ../scripts/dryrun/run.rb \
 ```
 
 It cancels that run_id's own mission **before** sweeping its prefix, refuses when
-the sweep would cross into a live neighbour's blast radius, and halts before the
+the sweep would cross into a neighbouring run's blast radius, and halts before the
 sweep if the zero-orphan check fails — add `--force-teardown` to finish the job
 once the leak has been read (the finding is still reported; the recorded orphan
 is permanent, so without the override the recovery command could never complete). It deliberately does **not**
@@ -119,9 +122,15 @@ always terminalized, so no soak keeps actuating unattended.
 **Concurrency.** Runs are refused only when their blast radii overlap — i.e. one
 `dryrun-<runId>` prefix is a prefix of the other, since teardown sweeps
 `dryrun-<runId>%`. `dryrun-evo-01` and `dryrun-evo-02` coexist; `dryrun-evo-1`
-and `dryrun-evo-10` do not. The test is applied to live missions **and** to
-standing instances (which outlive their mission after a `--no-cleanup` soak or a
-halted teardown), at start and again before any `--teardown-only` sweep.
+and `dryrun-evo-10` do not. One rule covers both dangerous moments — a run's
+start and a `--teardown-only` sweep: an overlapping run is in the way when it is
+still live **or** still has a standing fleet, because instances outlive their
+mission after a `--no-cleanup` soak or a halted teardown. Tear the neighbour
+down first.
+
+The routing gate's stale claims are reaped, so a hard-killed run cannot latch
+the gate on: a claim survives only while its own mission is live or while it is
+inside a two-minute grace window.
 
 Because concurrent runs are now legal, the account's routing gate is
 **refcounted**: the first run in captures the account's own value, later runs

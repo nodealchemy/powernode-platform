@@ -103,6 +103,10 @@ abort("--teardown-only cannot be combined with --soak") if opts[:teardown_only] 
 # Without the sweep a teardown cancels the mission and stops — a green exit for
 # a command whose name promises a teardown. Say so rather than half-doing it.
 abort("--teardown-only cannot be combined with --no-cleanup") if opts[:teardown_only] && !opts[:cleanup]
+# Forcing past the orphan halt is a RECOVERY decision, taken after reading the
+# leak. On a fresh run the halt is the whole point — the fleet still matches the
+# plan at that moment, which is the only time forensics are worth anything.
+abort("--force-teardown requires --teardown-only") if opts[:force_teardown] && !opts[:teardown_only]
 result = opts[:teardown_only] ? harness.teardown_only! : harness.run
 
 File.write(opts[:md], result.to_markdown) if opts[:md]

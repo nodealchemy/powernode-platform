@@ -235,6 +235,23 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
       expect { harness.run }.to raise_error(/overlaps the blast radius/)
     end
 
+    it "refuses to start when a RETAINED neighbour's fleet is inside this run's sweep" do
+      # The asymmetric direction: run `<runId>` was retained with --no-cleanup,
+      # so its instances are named `dryrun-<runId>-…`, which a longer-prefixed
+      # run cannot see by its own prefix query — but the retained run's later
+      # teardown WOULD sweep this one's fleet.
+      Ai::Mission.create!(account: account, created_by: user, mission_type: "infrastructure",
+                          name: "dryrun-#{run_id}", objective: "retained", status: "cancelled")
+      node = create(:system_node, account: account, node_template: template)
+      create(:system_node_instance, account: account, node: node,
+                                    name: "dryrun-#{run_id}-retained-inst-01", status: "running")
+
+      longer = described_class.new(account: account, user: user, objective: objective,
+                                   run_id: "#{run_id}extra", cleanup: false, phase_pump: worker_pump)
+
+      expect { longer.run }.to raise_error(/overlaps the blast radius of the retained fleet/)
+    end
+
     it "refuses to start inside a standing fleet, even with no live mission" do
       # A `--no-cleanup` neighbour leaves instances that outlive its mission, and
       # the sweep acts on INSTANCES. A mission-only guard would let this run
@@ -409,6 +426,25 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
              "the first run out dropped the gate under a still-running second run"
 
       b.send(:restore_gate!)
+      settings = account.reload.settings
+      expect(settings[described_class::GATE_SETTING]).to be_nil
+      expect(settings).not_to have_key(described_class::GATE_HOLDERS_SETTING)
+      expect(settings).not_to have_key(described_class::GATE_PRIOR_SETTING)
+    end
+
+    it "does not let a hard-killed run's stale claim latch the gate on forever" do
+      # A SIGKILL skips the ensure, leaving a holder whose mission never goes
+      # terminal-or-live in any useful sense. If that claim were honoured, every
+      # later restore would take the "someone is still running" arm and NO run
+      # would ever hand the gate back — worse than the hazard it replaced.
+      account.update!(settings: account.settings.merge(
+        described_class::GATE_SETTING => true,
+        described_class::GATE_PRIOR_SETTING => nil,
+        described_class::GATE_HOLDERS_SETTING => { "deadrun" => 2.days.ago.utc.iso8601 }
+      ))
+
+      soak_harness.run
+
       settings = account.reload.settings
       expect(settings[described_class::GATE_SETTING]).to be_nil
       expect(settings).not_to have_key(described_class::GATE_HOLDERS_SETTING)
