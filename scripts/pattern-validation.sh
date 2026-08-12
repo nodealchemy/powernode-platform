@@ -521,6 +521,55 @@ else
     security_critical_failed_checks+=("Core source references no private extension (core-purity mirror)")
 fi
 
+# core-purity gate (#9), PUBLIC half. CLAUDE.md's invariant is "core NEVER depends on
+# extensions" — all of them. Public extensions cannot reuse the private rule verbatim:
+# a private extension is ABSENT from public clones so naming one is always a leak, but a
+# public one is PRESENT and core legitimately documents the seams reaching it and guards
+# its constants with `defined?(...)` to degrade gracefully. So NEW references fail while
+# references already committed at the time of baselining are grandfathered via
+# .claude/hooks/core-purity-baseline.txt (regenerate: scripts/generate-core-purity-baseline.sh).
+# Comment lines and `defined?` guards are never counted — they are sanctioned forms, not
+# dependencies. Mirrors the blocking hook so the rule reaches non-Claude executors.
+# No baseline file => no-op PASS (fail-open, matching the hook's doctrine).
+pub_baseline=".claude/hooks/core-purity-baseline.txt"
+# `|| true` is load-bearing under `set -e`: grep exits 1 on empty input, and an
+# assignment takes its pipeline's status — so with no extensions/ dir (source
+# tarball, git archive), or only private/ present, this line would abort the
+# WHOLE gate silently before even printing its check name, skipping every
+# subsequent check. A gate that dies quietly is worse than no gate.
+pub_iso_slugs=$(ls -d extensions/*/ 2>/dev/null | xargs -r -n1 basename | grep -v '^private$' || true)
+total_checks=$((total_checks + 1))
+echo -n "Checking: Core source adds no NEW public-extension reference (core-purity mirror)... "
+pub_files=""
+if [ -r "$pub_baseline" ]; then
+    for slug in $pub_iso_slugs; do
+        pub_ns=""
+        for seg in $(printf '%s\n' "$slug" | tr '-' ' '); do pub_ns+="${seg^}"; done
+        pub_pat="(\b${pub_ns}::)|(extensions/${slug}\b)|(@ext/${slug}/)|(@${slug}/)"
+        while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            grep -Fxq "${f}|${slug}" "$pub_baseline" && continue          # grandfathered
+            git check-ignore -q "$f" 2>/dev/null && continue
+            # Code lines only — drop comment lines and defined?() guards.
+            if grep -nE "$pub_pat" "$f" 2>/dev/null \
+                 | grep -vE '^[0-9]+: *(#|//|\*)' | grep -qv 'defined?'; then
+                pub_files+="${f}"$'\n'
+            fi
+        done < <(grep -rlE "$pub_pat" server/app frontend/src \
+                    --include='*.rb' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
+                    2>/dev/null || true)
+    done
+fi
+pub_hits=$(printf '%s\n' "$pub_files" | sort -u | grep -cv '^$' || true)
+if [ "${pub_hits:-0}" -eq 0 ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Found $pub_hits core file(s) with a NEW public-extension reference: $(printf '%s\n' "$pub_files" | sort -u | grep -v '^$' | tr '\n' ' '))"
+    failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("Core source adds no NEW public-extension reference (core-purity mirror)")
+fi
+
 echo ""
 echo -e "${BLUE}## Migration Version Uniqueness${NC}"
 # Duplicate-migration-version guard: schema_migrations is keyed by VERSION, so if two

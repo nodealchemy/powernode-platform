@@ -103,8 +103,13 @@ for d in "$PROJECT_DIR"/extensions/private/*/; do
   priv_names+=("$(basename "$d")")
 done
 shopt -u nullglob
-[[ ${#priv_names[@]} -eq 0 ]] && exit 0
-
+# NO early exit on an empty private set. There used to be one here, and it made
+# the PUBLIC block below unreachable on exactly the installs it was written for:
+# private extensions are absent from public clones and core-mode installs by
+# definition, so `exit 0` here meant the public gate never ran there. It was not
+# caught by testing because this machine HAS private extensions, so the early
+# exit never fired locally — a check that only works in the configuration it was
+# tested in. An empty array simply skips the loop below; that is sufficient.
 HITS=""
 for name in "${priv_names[@]}"; do
   cap="${name^}"
@@ -123,6 +128,97 @@ if [[ -n "$HITS" ]]; then
     echo "Core must never depend on a private extension. Either move this logic into the extension,"
     echo "or route through a generic seam (e.g. register_extension_tools / a provider) that does not name it."
     echo "Maintainer-only notes that must name a private extension belong in CLAUDE.local.md."
+  } >&2
+  exit 2
+fi
+
+# --- PUBLIC extensions (extensions/<slug>, excluding private/) -----------------
+# CLAUDE.md's invariant is "core NEVER depends on extensions" — ALL of them, not
+# just private ones. But public extensions cannot use the private rule verbatim:
+# a private extension is ABSENT from public clones so naming one is always a leak,
+# whereas a public extension is PRESENT, and core legitimately (a) documents the
+# seams reaching it, (b) hosts core subtrees sharing its name, and (c) guards its
+# constants with `defined?(::System::X)` to degrade gracefully without it.
+# Measured 2026-08-12: `System::` was in 48 core files / 143 lines — 61 comment
+# lines, 32 `defined?` guards, 14 quoted strings. Blocking that outright would
+# reproduce the 23-false-positive revert documented in this file's header.
+#
+# So: block NEW references, grandfather COMMITTED ones via a baseline generated
+# from HEAD (scripts/generate-core-purity-baseline.sh). Work in progress cannot
+# grandfather itself, which is the point. Comment lines and `defined?` guards are
+# never blocked for any extension — they are sanctioned forms, not dependencies.
+# Fails OPEN whenever the baseline is unreadable, per this hook's doctrine.
+BASELINE="$PROJECT_DIR/.claude/hooks/core-purity-baseline.txt"
+[[ -r "$BASELINE" ]] || exit 0
+
+REL_PATH="${FILE_PATH#$PROJECT_TOPLEVEL/}"
+[[ "$REL_PATH" == "$FILE_PATH" ]] && exit 0   # couldn't relativise → fail open
+
+# Gitignored files are exempt, matching the placement gate above and the
+# pattern-validation mirror. Load-bearing rather than cosmetic: the baseline is
+# generated with `git grep HEAD`, so a gitignored file can NEVER appear in it and
+# could therefore never be grandfathered — permanently blocking edits to e.g. the
+# assembled extension e2e copies under frontend/cypress/ that this same hook
+# deliberately exempts a few lines earlier.
+git -C "$PROJECT_DIR" check-ignore -q "$FILE_PATH" 2>/dev/null && exit 0
+
+shopt -s nullglob
+pub_names=()
+for d in "$PROJECT_DIR"/extensions/*/; do
+  b="$(basename "$d")"
+  [[ "$b" == "private" ]] && continue
+  pub_names+=("$b")
+done
+shopt -u nullglob
+
+PUB_HITS=""
+for name in "${pub_names[@]}"; do
+  # Grandfathered for this exact file? Then this slug is not enforced here.
+  grep -Fxq "${REL_PATH}|${name}" "$BASELINE" && continue
+
+  # Kebab slug -> PascalCase namespace (supply-chain -> SupplyChain).
+  ns=""; IFS='-' read -ra _p <<< "$name"
+  for _seg in "${_p[@]}"; do ns+="${_seg^}"; done
+
+  pat="(\b${ns}::)|(extensions/${name}\b)|(@ext/${name}/)|(@${name}/)"
+  # Code lines only: never a comment, never a `defined?` guard.
+  #
+  # NOTE the anchor: grepping ONE file emits "LINE:content" (no path prefix), so
+  # this anchors at ^[0-9]+: — not the ":[0-9]+:" form the baseline generator
+  # needs for git grep's "path:line:content". Getting that wrong makes the gate
+  # block every doc comment; it did once, which is why both forms are tested.
+  #
+  # The sed STRIPS trailing comments before matching, rather than only skipping
+  # whole-line ones. A reference living in `x = y  # see extensions/system` is a
+  # doc mention, not a dependency, and blocking it reproduces the false-positive
+  # class this file's header records having reverted once. Whole-line forms also
+  # allow tabs and the `/*` JSDoc opener, neither of which the old filter matched.
+  m=$(grep -nE "$pat" "$FILE_PATH" 2>/dev/null \
+        | sed -E 's@(#|//|/\*).*$@@' \
+        | grep -vE '^[0-9]+:[[:space:]]*$' \
+        | grep -vE '^[0-9]+:[[:space:]]*(#|//|\*|/\*)' \
+        | grep -v 'defined?' \
+        | grep -E "$pat")
+  if [[ -n "$m" ]]; then
+    PUB_HITS+="  [public extension: ${name}]"$'\n'"${m}"$'\n'
+  fi
+done
+
+if [[ -n "$PUB_HITS" ]]; then
+  {
+    echo "BLOCKED (core-purity / gate #9): $FILE_PATH is a CORE file but names a PUBLIC extension."
+    echo "$PUB_HITS"
+    echo "Core must never depend on an extension — public ones included. Route through a generic"
+    echo "seam (a registry entry, a provider, or data the extension already supplies) instead of"
+    echo "naming it. Example: read a value off the signal/event the extension emits rather than"
+    echo "querying its model directly."
+    echo
+    echo "Sanctioned forms are NOT blocked: comment/doc references to a seam, and"
+    echo "\`defined?(::Namespace::Const)\` graceful-degradation guards."
+    echo
+    echo "If this reference is genuinely sanctioned and must persist, it belongs in the baseline —"
+    echo "commit it, then run ./scripts/generate-core-purity-baseline.sh. Note the baseline is"
+    echo "built from HEAD, so this is a deliberate, reviewable act, not an automatic exemption."
   } >&2
   exit 2
 fi
