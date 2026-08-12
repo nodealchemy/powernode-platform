@@ -93,11 +93,25 @@ module Ai
       # Never take this from the OUTPUTS side (the executor also reports a
       # `count` there): verification compares what was asked against what was
       # produced, and sourcing both from the executor is self-certification.
+      #
+      # The fallback is scoped to ADDITIVE scaling. `target_count` means
+      # "instances to create" only for an additive strategy; the scaling skill's
+      # other arms (a vertical resize, a rolling upgrade) still take a
+      # target_count but create nothing and return an empty node_instance_ids,
+      # so an unscoped fallback would expect N and see 0 — failing that step,
+      # and therefore the mission, permanently and unfixably.
       def declared_instance_count(cfg)
         inputs = cfg["inputs"].is_a?(Hash) ? cfg["inputs"] : {}
         declared = inputs["count"]
-        declared = inputs["target_count"] if declared.blank?
+        if declared.blank? && additive_scaling?(inputs)
+          declared = inputs["target_count"]
+        end
         declared.to_i
+      end
+
+      def additive_scaling?(inputs)
+        inputs["scaling_strategy"].to_s ==
+          ::Ai::Provisioning::AdaptationProposerService::SCALE_OUT_STRATEGY
       end
 
       def last_outputs(step)

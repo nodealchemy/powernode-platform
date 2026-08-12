@@ -379,6 +379,25 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       expect(WorkerJobService).to have_received(:enqueue_job).once
     end
 
+    it "REFUSES to append the same adaptation twice — no double provision" do
+      # #dispatch! is deliberately re-callable (that is how a routed plan is
+      # released once its approval lands), and once the gate says yes it keeps
+      # saying yes. Without a guard the second call appends the same steps
+      # again and provisions the replicas twice.
+      stub_gate(gate_answering("auto_apply_within_bounds"))
+      plan = build_diff_plan!
+
+      first = service.dispatch!(plan: plan)
+      second = service.dispatch!(plan: plan.reload)
+
+      expect(first[:dispatched]).to be true
+      expect(second[:dispatched]).to be false
+      expect(second[:detail]).to match(/already applied/i)
+      # Ground truth: one appended step, one step job. Not two.
+      expect(live_plan.reload.steps.count).to eq(2)
+      expect(WorkerJobService).to have_received(:enqueue_job).once
+    end
+
     it "parks rather than dispatching when the mission has no live plan to append onto" do
       stub_gate(gate_answering("auto_apply_within_bounds"))
       mission.update!(configuration: mission.configuration.except("plan"))
@@ -456,6 +475,67 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       expect(recorded).to eq(1)
     end
 
+    it "scores the adaptation on ITS OWN steps, not on a pre-existing dead instance" do
+      # The commonest trigger for a replica scale-out is an instance dying. That
+      # dead original still fails live reconciliation afterwards, so scoring the
+      # adaptation on the WHOLE plan marked every such remediation failed and
+      # minted no outcome — the loop could never record a success in the exact
+      # case it exists for.
+      recorded = nil
+      gate = gate_answering("auto_apply_within_bounds")
+      allow(gate).to receive(:record_adaptation_outcome!) { |**kw| recorded = kw }
+      stub_gate(gate)
+
+      reconciler = double("provision_verifier")
+      allow(reconciler).to receive(:reconcile_instances) do |account:, expectations:|
+        expectations.map do |e|
+          dead = e[:node_instance_id] == "i-1"
+          { node_instance_id: e[:node_instance_id], ok: !dead,
+            detail: dead ? "provider reports terminated" : "running" }
+        end
+      end
+      allow(::Powernode::ExtensionRegistry).to receive(:provider)
+        .with(:provision_verifier).and_return(reconciler)
+
+      plan = dispatch_and_complete!
+
+      result = service.settle!(adaptation_plan_ids: [ plan.id ])
+
+      # The dead original is still REPORTED — nothing is hidden.
+      expect(result[:checks].find { |c| c[:name] == "instance_i-1" }[:ok]).to be false
+      # But the adaptation itself landed, so it is scored and recorded.
+      expect(result[:healthy]).to be true
+      expect(plan.reload.status).to eq("completed")
+      expect(recorded).to be_present
+    end
+
+    it "settles a FAILED adaptation instead of leaving it executing forever" do
+      gate = gate_answering("auto_apply_within_bounds")
+      stub_gate(gate)
+
+      plan = build_diff_plan!
+      service.dispatch!(plan: plan)
+      live_plan.reload.steps.where(status: "pending").find_each do |s|
+        s.update!(status: "failed", metadata: { "last_outputs" => {} })
+      end
+
+      result = service.settle!(adaptation_plan_ids: [ plan.id ])
+
+      expect(result[:healthy]).to be false
+      expect(plan.reload.status).to eq("failed")
+      expect(gate).not_to have_received(:record_adaptation_outcome!)
+    end
+
+    it "mirrors the settled status onto the diff plan's own proposal steps" do
+      stub_gate(gate_answering("auto_apply_within_bounds"))
+      plan = dispatch_and_complete!
+
+      service.settle!(adaptation_plan_ids: [ plan.id ])
+
+      # A completed plan whose own steps still read `pending` reports 0% progress.
+      expect(plan.reload.steps.pluck(:status)).to all(eq("completed"))
+    end
+
     it "records NO outcome when the post-adapt verification is unhealthy" do
       gate = gate_answering("auto_apply_within_bounds")
       stub_gate(gate)
@@ -493,43 +573,94 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
 
   # ------------------------------------------------ runner completion hook ---
 
-  describe "settle from the runner's DAG completion" do
+  describe "settle from the runner" do
     before do
       allow(WorkerJobService).to receive(:enqueue_job).and_return(true)
       stub_confirming_verifier
-    end
 
-    it "settles the adaptation instead of advancing the execute phase" do
-      gate = gate_answering("auto_apply_within_bounds")
-      stub_gate(gate)
-      plan = build_diff_plan!
-      service.dispatch!(plan: plan)
-
-      appended = live_plan.reload.steps.order(:step_number).last
-      runner = Ai::Provisioning::SkillCompositionRunner.new(
-        account: account, mission: mission, plan: live_plan.reload
-      )
-      orchestrator = instance_double(Ai::Missions::OrchestratorService)
-      allow(orchestrator).to receive(:advance!)
-      allow(orchestrator).to receive(:broadcast_step_event!)
-      allow(runner).to receive(:orchestrator).and_return(orchestrator)
-
-      executor = Class.new do
+      succeeding = Class.new do
         def self.descriptor = { rollback: nil }
         def execute(**_inputs)
           { success: true, data: { "outputs" => { "node_instance_ids" => %w[i-3 i-4] }, "failures" => [] } }
         end
       end
       allow(Ai::Provisioning::SkillCompositionRunner)
-        .to receive(:resolve_executor).with("scale_project").and_return(executor)
+        .to receive(:resolve_executor).with("scale_project").and_return(succeeding)
+    end
+
+    # A runner over the live plan with the orchestrator stubbed, so an example
+    # can assert whether the execute-phase advance was attempted.
+    def build_runner
+      runner = Ai::Provisioning::SkillCompositionRunner.new(
+        account: account, mission: mission.reload, plan: live_plan.reload
+      )
+      orchestrator = instance_double(Ai::Missions::OrchestratorService)
+      allow(orchestrator).to receive(:advance!)
+      allow(orchestrator).to receive(:broadcast_step_event!)
+      allow(runner).to receive(:orchestrator).and_return(orchestrator)
+      runner
+    end
+
+    it "settles the adaptation when its steps complete" do
+      gate = gate_answering("auto_apply_within_bounds")
+      stub_gate(gate)
+      plan = build_diff_plan!
+      service.dispatch!(plan: plan)
+
+      appended = live_plan.reload.steps.order(:step_number).last
+      runner = build_runner
 
       runner.execute_step!(appended.reload)
 
-      # The mission is in `adapting`, not `execute` — an execute-phase advance
-      # here would be the wrong event entirely.
-      expect(orchestrator).not_to have_received(:advance!)
       expect(plan.reload.status).to eq("completed")
       expect(gate).to have_received(:record_adaptation_outcome!)
+    end
+
+    it "settles the adaptation when its step FAILS, rather than leaving it executing" do
+      gate = gate_answering("auto_apply_within_bounds")
+      stub_gate(gate)
+      plan = build_diff_plan!
+      service.dispatch!(plan: plan)
+
+      appended = live_plan.reload.steps.order(:step_number).last
+      runner = build_runner
+      failing = Class.new do
+        def self.descriptor = { rollback: nil }
+        def execute(**_inputs) = { success: false, error: "provider rejected the request" }
+      end
+      allow(Ai::Provisioning::SkillCompositionRunner)
+        .to receive(:resolve_executor).with("scale_project").and_return(failing)
+
+      runner.execute_step!(appended.reload)
+
+      # The settle only ever ran off the success path, so a failed adaptation
+      # sat in `executing` forever with no outcome and no failure record — and
+      # the live plan then permanently held a non-completed step, which blocked
+      # every LATER adaptation on this mission from settling too.
+      expect(appended.reload.status).to eq("failed")
+      expect(plan.reload.status).to eq("failed")
+      expect(gate).not_to have_received(:record_adaptation_outcome!)
+    end
+
+    it "still advances a mission adapted while it was in the EXECUTE phase" do
+      # Nothing stops an operator adapting a mission mid-execute. Suppressing
+      # the execute-phase advance whenever the plan carried adaptation
+      # provenance stranded that mission in `execute` forever — the appended
+      # steps keep their provenance, so the suppression never lifted and verify
+      # was never reached.
+      mission.update!(current_phase: "execute")
+      stub_gate(gate_answering("auto_apply_within_bounds"))
+      plan = build_diff_plan!
+      service.dispatch!(plan: plan)
+
+      appended = live_plan.reload.steps.order(:step_number).last
+      runner = build_runner
+      orchestrator = runner.orchestrator
+
+      runner.execute_step!(appended.reload)
+
+      expect(orchestrator).to have_received(:advance!).with(expected_phase: "execute")
+      expect(plan.reload.status).to eq("completed")
     end
   end
 end

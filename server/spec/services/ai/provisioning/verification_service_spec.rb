@@ -166,6 +166,29 @@ RSpec.describe Ai::Provisioning::VerificationService, type: :service do
       expect(result[:healthy]).to be false
     end
 
+    it "does NOT read target_count for a non-additive scaling step" do
+      # A vertical resize / rolling upgrade takes a target_count but creates no
+      # instances and returns an empty node_instance_ids. An unscoped fallback
+      # expected N, saw 0, and failed that step — and so the mission —
+      # permanently, with nothing an operator could do about it.
+      provision_step!(number: 1, count: 1, instance_ids: %w[i-1])
+      plan.steps.create!(
+        step_number: 2, step_type: "provisioning_skill", description: "Resize", status: "completed",
+        execution_config: { "skill" => "scale_project", "on_failure" => "rollback",
+                            "adapted_from_plan_id" => SecureRandom.uuid,
+                            "inputs" => { "target_count" => 3,
+                                          "scaling_strategy" => "vertical_resize" } },
+        metadata: { "last_outputs" => { "outputs" => { "node_instance_ids" => [] },
+                                        "failures" => [] } }
+      )
+      stub_verifier(nil)
+
+      result = service.verify
+
+      expect(result[:checks].map { |c| c[:name] }).not_to include("step_2_count")
+      expect(result[:healthy]).to be true
+    end
+
     it "reconciles the adaptation's new instances against the live provider too" do
       provision_step!(number: 1, count: 1, instance_ids: %w[i-1])
       adaptation_step!(number: 2, target_count: 1, instance_ids: %w[i-3], region_id: "region-9")

@@ -196,6 +196,7 @@ module Ai
             record_skill_usage(step, skill_name, "success", started_at)
             announce_step(step, status: "completed", outputs: outputs)
             dispatch_unblocked_successors(step)
+            settle_adaptation_for_step!(step)
             advance_mission_if_dag_complete!
             { success: true, outputs: outputs, error: nil }
           else
@@ -539,14 +540,6 @@ module Ai
         return if steps.empty?
         return unless steps.all? { |s| step_status(s) == "completed" }
 
-        # IMP-8c37b9e5ccd5: a plan carrying appended adaptation steps settles
-        # through the post-adapt path, not the execute-phase advance. The
-        # mission left `execute` long before the adaptation was composed — it
-        # is in `adapting` — so advancing here would be the wrong event
-        # entirely (and is rejected as stale anyway, silently doing nothing
-        # where a re-verify was owed).
-        return if settle_adaptation_if_any!(steps)
-
         orchestrator.advance!(expected_phase: "execute")
       rescue StandardError => e
         Rails.logger.error(
@@ -554,28 +547,45 @@ module Ai
         )
       end
 
-      # Hand a completed adaptation back to its dispatcher for the post-adapt
-      # verification + outcome record. Returns true when this plan carried an
-      # adaptation at all — i.e. when the execute-phase advance must be skipped
-      # — regardless of whether the settle itself succeeded, since a failed
-      # settle does not turn an adaptation back into an execute-phase run.
-      def settle_adaptation_if_any!(steps)
-        plan_ids = steps.filter_map do |s|
-          step_config(s)[::Ai::Provisioning::AdaptationDispatchService::PROVENANCE_KEY].presence
-        end.uniq
-        return false if plan_ids.empty?
+      # Statuses from which an appended adaptation step will not move again.
+      ADAPTATION_TERMINAL_STATUSES = %w[completed failed].freeze
 
-        begin
-          ::Ai::Provisioning::AdaptationDispatchService
-            .new(account: account, mission: mission)
-            .settle!(adaptation_plan_ids: plan_ids)
-        rescue StandardError => e
-          Rails.logger.error(
-            "[SkillCompositionRunner] post-adapt settle failed for plan #{plan_id}: " \
-            "#{e.class}: #{e.message}"
-          )
+      # IMP-8c37b9e5ccd5 — hand a finished adaptation back to its dispatcher for
+      # the post-adapt verification + outcome record.
+      #
+      # Keyed on THIS ADAPTATION'S OWN steps, not on the whole plan being
+      # complete. Two reasons, both of which bit an earlier shape of this hook:
+      #
+      #   1. A FAILED appended step is terminal for the adaptation but never
+      #      satisfies "every step completed", so the settle never fired: the
+      #      diff plan sat in `executing` forever with no outcome and no failure
+      #      record — and because the live plan then permanently held a
+      #      non-completed step, no LATER adaptation on that mission could
+      #      settle either.
+      #   2. Suppressing the execute-phase advance whenever the plan carried any
+      #      adaptation provenance stranded a mission adapted while still in
+      #      `execute`: the appended steps keep their provenance forever, so the
+      #      advance was suppressed permanently and the mission never reached
+      #      verify. The advance is guarded by `expected_phase:` already, so it
+      #      is a logged no-op for a mission in `adapting` — there was nothing
+      #      to suppress.
+      def settle_adaptation_for_step!(step)
+        plan_id = step_config(step)[::Ai::Provisioning::AdaptationDispatchService::PROVENANCE_KEY].presence
+        return if plan_id.blank?
+
+        siblings = steps_in_order.select do |s|
+          step_config(s)[::Ai::Provisioning::AdaptationDispatchService::PROVENANCE_KEY].to_s == plan_id.to_s
         end
-        true
+        return unless siblings.all? { |s| ADAPTATION_TERMINAL_STATUSES.include?(step_status(s)) }
+
+        ::Ai::Provisioning::AdaptationDispatchService
+          .new(account: account, mission: mission)
+          .settle!(adaptation_plan_ids: [ plan_id ])
+      rescue StandardError => e
+        Rails.logger.error(
+          "[SkillCompositionRunner] post-adapt settle failed for adaptation #{plan_id}: " \
+          "#{e.class}: #{e.message}"
+        )
       end
 
       def record_outputs(step, outputs)
@@ -695,6 +705,11 @@ module Ai
       def handle_failure(step, error_message, on_failure)
         mark_failed(step, error_message)
         announce_step(step, status: "failed", outputs: { error: error_message }, error: error_message)
+
+        # A failed step is terminal for its adaptation. Without this the diff
+        # plan never leaves `executing` and no outcome is ever recorded — the
+        # settle only ran off the success path.
+        settle_adaptation_for_step!(step)
 
         return unless on_failure.to_s == "rollback"
 

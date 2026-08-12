@@ -117,37 +117,64 @@ module Ai
         apply!(plan, base)
       end
 
-      # Post-adapt settle. Called by SkillCompositionRunner when every step of
-      # the live plan — originals plus the appended adaptation — is complete.
+      # Post-adapt settle. Called by SkillCompositionRunner once every step of
+      # ONE adaptation has reached a terminal status (completed or failed).
       #
       # @return [Hash] { verified:, healthy:, checks:, outcomes_recorded: }
       def settle!(adaptation_plan_ids:)
-        # ONLY plans still in flight. The appended steps stay on the live plan
-        # forever, so every LATER adaptation's DAG completion sees this one's
-        # provenance too — without this scope a second adaptation would re-settle
-        # the first, and re-mint its outcome once the original had been scored
-        # out of `pending` and no longer tripped the extension's dedup.
-        plans = ::Ai::GoalPlan
-          .where(account_id: account.id, id: Array(adaptation_plan_ids).compact.uniq)
-          .where(status: "executing")
-          .to_a
-        return { verified: false, healthy: nil, checks: [], outcomes_recorded: 0 } if plans.empty?
+        ids = Array(adaptation_plan_ids).compact.uniq
+        return empty_settle if ids.empty?
 
+        # CLAIM the plans under a row lock before doing anything else. The final
+        # layer of an adaptation can be several steps finishing on different
+        # workers at the same moment, and each of them sees "all my siblings are
+        # terminal". Without the claim they all verify, all call complete!/fail!,
+        # and all attempt the outcome. Only plans still `executing` are claimed,
+        # which also stops a LATER adaptation's settle from re-settling this one
+        # — the appended steps keep their provenance forever, so its plan id
+        # keeps being offered.
+        plans = ::Ai::GoalPlan.transaction do
+          ::Ai::GoalPlan
+            .where(account_id: account.id, id: ids, status: "executing")
+            .lock
+            .to_a
+        end
+        return empty_settle if plans.empty?
+
+        # The whole live plan is verified — that is the point of appending onto
+        # it, and the full check list is what gets reported. But the ADAPTATION
+        # is scored only on ITS OWN steps.
+        #
+        # Scoring it on the whole plan made the loop unable to record a success
+        # in its commonest case: replica drift is usually triggered BY an
+        # instance dying, and that dead original still fails live reconciliation
+        # after a perfectly good scale-out. The adaptation would be marked
+        # failed and no RemediationOutcome minted — so a remediation that worked
+        # could never be scored. The dead instance is a separate condition,
+        # still reported in `checks`, and its own signal keeps firing until it
+        # is dealt with.
         verification = VerificationService.new(account: account, mission: mission).verify
-        healthy = verification[:healthy] == true
 
         recorded = 0
-        plans.each do |plan|
+        results = plans.map do |plan|
+          steps = appended_steps_for(plan)
+          healthy = adaptation_healthy?(steps, verification[:checks])
+
           if healthy
             plan.complete!
+            mirror_step_status!(plan, "completed")
             recorded += 1 if record_outcome!(plan)
           else
-            plan.fail!(reason: unhealthy_reason(verification))
+            plan.fail!(reason: unhealthy_reason(plan, steps, verification[:checks]))
+            mirror_step_status!(plan, "failed")
           end
+          [ plan.id, healthy ]
         end
 
+        healthy = results.all? { |(_id, ok)| ok }
+
         Rails.logger.info(
-          "[AdaptationDispatchService] post-adapt verification mission=#{mission.id} " \
+          "[AdaptationDispatchService] post-adapt settle mission=#{mission.id} " \
           "healthy=#{healthy} plans=#{plans.size} outcomes_recorded=#{recorded}"
         )
 
@@ -274,9 +301,31 @@ module Ai
           )
         end
 
+        # IDEMPOTENCY, on GROUND TRUTH rather than on status bookkeeping.
+        #
+        # #dispatch! is deliberately re-callable — that is how a routed plan
+        # gets released once its approval lands. But once the gate says yes it
+        # keeps saying yes, so a second call would append this plan's steps a
+        # SECOND time and provision the replicas twice. Asking the live plan
+        # whether it already carries steps stamped with this plan's id answers
+        # "did this adaptation already land?" from the rows themselves, which a
+        # status field can drift from and a concurrent caller can race.
+        if (existing = already_appended(live_plan, plan)).any?
+          Rails.logger.info(
+            "[AdaptationDispatchService] plan #{plan.id} already appended onto " \
+            "live plan #{live_plan.id} — refusing duplicate dispatch."
+          )
+          return base.merge(
+            dispatched: false, live_plan_id: live_plan.id,
+            appended_step_numbers: existing.map { |s| s.step_number.to_i },
+            detail: "already applied to this mission's live plan"
+          )
+        end
+
         appended = append_steps!(live_plan, plan)
         if appended.empty?
-          return base.merge(dispatched: false, live_plan_id: live_plan.id,
+          # Nothing ran, so this is not an auto-apply however the gate answered.
+          return base.merge(gate: GATE_PARKED, dispatched: false, live_plan_id: live_plan.id,
                             detail: "adaptation plan carried no steps to append")
         end
 
@@ -289,12 +338,26 @@ module Ai
           .new(account: account, mission: mission, plan: live_plan)
           .execute_appended!(steps: appended)
 
+        # Report what the runner ACTUALLY dispatched. Hardcoding true here made
+        # `dispatched` unfalsifiable: the runner's own already-running arm
+        # returns 0, and a caller reading `dispatched: true` would believe work
+        # was in flight when none had been enqueued.
+        dispatched = run[:dispatched].to_i.positive?
+
         base.merge(
-          dispatched: true,
+          dispatched: dispatched,
           live_plan_id: live_plan.id,
           appended_step_numbers: appended.map { |s| s.step_number.to_i },
-          runner_id: run[:runner_id]
+          runner_id: run[:runner_id],
+          detail: dispatched ? base[:detail] : "runner dispatched no step (a run is already in flight)"
         )
+      end
+
+      # Steps on the live plan already stamped as coming from this adaptation.
+      def already_appended(live_plan, plan)
+        live_plan.steps.select do |s|
+          step_config(s)[PROVENANCE_KEY].to_s == plan.id.to_s
+        end
       end
 
       def live_plan_for_mission
@@ -384,10 +447,75 @@ module Ai
         false
       end
 
-      def unhealthy_reason(verification)
-        failing = Array(verification[:checks]).reject { |c| c[:ok] }
+      def empty_settle
+        { verified: false, healthy: nil, checks: [], outcomes_recorded: 0 }
+      end
+
+      # The live-plan steps this adaptation contributed.
+      def appended_steps_for(plan)
+        live_plan = live_plan_for_mission
+        return [] unless live_plan
+
+        already_appended(live_plan, plan)
+      end
+
+      # Did THIS adaptation land? A step of its own that failed is decisive; so
+      # is any failing check naming one of its steps, or one of the instances
+      # those steps produced. Checks belonging to the mission's pre-existing
+      # footprint are deliberately not consulted — see #settle!.
+      def adaptation_healthy?(steps, checks)
+        return false if steps.empty?
+        return false unless steps.all? { |s| s.status.to_s == "completed" }
+
+        own = own_checks(steps, checks)
+        own.all? { |c| c[:ok] }
+      end
+
+      # VerificationService names its checks `step_<number>_*` and
+      # `instance_<node_instance_id>`, so both can be attributed back to the
+      # steps that produced them.
+      def own_checks(steps, checks)
+        numbers = steps.map { |s| s.step_number.to_i }.to_set
+        instance_ids = steps.flat_map { |s| produced_instance_ids(s) }.to_set
+
+        Array(checks).select do |c|
+          name = c[:name].to_s
+          if (m = name.match(/\Astep_(\d+)_/))
+            numbers.include?(m[1].to_i)
+          elsif (m = name.match(/\Ainstance_(.+)\z/))
+            instance_ids.include?(m[1])
+          else
+            false
+          end
+        end
+      end
+
+      def produced_instance_ids(step)
+        meta = step.metadata.is_a?(Hash) ? step.metadata : {}
+        outs = meta["last_outputs"] || meta[:last_outputs] || {}
+        outs = outs.is_a?(Hash) ? outs.deep_stringify_keys : {}
+        Array(outs.dig("outputs", "node_instance_ids")).map(&:to_s)
+      end
+
+      # The diff plan's OWN steps are the proposal record and never execute —
+      # the appended copies do. Leaving them `pending` on a completed plan made
+      # `all_steps_completed?` false and `progress_percentage` read 0 for a plan
+      # that had in fact finished, so mirror the outcome onto them.
+      def mirror_step_status!(plan, status)
+        plan.steps.where.not(status: status).update_all(status: status, updated_at: Time.current)
+      rescue StandardError => e
+        Rails.logger.warn("[AdaptationDispatchService] step mirror failed for #{plan.id}: #{e.message}")
+      end
+
+      def unhealthy_reason(plan, steps, checks)
+        failed_steps = steps.reject { |s| s.status.to_s == "completed" }
+        if failed_steps.any?
+          return "adaptation step(s) #{failed_steps.map(&:step_number).join(', ')} did not complete"[0, 500]
+        end
+
+        failing = own_checks(steps, checks).reject { |c| c[:ok] }
         summary = failing.first(3).map { |c| "#{c[:name]}: #{c[:detail]}" }.join("; ")
-        "post-adapt verification failed: #{summary}"[0, 500]
+        "post-adapt verification failed for plan #{plan.id}: #{summary}"[0, 500]
       end
     end
   end
