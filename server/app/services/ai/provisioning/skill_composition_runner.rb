@@ -550,6 +550,29 @@ module Ai
       # Statuses from which an appended adaptation step will not move again.
       ADAPTATION_TERMINAL_STATUSES = %w[completed failed].freeze
 
+      # Walk an adaptation's own dependency chain and fail every step still
+      # `pending` behind a failed one, to closure (a 3-step chain must fail
+      # steps 2 AND 3 when step 1 dies). Scoped to the adaptation's siblings so
+      # this cannot change what a provisioning run does with its own steps.
+      def fail_unreachable_adaptation_successors!(siblings)
+        failed = siblings.select { |s| step_status(s) == "failed" }
+                         .map { |s| s.step_number.to_i }.to_set
+        return if failed.empty?
+
+        loop do
+          newly = siblings.select do |s|
+            step_status(s) == "pending" &&
+              Array(s.dependencies).map(&:to_i).any? { |d| failed.include?(d) }
+          end
+          break if newly.empty?
+
+          newly.each do |s|
+            mark_failed(s, "predecessor adaptation step failed — never dispatched")
+            failed << s.step_number.to_i
+          end
+        end
+      end
+
       # IMP-8c37b9e5ccd5 — hand a finished adaptation back to its dispatcher for
       # the post-adapt verification + outcome record.
       #
@@ -576,6 +599,14 @@ module Ai
         siblings = steps_in_order.select do |s|
           step_config(s)[::Ai::Provisioning::AdaptationDispatchService::PROVENANCE_KEY].to_s == plan_id.to_s
         end
+
+        # A failed step's successors will never run: successors are dispatched
+        # only from the SUCCESS arm. Left `pending` they are never terminal, so
+        # a chained diff whose first step failed would wait forever — the same
+        # permanent stall the failure path was added to remove, one level down.
+        # Mark them, so the rows say what is true and the adaptation can settle.
+        fail_unreachable_adaptation_successors!(siblings)
+
         return unless siblings.all? { |s| ADAPTATION_TERMINAL_STATUSES.include?(step_status(s)) }
 
         ::Ai::Provisioning::AdaptationDispatchService
@@ -706,19 +737,21 @@ module Ai
         mark_failed(step, error_message)
         announce_step(step, status: "failed", outputs: { error: error_message }, error: error_message)
 
-        # A failed step is terminal for its adaptation. Without this the diff
-        # plan never leaves `executing` and no outcome is ever recorded — the
-        # settle only ran off the success path.
-        settle_adaptation_for_step!(step)
-
-        return unless on_failure.to_s == "rollback"
-
         # Compensate ONLY the failed step's own recorded resources (a retried
         # step's prior partial success is the legitimate target; a first-run
         # validation failure recorded nothing and rolls back nothing).
         # Completed siblings' infrastructure survives — verify (F2) and the
         # operator gates own its disposition (IMP 019fe5d7-1089).
-        rollback_step!(step)
+        rollback_step!(step) if on_failure.to_s == "rollback"
+
+        # AFTER the unwind, deliberately. A failed step is terminal for its
+        # adaptation and must settle it — without this the diff plan never
+        # leaves `executing` and no outcome is recorded, because the settle only
+        # ran off the success path. But the settle runs a full live
+        # VerificationService pass, so putting it first parked seconds of
+        # provider round-trips between a step failing and its resources being
+        # released.
+        settle_adaptation_for_step!(step)
       end
 
       # ===== Side effects =====

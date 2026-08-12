@@ -60,10 +60,27 @@ module Ai
       #   parked_gate_unavailable  — NO USABLE GATE ANSWER was obtained (seam
       #                              absent, erroring, unintelligible, or trying
       #                              to widen core's bounds). Plan stays draft.
+      # Two further dispositions describe what happened AFTER the gate cleared
+      # the plan. They are not gate verdicts and the gate never returns them;
+      # they exist because `parked_gate_unavailable` promises "nothing ran", and
+      # once steps are on the live plan that promise is false:
+      #
+      #   applied_dispatch_failed — steps ARE appended, nothing was enqueued.
+      #                             Re-running dispatch! re-dispatches them.
+      #   already_applied         — steps are appended AND past pending; a run
+      #                             is in flight or finished. Nothing further.
       GATE_ROUTED     = "routed"
       GATE_AUTO_APPLY = "auto_apply_within_bounds"
       GATE_PARKED     = "parked_gate_unavailable"
-      GATE_DISPOSITIONS = [ GATE_ROUTED, GATE_AUTO_APPLY, GATE_PARKED ].freeze
+      GATE_APPLIED_DISPATCH_FAILED = "applied_dispatch_failed"
+      GATE_ALREADY_APPLIED         = "already_applied"
+
+      # Everything #dispatch! can report. The first three are the ratified gate
+      # verdicts; the last two are post-gate outcomes.
+      GATE_DISPOSITIONS = [
+        GATE_ROUTED, GATE_AUTO_APPLY, GATE_PARKED,
+        GATE_APPLIED_DISPATCH_FAILED, GATE_ALREADY_APPLIED
+      ].freeze
 
       # `plan_data["kind"]` this service consumes, and the registry key it
       # resolves the policy gate through.
@@ -83,6 +100,15 @@ module Ai
       # runner reads it to tell an adaptation settle from an execute-phase
       # advance.
       PROVENANCE_KEY = "adapted_from_plan_id"
+
+      # VerificationService's whole-plan reconciliation check. It carries BOTH
+      # the core-mode annotation (ok) and the reconciler-error verdict (not ok),
+      # and belongs to no individual step — see #adaptation_healthy?.
+      LIVE_RECONCILIATION_CHECK = "live_reconciliation"
+
+      # Step-metadata key recording that a step was handed to a runner. See
+      # #stamp_dispatched! for why status alone cannot answer that question.
+      DISPATCH_STAMP_KEY = "adaptation_dispatched"
 
       class NotAnAdaptationPlanError < ArgumentError; end
 
@@ -125,20 +151,24 @@ module Ai
         ids = Array(adaptation_plan_ids).compact.uniq
         return empty_settle if ids.empty?
 
-        # CLAIM the plans under a row lock before doing anything else. The final
-        # layer of an adaptation can be several steps finishing on different
-        # workers at the same moment, and each of them sees "all my siblings are
-        # terminal". Without the claim they all verify, all call complete!/fail!,
-        # and all attempt the outcome. Only plans still `executing` are claimed,
-        # which also stops a LATER adaptation's settle from re-settling this one
-        # — the appended steps keep their provenance forever, so its plan id
-        # keeps being offered.
-        plans = ::Ai::GoalPlan.transaction do
-          ::Ai::GoalPlan
-            .where(account_id: account.id, id: ids, status: "executing")
-            .lock
-            .to_a
-        end
+        # Only plans still `executing` settle. This is what stops a LATER
+        # adaptation's completion from re-settling this one — the appended steps
+        # keep their provenance forever, so this plan id keeps being offered —
+        # and it makes a sequential second call a no-op.
+        #
+        # NOT a concurrency claim. The status transition happens after a full
+        # VerificationService run (seconds of live provider calls), so two
+        # workers finishing the final layer at the same moment can both read
+        # `executing`, both verify, and both settle. An earlier attempt here
+        # took `FOR UPDATE` and released it at the end of the read, which
+        # serialized nothing while reading as though it did. Closing this needs
+        # one deliberate mechanism — a compare-and-set status claim or an
+        # advisory lock — not a third bolt-on; deferred and reported as its own
+        # offer. The extension's pending-fingerprint dedup limits the blast
+        # radius to a duplicate verification for sensor-driven plans.
+        plans = ::Ai::GoalPlan
+          .where(account_id: account.id, id: ids, status: "executing")
+          .to_a
         return empty_settle if plans.empty?
 
         # The whole live plan is verified — that is the point of appending onto
@@ -292,6 +322,21 @@ module Ai
 
       # ----- append + dispatch ---------------------------------------------
 
+      # RETRY SEMANTICS, stated rather than emergent.
+      #
+      # The append COMMITS before the dispatch, so between the two calls this
+      # adaptation can be in exactly three states, and each needs a different
+      # answer. Deriving the answer from "do rows exist?" alone conflated the
+      # middle one with the last and stranded it permanently.
+      #
+      #   NOT APPENDED           → append, then dispatch.
+      #   APPENDED, NONE ENQUEUED → RE-DISPATCH those rows. This is precisely
+      #     the residue of a dispatch that raised. Re-enqueueing is safe: two
+      #     jobs against the same step row both land in
+      #     SkillCompositionRunner#execute_step!, whose in-flight guard lets
+      #     only the first through.
+      #   APPENDED, ANY PAST PENDING → REFUSE. A run is in flight or done;
+      #     appending again is the double-provision this guard exists to stop.
       def apply!(plan, base)
         live_plan = live_plan_for_mission
         unless live_plan
@@ -301,56 +346,139 @@ module Ai
           )
         end
 
-        # IDEMPOTENCY, on GROUND TRUTH rather than on status bookkeeping.
+        # Keyed on the live plan's own rows rather than on `plan.status`, which
+        # is written after the append and so cannot describe the middle state.
         #
-        # #dispatch! is deliberately re-callable — that is how a routed plan
-        # gets released once its approval lands. But once the gate says yes it
-        # keeps saying yes, so a second call would append this plan's steps a
-        # SECOND time and provision the replicas twice. Asking the live plan
-        # whether it already carries steps stamped with this plan's id answers
-        # "did this adaptation already land?" from the rows themselves, which a
-        # status field can drift from and a concurrent caller can race.
-        if (existing = already_appended(live_plan, plan)).any?
-          Rails.logger.info(
-            "[AdaptationDispatchService] plan #{plan.id} already appended onto " \
-            "live plan #{live_plan.id} — refusing duplicate dispatch."
-          )
-          return base.merge(
-            dispatched: false, live_plan_id: live_plan.id,
-            appended_step_numbers: existing.map { |s| s.step_number.to_i },
-            detail: "already applied to this mission's live plan"
-          )
+        # NOT race-safe: this is an unlocked read-then-write, so two concurrent
+        # dispatch! calls on one plan can both read zero rows and both append.
+        # Closing that needs one deliberate mechanism (a partial unique index on
+        # (plan_id, adapted_from_plan_id), or an advisory lock) rather than a
+        # third guard here — deferred and reported as its own offer. Sequential
+        # re-entry, which is the path an MCP retry and an approval release
+        # actually take, IS covered.
+        existing = already_appended(live_plan, plan)
+        if existing.any?
+          return resume_or_refuse(plan, live_plan, existing, base)
         end
 
-        appended = append_steps!(live_plan, plan)
+        # A raise here rolls the whole append back — `append_steps!` runs in a
+        # transaction — so nothing is on the live plan and PARKED is honest.
+        # This is the ONLY post-gate path on which it is.
+        begin
+          appended = append_steps!(live_plan, plan)
+        rescue StandardError => e
+          return base.merge(gate: GATE_PARKED, dispatched: false, live_plan_id: live_plan.id,
+                            detail: "append failed, nothing applied: #{e.class}: #{e.message[0, 200]}")
+        end
+
         if appended.empty?
-          # Nothing ran, so this is not an auto-apply however the gate answered.
           return base.merge(gate: GATE_PARKED, dispatched: false, live_plan_id: live_plan.id,
                             detail: "adaptation plan carried no steps to append")
         end
 
-        # Leaving `draft` is what releases the fleet DecisionEngine's
-        # one-open-proposal-per-mission brake: a dispatched plan is no longer an
-        # undecided proposal, so the next genuine breach may propose again.
-        plan.start_execution!
+        dispatch_appended!(plan, live_plan, appended, base, claim: true)
+      end
 
-        run = SkillCompositionRunner
-          .new(account: account, mission: mission, plan: live_plan)
-          .execute_appended!(steps: appended)
+      # Enqueue `steps` and report honestly if that fails.
+      #
+      # Past this point the steps ARE on the mission's live plan, so a failure
+      # can no longer be reported as `parked_gate_unavailable` — whose shipped
+      # meaning is "the plan stays in draft and NOTHING ran". Reporting a lie is
+      # worse than reporting an ambiguity: an ambiguity invites a check, a
+      # confident "nothing happened" does not.
+      def dispatch_appended!(plan, live_plan, steps, base, claim:)
+        numbers = steps.map { |s| s.step_number.to_i }
 
-        # Report what the runner ACTUALLY dispatched. Hardcoding true here made
-        # `dispatched` unfalsifiable: the runner's own already-running arm
-        # returns 0, and a caller reading `dispatched: true` would believe work
-        # was in flight when none had been enqueued.
+        begin
+          # Leaving `draft` releases the fleet DecisionEngine's
+          # one-open-proposal-per-mission brake: a dispatched plan is no longer
+          # an undecided proposal, so the next genuine breach may propose again.
+          plan.start_execution! if claim
+          run = SkillCompositionRunner
+            .new(account: account, mission: mission, plan: live_plan)
+            .execute_appended!(steps: steps)
+        rescue StandardError => e
+          Rails.logger.error(
+            "[AdaptationDispatchService] plan #{plan.id} appended but dispatch failed: " \
+            "#{e.class}: #{e.message}"
+          )
+          return base.merge(
+            gate: GATE_APPLIED_DISPATCH_FAILED, dispatched: false,
+            live_plan_id: live_plan.id, appended_step_numbers: numbers,
+            detail: "steps appended but not enqueued (#{e.class}: #{e.message[0, 200]}) — " \
+                    "re-run to dispatch them"
+          )
+        end
+
+        # Report what the runner ACTUALLY dispatched. Hardcoding true made
+        # `dispatched` unfalsifiable: the runner's already-running arm returns 0,
+        # and a caller reading true would believe work was in flight when none
+        # had been enqueued.
         dispatched = run[:dispatched].to_i.positive?
+        stamp_dispatched!(steps, run[:runner_id]) if dispatched
 
         base.merge(
+          gate: dispatched ? base[:gate] : GATE_APPLIED_DISPATCH_FAILED,
           dispatched: dispatched,
           live_plan_id: live_plan.id,
-          appended_step_numbers: appended.map { |s| s.step_number.to_i },
+          appended_step_numbers: numbers,
           runner_id: run[:runner_id],
           detail: dispatched ? base[:detail] : "runner dispatched no step (a run is already in flight)"
         )
+      end
+
+      # Which of the three states is this adaptation in?
+      #
+      # Step STATUS alone cannot tell "enqueued, worker not started yet" from
+      # "never enqueued" — both are `pending`, and guessing either way is wrong:
+      # guess enqueued and a failed dispatch strands forever, guess not and
+      # every re-entry re-enqueues. So the enqueue is RECORDED (#stamp_dispatched!)
+      # and read back here. Only the first layer is handed to the runner, so
+      # later layers are legitimately unstamped while a run is under way — the
+      # discriminator is therefore "did ANY of these steps get handed to a
+      # runner", not "were they all".
+      def resume_or_refuse(plan, live_plan, existing, base)
+        never_enqueued = existing.none? { |s| dispatch_stamp(s).present? }
+
+        if never_enqueued && existing.all? { |s| s.status.to_s == "pending" }
+          Rails.logger.info(
+            "[AdaptationDispatchService] plan #{plan.id} was appended but never enqueued — " \
+            "re-dispatching #{existing.size} step(s)."
+          )
+          return dispatch_appended!(plan, live_plan, existing, base, claim: plan.status.to_s == "draft")
+        end
+
+        Rails.logger.info(
+          "[AdaptationDispatchService] plan #{plan.id} already appended onto " \
+          "live plan #{live_plan.id} and past pending — refusing duplicate dispatch."
+        )
+        base.merge(
+          gate: GATE_ALREADY_APPLIED, dispatched: false, live_plan_id: live_plan.id,
+          appended_step_numbers: existing.map { |s| s.step_number.to_i },
+          detail: "already applied to this mission's live plan"
+        )
+      end
+
+      # Record that these steps were handed to a runner. This is the ONLY thing
+      # that distinguishes "appended and enqueued" from "appended and never
+      # enqueued" — both leave the rows `pending` until a worker picks them up,
+      # so without it re-entry has to guess, and either guess is a permanent
+      # stall or a duplicate enqueue.
+      def stamp_dispatched!(steps, runner_id)
+        Array(steps).each do |step|
+          meta = step.metadata.is_a?(Hash) ? step.metadata.dup : {}
+          meta[DISPATCH_STAMP_KEY] = { "runner_id" => runner_id, "at" => Time.current.iso8601 }
+          step.update_columns(metadata: meta, updated_at: Time.current)
+        end
+      rescue StandardError => e
+        # Losing the stamp costs a redundant enqueue on re-entry (harmless — the
+        # runner's per-step guard refuses the second), never a double provision.
+        Rails.logger.warn("[AdaptationDispatchService] dispatch stamp failed: #{e.message}")
+      end
+
+      def dispatch_stamp(step)
+        meta = step.metadata.is_a?(Hash) ? step.metadata : {}
+        meta[DISPATCH_STAMP_KEY] || meta[DISPATCH_STAMP_KEY.to_sym]
       end
 
       # Steps on the live plan already stamped as coming from this adaptation.
@@ -459,35 +587,77 @@ module Ai
         already_appended(live_plan, plan)
       end
 
-      # Did THIS adaptation land? A step of its own that failed is decisive; so
-      # is any failing check naming one of its steps, or one of the instances
-      # those steps produced. Checks belonging to the mission's pre-existing
-      # footprint are deliberately not consulted — see #settle!.
+      # Did THIS adaptation land?
+      #
+      # Three kinds of check, and conflating any two of them has already caused
+      # a bug:
+      #
+      #   :mine   — names one of this adaptation's steps or the instances they
+      #             produced. Must pass.
+      #   :other  — names a DIFFERENT step or instance, i.e. the mission's
+      #             pre-existing footprint. Deliberately not consulted: replica
+      #             drift is usually triggered BY an instance dying, and that
+      #             dead original must not fail the scale-out that answered it.
+      #   :global — names nothing in particular. MUST PASS, fail-closed.
+      #
+      # The :global bucket is the one that was missing. When the live reconciler
+      # RAISES, VerificationService discards every per-instance result and
+      # returns a single failing `live_reconciliation` check — deliberately, so
+      # that silence cannot read as health. Scoping to :mine alone dropped it,
+      # every step check passed, and a provider outage during the settle scored
+      # the adaptation healthy and minted an EFFECTIVE outcome: a fabricated
+      # success in the ground-truth table the LEARN step reads. That is worse
+      # than a crash, because it corrupts the instrument.
       def adaptation_healthy?(steps, checks)
         return false if steps.empty?
         return false unless steps.all? { |s| s.status.to_s == "completed" }
 
-        own = own_checks(steps, checks)
-        own.all? { |c| c[:ok] }
+        buckets = bucketed_checks(steps, checks)
+        return false if buckets[:global].any? { |c| c[:ok] != true }
+        return false unless buckets[:mine].all? { |c| c[:ok] == true }
+
+        instances_fully_scored?(steps, checks)
       end
 
       # VerificationService names its checks `step_<number>_*` and
-      # `instance_<node_instance_id>`, so both can be attributed back to the
-      # steps that produced them.
-      def own_checks(steps, checks)
+      # `instance_<node_instance_id>`; anything else (`plan`,
+      # `live_reconciliation`) belongs to no step and is global.
+      def bucketed_checks(steps, checks)
         numbers = steps.map { |s| s.step_number.to_i }.to_set
         instance_ids = steps.flat_map { |s| produced_instance_ids(s) }.to_set
 
-        Array(checks).select do |c|
+        Array(checks).group_by do |c|
           name = c[:name].to_s
           if (m = name.match(/\Astep_(\d+)_/))
-            numbers.include?(m[1].to_i)
+            numbers.include?(m[1].to_i) ? :mine : :other
           elsif (m = name.match(/\Ainstance_(.+)\z/))
-            instance_ids.include?(m[1])
+            instance_ids.include?(m[1]) ? :mine : :other
           else
-            false
+            :global
           end
-        end
+        end.tap { |h| h.default = [] }
+      end
+
+      def own_checks(steps, checks)
+        bucketed_checks(steps, checks)[:mine]
+      end
+
+      # Every instance this adaptation produced must have been ANSWERED FOR.
+      # A reconciler that returns rows for only some of the expectations it was
+      # handed would otherwise shrink the scored set silently — no check fails,
+      # because the check simply is not there.
+      #
+      # Core mode is the one legitimate exception, and it SAYS SO: it emits a
+      # single passing `live_reconciliation` annotation and no per-instance
+      # checks at all. Unverifiable-and-declared is not the same as unanswered,
+      # and the failing form of that same check was already caught above.
+      def instances_fully_scored?(steps, checks)
+        ids = steps.flat_map { |s| produced_instance_ids(s) }.uniq
+        return true if ids.empty?
+        return true if Array(checks).any? { |c| c[:name].to_s == LIVE_RECONCILIATION_CHECK }
+
+        scored = Array(checks).filter_map { |c| c[:name].to_s[/\Ainstance_(.+)\z/, 1] }.to_set
+        ids.all? { |id| scored.include?(id) }
       end
 
       def produced_instance_ids(step)

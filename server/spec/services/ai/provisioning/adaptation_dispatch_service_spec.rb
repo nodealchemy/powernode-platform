@@ -391,9 +391,81 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       second = service.dispatch!(plan: plan.reload)
 
       expect(first[:dispatched]).to be true
+      expect(second[:gate]).to eq(described_class::GATE_ALREADY_APPLIED)
       expect(second[:dispatched]).to be false
       expect(second[:detail]).to match(/already applied/i)
-      # Ground truth: one appended step, one step job. Not two.
+      # Ground truth: one appended step, one step job. Not two. The step is
+      # still `pending` here — no worker has picked it up — so status alone
+      # cannot tell this from a failed dispatch; the recorded enqueue can.
+      expect(live_plan.reload.steps.count).to eq(2)
+      expect(WorkerJobService).to have_received(:enqueue_job).once
+    end
+
+    # GATE_PARKED's shipped meaning is "the plan stays in draft and NOTHING
+    # ran". Once steps are appended that is false, and a confident lie is worse
+    # than the ambiguous envelope this task set out to remove.
+    it "does NOT report parked when the append succeeded but the dispatch failed" do
+      stub_gate(gate_answering("auto_apply_within_bounds"))
+      allow(WorkerJobService).to receive(:enqueue_job).and_raise(RuntimeError, "redis down")
+      plan = build_diff_plan!
+
+      result = service.dispatch!(plan: plan)
+
+      expect(result[:gate]).to eq(described_class::GATE_APPLIED_DISPATCH_FAILED)
+      expect(result[:dispatched]).to be false
+      expect(result[:detail]).to match(/redis down|RuntimeError/)
+      # Ground truth backing the disposition: the steps really are on the plan.
+      expect(live_plan.reload.steps.count).to eq(2)
+    end
+
+    it "reports parked when the append itself failed — there, nothing did run" do
+      stub_gate(gate_answering("auto_apply_within_bounds"))
+      allow_any_instance_of(Ai::GoalPlan).to receive(:steps).and_call_original
+      plan = build_diff_plan!
+      allow(service).to receive(:append_steps!).and_raise(RuntimeError, "db blip")
+
+      result = service.dispatch!(plan: plan)
+
+      expect(result[:gate]).to eq(described_class::GATE_PARKED)
+      expect(result[:dispatched]).to be false
+      expect(live_plan.reload.steps.count).to eq(1)
+    end
+
+    # The double-append guard must key on STATE, not existence. Appended rows
+    # that were never enqueued are the exact residue of a failed dispatch, and
+    # refusing them stranded them as `pending` forever — which then blocked
+    # every future adaptation on the mission from settling.
+    it "RE-DISPATCHES appended steps that were never enqueued" do
+      stub_gate(gate_answering("auto_apply_within_bounds"))
+      allow(WorkerJobService).to receive(:enqueue_job).and_raise(RuntimeError, "redis down")
+      plan = build_diff_plan!
+      service.dispatch!(plan: plan)
+      expect(live_plan.reload.steps.count).to eq(2)
+
+      # Count only what the RETRY enqueues — the first call's raising
+      # invocation is still "received" by the spy and would mask the result.
+      enqueued = []
+      allow(WorkerJobService).to receive(:enqueue_job) { |*args| enqueued << args; true }
+      retried = service.dispatch!(plan: plan.reload)
+
+      expect(retried[:gate]).to eq(described_class::GATE_AUTO_APPLY)
+      expect(retried[:dispatched]).to be true
+      # Re-dispatched, NOT re-appended.
+      expect(live_plan.reload.steps.count).to eq(2)
+      expect(enqueued.size).to eq(1)
+      expect(enqueued.first.first).to eq("AiProvisioningStepJob")
+    end
+
+    it "still REFUSES when an appended step is already past pending" do
+      stub_gate(gate_answering("auto_apply_within_bounds"))
+      plan = build_diff_plan!
+      service.dispatch!(plan: plan)
+      live_plan.reload.steps.where(status: "pending").update_all(status: "executing")
+
+      second = service.dispatch!(plan: plan.reload)
+
+      expect(second[:dispatched]).to be false
+      expect(second[:detail]).to match(/already applied/i)
       expect(live_plan.reload.steps.count).to eq(2)
       expect(WorkerJobService).to have_received(:enqueue_job).once
     end
@@ -536,6 +608,70 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       expect(plan.reload.steps.pluck(:status)).to all(eq("completed"))
     end
 
+    # The settle scores the adaptation on its own steps so a pre-existing dead
+    # instance cannot fail it. But a check that names NOTHING in particular is
+    # not someone else's problem — it is a global blocker, and dropping it
+    # turned an outage into a fabricated success.
+    it "FAILS CLOSED when the live reconciler raises, instead of minting a false effective" do
+      gate = gate_answering("auto_apply_within_bounds")
+      stub_gate(gate)
+      # VerificationService collapses EVERY per-instance result into one failing
+      # `live_reconciliation` check when the reconciler raises — deliberately,
+      # so silence cannot read as health. That name matches neither the
+      # step_N_* nor the instance_* pattern.
+      exploding = double("provision_verifier")
+      allow(exploding).to receive(:reconcile_instances).and_raise(RuntimeError, "provider API down")
+      allow(::Powernode::ExtensionRegistry).to receive(:provider)
+        .with(:provision_verifier).and_return(exploding)
+
+      plan = dispatch_and_complete!
+
+      result = service.settle!(adaptation_plan_ids: [ plan.id ])
+
+      expect(result[:healthy]).to be false
+      expect(plan.reload.status).to eq("failed")
+      # The whole point: no fabricated EFFECTIVE in the ground-truth table.
+      expect(gate).not_to have_received(:record_adaptation_outcome!)
+    end
+
+    it "FAILS CLOSED when the reconciler answers for only some of the adaptation's instances" do
+      gate = gate_answering("auto_apply_within_bounds")
+      stub_gate(gate)
+      partial = double("provision_verifier")
+      allow(partial).to receive(:reconcile_instances) do |account:, expectations:|
+        # Silently drops i-4 — the scored set shrinks without any check failing.
+        expectations.reject { |e| e[:node_instance_id] == "i-4" }
+             .map { |e| { node_instance_id: e[:node_instance_id], ok: true, detail: "running" } }
+      end
+      allow(::Powernode::ExtensionRegistry).to receive(:provider)
+        .with(:provision_verifier).and_return(partial)
+
+      plan = dispatch_and_complete!
+
+      result = service.settle!(adaptation_plan_ids: [ plan.id ])
+
+      expect(result[:healthy]).to be false
+      expect(gate).not_to have_received(:record_adaptation_outcome!)
+    end
+
+    it "still treats core mode (no reconciler) as verifiable, not as a blocker" do
+      gate = gate_answering("auto_apply_within_bounds")
+      allow(gate).to receive(:record_adaptation_outcome!).and_return(nil)
+      stub_gate(gate)
+      # Core mode emits ONE passing `live_reconciliation` annotation and no
+      # per-instance checks — unverifiable-but-said-so, which must not be
+      # confused with the reconciler-error shape above.
+      allow(::Powernode::ExtensionRegistry).to receive(:provider)
+        .with(:provision_verifier).and_return(nil)
+
+      plan = dispatch_and_complete!
+
+      result = service.settle!(adaptation_plan_ids: [ plan.id ])
+
+      expect(result[:healthy]).to be true
+      expect(gate).to have_received(:record_adaptation_outcome!)
+    end
+
     it "records NO outcome when the post-adapt verification is unhealthy" do
       gate = gate_answering("auto_apply_within_bounds")
       stub_gate(gate)
@@ -638,6 +774,43 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       # the live plan then permanently held a non-completed step, which blocked
       # every LATER adaptation on this mission from settling too.
       expect(appended.reload.status).to eq("failed")
+      expect(plan.reload.status).to eq("failed")
+      expect(gate).not_to have_received(:record_adaptation_outcome!)
+    end
+
+    it "settles a CHAINED adaptation whose first step fails, instead of waiting on an unreachable second" do
+      # persist_diff_plan! chains multi-step diffs, and dispatch_unblocked_successors
+      # only runs on the SUCCESS arm — so a failed step 1 leaves step 2 `pending`
+      # forever. Requiring every sibling to be terminal then never fires, and the
+      # diff plan sits in `executing` with no outcome: the original permanent
+      # stall, narrowed to multi-step adaptations.
+      gate = gate_answering("auto_apply_within_bounds",
+                            approval_request_id: SecureRandom.uuid, authority: "approval")
+      stub_gate(gate)
+      plan = build_diff_plan!(steps: [
+        { "skill" => "scale_project", "on_failure" => "continue",
+          "inputs" => { "change_type" => "scale_horizontal", "desired_replica_count" => 4,
+                        "project_id" => mission.id, "target_count" => 2,
+                        "scaling_strategy" => "add_replicas" } },
+        { "skill" => "attach_storage", "on_failure" => "continue",
+          "inputs" => { "mission_id" => mission.id } }
+      ])
+      service.dispatch!(plan: plan)
+
+      first, second = live_plan.reload.steps.order(:step_number).to_a.last(2)
+      runner = build_runner
+      failing = Class.new do
+        def self.descriptor = { rollback: nil }
+        def execute(**_inputs) = { success: false, error: "provider rejected the request" }
+      end
+      allow(Ai::Provisioning::SkillCompositionRunner)
+        .to receive(:resolve_executor).with("scale_project").and_return(failing)
+
+      runner.execute_step!(first.reload)
+
+      expect(first.reload.status).to eq("failed")
+      # The unreachable successor is marked, not left dangling.
+      expect(second.reload.status).to eq("failed")
       expect(plan.reload.status).to eq("failed")
       expect(gate).not_to have_received(:record_adaptation_outcome!)
     end
