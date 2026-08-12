@@ -235,6 +235,17 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
       expect { harness.run }.to raise_error(/overlaps the blast radius/)
     end
 
+    it "refuses to start inside a standing fleet, even with no live mission" do
+      # A `--no-cleanup` neighbour leaves instances that outlive its mission, and
+      # the sweep acts on INSTANCES. A mission-only guard would let this run
+      # start, mis-grade the neighbour's fleet as its own, and then terminate it.
+      node = create(:system_node, account: account, node_template: template)
+      create(:system_node_instance, account: account, node: node,
+                                    name: "dryrun-#{run_id}-leftover-inst-01", status: "running")
+
+      expect { harness.run }.to raise_error(/overlaps the blast radius/)
+    end
+
     it "allows a run alongside a live dryrun mission whose prefix cannot overlap" do
       # The INC-5 coexistence case: a soaking baseline under a different run_id
       # neither blocks this run nor is touched by it.
@@ -346,6 +357,62 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
 
       expect(result.oracles["soak_stop_reason"]).to eq("max_seconds")
       expect(observed_states.size).to eq(1)
+    end
+
+    it "hands the routing gate back to the ACCOUNT, not to a concurrent run" do
+      # Coexistence made capture-and-restore unsafe: a second run that starts
+      # mid-soak captures the FIRST run's `true` as the account's own value, and
+      # whichever finishes last writes it back — leaving the gate permanently
+      # enabled, the exact hazard the README warns about, on the happy path.
+      # A real second run is driven to completion inside the soak window.
+      expect(account.settings[described_class::GATE_SETTING]).to be_nil
+      gate_after_second_run = nil
+
+      concurrent = lambda do
+        soak_pump.call
+        next 1 if gate_after_second_run
+
+        described_class.new(account: account, user: user, objective: "dryrun-other run",
+                            run_id: "other#{SecureRandom.hex(3)}", cleanup: false,
+                            phase_pump: worker_pump, compose_timeout: 30, execute_timeout: 60).run
+        # The first run is still soaking, so its gate must survive the second
+        # run's restore.
+        gate_after_second_run = account.reload.settings[described_class::GATE_SETTING]
+        1
+      end
+
+      harness(soak: true, soak_pump: concurrent, soak_max_iterations: 2).run
+
+      expect(gate_after_second_run).to be(true)
+      settings = account.reload.settings
+      expect(settings[described_class::GATE_SETTING]).to be_nil
+      expect(settings).not_to have_key(described_class::GATE_HOLDERS_SETTING)
+      expect(settings).not_to have_key(described_class::GATE_PRIOR_SETTING)
+    end
+
+    it "survives the interleaving where the FIRST run out is the one that captured nil" do
+      # The ordering the nested-run example above cannot produce, and the only
+      # one that actually corrupts the account: A captures the account's `nil`,
+      # B then captures A's `true`, A finishes first (deleting the key under a
+      # still-running B), and B finishes last (writing `true` back for good).
+      # Driven through the gate pair directly because a nested run always
+      # finishes before its host.
+      a = harness
+      b = described_class.new(account: account, user: user, objective: objective,
+                              run_id: "other#{SecureRandom.hex(3)}", cleanup: false)
+
+      a.send(:enable_gate!)
+      b.send(:enable_gate!)
+
+      a.send(:restore_gate!)
+      expect(account.reload.settings[described_class::GATE_SETTING]).to be(true),
+             "the first run out dropped the gate under a still-running second run"
+
+      b.send(:restore_gate!)
+      settings = account.reload.settings
+      expect(settings[described_class::GATE_SETTING]).to be_nil
+      expect(settings).not_to have_key(described_class::GATE_HOLDERS_SETTING)
+      expect(settings).not_to have_key(described_class::GATE_PRIOR_SETTING)
     end
 
     it "still refuses to approve a non-dryrun mission in soak mode" do
@@ -477,6 +544,51 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
       expect(System::NodeInstance.where("name LIKE ?", "dryrun-#{run_id}%").pluck(:status).uniq)
         .to eq([ "terminated" ])
       expect(result.passed?).to be(true), "unexpected findings: #{result.findings.map(&:to_h)}"
+    end
+
+    it "reads the actuator's orphans on teardown even though the mission is terminal" do
+      # The retained-soak path leaves a CANCELLED mission, and that mission is
+      # the only handle on the plan the orphan is recorded against. Looking it
+      # up as "live" would find nothing and sweep straight over the leak.
+      soak_harness(cleanup: false).run
+      mission = Ai::Mission.find_by(name: "dryrun-#{run_id}")
+      expect(mission.status).to eq("cancelled")
+      plan = Ai::GoalPlan.find(mission.configuration.dig("plan", "plan_id"))
+      step = plan.steps.order(:step_number).last
+      step.update!(metadata: (step.metadata || {}).merge(
+        "last_outputs" => { "outputs" => { "orphans" => [ { "resource" => "sdwan_peer", "ids" => %w[peer-9] } ] } }
+      ))
+
+      result = described_class.new(account: account, user: user, objective: objective,
+                                   run_id: run_id).teardown_only!
+
+      expect(result.findings.map(&:dimension)).to include("orphan")
+      expect(System::NodeInstance.where("name LIKE ?", "dryrun-#{run_id}%").pluck(:status).uniq)
+        .to eq([ "running" ])
+
+      # ...and the operator can finish the job once the leak has been read.
+      forced = described_class.new(account: account, user: user, objective: objective,
+                                   run_id: run_id, force_teardown: true).teardown_only!
+
+      expect(forced.findings.map(&:detail)).to include(/forced past the orphan halt/)
+      expect(System::NodeInstance.where("name LIKE ?", "dryrun-#{run_id}%").pluck(:status).uniq)
+        .to eq([ "terminated" ])
+    end
+
+    it "refuses a teardown whose sweep would cross into a live neighbour's blast radius" do
+      soak_harness(cleanup: false).run
+      # A live neighbour whose prefix this run's sweep ('dryrun-<runId>%') would
+      # subsume. The start-time guard never saw it: it started later.
+      Ai::Mission.create!(account: account, created_by: user, mission_type: "infrastructure",
+                          name: "dryrun-#{run_id}extra", objective: "neighbour", status: "active")
+
+      expect {
+        described_class.new(account: account, user: user, objective: objective,
+                            run_id: run_id).teardown_only!
+      }.to raise_error(/overlaps the blast radius/)
+
+      expect(System::NodeInstance.where("name LIKE ?", "dryrun-#{run_id}%").pluck(:status).uniq)
+        .to eq([ "running" ])
     end
 
     it "does not report a clean PASS for a teardown that found nothing to tear down" do

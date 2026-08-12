@@ -45,6 +45,10 @@ module Ai
     # or raises.
     class DryrunHarness
       GATE_SETTING = "ai_task_tier_routing_enabled"
+      # Bookkeeping for the refcounted gate (see enable_gate!): who currently
+      # holds it, and the account's own value from before the first holder.
+      GATE_HOLDERS_SETTING = "ai_dryrun_gate_holders"
+      GATE_PRIOR_SETTING   = "ai_dryrun_gate_prior"
       # The provisioning legs are DONE at one of these; a supervised run always
       # approves handoff to reach adapting, because handoff is a gate, never a
       # valid resting place (M5: a second-signature account parks there, and
@@ -117,10 +121,15 @@ module Ai
       # @param soak_max_seconds/soak_max_iterations [Numeric, nil] explicit
       #   bounds; nil ⇒ resolved from config. Both are ceilings — whichever is
       #   reached first ends the soak.
+      # @param force_teardown [Boolean] sweep even when the zero-orphan check
+      #   fails. The halt is permanent otherwise (the orphan is recorded on the
+      #   plan for good), so this is how an operator finishes a teardown after
+      #   reading the leak. The finding is still recorded either way.
       def initialize(account:, user:, objective:, run_id:, cleanup: true, auto_approve: true,
                      expected_count: nil, phase_pump: nil, poll_interval: 2,
                      compose_timeout: 120, execute_timeout: 900,
-                     soak: false, soak_pump: nil, soak_max_seconds: nil, soak_max_iterations: nil)
+                     soak: false, soak_pump: nil, soak_max_seconds: nil, soak_max_iterations: nil,
+                     force_teardown: false)
         @account = account
         @user = user
         @objective = objective
@@ -142,6 +151,7 @@ module Ai
         @compose_timeout = compose_timeout
         @execute_timeout = execute_timeout
         @soak = soak
+        @force_teardown = force_teardown
         @soak_pump = soak_pump
         @soak_max_seconds = soak_max_seconds
         @soak_max_iterations = soak_max_iterations
@@ -156,7 +166,7 @@ module Ai
       end
 
       def run
-        prior_gate = enable_gate!
+        enable_gate!
         mission = nil
         begin
           mission = create_and_start_mission!
@@ -169,7 +179,7 @@ module Ai
           begin
             finalize!(mission) if mission
           ensure
-            restore_gate!(prior_gate)
+            restore_gate!
           end
         end
         # build_result runs AFTER finalize! so teardown findings (M3) are counted
@@ -189,7 +199,12 @@ module Ai
       # it, and silently rewriting an account's settings from a cleanup command
       # is not this command's business.
       def teardown_only!
-        mission = live_mission_for_prefix
+        refuse_overlapping_teardown!
+        # ANY status, not just live: after a `--no-cleanup` soak the mission is
+        # already cancelled, and it is the only handle on the plan whose steps
+        # carry the actuator's recorded orphans. Cancelling is a no-op on a
+        # terminal mission, so cancel-before-sweep still holds.
+        mission = mission_for_prefix
         @mission_id = mission&.id
         # "Swept nothing" and "there was nothing to sweep" produce identical
         # output otherwise, so a mistyped run_id would exit 0 with a green
@@ -383,25 +398,53 @@ module Ai
       # S4: settings is the account's DB-driven config surface; an unlocked
       # read-modify-write of the whole hash clobbers any concurrent writer.
       # Lock the row for both the enable and the restore.
+      #
+      # REFCOUNTED, because non-overlapping runs may now be concurrent on one
+      # account. A capture-and-restore pair is not composable: A captures nil and
+      # sets true; B captures A's `true`; A exits and deletes the key, dropping
+      # tier routing under a still-running B; B exits and writes `true` back,
+      # leaving the account permanently gated. So the PRIOR value is captured
+      # once, by whichever run arrives first, and held in the settings hash
+      # beside a holder list — the last run out is the one that restores.
+      #
+      # A hard-killed run leaves a stale holder, which is the same failure class
+      # as the existing "hard kill skips the ensure" hazard the README documents,
+      # and it fails in the safe direction (the gate stays as the dryrun set it
+      # rather than being restored out from under a live run).
       def enable_gate!
         @account.with_lock do
-          settings = @account.settings.is_a?(Hash) ? @account.settings : {}
-          prior = settings[GATE_SETTING]
-          @account.update!(settings: settings.merge(GATE_SETTING => true))
-          prior
+          settings = settings_hash
+          holders = Array(settings[GATE_HOLDERS_SETTING]).map(&:to_s)
+          # First holder captures the account's own value; later ones must not
+          # capture a predecessor's `true`.
+          settings[GATE_PRIOR_SETTING] = settings[GATE_SETTING] if holders.empty?
+          settings[GATE_HOLDERS_SETTING] = (holders | [ @run_id ])
+          settings[GATE_SETTING] = true
+          @account.update!(settings: settings)
         end
+        nil
       end
 
-      def restore_gate!(prior)
+      def restore_gate!(_prior = nil)
         @account.with_lock do
-          settings = @account.settings.is_a?(Hash) ? @account.settings : {}
-          if prior.nil?
-            settings.delete(GATE_SETTING)
+          settings = settings_hash
+          holders = Array(settings[GATE_HOLDERS_SETTING]).map(&:to_s) - [ @run_id ]
+          if holders.any?
+            # Another run is still inside its window — leave the gate enabled for
+            # it and only drop this run's claim.
+            settings[GATE_HOLDERS_SETTING] = holders
           else
-            settings[GATE_SETTING] = prior
+            prior = settings[GATE_PRIOR_SETTING]
+            prior.nil? ? settings.delete(GATE_SETTING) : settings[GATE_SETTING] = prior
+            settings.delete(GATE_PRIOR_SETTING)
+            settings.delete(GATE_HOLDERS_SETTING)
           end
           @account.update!(settings: settings)
         end
+      end
+
+      def settings_hash
+        @account.settings.is_a?(Hash) ? @account.settings.dup : {}
       end
 
       def create_and_start_mission!
@@ -427,6 +470,19 @@ module Ai
         if overlapping
           raise "refusing to start: run '#{name_prefix}' overlaps the blast radius of live dryrun " \
                 "mission '#{overlapping.name}' — one run's teardown would sweep the other's instances"
+        end
+
+        # ...and the same test against INSTANCES, which now routinely outlive
+        # their mission: a `--no-cleanup` neighbour and a halted-before-teardown
+        # run both leave a standing fleet behind a terminal mission. This run has
+        # created nothing yet, so anything already inside its blast radius is
+        # someone else's — it would be mis-graded as this run's outcome and then
+        # terminated by this run's sweep.
+        standing = dryrun_instances.reject { |i| i.status.to_s == "terminated" }
+        if standing.any?
+          raise "refusing to start: run '#{name_prefix}' overlaps the blast radius of #{standing.size} " \
+                "standing instance(s) (#{standing.first(3).map(&:name).join(', ')}) — this run's sweep " \
+                "would terminate a fleet it did not provision"
         end
 
         mission = ::Ai::Mission.create!(
@@ -461,12 +517,21 @@ module Ai
         orphaned = record_orphan_findings!(mission)
         return unless @cleanup
 
-        if orphaned
+        if orphaned && !@force_teardown
           @halt_before_teardown = true
           Rails.logger.warn("[DryrunHarness] orphan(s) present under #{name_prefix} — " \
-                            "halting before teardown; sweep with the explicit teardown command " \
-                            "once the leak has been read")
+                            "halting before teardown; once the leak has been read, sweep with the " \
+                            "teardown command's force option")
           return
+        end
+
+        # The recorded orphan is permanent — it lives on the plan step forever —
+        # so without an acknowledgement the recovery command could never finish
+        # the one run it exists to recover: every later teardown would re-read
+        # the same row and halt again. Forcing does not erase the finding, so the
+        # sweep is never silently blessed; it only says a human has now looked.
+        if orphaned
+          add_finding("orphan", "swept anyway: teardown was forced past the orphan halt", :medium)
         end
 
         teardown!(mission)
@@ -537,22 +602,50 @@ module Ai
         }.flat_map do |instance|
           next [] unless instance.respond_to?(:provider_volumes)
 
-          instance.provider_volumes.pluck(:id).map { |vid| { instance: instance.name, volume_id: vid } }
+          # A row that says it is already gone is not an attachment. `deleting`
+          # IS still counted: the pump has drained by now, so a delete still in
+          # flight at the end of the window is a leak, not a race.
+          instance.provider_volumes
+                  .where.not(status: "deleted")
+                  .pluck(:id).map { |vid| { instance: instance.name, volume_id: vid } }
         end
       rescue StandardError => e
         Rails.logger.warn("[DryrunHarness] volume orphan read failed: #{e.class}: #{e.message}")
         []
       end
 
-      # This run's OWN mission, still live. Exact name match: the teardown
-      # command finishes the run it was given, never a neighbour whose prefix
-      # merely starts the same way.
-      def live_mission_for_prefix
+      # This run's OWN mission, whatever its status. Exact name match: the
+      # teardown command finishes the run it was given, never a neighbour whose
+      # prefix merely starts the same way.
+      def mission_for_prefix
         ::Ai::Mission
           .where(account_id: @account.id, mission_type: "infrastructure", name: name_prefix)
-          .where.not(status: ::Ai::Mission::TERMINAL_STATUSES)
           .order(created_at: :desc)
           .first
+      end
+
+      # The sweep is the most dangerous thing this class does, and
+      # `--teardown-only` reaches it without passing the start-time guard. A
+      # neighbour whose prefix this one subsumes (`evo-1` sweeping `evo-10`)
+      # would lose its fleet, so re-run the same overlap test here.
+      #
+      # Covered: any neighbour whose mission is still live. NOT covered: a
+      # neighbour whose mission is already terminal while its fleet stands —
+      # that one is unreachable for a legally started run (the start-time
+      # standing-instance guard refuses either run before it can exist), but it
+      # is not re-derived here, so a hand-built pair of nested retained fleets
+      # would still be swept together.
+      def refuse_overlapping_teardown!
+        neighbour = ::Ai::Mission
+                    .where(account_id: @account.id, mission_type: "infrastructure")
+                    .where("name LIKE ?", "dryrun-%")
+                    .where.not(status: ::Ai::Mission::TERMINAL_STATUSES)
+                    .where.not(name: name_prefix)
+                    .find { |m| prefixes_overlap?(m.name.to_s, name_prefix) }
+        return unless neighbour
+
+        raise "refusing to tear down: sweeping '#{name_prefix}' overlaps the blast radius of live " \
+              "dryrun mission '#{neighbour.name}' — it would terminate that run's instances"
       end
 
       def cancel_mission!(mission)
