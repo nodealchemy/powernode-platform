@@ -27,7 +27,11 @@
 # TEARDOWN-ONLY — finish a run left standing (a `--no-cleanup` soak, or one
 # whose process died before its teardown ran):
 #
-#   ... --run-id evo-01 --teardown-only
+#   ... --run-id evo-01 --teardown-only [--force-teardown]
+#
+# An orphaned resource halts that sweep too, and the record of it is permanent —
+# `--force-teardown` is how an operator finishes the job after reading the leak.
+# The finding is still reported either way.
 #
 # Reports mirror scripts/ai-smoke conventions (--md / --json). stderr carries
 # progress; stdout stays clean for piping. Exit code == number of findings
@@ -53,6 +57,7 @@ OptionParser.new do |o|
   o.on("--soak-seconds SEC", Integer)    { |v| opts[:soak_max_seconds] = v }
   o.on("--soak-iterations N", Integer)   { |v| opts[:soak_max_iterations] = v }
   o.on("--teardown-only")                { opts[:teardown_only] = true }
+  o.on("--force-teardown")               { opts[:force_teardown] = true }
 end.parse!(ARGV.reject { |a| a == "run.rb" })
 
 abort("--account is required") unless opts[:account]
@@ -88,12 +93,16 @@ harness_opts[:poll_interval]   = opts[:poll_interval]   if opts[:poll_interval]
 harness_opts[:soak]            = true                   if opts[:soak]
 harness_opts[:soak_max_seconds]    = opts[:soak_max_seconds]    if opts[:soak_max_seconds]
 harness_opts[:soak_max_iterations] = opts[:soak_max_iterations] if opts[:soak_max_iterations]
+harness_opts[:force_teardown]      = true                       if opts[:force_teardown]
 
 harness = Ai::Provisioning::DryrunHarness.new(**harness_opts)
 # --teardown-only never provisions: it cancels this run_id's own mission and
 # sweeps its prefix. `--soak` is meaningless alongside it (there is nothing to
 # hold open), so refuse the combination rather than silently ignoring one.
 abort("--teardown-only cannot be combined with --soak") if opts[:teardown_only] && opts[:soak]
+# Without the sweep a teardown cancels the mission and stops — a green exit for
+# a command whose name promises a teardown. Say so rather than half-doing it.
+abort("--teardown-only cannot be combined with --no-cleanup") if opts[:teardown_only] && !opts[:cleanup]
 result = opts[:teardown_only] ? harness.teardown_only! : harness.run
 
 File.write(opts[:md], result.to_markdown) if opts[:md]

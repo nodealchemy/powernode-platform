@@ -38,8 +38,11 @@ bundle exec rails runner ../scripts/dryrun/run.rb \
   --account "Powernode Admin" --run-id 20260809h --teardown-only
 ```
 
-It cancels that run_id's own mission **before** sweeping its prefix, and halts
-before the sweep if the zero-orphan check fails. It deliberately does **not**
+It cancels that run_id's own mission **before** sweeping its prefix, refuses when
+the sweep would cross into a live neighbour's blast radius, and halts before the
+sweep if the zero-orphan check fails — add `--force-teardown` to finish the job
+once the leak has been read (the finding is still reported; the recorded orphan
+is permanent, so without the override the recovery command could never complete). It deliberately does **not**
 touch the routing gate: it never enabled it, and a cleanup command rewriting an
 account's settings is a worse surprise than the one it fixes.
 
@@ -116,7 +119,14 @@ always terminalized, so no soak keeps actuating unattended.
 **Concurrency.** Runs are refused only when their blast radii overlap — i.e. one
 `dryrun-<runId>` prefix is a prefix of the other, since teardown sweeps
 `dryrun-<runId>%`. `dryrun-evo-01` and `dryrun-evo-02` coexist; `dryrun-evo-1`
-and `dryrun-evo-10` do not.
+and `dryrun-evo-10` do not. The test is applied to live missions **and** to
+standing instances (which outlive their mission after a `--no-cleanup` soak or a
+halted teardown), at start and again before any `--teardown-only` sweep.
+
+Because concurrent runs are now legal, the account's routing gate is
+**refcounted**: the first run in captures the account's own value, later runs
+join, and the last run out restores it. A capture-and-restore pair per run would
+leave the gate enabled permanently the first time two runs interleaved.
 
 ## Graded dimensions (a finding each, exit code = finding count)
 
