@@ -60,7 +60,7 @@ module Ai
                           failures.empty? ? "no recorded failures" : "recorded failures: #{failures.inspect[0, 300]}")
 
           if removal_scaling?(step_inputs(cfg))
-            checks << removal_check(prefix, outs)
+            checks << removal_check(prefix, outs, step_inputs(cfg))
             next
           end
 
@@ -76,6 +76,7 @@ module Ai
         end
 
         checks.concat(reconcile(expectations))
+        checks.concat(reconcile_absent(removed.to_a))
         result(checks)
       end
 
@@ -146,14 +147,41 @@ module Ai
       # as `outputs.orphans`: it re-reads the peer / volume / instance rows
       # after the teardown instead of trusting that the teardown returned
       # success. Empty means the zero-orphan invariant held.
-      def removal_check(prefix, outs)
+      def removal_check(prefix, outs, inputs)
         outputs = outs["outputs"].is_a?(Hash) ? outs["outputs"] : {}
-        orphans = Array(outputs["orphans"])
-        detail = "removed #{Array(outputs['removed_node_instance_ids']).size} instance(s), " \
+        removed = Array(outputs["removed_node_instance_ids"])
+        floor_reached = outputs["floor_reached"] == true
+        rail = outputs["prefix_enforced"]
+
+        detail = "removed #{removed.size} instance(s), " \
                  "#{Array(outputs['detached_sdwan_peer_ids']).size} peer(s), " \
-                 "#{Array(outputs['deleted_storage_volume_ids']).size} volume(s)"
-        detail += "; ORPHANS: #{orphans.inspect[0, 300]}" if orphans.any?
-        check("#{prefix}_removal", orphans.empty?, detail)
+                 "#{Array(outputs['deleted_storage_volume_ids']).size} volume(s); " \
+                 "prefix rail #{rail.present? ? "enforced (#{rail})" : 'NOT MEASURED (mission declares none)'}"
+        detail += "; at floor" if floor_reached
+
+        # Absence of a sweep is not a clean sweep. `Array(nil)` is empty, so a
+        # step whose outputs never carried the key reads exactly like one that
+        # swept and found nothing — the opposite of the fail-closed rule
+        # #reconcile applies to a reconciler that cannot answer.
+        unless outputs.key?("orphans")
+          return check("#{prefix}_removal", false, "#{detail}; no orphan sweep recorded — unverifiable")
+        end
+
+        orphans = Array(outputs["orphans"])
+        if orphans.any?
+          return check("#{prefix}_removal", false, "#{detail}; ORPHANS: #{orphans.inspect[0, 300]}")
+        end
+
+        # A removal that removed nothing is only healthy when the floor is why.
+        # Otherwise the step asked for capacity to go away and none did, which
+        # no orphan list would ever show.
+        if removed.empty? && !floor_reached && inputs["target_count"].to_i.positive?
+          return check("#{prefix}_removal", false,
+                       "#{detail}; asked to remove #{inputs['target_count']} and removed none, " \
+                       "with no floor to explain it")
+        end
+
+        check("#{prefix}_removal", true, detail)
       end
 
       # Instances a removal step took out, across the whole plan.
@@ -199,6 +227,39 @@ module Ai
         # A reconciler that cannot answer must not bless (fail-closed) — the
         # whole point is that silence and health are different things.
         [ check("live_reconciliation", false, "reconciler error: #{e.class}: #{e.message[0, 200]}") ]
+      end
+
+      # The other half of the removal oracle: the victims' absence, confirmed
+      # against the live provider rather than taken from the executor that
+      # reported removing them. A row marked terminated over a guest the
+      # hypervisor still runs is the F2 phantom inverted — invisible to the
+      # platform, alive on the bill — and self-certification is exactly what
+      # #reconcile exists to refuse.
+      #
+      # A verifier that answers presence but not absence is treated the way
+      # core mode is: healthy, and SAID to be unverified. Failing there would
+      # make every removal unhealthy on any deployment whose extension module
+      # is a version behind core's, which is the routine state during a
+      # rolling platform deploy.
+      def reconcile_absent(ids)
+        return [] if ids.empty?
+
+        reconciler = ::Powernode::ExtensionRegistry.provider(:provision_verifier)
+        unless reconciler.respond_to?(:reconcile_absent_instances)
+          return [ check("removal_reconciliation", true,
+                         "verifier cannot check absence — #{ids.size} removed instance(s) " \
+                         "not live-verified") ]
+        end
+
+        expectations = ids.map { |id| { node_instance_id: id } }
+        Array(reconciler.reconcile_absent_instances(account: @account, expectations: expectations)).map do |r|
+          r = r.is_a?(Hash) ? r : {}
+          check("removed_instance_#{r[:node_instance_id] || r['node_instance_id']}",
+                r[:ok].nil? ? r["ok"] == true : r[:ok] == true,
+                (r[:detail] || r["detail"]).to_s)
+        end
+      rescue StandardError => e
+        [ check("removal_reconciliation", false, "reconciler error: #{e.class}: #{e.message[0, 200]}") ]
       end
 
       def check(name, ok, detail)

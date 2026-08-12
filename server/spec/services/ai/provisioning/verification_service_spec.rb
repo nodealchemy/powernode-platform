@@ -216,20 +216,23 @@ RSpec.describe Ai::Provisioning::VerificationService, type: :service do
   # are GONE, with their peers and volumes — the executor's post-teardown
   # ground-truth sweep, recorded as `outputs.orphans`.
   context "with an appended removal step" do
-    def removal_step!(number:, orphans: [], removed: %w[i-1], status: "completed", failures: [])
+    def removal_step!(number:, orphans: [], removed: %w[i-1], status: "completed", failures: [],
+                      outputs: nil, target_count: 1, floor_reached: false)
       plan.steps.create!(
         step_number: number, step_type: "provisioning_skill", description: "Remove replicas",
         status: status,
         execution_config: { "skill" => "scale_project", "on_failure" => "rollback",
                             "adapted_from_plan_id" => SecureRandom.uuid,
-                            "inputs" => { "target_count" => 1,
+                            "inputs" => { "target_count" => target_count,
                                           "scaling_strategy" => "remove_replicas" } },
         metadata: { "last_outputs" => {
-          "outputs" => { "node_instance_ids" => [],
-                         "removed_node_instance_ids" => removed,
-                         "detached_sdwan_peer_ids" => %w[p-1],
-                         "deleted_storage_volume_ids" => %w[v-1],
-                         "orphans" => orphans },
+          "outputs" => outputs || { "node_instance_ids" => [],
+                                    "removed_node_instance_ids" => removed,
+                                    "detached_sdwan_peer_ids" => %w[p-1],
+                                    "deleted_storage_volume_ids" => %w[v-1],
+                                    "prefix_enforced" => "dryrun-evo-01",
+                                    "floor_reached" => floor_reached,
+                                    "orphans" => orphans },
           "failures" => failures
         } }
       )
@@ -259,6 +262,117 @@ RSpec.describe Ai::Provisioning::VerificationService, type: :service do
 
       expect(result[:checks].find { |c| c[:name] == "step_2_removal" }[:ok]).to be false
       expect(result[:healthy]).to be false
+    end
+
+    it "grades a removal whose outputs carry NO orphan sweep as unverifiable" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      # Absence of evidence is not a clean sweep. Array(nil) is empty, so a
+      # step whose outputs never carried the key would otherwise read exactly
+      # like one that swept and found nothing — the opposite of the
+      # fail-closed rule #reconcile already applies to a silent reconciler.
+      removal_step!(number: 2, outputs: { "node_instance_ids" => [],
+                                          "removed_node_instance_ids" => %w[i-2] })
+      stub_verifier(nil)
+
+      result = service.verify
+
+      check = result[:checks].find { |c| c[:name] == "step_2_removal" }
+      expect(check[:ok]).to be false
+      expect(check[:detail]).to match(/no orphan sweep|unverifiable/i)
+      expect(result[:healthy]).to be false
+    end
+
+    it "fails a removal that removed nothing while not at the floor" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      removal_step!(number: 2, target_count: 1, removed: [], floor_reached: false)
+      stub_verifier(nil)
+
+      result = service.verify
+
+      expect(result[:checks].find { |c| c[:name] == "step_2_removal" }[:ok]).to be false
+      expect(result[:healthy]).to be false
+    end
+
+    it "passes a floor no-op, and says the floor is why nothing went" do
+      provision_step!(number: 1, count: 1, instance_ids: %w[i-1])
+      removal_step!(number: 2, target_count: 1, removed: [], floor_reached: true)
+      stub_verifier(nil)
+
+      result = service.verify
+
+      check = result[:checks].find { |c| c[:name] == "step_2_removal" }
+      expect(check[:ok]).to be true
+      expect(check[:detail]).to match(/floor/i)
+      expect(result[:healthy]).to be true
+    end
+
+    it "says WHICH containment rail was measured, so a nil prefix is not read as clean" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      removal_step!(number: 2, outputs: { "node_instance_ids" => [],
+                                          "removed_node_instance_ids" => %w[i-2],
+                                          "prefix_enforced" => nil,
+                                          "orphans" => [] })
+      stub_verifier(nil)
+
+      detail = service.verify[:checks].find { |c| c[:name] == "step_2_removal" }[:detail]
+      expect(detail).to match(/prefix/i)
+    end
+
+    # The victim's absence has to be verified against the PROVIDER for the
+    # same reason its presence did (F2). Taking the executor's word that a
+    # victim is gone inverts the phantom: a row marked terminated over a guest
+    # the hypervisor still runs is invisible to the platform and bills forever.
+    it "reconciles removed victims as EXPECTED-ABSENT against the live provider" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      removal_step!(number: 2, removed: %w[i-2])
+      reconciler = double("verifier")
+      absent_seen = nil
+      allow(reconciler).to receive(:reconcile_instances) do |account:, expectations:|
+        expectations.map { |e| { node_instance_id: e[:node_instance_id], ok: true, detail: "running" } }
+      end
+      allow(reconciler).to receive(:reconcile_absent_instances) do |account:, expectations:|
+        absent_seen = expectations
+        expectations.map { |e| { node_instance_id: e[:node_instance_id], ok: true, detail: "gone" } }
+      end
+      stub_verifier(reconciler)
+
+      result = service.verify
+
+      expect(absent_seen.map { |e| e[:node_instance_id] }).to eq(%w[i-2])
+      expect(result[:healthy]).to be true
+    end
+
+    it "is UNHEALTHY when the provider still runs a victim the platform called terminated" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      removal_step!(number: 2, removed: %w[i-2])
+      reconciler = double("verifier")
+      allow(reconciler).to receive(:reconcile_instances) do |account:, expectations:|
+        expectations.map { |e| { node_instance_id: e[:node_instance_id], ok: true, detail: "running" } }
+      end
+      allow(reconciler).to receive(:reconcile_absent_instances)
+        .and_return([ { node_instance_id: "i-2", ok: false, detail: "provider still reports running" } ])
+      stub_verifier(reconciler)
+
+      result = service.verify
+
+      expect(result[:healthy]).to be false
+      expect(result[:checks].map { |c| c[:detail] }.join).to match(/still reports running/)
+    end
+
+    it "annotates rather than blesses when the verifier cannot check absence" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      removal_step!(number: 2, removed: %w[i-2])
+      # An older verifier answers presence but not absence. Core mode already
+      # treats "cannot be asked" as healthy-but-annotated; the same reading
+      # applies here, and the check has to SAY it was not live-verified.
+      reconciler = double("verifier")
+      allow(reconciler).to receive(:reconcile_instances).and_return([])
+      stub_verifier(reconciler)
+
+      result = service.verify
+
+      expect(result[:healthy]).to be true
+      expect(result[:checks].map { |c| c[:detail] }.join).to match(/not live-verified/i)
     end
 
     # The deeper half of the trap: the victim was recorded by the step that
