@@ -309,6 +309,11 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
       expect(rows.count).to be > 0
       expect(result.oracles["soak_metric_samples"]).to eq(rows.count)
       expect(rows.pluck(:metric_name)).to include("replica_count")
+      # Provenance, not just presence: a `tick:` correlation id can only have
+      # been stamped by FleetAutonomyService.tick! — the same pass that runs
+      # ProjectSloSensor over the same `status: "active"` mission scope. A row
+      # written by a hand-called collector would carry `project_metrics:`.
+      expect(rows.pluck(:correlation_id).uniq).to all(start_with("tick:"))
     end
 
     it "grades the observation gap instead of passing vacuously on unavailable telemetry" do
