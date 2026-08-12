@@ -121,6 +121,31 @@ module Ai
       current_phase if awaiting_approval?
     end
 
+    # The blast-radius marker this mission stamps onto everything it creates
+    # (F3, IMP 019fe4c4-e813): PlanComposerService threads it into the
+    # provisioning step as `name_prefix`, the executor prefixes node names, and
+    # instance names derive from those. Explicit `configuration.name_prefix`
+    # wins; a dryrun run id derives the charter's prefix; anything else means
+    # the mission has no prefix opinion and returns nil.
+    #
+    # It lives on the mission — not in the composer that first needed it —
+    # because it is a property of the mission's own configuration and it is
+    # read on BOTH sides of the containment rail: composition stamps it, and
+    # a scale-in refuses to terminate a victim that does not carry it. Two
+    # private copies of that derivation would let the two sides disagree about
+    # what this mission owns, which is precisely the containment failure the
+    # marker exists to prevent.
+    def provenance_name_prefix
+      cfg = configuration
+      return nil unless cfg.is_a?(Hash)
+
+      explicit = cfg["name_prefix"].presence
+      return explicit if explicit
+
+      run_id = cfg["dryrun_run_id"].presence
+      run_id ? "dryrun-#{run_id}" : nil
+    end
+
     # M4 Enterprise Polish — second-signature gate.
     #
     # Returns true when the mission is sitting at the `handoff` phase AND

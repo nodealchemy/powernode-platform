@@ -1134,15 +1134,11 @@ module Ai
 
       # Explicit configuration.name_prefix wins; a dryrun run id derives the
       # charter's blast-radius prefix; anything else means no prefix opinion.
+      # The derivation lives on the mission (`Ai::Mission#provenance_name_prefix`)
+      # because a scale-in reads the SAME marker to decide what it is allowed
+      # to terminate — see that method for why there must be exactly one copy.
       def provenance_name_prefix
-        cfg = mission&.configuration
-        return nil unless cfg.is_a?(Hash)
-
-        explicit = cfg["name_prefix"].presence
-        return explicit if explicit
-
-        run_id = cfg["dryrun_run_id"].presence
-        run_id ? "dryrun-#{run_id}" : nil
+        mission&.provenance_name_prefix
       end
 
       def resolve_region_for_brief(brief, account_provider_override: nil)
