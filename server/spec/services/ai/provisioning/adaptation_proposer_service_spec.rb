@@ -195,11 +195,28 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       expect(service.propose_from_signals(signals: [cost_signal])).to be_nil
     end
 
-    it "treats region drift as relocate change_type and emits relocate_workload" do
+    it "declines region drift rather than composing an unbindable relocate step" do
+      # relocate_workload requires 8 inputs (project/from-region/to-region/
+      # cutover strategy/template/instance type/count/source instance ids).
+      # The heuristic supplies target_regions and nothing else, so the step
+      # is dropped as unbindable and no plan is composed. Composing it would
+      # mint an approval request and a RemediationOutcome for a step that
+      # dies on dispatch with "missing required input: from_region_id".
+      expect(service.propose_from_signals(signals: [region_drift_signal])).to be_nil
+    end
+
+    it "composes relocate when a proposal DOES carry the executor's inputs" do
+      allow_any_instance_of(described_class).to receive(:diff_from_llm).and_return([
+        { "skill" => "relocate_workload",
+          "inputs" => { "project_id" => "mission-x", "from_region_id" => "r1",
+                        "to_region_id" => "r2", "cutover_strategy" => "blue_green",
+                        "template_id" => "tmpl-1", "provider_instance_type_id" => "it-1",
+                        "count" => 2, "source_instance_ids" => %w[i-1 i-2] },
+          "on_failure" => "rollback" }
+      ])
+
       plan = service.propose_from_signals(signals: [region_drift_signal])
-      first_step = plan.steps.in_order.first
-      expect(first_step.execution_config["skill"]).to eq("relocate_workload")
-      expect(first_step.execution_config.dig("inputs", "target_regions")).to eq(default_brief["regions"])
+      expect(plan.steps.in_order.first.execution_config["skill"]).to eq("relocate_workload")
     end
 
     it "carries the signal correlation_id into step inputs" do
@@ -227,11 +244,11 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
     end
 
     it "increments plan version on subsequent proposals" do
-      # Second signal is region drift rather than a cost breach: cost_control
-      # no longer composes at all (see the decline spec above), so it cannot
-      # produce the second plan this assertion needs.
+      # Both signals must be ones that actually COMPOSE. cost_control declines
+      # outright, and region drift declines unless a proposal supplies
+      # relocate_workload's inputs — so neither can produce the second plan.
       first = service.propose_from_signals(signals: [slo_signal])
-      second = service.propose_from_signals(signals: [region_drift_signal])
+      second = service.propose_from_signals(signals: [slo_signal])
       expect(second.version).to eq(first.version + 1)
     end
 
@@ -248,7 +265,11 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         },
         {
           "skill" => "configure_sdwan_for_project",
-          "inputs" => { "regions" => %w[us-east-1 us-west-2] },
+          # Its executor requires project_id, instance_ids, network_name and
+          # topology; a proposal without them is dropped as unbindable.
+          "inputs" => { "regions" => %w[us-east-1 us-west-2],
+                        "project_id" => "mission-x", "instance_ids" => %w[inst-1],
+                        "network_name" => "proj-net", "topology" => "hub_spoke" },
           "on_failure" => "continue"
         }
       ])
@@ -267,10 +288,11 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         { "skill" => "drop_database", "inputs" => {}, "on_failure" => "rollback" }
       ])
 
-      plan = service.propose_change(change_type: "schema_change")[:plan]
-      # Falls back to the heuristic skill list — never invokes drop_database.
-      skills = plan.steps.in_order.pluck(:execution_config).map { |c| c["skill"] }
-      expect(skills).to eq(["attach_storage"])
+      # drop_database is not allowlisted, so it is dropped and the diff falls
+      # through to the heuristic — whose attach_storage step carries no
+      # instance_id and is itself dropped as unbindable. Nothing composes,
+      # and critically drop_database is never invoked.
+      expect(service.propose_change(change_type: "schema_change")[:plan]).to be_nil
     end
 
     it "routes the resulting plan through ApprovalWorkflowService" do
@@ -394,11 +416,12 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         content: '[{"skill": "drop_database", "inputs": {}, "on_failure": "rollback"}]'
       )
 
-      plan = llm_composed_plan
-      skills = plan.steps.in_order.pluck(:execution_config).map { |c| c["skill"] }
       # `drop_database` is not in ADAPTATION_SKILLS — sanitize_steps drops it,
-      # the array is empty, build_steps_for falls through to heuristic_steps.
-      expect(skills).to eq(["attach_storage"])
+      # the array is empty, and build_steps_for falls through to
+      # heuristic_steps, whose attach_storage step carries no instance_id and
+      # is dropped as unbindable too. Nothing composes; what matters is that
+      # drop_database is never invoked.
+      expect(llm_composed_plan).to be_nil
     end
 
     it "rescues malformed JSON, logs a warning, and falls back to the heuristic" do
@@ -414,8 +437,10 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       plan = llm_composed_plan
 
       expect(Rails.logger).to have_received(:warn).with(a_string_matching(/diff JSON parse failed/))
-      expect(plan).to be_a(Ai::GoalPlan)
-      expect(plan.steps.in_order.first.execution_config["skill"]).to eq("attach_storage")
+      # The parse failure is rescued and the diff falls through to the
+      # heuristic, whose attach_storage step lacks instance_id and is dropped
+      # as unbindable — so the rescue is proven by the log, not by a plan.
+      expect(plan).to be_nil
     end
 
     it "does NOT enforce mission.brief budget_cap_usd_monthly at this layer" do
@@ -436,7 +461,8 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         content: <<~JSON
           [{
             "skill": "attach_storage",
-            "inputs": { "size_gb": 100, "estimated_cost_usd_monthly": 10000 },
+            "inputs": { "instance_id": "inst-1", "size_gb": 100,
+                        "estimated_cost_usd_monthly": 10000 },
             "on_failure": "rollback"
           }]
         JSON
@@ -466,11 +492,10 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         JSON
       )
 
-      plan = llm_composed_plan
-      skills = plan.steps.in_order.pluck(:execution_config).map { |c| c["skill"] }
-      # Dropped, so the diff falls through to a composition that binds.
-      expect(skills).not_to include("scale_project")
-      expect(skills).to eq(["attach_storage"])
+      # Dropped. The diff then falls through to the heuristic, whose
+      # attach_storage step lacks instance_id and is dropped as well, so
+      # nothing is composed rather than something that cannot bind.
+      expect(llm_composed_plan).to be_nil
     end
 
     it "KEEPS an LLM scale_project step that does carry them" do
@@ -486,8 +511,8 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         JSON
       )
 
-      plan = llm_composed_plan
-      expect(plan.steps.in_order.first.execution_config["skill"]).to eq("scale_project")
+      expect(llm_composed_plan.steps.in_order.first.execution_config["skill"])
+        .to eq("scale_project")
     end
 
     it "preserves the LLM-suggested skill verbatim while action_type derives from the signal" do
@@ -501,7 +526,11 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
         content: <<~JSON
           [{
             "skill": "relocate_workload",
-            "inputs": { "target_regions": ["us-east-1", "eu-west-1"] },
+            "inputs": { "target_regions": ["us-east-1", "eu-west-1"],
+                        "project_id": "mission-x", "from_region_id": "r1",
+                        "to_region_id": "r2", "cutover_strategy": "blue_green",
+                        "template_id": "tmpl-1", "provider_instance_type_id": "it-1",
+                        "count": 2, "source_instance_ids": ["i-1"] },
             "on_failure": "rollback"
           }]
         JSON

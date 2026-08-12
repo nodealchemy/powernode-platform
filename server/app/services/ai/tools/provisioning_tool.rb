@@ -107,7 +107,12 @@ module Ai
             parameters: {
               mission_id: { type: "string", required: true, description: "Infrastructure mission ID" },
               change_type: { type: "string", required: true,
-                             description: "One of: #{adapt_change_types.join(', ')}" },
+                             description: "One of: #{adapt_change_types.join(', ')}. " \
+                                          "NOTE: `cost_control` is accepted by the schema but is NOT " \
+                                          "currently actuatable — it scales IN, and no scale-in strategy " \
+                                          "exists yet, so every call fails. Pending `remove_replicas` " \
+                                          "(IMP-216a6dbc7e32). Do not retry it; it will not begin working " \
+                                          "without that change." },
               metric: { type: "string", required: false,
                         description: "Optional metric that motivated the change (e.g. p99_latency_ms)" },
               details: { type: "object", required: false,

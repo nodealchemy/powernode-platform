@@ -218,6 +218,43 @@ module Ai
         { success: false }
       end
 
+      # Slug → executor class. Public and class-level because it is the
+      # canonical skill-resolution seam: a composer needs it to check that a
+      # step it is about to persist can actually BIND, and duplicating the
+      # lookup elsewhere would both drift and force another file to name an
+      # extension constant. The instance method below delegates here.
+      def self.resolve_executor(skill_name)
+        return nil if skill_name.nil? || skill_name.to_s.empty?
+
+        const_name = "#{skill_name.to_s.camelize}Executor"
+        if Object.const_defined?("System::Ai::Skills::#{const_name}")
+          "System::Ai::Skills::#{const_name}".constantize
+        elsif Object.const_defined?("Ai::Skills::#{const_name}")
+          "Ai::Skills::#{const_name}".constantize
+        end
+      end
+
+      # Names of the descriptor inputs a skill declares `required: true`,
+      # resolved through the seam above so a caller never has to reference an
+      # executor by name.
+      #
+      # Returns nil — NOT [] — when the skill or its descriptor cannot be
+      # resolved. "I cannot tell what this needs" and "this needs nothing"
+      # must not share a return value: collapsing them would let a caller
+      # treat an unresolvable skill as unconditionally valid.
+      def self.required_inputs_for(skill_name)
+        klass = resolve_executor(skill_name)
+        return nil unless klass.respond_to?(:descriptor)
+
+        declared = klass.descriptor[:inputs]
+        return nil unless declared.is_a?(Hash)
+
+        declared.select { |_k, spec| spec.is_a?(Hash) && spec[:required] }.keys.map(&:to_s)
+      rescue StandardError => e
+        Rails.logger.warn("[SkillCompositionRunner] required-input lookup failed for #{skill_name}: #{e.message}")
+        nil
+      end
+
       private
 
       # ===== Step traversal & topological sort =====
@@ -295,14 +332,7 @@ module Ai
       # Default convention: skill name `provision_full_stack` →
       # `System::Ai::Skills::ProvisionFullStackExecutor`. Stubbable in tests.
       def resolve_executor(skill_name)
-        return nil if skill_name.nil? || skill_name.to_s.empty?
-
-        const_name = "#{skill_name.to_s.camelize}Executor"
-        if Object.const_defined?("System::Ai::Skills::#{const_name}")
-          "System::Ai::Skills::#{const_name}".constantize
-        elsif Object.const_defined?("Ai::Skills::#{const_name}")
-          "Ai::Skills::#{const_name}".constantize
-        end
+        self.class.resolve_executor(skill_name)
       end
 
       def build_executor(executor_class)

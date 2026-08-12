@@ -457,7 +457,10 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "convergence + execu
     it "still routes operator-only change types to the LLM, stamped as such" do
       mission = build_mission!
       allow_any_instance_of(described_class).to receive(:diff_from_llm).and_return(
-        [ { "skill" => "attach_storage", "inputs" => { "size_gb" => 10 },
+        # attach_storage requires instance_id AND size_gb — a proposal
+        # missing either is dropped as unbindable.
+        [ { "skill" => "attach_storage",
+            "inputs" => { "instance_id" => "inst-1", "size_gb" => 10 },
             "on_failure" => "rollback" } ]
       )
 
@@ -578,6 +581,52 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "convergence + execu
     it "keeps cost_control requestable so the advertised schema stays stable" do
       # Removing and re-adding it would churn the MCP schema when INC-4 lands.
       expect(described_class::REQUESTABLE_CHANGE_TYPES).to include("cost_control")
+    end
+  end
+
+  # ---------------------------------------------------------------------
+  # Bindability is enforced on EVERY composer path, including the fallback
+  # taken when the LLM returns nothing. That fallback is a composer too, and
+  # guarding only the LLM branch left it free to emit an unbindable step.
+  # ---------------------------------------------------------------------
+  describe "the LLM-empty fallback is guarded too" do
+    let(:region_drift) do
+      double(
+        "Signal", kind: "system.project_drift", severity: :medium,
+        payload: { "mission_id" => mission_for_fallback.id, "drift_type" => "region_count",
+                   "observed" => 1, "target" => 2, "correlation_id" => "fallback" },
+        fingerprint: "project_drift:#{mission_for_fallback.id}:region_count"
+      )
+    end
+    let(:mission_for_fallback) { build_mission! }
+
+    it "composes nothing when the fallback's step cannot bind" do
+      # region_count drift → relocate → LLM returns nothing → heuristic
+      # fallback emits relocate_workload with only target_regions, while the
+      # executor declares 8 required inputs. Dispatching that step fails with
+      # "missing required input: from_region_id" and mints an approval
+      # request plus a RemediationOutcome that can never settle.
+      allow_any_instance_of(described_class).to receive(:diff_from_llm).and_return(nil)
+
+      expect(
+        described_class.new(account: account, mission: mission_for_fallback)
+          .propose_from_signals(signals: [ region_drift ])
+      ).to be_nil
+    end
+
+    it "composes when the same path yields a step that DOES bind" do
+      allow_any_instance_of(described_class).to receive(:diff_from_llm).and_return([
+        { "skill" => "relocate_workload",
+          "inputs" => { "project_id" => mission_for_fallback.id, "from_region_id" => "r1",
+                        "to_region_id" => "r2", "cutover_strategy" => "blue_green",
+                        "template_id" => "tmpl-aaa", "provider_instance_type_id" => "itype-ccc",
+                        "count" => 2, "source_instance_ids" => %w[i-1] },
+          "on_failure" => "rollback" }
+      ])
+
+      plan = described_class.new(account: account, mission: mission_for_fallback)
+        .propose_from_signals(signals: [ region_drift ])
+      expect(plan.steps.in_order.first.execution_config["skill"]).to eq("relocate_workload")
     end
   end
 

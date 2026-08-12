@@ -559,6 +559,22 @@ RSpec.describe Ai::Tools::ProvisioningTool do
     it "still returns the plan when approval routing is inert (core mode returns nil)" do
       stub_approval_workflow(returning: nil)
 
+      # relocate_workload declares 8 required inputs. The heuristic composer
+      # supplies none of them and does NOT thread `details` into step inputs,
+      # so a complete proposal has to arrive through the composition seam or
+      # the step is dropped as unbindable — leaving no plan for this
+      # example's actual subject (approval routing) to examine.
+      allow_any_instance_of(::Ai::Provisioning::AdaptationProposerService)
+        .to receive(:diff_from_llm).and_return([
+          { "skill" => "relocate_workload",
+            "inputs" => { "project_id" => adapt_mission.id, "from_region_id" => "r1",
+                          "to_region_id" => "r2", "cutover_strategy" => "blue_green",
+                          "template_id" => "tmpl-fixture",
+                          "provider_instance_type_id" => "itype-fixture",
+                          "count" => 2, "source_instance_ids" => %w[i-1] },
+            "on_failure" => "rollback" }
+        ])
+
       r = call("platform_provisioning_adapt",
                mission_id: adapt_mission.id,
                change_type: "relocate")

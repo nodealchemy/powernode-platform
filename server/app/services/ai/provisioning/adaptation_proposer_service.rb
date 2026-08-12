@@ -69,7 +69,14 @@ module Ai
       # so the autonomous path is deterministic end-to-end. Change types only
       # an operator can request (schema_change, security_change) still route
       # to the LLM — see #build_steps_for.
-      DETERMINISTIC_CHANGE_TYPES = %w[scale_horizontal cost_control relocate].freeze
+      # `relocate` is deliberately NOT here. Its executor requires eight inputs
+      # (from/to region, cutover strategy, template, instance type, count,
+      # source instance ids, project id) and the heuristic composer has no
+      # source for them, so routing relocate deterministically would compose a
+      # step that cannot bind — the very defect this inversion removes. It
+      # stays on the LLM path, and #bindable? drops whatever fails to carry
+      # the kwargs. Move it here only alongside a composer that supplies them.
+      DETERMINISTIC_CHANGE_TYPES = %w[scale_horizontal cost_control].freeze
 
       DEFAULT_SKILL_FOR_CHANGE = {
         "scale_horizontal" => "scale_project",
@@ -120,10 +127,12 @@ module Ai
       # executor or its strategy list.
       SCALE_OUT_STRATEGY = "add_replicas"
 
-      # Kwargs the `scale_project` skill requires. Mirrored core-side (core
-      # cannot read the executor's descriptor across the skill seam); the
-      # extension-side contract spec asserts this list still matches the
-      # executor's own required inputs, so the two cannot drift silently.
+      # Kwargs the `scale_project` skill requires, as the deterministic
+      # composer understands them. #bindable? reads requirements live through
+      # the skill-resolution seam rather than from this list; it remains as the
+      # composer's own statement of intent, and the extension-side contract
+      # spec asserts it still matches the executor's declared required inputs
+      # so composer and executor cannot drift apart silently.
       SCALE_PROJECT_REQUIRED_INPUTS = %w[
         project_id
         target_count
@@ -431,18 +440,32 @@ module Ai
       # An EMPTY deterministic result is a decision (converged, or a declined
       # cost_control), never a miss — it must not fall through to the LLM.
       def build_steps_for(signal, change_type)
-        if DETERMINISTIC_CHANGE_TYPES.include?(change_type)
-          return stamp_composition_source!(heuristic_steps(signal, change_type), "deterministic")
-        end
+        steps =
+          if DETERMINISTIC_CHANGE_TYPES.include?(change_type)
+            stamp_composition_source!(heuristic_steps(signal, change_type), "deterministic")
+          else
+            from_llm = safe_call { diff_from_llm(signal: signal, change_type: change_type) }
+            sanitized = sanitize_steps(from_llm)
+            if sanitized.any?
+              decorate_with_signal_metadata!(sanitized, signal)
+              stamp_composition_source!(sanitized, "llm")
+            else
+              stamp_composition_source!(heuristic_steps(signal, change_type), "deterministic")
+            end
+          end
 
-        from_llm = safe_call { diff_from_llm(signal: signal, change_type: change_type) }
-        sanitized = sanitize_steps(from_llm)
-        if sanitized.any?
-          decorate_with_signal_metadata!(sanitized, signal)
-          return stamp_composition_source!(sanitized, "llm")
-        end
+        # ONE guard, applied to whatever composed the steps. Putting it only
+        # in #sanitize_steps covered the LLM path and left the heuristic
+        # branch — which never passes through there — free to emit a step
+        # that cannot bind.
+        reject_unbindable(steps)
+      end
 
-        stamp_composition_source!(heuristic_steps(signal, change_type), "deterministic")
+      def reject_unbindable(steps)
+        Array(steps).select do |step|
+          inputs = step["inputs"].is_a?(Hash) ? step["inputs"] : {}
+          bindable?(step["skill"].to_s, inputs)
+        end
       end
 
       # Provenance stamp so an operator reading a persisted plan can tell
@@ -522,32 +545,37 @@ module Ai
 
           inputs = h["inputs"].is_a?(Hash) ? h["inputs"] : {}
           inputs["mission_id"] ||= mission.id
-          next nil unless bindable?(skill, inputs)
-
           on_failure = %w[rollback continue].include?(h["on_failure"]) ? h["on_failure"] : "rollback"
 
           { "skill" => skill, "inputs" => inputs, "on_failure" => on_failure }
         end
       end
 
-      # A composed step must carry the kwargs its executor requires, NO MATTER
-      # which composer produced it. The deterministic path supplies them by
-      # construction, but #sanitize_steps validates only the skill slug, so an
-      # LLM-composed `scale_project` (still reachable for the operator-only
-      # change types) could otherwise ship without `project_id` /
-      # `target_count` / `scaling_strategy` and fail at execution with
-      # "missing required input: project_id" — the exact defect the
-      # deterministic-first inversion removed from the sensor lanes. Dropping
-      # the step here lets the diff fall through to a composition that binds,
-      # rather than persisting one that cannot.
+      # A composed step must carry the inputs its executor requires, NO MATTER
+      # which skill it names or which composer produced it. #sanitize_steps
+      # validates only the skill slug, so without this a step ships and dies
+      # on dispatch with "missing required input: …".
+      #
+      # Deliberately generic: an earlier version special-cased `scale_project`
+      # and waved every other skill through, which is how `relocate_workload`
+      # (8 required inputs, none of which the heuristic supplies) slipped past.
+      # Requirements are read through SkillCompositionRunner's resolution seam
+      # — the same slug → executor lookup that dispatch uses — so core never
+      # names an executor and a newly added skill is covered automatically.
+      #
+      # An UNRESOLVABLE skill (nil requirements) is allowed through rather than
+      # dropped: core mode legitimately has no executors loaded, and silently
+      # composing nothing there would be worse than letting dispatch report a
+      # missing skill.
       def bindable?(skill, inputs)
-        return true unless skill == "scale_project"
+        required = ::Ai::Provisioning::SkillCompositionRunner.required_inputs_for(skill)
+        return true if required.nil? || required.empty?
 
-        missing = SCALE_PROJECT_REQUIRED_INPUTS.reject { |key| inputs[key].present? }
+        missing = required.reject { |key| inputs[key].present? }
         return true if missing.empty?
 
         Rails.logger.warn(
-          "[AdaptationProposerService] dropping scale_project step for mission=#{mission.id}: " \
+          "[AdaptationProposerService] dropping #{skill} step for mission=#{mission.id}: " \
           "missing required executor inputs #{missing.inspect}"
         )
         false
@@ -569,8 +597,10 @@ module Ai
       #     and re-fired on the next tick — a ratchet, not a correction.
       #
       #   SLO — a latency/availability breach has no replica target to
-      #     converge on, so the deliberate +1/+2 stepping off the brief is
-      #     correct and is preserved verbatim below.
+      #     converge on, so the deliberate +1/+2 stepping is
+      #     kept — but it steps off the OBSERVED count, not the brief. Only
+      #     the step SIZE is preserved; anchoring it to the brief is what
+      #     made the baseline a constant.
       def scale_out_inputs(payload)
         # Read the observation ONCE and thread it through. Two independent
         # reads race the metrics collector on the same 60s tick chain: a row
@@ -643,11 +673,11 @@ module Ai
 
       # Where the mission is scaling FROM — the LIVE fleet, never the brief.
       #
-      # Drift carries the observation in its own payload. An SLO breach's
-      # `observed` is the breached metric (latency, availability), not a
-      # replica count, so its live count comes from the mission's latest
-      # observations — the same blob the drift sensor samples. The brief is a
-      # last resort only, for a mission with no observation yet.
+      # Both kinds of signal carry the count in their own payload: drift as
+      # `observed`, an SLO breach as `replica_count` (its `observed` is the
+      # breached metric — latency, availability — not a count). The sensor is
+      # the only reader of the telemetry; this service never consults metric
+      # rows, `latest_observations`, or the brief.
       #
       # This baseline MUST be live. Stepping off `brief.scale.initial` makes
       # `desired_replica_count` a CONSTANT, so #auto_apply?'s
@@ -695,20 +725,6 @@ module Ai
         [ configured, DEFAULT_MAX_SCALE_OUT_DELTA ].min
       end
 
-      # Preference order MIRRORS the drift sensor's: the metric rows the
-      # collector actually writes on every tick first, then the legacy
-      # `latest_observations` config blob, which only bootstrap and spec
-      # missions carry.
-      #
-      # Reading the config blob alone would be a TEST-ONLY fix: the metrics
-      # collector writes metric ROWS and never writes back to
-      # `configuration`, so wherever metrics really flow the blob is absent,
-      # this returns nil, and the baseline silently falls back to the brief —
-      # restoring the exact ratchet the caller's comment forbids.
-      #
-      # A real 0 is a meaningful observation (nothing came up) and must be
-      # preserved, not treated as "no reading" — hence nil-checks rather than
-      # truthiness throughout.
       # These declines re-evaluate on every tick, so an unthrottled log would
       # repeat forever for a persistent breach. Keyed per mission and reason
       # so distinct causes still surface independently.
