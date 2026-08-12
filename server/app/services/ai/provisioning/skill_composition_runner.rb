@@ -107,6 +107,55 @@ module Ai
         { runner_id: @runner_id, started_at: @started_at, step_count: step_count }
       end
 
+      # Dispatch a specific set of newly-APPENDED pending steps on this plan
+      # (IMP-8c37b9e5ccd5). Used by Ai::Provisioning::AdaptationDispatchService
+      # when an `adaptation_diff` is grafted onto a live mission's plan.
+      #
+      # #execute! cannot serve this. Its idempotency guard refuses to dispatch
+      # when ANY step on the plan is past `pending` — the guard that stops a
+      # double-provision when two callers race an approval — and a live plan's
+      # original steps are all `completed`. Calling #execute! on an adapted plan
+      # would therefore no-op every adaptation while reporting a runner_id.
+      # Here both the guard and the topological layering are scoped to the
+      # appended subset; the completed originals are neither re-run nor
+      # consulted.
+      #
+      # @param steps [Array<#step_number, #dependencies, …>] the appended steps
+      # @return [Hash] { runner_id:, started_at:, step_count:, dispatched: }
+      def execute_appended!(steps:)
+        appended = Array(steps).sort_by { |s| s.step_number.to_i }
+        return { runner_id: nil, started_at: nil, step_count: 0, dispatched: 0 } if appended.empty?
+
+        if (in_flight = appended.find { |s| IN_FLIGHT_STATUSES.include?(step_status(s)) })
+          Rails.logger.info(
+            "[SkillCompositionRunner] execute_appended! no-op — appended step " \
+            "#{step_id(in_flight)[0..7]} already in '#{step_status(in_flight)}'."
+          )
+          @runner_id ||= ::UUID7.generate
+          @started_at ||= Time.current
+          return { runner_id: @runner_id, started_at: @started_at,
+                   step_count: appended.size, dispatched: 0, already_running: true }
+        end
+
+        @runner_id = ::UUID7.generate
+        @started_at = Time.current
+
+        layers = topological_layers(appended)
+
+        broadcast_run_started(step_count: appended.size, layer_count: layers.size)
+        post_system_message(
+          "Adaptation run started — #{appended.size} appended step(s) across #{layers.size} layer(s).",
+          status: "started",
+          metadata: { runner_id: @runner_id, step_count: appended.size, layer_count: layers.size }
+        )
+
+        first_layer = layers.first || []
+        first_layer.each { |step| dispatch_step_job(step) }
+
+        { runner_id: @runner_id, started_at: @started_at,
+          step_count: appended.size, dispatched: first_layer.size }
+      end
+
       # Run a single step through its skill executor. Called by the step
       # worker job via the internal API once it has been picked up.
       #
@@ -490,11 +539,43 @@ module Ai
         return if steps.empty?
         return unless steps.all? { |s| step_status(s) == "completed" }
 
+        # IMP-8c37b9e5ccd5: a plan carrying appended adaptation steps settles
+        # through the post-adapt path, not the execute-phase advance. The
+        # mission left `execute` long before the adaptation was composed — it
+        # is in `adapting` — so advancing here would be the wrong event
+        # entirely (and is rejected as stale anyway, silently doing nothing
+        # where a re-verify was owed).
+        return if settle_adaptation_if_any!(steps)
+
         orchestrator.advance!(expected_phase: "execute")
       rescue StandardError => e
         Rails.logger.error(
           "[SkillCompositionRunner] DAG complete but mission advance failed: #{e.class}: #{e.message}"
         )
+      end
+
+      # Hand a completed adaptation back to its dispatcher for the post-adapt
+      # verification + outcome record. Returns true when this plan carried an
+      # adaptation at all — i.e. when the execute-phase advance must be skipped
+      # — regardless of whether the settle itself succeeded, since a failed
+      # settle does not turn an adaptation back into an execute-phase run.
+      def settle_adaptation_if_any!(steps)
+        plan_ids = steps.filter_map do |s|
+          step_config(s)[::Ai::Provisioning::AdaptationDispatchService::PROVENANCE_KEY].presence
+        end.uniq
+        return false if plan_ids.empty?
+
+        begin
+          ::Ai::Provisioning::AdaptationDispatchService
+            .new(account: account, mission: mission)
+            .settle!(adaptation_plan_ids: plan_ids)
+        rescue StandardError => e
+          Rails.logger.error(
+            "[SkillCompositionRunner] post-adapt settle failed for plan #{plan_id}: " \
+            "#{e.class}: #{e.message}"
+          )
+        end
+        true
       end
 
       def record_outputs(step, outputs)

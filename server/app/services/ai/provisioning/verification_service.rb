@@ -58,7 +58,7 @@ module Ai
                           failures.empty? ? "no recorded failures" : "recorded failures: #{failures.inspect[0, 300]}")
 
           ids = Array(outs.dig("outputs", "node_instance_ids")).map(&:to_s)
-          expected = cfg.dig("inputs", "count").to_i
+          expected = declared_instance_count(cfg)
           if expected.positive? || ids.any?
             checks << check("#{prefix}_count", ids.size == expected,
                             "provisioned #{ids.size}/#{expected} instances")
@@ -78,6 +78,26 @@ module Ai
         return nil if plan_id.blank?
 
         ::Ai::GoalPlan.find_by(id: plan_id)
+      end
+
+      # How many instances the step ASKED for.
+      #
+      # `count` is what the initial provisioning skill declares. An adaptation
+      # is APPENDED onto this same live plan (IMP-8c37b9e5ccd5), so the re-run
+      # walks its steps too — and a `scale_project` step declares its instances
+      # as `target_count`, the delta of NEW instances, which is exactly what
+      # lands in `outputs.node_instance_ids`. Reading only `count` scored every
+      # post-adapt re-run "provisioned 2/0 instances" and failed a mission whose
+      # scale-out had in fact succeeded.
+      #
+      # Never take this from the OUTPUTS side (the executor also reports a
+      # `count` there): verification compares what was asked against what was
+      # produced, and sourcing both from the executor is self-certification.
+      def declared_instance_count(cfg)
+        inputs = cfg["inputs"].is_a?(Hash) ? cfg["inputs"] : {}
+        declared = inputs["count"]
+        declared = inputs["target_count"] if declared.blank?
+        declared.to_i
       end
 
       def last_outputs(step)

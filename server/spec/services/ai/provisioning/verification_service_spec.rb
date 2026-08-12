@@ -121,6 +121,69 @@ RSpec.describe Ai::Provisioning::VerificationService, type: :service do
     end
   end
 
+  # IMP-8c37b9e5ccd5 (INC-2): an adaptation is APPENDED onto this same live
+  # plan, so the post-adapt re-run walks its steps too. A `scale_project` step
+  # declares the instances it asks for as `target_count` (the delta of new
+  # instances), not `count` — reading only `count` scored every adaptation
+  # "provisioned 2/0 instances" and failed a mission whose scale-out had
+  # succeeded.
+  context "with an appended adaptation step" do
+    def adaptation_step!(number:, target_count:, instance_ids:, region_id: "region-1")
+      plan.steps.create!(
+        step_number: number, step_type: "provisioning_skill", description: "Scale project",
+        status: "completed",
+        execution_config: { "skill" => "scale_project", "on_failure" => "rollback",
+                            "adapted_from_plan_id" => SecureRandom.uuid,
+                            "inputs" => { "target_count" => target_count,
+                                          "scaling_strategy" => "add_replicas",
+                                          "provider_region_id" => region_id } },
+        metadata: { "last_outputs" => { "outputs" => { "node_instance_ids" => instance_ids },
+                                        "failures" => [] } }
+      )
+    end
+
+    it "counts the adaptation step against its declared target_count" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      adaptation_step!(number: 2, target_count: 2, instance_ids: %w[i-3 i-4])
+      stub_verifier(nil)
+
+      result = service.verify
+
+      count_check = result[:checks].find { |c| c[:name] == "step_2_count" }
+      expect(count_check[:ok]).to be true
+      expect(count_check[:detail]).to eq("provisioned 2/2 instances")
+      expect(result[:healthy]).to be true
+    end
+
+    it "still fails an adaptation step that produced fewer instances than it asked for" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1 i-2])
+      adaptation_step!(number: 2, target_count: 2, instance_ids: %w[i-3])
+      stub_verifier(nil)
+
+      result = service.verify
+
+      expect(result[:checks].find { |c| c[:name] == "step_2_count" }[:ok]).to be false
+      expect(result[:healthy]).to be false
+    end
+
+    it "reconciles the adaptation's new instances against the live provider too" do
+      provision_step!(number: 1, count: 1, instance_ids: %w[i-1])
+      adaptation_step!(number: 2, target_count: 1, instance_ids: %w[i-3], region_id: "region-9")
+      reconciler = double("verifier")
+      seen = nil
+      allow(reconciler).to receive(:reconcile_instances) do |account:, expectations:|
+        seen = expectations
+        expectations.map { |e| { node_instance_id: e[:node_instance_id], ok: true, detail: "running" } }
+      end
+      stub_verifier(reconciler)
+
+      service.verify
+
+      expect(seen.map { |e| e[:node_instance_id] }).to match_array(%w[i-1 i-3])
+      expect(seen.find { |e| e[:node_instance_id] == "i-3" }[:provider_region_id]).to eq("region-9")
+    end
+  end
+
   context "core mode (no provision_verifier registered)" do
     before { stub_verifier(nil) }
 
