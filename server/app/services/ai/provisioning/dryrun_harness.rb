@@ -37,10 +37,32 @@ module Ai
     # or raises.
     class DryrunHarness
       GATE_SETTING = "ai_task_tier_routing_enabled"
-      # A supervised run always approves handoff to reach adapting; handoff is a
-      # gate, never a valid resting place (M5: a second-signature account parks
-      # there, and grading that as terminal would be a false PASS).
-      TERMINAL_PHASES = %w[adapting completed].freeze
+      # The provisioning legs are DONE at one of these; a supervised run always
+      # approves handoff to reach adapting, because handoff is a gate, never a
+      # valid resting place (M5: a second-signature account parks there, and
+      # grading that as done would be a false PASS).
+      #
+      # `adapting` is NOT an end of life. The mission template calls it
+      # "long-lived, sensor-driven (no job class)", and ProjectSloSensor only
+      # watches missions with status "active" — so a mission parked here with a
+      # live status is exactly what the evolution loop observes. Soak mode holds
+      # it here instead of terminalizing it (INC-5).
+      DRIVE_COMPLETE_PHASES = %w[adapting completed].freeze
+      # The phase a soak observes from.
+      SOAK_PHASE = "adapting"
+
+      # Soak bounds + spend ceiling — DB-driven config, resolved
+      # Account#settings → SiteSetting → the DEFAULT_* constant below, the same
+      # order Ai::FableRouting/TaskTierResolver use. `ai.dryrun.budget_usd` is
+      # the key the dry-run protocol already documents; the two soak keys join
+      # it. The constants are a last-resort floor, not a policy: an operator
+      # changes any of them without a deploy.
+      SOAK_SECONDS_SETTING    = "ai.dryrun.soak_max_seconds"
+      SOAK_ITERATIONS_SETTING = "ai.dryrun.soak_max_iterations"
+      BUDGET_SETTING          = "ai.dryrun.budget_usd"
+      DEFAULT_SOAK_MAX_SECONDS    = 900
+      DEFAULT_SOAK_MAX_ITERATIONS = 600
+      DEFAULT_BUDGET_USD          = 5.0
 
       Finding = Struct.new(:dimension, :detail, :severity, keyword_init: true) do
         def to_h = { dimension: dimension, detail: detail, severity: severity }
@@ -77,9 +99,20 @@ module Ai
       #   phase/step jobs and returns the count processed; nil ⇒ live (sleep+poll).
       # @param compose_timeout/execute_timeout [Numeric] seconds to wait for the
       #   pipeline to reach the review_plan and handoff gates respectively.
+      # @param soak [Boolean] hold the mission ACTIVE at `adapting` after the
+      #   provisioning legs, so the evolution loop has a baseline to observe.
+      # @param soak_pump [#call, nil] spec-only stand-in for the observation
+      #   lane's production driver — the standalone worker's 60s cron POST to
+      #   the fleet reconcile endpoint (FleetAutonomyService.tick!). nil ⇒ live:
+      #   the harness sleeps and the real worker ticks. Observer mode holds here
+      #   exactly as it does for phase_pump: the harness never ticks production.
+      # @param soak_max_seconds/soak_max_iterations [Numeric, nil] explicit
+      #   bounds; nil ⇒ resolved from config. Both are ceilings — whichever is
+      #   reached first ends the soak.
       def initialize(account:, user:, objective:, run_id:, cleanup: true, auto_approve: true,
                      expected_count: nil, phase_pump: nil, poll_interval: 2,
-                     compose_timeout: 120, execute_timeout: 900)
+                     compose_timeout: 120, execute_timeout: 900,
+                     soak: false, soak_pump: nil, soak_max_seconds: nil, soak_max_iterations: nil)
         @account = account
         @user = user
         @objective = objective
@@ -100,6 +133,15 @@ module Ai
         @poll_interval = poll_interval
         @compose_timeout = compose_timeout
         @execute_timeout = execute_timeout
+        @soak = soak
+        @soak_pump = soak_pump
+        @soak_max_seconds = soak_max_seconds
+        @soak_max_iterations = soak_max_iterations
+        @soak_iterations = 0
+        @soak_elapsed = 0.0
+        @soak_stop_reason = nil
+        @soak_started_at = nil
+        @halt_before_teardown = false
         @findings = []
         @started_at = Time.current
         @mission_id = nil
@@ -111,6 +153,7 @@ module Ai
         begin
           mission = create_and_start_mission!
           drive!(mission)
+          soak!(mission) if @soak
         ensure
           # M3: teardown must never rob the account of its gate restore. Nest so
           # a raise in finalize! (cancel / teardown / instance query) still runs
@@ -124,6 +167,23 @@ module Ai
         # build_result runs AFTER finalize! so teardown findings (M3) are counted
         # in the exit code. It is skipped only when the body raised (a hard error
         # the caller must see) — the safety-guard raises are exactly that.
+        build_result(mission)
+      end
+
+      # The explicit teardown command (charter §9: "cancel mission BEFORE
+      # sweep"). Finishes a run that was left standing — a `--no-cleanup` soak
+      # an operator has since read, or a soak whose process died before its
+      # `ensure` could run. Same order and same rails as an in-run finalize:
+      # cancel this run_id's OWN mission first (so nothing keeps actuating
+      # against a fleet being swept), assert the zero-orphan family, then sweep
+      # by prefix — account-scoped, LIKE-escaped, halting before the sweep if an
+      # orphan is present. It never touches the routing gate: it did not enable
+      # it, and silently rewriting an account's settings from a cleanup command
+      # is not this command's business.
+      def teardown_only!
+        mission = live_mission_for_prefix
+        @mission_id = mission&.id
+        finalize!(mission)
         build_result(mission)
       end
 
@@ -177,6 +237,95 @@ module Ai
 
         sleep(@poll_interval)
         0
+      end
+
+      # ---- soak (INC-5) ---------------------------------------------------
+      # Hold the baseline under observation. The provisioning legs are over; the
+      # mission sits at `adapting` with status "active", which is precisely the
+      # scope ProjectSloSensor and ProjectMetricsCollector query. The harness
+      # stays an OBSERVER here too — live it sleeps while the worker's 60s fleet
+      # reconcile cron does the sensing; in-spec the injected soak_pump calls the
+      # same service the cron's endpoint calls.
+      #
+      # BOUNDED BY CONSTRUCTION. Every exit is a ceiling: iterations, wall-clock
+      # seconds, the LLM spend ceiling, or the mission leaving the observable
+      # state. There is no "wait until something adapts" — the drift signal has
+      # no live data source today (the collector resolves a mission's instance
+      # ids one level too shallow, so replica_count/region_count report
+      # `unavailable`), so a soak that waited for a sensor-driven adaptation
+      # would wait for its whole window and call the timeout a result. It waits
+      # for its window and says so instead; what the window OBSERVED is graded.
+      def soak!(mission)
+        m = uncached_reload(mission)
+        unless m.current_phase.to_s == SOAK_PHASE && m.status.to_s == "active"
+          @soak_stop_reason = "not_observable"
+          unless stall_already_explained?
+            add_finding("soak", "soak requested but the mission never became observable " \
+                                "(phase='#{m.current_phase}', status='#{m.status}')", :high)
+          end
+          return
+        end
+
+        @soak_started_at = Time.current
+        started = monotonic
+        deadline = started + soak_max_seconds
+        iterations = 0
+
+        loop do
+          iterations += 1
+          @soak_pump ? @soak_pump.call : sleep(@poll_interval)
+
+          m = uncached_reload(mission)
+          if ::Ai::Mission::TERMINAL_STATUSES.include?(m.status.to_s)
+            # The sensor stops watching a non-active mission, so the rest of the
+            # window would observe nothing while reporting a full soak.
+            @soak_stop_reason = "mission_#{m.status}"
+            add_finding("soak", "mission left the observable state mid-soak (status='#{m.status}') " \
+                                "after #{iterations} iteration(s)", :high)
+            break
+          end
+
+          if budget_exhausted?
+            @soak_stop_reason = "budget_ceiling"
+            add_finding("soak", "soak stopped at the LLM budget ceiling " \
+                                "($#{format('%.4f', llm_spend_usd)} of $#{budget_ceiling_usd})", :high)
+            break
+          end
+
+          if iterations >= soak_max_iterations
+            @soak_stop_reason = "max_iterations"
+            break
+          end
+
+          if monotonic >= deadline
+            @soak_stop_reason = "max_seconds"
+            break
+          end
+        end
+
+        @soak_iterations = iterations
+        @soak_elapsed = (monotonic - started).round(2)
+        grade_soak!(mission)
+      end
+
+      # §5 grading for the soak leg. Reads what production WROTE, not what the
+      # harness was told: ProjectMetric rows are the collector's own output, and
+      # the collector runs inside the same tick, over the same mission scope, as
+      # the sensor. Rows for this mission ⇒ the mission really was under
+      # observation for the window.
+      def grade_soak!(mission)
+        samples = project_metric_samples(mission)
+        if samples.nil?
+          add_finding("observation", "project metrics are unavailable in this install — " \
+                                     "soak observation was not measured", :medium)
+        elsif samples.zero?
+          add_finding("observation", "no project-metric sample was recorded for the mission during the " \
+                                     "soak — it was not under sensor observation", :high)
+        elsif live_project_metric_samples(mission).zero?
+          add_finding("observation", "#{samples} project-metric sample(s) recorded but none from a live " \
+                                     "source — every metric reported `unavailable`, so no drift signal " \
+                                     "can fire off this baseline", :medium)
+        end
       end
 
       def approve_gate!(mission, gate)
@@ -234,15 +383,27 @@ module Ai
 
       def create_and_start_mission!
         # M4: two concurrent runs whose ids prefix-subsume each other would let
-        # one teardown catch the other's instances. Refuse to start when another
-        # live dryrun mission already exists for this account.
-        active = ::Ai::Mission
-                 .where(account_id: @account.id, mission_type: "infrastructure")
-                 .where("name LIKE ?", "dryrun-%")
-                 .where.not(status: ::Ai::Mission::TERMINAL_STATUSES)
-        if active.exists?
-          raise "refusing to start: a live dryrun mission already exists for this account " \
-                "(#{active.first.name}) — concurrent dryruns can cross blast radius"
+        # one teardown catch the other's instances.
+        #
+        # The property being defended is BLAST-RADIUS OVERLAP, not "a dryrun
+        # exists". Teardown sweeps `dryrun-<runId>%`, so two runs collide iff one
+        # prefix is a prefix of the other — `dryrun-evo-1` subsumes
+        # `dryrun-evo-10`, while `dryrun-evo-01` and `dryrun-evo-02` can never
+        # touch each other's instances. Refusing every concurrent dryrun was the
+        # coarse form of this test, and it makes soak mode self-defeating: a
+        # baseline held ACTIVE for the evolution loop would block every
+        # subsequent run for the life of the soak, including the one meant to
+        # observe it. Compared in Ruby over the (small) live set rather than in
+        # SQL, so the prefix test is the same code in both directions and no
+        # LIKE-escaping subtlety can widen it.
+        overlapping = ::Ai::Mission
+                      .where(account_id: @account.id, mission_type: "infrastructure")
+                      .where("name LIKE ?", "dryrun-%")
+                      .where.not(status: ::Ai::Mission::TERMINAL_STATUSES)
+                      .find { |m| prefixes_overlap?(m.name.to_s, name_prefix) }
+        if overlapping
+          raise "refusing to start: run '#{name_prefix}' overlaps the blast radius of live dryrun " \
+                "mission '#{overlapping.name}' — one run's teardown would sweep the other's instances"
         end
 
         mission = ::Ai::Mission.create!(
@@ -257,14 +418,102 @@ module Ai
         mission.reload
       end
 
-      # Always runs (pass, fail, or stall). Order matters:
-      #   1. cancel the harness's OWN mission — M1 (a live/adapting mission would
-      #      block every future run) and M2 (a stalled run must terminalize the
-      #      pipeline before sweeping, not tear down under a still-live worker).
-      #   2. tear down the instances (only when @cleanup), recording completeness.
+      # Always runs (pass, fail, stall, or end of soak). Order matters:
+      #   1. cancel the harness's OWN mission — M2 (a stalled run must terminalize
+      #      the pipeline before sweeping, not tear down under a still-live
+      #      worker) and, for a soak, so no mission keeps actuating unattended
+      #      against a fleet that is about to be swept. Unconditional, exactly as
+      #      before: `--no-cleanup` opts out of the SWEEP, never out of stopping
+      #      the pipeline.
+      #   2. assert the zero-orphan family, and HALT before the sweep if it fails
+      #      (charter §9 stop condition) so forensics see the leak against a
+      #      fleet that still matches the plan.
+      #   3. tear down the instances (only when @cleanup), recording completeness.
       def finalize!(mission)
-        cancel_mission!(mission)
-        teardown!(mission) if @cleanup
+        cancel_mission!(mission) if mission
+        return unless @cleanup
+
+        if record_orphan_findings!(mission)
+          @halt_before_teardown = true
+          Rails.logger.warn("[DryrunHarness] orphan(s) present under #{name_prefix} — " \
+                            "halting before teardown; sweep with the explicit teardown command " \
+                            "once the leak has been read")
+          return
+        end
+
+        teardown!(mission)
+      end
+
+      # The zero-orphan family, asserted before any sweep. TWO readers, on
+      # purpose:
+      #
+      #   1. What the ACTUATOR recorded. `remove_replicas` runs its own
+      #      post-teardown ground-truth sweep per victim (instance, SDWAN peer,
+      #      provider volume, membership mirror) and records the survivors under
+      #      `outputs.orphans`. Reading that beats reimplementing it — one
+      #      reader of the family, so harness and actuator cannot disagree.
+      #   2. An INDEPENDENT check core can make for itself: a provider volume
+      #      still attached to a terminated instance under this run's prefix.
+      #      Narrower than (1) — SDWAN peers are not reachable from core without
+      #      depending on the extension — but it does not take the actuator's
+      #      word for its own sweep, which is the whole lesson of the F5 oracle.
+      #
+      # Returns true when the run must halt.
+      def record_orphan_findings!(mission)
+        reported = actuator_reported_orphans(mission)
+        if reported.any?
+          add_finding("orphan", "the removal actuator recorded #{reported.size} orphaned resource(s) " \
+                                "that survived teardown: #{reported.inspect[0, 300]}", :high)
+        end
+
+        dangling = dangling_volume_attachments
+        if dangling.any?
+          add_finding("orphan", "#{dangling.size} volume attachment(s) survive a terminated instance " \
+                                "under #{name_prefix}: #{dangling.inspect[0, 300]}", :high)
+        end
+
+        reported.any? || dangling.any?
+      end
+
+      # Orphans as the actuator itself recorded them, on the live plan's steps —
+      # nested under `last_outputs.outputs`, the convention the executors write
+      # and VerificationService reads.
+      def actuator_reported_orphans(mission)
+        plan = mission && resolve_plan(mission)
+        return [] unless plan
+
+        plan.steps.to_a.flat_map do |step|
+          meta = step.metadata.is_a?(Hash) ? step.metadata.deep_stringify_keys : {}
+          Array(meta.dig("last_outputs", "outputs", "orphans"))
+        end
+      rescue StandardError => e
+        Rails.logger.warn("[DryrunHarness] orphan read failed: #{e.class}: #{e.message}")
+        []
+      end
+
+      # Volumes still pointing at a terminated instance under this run's prefix.
+      # Traversed through the association rather than the volume model so the
+      # check reads whatever storage the instance actually carries.
+      def dangling_volume_attachments
+        dryrun_instances.select { |i| i.status.to_s == "terminated" }.flat_map do |instance|
+          next [] unless instance.respond_to?(:provider_volumes)
+
+          instance.provider_volumes.pluck(:id).map { |vid| { instance: instance.name, volume_id: vid } }
+        end
+      rescue StandardError => e
+        Rails.logger.warn("[DryrunHarness] volume orphan read failed: #{e.class}: #{e.message}")
+        []
+      end
+
+      # This run's OWN mission, still live. Exact name match: the teardown
+      # command finishes the run it was given, never a neighbour whose prefix
+      # merely starts the same way.
+      def live_mission_for_prefix
+        ::Ai::Mission
+          .where(account_id: @account.id, mission_type: "infrastructure", name: name_prefix)
+          .where.not(status: ::Ai::Mission::TERMINAL_STATUSES)
+          .order(created_at: :desc)
+          .first
       end
 
       def cancel_mission!(mission)
@@ -361,34 +610,60 @@ module Ai
           add_finding("docker", "plan has docker_provision leg(s) but no DockerHost was recorded", :medium)
         end
 
-        # M2: the run must actually reach a terminal (adapting/completed) phase.
-        # A silently parked mission with instances present would otherwise grade
-        # PASS. S7: suppress this generic finding when a more specific stall
-        # reason (compose/verify/extraction/gate) already names the same defect —
-        # one defect, one finding, so the exit code stays a faithful count.
+        # M2: the run must actually get through the provisioning legs. A silently
+        # parked mission with instances present would otherwise grade PASS. S7:
+        # suppress this generic finding when a more specific stall reason
+        # (compose/verify/extraction/gate) already names the same defect — one
+        # defect, one finding, so the exit code stays a faithful count.
         final = uncached_reload(mission).current_phase.to_s
-        already_explained = @findings.any? { |f| %w[compose verify extraction gate].include?(f.dimension) }
-        unless TERMINAL_PHASES.include?(final) || already_explained
+        unless DRIVE_COMPLETE_PHASES.include?(final) || stall_already_explained?
           add_finding("phase", "mission never reached adapting/completed (parked at '#{final}')", :high)
         end
       end
 
+      # Whether a more specific finding already names why the pipeline halted
+      # short. Shared by grade! and soak! so one defect stays one finding.
+      def stall_already_explained?
+        @findings.any? { |f| %w[compose verify extraction gate phase].include?(f.dimension) }
+      end
+
       def build_result(mission)
+        oracles = {
+          "instances" => dryrun_instances.size,
+          "docker_hosts" => docker_host_count,
+          "skill_usage" => skill_usage_count,
+          # account-wide, time-windowed best-effort — see the oracle queries.
+          "llm_executions" => execution_count,
+          "routing_decisions" => routing_count,
+          "verify_healthy" => (mission&.configuration&.dig("verification", "healthy") ||
+            mission&.configuration&.dig("verification_result", "healthy")) == true
+        }
+        oracles.merge!(soak_oracles(mission)) if @soak
+        oracles["teardown"] = "halted (orphan present)" if @halt_before_teardown
+
         Result.new(
           run_id: @run_id, mission_id: mission&.id,
           reached_phase: mission && uncached_reload(mission).current_phase,
           findings: @findings,
-          oracles: {
-            "instances" => dryrun_instances.size,
-            "docker_hosts" => docker_host_count,
-            "skill_usage" => skill_usage_count,
-            # account-wide, time-windowed best-effort — see the oracle queries.
-            "llm_executions" => execution_count,
-            "routing_decisions" => routing_count,
-            "verify_healthy" => (mission&.configuration&.dig("verification", "healthy") ||
-              mission&.configuration&.dig("verification_result", "healthy")) == true
-          }
+          oracles: oracles
         )
+      end
+
+      # Soak-leg oracles. `soak_metric_samples` / `soak_live_metrics` are the
+      # self-observation row of the charter's §8 table, read from
+      # system_project_metrics — the collector's own output, not the harness's
+      # opinion. `soak_live_metrics` is reported separately from the raw count
+      # precisely because a batch of `unavailable` samples must never read as
+      # observation.
+      def soak_oracles(mission)
+        {
+          "soak_stop_reason" => @soak_stop_reason,
+          "soak_iterations" => @soak_iterations,
+          "soak_seconds" => @soak_elapsed,
+          "soak_metric_samples" => project_metric_samples(mission),
+          "soak_live_metrics" => live_project_metric_samples(mission),
+          "soak_adaptations" => adaptation_plan_count(mission)
+        }
       end
 
       # A synthesized plan carries one docker_provision leg per instance; if any
@@ -451,6 +726,96 @@ module Ai
         ::Ai::AgentExecution.where(account_id: @account.id).where("created_at > ?", @started_at || 1.hour.ago).count
       rescue StandardError
         0
+      end
+
+      # ---- soak oracle / config queries -----------------------------------
+      # Samples the collector wrote for THIS mission inside the soak window.
+      # nil (not 0) when the metrics store is unavailable — "cannot see" and
+      # "saw nothing" are different answers and grade differently.
+      def project_metric_samples(mission)
+        return nil unless mission && defined?(::System::ProjectMetric)
+
+        scope = ::System::ProjectMetric.where(mission_id: mission.id)
+        scope = scope.where("sampled_at >= ?", @soak_started_at) if @soak_started_at
+        scope.count
+      rescue StandardError => e
+        Rails.logger.warn("[DryrunHarness] project metric read failed: #{e.class}: #{e.message}")
+        nil
+      end
+
+      # Of those, the ones carrying a real measurement. The collector stamps
+      # `source: "live"` only for a metric whose backend is actually wired;
+      # everything else is an honest `unavailable` with observed nil.
+      def live_project_metric_samples(mission)
+        return 0 unless mission && defined?(::System::ProjectMetric)
+
+        scope = ::System::ProjectMetric.where(mission_id: mission.id)
+                                       .where("value->>'source' = ?", "live")
+        scope = scope.where("sampled_at >= ?", @soak_started_at) if @soak_started_at
+        scope.count
+      rescue StandardError
+        0
+      end
+
+      # Adaptation plans minted against this mission — the loop's own output,
+      # by the key the proposer stamps.
+      def adaptation_plan_count(mission)
+        return 0 unless mission
+
+        ::Ai::GoalPlan.where(account_id: @account.id)
+                      .where("plan_data->>'kind' = ? AND plan_data->>'mission_id' = ?",
+                             "adaptation_diff", mission.id)
+                      .count
+      rescue StandardError
+        0
+      end
+
+      def llm_spend_usd
+        ::Ai::AgentExecution.where(account_id: @account.id)
+                            .where("created_at > ?", @started_at || 1.hour.ago)
+                            .sum(:cost_usd).to_f
+      rescue StandardError
+        0.0
+      end
+
+      def budget_exhausted?
+        ceiling = budget_ceiling_usd
+        ceiling.positive? && llm_spend_usd >= ceiling
+      end
+
+      def budget_ceiling_usd = @budget_ceiling_usd ||= config_number(BUDGET_SETTING, DEFAULT_BUDGET_USD).to_f
+
+      def soak_max_seconds = @resolved_soak_seconds ||=
+        (@soak_max_seconds || config_number(SOAK_SECONDS_SETTING, DEFAULT_SOAK_MAX_SECONDS)).to_f
+
+      def soak_max_iterations = @resolved_soak_iterations ||=
+        (@soak_max_iterations || config_number(SOAK_ITERATIONS_SETTING, DEFAULT_SOAK_MAX_ITERATIONS)).to_i
+
+      # DB-driven config: Account#settings → SiteSetting → default, reusing the
+      # settings reader Ai::FableRouting/TaskTierResolver already share. A
+      # non-numeric or non-positive configured value falls back to the default
+      # rather than yielding a zero-length (or endless) soak from a typo — the
+      # bound exists to guarantee termination, so it may never resolve to
+      # "unbounded".
+      def config_number(key, default)
+        [ ::Ai::FableRouting.setting(@account, key), ::Ai::FableRouting.global_setting(key) ].each do |raw|
+          next if raw.nil?
+
+          value = raw.to_f
+          return value if value.positive?
+
+          Rails.logger.warn("[DryrunHarness] ignoring non-positive #{key}=#{raw.inspect}; using #{default}")
+        end
+        default
+      rescue StandardError
+        default
+      end
+
+      # Blast-radius overlap between two `dryrun-<runId>` names: teardown sweeps
+      # `<name>%`, so either name being a prefix of the other means one run's
+      # sweep can reach the other's instances.
+      def prefixes_overlap?(a, b)
+        a.start_with?(b) || b.start_with?(a)
       end
 
       def uncached_reload(mission)

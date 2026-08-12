@@ -218,12 +218,237 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
         .to raise_error(ArgumentError, /run_id must be alphanumeric/)
     end
 
-    it "refuses to start a second live dryrun mission for the same account" do
-      # A prior live dryrun mission is present → the new run must refuse rather
-      # than risk a teardown that crosses blast radius.
+    it "refuses to start a run whose blast radius overlaps a live dryrun mission" do
+      # Same prefix ⇒ the two runs' teardown sweeps ('dryrun-<runId>%') would
+      # each catch the other's instances. That, not "another dryrun exists", is
+      # the property the guard defends — a soaking baseline must not block an
+      # unrelated run.
       Ai::Mission.create!(account: account, created_by: user, mission_type: "infrastructure",
-                          name: "dryrun-prior", objective: "prior", status: "draft")
-      expect { harness.run }.to raise_error(/live dryrun mission already exists/)
+                          name: "dryrun-#{run_id}", objective: "prior", status: "active")
+      expect { harness.run }.to raise_error(/overlaps the blast radius/)
+    end
+
+    it "refuses a run whose prefix is SUBSUMED by a live dryrun mission's prefix" do
+      # 'dryrun-spec' LIKE-matches every instance of 'dryrun-spec<hex>'.
+      Ai::Mission.create!(account: account, created_by: user, mission_type: "infrastructure",
+                          name: "dryrun-#{run_id[0, 4]}", objective: "prior", status: "active")
+      expect { harness.run }.to raise_error(/overlaps the blast radius/)
+    end
+
+    it "allows a run alongside a live dryrun mission whose prefix cannot overlap" do
+      # The INC-5 coexistence case: a soaking baseline under a different run_id
+      # neither blocks this run nor is touched by it.
+      other = Ai::Mission.create!(account: account, created_by: user, mission_type: "infrastructure",
+                                  name: "dryrun-otherbaseline", objective: "prior", status: "active")
+
+      result = harness.run
+
+      expect(result.oracles["instances"]).to eq(3)
+      expect(other.reload.status).to eq("active")
+    end
+  end
+
+  # ---- INC-5: soak mode ---------------------------------------------------
+  #
+  # A soak leaves the mission ACTIVE at `adapting` — a LIVE phase, per the
+  # mission template ("long-lived, sensor-driven, no job class") — so the
+  # evolution lane has something to watch. The observation lane's production
+  # driver is the standalone worker's 60s cron POST to
+  # /api/v1/system/worker_api/fleet/reconcile, whose only work is
+  # FleetAutonomyService.tick! per account. `soak_pump` stands in for that cron
+  # the same way `worker_pump` stands in for the job queue: it calls the REAL
+  # service, then drains whatever the tick enqueued.
+  describe "soak mode" do
+    # tick! resolves this agent by name/type; without it the tick no-ops and
+    # nothing observes anything.
+    let!(:fleet_agent) do
+      create(:ai_agent, account: account, name: "Fleet Autonomy", agent_type: "monitor")
+    end
+
+    # Mid-soak ground truth: what the row ACTUALLY said each time the
+    # observation lane ran, read uncached, not what the harness reports later.
+    let(:observed_states) { [] }
+
+    let(:soak_pump) do
+      lambda do
+        m = Ai::Mission.uncached { Ai::Mission.find_by(name: "dryrun-#{run_id}") }
+        observed_states << { status: m&.status, phase: m&.current_phase }
+        System::Fleet::FleetAutonomyService.tick!(account: account)
+        worker_pump.call
+      end
+    end
+
+    # Teardown seam — the provider chain is exercised elsewhere (mirrors the
+    # provision_instance stand-in above).
+    before do
+      allow_any_instance_of(System::ProvisioningService).to receive(:terminate_instance) do |_svc, kwargs|
+        inst = kwargs.is_a?(Hash) ? kwargs[:instance] : kwargs
+        inst.update!(status: "terminated")
+        System::Runtime::Result.ok
+      end
+    end
+
+    def soak_harness(**opts)
+      harness(soak: true, soak_pump: soak_pump, soak_max_iterations: 2, **opts)
+    end
+
+    it "holds the mission ACTIVE at adapting for the whole soak window" do
+      result = soak_harness.run
+
+      expect(observed_states.size).to eq(2)
+      expect(observed_states.map { |s| s[:status] }.uniq).to eq([ "active" ])
+      expect(observed_states.map { |s| s[:phase] }.uniq).to eq([ "adapting" ])
+      expect(result.oracles["soak_stop_reason"]).to eq("max_iterations")
+      expect(result.oracles["soak_iterations"]).to eq(2)
+    end
+
+    it "is picked up by the sensor's own mission scope — ground-truth metric rows" do
+      result = soak_harness.run
+
+      rows = System::ProjectMetric.where(mission_id: result.mission_id)
+      expect(rows.count).to be > 0
+      expect(result.oracles["soak_metric_samples"]).to eq(rows.count)
+      expect(rows.pluck(:metric_name)).to include("replica_count")
+    end
+
+    it "grades the observation gap instead of passing vacuously on unavailable telemetry" do
+      result = soak_harness.run
+
+      expect(result.oracles["soak_live_metrics"]).to eq(0)
+      obs = result.findings.select { |f| f.dimension == "observation" }
+      expect(obs).not_to be_empty
+      expect(obs.first.detail).to match(/none from a live/)
+    end
+
+    it "ends on the ITERATION ceiling taken from config, with no explicit bound" do
+      SiteSetting.set("ai.dryrun.soak_max_iterations", 1, setting_type: "integer")
+
+      result = harness(soak: true, soak_pump: soak_pump).run
+
+      expect(observed_states.size).to eq(1)
+      expect(result.oracles["soak_stop_reason"]).to eq("max_iterations")
+    end
+
+    it "ends on the DURATION ceiling taken from config" do
+      SiteSetting.set("ai.dryrun.soak_max_seconds", 1, setting_type: "integer")
+      slow_pump = lambda do
+        soak_pump.call
+        sleep(1.1)
+        1
+      end
+
+      result = harness(soak: true, soak_pump: slow_pump, soak_max_iterations: 50).run
+
+      expect(result.oracles["soak_stop_reason"]).to eq("max_seconds")
+      expect(observed_states.size).to eq(1)
+    end
+
+    it "still refuses to approve a non-dryrun mission in soak mode" do
+      allow_any_instance_of(Ai::Mission).to receive(:name).and_return("prod-mission")
+      expect { soak_harness.run }.to raise_error(/refusing to approve a non-dryrun/)
+    end
+
+    it "cancels the mission and sweeps the prefix at the END of the soak" do
+      result = soak_harness(cleanup: true).run
+
+      # Active throughout the window, terminal only afterwards.
+      expect(observed_states.map { |s| s[:status] }.uniq).to eq([ "active" ])
+      expect(Ai::Mission.find(result.mission_id).status).to eq("cancelled")
+      names = System::NodeInstance.where("name LIKE ?", "dryrun-#{run_id}%")
+      expect(names.count).to eq(3)
+      expect(names.pluck(:status).uniq).to eq([ "terminated" ])
+      expect(result.findings.map(&:dimension)).not_to include("teardown")
+    end
+
+    it "HALTS before teardown when the actuator recorded an orphan (forensics survive)" do
+      # The removal actuator runs its own post-teardown ground-truth sweep and
+      # records what survived under outputs.orphans. One appears mid-soak.
+      orphaned = false
+      halting_pump = lambda do
+        soak_pump.call
+        next 1 if orphaned
+
+        orphaned = true
+        mission = Ai::Mission.find_by(name: "dryrun-#{run_id}")
+        plan = Ai::GoalPlan.find(mission.configuration.dig("plan", "plan_id"))
+        step = plan.steps.order(:step_number).last
+        step.update!(metadata: (step.metadata || {}).merge(
+          "last_outputs" => { "outputs" => { "orphans" => [ { "resource" => "sdwan_peer", "ids" => %w[peer-1] } ] } }
+        ))
+        1
+      end
+
+      result = harness(soak: true, soak_pump: halting_pump, soak_max_iterations: 2, cleanup: true).run
+
+      orphan = result.findings.select { |f| f.dimension == "orphan" }
+      expect(orphan).not_to be_empty
+      expect(orphan.first.detail).to match(/sdwan_peer/)
+      # The sweep did NOT run: the fleet still matches the plan.
+      expect(System::NodeInstance.where("name LIKE ?", "dryrun-#{run_id}%").pluck(:status).uniq)
+        .to eq([ "running" ])
+    end
+
+    it "HALTS before teardown on a volume still attached to a terminated replica" do
+      # The independent reader: core sees the dangling attachment itself rather
+      # than taking the actuator's word for the sweep.
+      killed = false
+      halting_pump = lambda do
+        soak_pump.call
+        next 1 if killed
+
+        killed = true
+        victim = System::NodeInstance.where("name LIKE ?", "dryrun-#{run_id}%").order(:created_at).last
+        victim.update!(status: "terminated")
+        create(:system_provider_volume, account: account, provider_region: region,
+                                        node_instance_id: victim.id, status: "in-use")
+        1
+      end
+
+      result = harness(soak: true, soak_pump: halting_pump, soak_max_iterations: 2, cleanup: true).run
+
+      expect(result.findings.map(&:dimension)).to include("orphan")
+      expect(System::NodeInstance.where("name LIKE ?", "dryrun-#{run_id}%")
+                                 .where.not(status: "terminated").count).to eq(2)
+    end
+
+    it "terminalizes the pipeline but leaves the fleet standing under --no-cleanup" do
+      result = soak_harness(cleanup: false).run
+
+      # M2 posture unchanged: the mission is always terminalized on the way out,
+      # so no soak keeps actuating unattended. Only the SWEEP is opt-out.
+      expect(Ai::Mission.find(result.mission_id).status).to eq("cancelled")
+      expect(System::NodeInstance.where("name LIKE ?", "dryrun-#{run_id}%").pluck(:status).uniq)
+        .to eq([ "running" ])
+    end
+
+    it "cancels BEFORE it sweeps when the explicit teardown command finishes an abandoned run" do
+      soak_harness(cleanup: false).run
+      # What a killed soak process leaves behind: a live mission whose fleet is
+      # still up (the instances above are real; only the status is restored to
+      # the pre-finalize! value the crash would have left).
+      mission = Ai::Mission.find_by(name: "dryrun-#{run_id}")
+      mission.update!(status: "active")
+
+      order = []
+      allow_any_instance_of(Ai::Missions::OrchestratorService).to receive(:cancel!) do |svc, **kwargs|
+        order << :cancel
+        svc.mission.update!(status: "cancelled")
+      end
+      allow_any_instance_of(System::ProvisioningService).to receive(:terminate_instance) do |_svc, kwargs|
+        order << :terminate
+        (kwargs.is_a?(Hash) ? kwargs[:instance] : kwargs).update!(status: "terminated")
+        System::Runtime::Result.ok
+      end
+
+      result = described_class.new(account: account, user: user, objective: objective,
+                                   run_id: run_id).teardown_only!
+
+      expect(order.first).to eq(:cancel)
+      expect(order.count(:terminate)).to eq(3)
+      expect(mission.reload.status).to eq("cancelled")
+      expect(System::NodeInstance.where("name LIKE ?", "dryrun-#{run_id}%").pluck(:status).uniq)
+        .to eq([ "terminated" ])
+      expect(result.passed?).to be(true), "unexpected findings: #{result.findings.map(&:to_h)}"
     end
   end
 end
