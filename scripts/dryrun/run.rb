@@ -11,6 +11,24 @@
 # the outcome against the protocol §5 oracles, and tears the stack down. The
 # harness restores the account's routing gate on the way out.
 #
+# SOAK (INC-5) — hold the provisioned baseline under sensor observation:
+#
+#   ... --run-id evo-01 --soak [--soak-seconds N] [--soak-iterations N]
+#
+# The mission stays ACTIVE at `adapting` (a live phase, not an end state) for a
+# BOUNDED window, so ProjectSloSensor/ProjectMetricsCollector have something to
+# watch and an operator can amend the brief or approve an adaptation while it
+# runs. Every exit is a ceiling — iterations, wall-clock, the LLM budget, or the
+# mission leaving the observable state; the bounds default to the DB-driven
+# `ai.dryrun.soak_max_*` / `ai.dryrun.budget_usd` settings. Teardown (cancel,
+# then sweep by prefix) still runs at the END of the window, and an orphaned
+# resource halts before the sweep so forensics survive.
+#
+# TEARDOWN-ONLY — finish a run left standing (a `--no-cleanup` soak, or one
+# whose process died before its teardown ran):
+#
+#   ... --run-id evo-01 --teardown-only
+#
 # Reports mirror scripts/ai-smoke conventions (--md / --json). stderr carries
 # progress; stdout stays clean for piping. Exit code == number of findings
 # (0 = clean pass), so CI/cron can gate on it.
@@ -31,9 +49,16 @@ OptionParser.new do |o|
   o.on("--compose-timeout SEC", Integer) { |v| opts[:compose_timeout] = v }
   o.on("--execute-timeout SEC", Integer) { |v| opts[:execute_timeout] = v }
   o.on("--poll-interval SEC", Integer)   { |v| opts[:poll_interval] = v }
+  o.on("--soak")                         { opts[:soak] = true }
+  o.on("--soak-seconds SEC", Integer)    { |v| opts[:soak_max_seconds] = v }
+  o.on("--soak-iterations N", Integer)   { |v| opts[:soak_max_iterations] = v }
+  o.on("--teardown-only")                { opts[:teardown_only] = true }
 end.parse!(ARGV.reject { |a| a == "run.rb" })
 
 abort("--account is required") unless opts[:account]
+# A teardown addresses an EXISTING run; a generated run_id would silently sweep
+# a prefix nothing was ever created under and report a clean nothing.
+abort("--teardown-only requires --run-id") if opts[:teardown_only] && opts[:run_id].blank?
 run_id = opts[:run_id] || Time.now.utc.strftime("%Y%m%d%H%M%S")
 warn "[dryrun] run_id=#{run_id} account=#{opts[:account]}"
 
@@ -60,8 +85,16 @@ harness_opts = {
 harness_opts[:compose_timeout] = opts[:compose_timeout] if opts[:compose_timeout]
 harness_opts[:execute_timeout] = opts[:execute_timeout] if opts[:execute_timeout]
 harness_opts[:poll_interval]   = opts[:poll_interval]   if opts[:poll_interval]
+harness_opts[:soak]            = true                   if opts[:soak]
+harness_opts[:soak_max_seconds]    = opts[:soak_max_seconds]    if opts[:soak_max_seconds]
+harness_opts[:soak_max_iterations] = opts[:soak_max_iterations] if opts[:soak_max_iterations]
 
-result = Ai::Provisioning::DryrunHarness.new(**harness_opts).run
+harness = Ai::Provisioning::DryrunHarness.new(**harness_opts)
+# --teardown-only never provisions: it cancels this run_id's own mission and
+# sweeps its prefix. `--soak` is meaningless alongside it (there is nothing to
+# hold open), so refuse the combination rather than silently ignoring one.
+abort("--teardown-only cannot be combined with --soak") if opts[:teardown_only] && opts[:soak]
+result = opts[:teardown_only] ? harness.teardown_only! : harness.run
 
 File.write(opts[:md], result.to_markdown) if opts[:md]
 File.write(opts[:json], JSON.pretty_generate(result.to_h)) if opts[:json]
