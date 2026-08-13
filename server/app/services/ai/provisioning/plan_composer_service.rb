@@ -1232,9 +1232,15 @@ module Ai
       # brief carrying "50.7" would satisfy the writer and silently resolve to
       # NO VOLUME here, which is precisely the silent degradation being fixed.
       #
-      # Non-positive is treated as "no volume" rather than passed through: the
-      # executor guards on `blank?`, so a 0 would reach volume provisioning as
-      # a real 0 GB request.
+      # Non-positive is treated as "no volume" rather than passed through. This
+      # was once the ONLY screen — the executor guarded on `blank?`, which does
+      # not screen a 0 — and it is now the first of three that agree
+      # (IMP-33fa6c51f05d added ProvisionFullStackExecutor#storage_requested?;
+      # CostEstimatorService#declared_gb clamps the same way for the quote).
+      # Note this screens what the composer ADDS: `merge_resolved_inputs!` uses
+      # `||=` and 0 is truthy in Ruby, so a hand-authored non-positive already
+      # on the step survives composition — which is why the executor needs its
+      # own guard and does not merely inherit this one.
       def brief_storage_gb(brief)
         return nil unless brief.is_a?(Hash)
 

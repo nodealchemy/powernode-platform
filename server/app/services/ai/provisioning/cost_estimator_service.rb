@@ -403,12 +403,19 @@ module Ai
       # the plan never requested is a fabricated line item (IMP-051509357291).
       #
       # Non-positive reads as "not requested", matching
-      # PlanComposerService#brief_storage_gb. Note this does NOT match
-      # ProvisionFullStackExecutor's `next if with_storage_gb.blank?` guard:
-      # `0.blank?` is false in Ruby, so a hand-authored 0 reaches that executor
-      # as a real 0GB volume request. Quoting a $0 volume line for it would be
-      # noise either way, so the estimator clamps here; the executor-side gap is
-      # tracked separately.
+      # PlanComposerService#brief_storage_gb and the provisioning executor's own
+      # `storage_requested?` guard (IMP-33fa6c51f05d closed the gap where that
+      # guard was `blank?` — `0.blank?` is false in Ruby, so a hand-authored 0
+      # used to reach it and fail its storage leg per node while this quote
+      # showed no volume line at all). Composer, quote, and actuator now agree
+      # on the SIZE question; a change to one of them is a change to a contract
+      # the other two are written against.
+      #
+      # They do NOT agree on the KEY. `storage_gb` is read here as an alias, but
+      # ProvisionFullStackExecutor takes only `with_storage_gb` and drops the
+      # alias into `**_extras`, so a hand-authored plan carrying `storage_gb`
+      # alone is quoted for a volume nothing will provision. Same hand-authored
+      # population this guard exists for; tracked separately.
       #
       # `respond_to?(:to_i)` screens out shapes with no numeric reading at all
       # (Hash/Array/true). It deliberately does NOT screen out the not-found
