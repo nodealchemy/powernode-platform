@@ -279,4 +279,57 @@ RSpec.describe Ai::DeferredOperation, type: :model do
       expect(op.preview).to include(summary: 'test.act')
     end
   end
+
+  # IMP-b44483c3c098 — an executor that MINTS secret material (the federation
+  # propose path mints a single-use acceptance token) hands it back in its
+  # return value, and #execute_now! persists that value verbatim into the
+  # :result jsonb. The proposing operator is meant to see the plaintext exactly
+  # once; the row is a durable second copy of it, outside Vault, contradicting
+  # the executor's own "only the digest is persisted" contract.
+  describe 'secret material in the executor result' do
+    let(:minted) { 'MINTED-ACCEPTANCE-TOKEN-PLAINTEXT' }
+
+    before do
+      value = minted
+      stub_const('TokenMintingPerformer', Class.new do
+        define_singleton_method(:execute) do |_params, deferred_operation:|
+          { success: true, data: { federation_peer_id: 'peer-42',
+                                   acceptance_token_plaintext: value } }
+        end
+
+        define_singleton_method(:preview) { |_p| { summary: 'Propose peer' } }
+      end)
+    end
+
+    let(:op) do
+      described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'TokenMintingPerformer', params: {}
+      )
+    end
+
+    # The in-process return value is how the proposing operator is shown the
+    # token once (Ai::GatedActions renders result.result on the :proceed
+    # branch), so it must stay raw.
+    it 'returns the plaintext to the in-process caller' do
+      expect(op.execute_now!.dig(:data, :acceptance_token_plaintext)).to eq(minted)
+    end
+
+    it 'does not persist the plaintext on the row' do
+      op.execute_now!
+
+      persisted = described_class.find_by!(id: op.id)
+      expect(persisted.result.to_json).not_to include(minted)
+      expect(persisted.result.dig('data', 'acceptance_token_plaintext')).to eq('[FILTERED]')
+    end
+
+    it 'keeps the rest of the result intact for the auditor who reads the row' do
+      op.execute_now!
+
+      persisted = described_class.find_by!(id: op.id)
+      expect(persisted.result.dig('data', 'federation_peer_id')).to eq('peer-42')
+      expect(persisted.result['success']).to be true
+      expect(persisted.status).to eq('completed')
+    end
+  end
 end

@@ -388,7 +388,10 @@ module Api
             source_type: request.source_type,
             source_id: request.source_id,
             description: request.description,
-            request_data: request.request_data,
+            # Same reasoning as Ai::AutonomyApprovalActions: request_data has
+            # producers besides Ai::AutonomyGate, and pre-existing rows still
+            # carry plaintext, so the read filters too.
+            request_data: ::Ai::SensitiveParams.filter(request.request_data),
             step_statuses: request.step_statuses,
             current_step: request.current_step,
             expires_at: request.expires_at,

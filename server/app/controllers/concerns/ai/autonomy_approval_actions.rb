@@ -68,7 +68,12 @@ module Ai
         source_id: request.source_id,
         status: request.status,
         description: request.description,
-        request_data: request.request_data,
+        # Filtered again at the read, not just at Ai::AutonomyGate's write:
+        # request_data has producers other than the gate (Ai::GovernanceService,
+        # Ai::Approvals::Gateway, the mission orchestrator), and rows written
+        # before the gate started redacting still hold plaintext — the read is
+        # the only surface that covers those retroactively.
+        request_data: ::Ai::SensitiveParams.filter(request.request_data),
         requested_by_id: request.requested_by_id,
         created_at: request.created_at,
         expires_at: request.expires_at,
@@ -111,7 +116,11 @@ module Ai
       {
         id: op.id, action_category: op.action_category,
         executor_class: op.executor_class, status: op.status,
-        params: op.params, preview: op.preview, error_message: op.error_message
+        # The operation's OWN params, a second copy that never passes through
+        # request_data — a fix applied only at the gate's copy boundary would
+        # leave this one serving plaintext.
+        params: ::Ai::SensitiveParams.filter(op.params),
+        preview: op.preview, error_message: op.error_message
       }
     end
   end

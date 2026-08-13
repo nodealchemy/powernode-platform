@@ -108,7 +108,16 @@ module Ai
       start_execution!
       assert_source_within_account!
       result_data = executor_constant.execute(params, deferred_operation: self)
-      complete!(result_data || {})
+      # Raw to the caller, redacted to the row. An executor that MINTS secret
+      # material (federation propose mints a single-use acceptance token) is
+      # contracted to reveal it exactly once — Ai::GatedActions renders this
+      # return value on the :proceed branch, which is that one time. Persisting
+      # the same value into :result would make this row a durable second copy
+      # outside Vault. Sdwan::Executors::ProposeFederationPeer keeps only the
+      # digest + expiry on the PEER, and is right about that — it just has no
+      # say in what the gate does with what it hands back. `complete!` itself is
+      # left alone so a caller passing its own payload still controls it.
+      complete!(::Ai::SensitiveParams.filter(result_data || {}))
       result_data
     rescue StandardError => e
       Rails.logger.error("[DeferredOperation##{id}] execute_now! failed: #{e.class}: #{e.message}")
