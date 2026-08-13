@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_11_190000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_13_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10821,6 +10821,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_190000) do
     t.string "client_auth", default: "none", null: false
     t.datetime "created_at", null: false
     t.string "edge_mode", default: "passthrough", null: false
+    t.string "health_state", default: "unknown", null: false
+    t.datetime "last_observed_flow_at"
     t.string "local_auth_mode", default: "authenticated", null: false
     t.uuid "local_certificate_id"
     t.boolean "local_enabled", default: false, null: false
@@ -10834,6 +10836,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_190000) do
     t.string "slug", limit: 64, null: false
     t.string "status", default: "active", null: false
     t.datetime "updated_at", null: false
+    t.index ["account_id", "health_state"], name: "index_system_sdwan_services_on_account_id_and_health_state"
     t.index ["account_id", "slug"], name: "index_system_sdwan_services_on_account_id_and_slug", unique: true
     t.index ["account_id"], name: "index_system_sdwan_services_on_account_id"
     t.index ["backend_vip_id"], name: "index_system_sdwan_services_on_backend_vip_id"
