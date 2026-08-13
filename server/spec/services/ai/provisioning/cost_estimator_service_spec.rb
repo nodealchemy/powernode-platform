@@ -109,12 +109,33 @@ RSpec.describe Ai::Provisioning::CostEstimatorService, type: :service do
       mission = build_mission
       goal = build_goal(mission)
       plan = build_plan(goal, steps: [
-        { config: { "skill" => "provision_full_stack", "inputs" => { "count" => 2 } } },
+        # The provision step must price SOMETHING for this example to isolate
+        # the unpriceable→"med" transition. Before IMP-051509357291 a bare
+        # `{"count" => 2}` step qualified only because its phantom storage and
+        # egress lines set priced=true; with those gone an unpinned, undeclared
+        # step is priceless and the whole plan is correctly "low". A declared
+        # volume is the smallest honest way to keep a priced sibling here.
+        { config: { "skill" => "provision_full_stack",
+                    "inputs" => { "count" => 2, "with_storage_gb" => 100 } } },
         { config: { "skill" => "drift_remediate", "inputs" => {} } } # unpriceable
       ])
 
       result = service.estimate(plan: plan)
       expect(result[:confidence]).to eq("med")
+    end
+
+    it "reports low, not medium, when the only 'priced' lines would have been phantoms" do
+      # NEGATIVE CONTROL for the example above: same shape, nothing declared.
+      mission = build_mission
+      goal = build_goal(mission)
+      plan = build_plan(goal, steps: [
+        { config: { "skill" => "provision_full_stack", "inputs" => { "count" => 2 } } },
+        { config: { "skill" => "drift_remediate", "inputs" => {} } }
+      ])
+
+      result = service.estimate(plan: plan)
+      expect(result[:monthly_usd]).to eq(0.0)
+      expect(result[:confidence]).to eq("low")
     end
 
     it "emits an SDWAN line with zero monthly cost for sdwan_failover steps" do
@@ -130,7 +151,31 @@ RSpec.describe Ai::Provisioning::CostEstimatorService, type: :service do
       expect(sdwan_row[:monthly_usd]).to eq(0.0)
     end
 
-    it "estimates storage and egress lines for compute steps" do
+    # IMP-051509357291 — this example USED to assert that a bare compute step
+    # emits storage and network lines. It was pinning the defect: neither
+    # `storage_gb` nor `egress_gb` is written by anything (PlanComposerService
+    # stamps `with_storage_gb`, the kwarg the executor consumes; nothing writes
+    # any egress key), so those lines came entirely from
+    # DEFAULT_STORAGE_GB_PER_INSTANCE / DEFAULT_EGRESS_GB_PER_INSTANCE and
+    # quoted the operator for resources the plan does not provision.
+    #
+    # The rule is now NO DATA ⇒ NO LINE. Full coverage of the new behaviour
+    # lives in cost_estimator_phantom_lines_spec.rb; this pair keeps the
+    # both-directions statement next to the assertion it replaces.
+    it "emits storage and egress lines only when the step declares them" do
+      mission = build_mission
+      goal = build_goal(mission)
+      plan = build_plan(goal, steps: [
+        { config: { "skill" => "provision_full_stack",
+                    "inputs" => { "count" => 2, "with_storage_gb" => 100, "egress_gb" => 50 } } }
+      ])
+
+      result = service.estimate(plan: plan)
+      types = result[:by_resource].map { |r| r[:resource_type] }
+      expect(types).to include("storage", "network")
+    end
+
+    it "omits storage and egress lines for a compute step that declares neither" do
       mission = build_mission
       goal = build_goal(mission)
       plan = build_plan(goal, steps: [
@@ -139,7 +184,8 @@ RSpec.describe Ai::Provisioning::CostEstimatorService, type: :service do
 
       result = service.estimate(plan: plan)
       types = result[:by_resource].map { |r| r[:resource_type] }
-      expect(types).to include("storage", "network")
+      expect(types).not_to include("storage")
+      expect(types).not_to include("network")
     end
 
     it "returns zero monthly_usd when plan has no priceable steps" do
@@ -264,9 +310,102 @@ RSpec.describe Ai::Provisioning::CostEstimatorService, type: :service do
       result = service.estimate(plan: plan)
       compute_row = result[:by_resource].find { |r| r[:resource_type] == "compute" }
       expect(compute_row[:monthly_usd]).to eq(0.0)
-      # The pinned compute couldn't be priced — defaulted storage/egress must not
-      # rescue confidence up to "high".
+      # The pinned compute couldn't be priced. Since IMP-051509357291 there is
+      # no defaulted storage/egress left to rescue this to "high" either.
       expect(result[:confidence]).not_to eq("high")
+    end
+
+    # IMP-051509357291 (b): ProviderInstanceType#storage_gb is the root storage
+    # the SKU provides — System::ProxmoxProvider uses it as the rootfs size and
+    # hourly_price already buys it. Billing it again at STORAGE_USD_PER_GB_MONTH
+    # would swap one fabricated line for another, so no root-disk line is
+    # emitted at all.
+    it "does not bill the SKU's included root storage as a separate line" do
+      typed_with_disk = ::System::ProviderInstanceType.create!(
+        account: account, provider: system_provider,
+        name: "rootdisk-#{SecureRandom.hex(2)}",
+        instance_type_code: "rootdisk.#{SecureRandom.hex(2)}",
+        hourly_price: 0.085, vcpus: 2, memory_mb: 4096, storage_gb: 80
+      )
+
+      mission = build_mission
+      goal = build_goal(mission)
+      plan = build_plan(goal, steps: [
+        { config: { "skill" => "provision_full_stack",
+                    "inputs" => { "provider_instance_type_id" => typed_with_disk.id, "count" => 1 } } }
+      ])
+
+      result = service.estimate(plan: plan)
+      expect(result[:by_resource].select { |r| r[:resource_type] == "storage" }).to be_empty
+      expect(result[:by_resource].find { |r| r[:resource_type] == "compute" }[:monthly_usd]).to be > 0
+    end
+
+    # IMP-051509357291 (e): scale_project was absent from COMPUTE_SKILLS, so
+    # every scale-out priced to nothing (unpriceable=true) — and it is the ONE
+    # skill AdaptationProposerService threads with_storage_gb onto.
+    # `target_count` is a DELTA (the count of NEW instances), per
+    # AdaptationProposerService's own comment.
+    it "prices a scale_project step from its target_count delta" do
+      mission = build_mission
+      goal = build_goal(mission)
+      plan = build_plan(goal, steps: [
+        { config: { "skill" => "scale_project",
+                    "inputs" => { "provider_instance_type_id" => instance_type.id,
+                                  "target_count" => 2, "scaling_strategy" => "add_replicas" } } }
+      ])
+
+      result = service.estimate(plan: plan)
+      compute_row = result[:by_resource].find { |r| r[:resource_type] == "compute" }
+      expect(compute_row[:count]).to eq(2)
+      expect(compute_row[:monthly_usd]).to eq((0.085 * described_class::HOURS_PER_MONTH * 2).round(2))
+      expect(result[:confidence]).to eq("high")
+    end
+
+    # REGRESSION GUARD for the dollar-valued form of the above. `target_count`
+    # is present on ALL FOUR scale_project arms, so reading it unconditionally
+    # would quote 5 pinned instances of real monthly compute for a step that
+    # REMOVES capacity — a fabricated line of the exact class this task deletes,
+    # and worse than the prior behaviour (scale_project priced to nothing).
+    it "quotes no compute for a scale-IN even when the instance type is pinned" do
+      mission = build_mission
+      goal = build_goal(mission)
+      plan = build_plan(goal, steps: [
+        { config: { "skill" => "scale_project",
+                    "inputs" => { "provider_instance_type_id" => instance_type.id,
+                                  "target_count" => 5, "scaling_strategy" => "remove_replicas" } } }
+      ])
+
+      result = service.estimate(plan: plan)
+      expect(result[:by_resource].select { |r| r[:resource_type] == "compute" }).to be_empty
+      expect(result[:monthly_usd]).to eq(0.0)
+    end
+
+    # KNOCK-ON, stated end to end. A composed 3-instance plan fans out one
+    # docker_provision leg per instance (PlanComposerService#synthesize_docker_
+    # legs!), each carrying only { "brief" => brief }.
+    #
+    # BEFORE: compute $186.15 + storage 4 steps × (50GB × 3 × $0.10) = $60.00
+    #         + egress 4 steps × (100GB × 3 × $0.09) = $108.00  ⇒ $354.15/mo,
+    #         of which $168.00 bought nothing the plan provisions.
+    # AFTER:  $186.15 — the provision step's compute alone, because the plan
+    #         declares no volume and no egress allowance, and the docker legs
+    #         configure instances that step already created and billed.
+    it "quotes a representative composed plan at only what it provisions" do
+      mission = build_mission
+      goal = build_goal(mission)
+      steps = [
+        { config: { "skill" => "provision_full_stack",
+                    "inputs" => { "provider_instance_type_id" => instance_type.id, "count" => 3 } } }
+      ]
+      3.times { steps << { config: { "skill" => "docker_provision", "inputs" => { "brief" => default_brief } } } }
+      plan = build_plan(goal, steps: steps)
+
+      result = service.estimate(plan: plan)
+      expected_compute = (0.085 * described_class::HOURS_PER_MONTH * 3).round(2)
+      expect(expected_compute).to eq(186.15)
+      expect(result[:monthly_usd]).to eq(expected_compute)
+      expect(result[:by_resource].select { |r| r[:resource_type] == "storage" }).to be_empty
+      expect(result[:by_resource].select { |r| r[:resource_type] == "network" }).to be_empty
     end
 
     it "ignores instance types that belong to other accounts" do

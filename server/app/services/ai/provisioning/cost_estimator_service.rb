@@ -6,9 +6,13 @@ module Ai
     # operator can review costs before approving. Walks every plan step,
     # inspects `step.execution_config["inputs"]` for the resource selectors a
     # provisioning skill would need (provider_region_id, provider_instance_type_id,
-    # count, storage_gb, egress_gb), looks the live hourly price up out of
-    # `System::ProviderInstanceType.hourly_price`, and rolls everything into a
-    # single envelope the Plan Review modal renders.
+    # count/target_count, with_storage_gb, egress_gb), looks the live hourly
+    # price up out of `System::ProviderInstanceType.hourly_price`, and rolls
+    # everything into a single envelope the Plan Review modal renders.
+    #
+    # Every line item is quoted from what the step ACTUALLY declares. A resource
+    # the plan does not request produces no line and no charge, even where that
+    # leaves the quote empty — see #declared_gb and FLEET_SIZED_SKILLS.
     #
     # Falls back to the captured Project Brief (regions + scale.initial) when
     # the step doesn't carry explicit selectors — common in the M0 plan where
@@ -29,8 +33,6 @@ module Ai
     #   }
     class CostEstimatorService
       HOURS_PER_MONTH                 = 730 # 24 * 365.25 / 12
-      DEFAULT_STORAGE_GB_PER_INSTANCE = 50
-      DEFAULT_EGRESS_GB_PER_INSTANCE  = 100
       STORAGE_USD_PER_GB_MONTH        = 0.10
       EGRESS_USD_PER_GB               = 0.09
       DEFAULT_INSTANCE_COUNT          = 1
@@ -43,7 +45,55 @@ module Ai
         provision_cluster
         docker_provision
         rolling_module_upgrade
+        scale_project
       ].freeze
+
+      # Of the compute skills, the ones whose step provisions the WHOLE fleet,
+      # so a missing explicit count may legitimately fall back to the brief's
+      # `scale.initial`.
+      #
+      # Deliberately excludes `docker_provision` and `scale_project`
+      # (IMP-051509357291):
+      #
+      #   * PlanComposerService#synthesize_docker_legs! emits one
+      #     docker_provision step PER INSTANCE, each carrying only
+      #     { "brief" => brief }. Inheriting scale.initial made every leg bill
+      #     a whole fleet's compute — a 3-instance plan was quoted 4 fleets.
+      #   * `scale_project` prices a DELTA (see #instance_count) — a scale-out
+      #     that forgot its delta must not silently quote the whole fleet.
+      FLEET_SIZED_SKILLS = %w[
+        provision_full_stack
+        provision_cluster
+        rolling_module_upgrade
+      ].freeze
+
+      # Compute skills whose step CONFIGURES instances an earlier step already
+      # created, rather than creating any of its own. They contribute no compute
+      # line at all: DockerProvisionExecutor#perform takes a `node_instance_id`,
+      # looks the instance up and fails when it does not exist
+      # (docker_provision_executor.rb:42-47), so whatever those instances cost
+      # is already carried by the provision step that made them. Billing the leg
+      # again double-counts the fleet on the very card the operator approves.
+      #
+      # `rolling_module_upgrade` has the same shape and is deliberately NOT
+      # listed here — it is outside this task's contract and is queued
+      # separately, so its absence is a scope decision, not an oversight.
+      CONFIGURES_EXISTING_INSTANCES = %w[docker_provision].freeze
+
+      # The `scale_project` arms that ADD instances, so their delta is a real
+      # marginal cost. The skill also offers `vertical_resize` (resizes in
+      # place) and `remove_replicas` (scale-IN), both of which carry a
+      # `target_count` and create NOTHING — pricing their delta as new compute
+      # would fabricate exactly the class of line this service stopped emitting,
+      # and would be worse than the old behaviour, which priced scale_project at
+      # nothing at all.
+      #
+      # Same rule as VerificationService#additive_scaling?, widened by
+      # `add_region` because the skill's own input descriptor counts that arm as
+      # instances to ADD. Plain strings flowing through the skill-resolution
+      # seam — core does not reference the extension executor or its strategy
+      # list (the same reason AdaptationProposerService names its own).
+      ADD_REGION_STRATEGY = "add_region"
 
       # Skills that compose only network/sdwan resources.
       NETWORK_SKILLS = %w[
@@ -144,9 +194,9 @@ module Ai
       def compute_line_items(skill:, inputs:, brief:)
         instance_type = lookup_instance_type(inputs)
         region_id     = inputs["provider_region_id"] || inputs[:provider_region_id]
-        count         = instance_count(inputs: inputs, brief: brief)
-        storage_gb    = (inputs["storage_gb"] || inputs[:storage_gb] || DEFAULT_STORAGE_GB_PER_INSTANCE).to_i
-        egress_gb     = (inputs["egress_gb"] || inputs[:egress_gb] || DEFAULT_EGRESS_GB_PER_INSTANCE).to_i
+        count         = instance_count(skill: skill, inputs: inputs, brief: brief)
+        storage_gb    = declared_gb(inputs, "with_storage_gb", "storage_gb")
+        egress_gb     = declared_gb(inputs, "egress_gb")
 
         regions = Array(brief["regions"] || brief[:regions])
         region_label = region_label_for(region_id) || regions.first || "default"
@@ -188,6 +238,19 @@ module Ai
         rows = []
         rows << build_row(resource_type: "compute", name: name, monthly_usd: compute_monthly, count: count) if count.positive?
 
+        # NO DATA ⇒ NO LINE (IMP-051509357291). Both of these are quoted only
+        # when the step actually declares the resource. They used to fall back
+        # to a 50GB volume and a 100GB egress allowance per instance, but
+        # nothing writes either key by default — so every approval card billed
+        # the operator for resources the plan does not provision, and the
+        # phantom lines simultaneously marked the step `priced`, painting a
+        # fabricated total as high confidence.
+        #
+        # No root-disk line is emitted either. The storage a SKU includes lives
+        # on the resolved instance type's own `storage_gb` and is already bought
+        # by `hourly_price` (the Proxmox provider uses that field as the rootfs
+        # size), so charging it again here would swap one fabricated line for
+        # another.
         storage_monthly = (storage_gb * STORAGE_USD_PER_GB_MONTH * count).round(2)
         rows << build_row(resource_type: "storage", name: "#{storage_gb}GB volume × #{count}", monthly_usd: storage_monthly, count: count) if storage_monthly.positive?
 
@@ -287,16 +350,76 @@ module Ai
         ts < STALE_PRICING_DAYS.days.ago
       end
 
-      def instance_count(inputs:, brief:)
+      # How many instances this step CREATES — which is what the plan is billed
+      # for. Zero is a legitimate answer, and #compute_line_items emits no rows
+      # at all for it.
+      #
+      # `scale_project` prices a DELTA: AdaptationProposerService stamps
+      # `target_count` as "the number of NEW instances to add", not an absolute
+      # target, so the marginal cost of an additive scale-out IS that value —
+      # but ONLY for the additive arms (see ADD_REGION_STRATEGY).
+      #
+      # The brief's `scale.initial` fallback applies to FLEET_SIZED_SKILLS only
+      # — see that constant for why inheriting it elsewhere over-quotes.
+      def instance_count(inputs:, brief:, skill: nil)
+        return 0 if CONFIGURES_EXISTING_INSTANCES.include?(skill.to_s)
+
         explicit = inputs["count"] || inputs[:count] || inputs["instance_count"] || inputs[:instance_count]
+
+        if skill.to_s == "scale_project"
+          # A non-additive (or unstated) strategy creates nothing, so neither
+          # an authored count nor a delta may be quoted as new compute.
+          return 0 unless additive_scaling?(inputs)
+          explicit ||= inputs["target_count"] || inputs[:target_count]
+          return explicit.present? ? explicit.to_i : 0
+        end
+
         return explicit.to_i if explicit.present?
 
-        scale = brief["scale"] || brief[:scale] || {}
-        scale = scale.is_a?(Hash) ? scale : {}
-        initial = scale["initial"] || scale[:initial]
-        return initial.to_i if initial.present?
+        if FLEET_SIZED_SKILLS.include?(skill.to_s)
+          scale = brief["scale"] || brief[:scale] || {}
+          scale = scale.is_a?(Hash) ? scale : {}
+          initial = scale["initial"] || scale[:initial]
+          return initial.to_i if initial.present?
+        end
 
         DEFAULT_INSTANCE_COUNT
+      end
+
+      # Whether a `scale_project` step's strategy is one that ADDS instances.
+      # Resolved through AdaptationProposerService's own constant so core states
+      # the scale-out strategy in exactly one place, matching
+      # VerificationService#additive_scaling?.
+      def additive_scaling?(inputs)
+        strategy = (inputs["scaling_strategy"] || inputs[:scaling_strategy]).to_s
+        return false if strategy.blank?
+
+        strategy == ::Ai::Provisioning::AdaptationProposerService::SCALE_OUT_STRATEGY ||
+          strategy == ADD_REGION_STRATEGY
+      end
+
+      # A resource size the step explicitly declares, in GB, or 0 when it
+      # declares none. There is deliberately NO default: a quote for a resource
+      # the plan never requested is a fabricated line item (IMP-051509357291).
+      #
+      # Non-positive reads as "not requested", matching
+      # PlanComposerService#brief_storage_gb. Note this does NOT match
+      # ProvisionFullStackExecutor's `next if with_storage_gb.blank?` guard:
+      # `0.blank?` is false in Ruby, so a hand-authored 0 reaches that executor
+      # as a real 0GB volume request. Quoting a $0 volume line for it would be
+      # noise either way, so the estimator clamps here; the executor-side gap is
+      # tracked separately.
+      #
+      # `respond_to?(:to_i)` screens out shapes with no numeric reading at all
+      # (Hash/Array/true). It deliberately does NOT screen out the not-found
+      # case — nil does respond to :to_i, and nil.to_i == 0 lands on the same
+      # "not requested" answer.
+      def declared_gb(inputs, *keys)
+        raw = keys.lazy.flat_map { |k| [ inputs[k], inputs[k.to_sym] ] }.find(&:present?)
+        return 0 unless raw.respond_to?(:to_i)
+
+        value = raw.to_i
+        value.positive? ? value : 0
       end
 
       def ordered_steps(plan)
