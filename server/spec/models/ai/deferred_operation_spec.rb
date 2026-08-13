@@ -155,6 +155,54 @@ RSpec.describe Ai::DeferredOperation, type: :model do
       expect(op.execute_now!).to include(performed: true)
     end
 
+    # The anchor runs BEFORE the executor, so any raise out of it fails an
+    # operation the executor itself would have rejected with a usable message
+    # (System::Task, for one, refuses an out-of-list operable_type on
+    # validation). Both shapes below are reachable: the source pair on
+    # `system.task.*` is the API-supplied operable_type/operable_id, unvalidated
+    # at the point the gate records it.
+    it 'is a no-op for a source_type that names a class with no table of its own' do
+      abstract = described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'TestPerformer', params: {},
+        source_type: 'ApplicationRecord', source_id: SecureRandom.uuid
+      )
+
+      expect(abstract.execute_now!).to include(performed: true)
+      expect(abstract.reload.status).to eq('completed')
+    end
+
+    it 'is a no-op for a source_type that names a model with no id column' do
+      # UserRole is keyed [user_id, role_id]; `find_by(id:)` against it is
+      # PG::UndefinedColumn, not a miss.
+      keyless = described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'TestPerformer', params: {},
+        source_type: 'UserRole', source_id: SecureRandom.uuid
+      )
+
+      expect(keyless.execute_now!).to include(performed: true)
+      expect(keyless.reload.status).to eq('completed')
+    end
+
+    # Locks the half that Rails owns rather than this model: OID::Uuid#cast
+    # normalises a malformed id to nil (or to canonical form), so `find_by`
+    # compiles to `id IS NULL` and no malformed string reaches PostgreSQL —
+    # including the shapes the permissive ACCEPTABLE_UUID regex admits. If a
+    # future Rails stops casting, it fails here and not on a live operation.
+    it 'is a no-op for a malformed source id against a uuid-keyed model' do
+      %w[not-a-uuid 1234-5678-1234-1234-1234-1234-5678-9012].each do |malformed|
+        malformed_op = described_class.create!(
+          account: account, action_category: 'test.act',
+          executor_class: 'TestPerformer', params: {},
+          source_type: 'Ai::DeferredOperation', source_id: malformed
+        )
+
+        expect(malformed_op.execute_now!).to include(performed: true)
+        expect(malformed_op.reload.status).to eq('completed')
+      end
+    end
+
     # source_type is a free-text column and core cannot know every model an
     # extension gates on, so an unresolvable name must not turn into a raise on
     # a live operation. (The third skip — a resolvable model that exposes no

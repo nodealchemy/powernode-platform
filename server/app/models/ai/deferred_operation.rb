@@ -132,14 +132,21 @@ module Ai
     # before the executor runs. The gate stores caller-supplied params verbatim
     # and this method replays them with no re-validation — for a deferred
     # operation, hours after the request — while executors are deliberately
-    # unscoped, trusting the call site that opened the gate. So nothing else
-    # between "the caller named a row" and "the executor mutates it" checks
-    # that the row is one this account may touch.
+    # unscoped at the point of dispatch, trusting the call site that opened the
+    # gate.
+    #
+    # It covers exactly ONE pair: the source_type/source_id the gate recorded.
+    # It is not a general tenancy check, and deliberately no-ops for callers
+    # that record no source at all, or a source that is provenance rather than
+    # the row about to be mutated. Rows an executor resolves for itself out of
+    # `params` are anchored by the executor's own params-level scoping, at the
+    # point it dereferences them. Two anchors, two moments: this one re-checks
+    # the recorded pair just before the replay; the executor's covers what it
+    # actually touches.
     #
     # Deliberately generic: core must not know any extension's models, so the
     # source is resolved by name and asserted only when the record actually
-    # carries an account anchor. It covers the pair the gate recorded; records
-    # an executor resolves for itself are the executor's own anchor to defend.
+    # carries an account anchor.
     def assert_source_within_account!
       owner_id = source_account_id
       return if owner_id.nil? || owner_id == account_id
@@ -165,6 +172,25 @@ module Ai
 
       klass = source_type.safe_constantize
       return nil unless klass.respond_to?(:column_names) && klass.respond_to?(:find_by)
+
+      # `find_by(id:)` is answerable only by a class backed by a real table that
+      # actually carries an `id`, and this free-text column admits names where
+      # neither holds: an abstract model raises TableNotSpecified, and a model
+      # keyed on a pair (UserRole, RolePermission, WorkerRole) raises
+      # PG::UndefinedColumn — which additionally poisons the surrounding
+      # transaction, so the `fail!` in #execute_now!'s rescue raises in turn and
+      # strands the row in :executing with no error recorded. Both are facts
+      # about the class, knowable without querying, so they reach the same nil
+      # as a miss instead of a raise.
+      #
+      # Checked rather than rescued: TableNotSpecified is not a StatementInvalid,
+      # while ConnectionFailed is one — a rescue narrow enough to leave a
+      # database blip alone would not catch the abstract case, and one wide
+      # enough to catch it would silently disarm the anchor on that blip.
+      # (A malformed id needs no guard: Rails casts a non-uuid to nil before it
+      # reaches PostgreSQL, so the query degrades to `id IS NULL`.)
+      return nil unless klass.respond_to?(:table_exists?) && klass.table_exists?
+      return nil unless klass.column_names.include?("id")
 
       record = klass.find_by(id: source_id)
       return nil if record.nil?
