@@ -290,12 +290,16 @@ module Ai
       #
       # BOUNDED BY CONSTRUCTION. Every exit is a ceiling: iterations, wall-clock
       # seconds, the LLM spend ceiling, or the mission leaving the observable
-      # state. There is no "wait until something adapts" — the drift signal has
-      # no live data source today (the collector resolves a mission's instance
-      # ids one level too shallow, so replica_count/region_count report
-      # `unavailable`), so a soak that waited for a sensor-driven adaptation
-      # would wait for its whole window and call the timeout a result. It waits
-      # for its window and says so instead; what the window OBSERVED is graded.
+      # state. There is still no "wait until something adapts", but the REASON
+      # changed with IMP-3431f73dabe6. It used to be that the drift signal had
+      # no live data source at all — the collector resolved a mission's instance
+      # ids one level too shallow, so replica_count/region_count could only ever
+      # report `unavailable`. That is fixed; live samples now arrive here. What
+      # remains true is that a HEALTHY baseline is exactly the case where the
+      # sensor's drift check finds observed == expected and emits nothing, so a
+      # soak that waited for a sensor-driven adaptation would still wait for its
+      # whole window and call the timeout a result. It waits for its window and
+      # says so instead; what the window OBSERVED is graded.
       def soak!(mission)
         m = uncached_reload(mission)
         unless m.current_phase.to_s == SOAK_PHASE && m.status.to_s == "active"
