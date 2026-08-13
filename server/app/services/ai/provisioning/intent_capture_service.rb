@@ -603,10 +603,17 @@ module Ai
         end
 
         # Per-instance volume size (IMP-cdc1d0703e5a). Coerced to Integer when
-        # present, left nil when absent — the same shape as scale.initial above,
-        # so PlanComposerService can branch on presence to decide whether to
-        # stamp `with_storage_gb` at all. An LLM emits "250" as readily as 250.
-        out["storage_gb"] = out["storage_gb"].to_i unless out["storage_gb"].nil?
+        # present AND coercible, left nil when absent — the same shape as
+        # scale.initial above, so PlanComposerService can branch on presence to
+        # decide whether to stamp `with_storage_gb` at all. An LLM emits "250" as
+        # readily as 250 — but the field is model-controlled, so it can also emit
+        # a Hash or Array, which have no #to_i and used to 500 the whole capture
+        # (IMP-42358f7f5d4e). Guard with respond_to?(:to_i), mirroring the reader
+        # PlanComposerService#brief_storage_gb, so a non-numeric shape degrades to
+        # no-volume. The `!nil?` is load-bearing: nil DOES respond to :to_i
+        # (nil.to_i == 0), and absent storage_gb must stay nil, not become 0.
+        raw_storage_gb = out["storage_gb"]
+        out["storage_gb"] = (raw_storage_gb.to_i if raw_storage_gb.respond_to?(:to_i) && !raw_storage_gb.nil?)
 
         latency = out["latency_targets_ms"].is_a?(Hash) ? out["latency_targets_ms"].dup : {}
         latency["p99"] = latency["p99"]&.to_i unless latency["p99"].nil?
