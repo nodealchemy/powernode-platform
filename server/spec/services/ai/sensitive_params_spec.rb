@@ -78,6 +78,26 @@ RSpec.describe Ai::SensitiveParams do
       expect(filtered.dig(:data, :action)).to eq('rotate_secret')
     end
 
+    # Identifiers must survive, and this is the one over-redaction that would
+    # fail SILENTLY. The SDWAN controllers read their new record's id off the
+    # RAW return value of #execute_now! (port_mappings -> :mapping_id,
+    # route_policies -> :policy_id), so a pattern that started matching an _id
+    # suffix would leave every request working while quietly emptying the
+    # persisted audit row — nothing goes red, and the loss is only visible to
+    # whoever reads ai_deferred_operations.result months later.
+    it 'leaves record identifiers intact, including on the persisted copy' do
+      filtered = described_class.filter(
+        'mapping_id' => 'm-1', 'policy_id' => 'p-1', 'grant_id' => 'g-1',
+        'device_id' => 'd-1', 'federation_peer_id' => 'peer-42', 'webhook_id' => 'wh-1',
+        'acceptance_token' => 'PLAINTEXT'
+      )
+
+      expect(filtered.values_at('mapping_id', 'policy_id', 'grant_id', 'device_id',
+                                'federation_peer_id', 'webhook_id'))
+        .to eq(%w[m-1 p-1 g-1 d-1 peer-42 wh-1])
+      expect(filtered['acceptance_token']).to eq('[FILTERED]')
+    end
+
     # The list is tuned for secret material, NOT reused from Rails'
     # filter_parameters — blanking an approver's view of who requested what
     # would be its own failure. This pins the deliberate omission.
