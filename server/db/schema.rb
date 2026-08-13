@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_13_170000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_13_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10471,6 +10471,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_13_170000) do
     t.inet "src_ip", null: false
     t.integer "src_port"
     t.datetime "updated_at", null: false
+    t.index ["account_id", "dst_ip", "dst_port", "observed_at"], name: "index_system_sdwan_flow_samples_on_service_correlation"
     t.index ["account_id", "observed_at"], name: "index_system_sdwan_flow_samples_on_account_id_and_observed_at", order: { observed_at: :desc }
     t.index ["ipfix_collector_id", "observed_at"], name: "idx_on_ipfix_collector_id_observed_at_37c3f078dd", order: { observed_at: :desc }
   end
