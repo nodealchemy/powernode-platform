@@ -45,7 +45,14 @@ module Ai
         repo_url: :string_or_nil,
         branch: :string_or_nil,
         start_command: :string_or_nil,
-        runtime_hint: :string_or_nil # node|python|ruby|go|docker|java|none
+        runtime_hint: :string_or_nil, # node|python|ruby|go|docker|java|none
+        # Per-instance persistent volume size (IMP-cdc1d0703e5a). The operator's
+        # utterance is the ONLY source of truth for this: no NodeTemplate config
+        # key declares a volume size, so PlanComposerService reads it from here
+        # to stamp `with_storage_gb` onto provision_full_stack / scale_project
+        # steps. Optional — when null the plan provisions compute only, which is
+        # the long-standing default.
+        storage_gb: :integer_or_nil
       }.freeze
 
       REQUIRED_FIELDS = %i[intent use_case scale regions budget_cap_usd_monthly].freeze
@@ -321,6 +328,7 @@ module Ai
             data_residency: array of country/region codes the data must stay in
             preferred_provider: string id of a cloud provider, or null
             preferred_template: name of a node template to provision from, or null
+            storage_gb: int — per-instance persistent volume size in GB, or omit
 
           #{provider_extraction_rule.chomp}
 
@@ -512,7 +520,8 @@ module Ai
           "repo_url" => nil,
           "branch" => nil,
           "start_command" => nil,
-          "runtime_hint" => nil
+          "runtime_hint" => nil,
+          "storage_gb" => nil
         }
       end
 
@@ -592,6 +601,12 @@ module Ai
         unless out["budget_cap_usd_monthly"].nil?
           out["budget_cap_usd_monthly"] = out["budget_cap_usd_monthly"].to_f
         end
+
+        # Per-instance volume size (IMP-cdc1d0703e5a). Coerced to Integer when
+        # present, left nil when absent — the same shape as scale.initial above,
+        # so PlanComposerService can branch on presence to decide whether to
+        # stamp `with_storage_gb` at all. An LLM emits "250" as readily as 250.
+        out["storage_gb"] = out["storage_gb"].to_i unless out["storage_gb"].nil?
 
         latency = out["latency_targets_ms"].is_a?(Hash) ? out["latency_targets_ms"].dup : {}
         latency["p99"] = latency["p99"]&.to_i unless latency["p99"].nil?

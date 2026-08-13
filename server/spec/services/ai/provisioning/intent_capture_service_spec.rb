@@ -167,6 +167,60 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, type: :service do
       end
     end
 
+    # IMP-cdc1d0703e5a. `with_storage_gb` reaches ProvisionFullStackExecutor
+    # (per-instance VolumeManagementService.provision) only if the composer can
+    # read a size from somewhere. No NodeTemplate config key declares a volume
+    # size and nothing else on the platform does either — inventing one with no
+    # writer would produce a field that is correct in shape and inert in
+    # production. The honest writer is the operator's own utterance, so the
+    # brief carries it.
+    context "when the operator names a persistent volume size (storage_gb)" do
+      let(:llm_payload) do
+        {
+          "intent" => "Provision a Postgres node with a data volume",
+          "use_case" => "Primary OLTP with persistent storage",
+          "scale" => { "initial" => 1, "target" => 1, "growth_profile" => "steady" },
+          "regions" => ["us-east-1"],
+          "budget_cap_usd_monthly" => 100,
+          "storage_gb" => 100
+        }
+      end
+
+      before do
+        allow(service).to receive(:extract_brief_from_llm).and_return(llm_payload)
+      end
+
+      it "declares storage_gb in BRIEF_SCHEMA" do
+        expect(described_class::BRIEF_SCHEMA).to include(storage_gb: :integer_or_nil)
+      end
+
+      it "round-trips storage_gb onto the brief" do
+        result = service.capture(natural_language: "provision a db with a 100GB data volume")
+        expect(result[:brief]["storage_gb"]).to eq(100)
+      end
+
+      it "coerces a stringified size to an Integer" do
+        allow(service).to receive(:extract_brief_from_llm)
+          .and_return(llm_payload.merge("storage_gb" => "250"))
+        result = service.capture(natural_language: "give it 250GB")
+        expect(result[:brief]["storage_gb"]).to eq(250)
+      end
+
+      it "leaves storage_gb nil when the operator names no volume" do
+        allow(service).to receive(:extract_brief_from_llm)
+          .and_return(llm_payload.except("storage_gb"))
+        result = service.capture(natural_language: "just a node please")
+        expect(result[:brief]["storage_gb"]).to be_nil
+      end
+
+      # The prompt's field list is hand-written prose, NOT generated from
+      # BRIEF_SCHEMA — a schema entry alone would never reach the model.
+      it "build_brief_prompt instructs the LLM how to populate storage_gb" do
+        prompt = service.send(:build_brief_prompt, "a db with a 100GB volume", {}, :capture)
+        expect(prompt).to include("storage_gb")
+      end
+    end
+
     context "when the operator names a specific cloud provider (M2 BYOC)" do
       let(:llm_payload) do
         {
