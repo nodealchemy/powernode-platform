@@ -107,7 +107,8 @@ module Ai
       LIVE_RECONCILIATION_CHECK = "live_reconciliation"
 
       # Step-metadata key recording that a step was handed to a runner. See
-      # #stamp_dispatched! for why status alone cannot answer that question.
+      # SkillCompositionRunner#stamp_dispatched!, which writes it, for why
+      # status alone cannot answer that question.
       DISPATCH_STAMP_KEY = "adaptation_dispatched"
 
       class NotAnAdaptationPlanError < ArgumentError; end
@@ -126,8 +127,20 @@ module Ai
       # dispatches on a second call without minting a second request. That is
       # what lets the operator MCP path and the sensor path share one queue.
       #
+      # `appended_step_numbers` names every step of this adaptation ON the live
+      # plan; `dispatched_step_numbers` names the ones this call actually handed
+      # to a worker. Only the first layer is ever enqueued, and a resume
+      # re-dispatches a subset, so the two are routinely different and neither
+      # can be inferred from the other.
+      #
+      # The pair travels TOGETHER, on every outcome reached after the append —
+      # `dispatched_step_numbers` is `[]` when this call enqueued nothing, never
+      # absent. A gate verdict that returns before the append carries neither,
+      # because there are no steps on the plan to describe.
+      #
       # @return [Hash] { gate:, dispatched:, plan_id:, approval_request_id:,
-      #   within_bounds:, detail:, live_plan_id:, appended_step_numbers: }
+      #   within_bounds:, detail:, live_plan_id:, appended_step_numbers:,
+      #   dispatched_step_numbers: }
       def dispatch!(plan:)
         unless adaptation_plan?(plan)
           raise NotAnAdaptationPlanError,
@@ -395,8 +408,18 @@ module Ai
       # meaning is "the plan stays in draft and NOTHING ran". Reporting a lie is
       # worse than reporting an ambiguity: an ambiguity invites a check, a
       # confident "nothing happened" does not.
-      def dispatch_appended!(plan, live_plan, steps, base, claim:)
-        numbers = steps.map { |s| s.step_number.to_i }
+      # `steps` is what to hand the runner; `appended` is every step of this
+      # adaptation now on the live plan. They differ on a resume, where only the
+      # still-unenqueued steps are re-dispatched, and conflating them made
+      # `appended_step_numbers` wrong in both directions — see below.
+      def dispatch_appended!(plan, live_plan, steps, base, claim:, appended: steps)
+        # OPERATOR-FACING GROUND TRUTH: which rows this adaptation put on the
+        # mission's live plan. Deriving it from `steps` under-reported on every
+        # resume (a 3-step adaptation resuming its last step named one number
+        # while three rows sat on the plan) and over-claimed on dispatch, since
+        # only the first layer is ever enqueued. What actually went to a worker
+        # is reported separately rather than inferred from this.
+        numbers = appended.map { |s| s.step_number.to_i }.sort
 
         begin
           # Leaving `draft` releases the fleet DecisionEngine's
@@ -414,6 +437,7 @@ module Ai
           return base.merge(
             gate: GATE_APPLIED_DISPATCH_FAILED, dispatched: false,
             live_plan_id: live_plan.id, appended_step_numbers: numbers,
+            dispatched_step_numbers: [],
             detail: "steps appended but not enqueued (#{e.class}: #{e.message[0, 200]}) — " \
                     "re-run to dispatch them"
           )
@@ -434,14 +458,15 @@ module Ai
           detail = run[:already_running] ? "a run is already in flight for these steps" :
                                            "runner enqueued nothing — re-run to dispatch"
           return base.merge(gate: gate, dispatched: false, live_plan_id: live_plan.id,
-                            appended_step_numbers: numbers, runner_id: run[:runner_id],
-                            detail: detail)
+                            appended_step_numbers: numbers, dispatched_step_numbers: [],
+                            runner_id: run[:runner_id], detail: detail)
         end
 
         base.merge(
           dispatched: true,
           live_plan_id: live_plan.id,
           appended_step_numbers: numbers,
+          dispatched_step_numbers: Array(run[:dispatched_step_numbers]),
           runner_id: run[:runner_id]
         )
       end
@@ -451,11 +476,15 @@ module Ai
       # Step STATUS alone cannot tell "enqueued, worker not started yet" from
       # "never enqueued" — both are `pending`, and guessing either way is wrong:
       # guess enqueued and a failed dispatch strands forever, guess not and
-      # every re-entry re-enqueues. So the enqueue is RECORDED (#stamp_dispatched!)
-      # and read back here. Only the first layer is handed to the runner, so
-      # later layers are legitimately unstamped while a run is under way — the
-      # discriminator is therefore "did ANY of these steps get handed to a
-      # runner", not "were they all".
+      # every re-entry re-enqueues. So the enqueue is RECORDED — per step, by
+      # SkillCompositionRunner#stamp_dispatched! — and read back here.
+      #
+      # PER STEP, not per adaptation. Only the first layer is enqueued, so later
+      # layers are legitimately unstamped while a run is under way; an
+      # any/all discriminator over the whole set would either re-enqueue a
+      # queued step or strand an unqueued one. #resumable_steps therefore asks
+      # the question of each step on its own, and readiness is what keeps a
+      # later layer from being resumed ahead of its predecessor.
       def resume_or_refuse(plan, live_plan, existing, base)
         resumable = resumable_steps(existing, live_plan)
 
@@ -464,7 +493,11 @@ module Ai
             "[AdaptationDispatchService] plan #{plan.id}: #{resumable.size} appended step(s) " \
             "were never enqueued — re-dispatching."
           )
-          return dispatch_appended!(plan, live_plan, resumable, base, claim: plan.status.to_s == "draft")
+          # `appended:` is the WHOLE adaptation, not the resumed subset: the
+          # report describes what is on the live plan, which re-entry does not
+          # change.
+          return dispatch_appended!(plan, live_plan, resumable, base,
+                                    claim: plan.status.to_s == "draft", appended: existing)
         end
 
         Rails.logger.info(
@@ -473,7 +506,8 @@ module Ai
         )
         base.merge(
           gate: GATE_ALREADY_APPLIED, dispatched: false, live_plan_id: live_plan.id,
-          appended_step_numbers: existing.map { |s| s.step_number.to_i },
+          appended_step_numbers: existing.map { |s| s.step_number.to_i }.sort,
+          dispatched_step_numbers: [],
           detail: "already applied to this mission's live plan"
         )
       end
@@ -662,10 +696,6 @@ module Ai
             :global
           end
         end.tap { |h| h.default = [] }
-      end
-
-      def own_checks(steps, checks)
-        bucketed_checks(steps, checks)[:mine]
       end
 
       # Every instance this adaptation produced must have been ANSWERED FOR.

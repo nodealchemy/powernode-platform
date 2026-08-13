@@ -120,11 +120,19 @@ module Ai
       # appended subset; the completed originals are neither re-run nor
       # consulted.
       #
+      # The appended steps are layered against the plan's COMPLETED steps (see
+      # #topological_layers), so a subset whose dependencies all finished
+      # outside it lands in layer 1 rather than tripping the cycle backstop.
+      #
       # @param steps [Array<#step_number, #dependencies, …>] the appended steps
-      # @return [Hash] { runner_id:, started_at:, step_count:, dispatched: }
+      # @return [Hash] { runner_id:, started_at:, step_count:, dispatched:,
+      #   dispatched_step_numbers: }
       def execute_appended!(steps:)
         appended = Array(steps).sort_by { |s| s.step_number.to_i }
-        return { runner_id: nil, started_at: nil, step_count: 0, dispatched: 0 } if appended.empty?
+        if appended.empty?
+          return { runner_id: nil, started_at: nil, step_count: 0, dispatched: 0,
+                   dispatched_step_numbers: [] }
+        end
 
         if (in_flight = appended.find { |s| IN_FLIGHT_STATUSES.include?(step_status(s)) })
           Rails.logger.info(
@@ -134,7 +142,8 @@ module Ai
           @runner_id ||= ::UUID7.generate
           @started_at ||= Time.current
           return { runner_id: @runner_id, started_at: @started_at,
-                   step_count: appended.size, dispatched: 0, already_running: true }
+                   step_count: appended.size, dispatched: 0,
+                   dispatched_step_numbers: [], already_running: true }
         end
 
         @runner_id = ::UUID7.generate
@@ -152,8 +161,12 @@ module Ai
         first_layer = layers.first || []
         first_layer.each { |step| dispatch_step_job(step) }
 
+        # WHICH steps were enqueued, not merely how many. The caller reports
+        # this to an operator, and only layer 1 goes to a worker now — inferring
+        # it from the collection handed over would name steps nothing has run.
         { runner_id: @runner_id, started_at: @started_at,
-          step_count: appended.size, dispatched: first_layer.size }
+          step_count: appended.size, dispatched: first_layer.size,
+          dispatched_step_numbers: first_layer.map { |s| s.step_number.to_i }.sort }
       end
 
       # Run a single step through its skill executor. Called by the step
@@ -318,12 +331,36 @@ module Ai
         end
       end
 
+      # Step numbers on the plan that are already COMPLETED, and so satisfy a
+      # dependency without appearing in the collection being layered.
+      def completed_step_numbers
+        steps_in_order.select { |s| step_status(s) == "completed" }
+                      .map { |s| s.step_number.to_i }
+                      .to_set
+      end
+
       # Kahn-style layering: each layer holds steps whose dependencies are
-      # entirely satisfied by steps in earlier layers.
-      def topological_layers(steps)
-        by_number = steps.index_by { |s| s.step_number.to_i }
+      # entirely satisfied by steps in earlier layers, OR by `satisfied` — step
+      # numbers already known to be complete OUTSIDE `steps`.
+      #
+      # That seed is what makes layering a SUBSET correct. #execute_appended!
+      # is handed only the appended (or, on a resume, only the still-unenqueued)
+      # steps, and by construction a resumable step depends on rows that are NOT
+      # in that collection: the completed steps that made it resumable. Without
+      # the seed the first pass yields an empty layer, the genuine-cycle
+      # backstop below fires on a perfectly ordered chain, and it logs a warning
+      # that is a lie — which costs the diagnostic its meaning. A subset that
+      # fans out fares worse than that: it takes the best-effort branch, which
+      # emits everything as ONE layer and so dispatches a step before its
+      # predecessor has run.
+      #
+      # Deliberately NOT `deps & steps`. A dependency that is merely ABSENT
+      # stays unsatisfied, so a subset whose own steps are not ready yet is
+      # still held back layer by layer; only explicitly-completed numbers
+      # satisfy from outside.
+      def topological_layers(steps, satisfied: completed_step_numbers)
         remaining = steps.dup
-        placed = {}
+        placed = satisfied.each_with_object({}) { |n, h| h[n.to_i] = true }
         layers = []
 
         while remaining.any?
@@ -618,9 +655,19 @@ module Ai
         # neither `fail!` nor `update!`, which this runner explicitly accepts —
         # while step_status returns "pending" for anything without `status`.
         # That pair spins a worker instead of raising.
+        #
+        # `handled` is what keeps the bound from merely converting the hang into
+        # repeated WORK: for exactly that unmovable step the selection below is
+        # otherwise identical on every pass, so it was re-failed and — worse —
+        # re-announced up to `siblings.size` times, duplicating the broadcast
+        # and the system message. Closure is unaffected: a step is handled once
+        # and its number joins `failed`, which is what carries the walk down the
+        # chain.
+        handled = Set.new
         siblings.size.times do
           newly = siblings.select do |s|
-            step_status(s) == "pending" &&
+            !handled.include?(s.step_number.to_i) &&
+              step_status(s) == "pending" &&
               Array(s.dependencies).map(&:to_i).any? { |d| failed.include?(d) }
           end
           break if newly.empty?
@@ -632,6 +679,7 @@ module Ai
             # silently left a console subscribed to MissionChannel rendering
             # them `pending` indefinitely while the rows said otherwise.
             announce_step(s, status: "failed", outputs: { error: reason }, error: reason)
+            handled << s.step_number.to_i
             failed << s.step_number.to_i
           end
         end
