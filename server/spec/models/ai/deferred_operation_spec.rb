@@ -87,6 +87,91 @@ RSpec.describe Ai::DeferredOperation, type: :model do
     end
   end
 
+  # The gate stores caller-supplied params verbatim
+  # (Ai::AutonomyGate#create_deferred_operation!) and replays them here with no
+  # re-validation — at approval time, potentially hours later. Executors are
+  # intentionally unscoped (ownership is enforced upstream at the call site), so
+  # nothing between the request and the executor re-checks that the row the
+  # caller named is still one this account may touch.
+  describe '#execute_now! tenancy assertion' do
+    def op_with_source(source, account: self.account)
+      described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'TestPerformer', params: { 'k' => 'v' },
+        source_type: source.class.name, source_id: source.id
+      )
+    end
+
+    it 'refuses to dispatch when the recorded source belongs to another account' do
+      dispatched = []
+      stub_const('SpyPerformer', Class.new do
+        define_singleton_method(:execute) do |_params, deferred_operation:|
+          dispatched << deferred_operation.id
+          { performed: true }
+        end
+      end)
+      foreign = op_with_source(make_op, account: create(:account))
+      op = op_with_source(foreign)
+      op.update!(executor_class: 'SpyPerformer')
+
+      # The EFFECT is asserted before the error identity: `raise_error` first
+      # would abort the example on the un-fixed code and never print why.
+      raised = begin
+        op.execute_now!
+        nil
+      rescue StandardError => e
+        e
+      end
+
+      expect(dispatched).to be_empty,
+                            "the executor ran against another account's record"
+      expect(raised).to be_a(described_class::CrossAccountError)
+      expect(op.reload.status).to eq('failed')
+    end
+
+    it 'names the violation on the failed operation' do
+      foreign = op_with_source(make_op, account: create(:account))
+      op = op_with_source(foreign)
+
+      expect { op.execute_now! }
+        .to raise_error(described_class::CrossAccountError, /#{foreign.id}/)
+      expect(op.reload.error_message).to include('CrossAccountError')
+    end
+
+    it 'dispatches normally when the recorded source belongs to this account' do
+      op = op_with_source(make_op)
+
+      expect(op.execute_now!).to include(performed: true)
+      expect(op.reload.status).to eq('completed')
+    end
+
+    it 'leaves a source that no longer exists to the executor' do
+      op = described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'TestPerformer', params: {},
+        source_type: 'Ai::DeferredOperation', source_id: SecureRandom.uuid
+      )
+
+      expect(op.execute_now!).to include(performed: true)
+    end
+
+    # source_type is a free-text column and core cannot know every model an
+    # extension gates on, so an unresolvable name must not turn into a raise on
+    # a live operation. (The third skip — a resolvable model that exposes no
+    # account anchor at all — has no instance among today's source types; it is
+    # covered by the guard in #source_account_id, not by an example.)
+    it 'is a no-op for a source_type that names no model, and for no source at all' do
+      anchorless = described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'TestPerformer', params: {},
+        source_type: 'NotAModelAtAll', source_id: SecureRandom.uuid
+      )
+
+      expect(anchorless.execute_now!).to include(performed: true)
+      expect(make_op.execute_now!).to include(performed: true) # no source recorded at all
+    end
+  end
+
   describe '#on_approval_decision' do
     let(:request) do
       chain.create_request!(
