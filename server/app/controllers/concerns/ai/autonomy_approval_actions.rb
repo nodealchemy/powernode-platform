@@ -75,6 +75,11 @@ module Ai
         # the only surface that covers those retroactively.
         request_data: ::Ai::SensitiveParams.filter(request.request_data),
         requested_by_id: request.requested_by_id,
+        # IMP-4bbb4227ac8a — declared post-approval execution outcome. Without
+        # these an approved-but-failed action is indistinguishable from an
+        # approved-and-done one on every approvals surface.
+        execution_status: request.execution_status,
+        execution_error: request.execution_error,
         created_at: request.created_at,
         expires_at: request.expires_at,
         completed_at: request.completed_at,

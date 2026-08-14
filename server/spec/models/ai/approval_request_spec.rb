@@ -121,4 +121,121 @@ RSpec.describe Ai::ApprovalRequest, type: :model do
       expect(req.reload.status).to eq('approved')
     end
   end
+
+  # IMP-4bbb4227ac8a — post-approval executor failures were invisible: the
+  # execute-on-approval dispatch (#notify_source_of_decision) rescued and only
+  # logged, so an approved action that failed left the request "approved", the
+  # operation failed-or-stranded, and no operator-visible signal anywhere.
+  # These examples pin the declared outcome on both records plus the
+  # operator-visible Ai::ExecutionEvent (surfaced via platform.recent_events).
+  describe 'post-approval execution outcome' do
+    let(:chain) do
+      make_chain(steps: [{ 'name' => 's', 'approvers' => ['*'], 'required_approvals' => 1 }])
+    end
+
+    def gated_operation(executor_class)
+      Ai::DeferredOperation.create!(
+        account: account, action_category: 'test.act',
+        executor_class: executor_class, params: { 'k' => 'v' }
+      )
+    end
+
+    def request_for(op)
+      chain.create_request!(
+        source_type: 'Ai::DeferredOperation', source_id: op.id, description: 'd'
+      )
+    end
+
+    before do
+      stub_const('SucceedingPerformer', Class.new do
+        def self.execute(params, deferred_operation:)
+          { performed: true, params: params }
+        end
+      end)
+      stub_const('ExplodingPerformer', Class.new do
+        def self.execute(_params, deferred_operation:)
+          raise 'post-approval kaboom'
+        end
+      end)
+    end
+
+    context 'when the executor raises after approval' do
+      it 'declares the failure on the request, the operation, and an operator-visible event' do
+        op = gated_operation('ExplodingPerformer')
+        req = request_for(op)
+
+        # Approval semantics unchanged: the decision itself still succeeds.
+        expect { req.record_decision!(approver: user, decision: 'approved') }
+          .not_to raise_error
+
+        req.reload
+        expect(req.status).to eq('approved')
+        expect(req.execution_status).to eq('failed')
+        expect(req.execution_error).to include('post-approval kaboom')
+
+        # Declared outcome on the operation (existing fail! mechanics, pinned).
+        expect(op.reload.status).to eq('failed')
+        expect(op.error_message).to include('post-approval kaboom')
+
+        event = Ai::ExecutionEvent.find_by(
+          source_type: 'Ai::ApprovalRequest', source_id: req.id
+        )
+        expect(event).to be_present
+        expect(event.account_id).to eq(account.id)
+        expect(event.status).to eq('failed')
+        expect(event.error_class).to eq('RuntimeError')
+        expect(event.error_message).to include('post-approval kaboom')
+        expect(event.metadata).to include(
+          'operation_source_type' => 'Ai::DeferredOperation',
+          'operation_source_id' => op.id
+        )
+      end
+    end
+
+    context 'when the executor succeeds (positive twin)' do
+      it 'behaves exactly as before and declares success with no failure event' do
+        op = gated_operation('SucceedingPerformer')
+        req = request_for(op)
+
+        req.record_decision!(approver: user, decision: 'approved')
+
+        req.reload
+        expect(req.status).to eq('approved')
+        expect(req.execution_status).to eq('succeeded')
+        expect(req.execution_error).to be_nil
+
+        expect(op.reload.status).to eq('completed')
+        expect(op.result).to include('performed' => true)
+
+        expect(
+          Ai::ExecutionEvent.where(source_type: 'Ai::ApprovalRequest', source_id: req.id)
+        ).to be_empty
+      end
+    end
+
+    it 'declares nothing for a rejected decision — no execution happened' do
+      op = gated_operation('SucceedingPerformer')
+      req = request_for(op)
+
+      req.record_decision!(approver: user, decision: 'rejected')
+
+      req.reload
+      expect(req.status).to eq('rejected')
+      expect(req.execution_status).to be_nil
+      expect(req.execution_error).to be_nil
+      expect(op.reload.status).to eq('rejected')
+    end
+
+    it 'declares nothing when the approved request has no executable source' do
+      req = chain.create_request!(
+        source_type: 'X', source_id: SecureRandom.uuid, description: 'd'
+      )
+
+      req.record_decision!(approver: user, decision: 'approved')
+
+      req.reload
+      expect(req.status).to eq('approved')
+      expect(req.execution_status).to be_nil
+    end
+  end
 end

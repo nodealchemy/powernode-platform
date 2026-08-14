@@ -394,6 +394,10 @@ module Api
             request_data: ::Ai::SensitiveParams.filter(request.request_data),
             step_statuses: request.step_statuses,
             current_step: request.current_step,
+            # IMP-4bbb4227ac8a — declared post-approval execution outcome, in
+            # parity with Ai::AutonomyApprovalActions#serialize_approval_request.
+            execution_status: request.execution_status,
+            execution_error: request.execution_error,
             expires_at: request.expires_at,
             completed_at: request.completed_at,
             created_at: request.created_at,

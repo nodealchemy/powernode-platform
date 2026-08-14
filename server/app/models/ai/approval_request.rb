@@ -14,6 +14,7 @@ module Ai
     # Validations
     validates :request_id, presence: true, uniqueness: true
     validates :status, presence: true, inclusion: { in: %w[pending approved rejected expired cancelled] }
+    validates :execution_status, inclusion: { in: %w[succeeded failed] }, allow_nil: true
 
     # Scopes
     scope :pending, -> { where(status: "pending") }
@@ -118,6 +119,29 @@ module Ai
       self.request_id ||= UUID7.generate
     end
 
+    # IMP-4bbb4227ac8a — the rescue below used to only log, which made every
+    # post-approval executor failure invisible: the request stayed "approved",
+    # the operation failed (or stranded), and no operator-visible signal existed
+    # anywhere. Observability only — approval semantics are unchanged and
+    # nothing retries: the outcome of the dispatch is DECLARED on this row
+    # (execution_status/execution_error) and, on failure, emitted as an
+    # Ai::ExecutionEvent (surfaced via platform.recent_events).
+    #
+    # execution_status stays nil unless an on_approval_decision dispatch for an
+    # *approved* request actually ran: "succeeded" means that dispatch returned
+    # without raising (for Ai::DeferredOperation sources, the executor
+    # completed — its own row carries the per-operation detail), "failed" means
+    # it raised. Rejected/expired notifications keep the prior log-only
+    # behavior — nothing executed, so there is no execution outcome to declare.
+    #
+    # Known residual, deliberately out of scope here: this callback fires
+    # pre-commit inside the status-flip's own transaction, so an executor
+    # failing at the DATABASE level (RecordNotUnique/StatementInvalid) aborts
+    # that transaction and the declaration writes below no-op — and the status
+    # flip itself rolls back with them. Declaring that class requires either a
+    # savepoint around the dispatch (which would change what an executor's
+    # partial writes and the operation's own fail! survive) or an off-
+    # transaction sink; both alter semantics this change is pinned not to touch.
     def notify_source_of_decision
       return unless %w[approved rejected expired].include?(status)
       return if source_type.blank? || source_id.blank?
@@ -126,9 +150,42 @@ module Ai
       return unless klass.respond_to?(:find_by)
 
       source = klass.find_by(id: source_id)
-      source.on_approval_decision(self) if source.respond_to?(:on_approval_decision)
+      return unless source.respond_to?(:on_approval_decision)
+
+      source.on_approval_decision(self)
+      declare_execution_outcome!("succeeded") if approved?
     rescue StandardError => e
       Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
+      declare_execution_failure!(e) if approved?
+    end
+
+    # Direct column write: this runs inside the status-flip's own after_update,
+    # so re-entering the callback chain (or validations) via update! is the one
+    # thing it must not do. Never raises — the enclosing rescue's contract is
+    # that a declaration problem cannot take down the decision itself.
+    def declare_execution_outcome!(outcome, error: nil)
+      detail = error ? "#{error.class}: #{error.message}" : nil
+      update_columns(execution_status: outcome, execution_error: detail,
+                     updated_at: Time.current)
+    rescue StandardError => e
+      Rails.logger.error("[ApprovalRequest##{id}] declare_execution_outcome! failed: #{e.message}")
+    end
+
+    def declare_execution_failure!(error)
+      declare_execution_outcome!("failed", error: error)
+      # Recorder swallows its own errors, so a broken event sink cannot mask
+      # the column declaration above or raise out of the callback.
+      ::Ai::Introspection::ExecutionEventRecorder.record(
+        source: self,
+        event_type: "approval_execution",
+        status: "failed",
+        error: error,
+        metadata: {
+          operation_source_type: source_type,
+          operation_source_id: source_id,
+          action_category: request_data&.dig("action_category")
+        }.compact
+      )
     end
 
     def fan_out_step_notifications
