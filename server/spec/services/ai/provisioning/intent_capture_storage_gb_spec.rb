@@ -50,6 +50,10 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "storage_gb coercion", ty
     expect(coerce_storage_gb(250)).to eq(250)
   end
 
+  it "still coerces an empty string to 0 (unchanged pre-fix behavior)" do
+    expect(coerce_storage_gb("")).to eq(0)
+  end
+
   it "keeps an absent storage_gb absent (nil stays nil, not coerced to 0)" do
     expect(coerce_storage_gb(nil)).to be_nil
   end
