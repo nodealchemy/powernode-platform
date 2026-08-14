@@ -215,7 +215,10 @@ module Ai
           else
             error_message = result_error(result) || "skill returned non-success"
             record_skill_usage(step, skill_name, "failure", started_at)
-            handle_failure(step, error_message, on_failure)
+            # The envelope, not just its error string: a composing executor
+            # that created resources before failing carries their ids here,
+            # and this is the only place they exist (IMP-1ee509d12a0a).
+            handle_failure(step, error_message, on_failure, result: result)
             { success: false, outputs: {}, error: error_message }
           end
         rescue StandardError => e
@@ -235,9 +238,11 @@ module Ai
         @orchestrator ||= ::Ai::Missions::OrchestratorService.new(mission: mission)
       end
 
-      # Compensating action for a previously-completed step. Looks up the
-      # executor's descriptor[:rollback] hook; if present, calls it with the
-      # outputs we recorded when the step originally completed.
+      # Compensating action for a step whose resources must be released.
+      # Looks up the executor's descriptor[:rollback] hook; if present, calls
+      # it with the outputs recorded for the step — the failure-time payload
+      # when the step failed carrying resources of its own, otherwise the
+      # outputs recorded when it last completed.
       #
       # @param step [#id, #execution_config, …]
       # @return [Hash] { success: }
@@ -249,11 +254,19 @@ module Ai
         descriptor = executor_class&.respond_to?(:descriptor) ? executor_class.descriptor : nil
         rollback_hook = descriptor.is_a?(Hash) ? (descriptor[:rollback] || descriptor["rollback"]) : nil
 
+        rollback_outputs = rollback_outputs_for(step)
+        kwargs = rollback_kwargs(rollback_outputs)
+        # A rollback compensated something only if a hook actually ran AND it
+        # was handed at least one resource it could act on. Anything else is a
+        # no-op, and a no-op must not erase the failure diagnosis (see
+        # mark_rolled_back).
+        compensated = false
+
         if rollback_hook && executor_class
-          outputs = recorded_outputs_for(step)
           executor = build_executor(executor_class)
           if executor.respond_to?(rollback_hook)
-            hook_result = executor.public_send(rollback_hook, **rollback_kwargs(outputs))
+            compensated = actionable_resources?(rollback_outputs)
+            hook_result = executor.public_send(rollback_hook, **kwargs)
             # A hook that REPORTS failure must not be swallowed (dryrun
             # 20260809b: one instance survived its own rollback and nothing
             # recorded why). Fail the rollback loudly instead of stamping
@@ -272,7 +285,7 @@ module Ai
           end
         end
 
-        mark_rolled_back(step)
+        mark_rolled_back(step, noop: !compensated)
         announce_step(step, status: "rolled_back", outputs: {})
         { success: true }
       rescue StandardError => e
@@ -543,12 +556,27 @@ module Ai
         end
       end
 
-      def mark_rolled_back(step)
-        if step.respond_to?(:update!)
-          # GoalPlanStep doesn't have a "rolled_back" status — encode it as
-          # failed with a result_summary marker so audit history is preserved.
-          step.update!(status: "failed", result_summary: { rolled_back: true, at: Time.current })
+      # @param noop [Boolean] true when the rollback compensated nothing —
+      #   no hook, or a hook called with no ids.
+      def mark_rolled_back(step, noop: false)
+        return unless step.respond_to?(:update!)
+
+        # GoalPlanStep doesn't have a "rolled_back" status — encode it as
+        # failed with a result_summary marker so audit history is preserved.
+        marker = { rolled_back: true, at: Time.current }
+
+        # A no-op rollback has nothing to report, so overwriting result_summary
+        # with the bare marker DESTROYED the only durable record of why the
+        # step failed — mark_failed had just written it. RelocateWorkloadExecutor
+        # had to emit its own Ai::ExecutionEvent to survive this. Carry the
+        # diagnosis forward ALONGSIDE the marker rather than replacing it.
+        if noop
+          marker[:noop] = true
+          prior = step.respond_to?(:result_summary) ? step.result_summary : nil
+          marker[:failure] = prior if prior.present?
         end
+
+        step.update!(status: "failed", result_summary: marker)
       end
 
       def step_status(step)
@@ -744,6 +772,149 @@ module Ai
         meta["last_outputs"] || meta[:last_outputs] || {}
       end
 
+      # Metadata key holding what a FAILED step reported it had created before
+      # it gave up. Deliberately separate from "last_outputs": that key feeds
+      # BOTH rollback kwargs and `upstream_outputs_for` (cross-step data flow),
+      # and a successor must never inherit ids from a step that failed.
+      FAILURE_OUTPUTS_KEY = "failure_outputs"
+
+      # Persist the resources a failing envelope reported, so rollback_step!
+      # can compensate the failed step's OWN work. Until IMP-1ee509d12a0a the
+      # runner recorded outputs only via mark_completed, so a first-run failure
+      # rolled back with empty kwargs — no executor could make its partial
+      # resources rollback-safe through the standard seam, which is why
+      # RelocateWorkloadExecutor reclaims in-branch instead.
+      #
+      # Called BEFORE mark_failed on purpose: metadata= is an in-memory
+      # assignment and the update! inside mark_failed is what flushes it — the
+      # same ordering mark_completed relies on.
+      def record_failure_outputs(step, result)
+        return unless step.respond_to?(:metadata) && step.respond_to?(:metadata=)
+
+        payload = failure_payload(result)
+        return if payload.blank?
+
+        meta = step.metadata.is_a?(Hash) ? step.metadata.dup : {}
+        meta[FAILURE_OUTPUTS_KEY] = payload
+        step.metadata = meta
+      end
+
+      def failure_outputs_for(step)
+        return {} unless step.respond_to?(:metadata)
+        meta = step.metadata.is_a?(Hash) ? step.metadata : {}
+        payload = meta[FAILURE_OUTPUTS_KEY] || meta[FAILURE_OUTPUTS_KEY.to_sym]
+        payload.is_a?(Hash) ? payload : {}
+      end
+
+      # Rollback source of truth. The failure payload wins ONLY when it carries
+      # resources — it then describes THIS run's orphans, which are the right
+      # compensation target. A payload holding just a `failures` array is kept
+      # for diagnosis but is not a rollback source: preferring it would displace
+      # a retried step's genuine last_outputs (a prior partial success, the
+      # legitimate target) and leave those resources standing.
+      def rollback_outputs_for(step)
+        payload = failure_outputs_for(step)
+        return payload if actionable_resources?(payload)
+
+        recorded_outputs_for(step)
+      end
+
+      # Wrapper keys carry structure, not resources.
+      ROLLBACK_WRAPPER_KEYS = %w[outputs failures].freeze
+
+      # Did the rollback have anything it could actually act on?
+      #
+      # Testing `kwargs.any?` is wrong twice over: rollback_kwargs merges the
+      # wrapper keys into kwargs, and composers record their ENTIRE `data`
+      # hash — so bookkeeping (dry_run, count, planned_actions) sits beside the
+      # ids and makes an empty rollback look productive. Nor is "any present
+      # value" enough: `count: 0` is present? in Rails, as is a planned-actions
+      # list on a dry run that created nothing.
+      #
+      # So look at the ids REGION only and ask whether any slot in it is
+      # filled. Finding that region means descending every `outputs` wrapper,
+      # not just one: a failure payload wraps the envelope's declared `data`,
+      # which is itself a composer hash carrying its OWN `outputs` sub-hash, so
+      # a single unwrap lands on { dry_run, count, planned_actions } and
+      # `count: 2` would read as a resource. A dry run (all-empty arrays) and a
+      # failed leg (nil id, created: false) then both correctly read as nothing
+      # to compensate.
+      MAX_OUTPUTS_NESTING = 4
+
+      def actionable_resources?(outputs)
+        return false unless outputs.is_a?(Hash)
+
+        region = outputs
+        MAX_OUTPUTS_NESTING.times do
+          nested = region["outputs"] || region[:outputs]
+          break unless nested.is_a?(Hash)
+          region = nested
+        end
+
+        region.reject { |key, _| ROLLBACK_WRAPPER_KEYS.include?(key.to_s) }
+              .any? { |_, value| value.present? }
+      end
+
+      # Extract the resources + leg failures a failing envelope carries.
+      #
+      # NOT `result_outputs`: its final fallback is `result.to_h`, which for a
+      # bare `{ success: false, error: msg }` returns those control keys and
+      # nothing else. Recording that would make the payload *present* while
+      # carrying no ids at all — and since rollback prefers the payload, it
+      # would SHADOW a retried step's genuine last_outputs and leave live
+      # resources standing. So control keys are stripped, and a payload with
+      # nothing left in it is not recorded at all.
+      #
+      # Two envelope shapes are honored: an explicit data/outputs sub-hash
+      # (the `success(...)` convention), and ids merged flat onto the failure
+      # envelope — which is what DeployAppCodeExecutor does today when it
+      # returns `failure(err, deployment_id: deployment.id)`.
+      ENVELOPE_CONTROL_KEYS = %w[success error message errors failures partial].freeze
+
+      def failure_payload(result)
+        return nil unless result.respond_to?(:[])
+
+        outputs  = failure_outputs_from(result)
+        failures = result[:failures] || result["failures"]
+
+        payload = {}
+        payload["outputs"]  = outputs if outputs.present?
+        payload["failures"] = failures if failures.present?
+        payload.presence
+      rescue StandardError
+        nil
+      end
+
+      # The strip applies to a DECLARED data/outputs hash too, not just the
+      # flat-envelope residue: composers finalize into
+      # { dry_run:, count:, planned_actions:, outputs:, failures:, partial: },
+      # so the first executor to return that shape on success: false would
+      # otherwise record a payload that is "present" while holding no ids —
+      # displacing last_outputs and faking compensation in one move.
+      def failure_outputs_from(result)
+        declared = result[:data] || result["data"] || result[:outputs] || result["outputs"]
+        base = if declared.is_a?(Hash)
+                 declared
+               elsif result.respond_to?(:to_h)
+                 result.to_h
+               end
+        stripped = strip_control_keys(base)
+        return nil if stripped.blank?
+
+        # Collapse a nested `outputs` sub-hash up one level. The payload adds
+        # its own wrapper, and rollback_kwargs flattens exactly ONE level — so
+        # a declared composer hash that already nests its ids would otherwise
+        # sit two deep and the hook would receive `outputs:` instead of the ids.
+        nested = stripped["outputs"] || stripped[:outputs]
+        nested.is_a?(Hash) ? stripped.merge(nested) : stripped
+      end
+
+      def strip_control_keys(hash)
+        return nil unless hash.is_a?(Hash)
+
+        hash.reject { |key, _| ENVELOPE_CONTROL_KEYS.include?(key.to_s) }.presence
+      end
+
       # ===== Cross-step data flow =====
       #
       # A step may declare `execution_config["depends_on_outputs"]` to pull
@@ -845,15 +1016,19 @@ module Ai
 
       # ===== Failure handling =====
 
-      def handle_failure(step, error_message, on_failure)
+      # @param result [Hash, nil] the executor's failure envelope. nil when the
+      #   executor RAISED — there is no envelope to read, so a raise still
+      #   compensates only what a previous completion recorded.
+      def handle_failure(step, error_message, on_failure, result: nil)
+        # Before mark_failed: its update! is what persists the metadata.
+        record_failure_outputs(step, result)
         mark_failed(step, error_message)
         announce_step(step, status: "failed", outputs: { error: error_message }, error: error_message)
 
-        # Compensate ONLY the failed step's own recorded resources (a retried
-        # step's prior partial success is the legitimate target; a first-run
-        # validation failure recorded nothing and rolls back nothing).
-        # Completed siblings' infrastructure survives — verify (F2) and the
-        # operator gates own its disposition (IMP 019fe5d7-1089).
+        # Compensate ONLY the failed step's own resources — the ones it just
+        # reported creating, or a retried step's prior partial success. Never a
+        # sibling's: completed siblings' infrastructure survives, and verify
+        # (F2) plus the operator gates own its disposition (IMP 019fe5d7-1089).
         rollback_step!(step) if on_failure.to_s == "rollback"
 
         # AFTER the unwind, deliberately. A failed step is terminal for its
