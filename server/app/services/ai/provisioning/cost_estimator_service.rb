@@ -418,16 +418,22 @@ module Ai
       # on the SIZE question; a change to one of them is a change to a contract
       # the other two are written against.
       #
-      # They do NOT agree on the KEY. `storage_gb` is read here as an alias, but
-      # ProvisionFullStackExecutor takes only `with_storage_gb` and drops the
-      # alias into `**_extras`, so a hand-authored plan carrying `storage_gb`
-      # alone is quoted for a volume nothing will provision. Same hand-authored
-      # population this guard exists for; tracked separately.
+      # They agree on the KEY too (IMP-f85254148755): `storage_gb` is read
+      # here as an alias, and ProvisionFullStackExecutor now resolves the same
+      # alias in the same order — `with_storage_gb` first, first PRESENT value
+      # wins — so a hand-authored plan carrying `storage_gb` alone is
+      # provisioned for exactly what this quote prices. `with_storage_gb`
+      # remains the only ADVERTISED input key; the alias is a compatibility
+      # read on both surfaces, not a descriptor entry.
       #
       # `respond_to?(:to_i)` screens out shapes with no numeric reading at all
       # (Hash/Array/true). It deliberately does NOT screen out the not-found
       # case — nil does respond to :to_i, and nil.to_i == 0 lands on the same
-      # "not requested" answer.
+      # "not requested" answer. A DECLARED-but-unreadable value ("plenty",
+      # true, {a: 1}) also quotes no line here — nothing will be provisioned
+      # for it — but it is not silent end-to-end: the executor records a
+      # per-node `provision_storage` failure entry for it
+      # (requested-but-unusable fails loud; the ratified 4db30efae fork).
       def declared_gb(inputs, *keys)
         raw = keys.lazy.flat_map { |k| [ inputs[k], inputs[k.to_sym] ] }.find(&:present?)
         return 0 unless raw.respond_to?(:to_i)
