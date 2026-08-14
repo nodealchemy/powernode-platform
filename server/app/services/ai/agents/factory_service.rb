@@ -235,13 +235,18 @@ module Ai
           neighbors = bridge.auto_detect_relationships(skill)
           relevant_ids = (neighbors || []).map { |n| n[:skill_id] }.compact
           relevant_ids.each do |skill_id|
-            agent.ai_agent_skills.find_or_create_by!(ai_skill_id: skill_id)
+            agent.agent_skills.find_or_create_by!(ai_skill_id: skill_id)
           rescue ActiveRecord::RecordInvalid => e
             Rails.logger.debug("[AgentFactory] Skill assignment skipped for #{agent.id}: #{e.message}")
           end
         end
-      rescue => e
-        Rails.logger.warn("[AgentFactory] Auto skill assignment failed for #{agent.id}: #{e.message}")
+      rescue NameError
+        # Programming errors (e.g. a dead association reflection) must fail the
+        # spawn loudly — this method once silently no-op'd on every spawn because
+        # a NoMethodError was laundered into the warn below (IMP-a3394f916399).
+        raise
+      rescue StandardError => e
+        Rails.logger.warn("[AgentFactory] Auto skill assignment failed for #{agent.id}: #{e.class}: #{e.message}")
       end
 
       def calculate_depth(agent)
