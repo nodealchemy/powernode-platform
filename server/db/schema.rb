@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_13_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_14_021000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -982,6 +982,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_13_180000) do
     t.datetime "created_at", null: false
     t.integer "current_step", default: 0
     t.text "description"
+    t.text "execution_error"
+    t.string "execution_status"
     t.datetime "expires_at"
     t.jsonb "request_data", default: {}
     t.string "request_id", null: false
@@ -998,6 +1000,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_13_180000) do
     t.index ["expires_at"], name: "index_ai_approval_requests_on_expires_at"
     t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
     t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
+    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying, 'failed'::character varying]::text[]))", name: "check_execution_status"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_request_status"
   end
 
