@@ -169,6 +169,89 @@ RSpec.describe Ai::Teams::ConfigurationService, type: :service do
       result = service.analyze_composition(team)
       expect(result).to include(:team_id, :team_name, :members_count, :skill_coverage, :role_balance, :coverage_score, :health)
     end
+
+    context 'when the team agents carry bound skills' do
+      let(:reviewer) { create(:ai_agent, account: account) }
+      let(:tester) { create(:ai_agent, account: account) }
+      let(:code_review) { create(:ai_skill, account: account, name: 'code_review') }
+      let(:testing) { create(:ai_skill, account: account, name: 'Testing') }
+
+      before do
+        create(:ai_agent_team_member, team: team, agent: reviewer)
+        create(:ai_agent_team_member, team: team, agent: tester)
+        create(:ai_agent_skill, agent: reviewer, skill: code_review)
+        create(:ai_agent_skill, agent: tester, skill: code_review)
+        create(:ai_agent_skill, agent: tester, skill: testing)
+      end
+
+      it 'reports the skill names bound to the team agents' do
+        coverage = service.analyze_composition(team)[:skill_coverage]
+
+        expect(coverage[:skills]).to eq('code_review' => 2, 'testing' => 1)
+        expect(coverage[:total_skills]).to eq(2)
+        expect(coverage[:multi_covered_skills]).to eq(1)
+        expect(coverage[:unique_skills]).to eq(1)
+      end
+
+      it 'reports a redundancy for the skill two agents share' do
+        redundancies = service.analyze_composition(team)[:redundancies]
+
+        expect(redundancies.map { |r| r[:skill] }).to eq(['code_review'])
+        redundancy = redundancies.first
+        expect(redundancy[:count]).to eq(2)
+        expect(redundancy[:agents].map { |a| a[:name] }).to match_array([reviewer.name, tester.name])
+        expect(redundancy[:agents].map { |a| a[:id] }).to match_array([reviewer.id, tester.id])
+      end
+
+      it 'clears the skill gaps the team actually covers' do
+        expect(service.analyze_composition(team)[:gaps]).to be_empty
+      end
+    end
+
+    context 'when a single agent covers the whole ideal skill breadth' do
+      let(:agent) { create(:ai_agent, account: account) }
+
+      before do
+        create(:ai_agent_team_member, team: team, agent: agent)
+        5.times { |i| create(:ai_agent_skill, agent: agent, skill: create(:ai_skill, account: account, name: "skill_#{i}")) }
+      end
+
+      it 'scores the team healthy instead of reporting no skills at all' do
+        result = service.analyze_composition(team)
+
+        expect(result[:coverage_score]).to eq(1.0)
+        expect(result[:health]).to eq('healthy')
+      end
+
+      # With skill coverage always empty, skill_score was always 0 and
+      # coverage_score could not exceed 0.4 — so no team ever reached "healthy"
+      # and auto_optimize's early return was unreachable. Pin it now that a real
+      # team can take it.
+      it 'lets auto_optimize take its healthy early return' do
+        expect(service.auto_optimize(team)).to eq(status: 'optimal', changes: [])
+      end
+    end
+
+    # Negative control for the dead `respond_to?(:ai_agent_skills)` guards this
+    # analysis used to carry, plus the positive twin that keeps the control from
+    # passing vacuously: reflection works, the live association is `skills`, and
+    # the join row is NOT a usable substitute because it has no #name.
+    describe 'skill association reflection' do
+      it 'exposes no :ai_agent_skills association on Ai::Agent' do
+        expect(Ai::Agent.new).not_to respond_to(:ai_agent_skills)
+      end
+
+      # If Ai::AgentSkill ever gains a #name (a column, or `delegate :name, to:
+      # :skill`), this example reds while production stays correct. That is the
+      # intended prompt to revisit the traversal above — not a reason to delete
+      # the example unread.
+      it 'exposes :skills, whose elements carry #name while the join row does not' do
+        expect(Ai::Agent.new).to respond_to(:skills)
+        expect(Ai::Agent.new).to respond_to(:agent_skills)
+        expect(Ai::Skill.new).to respond_to(:name)
+        expect(Ai::AgentSkill.new).not_to respond_to(:name)
+      end
+    end
   end
 
   describe '#auto_optimize' do

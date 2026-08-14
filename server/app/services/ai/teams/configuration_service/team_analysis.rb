@@ -7,7 +7,7 @@ module Ai
         extend ActiveSupport::Concern
 
         def analyze_composition(team)
-          members = team.members.includes(:agent)
+          members = team.members.includes(agent: :skills)
           agents = members.map(&:agent).compact
 
           skills = collect_team_skills(agents)
@@ -109,13 +109,16 @@ module Ai
 
         private
 
+        # Traverses `skills` (the Ai::Skill records reached through the join), not
+        # `agent_skills` (the Ai::AgentSkill join rows) — the body indexes by
+        # `skill.name`, which only Ai::Skill carries. The former
+        # respond_to?(:ai_agent_skills) guard named no association at all and
+        # silently emptied skill coverage for every team.
         def collect_team_skills(agents)
           skills = Hash.new { |h, k| h[k] = [] }
 
           agents.each do |agent|
-            next unless agent.respond_to?(:ai_agent_skills)
-
-            agent.ai_agent_skills.each do |skill|
+            agent.skills.each do |skill|
               skills[skill.name.downcase] << agent.id
             end
           end
@@ -166,9 +169,7 @@ module Ai
           skill_agents = Hash.new { |h, k| h[k] = [] }
 
           agents.each do |agent|
-            next unless agent.respond_to?(:ai_agent_skills)
-
-            agent.ai_agent_skills.each do |skill|
+            agent.skills.each do |skill|
               skill_agents[skill.name.downcase] << {
                 id: agent.id,
                 name: agent.name,
