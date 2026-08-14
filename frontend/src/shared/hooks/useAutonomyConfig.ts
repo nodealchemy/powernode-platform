@@ -3,6 +3,8 @@ import apiClient from '@/shared/services/apiClient';
 import type {
   AgentPoliciesMap,
   AutonomyConfigSource,
+  AutonomyDomainPolicy,
+  AutonomyDomainsMap,
   AutonomyLevel,
 } from '@/shared/types/autonomy';
 import { logger } from '@/shared/utils/logger';
@@ -18,6 +20,7 @@ import { logger } from '@/shared/utils/logger';
  */
 export function useAutonomyConfig(source: AutonomyConfigSource) {
   const [agentPolicies, setAgentPolicies] = useState<AgentPoliciesMap>({});
+  const [domains, setDomains] = useState<AutonomyDomainsMap>({});
   const [localOverrides, setLocalOverrides] = useState<AgentPoliciesMap>({});
   const [loading, setLoading] = useState(true);
 
@@ -46,7 +49,35 @@ export function useAutonomyConfig(source: AutonomyConfigSource) {
           }
         });
 
+        // Domain view: the server's own grouping of the SAME rows. It is the
+        // complete set — the by_agent view above buckets a row under its owning
+        // agent and then keeps only the buckets the endpoint declares, so a row
+        // owned by any other agent is absent there but present here. Back-fill
+        // rather than overwrite: where both carry a category the value is
+        // identical (one row, two pivots), and back-filling keeps an API that
+        // ships by_agent alone behaving exactly as before.
+        const byDomain = res.data?.data?.policies?.by_domain;
+        const domainMap: AutonomyDomainsMap = {};
+
+        if (byDomain && typeof byDomain === 'object') {
+          Object.entries(byDomain as Record<string, unknown>).forEach(([domain, rows]) => {
+            if (!Array.isArray(rows)) return;
+            const parsed = (rows as AutonomyDomainPolicy[]).filter((r) => r?.action_category);
+            domainMap[domain] = parsed;
+
+            parsed.forEach((row) => {
+              const bucket = row.agent_bucket;
+              if (!bucket) return;
+              byAgent[bucket] = byAgent[bucket] || {};
+              if (byAgent[bucket][row.action_category] === undefined) {
+                byAgent[bucket][row.action_category] = row.policy ?? 'require_approval';
+              }
+            });
+          });
+        }
+
         setAgentPolicies(byAgent);
+        setDomains(domainMap);
         setLocalOverrides({});
       })
       .catch((err) => logger.error('Failed to load autonomy policies', err))
@@ -106,6 +137,7 @@ export function useAutonomyConfig(source: AutonomyConfigSource) {
   return {
     agentPolicies,
     agentNames: Object.keys(agentPolicies),
+    domains,
     loading,
     getPolicy,
     updatePolicy,
