@@ -31,11 +31,17 @@ module Ai
 
       return default_policy if matching.empty?
 
-      # Prefer agent-scoped policies when resolving for a specific agent.
-      # Agent-specific overrides should always win over global/account defaults.
+      # CONTRACT (IMP-bfbf8052e179): an agent caller resolves ONLY against rows
+      # scoped to that agent. Nil-agent rows carry operator/global intent —
+      # Ai::InterventionPolicy#agent_matches? admits them for any caller, so
+      # without this cut an agent with no scoped row for the category would
+      # inherit the operator row's (usually laxer) verb. An agent unmatched by
+      # any scoped row falls to the require_approval default instead.
       if agent
         agent_scoped = matching.select { |p| p.ai_agent_id == agent.id }
-        matching = agent_scoped if agent_scoped.any?
+        return default_policy if agent_scoped.empty?
+
+        matching = agent_scoped
       end
 
       # Sort by specificity (most specific wins)

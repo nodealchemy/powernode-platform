@@ -96,6 +96,12 @@ module Ai
       action_category == "*" || action_category == category
     end
 
+    # A nil-agent row matches ANY caller here — agent dispatches included.
+    # Audience separation is enforced one level up (IMP-bfbf8052e179):
+    # Ai::InterventionPolicyService#resolve considers ONLY rows scoped to the
+    # calling agent when an agent is present, so nil-agent rows bind
+    # exclusively on the agent-less (operator/global) path. Do not rely on
+    # this method alone to keep an operator-intent row away from agents.
     def agent_matches?(agent_record)
       return true if ai_agent_id.nil?
       agent_record && ai_agent_id == agent_record.id
