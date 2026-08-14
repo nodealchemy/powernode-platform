@@ -57,13 +57,50 @@ module Ai
         }
       end
 
-      # Check daily notification limit
+      # Check daily notification limit.
+      #
+      # CONTRACT (IMP-73dff8186c1e): "max_daily_notifications" is a DELIVERY
+      # budget, never an authorisation verb. Exhausting it used to return
+      # "silent", which Ai::AutonomyGate, System::Fleet::FleetAutonomyService
+      # and System::CveOps::CveResponderService each fold into their "block"
+      # branch — so a condition reading "stop notifying me this often" turned
+      # into a hard 422 refusal of every gated write in the category for the
+      # rest of the day, and only on policies an operator had deliberately
+      # RELAXED to notify_and_proceed.
+      #
+      # Degrading to require_approval parks the write for a human (202) on the
+      # next-strictest REAL verb.
+      #
+      # `notifications_suppressed` carries the delivery half to
+      # Ai::AgentOutreachService — the one consumer for which "silent" was
+      # already doing the right thing. Read the FLAG there, never `channels`: an
+      # empty array cannot signal suppression on its own, because every reader
+      # applies `.presence || %w[notification]` and would deliver anyway.
+      #
+      # SCOPE, precisely — the flag suppresses the OUTREACH delivery path only;
+      # it does not make the platform quiet, and parking emits a notification of
+      # its own. Ai::AutonomyGate#require_approval_or_proceed creates an
+      # ApprovalRequest, whose after_create fan-out sends one category-"ai"
+      # Notification per approver, and the default chain's ["*"] resolves to
+      # every active user. So over the cap a gated write emits MORE
+      # notifications than the healthy under-cap path, which emits none (the
+      # gate never notifies on :proceed). That is one-per-write amplification
+      # rather than a loop — those rows count toward an already-exceeded cap but
+      # never re-enter resolve — and it is accepted because parking silently
+      # would strand the operator's own write, which is worse than the 422.
+      #
+      # Core-mode fork worth knowing: when Ai::ApprovalChain is absent,
+      # require_approval falls through to execute_now!, so an over-cap write
+      # EXECUTES there instead of parking. Intent-consistent, since the matched
+      # row said notify_and_proceed, but it is the one place this verb is less
+      # restrictive than "silent" was.
       if best.policy == "notify_and_proceed" && notification_limit_reached?(best, user)
         return {
-          policy: "silent",
+          policy: "require_approval",
           channels: [],
           conditions: best.conditions,
           reason: "Daily notification limit reached",
+          notifications_suppressed: true,
           record: best
         }
       end

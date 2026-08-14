@@ -113,6 +113,57 @@ RSpec.describe Ai::AutonomyGate do
       end
     end
 
+    # IMP-73dff8186c1e — the operator-facing half of the notification-cap
+    # defect. `requested_by` is always populated on the HTTP path, so this is
+    # the audience for which "max_daily_notifications" was actually live: once
+    # the day's budget was spent, resolution returned "silent" and the
+    # `when "block", "silent"` branch below rejected the operation as 422.
+    context 'when a notify_and_proceed policy has spent its notification budget' do
+      before do
+        Ai::InterventionPolicy.create!(
+          account: account, action_category: 'test.action',
+          scope: 'global', policy: 'notify_and_proceed', priority: 5, is_active: true,
+          conditions: { 'max_daily_notifications' => 1 }
+        )
+      end
+
+      # Explicitly called, not eager — a plain method rather than a `let!` so the
+      # headroom example below can skip it.
+      def over_cap!
+        create(:notification, account: account, user: user,
+                              notification_type: 'agent_status_update', category: 'ai')
+      end
+
+      it 'parks the write for approval instead of refusing it' do
+        over_cap!
+
+        result = described_class.evaluate(**base_args)
+
+        expect(result.decision).to eq(:pending)
+        expect(result.deferred_operation.approval_request).to be_present
+      end
+
+      # The audit row is what an operator reads back, and a rejection there is
+      # the durable half of the old behaviour.
+      it 'leaves no policy rejection on the audit row' do
+        over_cap!
+
+        op = described_class.evaluate(**base_args).deferred_operation.reload
+
+        expect(op.status).to eq('pending')
+        expect(op.error_message).to be_nil
+      end
+
+      # Positive twin: the relaxation the operator asked for still applies while
+      # the budget has headroom, so the cap is not simply inert.
+      it 'still proceeds inline while the budget has headroom' do
+        result = described_class.evaluate(**base_args)
+
+        expect(result.decision).to eq(:proceed)
+        expect(result.deferred_operation.reload.status).to eq('completed')
+      end
+    end
+
     context 'when no policy is configured (default)' do
       it 'falls through to require_approval per InterventionPolicyService default' do
         result = described_class.evaluate(**base_args)

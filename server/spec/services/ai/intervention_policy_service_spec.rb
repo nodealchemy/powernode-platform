@@ -112,4 +112,99 @@ RSpec.describe Ai::InterventionPolicyService do
         .to eq("require_approval")
     end
   end
+
+  # IMP-73dff8186c1e — a notification-VOLUME condition must never act as a
+  # denial switch. Exhausting "max_daily_notifications" used to rewrite the
+  # verb to "silent", and every autonomy consumer (Ai::AutonomyGate,
+  # System::Fleet::FleetAutonomyService, System::CveOps::CveResponderService)
+  # folds "silent" into its "block" branch — so the categories an operator had
+  # deliberately relaxed to notify_and_proceed were exactly the ones that
+  # hard-refused (422) every gated write for the rest of the day.
+  #
+  # The contract now: the cap degrades AUTHORISATION only as far as
+  # require_approval (parked, not refused) and reports the DELIVERY half
+  # out-of-band, so a notification budget can never deny an action.
+  describe "#resolve under an exhausted max_daily_notifications (IMP-73dff8186c1e)" do
+    let(:user) { create(:user, account: account) }
+
+    let!(:relaxed_row) do
+      create_policy!(policy: "notify_and_proceed",
+                     conditions: { "max_daily_notifications" => 2 })
+    end
+
+    def send_ai_notifications!(count)
+      count.times do
+        create(:notification, account: account, user: user,
+                              notification_type: "agent_status_update", category: "ai")
+      end
+    end
+
+    # Positive control for the whole block: with headroom the row's own verb
+    # survives untouched, so every assertion below is about the cap and not
+    # about resolution generally.
+    it "leaves the row's verb and channels intact while the cap has headroom" do
+      send_ai_notifications!(1)
+
+      result = service.resolve(action_category: "widget.create", user: user)
+
+      expect(result[:policy]).to eq("notify_and_proceed")
+      expect(result[:channels]).to eq(%w[notification])
+      expect(result[:notifications_suppressed]).to be_falsey
+    end
+
+    it "degrades to require_approval once the cap is reached" do
+      send_ai_notifications!(2)
+
+      expect(service.resolve(action_category: "widget.create", user: user)[:policy])
+        .to eq("require_approval")
+    end
+
+    # The load-bearing negation, stated against the consumers rather than the
+    # replacement verb: whatever this branch returns, it must not be a verb any
+    # gate reads as a denial. Ai::AutonomyGate's rejecting branch is
+    # `when "block", "silent"`.
+    it "never returns a verb the autonomy gates treat as a denial" do
+      send_ai_notifications!(5)
+
+      expect(service.resolve(action_category: "widget.create", user: user)[:policy])
+        .not_to be_in(%w[silent block])
+    end
+
+    # The delivery half still has to travel, or the fix would trade a false
+    # denial for a cap that no longer suppresses anything.
+    it "reports the suppressed delivery out-of-band, with the reason and the row" do
+      send_ai_notifications!(2)
+
+      result = service.resolve(action_category: "widget.create", user: user)
+
+      expect(result[:notifications_suppressed]).to be(true)
+      expect(result[:channels]).to eq([])
+      expect(result[:reason]).to eq("Daily notification limit reached")
+      expect(result[:record]).to eq(relaxed_row)
+    end
+
+    # Asymmetric reachability, pinned so a future guard change is visible: the
+    # cap is guarded on `user`, so an agent-less-user dispatch never trips it.
+    it "does not trip the cap when resolution carries no user" do
+      send_ai_notifications!(5)
+
+      result = service.resolve(action_category: "widget.create")
+
+      expect(result[:policy]).to eq("notify_and_proceed")
+      expect(result[:notifications_suppressed]).to be_falsey
+    end
+
+    # Only notify_and_proceed rows consult the cap, so a row already sitting on
+    # a stricter verb is not silently relaxed OR tightened by notification volume.
+    it "leaves a require_approval row unchanged and unflagged over the cap" do
+      relaxed_row.update!(policy: "require_approval")
+      send_ai_notifications!(5)
+
+      result = service.resolve(action_category: "widget.create", user: user)
+
+      expect(result[:policy]).to eq("require_approval")
+      expect(result[:channels]).to eq(%w[notification])
+      expect(result[:notifications_suppressed]).to be_falsey
+    end
+  end
 end
