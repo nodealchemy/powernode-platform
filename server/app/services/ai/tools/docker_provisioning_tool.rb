@@ -13,6 +13,15 @@ module Ai
     # NodeInstance owns the host and the host is bound to the instance's
     # overlay /128. There's no "edit api_endpoint" semantic — the
     # endpoint is derived, not assigned.
+    #
+    # The two MUTATING actions route through `Ai::AutonomyGate` (see #gated):
+    # provision under `system.runtime_docker_provision`, decommission under
+    # `system.runtime_docker_decommission`. Those categories carry seeded
+    # policy rows that RENDER in the Autonomy modal, and until IMP-9b9653e6514e
+    # nothing read them — the operator's setting was a control wired to
+    # nothing. `mark_ready` and the list action stay ungated deliberately: the
+    # first is the agent's own heartbeat promotion (a heartbeat that parks for
+    # approval is an outage), the second is a read.
     class DockerProvisioningTool < BaseTool
       REQUIRED_PERMISSION = "docker.hosts.manage"
 
@@ -84,6 +93,11 @@ module Ai
       rescue ArgumentError => e
         { success: false, error: e.message }
       rescue ::System::DockerDaemonProvisionerService::ProvisionError => e
+        # Covers the UNGATED actions only. Since IMP-9b9653e6514e the two
+        # mutating actions reach the provisioner through Ai::AutonomyGate,
+        # which rescues StandardError itself and answers :blocked — so a
+        # provisioning failure there arrives as this method's `{ success:
+        # false, error: }` via #gated's else branch, never here.
         { success: false, error: e.message }
       end
 
@@ -94,22 +108,92 @@ module Ai
           return { success: false, error: "node_instance_id is required" }
 
         # NodeInstance delegates account_id to its Node — no direct
-        # column. Scoping through the join keeps account isolation.
+        # column. Scoping through the join keeps account isolation, and it
+        # runs BEFORE the gate so an id the caller may not see raises
+        # RecordNotFound instead of parking an approval for someone else's
+        # instance.
         instance = ::System::NodeInstance
                      .joins(:node)
                      .where(system_nodes: { account_id: account.id })
                      .find(instance_id)
-        host = ::System::DockerDaemonProvisionerService.provision!(
-          node_instance: instance,
-          account: account
-        )
-        { success: true, host: host.host_summary }
+
+        gated(
+          action_category: "system.runtime_docker_provision",
+          executor_class: "System::Executors::Runtime::ProvisionDockerHost",
+          executor_params: { instance_id: instance.id },
+          source_type: "System::NodeInstance",
+          source_id: instance.id,
+          description: "Provision Docker daemon on instance #{instance.name}"
+        ) do |gate_result|
+          host_id = gate_result.result&.dig(:data, :host_id)
+          host = account.devops_docker_hosts.find_by(id: host_id)
+          { success: true, host: host&.host_summary }
+        end
       end
 
       def decommission_runtime(params)
         host = resolve_managed_host(params[:host_id]) or return managed_host_not_found_error(params[:host_id])
-        ::System::DockerDaemonProvisionerService.decommission!(docker_host: host)
-        { success: true, decommissioned: true, host_id: host.id }
+
+        gated(
+          action_category: "system.runtime_docker_decommission",
+          executor_class: "System::Executors::Runtime::DecommissionDockerHost",
+          executor_params: { host_id: host.id },
+          source_type: "Devops::DockerHost",
+          source_id: host.id,
+          description: "Decommission managed Docker host #{host.name}"
+        ) do |_gate_result|
+          { success: true, decommissioned: true, host_id: host.id }
+        end
+      end
+
+      # Route a mutating action through Ai::AutonomyGate and translate the three
+      # decisions into this tool's payload vocabulary. Mirrors the convention
+      # SdwanTool#gated_result established for MCP callers; kept local because
+      # the two tools answer in different shapes (this one returns bare
+      # `{ success:, host: }` hashes, not BaseTool#success_result envelopes) and
+      # a shared helper would have to own that difference.
+      #
+      # Agent AND user are both forwarded. The Runtime Manager's seeded rows are
+      # agent-SCOPED, and Ai::InterventionPolicy#agent_matches? rejects a scoped
+      # row against a nil agent — so only an agent-dispatched call resolves
+      # against them. An operator MCP call arrives with @agent nil and matches
+      # the agent-less rows seeded by AgentSetupHelpers.upsert_operator_policies!
+      # instead; with neither, resolution falls to
+      # InterventionPolicyService#default_policy (require_approval). @agent also
+      # buys attribution: AutonomyGate#resolve_chain routes to
+      # "<agent name> Actions", and to "Manual Operations" when nil.
+      #
+      # The block runs on the :proceed branch only, receiving the gate Result —
+      # the executor has already run synchronously by then.
+      def gated(action_category:, executor_class:, executor_params:, description:,
+                source_type: nil, source_id: nil)
+        result = ::Ai::AutonomyGate.evaluate(
+          action_category: action_category,
+          executor_class: executor_class,
+          params: executor_params,
+          account: account,
+          agent: @agent,
+          requested_by: @user,
+          source_type: source_type,
+          source_id: source_id,
+          description: description
+        )
+
+        case result.decision
+        when :proceed
+          yield(result)
+        when :pending
+          {
+            success: true,
+            pending: true,
+            action_category: action_category,
+            deferred_operation_id: result.deferred_operation&.id,
+            approval_request_id: result.approval_request&.id,
+            message: "Approval required: #{action_category}"
+          }
+        else
+          { success: false, error: result.error || "Action #{action_category} is blocked by policy" }
+        end
       end
 
       def mark_ready(params)
