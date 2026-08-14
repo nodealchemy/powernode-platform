@@ -568,6 +568,204 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "deterministic synthesis",
     end
   end
 
+  # ---- IMP-94728a788498: three-arm network resolution --------------------
+  #
+  # After IMP-cdc1d0703e5a the composer stamped network_id only from the
+  # chosen template's own config — and no seed or service writes that key, so
+  # fabric membership was a per-template OPT-IN an operator had to hand-
+  # configure. The north star wants fabric membership as the default posture.
+  #
+  # Resolution order: template explicit → account default → networkless.
+  # An explicit template opt-out ("none") beats the account default; a
+  # configured default that could never resolve fails LOUD at compose time;
+  # null/blank stays "no opinion" on BOTH arms — the swallowed-null class
+  # (4db30efae's carefully-chosen bucketing) must not come back one key over.
+  describe "three-arm network resolution (IMP-94728a788498)" do
+    let!(:bare_template) do
+      create(:system_node_template, account: account, name: "default-fabric-cell",
+                                    config: { "boot_mode" => "uefi_disk" })
+    end
+
+    def bare_db_brief(extra = {})
+      runtime_brief.merge("preferred_template" => "default-fabric-cell",
+                          "use_case" => "a plain postgres database",
+                          "intent" => "provision a db").merge(extra)
+    end
+
+    def set_account_default(value)
+      account.update!(settings: (account.settings || {}).merge("default_sdwan_network_id" => value))
+    end
+
+    context "the account-default arm" do
+      before { set_account_default(sdwan_network.id) }
+
+      it "stamps network_id from the account default when the template declares none" do
+        plan = compose!(bare_db_brief)
+        pf = provision_steps(plan)
+
+        expect(pf).not_to be_empty
+        pf.each do |s|
+          expect(s.execution_config["inputs"]["network_id"]).to eq(sdwan_network.id)
+        end
+      end
+
+      it "composes a runtime (docker) plan on an unconfigured template — the prerequisite checker honors the resolved default" do
+        plan = compose!(runtime_brief.merge("preferred_template" => "default-fabric-cell"))
+
+        expect(plan).to be_a(Ai::GoalPlan)
+        expect(docker_steps(plan).size).to eq(3)
+        provision_steps(plan).each do |s|
+          expect(s.execution_config["inputs"]["network_id"]).to eq(sdwan_network.id)
+        end
+      end
+
+      it "the template's own declaration beats the account default" do
+        other = ::Sdwan::Network.create!(account_id: account.id, name: "team-#{SecureRandom.hex(3)}")
+        set_account_default(other.id)
+
+        plan = compose!(runtime_brief) # powernode-ops-cell declares sdwan_network.id
+        provision_steps(plan).each do |s|
+          expect(s.execution_config["inputs"]["network_id"]).to eq(sdwan_network.id)
+        end
+      end
+
+      it "an explicit template opt-out ('none') composes networkless even with the default set" do
+        create(:system_node_template, account: account, name: "opted-out-cell",
+                                      config: { "boot_mode" => "uefi_disk",
+                                                "sdwan_network_id" => "none" })
+
+        plan = compose!(bare_db_brief("preferred_template" => "opted-out-cell"))
+
+        expect(plan).to be_a(Ai::GoalPlan)
+        provision_steps(plan).each do |s|
+          expect(s.execution_config["inputs"]).not_to have_key("network_id")
+        end
+      end
+    end
+
+    describe "opt-out bucketing (the sentinel is case-insensitive and stripped)" do
+      let(:service) { described_class.new(account: account, mission: mission_for(runtime_brief)) }
+
+      it "classifies 'none' in any case, padded or not, as :opt_out" do
+        [ "none", "NONE", " None " ].each do |value|
+          t = create(:system_node_template, account: account, name: "optout-#{SecureRandom.hex(3)}",
+                                            config: { "sdwan_network_id" => value })
+          expect(service.send(:template_network_declaration, t).first).to eq(:opt_out)
+        end
+      end
+    end
+
+    # The swallowed-null guard on the NEW arm: builders and forms that emit
+    # every key produce null and "" routinely. On the account key those read
+    # as NO DEFAULT — silent networkless — never as an opt-out and never as
+    # a loud failure.
+    describe "null/blank on the account key is NO DEFAULT, not an opt-out and not a failure" do
+      [ nil, "", "   " ].each do |blankish|
+        it "composes networkless silently for #{blankish.inspect}" do
+          set_account_default(blankish)
+          plan = compose!(bare_db_brief)
+
+          expect(plan).to be_a(Ai::GoalPlan)
+          provision_steps(plan).each do |s|
+            expect(s.execution_config["inputs"]).not_to have_key("network_id")
+          end
+        end
+      end
+
+      it "treats the 'none' sentinel on the account key as no-default too" do
+        set_account_default("none")
+        plan = compose!(bare_db_brief)
+
+        expect(plan).to be_a(Ai::GoalPlan)
+        provision_steps(plan).each do |s|
+          expect(s.execution_config["inputs"]).not_to have_key("network_id")
+        end
+      end
+    end
+
+    context "a configured account default that could never be an id" do
+      before { set_account_default(%w[net-a net-b]) }
+
+      it "fails LOUD at compose time instead of silently composing bare compute" do
+        result = compose!(bare_db_brief)
+
+        expect(result).to be_a(Hash)
+        expect(result[:clarification_needed]).to be true
+        expect(result[:message]).to match(/default_sdwan_network_id/)
+      end
+
+      it "writes no plan pointer — a corrected retry recomposes fresh" do
+        mission = mission_for(bare_db_brief)
+        described_class.new(account: account, mission: mission).compose!
+
+        expect(mission.reload.configuration.dig("plan", "plan_id")).to be_nil
+      end
+
+      it "does not block a plan whose template decided for itself" do
+        plan = compose!(runtime_brief) # template-declared network; default never consulted
+        expect(plan).to be_a(Ai::GoalPlan)
+      end
+
+      it "does not block an explicitly opted-out template either" do
+        create(:system_node_template, account: account, name: "opted-out-cell-2",
+                                      config: { "boot_mode" => "uefi_disk",
+                                                "sdwan_network_id" => "none" })
+
+        plan = compose!(bare_db_brief("preferred_template" => "opted-out-cell-2"))
+        expect(plan).to be_a(Ai::GoalPlan)
+      end
+    end
+
+    # ---- the cross-seam oracle, account-default arm ----------------------
+    #
+    # Same shape as the template-arm oracle above: NOTHING stubbed between
+    # the composer and ProvisionFullStackExecutor, and the assertion is
+    # sharper than "non-zero peers" — every reported peer must belong to an
+    # instance THIS step created, and the incumbent fleet's peer must not
+    # be among them.
+    describe "an account-default plan produces peers on the NEWLY created instances" do
+      let(:provisioned_node) { sdwan_test_node(account: account) }
+      let(:provisioned_instances) do
+        Array.new(3) { sdwan_test_node_instance(node: provisioned_node) }
+      end
+
+      let!(:incumbent_peer) do
+        ::Sdwan::PeerEnroller.call(
+          network: sdwan_network,
+          node_instance: sdwan_test_node_instance(node: sdwan_test_node(account: account))
+        )
+      end
+
+      before do
+        set_account_default(sdwan_network.id)
+        queue = provisioned_instances.dup
+        allow(::System::ProvisioningService).to receive(:provision_instance) do
+          ::System::Runtime::Result.ok(data: { instance: queue.shift,
+                                               cloud_instance_id: "ci-#{SecureRandom.hex(2)}" })
+        end
+      end
+
+      it "enrolls the instances it just created as peers on the account's default network" do
+        plan = compose!(bare_db_brief)
+        step = provision_steps(plan).first
+        inputs = step.execution_config["inputs"].symbolize_keys
+
+        result = ::System::Ai::Skills::ProvisionFullStackExecutor
+                 .new(account: account).execute(**inputs)
+
+        expect(result[:success]).to be true
+        outputs = result[:data][:outputs]
+        created = outputs[:node_instance_ids]
+        expect(created).not_to be_empty
+
+        peers = ::Sdwan::Peer.where(id: outputs[:sdwan_peer_ids])
+        expect(peers.count).to eq(created.size)
+        expect(peers.pluck(:node_instance_id)).to match_array(created)
+        expect(outputs[:sdwan_peer_ids]).not_to include(incumbent_peer.id)
+      end
+    end
+  end
+
   describe "the unrecognized-brief fallback (direct instantiation only)" do
     it "still routes through the LLM decomposer + rewrite pipeline" do
       unrecognized = { "intent" => "Spin up something", "use_case" => "Primary OLTP" }

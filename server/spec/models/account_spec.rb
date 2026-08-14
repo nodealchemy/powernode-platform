@@ -178,4 +178,27 @@ RSpec.describe Account, type: :model do
       expect(account.on_trial?).to be false
     end
   end
+
+  # IMP-94728a788498: the raw account-wide default-network setting for
+  # provisioning. Deliberately unclassified — bucketing (opt-out sentinel,
+  # fail-loud) is PlanComposerService's single-copy decision.
+  describe "#default_sdwan_network_setting" do
+    let(:account) { create(:account) }
+
+    it "reads the string key from settings" do
+      account.update!(settings: { "default_sdwan_network_id" => "net-1" })
+      expect(account.default_sdwan_network_setting).to eq("net-1")
+    end
+
+    it "tolerates an in-memory symbol key" do
+      account.settings = { default_sdwan_network_id: "net-2" }
+      expect(account.default_sdwan_network_setting).to eq("net-2")
+    end
+
+    it "is nil when unset or when settings is not a hash" do
+      expect(account.default_sdwan_network_setting).to be_nil
+      account.settings = nil
+      expect(account.default_sdwan_network_setting).to be_nil
+    end
+  end
 end

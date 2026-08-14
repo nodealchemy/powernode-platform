@@ -138,7 +138,11 @@ class SettingsUpdateService
       website: settings["website"],
       phone: settings["phone"],
       address: settings["address"],
-      logo_url: settings["logo_url"]
+      logo_url: settings["logo_url"],
+      # IMP-94728a788498: writable above via the blind settings merge, so it
+      # must be readable here too — a misconfigured default fails composes
+      # loudly, and the operator needs this surface to inspect/clear it.
+      Account::DEFAULT_SDWAN_NETWORK_SETTING.to_sym => settings[Account::DEFAULT_SDWAN_NETWORK_SETTING]
     }
   end
 
