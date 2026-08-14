@@ -83,7 +83,7 @@ module Ai
 
     # Auto-assign the best lead for a team based on capabilities
     def auto_assign_lead(team)
-      members = team.members.includes(:agent)
+      members = team.members.includes(agent: :agent_skills)
       return nil if members.empty?
 
       scored = members.map do |member|
@@ -178,8 +178,10 @@ module Ai
     def calculate_lead_score(agent)
       score = 0.0
 
-      # More skills = better lead
-      skills_count = agent.respond_to?(:ai_agent_skills) ? agent.ai_agent_skills.count : 0
+      # More bound skills = better lead. (`agent_skills` is the real association;
+      # the former respond_to?(:ai_agent_skills) guard named a nonexistent one and
+      # silently zeroed this factor for every agent.)
+      skills_count = agent.agent_skills.size
       score += [skills_count * 0.2, 2.0].min
 
       # Agent with longer history is more experienced
