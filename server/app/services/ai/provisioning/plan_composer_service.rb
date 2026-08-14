@@ -105,21 +105,18 @@ module Ai
       ].freeze
 
       # The NodeTemplate config key that declares which SDWAN network the
-      # template's instances join (IMP-cdc1d0703e5a). Named here so the stamping
-      # in #merge_resolved_inputs! and the compose-time check both read ONE
-      # constant, and so the string matches what the `provision_prerequisites`
-      # extension seam reads — a plain data key travelling through that seam,
-      # not a reference to the extension.
-      NETWORK_CONFIG_KEY = "sdwan_network_id"
-
-      # Explicit fabric opt-out sentinel (IMP-94728a788498). With an account
-      # default in play, "key absent / null / blank" must keep meaning "no
-      # opinion" (builders emit those routinely — the swallowed-null class),
-      # so a template that DELIBERATELY wants bare compute on an account that
-      # has a default needs a value that says so unmistakably. Compared
-      # case-insensitively after strip. A network id is a UUID, so this
-      # string could never collide with a real id.
-      NETWORK_OPT_OUT_VALUE = "none"
+      # template's instances join (IMP-cdc1d0703e5a). Aliased from
+      # Shared::SdwanNetworkResolution rather than restated, so the stamping in
+      # #merge_resolved_inputs!, the compose-time check, the
+      # `provision_prerequisites` extension seam, and the direct provisioning
+      # resolver all read ONE definition (IMP-8e1ac4a09e82) — a plain data key
+      # travelling through that seam, not a reference to the extension.
+      #
+      # The opt-out sentinel is deliberately NOT aliased alongside it: with the
+      # bucketing moved to Shared::, nothing in this class reads it, and a
+      # second name for a value whose whole purpose is one shared vocabulary is
+      # how the two resolvers drifted apart to begin with.
+      NETWORK_CONFIG_KEY = ::Shared::SdwanNetworkResolution::NETWORK_CONFIG_KEY
 
       attr_reader :account, :mission
 
@@ -1202,7 +1199,7 @@ module Ai
       end
 
       # What the chosen template says about fabric attachment, as
-      # `[state, value]` where state is :absent, :usable or :unusable.
+      # `[state, value]` where state is :absent, :opt_out, :usable or :unusable.
       #
       # This reads exactly the key the compose-time prerequisite checker reads
       # (`NodeTemplate.config["sdwan_network_id"]`), so the composer and that
@@ -1216,41 +1213,24 @@ module Ai
       # that DECLARES the key and supplies something that could never be an id
       # asked for fabric and did not get it.
       #
-      # A key present with a NULL or BLANK value counts as :absent, NOT as a
-      # failed declaration and NOT as an opt-out. Builders and forms that emit
-      # every key regardless produce `null` and `""` routinely, and both read
-      # as "no network set" — treating them as loud failures would stop
-      # templates that compose perfectly well today from composing at all, and
-      # treating them as opt-outs would silently detach every such template
-      # from an account default (the same swallowed-null class one arm over).
-      # Only a NON-BLANK value that is not a string (a number, a non-empty
-      # array/hash, `true`) is structurally incapable of being a network id.
-      # `false` is blank in Rails and stays in the :absent bucket — that
-      # bucketing predates the account default and holds; the unmistakable
-      # opt-out spelling is NETWORK_OPT_OUT_VALUE.
+      # The bucketing ITSELF — why a null/blank key is :absent rather than an
+      # opt-out or a failure, why `false` stays :absent, why the "none"
+      # sentinel exists — is documented once on Shared::SdwanNetworkResolution
+      # and deliberately not restated here (IMP-8e1ac4a09e82). Two copies of
+      # that rationale, one per resolver, is the drift this extraction removes.
       #
-      # An explicit NETWORK_OPT_OUT_VALUE ("none", case-insensitive) is
-      # :opt_out — deliberate bare compute that BEATS the account default.
-      # Before the default existed this string was :usable and merely failed
-      # at run time ("sdwan network not found"), so no working template can
-      # be relying on it as an id.
-      #
-      # Any other non-blank STRING is :usable, even if no such network exists.
-      # Core cannot check existence without naming the extension, and it does
-      # not need to: ProvisionFullStackExecutor fails the whole step with
-      # "sdwan network not found" before provisioning anything, so a dead id is
-      # already loud — it just fails at run time rather than compose time. For
-      # plans whose skills REQUIRE an overlay the `provision_prerequisites` seam
-      # catches it at compose time as well.
+      # Composer-specific: a :usable id is NOT existence-checked. Core cannot
+      # check existence without naming the extension, and it does not need to —
+      # ProvisionFullStackExecutor fails the whole step with "sdwan network not
+      # found" before provisioning anything, so a dead id is already loud, just
+      # at run time rather than compose time. For plans whose skills REQUIRE an
+      # overlay the `provision_prerequisites` seam catches it at compose time
+      # as well.
       #
       # Core purity: a plain Hash read off a record core already resolved via
       # #resolve_template — no new `System::`/`Sdwan::` constant reference.
       def template_network_declaration(template)
-        config = template&.config
-        return [ :absent, nil ] unless config.is_a?(Hash)
-        return [ :absent, nil ] unless config.key?(NETWORK_CONFIG_KEY) || config.key?(NETWORK_CONFIG_KEY.to_sym)
-
-        classify_network_value(config[NETWORK_CONFIG_KEY] || config[NETWORK_CONFIG_KEY.to_sym])
+        ::Shared::SdwanNetworkResolution.classify_config(template&.config)
       end
 
       # What the ACCOUNT says about default fabric attachment
@@ -1259,31 +1239,16 @@ module Ai
       # (Account#settings jsonb), settable through the existing
       # account-settings surface; no env var, seed, or hardcoded id.
       #
-      # Identical bucketing to the template arm, ONE classifier for both:
-      # null/blank is "no default set" (the swallowed-null guard again — a
-      # form emitting the key empty must not opt the account out or blow up),
-      # and the NETWORK_OPT_OUT_VALUE sentinel keeps one vocabulary across
-      # both config surfaces (:opt_out here simply means "explicitly no
-      # default" — the resolver treats it like :absent, since there is no
-      # further arm for it to beat). A non-blank non-string is :unusable and
-      # fails LOUD at compose time when the resolution actually reaches this
-      # arm — a configured default that could never resolve, silently
-      # composing bare compute, is the exact defect class this arm exists to
-      # avoid reintroducing.
+      # Identical bucketing to the template arm, from the same classifier —
+      # the semantics live on Shared::SdwanNetworkResolution, not here.
+      # Composer-specific: :opt_out on THIS arm means "explicitly no default"
+      # and resolves like :absent (there is no further arm for it to beat),
+      # and :unusable fails LOUD at compose time when the resolution actually
+      # reaches this arm — a configured default that could never resolve,
+      # silently composing bare compute, is the exact defect class this arm
+      # exists to avoid reintroducing.
       def account_network_default
-        classify_network_value(account&.default_sdwan_network_setting)
-      end
-
-      # The single copy of the value bucketing both arms share — the buckets
-      # are 4db30efae's, extended with :opt_out (IMP-94728a788498).
-      def classify_network_value(raw)
-        return [ :absent, nil ] if raw.blank?
-        return [ :unusable, raw ] unless raw.is_a?(String)
-
-        value = raw.strip
-        return [ :opt_out, value ] if value.casecmp?(NETWORK_OPT_OUT_VALUE)
-
-        [ :usable, value ]
+        ::Shared::SdwanNetworkResolution.classify_account_default(account)
       end
 
       # Three-arm resolution (IMP-94728a788498): template explicit → account
