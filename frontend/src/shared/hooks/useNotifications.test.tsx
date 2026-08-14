@@ -206,4 +206,29 @@ describe('useNotifications', () => {
     expect(notifications[0].message).toBe('First call');
     expect(notifications[1].message).toBe('Second call');
   });
+
+  it('passes an optional link through to the stored notification', () => {
+    const { result } = renderHook(() => useNotifications(), { wrapper });
+
+    result.current.addNotification({
+      type: 'info',
+      message: 'Approval required: deleting port mapping is awaiting review.',
+      link: { label: 'Review approvals', to: '/app/ai/agents/autonomy' },
+    });
+
+    const notification = store.getState().ui.notifications[0];
+    expect(notification.link).toEqual({
+      label: 'Review approvals',
+      to: '/app/ai/agents/autonomy',
+    });
+  });
+
+  it('stores no link when none is provided', () => {
+    const { result } = renderHook(() => useNotifications(), { wrapper });
+
+    result.current.addNotification({ type: 'success', message: 'Saved.' });
+
+    const notification = store.getState().ui.notifications[0];
+    expect(notification.link).toBeUndefined();
+  });
 });

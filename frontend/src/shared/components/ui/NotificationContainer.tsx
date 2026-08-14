@@ -40,6 +40,7 @@ export const NotificationContainer: React.FC = () => {
           type={notification.type}
           message={notification.message}
           details={notification.details}
+          link={notification.link}
           onRemove={handleRemove}
         />
       ))}

@@ -11,6 +11,9 @@ interface UIState {
     message: string;
     timestamp: number;
     details?: Record<string, unknown>;
+    /** Optional in-app navigation target rendered as a link in the toast
+     *  (e.g. "Review approvals" for operations parked pending approval). */
+    link?: { label: string; to: string };
   }>;
 }
 

@@ -9,6 +9,7 @@ interface NotificationParams {
   message: string;
   title?: string; // Optional title for compatibility
   details?: Record<string, unknown>; // Optional details for expandable notifications
+  link?: { label: string; to: string }; // Optional in-app navigation link rendered in the toast
 }
 
 export const useNotifications = () => {
@@ -23,7 +24,8 @@ export const useNotifications = () => {
     dispatch(addNotificationAction({
       type: params.type,
       message,
-      details: params.details
+      details: params.details,
+      link: params.link
     }));
   }, [dispatch]);
 
