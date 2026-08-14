@@ -151,23 +151,33 @@ module Ai
       end
 
       def search_mcp_tools(topic:)
-        servers = McpServer.where(account_id: [account.id, nil]).where(status: "connected")
+        # Tools are mcp_tools rows (McpServer has_many :mcp_tools), written by
+        # Api::V1::Internal::McpServersController#register_tools (worker
+        # discovery) and Ai::Tools::McpPlatformToolRegistrar#upsert_mcp_tool!.
+        # There is no cached_tools accessor — the old respond_to?(:cached_tools)
+        # guard (and the Array check on the association it never reached) made
+        # this path silently dead. Enabled-only mirrors the available_mcp_tools
+        # readers (Ai::Agent::McpServerIntegration, Ai::RalphLoopConcerns::
+        # TaskAndLearning).
+        # Bare split (not /\s+/): a leading separator would yield an empty
+        # token, and include?("") matches every tool.
+        topic_words = topic.downcase.split
         matches = []
 
-        servers.find_each do |server|
-          tools = server.respond_to?(:cached_tools) ? server.cached_tools : []
-          next unless tools.is_a?(Array)
+        servers = McpServer.where(account_id: [account.id, nil]).where(status: "connected")
+        servers.includes(:mcp_tools).find_each do |server|
+          server.mcp_tools.each do |tool|
+            next unless tool.enabled
 
-          tools.each do |tool|
-            tool_text = "#{tool['name']} #{tool['description']}"
-            if topic.downcase.split(/\s+/).any? { |word| tool_text.downcase.include?(word) }
-              matches << {
-                server_id: server.id,
-                server_name: server.name,
-                tool_name: tool["name"],
-                tool_description: tool["description"]
-              }
-            end
+            tool_text = "#{tool.name} #{tool.description}".downcase
+            next unless topic_words.any? { |word| tool_text.include?(word) }
+
+            matches << {
+              server_id: server.id,
+              server_name: server.name,
+              tool_name: tool.name,
+              tool_description: tool.description
+            }
           end
         end
 
