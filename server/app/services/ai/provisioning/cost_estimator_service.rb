@@ -166,8 +166,15 @@ module Ai
         inputs  = cfg["inputs"] || cfg[:inputs] || {}
         inputs  = inputs.is_a?(Hash) ? inputs : {}
 
+        # `.presence`, not `||`: #estimate always passes `brief_for(plan) || {}`,
+        # and `{}` is truthy — a bare `||` chain never reached the step's own
+        # embedded brief, silently disabling the FLEET_SIZED_SKILLS
+        # scale.initial fallback for goals whose metadata carries no
+        # provisioning_mission_id (IMP-260b13250127). PlanComposerService
+        # embeds the brief into step inputs (synthesize_plan!, rewrite_step!),
+        # so the step-local copy is the legitimate fallback source.
         embedded_brief = inputs["brief"] || inputs[:brief]
-        effective_brief = (brief || embedded_brief || {})
+        effective_brief = (brief.presence || embedded_brief || {})
 
         if COMPUTE_SKILLS.include?(skill.to_s)
           compute_line_items(skill: skill.to_s, inputs: inputs, brief: effective_brief)

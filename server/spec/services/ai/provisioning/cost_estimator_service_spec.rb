@@ -93,6 +93,49 @@ RSpec.describe Ai::Provisioning::CostEstimatorService, type: :service do
       expect(compute_row[:count]).to eq(4)
     end
 
+    it "falls back to the step's own embedded brief when the goal carries no mission id" do
+      # PlanComposerService embeds the brief into every step's inputs
+      # (synthesize_plan!, rewrite_step!), but a goal whose metadata lacks
+      # `provisioning_mission_id` makes brief_for return nil, coalesced to {}.
+      # `{}` is truthy, so `(brief || embedded_brief)` never consulted the
+      # step's inline brief and the scale.initial fallback silently
+      # never fired (IMP-260b13250127).
+      goal = Ai::AgentGoal.create!(
+        account: account, agent: agent,
+        title: "Provisioning goal", description: "test",
+        goal_type: "creation", status: "pending", priority: 3, progress: 0.0,
+        success_criteria: {},
+        metadata: {} # no provisioning_mission_id — brief_for(plan) is nil
+      )
+      plan = build_plan(goal, steps: [
+        { config: { "skill" => "provision_full_stack",
+                    "inputs" => { "brief" => default_brief.merge("scale" => { "initial" => 4 }) } } }
+      ])
+
+      result = service.estimate(plan: plan)
+      compute_row = result[:by_resource].find { |r| r[:resource_type] == "compute" }
+      expect(compute_row[:count]).to eq(4)
+    end
+
+    it "quotes the default single instance when neither mission nor step embeds a brief" do
+      # Control twin: with no brief anywhere the fallback has nothing to read
+      # and must land on DEFAULT_INSTANCE_COUNT, not raise or quote a fleet.
+      goal = Ai::AgentGoal.create!(
+        account: account, agent: agent,
+        title: "Provisioning goal", description: "test",
+        goal_type: "creation", status: "pending", priority: 3, progress: 0.0,
+        success_criteria: {},
+        metadata: {}
+      )
+      plan = build_plan(goal, steps: [
+        { config: { "skill" => "provision_full_stack", "inputs" => {} } }
+      ])
+
+      result = service.estimate(plan: plan)
+      compute_row = result[:by_resource].find { |r| r[:resource_type] == "compute" }
+      expect(compute_row[:count]).to eq(described_class::DEFAULT_INSTANCE_COUNT)
+    end
+
     it "uses explicit step input count over brief scale" do
       mission = build_mission
       goal = build_goal(mission)
