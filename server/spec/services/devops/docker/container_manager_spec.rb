@@ -288,4 +288,60 @@ RSpec.describe Devops::Docker::ContainerManager do
       expect(result).to eq(stats_data)
     end
   end
+
+  # IMP-8880bc817ea3 — the terminal actuator (this manager) must drive the
+  # container-lifecycle seam: create syncs the record which fires :created,
+  # remove destroys it which fires :removed. Hooks fire on the model's commit
+  # callbacks, so a failed Docker API call (no record mutation) fires nothing.
+  describe 'container lifecycle hook seam' do
+    around do |example|
+      snapshot = Devops::ContainerLifecycleRegistry.handlers.dup
+      Devops::ContainerLifecycleRegistry.reset!
+      example.run
+    ensure
+      Devops::ContainerLifecycleRegistry.reset!
+      snapshot.each { |name, handler| Devops::ContainerLifecycleRegistry.register(name, handler) }
+    end
+
+    let(:received) { [] }
+
+    before do
+      Devops::ContainerLifecycleRegistry.register(:probe) do |event, record|
+        received << [event, record.docker_container_id]
+      end
+
+      allow_any_instance_of(Devops::Docker::ApiClient).to receive(:container_create)
+        .and_return({ "Id" => "new_container_id", "Warnings" => [] })
+      allow_any_instance_of(Devops::Docker::ApiClient).to receive(:container_inspect)
+        .and_return(mock_inspect_data.merge("Id" => "new_container_id", "Name" => "/test-app"))
+      allow_any_instance_of(Devops::Docker::ApiClient).to receive(:container_remove).and_return(nil)
+    end
+
+    it 'fires :created with the synced record on create_container' do
+      received.clear # setup materializes the `container` let, firing :created
+
+      manager.create_container(name: "test-app", image: "nginx:latest")
+      expect(received).to eq([[:created, "new_container_id"]])
+    end
+
+    it 'fires :removed on remove_container' do
+      container # materialize before clearing
+      received.clear
+
+      manager.remove_container(container)
+      expect(received).to eq([[:removed, container.docker_container_id]])
+    end
+
+    it 'fires nothing when the Docker API create fails' do
+      received.clear # setup materializes the `container` let, firing :created
+      allow_any_instance_of(Devops::Docker::ApiClient).to receive(:container_create)
+        .and_raise(Devops::Docker::ApiClient::ApiError.new("Image not found"))
+
+      expect {
+        manager.create_container(name: "test-app", image: "nonexistent:latest")
+      }.to raise_error(Devops::Docker::ApiClient::ApiError)
+
+      expect(received).to be_empty
+    end
+  end
 end
