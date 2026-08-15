@@ -131,7 +131,31 @@ module Mcp
       # pattern matches only the trailing "_hold", so
       # system_instance_hold_status (system.instances.read, unrestricted like
       # the tool's other read actions) is unaffected.
+      # *_deferred_operation and *intervention_policy (IMP-e8adfcfcab9b) — the
+      # human approval gate itself, in both directions. approve_deferred_operation
+      # EXECUTES the operation a human was asked to authorise, so an instance
+      # principal reaching it closes the loop on its own request; reject_ is
+      # denied for the same arm/disarm symmetry as *_hold above, since discarding
+      # an operator's pending decision is equally a decision that was not theirs.
+      # create_/update_intervention_policy is the sharper risk and the reason
+      # this is shape-based rather than a single name: an intervention policy is
+      # what DECIDES whether an action needs approval at all, so
+      # create_intervention_policy(scope: "global", policy: "auto_approve")
+      # disables gating account-wide — one call that makes every later gate
+      # vacuous. delete_intervention_policy was already covered by *delete*;
+      # denying only the delete while permitting the rewrite was the incoherence.
+      #
+      # These are precisely the actions whose authorization CANNOT be checked
+      # for an instance: it has no User, so has_permission? has nothing to ask
+      # about, which is why AgentAutonomyTool's per-action map (added by the
+      # same task) waves an instance through. The overlay is the layer that
+      # bounds it. Verified against the whole registry: these two patterns match
+      # exactly the five intended actions and no others, and the plural read
+      # actions (list_deferred_operations, list_intervention_policies) do not
+      # match, so an instance keeps its read surface.
       DESTRUCTIVE_TOOL_PATTERNS = %w[
+        *_deferred_operation
+        *intervention_policy
         *destroy*
         *terminate*
         *decommission*
