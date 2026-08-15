@@ -81,13 +81,40 @@ module Ai
       true
     end
 
-    def specificity_score
-      score = 0
-      score += 10 if user_id.present?
-      score += 5 if ai_agent_id.present?
-      score += 2 if action_category != "*"
-      score += priority
-      score
+    # Lexicographic precedence key — the sole decider in
+    # Ai::InterventionPolicyService#resolve. Arrays compare element by element,
+    # so no element can EVER be outweighed by a larger value in a later one:
+    #
+    #   [0] user_id present            — 1/0
+    #   [1] ai_agent_id present        — 1/0
+    #   [2] action_category is not "*" — 1/0
+    #   [3] priority                   — operator's tie-break WITHIN a tier
+    #
+    # Elements 0-1 are the tier order #resolve documents — user+agent > user >
+    # agent > global. Element 2 prefers a row naming the category over a
+    # wildcard. Only element 3 is operator-settable, and it ranks rows that are
+    # otherwise equal.
+    #
+    # These four were once WEIGHTS summed into one integer (+10/+5/+2, then
+    # `+ priority`). Because `priority` is unbounded and additive it outranked
+    # the hierarchy rather than breaking ties inside it: a scope-"global"
+    # `auto_approve` at priority 10 scored 12 and beat an agent's own explicit
+    # `require_approval` at priority 0, which scored 7 — the operator's gate on
+    # that specific agent silently discarded, and a laxer verb winning because
+    # its number was bigger (IMP-6430e3a8c4a1).
+    #
+    # Do NOT restore this as weights "large enough" to outrank a plausible
+    # priority. That is the same defect with a bigger constant and it fails the
+    # first time an operator sets a priority above the constant. `priority`
+    # belongs in the LAST element, where no value it can take reaches a tier
+    # above it.
+    def specificity_key
+      [
+        user_id.present? ? 1 : 0,
+        ai_agent_id.present? ? 1 : 0,
+        action_category == "*" ? 0 : 1,
+        priority
+      ]
     end
 
     private

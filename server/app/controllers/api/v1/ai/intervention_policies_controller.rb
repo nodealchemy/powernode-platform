@@ -104,7 +104,11 @@ module Api
             preferred_channels: policy.preferred_channels,
             user: policy.user ? { id: policy.user.id, email: policy.user.email } : nil,
             agent: policy.agent ? { id: policy.agent.id, name: policy.agent.name } : nil,
-            specificity_score: policy.specificity_score,
+            # Lexicographic, most-significant element first — see
+            # Ai::InterventionPolicy#specificity_key. Was a single additive
+            # `specificity_score`, whose arithmetic let `priority` outrank the
+            # scope hierarchy (IMP-6430e3a8c4a1). No frontend consumer today.
+            specificity_key: policy.specificity_key,
             created_at: policy.created_at.iso8601,
             updated_at: policy.updated_at.iso8601
           }
