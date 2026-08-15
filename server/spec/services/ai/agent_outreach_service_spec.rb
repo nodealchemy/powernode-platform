@@ -89,4 +89,55 @@ RSpec.describe Ai::AgentOutreachService do
     expect(result[:delivered]).to be(false)
     expect(result[:reason]).to eq("blocked_by_policy")
   end
+
+  # IMP-cb36021d4094 — the concrete production consequence of the audience cut,
+  # asserted against the REAL seeded shape rather than a constructed fixture.
+  #
+  # db/seeds/autonomy_data_seed.rb seeds status_update at scope "global",
+  # ai_agent_id nil, user_id nil, and its comment states why: without it
+  # resolution "falls back to require_approval for all categories — which is
+  # wrong for informational categories like status_update ... The LLM sees the
+  # policy in the tool response and misinterprets it as a permission failure."
+  #
+  # #notify ALWAYS passes an agent (it is a required constructor argument), so
+  # while the audience cut keyed on ai_agent_id, that row could never bind and
+  # every agent outreach resolved to exactly the require_approval default the
+  # seed exists to prevent. No agent-scoped row is present here, which is the
+  # state of any category an operator has configured only account-wide.
+  describe "against the seeded account-wide status_update row" do
+    before { relaxed_row.destroy! }
+
+    let!(:global_row) do
+      Ai::InterventionPolicy.create!(
+        account: account, action_category: "status_update", scope: "global",
+        ai_agent_id: nil, user_id: nil, policy: "notify_and_proceed",
+        priority: 0, is_active: true, preferred_channels: %w[notification]
+      )
+    end
+
+    it "binds the account-wide row instead of the require_approval default" do
+      result = notify!
+
+      expect(result[:policy_result][:record]).to eq(global_row),
+                                                 "the seeded account-wide row did not reach an agent outreach"
+      expect(result[:policy_result][:policy]).to eq("notify_and_proceed"),
+                                                 "outreach resolved the default the seed exists to prevent"
+    end
+
+    # The observable half, and the reason this is worth an assertion rather than
+    # prose: #notify picks its delivery channel from `policy_result[:channels]`.
+    # An unbound row means default_policy's %w[notification] is used, so an
+    # operator who configured workspace delivery account-wide silently kept
+    # getting notifications — a wrong-channel delivery, not a missing one, which
+    # is why nothing surfaced it.
+    it "delivers through the channel the account-wide row configures" do
+      global_row.update!(preferred_channels: %w[workspace])
+
+      result = nil
+      expect { result = notify! }.not_to change { Notification.where(category: "ai").count }
+      expect(result[:channel]).to eq("workspace"),
+                                  "the account-wide row's preferred_channels were discarded for the default"
+      expect(result[:delivered]).to be(true)
+    end
+  end
 end
