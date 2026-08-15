@@ -19,7 +19,7 @@ RSpec.describe Ai::ApprovalRequestNotifier do
 
   def build_operation(summary: "Add firewall rule 'deny-default' to SDWAN network wan-core")
     stub_const("NotifierSpecExecutor", Class.new do
-      def self.preview(params)
+      def self.preview(params, deferred_operation: nil)
         { summary: params["summary"] }
       end
     end)
@@ -102,10 +102,21 @@ RSpec.describe Ai::ApprovalRequestNotifier do
   # (2) collapsing per-accessor variance if content legitimately differs by
   # approver. #2 is covered above (and is structurally impossible here —
   # no content method receives `user`). This covers #1 directly.
+  #
+  # STRENGTHENED under IMP-4a5094b22df0. Before it, this example was green for
+  # a reason that had nothing to do with isolation: `Base.preview` hardcoded
+  # `deferred_operation: nil`, so a preview could not see an operation at all
+  # and the assertions were a statement about a method signature. That task
+  # threads a context through on purpose, to anchor approval-card labels to the
+  # account the gate opened the operation in — so the stub executors here reach
+  # for the operation from their previews, and the examples pin what they can
+  # and cannot get. The second one is the load-bearing one.
   describe "reveal-once isolation" do
     it "computing and re-reading the card preview never touches the deferred operation's one-shot reveal slot" do
+      previewed_with = []
       stub_const("RevealIsolationSpecExecutor", Class.new do
-        def self.preview(params)
+        define_singleton_method(:preview) do |params, deferred_operation: nil|
+          previewed_with << deferred_operation
           { summary: params["summary"] }
         end
 
@@ -134,6 +145,17 @@ RSpec.describe Ai::ApprovalRequestNotifier do
       message_first = Ai::DeferredOperationApprovalContent.message(request, step)
       message_second = Ai::DeferredOperationApprovalContent.message(request, step)
 
+      # The card path DID hand preview something. Without this the whole
+      # example could pass by threading nothing — which is exactly how it used
+      # to pass, and is no longer evidence of anything.
+      expect(previewed_with).not_to be_empty
+      # And what it handed over is NOT the operation. This is the guard: the
+      # thing a preview holds carries the account it needs to scope a label
+      # lookup and exposes no execution state to reach for.
+      expect(previewed_with).to all(be_a(Ai::DeferredOperation::PreviewContext))
+      expect(previewed_with).to all(satisfy { |ctx| ctx.account == account })
+      expect(previewed_with).not_to include(executed_instance)
+
       expect(title).not_to include("ONE-SHOT-SECRET")
       expect(message_first).not_to include("ONE-SHOT-SECRET")
       # The memo returns the same content on a second read — that's the fix
@@ -145,6 +167,68 @@ RSpec.describe Ai::ApprovalRequestNotifier do
       # and still yields exactly once — proving the two channels never cross.
       expect(executed_instance.take_revealed_result!).to eq(minted_secret: "ONE-SHOT-SECRET")
       expect(executed_instance.take_revealed_result!).to be_nil
+    end
+
+    # The load-bearing one. Threading an account into `preview` removed the
+    # `deferred_operation: nil` that used to make this whole mistake class
+    # self-limiting: an executor reaching for execution state from its preview
+    # got NoMethodError on nil, and Ai::DeferredOperation#preview's rescue
+    # degraded it to a generic card. Handing over the live operation instead
+    # would have converted that loud failure into a silent success that renders
+    # execution state — possibly reveal-once material — to an approver.
+    #
+    # So this example IS the fail-safe posture, stated as a test: an executor
+    # that does the wrong thing must still produce a card with no secret in it.
+    #
+    # It dies against the threaded-`self` design, and the WAY it dies is the
+    # point. There, `deferred_for`'s fresh instance means the reach returns nil
+    # rather than the secret, so the secret-absence assertions above still pass
+    # — and the card renders "Mint a thing " as though nothing were wrong. What
+    # catches it is the degradation assertion below: the mistake stopped being
+    # loud. That silence is the whole hazard, so the oracle has to be the
+    # fallback text and not merely the absence of a string.
+    it "degrades to a generic card, disclosing nothing, when an executor reaches for execution state in its preview" do
+      stub_const("RevealGrabbingSpecExecutor", Class.new do
+        # No respond_to? guard on purpose — the point is that this RAISES.
+        def self.preview(params, deferred_operation: nil)
+          { summary: "#{params['summary']} #{deferred_operation.take_revealed_result!}" }
+        end
+
+        def self.execute(_params, deferred_operation:)
+          { minted_secret: "ONE-SHOT-SECRET" }
+        end
+      end)
+
+      op = Ai::DeferredOperation.create!(
+        account: account, action_category: "test.mint",
+        executor_class: "RevealGrabbingSpecExecutor", params: { "summary" => "Mint a thing" }
+      )
+      executed_instance = Ai::DeferredOperation.find(op.id)
+      executed_instance.execute_now!
+
+      request = create(:ai_approval_request, account: account,
+                       source_type: "Ai::DeferredOperation", source_id: op.id)
+      step = request.step_statuses.first
+      title = Ai::DeferredOperationApprovalContent.title(request, step)
+      message = Ai::DeferredOperationApprovalContent.message(request, step)
+
+      expect(title).not_to include("ONE-SHOT-SECRET")
+      expect(message).not_to include("ONE-SHOT-SECRET")
+      # Loud, not silent: the reach raised, Ai::DeferredOperation#preview's
+      # rescue returned { summary: action_category, error: }, and the card
+      # rendered that. Asserting the degraded text (rather than only the
+      # secret's absence) is what distinguishes "the guard fired" from "the
+      # executor happened to render nothing" — the confound that would make
+      # this example vacuous.
+      #
+      # It is the bare category, NOT DeferredOperationApprovalContent.title's
+      # "Approval needed: #{...}" arm: that arm is `preview[:summary].presence
+      # || ...`, and the rescue's summary IS present, so the || never fires.
+      expect(title).to eq("test.mint")
+
+      # ...and the reach did not CONSUME the one-shot slot either, so the
+      # legitimate reader still gets its single reveal.
+      expect(executed_instance.take_revealed_result!).to eq(minted_secret: "ONE-SHOT-SECRET")
     end
   end
 end

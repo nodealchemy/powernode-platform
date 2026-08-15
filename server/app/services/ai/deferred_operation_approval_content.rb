@@ -79,17 +79,41 @@ module Ai
     # the cache).
     #
     # Crypto-safety note (verified, not assumed): `op.preview` cannot
-    # transitively include the executor's reveal-once minted secret. The
-    # revealed-result slot (`@revealed_result` / `take_revealed_result!`,
-    # deferred_operation.rb) is set ONLY inside `#execute_now!`, is an
-    # in-memory ivar never persisted to a column, and `deferred_for` always
-    # hands back a freshly `find_by`-loaded instance — so the object this
-    # memo caches a preview for never has that ivar set. `preview` is also a
-    # structurally separate method from `execute`/`perform` on every
-    # executor base in the codebase (System::Executors::Base.preview even
-    # hardcodes `deferred_operation: nil`, so a preview call can't reach a
-    # real operation's state at all). So this memo cannot defeat the
-    # one-shot reveal — see IMP-6858255cea72's reveal-once isolation spec.
+    # transitively include the executor's reveal-once minted secret.
+    #
+    # REVISED by IMP-4a5094b22df0. The old wording rested partly on
+    # `System::Executors::Base.preview` hardcoding `deferred_operation: nil`,
+    # so "a preview call can't reach a real operation's state at all" — that
+    # sentence is obsolete and must not be quoted back, because the card path
+    # now threads an account through in order to scope its labels. The claim
+    # still holds, on grounds that were deliberately preserved:
+    #
+    #   1. STRUCTURAL, and the load-bearing one. What
+    #      `Ai::DeferredOperation#preview` passes is an
+    #      `Ai::DeferredOperation::PreviewContext` — an object carrying the
+    #      account and nothing else — never the operation. `take_revealed_result!`
+    #      is not a method on the thing the preview path holds, so no executor
+    #      can call it, and one that tries raises NoMethodError, which
+    #      `#preview`'s rescue turns into a generic card. The fail-safe posture
+    #      the nil hardcoding used to provide is intact: a leak through this
+    #      channel cannot silently start working.
+    #   2. the slot is per-INSTANCE anyway. `@revealed_result` is set only
+    #      inside `#execute_now!`, on the receiver, and is an in-memory ivar
+    #      never persisted — while `deferred_for` below is a bare `find_by`, so
+    #      the operation this memo caches a preview for is a different object
+    #      from the one that executed. Independent of ground 1.
+    #   3. the two paths are temporally exclusive — for THIS caller only.
+    #      `notify_current_step!` refuses to run once the request is
+    #      non-pending, and a request only goes non-pending through the same
+    #      transition that triggers `execute_now!`. It does NOT generalise:
+    #      Ai::AutonomyApprovalActions#serialize_deferred_operation is a second
+    #      production caller of `op.preview` and runs on the approvals detail
+    #      surface AFTER approval, on a completed operation. Grounds 1 and 2
+    #      carry that path.
+    #
+    # So this memo cannot defeat the one-shot reveal — see IMP-6858255cea72's
+    # reveal-once isolation spec, strengthened under IMP-4a5094b22df0 to fail
+    # against an executor that DOES reach for execution state.
     #
     # Reuse across a later step-advance re-notification on the SAME request
     # object (a multi-step chain calls notify_current_step! again when
