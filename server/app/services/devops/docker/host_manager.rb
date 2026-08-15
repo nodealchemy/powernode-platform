@@ -94,8 +94,31 @@ module Devops
         { success: false, error: e.message }
       end
 
+      # Teardown for BOTH host varieties, and the difference is not cosmetic.
+      #
+      # A `managed` host is backed by a NodeInstance and its Docker daemon mTLS
+      # material is held in Vault under the `:docker_daemon_tls` credential
+      # type, keyed by the host id. The host ROW is the only thing left in the
+      # database that names that credential — destroy it without purging and
+      # the credential is orphaned permanently, with nothing left to find it
+      # by. An `external` host is an operator-registered pointer at somebody
+      # else's daemon: the platform issued it nothing, so there is nothing to
+      # purge and it is destroyed directly (the ordinary registration-removal
+      # path, unchanged).
+      #
+      # This used to be a bare `host.destroy!` with no branch at all, which
+      # meant DELETE /api/v1/devops/docker/hosts/:id leaked every managed
+      # host's credential (IMP-20fb59ec849d).
+      # Order matters, and there is no transaction because there could not be a
+      # useful one: Vault is not part of the database transaction, so the two
+      # steps cannot be made atomic and pretending otherwise only adds a way to
+      # fail. Destroying FIRST means a failed destroy leaves the host intact
+      # AND its credential intact — recoverable. Purging first would leave a
+      # live host whose daemon credentials are gone if the destroy then failed,
+      # which is the one outcome an operator cannot fix from the UI.
       def remove_host(host)
         host.destroy!
+        purge_managed_tls_credential!(host) if host.managed?
         Rails.logger.info("Removed Docker host #{host.name} from account #{@account.id}")
         { success: true }
       end
@@ -169,6 +192,31 @@ module Devops
       end
 
       private
+
+      # Non-fatal by design, matching the platform's other purge of this same
+      # credential: the row still goes away and the failure is logged loudly.
+      # Raising here would leave the operator with a host they cannot delete
+      # whenever Vault is sealed or unreachable, and the row is the less
+      # valuable of the two things to keep.
+      #
+      # Scoped by the HOST's account rather than @account: the caller resolved
+      # the host through an account-scoped relation, and the credential's Vault
+      # path is built from the account that stored it.
+      #
+      # #purge_credential!, NOT #delete_credential. The material was written by
+      # a record-less #store_credential, so it lives at the convention path and
+      # #delete_credential — which only follows a record's vault_path — would
+      # return true having purged nothing.
+      def purge_managed_tls_credential!(host)
+        ::Security::VaultCredentialProvider
+          .new(account_id: host.account_id)
+          .purge_credential!(credential_type: :docker_daemon_tls, credential_id: host.id)
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[Devops::Docker::HostManager] vault purge failed for " \
+          "host_id=#{host.id}: #{e.class}: #{e.message}"
+        )
+      end
 
       def sync_containers(host, docker_containers)
         remote_ids = docker_containers.map { |c| c["Id"] }
