@@ -161,10 +161,17 @@ RSpec.describe Ai::Provisioning::RiskScorerService, type: :service do
       goal = build_goal(mission)
       plan = build_plan(goal, steps: [
         { config: { "skill" => "provision_full_stack",
-                    "inputs" => { "count" => 5, "brief" => tight_brief } } }
+                    "inputs" => { "count" => 5, "with_storage_gb" => 100, "brief" => tight_brief } } }
       ])
 
-      # Storage + egress alone push us close to / over the $50 cap when count = 5.
+      # A declared 100GB volume × 5 instances × $0.10/GB-month = $50.00, exactly
+      # at the $50 cap, so headroom is 0% and the factor fires.
+      #
+      # This fixture previously declared no resources at all and leaned on
+      # CostEstimatorService's phantom storage + egress defaults to manufacture
+      # a cost. IMP-051509357291 removed those, and #budget_headroom_factors
+      # bails on a non-positive estimate — so the example needs a plan that
+      # genuinely costs something, not one that used to be billed for nothing.
       result = service.score(plan: plan)
       factor = result[:factors].find { |f| f[:name] == "Budget headroom" }
       expect(factor).to be_present

@@ -344,9 +344,32 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
       expect(rows.pluck(:correlation_id).uniq).to all(start_with("tick:"))
     end
 
-    it "grades the observation gap instead of passing vacuously on unavailable telemetry" do
+    # IMP-3431f73dabe6. This example used to assert `soak_live_metrics == 0` and
+    # a /none from a live/ finding. That was not a property of the harness — it
+    # was ProjectMetricsCollector's wrong dig path (`last_outputs.
+    # node_instance_ids`, a shape nothing has ever written) showing through as
+    # an expectation. With the collector reading the path SkillCompositionRunner
+    # actually records, the soak observes real samples through the production
+    # tick, so the gap this example used to grade is gone. The grading branch
+    # itself is still real and is covered by the example below it.
+    it "records LIVE metric samples once the collector can resolve the mission's instances" do
       result = soak_harness.run
 
+      expect(result.oracles["soak_live_metrics"]).to be > 0
+      expect(result.oracles["soak_live_metrics"]).to be <= result.oracles["soak_metric_samples"]
+      expect(result.findings.select { |f| f.dimension == "observation" }).to be_empty
+    end
+
+    it "grades the observation gap when every sample really is unavailable" do
+      # Force the precondition the grading branch exists for — a mission whose
+      # provisioned instances cannot be resolved (a plan that recorded no
+      # outputs) — rather than relying on a defect to supply it.
+      allow_any_instance_of(System::ProjectMetricsCollector)
+        .to receive(:resolvable_instance_ids).and_return([])
+
+      result = soak_harness.run
+
+      expect(result.oracles["soak_metric_samples"]).to be > 0
       expect(result.oracles["soak_live_metrics"]).to eq(0)
       obs = result.findings.select { |f| f.dimension == "observation" }
       expect(obs).not_to be_empty

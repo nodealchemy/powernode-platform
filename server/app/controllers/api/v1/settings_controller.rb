@@ -173,7 +173,12 @@ class Api::V1::SettingsController < ApplicationController
       website: settings["website"],
       phone: settings["phone"],
       address: settings["address"],
-      logo_url: settings["logo_url"]
+      logo_url: settings["logo_url"],
+      # IMP-94728a788498: writable through PATCH's blind settings merge, so it
+      # must be readable here too (kept in parity with
+      # SettingsUpdateService#current_account_settings — same duplicated
+      # serializer, same fields).
+      Account::DEFAULT_SDWAN_NETWORK_SETTING.to_sym => settings[Account::DEFAULT_SDWAN_NETWORK_SETTING]
     }
   end
 

@@ -19,6 +19,16 @@ module Devops
     validates :image, presence: true
     validates :state, presence: true, inclusion: { in: STATES }
 
+    # IMP-8880bc817ea3 — container lifecycle seam. Every record create/destroy
+    # path (ContainerManager create/remove, both discovery syncs + their stale
+    # sweeps, the DockerHost dependent: :destroy cascade) funnels through this
+    # model, so one wire point covers the whole enumeration — see
+    # Devops::ContainerLifecycleRegistry for the call-site map and the handler
+    # contract. Post-commit so handlers see durable state; the registry
+    # swallows handler errors, so these can never break container lifecycle.
+    after_create_commit { ContainerLifecycleRegistry.notify(:created, self) }
+    after_destroy_commit { ContainerLifecycleRegistry.notify(:removed, self) }
+
     scope :running, -> { where(state: "running") }
     scope :stopped, -> { where(state: %w[exited created dead]) }
     scope :by_state, ->(state) { where(state: state) }

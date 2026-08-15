@@ -46,10 +46,13 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "compose-time prerequisite
     end
 
     it "returns a clarification payload when the checker reports issues" do
+      # network_id (IMP-94728a788498) carries the composer's three-arm
+      # resolution down to the checker; nil means "nothing resolves".
       checker = double("prereqs")
-      expect(checker).to receive(:check) do |account:, template_id:, skills:|
+      expect(checker).to receive(:check) do |account:, template_id:, skills:, network_id:|
         expect(account.id).to eq(mission.account_id)
         expect(skills).to include("docker_provision")
+        expect(network_id).to be_nil
         [ "docker_provision requires an SDWAN overlay; template declares no sdwan_network_id" ]
       end
       stub_checker(checker)
@@ -59,6 +62,19 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "compose-time prerequisite
       expect(result).to be_a(Hash)
       expect(result[:clarification_needed]).to be true
       expect(result[:message]).to match(/SDWAN overlay/)
+    end
+
+    it "threads the caller-resolved network id through to the checker" do
+      checker = double("prereqs")
+      expect(checker).to receive(:check) do |network_id:, **|
+        expect(network_id).to eq("net-123")
+        []
+      end
+      stub_checker(checker)
+
+      expect(service.send(:check_plan_prerequisites, skills: %w[docker_provision],
+                                                     template_id: "tmpl-1",
+                                                     network_id: "net-123")).to be_nil
     end
 
     it "returns nil when the checker reports no issues" do

@@ -92,19 +92,79 @@ RSpec.describe Ai::SkillGraph::ResearchService, type: :service do
     end
 
     context "MCP source" do
-      it "searches connected MCP servers for matching tools" do
+      # Tools live in mcp_tools rows (written by the worker via
+      # Api::V1::Internal::McpServersController#register_tools and by
+      # Ai::Tools::McpPlatformToolRegistrar#upsert_mcp_tool!) — NOT in a
+      # cached_tools hash on the server. These examples drive the real
+      # writer shape.
+      let!(:server) do
         McpServer.create!(
           account: account,
           name: "Test Server",
-          url: "http://localhost:3333",
-          status: "connected",
           connection_type: "http",
-          capabilities: { "tools" => [{ "name" => "code_review", "description" => "Automated code review tool" }] }
+          url: "http://localhost:3333",
+          status: "connected"
         )
+      end
+
+      it "matches enabled tools on connected servers by name/description against the topic" do
+        server.mcp_tools.create!(name: "code_review", description: "Automated code review tool")
+        server.mcp_tools.create!(name: "weather_lookup", description: "Fetches forecasts")
 
         result = service.research(topic: "code review", sources: %w[mcp])
 
-        expect(result[:findings][:mcp]).to be_an(Array)
+        expect(result[:findings][:mcp]).to contain_exactly(
+          a_hash_including(
+            server_id: server.id,
+            server_name: "Test Server",
+            tool_name: "code_review",
+            tool_description: "Automated code review tool"
+          )
+        )
+        expect(result[:total_findings]).to eq(1)
+      end
+
+      it "does not match every tool when the topic has surrounding whitespace" do
+        server.mcp_tools.create!(name: "code_review", description: "Automated code review tool")
+        server.mcp_tools.create!(name: "weather_lookup", description: "Fetches forecasts")
+
+        result = service.research(topic: "  code review ", sources: %w[mcp])
+
+        expect(result[:findings][:mcp].map { |m| m[:tool_name] }).to eq(["code_review"])
+      end
+
+      it "skips disabled tools while matching their enabled siblings" do
+        server.mcp_tools.create!(name: "code_review", description: "Automated code review tool", enabled: false)
+        server.mcp_tools.create!(name: "code_formatter", description: "Formats code nicely")
+
+        result = service.research(topic: "code", sources: %w[mcp])
+
+        expect(result[:findings][:mcp].map { |m| m[:tool_name] }).to eq(["code_formatter"])
+      end
+
+      it "skips servers that are not connected" do
+        server.mcp_tools.create!(name: "code_review", description: "Automated code review tool")
+        server.update!(status: "disconnected")
+
+        result = service.research(topic: "code review", sources: %w[mcp])
+
+        expect(result[:findings][:mcp]).to eq([])
+      end
+
+      it "does not search another account's servers" do
+        other_account = create(:account)
+        other_server = McpServer.create!(
+          account: other_account,
+          name: "Foreign Server",
+          connection_type: "http",
+          url: "http://localhost:4444",
+          status: "connected"
+        )
+        other_server.mcp_tools.create!(name: "code_review", description: "Automated code review tool")
+
+        result = service.research(topic: "code review", sources: %w[mcp])
+
+        expect(result[:findings][:mcp]).to eq([])
       end
     end
   end

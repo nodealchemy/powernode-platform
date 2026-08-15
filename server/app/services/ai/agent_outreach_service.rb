@@ -42,6 +42,17 @@ module Ai
         return { delivered: false, channel: nil, policy_result: policy_result, reason: "silent_policy" }
       end
 
+      # The account's daily notification budget is spent (IMP-73dff8186c1e).
+      # Resolution keeps a real authorisation verb so gated WRITES elsewhere are
+      # parked rather than refused, and reports the delivery half separately —
+      # this path is the one that must honour it. Do NOT infer suppression from
+      # `channels`: it arrives empty, and `[].presence` is nil, so the fallback
+      # below would deliver the notification the cap exists to withhold.
+      if policy_result[:notifications_suppressed]
+        return { delivered: false, channel: nil, policy_result: policy_result,
+                 reason: "notification_limit_reached" }
+      end
+
       # Deliver through preferred channels
       channels = policy_result[:channels].presence || %w[notification]
       delivered_via = nil

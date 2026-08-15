@@ -32,7 +32,7 @@ module Ai
       return "Approval needed" unless op
 
       preview = safe_preview(op)
-      preview[:summary].presence || "Approval needed: #{op.action_category}"
+      collapse_lines(preview[:summary]).presence || "Approval needed: #{op.action_category}"
     end
 
     def self.message(request, step)
@@ -43,11 +43,13 @@ module Ai
       return header unless op
 
       preview = safe_preview(op)
+      summary = collapse_lines(preview[:summary])
+      impact = collapse_lines(preview[:impact])
       lines = [header]
-      lines << preview[:summary] if preview[:summary].present?
-      lines << "Impact: #{preview[:impact]}" if preview[:impact].present?
-      lines << "Requested by: #{op.requested_by&.email}" if op.requested_by
-      lines << "Agent: #{op.ai_agent.name}" if op.ai_agent
+      lines << summary if summary.present?
+      lines << "Impact: #{impact}" if impact.present?
+      lines << "Requested by: #{collapse_lines(op.requested_by&.email)}" if op.requested_by
+      lines << "Agent: #{collapse_lines(op.ai_agent.name)}" if op.ai_agent
       lines.join("\n")
     end
 
@@ -74,6 +76,22 @@ module Ai
 
     def self.destructive_categories
       %w[delete destroy terminate revoke decommission deprovision drop]
+    end
+
+    # The card's message is "\n"-joined, and its dynamic segments are
+    # caller-supplied text replayed verbatim (preview fields interpolate
+    # request params; Ai::Agent#name has no format validation) — so embedded
+    # vertical whitespace would forge extra card lines on a HUMAN approval
+    # gate (a spoofed "Impact:" line was live-reproduced). Collapse ALL line
+    # structure to a single space here, at the one place the card is
+    # composed: per-executor sanitization cannot close the hole, because a
+    # newline-bearing name persisted by any create path resurfaces in later
+    # unrelated delete/update cards (IMP-acb2e40960e7). Every dynamic
+    # segment passes through this — including provably line-free ones like
+    # the \A-anchored email — so the invariant is local, not spread across
+    # distant validations.
+    def self.collapse_lines(value)
+      value.to_s.gsub(/[\r\n\v\f\u0085\u2028\u2029]+/, " ")
     end
   end
 end

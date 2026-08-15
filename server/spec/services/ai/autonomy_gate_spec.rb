@@ -113,6 +113,57 @@ RSpec.describe Ai::AutonomyGate do
       end
     end
 
+    # IMP-73dff8186c1e — the operator-facing half of the notification-cap
+    # defect. `requested_by` is always populated on the HTTP path, so this is
+    # the audience for which "max_daily_notifications" was actually live: once
+    # the day's budget was spent, resolution returned "silent" and the
+    # `when "block", "silent"` branch below rejected the operation as 422.
+    context 'when a notify_and_proceed policy has spent its notification budget' do
+      before do
+        Ai::InterventionPolicy.create!(
+          account: account, action_category: 'test.action',
+          scope: 'global', policy: 'notify_and_proceed', priority: 5, is_active: true,
+          conditions: { 'max_daily_notifications' => 1 }
+        )
+      end
+
+      # Explicitly called, not eager — a plain method rather than a `let!` so the
+      # headroom example below can skip it.
+      def over_cap!
+        create(:notification, account: account, user: user,
+                              notification_type: 'agent_status_update', category: 'ai')
+      end
+
+      it 'parks the write for approval instead of refusing it' do
+        over_cap!
+
+        result = described_class.evaluate(**base_args)
+
+        expect(result.decision).to eq(:pending)
+        expect(result.deferred_operation.approval_request).to be_present
+      end
+
+      # The audit row is what an operator reads back, and a rejection there is
+      # the durable half of the old behaviour.
+      it 'leaves no policy rejection on the audit row' do
+        over_cap!
+
+        op = described_class.evaluate(**base_args).deferred_operation.reload
+
+        expect(op.status).to eq('pending')
+        expect(op.error_message).to be_nil
+      end
+
+      # Positive twin: the relaxation the operator asked for still applies while
+      # the budget has headroom, so the cap is not simply inert.
+      it 'still proceeds inline while the budget has headroom' do
+        result = described_class.evaluate(**base_args)
+
+        expect(result.decision).to eq(:proceed)
+        expect(result.deferred_operation.reload.status).to eq('completed')
+      end
+    end
+
     context 'when no policy is configured (default)' do
       it 'falls through to require_approval per InterventionPolicyService default' do
         result = described_class.evaluate(**base_args)
@@ -142,6 +193,87 @@ RSpec.describe Ai::AutonomyGate do
       it 'attaches the agent to the deferred operation row' do
         result = described_class.evaluate(**base_args.merge(agent: agent))
         expect(result.deferred_operation.ai_agent_id).to eq(agent.id)
+      end
+    end
+
+    # IMP-b44483c3c098 — the params→request_data copy is the one place every
+    # gated call site passes through, so redacting here is what makes both of
+    # federation acceptance's producers (the MCP tool today, the REST PATCH
+    # next) safe without either of them knowing about it.
+    context 'when params carry secret material' do
+      let(:plaintext) { 'SINGLE-USE-TOKEN-PLAINTEXT' }
+      let(:captured)  { [] }
+
+      let(:secret_args) do
+        base_args.merge(
+          executor_class: 'CapturingSpecExecutor',
+          params: { federation_peer_id: 'peer-42', acceptance_token: plaintext }
+        )
+      end
+
+      before do
+        sink = captured
+        stub_const('CapturingSpecExecutor', Class.new do
+          define_singleton_method(:execute) do |params, deferred_operation:|
+            sink << params.deep_dup
+            { success: true, data: { accepted: true } }
+          end
+
+          define_singleton_method(:preview) do |_params|
+            { summary: 'Accept federation peer', impact: 'Handshake completes' }
+          end
+        end)
+      end
+
+      context 'under require_approval' do
+        before do
+          Ai::InterventionPolicy.create!(
+            account: account, action_category: 'test.action',
+            scope: 'global', policy: 'require_approval', priority: 5, is_active: true
+          )
+        end
+
+        it 'keeps the secret out of the approval request an approver reads' do
+          request = described_class.evaluate(**secret_args).deferred_operation.approval_request
+
+          expect(request.request_data.to_json).not_to include(plaintext)
+          expect(request.request_data.dig('params', 'acceptance_token')).to eq('[FILTERED]')
+        end
+
+        it 'leaves the non-secret params legible on the approval card' do
+          request = described_class.evaluate(**secret_args).deferred_operation.approval_request
+
+          expect(request.request_data.dig('params', 'federation_peer_id')).to eq('peer-42')
+          expect(request.request_data['executor_class']).to eq('CapturingSpecExecutor')
+        end
+
+        # The other direction: redacting the approver's copy must not disarm the
+        # executor, which cannot complete the handshake without the real token.
+        it 'still hands the executor the raw secret when the approval completes' do
+          op = described_class.evaluate(**secret_args).deferred_operation
+          op.approval_request.update!(status: 'approved')
+
+          expect(op.reload.status).to eq('completed')
+          expect(captured.last['acceptance_token']).to eq(plaintext)
+        end
+      end
+
+      context 'under auto_approve' do
+        before do
+          Ai::InterventionPolicy.create!(
+            account: account, action_category: 'test.action',
+            scope: 'global', policy: 'auto_approve', priority: 5, is_active: true
+          )
+        end
+
+        # No approval request exists on this branch, so params are the only copy
+        # — and the executor must still get the real value inline.
+        it 'hands the executor the raw secret and stores it unredacted for the replay' do
+          op = described_class.evaluate(**secret_args).deferred_operation
+
+          expect(captured.last['acceptance_token']).to eq(plaintext)
+          expect(op.reload.params['acceptance_token']).to eq(plaintext)
+        end
       end
     end
   end

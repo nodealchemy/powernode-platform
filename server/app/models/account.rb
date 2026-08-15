@@ -267,9 +267,31 @@ class Account < ApplicationRecord
   # but don't roll back account creation — surfaced via monitoring.
   after_create_commit :run_account_bootstrap
 
+  # The Account#settings key holding the account-wide DEFAULT SDWAN network
+  # for provisioning (IMP-94728a788498). When the chosen NodeTemplate says
+  # nothing about a network, composed provisions fall back to this id so
+  # fabric membership is the account's default posture rather than a
+  # per-template opt-in. DB-driven config: operators set it through the
+  # existing account-settings surface (SettingsUpdateService merges arbitrary
+  # keys into `settings`); no seed, env var, or hardcoded value writes it.
+  # A plain data key — the resolution semantics (opt-out sentinel, fail-loud
+  # bucketing) live with the resolver, Ai::Provisioning::PlanComposerService.
+  DEFAULT_SDWAN_NETWORK_SETTING = "default_sdwan_network_id"
+
   # Instance methods
   def active?
     status == "active"
+  end
+
+  # Raw configured value of DEFAULT_SDWAN_NETWORK_SETTING (string or symbol
+  # key; jsonb round-trips strings, in-memory writers may use symbols), or
+  # nil. Deliberately UNCLASSIFIED: whether a value is usable, an opt-out,
+  # or a loud misconfiguration is the resolver's single-copy decision.
+  def default_sdwan_network_setting
+    s = settings
+    return nil unless s.is_a?(Hash)
+
+    s[DEFAULT_SDWAN_NETWORK_SETTING] || s[DEFAULT_SDWAN_NETWORK_SETTING.to_sym]
   end
 
   def suspended?

@@ -416,6 +416,11 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       expect(result[:detail]).to match(/redis down|RuntimeError/)
       # Ground truth backing the disposition: the steps really are on the plan.
       expect(live_plan.reload.steps.count).to eq(2)
+      # The two number fields travel together on every post-append outcome —
+      # "this call enqueued nothing" is [], never an absent key a caller
+      # written to the docstring would `nil.size`.
+      expect(result[:appended_step_numbers]).to eq([ 2 ])
+      expect(result[:dispatched_step_numbers]).to eq([])
     end
 
     it "reports parked when the append itself failed — there, nothing did run" do
@@ -500,10 +505,15 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       expect(enqueued).to eq([ unstamped.first.id ])
     end
 
-    it "reports already_applied — not applied_dispatch_failed — when a run is already in flight" do
-      # execute_appended!'s in-flight arm returns dispatched: 0 with
-      # already_running: true. Labelling that `applied_dispatch_failed` told the
-      # caller to re-run work that is currently executing.
+    # RENAMED (IMP-6025e4c2e256). This example was called "reports
+    # already_applied … when a run is already in flight" and did not test that:
+    # setting the step to `executing` makes resumable_steps return [], so the
+    # result comes from the PRE-EXISTING refuse branch, never from the
+    # in-flight arm it named. The two branches return an identical gate and
+    # dispatched, so it passed unchanged with the in-flight block deleted. The
+    # DETAIL is what tells them apart, and the example below covers the arm
+    # this one was mistakenly credited with.
+    it "refuses a duplicate dispatch once an appended step is past pending" do
       stub_gate(gate_answering("auto_apply_within_bounds"))
       plan = build_diff_plan!
       service.dispatch!(plan: plan)
@@ -514,6 +524,73 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
 
       expect(result[:gate]).to eq(described_class::GATE_ALREADY_APPLIED)
       expect(result[:dispatched]).to be false
+      expect(result[:detail]).to eq("already applied to this mission's live plan")
+      expect(result[:dispatched_step_numbers]).to eq([])
+    end
+
+    it "reports already_applied — not applied_dispatch_failed — when a run is already in flight" do
+      # execute_appended!'s in-flight arm returns dispatched: 0 with
+      # already_running: true. Labelling that `applied_dispatch_failed` told the
+      # caller to re-run work that is currently executing.
+      #
+      # Reachable ONLY through a concurrent flip: both callers hand over steps
+      # they have just read as `pending`, so a worker has to move one between
+      # this service's read and the runner's own guard. Driven here by stubbing
+      # the runner, because that interleaving cannot be staged from the rows.
+      stub_gate(gate_answering("auto_apply_within_bounds"))
+      allow(WorkerJobService).to receive(:enqueue_job).and_raise(RuntimeError, "redis down")
+      plan = build_diff_plan!
+      service.dispatch!(plan: plan) # appended; nothing enqueued, nothing stamped
+
+      allow(WorkerJobService).to receive(:enqueue_job).and_return(true)
+      runner = instance_double(Ai::Provisioning::SkillCompositionRunner)
+      allow(Ai::Provisioning::SkillCompositionRunner).to receive(:new).and_return(runner)
+      allow(runner).to receive(:execute_appended!).and_return(
+        { runner_id: "runner-1", started_at: Time.current, step_count: 1,
+          dispatched: 0, already_running: true }
+      )
+
+      result = service.dispatch!(plan: plan.reload)
+
+      expect(result[:gate]).to eq(described_class::GATE_ALREADY_APPLIED)
+      expect(result[:dispatched]).to be false
+      expect(result[:detail]).to eq("a run is already in flight for these steps")
+      expect(result[:runner_id]).to eq("runner-1")
+      expect(result[:dispatched_step_numbers]).to eq([])
+    end
+
+    it "reports EVERY step of the adaptation on the live plan, not just the subset it dispatched" do
+      # `appended_step_numbers` is operator-facing ground truth: which rows did
+      # this adaptation put on the mission's live plan. Deriving it from the
+      # collection handed to the runner made it wrong in both directions — it
+      # claimed steps the runner never enqueued on the fresh path, and a
+      # multi-step adaptation resuming its last step reported ONE number while
+      # three rows sat on the plan. What was actually enqueued is now its own
+      # field rather than something inferred from this one.
+      stub_gate(gate_answering("auto_apply_within_bounds",
+                               approval_request_id: SecureRandom.uuid, authority: "approval"))
+      plan = build_diff_plan!(steps: [
+        { "skill" => "scale_project", "on_failure" => "continue",
+          "inputs" => { "change_type" => "scale_horizontal", "desired_replica_count" => 4,
+                        "project_id" => mission.id, "target_count" => 2,
+                        "scaling_strategy" => "add_replicas" } },
+        { "skill" => "attach_storage", "on_failure" => "continue",
+          "inputs" => { "mission_id" => mission.id } }
+      ])
+
+      first = service.dispatch!(plan: plan)
+
+      expect(first[:appended_step_numbers]).to eq([ 2, 3 ])
+      # Only layer 1 went to a worker; step 3 waits on step 2 completing.
+      expect(first[:dispatched_step_numbers]).to eq([ 2 ])
+
+      live_plan.reload.steps.find_by(step_number: 2).update!(status: "completed")
+      resumed = service.dispatch!(plan: plan.reload)
+
+      expect(resumed[:dispatched]).to be true
+      # Still the whole footprint, even though only step 3 was resumable.
+      expect(resumed[:appended_step_numbers]).to eq([ 2, 3 ])
+      expect(resumed[:dispatched_step_numbers]).to eq([ 3 ])
     end
 
     # THE INTERLEAVING, driven rather than described: dispatch_step_job enqueues

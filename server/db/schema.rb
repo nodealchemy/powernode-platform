@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_11_190000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_14_021000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -982,6 +982,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_190000) do
     t.datetime "created_at", null: false
     t.integer "current_step", default: 0
     t.text "description"
+    t.text "execution_error"
+    t.string "execution_status"
     t.datetime "expires_at"
     t.jsonb "request_data", default: {}
     t.string "request_id", null: false
@@ -998,6 +1000,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_190000) do
     t.index ["expires_at"], name: "index_ai_approval_requests_on_expires_at"
     t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
     t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
+    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying, 'failed'::character varying]::text[]))", name: "check_execution_status"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_request_status"
   end
 
@@ -10471,6 +10474,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_190000) do
     t.inet "src_ip", null: false
     t.integer "src_port"
     t.datetime "updated_at", null: false
+    t.index ["account_id", "dst_ip", "dst_port", "observed_at"], name: "index_system_sdwan_flow_samples_on_service_correlation"
     t.index ["account_id", "observed_at"], name: "index_system_sdwan_flow_samples_on_account_id_and_observed_at", order: { observed_at: :desc }
     t.index ["ipfix_collector_id", "observed_at"], name: "idx_on_ipfix_collector_id_observed_at_37c3f078dd", order: { observed_at: :desc }
   end
@@ -10821,6 +10825,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_190000) do
     t.string "client_auth", default: "none", null: false
     t.datetime "created_at", null: false
     t.string "edge_mode", default: "passthrough", null: false
+    t.string "health_state", default: "unknown", null: false
+    t.datetime "last_observed_flow_at"
     t.string "local_auth_mode", default: "authenticated", null: false
     t.uuid "local_certificate_id"
     t.boolean "local_enabled", default: false, null: false
@@ -10834,6 +10840,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_11_190000) do
     t.string "slug", limit: 64, null: false
     t.string "status", default: "active", null: false
     t.datetime "updated_at", null: false
+    t.index ["account_id", "health_state"], name: "index_system_sdwan_services_on_account_id_and_health_state"
     t.index ["account_id", "slug"], name: "index_system_sdwan_services_on_account_id_and_slug", unique: true
     t.index ["account_id"], name: "index_system_sdwan_services_on_account_id"
     t.index ["backend_vip_id"], name: "index_system_sdwan_services_on_backend_vip_id"

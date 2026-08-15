@@ -54,6 +54,19 @@ RSpec.describe 'Api::V1::Settings', type: :request do
         expect(account_settings).to have_key('subdomain')
       end
 
+      # IMP-94728a788498: the account default network is writable through this
+      # surface (blind merge into Account#settings), so it must be READABLE
+      # here too — a key that can be set but never read back can only be
+      # debugged with DB access once a bad value starts failing composes.
+      it 'reads back the provisioning default network setting it can write' do
+        account.update!(settings: (account.settings || {}).merge('default_sdwan_network_id' => 'net-42'))
+
+        get '/api/v1/settings', headers: headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['account_settings']['default_sdwan_network_id']).to eq('net-42')
+      end
+
       it 'returns security settings' do
         get '/api/v1/settings', headers: headers, as: :json
 
@@ -113,6 +126,24 @@ RSpec.describe 'Api::V1::Settings', type: :request do
 
         expect(response).to have_http_status(:unprocessable_content)
         expect(json_response['success']).to be false
+      end
+    end
+
+    # IMP-94728a788498: UNSTUBBED round-trip — the real SettingsUpdateService
+    # must both persist the account default network key and read it back in
+    # its own response (its current_account_settings is a second hand-rolled
+    # copy of the controller's; both must carry the key).
+    context 'writing the provisioning default network setting (real service)' do
+      it 'persists the key and reads it back in the response' do
+        put '/api/v1/settings',
+            params: { settings: { account_settings: { default_sdwan_network_id: 'net-77' } } },
+            headers: headers, as: :json
+
+        expect_success_response
+        expect(account.reload.settings['default_sdwan_network_id']).to eq('net-77')
+        expect(json_response_data.dig('settings', 'account_settings', 'default_sdwan_network_id')
+                 .presence || json_response_data.dig('account_settings', 'default_sdwan_network_id'))
+          .to eq('net-77')
       end
     end
   end

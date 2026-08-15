@@ -125,6 +125,126 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
     end
   end
 
+  # IMP-6025e4c2e256 — layering a SUBSET of the plan.
+  #
+  # AdaptationDispatchService hands #execute_appended! only the steps that
+  # still need enqueueing. On a resume that is a strict subset of the
+  # adaptation, and by construction every step in it depends on rows OUTSIDE
+  # the collection handed over — the COMPLETED steps that made it resumable in
+  # the first place. A layerer that can satisfy a dependency only from within
+  # the collection it was given therefore cannot layer a subset at all: the
+  # first pass yields an empty layer and the genuine-cycle backstop fires on a
+  # perfectly ordered chain.
+  describe "#execute_appended! — layering a subset against the live plan" do
+    # The live plan's original step, long since finished.
+    let(:original) do
+      build_step(id: "orig-1", step_number: 1, dependencies: [], skill: "provision_full_stack",
+                 on_failure: "continue").tap { |s| s.status = "completed" }
+    end
+    # Appended, with no dependencies of its own.
+    let(:free) do
+      build_step(id: "app-2", step_number: 2, dependencies: [], skill: "provision_full_stack",
+                 on_failure: "continue")
+    end
+    # Appended, depending on the COMPLETED original — outside any resumable subset.
+    let(:chained) do
+      build_step(id: "app-3", step_number: 3, dependencies: [1], skill: "provision_full_stack",
+                 on_failure: "continue")
+    end
+    # Appended, depending on `chained`, which is still PENDING inside the subset.
+    let(:blocked) do
+      build_step(id: "app-4", step_number: 4, dependencies: [3], skill: "provision_full_stack",
+                 on_failure: "continue")
+    end
+
+    let(:plan)     { build_plan([original, free, chained, blocked]) }
+    let(:enqueued) { [] }
+
+    before do
+      allow(WorkerJobService).to receive(:enqueue_job) { |*args| enqueued << args[1][:args][:step_id]; true }
+    end
+
+    it "enqueues a resumed step whose only dependency COMPLETED outside the subset" do
+      result = runner.execute_appended!(steps: [free, chained])
+
+      # `chained` is ready — step 1 completed — and nothing else picks it up.
+      # dispatch_unblocked_successors only fires when a step COMPLETES, so if
+      # `free` fails instead, `chained` sits pending forever:
+      # fail_unreachable_adaptation_successors! ignores it (its predecessor
+      # completed, it did not fail), the adaptation's steps never all reach a
+      # terminal status, and the diff plan never leaves `executing`.
+      expect(enqueued).to contain_exactly(free.id, chained.id)
+      expect(result[:dispatched]).to eq(2)
+    end
+
+    it "still HOLDS BACK a step whose dependency is inside the subset and still pending" do
+      # The negative control for the seed. Satisfying dependencies from an
+      # explicitly-completed set must not degrade into `deps & subset`, nor
+      # into "ignore a dependency I cannot see": an unready subset stays
+      # unready, and `blocked` waits for `chained` to finish.
+      result = runner.execute_appended!(steps: [chained, blocked])
+
+      expect(enqueued).to eq([chained.id])
+      expect(result[:dispatched]).to eq(1)
+    end
+
+    it "does not warn about a dependency cycle for a legitimately chained resume" do
+      # The shape every resume takes today: AdaptationProposerService chains
+      # each diff linearly, so a resumable set is one step whose predecessor
+      # completed. Warning "dependency cycle or unresolved deps" here poisons a
+      # real diagnostic — the log line means nothing once it fires on the
+      # healthy path.
+      allow(Rails.logger).to receive(:warn).and_call_original
+
+      runner.execute_appended!(steps: [chained])
+
+      expect(Rails.logger).not_to have_received(:warn).with(/dependency cycle or unresolved deps/)
+      expect(enqueued).to eq([chained.id])
+    end
+
+    it "STILL takes the best-effort branch for a genuine cycle" do
+      # Positive control for the backstop the seed must not remove. A real
+      # cycle has no satisfiable seed, so it must keep warning AND keep
+      # emitting its steps, so they surface as failures instead of vanishing.
+      a = build_step(id: "cyc-5", step_number: 5, dependencies: [6], skill: "provision_full_stack",
+                     on_failure: "continue")
+      b = build_step(id: "cyc-6", step_number: 6, dependencies: [5], skill: "provision_full_stack",
+                     on_failure: "continue")
+      cyclic = described_class.new(account: account, mission: mission,
+                                   plan: build_plan([original, a, b]))
+      allow(Rails.logger).to receive(:warn).and_call_original
+
+      result = cyclic.execute_appended!(steps: [a, b])
+
+      expect(Rails.logger).to have_received(:warn).with(/dependency cycle or unresolved deps/)
+      expect(enqueued).to contain_exactly(a.id, b.id)
+      expect(result[:dispatched]).to eq(2)
+    end
+  end
+
+  describe "#fail_unreachable_adaptation_successors!" do
+    it "announces each unreachable successor ONCE, even when the step cannot record its own failure" do
+      # The siblings.size bound replaced a hang with repeated work. mark_failed
+      # deliberately no-ops for a step responding to neither fail! nor update!
+      # — a duck-typed shape this runner explicitly accepts — so `newly`
+      # re-selected the same still-"pending" step on every pass and announced
+      # it again each time, duplicating the broadcast and the system message a
+      # console subscribed to MissionChannel renders.
+      dead = build_step(id: "d-1", step_number: 1, dependencies: [], skill: "provision_full_stack",
+                        on_failure: "continue").tap { |s| s.status = "failed" }
+      # No update!/fail! — mark_failed cannot move it, which is the whole point.
+      undead = OpenStruct.new(id: "d-2", step_number: 2, dependencies: [1], status: "pending",
+                              execution_config: { "skill" => "provision_full_stack" }, metadata: {})
+
+      announced = []
+      allow(runner).to receive(:announce_step) { |s, **_kw| announced << s.step_number }
+
+      runner.send(:fail_unreachable_adaptation_successors!, [dead, undead])
+
+      expect(announced).to eq([2])
+    end
+  end
+
   describe "#execute_step!" do
     before { runner.execute! } # establishes runner_id
 

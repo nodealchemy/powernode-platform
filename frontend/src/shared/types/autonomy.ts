@@ -22,3 +22,23 @@ export interface AutonomyConfigSource {
 
 /** Per-agent policy map: { agentName: { action: level } } — frontend working state */
 export type AgentPoliciesMap = Record<string, Record<string, AutonomyLevel>>;
+
+/**
+ * One policy row as the server groups it by domain. The fields a settings UI
+ * needs to render a row it was never told about: which action it governs, which
+ * agent bucket owns it (the same key the by_agent view is grouped under), and
+ * its current level.
+ */
+export interface AutonomyDomainPolicy {
+  action_category: string;
+  agent_bucket: string;
+  policy: AutonomyLevel;
+}
+
+/**
+ * Server-owned grouping of policy rows: { domainKey: rows[] }. A settings panel
+ * should build its sections from THIS rather than from a list of action
+ * categories written into the component — the categories are defined and seeded
+ * server-side, so a literal copy drifts the moment one is added.
+ */
+export type AutonomyDomainsMap = Record<string, AutonomyDomainPolicy[]>;

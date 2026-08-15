@@ -164,4 +164,61 @@ RSpec.describe Devops::DockerContainer, type: :model do
       end
     end
   end
+
+  # IMP-8880bc817ea3 — every container-record create/destroy path (actuating
+  # ContainerManager create/remove, both discovery syncs, host cascade) funnels
+  # through this model, so the lifecycle hooks fire here: one wire point covers
+  # the whole enumeration.
+  describe 'container lifecycle hooks' do
+    around do |example|
+      snapshot = Devops::ContainerLifecycleRegistry.handlers.dup
+      Devops::ContainerLifecycleRegistry.reset!
+      example.run
+    ensure
+      Devops::ContainerLifecycleRegistry.reset!
+      snapshot.each { |name, handler| Devops::ContainerLifecycleRegistry.register(name, handler) }
+    end
+
+    let(:received) { [] }
+
+    before do
+      Devops::ContainerLifecycleRegistry.register(:probe) do |event, record|
+        received << [event, record.docker_container_id]
+      end
+    end
+
+    it 'notifies :created after a container record is created' do
+      container = create(:devops_docker_container)
+      expect(received).to eq([[:created, container.docker_container_id]])
+    end
+
+    it 'notifies :removed after a container record is destroyed' do
+      container = create(:devops_docker_container)
+      received.clear
+
+      container.destroy!
+      expect(received).to eq([[:removed, container.docker_container_id]])
+    end
+
+    it 'notifies :removed for each record swept by a bulk destroy_all (sync stale sweep path)' do
+      host = create(:devops_docker_host)
+      a = create(:devops_docker_container, docker_host: host)
+      b = create(:devops_docker_container, docker_host: host)
+      received.clear
+
+      host.docker_containers.destroy_all
+      expect(received).to contain_exactly(
+        [:removed, a.docker_container_id],
+        [:removed, b.docker_container_id]
+      )
+    end
+
+    it 'does not notify on updates' do
+      container = create(:devops_docker_container)
+      received.clear
+
+      container.update!(state: 'running')
+      expect(received).to be_empty
+    end
+  end
 end

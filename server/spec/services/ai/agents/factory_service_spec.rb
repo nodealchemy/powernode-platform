@@ -106,6 +106,74 @@ RSpec.describe Ai::Agents::FactoryService, type: :service do
         expect(result[:error]).to include("Supervised")
       end
     end
+
+    context 'parent skill inheritance' do
+      let(:parent_skill) { create(:ai_skill, account: account) }
+      let(:related_skill) { create(:ai_skill, account: account) }
+      let(:bridge) { instance_double(Ai::SkillGraph::BridgeService) }
+
+      before do
+        create(:ai_agent_skill, agent: parent_agent, skill: parent_skill)
+        # Ai::Skill's after_commit sync_to_knowledge_graph creates the active KG
+        # skill node the auto-assignment guard requires; assert it to keep the
+        # guard's precondition honest rather than relying on it implicitly.
+        expect(account.ai_knowledge_graph_nodes.active.skill_nodes).to exist
+        allow(Ai::SkillGraph::BridgeService).to receive(:new).with(account).and_return(bridge)
+        # Ai::Agent#sync_to_knowledge_graph and Ai::Skill#sync_to_knowledge_graph
+        # also reach the bridge on create; incidental to the path under test.
+        allow(bridge).to receive(:sync_agent)
+        allow(bridge).to receive(:sync_skill)
+      end
+
+      context 'when the skill graph reports related skills' do
+        before do
+          allow(bridge).to receive(:auto_detect_relationships).with(parent_skill).and_return(
+            [{ skill_id: related_skill.id, skill_name: related_skill.name,
+               similarity: 0.91, confidence: 0.91 }]
+          )
+        end
+
+        it 'assigns the graph-related skills to the spawned child agent' do
+          result = service.spawn(parent: parent_agent, config: config)
+
+          expect(result[:success]).to be true
+          expect(result[:agent].agent_skills.where(ai_skill_id: related_skill.id)).to exist
+          expect(result[:agent].skills).to include(related_skill)
+        end
+      end
+
+      context 'when the skill graph bridge raises a programming error' do
+        before do
+          allow(bridge).to receive(:auto_detect_relationships)
+            .and_raise(NoMethodError, "undefined method 'nonexistent_reflection'")
+        end
+
+        it 'surfaces the failure instead of swallowing it into a warn' do
+          result = service.spawn(parent: parent_agent, config: config)
+
+          expect(result[:success]).to be false
+          expect(result[:error]).to include("nonexistent_reflection")
+        end
+      end
+
+      context 'when the skill graph bridge raises an operational error' do
+        before do
+          allow(bridge).to receive(:auto_detect_relationships)
+            .and_raise(StandardError, "graph temporarily unavailable")
+          allow(Rails.logger).to receive(:warn).and_call_original
+        end
+
+        it 'keeps the spawn best-effort and logs the failure class' do
+          result = service.spawn(parent: parent_agent, config: config)
+
+          expect(result[:success]).to be true
+          expect(result[:agent]).to be_persisted
+          expect(result[:agent].agent_skills).to be_empty
+          expect(Rails.logger).to have_received(:warn)
+            .with(a_string_matching(/StandardError: graph temporarily unavailable/))
+        end
+      end
+    end
   end
 
   describe '#terminate' do

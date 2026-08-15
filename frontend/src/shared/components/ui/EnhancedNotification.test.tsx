@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { EnhancedNotification } from './EnhancedNotification';
 
 // Mock clipboard API
@@ -216,6 +217,40 @@ describe('EnhancedNotification', () => {
       render(<EnhancedNotification {...defaultProps} details={details} />);
 
       expect(screen.queryByTitle('Expand details')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('link', () => {
+    const link = { label: 'Review approvals', to: '/app/ai/agents/autonomy' };
+
+    it('renders an in-app link with the given label and target', () => {
+      render(
+        <MemoryRouter>
+          <EnhancedNotification {...defaultProps} type="info" link={link} />
+        </MemoryRouter>
+      );
+
+      const anchor = screen.getByRole('link', { name: 'Review approvals' });
+      expect(anchor).toHaveAttribute('href', '/app/ai/agents/autonomy');
+    });
+
+    it('dismisses the notification when the link is clicked', () => {
+      const onRemove = jest.fn();
+      render(
+        <MemoryRouter>
+          <EnhancedNotification {...defaultProps} type="info" link={link} onRemove={onRemove} />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByRole('link', { name: 'Review approvals' }));
+
+      expect(onRemove).toHaveBeenCalledWith('notification-1');
+    });
+
+    it('renders no link when the prop is absent', () => {
+      render(<EnhancedNotification {...defaultProps} />);
+
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
     });
   });
 });

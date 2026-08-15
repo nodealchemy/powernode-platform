@@ -125,7 +125,13 @@ module Ai
         request_data: {
           action_category: deferred.action_category,
           executor_class: deferred.executor_class,
-          params: deferred.params,
+          # Redacted copy, not the stored one. The operation keeps plaintext in
+          # its own params because the executor replays them after approval;
+          # request_data exists only to be READ, by an approval audience wider
+          # than the permission that authorised the call. This is the single
+          # boundary every gated call site crosses, so every producer of
+          # secret-bearing params is covered here rather than one at a time.
+          params: ::Ai::SensitiveParams.filter(deferred.params),
           agent_id: deferred.ai_agent_id,
           agent_name: deferred.ai_agent&.name,
           requested_by_id: deferred.requested_by_id,

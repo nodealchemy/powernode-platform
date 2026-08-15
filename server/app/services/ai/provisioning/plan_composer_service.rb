@@ -104,6 +104,20 @@ module Ai
         [/\bprovision|create|stand[\s-]?up|deploy.*stack|new\s+stack/i, "provision_full_stack"]
       ].freeze
 
+      # The NodeTemplate config key that declares which SDWAN network the
+      # template's instances join (IMP-cdc1d0703e5a). Aliased from
+      # Shared::SdwanNetworkResolution rather than restated, so the stamping in
+      # #merge_resolved_inputs!, the compose-time check, the
+      # `provision_prerequisites` extension seam, and the direct provisioning
+      # resolver all read ONE definition (IMP-8e1ac4a09e82) — a plain data key
+      # travelling through that seam, not a reference to the extension.
+      #
+      # The opt-out sentinel is deliberately NOT aliased alongside it: with the
+      # bucketing moved to Shared::, nothing in this class reads it, and a
+      # second name for a value whose whole purpose is one shared vocabulary is
+      # how the two resolvers drifted apart to begin with.
+      NETWORK_CONFIG_KEY = ::Shared::SdwanNetworkResolution::NETWORK_CONFIG_KEY
+
       attr_reader :account, :mission
 
       def initialize(account:, mission:)
@@ -175,9 +189,26 @@ module Ai
         # it — instead of runtime step failures the review gate never saw
         # coming. NOTE: the un-persisted plan is deliberately abandoned here;
         # no pointer is written, so a corrected retry recomposes fresh.
+        # IMP-cdc1d0703e5a: a template that DECLARES a network but supplies an
+        # unusable value would silently compose bare compute. Checked here, next
+        # to the prerequisite seam and before any pointer is persisted, so the
+        # un-persisted plan is abandoned the same way (a corrected retry
+        # recomposes fresh). Runs first because its diagnosis is the specific
+        # one — the seam would report the generic "no network resolves"
+        # for the same template, and only when the plan has an overlay-requiring
+        # skill at all. IMP-94728a788498: also covers the account-default arm —
+        # a configured default that could never resolve fails loud here too.
+        network_clarification = check_network_declaration(brief)
+        return network_clarification if network_clarification
+
+        # IMP-94728a788498: the checker receives the composer's OWN three-arm
+        # resolution (template explicit → account default → networkless), so
+        # writer and checker agree by construction — the checker must not
+        # recompute the resolution from the template alone and disagree.
         prereq_clarification = check_plan_prerequisites(
           skills: plan.steps.reload.filter_map { |s| (s.execution_config || {})["skill"].presence },
-          template_id: resolve_template(brief)&.id
+          template_id: resolve_template(brief)&.id,
+          network_id: resolved_network_id(resolve_template(brief))
         )
         return prereq_clarification if prereq_clarification
 
@@ -712,12 +743,18 @@ module Ai
       # checker reports issues, nil otherwise. Core mode (no checker) is a
       # no-op, and a BROKEN checker fails OPEN with a warning — prerequisite
       # advice must never be the thing that blocks all composition.
-      def check_plan_prerequisites(skills:, template_id:)
+      # `network_id` is the composer's resolved three-arm answer
+      # (IMP-94728a788498) — nil means "nothing resolves for this plan".
+      # An older checker without the kwarg raises ArgumentError, which the
+      # rescue below already treats as fail-open (a mismatched half-deploy
+      # degrades to no compose-time validation, never to a hard block).
+      def check_plan_prerequisites(skills:, template_id:, network_id: nil)
         checker = ::Powernode::ExtensionRegistry.provider(:provision_prerequisites)
         return nil unless checker
 
         issues = Array(checker.check(account: account, template_id: template_id,
-                                     skills: Array(skills).uniq))
+                                     skills: Array(skills).uniq,
+                                     network_id: network_id))
         return nil if issues.empty?
 
         Rails.logger.warn(
@@ -1119,7 +1156,36 @@ module Ai
         instance_type = resolve_instance_type_for(region, account_provider_override: account_provider_override)
         inputs["provider_instance_type_id"] ||= instance_type&.id
 
-        inputs["template_id"] ||= resolve_template(brief)&.id
+        template = resolve_template(brief)
+        inputs["template_id"] ||= template&.id
+
+        # IMP-cdc1d0703e5a: fabric + storage footprint. Without these two keys
+        # every composed provision/scale-out arrived as BARE COMPUTE — no SDWAN
+        # peer, no volume — even though the actuator side is fully built
+        # (ProvisionFullStackExecutor enrolls a peer per instance for
+        # `network_id` and provisions a per-instance volume for
+        # `with_storage_gb`; ScaleProjectExecutor#run_provision threads both
+        # onward and reports the ids). It also made
+        # AdaptationProposerService::FOOTPRINT_KEYS — which already lists both
+        # and carries them from the original plan onto a composed scale-out —
+        # inert, because the source plan never held the keys.
+        #
+        # Both use ||= deliberately: an explicitly-authored input (a
+        # hand-written plan_data, MissionComposer output, an operator-supplied
+        # value) must always win, which also makes this a pure add with nothing
+        # to backfill.
+        # IMP-94728a788498: three-arm resolution — template explicit →
+        # account default → networkless. See #resolved_network_id.
+        network_id = resolved_network_id(template)
+        inputs["network_id"] ||= network_id if network_id
+
+        # No NodeTemplate storage key exists and nothing else on the platform
+        # declares a volume size, so the honest writer is the operator's own
+        # utterance: IntentCaptureService captures `storage_gb` on the brief.
+        # Inventing a template key with no writer would produce a field that is
+        # correct in shape and inert in production.
+        storage_gb = brief_storage_gb(brief)
+        inputs["with_storage_gb"] ||= storage_gb if storage_gb
 
         # F3 (IMP 019fe4c4-e813): naming provenance. The charter's dryrun-
         # prefix never reached the substrate — VMs came out template-named
@@ -1130,6 +1196,191 @@ module Ai
         inputs["mission_id"] ||= mission&.id
         prefix = provenance_name_prefix
         inputs["name_prefix"] ||= prefix if prefix
+      end
+
+      # What the chosen template says about fabric attachment, as
+      # `[state, value]` where state is :absent, :opt_out, :usable or :unusable.
+      #
+      # This reads exactly the key the compose-time prerequisite checker reads
+      # (`NodeTemplate.config["sdwan_network_id"]`), so the composer and that
+      # checker agree BY CONSTRUCTION rather than by two components computing
+      # the same thing two different ways.
+      #
+      # The :absent/:opt_out/:unusable split is the whole design decision (see
+      # #check_network_declaration). A template that says NOTHING about
+      # a network has no opinion — with IMP-94728a788498 that now falls through
+      # to the ACCOUNT default rather than straight to networkless; a template
+      # that DECLARES the key and supplies something that could never be an id
+      # asked for fabric and did not get it.
+      #
+      # The bucketing ITSELF — why a null/blank key is :absent rather than an
+      # opt-out or a failure, why `false` stays :absent, why the "none"
+      # sentinel exists — is documented once on Shared::SdwanNetworkResolution
+      # and deliberately not restated here (IMP-8e1ac4a09e82). Two copies of
+      # that rationale, one per resolver, is the drift this extraction removes.
+      #
+      # Composer-specific: a :usable id is NOT existence-checked. Core cannot
+      # check existence without naming the extension, and it does not need to —
+      # ProvisionFullStackExecutor fails the whole step with "sdwan network not
+      # found" before provisioning anything, so a dead id is already loud, just
+      # at run time rather than compose time. For plans whose skills REQUIRE an
+      # overlay the `provision_prerequisites` seam catches it at compose time
+      # as well.
+      #
+      # Core purity: a plain Hash read off a record core already resolved via
+      # #resolve_template — no new `System::`/`Sdwan::` constant reference.
+      def template_network_declaration(template)
+        ::Shared::SdwanNetworkResolution.classify_config(template&.config)
+      end
+
+      # What the ACCOUNT says about default fabric attachment
+      # (IMP-94728a788498), as the same `[state, value]` shape. Reads
+      # `Account#default_sdwan_network_setting` — DB-driven config
+      # (Account#settings jsonb), settable through the existing
+      # account-settings surface; no env var, seed, or hardcoded id.
+      #
+      # Identical bucketing to the template arm, from the same classifier —
+      # the semantics live on Shared::SdwanNetworkResolution, not here.
+      # Composer-specific: :opt_out on THIS arm means "explicitly no default"
+      # and resolves like :absent (there is no further arm for it to beat),
+      # and :unusable fails LOUD at compose time when the resolution actually
+      # reaches this arm — a configured default that could never resolve,
+      # silently composing bare compute, is the exact defect class this arm
+      # exists to avoid reintroducing.
+      def account_network_default
+        ::Shared::SdwanNetworkResolution.classify_account_default(account)
+      end
+
+      # Three-arm resolution (IMP-94728a788498): template explicit → account
+      # default → networkless. Returns the network id to stamp, or nil for a
+      # networkless plan. The template's :opt_out beats the default; the
+      # template's :unusable resolves to nil here because compose! has
+      # already failed loud on it (#check_network_declaration runs first),
+      # and an :unusable account default likewise never reaches stamping.
+      def resolved_network_id(template)
+        state, network_id = template_network_declaration(template)
+        return network_id if state == :usable
+        return nil unless state == :absent
+
+        account_state, account_value = account_network_default
+        account_state == :usable ? account_value : nil
+      end
+
+      # The per-instance volume size the operator asked for, as a positive
+      # Integer, or nil. Tolerates string/symbol keys and a stringified size
+      # (a hand-authored plan_data supplies either).
+      #
+      # `to_i` deliberately, NOT `Integer()`: IntentCaptureService normalises
+      # this same field with `to_i`, and a reader that parses more strictly
+      # than its writer is the seam mismatch this whole task is about — a
+      # brief carrying "50.7" would satisfy the writer and silently resolve to
+      # NO VOLUME here, which is precisely the silent degradation being fixed.
+      #
+      # Non-positive is treated as "no volume" rather than passed through. This
+      # was once the ONLY screen — the executor guarded on `blank?`, which does
+      # not screen a 0 — and it is now the first of three that agree
+      # (IMP-33fa6c51f05d added ProvisionFullStackExecutor#storage_requested?;
+      # CostEstimatorService#declared_gb clamps the same way for the quote).
+      # Note this screens what the composer ADDS: `merge_resolved_inputs!` uses
+      # `||=` and 0 is truthy in Ruby, so a hand-authored non-positive already
+      # on the step survives composition — which is why the executor needs its
+      # own guard and does not merely inherit this one.
+      def brief_storage_gb(brief)
+        return nil unless brief.is_a?(Hash)
+
+        raw = brief["storage_gb"] || brief[:storage_gb]
+        return nil if raw.blank?
+        return nil unless raw.respond_to?(:to_i)
+
+        value = raw.to_i
+        value if value.positive?
+      end
+
+      # THE DESIGN DECISION (IMP-cdc1d0703e5a), stated once here because the
+      # silent default it replaces is what produced the defect this method
+      # exists to close.
+      #
+      # Networkless missions stay LEGAL AND SILENT. A brief whose template
+      # declares no network composes bare compute with no noise — that is a
+      # real, supported topology (core mode and the local_qemu path both run it,
+      # and a workload with no container-runtime leg legitimately needs no
+      # fabric peer), so warning about it would train operators to ignore the
+      # warning.
+      #
+      # But a template that DECLARES `sdwan_network_id` and supplies a value
+      # that could never be an id asked for the fabric and would silently get
+      # bare compute — plan rows that read completely normal at the review gate,
+      # which is exactly how the original defect survived. That fails LOUD at
+      # compose time, via the same clarification shape #resolve_provider_choice
+      # and #check_plan_prerequisites already use (every caller renders it).
+      #
+      # Deliberately NOT a hard failure for "no network resolved at all": that
+      # would block every pure-compute provision on an account with no SDWAN
+      # network. The narrow, skill-aware prerequisite seam stays authoritative
+      # for "this plan's skills REQUIRE an overlay"; this only catches the
+      # misconfigurations that seam cannot see, because it fires regardless of
+      # which skills the plan contains.
+      #
+      # IMP-94728a788498 extends the same decision to the ACCOUNT arm: when
+      # the template has no opinion and the resolution falls through to the
+      # account default, a configured default that could never be an id fails
+      # LOUD here too — but ONLY when the default is actually the resolving
+      # arm. A template that decided for itself (:usable or :opt_out) never
+      # consults the default, and letting a broken account setting block those
+      # plans would turn one bad key into an account-wide provisioning outage.
+      #
+      # Writers: `NodeTemplate.config[NETWORK_CONFIG_KEY]` is operator-supplied
+      # via `system_create_template` / `system_update_template`; the account
+      # default is operator-supplied via the account-settings surface
+      # (Account::DEFAULT_SDWAN_NETWORK_SETTING). With the account arm, fabric
+      # membership is now the account's default posture — a single DB-driven
+      # setting covers every template an operator has not individually
+      # configured.
+      def check_network_declaration(brief)
+        template = resolve_template(brief)
+        state, raw = template_network_declaration(template)
+
+        case state
+        when :unusable
+          Rails.logger.warn(
+            "[PlanComposerService] template #{template.name.inspect} declares #{NETWORK_CONFIG_KEY} " \
+              "as #{raw.inspect[0, 120]}, which is not a usable network id (mission=#{mission&.id}); " \
+              "refusing to compose bare compute for a plan that asked for the fabric."
+          )
+          {
+            clarification_needed: true,
+            message: "Template #{template.name.inspect} declares #{NETWORK_CONFIG_KEY}, but its value " \
+                     "is not a usable network id, so every instance this plan provisions would come up " \
+                     "with no SDWAN peer. Set a valid #{NETWORK_CONFIG_KEY} on the template, or remove " \
+                     "the key entirely to provision bare compute deliberately.",
+            network_declaration_issue: {
+              template_id: template.id,
+              template_name: template.name,
+              key: NETWORK_CONFIG_KEY
+            }
+          }
+        when :absent
+          account_state, account_raw = account_network_default
+          return nil unless account_state == :unusable
+
+          Rails.logger.warn(
+            "[PlanComposerService] account #{account&.id} configures " \
+              "#{::Account::DEFAULT_SDWAN_NETWORK_SETTING} as #{account_raw.inspect[0, 120]}, " \
+              "which is not a usable network id (mission=#{mission&.id}); refusing to compose " \
+              "bare compute for a plan that would resolve its network from the account default."
+          )
+          {
+            clarification_needed: true,
+            message: "This account configures #{::Account::DEFAULT_SDWAN_NETWORK_SETTING}, but its " \
+                     "value is not a usable network id, so every instance this plan provisions would " \
+                     "come up with no SDWAN peer. Set a valid #{::Account::DEFAULT_SDWAN_NETWORK_SETTING} " \
+                     "in the account settings, or remove it to provision bare compute deliberately.",
+            network_declaration_issue: {
+              key: ::Account::DEFAULT_SDWAN_NETWORK_SETTING,
+              scope: "account"
+            }
+          }
+        end
       end
 
       # Explicit configuration.name_prefix wins; a dryrun run id derives the

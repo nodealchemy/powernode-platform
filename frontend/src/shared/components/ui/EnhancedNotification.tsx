@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   CheckCircle,
   XCircle,
@@ -16,6 +17,8 @@ interface NotificationProps {
   type: 'success' | 'error' | 'warning' | 'info';
   message: string;
   details?: Record<string, unknown>;
+  /** Optional in-app navigation link rendered beneath the message. */
+  link?: { label: string; to: string };
   onRemove: (id: string) => void;
 }
 
@@ -24,6 +27,7 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
   type,
   message,
   details,
+  link,
   onRemove
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -100,6 +104,15 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
               <p className="text-sm font-medium break-words">
                 {message}
               </p>
+              {link && (
+                <Link
+                  to={link.to}
+                  onClick={() => onRemove(id)}
+                  className="mt-1 inline-block text-sm font-medium underline hover:opacity-80"
+                >
+                  {link.label}
+                </Link>
+              )}
             </div>
           </div>
 

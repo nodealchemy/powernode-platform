@@ -181,7 +181,7 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
         members_result = double('members_result')
         allow(members_result).to receive(:empty?).and_return(true)
         members_relation = double('members_relation')
-        allow(members_relation).to receive(:includes).with(:agent).and_return(members_result)
+        allow(members_relation).to receive(:includes).with(agent: :agent_skills).and_return(members_result)
         allow(team).to receive(:members).and_return(members_relation)
       end
 
@@ -212,7 +212,7 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
           double('lead_relation', update_all: true)
         )
         members_relation = double('members_relation')
-        allow(members_relation).to receive(:includes).with(:agent).and_return(members_proxy)
+        allow(members_relation).to receive(:includes).with(agent: :agent_skills).and_return(members_proxy)
         allow(team).to receive(:members).and_return(members_relation)
       end
 
@@ -222,6 +222,41 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
         expect(result).to eq(agent1)
       end
 
+      context 'when a younger agent has more bound skills' do
+        let(:veteran_agent) { create(:ai_agent, account: account, status: "active", created_at: 60.days.ago) }
+        let(:skilled_agent) { create(:ai_agent, account: account, status: "active", created_at: 1.day.ago) }
+        let(:veteran_member) do
+          double('veteran_member', agent: veteran_agent, role: "worker").tap do |m|
+            allow(m).to receive(:update!).and_return(true)
+          end
+        end
+        let(:skilled_member) do
+          double('skilled_member', agent: skilled_agent, role: "worker").tap do |m|
+            allow(m).to receive(:update!).and_return(true)
+          end
+        end
+
+        before do
+          # 6 bound skills = +1.2 skill score, which must outweigh the veteran's
+          # age advantage (+1.0 vs ~+0.03).
+          create_list(:ai_agent_skill, 6, agent: skilled_agent)
+
+          members_proxy = double('members_proxy')
+          allow(members_proxy).to receive(:empty?).and_return(false)
+          allow(members_proxy).to receive(:map) { |&block| [veteran_member, skilled_member].map(&block) }
+          allow(members_proxy).to receive(:where).with(role: "lead").and_return(
+            double('lead_relation', update_all: true)
+          )
+          members_relation = double('members_relation')
+          allow(members_relation).to receive(:includes).and_return(members_proxy)
+          allow(team).to receive(:members).and_return(members_relation)
+        end
+
+        it 'assigns the skill-rich agent as lead over the merely older agent' do
+          expect(service.auto_assign_lead(team)).to eq(skilled_agent)
+        end
+      end
+
       it 'demotes existing leads before assigning new one' do
         lead_relation = double('lead_relation')
         members_proxy = double('members_proxy')
@@ -229,7 +264,7 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
         allow(members_proxy).to receive(:map) { |&block| [member1, member2].map(&block) }
         allow(members_proxy).to receive(:where).with(role: "lead").and_return(lead_relation)
         members_relation = double('members_relation')
-        allow(members_relation).to receive(:includes).with(:agent).and_return(members_proxy)
+        allow(members_relation).to receive(:includes).with(agent: :agent_skills).and_return(members_proxy)
         allow(team).to receive(:members).and_return(members_relation)
 
         expect(lead_relation).to receive(:update_all).with(role: "worker")
