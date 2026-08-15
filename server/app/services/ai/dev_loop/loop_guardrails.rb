@@ -59,13 +59,45 @@ module Ai
       # Documented limitation: this only catches lines that are unchanged from
       # (or literally absent from) the persisted snapshot. A shared line whose
       # TEXT was tuned (not just added/removed) still has its old wording linger
-      # in the served list as a stray "middle" line until the loop's config is
-      # reseeded — new/removed shared lines propagate correctly (the main drift
-      # class this guards against); text-edited shared lines do not fully
-      # self-heal without a reseed.
+      # in the served list as a stray "middle" line — new/removed shared lines
+      # propagate correctly (the main drift class this guards against).
+      #
+      # SUPERSEDED_MIDDLE closes that gap for loop-specific lines that were
+      # RE-WORDED rather than added or removed. Editing the owning service's
+      # GUARDRAILS constant only reaches loops created AFTERWARDS, because the
+      # middle is served from each loop's persisted snapshot — so a long-lived
+      # singleton like dev-improve kept serving the old wording indefinitely.
+      # Observed: the review guardrail was narrowed to a trigger and re-pointed
+      # away from /code-review, yet every executor kept being told to run one,
+      # because that line lives in a snapshot taken when the loop was created.
+      #
+      # Keyed by a distinctive FRAGMENT, because the stale persisted text is
+      # precisely the thing we no longer have a copy of. Replacement rather than
+      # removal: dropping the line would leave existing loops with no review
+      # guidance at all, which is a worse failure than stale guidance.
+      SUPERSEDED_MIDDLE = {
+        %r{Independent review:.*?/code-review}i =>
+          "Independent review, WHEN THE TASK'S ACCEPTANCE CRITERIA ASK FOR IT: spawn a " \
+          "SYNCHRONOUS UNNAMED subagent to review the diff before committing (don't trust " \
+          "spec-green alone). Do NOT use /code-review — a slash-forked skill routes its result " \
+          "to the PARENT session, not to you, so you pay for a review you cannot read. A " \
+          "teammate also cannot spawn named or background agents; the synchronous unnamed form " \
+          "is the one that reports back. Bar the reviewer from running rspec — the test DB is " \
+          "shared and concurrent runs deadlock"
+      }.freeze
+
       def refresh(persisted)
         middle = Array(persisted) - HEAD - TAIL
+        middle = middle.map { |line| supersede(line) }
         compose(middle)
+      end
+
+      # Swap a stale loop-specific line for its current wording. Returns the line
+      # unchanged when nothing supersedes it, so an unrecognised middle line is
+      # always preserved rather than silently dropped.
+      def supersede(line)
+        _pattern, replacement = SUPERSEDED_MIDDLE.find { |pattern, _| pattern.match?(line.to_s) }
+        replacement || line
       end
     end
   end

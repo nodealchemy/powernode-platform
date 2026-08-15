@@ -16,9 +16,17 @@ require "rails_helper"
 #   neither a principal nor instance_authorized, so the fence never ran and a
 #   caller-supplied :action executed unchecked.
 #
-# Six tool classes have REQUIRED_PERMISSION == nil, so enforce_permission!
+# Five tool classes have REQUIRED_PERMISSION == nil, so enforce_permission!
 # returns without checking anything: on door 2 they had NO gate on the action at
 # all. These examples are the contract that both doors refuse the same thing.
+#
+# AgentAutonomyTool was the sixth and is the exemplar these examples used to
+# reach for. It now carries a floor plus a per-action map (IMP-e8adfcfcab9b), so
+# a principal-less call to it is refused EARLIER — by enforce_permission!'s
+# authentication raise, above the fence — and it can no longer stand in for a
+# class the fence is the only bound on. ProvisioningTool takes that role here;
+# AgentAutonomyTool keeps its own coverage below in the shape it is actually
+# called in.
 #
 # Door 2 is INERT at runtime today, and these examples reach it by calling
 # #execute_tool_by_type directly for that reason: #invoke_tool hard-denies
@@ -51,38 +59,58 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
   end
 
   describe "door 2: Mcp::ProtocolService#execute_tool_by_type" do
-    let(:autonomy_tool) { instance_double(Ai::Tools::AgentAutonomyTool) }
+    let(:provisioning_tool) { instance_double(Ai::Tools::ProvisioningTool) }
 
     before do
-      allow(Ai::Tools::AgentAutonomyTool).to receive(:new)
-        .with(account: account, user: nil, agent: nil).and_return(autonomy_tool)
-      allow(autonomy_tool).to receive(:instance_authorized=)
-      allow(autonomy_tool).to receive(:execute).and_return({ success: true })
+      allow(Ai::Tools::ProvisioningTool).to receive(:new)
+        .with(account: account, user: nil, agent: nil).and_return(provisioning_tool)
+      allow(provisioning_tool).to receive(:instance_authorized=)
+      allow(provisioning_tool).to receive(:node_instance=)
+      allow(provisioning_tool).to receive(:execute).and_return({ success: true })
     end
 
     it "refuses a caller-supplied action from a principal-less call" do
-      # AgentAutonomyTool::REQUIRED_PERMISSION is nil and this call carries no
+      # ProvisioningTool::REQUIRED_PERMISSION is nil and this call carries no
       # user and no agent, so nothing downstream bounds the action: without the
-      # fence, "request_code_change" simply runs.
-      expect(Ai::Tools::AgentAutonomyTool::REQUIRED_PERMISSION).to be_nil
+      # fence, "platform_provisioning_capture_brief" simply runs.
+      expect(Ai::Tools::ProvisioningTool::REQUIRED_PERMISSION).to be_nil
+
+      expect {
+        call_via_protocol_service(
+          Ai::Tools::ProvisioningTool,
+          { "action" => "platform_provisioning_capture_brief", "description" => "x" }
+        )
+      }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /platform_provisioning_capture_brief/)
+
+      expect(provisioning_tool).not_to have_received(:execute)
+    end
+
+    # AgentAutonomyTool now refuses this call one layer higher — the floor's
+    # authentication raise — so the fence is no longer what stops it. Pinned
+    # because "refused by something else" is exactly how a fence quietly stops
+    # being tested.
+    it "refuses a principal-less call to AgentAutonomyTool at the permission floor" do
+      autonomy_tool = instance_double(Ai::Tools::AgentAutonomyTool)
+      allow(Ai::Tools::AgentAutonomyTool).to receive(:new).and_return(autonomy_tool)
+      allow(autonomy_tool).to receive(:execute).and_return({ success: true })
 
       expect {
         call_via_protocol_service(
           Ai::Tools::AgentAutonomyTool,
           { "action" => "request_code_change", "description" => "x" }
         )
-      }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /request_code_change/)
+      }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /Authentication required/)
 
       expect(autonomy_tool).not_to have_received(:execute)
     end
 
     it "covers every tool class whose REQUIRED_PERMISSION is nil" do
-      # The six multi-action classes that enforce_permission! waves through.
+      # The five multi-action classes that enforce_permission! waves through.
       # Each is invoked under its own manifest name with a foreign action.
+      # AgentAutonomyTool left this set in IMP-e8adfcfcab9b.
       no_permission_classes = [
         Ai::Tools::ProvisioningTool,
         Ai::Tools::AgentMemoryManagementTool,
-        Ai::Tools::AgentAutonomyTool,
         Ai::Tools::SelfImprovementTool,
         Ai::Tools::GovernanceTool,
         Ai::Tools::CoordinationTool
@@ -144,14 +172,15 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
   end
 
   describe "both doors agree" do
-    let(:autonomy_tool) { instance_double(Ai::Tools::AgentAutonomyTool) }
-    let(:smuggled) { { "action" => "request_code_change", "description" => "x" } }
+    let(:provisioning_tool) { instance_double(Ai::Tools::ProvisioningTool) }
+    let(:smuggled) { { "action" => "platform_provisioning_capture_brief", "description" => "x" } }
 
     before do
-      allow(Ai::Tools::AgentAutonomyTool).to receive(:new)
-        .with(account: account, user: nil, agent: nil).and_return(autonomy_tool)
-      allow(autonomy_tool).to receive(:instance_authorized=)
-      allow(autonomy_tool).to receive(:execute).and_return({ success: true })
+      allow(Ai::Tools::ProvisioningTool).to receive(:new)
+        .with(account: account, user: nil, agent: nil).and_return(provisioning_tool)
+      allow(provisioning_tool).to receive(:instance_authorized=)
+      allow(provisioning_tool).to receive(:node_instance=)
+      allow(provisioning_tool).to receive(:execute).and_return({ success: true })
     end
 
     it "refuses the same smuggled action through the registrar and through the protocol service" do
@@ -160,7 +189,7 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
 
       begin
         registrar.execute_tool(
-          "platform.agent_autonomy",
+          "platform.provisioning",
           params: smuggled,
           account: account,
           user: nil,
@@ -171,7 +200,7 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
       end
 
       begin
-        call_via_protocol_service(Ai::Tools::AgentAutonomyTool, smuggled)
+        call_via_protocol_service(Ai::Tools::ProvisioningTool, smuggled)
       rescue ::Mcp::ProtocolService::PermissionDeniedError => e
         door_2 = e
       end
@@ -179,7 +208,7 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
       expect(door_1).to be_a(::Mcp::ProtocolService::PermissionDeniedError)
       expect(door_2).to be_a(::Mcp::ProtocolService::PermissionDeniedError)
       expect(door_2.message).to eq(door_1.message)
-      expect(autonomy_tool).not_to have_received(:execute)
+      expect(provisioning_tool).not_to have_received(:execute)
     end
   end
 end

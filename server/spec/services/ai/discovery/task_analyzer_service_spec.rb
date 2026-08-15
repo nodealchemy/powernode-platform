@@ -149,12 +149,16 @@ RSpec.describe Ai::Discovery::TaskAnalyzerService, type: :service do
       create(:ai_agent, account: account, provider: provider, creator: user, name: "security scanner")
     end
 
-    # The service code references association names that don't match the model
-    # (ai_agent_team_members instead of members, ai_agent instead of agent).
-    # Use doubles to bypass these schema mismatches.
-    let(:mock_member) { double("AgentTeamMember", ai_agent: agent) }
-    let(:members_relation) { double("members", includes: [mock_member]) }
-    let(:team) { double("AgentTeam", ai_agent_team_members: members_relation) }
+    # Regression: this used to reach the team via `team.ai_agent_team_members`
+    # (not an association — Ai::AgentTeam declares `has_many :members`) and
+    # `member.ai_agent` (not an association either — Ai::AgentTeamMember
+    # declares `belongs_to :agent`). It raised NoMethodError unconditionally
+    # on entry; there was no argument shape that reached line 71. Exercised
+    # here through real AR objects (not doubles standing in for the broken
+    # method names) so the association names are actually verified.
+    let(:team) { create(:ai_agent_team, account: account) }
+
+    before { create(:ai_agent_team_member, team: team, agent: agent) }
 
     it 'returns coverage analysis structure' do
       result = service.skill_gap_analysis(team, "Scan for security vulnerabilities and deploy")

@@ -188,14 +188,20 @@ module Ai
         # simply never ran there. Keyed on the principal, an omitted flag now
         # tightens instead of opening a door. (IMP-3024cfb1d850)
         #
-        #   user present     authorization here is per-CLASS: one REQUIRED_PERMISSION
-        #                    covers every sibling action, and each action already has
-        #                    its own registry key. Smuggling a sibling is therefore
-        #                    isomorphic to invoking that sibling by name — same class,
-        #                    same permission, no privilege gained. Unpinned, and
-        #                    byte-for-byte unchanged. (Extension tools add their own
-        #                    per-action ACTION_PERMISSIONS map on top; no core tool
-        #                    has one, so do not rely on that here.)
+        #   user present     unpinned, and byte-for-byte unchanged. The original
+        #                    reasoning was that authorization here is per-CLASS —
+        #                    one REQUIRED_PERMISSION covering every sibling action,
+        #                    so smuggling a sibling is isomorphic to invoking it by
+        #                    name and gains no privilege. That is no longer true in
+        #                    general: tools carrying an ACTION_PERMISSIONS map
+        #                    (every one in extensions/system, and in core
+        #                    Ai::Tools::AgentAutonomyTool since IMP-e8adfcfcab9b)
+        #                    price their actions differently, so a smuggled sibling
+        #                    CAN be the more privileged one. Those tools are
+        #                    therefore responsible for gating on the action that
+        #                    RUNS, which is what their maps do — this pin is not
+        #                    what protects them, and adding one here would break
+        #                    the legitimate multi-action user call.
         #   mcp_agent        the LLM tool-calling path, where an agent legitimately
         #                    supplies :action for a class that declares one
         #                    (AgentAutonomyTool, ProvisioningTool) — unpinned.

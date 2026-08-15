@@ -583,16 +583,18 @@ verdict = resolver.resolve(
 # => { policy: "require_approval", channels: [...], conditions: {...}, record: <InterventionPolicy> }
 ```
 
-`#resolve` selects the **most specific** matching policy. Specificity is computed by `InterventionPolicy#specificity_score`:
+`#resolve` selects the **most specific** matching policy. Specificity is `InterventionPolicy#specificity_key`, an array compared **lexicographically** — element by element, most significant first:
 
-| Match dimension | Score boost |
-|-----------------|-------------|
-| `user_id` present | +10 |
-| `ai_agent_id` present | +5 |
-| `action_category` not `*` | +2 |
-| `priority` column | +priority |
+| Position | Match dimension | Value |
+|----------|-----------------|-------|
+| 1 | `user_id` present | 1 / 0 |
+| 2 | `ai_agent_id` present | 1 / 0 |
+| 3 | `action_category` not `*` | 1 / 0 |
+| 4 | `priority` column | the column |
 
-Effective precedence: **user+agent > user > agent > global**. Agent-scoped policies always win over global ones when an agent is in context (the service filters to agent-scoped matches first when any are present). Wildcard `*` policies act as fallbacks. The verdict also carries two automatic overrides: `critical` severity escalates `silent` → `require_approval`, and `notify_and_proceed` falls back to `silent` once the user's daily notification cap (from `conditions.max_daily_notifications`) is exhausted.
+Effective precedence: **user+agent > user > agent > global**, and it holds at any priorities, because `priority` is the last element — it orders rows of otherwise identical shape and can never promote one into a tier above its own. Agent-scoped policies therefore always win over global ones when an agent is in context. Wildcard `*` policies act as fallbacks.
+
+Until IMP-6430e3a8c4a1 these were additive *weights* (+10/+5/+2, then `+ priority`), so an unbounded `priority` outranked the hierarchy instead of breaking ties within it and the precedence above stopped holding once two rows' priorities differed by 5. The verdict also carries two automatic overrides: `critical` severity escalates `silent` → `require_approval`, and `notify_and_proceed` falls back to `silent` once the user's daily notification cap (from `conditions.max_daily_notifications`) is exhausted.
 
 ### Where policies fire
 
@@ -979,7 +981,7 @@ enum :policy, {
 }
 ```
 
-Resolution by specificity: agent-specific > action-type-specific > global. `policy.matches?(context)` checks trust tier, quiet hours, action category.
+Resolution by specificity: user+agent > user > agent > global, decided lexicographically and independent of `priority` (see "Intervention Policies & Approval Gates" above). `policy.matches?(context)` checks trust tier, quiet hours, action category.
 
 `AiInterventionPolicyTuningJob` runs weekly to analyze approval patterns and suggest adjustments (e.g., switch trusted-agent proposal flow from `require_approval` to `auto_approve` after high approval rates).
 

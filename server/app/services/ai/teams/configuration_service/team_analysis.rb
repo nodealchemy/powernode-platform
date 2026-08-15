@@ -45,7 +45,7 @@ module Ai
             next unless rec[:gap]
 
             available = Ai::Agent.where(account: account)
-                                  .where.not(id: team.ai_agent_team_members.pluck(:ai_agent_id))
+                                  .where.not(id: team.members.pluck(:ai_agent_id))
 
             best_match = available.detect do |agent|
               analyzer.send(:score_agent_for_capability, agent, rec[:capability]) > 0
@@ -118,12 +118,25 @@ module Ai
           skills = Hash.new { |h, k| h[k] = [] }
 
           agents.each do |agent|
-            agent.skills.each do |skill|
-              skills[skill.name.downcase] << agent.id
+            agent_skill_names(agent).each do |name|
+              skills[name] << agent.id
             end
           end
 
           skills
+        end
+
+        # A global skill (Ai::Skill account_id: nil) and an account-level
+        # clone/override of it share the same #name — Ai::Skill#resolve_for
+        # and the account_override_first scope both treat them as ONE
+        # capability with the account row taking precedence, not two (see
+        # ai/skill.rb:192-203). An agent can be bound to both via separate
+        # Ai::AgentSkill rows (uniqueness there is scoped to ai_skill_id, so
+        # nothing stops it), and without deduping by name here the same
+        # agent lands in the same skill's tally twice — showing up as
+        # "redundant" with itself. Judgment call: one capability, not two.
+        def agent_skill_names(agent)
+          agent.skills.map { |skill| skill.name.downcase }.uniq
         end
 
         def collect_team_roles(members)
@@ -169,11 +182,13 @@ module Ai
           skill_agents = Hash.new { |h, k| h[k] = [] }
 
           agents.each do |agent|
-            agent.skills.each do |skill|
-              skill_agents[skill.name.downcase] << {
+            activity_score = calculate_activity_score(agent)
+
+            agent_skill_names(agent).each do |name|
+              skill_agents[name] << {
                 id: agent.id,
                 name: agent.name,
-                activity_score: calculate_activity_score(agent)
+                activity_score: activity_score
               }
             end
           end
@@ -183,15 +198,30 @@ module Ai
           end
         end
 
+        # team_type is the only per-team classification AgentTeam carries
+        # (TEAM_TYPES: hierarchical/mesh/sequential/parallel/workspace — a
+        # coordination pattern, not a domain). The original case here
+        # compared team_type against "development"/"operations"/"research",
+        # which appear nowhere in TEAM_TYPES — they match
+        # Ai::Mission::MISSION_TYPES on a different model instead — so every
+        # branch but `else` was dead and every team, regardless of type, got
+        # the same generic pair. Re-keyed onto real TEAM_TYPES values.
+        # Judgment call: hierarchical is both the schema default and the
+        # type every pre-existing fixture in this codebase uses, so it keeps
+        # the original generic pair unchanged (as does parallel/workspace,
+        # which have no more specific analogue) rather than risk widening
+        # requirements for the type everything already assumes. mesh
+        # (peer-to-peer coordination, the shape distributed/ops work takes)
+        # gets the former "operations" list; sequential (pipeline-staged)
+        # gets the former "research" list — those two are now genuinely
+        # reachable and differ from the default.
         def find_skill_gaps(team, current_skills)
           team_type = team.respond_to?(:team_type) ? team.team_type : "general"
 
           required = case team_type
-                     when "development"
-                       %w[code_review testing deployment]
-                     when "operations"
+                     when "mesh"
                        %w[monitoring deployment security]
-                     when "research"
+                     when "sequential"
                        %w[data_analysis documentation]
                      else
                        %w[code_review testing]
@@ -209,9 +239,9 @@ module Ai
         end
 
         def calculate_activity_score(agent)
-          return 0 unless agent.respond_to?(:ai_agent_executions)
+          return 0 unless agent.respond_to?(:executions)
 
-          recent = agent.ai_agent_executions
+          recent = agent.executions
                         .where("created_at > ?", 7.days.ago)
                         .count
           [recent / 10.0, 1.0].min.round(2)

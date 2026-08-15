@@ -31,7 +31,7 @@ module Ai
       op = deferred_for(request)
       return "Approval needed" unless op
 
-      preview = safe_preview(op)
+      preview = safe_preview(request, op)
       collapse_lines(preview[:summary]).presence || "Approval needed: #{op.action_category}"
     end
 
@@ -42,7 +42,7 @@ module Ai
       header = "#{step_label} (step #{request.current_step + 1}/#{total})"
       return header unless op
 
-      preview = safe_preview(op)
+      preview = safe_preview(request, op)
       summary = collapse_lines(preview[:summary])
       impact = collapse_lines(preview[:impact])
       lines = [header]
@@ -68,10 +68,80 @@ module Ai
       ::Ai::DeferredOperation.find_by(id: request.source_id)
     end
 
-    def self.safe_preview(op)
-      op.preview || {}
-    rescue StandardError
-      {}
+    # `.title` and `.message` are two separate top-level entry points that
+    # both render off the same deferred operation's preview within a single
+    # notification pass (ApprovalRequestNotifier calls both back-to-back on
+    # the same `request`). Since the cards sweep, `op.preview` is a
+    # DB-backed executor round trip rather than string interpolation, so
+    # computing it twice per render is a real cost — memoized here per
+    # `request` instance (the one object both callers receive; `op` itself
+    # is re-fetched fresh by `deferred_for` on every call, so it can't hold
+    # the cache).
+    #
+    # Crypto-safety note (verified, not assumed): `op.preview` cannot
+    # transitively include the executor's reveal-once minted secret.
+    #
+    # REVISED by IMP-4a5094b22df0. The old wording rested partly on
+    # `System::Executors::Base.preview` hardcoding `deferred_operation: nil`,
+    # so "a preview call can't reach a real operation's state at all" — that
+    # sentence is obsolete and must not be quoted back, because the card path
+    # now threads an account through in order to scope its labels. The claim
+    # still holds, on grounds that were deliberately preserved:
+    #
+    #   1. STRUCTURAL, and the load-bearing one. What
+    #      `Ai::DeferredOperation#preview` passes is an
+    #      `Ai::DeferredOperation::PreviewContext` — an object carrying the
+    #      account and nothing else — never the operation. `take_revealed_result!`
+    #      is not a method on the thing the preview path holds, so no executor
+    #      can call it, and one that tries raises NoMethodError, which
+    #      `#preview`'s rescue turns into a generic card. The fail-safe posture
+    #      the nil hardcoding used to provide is intact: a leak through this
+    #      channel cannot silently start working.
+    #   2. the slot is per-INSTANCE anyway. `@revealed_result` is set only
+    #      inside `#execute_now!`, on the receiver, and is an in-memory ivar
+    #      never persisted — while `deferred_for` below is a bare `find_by`, so
+    #      the operation this memo caches a preview for is a different object
+    #      from the one that executed. Independent of ground 1.
+    #   3. the two paths are temporally exclusive — for THIS caller only.
+    #      `notify_current_step!` refuses to run once the request is
+    #      non-pending, and a request only goes non-pending through the same
+    #      transition that triggers `execute_now!`. It does NOT generalise:
+    #      Ai::AutonomyApprovalActions#serialize_deferred_operation is a second
+    #      production caller of `op.preview` and runs on the approvals detail
+    #      surface AFTER approval, on a completed operation. Grounds 1 and 2
+    #      carry that path.
+    #
+    # So this memo cannot defeat the one-shot reveal — see IMP-6858255cea72's
+    # reveal-once isolation spec, strengthened under IMP-4a5094b22df0 to fail
+    # against an executor that DOES reach for execution state.
+    #
+    # Reuse across a later step-advance re-notification on the SAME request
+    # object (a multi-step chain calls notify_current_step! again when
+    # current_step changes) is also safe: source_type/source_id are fixed
+    # for the whole chain, and nothing in the approval-advance flow
+    # (record_decision!/process_decision!/advance_to_next_step!) writes to
+    # the referenced DeferredOperation between steps. If that ever stops
+    # holding, this needs a freshness key, not blind reuse.
+    #
+    # Not a per-accessor cache: title/message/severity/metadata never
+    # receive `user` at all (see ApprovalRequestNotifier#notify_current_step!),
+    # so there is no per-approver variance to collapse — see this file's
+    # "N-approver identical content" spec, which uses approvers with
+    # materially different permissions to give that claim teeth.
+    PREVIEW_MEMO_IVAR = :@__deferred_operation_approval_content_preview
+
+    def self.safe_preview(request, op)
+      if request.instance_variable_defined?(PREVIEW_MEMO_IVAR)
+        return request.instance_variable_get(PREVIEW_MEMO_IVAR)
+      end
+
+      preview = begin
+        op.preview || {}
+      rescue StandardError
+        {}
+      end
+      request.instance_variable_set(PREVIEW_MEMO_IVAR, preview)
+      preview
     end
 
     def self.destructive_categories

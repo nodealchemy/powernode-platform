@@ -67,7 +67,7 @@ module Ai
       # Identify skill gaps for an existing team
       def skill_gap_analysis(team, task_description)
         required = identify_capabilities(task_description)
-        team_members = team.ai_agent_team_members.includes(:ai_agent)
+        team_members = team.members.includes(:agent)
         team_capabilities = extract_team_capabilities(team_members)
 
         covered = required.select { |cap| team_capabilities.include?(cap) }
@@ -199,7 +199,7 @@ module Ai
         capabilities = []
 
         team_members.each do |member|
-          agent = member.ai_agent
+          agent = member.agent
           next unless agent
 
           skills = extract_agent_skill_names(agent)

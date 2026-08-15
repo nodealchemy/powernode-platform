@@ -3,6 +3,94 @@
 module Ai
   module Tools
     class AgentAutonomyTool < BaseTool
+      # SECURITY (IMP-e8adfcfcab9b): authorization here is per ACTION, not per
+      # tool. REQUIRED_PERMISSION was inherited as nil from BaseTool, and
+      # McpPlatformToolRegistrar#enforce_permission! opens with
+      # `return if required.nil?` — ABOVE the authentication raise, the
+      # has_permission? raise and the token intersection. Every action on this
+      # tool was therefore reachable by any MCP caller with no check at all,
+      # including approve_deferred_operation, which EXECUTES the approved
+      # operation while its REST twin requires ai.autonomy.approve.
+      #
+      # No single constant can fix that. This tool bundles reads, goal writes,
+      # policy CRUD and approvals, whose REST twins require four different
+      # permissions: a constant tight enough for approval locks callers out of
+      # goals, and one loose enough for goals leaves approval under-gated while
+      # looking gated. So the constant is the FLOOR — the least-privileged
+      # action's twin, and what the registrar enforces for the whole tool — and
+      # ACTION_PERMISSIONS raises it per action to exactly what the REST surface
+      # for the same operation demands. This is the same shape seven sibling
+      # tools already use (SystemFleetTool, SdwanTool, SystemStorageOwnerTool
+      # and friends); per-action gating is not expressible in the registrar
+      # itself, whose enforce_permission! runs BEFORE the action is resolved.
+      #
+      # Floor: Api::V1::Ai::AutonomyController#validate_permissions gates every
+      # read on the autonomy surface (approvals queue included) on this.
+      REQUIRED_PERMISSION = "ai.agents.read"
+
+      # Each entry names the permission the REST twin of that action requires.
+      # Actions ABSENT here are deliberately at the floor: the agent-voice
+      # actions (escalate, report_issue, propose_feature, create_proposal,
+      # request_feedback, send_proactive_notification, discover_claude_sessions)
+      # have no twin at all — the proposals and escalations controllers expose
+      # only index/show plus review/resolve, and no human surface CREATES
+      # either one — so
+      # the parity invariant says nothing about them, and tightening them would
+      # cut off an agent's route to a human.
+      ACTION_PERMISSIONS = {
+        # POST /api/v1/ai/autonomy/approvals/:id/{approve,reject}
+        #   → Ai::AutonomyApprovalActions#require_approval_permission.
+        # approve_deferred_operation EXECUTES the operation — the reported hole.
+        "approve_deferred_operation" => "ai.autonomy.approve",
+        "reject_deferred_operation" => "ai.autonomy.approve",
+
+        # Api::V1::Ai::InterventionPoliciesController#validate_permissions —
+        # blanket, so the read is gated exactly like the writes.
+        "list_intervention_policies" => "ai.intervention_policies.manage",
+        "create_intervention_policy" => "ai.intervention_policies.manage",
+        "update_intervention_policy" => "ai.intervention_policies.manage",
+        "delete_intervention_policy" => "ai.intervention_policies.manage",
+
+        # Api::V1::Ai::GoalsController / GoalPlansController#validate_permissions
+        # — also blanket. decompose/validate/approve_plan write to a goal's plan,
+        # so they follow the goal surface rather than the approvals one:
+        # approve_plan approves a PLAN, not a deferred operation.
+        "create_agent_goal" => "ai.goals.manage",
+        "list_agent_goals" => "ai.goals.manage",
+        "update_agent_goal" => "ai.goals.manage",
+        "decompose_goal" => "ai.goals.manage",
+        "validate_plan" => "ai.goals.manage",
+        "approve_plan" => "ai.goals.manage",
+
+        # NOT an agent-voice action, despite sitting among them: it writes an
+        # assistant message into an existing workspace conversation
+        # (conversation.messages.create!), which is what Ai::Tools::ConversationTool
+        # does under REQUIRED_PERMISSION = "ai.conversations.create". Its twin is
+        # therefore on the MCP surface rather than REST, and the invariant holds
+        # just the same — leaving it at the floor would let a caller write into a
+        # conversation through this tool that platform.send_message refuses.
+        "request_code_change" => "ai.conversations.create"
+
+        # list_deferred_operations stays at the floor on purpose: its twin is
+        # GET /api/v1/ai/autonomy/approvals, which validate_permissions gates on
+        # ai.agents.read. agent_introspect likewise.
+      }.freeze
+
+      # Advertisement is deliberately NOT narrowed by the floor. BaseTool's
+      # default short-circuits on a nil REQUIRED_PERMISSION, so setting one
+      # would newly make this tool's presence in an agent's toolset depend on
+      # an account-wide "does ANY user hold ai.agents.read?" query — and in an
+      # account where none does, the whole surface would silently vanish from
+      # the agent, including escalate and report_issue, which are its route to
+      # a human. An agent that cannot execute the action should get a refusal
+      # it can report, not a capability that was never offered. Execution stays
+      # gated by the registrar's floor and by ACTION_PERMISSIONS; only
+      # visibility is restored to what it was before that constant existed.
+      # Same override, and the same reason, as Ai::Tools::KillSwitchTool.
+      def self.permitted?(agent:)
+        true
+      end
+
       def self.definition
         {
           name: "agent_autonomy",
@@ -202,7 +290,27 @@ module Ai
       end
 
       def call(params)
-        case params[:action]
+        # ONE normalized action drives both the gate and the dispatch, so the
+        # permission that was checked always belongs to the branch that runs.
+        # Deriving them from two expressions is how a gate and its dispatch come
+        # to disagree.
+        action = params[:action].to_s
+        unless action_permitted?(action)
+          # Logged, not just returned. This refusal is a soft error_result — the
+          # surface's own idiom, and what the caller can act on — but a bare
+          # result is invisible: on the agent path it becomes an ordinary tool
+          # message fed back to the model, so a caller repeatedly attempting an
+          # approval it cannot hold would leave no trace anywhere. The floor
+          # denial one layer up raises and is logged by the registrar; this is
+          # the matching record for the per-action denial.
+          Rails.logger.warn(
+            "[AgentAutonomyTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
+        case action
         when "create_agent_goal" then create_agent_goal(params)
         when "list_agent_goals" then list_agent_goals(params)
         when "update_agent_goal" then update_agent_goal(params)
@@ -226,11 +334,46 @@ module Ai
         when "approve_deferred_operation" then approve_deferred_operation(params)
         when "reject_deferred_operation" then reject_deferred_operation(params)
         else
-          error_result("Unknown action: #{params[:action]}")
+          error_result("Unknown action: #{action}")
         end
       end
 
       private
+
+      # === Per-action permission gating (IMP-e8adfcfcab9b) ===
+
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two bypasses, both EXPLICIT, matching the sibling tools' ladder:
+      #
+      #   internal?            in-process system callers (autonomy reconcilers,
+      #                        skill executors running without a user) that
+      #                        opted in with `internal: true`. Never inferred
+      #                        from a nil user — an MCP instance principal also
+      #                        arrives with none (IMP-9030413bc292).
+      #   instance_authorized? an mTLS node principal whose SPECIFIC tool name
+      #                        already cleared Mcp::Principal#may_invoke? in the
+      #                        streamable controller, and whose action the
+      #                        registrar then pins to that same name. Without
+      #                        this arm every such call is hard-denied (BUG-R).
+      #
+      # Unlike those siblings there is no `return true unless
+      # user.respond_to?(:has_permission?)` arm. That arm fails OPEN, and it is
+      # unreachable here anyway: REQUIRED_PERMISSION is no longer nil, so the
+      # registrar has already called user.has_permission? on any caller that
+      # gets this far. A principal that cannot answer the question is refused.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        # Compared against true rather than used for truthiness: nothing on the
+        # MCP path coerces a permission answer, and a truthy non-boolean must
+        # not read as a grant.
+        user.has_permission?(required_perm_for(action)) == true
+      end
 
       def create_agent_goal(params)
         target_agent = resolve_agent(params["agent_id"])
@@ -662,6 +805,16 @@ module Ai
         result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).approve(
           request: request, approver: user, comments: params[:comments]
         )
+        # Deliberately does NOT carry the reveal-once handoff (IMP-7b81ca22f661)
+        # that the HTTP approval surfaces do. A tool return travels further than
+        # its caller: Ai::AgentToolBridgeService puts a 200-byte preview of it in
+        # `tool_calls_log` — persisted to ai_messages.processing_metadata — and
+        # appends the full JSON as a role:"tool" message sent to the model
+        # provider on the next turn. Revealing minted key material here would
+        # make it a durable plaintext copy AND transmit it off-platform, which
+        # is the invariant that handoff exists to preserve, not an edge case of
+        # it. Approving through this surface therefore still destroys a mint;
+        # the token is disclosed on the operator UI/API surface instead.
         { success: true, approval_request_id: request.id, request_status: request.reload.status, workflow: result }
       rescue StandardError => e
         { success: false, error: "Approval failed: #{e.class}: #{e.message}" }

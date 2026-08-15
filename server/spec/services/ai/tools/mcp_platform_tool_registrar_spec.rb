@@ -441,40 +441,80 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
       it "pins the action for a call carrying neither a user nor an agent" do
         # REQUIRED_PERMISSION is nil here, so enforce_permission! waves the call
         # through without checking anything — the invoked name is the only bound
-        # left on what runs.
-        expect(Ai::Tools::AgentAutonomyTool::REQUIRED_PERMISSION).to be_nil
+        # left on what runs. AgentAutonomyTool used to be this exemplar; it now
+        # carries a floor (IMP-e8adfcfcab9b) and is refused one layer higher, so
+        # a class the fence is still the ONLY bound on stands in.
+        expect(Ai::Tools::ProvisioningTool::REQUIRED_PERMISSION).to be_nil
+
+        provisioning_tool = instance_double(Ai::Tools::ProvisioningTool)
+        allow(Ai::Tools::ProvisioningTool).to receive(:new)
+          .with(account: account, user: nil, agent: nil).and_return(provisioning_tool)
+        allow(provisioning_tool).to receive(:instance_authorized=)
+        allow(provisioning_tool).to receive(:execute).and_return({ success: true })
 
         expect {
           described_class.execute_tool(
-            "platform.agent_autonomy",
-            params: { "action" => "request_code_change" },
+            "platform.provisioning",
+            params: { "action" => "platform_provisioning_capture_brief" },
             account: account,
             user: nil
           )
-        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /request_code_change/)
+        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /platform_provisioning_capture_brief/)
 
-        expect(autonomy_tool).not_to have_received(:execute)
+        expect(provisioning_tool).not_to have_received(:execute)
       end
 
-      it "leaves the agent tool-calling path unpinned even when the agent has no creator" do
-        # AgentToolBridgeService passes user: agent.creator — nil for an agent
-        # with no creator — alongside mcp_agent. An agent legitimately supplies
-        # :action for a class that declares one, so this path must keep running
-        # it rather than falling into the principal-less pin.
+      it "leaves the agent tool-calling path unpinned" do
+        # AgentToolBridgeService passes user: agent.creator alongside mcp_agent.
+        # An agent legitimately supplies :action for a class that declares one,
+        # so this path must keep running it rather than falling into the
+        # principal-less pin.
+        #
+        # The creator is never nil in practice — ai_agents.creator_id is
+        # `null: false` and belongs_to is required under load_defaults 8.0 — so
+        # the user is passed here rather than left nil, which is also what the
+        # tool's permission floor now requires of this path.
         agent = instance_double(Ai::Agent)
         allow(Ai::Tools::AgentAutonomyTool).to receive(:new)
-          .with(account: account, user: nil, agent: agent).and_return(autonomy_tool)
+          .with(account: account, user: user, agent: agent).and_return(autonomy_tool)
+        allow(user).to receive(:has_permission?).with("ai.agents.read").and_return(true)
 
         described_class.execute_tool(
           "platform.agent_autonomy",
           params: { "action" => "list_agent_goals" },
           account: account,
-          user: nil,
+          user: user,
           mcp_agent: agent
         )
 
         expect(autonomy_tool).to have_received(:execute) do |args|
           expect(args[:params][:action]).to eq("list_agent_goals")
+        end
+      end
+
+      # The mcp_agent.nil? clause of action_pinned_to_name? specifically: a call
+      # carrying an AGENT but no user must stay UNPINNED. The example above used
+      # to cover that clause and no longer can — AgentAutonomyTool's floor now
+      # refuses a nil user before the pin is ever reached — so it is held here
+      # against a class whose REQUIRED_PERMISSION is still nil. Without this,
+      # deleting `&& mcp_agent.nil?` from that guard reds nothing.
+      it "leaves an agent call carrying no user unpinned" do
+        agent = instance_double(Ai::Agent)
+        provisioning_tool = instance_double(Ai::Tools::ProvisioningTool)
+        allow(Ai::Tools::ProvisioningTool).to receive(:new)
+          .with(account: account, user: nil, agent: agent).and_return(provisioning_tool)
+        allow(provisioning_tool).to receive(:execute).and_return({ success: true })
+
+        described_class.execute_tool(
+          "platform.provisioning",
+          params: { "action" => "platform_provisioning_capture_brief" },
+          account: account,
+          user: nil,
+          mcp_agent: agent
+        )
+
+        expect(provisioning_tool).to have_received(:execute) do |args|
+          expect(args[:params][:action]).to eq("platform_provisioning_capture_brief")
         end
       end
     end

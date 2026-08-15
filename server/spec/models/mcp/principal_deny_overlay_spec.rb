@@ -55,7 +55,27 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
   # unattended-start race the feature exists to prevent. Became
   # MCP-reachable only when these actions were added to
   # PlatformApiToolRegistry (previously declared, tested and unroutable).
+  #
+  # approve_deferred_operation / reject_deferred_operation and
+  # create_/update_intervention_policy (IMP-e8adfcfcab9b): the human approval
+  # gate itself. approve_ EXECUTES the operation a human was asked to
+  # authorise, so an instance reaching it closes the loop on its own request;
+  # reject_ is denied for the same arm/disarm symmetry as the hold pair above.
+  # The policy writes are sharper still — an intervention policy decides
+  # whether an action needs approval AT ALL, so one
+  # create_intervention_policy(scope: "global", policy: "auto_approve") makes
+  # every later gate vacuous. delete_intervention_policy was already denied by
+  # *delete*; denying the delete while permitting the rewrite was incoherent.
+  # These are exactly the actions whose authorization cannot be checked for an
+  # instance — no User, so has_permission? has nothing to ask about — which is
+  # why AgentAutonomyTool's per-action map waives the check for it and this
+  # overlay is the layer that bounds it.
   DESTRUCTIVE = %w[
+    platform.approve_deferred_operation
+    platform.reject_deferred_operation
+    platform.create_intervention_policy
+    platform.update_intervention_policy
+    platform.delete_intervention_policy
     platform.system_destroy_instance
     platform.system_terminate_instance
     platform.system_delete_node
@@ -77,7 +97,16 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
   # tier as system_get_module/system_list_instances above; not paired with
   # an arm/disarm of a safety mechanism the way system_instance_hold/
   # release_hold are.
+  #
+  # list_deferred_operations / list_intervention_policies (IMP-e8adfcfcab9b):
+  # the read halves of the two families denied above. Both are PLURAL, which is
+  # what keeps them out of the *_deferred_operation and *intervention_policy
+  # patterns — asserted here so a later "tidy-up" of those patterns into
+  # *deferred_operation*/*intervention_polic* reds instead of silently taking
+  # an instance's read surface with it.
   SAFE = %w[
+    platform.list_deferred_operations
+    platform.list_intervention_policies
     platform.code_blast_radius
     platform.search_knowledge
     platform.dev_next_task
@@ -122,8 +151,32 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # guard working: every change to the deny list is meant to be acknowledged
     # HERE, deliberately, rather than slipping in unreviewed. Bump this only
     # after confirming the new pattern belongs.
+    #
+    # 18 since IMP-e8adfcfcab9b added *_deferred_operation and
+    # *intervention_policy — the approval gate itself. Acknowledged here after
+    # checking collateral against the whole registry rather than by eye: those
+    # two patterns match exactly the five intended actions across all 602
+    # registered tool actions, and no others.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(16)
+      expect(patterns.size).to eq(18)
+    end
+
+    # The collateral check itself, kept mechanical: a pattern added later that
+    # over-matches would be caught here rather than by reading fnmatch globs.
+    it "denies exactly the intended actions across the whole tool registry" do
+      newly_denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+        %w[*_deferred_operation *intervention_policy].any? do |pattern|
+          ::File.fnmatch(pattern, name, ::File::FNM_EXTGLOB)
+        end
+      end
+
+      expect(newly_denied.sort).to eq(%w[
+        approve_deferred_operation
+        create_intervention_policy
+        delete_intervention_policy
+        reject_deferred_operation
+        update_intervention_policy
+      ])
     end
   end
 

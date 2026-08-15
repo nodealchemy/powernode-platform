@@ -208,6 +208,37 @@ RSpec.describe Ai::Teams::ConfigurationService, type: :service do
       end
     end
 
+    context 'when an agent carries both a global skill and its account-level clone' do
+      # Regression: skill analysis keyed by downcased skill NAME. Ai::Skill
+      # supports a global row (account_id: nil) plus an account-level
+      # clone/override sharing that name — ai/skill.rb's resolve_for and
+      # account_override_first both treat the pair as ONE capability, with
+      # the account row taking precedence. An agent bound to both (via two
+      # separate Ai::AgentSkill rows — nothing stops that, uniqueness there
+      # is scoped to ai_skill_id) got pushed into the same skill's tally
+      # twice, so it was reported "redundant" with itself.
+      let(:agent) { create(:ai_agent, account: account) }
+      let(:global_skill) { create(:ai_skill, :global, name: 'Python Runtime', slug: 'python-runtime') }
+      let(:account_skill) { create(:ai_skill, account: account, name: 'Python Runtime', slug: 'python-runtime') }
+
+      before do
+        create(:ai_agent_team_member, team: team, agent: agent)
+        create(:ai_agent_skill, agent: agent, skill: global_skill)
+        create(:ai_agent_skill, agent: agent, skill: account_skill)
+      end
+
+      it 'does not report the lone agent as redundant with itself' do
+        redundancies = service.analyze_composition(team)[:redundancies]
+        expect(redundancies).to be_empty
+      end
+
+      it 'counts the shared name as one skill, not two, in coverage' do
+        coverage = service.analyze_composition(team)[:skill_coverage]
+        expect(coverage[:skills]).to eq('python runtime' => 1)
+        expect(coverage[:multi_covered_skills]).to eq(0)
+      end
+    end
+
     context 'when a single agent covers the whole ideal skill breadth' do
       let(:agent) { create(:ai_agent, account: account) }
 
@@ -251,6 +282,78 @@ RSpec.describe Ai::Teams::ConfigurationService, type: :service do
         expect(Ai::Skill.new).to respond_to(:name)
         expect(Ai::AgentSkill.new).not_to respond_to(:name)
       end
+    end
+  end
+
+  describe '#recommend_agents' do
+    # Regression: `team.ai_agent_team_members` is not an association —
+    # Ai::AgentTeam declares `has_many :members` (agent_team.rb:20). This
+    # raised NoMethodError the first time TaskAnalyzerService reported ANY
+    # capability gap, i.e. whenever the account has no agent at all matching
+    # a requested capability — precisely the case this method exists to handle.
+    it 'computes recommendations instead of raising on a capability gap' do
+      result = nil
+      expect {
+        result = service.recommend_agents(team, 'Review the code for quality issues')
+      }.not_to raise_error
+
+      expect(result[:add]).to eq([])
+      expect(result[:remove]).to eq([])
+      expect(result[:current_coverage]).to eq(0.4)
+      expect(result[:projected_coverage]).to eq(0.4)
+    end
+  end
+
+  describe 'activity scoring behind the "least active" pick (private #find_redundancies)' do
+    # Regression: calculate_activity_score guarded on
+    # respond_to?(:ai_agent_executions), which Ai::Agent never defines (its
+    # association is `executions`). The guard was always false, so every
+    # agent scored a constant 0 and recommend_agents' min_by over redundant
+    # agents picked whichever came first, not the genuinely least active one.
+    let(:shared_skill) { create(:ai_skill, account: account, name: 'python') }
+    let!(:idle_agent) { create(:ai_agent, account: account, name: 'Idle Agent') }
+    let!(:busy_agent) { create(:ai_agent, account: account, name: 'Busy Agent') }
+
+    before do
+      create(:ai_agent_skill, agent: idle_agent, skill: shared_skill)
+      create(:ai_agent_skill, agent: busy_agent, skill: shared_skill)
+      create_list(:ai_agent_execution, 5, :completed, account: account, agent: busy_agent)
+    end
+
+    it 'differentiates activity scores instead of reporting every agent at zero' do
+      redundancies = service.send(:find_redundancies, [busy_agent, idle_agent])
+      scores = redundancies.first[:agents].each_with_object({}) { |a, h| h[a[:name]] = a[:activity_score] }
+
+      expect(scores[idle_agent.name]).to eq(0)
+      expect(scores[busy_agent.name]).to be > scores[idle_agent.name]
+    end
+  end
+
+  describe 'required-skill sets vary by team_type (private #find_skill_gaps)' do
+    # Regression: the case here matched "development"/"operations"/"research"
+    # — values that appear nowhere in Ai::AgentTeam::TEAM_TYPES (they match
+    # Ai::Mission::MISSION_TYPES on an unrelated model). team_type can only
+    # ever be hierarchical/mesh/sequential/parallel/workspace, so every team
+    # hit `else` and got the identical generic pair regardless of type.
+    # hierarchical keeps that original generic pair (it's the schema default
+    # and every pre-existing fixture assumes it) — mesh and sequential are
+    # the two branches that are now reachable AND differ from the default.
+    let(:hierarchical_team) { create(:ai_agent_team, :hierarchical, account: account) }
+    let(:mesh_team) { create(:ai_agent_team, :mesh, account: account) }
+
+    it 'requires different skills for mesh than for the hierarchical default' do
+      hierarchical_gaps = service.send(:find_skill_gaps, hierarchical_team, {})
+      mesh_gaps = service.send(:find_skill_gaps, mesh_team, {})
+
+      expect(hierarchical_gaps).not_to eq(mesh_gaps)
+    end
+
+    it 'maps a hierarchical team to the generic default skill set' do
+      expect(service.send(:find_skill_gaps, hierarchical_team, {})).to match_array(%w[code_review testing])
+    end
+
+    it 'maps a mesh team to its required skill set' do
+      expect(service.send(:find_skill_gaps, mesh_team, {})).to match_array(%w[monitoring deployment security])
     end
   end
 
