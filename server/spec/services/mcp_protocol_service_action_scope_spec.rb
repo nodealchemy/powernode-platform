@@ -16,17 +16,22 @@ require "rails_helper"
 #   neither a principal nor instance_authorized, so the fence never ran and a
 #   caller-supplied :action executed unchecked.
 #
-# Five tool classes have REQUIRED_PERMISSION == nil, so enforce_permission!
-# returns without checking anything: on door 2 they had NO gate on the action at
-# all. These examples are the contract that both doors refuse the same thing.
+# A tool class whose REQUIRED_PERMISSION is nil makes enforce_permission! return
+# without checking anything, so on door 2 there is NO gate on the action at all
+# and the fence is the only bound. These examples are the contract that both
+# doors refuse the same thing.
 #
-# AgentAutonomyTool was the sixth and is the exemplar these examples used to
-# reach for. It now carries a floor plus a per-action map (IMP-e8adfcfcab9b), so
-# a principal-less call to it is refused EARLIER — by enforce_permission!'s
-# authentication raise, above the fence — and it can no longer stand in for a
-# class the fence is the only bound on. ProvisioningTool takes that role here;
-# AgentAutonomyTool keeps its own coverage below in the shape it is actually
-# called in.
+# NO core class plays that role any more. AgentAutonomyTool left the set in
+# IMP-e8adfcfcab9b, and the remaining five (ProvisioningTool,
+# AgentMemoryManagementTool, SelfImprovementTool, GovernanceTool,
+# CoordinationTool) left it in IMP-6fbfeff384fa — each now carries a floor, so a
+# principal-less call is refused EARLIER, by enforce_permission!'s authentication
+# raise ABOVE the fence. That is a strictly better outcome and it is pinned
+# below, but it would also have quietly retired this fence's only oracle: every
+# example here would still pass, for a reason that has nothing to do with the
+# fence. So the fence is now exercised through a purpose-built stub class
+# (FenceProbeTool) that has the property under test — nil permission, several
+# actions — instead of borrowing whichever real class happened to have it.
 #
 # Door 2 is INERT at runtime today, and these examples reach it by calling
 # #execute_tool_by_type directly for that reason: #invoke_tool hard-denies
@@ -45,7 +50,41 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
   let(:protocol_service) { Mcp::ProtocolService.new(account: account) }
   let(:registrar) { Ai::Tools::McpPlatformToolRegistrar }
 
+  # The stand-in for "a multi-action tool class the registrar waves through":
+  # REQUIRED_PERMISSION nil (inherited), an :action parameter so
+  # action_dispatched? is true, and more than one action to smuggle between.
+  # Registered into the registry the same way a real tool is, so resolution,
+  # manifest building and dispatch all run unmodified.
   before do
+    stub_const("Ai::Tools::FenceProbeTool", Class.new(::Ai::Tools::BaseTool) do
+      def self.definition
+        {
+          name: "fence_probe",
+          description: "spec-only probe for the action-scope fence",
+          parameters: { action: { type: "string", required: true } }
+        }
+      end
+
+      def self.action_definitions
+        {
+          "fence_probe_read" => { description: "read", parameters: {} },
+          "fence_probe_write" => { description: "write", parameters: {} }
+        }
+      end
+    end)
+
+    allow(::Ai::Tools::PlatformApiToolRegistry).to receive(:all_tools).and_wrap_original do |original|
+      original.call.merge(
+        "fence_probe" => "Ai::Tools::FenceProbeTool",
+        "fence_probe_read" => "Ai::Tools::FenceProbeTool",
+        "fence_probe_write" => "Ai::Tools::FenceProbeTool"
+      )
+    end
+
+    registrar.instance_variable_set(:@tool_classes, nil)
+  end
+
+  after do
     registrar.instance_variable_set(:@tool_classes, nil)
   end
 
@@ -59,30 +98,30 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
   end
 
   describe "door 2: Mcp::ProtocolService#execute_tool_by_type" do
-    let(:provisioning_tool) { instance_double(Ai::Tools::ProvisioningTool) }
+    let(:probe_tool) { instance_double(Ai::Tools::FenceProbeTool) }
 
     before do
-      allow(Ai::Tools::ProvisioningTool).to receive(:new)
-        .with(account: account, user: nil, agent: nil).and_return(provisioning_tool)
-      allow(provisioning_tool).to receive(:instance_authorized=)
-      allow(provisioning_tool).to receive(:node_instance=)
-      allow(provisioning_tool).to receive(:execute).and_return({ success: true })
+      allow(Ai::Tools::FenceProbeTool).to receive(:new)
+        .with(account: account, user: nil, agent: nil).and_return(probe_tool)
+      allow(probe_tool).to receive(:instance_authorized=)
+      allow(probe_tool).to receive(:node_instance=)
+      allow(probe_tool).to receive(:execute).and_return({ success: true })
     end
 
     it "refuses a caller-supplied action from a principal-less call" do
-      # ProvisioningTool::REQUIRED_PERMISSION is nil and this call carries no
-      # user and no agent, so nothing downstream bounds the action: without the
-      # fence, "platform_provisioning_capture_brief" simply runs.
-      expect(Ai::Tools::ProvisioningTool::REQUIRED_PERMISSION).to be_nil
+      # FenceProbeTool::REQUIRED_PERMISSION is nil and this call carries no user
+      # and no agent, so nothing downstream bounds the action: without the fence,
+      # "fence_probe_write" simply runs.
+      expect(Ai::Tools::FenceProbeTool::REQUIRED_PERMISSION).to be_nil
 
       expect {
         call_via_protocol_service(
-          Ai::Tools::ProvisioningTool,
-          { "action" => "platform_provisioning_capture_brief", "description" => "x" }
+          Ai::Tools::FenceProbeTool,
+          { "action" => "fence_probe_write" }
         )
-      }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /platform_provisioning_capture_brief/)
+      }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /fence_probe_write/)
 
-      expect(provisioning_tool).not_to have_received(:execute)
+      expect(probe_tool).not_to have_received(:execute)
     end
 
     # AgentAutonomyTool now refuses this call one layer higher — the floor's
@@ -104,26 +143,24 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
       expect(autonomy_tool).not_to have_received(:execute)
     end
 
-    it "covers every tool class whose REQUIRED_PERMISSION is nil" do
-      # The five multi-action classes that enforce_permission! waves through.
-      # Each is invoked under its own manifest name with a foreign action.
-      # AgentAutonomyTool left this set in IMP-e8adfcfcab9b.
-      no_permission_classes = [
+    # The five classes this spec used to enumerate as "waved through" were fixed
+    # in IMP-6fbfeff384fa. They are still worth driving down door 2 — but the
+    # property they now demonstrate is the opposite one: a principal-less call is
+    # refused at the FLOOR, above the fence.
+    it "refuses a principal-less call to each former nil-permission class at its floor" do
+      [
         Ai::Tools::ProvisioningTool,
         Ai::Tools::AgentMemoryManagementTool,
         Ai::Tools::SelfImprovementTool,
         Ai::Tools::GovernanceTool,
         Ai::Tools::CoordinationTool
-      ]
-
-      no_permission_classes.each do |tool_class|
+      ].each do |tool_class|
         expect(tool_class::REQUIRED_PERMISSION).to(
-          be_nil, "expected #{tool_class} to have no REQUIRED_PERMISSION"
+          be_present, "expected #{tool_class} to declare a permission floor"
         )
 
         double = instance_double(tool_class)
-        allow(tool_class).to receive(:new)
-          .with(account: account, user: nil, agent: nil).and_return(double)
+        allow(tool_class).to receive(:new).and_return(double)
         allow(double).to receive(:instance_authorized=)
         allow(double).to receive(:node_instance=)
         allow(double).to receive(:execute).and_return({ success: true })
@@ -132,11 +169,27 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
           call_via_protocol_service(tool_class, { "action" => "some_sibling_action" })
         }.to raise_error(
           ::Mcp::ProtocolService::PermissionDeniedError,
-          /some_sibling_action/
-        ), "expected #{tool_class} to pin the executed action to its tool name"
+          /Authentication required/
+        ), "expected #{tool_class} to refuse a principal-less call at its floor"
 
         expect(double).not_to have_received(:execute)
       end
+    end
+
+    # The generalisation of that fix, and the guard that matters going forward: a
+    # NEW multi-action tool added without a REQUIRED_PERMISSION reopens exactly
+    # the hole IMP-e8adfcfcab9b and IMP-6fbfeff384fa closed, and nothing else in
+    # the suite would notice. Single-action classes are exempt: they cannot
+    # smuggle a sibling action, and IntegrationHealthTool sets nil deliberately.
+    it "leaves no action-dispatched tool class waved through enforce_permission!" do
+      waved = registrar.send(:tool_classes).select do |tool_class|
+        next false if tool_class == Ai::Tools::FenceProbeTool
+
+        registrar.send(:action_dispatched?, tool_class) && tool_class::REQUIRED_PERMISSION.nil?
+      end
+
+      expect(waved).to be_empty,
+                       "multi-action tools with no REQUIRED_PERMISSION: #{waved.map(&:name).join(', ')}"
     end
 
     it "leaves the user-principal path on this door unchanged" do
@@ -171,16 +224,22 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
     end
   end
 
+  # Driven through the probe class for the same reason as above: with a floor in
+  # place the two doors refuse at DIFFERENT layers (door 1 carries
+  # instance_authorized, which enforce_permission! honours before the
+  # authentication raise; door 2 carries no principal and is refused by that
+  # raise), so a real class can no longer show that the FENCE's two refusals
+  # agree. The probe keeps both doors landing on the fence.
   describe "both doors agree" do
-    let(:provisioning_tool) { instance_double(Ai::Tools::ProvisioningTool) }
-    let(:smuggled) { { "action" => "platform_provisioning_capture_brief", "description" => "x" } }
+    let(:probe_tool) { instance_double(Ai::Tools::FenceProbeTool) }
+    let(:smuggled) { { "action" => "fence_probe_write" } }
 
     before do
-      allow(Ai::Tools::ProvisioningTool).to receive(:new)
-        .with(account: account, user: nil, agent: nil).and_return(provisioning_tool)
-      allow(provisioning_tool).to receive(:instance_authorized=)
-      allow(provisioning_tool).to receive(:node_instance=)
-      allow(provisioning_tool).to receive(:execute).and_return({ success: true })
+      allow(Ai::Tools::FenceProbeTool).to receive(:new)
+        .with(account: account, user: nil, agent: nil).and_return(probe_tool)
+      allow(probe_tool).to receive(:instance_authorized=)
+      allow(probe_tool).to receive(:node_instance=)
+      allow(probe_tool).to receive(:execute).and_return({ success: true })
     end
 
     it "refuses the same smuggled action through the registrar and through the protocol service" do
@@ -189,7 +248,7 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
 
       begin
         registrar.execute_tool(
-          "platform.provisioning",
+          "platform.fence_probe",
           params: smuggled,
           account: account,
           user: nil,
@@ -200,7 +259,7 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
       end
 
       begin
-        call_via_protocol_service(Ai::Tools::ProvisioningTool, smuggled)
+        call_via_protocol_service(Ai::Tools::FenceProbeTool, smuggled)
       rescue ::Mcp::ProtocolService::PermissionDeniedError => e
         door_2 = e
       end
@@ -208,7 +267,7 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
       expect(door_1).to be_a(::Mcp::ProtocolService::PermissionDeniedError)
       expect(door_2).to be_a(::Mcp::ProtocolService::PermissionDeniedError)
       expect(door_2.message).to eq(door_1.message)
-      expect(provisioning_tool).not_to have_received(:execute)
+      expect(probe_tool).not_to have_received(:execute)
     end
   end
 end
