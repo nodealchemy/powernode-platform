@@ -31,7 +31,7 @@ module Ai
       op = deferred_for(request)
       return "Approval needed" unless op
 
-      preview = safe_preview(op)
+      preview = safe_preview(request, op)
       collapse_lines(preview[:summary]).presence || "Approval needed: #{op.action_category}"
     end
 
@@ -42,7 +42,7 @@ module Ai
       header = "#{step_label} (step #{request.current_step + 1}/#{total})"
       return header unless op
 
-      preview = safe_preview(op)
+      preview = safe_preview(request, op)
       summary = collapse_lines(preview[:summary])
       impact = collapse_lines(preview[:impact])
       lines = [header]
@@ -68,10 +68,37 @@ module Ai
       ::Ai::DeferredOperation.find_by(id: request.source_id)
     end
 
-    def self.safe_preview(op)
-      op.preview || {}
-    rescue StandardError
-      {}
+    # `.title` and `.message` are two separate top-level entry points that
+    # both render off the same deferred operation's preview within a single
+    # notification pass (ApprovalRequestNotifier calls both back-to-back on
+    # the same `request`). Since the cards sweep, `op.preview` is a
+    # DB-backed executor round trip rather than string interpolation, so
+    # computing it twice per render is a real cost — memoized here per
+    # `request` instance (the one object both callers receive; `op` itself
+    # is re-fetched fresh by `deferred_for` on every call, so it can't hold
+    # the cache).
+    #
+    # Reuse across a later step-advance re-notification on the SAME request
+    # object (a multi-step chain calls notify_current_step! again when
+    # current_step changes) is also safe: source_type/source_id are fixed
+    # for the whole chain, and nothing in the approval-advance flow
+    # (record_decision!/process_decision!/advance_to_next_step!) writes to
+    # the referenced DeferredOperation between steps. If that ever stops
+    # holding, this needs a freshness key, not blind reuse.
+    PREVIEW_MEMO_IVAR = :@__deferred_operation_approval_content_preview
+
+    def self.safe_preview(request, op)
+      if request.instance_variable_defined?(PREVIEW_MEMO_IVAR)
+        return request.instance_variable_get(PREVIEW_MEMO_IVAR)
+      end
+
+      preview = begin
+        op.preview || {}
+      rescue StandardError
+        {}
+      end
+      request.instance_variable_set(PREVIEW_MEMO_IVAR, preview)
+      preview
     end
 
     def self.destructive_categories

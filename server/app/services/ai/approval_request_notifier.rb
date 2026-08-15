@@ -30,24 +30,37 @@ module Ai
       content = source_content_for(request)
       approvers = resolve_approvers(request.account, step["approvers"])
 
+      # None of these depend on the approving `user` — compute the card
+      # content once per step advance, not once per approver. On a "*"-gated
+      # step against a large account this previously issued the full content
+      # computation (including a DB-backed executor preview, see
+      # DeferredOperationApprovalContent#safe_preview) once per active user.
+      notification_type = content.notification_type
+      title = content.title(request, step)
+      message = content.message(request, step)
+      severity = content.severity(request)
+      category = content.category
+      action_url = content.action_url(request)
+      metadata = {
+        approval_request_id: request.id,
+        current_step: request.current_step,
+        total_steps: request.step_statuses.size,
+        step_name: step["step_name"] || step["name"],
+        source_type: request.source_type,
+        source_id: request.source_id
+      }.merge(content.metadata(request))
+
       approvers.find_each do |user|
         Notification.create_for_user(
           user,
-          type: content.notification_type,
-          title: content.title(request, step),
-          message: content.message(request, step),
-          severity: content.severity(request),
-          category: content.category,
-          action_url: content.action_url(request),
+          type: notification_type,
+          title: title,
+          message: message,
+          severity: severity,
+          category: category,
+          action_url: action_url,
           action_label: "Review",
-          metadata: {
-            approval_request_id: request.id,
-            current_step: request.current_step,
-            total_steps: request.step_statuses.size,
-            step_name: step["step_name"] || step["name"],
-            source_type: request.source_type,
-            source_id: request.source_id
-          }.merge(content.metadata(request))
+          metadata: metadata
         )
       end
     rescue StandardError => e
