@@ -181,6 +181,25 @@ RSpec.describe "agent_autonomy MCP per-action authorization" do
       expect(::Ai::InterventionPolicy.exists?(policy.id)).to be(true)
     end
 
+    # request_code_change writes an assistant message into a workspace
+    # conversation, which platform.send_message gates on ai.conversations.create.
+    # The two refusals are distinguishable without any conversation fixture: a
+    # permitted caller gets past the gate and fails on the missing session
+    # instead, which is what separates "gated" from "broken".
+    it "refuses request_code_change without ai.conversations.create" do
+      refused = run_expecting_refusal(
+        "request_code_change", { "description" => "do the thing" }, user: reader, mcp_agent: agent
+      )
+      expect(refused[:success]).to be(false)
+      expect(refused[:error]).to include("ai.conversations.create")
+
+      permitted_caller = create(:user, account: account, permissions: %w[ai.agents.read ai.conversations.create])
+      allowed = run("request_code_change", { "description" => "do the thing" }, user: permitted_caller, mcp_agent: agent)
+      expect(allowed[:success]).to be(false)
+      expect(allowed[:error]).not_to include("permission denied")
+      expect(allowed[:error]).to match(/session/i)
+    end
+
     it "refuses create_agent_goal without ai.goals.manage and writes no goal" do
       expect {
         result = run_expecting_refusal(
@@ -280,6 +299,54 @@ RSpec.describe "agent_autonomy MCP per-action authorization" do
       expect(result[:success]).to be(true)
     end
 
+    # An instance principal has no User, so has_permission? has nothing to ask
+    # about and action_permitted? waives the per-action check for it. The bound
+    # is the deny overlay, which refuses these names to EVERY instance whatever
+    # it was granted (IMP-e8adfcfcab9b extended it to the approval gate itself).
+    # Without this the user path would be closed and the mTLS path left open.
+    it "refuses an instance principal the approval actions, whatever it was granted" do
+      %w[approve_deferred_operation reject_deferred_operation].each do |action|
+        expect {
+          ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+            "platform.#{action}",
+            params: { "deferred_operation_id" => deferred.id },
+            account: account, user: nil, instance_authorized: true
+          )
+        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /destroy-shaped|not permitted/)
+      end
+
+      expect(approval_request.reload.status).to eq("pending")
+      expect(PermissionSpecExecutor.ran).to be(false)
+    end
+
+    # The sharper half: an intervention policy decides whether anything needs
+    # approval at all, so one auto_approve/global row makes every later gate
+    # vacuous. delete_ was already covered by *delete*; create_/update_ were not.
+    it "refuses an instance principal the intervention-policy writes" do
+      %w[create_intervention_policy update_intervention_policy].each do |action|
+        expect {
+          ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+            "platform.#{action}",
+            params: { "scope" => "global", "action_category" => "test.gated_action", "policy" => "auto_approve" },
+            account: account, user: nil, instance_authorized: true
+          )
+        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError)
+      end
+
+      expect(account.ai_intervention_policies.where(policy: "auto_approve")).to be_empty
+    end
+
+    # ...and the reads it legitimately holds are NOT swept up by those patterns
+    # (they are plural: list_deferred_operations, list_intervention_policies).
+    it "keeps an instance principal's read surface" do
+      result = ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+        "platform.list_intervention_policies",
+        params: {}, account: account, user: nil, instance_authorized: true
+      )
+
+      expect(result[:success]).to be(true)
+    end
+
     # ...and that grant is still the bound: the registrar pins an instance's
     # action to the name it invoked, so the smuggling route stays shut for the
     # principal whose per-action check is deliberately waived.
@@ -321,6 +388,23 @@ RSpec.describe "agent_autonomy MCP per-action authorization" do
          decompose_goal validate_plan approve_plan].each do |action|
         expect(map.fetch(action)).to eq("ai.goals.manage")
       end
+
+      # request_code_change writes a conversation message, which is what
+      # Ai::Tools::ConversationTool gates — read from that class rather than
+      # restated, so the two cannot drift apart.
+      expect(map.fetch("request_code_change")).to eq(::Ai::Tools::ConversationTool::REQUIRED_PERMISSION)
+    end
+
+    # Advertisement must not depend on the floor: BaseTool's default would make
+    # the whole surface vanish from an agent in an account where no user holds
+    # ai.agents.read, taking escalate and report_issue with it.
+    it "stays advertised to agents regardless of who holds the floor permission" do
+      expect(tool_class.permitted?(agent: agent)).to be(true)
+
+      allow_any_instance_of(User).to receive(:has_permission?).and_return(false)
+      expect(tool_class.permitted?(agent: agent)).to be(true)
+      expect(::Ai::Tools::PlatformApiToolRegistry.available_tools(agent: agent))
+        .to include("escalate" => tool_class)
     end
 
     it "maps only actions this tool actually serves" do

@@ -31,10 +31,10 @@ module Ai
       # Each entry names the permission the REST twin of that action requires.
       # Actions ABSENT here are deliberately at the floor: the agent-voice
       # actions (escalate, report_issue, propose_feature, create_proposal,
-      # request_feedback, send_proactive_notification, request_code_change,
-      # discover_claude_sessions) have no REST twin at all — the proposals and
-      # escalations controllers expose only index/show plus review/resolve, and
-      # no human surface CREATES either one — so
+      # request_feedback, send_proactive_notification, discover_claude_sessions)
+      # have no twin at all — the proposals and escalations controllers expose
+      # only index/show plus review/resolve, and no human surface CREATES
+      # either one — so
       # the parity invariant says nothing about them, and tightening them would
       # cut off an agent's route to a human.
       ACTION_PERMISSIONS = {
@@ -60,12 +60,36 @@ module Ai
         "update_agent_goal" => "ai.goals.manage",
         "decompose_goal" => "ai.goals.manage",
         "validate_plan" => "ai.goals.manage",
-        "approve_plan" => "ai.goals.manage"
+        "approve_plan" => "ai.goals.manage",
+
+        # NOT an agent-voice action, despite sitting among them: it writes an
+        # assistant message into an existing workspace conversation
+        # (conversation.messages.create!), which is what Ai::Tools::ConversationTool
+        # does under REQUIRED_PERMISSION = "ai.conversations.create". Its twin is
+        # therefore on the MCP surface rather than REST, and the invariant holds
+        # just the same — leaving it at the floor would let a caller write into a
+        # conversation through this tool that platform.send_message refuses.
+        "request_code_change" => "ai.conversations.create"
 
         # list_deferred_operations stays at the floor on purpose: its twin is
         # GET /api/v1/ai/autonomy/approvals, which validate_permissions gates on
         # ai.agents.read. agent_introspect likewise.
       }.freeze
+
+      # Advertisement is deliberately NOT narrowed by the floor. BaseTool's
+      # default short-circuits on a nil REQUIRED_PERMISSION, so setting one
+      # would newly make this tool's presence in an agent's toolset depend on
+      # an account-wide "does ANY user hold ai.agents.read?" query — and in an
+      # account where none does, the whole surface would silently vanish from
+      # the agent, including escalate and report_issue, which are its route to
+      # a human. An agent that cannot execute the action should get a refusal
+      # it can report, not a capability that was never offered. Execution stays
+      # gated by the registrar's floor and by ACTION_PERMISSIONS; only
+      # visibility is restored to what it was before that constant existed.
+      # Same override, and the same reason, as Ai::Tools::KillSwitchTool.
+      def self.permitted?(agent:)
+        true
+      end
 
       def self.definition
         {
@@ -271,7 +295,20 @@ module Ai
         # Deriving them from two expressions is how a gate and its dispatch come
         # to disagree.
         action = params[:action].to_s
-        return error_result("permission denied: #{required_perm_for(action)} required") unless action_permitted?(action)
+        unless action_permitted?(action)
+          # Logged, not just returned. This refusal is a soft error_result — the
+          # surface's own idiom, and what the caller can act on — but a bare
+          # result is invisible: on the agent path it becomes an ordinary tool
+          # message fed back to the model, so a caller repeatedly attempting an
+          # approval it cannot hold would leave no trace anywhere. The floor
+          # denial one layer up raises and is logged by the registrar; this is
+          # the matching record for the per-action denial.
+          Rails.logger.warn(
+            "[AgentAutonomyTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
 
         case action
         when "create_agent_goal" then create_agent_goal(params)
