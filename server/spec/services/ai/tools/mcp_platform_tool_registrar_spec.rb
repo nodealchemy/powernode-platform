@@ -431,37 +431,74 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
     context "caller-supplied action scope (principal-less calls)" do
       let(:autonomy_tool) { instance_double(Ai::Tools::AgentAutonomyTool) }
 
+      # Both examples in this context need a class the fence is the ONLY bound
+      # on — i.e. REQUIRED_PERMISSION nil, several actions. No core class is
+      # that any more (AgentAutonomyTool left in IMP-e8adfcfcab9b, the last five
+      # in IMP-6fbfeff384fa), and borrowing whichever class happens to lack a
+      # floor is what made this coverage evaporate twice. So the property under
+      # test is built explicitly instead.
       before do
         allow(Ai::Tools::AgentAutonomyTool).to receive(:new)
           .with(account: account, user: nil, agent: nil).and_return(autonomy_tool)
         allow(autonomy_tool).to receive(:instance_authorized=)
         allow(autonomy_tool).to receive(:execute).and_return({ success: true })
+
+        stub_const("Ai::Tools::FenceProbeTool", Class.new(::Ai::Tools::BaseTool) do
+          def self.definition
+            {
+              name: "fence_probe",
+              description: "spec-only probe for the action-scope fence",
+              parameters: { action: { type: "string", required: true } }
+            }
+          end
+
+          def self.action_definitions
+            {
+              "fence_probe_read" => { description: "read", parameters: {} },
+              "fence_probe_write" => { description: "write", parameters: {} }
+            }
+          end
+        end)
+
+        allow(Ai::Tools::PlatformApiToolRegistry).to receive(:all_tools).and_wrap_original do |original|
+          original.call.merge(
+            "fence_probe" => "Ai::Tools::FenceProbeTool",
+            "fence_probe_read" => "Ai::Tools::FenceProbeTool",
+            "fence_probe_write" => "Ai::Tools::FenceProbeTool"
+          )
+        end
+
+        described_class.instance_variable_set(:@tool_classes, nil)
+      end
+
+      # tool_classes is a CLASS-level memo that outlives this file, so the probe
+      # must not be allowed to leak into it.
+      after do
+        described_class.instance_variable_set(:@tool_classes, nil)
       end
 
       it "pins the action for a call carrying neither a user nor an agent" do
         # REQUIRED_PERMISSION is nil here, so enforce_permission! waves the call
         # through without checking anything — the invoked name is the only bound
-        # left on what runs. AgentAutonomyTool used to be this exemplar; it now
-        # carries a floor (IMP-e8adfcfcab9b) and is refused one layer higher, so
-        # a class the fence is still the ONLY bound on stands in.
-        expect(Ai::Tools::ProvisioningTool::REQUIRED_PERMISSION).to be_nil
+        # left on what runs.
+        expect(Ai::Tools::FenceProbeTool::REQUIRED_PERMISSION).to be_nil
 
-        provisioning_tool = instance_double(Ai::Tools::ProvisioningTool)
-        allow(Ai::Tools::ProvisioningTool).to receive(:new)
-          .with(account: account, user: nil, agent: nil).and_return(provisioning_tool)
-        allow(provisioning_tool).to receive(:instance_authorized=)
-        allow(provisioning_tool).to receive(:execute).and_return({ success: true })
+        probe_tool = instance_double(Ai::Tools::FenceProbeTool)
+        allow(Ai::Tools::FenceProbeTool).to receive(:new)
+          .with(account: account, user: nil, agent: nil).and_return(probe_tool)
+        allow(probe_tool).to receive(:instance_authorized=)
+        allow(probe_tool).to receive(:execute).and_return({ success: true })
 
         expect {
           described_class.execute_tool(
-            "platform.provisioning",
-            params: { "action" => "platform_provisioning_capture_brief" },
+            "platform.fence_probe",
+            params: { "action" => "fence_probe_write" },
             account: account,
             user: nil
           )
-        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /platform_provisioning_capture_brief/)
+        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /fence_probe_write/)
 
-        expect(provisioning_tool).not_to have_received(:execute)
+        expect(probe_tool).not_to have_received(:execute)
       end
 
       it "leaves the agent tool-calling path unpinned" do
@@ -500,21 +537,21 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
       # deleting `&& mcp_agent.nil?` from that guard reds nothing.
       it "leaves an agent call carrying no user unpinned" do
         agent = instance_double(Ai::Agent)
-        provisioning_tool = instance_double(Ai::Tools::ProvisioningTool)
-        allow(Ai::Tools::ProvisioningTool).to receive(:new)
-          .with(account: account, user: nil, agent: agent).and_return(provisioning_tool)
-        allow(provisioning_tool).to receive(:execute).and_return({ success: true })
+        probe_tool = instance_double(Ai::Tools::FenceProbeTool)
+        allow(Ai::Tools::FenceProbeTool).to receive(:new)
+          .with(account: account, user: nil, agent: agent).and_return(probe_tool)
+        allow(probe_tool).to receive(:execute).and_return({ success: true })
 
         described_class.execute_tool(
-          "platform.provisioning",
-          params: { "action" => "platform_provisioning_capture_brief" },
+          "platform.fence_probe",
+          params: { "action" => "fence_probe_write" },
           account: account,
           user: nil,
           mcp_agent: agent
         )
 
-        expect(provisioning_tool).to have_received(:execute) do |args|
-          expect(args[:params][:action]).to eq("platform_provisioning_capture_brief")
+        expect(probe_tool).to have_received(:execute) do |args|
+          expect(args[:params][:action]).to eq("fence_probe_write")
         end
       end
     end

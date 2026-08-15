@@ -6,7 +6,16 @@ RSpec.describe Ai::Tools::SelfImprovementTool do
   let(:account_a) { create(:account) }
   let(:account_b) { create(:account) }
   let(:agent) { create(:ai_agent, account: account_a) }
-  let(:tool) { described_class.new(account: account_a, agent: agent) }
+
+  # generate_self_challenge is gated on ai.manage (IMP-6fbfeff384fa) and the
+  # per-action check fails closed for a principal it cannot ask, so an
+  # agent-only tool is refused before dispatch. These examples are about
+  # cross-account SKILL resolution, not authorization, so the caller is given
+  # exactly the permission the action requires and the subject is unchanged.
+  let(:caller_user) do
+    create(:user, account: account_a, permissions: %w[ai.skills.read ai.manage])
+  end
+  let(:tool) { described_class.new(account: account_a, agent: agent, user: caller_user) }
 
   let(:service) { instance_double(Ai::SelfImprovement::ChallengeService) }
   let(:challenge) do
