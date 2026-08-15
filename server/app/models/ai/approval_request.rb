@@ -118,6 +118,22 @@ module Ai
       update!(status: "rejected", completed_at: Time.current)
     end
 
+    # Reveal-once handoff (IMP-7b81ca22f661). #notify_source_of_decision runs
+    # the source's executor on an instance it loaded itself and drops on return,
+    # so an executor that MINTS secret material would mint it into nothing: the
+    # requester left with `pending: true`, and the stored result is redacted.
+    #
+    # This instance is the one the deciding caller holds (the controller/tool
+    # passes it into the workflow service, which resolves it in place), so it is
+    # the only object that spans the executor run and the decision RESPONSE.
+    # Same one-shot contract as the source's slot: in memory only, so a
+    # re-loaded row yields nil, and cleared by the first read.
+    def take_revealed_result!
+      value = @revealed_result
+      @revealed_result = nil
+      value
+    end
+
     private
 
     def approver_matches?(spec, user)
@@ -173,10 +189,27 @@ module Ai
       return unless source.respond_to?(:on_approval_decision)
 
       source.on_approval_decision(self)
+      capture_revealed_result!(source)
       declare_execution_outcome!("succeeded") if approved?
     rescue StandardError => e
       Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
       declare_execution_failure!(e) if approved?
+    end
+
+    # Take the source's one-shot reveal onto this instance before `source` goes
+    # out of scope. Sources are polymorphic and most (Ai::CampaignLand, Ai::Agent)
+    # run no executor at all, so the slot is optional — but the predicate has to
+    # be answered against the real receiver, not assumed: #take_revealed_result!
+    # is public on Ai::DeferredOperation precisely so this respond_to? is true.
+    #
+    # Never raises: a source that answers the name with something surprising
+    # must not take down the decision it is a side effect of.
+    def capture_revealed_result!(source)
+      return unless source.respond_to?(:take_revealed_result!)
+
+      @revealed_result = source.take_revealed_result!
+    rescue StandardError => e
+      Rails.logger.error("[ApprovalRequest##{id}] capture_revealed_result! failed: #{e.message}")
     end
 
     # Direct column write: this runs inside the status-flip's own after_update,

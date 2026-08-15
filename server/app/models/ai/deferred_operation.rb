@@ -117,12 +117,41 @@ module Ai
       # digest + expiry on the PEER, and is right about that — it just has no
       # say in what the gate does with what it hands back. `complete!` itself is
       # left alone so a caller passing its own payload still controls it.
+      #
+      # The APPROVAL path has no :proceed branch to render on (IMP-7b81ca22f661):
+      # the requester got `pending: true` and left, and this method runs later
+      # inside Ai::ApprovalRequest#notify_source_of_decision on an instance that
+      # callback discards, so `result_data` below returns to nobody. Handing it
+      # to the one-shot slot is what makes "exactly once" survive deferral —
+      # zero reveals, not one, is what redaction alone would produce there.
+      @revealed_result = result_data
       complete!(::Ai::SensitiveParams.filter(result_data || {}))
       result_data
     rescue StandardError => e
       Rails.logger.error("[DeferredOperation##{id}] execute_now! failed: #{e.class}: #{e.message}")
       fail!(e) if may_fail?
       raise
+    end
+
+    # Reveal-once handoff for an executor that MINTS secret material
+    # (IMP-7b81ca22f661). Holds the raw return of the executor run that happened
+    # on THIS instance, and only until someone takes it:
+    #
+    #   * in memory only — never a column, so a re-loaded row has nothing, and
+    #     redaction-at-rest (:result stays filtered) is untouched;
+    #   * cleared by the first read — a second reader of the same instance gets
+    #     nil, so "exactly once" holds per execution rather than per caller;
+    #   * unredacted, deliberately: this IS the one reveal, and the caller
+    #     entitled to it is the one that resolved the gate.
+    #
+    # Set on both gate branches. On :proceed the caller already has the return
+    # value inline and normally ignores this; on the approval path
+    # Ai::ApprovalRequest#capture_revealed_result! is the only reader, because
+    # the instance holding it dies with that callback.
+    def take_revealed_result!
+      value = @revealed_result
+      @revealed_result = nil
+      value
     end
 
     def executor_constant
