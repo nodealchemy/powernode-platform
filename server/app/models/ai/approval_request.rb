@@ -98,6 +98,26 @@ module Ai
       end
     end
 
+    # Resolve the request outright, bypassing the per-step approver tally: the
+    # terminal transitions #process_decision and #check_expiration! converge on,
+    # and the operator override for a caller that holds the row.
+    #
+    # PUBLIC API (IMP-7836ec7a974d) — these lived below `private`, so
+    # `respond_to?(:approve!)` was false at every external call site and the one
+    # caller guarding on that predicate (Ai::CampaignLand#operator_approve!)
+    # never took its governed branch. Resolving the row is what cascades: the
+    # status flip fires #notify_source_of_decision, which calls the source's
+    # #on_approval_decision. `escalate!` stays private — only #check_expiration!
+    # applies it.
+    def approve!
+      update!(status: "approved", completed_at: Time.current)
+      approval_chain.increment!(:usage_count)
+    end
+
+    def reject!
+      update!(status: "rejected", completed_at: Time.current)
+    end
+
     private
 
     def approver_matches?(spec, user)
@@ -225,15 +245,6 @@ module Ai
 
     def advance_to_next_step!
       update!(current_step: current_step + 1)
-    end
-
-    def approve!
-      update!(status: "approved", completed_at: Time.current)
-      approval_chain.increment!(:usage_count)
-    end
-
-    def reject!
-      update!(status: "rejected", completed_at: Time.current)
     end
 
     def escalate!

@@ -49,11 +49,22 @@ module Ai
     end
 
     # ---- operator decision (from the proposal card / dashboard) -----------
-    # Routes through the governance ApprovalRequest when present (which cascades
-    # back here via on_approval_decision), else acts directly (core mode).
+    # Routes through the governance ApprovalRequest when one is OPEN (resolving
+    # it cascades back here via on_approval_decision), else acts directly — core
+    # mode, or a request that has already been decided.
+    #
+    # The branch is keyed on `pending?`, not on the request's mere existence:
+    # re-approving an already-approved row writes the same status, so no
+    # after_update fires, no cascade arrives, and the land would sit in
+    # pending_approval forever. `pending?` and not the `active` scope — a row
+    # past expires_at that check_expiration! has not swept yet is still the open
+    # gate, and routing it to the direct arm would re-create the dangling row
+    # this exists to prevent. IMP-7836ec7a974d — this guard was
+    # `respond_to?(:approve!)`, which is false for a private method, so the
+    # governed arm never ran and the request was left dangling as `pending`.
     def operator_approve!(user: nil)
       req = approval_request
-      if req&.respond_to?(:approve!)
+      if req&.pending?
         req.approve!
       elsif status == "pending_approval"
         enqueue!
@@ -63,8 +74,12 @@ module Ai
 
     def operator_reject!(user: nil, reason: nil)
       req = approval_request
-      if req&.respond_to?(:reject!)
+      if req&.pending?
         req.reject!
+        # The cascade rejects this land with a generic "approval rejected";
+        # keep the operator's own words so both arms record the same reason.
+        reload
+        update!(error_message: reason) if reason.present? && status == "rejected"
       elsif status == "pending_approval"
         reject!(reason || "rejected by operator")
       end
