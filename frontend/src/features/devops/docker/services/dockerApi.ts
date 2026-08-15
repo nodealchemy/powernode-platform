@@ -103,7 +103,10 @@ export const dockerApi = {
     }
   },
 
-  async deleteHost(id: string): Promise<ApiResponse<{ message: string }>> {
+  // A managed host's teardown is gated, so a 2xx here is either the deletion
+  // (200) or an approval parked in its place (202, `pending: true`). Callers
+  // MUST distinguish the two — `success` alone is true for both.
+  async deleteHost(id: string): Promise<ApiResponse<{ message: string; pending?: boolean; approval_request_id?: string }>> {
     try {
       const response = await api.delete(`/devops/docker/hosts/${id}`);
       return response.data;

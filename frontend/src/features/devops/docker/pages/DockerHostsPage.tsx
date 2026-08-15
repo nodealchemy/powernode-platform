@@ -23,6 +23,7 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
   const [testResults, setTestResults] = useState<Record<string, { connected: boolean; message: string } | null>>({});
   const [testingIds, setTestingIds] = useState<Set<string>>(new Set());
   const [hasSavedTls, setHasSavedTls] = useState(false);
+  const [pendingNotice, setPendingNotice] = useState<string | null>(null);
   const { confirm, ConfirmationDialog } = useConfirmation();
   const [formData, setFormData] = useState<HostFormData>({
     name: '',
@@ -63,6 +64,15 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
       variant: 'danger',
       onConfirm: async () => {
         const result = await dockerApi.deleteHost(id);
+        // A MANAGED host's teardown is gated (system.runtime_docker_decommission),
+        // so the API answers 202 with `pending` instead of deleting. That is a
+        // 2xx: without this branch the dialog would close, the list would
+        // refresh unchanged, and the operator would be told nothing at all.
+        if (result.success && result.data?.pending) {
+          setPendingNotice(result.data.message || `Removing "${name}" requires approval.`);
+          return;
+        }
+        setPendingNotice(null);
         if (result.success) refresh();
       },
     });
@@ -119,6 +129,19 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
   return (
     <>
       <div className="space-y-4">
+        {pendingNotice && (
+          <div className="px-3 py-2 rounded text-sm bg-theme-warning-bg text-theme-warning-fg flex items-center justify-between gap-3">
+            <span>{pendingNotice}</span>
+            <button
+              type="button"
+              className="text-xs underline"
+              onClick={() => setPendingNotice(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-theme-secondary">Environment:</label>
           <select
