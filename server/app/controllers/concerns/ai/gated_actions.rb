@@ -93,10 +93,24 @@ module Ai
     # and what `params:` the gate replays. `description:` is a caller param by
     # operator direction — IMP-4a5094b22df0 owns any derivation of it.
     #
+    # Two consequences of this being a method call rather than an inline block,
+    # neither observable for the callers migrated onto it but both worth
+    # knowing before adopting:
+    #
+    #   * every argument is evaluated BEFORE the validation runs, so a
+    #     `description:` interpolating an attribute that a `before_validation`
+    #     would normalise reads the pre-normalised value;
+    #   * `scope:` is likewise bound up front, so it cannot be derived from
+    #     state the executor produces (`scope: @parent.reload.widgets` reloads
+    #     before the executor runs, not after).
+    #
     # @param candidate [#valid?] unsaved record, never written by this helper —
     #   the executor's create stays the sole authority.
-    # @param scope [#find] relation the executor's row is re-found through.
-    # @param result_key [Symbol] key under `result.result[:data]` holding its id.
+    # @param scope [#find] relation or model the executor's row is re-found
+    #   through — anything answering `#find`.
+    # @param result_key [Symbol] key under `result.result[:data]` holding its
+    #   id. A mismatch here surfaces as `RecordNotFound` — a 404 over an
+    #   operation that actually SUCCEEDED — so it is worth a spec.
     # @param response_key [Symbol] key the serialized row renders under.
     # @param serializer [#call] receives the re-found record, returns the body.
     def gate_create!(candidate:, scope:, result_key:, response_key:, serializer:,

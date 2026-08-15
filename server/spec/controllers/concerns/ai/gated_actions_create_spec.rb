@@ -91,22 +91,70 @@ RSpec.describe Ai::GatedActions, type: :controller do
     end
   end
 
-  describe ":proceed" do
+  describe "what the caller's arguments control" do
     let!(:written) { create(:page, account: account, user: user, title: "Written by the executor") }
 
-    before do
+    def stub_proceed_with(page_id)
       allow(::Ai::AutonomyGate).to receive(:evaluate).and_return(
-        ::Ai::AutonomyGate::Result.new(decision: :proceed, result: { data: { page_id: written.id } })
+        ::Ai::AutonomyGate::Result.new(decision: :proceed, result: { data: { page_id: page_id } })
       )
     end
 
     it "re-finds the executor's row by result_key and renders it at 201 under response_key" do
+      stub_proceed_with(written.id)
+
       post :create_thing, params: { title: "A valid page" }
 
       expect(response).to have_http_status(:created)
+      # The title differs from the posted one, so this can only pass by
+      # rendering the row the RESULT named — never the candidate.
       expect(response.parsed_body["data"]["page"]).to eq(
         "id" => written.id, "title" => "Written by the executor"
       )
+    end
+
+    # Without this, every example here is equally satisfied by a helper that
+    # ignores `scope:` and re-finds through the bare model — which is the whole
+    # of the parameter's tenancy value to an adopter.
+    it "re-finds through the caller's scope, not the bare model" do
+      outsider = create(:page, title: "Another account's row")
+      stub_proceed_with(outsider.id)
+
+      post :create_thing, params: { title: "A valid page" }
+
+      expect(response).to have_http_status(:not_found)
+      expect(response.parsed_body.to_s).not_to include("Another account's row")
+    end
+
+    # The helper builds no row of its own: the executor inside the gate is the
+    # only writer, and the candidate is a validation probe.
+    it "writes nothing itself on the proceed path" do
+      stub_proceed_with(written.id)
+
+      expect { post :create_thing, params: { title: "A valid page" } }
+        .not_to change(Page, :count)
+    end
+
+    # The gate kwargs are pure passthrough, so nothing else in the suite would
+    # notice the helper dropping one — and `description:` is the sentence each
+    # adopter deliberately matches to its executor's approval card.
+    it "forwards the caller's gate arguments verbatim" do
+      expect(::Ai::AutonomyGate).to receive(:evaluate).with(
+        hash_including(
+          action_category: "test.page_create",
+          executor_class: "GatedActionsSpec::CreatePage",
+          params: { title: "A valid page" },
+          source_type: "Account",
+          source_id: account.id,
+          description: "Create page A valid page"
+        )
+      ).and_return(
+        ::Ai::AutonomyGate::Result.new(decision: :proceed, result: { data: { page_id: written.id } })
+      )
+
+      post :create_thing, params: { title: "A valid page" }
+
+      expect(response).to have_http_status(:created)
     end
   end
 
