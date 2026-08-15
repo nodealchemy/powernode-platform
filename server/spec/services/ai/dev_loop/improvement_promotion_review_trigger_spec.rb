@@ -82,6 +82,47 @@ RSpec.describe Ai::DevLoop::ImprovementPromotionService, "independent-review tri
     end
   end
 
+  # The per-task criteria above are computed fresh on every promotion, so editing
+  # the constant fixed them immediately. The GUARDRAILS line is different: it is
+  # served from each loop's PERSISTED snapshot, taken when the loop was created.
+  # dev-improve is a long-lived singleton, so it kept instructing every executor to
+  # "run /code-review" after the constant was changed — which is exactly what
+  # happened, and is why an iteration ran a 77k-token review its own task did not
+  # require.
+  describe "guardrail refresh for already-created loops" do
+    let(:stale_snapshot) do
+      [
+        *Ai::DevLoop::LoopGuardrails::HEAD,
+        "Re-verify the finding against current code BEFORE changing anything (findings rot)",
+        "Independent review: run /code-review on the diff BEFORE committing (don't trust spec-green alone)",
+        "Commit only to the loop branch — never develop/master, never push",
+        *Ai::DevLoop::LoopGuardrails::TAIL
+      ]
+    end
+
+    let(:refreshed) { Ai::DevLoop::LoopGuardrails.refresh(stale_snapshot) }
+
+    it "stops serving the superseded /code-review instruction" do
+      expect(refreshed.join(" ")).not_to include("run /code-review on the diff")
+    end
+
+    it "replaces it rather than dropping it — no review guidance would be worse than stale" do
+      expect(refreshed.join(" ")).to include("SYNCHRONOUS UNNAMED subagent")
+      expect(refreshed.join(" ")).to include("don't trust spec-green alone")
+    end
+
+    it "preserves loop-specific lines it does not recognise" do
+      expect(refreshed).to include("Re-verify the finding against current code BEFORE changing anything (findings rot)")
+      expect(refreshed).to include("Commit only to the loop branch — never develop/master, never push")
+    end
+
+    it "leaves a snapshot with no superseded line untouched" do
+      clean = [*Ai::DevLoop::LoopGuardrails::HEAD, "Some loop-specific rule", *Ai::DevLoop::LoopGuardrails::TAIL]
+
+      expect(Ai::DevLoop::LoopGuardrails.refresh(clean)).to include("Some loop-specific rule")
+    end
+  end
+
   describe "routing of the required review" do
     let(:criteria) do
       promote(files: %w[app/controllers/api/v1/things_controller.rb],
