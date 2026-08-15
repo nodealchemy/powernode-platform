@@ -208,6 +208,37 @@ RSpec.describe Ai::Teams::ConfigurationService, type: :service do
       end
     end
 
+    context 'when an agent carries both a global skill and its account-level clone' do
+      # Regression: skill analysis keyed by downcased skill NAME. Ai::Skill
+      # supports a global row (account_id: nil) plus an account-level
+      # clone/override sharing that name — ai/skill.rb's resolve_for and
+      # account_override_first both treat the pair as ONE capability, with
+      # the account row taking precedence. An agent bound to both (via two
+      # separate Ai::AgentSkill rows — nothing stops that, uniqueness there
+      # is scoped to ai_skill_id) got pushed into the same skill's tally
+      # twice, so it was reported "redundant" with itself.
+      let(:agent) { create(:ai_agent, account: account) }
+      let(:global_skill) { create(:ai_skill, :global, name: 'Python Runtime', slug: 'python-runtime') }
+      let(:account_skill) { create(:ai_skill, account: account, name: 'Python Runtime', slug: 'python-runtime') }
+
+      before do
+        create(:ai_agent_team_member, team: team, agent: agent)
+        create(:ai_agent_skill, agent: agent, skill: global_skill)
+        create(:ai_agent_skill, agent: agent, skill: account_skill)
+      end
+
+      it 'does not report the lone agent as redundant with itself' do
+        redundancies = service.analyze_composition(team)[:redundancies]
+        expect(redundancies).to be_empty
+      end
+
+      it 'counts the shared name as one skill, not two, in coverage' do
+        coverage = service.analyze_composition(team)[:skill_coverage]
+        expect(coverage[:skills]).to eq('python runtime' => 1)
+        expect(coverage[:multi_covered_skills]).to eq(0)
+      end
+    end
+
     context 'when a single agent covers the whole ideal skill breadth' do
       let(:agent) { create(:ai_agent, account: account) }
 
