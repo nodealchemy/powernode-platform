@@ -153,15 +153,21 @@ module Ai
       # `{ success:, host: }` hashes, not BaseTool#success_result envelopes) and
       # a shared helper would have to own that difference.
       #
-      # Agent AND user are both forwarded. The Runtime Manager's seeded rows are
+      # Agent AND user are both forwarded, which makes this tool the seam where
+      # every audience is observable. The Runtime Manager's seeded rows are
       # agent-SCOPED, and Ai::InterventionPolicy#agent_matches? rejects a scoped
       # row against a nil agent — so only an agent-dispatched call resolves
       # against them. An operator MCP call arrives with @agent nil and matches
-      # the agent-less rows seeded by AgentSetupHelpers.upsert_operator_policies!
-      # instead; with neither, resolution falls to
-      # InterventionPolicyService#default_policy (require_approval). @agent also
-      # buys attribution: AutonomyGate#resolve_chain routes to
-      # "<agent name> Actions", and to "Manual Operations" when nil.
+      # the scope-"action_type" rows seeded by
+      # AgentSetupHelpers.upsert_operator_policies! instead.
+      #
+      # A scope-"global" row binds BOTH callers (IMP-cb36021d4094) — it is the
+      # account-wide floor, so an operator's account-wide block refuses an agent
+      # dispatch here rather than parking it for approval. With no row at all,
+      # resolution falls to InterventionPolicyService#default_policy
+      # (require_approval). @agent also buys attribution:
+      # AutonomyGate#resolve_chain routes to "<agent name> Actions", and to
+      # "Manual Operations" when nil.
       #
       # The block runs on the :proceed branch only, receiving the gate Result —
       # the executor has already run synchronously by then.

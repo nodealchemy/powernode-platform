@@ -17,9 +17,11 @@ RSpec.describe Ai::AgentOutreachService do
   let(:agent)   { create(:ai_agent, account: account) }
   let(:service) { described_class.new(account: account, agent: agent) }
 
-  # #notify always passes an agent, and resolution considers ONLY agent-scoped
-  # rows when one is present (IMP-bfbf8052e179), so this row must be scoped or
-  # it would not bind at all.
+  # #notify always passes an agent, so this row is scoped to it. A
+  # scope-"global" row would bind here too — that is how
+  # db/seeds/autonomy_data_seed.rb's status_update row reaches outreach
+  # (IMP-cb36021d4094) — but a scope-"action_type" row would not: resolution
+  # drops the operator audience for an agent caller.
   let!(:relaxed_row) do
     Ai::InterventionPolicy.create!(
       account: account, action_category: "status_update", scope: "agent",
