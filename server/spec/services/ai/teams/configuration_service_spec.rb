@@ -273,6 +273,31 @@ RSpec.describe Ai::Teams::ConfigurationService, type: :service do
     end
   end
 
+  describe 'activity scoring behind the "least active" pick (private #find_redundancies)' do
+    # Regression: calculate_activity_score guarded on
+    # respond_to?(:ai_agent_executions), which Ai::Agent never defines (its
+    # association is `executions`). The guard was always false, so every
+    # agent scored a constant 0 and recommend_agents' min_by over redundant
+    # agents picked whichever came first, not the genuinely least active one.
+    let(:shared_skill) { create(:ai_skill, account: account, name: 'python') }
+    let!(:idle_agent) { create(:ai_agent, account: account, name: 'Idle Agent') }
+    let!(:busy_agent) { create(:ai_agent, account: account, name: 'Busy Agent') }
+
+    before do
+      create(:ai_agent_skill, agent: idle_agent, skill: shared_skill)
+      create(:ai_agent_skill, agent: busy_agent, skill: shared_skill)
+      create_list(:ai_agent_execution, 5, :completed, account: account, agent: busy_agent)
+    end
+
+    it 'differentiates activity scores instead of reporting every agent at zero' do
+      redundancies = service.send(:find_redundancies, [busy_agent, idle_agent])
+      scores = redundancies.first[:agents].each_with_object({}) { |a, h| h[a[:name]] = a[:activity_score] }
+
+      expect(scores[idle_agent.name]).to eq(0)
+      expect(scores[busy_agent.name]).to be > scores[idle_agent.name]
+    end
+  end
+
   describe '#auto_optimize' do
     it 'returns optimal status for healthy teams' do
       allow(service).to receive(:analyze_composition).and_return({ health: 'healthy' })

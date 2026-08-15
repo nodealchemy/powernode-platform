@@ -209,9 +209,9 @@ module Ai
         end
 
         def calculate_activity_score(agent)
-          return 0 unless agent.respond_to?(:ai_agent_executions)
+          return 0 unless agent.respond_to?(:executions)
 
-          recent = agent.ai_agent_executions
+          recent = agent.executions
                         .where("created_at > ?", 7.days.ago)
                         .count
           [recent / 10.0, 1.0].min.round(2)
