@@ -34,6 +34,77 @@ RSpec.describe "Campaign land proposal + operator approval (Phase 2)" do
     end
   end
 
+  # IMP-7836ec7a974d. The operator-decision methods document themselves as
+  # "routes through the governance ApprovalRequest when present (which cascades
+  # back here via on_approval_decision)". These pin that the REQUEST ROW is
+  # resolved, not merely that the land moves: asserting only the land's status
+  # passes while the request dangles as an outstanding approvals-surface item
+  # that no longer governs anything.
+  describe "Ai::CampaignLand#operator_approve! / #operator_reject! (governed mode)" do
+    let(:chain) { create(:ai_approval_chain, account: account) }
+
+    def governed_land(status: "pending_approval")
+      l = land(status: status)
+      req = chain.create_request!(
+        source_type: "Ai::CampaignLand", source_id: l.id,
+        description: "Land #{l.source_branch} → #{l.target_branch}", requested_by: user
+      )
+      [ l, req ]
+    end
+
+    def pending_requests_for(l)
+      Ai::ApprovalRequest.for_source("Ai::CampaignLand", l.id).pending
+    end
+
+    it "leaves no pending ApprovalRequest after an operator approves" do
+      l, req = governed_land
+      l.operator_approve!(user: user)
+
+      expect(pending_requests_for(l)).to be_empty
+      expect(req.reload.status).to eq("approved")
+    end
+
+    it "leaves no pending ApprovalRequest after an operator rejects" do
+      l, req = governed_land
+      l.operator_reject!(user: user, reason: "not now")
+
+      expect(pending_requests_for(l)).to be_empty
+      expect(req.reload.status).to eq("rejected")
+    end
+
+    # CONTROL (green on HEAD by the direct-enqueue branch): pins that resolving
+    # the request still moves the land, i.e. the cascade actually arrives.
+    it "queues the land through the approval cascade" do
+      l, = governed_land
+      l.operator_approve!(user: user)
+
+      expect(l.reload.status).to eq("queued")
+    end
+
+    # CONTROL + parity guard: routing through the request must not cost the
+    # operator's own words. The cascade stamps a generic "approval rejected".
+    it "keeps the operator's reason on the land when rejecting" do
+      l, = governed_land
+      l.operator_reject!(user: user, reason: "not now")
+
+      expect(l.reload).to have_attributes(status: "rejected", error_message: "not now")
+    end
+
+    # The governed branch means "there is an OPEN gate to resolve". A request
+    # that has already been decided must not be re-flipped, and must not strand
+    # the land: re-calling approve! on an approved row is a no-op status write,
+    # so no after_update cascade fires and nothing would ever enqueue it.
+    it "acts directly when the latest request is already resolved" do
+      l, req = governed_land
+      req.update_columns(status: "approved", completed_at: Time.current)
+
+      l.operator_approve!(user: user)
+
+      expect(l.reload.status).to eq("queued")
+      expect(req.reload.status).to eq("approved")
+    end
+  end
+
   describe "Ai::Land::ProposalService.deliver" do
     it "notifies the campaign creator with actionable metadata" do
       l = land
