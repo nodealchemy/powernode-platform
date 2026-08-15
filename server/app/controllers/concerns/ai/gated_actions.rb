@@ -61,16 +61,16 @@ module Ai
     # re-find the row the EXECUTOR wrote and render it at 201.
     #
     #   gate_create!(
-    #     candidate:     candidate,               # unsaved, built by the caller
-    #     scope:         @network.port_mappings,  # where the executor's row lands
-    #     result_key:    :mapping_id,             # key the executor returns it under
-    #     response_key:  :port_mapping,           # key the 201 body renders it under
-    #     serializer:    ->(m) { serialize_full(m) },
-    #     action_category: "sdwan.port_mapping_create",
-    #     executor_class:  "Sdwan::Executors::CreatePortMapping",
-    #     params:          { network_id: @network.id, attributes: attrs },
-    #     source_type: "Sdwan::Network", source_id: @network.id,
-    #     description: "Add SDWAN port mapping #{candidate.name}"
+    #     candidate:     candidate,          # unsaved, built by the caller
+    #     scope:         @parent.widgets,    # where the executor's row lands
+    #     result_key:    :widget_id,         # key the executor returns it under
+    #     response_key:  :widget,            # key the 201 body renders it under
+    #     serializer:    ->(w) { serialize_full(w) },
+    #     action_category: "widgets.create",
+    #     executor_class:  "Widgets::Executors::Create",
+    #     params:          { parent_id: @parent.id, attributes: attrs },
+    #     source_type: "Widget::Parent", source_id: @parent.id,
+    #     description: "Add widget #{candidate.name}"
     #   )
     #
     # ORDERING INVARIANT — validation runs BEFORE the gate, and `gate!` is
