@@ -71,35 +71,42 @@ Two convenience methods wrap `resolve`: `auto_approve?(action_category:, ...)` a
 
 ## Policy resolution rules
 
-### Specificity scoring
+### Specificity ranking
 
-Multiple policies may match the same action category. `Ai::InterventionPolicy#specificity_score` ranks them; the highest score wins.
-
-```
-score = priority
-      + (user_id.present? ? 10 : 0)
-      + (ai_agent_id.present? ? 5 : 0)
-      + (action_category != "*" ? 2 : 0)
-```
-
-Practical ranking (assuming all `priority: 0`):
-
-| Policy shape | Score | Wins over |
-|--------------|-------|-----------|
-| user + agent + specific category | 17 | Everything below |
-| user + specific category | 12 | Agent and global |
-| agent + specific category | 7 | Global |
-| Global + specific category | 2 | Wildcard category |
-| Global + wildcard `*` | 0 | Nothing (last resort) |
-
-The `priority` field is a hand-controlled tiebreaker - bump it when you need a global policy to outrank an agent-specific one. Negative priority values are legal and useful for "fallback" wildcards.
-
-Agent-scoped policies always win on equal specificity for the matched agent. The resolution service explicitly filters to agent-scoped matches first when an agent is provided:
+Multiple policies may match the same action category. `Ai::InterventionPolicy#specificity_key` ranks them and the highest key wins. The key is an array compared **lexicographically** — element by element, most significant first — so no element can ever be outweighed by a larger value in a later one:
 
 ```ruby
+[
+  user_id.present? ? 1 : 0,          # tier
+  ai_agent_id.present? ? 1 : 0,      # tier
+  action_category == "*" ? 0 : 1,    # a row naming the category beats a wildcard
+  priority                           # tie-break WITHIN a tier
+]
+```
+
+Practical ranking, at **any** priorities:
+
+| Policy shape | Key | Wins over |
+|--------------|-----|-----------|
+| user + agent + specific category | `[1, 1, 1, p]` | Everything below |
+| user + specific category | `[1, 0, 1, p]` | Agent and global |
+| agent + specific category | `[0, 1, 1, p]` | Global |
+| Global + specific category | `[0, 0, 1, p]` | Wildcard category |
+| Global + wildcard `*` | `[0, 0, 0, p]` | Nothing (last resort) |
+
+`priority` orders rows that are **otherwise identical in shape** and nothing more. Negative values are legal and useful for "fallback" wildcards.
+
+> **This changed in IMP-6430e3a8c4a1.** The four elements above were previously *weights* summed into one integer (`priority + 10/5/2`). Because `priority` is operator-settable and unbounded it outranked the hierarchy rather than breaking ties inside it — a global `auto_approve` at priority 10 scored 12 and beat an agent's own explicit `require_approval` at priority 0, which scored 7, so a gate an operator had set on one specific agent was silently discarded. **Bumping `priority` to make a global policy outrank an agent-specific one no longer works, by design**; it was the mechanism of that fail-open. To widen or narrow one agent, write a row scoped to that agent.
+
+Ranking is applied *after* the audience cut, which decides which rows a caller may be ranked against at all. For an agent caller that is the agent's own rows plus the scope-`global` floor — the operator path (scope `action_type`) is never admitted, at any priority:
+
+```ruby
+# server/app/services/ai/intervention_policy_service.rb
 if agent
-  agent_scoped = matching.select { |p| p.ai_agent_id == agent.id }
-  matching = agent_scoped if agent_scoped.any?
+  audience = matching.select { |p| p.ai_agent_id == agent.id || p.scope == "global" }
+  return default_policy if audience.empty?
+
+  matching = audience
 end
 ```
 
