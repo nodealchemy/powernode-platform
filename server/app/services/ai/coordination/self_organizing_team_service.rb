@@ -16,8 +16,12 @@ module Ai
       end
 
       def detect_capability_gap(team:, task_requirements:)
+        # The two halves are different vocabularies on purpose: the member half is
+        # what this member was seated to provide, the agent half is what the agent
+        # can do at all (its skill slugs — see Ai::Agent#declared_capabilities).
+        # Both are free-form capability tokens, and the union is what the team has.
         team_capabilities = team.members.includes(:agent).flat_map do |m|
-          (m.capabilities || []) + (m.agent.capabilities || [])
+          (m.capabilities || []) + m.agent.declared_capabilities
         end.uniq
 
         required = task_requirements.is_a?(Array) ? task_requirements : [task_requirements]
@@ -27,9 +31,15 @@ module Ai
       end
 
       def recruit_member!(team:, capability:, pool_scope: nil)
+        # Refuse rather than seat an arbitrary agent for an unnamed capability:
+        # the old blank branch skipped the filter, picked at RANDOM() and then
+        # wrote capabilities: [nil], which the member's own validation rejected.
+        capability = capability.to_s.strip
+        return { recruited: false, reason: "capability_required" } if capability.empty?
+
         # Find best-fit idle agent with the required capability
         scope = Ai::Agent.where(account: @account, status: "active")
-        scope = scope.where("capabilities @> ?", [capability].to_json) if capability.present?
+          .with_declared_capability(capability)
 
         # Exclude agents already on this team
         existing_ids = team.members.pluck(:ai_agent_id)
@@ -112,7 +122,7 @@ module Ai
           peer_score = [peer_signals / 10.0, 1.0].min
 
           # Capability breadth
-          cap_count = (member.capabilities || []).size + (agent.capabilities || []).size
+          cap_count = (member.capabilities || []).size + agent.declared_capabilities.size
           capability_breadth = [cap_count / 10.0, 1.0].min
 
           # Speed (avg execution time, lower is better)

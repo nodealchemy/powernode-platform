@@ -196,6 +196,68 @@ module Ai
       agent_skills.where(is_active: true).joins(:skill).where(ai_skills: { status: "active" }).pluck("ai_skills.slug")
     end
 
+    # An agent's capabilities are NOT a column — reading `agent.capabilities`
+    # raises NoMethodError (IMP-3af9c533d25d). They are declared in two places:
+    #
+    #   * its active SKILLS. generate_mcp_tool_manifest builds the manifest's
+    #     "capabilities" straight from #skill_slugs
+    #     (concerns/ai/agent/mcp_tool.rb:27), so skill slugs ARE the platform's
+    #     own definition of the word, and they are the live one.
+    #   * a "capabilities" key in mcp_metadata or metadata, for agents whose
+    #     capabilities arrive by import/registration rather than by skill
+    #     assignment. Both are already read as capability declarations by
+    #     Ai::Autonomy::GoalDecompositionService#build_decomposition_context.
+    #
+    # mcp_tool_manifest is deliberately NOT a source, though it carries a
+    # "capabilities" key of its own. That key is DERIVED from the skills read
+    # above, and derived in a way that is wrong for this question twice over:
+    # nothing regenerates it when skills change (ensure_mcp_tool_manifest fires
+    # only for a blank/incomplete/renamed manifest, and Ai::AgentSkill has no
+    # callbacks), so a REVOKED skill lingers in it forever; and once the account
+    # has a skill graph it also carries 1-hop neighbours the agent does NOT
+    # hold, at confidence 0.7 — mcp_tool.rb:41 adds each one precisely
+    # `unless skill_slugs.include?(name)`. Reading it could only ever recruit
+    # for a capability the platform revoked or merely inferred; everything in it
+    # that IS held is already covered, live, by the skills half.
+    CAPABILITY_JSON_COLUMNS = %w[mcp_metadata metadata].freeze
+
+    # Capability tokens declared by a JSONB column's "capabilities" key. Only
+    # bare strings count: {"id" =>, "confidence" =>} is the manifest generator's
+    # entry shape, and it is exactly the shape that mixes held capabilities with
+    # inferred ones, so accepting it here would re-admit through the shape what
+    # the note above excludes by column.
+    def self.capability_tokens_in(raw)
+      return [] unless raw.is_a?(Hash)
+
+      declared = raw["capabilities"]
+      declared.is_a?(Array) ? declared.grep(String) : []
+    end
+
+    # Every capability this agent declares, live skills first.
+    def declared_capabilities
+      tokens = skill_slugs
+      CAPABILITY_JSON_COLUMNS.each { |column| tokens += self.class.capability_tokens_in(self[column]) }
+      tokens.uniq
+    end
+
+    # SQL twin of #declared_capabilities. These two MUST agree: recruitment
+    # selects with this scope and the gap analysis re-reads with that method, so
+    # a disagreement recruits an agent that still leaves the gap reported.
+    scope :with_declared_capability, ->(capability) {
+      token = capability.to_s.strip
+      skilled = <<~SQL.squish
+        EXISTS (
+          SELECT 1 FROM ai_agent_skills sas
+          JOIN ai_skills sk ON sk.id = sas.ai_skill_id
+          WHERE sas.ai_agent_id = ai_agents.id
+            AND sas.is_active = TRUE AND sk.status = 'active' AND sk.slug = :token
+        )
+      SQL
+      declared = CAPABILITY_JSON_COLUMNS.map { |column| "ai_agents.#{column}->'capabilities' @> :slug_json" }
+
+      where("(#{([ skilled ] + declared).join(' OR ')})", token: token, slug_json: [ token ].to_json)
+    }
+
     # Required permissions for interacting with this agent (conversations, Ralph loops, etc.)
     # Stored in mcp_metadata["required_permissions"] as an array of permission strings.
     def required_permissions

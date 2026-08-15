@@ -271,8 +271,16 @@ module Ai
         team = Ai::AgentTeam.find_by(id: params["team_id"], account: account)
         return error_result("Team not found") unless team
 
+        # capability is declared required:true, but execute_tool does no schema
+        # validation, so a call without one arrives here. It has to surface as an
+        # ERROR: success_result would report a malformed call as a successful one
+        # to a caller branching on :success, since "recruited: false" is also how
+        # the legitimate no-candidate outcome is reported.
+        capability = params["capability"].to_s.strip
+        return error_result("capability is required") if capability.empty?
+
         service = Ai::Coordination::SelfOrganizingTeamService.new(account: account)
-        result = service.recruit_member!(team: team, capability: params["capability"])
+        result = service.recruit_member!(team: team, capability: capability)
         success_result(result)
       rescue StandardError => e
         error_result("Failed to recruit agent: #{e.message}")

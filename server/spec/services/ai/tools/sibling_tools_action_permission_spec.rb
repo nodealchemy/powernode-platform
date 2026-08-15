@@ -370,12 +370,15 @@ RSpec.describe "sibling MCP tools: per-action authorization parity" do
     let(:perceiver) { create(:user, account: account, permissions: %w[ai.agents.read ai.manage]) }
     let(:team_manager) { create(:user, account: account, permissions: %w[ai.agents.read ai.teams.manage]) }
     let!(:team) { create(:ai_agent_team, account: account) }
-    let!(:recruitable) { create(:ai_agent, account: account, status: "active") }
+    let!(:recruitable) do
+      create(:ai_agent, account: account, status: "active", metadata: { "capabilities" => %w[ruby] })
+    end
     let(:recruit_params) { { "team_id" => team.id, "capability" => "ruby" } }
 
-    # Non-construction again: recruit_member! raises before team.members.create!
-    # (see the note on the positive control below), so a membership count cannot
-    # tell a refusal apart from that raise.
+    # Non-construction stays the oracle. A membership count could not join it
+    # here even now that the recruit works: the message expectation below stubs
+    # .new to return nil, so an ungated call would raise NoMethodError into
+    # recruit_agent's rescue and write no member either way.
     it "refuses recruit_agent without ai.teams.manage and never reaches the team service" do
       expect(::Ai::Coordination::SelfOrganizingTeamService).not_to receive(:new)
 
@@ -459,21 +462,17 @@ RSpec.describe "sibling MCP tools: per-action authorization parity" do
       expect(result[:success]).to be(true)
     end
 
-    # recruit_agent cannot be shown SUCCEEDING here, and that is not this
-    # change's doing: Ai::Agent has no `capabilities` attribute (it lives in
-    # metadata), so SelfOrganizingTeamService#recruit_member! raises
-    # PG::UndefinedColumn on `Ai::Agent.where("capabilities @> ?", ...)` for any
-    # capability, and fails the member's own capabilities validation without
-    # one. Reproduced on unmodified HEAD and filed separately. The oracle that
-    # remains available is the one that matters here — a permitted caller gets
-    # PAST the gate and fails downstream, which is what separates "gated" from
-    # "locked out".
-    it "still reaches recruitment for a caller holding ai.teams.manage" do
+    # This example used to assert the DOWNSTREAM FAILURE instead: Ai::Agent had
+    # no `capabilities` attribute, so recruit_member! raised PG::UndefinedColumn
+    # for any capability. That was filed and fixed as IMP-3af9c533d25d, and the
+    # oracle it forced ("past the gate, fails later") is now replaced by the one
+    # it was standing in for — a permitted caller's recruit actually completes.
+    it "still recruits for a caller holding ai.teams.manage" do
       result = run("recruit_agent", recruit_params, user: team_manager, mcp_agent: agent)
 
-      expect(result[:success]).to be(false)
+      expect(result[:success]).to be(true)
       expect_past_the_gate(result)
-      expect(result[:error]).to match(/capabilities/i)
+      expect(team.members.reload.map(&:ai_agent_id)).to eq([recruitable.id])
     end
   end
 
