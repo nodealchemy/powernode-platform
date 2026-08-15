@@ -172,6 +172,109 @@ RSpec.describe 'Api::V1::Devops::Docker::Hosts', type: :request do
       expect_success_response
       expect(Devops::DockerHost.find_by(id: host_id)).to be_nil
     end
+
+    # IMP-20fb59ec849d — this endpoint tore down a MANAGED host with a bare
+    # destroy!, so the operator's `system.runtime_docker_decommission` policy
+    # was honoured on the MCP path (Ai::Tools::DockerProvisioningTool) and
+    # silently skipped here. Managed teardown now routes through
+    # Ai::AutonomyGate on the SAME action category, so one policy governs both
+    # surfaces.
+    context 'when the host is managed (NodeInstance-backed)' do
+      let(:node) { sdwan_test_node(account: account) }
+      let(:node_instance) { sdwan_test_node_instance(node: node) }
+      let(:managed_host) do
+        create(:devops_docker_host,
+               account: account,
+               provisioning_state: 'managed',
+               api_endpoint: 'tcp://[fd00::30]:2376',
+               node_instance_id: node_instance.id)
+      end
+
+      def operator_policy!(verb)
+        Ai::InterventionPolicy.create!(
+          account: account, action_category: 'system.runtime_docker_decommission',
+          scope: 'action_type', ai_agent_id: nil, policy: verb, priority: 5, is_active: true
+        )
+      end
+
+      it 'parks the teardown for approval instead of destroying the row' do
+        operator_policy!('require_approval')
+        host_id = managed_host.id
+
+        delete "/api/v1/devops/docker/hosts/#{host_id}", headers: headers, as: :json
+
+        expect(response).to have_http_status(:accepted)
+        expect(json_response['data']['pending']).to be true
+        expect(Devops::DockerHost.find_by(id: host_id)).to be_present
+      end
+
+      it 'records the gate under the same action category as the MCP path' do
+        operator_policy!('require_approval')
+        host_id = managed_host.id
+
+        delete "/api/v1/devops/docker/hosts/#{host_id}", headers: headers, as: :json
+
+        operation = Ai::DeferredOperation.find_by(source_type: 'Devops::DockerHost', source_id: host_id)
+        expect(operation).to be_present
+        expect(operation.action_category).to eq('system.runtime_docker_decommission')
+        expect(operation.params['host_id']).to eq(host_id)
+      end
+
+      it 'refuses outright when the operator policy blocks the category' do
+        operator_policy!('block')
+        host_id = managed_host.id
+
+        delete "/api/v1/devops/docker/hosts/#{host_id}", headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(Devops::DockerHost.find_by(id: host_id)).to be_present
+      end
+
+      # The inverse oracle: refusing under require_approval/block proves
+      # nothing about whether an operator who ALLOWED the action still gets it.
+      it 'tears the host down, credential first, when the policy auto-approves' do
+        operator_policy!('auto_approve')
+        vault_provider = instance_double(Security::VaultCredentialProvider)
+        allow(Security::VaultCredentialProvider).to receive(:new).and_return(vault_provider)
+        allow(vault_provider).to receive(:purge_credential!).and_return(true)
+        host_id = managed_host.id
+
+        delete "/api/v1/devops/docker/hosts/#{host_id}", headers: headers, as: :json
+
+        expect_success_response
+        expect(vault_provider).to have_received(:purge_credential!)
+          .with(credential_type: :docker_daemon_tls, credential_id: host_id)
+        expect(Devops::DockerHost.find_by(id: host_id)).to be_nil
+
+        # Through the gate, not around it: the outcome above is identical
+        # whether the teardown was permitted or never gated at all, so the
+        # operation row is what separates the two.
+        operation = Ai::DeferredOperation.find_by(source_type: 'Devops::DockerHost', source_id: host_id)
+        expect(operation).to be_present
+        expect(operation.status).to eq('completed')
+      end
+    end
+
+    # CONTROL: the ordinary registration-removal path must stay ungated — the
+    # MCP twin resolves MANAGED hosts only, so `system.runtime_docker_decommission`
+    # is a managed-host policy and an external host has no platform-issued TLS
+    # material to purge. Gating it would turn every DELETE into a 202.
+    context 'when the host is external (operator-registered)' do
+      it 'deletes immediately and opens no gate' do
+        Ai::InterventionPolicy.create!(
+          account: account, action_category: 'system.runtime_docker_decommission',
+          scope: 'action_type', ai_agent_id: nil, policy: 'require_approval',
+          priority: 5, is_active: true
+        )
+        host_id = host.id
+
+        delete "/api/v1/devops/docker/hosts/#{host_id}", headers: headers, as: :json
+
+        expect_success_response
+        expect(Devops::DockerHost.find_by(id: host_id)).to be_nil
+        expect(Ai::DeferredOperation.where(source_type: 'Devops::DockerHost', source_id: host_id)).to be_empty
+      end
+    end
   end
 
   describe 'POST /api/v1/devops/docker/hosts/:id/test_connection' do
