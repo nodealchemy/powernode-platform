@@ -298,6 +298,34 @@ RSpec.describe Ai::Teams::ConfigurationService, type: :service do
     end
   end
 
+  describe 'required-skill sets vary by team_type (private #find_skill_gaps)' do
+    # Regression: the case here matched "development"/"operations"/"research"
+    # — values that appear nowhere in Ai::AgentTeam::TEAM_TYPES (they match
+    # Ai::Mission::MISSION_TYPES on an unrelated model). team_type can only
+    # ever be hierarchical/mesh/sequential/parallel/workspace, so every team
+    # hit `else` and got the identical generic pair regardless of type.
+    # hierarchical keeps that original generic pair (it's the schema default
+    # and every pre-existing fixture assumes it) — mesh and sequential are
+    # the two branches that are now reachable AND differ from the default.
+    let(:hierarchical_team) { create(:ai_agent_team, :hierarchical, account: account) }
+    let(:mesh_team) { create(:ai_agent_team, :mesh, account: account) }
+
+    it 'requires different skills for mesh than for the hierarchical default' do
+      hierarchical_gaps = service.send(:find_skill_gaps, hierarchical_team, {})
+      mesh_gaps = service.send(:find_skill_gaps, mesh_team, {})
+
+      expect(hierarchical_gaps).not_to eq(mesh_gaps)
+    end
+
+    it 'maps a hierarchical team to the generic default skill set' do
+      expect(service.send(:find_skill_gaps, hierarchical_team, {})).to match_array(%w[code_review testing])
+    end
+
+    it 'maps a mesh team to its required skill set' do
+      expect(service.send(:find_skill_gaps, mesh_team, {})).to match_array(%w[monitoring deployment security])
+    end
+  end
+
   describe '#auto_optimize' do
     it 'returns optimal status for healthy teams' do
       allow(service).to receive(:analyze_composition).and_return({ health: 'healthy' })

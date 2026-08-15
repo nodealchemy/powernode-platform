@@ -183,15 +183,30 @@ module Ai
           end
         end
 
+        # team_type is the only per-team classification AgentTeam carries
+        # (TEAM_TYPES: hierarchical/mesh/sequential/parallel/workspace — a
+        # coordination pattern, not a domain). The original case here
+        # compared team_type against "development"/"operations"/"research",
+        # which appear nowhere in TEAM_TYPES — they match
+        # Ai::Mission::MISSION_TYPES on a different model instead — so every
+        # branch but `else` was dead and every team, regardless of type, got
+        # the same generic pair. Re-keyed onto real TEAM_TYPES values.
+        # Judgment call: hierarchical is both the schema default and the
+        # type every pre-existing fixture in this codebase uses, so it keeps
+        # the original generic pair unchanged (as does parallel/workspace,
+        # which have no more specific analogue) rather than risk widening
+        # requirements for the type everything already assumes. mesh
+        # (peer-to-peer coordination, the shape distributed/ops work takes)
+        # gets the former "operations" list; sequential (pipeline-staged)
+        # gets the former "research" list — those two are now genuinely
+        # reachable and differ from the default.
         def find_skill_gaps(team, current_skills)
           team_type = team.respond_to?(:team_type) ? team.team_type : "general"
 
           required = case team_type
-                     when "development"
-                       %w[code_review testing deployment]
-                     when "operations"
+                     when "mesh"
                        %w[monitoring deployment security]
-                     when "research"
+                     when "sequential"
                        %w[data_analysis documentation]
                      else
                        %w[code_review testing]
