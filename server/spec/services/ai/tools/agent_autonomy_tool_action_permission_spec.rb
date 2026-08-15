@@ -85,7 +85,7 @@ RSpec.describe "agent_autonomy MCP per-action authorization" do
         { ok: true }
       end
 
-      def self.preview(_params)
+      def self.preview(_params, deferred_operation: nil)
         { summary: "gated action" }
       end
     end)

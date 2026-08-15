@@ -17,7 +17,7 @@ RSpec.describe Ai::AutonomyGate do
         { success: true, data: { ran_with: params } }
       end
 
-      def self.preview(_params)
+      def self.preview(_params, deferred_operation: nil)
         { summary: 'Test action', impact: 'None' }
       end
     end)
@@ -219,7 +219,7 @@ RSpec.describe Ai::AutonomyGate do
             { success: true, data: { accepted: true } }
           end
 
-          define_singleton_method(:preview) do |_params|
+          define_singleton_method(:preview) do |_params, deferred_operation: nil|
             { summary: 'Accept federation peer', impact: 'Handshake completes' }
           end
         end)

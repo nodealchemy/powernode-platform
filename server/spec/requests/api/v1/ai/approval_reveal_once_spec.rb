@@ -65,7 +65,7 @@ RSpec.describe 'Approval decisions reveal a minted secret exactly once', type: :
         }
       end
 
-      def self.preview(_params)
+      def self.preview(_params, deferred_operation: nil)
         { summary: 'Propose federation with https://peer.example' }
       end
     end)

@@ -19,7 +19,7 @@ RSpec.describe Ai::DeferredOperationApprovalContent do
 
   def build_operation(summary:, impact: nil, agent: nil)
     stub_const("ApprovalContentSpecExecutor", Class.new do
-      def self.preview(params)
+      def self.preview(params, deferred_operation: nil)
         { summary: params["summary"], impact: params["impact"] }
       end
     end)

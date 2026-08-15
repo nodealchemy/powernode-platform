@@ -45,7 +45,7 @@ RSpec.describe 'Approval read surfaces do not disclose secret params', type: :re
         { success: true, data: { accepted: true } }
       end
 
-      def self.preview(_params)
+      def self.preview(_params, deferred_operation: nil)
         { summary: 'Accept federation peer', impact: 'Mutual route advertisement begins' }
       end
     end)
