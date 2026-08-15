@@ -410,7 +410,7 @@ when "silent"
 end
 ```
 
-5. **Add an executor for `require_approval`.** Deferred operations carry an `executor_class` that runs after approval. The executor exposes a class method `execute(params, deferred_operation:)` (and optionally `preview(params)`); `executor_class` is constantized and the method is called synchronously by `Ai::DeferredOperation#execute_now!`. Place it under the extension's `app/services/<extension>/ai/skills/` directory.
+5. **Add an executor for `require_approval`.** Deferred operations carry an `executor_class` that runs after approval. The executor exposes a class method `execute(params, deferred_operation:)` (and optionally `preview(params, deferred_operation:)`); `executor_class` is constantized and the method is called synchronously by `Ai::DeferredOperation#execute_now!`. `preview` receives the operation on the same keyword so an approval card can scope any row it names to the account the gate opened the operation in — an executor that renders a caller-supplied id must resolve it through that account, never unscoped. Place it under the extension's `app/services/<extension>/ai/skills/` directory.
 
 6. **Run the seed to install defaults:**
 

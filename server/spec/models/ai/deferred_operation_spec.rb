@@ -18,7 +18,7 @@ RSpec.describe Ai::DeferredOperation, type: :model do
         { performed: true, params: params }
       end
 
-      def self.preview(_params)
+      def self.preview(_params, deferred_operation: nil)
         { summary: 'Test perform' }
       end
     end)
@@ -268,6 +268,69 @@ RSpec.describe Ai::DeferredOperation, type: :model do
       expect(op.preview).to include(summary: 'Test perform')
     end
 
+    # IMP-4a5094b22df0 — the ACCOUNT is what lets an executor anchor an
+    # approval card's labels to the account the gate opened the operation in.
+    # What crosses the boundary is a PreviewContext, never the operation: see
+    # the PreviewContext docstring and the reveal-once isolation spec for why
+    # withholding the rest is the guard rather than an omission.
+    it 'threads an account-only context into the executor for card anchoring' do
+      seen = []
+      stub_const('AnchorProbePerformer', Class.new do
+        define_singleton_method(:preview) do |_params, deferred_operation: nil|
+          seen << deferred_operation
+          { summary: 'probed' }
+        end
+      end)
+      op = described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'AnchorProbePerformer', params: {}
+      )
+
+      expect(op.preview).to include(summary: 'probed')
+      expect(seen.size).to eq(1)
+      expect(seen.first).to be_a(described_class::PreviewContext)
+      expect(seen.first.account).to eq(account)
+    end
+
+    # The withheld half, asserted directly on the object rather than through a
+    # card: everything an executor could use to render execution state is
+    # absent, so reaching for it raises instead of succeeding quietly.
+    it 'hands the executor no execution state to reach for' do
+      seen = nil
+      stub_const('SurfaceProbePerformer', Class.new do
+        define_singleton_method(:preview) do |_params, deferred_operation: nil|
+          seen = deferred_operation
+          { summary: 'probed' }
+        end
+      end)
+      op = described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'SurfaceProbePerformer', params: { 'k' => 'v' }
+      )
+      op.preview
+
+      %i[take_revealed_result! result params status executor_class id].each do |leaky|
+        expect(seen.respond_to?(leaky, true)).to be(false),
+                                                "PreviewContext exposes ##{leaky} to the card path"
+      end
+    end
+
+    # The keyword is not optional at this call site, so an executor that never
+    # accepted it degrades to the rescue arm rather than raising at a caller.
+    it 'degrades to the action category for an executor that rejects the keyword' do
+      stub_const('LegacyPreviewPerformer', Class.new do
+        def self.preview(_params)
+          { summary: 'legacy' }
+        end
+      end)
+      op = described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'LegacyPreviewPerformer', params: {}
+      )
+
+      expect(op.preview).to include(summary: 'test.act')
+    end
+
     it 'gracefully handles preview exceptions' do
       stub_const('NoPreviewExecutor', Class.new do
         def self.execute(*); end
@@ -297,7 +360,7 @@ RSpec.describe Ai::DeferredOperation, type: :model do
                                    acceptance_token_plaintext: value } }
         end
 
-        define_singleton_method(:preview) { |_p| { summary: 'Propose peer' } }
+        define_singleton_method(:preview) { |_p, deferred_operation: nil| { summary: 'Propose peer' } }
       end)
     end
 

@@ -17,6 +17,35 @@ module Ai
     # base class, so both tenancy anchors surface one error identity.
     class CrossAccountError < StandardError; end
 
+    # What an executor may know about an operation while composing an APPROVAL
+    # CARD. Deliberately NOT the operation itself (IMP-4a5094b22df0).
+    #
+    # The card path needs exactly one thing the request cannot supply: the
+    # account the gate opened this operation in, so a label lookup can be
+    # scoped to it. Handing over the operation would also hand over `params`,
+    # `result` and `take_revealed_result!` — and the `deferred_operation: nil`
+    # this replaced was, whatever else it cost, a FAIL-SAFE BACKSTOP: an
+    # executor that reached for execution state from its preview got
+    # NoMethodError on nil, which #preview's rescue turned into a generic card.
+    # A leak through that channel could not silently start working.
+    #
+    # Passing the live operation would convert that self-limiting mistake into
+    # a silent one, rendering execution state — possibly reveal-once material —
+    # onto an approval card. This keeps the backstop by answering `account` and
+    # nothing else: the same mistake still raises, and still degrades to a
+    # generic card rather than disclosing.
+    #
+    # Duck-typed on `account` alone, which is already the shape executor base
+    # classes accept on this keyword — extensions pass their own account-only
+    # composition contexts through it — so nothing needed a new contract.
+    class PreviewContext
+      attr_reader :account
+
+      def initialize(account)
+        @account = account
+      end
+    end
+
     STATUSES = %w[pending approved rejected expired executing completed failed].freeze
 
     belongs_to :account
@@ -158,8 +187,29 @@ module Ai
       @executor_constant ||= executor_class.constantize
     end
 
+    # The approval card's text, rendered by Ai::DeferredOperationApprovalContent
+    # from the executor's own summary/impact.
+    #
+    # The ACCOUNT is threaded in, on the same keyword `execute` uses for the
+    # operation (IMP-4a5094b22df0). It used to be dropped entirely, and that
+    # was the root cause of a posture split in the executors: `perform`
+    # resolved a row id through an account-anchored lookup while `summarize`
+    # resolved the SAME id unscoped, because on the card path there was no
+    # account to scope by. This row HAS one — the gate opened it in that
+    # account — so a card can be anchored to it, and an executor no longer has
+    # to choose between naming a row it cannot prove belongs to the approvers,
+    # and naming nothing.
+    #
+    # `self` is deliberately NOT what goes through: see PreviewContext, which
+    # carries the account and refuses everything else so that an executor
+    # reaching for execution state from a preview still fails loud-to-safe.
+    # That keeps reveal-once (IMP-7b81ca22f661) isolated by CONSTRUCTION rather
+    # than by convention — `take_revealed_result!` is not on the object the
+    # preview path holds, so no executor can call it, correctly or otherwise.
     def preview
-      executor_constant.respond_to?(:preview) ? executor_constant.preview(params) : { summary: action_category }
+      return { summary: action_category } unless executor_constant.respond_to?(:preview)
+
+      executor_constant.preview(params, deferred_operation: PreviewContext.new(account))
     rescue StandardError => e
       { summary: action_category, error: "preview failed: #{e.message}" }
     end
