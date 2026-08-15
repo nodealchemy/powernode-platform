@@ -192,7 +192,17 @@ module Api
           )
 
           if result[:success]
-            render_success(approval_request: approval_request_json(result[:request]))
+            # Reveal-once handoff (IMP-7b81ca22f661), in parity with
+            # Ai::AutonomyApprovalActions#approve_action: this is the OTHER
+            # human surface that resolves an approval, so it runs the same
+            # executors and would otherwise be the other place a minted secret
+            # is destroyed. `process_approval_decision` returns the very object
+            # the decision cascade fired on (#reload returns self), which is
+            # what makes the in-memory slot reachable from here.
+            payload = approval_request_json(result[:request])
+            revealed = result[:request].take_revealed_result!
+            payload = payload.merge(revealed_result: revealed) if revealed.present?
+            render_success(approval_request: payload)
           else
             render_error(result[:error], :unprocessable_content)
           end

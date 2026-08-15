@@ -662,6 +662,16 @@ module Ai
         result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).approve(
           request: request, approver: user, comments: params[:comments]
         )
+        # Deliberately does NOT carry the reveal-once handoff (IMP-7b81ca22f661)
+        # that the HTTP approval surfaces do. A tool return travels further than
+        # its caller: Ai::AgentToolBridgeService puts a 200-byte preview of it in
+        # `tool_calls_log` — persisted to ai_messages.processing_metadata — and
+        # appends the full JSON as a role:"tool" message sent to the model
+        # provider on the next turn. Revealing minted key material here would
+        # make it a durable plaintext copy AND transmit it off-platform, which
+        # is the invariant that handoff exists to preserve, not an edge case of
+        # it. Approving through this surface therefore still destroys a mint;
+        # the token is disclosed on the operator UI/API surface instead.
         { success: true, approval_request_id: request.id, request_status: request.reload.status, workflow: result }
       rescue StandardError => e
         { success: false, error: "Approval failed: #{e.class}: #{e.message}" }

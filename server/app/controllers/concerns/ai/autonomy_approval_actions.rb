@@ -26,7 +26,8 @@ module Ai
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
       if service.approve(request: request, approver: current_user, comments: params[:comments])
-        render_success(data: serialize_approval_request(request.reload, detailed: true))
+        payload = serialize_approval_request(request.reload, detailed: true)
+        render_success(data: with_revealed_result(request, payload))
       else
         render_error("Cannot approve this request", status: :unprocessable_content)
       end
@@ -54,6 +55,24 @@ module Ai
       return if current_worker
 
       require_permission("ai.autonomy.approve")
+    end
+
+    # Reveal-once handoff (IMP-7b81ca22f661) — the ONE surface an executor that
+    # minted secret material can be seen from when the operation was deferred.
+    # Everything else about this row is redacted (request_data and the
+    # operation's params both go through Ai::SensitiveParams, and :result is
+    # filtered at rest), which is exactly why the mint would otherwise be
+    # revealed zero times rather than once.
+    #
+    # Deliberately merged only into the approve response, and only when the
+    # decision actually ran an executor: the slot is emptied by this read, so
+    # every later read of the same row — including #show_approval — sees
+    # nothing. Nothing is persisted, so nothing can be re-fetched.
+    def with_revealed_result(request, payload)
+      revealed = request.take_revealed_result!
+      return payload if revealed.blank?
+
+      payload.merge(revealed_result: revealed)
     end
 
     def serialize_approval_request(request, detailed: false)
