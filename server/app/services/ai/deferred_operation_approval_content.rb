@@ -78,6 +78,19 @@ module Ai
     # is re-fetched fresh by `deferred_for` on every call, so it can't hold
     # the cache).
     #
+    # Crypto-safety note (verified, not assumed): `op.preview` cannot
+    # transitively include the executor's reveal-once minted secret. The
+    # revealed-result slot (`@revealed_result` / `take_revealed_result!`,
+    # deferred_operation.rb) is set ONLY inside `#execute_now!`, is an
+    # in-memory ivar never persisted to a column, and `deferred_for` always
+    # hands back a freshly `find_by`-loaded instance — so the object this
+    # memo caches a preview for never has that ivar set. `preview` is also a
+    # structurally separate method from `execute`/`perform` on every
+    # executor base in the codebase (System::Executors::Base.preview even
+    # hardcodes `deferred_operation: nil`, so a preview call can't reach a
+    # real operation's state at all). So this memo cannot defeat the
+    # one-shot reveal — see IMP-6858255cea72's reveal-once isolation spec.
+    #
     # Reuse across a later step-advance re-notification on the SAME request
     # object (a multi-step chain calls notify_current_step! again when
     # current_step changes) is also safe: source_type/source_id are fixed
@@ -85,6 +98,12 @@ module Ai
     # (record_decision!/process_decision!/advance_to_next_step!) writes to
     # the referenced DeferredOperation between steps. If that ever stops
     # holding, this needs a freshness key, not blind reuse.
+    #
+    # Not a per-accessor cache: title/message/severity/metadata never
+    # receive `user` at all (see ApprovalRequestNotifier#notify_current_step!),
+    # so there is no per-approver variance to collapse — see this file's
+    # "N-approver identical content" spec, which uses approvers with
+    # materially different permissions to give that claim teeth.
     PREVIEW_MEMO_IVAR = :@__deferred_operation_approval_content_preview
 
     def self.safe_preview(request, op)
