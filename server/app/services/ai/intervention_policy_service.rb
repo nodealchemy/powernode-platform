@@ -31,17 +31,55 @@ module Ai
 
       return default_policy if matching.empty?
 
-      # CONTRACT (IMP-bfbf8052e179): an agent caller resolves ONLY against rows
-      # scoped to that agent. Nil-agent rows carry operator/global intent —
-      # Ai::InterventionPolicy#agent_matches? admits them for any caller, so
-      # without this cut an agent with no scoped row for the category would
-      # inherit the operator row's (usually laxer) verb. An agent unmatched by
-      # any scoped row falls to the require_approval default instead.
+      # CONTRACT (IMP-cb36021d4094, superseding IMP-bfbf8052e179): an agent
+      # caller resolves against its OWN rows plus the scope-"global" audience,
+      # and never against the operator path.
+      #
+      # Ai::InterventionPolicy#agent_matches? admits a nil-agent row for ANY
+      # caller, so some cut has to happen here. IMP-bfbf8052e179 made it on
+      # `ai_agent_id` nil-ness, which is the wrong discriminator:
+      # `Ai::InterventionPolicy::SCOPES` names THREE audiences and nil-ness
+      # collapses them into two.
+      #
+      #   scope "agent"       — binds only the agent it names.
+      #   scope "action_type" — the operator path (the shape
+      #                         System::Seeds::AgentSetupHelpers
+      #                         .upsert_operator_policies! writes). Agent-less
+      #                         callers only: admitting these is what let a
+      #                         human-intent row widen agent autonomy, and that
+      #                         separation is the part of IMP-bfbf8052e179 that
+      #                         was right and must keep holding.
+      #   scope "global"      — the account-wide floor. Agent-BINDING by design:
+      #                         db/seeds/autonomy_data_seed.rb seeds
+      #                         status_update / issue_alert / feedback /
+      #                         escalation / proposal / approval here, and
+      #                         Ai::AgentOutreachService#notify resolves
+      #                         status_update with an agent ALWAYS set.
+      #
+      # Discarding the global audience broke it in BOTH directions, and the
+      # restrictive direction is the one that mattered: a global `auto_approve`
+      # degraded to require_approval (fail-safe, merely inconvenient), while a
+      # global `block` stopped binding agents at all. That is fail-OPEN even
+      # though it looks like a stricter verb — require_approval is not a denial.
+      # Ai::AutonomyGate parks it as an ApprovalRequest, and the default chain's
+      # ["*"] resolves to every active user, so an operator row meaning "never"
+      # became "any user in the account may authorise this".
+      #
+      # `user_id` is deliberately absent from this test. It narrows the audience
+      # a row's `scope` already names rather than naming one of its own
+      # (#user_matches? applies it for every caller), and that is what keeps the
+      # precedence documented above — user+agent > user > agent > global — true
+      # when the caller is an agent.
+      #
+      # Written as an allowlist on "global" rather than a denylist on
+      # "action_type" so that a scope added to SCOPES later is non-binding until
+      # someone decides otherwise, and so a malformed scope-"agent" row with a
+      # nil ai_agent_id cannot bind every agent in the account.
       if agent
-        agent_scoped = matching.select { |p| p.ai_agent_id == agent.id }
-        return default_policy if agent_scoped.empty?
+        audience = matching.select { |p| p.ai_agent_id == agent.id || p.scope == "global" }
+        return default_policy if audience.empty?
 
-        matching = agent_scoped
+        matching = audience
       end
 
       # Sort by specificity (most specific wins)
