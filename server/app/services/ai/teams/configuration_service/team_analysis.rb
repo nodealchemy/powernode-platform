@@ -45,7 +45,7 @@ module Ai
             next unless rec[:gap]
 
             available = Ai::Agent.where(account: account)
-                                  .where.not(id: team.ai_agent_team_members.pluck(:ai_agent_id))
+                                  .where.not(id: team.members.pluck(:ai_agent_id))
 
             best_match = available.detect do |agent|
               analyzer.send(:score_agent_for_capability, agent, rec[:capability]) > 0

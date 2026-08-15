@@ -254,6 +254,25 @@ RSpec.describe Ai::Teams::ConfigurationService, type: :service do
     end
   end
 
+  describe '#recommend_agents' do
+    # Regression: `team.ai_agent_team_members` is not an association —
+    # Ai::AgentTeam declares `has_many :members` (agent_team.rb:20). This
+    # raised NoMethodError the first time TaskAnalyzerService reported ANY
+    # capability gap, i.e. whenever the account has no agent at all matching
+    # a requested capability — precisely the case this method exists to handle.
+    it 'computes recommendations instead of raising on a capability gap' do
+      result = nil
+      expect {
+        result = service.recommend_agents(team, 'Review the code for quality issues')
+      }.not_to raise_error
+
+      expect(result[:add]).to eq([])
+      expect(result[:remove]).to eq([])
+      expect(result[:current_coverage]).to eq(0.4)
+      expect(result[:projected_coverage]).to eq(0.4)
+    end
+  end
+
   describe '#auto_optimize' do
     it 'returns optimal status for healthy teams' do
       allow(service).to receive(:analyze_composition).and_return({ health: 'healthy' })
