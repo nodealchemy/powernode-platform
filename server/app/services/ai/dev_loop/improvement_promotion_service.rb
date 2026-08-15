@@ -22,7 +22,7 @@ module Ai
       GUARDRAILS = LoopGuardrails.compose(
         "Re-verify the finding against current code BEFORE changing anything (findings rot)",
         "Write a failing spec reproducing the finding FIRST; confirm it is red",
-        "Independent review: run /code-review on the diff BEFORE committing (don't trust spec-green alone)",
+        "Independent review, WHEN THE TASK'S ACCEPTANCE CRITERIA ASK FOR IT: spawn a SYNCHRONOUS UNNAMED subagent to review the diff before committing (don't trust spec-green alone). Do NOT use /code-review — a slash-forked skill routes its result to the PARENT session, not to you, so you pay for a review you cannot read. A teammate also cannot spawn named or background agents; the synchronous unnamed form is the one that reports back. Bar the reviewer from running rspec — the test DB is shared and concurrent runs deadlock",
         "Never introduce a core->extension dependency or a private-extension name into a core file",
         "Commit only to the loop branch — never develop/master, never push"
       )
@@ -268,11 +268,60 @@ module Ai
         }
       end
 
+      # Independent review is TRIGGERED, not unconditional. A full review pass has
+      # measured 130-190k tokens here — comparable to an entire iteration — so
+      # mandating one on every promoted finding roughly doubled loop cost, including
+      # on comment corrections and one-line guards.
+      #
+      # The trigger is derived from data already on the recommendation, never from
+      # the executor's own assessment of its change: an executor judging whether its
+      # own diff is risky is precisely the judgement that fails.
+      #
+      # It FAILS TOWARD REVIEW. A finding is exempt only when it is small AND touches
+      # no sensitive path AND does not read as security-relevant. Anything ambiguous
+      # is reviewed, because the cost of a missed review is unbounded and the cost of
+      # a surplus one is a known number.
+      REVIEW_FILE_THRESHOLD = 3
+
+      # Paths where a wrong change is an authorization, credential, contract or
+      # schema problem rather than a local one.
+      REVIEW_SENSITIVE_PATH = %r{
+        (^|/)(controllers|serializers)/ | (^|/)db/migrate/
+        | permission | auth | token | secret | vault | crypt | signing
+        | approval | autonomy_gate | intervention_policy | principal
+      }xi
+
+      REVIEW_SENSITIVE_TEXT = /
+        security | credential | permission | authoriz | authenticat
+        | token | secret | key[\s_]material | bypass | escalat | leak
+      /xi
+
+      # Routed to a SYNCHRONOUS UNNAMED subagent deliberately. A slash-forked
+      # /code-review delivers its result to the PARENT session rather than to the
+      # executor that invoked it, so the mandated review was being paid for in full
+      # and delivered to an address the executor could not read — observed three
+      # times, once leaving an iteration blocked for 14 minutes on a reply that
+      # structurally could not arrive.
+      REVIEW_INSTRUCTION =
+        "Independent review REQUIRED before committing (this finding is multi-file, touches a " \
+        "sensitive path, or reads as security-relevant): spawn a SYNCHRONOUS UNNAMED subagent to " \
+        "review the diff and report back to you — NOT /code-review, which forks its result to the " \
+        "parent session. Bar the reviewer from running rspec; the test DB is shared."
+
+      def independent_review_required?(_rec, evidence)
+        files = Array(evidence["files"])
+        return true if files.size >= REVIEW_FILE_THRESHOLD
+        return true if files.any? { |f| REVIEW_SENSITIVE_PATH.match?(f.to_s) }
+
+        REVIEW_SENSITIVE_TEXT.match?("#{evidence['title']} #{evidence['description']}")
+      end
+
       def acceptance_criteria(rec, evidence)
         fix = rec.recommended_config.is_a?(Hash) ? rec.recommended_config["fix"] : nil
         detail = evidence["description"].presence || fix.presence || "Resolve the finding."
         base = "Re-verify the finding holds on current code. Write a failing spec FIRST and confirm it is red. " \
-               "Then: #{detail} Run /code-review on the diff before committing."
+               "Then: #{detail}"
+        base = "#{base} #{REVIEW_INSTRUCTION}" if independent_review_required?(rec, evidence)
         direction.present? ? directed_criteria(base) : base
       end
 
