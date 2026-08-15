@@ -37,6 +37,56 @@ module Ai
       MISSION_TEMPLATE_NAME = "system_provisioning"
       VALID_DECISIONS = %w[approved rejected modified].freeze
 
+      # SECURITY (IMP-6fbfeff384fa): authorization here is per ACTION, not per
+      # tool. REQUIRED_PERMISSION was inherited as nil from BaseTool, and
+      # McpPlatformToolRegistrar#enforce_permission! opens with
+      # `return if required.nil?` — ABOVE the authentication raise, the
+      # has_permission? raise and the token intersection. Every action was
+      # therefore reachable by any MCP caller with no check at all, including
+      # approve_plan (which advances the mission the orchestrator then EXECUTES)
+      # and adapt (which dispatches a change through the adaptation gate).
+      #
+      # Floor: Api::V1::Ai::MissionsController#authorize_read! gates show/index/
+      # task_graph on this (missions_controller.rb:9,82), and status is exactly
+      # that read.
+      REQUIRED_PERMISSION = "ai.missions.read"
+
+      # Each entry names the permission the REST twin of that action requires.
+      # MissionsController#authorize_manage! (missions_controller.rb:10-15,88)
+      # covers create, compose_plan, approve and reject with ONE permission, so
+      # every mission-mutating action here lands on it.
+      ACTION_PERMISSIONS = {
+        # capture_brief CREATES the infrastructure mission
+        # (create_infrastructure_mission!), persists its brief and advances its
+        # phase — POST /api/v1/ai/missions plus the phase advance.
+        "platform_provisioning_capture_brief" => "ai.missions.manage",
+
+        # POST /api/v1/ai/missions/:id/compose_plan — same ComposerRouter +
+        # PlanSnapshotService chain as the REST endpoint.
+        "platform_provisioning_compose_plan" => "ai.missions.manage",
+
+        # POST /api/v1/ai/missions/:id/{approve,reject} → OrchestratorService#
+        # handle_approval!.
+        "platform_provisioning_approve_plan" => "ai.missions.manage",
+
+        # No REST twin: nothing outside this tool calls AdaptationProposerService
+        # /AdaptationDispatchService (the sensor path reaches them from a worker
+        # job). Parity is therefore silent, and the choice is ours — adapt
+        # composes a diff plan and hands it to the adaptation gate, which may
+        # APPLY it within operator policy bounds, so it belongs with compose_plan
+        # rather than with the read.
+        "platform_provisioning_adapt" => "ai.missions.manage"
+
+        # platform_provisioning_status stays at the floor on purpose: its twin is
+        # GET /api/v1/ai/missions/:id, gated on ai.missions.read (granted to
+        # member upward — permissions.rb:744).
+      }.freeze
+
+      # Advertisement is deliberately NOT overridden (unlike AgentAutonomyTool,
+      # whose escalate/report_issue are an agent's only route to a human). The
+      # floor is a member-tier permission, so BaseTool.permitted? re-arming
+      # narrows advertisement only in an account where NO user can read missions.
+
       def self.definition
         {
           name: "provisioning",
@@ -149,7 +199,17 @@ module Ai
       protected
 
       def call(params)
-        case params[:action]
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[ProvisioningTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
+        case action
         when "platform_provisioning_capture_brief"  then capture_brief(params)
         when "platform_provisioning_compose_plan"   then compose_plan(params)
         when "platform_provisioning_approve_plan"   then approve_plan(params)
@@ -165,6 +225,45 @@ module Ai
       end
 
       private
+
+      # === Per-action permission gating (IMP-6fbfeff384fa) ===
+      #
+      # Keyed on the action that RUNS, never on the name that was invoked: a
+      # user principal is deliberately NOT pinned to the invoked tool name
+      # (McpPlatformToolRegistrar#action_pinned_to_name?), so a name-keyed check
+      # is bypassable by supplying a sibling :action.
+
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two bypasses, both EXPLICIT, matching the sibling tools' ladder:
+      #
+      #   internal?            in-process system callers that opted in with
+      #                        `internal: true`. Never inferred from a nil user —
+      #                        an MCP instance principal also arrives with none
+      #                        (IMP-9030413bc292).
+      #   instance_authorized? an mTLS node principal whose SPECIFIC tool name
+      #                        already cleared Mcp::Principal#may_invoke?, and
+      #                        whose action the registrar then pins to that same
+      #                        name. Without this arm every such call is
+      #                        hard-denied (BUG-R).
+      #
+      # NOTE the concierge path (Ai::ConciergeToolBridge#classify_and_dispatch_
+      # provisioning) reaches capture_brief WITHOUT the registrar, carrying the
+      # chat user — so this check, not the floor, is what gates it there. That is
+      # the intended parity: bootstrapping an infrastructure mission from chat is
+      # the same operation as POST /api/v1/ai/missions.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        # Compared against true rather than used for truthiness: nothing on the
+        # MCP path coerces a permission answer, and a truthy non-boolean must not
+        # read as a grant.
+        user.has_permission?(required_perm_for(action)) == true
+      end
 
       # ===== Action handlers =====
 

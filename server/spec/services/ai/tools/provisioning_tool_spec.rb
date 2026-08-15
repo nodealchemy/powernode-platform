@@ -11,7 +11,17 @@ require "rails_helper"
 # PlanComposerService; a novel intent selects MissionComposer.
 RSpec.describe Ai::Tools::ProvisioningTool do
   let(:account) { create(:account) }
-  let(:user)    { create(:user, account: account) }
+  # Permissions are declared rather than inherited from the default role: the
+  # FIRST user in an account gets owner and later ones get member, so this let
+  # resolved to an owner or a member depending on whether an example touched
+  # `agent` first (the ai_agent factory creates a user of its own). Harmless
+  # while nothing was gated; since IMP-6fbfeff384fa the mission-mutating actions
+  # require ai.missions.manage, which member does not hold, and the same example
+  # would pass or fail on fixture ORDER. Authorization itself is covered in
+  # spec/services/ai/tools/sibling_tools_action_permission_spec.rb.
+  let(:user) do
+    create(:user, account: account, permissions: %w[ai.missions.read ai.missions.manage])
+  end
   let(:agent)   { create(:ai_agent, account: account) }
   let(:tool)    { described_class.new(account: account, agent: agent, user: user) }
 

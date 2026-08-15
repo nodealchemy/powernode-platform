@@ -3,6 +3,48 @@
 module Ai
   module Tools
     class AgentMemoryManagementTool < BaseTool
+      # SECURITY (IMP-6fbfeff384fa): REQUIRED_PERMISSION was inherited as nil
+      # from BaseTool, and McpPlatformToolRegistrar#enforce_permission! opens
+      # with `return if required.nil?` — ABOVE the authentication raise, the
+      # has_permission? raise and the MCP token intersection. So these four
+      # actions ran without any of the three, including for a scoped token that
+      # was never granted this surface.
+      #
+      # Unlike its four siblings in that sweep this tool gets ONE constant and
+      # deliberately NO ACTION_PERMISSIONS map, because there is one decision
+      # here rather than four: every action is structurally self-scoped. No
+      # action takes an agent_id or pool parameter, and
+      # Ai::Memory::AgentManagedMemoryService#find_private_pool resolves the pool
+      # from the CALLING agent identity — which an MCP caller cannot choose
+      # (StreamableHttpController#mcp_client_agent binds it to the session, and
+      # the agent loop passes the agent itself). agent_recall's team search is
+      # likewise clamped to pools whose access_control lists that same agent.
+      # Splitting reads from writes would invent a distinction the surface does
+      # not have.
+      #
+      # The floor is what the sibling MCP surface over the SAME Ai::MemoryPool
+      # model asks — Ai::Tools::MemoryTool::REQUIRED_PERMISSION, which gates
+      # write_shared_memory/read_shared_memory/search_memory and friends. The
+      # spec asserts the two are equal so they cannot drift apart.
+      #
+      # Two nearby controllers are deliberately NOT treated as the twin:
+      #
+      #   Api::V1::Ai::MemoryPoolsController (read_data → ai.memory_pools.read,
+      #     write_data/delete_data → ai.memory_pools.manage) operates on the same
+      #     Ai::MemoryPool model but addresses ARBITRARY pools by :id, including
+      #     other agents' — a cross-pool administrative surface these four
+      #     actions structurally cannot reach. Adopting its manage bar would take
+      #     an agent's own memory away from every member-tier account without
+      #     closing anything this tool can actually do.
+      #
+      #   Api::V1::Ai::AgentMemoryController (ai.memory.read / ai.memory.write)
+      #     is the closer-sounding one and is named here so the next reader does
+      #     not have to re-derive why it was passed over: it drives
+      #     Ai::PersistentContext through ContextPersistenceService — a different
+      #     store from the Ai::MemoryPool rows AgentManagedMemoryService writes —
+      #     and it too addresses arbitrary agents by :agent_id.
+      REQUIRED_PERMISSION = "ai.agents.read"
+
       def self.definition
         {
           name: "agent_memory_management",

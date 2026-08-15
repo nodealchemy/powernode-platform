@@ -3,6 +3,67 @@
 module Ai
   module Tools
     class CoordinationTool < BaseTool
+      # SECURITY (IMP-6fbfeff384fa): authorization here is per ACTION, not per
+      # tool. REQUIRED_PERMISSION was inherited as nil from BaseTool, and
+      # McpPlatformToolRegistrar#enforce_permission! opens with
+      # `return if required.nil?` — ABOVE the authentication raise, the
+      # has_permission? raise and the token intersection. Every action was
+      # therefore reachable by any MCP caller with no check at all, including
+      # recruit_agent and optimize_team, which rewrite team membership.
+      #
+      # Floor: ai.agents.read, the baseline AI-surface read. It is NOT any
+      # action's twin — it is the least-privileged permission every legitimate
+      # caller of this tool holds, which is what the registrar needs since it
+      # must decide before the action is resolved. A floor of ai.manage would
+      # lock out the member-tier caller who legitimately holds ai.teams.manage
+      # (permissions.rb:740) but not ai.manage; there is no ordering between
+      # those two, so the floor has to sit under both.
+      REQUIRED_PERMISSION = "ai.agents.read"
+
+      # Each entry names the permission the REST twin of that action requires.
+      ACTION_PERMISSIONS = {
+        # GET /api/v1/ai/coordination/{signals,pressure_fields} →
+        # Api::V1::Ai::CoordinationDashboardController#validate_permissions,
+        # blanket ai.manage (coordination_dashboard_controller.rb:7,86-92). It
+        # serves the same account-scoped rows these actions return, so the
+        # disclosure is identical whichever path reads them.
+        "perceive_signals" => "ai.manage",
+        "perceive_pressure" => "ai.manage",
+
+        # measure_pressure is here for the same DISCLOSURE reason, not because it
+        # writes: it returns the field itself (pressure_value, threshold,
+        # dimensions), which is exactly what the dashboard's pressure_fields read
+        # serves under ai.manage. Leaving it at the floor would hand a caller
+        # refused perceive_pressure the same rows one artifact_ref at a time.
+        "measure_pressure" => "ai.manage",
+
+        # POST /api/v1/ai/agent_teams/:id/members and .../optimize →
+        # #authorize_teams_access! (agent_teams_controller.rb:21,237). Note this
+        # tool is STRICTLY more powerful than the REST twin at the same
+        # permission: REST #optimize only enqueues AiTeamOptimizeJob, which
+        # RECOMMENDS actions, while SelfOrganizingTeamService#
+        # optimize_team_composition! mutates the team synchronously. Parity is a
+        # lower bound, so the twin's permission is the minimum, not a licence.
+        "optimize_team" => "ai.teams.manage",
+        "recruit_agent" => "ai.teams.manage"
+
+        # emit_signal and reinforce_signal stay at the floor on purpose. Nothing
+        # outside this tool writes an Ai::StigmergicSignal — the only related
+        # REST route is the mTLS worker's bulk decay — so parity says nothing
+        # about them, and they are an agent's own coordination voice: tightening
+        # them would leave agents able to read the substrate but not participate
+        # in it. The resulting asymmetry (writes at the floor, reads at
+        # ai.manage) is imposed by the twin that exists, not chosen. Their return
+        # values are the caller's own write echoed back (signal_id, key, the
+        # resulting strength), not a view of the substrate, which is what keeps
+        # them on the write side of the measure_pressure line above.
+      }.freeze
+
+      # Advertisement is deliberately NOT overridden (unlike AgentAutonomyTool,
+      # whose escalate/report_issue are an agent's only route to a human). The
+      # floor is a member-tier permission, so BaseTool.permitted? re-arming
+      # narrows advertisement only in an account where NO user can read agents.
+
       def self.definition
         {
           name: "coordination",
@@ -70,7 +131,17 @@ module Ai
       end
 
       def call(params)
-        case params[:action]
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[CoordinationTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
+        case action
         when "emit_signal" then emit_signal(params)
         when "perceive_signals" then perceive_signals(params)
         when "reinforce_signal" then reinforce_signal(params)
@@ -79,11 +150,44 @@ module Ai
         when "optimize_team" then optimize_team(params)
         when "recruit_agent" then recruit_agent(params)
         else
-          error_result("Unknown action: #{params[:action]}")
+          error_result("Unknown action: #{action}")
         end
       end
 
       private
+
+      # === Per-action permission gating (IMP-6fbfeff384fa) ===
+      #
+      # Keyed on the action that RUNS, never on the name that was invoked: a
+      # user principal is deliberately NOT pinned to the invoked tool name
+      # (McpPlatformToolRegistrar#action_pinned_to_name?), so a name-keyed check
+      # is bypassable by supplying a sibling :action.
+
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two bypasses, both EXPLICIT, matching the sibling tools' ladder:
+      #
+      #   internal?            in-process system callers that opted in with
+      #                        `internal: true`. Never inferred from a nil user —
+      #                        an MCP instance principal also arrives with none
+      #                        (IMP-9030413bc292).
+      #   instance_authorized? an mTLS node principal whose SPECIFIC tool name
+      #                        already cleared Mcp::Principal#may_invoke?, and
+      #                        whose action the registrar then pins to that same
+      #                        name. Without this arm every such call is
+      #                        hard-denied (BUG-R).
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        # Compared against true rather than used for truthiness: nothing on the
+        # MCP path coerces a permission answer, and a truthy non-boolean must not
+        # read as a grant.
+        user.has_permission?(required_perm_for(action)) == true
+      end
 
       def emit_signal(params)
         service = Ai::Coordination::StigmergicSignalService.new(account: account)
