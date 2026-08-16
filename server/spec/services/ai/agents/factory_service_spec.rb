@@ -142,17 +142,84 @@ RSpec.describe Ai::Agents::FactoryService, type: :service do
         end
       end
 
-      context 'when the skill graph bridge raises a programming error' do
+      # IMP-a3394f916399's property, re-seated onto the defect it was written
+      # for. That defect was `agent.ai_agent_skills` — a dead reflection on THIS
+      # service's own record — so the loud-failure guard belongs on the
+      # association call, not on the bridge. It was originally injected through
+      # the bridge stub because that was the convenient seam, which had the side
+      # effect of pinning "any NoMethodError from the bridge aborts the spawn"
+      # (see IMP-997a7f6b7db7 below). This example is green both before and
+      # after that fix.
+      context "when the factory's own association reflection is dead" do
         before do
-          allow(bridge).to receive(:auto_detect_relationships)
-            .and_raise(NoMethodError, "undefined method 'nonexistent_reflection'")
+          allow(bridge).to receive(:auto_detect_relationships).with(parent_skill).and_return(
+            [{ skill_id: related_skill.id, skill_name: related_skill.name,
+               similarity: 0.91, confidence: 0.91 }]
+          )
+          # Injected on the parent instance, not any_instance_of(Ai::Agent):
+          # Ai::Agent#skill_slugs reaches agent_skills from
+          # ensure_mcp_tool_manifest during create_agent, so an any_instance
+          # stub of the write association fails the spawn BEFORE this method
+          # runs and the example passes without ever reaching the rescue.
+          allow(parent_agent).to receive(:skills)
+            .and_raise(NoMethodError, "undefined method 'ai_agent_skills'")
         end
 
         it 'surfaces the failure instead of swallowing it into a warn' do
           result = service.spawn(parent: parent_agent, config: config)
 
           expect(result[:success]).to be false
-          expect(result[:error]).to include("nonexistent_reflection")
+          expect(result[:error]).to include("ai_agent_skills")
+        end
+      end
+
+      # Containment is per-skill, not per-spawn: before IMP-997a7f6b7db7 the
+      # detection call sat directly in the loop under one method-level rescue,
+      # so the first skill whose detection failed ended the loop and every
+      # LATER parent skill silently inherited nothing. Driven by call count
+      # rather than by which skill sorts first, since parent.skills is unordered.
+      context 'when neighbour detection fails for one of several parent skills' do
+        let(:other_parent_skill) { create(:ai_skill, account: account) }
+
+        before do
+          create(:ai_agent_skill, agent: parent_agent, skill: other_parent_skill)
+          calls = 0
+          allow(bridge).to receive(:auto_detect_relationships) do |_skill|
+            calls += 1
+            raise StandardError, 'graph temporarily unavailable' if calls == 1
+
+            [{ skill_id: related_skill.id, skill_name: related_skill.name,
+               similarity: 0.91, confidence: 0.91 }]
+          end
+        end
+
+        it 'still inherits neighbours for the remaining parent skills' do
+          result = service.spawn(parent: parent_agent, config: config)
+
+          expect(result[:success]).to be true
+          expect(result[:agent].agent_skills.where(ai_skill_id: related_skill.id)).to exist
+        end
+      end
+
+      # IMP-997a7f6b7db7 — NoMethodError is a subclass of NameError, so the
+      # `rescue NameError => raise` added for the dead reflection also caught
+      # every nil receiver inside the collaborator, rolling back the whole
+      # spawn over a best-effort enrichment step.
+      context 'when the skill graph bridge raises a programming error from its own internals' do
+        before do
+          allow(bridge).to receive(:auto_detect_relationships)
+            .and_raise(NoMethodError, "undefined method 'name' for nil")
+          allow(Rails.logger).to receive(:warn).and_call_original
+        end
+
+        it 'keeps the spawn best-effort rather than rolling it back' do
+          result = service.spawn(parent: parent_agent, config: config)
+
+          expect(result[:success]).to be true
+          expect(result[:agent]).to be_persisted
+          expect(result[:agent].agent_skills).to be_empty
+          expect(Rails.logger).to have_received(:warn)
+            .with(a_string_matching(/NoMethodError: undefined method 'name' for nil/))
         end
       end
 
