@@ -55,6 +55,10 @@ module Ai
     # and it is collateral damage from sharing "token" with the mint beside it
     # (Sdwan::Executors::ProposeFederationPeer).
     #
+    # NOT retroactive for :result. Ai::DeferredOperation#execute_now! filters at
+    # WRITE, so rows completed before this landed keep a masked expiry forever —
+    # unlike request_data, which the read surfaces re-filter every time.
+    #
     # BOUNDARY: exact-match, so this cannot cover an identifier whose ENTITY is
     # named for a secret (a gated `dns_credential_id` would still mask). None
     # reaches this filter today; widening the rule to "any _id survives" was
@@ -71,9 +75,10 @@ module Ai
     # unmask the baseline.
     SETTING_KEY = "ai_sensitive_param_keys"
 
-    # Where an open `batch` parks its compiled filter. Execution-state scoped,
-    # never a class-level ivar: two requests on one Puma thread must not share a
-    # resolution.
+    # Where an open `batch` parks its compiled filter. The execution state is
+    # THREAD-scoped and nothing clears it between requests, so the `ensure` in
+    # `batch` is the only thing keeping this from becoming a process-lifetime
+    # cache — an early return added to `batch` later would not be safe.
     MEMO_KEY = :ai_sensitive_params_batch
 
     class << self
@@ -118,8 +123,23 @@ module Ai
         memo[:filter] ||= build_parameter_filter
       end
 
+      # A pattern containing a dot means dot-notation to ParameterFilter: it is
+      # routed to @deep_regexps and matched against "parent.key" instead of the
+      # bare key. That routing is decided per FILTER, by whether the filter's
+      # own source contains a "\.", so fusing a dotted deployment pattern into
+      # the same regexp as everything else would drag the whole matcher — the
+      # allowlist included — onto the deep path, where the allowlist's whole-key
+      # anchor can never match a nested key again. One dotted setting value
+      # would have silently re-masked every allowlisted key nested under
+      # `attributes`, which is exactly the shape this class exists to keep
+      # legible. Keep the two halves in separate regexps so each is routed on
+      # its own merits.
       def build_parameter_filter
-        ::ActiveSupport::ParameterFilter.new([ key_matcher ], mask: MASK)
+        dotted, plain = key_patterns.partition { |pattern| pattern.include?(".") }
+
+        ::ActiveSupport::ParameterFilter.new(
+          [ key_matcher(plain), *deep_matchers(dotted) ].compact, mask: MASK
+        )
       end
 
       # One regexp rather than ParameterFilter's own string list, because that
@@ -127,14 +147,49 @@ module Ai
       # negative lookahead anchored to the WHOLE key, so it is decided at
       # position 0 — before the substring alternation is ever tried.
       #
+      # The allowlist alternation is wrapped in (?-i:...) over per-character
+      # classes rather than left to the enclosing /i: Onigmo's Unicode folding
+      # maps U+212A KELVIN SIGN onto "k", so an /i lookahead would let
+      # "generate_toKen" satisfy an "EXACT" allowlist entry and veto the
+      # masking of a key the substring list would otherwise have caught. The
+      # veto has to be byte-exact modulo ASCII case; the PATTERN half stays
+      # Unicode-case-insensitive, which is the direction that fails closed.
+      #
       # MULTILINE so `.` spans a newline: a key like "x\ntoken" must not slip
       # past the alternation on the strength of a line break.
-      def key_matcher
-        allowed = SAFE_KEY_ALLOWLIST.map { |key| ::Regexp.escape(key) }.join("|")
-        patterns = key_patterns.map { |pattern| ::Regexp.escape(pattern) }.join("|")
+      def key_matcher(patterns)
+        return nil if patterns.empty?
 
-        ::Regexp.new("\\A(?!(?:#{allowed})\\z)(?:.*(?:#{patterns}))",
+        ::Regexp.new("\\A(?!#{allowlist_veto}\\z)(?:.*(?:#{alternation(patterns)}))",
                      ::Regexp::IGNORECASE | ::Regexp::MULTILINE)
+      end
+
+      # Dot-notation patterns, matched against the full "parent.key" path. The
+      # veto is anchored to the LEAF segment, so the allowlist keeps its meaning
+      # on this path too: a deployment can widen the masked set, it cannot
+      # re-mask a key core has declared safe.
+      def deep_matchers(patterns)
+        return [] if patterns.empty?
+
+        veto = "(?!(?:.*\\.)?#{allowlist_veto}\\z)"
+        patterns.map do |pattern|
+          ::Regexp.new("\\A#{veto}(?:.*#{::Regexp.escape(pattern)})",
+                       ::Regexp::IGNORECASE | ::Regexp::MULTILINE)
+        end
+      end
+
+      def allowlist_veto
+        entries = SAFE_KEY_ALLOWLIST.map do |key|
+          key.each_char.map do |char|
+            char.match?(/[a-z]/i) ? "[#{char.downcase}#{char.upcase}]" : ::Regexp.escape(char)
+          end.join
+        end
+
+        "(?-i:(?:#{entries.join('|')}))"
+      end
+
+      def alternation(patterns)
+        patterns.map { |pattern| ::Regexp.escape(pattern) }.join("|")
       end
 
       # Fails open to the defaults rather than raising: this runs inside the

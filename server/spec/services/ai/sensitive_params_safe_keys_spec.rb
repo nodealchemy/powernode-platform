@@ -116,6 +116,55 @@ RSpec.describe Ai::SensitiveParams do
       expect(filtered['house_style_nonce']).to eq('[FILTERED]')
     end
 
+    # A dotted setting entry means dot-notation to ActiveSupport::ParameterFilter
+    # and routes the filter it lives in onto the "parent.key" path. Fusing it
+    # into the matcher dragged the allowlist there too, where a whole-key anchor
+    # can never match a NESTED key — so one unrelated dotted value re-masked
+    # every allowlisted key under `attributes`, which is the shape the real
+    # propose payload has. Nested is the case that matters; top-level survived
+    # either way, which is how this hides.
+    it 'keeps nested allowlisted keys legible when a dotted pattern is configured' do
+      SiteSetting.create!(
+        key: 'ai_sensitive_param_keys', setting_type: 'json', value: '["credit_card.number"]'
+      )
+
+      filtered = described_class.filter(
+        'attributes' => { 'generate_token' => true, 'token_ttl_seconds' => 900 },
+        'credit_card' => { 'number' => 'PLAINTEXT' }
+      )
+
+      expect(filtered.dig('attributes', 'generate_token')).to be true
+      expect(filtered.dig('attributes', 'token_ttl_seconds')).to eq(900)
+      # Positive control: the dotted entry still does its own job, and still
+      # does it as a PATH rather than as a bare substring.
+      expect(filtered.dig('credit_card', 'number')).to eq('[FILTERED]')
+    end
+
+    it 'keeps the allowlist ahead of a dotted pattern aimed at an allowlisted leaf' do
+      SiteSetting.create!(
+        key: 'ai_sensitive_param_keys', setting_type: 'json',
+        value: '["attributes.generate_token","attributes.peer_secret"]'
+      )
+
+      filtered = described_class.filter(
+        'attributes' => { 'generate_token' => true, 'peer_secret' => 'PLAINTEXT' }
+      )
+
+      expect(filtered.dig('attributes', 'generate_token')).to be true
+      expect(filtered.dig('attributes', 'peer_secret')).to eq('[FILTERED]')
+    end
+
+    # Onigmo folds U+212A KELVIN SIGN onto "k" under /i. An allowlist vetoing
+    # case-insensitively therefore un-masks a key that is NOT an allowlist
+    # entry and that the substring list would have caught — a false negative
+    # manufactured by the allowlist itself. The veto is ASCII-case-only.
+    it 'does not let a Unicode homoglyph satisfy an exact allowlist entry' do
+      key = "generate_to\u212Aen" # KELVIN SIGN where the "k" belongs
+      expect(key).not_to eq('generate_token')
+
+      expect(described_class.filter(key => 'PLAINTEXT')[key]).to eq('[FILTERED]')
+    end
+
     # Self-consistency: an entry that no pattern would have masked anyway is
     # either a typo or dead weight, and either way it misleads the next reader
     # into thinking a key is contested when it is not.
