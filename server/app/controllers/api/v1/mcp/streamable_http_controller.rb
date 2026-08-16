@@ -20,12 +20,24 @@ module Api
         MCP_PROTOCOL_VERSION = "2025-11-25"
         SESSION_TTL = 24.hours
 
-        # tools/list page size. Deliberately larger than the current full
-        # catalog (231 tools for the widest principal) so existing clients
-        # that never send a cursor keep receiving the complete set in one
-        # page with no nextCursor — pagination engages only when the catalog
-        # outgrows this bound.
-        TOOLS_PAGE_SIZE = 250
+        # tools/list page size. Must stay AHEAD of the advertised catalog so a
+        # client that never sends a cursor still receives the complete set in
+        # one page with no nextCursor.
+        #
+        # Deliberately NOT documented here as "larger than the current N tools".
+        # It was, and that is exactly how this broke: the bound was set to 250
+        # when the catalog held 231, the catalog grew to 611 (602 platform + 9
+        # introspection), and pagination engaged silently. Uncursored clients
+        # received 250 tools and lost 361 — a well-formed response, no error,
+        # no warning, and tools that are implemented, registered and
+        # relevance-filtered simply never offered. A comment cannot hold an
+        # invariant, so the invariant is executed instead:
+        # spec/requests/api/v1/mcp/tools_list_page_size_spec.rb fails when the
+        # catalog reaches 90% of this bound, naming both numbers.
+        #
+        # Raise this when that spec warns. Lowering it is only safe once every
+        # client follows nextCursor — the truncation it causes is invisible.
+        TOOLS_PAGE_SIZE = 1000
 
         # Methods whose Mcp-Name request header must mirror params.name /
         # params.uri (2026-07-28 Streamable HTTP request metadata).

@@ -36,6 +36,18 @@ RSpec.describe "MCP Streamable HTTP - tools/list pagination", type: :request do
   before do
     allow(::Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return(many_tools)
     stub_const("Ai::Introspection::McpToolRegistrar::INTROSPECTION_TOOLS", [])
+    # Pin the bound this file's expectations are written against, rather than
+    # inheriting whatever TOOLS_PAGE_SIZE currently is. The subject here is the
+    # pagination MECHANISM — cap, nextCursor, resume, final page — not the
+    # production page size, and the two must be able to move independently.
+    #
+    # Previously this spec relied on the real constant being 250 and on the
+    # stubbed catalog (260) exceeding it. That coupling made it fail the moment
+    # TOOLS_PAGE_SIZE was raised to stop the production catalog (611) being
+    # silently truncated — i.e. the spec went red for a fix, not a regression.
+    # Whether the production bound is big enough is a different question, and it
+    # has its own guard: tools_list_page_size_spec.rb.
+    stub_const("Api::V1::Mcp::StreamableHttpController::TOOLS_PAGE_SIZE", 250)
   end
 
   it "caps the first page and returns nextCursor" do
