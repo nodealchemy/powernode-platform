@@ -232,7 +232,7 @@ module Ai
 
         bridge = Ai::SkillGraph::BridgeService.new(account)
         parent.skills.each do |skill|
-          detected_neighbor_ids(bridge, skill).each do |skill_id|
+          detected_neighbor_ids(agent, bridge, skill).each do |skill_id|
             agent.agent_skills.find_or_create_by!(ai_skill_id: skill_id)
           rescue ActiveRecord::RecordInvalid => e
             Rails.logger.debug("[AgentFactory] Skill assignment skipped for #{agent.id}: #{e.message}")
@@ -261,11 +261,24 @@ module Ai
       # on NoMethodError#receiver would have to answer for an exception with no
       # receiver recorded, and would still leave the two cases sharing one
       # rescue — the call boundary is where they actually differ.
-      def detected_neighbor_ids(bridge, skill)
-        (bridge.auto_detect_relationships(skill) || []).map { |n| n[:skill_id] }.compact
-      rescue StandardError => e
-        Rails.logger.warn("[AgentFactory] Auto skill assignment failed for skill #{skill.id}: #{e.class}: #{e.message}")
-        []
+      #
+      # The rescue therefore covers the collaborator call and NOTHING else:
+      # shaping its return value is our own code, so a NoMethodError there (say
+      # the bridge's contract shifts to objects that do not answer #[]) is the
+      # very class IMP-a3394f916399 exists to surface, and must still reach the
+      # caller's `rescue NameError`.
+      def detected_neighbor_ids(agent, bridge, skill)
+        neighbors =
+          begin
+            bridge.auto_detect_relationships(skill)
+          rescue StandardError => e
+            Rails.logger.warn(
+              "[AgentFactory] Auto skill assignment failed for #{agent.id} skill #{skill.id}: #{e.class}: #{e.message}"
+            )
+            nil
+          end
+
+        (neighbors || []).map { |n| n[:skill_id] }.compact
       end
 
       def calculate_depth(agent)

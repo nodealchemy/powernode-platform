@@ -156,13 +156,24 @@ RSpec.describe Ai::Agents::FactoryService, type: :service do
             [{ skill_id: related_skill.id, skill_name: related_skill.name,
                similarity: 0.91, confidence: 0.91 }]
           )
-          # Injected on the parent instance, not any_instance_of(Ai::Agent):
-          # Ai::Agent#skill_slugs reaches agent_skills from
-          # ensure_mcp_tool_manifest during create_agent, so an any_instance
-          # stub of the write association fails the spawn BEFORE this method
-          # runs and the example passes without ever reaching the rescue.
-          allow(parent_agent).to receive(:skills)
-            .and_raise(NoMethodError, "undefined method 'ai_agent_skills'")
+          # Injected on the CHILD's write association — the exact call the
+          # original defect got wrong — and only once the child exists.
+          #
+          # Two injection sites were tried and rejected, both of which pass
+          # while proving nothing. allow_any_instance_of(Ai::Agent) fires inside
+          # ensure_mcp_tool_manifest -> skill_slugs during create_agent, so the
+          # spawn dies before this method runs. Stubbing parent.skills simulates
+          # a failure that cannot occur: a genuinely absent method early-returns
+          # at the respond_to? guard, and a genuinely dead has_many :through
+          # raises ActiveRecord::HasManyThroughAssociationNotFoundError, which
+          # is not a NameError at all. Factories build through save!, so
+          # wrapping create! catches only the spawned child.
+          allow(Ai::Agent).to receive(:create!).and_wrap_original do |orig, **kwargs|
+            orig.call(**kwargs).tap do |child|
+              allow(child).to receive(:agent_skills)
+                .and_raise(NoMethodError, "undefined method 'ai_agent_skills'")
+            end
+          end
         end
 
         it 'surfaces the failure instead of swallowing it into a warn' do
@@ -198,6 +209,23 @@ RSpec.describe Ai::Agents::FactoryService, type: :service do
 
           expect(result[:success]).to be true
           expect(result[:agent].agent_skills.where(ai_skill_id: related_skill.id)).to exist
+        end
+      end
+
+      # The containment covers the collaborator CALL, not the shaping of its
+      # result. Reading :skill_id off each neighbour is this service's own code,
+      # so a bridge whose contract shifted to objects that do not answer #[] is
+      # a programming error on our side and must still fail loudly.
+      context 'when the skill graph returns neighbours this service cannot read' do
+        before do
+          allow(bridge).to receive(:auto_detect_relationships).and_return([Object.new])
+        end
+
+        it 'surfaces the failure instead of degrading to no neighbours' do
+          result = service.spawn(parent: parent_agent, config: config)
+
+          expect(result[:success]).to be false
+          expect(result[:error]).to include('[]')
         end
       end
 
