@@ -154,8 +154,12 @@ module Api
 
           requests = requests.where(status: params[:status]) if params[:status].present?
 
+          # One pattern resolution per page, not per row — approval_request_json
+          # filters request_data on every one (IMP-77645b94151e).
+          rows = ::Ai::SensitiveParams.batch { requests.map { |r| approval_request_json(r) } }
+
           render_success(
-            approval_requests: requests.map { |r| approval_request_json(r) },
+            approval_requests: rows,
             pagination: pagination_meta(requests)
           )
         end
@@ -166,7 +170,9 @@ module Api
                                    .includes(:approval_chain)
                                    .order(created_at: :desc)
 
-          render_success(approval_requests: requests.map { |r| approval_request_json(r) })
+          render_success(
+            approval_requests: ::Ai::SensitiveParams.batch { requests.map { |r| approval_request_json(r) } }
+          )
         end
 
         # GET /api/v1/ai/governance/approval_requests/:id

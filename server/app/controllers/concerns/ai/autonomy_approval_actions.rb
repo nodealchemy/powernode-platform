@@ -9,13 +9,17 @@ module Ai
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
       requests = service.pending_approvals
 
-      render_success(data: requests.map { |r| serialize_approval_request(r) })
+      # One pattern resolution for the whole page instead of one per row —
+      # every serialized request filters its request_data (IMP-77645b94151e).
+      data = ::Ai::SensitiveParams.batch { requests.map { |r| serialize_approval_request(r) } }
+      render_success(data: data)
     end
 
     # GET /api/v1/ai/autonomy/approvals/:id
     def show_approval
       request = ::Ai::ApprovalRequest.where(account_id: current_account.id).find(params[:id])
-      render_success(data: serialize_approval_request(request, detailed: true))
+      data = ::Ai::SensitiveParams.batch { serialize_approval_request(request, detailed: true) }
+      render_success(data: data)
     rescue ActiveRecord::RecordNotFound
       render_not_found("Approval request")
     end
@@ -26,7 +30,7 @@ module Ai
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
       if service.approve(request: request, approver: current_user, comments: params[:comments])
-        payload = serialize_approval_request(request.reload, detailed: true)
+        payload = ::Ai::SensitiveParams.batch { serialize_approval_request(request.reload, detailed: true) }
         render_success(data: with_revealed_result(request, payload))
       else
         render_error("Cannot approve this request", status: :unprocessable_content)
@@ -41,7 +45,9 @@ module Ai
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
       if service.reject(request: request, approver: current_user, comments: params[:comments])
-        render_success(data: serialize_approval_request(request.reload, detailed: true))
+        render_success(
+          data: ::Ai::SensitiveParams.batch { serialize_approval_request(request.reload, detailed: true) }
+        )
       else
         render_error("Cannot reject this request", status: :unprocessable_content)
       end
