@@ -294,6 +294,60 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "convergence + execu
       expect(inputs["with_storage_gb"]).to eq(50)
     end
 
+    # The ALIAS lane. `with_storage_gb` is the canonical spelling and the one
+    # PlanComposerService stamps (IMP-cdc1d0703e5a), but a plan composed by
+    # MissionComposer — or authored by hand — may declare the size under the
+    # bare `storage_gb` spelling. Every OTHER core reader of a step's inputs
+    # accepts it (PlanSnapshotService, CostEstimatorService#declared_gb), and
+    # the actuating executors resolve it at run time (ScaleProjectExecutor via
+    # ProvisionFullStackExecutor.resolve_storage_gb). This service was the one
+    # reader that did not, so a storage-bearing mission written that way
+    # composed a COMPUTE-ONLY scale-out — precisely the "replicas come up bare"
+    # failure #existing_footprint says it exists to prevent.
+    it "reads the tolerated storage_gb alias off the original step" do
+      mission = build_mission!(
+        footprint: original_footprint.except("with_storage_gb").merge("storage_gb" => 75)
+      )
+      plan = described_class.new(account: account, mission: mission)
+        .propose_from_signals(
+          signals: [ drift_signal(observed: 1, target: 2, mission: mission) ]
+        )
+
+      expect(step_inputs(plan)["with_storage_gb"]).to eq(75)
+    end
+
+    # Positive twin, and the precedence half: `resolve_storage_gb` is
+    # canonical-first, so a step carrying BOTH spellings must keep the
+    # canonical value rather than letting the alias overwrite it.
+    it "keeps the canonical value when the original step carries both spellings" do
+      mission = build_mission!(footprint: original_footprint.merge("storage_gb" => 999))
+      plan = described_class.new(account: account, mission: mission)
+        .propose_from_signals(
+          signals: [ drift_signal(observed: 1, target: 2, mission: mission) ]
+        )
+
+      expect(step_inputs(plan)["with_storage_gb"]).to eq(50)
+    end
+
+    # What separates NORMALIZING the alias from merely tolerating it, and the
+    # reason `storage_gb` is not simply appended to FOOTPRINT_KEYS: the
+    # footprint is merged straight into the composed step's inputs, and
+    # `with_storage_gb` is the only storage spelling `scale_project` DECLARES
+    # (ScaleProjectExecutor's declared inputs). Emitting the alias would make
+    # the composed step depend on the executor's run-time tolerance instead of
+    # its declared schema.
+    it "emits only the declared spelling, never the alias" do
+      mission = build_mission!(
+        footprint: original_footprint.except("with_storage_gb").merge("storage_gb" => 75)
+      )
+      plan = described_class.new(account: account, mission: mission)
+        .propose_from_signals(
+          signals: [ drift_signal(observed: 1, target: 2, mission: mission) ]
+        )
+
+      expect(step_inputs(plan)).not_to have_key("storage_gb")
+    end
+
     it "omits network/storage keys rather than emitting nils when the mission has neither" do
       mission = build_mission!(footprint: original_footprint.except("network_id", "with_storage_gb"))
       plan = described_class.new(account: account, mission: mission)
