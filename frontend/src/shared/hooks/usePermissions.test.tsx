@@ -106,7 +106,12 @@ describe('usePermissions', () => {
 
       expect(result.current.canAccess('users', 'read')).toBe(true);
       expect(result.current.canAccess('users', 'create')).toBe(true);
-      expect(result.current.canAccess('billing', 'read')).toBe(true);
+      // 'business.billing' as the resource, NOT 'billing': canAccess joins
+      // resource + action into one permission string, so the renamed
+      // 'business.billing.read' is only reachable by naming the prefix here.
+      // The 9de8d446c rename swept whole permission literals and could not see
+      // this one, which is split across two arguments.
+      expect(result.current.canAccess('business.billing', 'read')).toBe(true);
       expect(result.current.canAccess('users', 'delete')).toBe(false);
       expect(result.current.canAccess('admin', 'access')).toBe(false);
     });
