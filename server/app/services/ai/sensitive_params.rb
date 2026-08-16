@@ -150,10 +150,11 @@ module Ai
       # The allowlist alternation is wrapped in (?-i:...) over per-character
       # classes rather than left to the enclosing /i: Onigmo's Unicode folding
       # maps U+212A KELVIN SIGN onto "k", so an /i lookahead would let
-      # "generate_toKen" satisfy an "EXACT" allowlist entry and veto the
-      # masking of a key the substring list would otherwise have caught. The
-      # veto has to be byte-exact modulo ASCII case; the PATTERN half stays
-      # Unicode-case-insensitive, which is the direction that fails closed.
+      # a key carrying U+212A in the "k" position satisfy an "EXACT" allowlist
+      # entry, vetoing the masking of a key the substring list would otherwise
+      # have caught. The veto has to be byte-exact modulo ASCII case; the
+      # PATTERN half stays Unicode-case-insensitive, which is the direction
+      # that fails closed.
       #
       # MULTILINE so `.` spans a newline: a key like "x\ntoken" must not slip
       # past the alternation on the strength of a line break.
