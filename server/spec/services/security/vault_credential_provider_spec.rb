@@ -365,6 +365,73 @@ RSpec.describe Security::VaultCredentialProvider do
         ).to be true
       end
     end
+
+    # The gap #purge_credential! exists to close (IMP-20fb59ec849d): with no
+    # record neither branch above can fire, so this reports success having
+    # purged nothing — including for material #store_credential wrote to the
+    # convention path with no record. Pinned so the asymmetry is a documented
+    # property of THIS method rather than a surprise at the call site.
+    context "when Vault is available but the caller passes no record" do
+      subject(:provider) { provider_with_vault(true) }
+
+      it "returns true without asking Vault to delete anything" do
+        expect(Security::VaultClient).not_to receive(:delete_secret)
+        expect(Security::VaultClient).not_to receive(:delete_credential)
+
+        expect(
+          provider.delete_credential(credential_type: :ai_provider, credential_id: credential_id, record: nil)
+        ).to be true
+      end
+    end
+  end
+
+  describe "#purge_credential!" do
+    context "when Vault is available" do
+      subject(:provider) { provider_with_vault(true) }
+
+      it "deletes the convention path #store_credential writes to" do
+        expect(Security::VaultClient).to receive(:delete_credential).with(
+          account_id: account_id,
+          credential_type: "docker-daemon-tls",
+          credential_id: credential_id
+        )
+
+        expect(
+          provider.purge_credential!(credential_type: :docker_daemon_tls, credential_id: credential_id)
+        ).to be true
+      end
+
+      it "maps an unknown credential type through to its own name" do
+        expect(Security::VaultClient).to receive(:delete_credential).with(
+          account_id: account_id, credential_type: "not-a-known-type", credential_id: credential_id
+        )
+
+        provider.purge_credential!(credential_type: "not-a-known-type", credential_id: credential_id)
+      end
+
+      # Deliberately NOT swallowed: a teardown path that is told the secret is
+      # gone when it is not is the whole defect this method was added for.
+      it "propagates a Vault failure to the caller" do
+        allow(Security::VaultClient).to receive(:delete_credential)
+          .and_raise(Security::VaultClient::ConnectionError, "vault down")
+
+        expect {
+          provider.purge_credential!(credential_type: :docker_daemon_tls, credential_id: credential_id)
+        }.to raise_error(Security::VaultClient::ConnectionError)
+      end
+    end
+
+    context "when Vault is unavailable" do
+      subject(:provider) { provider_with_vault(false) }
+
+      it "answers false rather than claiming a purge it did not perform" do
+        expect(Security::VaultClient).not_to receive(:delete_credential)
+
+        expect(
+          provider.purge_credential!(credential_type: :docker_daemon_tls, credential_id: credential_id)
+        ).to be false
+      end
+    end
   end
 
   describe "#rotate_credential" do

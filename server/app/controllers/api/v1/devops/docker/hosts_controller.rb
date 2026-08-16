@@ -6,6 +6,7 @@ module Api
       module Docker
         class HostsController < ApplicationController
           include AuditLogging
+          include ::Ai::GatedActions
           include ::Devops::TlsCredentialParams
 
           # test_connection is a read-effect connectivity probe (no host mutation).
@@ -57,12 +58,48 @@ module Api
           end
 
           # DELETE /api/v1/devops/docker/hosts/:id
+          #
+          # A MANAGED host is a platform-provisioned Docker daemon: tearing it
+          # down purges Vault-held mTLS material and orphans whatever runs on
+          # it, so it is ADDITIONALLY gated through Ai::AutonomyGate on
+          # `system.runtime_docker_decommission` — the SAME action category the
+          # MCP surface uses, so one operator policy governs both. Before
+          # IMP-20fb59ec849d this endpoint reached the same host with a bare
+          # destroy!, and the control an operator set was honoured on the MCP
+          # path and silently skipped here.
+          #
+          # An EXTERNAL host is an operator-registered pointer at a daemon the
+          # platform does not own; removing the registration destroys a row and
+          # nothing else. Its MCP twin resolves managed hosts only, so that
+          # category expresses no opinion about it — gating it would park every
+          # ordinary registration removal for approval.
+          #
+          # AUDIT: `on_proceed` runs only on the proceed branch, so the
+          # request-context `docker.hosts.delete` event is written when the
+          # teardown happens inline and not when it is parked (nothing has been
+          # deleted yet) or blocked (nothing will be). A teardown that lands
+          # later, on approval, is audited by Devops::DockerHost's `Auditable`
+          # before_destroy hook instead — a row on every path, without the HTTP
+          # request context, which by then belongs to the approver's request
+          # rather than this one.
           def destroy
-            manager = ::Devops::Docker::HostManager.new(account: current_user.account)
-            manager.remove_host(@host)
+            return destroy_now unless @host.managed?
 
-            render_success(message: "Docker host removed successfully")
-            log_audit_event("docker.hosts.delete", @host)
+            host_id = @host.id
+            host_name = @host.name
+
+            gate!(
+              action_category: "system.runtime_docker_decommission",
+              executor_class: "Devops::Docker::Executors::DecommissionHost",
+              params: { host_id: host_id },
+              source_type: "Devops::DockerHost",
+              source_id: host_id,
+              description: "Decommission managed Docker host '#{host_name}'",
+              on_proceed: ->(_result) {
+                render_success(message: "Docker host removed successfully")
+                log_audit_event("docker.hosts.delete", @host)
+              }
+            )
           end
 
           # POST /api/v1/devops/docker/hosts/:id/test_connection
@@ -125,6 +162,17 @@ module Api
           end
 
           private
+
+          # Ungated teardown, for a host whose removal is a registration edit.
+          # Still routed through HostManager rather than #destroy! so the
+          # managed/external branch has exactly one home.
+          def destroy_now
+            manager = ::Devops::Docker::HostManager.new(account: current_user.account)
+            manager.remove_host(@host)
+
+            render_success(message: "Docker host removed successfully")
+            log_audit_event("docker.hosts.delete", @host)
+          end
 
           def set_host
             @host = current_user.account.devops_docker_hosts.find(params[:id])

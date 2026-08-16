@@ -270,5 +270,73 @@ RSpec.describe Devops::Docker::HostManager do
       expect(Devops::DockerContainer.where(docker_host_id: host.id).count).to eq(0)
       expect(Devops::DockerImage.where(docker_host_id: host.id).count).to eq(0)
     end
+
+    # IMP-20fb59ec849d — remove_host was a bare `host.destroy!` with no
+    # managed/external branch. A MANAGED host's Docker daemon mTLS material is
+    # held in Vault under the :docker_daemon_tls credential type keyed by the
+    # host id, and the host row is the ONLY thing left in the database naming
+    # it — so destroying the row without purging orphans the credential
+    # permanently.
+    context 'with a managed (NodeInstance-backed) host' do
+      let(:node) { sdwan_test_node(account: account) }
+      let(:node_instance) { sdwan_test_node_instance(node: node) }
+      let(:managed_host) do
+        create(:devops_docker_host,
+               account: account,
+               provisioning_state: 'managed',
+               api_endpoint: 'tcp://[fd00::20]:2376',
+               node_instance_id: node_instance.id)
+      end
+      let(:vault_provider) { instance_double(Security::VaultCredentialProvider) }
+
+      before do
+        allow(Security::VaultCredentialProvider).to receive(:new).and_return(vault_provider)
+        allow(vault_provider).to receive(:purge_credential!).and_return(true)
+      end
+
+      it 'purges the docker_daemon_tls credential keyed by the host id' do
+        host_id = managed_host.id
+
+        manager.remove_host(managed_host)
+
+        expect(Security::VaultCredentialProvider).to have_received(:new)
+          .with(account_id: account.id)
+        expect(vault_provider).to have_received(:purge_credential!)
+          .with(credential_type: :docker_daemon_tls, credential_id: host_id)
+      end
+
+      it 'still destroys the row' do
+        host_id = managed_host.id
+
+        manager.remove_host(managed_host)
+
+        expect(Devops::DockerHost.find_by(id: host_id)).to be_nil
+      end
+
+      it 'destroys the row even when the Vault purge fails' do
+        allow(vault_provider).to receive(:purge_credential!)
+          .and_raise(Security::VaultCredentialProvider::CredentialError, "vault sealed")
+        host_id = managed_host.id
+
+        expect { manager.remove_host(managed_host) }.not_to raise_error
+        expect(Devops::DockerHost.find_by(id: host_id)).to be_nil
+      end
+    end
+
+    # CONTROL for the branch above: over-tightening remove_host would break the
+    # ordinary registration-removal path. An external host has no
+    # platform-issued TLS material, so nothing must be purged for it.
+    context 'with an external (operator-registered) host' do
+      it 'destroys the row without touching the credential provider' do
+        allow(Security::VaultCredentialProvider).to receive(:new).and_call_original
+        host_id = host.id
+
+        expect(host.provisioning_state).to eq('external')
+        manager.remove_host(host)
+
+        expect(Security::VaultCredentialProvider).not_to have_received(:new)
+        expect(Devops::DockerHost.find_by(id: host_id)).to be_nil
+      end
+    end
   end
 end

@@ -170,6 +170,36 @@ module Security
       true
     end
 
+    # Convention-path purge — the missing inverse of #store_credential's
+    # convention-path WRITE (IMP-20fb59ec849d).
+    #
+    # #delete_credential above can only reach material a RECORD points at
+    # (`record.vault_path`); called with no record it takes neither of its two
+    # branches and returns true having done nothing — `type_path` is computed
+    # and never read, which is the tell. #store_credential called with no
+    # record does NOT behave symmetrically: it writes to
+    # `VaultClient.build_credential_path(account_id, type_path, credential_id)`
+    # and leaves no pointer behind, so the write lands somewhere the delete
+    # cannot look. Every record-less producer therefore stores material that
+    # nothing can remove. This is the delete that matches that write.
+    #
+    # Returns false when Vault is not available to ask (nothing was purged and
+    # the caller should not conclude otherwise), true once the path is clear.
+    # Raises whatever VaultClient raises: a caller purging a credential is
+    # deciding what a failure means on its own teardown path, and swallowing it
+    # here would hand back the same silent success this method exists to end.
+    def purge_credential!(credential_type:, credential_id:)
+      return false unless @vault_available
+
+      type_path = CREDENTIAL_TYPES[credential_type.to_sym] || credential_type.to_s
+      VaultClient.delete_credential(
+        account_id: @account_id,
+        credential_type: type_path,
+        credential_id: credential_id
+      )
+      true
+    end
+
     # Rotate credential
     def rotate_credential(credential_type:, credential_id:, new_data:, record: nil)
       type_path = CREDENTIAL_TYPES[credential_type.to_sym] || credential_type.to_s
