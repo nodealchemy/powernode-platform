@@ -111,17 +111,17 @@ module Ai
       # original provisioning plan so a scale-out replicates that footprint
       # rather than inventing a new one — see #existing_footprint.
       #
-      # KNOWN LIMITATION, stated plainly so this is not read as a guarantee:
-      # `network_id` and `with_storage_gb` are the keys that would make a
-      # composed scale-out arrive with an SDWAN peer and a volume instead of
-      # bare compute, and the provisioning primitive does thread both. But
-      # PlanComposerService does not currently STAMP either key onto the
-      # `provision_full_stack` step it composes (it merges only count,
-      # dry_run, region, instance type and template), so in practice they are
-      # absent from the plan this reads and every composed scale-out is
-      # compute-only today. The threading below is correct and takes effect
-      # the moment the composer supplies them; until then this is plumbing,
-      # not a working guarantee. Tracked as a separate offer.
+      # `network_id` and `with_storage_gb` are the keys that make a composed
+      # scale-out arrive with an SDWAN peer and a volume instead of bare
+      # compute. This list carried both from the start, but the threading was
+      # inert until IMP-cdc1d0703e5a: PlanComposerService did not STAMP either
+      # key onto the `provision_full_stack` step it composes, so they were
+      # absent from every plan this reads. It stamps both now, so this is a
+      # working guarantee rather than plumbing — do not re-document it as one.
+      #
+      # These are the CANONICAL spellings, i.e. the keys a composed step
+      # emits. For the spellings this tolerates on the way IN, see
+      # FOOTPRINT_KEY_ALIASES.
       FOOTPRINT_KEYS = %w[
         template_id
         provider_region_id
@@ -129,6 +129,41 @@ module Ai
         network_id
         with_storage_gb
       ].freeze
+
+      # Alternate spellings tolerated on a plan step's inputs, mapped onto the
+      # canonical key above. Read-side only: the footprint always EMITS the
+      # canonical key.
+      #
+      # The deterministic composer stamps `with_storage_gb`, but a plan built
+      # by MissionComposer (the LLM-general path) or authored by hand may
+      # declare the size as bare `storage_gb`. Both readers of a PROVISION
+      # step's inputs already accept that spelling, canonical first:
+      # `CostEstimatorService#declared_gb(inputs, "with_storage_gb",
+      # "storage_gb")` prices it, and the actuating executor resolves it at run
+      # time (`ProvisionFullStackExecutor.resolve_storage_gb`, first present).
+      # This service was the one reader that did not, so a storage-bearing
+      # mission written that way lost its storage and scaled out as bare
+      # compute: the exact failure #existing_footprint exists to prevent,
+      # arrived at through the spelling rather than through a missing key.
+      #
+      # Exactly those two spellings, deliberately. PlanSnapshotService accepts
+      # a THIRD (`size_gb`) but only on an `attach_storage` step, and
+      # #original_provision_inputs selects the step that named a template —
+      # never that one — so `size_gb` is not an alias on this surface and
+      # adding it here would invent tolerance no writer or executor has.
+      #
+      # NORMALIZED rather than carried through, which is why this is a map and
+      # not two more entries in FOOTPRINT_KEYS. The footprint is merged
+      # straight into the composed step's inputs, and `with_storage_gb` is the
+      # only storage spelling the `scale_project` skill DECLARES; emitting the
+      # alias would rest the composed step on the executor's run-time
+      # tolerance instead of its declared schema.
+      #
+      # Canonical-first, matching the executors' own alias resolution: a step
+      # carrying both spellings keeps the canonical value.
+      FOOTPRINT_KEY_ALIASES = {
+        "with_storage_gb" => %w[storage_gb]
+      }.freeze
 
       # The only additive scaling strategy the `scale_project` skill offers.
       # A plain string flowing through the skill-resolution seam (slug →
@@ -853,9 +888,27 @@ module Ai
       # required-input check fails loud instead of silently provisioning a
       # degraded replica.
       def existing_footprint
-        @existing_footprint ||= original_provision_inputs
+        @existing_footprint ||= normalize_footprint_aliases(original_provision_inputs)
           .slice(*FOOTPRINT_KEYS)
           .reject { |_k, v| v.nil? }
+      end
+
+      # Fold each tolerated alias onto its canonical key BEFORE the slice, so
+      # the slice stays a plain statement of what a footprint contains. Only
+      # fills a canonical key that is absent — see FOOTPRINT_KEY_ALIASES for
+      # why precedence runs canonical-first.
+      #
+      # One memo, so several canonical keys fold independently. Do not add an
+      # entry whose canonical key is another entry's ALIAS: each iteration
+      # reads a value earlier ones may have written, so a chain would resolve
+      # in map order rather than by precedence.
+      def normalize_footprint_aliases(inputs)
+        FOOTPRINT_KEY_ALIASES.each_with_object(inputs.dup) do |(canonical, aliases), out|
+          next if out[canonical].present?
+
+          fallback = aliases.filter_map { |key| out[key] }.find(&:present?)
+          out[canonical] = fallback if fallback
+        end
       end
 
       def original_provision_inputs
