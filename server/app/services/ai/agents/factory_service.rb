@@ -232,21 +232,53 @@ module Ai
 
         bridge = Ai::SkillGraph::BridgeService.new(account)
         parent.skills.each do |skill|
-          neighbors = bridge.auto_detect_relationships(skill)
-          relevant_ids = (neighbors || []).map { |n| n[:skill_id] }.compact
-          relevant_ids.each do |skill_id|
+          detected_neighbor_ids(agent, bridge, skill).each do |skill_id|
             agent.agent_skills.find_or_create_by!(ai_skill_id: skill_id)
           rescue ActiveRecord::RecordInvalid => e
             Rails.logger.debug("[AgentFactory] Skill assignment skipped for #{agent.id}: #{e.message}")
           end
         end
       rescue NameError
-        # Programming errors (e.g. a dead association reflection) must fail the
-        # spawn loudly — this method once silently no-op'd on every spawn because
-        # a NoMethodError was laundered into the warn below (IMP-a3394f916399).
+        # Programming errors in THIS service's own reflection (e.g. the dead
+        # agent.ai_agent_skills it once called) must fail the spawn loudly — the
+        # method silently no-op'd on every spawn because a NoMethodError was
+        # laundered into the warn below (IMP-a3394f916399).
         raise
       rescue StandardError => e
         Rails.logger.warn("[AgentFactory] Auto skill assignment failed for #{agent.id}: #{e.class}: #{e.message}")
+      end
+
+      # Neighbour detection traverses the skill graph through a collaborator
+      # whose internals this service does not own. NoMethodError is a subclass
+      # of NameError, so before this the first nil receiver deep inside
+      # BridgeService reached the `rescue NameError` above and rolled back the
+      # ENTIRE agent spawn over a best-effort enrichment step (IMP-997a7f6b7db7).
+      #
+      # Containing the collaborator here rather than discriminating on the
+      # exception keeps both properties intact and testable: a dead reflection
+      # on our own records still raises from the caller's body, while the
+      # collaborator's own failures degrade to "no neighbours". Discriminating
+      # on NoMethodError#receiver would have to answer for an exception with no
+      # receiver recorded, and would still leave the two cases sharing one
+      # rescue — the call boundary is where they actually differ.
+      #
+      # The rescue therefore covers the collaborator call and NOTHING else:
+      # shaping its return value is our own code, so a NoMethodError there (say
+      # the bridge's contract shifts to objects that do not answer #[]) is the
+      # very class IMP-a3394f916399 exists to surface, and must still reach the
+      # caller's `rescue NameError`.
+      def detected_neighbor_ids(agent, bridge, skill)
+        neighbors =
+          begin
+            bridge.auto_detect_relationships(skill)
+          rescue StandardError => e
+            Rails.logger.warn(
+              "[AgentFactory] Auto skill assignment failed for #{agent.id} skill #{skill.id}: #{e.class}: #{e.message}"
+            )
+            nil
+          end
+
+        (neighbors || []).map { |n| n[:skill_id] }.compact
       end
 
       def calculate_depth(agent)
