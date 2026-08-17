@@ -17,7 +17,7 @@ RSpec.describe McpChannel, type: :channel do
 
     # Add the required permissions to the role
     role.add_permission('ai.agents.read')
-    role.add_permission('ai.workflows.read')
+    role.add_permission('ai.loops.read')
 
     # Assign the role to the user
     user.user_roles.create!(role: role)

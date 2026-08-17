@@ -164,9 +164,9 @@ module Api
           return if current_worker
 
           permission_map = {
-            %w[index show status merge_operations conflicts file_locks] => "ai.workflows.read",
-            %w[create] => "ai.workflows.create",
-            %w[cancel retry_merge acquire_locks release_locks] => "ai.workflows.execute"
+            %w[index show status merge_operations conflicts file_locks] => "ai.worktrees.read",
+            %w[create] => "ai.worktrees.create",
+            %w[cancel retry_merge acquire_locks release_locks] => "ai.worktrees.execute"
           }
 
           permission_map.each do |actions, permission|

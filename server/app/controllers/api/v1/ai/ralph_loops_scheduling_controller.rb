@@ -173,8 +173,8 @@ module Api
           return if current_worker
 
           permission_map = {
-            %w[parse_prd] => "ai.workflows.create",
-            %w[run_iteration run_all stop_run_all pause_schedule resume_schedule regenerate_webhook_token] => "ai.workflows.execute"
+            %w[parse_prd] => "ai.loops.create",
+            %w[run_iteration run_all stop_run_all pause_schedule resume_schedule regenerate_webhook_token] => "ai.loops.execute"
           }
 
           permission_map.each do |actions, permission|

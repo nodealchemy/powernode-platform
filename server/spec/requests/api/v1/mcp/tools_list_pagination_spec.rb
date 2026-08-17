@@ -9,7 +9,7 @@ require "rails_helper"
 # list could skip or repeat tools.
 RSpec.describe "MCP Streamable HTTP - tools/list pagination", type: :request do
   let(:account) { create(:account) }
-  let(:user) { user_with_permissions("ai.agents.read", "ai.workflows.read", account: account) }
+  let(:user) { user_with_permissions("ai.agents.read", "ai.loops.read", account: account) }
   let(:oauth_app) { create(:oauth_application, :mcp_client) }
   let(:oauth_token) do
     create(:oauth_access_token, oauth_app: oauth_app, resource_owner_id: user.id, scopes: "read write")

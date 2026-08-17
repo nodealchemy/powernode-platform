@@ -11,7 +11,7 @@ require "rails_helper"
 # which is what most of these examples assert.
 RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
   let(:account) { create(:account) }
-  let(:user) { user_with_permissions("ai.agents.read", "ai.workflows.read", "ai.workflows.execute", account: account) }
+  let(:user) { user_with_permissions("ai.agents.read", "ai.loops.read", "ai.loops.execute", account: account) }
   let(:oauth_app) { create(:oauth_application, :mcp_client) }
   let(:oauth_token) do
     create(:oauth_access_token, oauth_app: oauth_app, resource_owner_id: user.id, scopes: "read write")

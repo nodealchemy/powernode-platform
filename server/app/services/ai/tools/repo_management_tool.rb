@@ -3,7 +3,7 @@
 module Ai
   module Tools
     class RepoManagementTool < BaseTool
-      REQUIRED_PERMISSION = "ai.workflows.update"
+      REQUIRED_PERMISSION = "devops.repositories.write"
 
       def self.definition
         {

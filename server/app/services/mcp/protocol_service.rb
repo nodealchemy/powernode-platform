@@ -585,7 +585,7 @@ module Mcp
     # Return account-level permissions for MCP operations
     [
       "ai.agents.read",
-      "ai.workflows.read",
+      "ai.loops.read",
       "ai.providers.read"
     ]
   end

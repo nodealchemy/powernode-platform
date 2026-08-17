@@ -3,7 +3,7 @@
 module Ai
   module Tools
     class ProjectInitTool < BaseTool
-      REQUIRED_PERMISSION = "ai.workflows.create"
+      REQUIRED_PERMISSION = "devops.ci.write"
 
       def self.definition
         {

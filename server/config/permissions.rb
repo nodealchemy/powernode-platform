@@ -125,20 +125,30 @@ module Permissions
     "ai.messages.update" => "Update own AI messages",
     "ai.messages.delete" => "Delete own AI messages",
 
-    # AI Orchestration - Workflows
-    "ai.workflows.read" => "View AI workflows",
-    "ai.workflows.create" => "Create AI workflows",
-    "ai.workflows.update" => "Update own AI workflows",
-    "ai.workflows.delete" => "Delete own AI workflows",
-    "ai.workflows.execute" => "Execute AI workflows",
-    "ai.workflows.clone" => "Clone AI workflows",
-    "ai.workflows.import" => "Import AI workflows",
-    "ai.workflows.export" => "Export AI workflows",
+    # AI Orchestration - Ralph Loops
+    #
+    # These replace the former "ai.workflows.*" namespace. Workflows were
+    # removed as a feature, but the permission names outlived them and became
+    # the de-facto gate for six unrelated subsystems — Ralph loops, worktree
+    # sessions, Gitea Actions CI, runner dispatch, project init and pipeline
+    # templates. One grant therefore handed out all six, which is why asking
+    # for CI-run control also conferred Ralph-loop control. Split by the
+    # subsystem each consumer actually belongs to.
+    "ai.loops.read" => "View Ralph loops, tasks, iterations and progress",
+    "ai.loops.create" => "Create Ralph loops and parse PRDs into them",
+    "ai.loops.update" => "Update Ralph loops and their tasks",
+    "ai.loops.delete" => "Delete Ralph loops",
+    "ai.loops.execute" => "Start, pause, resume, cancel and reset Ralph loops",
 
-    # AI Orchestration - Workflow Executions
-    "ai.workflow_executions.read" => "View AI workflow executions",
-    "ai.workflow_executions.cancel" => "Cancel own workflow executions",
-    "ai.workflow_executions.retry" => "Retry failed workflow executions",
+    # AI Orchestration - Agent Worktree Sessions
+    "ai.worktrees.read" => "View agent worktree sessions, merges, conflicts and locks",
+    "ai.worktrees.create" => "Create agent worktree sessions",
+    "ai.worktrees.execute" => "Cancel, retry merges and manage file locks on worktree sessions",
+
+    # AI Orchestration - AIOps
+    # ai.aiops.read already gates the Operations page; alert management used to
+    # borrow ai.workflows.update, which had nothing to do with AIOps.
+    "ai.aiops.manage" => "Manage AIOps alerts",
 
     # AI Orchestration - Analytics
     "ai.analytics.read" => "View AI usage analytics",
@@ -311,6 +321,12 @@ module Permissions
     "devops.providers.write" => "Create, update, and delete DevOps providers",
     "devops.repositories.read" => "View DevOps repositories",
     "devops.repositories.write" => "Manage DevOps repositories",
+    # CI surface (Gitea Actions runs/secrets, runner dispatch). Formerly gated
+    # by ai.workflows.*, which also gated Ralph loops and worktree sessions —
+    # so granting CI access silently granted those too. Follows the read/write
+    # verb convention of its devops.* siblings rather than the ai.* CRUD one.
+    "devops.ci.read" => "View CI workflows, runs, jobs and logs",
+    "devops.ci.write" => "Dispatch, cancel and rerun CI workflows; manage CI secrets and runner tokens",
     "devops.schedules.read" => "View DevOps pipeline schedules",
     "devops.schedules.write" => "Manage DevOps pipeline schedules",
     "devops.prompt_templates.read" => "View DevOps prompt templates",
@@ -440,11 +456,6 @@ module Permissions
     "admin.ai.executions.manage" => "Manage any AI execution",
     "admin.ai.conversations.read" => "View all AI conversations",
     "admin.ai.conversations.moderate" => "Moderate AI conversations",
-    "admin.ai.workflows.read" => "View all AI workflows",
-    "admin.ai.workflows.update" => "Update any AI workflow",
-    "admin.ai.workflows.delete" => "Delete any AI workflow",
-    "admin.ai.workflow_executions.read" => "View all workflow executions",
-    "admin.ai.workflow_executions.manage" => "Manage any workflow execution",
     "admin.ai.analytics.read" => "View AI system analytics",
     "admin.ai.monitoring.read" => "View AI system monitoring",
 
@@ -644,7 +655,6 @@ module Permissions
              grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all,
                       member: %i[update], system_worker: %i[update] }
     resource :messages, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
-    resource :workflows, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
     resource :knowledge, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
     resource :image, actions: %i[generate], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
     resource :credentials, actions: %i[decrypt], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
@@ -730,7 +740,7 @@ module Permissions
         # Basic AI permissions
         "ai.providers.read", "ai.data_sources.read", "ai.data_sources.query", "ai.data_sources.stream", "ai.agents.read", "ai.executions.read",
         "ai.content_drafts.read",
-        "ai.workflows.read", "ai.workflow_executions.read",
+        "ai.loops.read", "ai.worktrees.read", "devops.ci.read",
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate",
         "ai.messages.read", "ai.messages.create", "ai.templates.read", "ai.templates.install",
         "ai.prompt_templates.read",
@@ -781,9 +791,9 @@ module Permissions
         "ai.agents.read", "ai.agents.create", "ai.agents.update", "ai.agents.delete",
         "ai.agents.execute", "ai.agents.clone",
         "ai.executions.read", "ai.executions.cancel", "ai.executions.retry",
-        "ai.workflows.read", "ai.workflows.create", "ai.workflows.update", "ai.workflows.delete",
-        "ai.workflows.execute", "ai.workflows.clone", "ai.workflows.import", "ai.workflows.export",
-        "ai.workflow_executions.read", "ai.workflow_executions.cancel", "ai.workflow_executions.retry",
+        "ai.loops.read", "ai.loops.create", "ai.loops.update", "ai.loops.delete", "ai.loops.execute",
+        "ai.worktrees.read", "ai.worktrees.create", "ai.worktrees.execute",
+        "devops.ci.read", "devops.ci.write",
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate", "ai.conversations.manage",
         "ai.messages.read", "ai.messages.create", "ai.messages.update", "ai.messages.delete",
         "ai.analytics.read", "ai.analytics.export",
@@ -947,8 +957,9 @@ module Permissions
       permissions: [
         *SYSTEM_PERMISSIONS.keys,
         # AI workflow permissions for executing workflows
-        "ai.workflows.read", "ai.workflows.update", "ai.workflows.execute",
-        "ai.workflow_executions.read", "ai.workflow_executions.update",
+        "ai.loops.read", "ai.loops.update", "ai.loops.execute",
+        "ai.worktrees.read", "ai.worktrees.execute",
+        "devops.ci.read", "devops.ci.write",
         "ai.agents.read", "ai.agents.execute",
         "ai.providers.read", "ai.providers.test",
         "ai.conversations.read", "ai.conversations.create",
@@ -1029,9 +1040,9 @@ module Permissions
         "ai.agents.read", "ai.agents.create", "ai.agents.update", "ai.agents.delete",
         "ai.agents.execute", "ai.agents.clone",
         "ai.executions.read", "ai.executions.cancel", "ai.executions.retry",
-        "ai.workflows.read", "ai.workflows.create", "ai.workflows.update", "ai.workflows.delete",
-        "ai.workflows.execute", "ai.workflows.clone", "ai.workflows.import", "ai.workflows.export",
-        "ai.workflow_executions.read", "ai.workflow_executions.cancel", "ai.workflow_executions.retry",
+        "ai.loops.read", "ai.loops.create", "ai.loops.update", "ai.loops.delete", "ai.loops.execute",
+        "ai.worktrees.read", "ai.worktrees.create", "ai.worktrees.execute",
+        "devops.ci.read", "devops.ci.write",
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate",
         "ai.conversations.manage",
         "ai.messages.read", "ai.messages.create", "ai.messages.update", "ai.messages.delete",

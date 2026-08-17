@@ -141,7 +141,7 @@ module Devops
     def can_edit?(user, account)
       return false unless user && account
       return true if account_id == account.id && created_by_user_id == user.id
-      user.has_permission?("ai.workflows.manage") && account_id == account.id
+      user.has_permission?("devops.pipelines.write") && account_id == account.id
     end
 
     def can_install?(account)
@@ -154,7 +154,7 @@ module Devops
       return false unless user && account
       return false if subscriptions.exists?
       return true if account_id == account.id && created_by_user_id == user.id
-      user.has_permission?("ai.workflows.manage") && account_id == account.id
+      user.has_permission?("devops.pipelines.write") && account_id == account.id
     end
 
     # Publishing methods

@@ -4,20 +4,20 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
   let(:account) { create(:account) }
-  let(:user_with_read_permission) { create(:user, account: account, permissions: ['ai.workflows.read']) }
-  let(:user_with_create_permission) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.create']) }
-  let(:user_with_update_permission) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.update']) }
-  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.delete']) }
-  let(:user_with_execute_permission) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.execute']) }
+  let(:user_with_read_permission) { create(:user, account: account, permissions: ['ai.loops.read']) }
+  let(:user_with_create_permission) { create(:user, account: account, permissions: ['ai.loops.read', 'ai.loops.create']) }
+  let(:user_with_update_permission) { create(:user, account: account, permissions: ['ai.loops.read', 'ai.loops.update']) }
+  let(:user_with_delete_permission) { create(:user, account: account, permissions: ['ai.loops.read', 'ai.loops.delete']) }
+  let(:user_with_execute_permission) { create(:user, account: account, permissions: ['ai.loops.read', 'ai.loops.execute']) }
   let(:user_with_all_permissions) do
     create(:user, account: account, permissions: [
-      'ai.workflows.read', 'ai.workflows.create', 'ai.workflows.update',
-      'ai.workflows.delete', 'ai.workflows.execute'
+      'ai.loops.read', 'ai.loops.create', 'ai.loops.update',
+      'ai.loops.delete', 'ai.loops.execute'
     ])
   end
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
-  let(:other_user) { create(:user, account: other_account, permissions: ['ai.workflows.read']) }
+  let(:other_user) { create(:user, account: other_account, permissions: ['ai.loops.read']) }
 
   # =============================================================================
   # INDEX
@@ -30,7 +30,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
       create_list(:ai_ralph_loop, 3, account: account)
     end
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.loops.read permission' do
       it 'returns list of ralph loops' do
         get '/api/v1/ai/ralph_loops', headers: headers, as: :json
 
@@ -101,7 +101,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, account: account) }
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.loops.read permission' do
       it 'returns ralph loop details' do
         get "/api/v1/ai/ralph_loops/#{ralph_loop.id}", headers: headers, as: :json
 
@@ -160,7 +160,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
   describe 'POST /api/v1/ai/ralph_loops' do
     let(:headers) { auth_headers_for(user_with_create_permission) }
 
-    context 'with ai.workflows.create permission' do
+    context 'with ai.loops.create permission' do
       let(:agent) { create(:ai_agent, account: account) }
       let(:valid_params) do
         {
@@ -225,7 +225,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_update_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, account: account) }
 
-    context 'with ai.workflows.update permission' do
+    context 'with ai.loops.update permission' do
       it 'updates the ralph loop' do
         patch "/api/v1/ai/ralph_loops/#{ralph_loop.id}",
               params: { ralph_loop: { description: 'Updated description' } },
@@ -271,7 +271,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
   describe 'DELETE /api/v1/ai/ralph_loops/:id' do
     let(:headers) { auth_headers_for(user_with_delete_permission) }
 
-    context 'with ai.workflows.delete permission' do
+    context 'with ai.loops.delete permission' do
       it 'deletes a pending ralph loop' do
         ralph_loop = create(:ai_ralph_loop, :pending, account: account)
         loop_id = ralph_loop.id
@@ -320,7 +320,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_execute_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, :pending, account: account) }
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.loops.execute permission' do
       it 'starts the ralph loop' do
         service_result = { success: true, ralph_loop: ralph_loop.loop_summary }
         allow_any_instance_of(Ai::Ralph::ExecutionService).to receive(:start_loop)
@@ -357,7 +357,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_execute_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, :running, account: account) }
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.loops.execute permission' do
       it 'pauses the ralph loop' do
         service_result = { success: true, ralph_loop: ralph_loop.loop_summary }
         allow_any_instance_of(Ai::Ralph::ExecutionService).to receive(:pause_loop)
@@ -374,7 +374,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_execute_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, :paused, account: account) }
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.loops.execute permission' do
       it 'resumes the ralph loop' do
         service_result = { success: true, ralph_loop: ralph_loop.loop_summary }
         allow_any_instance_of(Ai::Ralph::ExecutionService).to receive(:resume_loop)
@@ -391,7 +391,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_execute_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, :running, account: account) }
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.loops.execute permission' do
       it 'cancels the ralph loop' do
         service_result = { success: true, ralph_loop: ralph_loop.loop_summary }
         allow_any_instance_of(Ai::Ralph::ExecutionService).to receive(:cancel_loop)
@@ -411,7 +411,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_execute_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, :completed, account: account) }
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.loops.execute permission' do
       it 'resets the ralph loop' do
         post "/api/v1/ai/ralph_loops/#{ralph_loop.id}/reset", headers: headers, as: :json
 
@@ -436,7 +436,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_execute_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, :running, account: account) }
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.loops.execute permission' do
       it 'runs a single iteration' do
         service_result = { success: true, iteration: { number: 1 } }
         allow_any_instance_of(Ai::Ralph::ExecutionService).to receive(:run_iteration)
@@ -459,7 +459,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, :with_tasks, account: account) }
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.loops.read permission' do
       it 'returns tasks for the ralph loop' do
         get "/api/v1/ai/ralph_loops/#{ralph_loop.id}/tasks", headers: headers, as: :json
 
@@ -498,7 +498,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:ralph_loop) { create(:ai_ralph_loop, :with_tasks, account: account) }
     let(:task) { ralph_loop.ralph_tasks.first }
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.loops.read permission' do
       it 'returns task details by id' do
         get "/api/v1/ai/ralph_loops/#{ralph_loop.id}/tasks/#{task.id}",
             headers: headers,
@@ -537,7 +537,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, account: account) }
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.loops.read permission' do
       it 'returns iterations for the ralph loop' do
         get "/api/v1/ai/ralph_loops/#{ralph_loop.id}/iterations",
             headers: headers,
@@ -568,7 +568,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, :with_learnings, account: account) }
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.loops.read permission' do
       it 'returns learnings' do
         allow_any_instance_of(Ai::Ralph::ExecutionService).to receive(:learnings)
           .and_return(learnings: ralph_loop.learnings)
@@ -586,7 +586,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
     let(:ralph_loop) { create(:ai_ralph_loop, account: account) }
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.loops.read permission' do
       it 'returns progress data' do
         allow_any_instance_of(Ai::Ralph::ExecutionService).to receive(:status)
           .and_return('pending')
@@ -617,7 +617,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
       create_list(:ai_ralph_loop, 3, account: account)
     end
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.loops.read permission' do
       it 'returns overall statistics' do
         get '/api/v1/ai/ralph_loops/statistics', headers: headers, as: :json
 
@@ -656,7 +656,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
              schedule_config: { 'cron_expression' => '0 * * * *', 'timezone' => 'UTC' })
     end
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.loops.execute permission' do
       it 'pauses the schedule' do
         post "/api/v1/ai/ralph_loops/#{ralph_loop.id}/pause_schedule",
              params: { reason: 'Maintenance window' },
@@ -679,7 +679,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
              schedule_config: { 'cron_expression' => '0 * * * *', 'timezone' => 'UTC' })
     end
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.loops.execute permission' do
       it 'resumes the schedule' do
         post "/api/v1/ai/ralph_loops/#{ralph_loop.id}/resume_schedule",
              headers: headers,
@@ -701,7 +701,7 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
              webhook_token: SecureRandom.urlsafe_base64(32))
     end
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.loops.execute permission' do
       it 'regenerates the webhook token' do
         old_token = ralph_loop.webhook_token
 

@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
   let(:account) { create(:account) }
-  let(:execute_user) { user_with_permissions('ai.workflows.execute', account: account) }
-  let(:create_user) { user_with_permissions('ai.workflows.create', account: account) }
+  let(:execute_user) { user_with_permissions('ai.loops.execute', account: account) }
+  let(:create_user) { user_with_permissions('ai.loops.create', account: account) }
   let(:no_perms_user) { user_without_permissions(account: account) }
 
   let!(:ralph_loop) { create(:ai_ralph_loop, :scheduled, account: account) }
@@ -20,7 +20,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
   end
 
   # =========================================================================
-  # RUN ITERATION (ai.workflows.execute)
+  # RUN ITERATION (ai.loops.execute)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops/:id/run_iteration" do
     let(:path) { "#{base_path}/run_iteration" }
@@ -30,12 +30,12 @@ RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.execute permission' do
+    it 'returns 403 when user lacks ai.loops.execute permission' do
       post path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'returns success when user has ai.workflows.execute permission' do
+    it 'returns success when user has ai.loops.execute permission' do
       allow(mock_execution_service).to receive(:run_iteration).and_return({
         success: true, iteration: 1, status: "completed"
       })
@@ -52,7 +52,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
   end
 
   # =========================================================================
-  # RUN ALL (ai.workflows.execute)
+  # RUN ALL (ai.loops.execute)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops/:id/run_all" do
     let(:path) { "#{base_path}/run_all" }
@@ -62,7 +62,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.execute permission' do
+    it 'returns 403 when user lacks ai.loops.execute permission' do
       post path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
@@ -78,7 +78,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
   end
 
   # =========================================================================
-  # STOP RUN ALL (ai.workflows.execute)
+  # STOP RUN ALL (ai.loops.execute)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops/:id/stop_run_all" do
     let(:path) { "#{base_path}/stop_run_all" }
@@ -102,7 +102,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
   end
 
   # =========================================================================
-  # PAUSE SCHEDULE (ai.workflows.execute)
+  # PAUSE SCHEDULE (ai.loops.execute)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops/:id/pause_schedule" do
     let(:path) { "#{base_path}/pause_schedule" }
@@ -127,7 +127,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
   end
 
   # =========================================================================
-  # RESUME SCHEDULE (ai.workflows.execute)
+  # RESUME SCHEDULE (ai.loops.execute)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops/:id/resume_schedule" do
     let(:path) { "#{base_path}/resume_schedule" }
@@ -149,7 +149,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
   end
 
   # =========================================================================
-  # REGENERATE WEBHOOK TOKEN (ai.workflows.execute)
+  # REGENERATE WEBHOOK TOKEN (ai.loops.execute)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops/:id/regenerate_webhook_token" do
     let(:path) { "#{base_path}/regenerate_webhook_token" }
@@ -171,7 +171,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
   end
 
   # =========================================================================
-  # PARSE PRD (ai.workflows.create)
+  # PARSE PRD (ai.loops.create)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops/:id/parse_prd" do
     let(:path) { "#{base_path}/parse_prd" }
@@ -181,7 +181,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsSchedulingController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.create permission' do
+    it 'returns 403 when user lacks ai.loops.create permission' do
       post path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end

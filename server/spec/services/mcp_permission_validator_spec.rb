@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe Mcp::PermissionValidator, type: :service do
   let(:account) { create(:account) }
-  let(:admin_user) { create(:user, account: account, permissions: [ 'system.admin', 'ai.workflows.read' ]) }
-  let(:account_user) { create(:user, account: account, permissions: [ 'ai.workflows.read' ]) }
+  let(:admin_user) { create(:user, account: account, permissions: [ 'system.admin', 'ai.loops.read' ]) }
+  let(:account_user) { create(:user, account: account, permissions: [ 'ai.loops.read' ]) }
   let(:public_user) { create(:user, account: account, permissions: []) }
   let(:mcp_server) { create(:mcp_server, account: account) }
 
@@ -72,18 +72,18 @@ RSpec.describe Mcp::PermissionValidator, type: :service do
         create(:mcp_tool,
                mcp_server: mcp_server,
                permission_level: 'public',
-               required_permissions: [ 'ai.workflows.read', 'ai.agents.execute' ],
+               required_permissions: [ 'ai.loops.read', 'ai.agents.execute' ],
                allowed_scopes: {})
       end
 
       it 'allows users with all required permissions' do
-        user = create(:user, account: account, permissions: [ 'ai.workflows.read', 'ai.agents.execute' ])
+        user = create(:user, account: account, permissions: [ 'ai.loops.read', 'ai.agents.execute' ])
         validator = described_class.new(tool: tool, user: user, account: account)
         expect(validator.authorized?).to be true
       end
 
       it 'denies users missing some permissions' do
-        user = create(:user, account: account, permissions: [ 'ai.workflows.read' ])
+        user = create(:user, account: account, permissions: [ 'ai.loops.read' ])
         validator = described_class.new(tool: tool, user: user, account: account)
         expect(validator.authorized?).to be false
       end
@@ -119,7 +119,7 @@ RSpec.describe Mcp::PermissionValidator, type: :service do
       create(:mcp_tool,
              mcp_server: mcp_server,
              permission_level: 'account',
-             required_permissions: [ 'ai.workflows.read' ],
+             required_permissions: [ 'ai.loops.read' ],
              allowed_scopes: { 'file_access' => [ 'read_files' ] })
     end
 

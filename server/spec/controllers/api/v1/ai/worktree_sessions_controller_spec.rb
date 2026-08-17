@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe Api::V1::Ai::WorktreeSessionsController, type: :controller do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.create', 'ai.workflows.execute']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.workflows.read']) }
+  let(:user) { create(:user, account: account, permissions: ['ai.worktrees.read', 'ai.worktrees.create', 'ai.worktrees.execute']) }
+  let(:read_only_user) { create(:user, account: account, permissions: ['ai.worktrees.read']) }
   let(:no_perms_user) { create(:user, account: account, permissions: []) }
 
   let!(:session) { create(:ai_worktree_session, :active, account: account, initiated_by: user) }
