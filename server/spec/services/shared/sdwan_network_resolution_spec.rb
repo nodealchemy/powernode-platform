@@ -33,6 +33,32 @@ RSpec.describe Shared::SdwanNetworkResolution do
       expect(described_class.classify_value([ "net-1" ])).to eq([ :unusable, [ "net-1" ] ])
     end
 
+    # IMP-5a7aa42515d6: numeric ZERO is the emit-anyway phenomenon in a
+    # different type, not an operator decision. `nil` and `""` are :absent
+    # because builders and forms emit the key regardless; a serializer that
+    # coerces an unset id field (`params[:sdwan_network_id].to_i`, a numeric
+    # column default, a form that types the field as a number) emits 0 from
+    # exactly the same "nobody chose anything" state.
+    it "buckets a numeric zero as :absent" do
+      expect(described_class.classify_value(0)).to eq([ :absent, nil ])
+      expect(described_class.classify_value(0.0)).to eq([ :absent, nil ])
+    end
+
+    # The narrowness is the point: a NON-zero number is someone putting a
+    # number where a UUID belongs, which stays the loud misconfiguration.
+    it "keeps a non-zero numeric as :unusable" do
+      expect(described_class.classify_value(1)).to eq([ :unusable, 1 ])
+      expect(described_class.classify_value(-1)).to eq([ :unusable, -1 ])
+      expect(described_class.classify_value(0.5)).to eq([ :unusable, 0.5 ])
+    end
+
+    # A STRING "0" is a different case and deliberately untouched: it is a
+    # non-blank String, so it stamps and fails loud at run time ("sdwan network
+    # not found") rather than silently composing bare compute.
+    it "leaves a string zero as :usable" do
+      expect(described_class.classify_value("0")).to eq([ :usable, "0" ])
+    end
+
     # Existence is deliberately NOT decided here: core cannot check it without
     # naming the extension, and a dead id is already loud at run time.
     it "buckets any other non-blank String as :usable, stripped" do
@@ -59,6 +85,7 @@ RSpec.describe Shared::SdwanNetworkResolution do
       expect(described_class.classify_config({ "sdwan_network_id" => "none" })).to eq([ :opt_out, "none" ])
       expect(described_class.classify_config({ "sdwan_network_id" => "" })).to eq([ :absent, nil ])
       expect(described_class.classify_config({ "sdwan_network_id" => 12_345 })).to eq([ :unusable, 12_345 ])
+      expect(described_class.classify_config({ "sdwan_network_id" => 0 })).to eq([ :absent, nil ])
     end
   end
 
@@ -78,6 +105,17 @@ RSpec.describe Shared::SdwanNetworkResolution do
     it "carries the opt-out sentinel through from the account surface" do
       account = Account.new(settings: { Account::DEFAULT_SDWAN_NETWORK_SETTING => "none" })
       expect(described_class.classify_account_default(account)).to eq([ :opt_out, "none" ])
+    end
+
+    # IMP-5a7aa42515d6 reaches this arm too, and deliberately: a settings form
+    # that writes 0 for "unset" means "no default", which is what :absent
+    # already means here. A non-zero number stays the loud misconfiguration.
+    it "reads a zero account default as :absent and a non-zero number as :unusable" do
+      zero = Account.new(settings: { Account::DEFAULT_SDWAN_NETWORK_SETTING => 0 })
+      expect(described_class.classify_account_default(zero)).to eq([ :absent, nil ])
+
+      numeric = Account.new(settings: { Account::DEFAULT_SDWAN_NETWORK_SETTING => 12_345 })
+      expect(described_class.classify_account_default(numeric)).to eq([ :unusable, 12_345 ])
     end
   end
 
