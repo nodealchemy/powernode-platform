@@ -11,6 +11,36 @@ module Ai
 
     has_many :decisions, class_name: "Ai::ApprovalDecision", dependent: :destroy
 
+    # The reply vocabulary of the polymorphic #on_approval_decision dispatch
+    # (IMP-5547989e2bbd). An implementation returns DISPATCH_EXECUTED when it
+    # actually ran its decision branch and DISPATCH_NOOP when it deliberately
+    # did nothing — the source is no longer pending, already executed,
+    # cancelled, or no longer parked at the gate this request was opened for.
+    #
+    # It exists because "the dispatch returned without raising" and "the
+    # dispatch did something" are not the same statement, and #notify_source_of_decision
+    # used to declare "succeeded" on the first while claiming the second. Every
+    # implementation's no-op is an early `return` in a guard, so a source that
+    # did nothing was indistinguishable from one that executed — a FALSE
+    # SUCCESS on the very surface IMP-4bbb4227ac8a built to end false silence.
+    #
+    # Reported rather than inferred: the acting arm's own return value is
+    # arbitrary (Ai::DeferredOperation#on_approval_decision returns
+    # #execute_now!'s payload, which is legitimately nil or false for some
+    # executors), so truthiness would misread real executions as no-ops and
+    # trade one false statement for another.
+    #
+    # Unrecognised replies — a source written before this contract, or a test
+    # double — are treated as "cannot say", and a request whose source cannot
+    # say leaves execution_status nil. That is the DEFINED state for "nothing
+    # to declare" (see #notify_source_of_decision), so the safe default lands on
+    # an existing, honest value rather than on an assertion nobody verified.
+    # Migrated sources: Ai::DeferredOperation, Ai::Mission, Ai::CampaignLand,
+    # Ai::AgentProposal, Ai::ImprovementRecommendation — the complete set that
+    # implements the hook (no extension does).
+    DISPATCH_EXECUTED = :executed
+    DISPATCH_NOOP = :noop
+
     # Validations
     validates :request_id, presence: true, uniqueness: true
     validates :status, presence: true, inclusion: { in: %w[pending approved rejected expired cancelled] }
@@ -164,11 +194,21 @@ module Ai
     # Ai::ExecutionEvent (surfaced via platform.recent_events).
     #
     # execution_status stays nil unless an on_approval_decision dispatch for an
-    # *approved* request actually ran: "succeeded" means that dispatch returned
-    # without raising (for Ai::DeferredOperation sources, the executor
-    # completed — its own row carries the per-operation detail), "failed" means
-    # it raised. Rejected/expired notifications keep the prior log-only
-    # behavior — nothing executed, so there is no execution outcome to declare.
+    # *approved* request actually ran: "succeeded" means the source REPORTED
+    # that it ran its decision branch (DISPATCH_EXECUTED — for
+    # Ai::DeferredOperation sources that means the executor completed, and its
+    # own row carries the per-operation detail), "failed" means the dispatch
+    # raised. Rejected/expired notifications keep the prior log-only behavior —
+    # nothing executed, so there is no execution outcome to declare.
+    #
+    # IMP-5547989e2bbd made the first of those true rather than merely claimed.
+    # A source whose #on_approval_decision no-ops (already executed, cancelled,
+    # no longer at this gate) returns without raising, and this used to stamp
+    # "succeeded" for it — a false success on the anti-false-silence surface.
+    # Such a dispatch now leaves execution_status nil, which is the same state
+    # a rejected decision leaves and means the same thing: nothing executed.
+    # See DISPATCH_EXECUTED / DISPATCH_NOOP for the reply vocabulary and why the
+    # source reports instead of the caller guessing.
     #
     # Known residual, deliberately out of scope here: this callback fires
     # pre-commit inside the status-flip's own transaction, so an executor
@@ -188,9 +228,9 @@ module Ai
       source = klass.find_by(id: source_id)
       return unless source.respond_to?(:on_approval_decision)
 
-      source.on_approval_decision(self)
+      outcome = source.on_approval_decision(self)
       capture_revealed_result!(source)
-      declare_execution_outcome!("succeeded") if approved?
+      declare_dispatch_outcome!(outcome)
     rescue StandardError => e
       Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
       declare_execution_failure!(e) if approved?
@@ -210,6 +250,29 @@ module Ai
       @revealed_result = source.take_revealed_result!
     rescue StandardError => e
       Rails.logger.error("[ApprovalRequest##{id}] capture_revealed_result! failed: #{e.message}")
+    end
+
+    # Stamp the declared outcome from what the source REPORTED, rather than from
+    # the mere absence of an exception (IMP-5547989e2bbd).
+    #
+    # Gated on approved? for exactly the reason the previous implementation was:
+    # a rejected or expired decision also runs a branch in the source — every
+    # implementation dispatches its rejection arm — so it reports
+    # DISPATCH_EXECUTED just as an approval does. But "the reject branch ran" is
+    # not an execution outcome, and stamping "succeeded" on a rejected request
+    # would trade the false success this change removes for a new one pointing
+    # the other way. Rejected/expired keep the log-only behavior, leaving
+    # execution_status nil — the defined state for "nothing executed".
+    #
+    # A reported no-op, or any reply outside the vocabulary (a source written
+    # before this contract, a test double returning something else), also leaves
+    # it nil. See DISPATCH_EXECUTED / DISPATCH_NOOP for why the source reports
+    # instead of the caller inferring.
+    def declare_dispatch_outcome!(outcome)
+      return unless approved?
+      return unless outcome == DISPATCH_EXECUTED
+
+      declare_execution_outcome!("succeeded")
     end
 
     # Direct column write: this runs inside the status-flip's own after_update,

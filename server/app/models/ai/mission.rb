@@ -184,9 +184,11 @@ module Ai
     # phase→gate mapping rather than equating them directly.
     def on_approval_decision(request)
       gate = request.request_data["action_type"].presence
-      return unless awaiting_approval?
-      return unless gate.blank? ||
-                    gate == Ai::MissionApproval.gate_for_phase(current_phase, mission: self)
+      return Ai::ApprovalRequest::DISPATCH_NOOP unless awaiting_approval?
+
+      gate_matches = gate.blank? ||
+                     gate == Ai::MissionApproval.gate_for_phase(current_phase, mission: self)
+      return Ai::ApprovalRequest::DISPATCH_NOOP unless gate_matches
 
       orchestrator = Ai::Missions::OrchestratorService.new(mission: self)
       case request.status
@@ -194,7 +196,11 @@ module Ai
         orchestrator.advance!(result: { approval_request_id: request.id })
       when "rejected", "expired"
         orchestrator.reject_gate!(comment: request.decisions.order(:created_at).last&.comments)
+      else
+        return Ai::ApprovalRequest::DISPATCH_NOOP
       end
+
+      Ai::ApprovalRequest::DISPATCH_EXECUTED
     end
 
     # ---- canonical land source seam (Ai::Land, flag-gated default OFF) -----

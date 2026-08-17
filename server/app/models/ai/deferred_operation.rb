@@ -116,7 +116,7 @@ module Ai
     # ops (K3s bootstrap, etc.) should delegate to System::Task internally
     # so the actual work happens in the worker via the existing dispatch.
     def on_approval_decision(request)
-      return unless pending?
+      return Ai::ApprovalRequest::DISPATCH_NOOP unless pending?
 
       case request.status
       when "approved"
@@ -125,7 +125,16 @@ module Ai
         reject!
       when "expired"
         expire!
+      else
+        return Ai::ApprovalRequest::DISPATCH_NOOP
       end
+
+      # Deliberately discards #execute_now!'s payload: the caller needs to know
+      # THAT the branch ran, and the payload is legitimately nil or false for
+      # some executors, so returning it would misreport a real execution as a
+      # no-op. The per-operation detail lives on this row; the one-shot reveal
+      # travels via #take_revealed_result!, not this return value.
+      Ai::ApprovalRequest::DISPATCH_EXECUTED
     end
 
     # Synchronous execution. Used by AutonomyGate for auto-approved operations
