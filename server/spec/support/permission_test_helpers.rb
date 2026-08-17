@@ -114,7 +114,7 @@ module PermissionTestHelpers
   def ai_workflow_user(**options)
     account = options.delete(:account) || create(:account)
     ai_permissions = %w[
-      ai.workflows.read ai.workflows.create ai.workflows.update ai.workflows.delete ai.workflows.execute
+      ai.loops.read ai.loops.create ai.loops.update ai.loops.delete ai.loops.execute
       ai.agents.read ai.agents.create ai.agents.update ai.agents.execute
       ai.conversations.read ai.conversations.create ai.conversations.update
       ai.providers.read
@@ -128,7 +128,7 @@ module PermissionTestHelpers
   def ai_viewer_user(**options)
     account = options.delete(:account) || create(:account)
     ai_read_permissions = %w[
-      ai.workflows.read
+      ai.loops.read
       ai.agents.read
       ai.conversations.read
       ai.providers.read

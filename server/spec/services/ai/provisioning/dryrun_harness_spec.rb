@@ -19,7 +19,7 @@ RSpec.describe Ai::Provisioning::DryrunHarness, type: :request do
   include PermissionTestHelpers
 
   let(:account)   { create(:account) }
-  let(:user)      { user_with_permissions("ai.workflows.create", "ai.workflows.execute", account: account) }
+  let(:user)      { user_with_permissions("ai.loops.create", "ai.loops.execute", account: account) }
   let(:arch)      { create(:system_node_architecture, :with_checksums) }
   let(:platform)  { create(:system_node_platform, account: account, node_architecture: arch) }
   let!(:template) { create(:system_node_template, account: account, node_platform: platform) }

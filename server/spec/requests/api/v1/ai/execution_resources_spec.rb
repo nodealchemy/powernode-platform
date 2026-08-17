@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::ExecutionResources', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.workflows.read']) }
+  let(:user) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.loops.read']) }
   let(:no_perm_user) { create(:user, account: account, permissions: []) }
   let(:other_account) { create(:account) }
   let(:other_user) { create(:user, account: other_account, permissions: ['ai.agents.read']) }

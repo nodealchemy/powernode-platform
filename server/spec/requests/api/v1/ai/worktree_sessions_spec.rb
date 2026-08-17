@@ -4,10 +4,10 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.workflows.read', 'ai.workflows.create', 'ai.workflows.execute']) }
-  let(:read_only_user) { create(:user, account: account, permissions: ['ai.workflows.read']) }
+  let(:user) { create(:user, account: account, permissions: ['ai.worktrees.read', 'ai.worktrees.create', 'ai.worktrees.execute']) }
+  let(:read_only_user) { create(:user, account: account, permissions: ['ai.worktrees.read']) }
   let(:other_account) { create(:account) }
-  let(:other_user) { create(:user, account: other_account, permissions: ['ai.workflows.read']) }
+  let(:other_user) { create(:user, account: other_account, permissions: ['ai.worktrees.read']) }
 
   let(:headers) { auth_headers_for(user) }
   let(:read_only_headers) { auth_headers_for(read_only_user) }
@@ -23,7 +23,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
     let!(:session3) { create(:ai_worktree_session, account: account, status: 'pending') }
     let!(:other_session) { create(:ai_worktree_session, account: other_account) }
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.worktrees.read permission' do
       it 'returns list of sessions for current account' do
         get '/api/v1/ai/worktree_sessions', headers: headers, as: :json
 
@@ -76,7 +76,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       end
     end
 
-    context 'without ai.workflows.read permission' do
+    context 'without ai.worktrees.read permission' do
       it 'returns forbidden error' do
         user_without_permission = create(:user, account: account, permissions: [])
         headers_without_permission = auth_headers_for(user_without_permission)
@@ -103,7 +103,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
   describe 'GET /api/v1/ai/worktree_sessions/:id' do
     let(:session) { create(:ai_worktree_session, :active, :with_worktrees, account: account) }
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.worktrees.read permission' do
       it 'returns session with worktrees and merge operations' do
         # Create merge operations for the session
         worktree = session.worktrees.first
@@ -176,7 +176,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       allow(File).to receive(:directory?).with(repository_path).and_return(true)
     end
 
-    context 'with ai.workflows.create permission' do
+    context 'with ai.worktrees.create permission' do
       it 'creates a session with valid params' do
         expect {
           post '/api/v1/ai/worktree_sessions', params: valid_params, headers: headers, as: :json
@@ -222,7 +222,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       end
     end
 
-    context 'without ai.workflows.create permission' do
+    context 'without ai.worktrees.create permission' do
       it 'returns forbidden error' do
         post '/api/v1/ai/worktree_sessions', params: valid_params, headers: read_only_headers, as: :json
 
@@ -238,7 +238,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
   describe 'POST /api/v1/ai/worktree_sessions/:id/cancel' do
     let(:active_session) { create(:ai_worktree_session, :active, account: account) }
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.worktrees.execute permission' do
       it 'cancels an active session' do
         post "/api/v1/ai/worktree_sessions/#{active_session.id}/cancel",
              params: { reason: 'No longer needed' },
@@ -280,7 +280,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       end
     end
 
-    context 'without ai.workflows.execute permission' do
+    context 'without ai.worktrees.execute permission' do
       it 'returns forbidden error' do
         post "/api/v1/ai/worktree_sessions/#{active_session.id}/cancel",
              headers: read_only_headers,
@@ -298,7 +298,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
   describe 'GET /api/v1/ai/worktree_sessions/:id/status' do
     let(:session) { create(:ai_worktree_session, :active, :with_worktrees, account: account) }
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.worktrees.read permission' do
       it 'returns detailed session status' do
         get "/api/v1/ai/worktree_sessions/#{session.id}/status", headers: headers, as: :json
 
@@ -334,7 +334,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
   describe 'GET /api/v1/ai/worktree_sessions/:id/merge_operations' do
     let(:session) { create(:ai_worktree_session, :active, :with_worktrees, account: account) }
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.worktrees.read permission' do
       it 'returns merge operations for session' do
         worktree1 = session.worktrees.first
         worktree2 = session.worktrees.second
@@ -386,7 +386,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
   describe 'POST /api/v1/ai/worktree_sessions/:id/retry_merge' do
     let(:failed_session) { create(:ai_worktree_session, :failed, account: account) }
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.worktrees.execute permission' do
       it 'retries merge on a failed session' do
         post "/api/v1/ai/worktree_sessions/#{failed_session.id}/retry_merge",
              headers: headers,
@@ -451,7 +451,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       end
     end
 
-    context 'without ai.workflows.execute permission' do
+    context 'without ai.worktrees.execute permission' do
       it 'returns forbidden error' do
         post "/api/v1/ai/worktree_sessions/#{failed_session.id}/retry_merge",
              headers: read_only_headers,
@@ -483,7 +483,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       allow(conflict_service).to receive(:detect).and_return(conflict_data)
     end
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.worktrees.read permission' do
       it 'returns conflict detection results' do
         get "/api/v1/ai/worktree_sessions/#{session.id}/conflicts", headers: headers, as: :json
 
@@ -501,7 +501,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       end
     end
 
-    context 'without ai.workflows.read permission' do
+    context 'without ai.worktrees.read permission' do
       it 'returns forbidden error' do
         user_without_permission = create(:user, account: account, permissions: [])
         headers_without_permission = auth_headers_for(user_without_permission)
@@ -542,7 +542,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       allow(lock_service).to receive(:active_locks).and_return(lock_data)
     end
 
-    context 'with ai.workflows.read permission' do
+    context 'with ai.worktrees.read permission' do
       it 'returns active file locks' do
         get "/api/v1/ai/worktree_sessions/#{session.id}/file_locks", headers: headers, as: :json
 
@@ -559,7 +559,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       end
     end
 
-    context 'without ai.workflows.read permission' do
+    context 'without ai.worktrees.read permission' do
       it 'returns forbidden error' do
         user_without_permission = create(:user, account: account, permissions: [])
         headers_without_permission = auth_headers_for(user_without_permission)
@@ -594,7 +594,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       allow(::Ai::FileLockService).to receive(:new).with(session: session).and_return(lock_service)
     end
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.worktrees.execute permission' do
       it 'acquires locks successfully' do
         allow(lock_service).to receive(:acquire).with(
           worktree: worktree,
@@ -665,7 +665,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       end
     end
 
-    context 'without ai.workflows.execute permission' do
+    context 'without ai.worktrees.execute permission' do
       it 'returns forbidden error' do
         post "/api/v1/ai/worktree_sessions/#{session.id}/acquire_locks",
              params: { worktree_id: worktree.id, file_paths: ['src/file1.rb'] },
@@ -703,7 +703,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       allow(::Ai::FileLockService).to receive(:new).with(session: session).and_return(lock_service)
     end
 
-    context 'with ai.workflows.execute permission' do
+    context 'with ai.worktrees.execute permission' do
       it 'releases all locks for a worktree' do
         allow(lock_service).to receive(:release).with(worktree: worktree).and_return({ released: 3 })
 
@@ -752,7 +752,7 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
       end
     end
 
-    context 'without ai.workflows.execute permission' do
+    context 'without ai.worktrees.execute permission' do
       it 'returns forbidden error' do
         post "/api/v1/ai/worktree_sessions/#{session.id}/release_locks",
              params: { worktree_id: worktree.id },

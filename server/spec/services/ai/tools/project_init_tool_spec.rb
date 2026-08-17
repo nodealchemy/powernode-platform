@@ -24,8 +24,8 @@ RSpec.describe Ai::Tools::ProjectInitTool do
   end
 
   describe ".permitted?" do
-    it "requires ai.workflows.create permission" do
-      expect(described_class::REQUIRED_PERMISSION).to eq("ai.workflows.create")
+    it "requires devops.ci.write permission" do
+      expect(described_class::REQUIRED_PERMISSION).to eq("devops.ci.write")
     end
   end
 

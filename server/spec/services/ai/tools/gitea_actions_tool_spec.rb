@@ -70,8 +70,8 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
   end
 
   describe "permission" do
-    it "requires ai.workflows.update" do
-      expect(described_class::REQUIRED_PERMISSION).to eq("ai.workflows.update")
+    it "requires devops.ci.write" do
+      expect(described_class::REQUIRED_PERMISSION).to eq("devops.ci.write")
     end
   end
 

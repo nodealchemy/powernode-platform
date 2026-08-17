@@ -24,7 +24,7 @@ jest.mock('@/shared/hooks/useAuth', () => ({
     currentUser: {
       id: 'test-user-id',
       account: { id: 'test-account-id', name: 'Test Account' },
-      permissions: ['ai.providers.read', 'ai.agents.read', 'ai.workflows.read', 'ai.conversations.read']
+      permissions: ['ai.providers.read', 'ai.agents.read', 'ai.loops.read', 'ai.conversations.read']
     }
   })
 }));

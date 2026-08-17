@@ -239,10 +239,10 @@ export function registerCoreEntities(): void {
     },
     {
       // getLoop returns `{ ralph_loop }` — unwrap. Reads are gated by
-      // `ai.workflows.read` (RalphLoopsController#validate_permissions).
+      // `ai.loops.read` (RalphLoopsController#validate_permissions).
       type: 'ralph_loop',
       label: 'Ralph Loop',
-      permission: 'ai.workflows.read',
+      permission: 'ai.loops.read',
       icon: 'RefreshCw',
       labelField: 'name',
       fetchById: (id: string) => ralphLoopsApi.getLoop(id).then((r) => r.ralph_loop),

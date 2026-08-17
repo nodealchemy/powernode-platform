@@ -43,7 +43,7 @@ export const OperationsPage: React.FC = () => {
 
   // Permission checks
   const canViewOperations = hasPermission('ai.aiops.read');
-  const canManageAlerts = hasPermission('ai.workflows.update') || hasPermission('admin.access');
+  const canManageAlerts = hasPermission('ai.aiops.manage') || hasPermission('admin.access');
 
   // Active tab (derived from the trailing path segment)
   const activeTab = useMemo(() => {

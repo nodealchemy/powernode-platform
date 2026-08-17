@@ -7,11 +7,11 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
   let(:base_path) { "/api/v1/ai/ralph_loops" }
 
   # Users with specific permissions
-  let(:read_user) { user_with_permissions('ai.workflows.read', account: account) }
-  let(:create_user) { user_with_permissions('ai.workflows.create', account: account) }
-  let(:update_user) { user_with_permissions('ai.workflows.update', account: account) }
-  let(:delete_user) { user_with_permissions('ai.workflows.delete', account: account) }
-  let(:execute_user) { user_with_permissions('ai.workflows.execute', account: account) }
+  let(:read_user) { user_with_permissions('ai.loops.read', account: account) }
+  let(:create_user) { user_with_permissions('ai.loops.create', account: account) }
+  let(:update_user) { user_with_permissions('ai.loops.update', account: account) }
+  let(:delete_user) { user_with_permissions('ai.loops.delete', account: account) }
+  let(:execute_user) { user_with_permissions('ai.loops.execute', account: account) }
   let(:no_perms_user) { user_without_permissions(account: account) }
 
   # Test data
@@ -19,7 +19,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
   let(:completed_loop) { create(:ai_ralph_loop, :completed, account: account) }
 
   # =========================================================================
-  # INDEX (ai.workflows.read)
+  # INDEX (ai.loops.read)
   # =========================================================================
   describe "GET /api/v1/ai/ralph_loops" do
     let(:path) { base_path }
@@ -29,12 +29,12 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.read permission' do
+    it 'returns 403 when user lacks ai.loops.read permission' do
       get path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'returns success when user has ai.workflows.read permission' do
+    it 'returns success when user has ai.loops.read permission' do
       ralph_loop # create
       get path, headers: auth_headers_for(read_user)
       expect(response).to have_http_status(:success)
@@ -42,7 +42,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
   end
 
   # =========================================================================
-  # SHOW (ai.workflows.read)
+  # SHOW (ai.loops.read)
   # =========================================================================
   describe "GET /api/v1/ai/ralph_loops/:id" do
     let(:path) { "#{base_path}/#{ralph_loop.id}" }
@@ -52,19 +52,19 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.read permission' do
+    it 'returns 403 when user lacks ai.loops.read permission' do
       get path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'returns success when user has ai.workflows.read permission' do
+    it 'returns success when user has ai.loops.read permission' do
       get path, headers: auth_headers_for(read_user)
       expect(response).to have_http_status(:success)
     end
   end
 
   # =========================================================================
-  # CREATE (ai.workflows.create)
+  # CREATE (ai.loops.create)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops" do
     let(:path) { base_path }
@@ -86,19 +86,19 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.create permission' do
+    it 'returns 403 when user lacks ai.loops.create permission' do
       post path, params: valid_params.to_json, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'creates a ralph loop when user has ai.workflows.create permission' do
+    it 'creates a ralph loop when user has ai.loops.create permission' do
       post path, params: valid_params.to_json, headers: auth_headers_for(create_user)
       expect(response).to have_http_status(:created)
     end
   end
 
   # =========================================================================
-  # UPDATE (ai.workflows.update)
+  # UPDATE (ai.loops.update)
   # =========================================================================
   describe "PATCH /api/v1/ai/ralph_loops/:id" do
     let(:path) { "#{base_path}/#{ralph_loop.id}" }
@@ -109,19 +109,19 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.update permission' do
+    it 'returns 403 when user lacks ai.loops.update permission' do
       patch path, params: update_params.to_json, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'updates the ralph loop when user has ai.workflows.update permission' do
+    it 'updates the ralph loop when user has ai.loops.update permission' do
       patch path, params: update_params.to_json, headers: auth_headers_for(update_user)
       expect(response).to have_http_status(:success)
     end
   end
 
   # =========================================================================
-  # DESTROY (ai.workflows.delete)
+  # DESTROY (ai.loops.delete)
   # =========================================================================
   describe "DELETE /api/v1/ai/ralph_loops/:id" do
     let(:path) { "#{base_path}/#{ralph_loop.id}" }
@@ -131,12 +131,12 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.delete permission' do
+    it 'returns 403 when user lacks ai.loops.delete permission' do
       delete path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'deletes a pending ralph loop when user has ai.workflows.delete permission' do
+    it 'deletes a pending ralph loop when user has ai.loops.delete permission' do
       delete path, headers: auth_headers_for(delete_user)
       expect(response).to have_http_status(:success)
     end
@@ -149,7 +149,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
   end
 
   # =========================================================================
-  # START (ai.workflows.execute)
+  # START (ai.loops.execute)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops/:id/start" do
     let(:path) { "#{base_path}/#{ralph_loop.id}/start" }
@@ -159,12 +159,12 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.execute permission' do
+    it 'returns 403 when user lacks ai.loops.execute permission' do
       post path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'does not return 403 when user has ai.workflows.execute permission' do
+    it 'does not return 403 when user has ai.loops.execute permission' do
       service = instance_double(::Ai::Ralph::ExecutionService)
       allow(::Ai::Ralph::ExecutionService).to receive(:new).and_return(service)
       allow(service).to receive(:start_loop).and_return({ success: true, ralph_loop: ralph_loop.loop_summary })
@@ -176,7 +176,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
   end
 
   # =========================================================================
-  # PAUSE (ai.workflows.execute)
+  # PAUSE (ai.loops.execute)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops/:id/pause" do
     let(:running_loop) { create(:ai_ralph_loop, :running, account: account) }
@@ -187,12 +187,12 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.execute permission' do
+    it 'returns 403 when user lacks ai.loops.execute permission' do
       post path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'does not return 403 when user has ai.workflows.execute permission' do
+    it 'does not return 403 when user has ai.loops.execute permission' do
       service = instance_double(::Ai::Ralph::ExecutionService)
       allow(::Ai::Ralph::ExecutionService).to receive(:new).and_return(service)
       allow(service).to receive(:pause_loop).and_return({ success: true })
@@ -204,7 +204,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
   end
 
   # =========================================================================
-  # CANCEL (ai.workflows.execute)
+  # CANCEL (ai.loops.execute)
   # =========================================================================
   describe "POST /api/v1/ai/ralph_loops/:id/cancel" do
     let(:running_loop) { create(:ai_ralph_loop, :running, account: account) }
@@ -215,12 +215,12 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.execute permission' do
+    it 'returns 403 when user lacks ai.loops.execute permission' do
       post path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'does not return 403 when user has ai.workflows.execute permission' do
+    it 'does not return 403 when user has ai.loops.execute permission' do
       service = instance_double(::Ai::Ralph::ExecutionService)
       allow(::Ai::Ralph::ExecutionService).to receive(:new).and_return(service)
       allow(service).to receive(:cancel_loop).and_return({ success: true })
@@ -232,7 +232,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
   end
 
   # =========================================================================
-  # TASKS (ai.workflows.read)
+  # TASKS (ai.loops.read)
   # =========================================================================
   describe "GET /api/v1/ai/ralph_loops/:id/tasks" do
     let(:path) { "#{base_path}/#{ralph_loop.id}/tasks" }
@@ -242,19 +242,19 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.read permission' do
+    it 'returns 403 when user lacks ai.loops.read permission' do
       get path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'returns success when user has ai.workflows.read permission' do
+    it 'returns success when user has ai.loops.read permission' do
       get path, headers: auth_headers_for(read_user)
       expect(response).to have_http_status(:success)
     end
   end
 
   # =========================================================================
-  # ITERATIONS (ai.workflows.read)
+  # ITERATIONS (ai.loops.read)
   # =========================================================================
   describe "GET /api/v1/ai/ralph_loops/:id/iterations" do
     let(:path) { "#{base_path}/#{ralph_loop.id}/iterations" }
@@ -264,19 +264,19 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.read permission' do
+    it 'returns 403 when user lacks ai.loops.read permission' do
       get path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'returns success when user has ai.workflows.read permission' do
+    it 'returns success when user has ai.loops.read permission' do
       get path, headers: auth_headers_for(read_user)
       expect(response).to have_http_status(:success)
     end
   end
 
   # =========================================================================
-  # STATISTICS (ai.workflows.read)
+  # STATISTICS (ai.loops.read)
   # =========================================================================
   describe "GET /api/v1/ai/ralph_loops/statistics" do
     let(:path) { "#{base_path}/statistics" }
@@ -286,19 +286,19 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.read permission' do
+    it 'returns 403 when user lacks ai.loops.read permission' do
       get path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'returns success when user has ai.workflows.read permission' do
+    it 'returns success when user has ai.loops.read permission' do
       get path, headers: auth_headers_for(read_user)
       expect(response).to have_http_status(:success)
     end
   end
 
   # =========================================================================
-  # LEARNINGS (ai.workflows.read)
+  # LEARNINGS (ai.loops.read)
   # =========================================================================
   describe "GET /api/v1/ai/ralph_loops/:id/learnings" do
     let(:path) { "#{base_path}/#{ralph_loop.id}/learnings" }
@@ -308,12 +308,12 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.read permission' do
+    it 'returns 403 when user lacks ai.loops.read permission' do
       get path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'does not return 403 when user has ai.workflows.read permission' do
+    it 'does not return 403 when user has ai.loops.read permission' do
       service = instance_double(::Ai::Ralph::ExecutionService)
       allow(::Ai::Ralph::ExecutionService).to receive(:new).and_return(service)
       allow(service).to receive(:learnings).and_return({ learnings: [] })
@@ -325,7 +325,7 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
   end
 
   # =========================================================================
-  # PROGRESS (ai.workflows.read)
+  # PROGRESS (ai.loops.read)
   # =========================================================================
   describe "GET /api/v1/ai/ralph_loops/:id/progress" do
     let(:path) { "#{base_path}/#{ralph_loop.id}/progress" }
@@ -335,12 +335,12 @@ RSpec.describe "Api::V1::Ai::RalphLoopsController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.workflows.read permission' do
+    it 'returns 403 when user lacks ai.loops.read permission' do
       get path, headers: auth_headers_for(no_perms_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'does not return 403 when user has ai.workflows.read permission' do
+    it 'does not return 403 when user has ai.loops.read permission' do
       service = instance_double(::Ai::Ralph::ExecutionService)
       allow(::Ai::Ralph::ExecutionService).to receive(:new).and_return(service)
       allow(service).to receive(:status).and_return({ status: "pending" })

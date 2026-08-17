@@ -263,11 +263,11 @@ module Api
           return if current_worker
 
           permission_map = {
-            %w[index show tasks task iterations iteration learnings progress statistics] => "ai.workflows.read",
-            %w[create] => "ai.workflows.create",
-            %w[update update_task] => "ai.workflows.update",
-            %w[destroy] => "ai.workflows.delete",
-            %w[start pause resume cancel reset] => "ai.workflows.execute"
+            %w[index show tasks task iterations iteration learnings progress statistics] => "ai.loops.read",
+            %w[create] => "ai.loops.create",
+            %w[update update_task] => "ai.loops.update",
+            %w[destroy] => "ai.loops.delete",
+            %w[start pause resume cancel reset] => "ai.loops.execute"
           }
 
           permission_map.each do |actions, permission|

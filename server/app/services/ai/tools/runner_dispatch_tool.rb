@@ -3,7 +3,7 @@
 module Ai
   module Tools
     class RunnerDispatchTool < BaseTool
-      REQUIRED_PERMISSION = "ai.workflows.execute"
+      REQUIRED_PERMISSION = "devops.ci.write"
 
       def self.definition
         {
