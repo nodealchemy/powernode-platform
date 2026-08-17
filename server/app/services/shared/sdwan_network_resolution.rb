@@ -46,21 +46,38 @@ module Shared
 
     # The value bucketing both resolvers share. Returns `[state, value]`.
     #
-    # :absent   — null/blank/false. "No opinion": inherit the next arm.
-    #             Builders and forms that emit every key regardless produce
-    #             `null` and `""` routinely, so neither may read as a loud
-    #             failure (it would stop templates that work today) nor as an
-    #             opt-out (it would silently detach them from a default).
+    # :absent   — null/blank/false, and numeric ZERO. "No opinion": inherit the
+    #             next arm. Builders and forms that emit every key regardless
+    #             produce `null` and `""` routinely, so neither may read as a
+    #             loud failure (it would stop templates that work today) nor as
+    #             an opt-out (it would silently detach them from a default).
+    #             IMP-5a7aa42515d6: numeric 0 is that SAME phenomenon in a
+    #             different type — a serializer that coerces an unset id field
+    #             (`params[:sdwan_network_id].to_i`, a numeric column default, a
+    #             form typing the field as a number) emits 0 out of exactly the
+    #             "nobody chose anything" state that emits null and "". Nobody
+    #             can write 0 meaning a network, so it can only be that.
     # :opt_out  — NETWORK_OPT_OUT_VALUE, case-insensitive. Deliberate bare
     #             compute; BEATS every later arm.
     # :unusable — non-blank and not a String, so structurally incapable of
     #             being a network id. The only bucket that is a
-    #             misconfiguration rather than a choice.
+    #             misconfiguration rather than a choice. Deliberately NOT
+    #             widened past zero to all numerics: network ids are UUIDs, so a
+    #             NON-zero Integer is someone putting a number where a UUID
+    #             belongs — a real decision, wrongly made, and the loud failure
+    #             is the correct answer for it. Widening the whole type would
+    #             trade one false alarm for the silent bare-compute defect this
+    #             vocabulary exists to prevent.
+    #             (A STRING "0" also stays out of :absent — it is a non-blank
+    #             String, so it stamps and fails loud at RUN time via "sdwan
+    #             network not found" rather than silently composing bare
+    #             compute. Same reason existence is not decided here.)
     # :usable   — any other non-blank String, even if no such network exists.
     #             A dead id is already loud at run time ("sdwan network not
     #             found"); existence is not decided here.
     def classify_value(raw)
       return [ :absent, nil ] if raw.blank?
+      return [ :absent, nil ] if raw.is_a?(Numeric) && raw.zero?
       return [ :unusable, raw ] unless raw.is_a?(String)
 
       value = raw.strip

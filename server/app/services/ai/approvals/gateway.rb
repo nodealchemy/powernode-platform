@@ -19,6 +19,14 @@ module Ai
     # ApprovalRequest is created, so the caller handles the `:proceed` result by
     # performing the same action it would run on approval.
     #
+    # That hook MUST report what it did, returning
+    # Ai::ApprovalRequest::DISPATCH_EXECUTED when it ran its decision branch and
+    # ::DISPATCH_NOOP when it deliberately did not (already resolved, cancelled,
+    # no longer parked at this gate). Returning without raising is NOT a claim
+    # that anything happened, and an implementation that says nothing leaves the
+    # request's execution_status nil rather than asserting a success nobody
+    # verified (IMP-5547989e2bbd).
+    #
     # Additive + reversible: this migrates zero existing consumers — it only gives
     # all flows one documented entry point. Consumers opt in incrementally.
     class Gateway

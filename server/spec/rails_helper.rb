@@ -168,6 +168,33 @@ RSpec.configure do |config|
     # Sync all roles from the Permissions module configuration
     # This ensures all standardized roles exist in test database
     Role.sync_from_config!
+
+    # Redis gets the same clean slate the database above just got.
+    #
+    # Nothing in the suite has ever cleaned Redis, and unlike the DB there is no
+    # transaction to roll back — cache writes are keyed by the account the
+    # example built, so once that account is deleted the keys are unreachable
+    # AND immortal. On a long-lived dev box that accumulated 425,484 orphaned
+    # keys / 10.6 GB across ~82,000 dead account UUIDs and took the node down
+    # (2026-08-17). Powernode::Redis now isolates the suite onto TEST_DATABASE,
+    # which makes flushing safe to do unconditionally: this can only ever reach
+    # a database no application environment is configured to use.
+    #
+    # Guarded because Redis is not a hard dependency of every spec run — a unit
+    # run on a box with no Redis should not fail at :suite over a cache reset.
+    begin
+      redis = Powernode::Redis.client
+      current_db = redis.connection[:db]
+      if current_db == Powernode::Redis::TEST_DATABASE
+        redis.flushdb
+      else
+        warn "[rails_helper] Skipping Redis flush: expected db " \
+             "#{Powernode::Redis::TEST_DATABASE}, connected to #{current_db.inspect}. " \
+             "Refusing to flush a database the suite does not own."
+      end
+    rescue StandardError => e
+      warn "[rails_helper] Redis unavailable, skipping flush: #{e.class}: #{e.message}"
+    end
   end
 
   # Only use DatabaseCleaner for tests tagged with truncation: true

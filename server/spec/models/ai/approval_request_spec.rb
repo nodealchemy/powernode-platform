@@ -237,5 +237,54 @@ RSpec.describe Ai::ApprovalRequest, type: :model do
       expect(req.status).to eq('approved')
       expect(req.execution_status).to be_nil
     end
+
+    # IMP-5547989e2bbd — the no-op arm, and the reason the source reports rather
+    # than the caller inferring. Every implementation of the hook guards with an
+    # early return (already executed, cancelled, no longer parked at this gate),
+    # and to anyone watching only for exceptions that return is indistinguishable
+    # from a dispatch that ran. It used to stamp "succeeded": a false success on
+    # the very surface IMP-4bbb4227ac8a built to end false silence.
+    it 'declares nothing when an approved source reports it did not act' do
+      op = gated_operation('SucceedingPerformer')
+      # Resolved before the decision lands, so #on_approval_decision takes its
+      # `return unless pending?` guard and reports DISPATCH_NOOP.
+      op.update_columns(status: 'completed')
+      req = request_for(op)
+
+      req.record_decision!(approver: user, decision: 'approved')
+
+      req.reload
+      expect(req.status).to eq('approved')
+      expect(req.execution_status).to be_nil
+      expect(req.execution_error).to be_nil
+      # The guard genuinely held — the executor never ran a second time.
+      expect(op.reload.result).to be_blank
+      expect(
+        Ai::ExecutionEvent.where(source_type: 'Ai::ApprovalRequest', source_id: req.id)
+      ).to be_empty
+    end
+
+    # A source written before this contract (or a test double) says nothing the
+    # vocabulary recognises. "Cannot say" must land on nil — the existing state
+    # for "nothing to declare" — not on an assertion nobody verified.
+    it 'declares nothing when the source answers outside the dispatch vocabulary' do
+      probe = Class.new do
+        def on_approval_decision(_request)
+          :something_else
+        end
+      end.new
+      stub_const('UnversionedSource', probe)
+      probe.singleton_class.define_method(:find_by) { |id:| probe }
+      probe.singleton_class.define_method(:respond_to?) { |m| m == :find_by || super(m) }
+
+      req = chain.create_request!(
+        source_type: 'UnversionedSource', source_id: SecureRandom.uuid, description: 'd'
+      )
+      req.record_decision!(approver: user, decision: 'approved')
+
+      req.reload
+      expect(req.status).to eq('approved')
+      expect(req.execution_status).to be_nil
+    end
   end
 end

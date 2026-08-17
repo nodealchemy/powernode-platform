@@ -68,7 +68,7 @@ module Ai
     # the proposal to match the decision; no-op unless still pending, which
     # guards against stale or duplicate cascades.
     def on_approval_decision(request)
-      return unless pending?
+      return Ai::ApprovalRequest::DISPATCH_NOOP unless pending?
 
       resolver = request.decisions.order(:created_at).last&.approver
       case request.status
@@ -76,7 +76,11 @@ module Ai
         approve!(resolver)
       when "rejected", "expired"
         reject!(resolver)
+      else
+        return Ai::ApprovalRequest::DISPATCH_NOOP
       end
+
+      Ai::ApprovalRequest::DISPATCH_EXECUTED
     end
 
     def pending?

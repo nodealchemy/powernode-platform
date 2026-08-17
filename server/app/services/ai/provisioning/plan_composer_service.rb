@@ -118,6 +118,34 @@ module Ai
       # how the two resolvers drifted apart to begin with.
       NETWORK_CONFIG_KEY = ::Shared::SdwanNetworkResolution::NETWORK_CONFIG_KEY
 
+      # The skills whose composed inputs are RESOLVED FROM THE TEMPLATE —
+      # template_id, region, instance type, and the three-arm `network_id`.
+      # #merge_resolved_inputs!'s own gate, named rather than inlined so the
+      # set has one definition.
+      TEMPLATE_RESOLVING_SKILLS = %w[provision_full_stack scale_project].freeze
+
+      # The skills that CREATE INSTANCES FROM A NODE TEMPLATE, and therefore
+      # take their fabric membership from that template's `sdwan_network_id`
+      # declaration (IMP-883a1f6f89d0). This is what #check_network_declaration
+      # scopes on, and it is deliberately NOT the same set as the one above.
+      #
+      # The tempting shortcut is "whatever #merge_resolved_inputs! stamps",
+      # since stamping is how a composed plan usually carries the fabric. But
+      # stamping is not the only way an instance joins one: provision_cluster
+      # takes an explicit template_id and creates its nodes through the fleet
+      # tool, and the extension's provision-time resolver reads the TEMPLATE's
+      # config for each node — no stamped network_id is involved. Gating on the
+      # stamp would have gone silent on exactly the plan shape nothing else
+      # catches: the prerequisite seam only speaks for overlay-REQUIRING skills
+      # (docker_provision), and at run time a broken declaration on that path is
+      # an error log on the substrate, not an operator-visible failure.
+      #
+      # So the two sets answer two different questions and the overlap is a
+      # coincidence of the current skill catalog, not an invariant. Any new
+      # executor that stands up instances from a template belongs here whether
+      # or not the composer stamps its inputs.
+      TEMPLATE_PROVISIONING_SKILLS = %w[provision_full_stack scale_project provision_cluster].freeze
+
       attr_reader :account, :mission
 
       def initialize(account:, mission:)
@@ -198,7 +226,10 @@ module Ai
         # for the same template, and only when the plan has an overlay-requiring
         # skill at all. IMP-94728a788498: also covers the account-default arm —
         # a configured default that could never resolve fails loud here too.
-        network_clarification = check_network_declaration(brief)
+        # IMP-883a1f6f89d0: takes the composed PLAN, because "would this plan
+        # provision against that template" is a question about the plan, not
+        # about the brief — see #check_network_declaration.
+        network_clarification = check_network_declaration(brief, plan)
         return network_clarification if network_clarification
 
         # IMP-94728a788498: the checker receives the composer's OWN three-arm
@@ -1145,7 +1176,7 @@ module Ai
       # to the operator-selected provider's catalog without leaking another
       # provider's regions in.
       def merge_resolved_inputs!(inputs, brief, skill_name, account_provider_override: @account_provider_override)
-        return unless skill_name == "provision_full_stack" || skill_name == "scale_project"
+        return unless TEMPLATE_RESOLVING_SKILLS.include?(skill_name.to_s)
 
         inputs["count"] ||= Integer(brief.dig("scale", "initial") || 1) rescue 1
         inputs["dry_run"] = false unless inputs.key?("dry_run")
@@ -1336,7 +1367,43 @@ module Ai
       # membership is now the account's default posture — a single DB-driven
       # setting covers every template an operator has not individually
       # configured.
-      def check_network_declaration(brief)
+      # IMP-883a1f6f89d0 scopes all of the above TO THE PLAN. The check used to
+      # run unconditionally, so one template carrying a broken declaration
+      # failed EVERY compose on the account — including plans that provision
+      # nothing (a runbook, a CVE triage, an attribution) and would never have
+      # consulted a network declaration. That is the account-wide provisioning
+      # outage the account arm above already refuses to cause, arriving by the
+      # other door.
+      #
+      # The narrower condition was already written down two comments up, at the
+      # call site: the prerequisite seam reports its generic failure "only when
+      # the plan has an overlay-requiring skill at all". Core cannot ask which
+      # skills require an overlay — that is the extension's knowledge — but it
+      # does not need to. It can ask the strictly-prior question it owns
+      # outright: does this plan stand up instances from a node template at all?
+      # See TEMPLATE_PROVISIONING_SKILLS for why that is deliberately NOT the
+      # same set as "whatever #merge_resolved_inputs! stamps" — provision_cluster
+      # provisions from the template without a stamped network_id, and gating on
+      # the stamp would go silent on the one shape nothing else catches.
+      #
+      # Ordering note (why the plan is available here and this is not merely
+      # moved): compose! has already synthesized or decomposed-and-rewritten the
+      # plan by this point — its steps are persisted and carry their final
+      # skills, which is what the next block reads for the prerequisite seam.
+      # Nothing after this call adds a template-provisioning step either
+      # (#attach_role_module_to_template! attaches a module,
+      # #append_deploy_app_code_step! appends a deploy_app_code step), so the
+      # answer here is the final one.
+      #
+      # NOT narrowed: which template. #resolve_template is the same fallback
+      # resolution #merge_resolved_inputs! stamps from, so a step's
+      # hand-authored `template_id` does not change which template's
+      # declaration the composer reads — matching on the step's template_id
+      # would disagree with the writer, which is the failure mode this whole
+      # design keeps refusing.
+      def check_network_declaration(brief, plan)
+        return nil unless plan_provisions_from_template?(plan)
+
         template = resolve_template(brief)
         state, raw = template_network_declaration(template)
 
@@ -1380,6 +1447,23 @@ module Ai
               scope: "account"
             }
           }
+        end
+      end
+
+      # Does this plan contain a step that stands up instances from a node
+      # template, and therefore takes their fabric membership from the
+      # declaration under check (IMP-883a1f6f89d0)?
+      #
+      # Reads the persisted steps rather than the brief: the brief's shape does
+      # not decide which executors the plan ended up with (the LLM fallback maps
+      # actions to skills, and the collapse/fan-out/runtime-leg passes add and
+      # remove steps), and by this point the steps are final.
+      def plan_provisions_from_template?(plan)
+        plan.steps.reload.any? do |step|
+          cfg = step.execution_config
+          next false unless cfg.is_a?(Hash)
+
+          TEMPLATE_PROVISIONING_SKILLS.include?((cfg["skill"] || cfg[:skill]).to_s)
         end
       end
 

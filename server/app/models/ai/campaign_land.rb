@@ -39,13 +39,16 @@ module Ai
 
     # ---- approval unblock seam (mirrors Ai::DeferredOperation#on_approval_decision)
     def on_approval_decision(request)
-      return unless status == "pending_approval"
+      return Ai::ApprovalRequest::DISPATCH_NOOP unless status == "pending_approval"
 
       case request.status
       when "approved" then enqueue!
       when "rejected" then reject!("approval rejected")
       when "expired"  then reject!("approval expired")
+      else return Ai::ApprovalRequest::DISPATCH_NOOP
       end
+
+      Ai::ApprovalRequest::DISPATCH_EXECUTED
     end
 
     # ---- operator decision (from the proposal card / dashboard) -----------
