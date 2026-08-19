@@ -75,7 +75,9 @@ module Ai
         global_idx = (@run.steps_log || []).size + idx
         raise RecipeError, "Recipe exceeds MAX_STEPS=#{MAX_STEPS}" if global_idx >= MAX_STEPS
 
-        if step["require_approval"] && !@dry_run && !approval_already_granted_for?(step)
+        enforce_policy_block!(step) unless @dry_run
+
+        if requires_approval?(step) && !@dry_run && !approval_already_granted_for?(step)
           pause_for_approval!(step)
           return @run
         end
@@ -133,6 +135,70 @@ module Ai
                                     .map { |spec| spec["name"] }
                                     .reject { |name| @inputs.key?(name) }
       raise RecipeError, "Missing required input(s): #{missing.join(', ')}" if missing.any?
+    end
+
+    # === Approval resolution ========================================
+    #
+    # `step["require_approval"]` is recipe CONTENT, so on its own it let the
+    # author of a recipe decide whether their own recipe pauses — circular as a
+    # control on caller-supplied material. Operator policy can now force the
+    # pause, and the two combine one-way: policy may only ADD friction. A
+    # permissive policy never removes an author-requested approval.
+    def requires_approval?(step)
+      return true if step["require_approval"]
+
+      policy_forces_approval?(step)
+    end
+
+    # Resolves against Ai::InterventionPolicyService under a recipe-scoped
+    # category ("ai.recipe.<tool>"), namespaced so it cannot collide with the
+    # autonomy categories executors use.
+    #
+    # KEYED ON `record`, NOT ON THE VERDICT, and that is the load-bearing
+    # detail. InterventionPolicyService#default_policy returns
+    # "require_approval" when NOTHING matches, so asking for the verdict alone
+    # would pause every step on every platform where no recipe policy has been
+    # written. A gate that fires that readily gets routed around, which is
+    # worse than the gap it closes. `record` is nil for the default and present
+    # only when a real row matched, so "unconfigured" stays distinguishable
+    # from "configured to require approval".
+    def policy_verdict_for(step)
+      resolved = ::Ai::InterventionPolicyService
+                 .new(account: @account)
+                 .resolve(action_category: recipe_action_category(step),
+                          agent: @agent, user: @user)
+      return nil if resolved[:record].nil?
+
+      resolved[:policy].to_s
+    end
+
+    def policy_forces_approval?(step)
+      policy_verdict_for(step) == "require_approval"
+    rescue StandardError => e
+      # FAIL CLOSED. An exception here is not a normal path, and the two
+      # failure modes are not symmetric: pausing a run an operator can release
+      # is recoverable, silently skipping a gate they configured is not.
+      Rails.logger.error("[SkillRecipeRunner] policy resolution failed, pausing: #{e.class}: #{e.message}")
+      true
+    end
+
+    # A blocked action is refused outright rather than paused: pausing would
+    # offer an approver the chance to release something the operator blocked,
+    # which is a different (and weaker) verdict than the one they set.
+    def enforce_policy_block!(step)
+      return unless policy_verdict_for(step) == "block"
+
+      raise RecipeError,
+            "Step '#{step['id']}' blocked by operator policy for #{recipe_action_category(step)}"
+    rescue ::Ai::SkillRecipeRunner::RecipeError
+      raise
+    rescue StandardError => e
+      Rails.logger.error("[SkillRecipeRunner] policy block check failed: #{e.class}: #{e.message}")
+      nil
+    end
+
+    def recipe_action_category(step)
+      "ai.recipe.#{step['tool']}"
     end
 
     # Reconstructs captures from prior step results when resuming a paused run.

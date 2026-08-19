@@ -137,4 +137,102 @@ RSpec.describe Ai::SkillRecipeRunner do
                             "a permitted caller was refused: #{run.error_message}"
     end
   end
+  # Blocker 2 of the recipe-dispatch readiness review — the approval gate was
+  # AUTHOR-CONTROLLED. `step["require_approval"]` is read straight out of the
+  # recipe, so the party the brake exists to constrain decided whether it
+  # applied. Fine for trusted human-authored recipes; circular as a control on
+  # caller-supplied content.
+  #
+  # Policy may now FORCE approval. It can only ever ADD friction: a configured
+  # policy escalates, and the recipe's own flag still works, but nothing lets a
+  # recipe opt OUT of a policy an operator set.
+  #
+  # THE PROPERTY THAT MATTERS MOST IS THE NEGATIVE ONE.
+  # InterventionPolicyService#default_policy is "require_approval", so a naive
+  # `resolve(...)` on every step would pause EVERY recipe on a platform where
+  # nobody has written recipe policies — an approval gate that fires that
+  # readily gets routed around, which is worse than the gap it closes. The
+  # resolution therefore keys on whether a real policy ROW matched
+  # (result[:record]), not on the returned verdict, so "unconfigured" stays
+  # distinct from "configured to require approval".
+  describe "policy-forced approval (step require_approval is a floor, not a ceiling)" do
+    let(:plain_recipe) do
+      create(:ai_skill, account: account, metadata: {
+        "recipe" => {
+          "version" => "1", "inputs" => [],
+          # NOTE: no require_approval — the author opted out, which is the case
+          # this exists to override.
+          "steps" => [ { "id" => "s1", "tool" => "memory_stats", "params" => {} } ],
+          "output" => {}
+        }
+      })
+    end
+
+    let(:permitted) do
+      create(:user, account: account,
+                    permissions: [ Ai::Tools::MemoryTool::REQUIRED_PERMISSION ])
+    end
+
+    def policy!(verdict)
+      Ai::InterventionPolicy.register_category!("ai.recipe.memory_stats")
+      Ai::InterventionPolicy.create!(
+        account: account, action_category: "ai.recipe.memory_stats",
+        scope: "global", policy: verdict, priority: 10, is_active: true
+      )
+    end
+
+    it "pauses a step the author did not flag, when policy requires approval" do
+      policy!("require_approval")
+
+      run = described_class.execute(skill: plain_recipe, inputs: {},
+                                    account: account, user: permitted, agent: nil)
+
+      expect(run.status).to eq("paused_for_approval"),
+                            "an operator policy did not override an author who omitted require_approval"
+    end
+
+    # THE OVER-FIRING CONTROL. With no policy row for this action the run must
+    # complete exactly as before — default_policy's "require_approval" must NOT
+    # leak in and pause everything.
+    it "does not pause when no policy is configured for the step" do
+      run = described_class.execute(skill: plain_recipe, inputs: {},
+                                    account: account, user: permitted, agent: nil)
+
+      expect(run.status).to eq("completed"),
+                            "an unconfigured platform started pausing every recipe step: #{run.error_message}"
+    end
+
+    # A BLOCK is refused outright rather than paused. Pausing would offer an
+    # approver the chance to release something the operator blocked, which is a
+    # weaker verdict than the one they set.
+    it "refuses a blocked step instead of offering it for approval" do
+      policy!("block")
+
+      run = described_class.execute(skill: plain_recipe, inputs: {},
+                                    account: account, user: permitted, agent: nil)
+
+      expect(run.status).to eq("failed"),
+                            "a blocked step was paused rather than refused — an approver could release it"
+      expect(run.error_message).to match(/blocked by operator policy/i)
+    end
+
+    # A permissive policy must not DISABLE an author-requested pause — friction
+    # is one-way.
+    it "does not let a permissive policy remove an author-requested approval" do
+      policy!("auto_approve")
+      flagged = create(:ai_skill, account: account, metadata: {
+        "recipe" => {
+          "version" => "1", "inputs" => [],
+          "steps" => [ { "id" => "s1", "tool" => "memory_stats", "params" => {},
+                         "require_approval" => true } ],
+          "output" => {}
+        }
+      })
+
+      run = described_class.execute(skill: flagged, inputs: {},
+                                    account: account, user: permitted, agent: nil)
+
+      expect(run.status).to eq("paused_for_approval")
+    end
+  end
 end
