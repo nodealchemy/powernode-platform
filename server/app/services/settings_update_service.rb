@@ -24,12 +24,12 @@ class SettingsUpdateService
       result[:success] = false
       result[:errors] = @errors
     else
-      result[:data] = {
-        user_preferences: current_user_preferences,
-        account_settings: current_account_settings,
-        notification_preferences: current_notification_preferences,
-        security_settings: current_security_settings
-      }
+      # IMP-550e44e24220 follow-up — ONE definition, shared with
+      # Api::V1::SettingsController. This service used to carry its own copy of
+      # all four serializers; the security one had drifted (a hardcoded
+      # two_factor_enabled: false plus four missing fields), so the write half
+      # of this resource described it differently from the read half.
+      result[:data] = SettingsSerializer.serialize(user: @user, account: @account)
     end
 
     result
@@ -106,69 +106,5 @@ class SettingsUpdateService
         @errors.concat(@user.errors.full_messages)
       end
     end
-  end
-
-  def current_user_preferences
-    preferences = @user.preferences || {}
-
-    {
-      theme: preferences["theme"] || "light",
-      language: preferences["language"] || "en",
-      timezone: preferences["timezone"] || "UTC",
-      date_format: preferences["date_format"] || "MM/dd/yyyy",
-      currency_display: preferences["currency_display"] || "symbol",
-      dashboard_layout: preferences["dashboard_layout"] || "grid",
-      analytics_default_period: preferences["analytics_default_period"] || "30_days",
-      items_per_page: preferences["items_per_page"] || 25,
-      auto_refresh_interval: preferences["auto_refresh_interval"] || 30,
-      keyboard_shortcuts_enabled: preferences["keyboard_shortcuts_enabled"] != false
-    }
-  end
-
-  def current_account_settings
-    settings = @account.settings || {}
-
-    {
-      name: @account.name,
-      subdomain: @account.subdomain,
-      billing_email: @account.billing_email,
-      tax_id: @account.tax_id,
-      company_size: settings["company_size"],
-      industry: settings["industry"],
-      website: settings["website"],
-      phone: settings["phone"],
-      address: settings["address"],
-      logo_url: settings["logo_url"],
-      # IMP-94728a788498: writable above via the blind settings merge, so it
-      # must be readable here too — a misconfigured default fails composes
-      # loudly, and the operator needs this surface to inspect/clear it.
-      Account::DEFAULT_SDWAN_NETWORK_SETTING.to_sym => settings[Account::DEFAULT_SDWAN_NETWORK_SETTING]
-    }
-  end
-
-  def current_notification_preferences
-    notifications = @user.notification_preferences || {}
-
-    {
-      email_notifications: notifications["email_notifications"] != false,
-      invoice_notifications: notifications["invoice_notifications"] != false,
-      security_alerts: notifications["security_alerts"] != false,
-      marketing_emails: notifications["marketing_emails"] || false,
-      account_updates: notifications["account_updates"] != false,
-      system_maintenance: notifications["system_maintenance"] != false,
-      new_features: notifications["new_features"] || false,
-      usage_reports: notifications["usage_reports"] || false,
-      payment_reminders: notifications["payment_reminders"] != false
-    }
-  end
-
-  def current_security_settings
-    {
-      email_verified: @user.email_verified?,
-      password_last_changed: @user.password_changed_at,
-      two_factor_enabled: false,
-      failed_attempts: @user.failed_login_attempts,
-      account_locked: @user.locked?
-    }
   end
 end

@@ -142,91 +142,30 @@ class Api::V1::SettingsController < ApplicationController
     )
   end
 
-  def current_user_preferences
-    preferences = current_user.preferences || {}
+  # IMP-550e44e24220 follow-up — the payload now has ONE definition
+  # (SettingsSerializer), shared with SettingsUpdateService so the read and
+  # write halves of this resource cannot drift. These stay as named readers
+  # because #show and three single-section actions below render them
+  # individually. Built fresh per call rather than memoized: the preference and
+  # notification update actions serialize AFTER mutating current_user.
+  def settings_serializer
+    SettingsSerializer.new(user: current_user, account: current_account)
+  end
 
-    # Merge with defaults
-    {
-      theme: preferences["theme"] || "light",
-      language: preferences["language"] || "en",
-      timezone: preferences["timezone"] || "UTC",
-      date_format: preferences["date_format"] || "MM/dd/yyyy",
-      currency_display: preferences["currency_display"] || "symbol",
-      dashboard_layout: preferences["dashboard_layout"] || "grid",
-      analytics_default_period: preferences["analytics_default_period"] || "30_days",
-      items_per_page: preferences["items_per_page"] || 25,
-      auto_refresh_interval: preferences["auto_refresh_interval"] || 30,
-      keyboard_shortcuts_enabled: preferences["keyboard_shortcuts_enabled"] != false
-    }
+  def current_user_preferences
+    settings_serializer.user_preferences
   end
 
   def current_account_settings
-    settings = current_account.settings || {}
-
-    {
-      name: current_account.name,
-      subdomain: current_account.subdomain,
-      billing_email: current_account.billing_email,
-      tax_id: current_account.tax_id,
-      company_size: settings["company_size"],
-      industry: settings["industry"],
-      website: settings["website"],
-      phone: settings["phone"],
-      address: settings["address"],
-      logo_url: settings["logo_url"],
-      # IMP-94728a788498: writable through PATCH's blind settings merge, so it
-      # must be readable here too (kept in parity with
-      # SettingsUpdateService#current_account_settings — same duplicated
-      # serializer, same fields).
-      Account::DEFAULT_SDWAN_NETWORK_SETTING.to_sym => settings[Account::DEFAULT_SDWAN_NETWORK_SETTING]
-    }
+    settings_serializer.account_settings
   end
 
   def current_notification_preferences
-    notifications = current_user.notification_preferences || {}
-
-    # Merge with defaults
-    {
-      email_notifications: notifications["email_notifications"] != false,
-      invoice_notifications: notifications["invoice_notifications"] != false,
-      security_alerts: notifications["security_alerts"] != false,
-      marketing_emails: notifications["marketing_emails"] || false,
-      account_updates: notifications["account_updates"] != false,
-      system_maintenance: notifications["system_maintenance"] != false,
-      new_features: notifications["new_features"] || false,
-      usage_reports: notifications["usage_reports"] || false,
-      payment_reminders: notifications["payment_reminders"] != false
-    }
+    settings_serializer.notification_preferences
   end
 
   def current_security_settings
-    {
-      email_verified: current_user.email_verified?,
-      password_last_changed: current_user.password_changed_at,
-      two_factor_enabled: current_user.two_factor_enabled?,
-      two_factor_enabled_at: current_user.two_factor_enabled_at,
-      backup_codes_generated_at: current_user.two_factor_backup_codes_generated_at,
-      login_history: recent_login_history,
-      failed_attempts: current_user.failed_login_attempts,
-      account_locked: current_user.locked?,
-      authorized_keys: Array(current_user.authorized_keys)
-    }
-  end
-
-  def recent_login_history
-    # Get last 5 login audit logs
-    current_user.audit_logs
-                .where(action: "login")
-                .order(created_at: :desc)
-                .limit(5)
-                .pluck(:created_at, :ip_address, :user_agent)
-                .map do |created_at, ip, user_agent|
-      {
-        timestamp: created_at,
-        ip_address: ip,
-        user_agent: user_agent
-      }
-    end
+    settings_serializer.security_settings
   end
 
   def update_user_preferences(key, new_preferences)
