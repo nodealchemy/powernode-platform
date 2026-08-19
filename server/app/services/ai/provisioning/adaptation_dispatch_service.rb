@@ -287,7 +287,15 @@ module Ai
 
         case answer[:disposition].to_s
         when GATE_ROUTED
+          # `cause` is the gate's OWN word for why a routed plan has no request
+          # to point at — forwarded verbatim, never interpreted here. Core has no
+          # opinion about the vocabulary (it is fleet policy language) and no
+          # behaviour depends on it; the consumer that raises the operator alarm
+          # does. Same declared-not-inferred discipline as `authority` below: the
+          # consumer used to infer the cause from `approval_request_id.nil?`,
+          # which conflates a missing policy with an operator's own rejection.
           { gate: GATE_ROUTED, approval_request_id: answer[:approval_request_id],
+            cause: answer[:cause].presence,
             detail: answer[:detail].presence || "held for an operator decision" }
         when GATE_AUTO_APPLY
           # A POLICY may NARROW core's bounds; it may never widen them. An
