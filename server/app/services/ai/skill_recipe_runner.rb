@@ -202,10 +202,24 @@ module Ai
     # `initialize`, and `Ai::SkillRecipeRun belongs_to :user, optional: true`),
     # so refuse outright when both are nil rather than let it fall through to
     # a downstream "permission denied: <perm> required" that reads like a
-    # misconfigured grant. An agent-only principal (no user) is legitimate —
-    # it's the same "LLM tool-calling path" `Ai::Tools::McpPlatformToolRegistrar`
-    # already recognizes for a bound `mcp_agent` — so only the *no-principal*
-    # case is refused, not the user-less one.
+    # misconfigured grant. This guard refuses only the *no-principal* case.
+    #
+    # CORRECTED (IMP-245d8ae56f8c): this comment used to claim an agent-only
+    # principal is legitimate because it is "the same LLM tool-calling path
+    # McpPlatformToolRegistrar already recognizes for a bound mcp_agent". That
+    # was false, and it is worth naming because it justified skipping the gate.
+    # #enforce_permission! exempts exactly one user-less caller — an
+    # `instance_authorized` mTLS principal — and otherwise raises
+    # "Authentication required" whenever `user` is nil. A bound `mcp_agent` is
+    # passed to CONSTRUCTION, never to authorization, so it has never stood in
+    # for a permission.
+    #
+    # So an agent-only recipe now reaches the gate and is refused there, which
+    # is the correct outcome rather than a regression: a recipe is
+    # caller-supplied content, and "an agent authored it" is not authority to
+    # run a tool the agent's principal cannot be checked against. The guard
+    # below still admits it, because refusing at the gate produces the accurate
+    # error; refusing here would report a missing principal that is present.
     #
     # `internal:` is deliberately NEVER passed to `klass.new` below. A recipe
     # is arbitrary caller-supplied content (skill metadata), not an in-process
@@ -224,9 +238,35 @@ module Ai
       tool_class_name = ::Ai::Tools::PlatformApiToolRegistry.all_tools[tool_name]
       raise RecipeError, "Unknown tool: #{tool_name}" if tool_class_name.blank?
 
-      klass = tool_class_name.constantize
-      tool = klass.new(account: @account, user: @user, agent: @agent)
-      tool.execute(params: params.merge(action: tool_name).with_indifferent_access)
+      # IMP-245d8ae56f8c — dispatch through the REGISTRAR, not by constructing
+      # the tool here.
+      #
+      # This used to do `klass.new(...).execute(...)` directly, which skipped
+      # McpPlatformToolRegistrar#enforce_permission! — the ONLY reader of
+      # REQUIRED_PERMISSION on an execution path. Ai::Tools::BaseTool#execute
+      # runs the deny overlay, param validation and guardrails, and no
+      # permission check at all, so for the 53 registry tool classes that carry
+      # a floor constant and no ACTION_PERMISSIONS map the constant was
+      # enforced NOWHERE on this path. The 12 map-carrying classes kept their
+      # in-tool check, which made the hole invisible from the call site: the
+      # same line was gated or ungated depending on the tool it named.
+      #
+      # Routing through execute_tool rather than re-implementing the check
+      # keeps ONE enforcement seam, and picks up the rate limiter, the audit
+      # log line and the action-scope check that the direct construction also
+      # skipped.
+      #
+      # The `internal:` note above still holds and is now structural: this
+      # method never constructs the tool, so it cannot pass `internal:` even by
+      # accident.
+      ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+        tool_name,
+        params: params.merge(action: tool_name).with_indifferent_access,
+        account: @account,
+        user: @user,
+        agent_id: @agent&.id,
+        mcp_agent: @agent
+      )
     end
 
     # === Variable interpolation =====================================
