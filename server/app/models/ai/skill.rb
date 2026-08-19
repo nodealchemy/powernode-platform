@@ -224,8 +224,8 @@ module Ai
     # ==========================================
     before_validation :generate_slug, on: :create
     before_update :bump_version_on_routing_change
-    after_commit :sync_to_knowledge_graph, on: [:create, :update]
-    after_commit :enqueue_conflict_check, on: [:create, :update], if: :conflict_relevant_change?
+    after_commit :sync_to_knowledge_graph, on: [ :create, :update ]
+    after_commit :enqueue_conflict_check, on: [ :create, :update ], if: :conflict_relevant_change?
     # prepend: the has_one's dependent: :nullify callback (declared with the
     # association, above) otherwise runs FIRST and detaches one arbitrary copy
     # before this can archive it.
@@ -553,7 +553,7 @@ module Ai
       return 0.5 unless account_id.present?
 
       learnings = Ai::CompoundLearning.active.for_account(account_id)
-                    .where("tags @> ?", [slug].to_json)
+                    .where("tags @> ?", [ slug ].to_json)
       return 0.5 if learnings.empty?
 
       learnings.average(:effectiveness_score)&.to_f || 0.5
