@@ -655,9 +655,10 @@ module Ai
         skill = resolve_skill_for_usage(account_id, skill_name)
         return unless skill
 
-        duration_ms = if started_at
-                        ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round
-                      end
+        duration_ms =
+          if started_at
+            ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round
+          end
         # Route through Ai::Skill#record_usage! (not a bare create!) so the
         # skill's usage_count / effectiveness counters move — otherwise F5
         # rows accumulate while F4's single-usage effectiveness gate never
@@ -949,11 +950,12 @@ module Ai
       # displacing last_outputs and faking compensation in one move.
       def failure_outputs_from(result)
         declared = result[:data] || result["data"] || result[:outputs] || result["outputs"]
-        base = if declared.is_a?(Hash)
-                 declared
-               elsif result.respond_to?(:to_h)
-                 result.to_h
-               end
+        base =
+          if declared.is_a?(Hash)
+            declared
+          elsif result.respond_to?(:to_h)
+            result.to_h
+          end
         stripped = strip_control_keys(base)
         return nil if stripped.blank?
 
