@@ -1190,6 +1190,23 @@ module Ai
         template = resolve_template(brief)
         inputs["template_id"] ||= template&.id
 
+        # IMP-975976497370: the fabric comes from the template THIS STEP will
+        # provision from, which is not always the brief's.
+        #
+        # The `||=` above deliberately preserves a template_id the step already
+        # carried, and #rewrite_step! merges an LLM decomposition's own `inputs`
+        # hash in before calling this — so a decomposition emitting
+        # `inputs: { template_id: X }` reaches here with X pinned while the brief
+        # names Y. Reading the declaration off Y then placed the instance on a
+        # network its own template never declared. (Not reachable on the
+        # deterministic path: #synthesize_plan! builds `inputs` fresh per step,
+        # so template_id is always nil there and the two resolutions agree.)
+        #
+        # Correct-by-construction rather than skip-on-disagreement: refusing to
+        # stamp when they differ would silently compose bare compute, which is
+        # the exact degradation IMP-cdc1d0703e5a removed.
+        effective_template = template_for_step(inputs["template_id"], brief_template: template)
+
         # IMP-cdc1d0703e5a: fabric + storage footprint. Without these two keys
         # every composed provision/scale-out arrived as BARE COMPUTE — no SDWAN
         # peer, no volume — even though the actuator side is fully built
@@ -1207,7 +1224,7 @@ module Ai
         # to backfill.
         # IMP-94728a788498: three-arm resolution — template explicit →
         # account default → networkless. See #resolved_network_id.
-        network_id = resolved_network_id(template)
+        network_id = resolved_network_id(effective_template)
         inputs["network_id"] ||= network_id if network_id
 
         # No NodeTemplate storage key exists and nothing else on the platform
@@ -1288,6 +1305,27 @@ module Ai
       # template's :unusable resolves to nil here because compose! has
       # already failed loud on it (#check_network_declaration runs first),
       # and an :unusable account default likewise never reaches stamping.
+      # The template a step actually provisions from: its own pinned
+      # template_id when it has one, else the brief's (IMP-975976497370).
+      #
+      # ONE definition, used by both the stamping in #merge_resolved_inputs! and
+      # the compose-time gate in #check_network_declaration — the two must agree
+      # about which record they are reading, and two hand-written resolutions is
+      # how they stop agreeing.
+      #
+      # Guarded on `defined?` and account-scoped like the other resolvers, so
+      # core mode (no system extension) and a cross-account id both fall back to
+      # the brief's template rather than raising.
+      def template_for_step(template_id, brief_template:)
+        id = template_id.to_s
+        return brief_template if id.empty? || id == brief_template&.id.to_s
+        return brief_template unless defined?(::System::NodeTemplate)
+
+        @step_template_cache ||= {}
+        @step_template_cache[id] ||=
+          ::System::NodeTemplate.find_by(account_id: account.id, id: id) || brief_template
+      end
+
       def resolved_network_id(template)
         state, network_id = template_network_declaration(template)
         return network_id if state == :usable
@@ -1395,16 +1433,51 @@ module Ai
       # #append_deploy_app_code_step! appends a deploy_app_code step), so the
       # answer here is the final one.
       #
-      # NOT narrowed: which template. #resolve_template is the same fallback
-      # resolution #merge_resolved_inputs! stamps from, so a step's
-      # hand-authored `template_id` does not change which template's
-      # declaration the composer reads — matching on the step's template_id
-      # would disagree with the writer, which is the failure mode this whole
-      # design keeps refusing.
+      # NARROWED TO THE STEPS' OWN TEMPLATES (IMP-975976497370). This comment
+      # used to say the opposite — that matching on a step's template_id "would
+      # disagree with the writer, which is the failure mode this whole design
+      # keeps refusing". That reasoning was sound and its premise is now false:
+      # the writer (#merge_resolved_inputs!) resolves the STEP's template too,
+      # so reading the brief's here is what would disagree with it. The gate and
+      # the stamp share one resolver (#template_for_step) rather than two
+      # hand-written rules, because a gate that validates a record no step will
+      # use can both miss a real misconfiguration and fail loud about a template
+      # nothing provisions from.
       def check_network_declaration(brief, plan)
         return nil unless plan_provisions_from_template?(plan)
 
-        template = resolve_template(brief)
+        step_templates(brief, plan).each do |template|
+          issue = network_declaration_issue(template)
+          return issue if issue
+        end
+
+        nil
+      end
+
+      # The distinct templates this plan's template-provisioning steps will
+      # actually provision from. A step that pins none inherits the brief's, so
+      # a plan whose steps are all unpinned yields exactly what the old
+      # brief-only check read.
+      def step_templates(brief, plan)
+        brief_template = resolve_template(brief)
+
+        ids = plan.steps.filter_map do |step|
+          cfg = step.execution_config
+          next unless cfg.is_a?(Hash)
+          next unless TEMPLATE_PROVISIONING_SKILLS.include?((cfg["skill"] || cfg[:skill]).to_s)
+
+          inputs = cfg["inputs"] || cfg[:inputs]
+          inputs.is_a?(Hash) ? (inputs["template_id"] || inputs[:template_id]) : nil
+        end
+
+        return [ brief_template ].compact if ids.empty?
+
+        ids.uniq
+           .map { |id| template_for_step(id, brief_template: brief_template) }
+           .compact.uniq
+      end
+
+      def network_declaration_issue(template)
         state, raw = template_network_declaration(template)
 
         case state

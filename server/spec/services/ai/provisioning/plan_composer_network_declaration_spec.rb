@@ -236,3 +236,149 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "network declaration check
     end
   end
 end
+
+# IMP-975976497370 — WHICH TEMPLATE'S FABRIC A STEP INHERITS.
+#
+# #merge_resolved_inputs! preserves an already-authored template_id
+# (`inputs["template_id"] ||= template&.id`) but read the fabric declaration
+# from `resolve_template(brief)` unconditionally. When those disagree the step
+# provisions from template X while carrying an SDWAN network_id declared by
+# template Y — an instance placed on a network its own template never declared.
+#
+# Reachable on the LLM-fallback path only: #rewrite_step! merges the
+# decomposition's own `inputs` hash before calling #merge_resolved_inputs!, so a
+# decomposition emitting `inputs: { template_id: ... }` reaches this. The
+# deterministic path builds `inputs = { "count" => share }` fresh per step, so
+# template_id is always nil there and both resolutions agree.
+RSpec.describe Ai::Provisioning::PlanComposerService, "step-authored template fabric", type: :service do
+  before { skip "system extension not loaded" unless defined?(::System::NodeTemplate) }
+
+  let(:account) { create(:account) }
+  let(:user) { create(:user, account: account) }
+  let(:ai_provider) { create(:ai_provider, account: account, is_active: true) }
+  let!(:agent) do
+    create(:ai_agent, account: account, provider: ai_provider, creator: user, status: "active")
+  end
+
+  let(:net_x) { create(:sdwan_network, account: account) }
+  let(:net_y) { create(:sdwan_network, account: account) }
+
+  # The template the STEP pins...
+  let!(:template_x) do
+    create(:system_node_template, account: account, name: "authored-x",
+                                  config: { described_class::NETWORK_CONFIG_KEY => net_x.id })
+  end
+  # ...and the one the BRIEF names.
+  let!(:template_y) do
+    create(:system_node_template, account: account, name: "brief-y",
+                                  config: { described_class::NETWORK_CONFIG_KEY => net_y.id })
+  end
+
+  let(:brief) do
+    { "intent" => "provision a stack", "use_case" => "validation",
+      "scale" => { "initial" => 1, "target" => 1 }, "regions" => [],
+      "preferred_template" => "brief-y" }
+  end
+  let(:mission) do
+    create(:ai_mission, account: account, created_by: user, mission_type: "infrastructure",
+                        configuration: { "brief" => brief })
+  end
+
+  subject(:service) { described_class.new(account: account, mission: mission) }
+
+  # A step as the LLM decompose pass leaves it: its own inputs already pin a
+  # template, which #rewrite_step! merges in before resolution runs.
+  def authored_step(template_id:)
+    goal = Ai::AgentGoal.create!(
+      account: account, agent: agent, title: "Provisioning goal", description: "test",
+      goal_type: "creation", status: "pending", priority: 3, progress: 0.0,
+      success_criteria: { "mission_id" => mission.id },
+      metadata: { "provisioning_mission_id" => mission.id }
+    )
+    plan = Ai::GoalPlan.create!(account: account, goal: goal, agent: agent, status: "draft", version: 1)
+    Ai::GoalPlanStep.create!(
+      plan: plan, step_number: 1, step_type: "provisioning_skill", status: "pending",
+      dependencies: [],
+      execution_config: { "skill" => "provision_full_stack",
+                          "inputs" => { "template_id" => template_id } }
+    )
+  end
+
+  def rewritten_inputs(step)
+    service.send(:rewrite_step!, step, brief)
+    step.reload.execution_config["inputs"]
+  end
+
+  # The compose-time gate has to read the same record the stamp does. Both
+  # directions are asserted, because a gate keyed on the wrong template fails
+  # BOTH ways: it stays quiet about a broken template a step will really use,
+  # and it blocks a perfectly good plan over a template nothing provisions from.
+  describe "the compose-time gate" do
+    # A NON-ZERO NUMBER is what :unusable means here — any non-blank String is
+    # :usable (the composer deliberately does not existence-check an id), and a
+    # numeric zero resolves as unset per IMP-5a7aa42515d6. A number where a UUID
+    # belongs is "a real decision wrongly made", which is the loud arm.
+    let(:broken) do
+      create(:system_node_template, account: account, name: "broken-decl",
+                                    config: { described_class::NETWORK_CONFIG_KEY => 42 })
+    end
+
+    def plan_pinning(template_id)
+      goal = Ai::AgentGoal.create!(
+        account: account, agent: agent, title: "g", description: "t",
+        goal_type: "creation", status: "pending", priority: 3, progress: 0.0
+      )
+      plan = Ai::GoalPlan.create!(account: account, goal: goal, agent: agent, status: "draft", version: 1)
+      Ai::GoalPlanStep.create!(
+        plan: plan, step_number: 1, step_type: "provisioning_skill", status: "pending",
+        dependencies: [],
+        execution_config: { "skill" => "provision_full_stack",
+                            "inputs" => { "template_id" => template_id } }
+      )
+      plan.reload
+    end
+
+    it "fails loud when the template a STEP pins carries a broken declaration" do
+      issue = service.send(:check_network_declaration, brief, plan_pinning(broken.id))
+
+      expect(issue).to be_present, "a step provisioning from a broken template composed silently"
+      expect(issue[:network_declaration_issue][:template_id]).to eq(broken.id)
+    end
+
+    it "stays quiet when only the BRIEF's template is broken and no step uses it" do
+      allow(service).to receive(:resolve_template).and_return(broken)
+
+      issue = service.send(:check_network_declaration, brief, plan_pinning(template_x.id))
+
+      expect(issue).to be_nil,
+                       "the compose was blocked over a template no step will provision from"
+    end
+  end
+
+  it "takes the network from the template the STEP pins, not the brief's" do
+    inputs = rewritten_inputs(authored_step(template_id: template_x.id))
+
+    expect(inputs["template_id"]).to eq(template_x.id), "the authored template_id was not preserved"
+    expect(inputs["network_id"]).to eq(net_x.id),
+                                    "the step provisions from X but was placed on the brief template's network"
+  end
+
+  # Positive control: with no authored template_id the brief still governs, so
+  # the fix narrows nothing that was working.
+  it "falls back to the brief's template when the step pins none" do
+    goal = Ai::AgentGoal.create!(
+      account: account, agent: agent, title: "g", description: "t",
+      goal_type: "creation", status: "pending", priority: 3, progress: 0.0
+    )
+    plan = Ai::GoalPlan.create!(account: account, goal: goal, agent: agent, status: "draft", version: 1)
+    step = Ai::GoalPlanStep.create!(
+      plan: plan, step_number: 1, step_type: "provisioning_skill", status: "pending",
+      dependencies: [], execution_config: { "skill" => "provision_full_stack", "inputs" => {} }
+    )
+
+    inputs = rewritten_inputs(step)
+
+    expect(inputs["template_id"]).to eq(template_y.id)
+    expect(inputs["network_id"]).to eq(net_y.id)
+  end
+end
