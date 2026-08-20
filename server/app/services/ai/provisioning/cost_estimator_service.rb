@@ -202,7 +202,11 @@ module Ai
         instance_type = lookup_instance_type(inputs)
         region_id     = inputs["provider_region_id"] || inputs[:provider_region_id]
         count         = instance_count(skill: skill, inputs: inputs, brief: brief)
-        storage_gb    = declared_gb(inputs, "with_storage_gb", "storage_gb")
+        # Key ORDER from the shared reader (IMP-b439270dab0d) so a change there
+        # cannot leave the quote reading a different declaration than the
+        # actuator. #declared_gb keeps its own NORMALISATION — a quote needs a
+        # non-negative integer, which the other surfaces do not.
+        storage_gb    = declared_gb(inputs, *::Shared::StorageSizeResolution::KEYS)
         egress_gb     = declared_gb(inputs, "egress_gb")
 
         regions = Array(brief["regions"] || brief[:regions])

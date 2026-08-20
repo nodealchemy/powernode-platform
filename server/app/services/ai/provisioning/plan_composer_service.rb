@@ -1232,8 +1232,21 @@ module Ai
         # utterance: IntentCaptureService captures `storage_gb` on the brief.
         # Inventing a template key with no writer would produce a field that is
         # correct in shape and inert in production.
-        storage_gb = brief_storage_gb(brief)
-        inputs["with_storage_gb"] ||= storage_gb if storage_gb
+        # RULING (IMP-b439270dab0d): the step's OWN declaration outranks the
+        # brief, which is what the paragraph above always claimed — "an
+        # explicitly-authored input ... must always win" — and what the code
+        # did not do. `||=` only protected the ADVERTISED key, so a step
+        # carrying the alias (storage_gb: 500) had the brief's value stamped
+        # over the advertised key, and the published read order then let the
+        # brief beat the step's own explicit declaration.
+        #
+        # Reading through the shared resolver also brings present? semantics
+        # here: a blank `with_storage_gb: ""` falls through to the step's alias
+        # rather than blocking the stamp, and an explicit 0 stays 0 because 0
+        # is present — a legitimate "no storage" the brief must not overwrite.
+        declared = ::Shared::StorageSizeResolution.from_inputs(inputs)
+        declared = brief_storage_gb(brief) if declared.blank?
+        inputs["with_storage_gb"] = declared if declared.present?
 
         # F3 (IMP 019fe4c4-e813): naming provenance. The charter's dryrun-
         # prefix never reached the substrate — VMs came out template-named
