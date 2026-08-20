@@ -27,8 +27,12 @@ module Ai
   module GatedActions
     extend ActiveSupport::Concern
 
+    # @param on_blocked [#call, nil] receives the Result when the gate returns
+    #   :blocked. Defaults to the generic 422. #gate_update! supplies one so an
+    #   executor's ActiveRecord::RecordInvalid keeps its field-level errors
+    #   instead of arriving as "Gate evaluation failed" (IMP-1836bb0021b1).
     def gate!(action_category:, executor_class:, params:, source_type: nil, source_id: nil,
-              description: nil, on_proceed: nil)
+              description: nil, on_proceed: nil, on_blocked: nil)
       result = ::Ai::AutonomyGate.evaluate(
         action_category: action_category,
         executor_class: executor_class,
@@ -51,8 +55,12 @@ module Ai
         render_pending_approval(result.deferred_operation,
                                 message: "Approval required: #{action_category}")
       when :blocked
-        render_error(result.error || "Action blocked by policy",
-                     status: :unprocessable_content)
+        if on_blocked
+          on_blocked.call(result)
+        else
+          render_error(result.error || "Action blocked by policy",
+                       status: :unprocessable_content)
+        end
       end
     end
 
@@ -128,6 +136,92 @@ module Ai
         on_proceed: lambda { |result|
           created = scope.find(result.result&.dig(:data, result_key))
           render_success({ response_key => serializer.call(created) }, status: :created)
+        }
+      )
+    end
+
+    # Gated UPDATE — the sibling of #gate_create!, and the same ordering
+    # invariant read from the other end (IMP-1836bb0021b1).
+    #
+    #   gate_update!(
+    #     record:       @network,
+    #     attributes:   attrs,
+    #     response_key: :network,
+    #     serializer:   ->(n) { serialize_network_full(n) },
+    #     action_category: "sdwan.network_update",
+    #     executor_class:  "Sdwan::Executors::UpdateNetwork",
+    #     params:          { network_id: @network.id, attributes: attrs },
+    #     source_type: "Sdwan::Network", source_id: @network.id,
+    #     description: "Update SDWAN network '#{attrs['name'] || @network.name}'"
+    #   )
+    #
+    # THE SEQUENCE, which was hand-inlined at three SDWAN call sites and about
+    # to be copied to more:
+    #
+    #   1. assign the incoming attributes to the record IN MEMORY and validate.
+    #      An unsaveable payload keeps its field-level 422 and opens no audit
+    #      row for an operation that could never run — the same reason
+    #      #gate_create! validates its candidate first, argued at length there.
+    #   2. RELOAD, discarding those in-memory changes. Nothing may reach the row
+    #      except through the executor; step 1 is a dry run, not a write. Miss
+    #      this and an un-gated change rides along on any later save of the
+    #      instance — including the serializer's, on the :proceed branch.
+    #   3. gate!, whose executor performs the only real write.
+    #
+    # A VALIDATION FAILURE IS NOT A POLICY BLOCK. Ai::AutonomyGate#evaluate
+    # rescues StandardError and returns :blocked, so an executor raising
+    # RecordInvalid — a race against step 1, or a DB constraint no model
+    # validation mirrors — used to reach the client as a generic
+    # "Gate evaluation failed" 422 with no details.errors, strictly less than
+    # the plain inline update it replaced. The :blocked branch now re-renders
+    # that case as field errors, off the RecordInvalid's OWN record so the
+    # messages are the ones the write actually produced.
+    #
+    # DOUBLE VALIDATION IS ACCEPTED, deliberately. Step 1 and the executor's
+    # update! run the same uniqueness/format SELECTs, and on the :pending path
+    # step 1's work is thrown away and redone at approval time. The alternative
+    # — telling the executor to skip validation because the controller already
+    # checked — makes the executor stop being the sole authority over its own
+    # write and depends on a check that ran, on the deferred path, hours
+    # earlier against a row that may since have changed. The redundant SELECTs
+    # are the price of validating before opening an audit row, which is the
+    # invariant this helper exists to hold.
+    #
+    # `description:` stays a CALLER argument rather than being derived here:
+    # IMP-4a5094b22df0 owns approval-card derivation, and #gate_create! records
+    # the same boundary. Callers building one for a rename must read the
+    # INCOMING attributes — every argument is evaluated before step 1, so an
+    # interpolation of `record.name` is the pre-change value.
+    #
+    # @param record [ActiveRecord::Base] the persisted row being updated. Never
+    #   saved here; assigned, validated, and reloaded.
+    # @param attributes [Hash] the permitted incoming attributes.
+    # @param response_key [Symbol] key the serialized row renders under.
+    # @param serializer [#call] receives the reloaded record, returns the body.
+    def gate_update!(record:, attributes:, response_key:, serializer:,
+                     action_category:, executor_class:, params:,
+                     source_type: nil, source_id: nil, description: nil)
+      record.assign_attributes(attributes)
+      return render_validation_error(record) unless record.valid?
+
+      record.reload
+
+      gate!(
+        action_category: action_category,
+        executor_class: executor_class,
+        params: params,
+        source_type: source_type,
+        source_id: source_id,
+        description: description,
+        on_proceed: ->(_result) { render_success(response_key => serializer.call(record.reload)) },
+        on_blocked: lambda { |result|
+          invalid = result.exception
+          if invalid.is_a?(::ActiveRecord::RecordInvalid)
+            render_validation_error(invalid.record)
+          else
+            render_error(result.error || "Action blocked by policy",
+                         status: :unprocessable_content)
+          end
         }
       )
     end

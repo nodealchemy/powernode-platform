@@ -14,7 +14,16 @@ module Ai
   # Pending operations resume via the worker job after the ApprovalRequest
   # completes (see `Ai::ApprovalRequest#notify_source_of_decision`).
   class AutonomyGate
-    Result = Struct.new(:decision, :deferred_operation, :result, :error, keyword_init: true) do
+    # `exception` carries the error the rescue below swallowed, so a caller can
+    # tell a POLICY block from an executor that raised (IMP-1836bb0021b1).
+    # Additive and nil on every other branch: nothing that reads :decision or
+    # :error changes behaviour, and the rescue keeps returning :blocked exactly
+    # as before — this only stops the cause from being unrecoverable. The one
+    # consumer today is Ai::GatedActions#gate_update!, which renders an
+    # ActiveRecord::RecordInvalid as field-level errors instead of the generic
+    # "Gate evaluation failed" 422 that loses them.
+    Result = Struct.new(:decision, :deferred_operation, :result, :error, :exception,
+                        keyword_init: true) do
       def proceed?; decision == :proceed; end
       def pending?; decision == :pending; end
       def blocked?; decision == :blocked; end
@@ -70,7 +79,7 @@ module Ai
       end
     rescue StandardError => e
       Rails.logger.error("[AutonomyGate] evaluate(#{action_category}) failed: #{e.class}: #{e.message}")
-      Result.new(decision: :blocked, error: "Gate evaluation failed: #{e.message}")
+      Result.new(decision: :blocked, error: "Gate evaluation failed: #{e.message}", exception: e)
     end
 
     private
