@@ -105,10 +105,9 @@ RSpec.describe Ai::CircuitBreakerRegistry do
     end
   end
 
-  # Alias test
-  describe '.execute_with_breaker' do
-    it 'delegates to protect' do
-      result = described_class.execute_with_breaker('exec_test_service') { 'success' }
+  describe '.protect (block result)' do
+    it 'returns the block value' do
+      result = described_class.protect(service_name: 'exec_test_service') { 'success' }
       expect(result).to eq('success')
     end
   end

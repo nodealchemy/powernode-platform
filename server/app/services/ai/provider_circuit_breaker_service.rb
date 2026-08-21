@@ -77,11 +77,6 @@ class Ai::ProviderCircuitBreakerService
     end
   end
 
-  # Alias for backward compatibility
-  def reset_circuit
-    reset_circuit!
-  end
-
   # Alias for backward compatibility (returns symbol instead of string)
   def circuit_state
     super.to_sym

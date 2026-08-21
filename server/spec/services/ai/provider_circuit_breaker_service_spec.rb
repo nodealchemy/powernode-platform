@@ -93,10 +93,10 @@ RSpec.describe Ai::ProviderCircuitBreakerService, type: :service do
     end
   end
 
-  describe '#reset_circuit' do
+  describe '#reset_circuit!' do
     it 'resets to closed state' do
       breaker.force_open!
-      breaker.reset_circuit
+      breaker.reset_circuit!
 
       expect(breaker.circuit_state).to eq(:closed)
     end
