@@ -17,9 +17,8 @@ class ApiClient
     end
   end
 
-  def initialize(base_url: nil, worker_token: nil)
+  def initialize(base_url: nil)
     @base_url = base_url || PowernodeWorker.application.config.backend_api_url
-    # worker_token parameter kept for backward compatibility but ignored — JWT used instead
     @client = build_client
   end
 

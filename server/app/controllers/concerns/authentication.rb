@@ -246,12 +246,6 @@ module Authentication
     require_any_permission("admin.access", *also_allow)
   end
 
-  # Deprecated: Use permission checks instead
-  def require_admin!
-    # Legacy method - redirects to permission check
-    require_any_permission("admin.access", "system.admin")
-  end
-
   # Check if current entity (user or worker) has permission without rendering error
   def has_permission?(permission_name)
     # Account-switch / delegation session: the JWT carries a delegation_id and the
@@ -295,7 +289,11 @@ module Authentication
     delegation.effective_permissions.include?(permission_name)
   end
 
-  # Alias for backwards compatibility
+  # LIVE controller-level permission check — not disposable back-compat.
+  # Distinct from User#can?(permission_or_action, resource = nil): this one is
+  # the controller-side single-arg form resolved against the request's entity
+  # (user OR worker, delegation-aware). Called from controllers by the bare
+  # name, so a plain grep for `.can?` will not find its callers.
   def can?(permission_name)
     has_permission?(permission_name)
   end

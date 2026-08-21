@@ -279,7 +279,7 @@ RSpec.describe Devops::Git::GithubApiClient do
     end
   end
 
-  describe '#list_workflow_jobs' do
+  describe '#get_workflow_run_jobs' do
     before do
       stub_request(:get, 'https://api.github.com/repos/owner/repo/actions/runs/111/jobs')
         .to_return(
@@ -296,10 +296,10 @@ RSpec.describe Devops::Git::GithubApiClient do
     end
 
     it 'returns list of jobs for workflow run' do
-      jobs = client.list_workflow_jobs('owner', 'repo', 111)
+      jobs = client.get_workflow_run_jobs('owner', 'repo', 111)
 
-      expect(jobs[:total_count]).to eq(2)
-      expect(jobs[:jobs].length).to eq(2)
+      expect(jobs.length).to eq(2)
+      expect(jobs.map { |j| j[:name] }).to eq(%w[build test])
     end
   end
 

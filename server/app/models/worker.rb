@@ -9,11 +9,6 @@ class Worker < ApplicationRecord
   # Virtual attributes
   attr_accessor :token
 
-  # Method alias for test compatibility
-  def auth_token
-    token
-  end
-
   # Validations
   validates :name, presence: true, length: { minimum: 3, maximum: 50 }
   validates :description, length: { maximum: 255 }
