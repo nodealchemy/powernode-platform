@@ -647,13 +647,6 @@ class WorkerJobService
     def fetch_sidekiq_stats
       new.make_worker_request("GET", "/api/sidekiq/stats")
     end
-
-    private
-
-    # Legacy aliases for backwards compatibility
-    alias_method :enqueue_ci_cd_step_execution, :enqueue_devops_step_execution
-    alias_method :enqueue_ci_cd_pipeline_execution, :enqueue_devops_pipeline_execution
-    alias_method :enqueue_ci_cd_approval_notification, :enqueue_devops_approval_notification
   end
 
   def make_worker_request(method, path, payload = {})
