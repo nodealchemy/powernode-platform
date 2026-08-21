@@ -176,11 +176,44 @@ module Ai
       # core does not reference the extension's strategy list.
       #
       # This is deliberately NOT a second entry in #auto_apply?'s allowlist:
-      # removals never auto-apply regardless of bounds (ratified §4). Core
-      # names it because VERIFICATION has to — a removal creates nothing, so
-      # `VerificationService` must recognise the strategy to avoid grading it
-      # with the instance-creation oracle.
+      # removals never auto-apply regardless of bounds (ratified §4). It is
+      # named here because two readers need it: `VerificationService` (a
+      # removal creates nothing, so it must not be graded with the
+      # instance-creation oracle) and the `cost_control` composer below, which
+      # emits it (IMP-e68a93c47106).
       REMOVAL_STRATEGY = "remove_replicas"
+
+      # Scale-IN step size, by cost-breach severity.
+      #
+      # THE SHAPE LOOKS LIKE #recommended_replica_count's LADDER AND IS NOT THE
+      # SAME THING, so do not "unify" them. The scale-OUT ladder steps off a
+      # LIVE replica count that the scale-out itself moves, so successive
+      # passes converge. This one reads `breach_pct` over MONTH-TO-DATE cost,
+      # which is monotone non-decreasing within a billing month: removing
+      # replicas lowers the burn RATE, never the accumulated total. So the
+      # observation this ladder reads cannot improve in response to the action,
+      # and once MTD passes the severe threshold every later proposal composes
+      # the larger rung. There is no feedback loop here to converge.
+      #
+      # The bound is therefore doing ALL of the work, and that is why it is
+      # small: it caps what a single proposal may shed on a reading that will
+      # not answer back. Each proposal is also a separate human decision (a
+      # removal never auto-applies), so the operator is the loop this metric
+      # cannot close.
+      #
+      # Deliberately NOT proportional to the overshoot either. Shedding 30% of
+      # spend is not "remove 30% of the replicas" — replicas do not cost the
+      # same as each other (different instance types, different attached
+      # storage), so a proportional count is a fiction dressed as arithmetic.
+      #
+      # `target_count` here is a COUNT TO REMOVE (a delta), so no absolute
+      # baseline is fabricated and there is no ratchet to reintroduce. Both
+      # rungs sit well inside the actuating skill's own 1..MAX_DELTA bound, and
+      # the skill clamps the removal at its own replica floor — core never
+      # composes a scale-to-zero.
+      SEVERE_COST_BREACH_PCT   = 50.0
+      SEVERE_REMOVAL_REPLICAS  = 2
+      DEFAULT_REMOVAL_REPLICAS = 1
 
       # Kwargs the `scale_project` skill requires, as the deterministic
       # composer understands them. #bindable? reads requirements live through
@@ -215,16 +248,17 @@ module Ai
       DECLINE_LOG_INTERVAL = 1.hour
 
       # Change types that remain REQUESTABLE — so the advertised MCP schema
-      # stays stable across INC-4 — but cannot be actuated yet. An operator
-      # asking for one gets this reason instead of a generic "nothing could
-      # be composed".
-      UNSUPPORTED_CHANGE_TYPES = {
-        "cost_control" =>
-          "cost_control is not supported until this composer can compose a " \
-          "scale-in step: it scales IN, and while the scaling skill now offers " \
-          "`remove_replicas` (INC-4), nothing here derives a scale-in delta or " \
-          "its inputs, so any composed step would fail at execution."
-      }.freeze
+      # stays stable — but cannot be actuated yet. An operator asking for one
+      # gets this reason instead of a generic "nothing could be composed".
+      #
+      # CURRENTLY EMPTY, and that is the accurate statement: every requestable
+      # change type has a composer. `cost_control` was the last entry and was
+      # removed in IMP-e68a93c47106 when the scale-in composer below landed —
+      # an advertisement of "not supported" that outlives its cause is its own
+      # defect. The mechanism stays because the next change type to be
+      # requestable-before-actuatable needs it; an entry here must be deleted
+      # in the same commit that composes for it.
+      UNSUPPORTED_CHANGE_TYPES = {}.freeze
 
       DEFAULT_TEMPERATURE = 0.2
       DEFAULT_MAX_TOKENS  = 1024
@@ -542,8 +576,8 @@ module Ai
       # This mirrors the provisioning decomposition redesign, which replaced
       # LLM decomposition with deterministic synthesis for recognized briefs.
       #
-      # An EMPTY deterministic result is a decision (converged, or a declined
-      # cost_control), never a miss — it must not fall through to the LLM.
+      # An EMPTY deterministic result is a decision (converged), never a miss —
+      # it must not fall through to the LLM.
       def build_steps_for(signal, change_type)
         steps =
           if DETERMINISTIC_CHANGE_TYPES.include?(change_type)
@@ -614,20 +648,7 @@ module Ai
 
           inputs.merge!(scale_inputs)
         when "cost_control"
-          # A cost breach implies scaling IN, and no scale-in strategy exists:
-          # the `scale_project` skill offers only additive strategies. Any
-          # step composed here would name an actuator it cannot bind to —
-          # it fails at execution with `missing required input: project_id` —
-          # which is exactly what shaping to the executor contract forbids.
-          # Declining is the honest composition. INC-4 (IMP-216a6dbc7e32)
-          # adds `remove_replicas`; wire this branch up then.
-          log_decline_throttled(
-            "cost_control",
-            "[AdaptationProposerService] declining to compose cost_control for " \
-            "mission=#{mission.id}: no scale-in strategy available " \
-            "(target_usd=#{payload['target_usd'].inspect})"
-          )
-          return []
+          inputs.merge!(scale_in_inputs(payload))
         when "relocate"
           inputs["target_regions"] = brief_regions
         end
@@ -719,10 +740,16 @@ module Ai
 
         delta = desired - observed
         if delta <= 0
-          # Converged (0) or over-provisioned (<0). `scale_project` offers
-          # only additive strategies, so there is no scale-IN to compose:
-          # emitting an add_replicas step for an over-count would grow a
-          # fleet that is already too large. Stay quiet instead.
+          # Converged (0) or over-provisioned (<0). Emitting an add_replicas
+          # step for an over-count would grow a fleet that is already too
+          # large, so stay quiet.
+          #
+          # A scale-IN strategy DOES exist now (see #scale_in_inputs), so
+          # over-provision drift is composable in principle — it is out of
+          # scope for IMP-e68a93c47106, which wired `cost_control` only. This
+          # arm stays additive by DECISION, not by impossibility; widening it
+          # means giving drift the same never-auto-apply treatment removals get
+          # and is its own piece of work.
           log_decline_throttled(
             "no_scale_out",
             "[AdaptationProposerService] no scale-out composed mission=#{mission.id} " \
@@ -774,6 +801,42 @@ module Ai
           "target_count" => delta,
           "scaling_strategy" => SCALE_OUT_STRATEGY
         }.merge(footprint)
+      end
+
+      # Composes the scale-IN half of a `cost_control` adaptation
+      # (IMP-e68a93c47106). Always returns inputs — unlike #scale_out_inputs
+      # there is no arm that can decline, and the asymmetry is the point:
+      #
+      #   A SCALE-OUT must know the fleet. It reports an ABSOLUTE
+      #   `desired_replica_count` measured against the mission's ceiling, and
+      #   it has to name the template / region / instance type the new replicas
+      #   are cut from. Absent any of those it composes a step that cannot bind
+      #   — so it declines.
+      #
+      #   A REMOVAL knows enough by construction. `target_count` is a COUNT TO
+      #   REMOVE, the actuating skill resolves the victims itself (the newest
+      #   replicas of this mission's own set, behind its blast-radius prefix
+      #   rail) and clamps at its own replica floor, and nothing is created, so
+      #   no footprint is required. The three kwargs below are the executor's
+      #   full contract for this strategy.
+      #
+      # No `desired_replica_count`: a removal has no absolute target, and
+      # inventing one would hand #auto_apply? a number to measure on a plan
+      # that must be ineligible regardless of any number.
+      def scale_in_inputs(payload)
+        {
+          "project_id" => mission.id,
+          "target_count" => removal_replica_count(payload),
+          "scaling_strategy" => REMOVAL_STRATEGY
+        }
+      end
+
+      # See the SEVERE_COST_BREACH_PCT / *_REMOVAL_REPLICAS constants for why
+      # this is a bounded ladder rather than a proportional shed.
+      def removal_replica_count(payload)
+        return SEVERE_REMOVAL_REPLICAS if payload["breach_pct"].to_f >= SEVERE_COST_BREACH_PCT
+
+        DEFAULT_REMOVAL_REPLICAS
       end
 
       # Where the mission is scaling FROM — the LIVE fleet, never the brief.
@@ -1035,8 +1098,15 @@ module Ai
         skill = step_attrs["skill"]
         case skill
         when "scale_project"
-          desired = step_attrs.dig("inputs", "desired_replica_count")
-          "Scale project (#{change_type})#{desired ? " → #{desired} replicas" : ''}"
+          # A removal carries a DELTA, not an absolute, so the scale-out
+          # rendering ("→ N replicas") would read as a target it never had.
+          if step_attrs.dig("inputs", "scaling_strategy").to_s == REMOVAL_STRATEGY
+            count = step_attrs.dig("inputs", "target_count")
+            "Scale project in (#{change_type}) → remove #{count} replica(s)"
+          else
+            desired = step_attrs.dig("inputs", "desired_replica_count")
+            "Scale project (#{change_type})#{desired ? " → #{desired} replicas" : ''}"
+          end
         when "relocate_workload"
           regions = Array(step_attrs.dig("inputs", "target_regions")).join(", ")
           "Relocate workload#{regions.empty? ? '' : " → #{regions}"}"

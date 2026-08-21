@@ -488,7 +488,7 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "convergence + execu
       expect(plan.steps.in_order.first.execution_config["composed_by"]).to eq("deterministic")
     end
 
-    it "reaches the cost_control decline even with an active LLM" do
+    it "reaches the deterministic cost_control composer even with an active LLM" do
       mission = build_mission!
       allow_any_instance_of(described_class)
         .to receive(:diff_from_llm).and_return(llm_scale_proposal)
@@ -500,12 +500,15 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "convergence + execu
         fingerprint: "project_cost_breach:#{mission.id}"
       )
 
-      # Under LLM-first this composed the LLM's scale_project step and the
-      # decline was unreachable in production.
-      expect(
-        described_class.new(account: account, mission: mission)
-          .propose_from_signals(signals: [ cost ])
-      ).to be_nil
+      # Under LLM-first this composed the LLM's ADDITIVE scale_project step —
+      # a cost breach answered by growing the fleet. cost_control is
+      # deterministic, so the scale-IN composer owns it outright.
+      plan = described_class.new(account: account, mission: mission)
+        .propose_from_signals(signals: [ cost ])
+
+      expect(step_inputs(plan)["scaling_strategy"])
+        .to eq(described_class::REMOVAL_STRATEGY)
+      expect(plan.steps.in_order.first.execution_config["composed_by"]).to eq("deterministic")
     end
 
     it "still routes operator-only change types to the LLM, stamped as such" do
@@ -532,8 +535,8 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "convergence + execu
   # ---------------------------------------------------------------------
   # cost_control cannot bind to an additive-only actuator
   # ---------------------------------------------------------------------
-  describe "cost_control declines rather than composing an unbindable step" do
-    it "proposes nothing for a cost breach while no scale-in strategy exists" do
+  describe "cost_control composes a bindable scale-IN step" do
+    it "shapes the removal to the executor's contract" do
       mission = build_mission!
       cost = double(
         "Signal",
@@ -554,8 +557,14 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "convergence + execu
 
       # Previously this composed a scale_project step carrying neither
       # project_id nor scaling_strategy — it could only ever fail at
-      # execution. INC-4 (IMP-216a6dbc7e32) adds remove_replicas.
-      expect(plan).to be_nil
+      # execution, so the arm declined instead. INC-4 added remove_replicas and
+      # IMP-e68a93c47106 wired the arm to it: the step now carries the whole
+      # contract, so it survives #bindable? and can actually run.
+      inputs = step_inputs(plan)
+      described_class::SCALE_PROJECT_REQUIRED_INPUTS.each do |key|
+        expect(inputs[key]).to be_present, "expected the scale-IN step to carry #{key}"
+      end
+      expect(inputs["scaling_strategy"]).to eq(described_class::REMOVAL_STRATEGY)
     end
   end
 
@@ -621,19 +630,32 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "convergence + execu
   end
 
   # ---------------------------------------------------------------------
-  # Operator-facing reason for a requestable-but-unactuatable change type.
+  # Operator-facing behaviour of the now-actuatable cost_control lane.
   # ---------------------------------------------------------------------
   describe "operator request for cost_control" do
-    it "raises an actionable reason naming the missing scale-in strategy" do
+    it "composes a removal rather than raising an unsupported-change-type error" do
+      # Was: asserted UnsupportedChangeTypeError naming the missing scale-in
+      # strategy. IMP-e68a93c47106 wired the composer, so the refusal is gone
+      # and the entry that produced it was deleted with it.
       mission = build_mission!
-      service = described_class.new(account: account, mission: mission)
+      result = described_class.new(account: account, mission: mission)
+        .propose_change(change_type: "cost_control")
 
-      expect { service.propose_change(change_type: "cost_control") }
-        .to raise_error(described_class::UnsupportedChangeTypeError, /remove_replicas/)
+      expect(result[:plan]).not_to be_nil
+      expect(step_inputs(result[:plan])["scaling_strategy"])
+        .to eq(described_class::REMOVAL_STRATEGY)
+      # A removal is never eligible for unattended application, no matter who
+      # asked for it.
+      expect(result[:auto_apply]).to be false
+    end
+
+    it "advertises no change type as unsupported" do
+      # A stale "not supported" advertisement is its own defect — an entry here
+      # must be deleted in the same commit that composes for it.
+      expect(described_class::UNSUPPORTED_CHANGE_TYPES).to be_empty
     end
 
     it "keeps cost_control requestable so the advertised schema stays stable" do
-      # Removing and re-adding it would churn the MCP schema when INC-4 lands.
       expect(described_class::REQUESTABLE_CHANGE_TYPES).to include("cost_control")
     end
   end
