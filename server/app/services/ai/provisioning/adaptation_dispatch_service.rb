@@ -111,6 +111,29 @@ module Ai
       # status alone cannot answer that question.
       DISPATCH_STAMP_KEY = "adaptation_dispatched"
 
+      # Change types whose triggering fingerprint CANNOT clear inside the fleet
+      # validator's settle window even when the adaptation worked perfectly.
+      # No pending RemediationOutcome is minted for one — see #record_outcome!.
+      #
+      # DECLARED, never inferred, exactly as the fleet validator's own
+      # `NON_REMEDIATING_ACTION_CATEGORIES` is: a lane earns its place here by
+      # being listed, because "the signal is still firing" is normally real
+      # evidence that a remediation did not stick and must keep scoring
+      # ineffective.
+      #
+      #   cost_control — the `project_cost_breach` fingerprint is derived from
+      #     MONTH-TO-DATE spend against a ceiling. MTD cost is monotone
+      #     non-decreasing within a billing month, so removing replicas lowers
+      #     the burn RATE and can never pull the accumulated total back under
+      #     the ceiling within the window. Every executed cost adaptation would
+      #     therefore score INEFFECTIVE, and three of those trip the fleet
+      #     validator's stuck streak into a false `fleet.remediation_stuck`
+      #     HIGH escalation — the same failure that put the propose-only
+      #     exemption in `RemediationValidator#record_proceeded!`. Recorded
+      #     here (IMP-e68a93c47106) because wiring the cost_control composer is
+      #     what first made this lane able to reach settle at all.
+      UNSCORABLE_CHANGE_TYPES = %w[cost_control].freeze
+
       class NotAnAdaptationPlanError < ArgumentError; end
 
       attr_reader :account, :mission
@@ -688,10 +711,14 @@ module Ai
       # on a synthetic fingerprint would score EFFECTIVE for free on the next
       # tick and manufacture a success in the ground-truth table the LEARN step
       # reads.
+      #
+      # NO SCORABLE FINGERPRINT, NO OUTCOME EITHER — see
+      # UNSCORABLE_CHANGE_TYPES.
       def record_outcome!(plan, status: "pending")
         data = plan_data(plan)
         fingerprint = data["signal_fingerprint"].presence
         return false if fingerprint.blank?
+        return false if UNSCORABLE_CHANGE_TYPES.include?(data["change_type"].to_s)
 
         gate = gate_provider
         return false unless gate.respond_to?(:record_adaptation_outcome!)
