@@ -109,7 +109,7 @@ module Ai
         cfg = step.execution_config.is_a?(Hash) ? step.execution_config : {}
         skill = (cfg["skill"] || cfg[:skill]).to_s
         inputs = (cfg["inputs"] || cfg[:inputs] || {})
-        {
+        node = {
           id: step.id.to_s,
           step_number: step.step_number,
           name: cfg["name"] || cfg[:name] || derive_step_name(skill, inputs),
@@ -119,6 +119,15 @@ module Ai
           status: step.respond_to?(:status) ? step.status.to_s : "pending",
           on_failure: cfg["on_failure"] || cfg[:on_failure]
         }
+
+        # IMP-1fc00ac8547a: declared-required inputs the composer resolves but
+        # this step did not get. Served so the omission reaches the plan-review
+        # surface rather than living only in the composer's log. Added only
+        # when present — an ADDITIVE key, so no existing node field changes
+        # shape for a healthy step.
+        omitted = cfg["unnormalized_inputs"] || cfg[:unnormalized_inputs]
+        node[:unnormalized_inputs] = omitted if omitted.present?
+        node
       end
 
       # Derive a human-friendly headline from skill + inputs so 4 identical
