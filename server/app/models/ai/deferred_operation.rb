@@ -251,13 +251,26 @@ module Ai
       # The owner's account id is logged, never raised: on the auto-approve path
       # Ai::AutonomyGate rescues and renders e.message straight back to the
       # caller, so naming the owner would answer a cross-tenant probe.
+      #
+      # The SOURCE ROW is withheld for the same reason (IMP-dae0de4e562b). The
+      # message used to read "<Type> <uuid> is not in account …", and while the
+      # caller did name that pair themselves at gate time, echoing it back on
+      # this branch and not on any other is what makes it an answer: the
+      # assertion no-ops for a pair that resolves to nothing (see
+      # #source_account_id), so "refused by name" versus "the executor's own
+      # error" told a caller THAT the row exists. It travels further than the
+      # raise, too — #fail! writes "#{e.class}: #{e.message}" into
+      # error_message, a column the approvals surface serves back. So the raise
+      # names only the action it refused; the pair and its owner stay in the log
+      # above, which is where an operator investigating a real cross-tenant
+      # attempt reads them.
       Rails.logger.warn(
         "[DeferredOperation##{id}] refused #{action_category}: #{source_type} #{source_id} " \
         "belongs to account #{owner_id}, not #{account_id}"
       )
       raise CrossAccountError,
-            "#{source_type} #{source_id} is not in account #{account_id} — " \
-            "refusing to execute #{action_category}"
+            "refusing to execute #{action_category}: " \
+            "its recorded source is not in account #{account_id}"
     end
 
     # nil means "no assertion can be made", which is NOT the same as "allowed":

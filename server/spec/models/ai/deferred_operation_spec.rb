@@ -129,13 +129,47 @@ RSpec.describe Ai::DeferredOperation, type: :model do
       expect(op.reload.status).to eq('failed')
     end
 
-    it 'names the violation on the failed operation' do
+    # IMP-dae0de4e562b: this used to pin `/#{foreign.id}/` — the refusal NAMED
+    # the row it refused. The owner's account id was already withheld (logged,
+    # not raised), but naming the source told a caller that the pair they
+    # guessed resolves to a real row somewhere, which is the same existence
+    # oracle in a different coat. It travels further than the raise, too:
+    # #fail! writes "#{e.class}: #{e.message}" to error_message, a column the
+    # approvals surface serves back. So the raise now names only the action it
+    # refused; the record and its owner stay in the Rails log.
+    it 'names the refused action on the failed operation, never the source row' do
       foreign = op_with_source(make_op, account: create(:account))
       op = op_with_source(foreign)
 
-      expect { op.execute_now! }
-        .to raise_error(described_class::CrossAccountError, /#{foreign.id}/)
+      raised = begin
+        op.execute_now!
+        nil
+      rescue StandardError => e
+        e
+      end
+
+      expect(raised).to be_a(described_class::CrossAccountError)
+      expect(raised.message).to include('test.act')
+      expect(raised.message).not_to include(foreign.id),
+                                   "the refusal names the row it refused: #{raised.message.inspect}"
       expect(op.reload.error_message).to include('CrossAccountError')
+      expect(op.error_message).not_to include(foreign.id),
+                                      'the refused row is persisted where the approvals surface serves it'
+    end
+
+    it 'keeps the owning account out of the refusal as well' do
+      owner = create(:account)
+      foreign = op_with_source(make_op, account: owner)
+      op = op_with_source(foreign)
+
+      raised = begin
+        op.execute_now!
+        nil
+      rescue StandardError => e
+        e
+      end
+
+      expect(raised.message).not_to include(owner.id)
     end
 
     it 'dispatches normally when the recorded source belongs to this account' do
