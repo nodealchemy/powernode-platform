@@ -25,6 +25,32 @@ export interface AutonomyConfigSource {
    * body — see that type for why each entry carries the edited row's identity.
    */
   updateEndpoint: string;
+  /**
+   * Which by_agent bucket a `by_domain` row belongs to, or `null` when this
+   * payload does not determine one. OPTIONAL: without it the hook reads
+   * `agent_bucket` and treats its absence as undeterminable.
+   *
+   * The extension supplies this because the RULE IS THE EXTENSION'S
+   * (IMP-82b43009d57b). `agent_bucket` is computed by that extension's own
+   * serializer, and an extension deployed against a server older than the field
+   * is the one place where the rule has to be reconstructed from the fields that
+   * server does ship. Core cannot know those fields, and core must not grow a
+   * new exported module for them: `HOST_APP_IDS` is the extension build's
+   * externals list, so a new id there makes the extension bundle unloadable by
+   * any core that predates it — an outage in the OPPOSITE skew direction from
+   * the one being fixed, and a silent one (`extensionLoader` logs and continues,
+   * so the whole extension simply vanishes from the UI).
+   *
+   * Passing the rule as DATA through this existing seam is version-tolerant in
+   * both directions: an older core ignores the extra property, and a newer core
+   * given no property falls back to reading the field.
+   *
+   * Return `null` rather than a default for any row you cannot place, INCLUDING
+   * one you can bucket but could not address (see `AutonomyPolicyUpdate`): the
+   * hook drops such rows entirely so nothing renders an editable control over a
+   * posture it cannot read or a row it cannot write back to.
+   */
+  bucketForRow?: (row: AutonomyDomainPolicy) => string | null;
 }
 
 /**
@@ -67,13 +93,27 @@ export type AgentPoliciesMap = Record<string, Record<string, AutonomyLevel>>;
  * by_domain contract: the hook still tolerates their absence at RUNTIME, since
  * the other payload shapes it accepts carry no identity at all, and mock
  * responses are plain literals that no compiler checks against this type.
+ *
+ * `agent_bucket` is OPTIONAL, alone among these, and that is deliberate
+ * (IMP-82b43009d57b). It is the newest field on the row — the extension began
+ * shipping it at d975e94a, long after the rest — and core and the System
+ * extension deploy as SEPARATE modules, so a frontend running against a server
+ * that predates it is a normal operational state rather than a hypothetical.
+ * Marking it required told every reader it would be there and cost nothing at
+ * runtime, which is how a whole account's autonomy posture came to be
+ * misreported as manual. Never read it directly: `AutonomyConfigSource.
+ * bucketForRow` is the single reader, it belongs to the extension whose server
+ * emits the field, and it is the only thing that knows what to do when the field
+ * is absent.
  */
 export interface AutonomyDomainPolicy {
   action_category: string;
-  agent_bucket: string;
+  agent_bucket?: string;
   policy: AutonomyLevel;
   scope: string;
   agent_id: string | null;
+  /** Present since the row's first version; the fallback bucket reads it. */
+  agent_name?: string | null;
 }
 
 /**

@@ -49,6 +49,28 @@ function identityOf(row: { scope?: unknown; agent_id?: unknown }): RowIdentity |
   return { scope: row.scope, agent_id: agentId };
 }
 
+/**
+ * Which by_agent bucket a by_domain row belongs to, when the source named no
+ * rule of its own.
+ *
+ * A MISSING `agent_bucket` is NOT "Manual Operations" (IMP-82b43009d57b). That
+ * default is what made a deploy-skewed modal misreport an account's whole
+ * autonomy posture: core and an extension's server half ship as SEPARATE
+ * modules, so a frontend newer than the server that first emitted the field is
+ * a normal operational state, and every agent-scoped row then landed in the
+ * manual group — displayed as manual, and carrying the agent row's IDENTITY, so
+ * an operator adjusting a manual control submitted a verb against a row they
+ * were never shown.
+ *
+ * Core cannot reconstruct the field: it is computed by the extension's own
+ * serializer from that extension's own model. So core answers `null` — "I
+ * cannot place this" — and an extension that knows better passes
+ * `source.bucketForRow`.
+ */
+function defaultBucketForRow(row: { agent_bucket?: unknown }): string | null {
+  return typeof row.agent_bucket === 'string' && row.agent_bucket !== '' ? row.agent_bucket : null;
+}
+
 export function useAutonomyConfig(source: AutonomyConfigSource) {
   const [agentPolicies, setAgentPolicies] = useState<AgentPoliciesMap>({});
   const [domains, setDomains] = useState<AutonomyDomainsMap>({});
@@ -126,14 +148,25 @@ export function useAutonomyConfig(source: AutonomyConfigSource) {
             domainMap[domain] = parsed;
 
             parsed.forEach((row) => {
-              // Same default SystemSettingsPanel's buildGroups applies. The two
-              // used to disagree — this one skipped a blank bucket while the
-              // panel rendered it under 'Manual Operations' — which left that
-              // control with no verb AND no identity, so an edit to it would
-              // land the identity-less write this change exists to stop.
-              // Unreachable while agent_bucket_for always returns a name, but
-              // two files must not encode different rules for one field.
-              const bucket = row.agent_bucket || 'Manual Operations';
+              // ONE rule for this field, and it is the SOURCE's — the panel that
+              // renders these rows into groups must call the same function, or
+              // the two encode different rules for one field and a group appears
+              // that this map has no verb for.
+              const bucket = source.bucketForRow ? source.bucketForRow(row) : defaultBucketForRow(row);
+
+              // Unplaceable: we cannot say whose posture this row is, so any
+              // group we filed it under would be invented — and an invented
+              // group is what carries an edit to the wrong row. Attribute it to
+              // nothing and let the renderer say so.
+              //
+              // ADDRESSABILITY is the source's business, not a second predicate
+              // here. A source that can name a bucket only by reconstructing it
+              // must also confirm the row can be written back to, and answer
+              // `null` when it cannot (see `AutonomyConfigSource.bucketForRow`).
+              // Splitting the two predicates across the two files is what makes
+              // a panel render a group this map holds no verb for.
+              if (bucket === null) return;
+
               byAgent[bucket] = byAgent[bucket] || {};
               if (byAgent[bucket][row.action_category] === undefined) {
                 setPolicy(bucket, row.action_category, row.policy ?? 'require_approval', identityOf(row));
@@ -149,7 +182,7 @@ export function useAutonomyConfig(source: AutonomyConfigSource) {
       })
       .catch((err) => logger.error('Failed to load autonomy policies', err))
       .finally(() => setLoading(false));
-  }, [source.fetchEndpoint]);
+  }, [source.fetchEndpoint, source.bucketForRow]);
 
   useEffect(() => {
     fetchPolicies();
@@ -166,14 +199,40 @@ export function useAutonomyConfig(source: AutonomyConfigSource) {
     [agentPolicies, localOverrides]
   );
 
+  /**
+   * The ONLY door into `localOverrides`, and therefore the only door onto the
+   * wire — `save()` sends exactly what this let in. So the refusal below is the
+   * whole of "an unreadable row cannot become a write"; a second filter in
+   * `save()` would guard a state that cannot exist and could never be tested
+   * apart from this one.
+   *
+   * A bucket absent from `agentPolicies` is refused. That set is every bucket
+   * the payload produced — the by_agent pivot's own keys plus every bucket a
+   * by_domain row was placeable into — so naming anything else means the caller
+   * is editing a group this hook has no row for. Rows it could not place are
+   * exactly the ones missing from it (IMP-82b43009d57b).
+   *
+   * Keyed on membership rather than on a sentinel bucket NAME on purpose: a
+   * bucket name is an `Ai::Agent#name`, `Ai::Agent` validates no format, and a
+   * magic string would therefore be a name a real agent can hold — making that
+   * agent's policies silently unconfigurable the day someone picks it.
+   */
   const updatePolicy = useCallback(
     (agentName: string, action: string, level: AutonomyLevel) => {
+      if (agentPolicies[agentName] === undefined) {
+        logger.warn('Refusing an autonomy edit for a bucket no policy row was read into', {
+          bucket: agentName,
+          action,
+        });
+        return;
+      }
+
       setLocalOverrides((prev) => ({
         ...prev,
         [agentName]: { ...prev[agentName], [action]: level },
       }));
     },
-    []
+    [agentPolicies]
   );
 
   /**
