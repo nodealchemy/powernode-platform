@@ -13,7 +13,3 @@ export function createMockAxiosResponse<T = any>(data: T, status = 200): AxiosRe
   };
 }
 
-// Legacy wrapper for backward compatibility
-export function createMockApiResponse<T>(data: T, success = true) {
-  return createMockAxiosResponse(data, success ? 200 : 400);
-}
