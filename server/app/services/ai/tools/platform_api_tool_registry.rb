@@ -227,6 +227,7 @@ module Ai
         "system_sdwan_get_peer"        => "Ai::Tools::SdwanTool",
         "system_sdwan_set_peer_tags"   => "Ai::Tools::SdwanTool",
         "system_sdwan_attach_peer"     => "Ai::Tools::SdwanTool",
+        "system_sdwan_update_peer"     => "Ai::Tools::SdwanTool",
         "system_sdwan_detach_peer"     => "Ai::Tools::SdwanTool",
         "system_sdwan_get_topology"    => "Ai::Tools::SdwanTool",
         # Slice 2: firewall
