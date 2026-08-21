@@ -511,17 +511,52 @@ describe('useAutonomyConfig', () => {
       },
     });
 
-    it('files no row under an invented bucket when the payload omits agent_bucket', async () => {
+    // A source with NO `bucketForRow` is, by construction, a renderer that
+    // predates the seam — `powernode-extension-system` ships the panel, the
+    // source AND the Rails serializer in ONE module (its manifest's file_spec
+    // covers both /opt/powernode/extensions/system/** and
+    // /opt/powernode/frontend/dist/extensions/system/**), so an old source
+    // implies an old panel, and that panel groups by
+    // `agent_bucket || 'Manual Operations'`.
+    //
+    // So core's default MUST place the row where that panel will look for it.
+    // Answering "unplaceable" here instead drops the row from `agentPolicies`
+    // and `rowIdentities` while the old panel still renders a control for it —
+    // which shows the miss default `require_approval` (a verb the server never
+    // sent) and degrades the save to category + verb, which
+    // `System::AutonomyActions#update` resolves as `scope: "global"`. That is a
+    // BROADER, account-wide write than the agent row the operator was editing,
+    // and it is strictly worse than the mislabel it replaces.
+    //
+    // Core's job here is to agree with its renderer. Honest degradation is
+    // delivered through `bucketForRow`, where a renderer that asked for it can
+    // act on it.
+    it('places the row where a pre-seam panel will look, keeping its identity', async () => {
       mockGet.mockResolvedValue(skewed());
+      mockPatch.mockResolvedValue({ data: { ok: true } });
 
       const { result } = renderHook(() => useAutonomyConfig(source));
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      // Not 'Manual Operations', and not the agent either: core does not know
-      // this extension's rule, so it declines to guess.
-      expect(result.current.agentPolicies['Manual Operations']?.['system.instance_terminate'])
-        .toBeUndefined();
-      expect(result.current.agentNames).toEqual(['Manual Operations']);
+      // The row's OWN verb, not the miss default.
+      expect(result.current.getPolicy('Manual Operations', 'system.instance_terminate'))
+        .toBe('notify_and_proceed');
+
+      act(() => result.current.updatePolicy('Manual Operations', 'system.instance_terminate', 'block'));
+      await act(async () => { await result.current.save(); });
+
+      // The AGENT row, not a category-only body the server would widen to
+      // scope-"global".
+      expect(mockPatch).toHaveBeenCalledWith('/test/autonomy', {
+        updates: [
+          {
+            action_category: 'system.instance_terminate',
+            policy: 'block',
+            scope: 'agent',
+            agent_id: 'ops-custom-uuid',
+          },
+        ],
+      });
     });
 
     // Stands in for the extension's own `systemPolicyBucket`; this suite pins
@@ -543,6 +578,40 @@ describe('useAutonomyConfig', () => {
         .toBe('notify_and_proceed');
       expect(result.current.agentPolicies['Manual Operations']?.['system.instance_terminate'])
         .toBeUndefined();
+    });
+
+    // A source that DOES set the seam can answer "unplaceable", and the row must
+    // then be attributed to nothing at all — not to a coerced key. Dropping it
+    // is what keeps `updatePolicy`'s membership guard meaningful: a row filed
+    // under any fabricated bucket would make that bucket a member, and the
+    // guard would then wave through an edit to a row the renderer is showing as
+    // unreadable.
+    it('attributes a row to nothing when the source answers null', async () => {
+      const refusing = {
+        fetchEndpoint: '/test/autonomy',
+        updateEndpoint: '/test/autonomy',
+        bucketForRow: () => null,
+      };
+      mockGet.mockResolvedValue(skewed());
+      mockPatch.mockResolvedValue({ data: { ok: true } });
+
+      const { result } = renderHook(() => useAutonomyConfig(refusing as never));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // Only the bucket by_agent itself declared. No coerced key of any kind.
+      expect(result.current.agentNames).toEqual(['Manual Operations']);
+      expect(result.current.agentPolicies['Manual Operations']).toEqual({});
+
+      // And every plausible spelling of a coerced key is refused, not merely
+      // absent — absence alone would also hold if the key were simply named
+      // something else.
+      for (const key of ['null', 'undefined', '']) {
+        act(() => result.current.updatePolicy(key, 'system.instance_terminate', 'block'));
+      }
+      expect(result.current.isDirty).toBe(false);
+
+      await act(async () => { await result.current.save(); });
+      expect(mockPatch).not.toHaveBeenCalled();
     });
 
     it('writes such a row back to its own identity, from its own bucket', async () => {
@@ -567,6 +636,38 @@ describe('useAutonomyConfig', () => {
       });
     });
 
+  });
+
+  // ==========================================================================
+  // IMP-82b43009d57b — an inline source must not refetch itself in a loop.
+  //
+  // `bucketForRow` is a FUNCTION on a caller-owned object, and the documented
+  // usage is that each extension constructs its own source. A source built
+  // inline hands the hook a new function identity on every render, so treating
+  // it as a dependency of `fetchPolicies` refires the effect, which re-renders,
+  // which refires: measured at 19 GETs from one mount plus three re-renders.
+  // Only the endpoint string may cause a refetch.
+  // ==========================================================================
+  it('fetches once for a source rebuilt inline on every render', async () => {
+    mockGet.mockResolvedValue({
+      data: { data: { policies: { by_agent: { A: [{ action_category: 'x', policy: 'block' }] } } } },
+    });
+
+    const { result, rerender } = renderHook(() =>
+      useAutonomyConfig({
+        fetchEndpoint: '/test/autonomy',
+        updateEndpoint: '/test/autonomy',
+        bucketForRow: (row) => row.agent_bucket ?? null,
+      })
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    rerender();
+    rerender();
+    rerender();
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(mockGet).toHaveBeenCalledTimes(1);
   });
 
   // ==========================================================================

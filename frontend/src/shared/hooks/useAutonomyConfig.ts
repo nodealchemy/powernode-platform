@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '@/shared/services/apiClient';
 import type {
   AgentPoliciesMap,
@@ -53,22 +53,40 @@ function identityOf(row: { scope?: unknown; agent_id?: unknown }): RowIdentity |
  * Which by_agent bucket a by_domain row belongs to, when the source named no
  * rule of its own.
  *
- * A MISSING `agent_bucket` is NOT "Manual Operations" (IMP-82b43009d57b). That
- * default is what made a deploy-skewed modal misreport an account's whole
- * autonomy posture: core and an extension's server half ship as SEPARATE
- * modules, so a frontend newer than the server that first emitted the field is
- * a normal operational state, and every agent-scoped row then landed in the
- * manual group — displayed as manual, and carrying the agent row's IDENTITY, so
- * an operator adjusting a manual control submitted a verb against a row they
- * were never shown.
+ * This KEEPS the legacy `|| 'Manual Operations'` default on purpose, and the
+ * reason is a packaging fact rather than a preference (IMP-82b43009d57b).
  *
- * Core cannot reconstruct the field: it is computed by the extension's own
- * serializer from that extension's own model. So core answers `null` — "I
- * cannot place this" — and an extension that knows better passes
- * `source.bucketForRow`.
+ * A source with no `bucketForRow` is, by construction, a renderer that predates
+ * the seam — and that renderer groups its rows by
+ * `row.agent_bucket || 'Manual Operations'`. Core's job here is to AGREE WITH
+ * ITS RENDERER. Answering "unplaceable" instead drops the row from
+ * `agentPolicies` and `rowIdentities` while that panel still renders a control
+ * for it, so the control shows the miss default `require_approval` — a verb the
+ * server never sent — and its save degrades to category + verb, which
+ * `System::AutonomyActions#update` resolves as `scope: "global"`. That is a
+ * BROADER, account-wide write than the agent row the operator was editing:
+ * strictly worse than the mislabel it would be replacing.
+ *
+ * Concretely, `powernode-extension-system` ships the panel, the source AND the
+ * Rails serializer in ONE module (its manifest file_spec covers both
+ * `/opt/powernode/extensions/system/**` and
+ * `/opt/powernode/frontend/dist/extensions/system/**`), so an old source
+ * implies an old panel. Core cannot fix that pairing's mislabel from here — the
+ * old panel's grouping is baked into the old bundle — and it must not make the
+ * pairing worse.
+ *
+ * The honest degradation this IMP is about is therefore delivered through
+ * `bucketForRow`, where a renderer that ASKED for it can act on it: it can
+ * answer `null` and render those rows read-only. That path is exercised when
+ * the panel ships with CORE instead — core's monolithic build glob-imports
+ * every `extensions/*​/frontend/src/register.ts` eagerly
+ * (`extensionLoader.ts`), so there the panel is new while the extension
+ * module's serializer can still be old.
  */
 function defaultBucketForRow(row: { agent_bucket?: unknown }): string | null {
-  return typeof row.agent_bucket === 'string' && row.agent_bucket !== '' ? row.agent_bucket : null;
+  return typeof row.agent_bucket === 'string' && row.agent_bucket !== ''
+    ? row.agent_bucket
+    : 'Manual Operations';
 }
 
 export function useAutonomyConfig(source: AutonomyConfigSource) {
@@ -77,6 +95,10 @@ export function useAutonomyConfig(source: AutonomyConfigSource) {
   const [localOverrides, setLocalOverrides] = useState<AgentPoliciesMap>({});
   const [rowIdentities, setRowIdentities] = useState<RowIdentityMap>({});
   const [loading, setLoading] = useState(true);
+
+  // See the dependency list of `fetchPolicies` for why this is a ref.
+  const bucketForRowRef = useRef(source.bucketForRow);
+  bucketForRowRef.current = source.bucketForRow;
 
   const fetchPolicies = useCallback(() => {
     setLoading(true);
@@ -152,7 +174,8 @@ export function useAutonomyConfig(source: AutonomyConfigSource) {
               // renders these rows into groups must call the same function, or
               // the two encode different rules for one field and a group appears
               // that this map has no verb for.
-              const bucket = source.bucketForRow ? source.bucketForRow(row) : defaultBucketForRow(row);
+              const rule = bucketForRowRef.current;
+              const bucket = rule ? rule(row) : defaultBucketForRow(row);
 
               // Unplaceable: we cannot say whose posture this row is, so any
               // group we filed it under would be invented — and an invented
@@ -182,7 +205,15 @@ export function useAutonomyConfig(source: AutonomyConfigSource) {
       })
       .catch((err) => logger.error('Failed to load autonomy policies', err))
       .finally(() => setLoading(false));
-  }, [source.fetchEndpoint, source.bucketForRow]);
+    // `bucketForRow` is deliberately NOT a dependency, and is read through a ref
+    // rather than captured. It is a FUNCTION on a caller-owned object, so a
+    // source built inline — "each extension constructs its own source", the
+    // documented usage — hands us a new identity on every render. As a dep that
+    // makes `fetchPolicies` change identity, which refires the effect below,
+    // which re-renders: measured at 19 GETs from one mount plus three
+    // re-renders. The endpoint string is the only thing that should ever cause
+    // a refetch; a changed rule takes effect on the next one.
+  }, [source.fetchEndpoint]);
 
   useEffect(() => {
     fetchPolicies();

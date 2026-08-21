@@ -27,8 +27,20 @@ export interface AutonomyConfigSource {
   updateEndpoint: string;
   /**
    * Which by_agent bucket a `by_domain` row belongs to, or `null` when this
-   * payload does not determine one. OPTIONAL: without it the hook reads
-   * `agent_bucket` and treats its absence as undeterminable.
+   * payload does not determine one.
+   *
+   * OPTIONAL, and its ABSENCE is meaningful: a source that does not set it is a
+   * renderer that predates this seam, and such a renderer groups its rows by
+   * `agent_bucket || 'Manual Operations'`. So the hook's fallback keeps exactly
+   * that legacy rule — it must agree with the renderer it is paired with.
+   * Answering "unplaceable" for an old renderer drops rows it still draws
+   * controls for, which then show a verb the server never sent and save a
+   * BROADER scope-"global" row than the one being edited.
+   *
+   * MUST HAVE A STABLE IDENTITY across renders — a module-level function, not
+   * an inline arrow rebuilt with the source. It is read through a ref rather
+   * than depended on, so an unstable one will not loop, but a changed rule only
+   * takes effect on the next fetch.
    *
    * The extension supplies this because the RULE IS THE EXTENSION'S
    * (IMP-82b43009d57b). `agent_bucket` is computed by that extension's own
@@ -47,8 +59,11 @@ export interface AutonomyConfigSource {
    *
    * Return `null` rather than a default for any row you cannot place, INCLUDING
    * one you can bucket but could not address (see `AutonomyPolicyUpdate`): the
-   * hook drops such rows entirely so nothing renders an editable control over a
-   * posture it cannot read or a row it cannot write back to.
+   * hook drops such rows entirely, so a renderer that sets this MUST also render
+   * those rows non-editably — dropping them from the map while still drawing a
+   * control for them is the failure mode described above. Note the
+   * addressability half only arises on a RECONSTRUCTION path: a row carrying
+   * `agent_bucket` came from a server that has always shipped `scope` too.
    */
   bucketForRow?: (row: AutonomyDomainPolicy) => string | null;
 }
