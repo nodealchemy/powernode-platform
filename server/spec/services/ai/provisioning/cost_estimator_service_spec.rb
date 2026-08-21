@@ -475,5 +475,29 @@ RSpec.describe Ai::Provisioning::CostEstimatorService, type: :service do
       # Treated as unpinned — placeholder, no priced compute.
       expect(compute_row[:monthly_usd]).to eq(0.0)
     end
+
+    # IMP-fa199b518d65: RollingModuleUpgradeExecutor#perform (extensions/system/
+    # server/app/services/system/ai/skills/rolling_module_upgrade_executor.rb)
+    # only ever calls fleet_tool `system_list_instances` for the template and
+    # batches the ones already `running`/`starting` — no arm calls a
+    # provisioning action, so a rolling upgrade CONFIGURES instances an
+    # earlier step already created and billed, the same shape as
+    # docker_provision. A composed step carries no provider_instance_type_id,
+    # so this prices to $0 today regardless — the visible defect is the wrong
+    # instance COUNT, not the dollar total. Pin a real price here so the
+    # assertion would catch the double-charge the moment a type IS pinned,
+    # not merely confirm today's fixture prices to $0 anyway.
+    it "quotes no compute for a rolling_module_upgrade step even with the brief's scale.initial and a pinned instance type" do
+      mission = build_mission # default_brief.scale.initial == 3
+      goal = build_goal(mission)
+      plan = build_plan(goal, steps: [
+        { config: { "skill" => "rolling_module_upgrade",
+                    "inputs" => { "provider_instance_type_id" => instance_type.id } } }
+      ])
+
+      result = service.estimate(plan: plan)
+      expect(result[:by_resource].select { |r| r[:resource_type] == "compute" }).to be_empty
+      expect(result[:monthly_usd]).to eq(0.0)
+    end
   end
 end
