@@ -160,6 +160,17 @@
       queue: maintenance
       description: 'Transition drained ServiceUser/ServiceGroup rows past 24h grace to removed'
 
+    # System extension — SDWAN host-bridge drain reaper. Closes the grace
+    # window a non-forced release opens: the HostBridge state machine has no
+    # automatic edge out of `draining` and the compiler's `compilable` scope
+    # includes it, so without this sweep a released bridge kept serving on
+    # the host forever and its short_id was never reclaimed.
+    sdwan_host_bridge_reap:
+      cron: '25 3 * * *'  # 3:25 AM UTC, after the identity reaper
+      class: System::HostBridgeReaperJob
+      queue: maintenance
+      description: 'Transition drained Sdwan::HostBridge rows past 24h grace to removed'
+
     # System extension — disk-image publication retention sweep.
     # Two-stage: retire newest > N (default 3) per platform, then purge
     # retired past 7-day grace window. Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — Chunk 2).
