@@ -7,7 +7,7 @@ class Api::V1::WorkersController < ApplicationController
   before_action -> { require_permission("admin.workers.create") }, only: [ :create ]
   before_action -> { require_permission("admin.workers.update") }, only: [ :update, :regenerate_token, :suspend, :activate, :revoke, :update_config, :reset_config ]
   before_action -> { require_permission("admin.workers.delete") }, only: [ :destroy ]
-  before_action :set_worker, only: [ :show, :update, :destroy, :regenerate_token, :suspend, :activate, :revoke, :test_worker, :health_check, :show_config, :update_config, :reset_config ]
+  before_action :set_worker, only: [ :show, :update, :destroy, :regenerate_token, :suspend, :activate, :revoke, :test_worker, :health_check, :show_config, :update_config, :reset_config, :test_results ]
 
   # GET /api/v1/workers/stats
   # Returns aggregated statistics about worker jobs
@@ -470,9 +470,17 @@ class Api::V1::WorkersController < ApplicationController
   private
 
   def set_worker
-    # Admin users can access all workers (including system workers)
-    # Regular users can only access workers for their account
-    @worker = if current_user.has_permission?("admin.workers.read") || current_user.has_permission?("system.admin")
+    # A worker-authenticated caller (mTLS forwarded cert or worker JWT — see
+    # Authentication#authenticate_request) has no current_user at all: this is
+    # the worker service itself reporting back (e.g. TestWorkerJob POSTing to
+    # #test_results), not an admin browsing the UI. Trust the id in the path —
+    # the worker JWT/mTLS cert check already gated entry to this controller.
+    #
+    # Admin users can access all workers (including system workers).
+    # Regular users can only access workers for their account.
+    @worker = if current_worker
+                Worker.find(params[:id])
+    elsif current_user.has_permission?("admin.workers.read") || current_user.has_permission?("system.admin")
                 Worker.find(params[:id])
     else
                 current_account.workers.find(params[:id])

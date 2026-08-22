@@ -88,7 +88,6 @@ module WorkerJobClassContract
     MetadataExtractionJob
     Reports::CleanupOldReportsJob
     Reports::ScheduledReportSweepJob
-    TestWorkerJob
     ThumbnailGenerationJob
     VideoProcessingJob
   ].freeze
