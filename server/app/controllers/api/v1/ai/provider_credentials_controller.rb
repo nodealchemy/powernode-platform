@@ -17,8 +17,9 @@ module Api
         # GET /api/v1/ai/providers/:provider_id/credentials
         def index
           credentials = if current_worker
-                          # Worker can access any credentials for background processing
-                          ::Ai::ProviderCredential.includes(:provider)
+                          # Tenancy-scoped to the worker's own account — see
+                          # #credential_scope for why that is the anchor.
+                          worker_credential_scope.includes(:provider)
           else
                           @provider.provider_credentials
           end
@@ -204,17 +205,37 @@ module Api
         end
 
         def set_credential
-          credential_id = params[:id]
-
-          if current_worker
-            @credential = ::Ai::ProviderCredential.find_by!(id: credential_id)
-          else
-            @credential = current_user.account.ai_provider_credentials
-                                     .includes(:provider)
-                                     .find_by!(id: credential_id)
-          end
+          @credential = credential_scope.includes(:provider).find_by!(id: params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Credential not found", status: :not_found)
+        end
+
+        # Tenancy anchor for every credential lookup on this controller.
+        #
+        # A worker has no `current_user`, so the human arm's `current_user.account`
+        # is simply unavailable — this is deliberately NOT a copy of that branch.
+        # The anchor is the account of the authenticated *principal itself*: the
+        # `Worker` record. `Authentication` sets the worker on both auth paths
+        # reachable here (bearer worker JWT, and the forwarded client-cert path in
+        # either its PEM-verified or CN-only posture), and
+        # `Worker belongs_to :account` with `validates :account, presence: true`,
+        # so the anchor is derived wholly from the principal and cannot be widened
+        # by any caller-supplied parameter. That is what makes it hold even when
+        # the identity is FORGED: asserting a worker CN gets you that worker's
+        # account and nothing beyond it.
+        #
+        # Scoping by `account_id` rather than dereferencing `current_worker.account`
+        # fails CLOSED — `workers.account_id` is nullable at the DB level, and
+        # `where(account_id: nil)` matches no rows instead of raising, so a
+        # half-provisioned principal is denied rather than granted.
+        def credential_scope
+          return worker_credential_scope if current_worker
+
+          current_user.account.ai_provider_credentials
+        end
+
+        def worker_credential_scope
+          ::Ai::ProviderCredential.where(account_id: current_worker.account_id)
         end
 
         def validate_permissions
