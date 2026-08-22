@@ -63,7 +63,7 @@ flowchart LR
 | Rule | Reason |
 |------|--------|
 | Job files live in `worker/app/jobs/` — never `server/app/jobs/` | The server is API-only; it does not run Sidekiq |
-| Worker uses HTTP only — no `ActiveRecord`, no direct SQL | The worker has no database connection; ApiClient is the only path |
+| Worker uses HTTP only — no `ActiveRecord`, no direct SQL | The worker has no database connection; `BackendApiClient` is the only path |
 | Server `Gemfile` excludes Sidekiq gems | Prevents accidental in-process job dispatch |
 | Worker fixes never touch `server/` | And vice versa — bugs are localized to one process |
 
@@ -189,7 +189,6 @@ The worker authenticates with the server using JWTs signed by `WORKER_SERVICE_TO
 | Client | Purpose |
 |--------|---------|
 | `BackendApiClient` | Primary CRUD client — accounts, subscriptions, analytics, AI, DevOps |
-| `ApiClient` | Base HTTP client for analytics and reporting endpoints |
 | `WebAuthApiClient` | Sidekiq Web UI authentication (isolated circuit breaker) |
 | `LlmProxyClient` | Calls LLM providers **directly** for completions/structured output (`complete`, `complete_with_tools`, `complete_structured`); only `tool_definitions`, `dispatch_tool`, and `execute_with_reasoning` (reasoning orchestration) route through the server's `internal/ai/llm` endpoints |
 
