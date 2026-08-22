@@ -84,8 +84,6 @@ module WorkerJobClassContract
   # implementing one of these without deleting its entry fails too.
   KNOWN_UNDEFINED = %w[
     DeferredOperationExecutorJob
-    Reports::CleanupOldReportsJob
-    Reports::ScheduledReportSweepJob
   ].freeze
 
   CONST_RE = /[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*/

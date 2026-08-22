@@ -118,6 +118,22 @@
       queue: maintenance
       description: 'Remove expired backups beyond retention period'
 
+    # Scheduled-report sweep. ScheduledReport rows carry their own next_run_at
+    # (daily/weekly/monthly at 08:00 UTC); nothing dispatches them without this
+    # trigger, so without the entry Reports::ScheduledReportSweepJob is inert.
+    # Every 15 minutes keeps dispatch latency well under the finest schedule
+    # granularity. The sweep only reads what is DUE — it is not itself the
+    # schedule, and a missed tick is picked up by the next one.
+    #
+    # NOTE: Reports::CleanupOldReportsJob is deliberately NOT registered here.
+    # It destroys report rows and their stored artifacts, so it runs only when
+    # explicitly invoked (PdfReportService.cleanup_old_reports).
+    scheduled_report_sweep:
+      cron: '*/15 * * * *'  # Every 15 minutes
+      class: Reports::ScheduledReportSweepJob
+      queue: reports
+      description: 'Dispatch ScheduledReport rows whose next_run_at has passed'
+
     # System extension — physical-device claim queue reaper.
     # Drops UnclaimedDevice rows past their 24h TTL.
     # Reference: docs/plans/wondrous-yawning-anchor.md §10.
