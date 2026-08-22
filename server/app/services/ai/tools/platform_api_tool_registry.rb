@@ -291,6 +291,7 @@ module Ai
         # Phase O6: host bridges (O1) + OVN deployment/switches/ports (O3) + IPFIX (O5)
         "system_sdwan_create_host_bridge"              => "Ai::Tools::SdwanTool",
         "system_sdwan_list_host_bridges"               => "Ai::Tools::SdwanTool",
+        "system_sdwan_get_host_bridge"                 => "Ai::Tools::SdwanTool",
         "system_sdwan_activate_host_bridge"            => "Ai::Tools::SdwanTool",
         "system_sdwan_release_host_bridge"             => "Ai::Tools::SdwanTool",
         "system_sdwan_create_ovn_deployment"           => "Ai::Tools::SdwanTool",
