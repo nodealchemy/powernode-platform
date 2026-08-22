@@ -253,13 +253,15 @@ class BackendApiClient
     post("/api/v1/worker/files/#{file_id}/quarantine", quarantine_data)
   end
 
-  def make_request(method, path, data = {})
+  # `connection:` lets a caller opt out of the default connection's retry
+  # middleware. NON-IDEMPOTENT writes must do so — see #no_retry_connection.
+  def make_request(method, path, data = {}, connection: nil)
     # Use circuit breaker for all backend API requests
     with_backend_api_circuit_breaker do
       start_time = Time.current
 
       begin
-        response = @connection.send(method) do |req|
+        response = (connection || @connection).send(method) do |req|
           req.url path
           req.headers['Content-Type'] = 'application/json'
           req.headers['Accept'] = 'application/json'
@@ -334,7 +336,7 @@ class BackendApiClient
     end
   end
 
-  def build_connection
+  def build_connection(with_retry: true)
     # In test, collapse the retry backoff to 0 so 5xx specs don't sleep through the
     # ~31s production window. (RAILS_ENV/WORKER_ENV are set to 'test' by spec_helper.)
     test_env = ENV['WORKER_ENV'] == 'test' || ENV['RAILS_ENV'] == 'test'
@@ -354,14 +356,14 @@ class BackendApiClient
       # status-based retry by raising it, and overriding `exceptions` drops it from the default
       # list, which silently disables retry_statuses (the middleware raises RetriableResponse but
       # never catches it to retry → only one attempt). See A-W9c.
-      conn.request :retry,
+      conn.request(:retry,
                    max: 5,
                    interval: test_env ? 0 : 1.0,
                    interval_randomness: test_env ? 0 : 0.25,
                    backoff_factor: 2,
                    retry_statuses: [502, 503, 504],
                    exceptions: [Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::RetriableResponse],
-                   methods: [:get, :post, :put, :patch, :delete]
+                   methods: [:get, :post, :put, :patch, :delete]) if with_retry
 
       # Timeout configuration
       conn.options.timeout = @config.api_timeout
@@ -386,6 +388,22 @@ class BackendApiClient
 
   def post(path, data = {})
     make_request(:post, path, data)
+  end
+
+  # POST with the retry middleware DISABLED.
+  #
+  # The default connection retries POST up to 5 times on timeout/connection
+  # failure. That is safe for the idempotent writes most jobs make, and NOT safe
+  # for an operation with a side effect per call: a request the server completed
+  # but whose response was lost is re-sent, and the side effect happens again.
+  # A DESTRUCTIVE or fan-out endpoint must be called through here, so its
+  # per-call bound is also its per-invocation bound.
+  def post_no_retry(path, data = {})
+    make_request(:post, path, data, connection: no_retry_connection)
+  end
+
+  def no_retry_connection
+    @no_retry_connection ||= build_connection(with_retry: false)
   end
 
   # POST with a named circuit breaker instead of the default backend_api one.
