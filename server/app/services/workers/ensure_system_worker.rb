@@ -14,6 +14,15 @@ module Workers
     SYSTEM_ROLE = "system_worker"
     # Dev-only sentinel node id the worker injects via the mTLS client-cert
     # header (BackendApiClient, dev only) so header-based auth survives rebuilds.
+    #
+    # DUPLICATED, BY NECESSITY, in the worker as
+    # DevMtlsHeader::DEV_SENTINEL_NODE_ID
+    # (worker/app/services/dev_mtls_header.rb). The two apps are separate
+    # Ruby processes with separate bundles and no shared load path, so there is
+    # no constant that can genuinely reach both — change this literal and you
+    # MUST change that one. The two are pinned together by
+    # server/spec/security/dev_mtls_header_contract_spec.rb, which drives the
+    # worker's real emitter through this server's real parser.
     DEV_SENTINEL_NODE_ID = "00000000-0000-7000-8000-000000000001"
 
     # @param account [Account, nil] account to bind to; defaults to the first account.

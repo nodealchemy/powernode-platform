@@ -5,6 +5,7 @@ require 'faraday/retry'
 require 'oj'
 require_relative 'concerns/circuit_breaker'
 require_relative 'worker_cert_manager'
+require_relative 'dev_mtls_header'
 
 # API client for worker-to-backend communication
 # Handles all HTTP requests to the Rails backend with service authentication
@@ -445,13 +446,14 @@ class BackendApiClient
   # resolves this worker via its normal find_by(node_instance_id:) path —
   # no per-controller bypasses needed. No-op outside development; in prod
   # Traefik sets/overwrites this header from the real client cert.
+  #
+  # DevMtlsHeader.header_value always returns a value (it defaults to the
+  # sentinel CN the server binds in dev), so #development_env? is the ONLY
+  # gate here — see dev_mtls_header.rb for the contract and its server twin.
   def inject_dev_mtls_header(req)
     return unless development_env?
 
-    cn = ENV['DEV_WORKER_NODE_INSTANCE_ID']
-    return if cn.nil? || cn.empty?
-
-    req.headers['X-Forwarded-Tls-Client-Cert-Info'] = %(Subject="CN=#{cn}")
+    req.headers[DevMtlsHeader::HEADER] = DevMtlsHeader.header_value
   end
 
   def development_env?
