@@ -14,6 +14,12 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
         email: @user.email,
         name: @user.name,
         reset_token: @user.instance_variable_get(:@reset_token),
+        # Plaintext in the DB (users.email_verification_token). Served here so
+        # the worker can read it instead of receiving it as a Sidekiq job
+        # argument, which is logged twice and persisted in the Redis payload.
+        # The password-reset token has no equivalent: it is stored only as a
+        # BCrypt digest, so it cannot be served and must travel in args.
+        email_verification_token: @user.email_verification_token,
         email_verified: @user.email_verified?,
         created_at: @user.created_at,
         last_login_at: @user.last_login_at
