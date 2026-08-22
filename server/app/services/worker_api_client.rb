@@ -102,16 +102,21 @@ class WorkerApiClient
 
   private
 
+  # Worker job class for a FileManagement::ProcessingJob type. The media jobs
+  # live under the worker's FileProcessing:: namespace (alongside
+  # FileProcessing::VirusScanJob) and MUST be named fully-qualified here — the
+  # worker resolves this string with Object.const_get, so a bare name is a 422
+  # "Invalid job class" that never enqueues.
   def job_class_for_type(job_type)
     case job_type
     when "thumbnail"
-      "ThumbnailGenerationJob"
+      "FileProcessing::ThumbnailGenerationJob"
     when "metadata_extract"
-      "MetadataExtractionJob"
+      "FileProcessing::MetadataExtractionJob"
     when "video_processing"
-      "VideoProcessingJob"
+      "FileProcessing::VideoProcessingJob"
     when "audio_processing"
-      "AudioProcessingJob"
+      "FileProcessing::AudioProcessingJob"
     when "video_stitching"
       "VideoStitchingJob"
     when "document_generation"

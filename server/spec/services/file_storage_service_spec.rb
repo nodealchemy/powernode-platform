@@ -325,20 +325,61 @@ RSpec.describe FileStorageService, type: :service do
 
     it 'dispatches via the HTTP worker seam, not Sidekiq' do
       file_object # force creation (after_create callback uses the stubbed seam)
-      expect(worker).to receive(:queue_job).with('ThumbnailGenerationJob', [ kind_of(String) ], queue: 'file_processing')
+      expect(worker).to receive(:queue_job)
+        .with('FileProcessing::ThumbnailGenerationJob', [ kind_of(String) ], queue: 'file_processing')
       service.queue_processing_job(file_object, 'thumbnail')
     end
 
     it 'maps video_processing to its worker job class through the seam' do
       file_object
-      expect(worker).to receive(:queue_job).with('VideoProcessingJob', anything, queue: 'file_processing')
+      expect(worker).to receive(:queue_job)
+        .with('FileProcessing::VideoProcessingJob', anything, queue: 'file_processing')
       service.queue_processing_job(file_object, 'video_processing')
     end
 
-    it 'maps ocr to MetadataExtractionJob through the seam' do
+    it 'names every dispatched class fully-qualified' do
       file_object
-      expect(worker).to receive(:queue_job).with('MetadataExtractionJob', anything, queue: 'file_processing')
-      service.queue_processing_job(file_object, 'ocr')
+      { 'thumbnail' => 'FileProcessing::ThumbnailGenerationJob',
+        'metadata_extract' => 'FileProcessing::MetadataExtractionJob',
+        'video_processing' => 'FileProcessing::VideoProcessingJob',
+        'audio_processing' => 'FileProcessing::AudioProcessingJob' }.each do |type, klass|
+        expect(worker).to receive(:queue_job).with(klass, anything, queue: 'file_processing')
+        service.queue_processing_job(file_object, type)
+      end
+    end
+
+    # Regression guard: these two are NOT in the FileProcessing:: namespace and
+    # are NOT dispatched by Object#queue_processing_jobs, so it is easy to drop
+    # them while editing the case statement — at which point the new else-branch
+    # would fail a row whose worker job exists and works.
+    # WorkerApiClient#job_class_for_type maps both, so the two producers must agree.
+    it 'still dispatches the top-level (non-namespaced) worker jobs' do
+      file_object
+      { 'video_stitching' => 'VideoStitchingJob',
+        'document_generation' => 'DocumentGenerationJob' }.each do |type, klass|
+        expect(worker).to receive(:queue_job).with(klass, anything, queue: 'file_processing')
+        service.queue_processing_job(file_object, type)
+      end
+    end
+
+    # A job type with no worker implementation used to fall through to metadata
+    # extraction, which would have marked the row "completed" as though the
+    # requested work had run — an OCR request reporting success with no text
+    # extracted. It must now reach a TERMINAL state and never be dispatched.
+    describe 'job types no worker job implements' do
+      %w[ocr resize convert scan compress watermark transform].each do |job_type|
+        it "fails the #{job_type} row instead of dispatching it" do
+          file_object
+          expect(worker).not_to receive(:queue_job)
+
+          job = service.queue_processing_job(file_object, job_type)
+
+          expect(job.reload.status).to eq('failed')
+          expect(job.status).not_to eq('pending')
+          expect(job.error_details['error_message']).to include(job_type)
+          expect(job.error_details['unimplemented_job_type']).to eq(job_type)
+        end
+      end
     end
   end
 end

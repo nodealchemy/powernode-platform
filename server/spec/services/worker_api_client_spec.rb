@@ -7,10 +7,10 @@ RSpec.describe WorkerApiClient do
     subject(:client) { described_class.new }
 
     {
-      "thumbnail" => "ThumbnailGenerationJob",
-      "metadata_extract" => "MetadataExtractionJob",
-      "video_processing" => "VideoProcessingJob",
-      "audio_processing" => "AudioProcessingJob",
+      "thumbnail" => "FileProcessing::ThumbnailGenerationJob",
+      "metadata_extract" => "FileProcessing::MetadataExtractionJob",
+      "video_processing" => "FileProcessing::VideoProcessingJob",
+      "audio_processing" => "FileProcessing::AudioProcessingJob",
       "video_stitching" => "VideoStitchingJob",
       "document_generation" => "DocumentGenerationJob"
     }.each do |job_type, expected_class|

@@ -83,13 +83,9 @@ module WorkerJobClassContract
   # Asserted EXACT in both directions: a new undefined name fails, and
   # implementing one of these without deleting its entry fails too.
   KNOWN_UNDEFINED = %w[
-    AudioProcessingJob
     DeferredOperationExecutorJob
-    MetadataExtractionJob
     Reports::CleanupOldReportsJob
     Reports::ScheduledReportSweepJob
-    ThumbnailGenerationJob
-    VideoProcessingJob
   ].freeze
 
   CONST_RE = /[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*/
