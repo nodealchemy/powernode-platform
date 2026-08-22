@@ -317,7 +317,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
   describe 'POST /api/v1/auth/forgot-password' do
     it 'sends password reset email for valid email' do
       # Mock the worker service to avoid actual job execution in tests
-      expect(WorkerJobService).to receive(:enqueue_password_reset_email).with(user.id)
+      expect(WorkerJobService).to receive(:enqueue_password_reset_email).with(user.id, a_string_matching(/\A\S{20,}\z/))
 
       post '/api/v1/auth/forgot-password', params: { email: user.email }, as: :json
 

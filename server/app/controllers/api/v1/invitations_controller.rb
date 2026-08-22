@@ -38,8 +38,7 @@ module Api
         if invitation.save
           # Send invitation email via worker
           WorkerJobService.enqueue_notification_email("invitation", {
-            invitation_id: invitation.id,
-            invitation_token: invitation.token
+            invitation_id: invitation.id
           })
 
           render_success(
@@ -79,8 +78,7 @@ module Api
 
         # Resend invitation email via worker
         WorkerJobService.enqueue_notification_email("invitation", {
-          invitation_id: @invitation.id,
-          invitation_token: @invitation.token
+          invitation_id: @invitation.id
         })
 
         render_success(

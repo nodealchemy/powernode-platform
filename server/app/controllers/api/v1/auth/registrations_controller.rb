@@ -66,9 +66,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
             {
               user_id: @user.id,
               email: @user.email,
-              verification_token: @user.email_verification_token,
-              user_name: @user.full_name,
-              smtp_settings: Rails.application.credentials.dig(:mail, :smtp)
+              user_name: @user.full_name
             }
           )
         rescue StandardError => e
