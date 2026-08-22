@@ -34,8 +34,6 @@ module Api
 
         # PATCH /api/v1/worker/processing_jobs/:id
         def update
-          update_params = {}
-
           # Handle status updates
           if params[:status]
             case params[:status]
@@ -44,14 +42,12 @@ module Api
                 return render_error("Cannot start processing: invalid status", status: :unprocessable_content)
               end
             when "completed"
-              result_data = params[:result_data] || {}
-              unless @job.mark_completed!(result_data)
+              unless @job.mark_completed!(nested_hash(:result_data))
                 return render_error("Cannot mark as completed: invalid status", status: :unprocessable_content)
               end
             when "failed"
               error_message = params.dig(:error_details, :error_message) || "Processing failed"
-              error_data = params[:error_details] || {}
-              unless @job.mark_failed!(error_message, error_data)
+              unless @job.mark_failed!(error_message, nested_hash(:error_details))
                 return render_error("Cannot mark as failed: invalid status", status: :unprocessable_content)
               end
             else
@@ -71,6 +67,22 @@ module Api
         end
 
         private
+
+        # ProcessingJob#mark_completed!/#mark_failed! merge this into a plain
+        # jsonb Hash. Handing them the raw ActionController::Parameters made
+        # Hash#merge call #to_hash on an UNPERMITTED Parameters, which raises
+        # ActionController::UnfilteredParameters — swallowed by the rescue below
+        # into a 500, so EVERY worker completion and failure report failed and
+        # the row never left "processing". These are worker-authored free-form
+        # result/error payloads with no fixed schema, so permit! is the correct
+        # call: the keys are not attributes, they are opaque jsonb content.
+        def nested_hash(key)
+          value = params[key]
+          return {} if value.blank?
+          return value.to_h if value.is_a?(Hash)
+
+          value.respond_to?(:permit!) ? value.permit!.to_h : {}
+        end
 
         def set_processing_job
           @job = account_scoped(FileManagement::ProcessingJob).find_by(id: params[:id])
