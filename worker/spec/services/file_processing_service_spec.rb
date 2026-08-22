@@ -111,4 +111,107 @@ RSpec.describe FileProcessingService do
         .to raise_error(FileProcessingService::ProcessingError, /ffprobe failed/)
     end
   end
+  # These exercise the REAL argv builders and guards — no stubbing of the method
+  # under test. The jobs' own spec stubs this service wholesale, so without these
+  # a wrong flag order or a v6/v7 spelling mistake would reach production green.
+  describe 'ImageMagick availability and argv' do
+    it 'requires BOTH v6 binaries, not just convert' do
+      allow(service).to receive(:on_path?).with('magick').and_return(false)
+      allow(service).to receive(:on_path?).with('convert').and_return(true)
+      allow(service).to receive(:on_path?).with('identify').and_return(false)
+
+      expect(service.imagemagick_available?).to be false
+    end
+
+    it 'is available on a v7-only box with no convert/identify shims' do
+      allow(service).to receive(:on_path?).with('magick').and_return(true)
+
+      expect(service.imagemagick_available?).to be true
+      expect(service.imagemagick_argv('identify')).to eq(%w[magick identify])
+      expect(service.imagemagick_argv('convert')).to eq(%w[magick convert])
+    end
+
+    it 'uses the bare v6 spelling when magick is absent' do
+      allow(service).to receive(:on_path?).with('magick').and_return(false)
+
+      expect(service.imagemagick_argv('identify')).to eq(%w[identify])
+    end
+
+    it 'memoizes each PATH lookup' do
+      expect(service).to receive(:system).with('which ffmpeg > /dev/null 2>&1').once.and_return(true)
+
+      3.times { service.ffmpeg_available? }
+    end
+  end
+
+  describe 'guards fire before any shell-out' do
+    it 'identify_image raises rather than execing a missing ImageMagick' do
+      allow(service).to receive(:imagemagick_available?).and_return(false)
+      expect(service).not_to receive(:system)
+
+      expect { service.identify_image('/nope.jpg') }
+        .to raise_error(FileProcessingService::ProcessingError, /ImageMagick is not available/)
+    end
+
+    it 'generate_thumbnail raises on a missing ImageMagick' do
+      allow(service).to receive(:imagemagick_available?).and_return(false)
+
+      expect { service.generate_thumbnail('/a.jpg', '/b.jpg', 'small') }
+        .to raise_error(FileProcessingService::ProcessingError, /ImageMagick is not available/)
+    end
+
+    it 'generate_thumbnail rejects an unknown size name' do
+      allow(service).to receive(:imagemagick_available?).and_return(true)
+
+      expect { service.generate_thumbnail('/a.jpg', '/b.jpg', 'enormous') }
+        .to raise_error(FileProcessingService::ProcessingError, /unknown thumbnail size/)
+    end
+
+    it 'generate_thumbnail accepts an explicit geometry string' do
+      allow(service).to receive(:imagemagick_available?).and_return(true)
+      allow(service).to receive(:imagemagick_argv).and_return(['convert'])
+      captured = nil
+      allow(Open3).to receive(:capture3) { |*argv| captured = argv; ['', '', instance_double(Process::Status, success?: true)] }
+
+      service.generate_thumbnail('/a.jpg', '/b.jpg', '64x64')
+
+      expect(captured).to include('64x64')
+      # -auto-orient must precede -thumbnail or EXIF-rotated photos come out sideways.
+      expect(captured.index('-auto-orient')).to be < captured.index('-thumbnail')
+      expect(captured.first).to eq('convert')
+      expect(captured.last).to eq('/b.jpg')
+      # first frame only, or a multi-page TIFF/animated GIF explodes into N outputs
+      expect(captured).to include('/a.jpg[0]')
+    end
+
+    it 'extract_video_frame raises on a missing ffmpeg' do
+      allow(service).to receive(:ffmpeg_available?).and_return(false)
+
+      expect { service.extract_video_frame('/a.mp4', '/b.jpg') }
+        .to raise_error(FileProcessingService::ProcessingError, /ffmpeg is not available/)
+    end
+
+    it 'extract_video_frame seeks before the input and takes exactly one frame' do
+      allow(service).to receive(:ffmpeg_available?).and_return(true)
+      captured = nil
+      allow(Open3).to receive(:capture3) { |*argv| captured = argv; ['', '', instance_double(Process::Status, success?: true)] }
+
+      service.extract_video_frame('/a.mp4', '/b.jpg', offset_seconds: 7)
+
+      expect(captured.index('-ss')).to be < captured.index('-i')
+      expect(captured[captured.index('-ss') + 1]).to eq('7')
+      expect(captured[captured.index('-frames:v') + 1]).to eq('1')
+    end
+  end
+
+  describe 'THUMBNAIL_GEOMETRY' do
+    it 'never upscales (every geometry is >-suffixed)' do
+      expect(described_class::THUMBNAIL_GEOMETRY.values).to all(end_with('>'))
+    end
+
+    it 'covers exactly the sizes the server asks for on image upload' do
+      expect(described_class::THUMBNAIL_GEOMETRY.keys).to match_array(%w[small medium large])
+    end
+  end
+
 end
