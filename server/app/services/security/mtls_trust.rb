@@ -91,11 +91,33 @@ module Security
       # on verification failure. Used by federation auth to bind a presented
       # cert to its specific peer's CA (symmetric peers sign with their own).
       def verify_request_against(request, anchors:)
+        result = verify_request_against_detailed(request, anchors: anchors)
+        return :no_pem if result == :no_pem
+
+        result.verified? ? result.subject_cn : nil
+      end
+
+      # Same check, but hands back the full MtlsClientVerifier::Result so the
+      # caller can attribute the outcome: `anchor_fingerprint` names WHICH CA
+      # signed a verified leaf, and `error` carries OpenSSL's reason when it
+      # didn't. Callers rendering a refusal should use this — "not issued by
+      # this peer's CA" is unactionable on its own, because before CAs carried
+      # a hub-specific subject every hub's root presented the SAME DN and only
+      # the fingerprint could tell two of them apart.
+      # Returns :no_pem when no full cert was forwarded (unchanged posture).
+      def verify_request_against_detailed(request, anchors:)
         pem = forwarded_pem(request)
         return :no_pem if pem.blank?
 
-        result = MtlsClientVerifier.verify(cert_pem: pem, anchors: Array(anchors))
-        result.verified? ? result.subject_cn : nil
+        MtlsClientVerifier.verify(cert_pem: pem, anchors: Array(anchors))
+      end
+
+      # SHA-256 fingerprint of OUR internal CA root, for diagnostics and for
+      # operators comparing a peer's advertised anchor against ours. nil when
+      # no CA material is available (the fail-closed posture own_ca_pem
+      # already has).
+      def own_ca_fingerprint
+        MtlsClientVerifier.anchor_fingerprints([ own_ca_pem ]).first
       end
 
       # The subject CN from Traefik's passTLSClientCert Info header (URL-encoded

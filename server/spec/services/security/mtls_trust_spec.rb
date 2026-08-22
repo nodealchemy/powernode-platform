@@ -138,6 +138,64 @@ RSpec.describe Security::MtlsTrust do
     end
   end
 
+  # IMP-01a02b0c — verify_request_against was refactored onto
+  # verify_request_against_detailed and had NO direct coverage; these pin all
+  # three return shapes so the delegation cannot silently drift.
+  describe ".verify_request_against" do
+    it "returns :no_pem when no full certificate was forwarded" do
+      r = req(described_class::SUBJECT_HEADER => CGI.escape(%(Subject="CN=fed:abc")))
+      expect(described_class.verify_request_against(r, anchors: [ our[1].to_pem ])).to eq(:no_pem)
+    end
+
+    it "returns the verified CN when the leaf chains to the supplied anchor" do
+      leaf = sign_leaf("fed:abc", our[0], our[1])
+      r = req(described_class::PEM_HEADER => CGI.escape(leaf.to_pem))
+      expect(described_class.verify_request_against(r, anchors: [ our[1].to_pem ])).to eq("fed:abc")
+    end
+
+    it "returns nil when the leaf does not chain to the supplied anchor" do
+      foreign = build_ca("Powernode Internal CA")
+      leaf = sign_leaf("fed:abc", foreign[0], foreign[1])
+      r = req(described_class::PEM_HEADER => CGI.escape(leaf.to_pem))
+      expect(described_class.verify_request_against(r, anchors: [ our[1].to_pem ])).to be_nil
+    end
+  end
+
+  describe ".verify_request_against_detailed" do
+    it "names the matching anchor by fingerprint on success" do
+      leaf = sign_leaf("fed:abc", our[0], our[1])
+      r = req(described_class::PEM_HEADER => CGI.escape(leaf.to_pem))
+
+      result = described_class.verify_request_against_detailed(r, anchors: [ our[1].to_pem ])
+
+      expect(result.verified?).to be(true)
+      expect(result.anchor_fingerprint).to eq(Security::CaFingerprint.of(our[1]))
+    end
+
+    it "carries the OpenSSL reason, and no anchor, on failure" do
+      foreign = build_ca("Powernode Internal CA")
+      leaf = sign_leaf("fed:abc", foreign[0], foreign[1])
+      r = req(described_class::PEM_HEADER => CGI.escape(leaf.to_pem))
+
+      result = described_class.verify_request_against_detailed(r, anchors: [ our[1].to_pem ])
+
+      expect(result.verified?).to be(false)
+      expect(result.anchor_fingerprint).to be_nil
+      expect(result.error).to be_present
+    end
+  end
+
+  describe ".own_ca_fingerprint" do
+    it "reports the fingerprint of the injected CA" do
+      expect(described_class.own_ca_fingerprint).to eq(Security::CaFingerprint.of(our[1]))
+    end
+
+    it "returns nil when no CA material is available (fail-closed posture)" do
+      described_class.own_ca_provider = -> { nil }
+      expect(described_class.own_ca_fingerprint).to be_nil
+    end
+  end
+
   describe ".client_cert_presented?" do
     it "distinguishes cert-present from no-cert (for the cable JWT fallthrough)" do
       expect(described_class.client_cert_presented?(req(described_class::PEM_HEADER => "x"))).to be(true)
