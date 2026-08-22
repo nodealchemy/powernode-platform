@@ -16,10 +16,14 @@ require "rails_helper"
 #      deliberately rescue as best-effort (welcome email, verification email,
 #      monitoring alert), so the feature never happens and no one is told.
 #
-#   2. Redis (Ai::WorkerDispatch / System::WorkerDispatch) pushes
-#      Sidekiq-formatted JSON straight onto the queue, so valid_job_class? never
-#      runs. Sidekiq pops the job, fails to constantize it, and it dies in the
-#      retry then dead set. Worse than the 422, and equally silent to the caller.
+#   2. Redis — Sidekiq-formatted JSON lpush'd straight onto the worker's queue
+#      (the shape System::WorkerDispatch uses; core had an Ai::WorkerDispatch
+#      too until IMP-315e6c5f6e81 deleted it as inert at both ends). This lane
+#      never reaches valid_job_class?: Sidekiq pops the job, fails to
+#      constantize it, and it dies in the retry then dead set. Worse than the
+#      422, and equally silent to the caller. Core has no producer on this lane
+#      today, which is exactly why DISPATCH_SURFACE matches the TRANSPORT and
+#      not a dispatcher class name — see there.
 #
 # This spec enumerates EVERY job-class name the server can emit as a literal and
 # asserts the worker defines it. It is a static scan on purpose: the server may
@@ -30,7 +34,11 @@ require "rails_helper"
 #   * Job classes chosen at runtime from data rather than source —
 #     Ai::Missions::OrchestratorService#job_class_for_phase reads `job_class` out
 #     of a mission's custom_phases / template JSON. No static scan can enumerate
-#     those; the worker's 422 is their only backstop.
+#     those; the worker's 422 is their only backstop. Api::V1::JobsController
+#     #forward_to_worker_service is the same shape and does not even get that:
+#     it lpush'es a caller-supplied `job_class` param onto the queue itself, so
+#     it takes the Redis lane's silent dead-lettering. Both are name-less to
+#     this scan by construction, not by oversight.
 #   * PRODUCERS inside extensions/*/server. An extension's job strings are the
 #     extension's contract and belong in its own spec suite (validate.sh runs
 #     extension specs separately); scanning them from core would put a core gate
@@ -68,23 +76,43 @@ module WorkerJobClassContract
   # Api::V1::ServicesController), so a regex anchored on the call site sees only
   # the variable and misses every literal.
   #
-  # `WorkerDispatch` is in here because it is a SECOND transport: Ai::WorkerDispatch
-  # (and System::WorkerDispatch) push Sidekiq-formatted JSON straight onto the
-  # worker's Redis queue, bypassing POST /api/v1/jobs and therefore
-  # JobsController#valid_job_class? entirely. On that lane an unresolvable name
-  # is not a 422 — Sidekiq pops the job, fails to constantize, and it dies in
-  # the retry/dead set. Strictly worse, so it must be covered.
-  DISPATCH_SURFACE = /queue_job\(|enqueue_job\(|WorkerDispatch|["']?job_class["']?\s*(?:=>|:)/
+  # The last two alternatives cover the SECOND transport: Sidekiq-formatted JSON
+  # lpush'd straight onto the worker's Redis queue, which never reaches the
+  # worker's JobsController#valid_job_class?. There an unresolvable name is not
+  # a 422 — Sidekiq pops the job, fails to constantize, and it dies in the
+  # retry/dead set. Strictly worse, so it must be covered.
+  #
+  # Matched by its MECHANISM (`new_worker_client`, the connection to the
+  # worker's Redis, and an lpush onto a `queue:*` list) rather than by a
+  # dispatcher class NAME, because the name is a convention and the transport
+  # is not. IMP-315e6c5f6e81 proved the difference with two fixtures pushing
+  # the same undefined job: the one that named the dispatcher was caught, the
+  # one that lpush'd the identical payload itself was invisible. Keying on the
+  # name alone also went inert for this lane the moment core's only
+  # `Ai::WorkerDispatch` was deleted (same task) — a producer FILE is what
+  # carries the name, so deleting the file deletes the match.
+  #
+  # `WorkerDispatch` stays in the alternation for a future core dispatcher of
+  # that name, not for extension code: `sources` below is core-only, and
+  # extension PRODUCERS are deliberately out of scope (see the header).
+  DISPATCH_SURFACE = /queue_job\(|enqueue_job\(|WorkerDispatch|["']?job_class["']?\s*(?:=>|:)|new_worker_client|lpush\(\s*["']queue:/
 
-  # Names the server emits that no worker app defines. Every entry is a real
-  # defect, OUT OF SCOPE for IMP-f2cfaed728c4 and queued as follow-up — listed
-  # here so the guard can be green on the rest instead of being watered down.
+  # Names the server emits that no worker app defines — the escape hatch that
+  # let IMP-f2cfaed728c4 land green while the defects it found were fixed one
+  # at a time.
+  #
+  # EMPTY as of IMP-315e6c5f6e81: the last entry, DeferredOperationExecutorJob,
+  # is gone because its only emitter was deleted, not because it was delisted.
+  # Deferred operations run synchronously through
+  # Ai::DeferredOperation#execute_now!, and the documented home for a gated
+  # action too slow to run inline is a System::Task on the existing dispatch —
+  # see Ai::DeferredOperation#on_approval_decision. So the contract now holds
+  # with no exceptions, and an addition here needs the same justification the
+  # original entries had.
   #
   # Asserted EXACT in both directions: a new undefined name fails, and
   # implementing one of these without deleting its entry fails too.
-  KNOWN_UNDEFINED = %w[
-    DeferredOperationExecutorJob
-  ].freeze
+  KNOWN_UNDEFINED = [].freeze
 
   CONST_RE = /[A-Z][A-Za-z0-9_]*(?:::[A-Z][A-Za-z0-9_]*)*/
 
