@@ -438,8 +438,9 @@ module Core
       # worker mTLS: when present the default TLS store requests+verifies client
       # certs against it (VerifyClientCertIfGiven, so cert-less browser login
       # still works) and the pass-tls-client-cert middleware — applied at the
-      # ROUTER level on the backend routers below — forwards the verified CN to
-      # the backend (the /api router covers /api/v1/internal + /api/v1/system/*).
+      # ROUTER level on the backend routers below — forwards the verified leaf
+      # cert AND its CN to the backend (the /api router covers
+      # /api/v1/internal + /api/v1/system/*).
       # Applied per-router, NOT relied on at the websecure entrypoint:
       # write_static_config! emits that entrypoint reference, but a composed hub
       # node's traefik static config (from the reverse-proxy module) does NOT, so
@@ -524,13 +525,38 @@ module Core
         }
       end
 
-      # The CN-forwarding middleware, as a one-entry `http.middlewares` fragment.
-      # Emitted by every dynamic file whose routers reference it, for the same
-      # stand-alone reason as the strip above.
+      # The client-cert-forwarding middleware, as a one-entry `http.middlewares`
+      # fragment. Emitted by every dynamic file whose routers reference it, for
+      # the same stand-alone reason as the strip above.
+      #
+      # `pem: true` forwards the FULL verified leaf certificate on
+      # X-Forwarded-Tls-Client-Cert, which is what gives the Rails layer a
+      # cryptographic second factor. Without it Traefik populates only the
+      # `info` header (the subject CN), so Security::MtlsTrust#verify_request
+      # always fell through to its no-PEM branch and TRUSTED that CN — the
+      # ingress chain-check was the sole gate — and `require_pem: true`, the
+      # posture credential-revealing endpoints ask for, could never be satisfied
+      # because the header it demands was never emitted (imp 01a028ab-f39b).
+      #
+      # `info.subject.commonName` STAYS on: FederationApi::BaseController
+      # resolves the calling peer from that header before its per-peer signature
+      # check, and verify_request's no-PEM fallback still serves routes fronted
+      # by an ingress core did not write.
+      #
+      # Wire format (Traefik v3.7.1 pkg/middlewares/passtlsclientcert): the PEM
+      # is sanitized — BEGIN/END lines and all newlines deleted — then
+      # url-escaped, i.e. percent-escaped bare base64. MtlsTrust#reconstruct_pem
+      # rewraps exactly that; spec/services/security/mtls_trust_spec.rb pins the
+      # shape so this switch can't silently start emitting something the backend
+      # cannot parse. Size: ~1-2 KB per cert before escaping, ~3 KB after, well
+      # under Puma's 112 KiB Puma::Const::MAX_HEADER budget for the whole block.
       def pass_tls_client_cert_middleware
         {
           PASS_TLS_CLIENT_CERT_MW => {
-            "passTLSClientCert" => { "info" => { "subject" => { "commonName" => true } } }
+            "passTLSClientCert" => {
+              "pem"  => true,
+              "info" => { "subject" => { "commonName" => true } }
+            }
           }
         }
       end

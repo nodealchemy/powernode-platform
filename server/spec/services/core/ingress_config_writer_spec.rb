@@ -351,7 +351,56 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
     it "always defines the pass-tls-client-cert middleware the websecure entrypoint references" do
       config = described_class.host_login_config("/c/crt", "/c/key")
       expect(config.dig("http", "middlewares", "pass-tls-client-cert"))
-        .to eq("passTLSClientCert" => { "info" => { "subject" => { "commonName" => true } } })
+        .to eq("passTLSClientCert" => { "pem" => true, "info" => { "subject" => { "commonName" => true } } })
+    end
+
+    # SECURITY (imp 01a028ab-f39b): the middleware must forward the FULL leaf
+    # certificate, not only the subject CN. Without `pem: true` Traefik populates
+    # only X-Forwarded-Tls-Client-Cert-Info, so Security::MtlsTrust#verify_request
+    # always takes its no-PEM branch and TRUSTS the forwarded CN with no
+    # cryptographic second factor at the Rails layer — and `require_pem: true`
+    # (the posture credential-revealing endpoints ask for) can never be satisfied,
+    # because the header it requires is never emitted.
+    it "forwards the full leaf PEM so MtlsTrust can verify cryptographically instead of trusting a header" do
+      config = described_class.host_login_config("/c/crt", "/c/key", client_auth_ca: "/certs/internal-ca.crt")
+      mw = config.dig("http", "middlewares", "pass-tls-client-cert", "passTLSClientCert")
+      expect(mw["pem"]).to be(true)
+      # The CN stays on: FederationApi::BaseController resolves the calling peer
+      # from the Info header BEFORE its per-peer signature check, and
+      # verify_request's no-PEM fallback still serves routes fronted by an
+      # ingress core did not write. Dropping it would break peer resolution.
+      expect(mw.dig("info", "subject", "commonName")).to be(true)
+    end
+
+    it "forwards the full leaf PEM in the no-CA posture too (the definition must not drift between arms)" do
+      config = described_class.host_login_config("/c/crt", "/c/key")
+      mw = config.dig("http", "middlewares", "pass-tls-client-cert", "passTLSClientCert")
+      expect(mw["pem"]).to be(true)
+      expect(mw.dig("info", "subject", "commonName")).to be(true)
+    end
+
+    # NEGATIVE (imp 01a028ab-f39b): turning on `pem` changes only the middleware's
+    # BODY. It must not widen WHERE the middleware is attached — still only when a
+    # client-auth CA is present, and still only on the powernode-backend routers.
+    it "adding pem does not widen where the middleware is attached" do
+      backend_router_names = described_class::HOST_LOGIN_BACKEND_PREFIXES.map do |prefix|
+        "host-login-#{described_class.router_slug_for(prefix)}"
+      end
+
+      with_ca = described_class.host_login_config("/c/crt", "/c/key", client_auth_ca: "/certs/internal-ca.crt")
+      carrying = with_ca.fetch("http").fetch("routers").select do |_n, r|
+        Array(r["middlewares"]).include?("pass-tls-client-cert")
+      end.keys
+      expect(carrying).to match_array(backend_router_names)
+      # explicitly NOT the frontend catch-all or the sidekiq/worker-web router
+      expect(carrying).not_to include("host-login-frontend", "host-login-sidekiq")
+
+      without_ca = described_class.host_login_config("/c/crt", "/c/key")
+      expect(without_ca.fetch("http").fetch("routers").values).to all(
+        satisfy { |r| !Array(r["middlewares"]).include?("pass-tls-client-cert") }
+      )
+      # ...yet still DEFINED (the websecure entrypoint reference must resolve)
+      expect(without_ca.dig("http", "middlewares", "pass-tls-client-cert", "passTLSClientCert", "pem")).to be(true)
     end
 
     it "omits clientAuth when no CA is supplied (pure core mode, unchanged)" do
