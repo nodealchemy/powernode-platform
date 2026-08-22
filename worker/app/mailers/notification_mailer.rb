@@ -141,21 +141,46 @@ class NotificationMailer < ApplicationMailer
   private
 
   def fetch_user(user_id)
-    api_client.get_user(user_id)
+    api_client.get_internal_user(user_id)
   rescue StandardError => e
+    log_lookup_failure('user', user_id, e)
     nil
   end
-  
+
   def fetch_account(account_id)
-    api_client.get_account(account_id)
+    api_client.get_internal_account(account_id)
   rescue StandardError => e
+    log_lookup_failure('account', account_id, e)
     nil
   end
 
   def fetch_invitation(invitation_id)
-    api_client.get_invitation(invitation_id)
+    api_client.get_internal_invitation(invitation_id)
   rescue StandardError => e
+    log_lookup_failure('invitation', invitation_id, e)
     nil
+  end
+
+  # A failed lookup degrades to nil (the mailer then declines to send), but it
+  # must not do so silently: without this, a missing constant, a timeout and a
+  # 404 were indistinguishable and the mail simply never arrived.
+  #
+  # Log the exception class and message, never the exception's response_body —
+  # that carries the looked-up record in full. Note BackendApiClient#handle_response
+  # lifts the server's own error string into the message for 4xx, so keep the
+  # server's internal error strings free of record data.
+  def log_lookup_failure(kind, id, error)
+    worker_logger.error(
+      "[NotificationMailer] #{kind} lookup failed for id=#{id}: " \
+      "#{error.class}: #{error.message}"
+    )
+  rescue StandardError => logging_error
+    # Never let diagnostics mask the original failure — but do not vanish either.
+    warn("[NotificationMailer] failed to log #{kind} lookup failure: #{logging_error.class}")
+  end
+
+  def worker_logger
+    PowernodeWorker.application.logger
   end
 
   def frontend_url
@@ -166,7 +191,10 @@ class NotificationMailer < ApplicationMailer
     EmailConfigurationService.instance.settings[:smtp_from_name] || 'Powernode'
   end
   
+  # BackendApiClient is the client config/boot.rb actually requires; it also
+  # carries the circuit breaker, retry policy and the dev mTLS header the
+  # /api/v1/internal/* endpoints authenticate against.
   def api_client
-    @api_client ||= ApiClient.new
+    @api_client ||= BackendApiClient.new
   end
 end

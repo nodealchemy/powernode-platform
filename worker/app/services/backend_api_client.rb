@@ -37,6 +37,28 @@ class BackendApiClient
     account_data['subscription']
   end
 
+  # Internal (worker-only, mTLS-authed) lookups backing NotificationMailer.
+  # These hit /api/v1/internal/* — a different surface from #get_account above,
+  # which uses the tenant-facing /api/v1/accounts/:id endpoint and a different
+  # serializer.
+  #
+  # The internal controllers wrap their payload in the standard render_success
+  # envelope ({ "success" => true, "data" => ... }), so unwrap it here the way
+  # #get_report_data already does. Keys are symbolized because the mailer and
+  # its ERB templates index with symbols — note this differs from every other
+  # method on this class, which returns the string-keyed body verbatim.
+  def get_internal_user(user_id)
+    unwrap_internal(get("/api/v1/internal/users/#{user_id}"))
+  end
+
+  def get_internal_account(account_id)
+    unwrap_internal(get("/api/v1/internal/accounts/#{account_id}"), 'account')
+  end
+
+  def get_internal_invitation(invitation_id)
+    unwrap_internal(get("/api/v1/internal/invitations/#{invitation_id}"))
+  end
+
   # Analytics operations
   def get_analytics(type, params = {})
     get("/api/v1/analytics/#{type}", params)
@@ -286,6 +308,30 @@ class BackendApiClient
   end
 
   private
+
+  # Unwrap the render_success envelope returned by /api/v1/internal/* and
+  # symbolize keys. Returns nil when the envelope is missing or empty so
+  # callers can treat "no such record" uniformly.
+  def unwrap_internal(body, *path)
+    payload = dig_indifferent(body, 'data')
+    path.each { |key| payload = dig_indifferent(payload, key) }
+    return nil unless payload.is_a?(Hash) && !payload.empty?
+
+    payload.deep_symbolize_keys
+  end
+
+  # Fetch one key whether the parsed body used string or symbol keys. Uses
+  # key? rather than `||` so a legitimately false/nil value is not mistaken
+  # for a missing key.
+  def dig_indifferent(hash, key)
+    return nil unless hash.is_a?(Hash)
+
+    if hash.key?(key)
+      hash[key]
+    elsif hash.key?(key.to_sym)
+      hash[key.to_sym]
+    end
+  end
 
   def build_connection
     # In test, collapse the retry backoff to 0 so 5xx specs don't sleep through the

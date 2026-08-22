@@ -128,6 +128,76 @@ RSpec.describe BackendApiClient, type: :service do
       end
     end
 
+    # /api/v1/internal/* wrap payloads in the render_success envelope
+    # ({ "success" => true, "data" => ... }). These getters unwrap it and
+    # symbolize, so the mailer (and its ERB templates) can index with symbols.
+    describe 'internal mailer lookups' do
+      describe '#get_internal_user' do
+        it 'unwraps the render_success envelope and symbolizes keys' do
+          stub_backend_api_success(
+            :get, '/api/v1/internal/users/user-1',
+            { success: true, data: { id: 'user-1', email: 'u@example.com' } }
+          )
+
+          expect(client.get_internal_user('user-1'))
+            .to eq(id: 'user-1', email: 'u@example.com')
+        end
+
+        it 'returns nil when the envelope carries no data' do
+          stub_backend_api_success(:get, '/api/v1/internal/users/user-1', { success: true })
+
+          expect(client.get_internal_user('user-1')).to be_nil
+        end
+
+        it 'returns nil when the payload is an empty hash' do
+          stub_backend_api_success(
+            :get, '/api/v1/internal/users/user-1', { success: true, data: {} }
+          )
+
+          expect(client.get_internal_user('user-1')).to be_nil
+        end
+
+        it 'returns nil when the body is not a hash' do
+          stub_backend_api_success(:get, '/api/v1/internal/users/user-1', [])
+
+          expect(client.get_internal_user('user-1')).to be_nil
+        end
+      end
+
+      describe '#get_internal_account' do
+        it 'unwraps the nested data.account payload' do
+          stub_backend_api_success(
+            :get, '/api/v1/internal/accounts/acct-1',
+            { success: true, data: { account: { id: 'acct-1', billing_email: 'b@example.com' } } }
+          )
+
+          expect(client.get_internal_account('acct-1'))
+            .to eq(id: 'acct-1', billing_email: 'b@example.com')
+        end
+
+        it 'returns nil when data is present but the nested account key is absent' do
+          stub_backend_api_success(
+            :get, '/api/v1/internal/accounts/acct-1',
+            { success: true, data: { id: 'acct-1' } }
+          )
+
+          expect(client.get_internal_account('acct-1')).to be_nil
+        end
+      end
+
+      describe '#get_internal_invitation' do
+        it 'unwraps the flat data payload' do
+          stub_backend_api_success(
+            :get, '/api/v1/internal/invitations/inv-1',
+            { success: true, data: { id: 'inv-1', email: 'i@example.com' } }
+          )
+
+          expect(client.get_internal_invitation('inv-1'))
+            .to eq(id: 'inv-1', email: 'i@example.com')
+        end
+      end
+    end
+
     describe '#get_account_subscription' do
       it 'fetches subscription data from account endpoint' do
         account_id = 'account-123'
