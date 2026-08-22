@@ -117,6 +117,21 @@ module Security
         raw = request.headers[PEM_HEADER].presence
         return nil unless raw
 
+        # Traefik forwards ONE escaped block PER PEER CERTIFICATE, joined with a
+        # comma (getCertificate loops over req.TLS.PeerCertificates). Today every
+        # client on these routes presents a bare leaf — the worker sets a single
+        # `client_cert` and the Go agent writes a leaf-only node.crt — but that is
+        # a filesystem convention, not an enforced invariant: TLS's key-pair
+        # loader reads EVERY block in the cert file, so concatenating a chain into
+        # node.crt would silently start sending two. Without this split the joined
+        # value reconstructs into a PEM containing a literal comma, OpenSSL
+        # rejects it, and verify_request returns nil — a silent 401 with no
+        # diagnostic. Take the LEAF (first element); a comma appears in neither
+        # encoding's alphabet (CGI/query escaping emits %2C; base64 has no comma),
+        # so this never truncates a single-cert value.
+        raw = raw.split(",").first.to_s.strip
+        return nil if raw.empty?
+
         # Traefik's passTLSClientCert(pem:true) forwards EITHER a percent-encoded
         # PEM (with %-escapes incl. the BEGIN/END markers + newlines) OR a bare
         # base64 DER body (standard base64 with +,/,= — NOT url-encoded; this is

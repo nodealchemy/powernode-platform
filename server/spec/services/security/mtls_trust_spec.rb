@@ -55,11 +55,29 @@ RSpec.describe Security::MtlsTrust do
       expect(described_class.verify_request(r)).to eq("node-instance-9")
     end
 
-    it "reconstructs a bare-base64 forwarded cert (no BEGIN/END lines)" do
+    # The EXACT wire format Traefik's passTLSClientCert(pem: true) emits, which
+    # Core::IngressConfigWriter now switches on (imp 01a028ab-f39b). Traefik
+    # sanitizes the PEM first -- it deletes the `-----BEGIN/END CERTIFICATE-----`
+    # lines and every newline -- and then url-escapes the remainder, so the
+    # header is percent-escaped bare base64 (`+`->%2B, `/`->%2F, `=`->%3D) and
+    # NEVER carries the PEM markers. This test pins that shape end to end: if
+    # MtlsTrust could not reconstruct it, enabling `pem: true` in the ingress
+    # would turn every worker call from "CN trusted" into "verification failed".
+    it "reconstructs the sanitized+url-escaped PEM that Traefik passTLSClientCert(pem:true) emits" do
       leaf = sign_leaf("node-instance-9", our[0], our[1])
-      bare = leaf.to_pem.gsub(/-----[A-Z ]+-----/, "").gsub(/\s+/, "")
-      r = req(described_class::PEM_HEADER => CGI.escape(bare))
+      sanitized = leaf.to_pem.gsub(/-----[A-Z ]+-----/, "").gsub(/\s+/, "")
+      wire = CGI.escape(sanitized) # == Go url.QueryEscape over the base64 alphabet
+
+      # Guard the premise: this really is the shape described above.
+      expect(wire).not_to include("BEGIN CERTIFICATE")
+      expect(wire).not_to include("\n")
+      expect(wire).to match(/\A[A-Za-z0-9%]+\z/)
+
+      r = req(described_class::PEM_HEADER => wire)
       expect(described_class.verify_request(r)).to eq("node-instance-9")
+      # and it satisfies the cryptographic-only posture, which the no-PEM
+      # deployment could never reach.
+      expect(described_class.verify_request(r, require_pem: true)).to eq("node-instance-9")
     end
 
     it "reconstructs a RAW bare-base64 DER cert as the reverse proxy actually forwards it" do
@@ -78,6 +96,27 @@ RSpec.describe Security::MtlsTrust do
       expect(bare).to include("+"), "need a '+' in the base64 to exercise the bug"
       r = req(described_class::PEM_HEADER => bare) # RAW — exactly as forwarded, not CGI.escaped
       expect(described_class.verify_request(r)).to eq("node-instance-9")
+    end
+
+    # Traefik emits one escaped block PER PEER CERTIFICATE, comma-joined. Every
+    # client on these routes presents a bare leaf today, but that rests on a
+    # filesystem convention (node.crt holds one block) that nothing enforces —
+    # and the joined value would otherwise reconstruct into a comma-bearing PEM
+    # that OpenSSL rejects, i.e. a SILENT 401 with no diagnostic (imp
+    # 01a028ab-f39b review). Take the leaf, which Traefik forwards first.
+    it "takes the LEAF when Traefik comma-joins a presented chain" do
+      leaf = sign_leaf("node-instance-9", our[0], our[1])
+      other = build_ca("Some Intermediate")
+      sanitize = ->(pem) { CGI.escape(pem.gsub(/-----[A-Z ]+-----/, "").gsub(/\s+/, "")) }
+      wire = [ sanitize.call(leaf.to_pem), sanitize.call(other[1].to_pem) ].join(",")
+
+      expect(wire).to include(",")
+      expect(described_class.verify_request(wire.then { |w| req(described_class::PEM_HEADER => w) })).to eq("node-instance-9")
+    end
+
+    it "returns nil when the forwarded cert header is only a comma" do
+      r = req(described_class::PEM_HEADER => ",")
+      expect(described_class.verify_request(r)).to be_nil
     end
 
     it "returns nil for a cert signed by a FOREIGN CA that cloned our CN" do
