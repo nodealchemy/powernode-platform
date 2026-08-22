@@ -74,6 +74,50 @@ RSpec.describe NotificationMailer, type: :mailer do
     end
   end
 
+  describe '#invitation_email' do
+    let(:invitation_id) { '019f7cb5-3858-7000-8000-000000000002' }
+
+    before do
+      mock_powernode_worker_config
+      stub_request(:get, "http://localhost:3000/api/v1/internal/invitations/#{invitation_id}")
+        .to_return(
+          status: 200,
+          body: {
+            success: true,
+            data: {
+              id: invitation_id,
+              email: 'invitee@example.com',
+              first_name: 'Ada',
+              last_name: 'Lovelace',
+              account_name: 'Acme',
+              role_names: ['Member'],
+              expires_at: '2026-09-01T00:00:00Z',
+              inviter_first_name: 'Grace',
+              inviter_last_name: 'Hopper'
+            }
+          }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+    end
+
+    it 'delivers to the invitee returned by the internal invitations endpoint' do
+      mail = described_class.invitation_email(invitation_id, 'tok-123')
+
+      expect(mail.to).to eq(['invitee@example.com'])
+      expect(mail.subject).to include('Acme')
+    end
+
+    # invitation_email's templates call app_name, a private mailer method.
+    # Without `helper_method :app_name` the render raises NameError, so this
+    # asserts the rendered body, not just the envelope.
+    it 'renders app_name into the body via the exposed helper' do
+      body = described_class.invitation_email(invitation_id, 'tok-123').body.encoded
+
+      expect(body).to include('Powernode')
+      expect(body).to include('Grace Hopper')
+    end
+  end
+
   # email_verification / subscription_renewal / payment_failed /
   # subscription_cancelled have no ERB templates yet (a separate defect,
   # documented on the mailer), so assert the account lookup itself

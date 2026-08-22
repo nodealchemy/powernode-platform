@@ -3,6 +3,19 @@
 require_relative 'application_mailer'
 
 class NotificationMailer < ApplicationMailer
+  # NOTE: email_verification, subscription_renewal, payment_failed and
+  # subscription_cancelled have NO ERB template under
+  # app/views/notification_mailer/. Until one is authored, calling them raises
+  # ActionView::MissingTemplate at `mail(...)`. Before IMP-cd78fa6e7522 they
+  # returned early (the lookup always failed) and so failed silently instead;
+  # that silence was the bug, and a loud MissingTemplate is the intended
+  # interim behaviour. None of the four has a caller today.
+
+  # invitation_email.{html,text}.erb call app_name; private mailer methods are
+  # not exposed to views, so without this the template raises NameError at
+  # render time and the invitation is never delivered.
+  helper_method :app_name
+
   # Welcome email for new users
   def welcome_email(user_id)
     user = fetch_user(user_id)
