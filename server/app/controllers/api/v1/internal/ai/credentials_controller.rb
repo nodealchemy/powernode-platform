@@ -53,9 +53,14 @@ module Api
           # (`provision` / `bootstrap_self_host` / `link_existing`), which binds
           # each Worker to an operator-supplied account and leaves `is_system` at
           # its column default of false. `EnsureSystemWorker#bind_dev_sentinel`
-          # is the only producer that touches the system worker and it is
-          # `return unless Rails.env.development?`. So a system-worker exemption
-          # would be inert in production while, in a dev-bootstrapped database,
+          # is the only producer that touches the system worker, and it binds
+          # the sentinel ONLY in development. Outside development the sentinel is
+          # actively REVOKED — by that method, and at boot by
+          # config/initializers/worker_dev_sentinel_revocation.rb, which is what
+          # reaches a database bootstrapped in development and later promoted
+          # (IMP-b1c144ca9aa1). So the premise is enforced at boot rather than
+          # merely observed. A system-worker exemption would still be inert in
+          # production while, before that first boot,
           # handing unrestricted cross-account reach to anyone presenting the
           # PUBLISHED constant `EnsureSystemWorker::DEV_SENTINEL_NODE_ID` — the
           # exact hazard Api::V1::EmailSettingsController already guards against.

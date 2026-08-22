@@ -113,7 +113,8 @@ RSpec.describe 'Api::V1::EmailSettings', type: :request do
     # a header the client controls unless the reverse proxy strips it — and core
     # cannot prove that strip for routers it does not write. Composed with a
     # worker CN that may be a published constant (a dev-bootstrapped database
-    # keeps Workers::EnsureSystemWorker::DEV_SENTINEL_NODE_ID forever), that
+    # keeps Workers::EnsureSystemWorker::DEV_SENTINEL_NODE_ID until
+    # EnsureSystemWorker next runs outside development and clears it), that
     # handed decrypted SMTP/provider credentials to an unauthenticated caller.
     #
     # The oracle is the BODY, never the status: the whole defect is a 200 that

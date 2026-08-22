@@ -168,7 +168,8 @@ class Api::V1::EmailSettingsController < ApplicationController
   # the host-login routers on Traefik's rule-length priority. The strip is
   # therefore NOT a property core can prove. Composed with a worker CN that may
   # be a published constant (Workers::EnsureSystemWorker::DEV_SENTINEL_NODE_ID,
-  # retained forever by a dev-bootstrapped database), "any worker" would hand
+  # retained by a dev-bootstrapped database until its first non-development
+  # boot revokes it), "any worker" would hand
   # plaintext mail credentials to an unauthenticated caller.
   #
   # So the reveal is gated on an identity the caller cannot forge — a

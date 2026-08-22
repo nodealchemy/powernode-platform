@@ -22,7 +22,9 @@ require "rails_helper"
 # is ACCOUNT-BOUND in production: `workers.node_instance_id` is written only by
 # extensions/system/server/lib/tasks/worker_provision.rake, which binds each
 # Worker to an operator-supplied account and leaves `is_system` at its column
-# default of false. So the anchor is the worker's own account, with NO exemption
+# default of false. (EnsureSystemWorker also writes that column — but only in
+# development, and outside development it REVOKES the sentinel rather than
+# writing one.) So the anchor is the worker's own account, with NO exemption
 # for the system worker — the same anchor e9352723d adopted, whose property is
 # that asserting a worker CN gets you that worker's account and NOTHING beyond
 # it, even when the identity is forged. The system-worker examples below assert
