@@ -51,12 +51,31 @@ module Security
 
       # Verify the request's forwarded client cert against OUR CA and return
       # the verified subject CN, or nil if absent / unverifiable.
-      def verify_request(request)
+      #
+      # `require_pem:` selects the trust posture, and the DEFAULT (false) is
+      # deliberately unchanged — federation and node routes depend on the
+      # forwarded-CN fallback and are not part of this opt-in:
+      #
+      #   false (default) — cryptographic when a PEM is forwarded, otherwise
+      #     the forwarded subject CN is trusted (see the no-PEM branch below).
+      #     That fallback is only as strong as the ingress: it trusts a header
+      #     the client controls unless the proxy strips it first, and core can
+      #     only guarantee that strip on the routers it writes itself.
+      #
+      #   true — CRYPTOGRAPHIC ONLY. Returns nil in the no-PEM posture rather
+      #     than trusting the header. Callers that hand back secret material
+      #     (e.g. the decrypted SMTP/provider credentials on
+      #     Api::V1::EmailSettingsController#show) MUST use this so a forged
+      #     X-Forwarded-Tls-Client-Cert-Info naming a known worker CN cannot
+      #     reach a reveal path even if it survives the ingress.
+      def verify_request(request, require_pem: false)
         pem = forwarded_pem(request)
         if pem.present?
           result = MtlsClientVerifier.verify(cert_pem: pem, anchors: [ own_ca_pem ])
           return result.verified? ? result.subject_cn : nil
         end
+
+        return nil if require_pem
 
         # No full cert forwarded → no peer CAs are in the Traefik client-auth
         # bundle (the writer couples peer-CA trust with pem-forwarding), so

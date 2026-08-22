@@ -42,7 +42,12 @@ module MtlsClientAuthentication
   private
 
   def authenticate_worker_via_mtls!
-    verified_cn = Security::MtlsTrust.verify_request(request)
+    # resolve_forwarded_cert_cn (Authentication) rather than verify_request
+    # directly: identical resolution, but it also records WHICH posture
+    # authenticated the request in @current_worker_auth, so a caller gating
+    # secret material on worker_identity_cryptographically_verified? sees the
+    # truth here instead of a permanent false.
+    verified_cn = resolve_forwarded_cert_cn
     if verified_cn.blank?
       render_error("valid mTLS client certificate required", status: :unauthorized)
       return

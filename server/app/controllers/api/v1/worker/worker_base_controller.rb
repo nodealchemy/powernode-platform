@@ -29,6 +29,9 @@ module Api
           end
 
           @current_worker = worker
+          # Signature-checked bearer token — unforgeable, so record it as such
+          # (see Authentication#worker_identity_cryptographically_verified?).
+          @current_worker_auth = :jwt
         end
 
         # Scope an account-owned relation to the authenticated worker's account.
