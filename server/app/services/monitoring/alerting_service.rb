@@ -250,18 +250,48 @@ module Monitoring
   def send_email_alert(title, message, severity, context)
     return { success: false, error: "Alert email not configured" } unless @config[:alert_email]
 
+    subject = "[#{severity.to_s.upcase}] #{title}"
+
     begin
-      # Enqueue email job via worker service
-      WorkerJobService.enqueue_job(
-        "SendNotificationEmailJob",
-        args: [ {
-          to: @config[:alert_email],
-          subject: "[#{severity.to_s.upcase}] #{title}",
-          body: format_email_body(title, message, severity, context)
-        } ]
+      # Pattern B, mirroring SecurityAlertService#dispatch_to: the server owns
+      # the EmailDelivery ledger, the worker renders + delivers and POSTs the
+      # outcome back to /api/v1/internal/emails/:id/delivered.
+      #
+      # Deliberately NOT Notifications::EmailDeliveryJob, despite its #execute
+      # accepting this exact to/subject/body/email_type shape: that job routes
+      # through EmailDeliveryWorkerService, whose create_email_delivery_record
+      # POSTs /api/v1/email_deliveries — a route this server does not define
+      # (EmailDelivery has a model but no controller). The 404 is non-retryable,
+      # the job logs and returns, and Sidekiq marks it SUCCEEDED. Matching the
+      # argument shape is not enough; the target's terminal function has to work.
+      delivery = EmailDelivery.create!(
+        recipient_email: @config[:alert_email],
+        subject: subject,
+        email_type: "notification",
+        status: "pending",
+        metadata: {
+          category: "monitoring_alert",
+          severity: severity.to_s,
+          title: title,
+          context: context
+        }
       )
-      { success: true }
+
+      WorkerJobService.enqueue_alert_email({
+        email_delivery_id: delivery.id,
+        recipient: @config[:alert_email],
+        subject: subject,
+        heading: "Monitoring Alert",
+        body: format_email_body(title, message, severity, context),
+        details: { severity: severity.to_s, title: title }
+      })
+
+      { success: true, email_delivery_id: delivery.id }
     rescue StandardError => e
+      # Record the genuine failure on the ledger when the row exists, so a
+      # failed dispatch is visible rather than inferred from an absent email.
+      delivery&.update(status: "failed", error_message: "Failed to enqueue send: #{e.message}")
+      Rails.logger.error("[Monitoring::AlertingService] alert email dispatch failed: #{e.message}")
       { success: false, error: e.message }
     end
   end
