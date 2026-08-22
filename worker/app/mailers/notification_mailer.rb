@@ -3,13 +3,20 @@
 require_relative 'application_mailer'
 
 class NotificationMailer < ApplicationMailer
-  # NOTE: email_verification, subscription_renewal, payment_failed and
-  # subscription_cancelled have NO ERB template under
-  # app/views/notification_mailer/. Until one is authored, calling them raises
-  # ActionView::MissingTemplate at `mail(...)`. Before IMP-cd78fa6e7522 they
-  # returned early (the lookup always failed) and so failed silently instead;
-  # that silence was the bug, and a loud MissingTemplate is the intended
-  # interim behaviour. None of the four has a caller today.
+  # NOTE: subscription_renewal, payment_failed and subscription_cancelled have
+  # NO ERB template under app/views/notification_mailer/. Until one is authored,
+  # calling them raises ActionView::MissingTemplate at `mail(...)`. Before
+  # IMP-cd78fa6e7522 they returned early (the lookup always failed) and so
+  # failed silently instead; that silence was the bug, and a loud
+  # MissingTemplate is the intended interim behaviour. None of the three has a
+  # caller today.
+  #
+  # email_verification was in that list until IMP-f2cfaed728c4: the server had
+  # been enqueuing "NotificationEmailJob", a class no worker app defines, so the
+  # verification path was dead at the API boundary (422 "Invalid job class").
+  # Making it reachable via Notifications::NotificationEmailJob required
+  # authoring email_verification.html.erb — shipping the route without the
+  # template would only have converted a silent dead path into a raising one.
 
   # invitation_email.{html,text}.erb call app_name; private mailer methods are
   # not exposed to views, so without this the template raises NameError at
@@ -48,12 +55,18 @@ class NotificationMailer < ApplicationMailer
   end
   
   # Email verification
-  def email_verification(user_id, verification_token)
+  # verification_token is optional and defaults to the value on the fetched
+  # user. Preferring the fetched value is what lets the producer keep the token
+  # OUT of the Sidekiq job arguments (logged twice, persisted in Redis); it is
+  # plaintext in users.email_verification_token, so the internal endpoint can
+  # serve it. The explicit parameter is kept for direct callers.
+  def email_verification(user_id, verification_token = nil)
     user = fetch_user(user_id)
     return if user.nil?
-    
+
     @user = user
-    @verification_url = "#{frontend_url}/verify-email?token=#{verification_token}"
+    token = verification_token.presence || user[:email_verification_token]
+    @verification_url = "#{frontend_url}/verify-email?token=#{token}"
     @expiry_hours = EmailConfigurationService.instance.settings[:email_verification_expiry_hours] || 24
     
     mail(
@@ -119,7 +132,10 @@ class NotificationMailer < ApplicationMailer
   end
 
   # Account invitation email
-  def invitation_email(invitation_id, invitation_token)
+  # invitation_token is optional for the same reason as email_verification's:
+  # invitations.token is plaintext, so the worker reads it from the internal
+  # endpoint rather than receiving it in the job arguments.
+  def invitation_email(invitation_id, invitation_token = nil)
     invitation = fetch_invitation(invitation_id)
     return if invitation.nil?
 
@@ -127,7 +143,7 @@ class NotificationMailer < ApplicationMailer
     @inviter_name = "#{invitation[:inviter_first_name]} #{invitation[:inviter_last_name]}"
     @invitee_name = "#{invitation[:first_name]} #{invitation[:last_name]}"
     @account_name = invitation[:account_name]
-    @invitation_url = "#{frontend_url}/accept-invitation?token=#{invitation_token}"
+    @invitation_url = "#{frontend_url}/accept-invitation?token=#{invitation_token.presence || invitation[:token]}"
     @expires_at = invitation[:expires_at]
     @role_names = invitation[:role_names]&.join(', ') || 'Member'
 

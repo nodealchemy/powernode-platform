@@ -1,0 +1,23 @@
+<h2>Verify Your Email Address</h2>
+
+<p>Hi <%= @user[:name].presence || @user[:email] %>,</p>
+
+<p>Thanks for signing up. Please confirm this email address so we know how to reach you and can finish setting up your account.</p>
+
+<p style="text-align: center;">
+  <a href="<%= @verification_url %>" class="button">Verify Email Address</a>
+</p>
+
+<div class="warning">
+  <strong>Important:</strong> This verification link will expire in <%= @expiry_hours %> hours.
+</div>
+
+<p>If the button doesn't work, you can copy and paste this link into your browser:</p>
+<p style="word-break: break-all; font-size: 12px; color: #6b7280;">
+  <%= @verification_url %>
+</p>
+
+<p>If you didn't create an account, you can safely ignore this email.</p>
+
+<p>Best regards,<br>
+The Powernode Team</p>

@@ -72,6 +72,65 @@ RSpec.describe NotificationMailer, type: :mailer do
       expect(mail.to).to eq(['newuser@example.com'])
       expect(mail.subject).to eq('Welcome to Powernode!')
     end
+
+    # welcome_email became reachable in IMP-f2cfaed728c4 (via
+    # Notifications::NotificationEmailJob). Reading .to/.subject above does not
+    # force a render, so assert the body too — that is what would catch a
+    # missing template or a view calling a private mailer method.
+    it 'renders its template' do
+      expect(described_class.welcome_email(user_id).body.encoded)
+        .to include('Thank you for joining')
+    end
+  end
+
+  # IMP-f2cfaed728c4 made this action reachable for the first time (the server
+  # had been enqueuing "NotificationEmailJob", a class no worker defines, so the
+  # verification email was dead at the worker's API boundary). It had NO ERB
+  # template, so routing to it without authoring one would have replaced a
+  # silent dead path with ActionView::MissingTemplate. This renders the body on
+  # purpose — asserting only the envelope would pass with the template missing.
+  describe '#email_verification' do
+    let(:user_id) { '019f7cb5-3858-7000-8000-000000000004' }
+
+    before do
+      mock_powernode_worker_config
+      stub_request(:get, "http://localhost:3000/api/v1/internal/users/#{user_id}")
+        .to_return(
+          status: 200,
+          body: {
+            success: true,
+            data: {
+              id: user_id, email: 'verify@example.com', name: 'Vera Verify',
+              email_verification_token: 'fetched-vtok'
+            }
+          }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+    end
+
+    it 'renders without raising ActionView::MissingTemplate' do
+      mail = described_class.email_verification(user_id, 'vtok-123')
+
+      expect(mail.to).to eq(['verify@example.com'])
+      expect(mail.subject).to eq('Verify Your Email Address')
+      expect(mail.body.encoded).to include('vtok-123')
+    end
+
+    # The internal users endpoint returns :name and has no :first_name key, so a
+    # greeting keyed on :first_name silently degrades to the raw email address.
+    it 'greets the user by the name the internal endpoint actually returns' do
+      expect(described_class.email_verification(user_id, 'vtok-123').body.encoded)
+        .to include('Vera Verify')
+    end
+
+    # This fallback is what lets the producer keep the token out of the Sidekiq
+    # job arguments (logged twice, persisted in Redis): the worker reads it from
+    # the authenticated internal endpoint instead.
+    it 'falls back to the token on the fetched user when none is passed' do
+      body = described_class.email_verification(user_id).body.encoded
+
+      expect(body).to include('fetched-vtok')
+    end
   end
 
   describe '#invitation_email' do
@@ -93,7 +152,8 @@ RSpec.describe NotificationMailer, type: :mailer do
               role_names: ['Member'],
               expires_at: '2026-09-01T00:00:00Z',
               inviter_first_name: 'Grace',
-              inviter_last_name: 'Hopper'
+              inviter_last_name: 'Hopper',
+              token: 'fetched-invtok'
             }
           }.to_json,
           headers: { 'Content-Type' => 'application/json' }
@@ -110,6 +170,11 @@ RSpec.describe NotificationMailer, type: :mailer do
     # invitation_email's templates call app_name, a private mailer method.
     # Without `helper_method :app_name` the render raises NameError, so this
     # asserts the rendered body, not just the envelope.
+    it 'falls back to the token on the fetched invitation when none is passed' do
+      expect(described_class.invitation_email(invitation_id).body.encoded)
+        .to include('fetched-invtok')
+    end
+
     it 'renders app_name into the body via the exposed helper' do
       body = described_class.invitation_email(invitation_id, 'tok-123').body.encoded
 
@@ -118,9 +183,9 @@ RSpec.describe NotificationMailer, type: :mailer do
     end
   end
 
-  # email_verification / subscription_renewal / payment_failed /
-  # subscription_cancelled have no ERB templates yet (a separate defect,
-  # documented on the mailer), so assert the account lookup itself
+  # subscription_renewal / payment_failed / subscription_cancelled have no ERB
+  # templates yet (a separate defect, documented on the mailer), so assert the
+  # account lookup itself
   # rather than a delivery: real constant resolution, real HTTP, real envelope
   # unwrap of the nested data.account payload.
   describe 'account lookup' do
