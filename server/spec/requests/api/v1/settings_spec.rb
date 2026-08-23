@@ -145,6 +145,59 @@ RSpec.describe 'Api::V1::Settings', type: :request do
                  .presence || json_response_data.dig('account_settings', 'default_sdwan_network_id'))
           .to eq('net-77')
       end
+
+      # IMP-529b8514bbc6 — WRITE-SIDE SCREEN, defence in depth.
+      #
+      # The composer refuses at COMPOSE time to stand up bare compute for a
+      # plan that would resolve its network from a default that could never be
+      # an id. Nothing stopped that value being stored, so the refusal reached
+      # whoever provisioned next rather than whoever typed it. The read-side
+      # guard is unchanged and still authoritative for anything already in the
+      # column; this only stops the surface producing new ones.
+      it 'refuses a default network that could never be a network id' do
+        account.update!(settings: (account.settings || {}).merge(
+          'default_sdwan_network_id' => 'net-good', 'timezone' => 'UTC'
+        ))
+
+        put '/api/v1/settings',
+            params: { settings: { account_settings: { default_sdwan_network_id: { id: 7 } } } },
+            headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['success']).to be false
+        expect(json_response.to_s).to include('default_sdwan_network_id')
+        # The screen fires BEFORE any account write, so the stored value is
+        # untouched. (The service's ActiveRecord::Rollback is the belt-and-
+        # braces for a mixed payload; under transactional fixtures that
+        # rollback is a no-op, so this assertion is carried by the early
+        # refusal, not by the transaction.)
+        expect(account.reload.settings['default_sdwan_network_id']).to eq('net-good')
+      end
+
+      it 'refuses a numeric default that is not the unset zero' do
+        put '/api/v1/settings',
+            params: { settings: { account_settings: { default_sdwan_network_id: 12_345 } } },
+            headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(account.reload.settings['default_sdwan_network_id']).to be_nil
+      end
+
+      # The screen must accept everything the composer accepts, or it becomes a
+      # second, stricter opinion about the same key — the drift the shared
+      # classifier exists to prevent.
+      it 'accepts the explicit opt-out and the blank/zero "no default" values' do
+        [ 'none', '', 0, nil ].each do |value|
+          put '/api/v1/settings',
+              params: { settings: { account_settings: { default_sdwan_network_id: value } } },
+              headers: headers, as: :json
+
+          expect(response).to have_http_status(:ok), "rejected #{value.inspect}"
+          # Accepted AND stored — a silent drop would satisfy the status alone.
+          expect(account.reload.settings).to have_key('default_sdwan_network_id')
+          expect(account.settings['default_sdwan_network_id']).to eq(value)
+        end
+      end
     end
   end
 

@@ -235,6 +235,87 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "network declaration check
       expect(service.compose!).to be_a(Ai::GoalPlan)
     end
   end
+
+  # IMP-529b8514bbc6 — THE PROPERTY, PINNED AS A TRIPLE.
+  #
+  # `SettingsUpdateService` blind-merges whatever an operator submits into
+  # `Account#settings`, so a form typing this field as a number or an object
+  # can store a value that buckets :unusable. The finding was that ONE such
+  # value then failed EVERY compose on the account, including plans that would
+  # never stamp a network_id at all.
+  #
+  # It does not, and these three examples say why in one place: the
+  # account-default arm is reached only when the plan actually provisions from
+  # a template AND that template said nothing. IMP-883a1f6f89d0 established
+  # the first half and IMP-94728a788498 the second, but each is pinned against
+  # its own scenario — nothing asserted the combination, which is the shape the
+  # finding described. Existing coverage probes the docker case against a
+  # broken TEMPLATE and the account case against advisory skills; the crossing
+  # of the two was untested, so a future narrowing of either gate could take
+  # this property with it silently.
+  #
+  # Example 2 is the over-widening guard: it must stay RED if the fail-loud
+  # path is ever weakened or deleted.
+  describe "a malformed ACCOUNT DEFAULT, across plan shapes (IMP-529b8514bbc6)" do
+    # An object, not a number: the classifier's :unusable bucket is "non-blank
+    # and not a String", and a settings form submitting a nested field is the
+    # writer that produces this shape. The non-zero-number case is pinned above.
+    let(:malformed_default) { { "network" => "prod-fabric" } }
+
+    before do
+      account.update!(settings: (account.settings || {}).merge(
+        ::Account::DEFAULT_SDWAN_NETWORK_SETTING => malformed_default
+      ))
+    end
+
+    # Self-validating: if the classifier ever stops calling this shape a
+    # misconfiguration, the two examples below would pass for the wrong reason.
+    it "is a misconfiguration by the shared classifier" do
+      expect(::Shared::SdwanNetworkResolution.classify_account_default(account.reload).first)
+        .to eq(:unusable)
+    end
+
+    # Scoped to the GUARD, and the title says so deliberately: a real
+    # `compose!` of this same plan still refuses — at the prerequisite seam,
+    # because docker_provision genuinely requires an overlay and none
+    # resolves. What must not happen is this guard refusing it, which would
+    # take every networkless-legal plan shape down with it.
+    it "1. does not fire the network-declaration guard for a docker-only plan" do
+      template_with("boot_mode" => "uefi_disk")
+
+      expect(service.send(:check_network_declaration, brief, plan_with_skills("docker_provision")))
+        .to be_nil
+    end
+
+    it "2. still fails LOUD, naming the setting, for a template-silent network-bearing plan" do
+      template_with("boot_mode" => "uefi_disk")
+
+      result = service.send(:check_network_declaration, brief,
+                            plan_with_skills("provision_full_stack"))
+
+      expect(result).to include(clarification_needed: true)
+      expect(result[:network_declaration_issue])
+        .to include(scope: "account", key: ::Account::DEFAULT_SDWAN_NETWORK_SETTING)
+      expect(result[:message]).to include(::Account::DEFAULT_SDWAN_NETWORK_SETTING)
+    end
+
+    it "3. composes a network-bearing plan whose TEMPLATE decided for itself" do
+      template_with(described_class::NETWORK_CONFIG_KEY => SecureRandom.uuid)
+
+      expect(service.send(:check_network_declaration, brief,
+                          plan_with_skills("provision_full_stack"))).to be_nil
+    end
+
+    # The template's explicit opt-out is also a decision, so it must not be
+    # blocked by a broken default either — same arm, other value.
+    it "3b. composes when the template explicitly opts OUT of the fabric" do
+      template_with(described_class::NETWORK_CONFIG_KEY =>
+                      ::Shared::SdwanNetworkResolution::NETWORK_OPT_OUT_VALUE)
+
+      expect(service.send(:check_network_declaration, brief,
+                          plan_with_skills("provision_full_stack"))).to be_nil
+    end
+  end
 end
 
 # IMP-975976497370 — WHICH TEMPLATE'S FABRIC A STEP INHERITS.

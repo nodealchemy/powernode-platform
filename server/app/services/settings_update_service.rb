@@ -48,6 +48,12 @@ class SettingsUpdateService
 
   def update_account_settings
     account_params = @params[:account_settings].to_h
+
+    if (message = unusable_sdwan_default_error(account_params))
+      @errors << message
+      return
+    end
+
     settings_params = {}
     account_update_params = {}
 
@@ -69,6 +75,40 @@ class SettingsUpdateService
     unless @account.update(account_update_params)
       @errors.concat(@account.errors.full_messages)
     end
+  end
+
+  # IMP-529b8514bbc6 — WRITE-SIDE SCREEN for the one settings key that has a
+  # read-side fail-loud guard.
+  #
+  # This method merges arbitrary keys into `Account#settings`, which is exactly
+  # what makes the surface useful and exactly how a form or API client that
+  # types `default_sdwan_network_id` as a number or an object stores a value
+  # nothing here objects to. The only component that ever complains is
+  # PlanComposerService#check_network_declaration, at compose time, to whoever
+  # happens to provision next — which is the right refusal in the wrong place
+  # and at the wrong moment.
+  #
+  # DEFENCE IN DEPTH, NOT A REPLACEMENT: the read-side guard is unchanged and
+  # must stay, because it is the only thing that speaks for values written
+  # before this screen existed or by any other writer of the jsonb column.
+  #
+  # Screened through the SAME classifier both network resolvers read, so
+  # "unusable" means one thing platform-wide and this cannot drift into
+  # rejecting a value the composer would have accepted: blank/null/0 (no
+  # default) and the explicit "none" opt-out all stay legal, and any non-blank
+  # String is accepted here exactly as the composer accepts it — existence is
+  # deliberately not decided at either end.
+  def unusable_sdwan_default_error(account_params)
+    key = ::Account::DEFAULT_SDWAN_NETWORK_SETTING
+    return nil unless account_params.key?(key) || account_params.key?(key.to_sym)
+
+    raw = account_params.key?(key) ? account_params[key] : account_params[key.to_sym]
+    state, = ::Shared::SdwanNetworkResolution.classify_value(raw)
+    return nil unless state == :unusable
+
+    "#{key} must be a network id, " \
+      "#{::Shared::SdwanNetworkResolution::NETWORK_OPT_OUT_VALUE.inspect} to opt out of the " \
+      "fabric, or blank/0 to set no default"
   end
 
   def update_notification_preferences
