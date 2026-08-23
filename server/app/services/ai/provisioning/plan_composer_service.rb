@@ -122,7 +122,51 @@ module Ai
       # template_id, region, instance type, and the three-arm `network_id`.
       # #merge_resolved_inputs!'s own gate, named rather than inlined so the
       # set has one definition.
+      #
+      # IMP-1fc00ac8547a: this is a NAME LIST, and a name list cannot say when
+      # it is incomplete. `provision_cluster` is the standing example — it is
+      # in ALLOWED_EXECUTORS, STATIC_ACTION_MAP matches any brief saying
+      # "cluster", and its executor DECLARES the same four inputs
+      # `provision_full_stack` does (template_id, count, provider_region_id,
+      # provider_instance_type_id) — yet it is absent here, so a step naming
+      # it composes with NONE of them.
+      #
+      # It is deliberately NOT added. Membership here is not free: the
+      # fan-out pass (FAN_OUT_SKILLS), the redundant-cluster collapse and
+      # #wire_docker_provision_steps! all key on `provision_full_stack` by
+      # name, so a normalized-but-unfanned `provision_cluster` step would
+      # stop failing loudly at dispatch and start silently landing the whole
+      # count in one region, merging with its twin into double the instances,
+      # and leaving a docker leg unwired — real resources, quietly wrong,
+      # which is worse than the missing-input failure it replaces. Adding it
+      # is its own change, with those three passes.
+      #
+      # #record_unnormalized_inputs! is the backstop that makes the gap
+      # visible in the meantime: it reads each composed step's DECLARED
+      # requirements and reports any this list should have covered, so an
+      # omission is loud rather than latent.
       TEMPLATE_RESOLVING_SKILLS = %w[provision_full_stack scale_project].freeze
+
+      # The input keys #merge_resolved_inputs! knows how to resolve. Must
+      # track the stamping in that method — it is the "could the composer have
+      # supplied this?" half of #record_unnormalized_inputs!, and a key the
+      # composer cannot resolve is never that method's business to report.
+      #
+      # Deliberately NOT derived by reflection: the stamping is a sequence of
+      # `||=` against differently-shaped resolvers, not a table, and a scan
+      # that inferred these names would report whatever the parser happened to
+      # match rather than what the method actually resolves.
+      NORMALIZED_INPUT_KEYS = %w[
+        count
+        dry_run
+        provider_region_id
+        provider_instance_type_id
+        template_id
+        network_id
+        with_storage_gb
+        mission_id
+        name_prefix
+      ].freeze
 
       # The skills that CREATE INSTANCES FROM A NODE TEMPLATE, and therefore
       # take their fabric membership from that template's `sdwan_network_id`
@@ -245,6 +289,13 @@ module Ai
 
         attach_role_module_to_template!(brief)
         append_deploy_app_code_step!(plan, brief) if brief["repo_url"].present?
+
+        # IMP-1fc00ac8547a: the plan's steps are final here — including the
+        # appended deploy_app_code leg — so this is the only point at which
+        # "did every composed step get the inputs it declares?" can be asked
+        # of the whole plan. Records rather than refuses; see the method.
+        record_unnormalized_inputs!(plan)
+
         persist_plan_pointer!(plan)
         plan
       end
@@ -258,6 +309,14 @@ module Ai
       # compact).
       def compact_existing_plan!(plan)
         collapse_consecutive_same_target_steps!(plan)
+
+        # IMP-1fc00ac8547a: this is the operator-facing READ path — every
+        # deep-link view of a cached plan lands here — and it is the only
+        # place plans composed BEFORE the audit existed can be seen. Auditing
+        # on compose alone would leave exactly those plans silent forever.
+        # Idempotent: re-stamping an already-stamped step writes the same
+        # hash.
+        record_unnormalized_inputs!(plan)
       end
 
       # Set when #compose! aborts because of a cost-cap miss. Callers (the
@@ -1190,6 +1249,23 @@ module Ai
         template = resolve_template(brief)
         inputs["template_id"] ||= template&.id
 
+        # IMP-975976497370: the fabric comes from the template THIS STEP will
+        # provision from, which is not always the brief's.
+        #
+        # The `||=` above deliberately preserves a template_id the step already
+        # carried, and #rewrite_step! merges an LLM decomposition's own `inputs`
+        # hash in before calling this — so a decomposition emitting
+        # `inputs: { template_id: X }` reaches here with X pinned while the brief
+        # names Y. Reading the declaration off Y then placed the instance on a
+        # network its own template never declared. (Not reachable on the
+        # deterministic path: #synthesize_plan! builds `inputs` fresh per step,
+        # so template_id is always nil there and the two resolutions agree.)
+        #
+        # Correct-by-construction rather than skip-on-disagreement: refusing to
+        # stamp when they differ would silently compose bare compute, which is
+        # the exact degradation IMP-cdc1d0703e5a removed.
+        effective_template = template_for_step(inputs["template_id"], brief_template: template)
+
         # IMP-cdc1d0703e5a: fabric + storage footprint. Without these two keys
         # every composed provision/scale-out arrived as BARE COMPUTE — no SDWAN
         # peer, no volume — even though the actuator side is fully built
@@ -1207,7 +1283,7 @@ module Ai
         # to backfill.
         # IMP-94728a788498: three-arm resolution — template explicit →
         # account default → networkless. See #resolved_network_id.
-        network_id = resolved_network_id(template)
+        network_id = resolved_network_id(effective_template)
         inputs["network_id"] ||= network_id if network_id
 
         # No NodeTemplate storage key exists and nothing else on the platform
@@ -1215,8 +1291,21 @@ module Ai
         # utterance: IntentCaptureService captures `storage_gb` on the brief.
         # Inventing a template key with no writer would produce a field that is
         # correct in shape and inert in production.
-        storage_gb = brief_storage_gb(brief)
-        inputs["with_storage_gb"] ||= storage_gb if storage_gb
+        # RULING (IMP-b439270dab0d): the step's OWN declaration outranks the
+        # brief, which is what the paragraph above always claimed — "an
+        # explicitly-authored input ... must always win" — and what the code
+        # did not do. `||=` only protected the ADVERTISED key, so a step
+        # carrying the alias (storage_gb: 500) had the brief's value stamped
+        # over the advertised key, and the published read order then let the
+        # brief beat the step's own explicit declaration.
+        #
+        # Reading through the shared resolver also brings present? semantics
+        # here: a blank `with_storage_gb: ""` falls through to the step's alias
+        # rather than blocking the stamp, and an explicit 0 stays 0 because 0
+        # is present — a legitimate "no storage" the brief must not overwrite.
+        declared = ::Shared::StorageSizeResolution.from_inputs(inputs)
+        declared = brief_storage_gb(brief) if declared.blank?
+        inputs["with_storage_gb"] = declared if declared.present?
 
         # F3 (IMP 019fe4c4-e813): naming provenance. The charter's dryrun-
         # prefix never reached the substrate — VMs came out template-named
@@ -1227,6 +1316,104 @@ module Ai
         inputs["mission_id"] ||= mission&.id
         prefix = provenance_name_prefix
         inputs["name_prefix"] ||= prefix if prefix
+      end
+
+      # Report composed steps that DECLARE an input the normalization above
+      # could have resolved, and did not get it (IMP-1fc00ac8547a).
+      #
+      # THE DEFECT THIS EXISTS FOR IS SILENCE, not the missing value.
+      # #merge_resolved_inputs! gates on a name list, so a skill added to the
+      # composer's reachable set and not to that list composes with none of
+      # its declared inputs and nothing says so — the step simply dies at
+      # dispatch, one layer away from the decision that broke it.
+      # `provision_cluster` is in exactly that state (see
+      # TEMPLATE_RESOLVING_SKILLS), and a deterministic composer for
+      # `relocate_workload` (offer 019ff49b-a8e5) would arrive the same way:
+      # correct-looking in isolation, missing keys nobody remembers are
+      # stamped elsewhere.
+      #
+      # Requirements come from the executor's DECLARED descriptor, read
+      # through SkillCompositionRunner's slug->executor seam — the same
+      # resolution dispatch uses, and the same one AdaptationProposerService
+      # checks bindability with. Core names no executor, and a newly added
+      # skill is covered the moment it declares its inputs.
+      #
+      # RECORDS, deliberately, rather than raising or refusing the compose:
+      #
+      #   * A raise would abort the whole compose from a private helper. Both
+      #     production callers (Internal::Ai::ProvisioningController and
+      #     Ai::Missions::PlanCompositionActions) treat a raise as a failed
+      #     composition, so one step's missing template_id would destroy a
+      #     plan whose remaining steps are entirely correct.
+      #   * Refusing via the `clarification_needed` shape the two neighbouring
+      #     checks return would make this a GATE. It is a diagnostic: it fires
+      #     on plans that are already broken at dispatch (BaseSkillExecutor
+      #     raises "missing required input" on nil, the runner fails the step
+      #     and rolls back), and converting an existing dispatch-time failure
+      #     into a compose-time refusal changes what callers render for plans
+      #     that compose today. That is a separate decision from making the
+      #     omission visible, which is what this task is.
+      #   * #validate_plan, the other candidate sink, has NO production caller.
+      #     Recording there would be visible only to specs, which is the inert
+      #     half of "loud".
+      #
+      # So: an operator sees `Rails.logger.error`, and the omission is stamped
+      # onto the step, which PlanSnapshotService serves on the plan DAG the
+      # operator's plan-review surface reads.
+      #
+      # A key wired through `depends_on_outputs` is SUPPLIED, not omitted —
+      # docker_provision's and deploy_app_code's `node_instance_id` cannot
+      # exist at compose time by construction. Unresolvable requirements (nil,
+      # not []) mean "cannot tell what this needs", which is core mode with no
+      # executors loaded; reporting there would fire on every step of every
+      # plan in a supported configuration.
+      #
+      # Presence is judged by DISPATCH's oracle — BaseSkillExecutor rejects an
+      # input only when it is nil — so a legitimately blank or zero value is
+      # not reported as missing.
+      def record_unnormalized_inputs!(plan)
+        plan.steps.reload.each do |step|
+          # Per step, so one unreadable row cannot blind the audit for the
+          # rest of the plan.
+          begin
+            cfg = step.execution_config.is_a?(Hash) ? step.execution_config.deep_stringify_keys : {}
+            skill = cfg["skill"].to_s
+            next if skill.empty?
+
+            required = ::Ai::Provisioning::SkillCompositionRunner.required_inputs_for(skill)
+            next if required.nil?
+
+            inputs = cfg["inputs"].is_a?(Hash) ? cfg["inputs"] : {}
+            wired = cfg["depends_on_outputs"].is_a?(Hash) ? cfg["depends_on_outputs"].keys.map(&:to_s) : []
+
+            omitted = (required.map(&:to_s) & NORMALIZED_INPUT_KEYS) - wired
+            omitted = omitted.reject { |key| inputs.key?(key) && !inputs[key].nil? }
+            next if omitted.empty?
+
+            # Two different causes, and naming the wrong one costs the
+            # diagnostic its meaning: a skill this method knows is off the
+            # allowlist was never normalized at all, while one ON the
+            # allowlist was normalized and the resolver simply found no
+            # record (an account with no templates/regions — core mode).
+            cause = if TEMPLATE_RESOLVING_SKILLS.include?(skill)
+                      "normalization ran for #{skill} but resolved no record for them"
+                    else
+                      "#{skill} is not in TEMPLATE_RESOLVING_SKILLS, so normalization never ran"
+                    end
+            Rails.logger.error(
+              "[PlanComposerService] step #{step.step_number} (#{skill}) composed without " \
+                "#{omitted.join(', ')} — the skill declares these required and the composer " \
+                "resolves them; #{cause} (mission=#{mission&.id}, plan=#{plan.id})"
+            )
+            step.update!(execution_config: cfg.merge("unnormalized_inputs" => omitted))
+          rescue StandardError => e
+            # Never let a diagnostic be the thing that breaks composition.
+            Rails.logger.warn(
+              "[PlanComposerService] normalization audit failed for step " \
+                "#{step.step_number} (#{e.class}: #{e.message[0, 150]})"
+            )
+          end
+        end
       end
 
       # What the chosen template says about fabric attachment, as
@@ -1288,6 +1475,27 @@ module Ai
       # template's :unusable resolves to nil here because compose! has
       # already failed loud on it (#check_network_declaration runs first),
       # and an :unusable account default likewise never reaches stamping.
+      # The template a step actually provisions from: its own pinned
+      # template_id when it has one, else the brief's (IMP-975976497370).
+      #
+      # ONE definition, used by both the stamping in #merge_resolved_inputs! and
+      # the compose-time gate in #check_network_declaration — the two must agree
+      # about which record they are reading, and two hand-written resolutions is
+      # how they stop agreeing.
+      #
+      # Guarded on `defined?` and account-scoped like the other resolvers, so
+      # core mode (no system extension) and a cross-account id both fall back to
+      # the brief's template rather than raising.
+      def template_for_step(template_id, brief_template:)
+        id = template_id.to_s
+        return brief_template if id.empty? || id == brief_template&.id.to_s
+        return brief_template unless defined?(::System::NodeTemplate)
+
+        @step_template_cache ||= {}
+        @step_template_cache[id] ||=
+          ::System::NodeTemplate.find_by(account_id: account.id, id: id) || brief_template
+      end
+
       def resolved_network_id(template)
         state, network_id = template_network_declaration(template)
         return network_id if state == :usable
@@ -1395,16 +1603,51 @@ module Ai
       # #append_deploy_app_code_step! appends a deploy_app_code step), so the
       # answer here is the final one.
       #
-      # NOT narrowed: which template. #resolve_template is the same fallback
-      # resolution #merge_resolved_inputs! stamps from, so a step's
-      # hand-authored `template_id` does not change which template's
-      # declaration the composer reads — matching on the step's template_id
-      # would disagree with the writer, which is the failure mode this whole
-      # design keeps refusing.
+      # NARROWED TO THE STEPS' OWN TEMPLATES (IMP-975976497370). This comment
+      # used to say the opposite — that matching on a step's template_id "would
+      # disagree with the writer, which is the failure mode this whole design
+      # keeps refusing". That reasoning was sound and its premise is now false:
+      # the writer (#merge_resolved_inputs!) resolves the STEP's template too,
+      # so reading the brief's here is what would disagree with it. The gate and
+      # the stamp share one resolver (#template_for_step) rather than two
+      # hand-written rules, because a gate that validates a record no step will
+      # use can both miss a real misconfiguration and fail loud about a template
+      # nothing provisions from.
       def check_network_declaration(brief, plan)
         return nil unless plan_provisions_from_template?(plan)
 
-        template = resolve_template(brief)
+        step_templates(brief, plan).each do |template|
+          issue = network_declaration_issue(template)
+          return issue if issue
+        end
+
+        nil
+      end
+
+      # The distinct templates this plan's template-provisioning steps will
+      # actually provision from. A step that pins none inherits the brief's, so
+      # a plan whose steps are all unpinned yields exactly what the old
+      # brief-only check read.
+      def step_templates(brief, plan)
+        brief_template = resolve_template(brief)
+
+        ids = plan.steps.filter_map do |step|
+          cfg = step.execution_config
+          next unless cfg.is_a?(Hash)
+          next unless TEMPLATE_PROVISIONING_SKILLS.include?((cfg["skill"] || cfg[:skill]).to_s)
+
+          inputs = cfg["inputs"] || cfg[:inputs]
+          inputs.is_a?(Hash) ? (inputs["template_id"] || inputs[:template_id]) : nil
+        end
+
+        return [ brief_template ].compact if ids.empty?
+
+        ids.uniq
+           .map { |id| template_for_step(id, brief_template: brief_template) }
+           .compact.uniq
+      end
+
+      def network_declaration_issue(template)
         state, raw = template_network_declaration(template)
 
         case state

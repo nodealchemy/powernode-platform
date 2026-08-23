@@ -40,45 +40,17 @@ module Devops
   #   Devops::ContainerLifecycleRegistry.register(:fabric) do |event, container|
   #     MyExt::FabricAllocator.call(event, container)
   #   end
+  #
+  # The register / unregister / registered? / names / handlers / reset! surface
+  # is the shared ::Powernode::HandlerRegistry shape; @handlers memoizes on this
+  # module, so this registry's state is its own. EVENTS and notify are this
+  # registry's own.
   module ContainerLifecycleRegistry
+    extend ::Powernode::HandlerRegistry
+
     EVENTS = %i[created removed].freeze
 
     class << self
-      # Register (or replace) a lifecycle handler by name. Accepts a callable
-      # argument or a block.
-      def register(name, callable = nil, &block)
-        handler = callable || block
-        unless handler.respond_to?(:call)
-          raise ArgumentError, "lifecycle handler for #{name.inspect} must respond to #call"
-        end
-
-        handlers[name.to_sym] = handler
-        name.to_sym
-      end
-
-      def unregister(name)
-        handlers.delete(name.to_sym)
-      end
-
-      def registered?(name)
-        handlers.key?(name.to_sym)
-      end
-
-      def names
-        handlers.keys
-      end
-
-      # The live name => callable map. Returned by reference; callers iterate
-      # it read-only.
-      def handlers
-        @handlers ||= {}
-      end
-
-      # Clears all registered handlers (test isolation / re-boot).
-      def reset!
-        @handlers = {}
-      end
-
       # Fan a lifecycle event out to every registered handler. Handler errors
       # are logged and swallowed (see contract above). Unknown events raise —
       # core call sites are fixed literals, so this only catches wiring typos.
@@ -96,6 +68,12 @@ module Devops
           )
         end
         nil
+      end
+
+      private
+
+      def handler_noun
+        "lifecycle handler"
       end
     end
   end

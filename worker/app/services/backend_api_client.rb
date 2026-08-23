@@ -5,6 +5,7 @@ require 'faraday/retry'
 require 'oj'
 require_relative 'concerns/circuit_breaker'
 require_relative 'worker_cert_manager'
+require_relative 'dev_mtls_header'
 
 # API client for worker-to-backend communication
 # Handles all HTTP requests to the Rails backend with service authentication
@@ -35,6 +36,28 @@ class BackendApiClient
     # Get account data which includes subscription info
     account_data = get("/api/v1/accounts/#{account_id}")
     account_data['subscription']
+  end
+
+  # Internal (worker-only, mTLS-authed) lookups backing NotificationMailer.
+  # These hit /api/v1/internal/* — a different surface from #get_account above,
+  # which uses the tenant-facing /api/v1/accounts/:id endpoint and a different
+  # serializer.
+  #
+  # The internal controllers wrap their payload in the standard render_success
+  # envelope ({ "success" => true, "data" => ... }), so unwrap it here the way
+  # #get_report_data already does. Keys are symbolized because the mailer and
+  # its ERB templates index with symbols — note this differs from every other
+  # method on this class, which returns the string-keyed body verbatim.
+  def get_internal_user(user_id)
+    unwrap_internal(get("/api/v1/internal/users/#{user_id}"))
+  end
+
+  def get_internal_account(account_id)
+    unwrap_internal(get("/api/v1/internal/accounts/#{account_id}"), 'account')
+  end
+
+  def get_internal_invitation(invitation_id)
+    unwrap_internal(get("/api/v1/internal/invitations/#{invitation_id}"))
   end
 
   # Analytics operations
@@ -230,13 +253,15 @@ class BackendApiClient
     post("/api/v1/worker/files/#{file_id}/quarantine", quarantine_data)
   end
 
-  def make_request(method, path, data = {})
+  # `connection:` lets a caller opt out of the default connection's retry
+  # middleware. NON-IDEMPOTENT writes must do so — see #no_retry_connection.
+  def make_request(method, path, data = {}, connection: nil)
     # Use circuit breaker for all backend API requests
     with_backend_api_circuit_breaker do
       start_time = Time.current
 
       begin
-        response = @connection.send(method) do |req|
+        response = (connection || @connection).send(method) do |req|
           req.url path
           req.headers['Content-Type'] = 'application/json'
           req.headers['Accept'] = 'application/json'
@@ -287,7 +312,31 @@ class BackendApiClient
 
   private
 
-  def build_connection
+  # Unwrap the render_success envelope returned by /api/v1/internal/* and
+  # symbolize keys. Returns nil when the envelope is missing or empty so
+  # callers can treat "no such record" uniformly.
+  def unwrap_internal(body, *path)
+    payload = dig_indifferent(body, 'data')
+    path.each { |key| payload = dig_indifferent(payload, key) }
+    return nil unless payload.is_a?(Hash) && !payload.empty?
+
+    payload.deep_symbolize_keys
+  end
+
+  # Fetch one key whether the parsed body used string or symbol keys. Uses
+  # key? rather than `||` so a legitimately false/nil value is not mistaken
+  # for a missing key.
+  def dig_indifferent(hash, key)
+    return nil unless hash.is_a?(Hash)
+
+    if hash.key?(key)
+      hash[key]
+    elsif hash.key?(key.to_sym)
+      hash[key.to_sym]
+    end
+  end
+
+  def build_connection(with_retry: true)
     # In test, collapse the retry backoff to 0 so 5xx specs don't sleep through the
     # ~31s production window. (RAILS_ENV/WORKER_ENV are set to 'test' by spec_helper.)
     test_env = ENV['WORKER_ENV'] == 'test' || ENV['RAILS_ENV'] == 'test'
@@ -307,14 +356,14 @@ class BackendApiClient
       # status-based retry by raising it, and overriding `exceptions` drops it from the default
       # list, which silently disables retry_statuses (the middleware raises RetriableResponse but
       # never catches it to retry → only one attempt). See A-W9c.
-      conn.request :retry,
+      conn.request(:retry,
                    max: 5,
                    interval: test_env ? 0 : 1.0,
                    interval_randomness: test_env ? 0 : 0.25,
                    backoff_factor: 2,
                    retry_statuses: [502, 503, 504],
                    exceptions: [Faraday::ConnectionFailed, Faraday::TimeoutError, Faraday::RetriableResponse],
-                   methods: [:get, :post, :put, :patch, :delete]
+                   methods: [:get, :post, :put, :patch, :delete]) if with_retry
 
       # Timeout configuration
       conn.options.timeout = @config.api_timeout
@@ -339,6 +388,22 @@ class BackendApiClient
 
   def post(path, data = {})
     make_request(:post, path, data)
+  end
+
+  # POST with the retry middleware DISABLED.
+  #
+  # The default connection retries POST up to 5 times on timeout/connection
+  # failure. That is safe for the idempotent writes most jobs make, and NOT safe
+  # for an operation with a side effect per call: a request the server completed
+  # but whose response was lost is re-sent, and the side effect happens again.
+  # A DESTRUCTIVE or fan-out endpoint must be called through here, so its
+  # per-call bound is also its per-invocation bound.
+  def post_no_retry(path, data = {})
+    make_request(:post, path, data, connection: no_retry_connection)
+  end
+
+  def no_retry_connection
+    @no_retry_connection ||= build_connection(with_retry: false)
   end
 
   # POST with a named circuit breaker instead of the default backend_api one.
@@ -399,13 +464,14 @@ class BackendApiClient
   # resolves this worker via its normal find_by(node_instance_id:) path —
   # no per-controller bypasses needed. No-op outside development; in prod
   # Traefik sets/overwrites this header from the real client cert.
+  #
+  # DevMtlsHeader.header_value always returns a value (it defaults to the
+  # sentinel CN the server binds in dev), so #development_env? is the ONLY
+  # gate here — see dev_mtls_header.rb for the contract and its server twin.
   def inject_dev_mtls_header(req)
     return unless development_env?
 
-    cn = ENV['DEV_WORKER_NODE_INSTANCE_ID']
-    return if cn.nil? || cn.empty?
-
-    req.headers['X-Forwarded-Tls-Client-Cert-Info'] = %(Subject="CN=#{cn}")
+    req.headers[DevMtlsHeader::HEADER] = DevMtlsHeader.header_value
   end
 
   def development_env?

@@ -276,30 +276,49 @@ class FileStorageService
       status: "pending"
     )
 
-    # Resolve the worker job class for this processing type.
+    # Resolve the worker job class for this processing type. Names are
+    # fully-qualified on purpose: the worker resolves this string with
+    # Object.const_get, and every file-processing job lives under its
+    # FileProcessing:: namespace. A bare name is a 422 "Invalid job class" that
+    # never enqueues and leaves this row pending forever.
     job_class = case job_type
     when "thumbnail"
-                  "ThumbnailGenerationJob"
+                  "FileProcessing::ThumbnailGenerationJob"
     when "metadata_extract"
-                  "MetadataExtractionJob"
+                  "FileProcessing::MetadataExtractionJob"
     when "video_processing"
-                  "VideoProcessingJob"
+                  "FileProcessing::VideoProcessingJob"
     when "audio_processing"
-                  "AudioProcessingJob"
-    when "ocr"
-                  # Future: OCR job
-                  "MetadataExtractionJob"
+                  "FileProcessing::AudioProcessingJob"
+    when "video_stitching"
+                  "VideoStitchingJob"
+    when "document_generation"
+                  "DocumentGenerationJob"
     when "virus_scan"
                   "FileProcessing::VirusScanJob"
     else
-                  log_warn("Unknown job type #{job_type}, using metadata extraction")
-                  "MetadataExtractionJob"
+                  # No worker job implements this type. ProcessingJob::JOB_TYPES
+                  # still accepts ocr/resize/convert/scan/compress/watermark/
+                  # transform, and these used to fall through to metadata
+                  # extraction — which would mark the row "completed" as though
+                  # the requested work had happened (an OCR request reporting
+                  # success with no extracted text, a "scan" request reporting
+                  # success with no virus scan). Fail the row instead: terminal,
+                  # honest, and visible to the uploader.
+                  nil
     end
 
     # Dispatch to the worker over the HTTP seam — the API process runs no Sidekiq.
     if job_class
       WorkerApiClient.new.queue_job(job_class, [ job.id ], queue: "file_processing")
       log_info("Queued #{job_class} for processing job #{job.id}")
+    else
+      log_warn("No worker job implements job type #{job_type}; failing processing job #{job.id}")
+      job.start_processing!
+      job.mark_failed!(
+        "No worker job implements processing type '#{job_type}'",
+        "unimplemented_job_type" => job_type
+      )
     end
 
     job

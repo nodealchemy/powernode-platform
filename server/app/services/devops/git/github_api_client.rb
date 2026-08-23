@@ -240,15 +240,6 @@ module Devops
       (result["jobs"] || []).map { |job| symbolize_keys(job) }
     end
 
-    # Alias for spec compatibility
-    def list_workflow_jobs(owner, repo, run_id)
-      result = get("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/jobs")
-      {
-        total_count: result["total_count"],
-        jobs: (result["jobs"] || []).map { |job| symbolize_keys(job) }
-      }
-    end
-
     def get_job_logs(owner, repo, job_id)
       # GitHub returns a redirect to the logs, we need to follow it
       response = connection.get("/repos/#{owner}/#{repo}/actions/jobs/#{job_id}/logs")

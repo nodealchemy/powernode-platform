@@ -351,7 +351,56 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
     it "always defines the pass-tls-client-cert middleware the websecure entrypoint references" do
       config = described_class.host_login_config("/c/crt", "/c/key")
       expect(config.dig("http", "middlewares", "pass-tls-client-cert"))
-        .to eq("passTLSClientCert" => { "info" => { "subject" => { "commonName" => true } } })
+        .to eq("passTLSClientCert" => { "pem" => true, "info" => { "subject" => { "commonName" => true } } })
+    end
+
+    # SECURITY (imp 01a028ab-f39b): the middleware must forward the FULL leaf
+    # certificate, not only the subject CN. Without `pem: true` Traefik populates
+    # only X-Forwarded-Tls-Client-Cert-Info, so Security::MtlsTrust#verify_request
+    # always takes its no-PEM branch and TRUSTS the forwarded CN with no
+    # cryptographic second factor at the Rails layer — and `require_pem: true`
+    # (the posture credential-revealing endpoints ask for) can never be satisfied,
+    # because the header it requires is never emitted.
+    it "forwards the full leaf PEM so MtlsTrust can verify cryptographically instead of trusting a header" do
+      config = described_class.host_login_config("/c/crt", "/c/key", client_auth_ca: "/certs/internal-ca.crt")
+      mw = config.dig("http", "middlewares", "pass-tls-client-cert", "passTLSClientCert")
+      expect(mw["pem"]).to be(true)
+      # The CN stays on: FederationApi::BaseController resolves the calling peer
+      # from the Info header BEFORE its per-peer signature check, and
+      # verify_request's no-PEM fallback still serves routes fronted by an
+      # ingress core did not write. Dropping it would break peer resolution.
+      expect(mw.dig("info", "subject", "commonName")).to be(true)
+    end
+
+    it "forwards the full leaf PEM in the no-CA posture too (the definition must not drift between arms)" do
+      config = described_class.host_login_config("/c/crt", "/c/key")
+      mw = config.dig("http", "middlewares", "pass-tls-client-cert", "passTLSClientCert")
+      expect(mw["pem"]).to be(true)
+      expect(mw.dig("info", "subject", "commonName")).to be(true)
+    end
+
+    # NEGATIVE (imp 01a028ab-f39b): turning on `pem` changes only the middleware's
+    # BODY. It must not widen WHERE the middleware is attached — still only when a
+    # client-auth CA is present, and still only on the powernode-backend routers.
+    it "adding pem does not widen where the middleware is attached" do
+      backend_router_names = described_class::HOST_LOGIN_BACKEND_PREFIXES.map do |prefix|
+        "host-login-#{described_class.router_slug_for(prefix)}"
+      end
+
+      with_ca = described_class.host_login_config("/c/crt", "/c/key", client_auth_ca: "/certs/internal-ca.crt")
+      carrying = with_ca.fetch("http").fetch("routers").select do |_n, r|
+        Array(r["middlewares"]).include?("pass-tls-client-cert")
+      end.keys
+      expect(carrying).to match_array(backend_router_names)
+      # explicitly NOT the frontend catch-all or the sidekiq/worker-web router
+      expect(carrying).not_to include("host-login-frontend", "host-login-sidekiq")
+
+      without_ca = described_class.host_login_config("/c/crt", "/c/key")
+      expect(without_ca.fetch("http").fetch("routers").values).to all(
+        satisfy { |r| !Array(r["middlewares"]).include?("pass-tls-client-cert") }
+      )
+      # ...yet still DEFINED (the websecure entrypoint reference must resolve)
+      expect(without_ca.dig("http", "middlewares", "pass-tls-client-cert", "passTLSClientCert", "pem")).to be(true)
     end
 
     it "omits clientAuth when no CA is supplied (pure core mode, unchanged)" do
@@ -564,6 +613,148 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
         ENV.delete("POWERNODE_CA_LOCAL_DIR")
         FileUtils.rm_rf(agent_dir) if agent_dir
         FileUtils.rm_rf(local_dir) if local_dir
+      end
+    end
+  end
+  # ------------------------------------------------------------------
+  # Universal strip coverage (imp IMP-79557320ede0)
+  # ------------------------------------------------------------------
+  #
+  # The strip landed on the host-login backend routers only. The per-account
+  # BASELINE file (`acme-<id>.yaml`, written by the instance `write!`) routes
+  # /api, /agent and /cable to the SAME Rails backend and carried no middlewares
+  # at all — and its `Host(...) && PathPrefix(...)` rule is LONGER than the
+  # host-login `PathPrefix(...)` rule, so Traefik's rule-length priority makes it
+  # WIN. Every host with a per-account file therefore bypassed the host-login
+  # strip entirely, and a forged X-Forwarded-Tls-Client-Cert-Info reached
+  # Security::MtlsTrust#verify_request's no-PEM branch.
+  #
+  # These examples enumerate the backend routers OUT OF THE WRITER'S OWN OUTPUT
+  # rather than naming them. A router added to BASELINE_ROUTER_SPECS or
+  # HOST_LOGIN_BACKEND_PREFIXES tomorrow is covered without editing this spec —
+  # a hardcoded list would rot on the next router and silently stop protecting.
+  describe "strip coverage over EVERY generated router that reaches the Rails backend" do
+    # `def`, not `let`: a memoized helper would render the config ONCE and then
+    # hand the same object to every example, which can mask a per-call defect.
+    def backend_routers(config)
+      config.fetch("http").fetch("routers").select { |_name, r| r["service"] == "powernode-backend" }
+    end
+
+    def non_backend_routers(config)
+      config.fetch("http").fetch("routers").reject { |_name, r| r["service"] == "powernode-backend" }
+    end
+
+    def baseline_config
+      result = described_class.new(account: account, dynamic_dir: tmp_dynamic_dir, cert_dir: tmp_cert_dir).write!
+      YAML.load_file(result[:output_path])
+    end
+
+    # Both mTLS postures of the host-login file, plus the per-account baseline —
+    # i.e. every dynamic file core itself emits that defines a backend router.
+    def every_generated_config
+      configs_that_can_forward_a_cn.merge(
+        "host-login (no clientAuth CA)" => described_class.host_login_config("/c/crt", "/c/key")
+      )
+    end
+
+    # The configs whose routers can actually receive a handshake-verified CN:
+    # host-login WITH clientAuth, and the per-account baseline (whose routers
+    # carry no tls.options and therefore inherit the `default` store's).
+    def configs_that_can_forward_a_cn
+      {
+        "host-login (clientAuth CA)" => described_class.host_login_config(
+          "/c/crt", "/c/key", client_auth_ca: "/certs/internal-ca.crt"
+        ),
+        "per-account baseline"       => baseline_config
+      }
+    end
+
+    it "attaches the strip FIRST on every backend router in every generated config" do
+      every_generated_config.each do |label, config|
+        routers = backend_routers(config)
+        expect(routers).not_to be_empty, "#{label}: enumerated no backend routers — the oracle would pass vacuously"
+
+        routers.each do |name, router|
+          mw = router["middlewares"]
+          expect(mw).to be_present, "#{label}: router #{name} reaches powernode-backend with NO middlewares"
+          expect(mw.first).to eq(described_class::STRIP_FORWARDED_CLIENT_CERT_MW),
+                              "#{label}: router #{name} does not strip the forwarded-cert header FIRST (got #{mw.inspect})"
+        end
+      end
+    end
+
+    it "defines every middleware it references (each file must stand alone)" do
+      # The two files are written in DIFFERENT modes, not side by side: the
+      # host-login file's only caller is the system extension's rails-start.sh,
+      # and in extension mode the per-account file comes from the extension's
+      # writer rather than the baseline. So neither file may lean on the other —
+      # a reference to a middleware the file does not define leaves the router in
+      # error, which 404s /api rather than merely failing open.
+      every_generated_config.each do |label, config|
+        referenced = backend_routers(config).values.flat_map { |r| Array(r["middlewares"]) }.uniq
+        defined_mw = config.fetch("http").fetch("middlewares", {}).keys
+        expect(defined_mw).to include(described_class::STRIP_FORWARDED_CLIENT_CERT_MW),
+                              "#{label}: references the strip but does not define it"
+        expect(referenced - defined_mw).to be_empty,
+                                          "#{label}: references undefined middleware(s) #{(referenced - defined_mw).inspect}"
+      end
+    end
+
+    it "emits a byte-identical strip definition in every file (no drift between the two writers)" do
+      definitions = every_generated_config.values.map do |config|
+        config.dig("http", "middlewares", described_class::STRIP_FORWARDED_CLIENT_CERT_MW)
+      end
+      expect(definitions.uniq.length).to eq(1)
+      expect(definitions.first).to eq(
+        "headers" => {
+          "customRequestHeaders" => {
+            Security::MtlsTrust::PEM_HEADER     => "",
+            Security::MtlsTrust::SUBJECT_HEADER => ""
+          }
+        }
+      )
+    end
+
+    # THE regression oracle for the strip. Traefik PREPENDS an entrypoint's
+    # middlewares to each router's own chain (pkg/server/aggregator.go), and
+    # write_static_config! puts pass-tls-client-cert@file on `websecure`. So a
+    # backend router carrying ONLY the strip runs
+    #   pass-tls (sets the CN) → strip (deletes it) → backend sees nothing,
+    # and every mTLS worker call loses its identity — a worse outcome than the
+    # forgery the strip exists to prevent. A stripping router must therefore
+    # re-add the proxy-authentic CN ITSELF, after the strip.
+    it "re-adds the verified CN AFTER the strip on every backend router that can receive one" do
+      configs_that_can_forward_a_cn.each do |label, config|
+        routers = backend_routers(config)
+        expect(routers).not_to be_empty, "#{label}: enumerated no backend routers — vacuous"
+
+        routers.each do |name, router|
+          expect(router["middlewares"]).to eq(
+            [ described_class::STRIP_FORWARDED_CLIENT_CERT_MW, described_class::PASS_TLS_CLIENT_CERT_MW ]
+          ), "#{label}: router #{name} strips the CN without re-adding it (got #{router['middlewares'].inspect})"
+        end
+      end
+    end
+
+    it "omits the CN-forwarding middleware only where no client cert can be negotiated" do
+      # host-login with NO clientAuth CA: nothing ever negotiates a cert, so
+      # there is no CN to preserve — the strip alone is correct there.
+      routers = backend_routers(described_class.host_login_config("/c/crt", "/c/key"))
+      expect(routers).not_to be_empty
+      routers.each_value do |router|
+        expect(router["middlewares"]).to eq([ described_class::STRIP_FORWARDED_CLIENT_CERT_MW ])
+      end
+    end
+
+    it "leaves non-backend routers (frontend catchall, sidekiq) unstripped" do
+      every_generated_config.each do |label, config|
+        others = non_backend_routers(config)
+        expect(others).not_to be_empty, "#{label}: enumerated no non-backend routers — vacuous"
+
+        others.each do |name, router|
+          expect(Array(router["middlewares"])).not_to include(described_class::STRIP_FORWARDED_CLIENT_CERT_MW),
+                                                      "#{label}: router #{name} does not reach the backend but carries the strip"
+        end
       end
     end
   end

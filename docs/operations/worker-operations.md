@@ -320,7 +320,6 @@ All cron schedules live in `worker/config/sidekiq.yml`.
 | Service | Purpose |
 |---------|---------|
 | `BackendApiClient` | Primary server HTTP client (CRUD, AI, DevOps) |
-| `ApiClient` | Base HTTP client for analytics / reporting |
 | `WebAuthApiClient` | Sidekiq Web auth (separate circuit breaker) |
 | `LlmProxyClient` | AI model proxy through server LLM endpoints |
 

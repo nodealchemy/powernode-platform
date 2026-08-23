@@ -195,16 +195,110 @@ class ReportRequest < ApplicationRecord
     end
   end
 
-  # Cleanup old completed/failed requests
-  def self.cleanup_old_requests(older_than: 30.days)
-    where("created_at < ? AND status IN (?)", older_than.ago, %w[completed failed cancelled])
-      .find_each do |request|
-        # Delete associated file if it exists
-        if request.file_path && File.exist?(request.file_path)
-          File.delete(request.file_path)
-        end
-        request.destroy
-      end
+  # Statuses whose requests are finished and therefore eligible for retention
+  # sweeps. "pending"/"processing" are excluded — a request still in flight
+  # must never be swept out from under the worker rendering it.
+  CLEANUP_STATUSES = %w[completed failed cancelled].freeze
+
+  # Hard cap on rows removed by a single cleanup_old_requests call. The sweep
+  # has never run in this deployment, so the first pass faces an unswept
+  # backlog of unknown size; bounding every call means no single invocation can
+  # delete an unbounded set of stored artifacts, and the remainder is reported
+  # so the next invocation picks it up.
+  DEFAULT_CLEANUP_LIMIT = 100
+
+  # Directories a report artifact is allowed to live in. cleanup_old_requests
+  # unlinks files, and file_path is written by the worker over HTTP, so a
+  # poisoned path must not be able to steer File.delete at an arbitrary file.
+  #
+  # Same two roots as the read path in
+  # Api::V1::ReportsController#download_request, but the check here is STRICTER:
+  # that one compares `start_with?(root)` without a separator, so a sibling
+  # directory whose name merely begins with "reports" satisfies it. Do not
+  # weaken this one to match it.
+  def self.artifact_roots
+    [
+      Rails.root.join("tmp", "reports").to_s,
+      Rails.root.parent.join("worker", "storage", "reports").to_s
+    ]
+  end
+
+  # Finished requests older than the retention boundary. Exposed separately so
+  # a caller can COUNT the backlog without deleting anything.
+  def self.cleanup_candidates(older_than: 30.days)
+    where(status: CLEANUP_STATUSES).where(created_at: ...older_than.ago)
+  end
+
+  # DESTRUCTIVE retention sweep: unlinks the stored artifact and destroys the
+  # row, for finished requests past the retention boundary.
+  #
+  # Always bounded by `limit` (see DEFAULT_CLEANUP_LIMIT). Pass `dry_run: true`
+  # to get the candidate count with nothing deleted.
+  #
+  # Returns a summary hash: candidate_count / deleted_count / files_deleted /
+  # remaining_count / dry_run, plus `deleted_records` — [{ id:, account_id: }]
+  # for each row removed, so the caller can audit what it destroyed. That array
+  # is bounded by `limit` like everything else here.
+  def self.cleanup_old_requests(older_than: 30.days, limit: DEFAULT_CLEANUP_LIMIT, dry_run: false)
+    limit = [ limit.to_i, 1 ].max
+    scope = cleanup_candidates(older_than: older_than)
+    candidate_count = scope.count
+
+    if dry_run
+      return {
+        candidate_count: candidate_count,
+        deleted_count: 0,
+        files_deleted: 0,
+        remaining_count: candidate_count,
+        dry_run: true,
+        deleted_records: []
+      }
+    end
+
+    deleted_records = []
+    files_deleted = 0
+
+    scope.order(:created_at).limit(limit).to_a.each do |request|
+      identity = { id: request.id, account_id: request.account_id }
+      # Row first, then the file. If destroy raises, the artifact is still there
+      # and the surviving row still points at it truthfully; the reverse order
+      # would leave a "completed" row advertising a file that is gone.
+      request.destroy
+      files_deleted += 1 if request.delete_artifact_file
+      deleted_records << identity
+    end
+
+    {
+      candidate_count: candidate_count,
+      deleted_count: deleted_records.size,
+      files_deleted: files_deleted,
+      remaining_count: [ candidate_count - deleted_records.size, 0 ].max,
+      dry_run: false,
+      deleted_records: deleted_records
+    }
+  end
+
+  # Unlink this request's artifact if it exists and sits inside an allowed
+  # reports directory. Returns true only when a file was actually removed.
+  #
+  # File.expand_path is load-bearing, not cosmetic: without it a file_path
+  # containing ".." segments would satisfy the prefix check and then resolve
+  # outside the allowed roots when File.delete follows it.
+  def delete_artifact_file
+    return false if file_path.blank?
+
+    expanded = File.expand_path(file_path)
+    unless self.class.artifact_roots.any? { |root| expanded.start_with?(root + File::SEPARATOR) }
+      Rails.logger.error "Refusing to delete report artifact outside reports directories: #{file_path}"
+      return false
+    end
+    return false unless File.file?(expanded)
+
+    File.delete(expanded)
+    true
+  rescue SystemCallError => e
+    Rails.logger.error "Failed to delete report artifact #{file_path}: #{e.message}"
+    false
   end
 
   private

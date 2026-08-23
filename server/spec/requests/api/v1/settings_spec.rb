@@ -89,6 +89,19 @@ RSpec.describe 'Api::V1::Settings', type: :request do
   end
 
   describe 'PUT /api/v1/settings' do
+    # IMP-e639a38f4d8c — this one endpoint carries FOUR sections with two
+    # different owners. `user_preferences`, `notification_preferences` and
+    # `security_settings` all write columns on the CALLER'S OWN User row, so
+    # every authenticated user may write them. `account_settings` is the only
+    # section SettingsUpdateService routes at the shared Account row — both its
+    # jsonb `settings` column and the direct `name`/`subdomain`/`billing_email`/
+    # `tax_id` fields — so it is gated on `admin.settings.update`, the same
+    # permission Api::V1::AccountsController#update already requires for the
+    # same column. The privileged caller below therefore appears ONLY in the
+    # account_settings contexts.
+    let(:account_admin) { create(:user, :owner, account: account) }
+    let(:account_admin_headers) { auth_headers_for(account_admin) }
+
     let(:valid_params) do
       {
         settings: {
@@ -133,17 +146,186 @@ RSpec.describe 'Api::V1::Settings', type: :request do
     # must both persist the account default network key and read it back in
     # its own response (its current_account_settings is a second hand-rolled
     # copy of the controller's; both must carry the key).
+    #
+    # IMP-e639a38f4d8c: exercised as a caller who HOLDS admin.settings.update.
+    # These examples previously ran as the plain :manager above and were green
+    # — that greenness WAS the vulnerability, not a contract to preserve. The
+    # write-time value screen they assert is unchanged: it governs WHAT is
+    # written, this gate governs WHO writes.
     context 'writing the provisioning default network setting (real service)' do
       it 'persists the key and reads it back in the response' do
         put '/api/v1/settings',
             params: { settings: { account_settings: { default_sdwan_network_id: 'net-77' } } },
-            headers: headers, as: :json
+            headers: account_admin_headers, as: :json
 
         expect_success_response
         expect(account.reload.settings['default_sdwan_network_id']).to eq('net-77')
         expect(json_response_data.dig('settings', 'account_settings', 'default_sdwan_network_id')
                  .presence || json_response_data.dig('account_settings', 'default_sdwan_network_id'))
           .to eq('net-77')
+      end
+
+      # IMP-529b8514bbc6 — WRITE-SIDE SCREEN, defence in depth.
+      #
+      # The composer refuses at COMPOSE time to stand up bare compute for a
+      # plan that would resolve its network from a default that could never be
+      # an id. Nothing stopped that value being stored, so the refusal reached
+      # whoever provisioned next rather than whoever typed it. The read-side
+      # guard is unchanged and still authoritative for anything already in the
+      # column; this only stops the surface producing new ones.
+      it 'refuses a default network that could never be a network id' do
+        account.update!(settings: (account.settings || {}).merge(
+          'default_sdwan_network_id' => 'net-good', 'timezone' => 'UTC'
+        ))
+
+        put '/api/v1/settings',
+            params: { settings: { account_settings: { default_sdwan_network_id: { id: 7 } } } },
+            headers: account_admin_headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['success']).to be false
+        expect(json_response.to_s).to include('default_sdwan_network_id')
+        # The screen fires BEFORE any account write, so the stored value is
+        # untouched. (The service's ActiveRecord::Rollback is the belt-and-
+        # braces for a mixed payload; under transactional fixtures that
+        # rollback is a no-op, so this assertion is carried by the early
+        # refusal, not by the transaction.)
+        expect(account.reload.settings['default_sdwan_network_id']).to eq('net-good')
+      end
+
+      it 'refuses a numeric default that is not the unset zero' do
+        put '/api/v1/settings',
+            params: { settings: { account_settings: { default_sdwan_network_id: 12_345 } } },
+            headers: account_admin_headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(account.reload.settings['default_sdwan_network_id']).to be_nil
+      end
+
+      # The screen must accept everything the composer accepts, or it becomes a
+      # second, stricter opinion about the same key — the drift the shared
+      # classifier exists to prevent.
+      it 'accepts the explicit opt-out and the blank/zero "no default" values' do
+        [ 'none', '', 0, nil ].each do |value|
+          put '/api/v1/settings',
+              params: { settings: { account_settings: { default_sdwan_network_id: value } } },
+              headers: account_admin_headers, as: :json
+
+          expect(response).to have_http_status(:ok), "rejected #{value.inspect}"
+          # Accepted AND stored — a silent drop would satisfy the status alone.
+          expect(account.reload.settings).to have_key('default_sdwan_network_id')
+          expect(account.settings['default_sdwan_network_id']).to eq(value)
+        end
+      end
+    end
+
+    # IMP-e639a38f4d8c — WHO may write account-wide state.
+    #
+    # `Account#settings` is shared, account-wide configuration: the company
+    # profile the serializer exposes (company_size, industry, website, phone,
+    # address, logo_url), the provisioning default network
+    # (default_sdwan_network_id, which decides the fabric every future instance
+    # lands on), and — because the merge is blind — any key any consumer reads
+    # out of that column. The same code path also writes the account's
+    # `name`, `subdomain`, `billing_email` and `tax_id` directly.
+    #
+    # None of that is a user's own preference, and the OTHER writer of the same
+    # column (Api::V1::AccountsController#update) has always required
+    # `admin.settings.update`. This surface did not, which made it the more
+    # capable of the two doors: AccountsController permits :settings as a
+    # SCALAR, so strong params drops a Hash there, while this one permits
+    # `account_settings: {}` and could write anything.
+    #
+    # The oracle here is ABSENCE OF EFFECT, not status: a guard that writes the
+    # row and then reports 403 would satisfy a status assertion. The stored
+    # values are seeded first so these compare a real value against a real
+    # value, never nil against nil. The status lives in its own example.
+    context 'when the caller lacks admin.settings.update' do
+      before do
+        account.update!(settings: (account.settings || {}).merge(
+          'default_sdwan_network_id' => 'net-preexisting',
+          'industry' => 'aerospace'
+        ))
+      end
+
+      it 'leaves the stored account settings UNCHANGED' do
+        put '/api/v1/settings',
+            params: { settings: { account_settings: {
+              default_sdwan_network_id: 'net-seized', industry: 'seized'
+            } } },
+            headers: headers, as: :json
+
+        expect(account.reload.settings['default_sdwan_network_id']).to eq('net-preexisting')
+        expect(account.settings['industry']).to eq('aerospace')
+      end
+
+      it 'leaves the account identity fields the same section writes UNCHANGED' do
+        original_name = account.name
+        original_subdomain = account.subdomain
+        original_billing_email = account.billing_email
+
+        put '/api/v1/settings',
+            params: { settings: { account_settings: {
+              name: 'Seized Co', subdomain: 'seized', billing_email: 'attacker@example.com'
+            } } },
+            headers: headers, as: :json
+
+        account.reload
+        expect(account.name).to eq(original_name)
+        expect(account.subdomain).to eq(original_subdomain)
+        expect(account.billing_email).to eq(original_billing_email)
+      end
+
+      # The runtime shape a partial-write bug actually takes: one request
+      # carrying BOTH a section the caller may write and one they may not. The
+      # gate is a before_action, so the whole request fails closed — the
+      # permitted half must not land either, or the endpoint becomes a way to
+      # discover the gate by watching which half took effect.
+      it 'fails the WHOLE request closed on a mixed self-service + account payload' do
+        # Seeded so the preference assertion below compares a real value to a
+        # real value rather than nil to nil.
+        user.update!(preferences: { 'theme' => 'light' })
+
+        put '/api/v1/settings',
+            params: { settings: {
+              user_preferences: { theme: 'dark' },
+              account_settings: { industry: 'seized' }
+            } },
+            headers: headers, as: :json
+
+        expect(response).to have_http_status(:forbidden)
+        expect(account.reload.settings['industry']).to eq('aerospace')
+        expect(user.reload.preferences['theme']).to eq('light')
+      end
+
+      it 'responds 403' do
+        put '/api/v1/settings',
+            params: { settings: { account_settings: { industry: 'seized' } } },
+            headers: headers, as: :json
+
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      # The gate must not swallow the three self-service sections that share
+      # this endpoint — they write the CALLER'S OWN User row, and the frontend
+      # sends them here for every user (ThemeContext and ProfilePage both PUT
+      # user_preferences with no account_settings at all).
+      it 'still lets the same caller write their own preferences' do
+        put '/api/v1/settings',
+            params: { settings: { user_preferences: { theme: 'dark' } } },
+            headers: headers, as: :json
+
+        expect_success_response
+        expect(user.reload.preferences['theme']).to eq('dark')
+      end
+
+      it 'still lets the same caller write their own notification preferences' do
+        put '/api/v1/settings',
+            params: { settings: { notification_preferences: { marketing_emails: true } } },
+            headers: headers, as: :json
+
+        expect_success_response
+        expect(user.reload.notification_preferences['marketing_emails']).to be true
       end
     end
   end

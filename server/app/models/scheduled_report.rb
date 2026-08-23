@@ -56,6 +56,25 @@ class ScheduledReport < ApplicationRecord
     report_request
   end
 
+  # Advance the schedule WITHOUT dispatching. Used by the sweep when
+  # execute_report! raised: next_run_at would otherwise stay in the past, so
+  # every subsequent sweep would re-dispatch the same failing report and pile
+  # up ReportRequest rows. A failed report waits for its next window instead.
+  def reschedule_after_failure!
+    self.last_run_at = Time.current
+    calculate_next_run_time
+
+    # update_columns, not save!(validate: false): this is reached AFTER a failed
+    # dispatch, so the record may be dirty with — or invalid because of — the
+    # very attributes that made it fail. Writing only these three columns keeps
+    # the failure from being force-persisted along with the schedule bump.
+    update_columns(
+      last_run_at: last_run_at,
+      next_run_at: next_run_at,
+      last_status: "failed"
+    )
+  end
+
   private
 
   def scheduled_report_name

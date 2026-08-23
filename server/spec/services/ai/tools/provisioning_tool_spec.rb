@@ -615,24 +615,37 @@ RSpec.describe Ai::Tools::ProvisioningTool do
       expect(r[:data][:summary]).to be_present
     end
 
-    it "fails an operator cost_control request with a clear reason rather than an unbindable plan" do
-      # Was: asserted a composed cost_control plan whose first step named
-      # `scale_project`. That step carried none of the skill's required
-      # kwargs, so approving it produced "missing required input:
-      # project_id" at execution. A cost breach implies scaling IN and no
-      # scale-in strategy exists yet, so the proposer declines and the
-      # operator gets an immediate, explicit failure instead.
-      # INC-4 (IMP-216a6dbc7e32) adds `remove_replicas`; restore then.
-      gate = stub_gate("auto_apply_within_bounds")
+    it "routes an operator cost_control request for approval rather than applying it" do
+      # Was: asserted an outright failure, because no scale-in strategy
+      # existed. INC-4 landed `remove_replicas` and IMP-e68a93c47106 wired the
+      # composer, so the request now succeeds — but it composes a DESTRUCTIVE
+      # step, and a gate answering "auto_apply_within_bounds" on policy
+      # authority must not be able to apply it. Core hands the gate
+      # auto_apply_eligible: false and the dispatcher refuses to widen it.
+      stub_gate("auto_apply_within_bounds")
+      # A ceiling generous enough that the bounds check would clear a
+      # scale-OUT — so nothing here passes because the plan happened to be
+      # large.
+      adapt_mission.update!(configuration: adapt_mission.configuration.merge(
+        "watch_policies" => { "auto_scale_max_replicas" => 8 }
+      ))
+      live_plan_id = adapt_mission.configuration.dig("plan", "plan_id")
+      before_steps = ::Ai::GoalPlan.find(live_plan_id).steps.count
 
       r = call("platform_provisioning_adapt",
                mission_id: adapt_mission.id,
                change_type: "cost_control",
                details: { "target_usd" => 200.0 })
 
-      expect(r[:success]).to be false
-      expect(r[:error]).to include("cost_control")
-      expect(gate).not_to have_received(:adaptation_disposition)
+      expect(r[:success]).to be true
+      first_step = r[:data][:adaptation_plan][:steps].first
+      expect(first_step[:skill]).to eq("scale_project")
+      expect(first_step[:inputs]["scaling_strategy"]).to eq("remove_replicas")
+      expect(r[:data][:gate][:disposition]).to eq("parked_gate_unavailable")
+      expect(r[:data][:gate][:dispatched]).to be false
+      # Ground truth: nothing was appended to the live plan and nothing ran.
+      expect(::Ai::GoalPlan.find(live_plan_id).steps.count).to eq(before_steps)
+      expect(::Ai::GoalPlan.find(r[:data][:plan_id]).status).to eq("draft")
     end
 
     it "parks a relocate behind the gate rather than applying it" do

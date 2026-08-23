@@ -190,5 +190,62 @@ RSpec.describe 'Api::V1::Worker::ProcessingJobs', type: :request do
         expect(response).to have_http_status(:internal_server_error)
       end
     end
+
+    # Regression guard. The two examples above stub mark_completed!/mark_failed!
+    # to return true, so they proved only that the controller REACHES them —
+    # they could not see that the call itself raised.
+    #
+    # It did: the controller handed the raw ActionController::Parameters for
+    # result_data/error_details to the model, whose jsonb columns do
+    # `plain_hash.merge(params)`. Hash#merge calls #to_hash on the argument, and
+    # ActionController::Parameters#to_hash raises UnfilteredParameters when the
+    # params were never permitted. The controller's `rescue StandardError`
+    # turned that into a 500, so EVERY worker completion and failure report
+    # failed and the row never left "processing" — the worker jobs' terminal
+    # state was unreachable through this endpoint.
+    #
+    # These examples run the REAL model and assert the persisted row.
+    describe 'terminal transitions with the real model (no stubs)' do
+      let(:processing_job) { create_processing_job.call }
+
+      before { processing_job.update!(status: 'processing', started_at: Time.current) }
+
+      it 'persists a completed row and its result_data' do
+        patch "/api/v1/worker/processing_jobs/#{processing_job.id}",
+              params: { status: 'completed',
+                        result_data: { thumbnails: [ { size: 'small', storage_key: 'k' } ], count: 1 } },
+              headers: worker_headers,
+              as: :json
+
+        expect(response).to have_http_status(:ok)
+        expect(processing_job.reload.status).to eq('completed')
+        expect(processing_job.status).not_to eq('processing')
+        expect(processing_job.result_data['count']).to eq(1)
+        expect(processing_job.completed_at).to be_present
+      end
+
+      it 'persists a failed row and its error_details' do
+        patch "/api/v1/worker/processing_jobs/#{processing_job.id}",
+              params: { status: 'failed',
+                        error_details: { error_message: 'ffprobe missing', reason: 'tool_unavailable' } },
+              headers: worker_headers,
+              as: :json
+
+        expect(response).to have_http_status(:ok)
+        expect(processing_job.reload.status).to eq('failed')
+        expect(processing_job.error_details['error_message']).to eq('ffprobe missing')
+        expect(processing_job.error_details['reason']).to eq('tool_unavailable')
+      end
+
+      it 'accepts an empty result_data' do
+        patch "/api/v1/worker/processing_jobs/#{processing_job.id}",
+              params: { status: 'completed' },
+              headers: worker_headers,
+              as: :json
+
+        expect(response).to have_http_status(:ok)
+        expect(processing_job.reload.status).to eq('completed')
+      end
+    end
   end
 end

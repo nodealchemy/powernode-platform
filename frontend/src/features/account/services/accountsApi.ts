@@ -28,6 +28,34 @@ export interface Account {
   settings: Record<string, unknown>;
 }
 
+/**
+ * Payload for provisioning an ADDITIONAL tenant account.
+ *
+ * The initial administrator is mandatory: an account with no users is not a
+ * usable tenant, and the server creates both in one transaction
+ * (Accounts::ProvisionService). `subdomain` is optional — the server derives a
+ * unique one from the name when it is omitted.
+ */
+export interface AccountProvisionFormData {
+  name: string;
+  subdomain?: string;
+  admin_email: string;
+  admin_password: string;
+  admin_name?: string;
+}
+
+export interface ProvisionedAccountResponse {
+  success: boolean;
+  message?: string;
+  data: Account & {
+    administrator: {
+      id: string;
+      email: string;
+      name: string;
+    };
+  };
+}
+
 export interface AccountFormData {
   name: string;
   subdomain?: string;
@@ -93,6 +121,16 @@ class AccountsApiService {
     const response = await api.put(`/accounts/${account_id}`, {
       account: accountData
     });
+    return response.data;
+  }
+
+  /**
+   * Provision a new tenant account together with its initial administrator.
+   * Server-side this requires the `admin.account.create` permission; the UI
+   * gates on the same permission, never on a role.
+   */
+  async createAccount(payload: AccountProvisionFormData): Promise<ProvisionedAccountResponse> {
+    const response = await api.post('/accounts', { account: payload });
     return response.data;
   }
 

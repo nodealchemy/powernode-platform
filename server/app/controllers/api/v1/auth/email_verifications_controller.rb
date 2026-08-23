@@ -105,9 +105,7 @@ class Api::V1::Auth::EmailVerificationsController < ApplicationController
         {
           user_id: current_user.id,
           email: current_user.email,
-          verification_token: current_user.email_verification_token,
-          user_name: current_user.full_name,
-          smtp_settings: Rails.application.credentials.dig(:mail, :smtp)
+          user_name: current_user.full_name
         }
       )
 

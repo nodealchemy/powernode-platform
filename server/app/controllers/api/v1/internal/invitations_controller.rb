@@ -10,6 +10,11 @@ module Api
           render_success({
             id: invitation.id,
             email: invitation.email,
+            # The invite token is plaintext in the DB anyway (invitations.token
+            # alongside token_digest). Serving it over this mTLS worker-only
+            # endpoint is how the worker gets it WITHOUT it riding in the Sidekiq
+            # job arguments, which are logged twice and persisted in Redis.
+            token: invitation.token,
             first_name: invitation.first_name,
             last_name: invitation.last_name,
             role_names: invitation.role_names,

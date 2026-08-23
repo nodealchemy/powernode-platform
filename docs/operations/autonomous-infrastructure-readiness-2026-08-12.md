@@ -19,6 +19,12 @@ has storage, sensors, and adapters but no producers), and it cannot **author wha
 deploys** (agents build and assign modules but cannot create one). Most of the remainder
 is process, not code.
 
+> **Correction (2026-08-21, IMP-a67be4fe9041):** "cannot create one" was already stale at
+> ratification — see the correction under §3's authoring-seam bullet. Agents have been
+> able to author a buildable module's manifest over MCP since 2026-08-06 (`f65e72c7`); the
+> create arm's residual is the `modules/<slug>/` build payload. The three-arm framing and
+> every other claim in this paragraph stand.
+
 ---
 
 ## 1. Ad-hoc application development + deployment
@@ -94,6 +100,35 @@ is process, not code.
   assign, and compose *existing* modules but cannot **create** one — authoring is a human
   editing `manifest.yaml` + a `stage15.sh` case-arm in git. Every "deploy a NEW service"
   flow dead-ends here.
+
+  > **Correction (2026-08-21, IMP-a67be4fe9041):** the bullet above was already stale on
+  > the day this document was ratified. Manifest authoring over MCP had landed **six days
+  > earlier, on 2026-08-06, in `f65e72c7`** (`extensions/system`): `system_create_module`
+  > and `system_update_module` accept `manifest_yaml` and route it through
+  > `System::ManifestImportService`, which is exactly what makes a module visible to
+  > `System::ModuleBuildPlannerService` (its buildable set is "has a non-blank
+  > `manifest_yaml`"). An agent therefore **can** create a module and have it planned for
+  > build; "cannot create one" is wrong. The residual is narrower than "authoring":
+  >
+  > 1. **The build payload — still human-only through git.** A module that ships or builds
+  >    files needs a `modules/<slug>/` tree and a `case "$MODULE"` arm in
+  >    `extensions/system/scripts/module-build/stage15.sh`. Both are committed by a human;
+  >    no MCP surface authors either. This half of the 2026-07-28 gap-2 claim stands.
+  > 2. **The R1/R2/R3 sprawl gate — was advisory only.** It lived as prose in the
+  >    `system_create_module` tool description ("run system_discover_modules before
+  >    authoring") and in `extensions/system/docs/runbooks/module-authoring.md` Phase 0,
+  >    both addressed to a human reader and enforced by nothing in `create_module`.
+  >    **Closed on the MCP authoring surface, 2026-08-21** (IMP-a67be4fe9041): a manifest
+  >    that would add a new name to the planner's buildable set is now refused unless the
+  >    caller declares a `reuse_check`, and the existing modules that declaration claims to
+  >    have considered are verified to exist. Scope is exactly that surface — the REST
+  >    `import_manifest` endpoint, the CI publish path, and `rails db:seed` still call
+  >    `System::ManifestImportService` directly and are deliberately ungated, because they
+  >    are the human/committed paths this gate exists to keep agents honest about.
+  >
+  > No conclusion of this document is changed by this correction. The create arm is still
+  > the third of the three arms in §5 and is still unfinished — its residual is the build
+  > payload, not the manifest.
 - **The `verify:` manifest probe block** (2026-07-28 gap 4 — design settled, unbuilt):
   no callable "node N now provides capability C" primitive. The settled spec matters as
   much as the feature: `command` probes must assert `resolves_to` (a resolved path, not
@@ -206,6 +241,16 @@ is process, not code.
    automation, batch-cancel already in place) so that ad-hoc development can produce a
    deployable unit without a human editing two files in git.
 
+   > **Correction (2026-08-21, IMP-a67be4fe9041):** part of what this arm asks for already
+   > exists. **Before building from this arm, read the correction under §3's
+   > authoring-seam bullet** — an agent has been able to author a buildable module's
+   > *manifest* over MCP since 2026-08-06 (`f65e72c7`), and the R1/R2/R3 gate was made
+   > mechanical on that same surface on 2026-08-21. Note the difference from the clause
+   > above: that path writes `manifest_yaml` to the **database**, not a manifest committed
+   > **through Gitea**, and it does not author the `modules/<slug>/` file-spec payload or
+   > its `stage15.sh` build arm. Those remain the residual. The arm itself is unchanged —
+   > still unfinished, still the create arm.
+
 These are respectively the act, sense, and create arms; everything else in this document
 (the app aggregate, unified approval queue, build throughput) amplifies autonomy but does
 not enable it.
@@ -277,3 +322,6 @@ full autonomy needs — what it lacks is the act arm (an adaptation lane that mu
 consumer-first), the sense arm (telemetry producers for storage that already exists), and
 the create arm (an authoring seam for modules and apps); build those three, hold the
 lines in §7, and the rest is process definition, not new machinery.
+
+*(2026-08-21, IMP-a67be4fe9041 — this sentence stands as written; the create arm's scope
+is narrower than §3 originally stated. See the correction there.)*

@@ -307,6 +307,14 @@ Rails.application.routes.draw do
           post "cleanup_auth_artifacts", to: "maintenance#cleanup_auth_artifacts"
         end
 
+        # Report pipeline internal endpoints (for worker service).
+        # Reports::ScheduledReportSweepJob drives process_scheduled on a cron;
+        # Reports::CleanupOldReportsJob drives cleanup_old on demand.
+        scope :reports do
+          post "process_scheduled", to: "reports#process_scheduled"
+          post "cleanup_old", to: "reports#cleanup_old"
+        end
+
         # Git provider internal endpoints (for worker service)
         namespace :git do
           resources :webhook_events, only: [ :show, :update ] do
@@ -837,7 +845,9 @@ Rails.application.routes.draw do
       end
 
       # Protected resources (will be added later)
-      resources :accounts, only: [ :show, :update ] do
+      # :create provisions an additional TENANT account (+ its initial
+      # administrator) and is gated on `admin.account.create` in the controller.
+      resources :accounts, only: [ :show, :update, :create ] do
         collection do
           get :accessible
           post :switch

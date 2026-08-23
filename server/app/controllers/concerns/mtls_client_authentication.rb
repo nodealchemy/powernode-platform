@@ -9,17 +9,45 @@
 # Security::MtlsClientVerifier) before resolving the worker — a peer-CA-signed
 # cert must not be able to impersonate a worker on these routes.
 #
-# Requires Traefik to forward the full client-cert PEM
-# (passTLSClientCert.pem=true); without it verify_request returns nil and the
-# route fails closed. Sets @current_worker + @current_account on success;
-# renders 401 on a missing / unverifiable cert, unknown CN, or inactive worker.
+# Security::MtlsTrust.verify_request has TWO trust paths, and only one of them
+# is cryptographic:
+#
+#   * NON-BLANK PEM forwarded (passTLSClientCert.pem=true) — the leaf is
+#     re-verified against OUR CA here, so a cert we did not issue is rejected
+#     even though Traefik accepted it against the shared client-auth bundle.
+#     The branch is chosen via `.presence`, so a BLANK PEM header counts as
+#     absent and silently takes the Info path below.
+#
+#   * PEM absent, `X-Forwarded-Tls-Client-Cert-Info` only — the forwarded
+#     subject CN is trusted WITHOUT re-verification. See verify_request's
+#     no-PEM branch for why that is sound in this posture: peer CAs are only
+#     added to the client-auth bundle by the same writer that enables
+#     pem-forwarding, so with no PEM, Traefik's chain-check against our-CA-only
+#     is authoritative. This path does NOT fail closed — a request carrying
+#     only that header authenticates as whichever Worker matches the CN. What
+#     stops a client from forging it is not this class but the ingress:
+#     Core::IngressConfigWriter::STRIP_FORWARDED_CLIENT_CERT_MW deletes any
+#     client-supplied X-Forwarded-Tls-Client-Cert[-Info] and is applied FIRST
+#     on every backend router, with pass-tls layered after it.
+#
+# So the cert check rejects a request carrying neither header, rejects a
+# non-blank PEM that fails verification, and rejects an Info header with no
+# parseable CN — but ACCEPTS any Info header it can parse a CN out of.
+#
+# Sets @current_worker + @current_account on success; renders 401 on a missing /
+# unverifiable cert, unknown CN, or inactive worker.
 module MtlsClientAuthentication
   extend ActiveSupport::Concern
 
   private
 
   def authenticate_worker_via_mtls!
-    verified_cn = Security::MtlsTrust.verify_request(request)
+    # resolve_forwarded_cert_cn (Authentication) rather than verify_request
+    # directly: identical resolution, but it also records WHICH posture
+    # authenticated the request in @current_worker_auth, so a caller gating
+    # secret material on worker_identity_cryptographically_verified? sees the
+    # truth here instead of a permanent false.
+    verified_cn = resolve_forwarded_cert_cn
     if verified_cn.blank?
       render_error("valid mTLS client certificate required", status: :unauthorized)
       return

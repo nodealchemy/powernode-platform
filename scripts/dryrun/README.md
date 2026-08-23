@@ -150,7 +150,7 @@ leave the gate enabled permanently the first time two runs interleaved.
 | compose | the composer produced a plan (loud on nil) | high |
 | docker | a `docker_provision` plan leg yielded a `DockerHost` (run-g handshake) | medium |
 | phase | the mission got through the provisioning legs (never silently parked) | high |
-| observation | soak: project-metric samples recorded for the mission, and at least one from a **live** source | high / medium |
+| observation | soak: project-metric samples recorded for the mission, and at least one from a **live** source; and: this run's routing-gate claim survived to grading (gone ⇒ the routing oracle was **not measured**, not failed) | high / medium |
 | soak | soak: the mission stayed observable for the window; spend under the ceiling | high |
 | orphan | a resource survived a removal (actuator-recorded, plus core's own dangling-volume check) — **halts before teardown** | high |
 | teardown | the prefix sweep left nothing behind | high |

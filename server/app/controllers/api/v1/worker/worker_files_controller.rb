@@ -93,8 +93,27 @@ module Api
           temp_file.write(file_content)
           temp_file.rewind
 
-          # Upload via provider
+          # Upload via provider.
+          #
+          # NOTE: no StorageProviders class implements #upload_file_to_key —
+          # verified by eager-loading the app and scanning every Module for the
+          # method (zero definitions). Every provider only has
+          # #upload_file(file_object, data), which writes to the file object's
+          # OWN storage_key and so cannot store a DERIVATIVE at a separate key.
+          # Guard explicitly instead of letting a NoMethodError fall into the
+          # rescue below as an opaque 500: the worker turns this named error into
+          # a failed ProcessingJob the operator can actually diagnose.
           provider = @file_object.file_storage.storage_provider
+          unless provider.respond_to?(:upload_file_to_key)
+            temp_file.close
+            temp_file.unlink
+            return render_error(
+              "Storage provider #{provider.class.name} cannot store a derivative at " \
+              "a separate key (#upload_file_to_key is not implemented)",
+              status: :not_implemented
+            )
+          end
+
           provider.upload_file_to_key(temp_file, storage_key)
 
           temp_file.close

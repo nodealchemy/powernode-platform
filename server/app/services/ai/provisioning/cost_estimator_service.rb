@@ -52,33 +52,38 @@ module Ai
       # so a missing explicit count may legitimately fall back to the brief's
       # `scale.initial`.
       #
-      # Deliberately excludes `docker_provision` and `scale_project`
-      # (IMP-051509357291):
+      # Deliberately excludes `docker_provision`, `rolling_module_upgrade`, and
+      # `scale_project`:
       #
-      #   * PlanComposerService#synthesize_docker_legs! emits one
-      #     docker_provision step PER INSTANCE, each carrying only
-      #     { "brief" => brief }. Inheriting scale.initial made every leg bill
-      #     a whole fleet's compute — a 3-instance plan was quoted 4 fleets.
+      #   * `docker_provision` and `rolling_module_upgrade` both CONFIGURE
+      #     instances an earlier step already created — see
+      #     CONFIGURES_EXISTING_INSTANCES — so neither creates a fleet to size.
+      #     (IMP-051509357291, IMP-fa199b518d65)
       #   * `scale_project` prices a DELTA (see #instance_count) — a scale-out
       #     that forgot its delta must not silently quote the whole fleet.
       FLEET_SIZED_SKILLS = %w[
         provision_full_stack
         provision_cluster
-        rolling_module_upgrade
       ].freeze
 
       # Compute skills whose step CONFIGURES instances an earlier step already
       # created, rather than creating any of its own. They contribute no compute
-      # line at all: DockerProvisionExecutor#perform takes a `node_instance_id`,
-      # looks the instance up and fails when it does not exist
-      # (docker_provision_executor.rb:42-47), so whatever those instances cost
-      # is already carried by the provision step that made them. Billing the leg
-      # again double-counts the fleet on the very card the operator approves.
+      # line at all, and are proven by what each executor's `perform` actually
+      # does, not by name or docstring:
       #
-      # `rolling_module_upgrade` has the same shape and is deliberately NOT
-      # listed here — it is outside this task's contract and is queued
-      # separately, so its absence is a scope decision, not an oversight.
-      CONFIGURES_EXISTING_INSTANCES = %w[docker_provision].freeze
+      #   * DockerProvisionExecutor#perform takes a `node_instance_id`, looks
+      #     the instance up and fails when it does not exist
+      #     (docker_provision_executor.rb:42-47). (IMP-051509357291)
+      #   * RollingModuleUpgradeExecutor#perform resolves its targets via
+      #     `system_list_instances(template_id:)`, filtered to instances
+      #     already `running`/`starting` (rolling_module_upgrade_executor.rb:
+      #     74-80), then batches them for an in-place module swap
+      #     (:94-103) — no arm calls a provisioning action. (IMP-fa199b518d65)
+      #
+      # Either way, whatever those instances cost is already carried by the
+      # provision step that made them. Billing the leg again double-counts the
+      # fleet on the very card the operator approves.
+      CONFIGURES_EXISTING_INSTANCES = %w[docker_provision rolling_module_upgrade].freeze
 
       # The `scale_project` arms that ADD instances, so their delta is a real
       # marginal cost. The skill also offers `vertical_resize` (resizes in
@@ -88,12 +93,12 @@ module Ai
       # and would be worse than the old behaviour, which priced scale_project at
       # nothing at all.
       #
-      # Same rule as VerificationService#additive_scaling?, widened by
-      # `add_region` because the skill's own input descriptor counts that arm as
-      # instances to ADD. Plain strings flowing through the skill-resolution
-      # seam — core does not reference the extension executor or its strategy
-      # list (the same reason AdaptationProposerService names its own).
-      ADD_REGION_STRATEGY = "add_region"
+      # Same rule as VerificationService#additive_scaling? — and now literally
+      # the same list. IMP-529b8514bbc6: this service used to widen the set
+      # with a LOCAL `add_region` constant while VerificationService did not,
+      # so the quote and the oracle disagreed about the one arm. Both now read
+      # AdaptationProposerService::INSTANCE_CREATING_STRATEGIES; see that
+      # constant for why the widening is correct and why it must be shared.
 
       # Skills that compose only network/sdwan resources.
       NETWORK_SKILLS = %w[
@@ -202,7 +207,11 @@ module Ai
         instance_type = lookup_instance_type(inputs)
         region_id     = inputs["provider_region_id"] || inputs[:provider_region_id]
         count         = instance_count(skill: skill, inputs: inputs, brief: brief)
-        storage_gb    = declared_gb(inputs, "with_storage_gb", "storage_gb")
+        # Key ORDER from the shared reader (IMP-b439270dab0d) so a change there
+        # cannot leave the quote reading a different declaration than the
+        # actuator. #declared_gb keeps its own NORMALISATION — a quote needs a
+        # non-negative integer, which the other surfaces do not.
+        storage_gb    = declared_gb(inputs, *::Shared::StorageSizeResolution::KEYS)
         egress_gb     = declared_gb(inputs, "egress_gb")
 
         regions = Array(brief["regions"] || brief[:regions])
@@ -364,7 +373,7 @@ module Ai
       # `scale_project` prices a DELTA: AdaptationProposerService stamps
       # `target_count` as "the number of NEW instances to add", not an absolute
       # target, so the marginal cost of an additive scale-out IS that value —
-      # but ONLY for the additive arms (see ADD_REGION_STRATEGY).
+      # but ONLY for the additive arms (see #additive_scaling?).
       #
       # The brief's `scale.initial` fallback applies to FLEET_SIZED_SKILLS only
       # — see that constant for why inheriting it elsewhere over-quotes.
@@ -395,14 +404,14 @@ module Ai
 
       # Whether a `scale_project` step's strategy is one that ADDS instances.
       # Resolved through AdaptationProposerService's own constant so core states
-      # the scale-out strategy in exactly one place, matching
-      # VerificationService#additive_scaling?.
+      # the instance-creating strategies in exactly one place — the SAME place
+      # VerificationService#additive_scaling? reads (IMP-529b8514bbc6).
       def additive_scaling?(inputs)
         strategy = (inputs["scaling_strategy"] || inputs[:scaling_strategy]).to_s
         return false if strategy.blank?
 
-        strategy == ::Ai::Provisioning::AdaptationProposerService::SCALE_OUT_STRATEGY ||
-          strategy == ADD_REGION_STRATEGY
+        ::Ai::Provisioning::AdaptationProposerService::INSTANCE_CREATING_STRATEGIES
+          .include?(strategy)
       end
 
       # A resource size the step explicitly declares, in GB, or 0 when it

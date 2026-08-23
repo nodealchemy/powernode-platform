@@ -390,8 +390,12 @@ class JobsController
       # Get the actual job class
       klass = Object.const_get(job_class)
 
-      # Debug logging for argument issues
-      PowernodeWorker.application.logger.info "Enqueuing #{job_class} with args: #{args.inspect}"
+      # Debug logging for argument issues. Args are masked through the job
+      # class's own declaration (BaseJob.redact_args) — some jobs must carry a
+      # secret (e.g. the password-reset token, which the server stores only as a
+      # BCrypt digest and so cannot serve back) and it must not land in the log.
+      loggable_args = klass.respond_to?(:redact_args) ? klass.redact_args(args) : args
+      PowernodeWorker.application.logger.info "Enqueuing #{job_class} with args: #{loggable_args.inspect}"
 
       # Enqueue the job with proper queue handling
       # Separate Sidekiq options (like retry) from job arguments

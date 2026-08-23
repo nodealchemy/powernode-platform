@@ -5,6 +5,38 @@ module Ai
     class SkillTool < BaseTool
       REQUIRED_PERMISSION = "ai.skills.read"
 
+      # SECURITY (IMP-245d8ae56f8c follow-up): authorization is per ACTION, not
+      # per tool. The floor above is a READ permission, and without this map
+      # every write cleared on it — the `member` role holds ai.skills.read and
+      # none of the write permissions, yet could author and mutate skills
+      # through MCP. The catalog has carried granular ai.skills.create /
+      # .update / .delete all along; nothing consumed them on this surface.
+      #
+      # This is sharper than ordinary read/write hygiene because a skill is
+      # where a RECIPE lives (metadata["recipe"]): an ordered list of tool
+      # invocations that Ai::SkillRecipeRunner dispatches with the DISPATCHER's
+      # permissions. Authoring rights are the right to write steps a more
+      # privileged principal may later execute, so the author bar must not be
+      # "can read skills".
+      #
+      # Shape copied from SelfImprovementTool (IMP-6fbfeff384fa), which already
+      # maps mutate_skill -> ai.skills.update and compose_skills ->
+      # ai.skills.create. SkillTool was the outlier in its own family.
+      #
+      # attach/detach bind an Ai::AgentSkill rather than editing skill content.
+      # There is no ai.skills.bind permission; ai.skills.update is the narrowest
+      # existing write in the same family and is what the change of a skill's
+      # agent bindings most resembles.
+      ACTION_PERMISSIONS = {
+        "create_skill"            => "ai.skills.create",
+        "clone_skill"             => "ai.skills.create",
+        "update_skill"            => "ai.skills.update",
+        "toggle_skill"            => "ai.skills.update",
+        "attach_skill_to_agent"   => "ai.skills.update",
+        "detach_skill_from_agent" => "ai.skills.update",
+        "delete_skill"            => "ai.skills.delete"
+      }.freeze
+
       def self.definition
         {
           name: "skill_management",
@@ -146,6 +178,16 @@ module Ai
       protected
 
       def call(params)
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[SkillTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
         case params[:action]
         when "list_skills" then list_skills(params)
         when "get_skill" then get_skill(params)
@@ -165,6 +207,33 @@ module Ai
       end
 
       private
+
+      # Keyed on the action that RUNS, never on the invoked tool name: a user
+      # principal is not pinned to the invoked name
+      # (McpPlatformToolRegistrar#action_pinned_to_name?), so a name-keyed check
+      # would be bypassable by supplying a sibling :action.
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two bypasses, both EXPLICIT, matching the sibling tools' ladder:
+      #
+      #   internal?            in-process system callers that opted in with
+      #                        `internal: true`. Never inferred from a nil user —
+      #                        an MCP instance principal also arrives with none
+      #                        (IMP-9030413bc292).
+      #   instance_authorized? an mTLS node principal whose SPECIFIC tool name
+      #                        already cleared Mcp::Principal#may_invoke?.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        # Compared against true rather than used for truthiness: nothing on the
+        # MCP path coerces a permission answer, and a truthy non-boolean must
+        # not read as a grant.
+        user.has_permission?(required_perm_for(action)) == true
+      end
 
       def resolve_skill(skill_id)
         # Override-aware: an account sees GLOBAL (platform-provided) skills plus

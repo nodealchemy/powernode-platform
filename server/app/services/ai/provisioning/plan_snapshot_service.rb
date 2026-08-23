@@ -109,7 +109,7 @@ module Ai
         cfg = step.execution_config.is_a?(Hash) ? step.execution_config : {}
         skill = (cfg["skill"] || cfg[:skill]).to_s
         inputs = (cfg["inputs"] || cfg[:inputs] || {})
-        {
+        node = {
           id: step.id.to_s,
           step_number: step.step_number,
           name: cfg["name"] || cfg[:name] || derive_step_name(skill, inputs),
@@ -119,6 +119,15 @@ module Ai
           status: step.respond_to?(:status) ? step.status.to_s : "pending",
           on_failure: cfg["on_failure"] || cfg[:on_failure]
         }
+
+        # IMP-1fc00ac8547a: declared-required inputs the composer resolves but
+        # this step did not get. Served so the omission reaches the plan-review
+        # surface rather than living only in the composer's log. Added only
+        # when present — an ADDITIVE key, so no existing node field changes
+        # shape for a healthy step.
+        omitted = cfg["unnormalized_inputs"] || cfg[:unnormalized_inputs]
+        node[:unnormalized_inputs] = omitted if omitted.present?
+        node
       end
 
       # Derive a human-friendly headline from skill + inputs so 4 identical
@@ -143,12 +152,14 @@ module Ai
           inst = resolve_instance_label(inputs)
           "Scale #{inst || 'compute'} #{delta.positive? ? '+' : ''}#{delta}"
         when "attach_storage"
-          # `with_storage_gb` first: it is the key PlanComposerService stamps
-          # and the kwarg the executor consumes (IMP-051509357291). The other
-          # two stay as tolerated aliases for hand-authored plan_data.
-          gb = (inputs["with_storage_gb"] || inputs[:with_storage_gb] ||
-                inputs["size_gb"] || inputs[:size_gb] ||
-                inputs["storage_gb"] || inputs[:storage_gb]).to_i
+          # ONE order, shared with the executor and the estimator
+          # (IMP-b439270dab0d). This spelled its own: it read by TRUTHINESS, so
+          # a blank-but-non-nil `with_storage_gb: ""` won here and labelled 0 GB
+          # while the executor fell through to the alias and provisioned it; and
+          # it interposed `size_gb`, which is ProviderVolume's own column rather
+          # than a step input — no producer emits it, and neither of the other
+          # two readers looks for it.
+          gb = ::Shared::StorageSizeResolution.from_inputs(inputs).to_i
           gb.positive? ? "Attach #{gb}GB volume" : "Attach storage"
         when "configure_sdwan_for_project"
           "Configure SDWAN"
@@ -194,12 +205,14 @@ module Ai
             bits << inst
           end
         elsif skill == "attach_storage"
-          # `with_storage_gb` first: it is the key PlanComposerService stamps
-          # and the kwarg the executor consumes (IMP-051509357291). The other
-          # two stay as tolerated aliases for hand-authored plan_data.
-          gb = (inputs["with_storage_gb"] || inputs[:with_storage_gb] ||
-                inputs["size_gb"] || inputs[:size_gb] ||
-                inputs["storage_gb"] || inputs[:storage_gb]).to_i
+          # ONE order, shared with the executor and the estimator
+          # (IMP-b439270dab0d). This spelled its own: it read by TRUTHINESS, so
+          # a blank-but-non-nil `with_storage_gb: ""` won here and labelled 0 GB
+          # while the executor fell through to the alias and provisioned it; and
+          # it interposed `size_gb`, which is ProviderVolume's own column rather
+          # than a step input — no producer emits it, and neither of the other
+          # two readers looks for it.
+          gb = ::Shared::StorageSizeResolution.from_inputs(inputs).to_i
           bits << "#{gb}GB" if gb.positive?
         elsif skill == "deploy_app_code"
           bits << inputs["branch"] if inputs["branch"].present?

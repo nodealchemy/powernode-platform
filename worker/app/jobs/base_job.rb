@@ -26,6 +26,58 @@ class BaseJob
     end
   end
 
+  # Job arguments are written to the log in several places here, in the worker's
+  # JobsController, and by Sidekiq's OWN default error handler (which logs the
+  # whole job hash on every raised exception — wrapped in a redacting handler in
+  # config/application.rb). Sidekiq also persists args VERBATIM in the Redis job
+  # payload and in the retry/dead sets, which Sidekiq::Web renders.
+  #
+  # A job that has no choice but to carry a secret declares its positions here,
+  # which masks it at the LOG sinks — NOT in Redis.
+  #
+  # This does NOT scrub Redis — nothing at this layer can. Prefer not putting a
+  # secret in args at all: if the value is readable from the server's internal
+  # API, pass an id and let the worker fetch it.
+  def self.sensitive_arg_indexes
+    []
+  end
+
+  # Hash-arg keys whose VALUE is masked wherever they appear, regardless of
+  # position. Positional declaration cannot cover jobs whose payload is an
+  # options hash (Notifications::NotificationEmailJob), and a future producer
+  # dropping a token into such a hash would otherwise be logged verbatim.
+  SENSITIVE_ARG_KEY = /token|secret|password|passwd|credential|api[_-]?key\z/i
+
+  REDACTED = "[REDACTED]"
+
+  # Positional args with the declared indexes replaced by a placeholder, and any
+  # hash arg's sensitive-looking keys masked. Safe to call on any job class,
+  # including ones that declare nothing.
+  def self.redact_args(args)
+    indexes = sensitive_arg_indexes
+
+    args.each_with_index.map do |value, i|
+      next REDACTED if indexes.include?(i) && !value.nil?
+
+      redact_value(value)
+    end
+  end
+
+  # Masks sensitive-looking keys in hashes, recursing through nested hashes and
+  # arrays. Non-collection values are returned untouched.
+  def self.redact_value(value)
+    case value
+    when Hash
+      value.each_with_object({}) do |(k, v), out|
+        out[k] = k.to_s.match?(SENSITIVE_ARG_KEY) && !v.nil? ? REDACTED : redact_value(v)
+      end
+    when Array
+      value.map { |v| redact_value(v) }
+    else
+      value
+    end
+  end
+
   def perform(*args)
     @started_at = Time.current
 
@@ -35,7 +87,7 @@ class BaseJob
     catch(:skip_job) do
       check_runaway_loop(*args)
 
-      logger.info "Starting #{self.class.name} with args: #{args.inspect}"
+      logger.info "Starting #{self.class.name} with args: #{self.class.redact_args(args).inspect}"
 
       result = execute(*args)
 
@@ -111,6 +163,13 @@ class BaseJob
     if missing_keys.any?
       raise ArgumentError, "Missing required parameters: #{missing_keys.join(', ')}"
     end
+  end
+
+  # The runaway-loop diagnostics dump the job's arguments. Extracted so the
+  # masking on this sink is reachable from a spec — every job spec stubs
+  # check_runaway_loop, so the inline form was never executed anywhere.
+  def log_runaway_args(args, severity: :error)
+    logger.public_send(severity, "Job args: #{self.class.redact_args(args).inspect}")
   end
 
   # Standardized logging methods (consistent with BaseWorkerService)
@@ -266,7 +325,7 @@ class BaseJob
 
     if recent_count >= threshold_min
       logger.error "RUNAWAY LOOP DETECTED: #{recent_count} executions of #{self.class.name} in last #{recent_window}s"
-      logger.error "Job args: #{args.inspect}"
+      log_runaway_args(args)
       logger.error "Recent timestamps: #{recent_executions.last(10).inspect}"
 
       Sidekiq.redis { |conn| conn.set("job_disabled:#{job_key}", "runaway_loop_detected", ex: 300) }
@@ -274,7 +333,7 @@ class BaseJob
       raise StandardError, "Runaway loop detected: #{recent_count} executions in #{recent_window}s. Job disabled for 5 minutes."
     elsif total_count >= threshold_5min
       logger.warn "HIGH FREQUENCY EXECUTION: #{total_count} executions of #{self.class.name} in last #{failure_window}s"
-      logger.warn "Job args: #{args.inspect}"
+      log_runaway_args(args, severity: :warn)
 
       # Add a delay to slow down execution
       sleep(5)

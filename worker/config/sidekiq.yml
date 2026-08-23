@@ -118,6 +118,22 @@
       queue: maintenance
       description: 'Remove expired backups beyond retention period'
 
+    # Scheduled-report sweep. ScheduledReport rows carry their own next_run_at
+    # (daily/weekly/monthly at 08:00 UTC); nothing dispatches them without this
+    # trigger, so without the entry Reports::ScheduledReportSweepJob is inert.
+    # Every 15 minutes keeps dispatch latency well under the finest schedule
+    # granularity. The sweep only reads what is DUE — it is not itself the
+    # schedule, and a missed tick is picked up by the next one.
+    #
+    # NOTE: Reports::CleanupOldReportsJob is deliberately NOT registered here.
+    # It destroys report rows and their stored artifacts, so it runs only when
+    # explicitly invoked (PdfReportService.cleanup_old_reports).
+    scheduled_report_sweep:
+      cron: '*/15 * * * *'  # Every 15 minutes
+      class: Reports::ScheduledReportSweepJob
+      queue: reports
+      description: 'Dispatch ScheduledReport rows whose next_run_at has passed'
+
     # System extension — physical-device claim queue reaper.
     # Drops UnclaimedDevice rows past their 24h TTL.
     # Reference: docs/plans/wondrous-yawning-anchor.md §10.
@@ -143,6 +159,17 @@
       class: System::IdentityReaperJob
       queue: maintenance
       description: 'Transition drained ServiceUser/ServiceGroup rows past 24h grace to removed'
+
+    # System extension — SDWAN host-bridge drain reaper. Closes the grace
+    # window a non-forced release opens: the HostBridge state machine has no
+    # automatic edge out of `draining` and the compiler's `compilable` scope
+    # includes it, so without this sweep a released bridge kept serving on
+    # the host forever and its short_id was never reclaimed.
+    sdwan_host_bridge_reap:
+      cron: '25 3 * * *'  # 3:25 AM UTC, after the identity reaper
+      class: System::HostBridgeReaperJob
+      queue: maintenance
+      description: 'Transition drained Sdwan::HostBridge rows past 24h grace to removed'
 
     # System extension — disk-image publication retention sweep.
     # Two-stage: retire newest > N (default 3) per platform, then purge

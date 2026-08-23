@@ -128,6 +128,76 @@ RSpec.describe BackendApiClient, type: :service do
       end
     end
 
+    # /api/v1/internal/* wrap payloads in the render_success envelope
+    # ({ "success" => true, "data" => ... }). These getters unwrap it and
+    # symbolize, so the mailer (and its ERB templates) can index with symbols.
+    describe 'internal mailer lookups' do
+      describe '#get_internal_user' do
+        it 'unwraps the render_success envelope and symbolizes keys' do
+          stub_backend_api_success(
+            :get, '/api/v1/internal/users/user-1',
+            { success: true, data: { id: 'user-1', email: 'u@example.com' } }
+          )
+
+          expect(client.get_internal_user('user-1'))
+            .to eq(id: 'user-1', email: 'u@example.com')
+        end
+
+        it 'returns nil when the envelope carries no data' do
+          stub_backend_api_success(:get, '/api/v1/internal/users/user-1', { success: true })
+
+          expect(client.get_internal_user('user-1')).to be_nil
+        end
+
+        it 'returns nil when the payload is an empty hash' do
+          stub_backend_api_success(
+            :get, '/api/v1/internal/users/user-1', { success: true, data: {} }
+          )
+
+          expect(client.get_internal_user('user-1')).to be_nil
+        end
+
+        it 'returns nil when the body is not a hash' do
+          stub_backend_api_success(:get, '/api/v1/internal/users/user-1', [])
+
+          expect(client.get_internal_user('user-1')).to be_nil
+        end
+      end
+
+      describe '#get_internal_account' do
+        it 'unwraps the nested data.account payload' do
+          stub_backend_api_success(
+            :get, '/api/v1/internal/accounts/acct-1',
+            { success: true, data: { account: { id: 'acct-1', billing_email: 'b@example.com' } } }
+          )
+
+          expect(client.get_internal_account('acct-1'))
+            .to eq(id: 'acct-1', billing_email: 'b@example.com')
+        end
+
+        it 'returns nil when data is present but the nested account key is absent' do
+          stub_backend_api_success(
+            :get, '/api/v1/internal/accounts/acct-1',
+            { success: true, data: { id: 'acct-1' } }
+          )
+
+          expect(client.get_internal_account('acct-1')).to be_nil
+        end
+      end
+
+      describe '#get_internal_invitation' do
+        it 'unwraps the flat data payload' do
+          stub_backend_api_success(
+            :get, '/api/v1/internal/invitations/inv-1',
+            { success: true, data: { id: 'inv-1', email: 'i@example.com' } }
+          )
+
+          expect(client.get_internal_invitation('inv-1'))
+            .to eq(id: 'inv-1', email: 'i@example.com')
+        end
+      end
+    end
+
     describe '#get_account_subscription' do
       it 'fetches subscription data from account endpoint' do
         account_id = 'account-123'
@@ -445,6 +515,81 @@ RSpec.describe BackendApiClient, type: :service do
       client.get('/api/v1/test')
       
       expect_api_request(:get, '/api/v1/test')
+    end
+  end
+
+  # The worker side of the dev mTLS contract. The server binds its system
+  # Worker row to a fixed sentinel node_instance_id in development
+  # (Workers::EnsureSystemWorker#bind_dev_sentinel), so the worker must present
+  # that same CN when DEV_WORKER_NODE_INSTANCE_ID is unset — which is the normal
+  # dev state, since the var is set by no .env, compose file or script in the
+  # repo. Emitting nothing means every /api/v1/internal/* call 401s in dev.
+  #
+  # These drive the REAL emitter through a REAL request so the assertion is on
+  # what reaches the wire, not on a method return value. The server half of the
+  # contract lives in server/spec/security/dev_mtls_header_contract_spec.rb.
+  describe 'dev mTLS client-cert header' do
+    # The literal is asserted (not read from DevMtlsHeader) on purpose: reading
+    # the constant would make this a tautology. It must stay equal to
+    # Workers::EnsureSystemWorker::DEV_SENTINEL_NODE_ID in the server.
+    sentinel_cn = '00000000-0000-7000-8000-000000000001'
+    header_name = 'X-Forwarded-Tls-Client-Cert-Info'
+
+    # Mutate the real ENV (restored after) rather than stubbing, so the real
+    # #development_env? predicate is the thing under test.
+    def with_env(overrides)
+      original = overrides.keys.to_h { |k| [k, ENV[k]] }
+      overrides.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+      yield
+    ensure
+      original.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+    end
+
+    # Build the Faraday connection BEFORE with_env touches RAILS_ENV. This spec
+    # loads spec_helper (no Rails), so WorkerCertManager#test_env? falls back to
+    # ENV['RAILS_ENV'] == 'test'; clearing that var would send #ssl_options down
+    # the production path and read real PKI off disk. The predicate under test,
+    # #development_env?, is evaluated per-REQUEST in #inject_dev_mtls_header, so
+    # constructing early does not weaken the oracle.
+    before { client }
+
+    def captured_header(name)
+      value = nil
+      WebMock.stub_request(:get, %r{http://localhost:3000/api/v1/test})
+             .with { |req| value = req.headers[name]; true }
+             .to_return(status: 200, body: '{}', headers: { 'Content-Type' => 'application/json' })
+      client.get('/api/v1/test')
+      value
+    end
+
+    context 'when DEV_WORKER_NODE_INSTANCE_ID is unset (the normal dev state)' do
+      it 'still presents the shared dev sentinel CN' do
+        with_env('WORKER_ENV' => nil, 'RAILS_ENV' => nil, 'DEV_WORKER_NODE_INSTANCE_ID' => nil) do
+          expect(captured_header(header_name)).to eq(%(Subject="CN=#{sentinel_cn}"))
+        end
+      end
+    end
+
+    context 'when DEV_WORKER_NODE_INSTANCE_ID is set' do
+      it 'presents the configured CN instead of the sentinel' do
+        with_env('WORKER_ENV' => 'development', 'DEV_WORKER_NODE_INSTANCE_ID' => 'cn-from-env') do
+          expect(captured_header(header_name)).to eq(%(Subject="CN=cn-from-env"))
+        end
+      end
+    end
+
+    context 'outside development' do
+      it 'emits no header at all when WORKER_ENV=production' do
+        with_env('WORKER_ENV' => 'production', 'RAILS_ENV' => nil, 'DEV_WORKER_NODE_INSTANCE_ID' => nil) do
+          expect(captured_header(header_name)).to be_nil
+        end
+      end
+
+      it 'emits no header at all when RAILS_ENV=production' do
+        with_env('WORKER_ENV' => nil, 'RAILS_ENV' => 'production', 'DEV_WORKER_NODE_INSTANCE_ID' => nil) do
+          expect(captured_header(header_name)).to be_nil
+        end
+      end
     end
   end
 end

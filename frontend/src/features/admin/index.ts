@@ -13,7 +13,6 @@ export { RoleUsersModal } from './roles/components/RoleUsersModal';
 export { rolesApi } from './roles/services/rolesApi';
 
 // Services
-export { adminApi } from './services/adminApi';
 export { adminSettingsApi } from './services/adminSettingsApi';
 export { servicesApi } from './services/servicesApi';
 

@@ -49,7 +49,6 @@ class Api::V1::Admin::UsersController < ApplicationController
           {
             user_id: @user.id,
             email: @user.email,
-            verification_token: @user.email_verification_token,
             user_name: @user.full_name
           }
         )

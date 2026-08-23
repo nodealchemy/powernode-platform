@@ -17,8 +17,12 @@ RSpec.describe "Internal::Ai provider_config fallback_models", type: :request do
   end
 
   it "includes server-resolved fallback_models for a refusal-capable model" do
-    allow(agent).to receive(:resolved_model).and_return("claude-fable-5")
-    allow(::Ai::Agent).to receive(:find).with(agent.id.to_s).and_return(agent)
+    # Stubbed per-instance, not by intercepting the class-level `find`: the
+    # controller now loads the agent through a TENANCY-SCOPED relation
+    # (Ai::Agent.for_account(...).find), so a stub on `Ai::Agent.find` no longer
+    # sits on the path and the stub on this particular object never applies —
+    # the relation materializes its own instance of the same row.
+    allow_any_instance_of(::Ai::Agent).to receive(:resolved_model).and_return("claude-fable-5")
     allow(::Ai::ModelFallbackResolver).to receive(:reasoning_fallbacks)
       .and_return(["claude-opus-4-8"])
 
@@ -30,8 +34,7 @@ RSpec.describe "Internal::Ai provider_config fallback_models", type: :request do
   end
 
   it "returns an empty fallback list (no resolution cost) for a non-Fable model" do
-    allow(agent).to receive(:resolved_model).and_return("claude-opus-4-8")
-    allow(::Ai::Agent).to receive(:find).with(agent.id.to_s).and_return(agent)
+    allow_any_instance_of(::Ai::Agent).to receive(:resolved_model).and_return("claude-opus-4-8")
     expect(::Ai::ModelFallbackResolver).not_to receive(:reasoning_fallbacks)
 
     body = post_config

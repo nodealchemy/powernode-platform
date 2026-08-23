@@ -5,6 +5,9 @@ module Api
     module Ai
       class GovernanceController < ApplicationController
         include Paginatable
+        # IMP-550e44e24220 — shared approval-payload core, also included by
+        # Ai::AutonomyApprovalActions so both read surfaces cannot drift.
+        include ::Ai::ApprovalRequestSerialization
         # Authorization on the dedicated ai.governance.* family: reads gate on
         # `ai.governance.read`, writes on `ai.governance.manage` (both catalog-
         # defined). Decoupled from the coarse `ai.manage` gate so AI-operator
@@ -396,32 +399,18 @@ module Api
           }
         end
 
+        # IMP-550e44e24220 — the shared fields come from
+        # Ai::ApprovalRequestSerialization#approval_request_core, which is the
+        # single definition both approval read surfaces build on. Only this
+        # endpoint's own additions are listed here.
         def approval_request_json(request, detailed: false)
-          base = {
-            id: request.id,
-            request_id: request.request_id,
-            status: request.status,
-            source_type: request.source_type,
-            source_id: request.source_id,
-            description: request.description,
-            # Same reasoning as Ai::AutonomyApprovalActions: request_data has
-            # producers besides Ai::AutonomyGate, and pre-existing rows still
-            # carry plaintext, so the read filters too.
-            request_data: ::Ai::SensitiveParams.filter(request.request_data),
+          base = approval_request_core(request).merge(
             step_statuses: request.step_statuses,
-            current_step: request.current_step,
-            # IMP-4bbb4227ac8a — declared post-approval execution outcome, in
-            # parity with Ai::AutonomyApprovalActions#serialize_approval_request.
-            execution_status: request.execution_status,
-            execution_error: request.execution_error,
-            expires_at: request.expires_at,
-            completed_at: request.completed_at,
-            created_at: request.created_at,
             approval_chain: {
               id: request.approval_chain.id,
               name: request.approval_chain.name
             }
-          }
+          )
           return base unless detailed
 
           base.merge(

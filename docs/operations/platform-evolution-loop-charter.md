@@ -396,6 +396,12 @@ ratified 2026-08-12.
 > real; until then the correct expectation is "composes nothing." Revise the expectation when resuming
 > INC-1 — do not restore the old composition to make it green.
 >
+> **RESOLVED 2026-08-21 (IMP-e68a93c47106).** INC-4's `remove_replicas` landed and the proposer's
+> `cost_control` arm was wired to it, so the expectation above was revised to the composed shape — the
+> lane now composes a scale-IN and the plan is held for approval (a removal is never auto-apply
+> eligible). The `UNSUPPORTED_CHANGE_TYPES` entry that advertised "no scale-in strategy" was deleted in
+> the same commit. Nothing here is still an open instruction.
+>
 > **Carried into whichever increment lands the producer — auto-execution path, MECHANISM-VERIFIED
 > 2026-08-12.** The pass-3 review raised this and stated it unconditionally; the claim was then checked
 > against source and is **real but doubly gated**. Stated precisely, because the guard must protect the

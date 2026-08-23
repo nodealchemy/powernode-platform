@@ -14,11 +14,14 @@ class Api::V1::Auth::PasswordsController < ApplicationController
     user = User.find_by(email: params[:email]&.downcase)
 
     if user&.active? && user.email_verified?
-      # Generate and save password reset token
-      user.generate_reset_token!
+      # Generate and save password reset token. generate_reset_token! stores only
+      # a BCrypt digest and returns the plaintext exactly once — it is
+      # unrecoverable afterwards, so the worker must be handed it here or the
+      # reset link in the email would carry a blank token.
+      reset_token = user.generate_reset_token!
 
       # Send password reset email via worker service
-      WorkerJobService.enqueue_password_reset_email(user.id)
+      WorkerJobService.enqueue_password_reset_email(user.id, reset_token)
     end
 
     # Always return success to prevent email enumeration

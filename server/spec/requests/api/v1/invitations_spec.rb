@@ -130,6 +130,27 @@ RSpec.describe 'API::V1::Invitations', type: :request do
       json = JSON.parse(response.body)
       expect(json['details']['errors']).to include(/already been invited/)
     end
+
+    # Possession of invitations.token is an unauthenticated account join (see
+    # InvitationsController#accept, which skips authentication). Worker job args
+    # are logged by Sidekiq and persisted verbatim in the Redis payload, which
+    # Sidekiq::Web renders — so the token must NOT be enqueued. The worker reads
+    # it from the mTLS-gated internal endpoint instead.
+    it 'enqueues the invitation email with the id only — never the token' do
+      captured = nil
+      allow(WorkerJobService).to receive(:enqueue_notification_email) do |type, opts|
+        captured = [ type, opts ]
+        nil
+      end
+
+      post '/api/v1/invitations', params: invitation_params, headers: headers, as: :json
+
+      expect(response).to have_http_status(:created)
+      type, opts = captured
+      expect(type).to eq('invitation')
+      expect(opts.keys).to eq([ :invitation_id ])
+      expect(opts.values.map(&:to_s)).not_to include(Invitation.last.token)
+    end
   end
 
   describe 'PATCH /api/v1/invitations/:id' do

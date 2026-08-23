@@ -32,26 +32,41 @@ class WorkerJobService
 
     # Enqueue notification email job (email verification, welcome emails, etc.)
     # @param notification_type [String] Type of notification (e.g., 'email_verification')
-    # @param options [Hash] Email options containing:
-    #   - user_id: The user UUID
-    #   - email: The recipient email address
-    #   - verification_token: Token for verification emails
-    #   - user_name: User's display name
-    #   - smtp_settings: SMTP configuration from system settings
+    # @param options [Hash] Email options — IDS ONLY, never tokens or secrets.
+    #   - user_id: The user UUID (welcome, email_verification)
+    #   - invitation_id: The invitation UUID (invitation)
+    #   - email / user_name: recipient address + display name
+    #
+    # Job args are logged twice on the worker (JobsController's enqueue line and
+    # BaseJob#perform) and are persisted verbatim in the Sidekiq/Redis payload,
+    # so the invite and verification tokens are deliberately NOT sent: both are
+    # plaintext in the DB, so the worker reads them back over the authenticated
+    # internal API instead (see Api::V1::Internal::{Users,Invitations}Controller).
+    #
+    # smtp_settings is likewise not sent — the worker configures SMTP from its own
+    # EmailConfigurationService and nothing in the job path ever read it. (It was
+    # dead payload rather than an active password leak: the historical value was
+    # host/port/tls/from_address with no password, and the credentials-backed
+    # source only appeared after this job name had already gone invalid.)
     def enqueue_notification_email(notification_type, options = {})
       new.make_worker_request("POST", "/api/v1/jobs", {
-        "job_class" => "NotificationEmailJob",
+        "job_class" => "Notifications::NotificationEmailJob",
         "args" => [ notification_type, options ],
         "queue" => "email"
       })
     end
 
     # Enqueue password reset email job
+    # The plaintext reset token MUST be passed: User#generate_reset_token!
+    # BCrypt-hashes it into reset_token_digest and returns the plaintext once,
+    # so the worker cannot fetch it back and would otherwise render a reset URL
+    # with a blank token.
     # @param user_id [String] The user UUID requesting password reset
-    def enqueue_password_reset_email(user_id)
+    # @param reset_token [String] Plaintext token returned by generate_reset_token!
+    def enqueue_password_reset_email(user_id, reset_token = nil)
       new.make_worker_request("POST", "/api/v1/jobs", {
-        "job_class" => "PasswordResetEmailJob",
-        "args" => [ user_id ],
+        "job_class" => "Notifications::PasswordResetEmailJob",
+        "args" => [ user_id, reset_token ],
         "queue" => "email"
       })
     end
@@ -647,13 +662,6 @@ class WorkerJobService
     def fetch_sidekiq_stats
       new.make_worker_request("GET", "/api/sidekiq/stats")
     end
-
-    private
-
-    # Legacy aliases for backwards compatibility
-    alias_method :enqueue_ci_cd_step_execution, :enqueue_devops_step_execution
-    alias_method :enqueue_ci_cd_pipeline_execution, :enqueue_devops_pipeline_execution
-    alias_method :enqueue_ci_cd_approval_notification, :enqueue_devops_approval_notification
   end
 
   def make_worker_request(method, path, payload = {})

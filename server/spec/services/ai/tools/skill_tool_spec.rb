@@ -15,7 +15,21 @@ RSpec.describe Ai::Tools::SkillTool do
   let(:account) { create(:account) }
   let(:other_account) { create(:account) }
 
-  subject(:tool) { described_class.new(account: account) }
+  # IMP-245d8ae56f8c follow-up — SkillTool now gates writes per action
+  # (ai.skills.create / .update / .delete) rather than on the read-tier floor,
+  # so this subject needs a principal that actually holds them. It previously
+  # constructed with NO user at all, which cleared the old read-only floor.
+  #
+  # Granting rather than passing `internal: true`: internal? is the in-process
+  # system-caller bypass, and using it here would make every example below
+  # assert the BYPASS path instead of the authorized-user path these actions
+  # actually run on.
+  let(:skill_author) do
+    create(:user, account: account,
+                  permissions: %w[ai.skills.read ai.skills.create ai.skills.update ai.skills.delete])
+  end
+
+  subject(:tool) { described_class.new(account: account, user: skill_author) }
 
   let!(:global_skill) do
     create(:ai_skill, :global, :system_skill, name: "Global Baseline", slug: "global-baseline",

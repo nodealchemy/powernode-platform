@@ -227,6 +227,7 @@ module Ai
         "system_sdwan_get_peer"        => "Ai::Tools::SdwanTool",
         "system_sdwan_set_peer_tags"   => "Ai::Tools::SdwanTool",
         "system_sdwan_attach_peer"     => "Ai::Tools::SdwanTool",
+        "system_sdwan_update_peer"     => "Ai::Tools::SdwanTool",
         "system_sdwan_detach_peer"     => "Ai::Tools::SdwanTool",
         "system_sdwan_get_topology"    => "Ai::Tools::SdwanTool",
         # Slice 2: firewall
@@ -290,6 +291,7 @@ module Ai
         # Phase O6: host bridges (O1) + OVN deployment/switches/ports (O3) + IPFIX (O5)
         "system_sdwan_create_host_bridge"              => "Ai::Tools::SdwanTool",
         "system_sdwan_list_host_bridges"               => "Ai::Tools::SdwanTool",
+        "system_sdwan_get_host_bridge"                 => "Ai::Tools::SdwanTool",
         "system_sdwan_activate_host_bridge"            => "Ai::Tools::SdwanTool",
         "system_sdwan_release_host_bridge"             => "Ai::Tools::SdwanTool",
         "system_sdwan_create_ovn_deployment"           => "Ai::Tools::SdwanTool",
@@ -310,6 +312,12 @@ module Ai
         "system_sdwan_list_ovn_logical_switches"       => "Ai::Tools::SdwanTool",
         "system_sdwan_delete_ovn_logical_switch_port"  => "Ai::Tools::SdwanTool",
         "system_sdwan_delete_ipfix_collector"          => "Ai::Tools::SdwanTool",
+        # IMP-6bbe5c673c38 — the state toggle and the single-row read that
+        # closed the IPFIX collector verb split. Without the toggle the only
+        # agent-reachable way to stop a collector exporting was the delete
+        # above, which cascades the collector's flow samples.
+        "system_sdwan_get_ipfix_collector"             => "Ai::Tools::SdwanTool",
+        "system_sdwan_update_ipfix_collector"          => "Ai::Tools::SdwanTool",
         # Phase B: Docker daemon auto-provisioning on NodeInstances.
         # Distinct from the docker_* family below — those tools manage
         # *external*, operator-registered hosts; these manage *managed*

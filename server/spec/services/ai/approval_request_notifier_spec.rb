@@ -231,4 +231,43 @@ RSpec.describe Ai::ApprovalRequestNotifier do
       expect(executed_instance.take_revealed_result!).to eq(minted_secret: "ONE-SHOT-SECRET")
     end
   end
+
+  # IMP-e75e843bd42b — the `approval_request_id` metadata key is the
+  # PRODUCER'S declaration, and a content handler cannot clobber it.
+  #
+  # Ai::InterventionPolicyService#notification_limit_reached? excludes consent
+  # traffic from the daily notification budget by exactly this key, on the
+  # premise that notify_current_step! writes it unconditionally at the single
+  # fan-out site. The base-metadata merge used to run `{base}.merge(handler)`,
+  # so a SOURCE_HANDLERS provider echoing an `approval_request_id` key of its
+  # own — a ubiquitous key in gate-result hashes, so an easy accident — would
+  # silently overwrite the declaration and its fan-out would start counting
+  # toward the budget again. The base keys name the request's own identity and
+  # chain position; a handler customises CONTENT, never provenance.
+  describe "handler metadata cannot clobber the fan-out's identity keys" do
+    it "keeps the producer's approval_request_id when a handler emits its own" do
+      stub_const("ClobberingApprovalContent", Class.new(Ai::DeferredOperationApprovalContent) do
+        def self.metadata(_request)
+          # The accident this pins against: a handler echoing a gate-result
+          # hash whose approval_request_id is nil/foreign.
+          { "approval_request_id" => nil, "custom_key" => "kept" }
+        end
+      end)
+      described_class::SOURCE_HANDLERS["ClobberSpec::Source"] = "ClobberingApprovalContent"
+
+      user = create(:user, account: account)
+      request = create(:ai_approval_request, account: account,
+                       source_type: "ClobberSpec::Source", source_id: SecureRandom.uuid)
+
+      notification = Notification.find_by(account: account, user: user,
+                                          notification_type: "autonomy_approval_required")
+      expect(notification).to be_present
+      expect(notification.metadata["approval_request_id"]).to eq(request.id)
+      # The handler's non-colliding contribution still lands — base-wins is
+      # scoped to the identity keys, not a rejection of handler metadata.
+      expect(notification.metadata["custom_key"]).to eq("kept")
+    ensure
+      described_class::SOURCE_HANDLERS.delete("ClobberSpec::Source")
+    end
+  end
 end

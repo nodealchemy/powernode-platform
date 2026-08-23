@@ -50,6 +50,9 @@ module Ai
       # by the execute! and execute_step! idempotency guards to detect a
       # concurrent or completed run.
       IN_FLIGHT_STATUSES = %w[executing completed failed].freeze
+      # The only status a claim may transition FROM. Anything else is already
+      # in flight, terminal, or skipped, and must not be re-entered.
+      CLAIMABLE_STATUSES = %w[pending].freeze
 
       attr_reader :account, :mission, :plan, :runner_id, :started_at
 
@@ -199,7 +202,26 @@ module Ai
           executor_class = resolve_executor(skill_name)
           raise "skill not found: #{skill_name}" unless executor_class
 
-          mark_executing(step)
+          # IMP-ce77677917c7 (1) — CLAIM the step, do not merely mark it.
+          #
+          # The `IN_FLIGHT_STATUSES` check above is an in-memory read, and the
+          # write used to be an unconditional update several lines later. Two
+          # workers holding the same row both read "pending" and both reached
+          # the executor. That is a live risk, not hardening: the worker runs
+          # :concurrency: 25, and fan-in dispatch is unconditional — on
+          # completion a step dispatches any newly-unblocked successor
+          # (#dispatch_successors) and #dispatch_step_job enqueues with no
+          # already-dispatched check, so a step with two predecessors finishing
+          # together is enqueued twice. On a provisioning skill that is a
+          # double provision.
+          unless claim_step!(step)
+            Rails.logger.info(
+              "[SkillCompositionRunner] execute_step! lost the claim for step " \
+              "#{step_id(step)[0..7]}; another worker holds it."
+            )
+            return { success: false, outputs: {}, error: nil, already_running: true }
+          end
+
           started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           result = invoke_executor(executor_class, inputs)
 
@@ -531,6 +553,40 @@ module Ai
       # complete!, fail!) when present; otherwise fall back to plain
       # update! so tests can pass duck-typed doubles.
 
+      # Compare-and-set claim: flip pending -> executing in ONE statement and
+      # report whether THIS caller won. `update_all` with a status predicate is
+      # atomic in the database, so two racers cannot both see zero rows updated.
+      #
+      # DUCK-TYPE SAFE, and that is not incidental. The runner deliberately
+      # accepts non-ActiveRecord steps (mark_* branch on respond_to?,
+      # stamp_dispatched! guards step.class.respond_to?(:where)). A naive
+      # step.class.where(...).update_all would make every double-based spec take
+      # the already_running arm — a silent no-op that reports green. So a step
+      # that cannot be claimed at the database keeps exactly its old behaviour,
+      # and a control spec pins that.
+      #
+      # update_all skips timestamps, hence the explicit updated_at.
+      def claim_step!(step)
+        unless step.respond_to?(:id) && step.class.respond_to?(:where)
+          mark_executing(step)
+          return true
+        end
+
+        claimed = step.class
+                      .where(id: step.id, status: CLAIMABLE_STATUSES)
+                      .update_all(status: "executing", started_at: Time.current, updated_at: Time.current)
+        return false if claimed.zero?
+
+        step.reload if step.respond_to?(:reload)
+        true
+      rescue StandardError => e
+        # A claim that cannot be evaluated must not silently execute. Refusing
+        # is recoverable (the step stays pending for the next dispatch);
+        # proceeding on an unknown claim state is the double provision.
+        Rails.logger.error("[SkillCompositionRunner] claim failed for step #{step_id(step)}: #{e.class}: #{e.message}")
+        false
+      end
+
       def mark_executing(step)
         if step.respond_to?(:start!)
           step.start!
@@ -599,9 +655,10 @@ module Ai
         skill = resolve_skill_for_usage(account_id, skill_name)
         return unless skill
 
-        duration_ms = if started_at
-                        ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round
-                      end
+        duration_ms =
+          if started_at
+            ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round
+          end
         # Route through Ai::Skill#record_usage! (not a bare create!) so the
         # skill's usage_count / effectiveness counters move — otherwise F5
         # rows accumulate while F4's single-usage effectiveness gate never
@@ -893,11 +950,12 @@ module Ai
       # displacing last_outputs and faking compensation in one move.
       def failure_outputs_from(result)
         declared = result[:data] || result["data"] || result[:outputs] || result["outputs"]
-        base = if declared.is_a?(Hash)
-                 declared
-               elsif result.respond_to?(:to_h)
-                 result.to_h
-               end
+        base =
+          if declared.is_a?(Hash)
+            declared
+          elsif result.respond_to?(:to_h)
+            result.to_h
+          end
         stripped = strip_control_keys(base)
         return nil if stripped.blank?
 

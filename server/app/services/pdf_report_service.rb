@@ -46,11 +46,21 @@ class PdfReportService
         requested_at: Time.current
       )
 
-      WorkerJobService.enqueue_job(
-        "Reports::GenerateReportJob",
-        args: [report_request.id],
-        queue: "reports"
-      )
+      begin
+        WorkerJobService.enqueue_job(
+          "Reports::GenerateReportJob",
+          args: [report_request.id],
+          queue: "reports"
+        )
+      rescue WorkerJobService::WorkerServiceError => e
+        # The row is already committed. If the enqueue failed, nothing will ever
+        # process it, and a "pending" row is excluded from the retention sweep
+        # (ReportRequest::CLEANUP_STATUSES) — so leaving it pending creates a row
+        # that can never be reaped. Mark it failed and re-raise.
+        Rails.logger.error "Failed to enqueue report generation for #{report_request.id}: #{e.message}"
+        report_request.mark_failed!("Could not enqueue report generation: #{e.message}")
+        raise
+      end
 
       report_request
     end

@@ -55,7 +55,9 @@ class Ai::CircuitBreakerRegistry
       breakers.values.map(&:circuit_stats)
     end
 
-    # Alias for backward compatibility
+    # PUBLIC NAME. `all_states` is what the AI monitoring API actually calls
+    # (Api::V1::Ai::MonitoringController#circuit_breakers); `all_stats` is the
+    # internal implementation name. Removing this alias breaks that endpoint.
     alias_method :all_states, :all_stats
 
     def health_summary
@@ -78,7 +80,10 @@ class Ai::CircuitBreakerRegistry
       end
     end
 
-    # Alias for backward compatibility
+    # PUBLIC NAME. `category_states` is what the AI monitoring API actually
+    # calls (MonitoringController#category_status / #reset_category);
+    # `category_stats` is the internal implementation name. Removing this alias
+    # breaks those endpoints.
     alias_method :category_states, :category_stats
 
     def unhealthy_services
@@ -115,11 +120,6 @@ class Ai::CircuitBreakerRegistry
       true
     end
 
-    # Alias for backward compatibility
-    def reset_service(service_name)
-      reset_service!(service_name)
-    end
-
     def reset_category!(category)
       services = SERVICE_CATEGORIES[category.to_sym] || []
       services.each do |service_name|
@@ -132,16 +132,6 @@ class Ai::CircuitBreakerRegistry
 
     def clear!
       @breakers = {}
-    end
-
-    # Alias for backward compatibility
-    def clear_breakers!
-      clear!
-    end
-
-    # Alias for backward compatibility
-    def execute_with_breaker(service_name, config: {}, &block)
-      protect(service_name: service_name, config: config, &block)
     end
 
     def monitor_and_alert

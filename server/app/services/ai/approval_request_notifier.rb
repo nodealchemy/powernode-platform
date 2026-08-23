@@ -41,14 +41,27 @@ module Ai
       severity = content.severity(request)
       category = content.category
       action_url = content.action_url(request)
-      metadata = {
-        approval_request_id: request.id,
-        current_step: request.current_step,
-        total_steps: request.step_statuses.size,
-        step_name: step["step_name"] || step["name"],
-        source_type: request.source_type,
-        source_id: request.source_id
-      }.merge(content.metadata(request))
+      # Merge order is load-bearing (IMP-e75e843bd42b): the base hash names
+      # the request's own identity and chain position, and the base WINS on
+      # collision — a content handler customises card content, never
+      # provenance. `approval_request_id` in particular is the producer-side
+      # declaration Ai::InterventionPolicyService#notification_limit_reached?
+      # keys its consent-traffic exclusion on; with handler-wins order, a
+      # SOURCE_HANDLERS provider echoing a gate-result hash (where that key is
+      # ubiquitous, often nil) would silently strip the declaration and its
+      # fan-out would count toward the daily budget again.
+      # Stringified on both sides: a handler may key its hash with strings and
+      # the column is json (string-keyed after round-trip anyway), so a
+      # symbol/string mix here would not collide in Hash#merge and would land
+      # as duplicate JSON keys — leaving which value `->>` reads undefined.
+      metadata = content.metadata(request).stringify_keys.merge(
+        "approval_request_id" => request.id,
+        "current_step" => request.current_step,
+        "total_steps" => request.step_statuses.size,
+        "step_name" => step["step_name"] || step["name"],
+        "source_type" => request.source_type,
+        "source_id" => request.source_id
+      )
 
       approvers.find_each do |user|
         Notification.create_for_user(

@@ -176,7 +176,7 @@ RSpec.describe 'Api::V1::Admin::UsersController', type: :request do
           expect(audit.resource_id).to eq(created.id)
         end
 
-        it 'never passes the temporary password as a job argument' do
+        it 'never passes the temporary password or any token as a job argument' do
           captured = nil
           allow(WorkerJobService).to receive(:enqueue_notification_email) do |type, opts|
             captured = [ type, opts ]
@@ -193,11 +193,15 @@ RSpec.describe 'Api::V1::Admin::UsersController', type: :request do
           expect(response).to have_http_status(:created)
           type, opts = captured
           expect(type).to eq('welcome')
-          # Exactly the non-secret onboarding fields — no password key smuggled in.
-          expect(opts.keys).to match_array([ :user_id, :email, :verification_token, :user_name ])
-          expect(opts.keys.map(&:to_s)).not_to include('password', 'temp_password')
-          # And no value carries password material (e.g. the bcrypt digest).
           created = account.users.find_by(email: 'nosecret@example.com')
+          # Exactly the non-secret onboarding fields — no password key smuggled in,
+          # and no bearer token: worker job args are logged twice and persisted
+          # verbatim in the Sidekiq/Redis payload, so tokens are fetched by the
+          # worker over the internal API instead of being sent here.
+          expect(opts.keys).to match_array([ :user_id, :email, :user_name ])
+          expect(opts.keys.map(&:to_s)).not_to include('password', 'temp_password')
+          expect(opts.keys.map(&:to_s).grep(/token/)).to be_empty
+          # And no value carries password material (e.g. the bcrypt digest).
           expect(opts.values.map(&:to_s)).not_to include(created.password_digest)
         end
 

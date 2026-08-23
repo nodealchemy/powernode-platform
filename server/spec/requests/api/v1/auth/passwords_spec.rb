@@ -22,7 +22,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
         response_data = json_response
 
         expect(response_data['data']['message']).to include('password reset instructions')
-        expect(WorkerJobService).to have_received(:enqueue_password_reset_email).with(user.id)
+        expect(WorkerJobService).to have_received(:enqueue_password_reset_email).with(user.id, a_string_matching(/\A\S{20,}\z/))
       end
 
       it 'generates reset token for user' do
@@ -91,7 +91,7 @@ RSpec.describe 'Api::V1::Auth::Passwords', type: :request do
              as: :json
 
         expect_success_response
-        expect(WorkerJobService).to have_received(:enqueue_password_reset_email).with(user.id)
+        expect(WorkerJobService).to have_received(:enqueue_password_reset_email).with(user.id, a_string_matching(/\A\S{20,}\z/))
       end
     end
   end

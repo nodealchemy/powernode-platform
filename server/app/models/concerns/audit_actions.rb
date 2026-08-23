@@ -39,6 +39,7 @@ module AuditActions
   # impersonation_started / impersonation_ended are extension-owned (business).
   # =============================================================================
   ACCOUNT_ACTIONS = %w[
+    account_created
     suspend_account activate_account admin_settings_update
   ].freeze
 
@@ -259,7 +260,10 @@ module AuditActions
   ].freeze
 
   # =============================================================================
-  # REPORT REQUEST ACTIONS — fired by ReportRequest#log_status_change
+  # REPORT REQUEST ACTIONS — fired by ReportRequest#log_status_change, plus the
+  # retention sweep (Api::V1::Internal::ReportsController#cleanup_old, driven by
+  # the worker's Reports::CleanupOldReportsJob), which destroys rows and their
+  # stored artifacts and so records one entry per row removed.
   # =============================================================================
   REPORT_REQUEST_ACTIONS = %w[
     report_request_pending
@@ -267,6 +271,7 @@ module AuditActions
     report_request_completed
     report_request_failed
     report_request_cancelled
+    report_request_cleanup_deleted
   ].freeze
 
   # =============================================================================

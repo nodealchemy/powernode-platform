@@ -2,6 +2,42 @@
 
 class Api::V1::SettingsController < ApplicationController
   skip_before_action :authenticate_request, only: [ :public ]
+
+  # IMP-e639a38f4d8c — #update is FOUR writers behind one route, and only one of
+  # them leaves the caller's own row.
+  #
+  #   user_preferences / notification_preferences / security_settings
+  #       -> columns on the CALLING User (theme, notification opt-ins, own
+  #          password + own email). Self-service by definition; every
+  #          authenticated user may write them, and the frontend does exactly
+  #          that for every user (ThemeContext, ProfilePage).
+  #   account_settings
+  #       -> the SHARED Account row. SettingsUpdateService#update_account_settings
+  #          blind-merges whatever is left into the `settings` jsonb (company
+  #          profile, default_sdwan_network_id — which decides the fabric every
+  #          future instance lands on — and any other key a consumer reads out
+  #          of that column) AND lifts name/subdomain/billing_email/tax_id
+  #          straight onto the account.
+  #
+  # That second group is account-wide configuration, and the OTHER writer of the
+  # same column, Api::V1::AccountsController#update, has always required
+  # `admin.settings.update`. This action required nothing, which made it the
+  # more capable of the two doors: AccountsController permits :settings as a
+  # SCALAR (strong params drops a Hash, so it cannot write nested settings at
+  # all) while this one permits `account_settings: {}` and can write anything.
+  # One column now has one permission behind both doors.
+  #
+  # Gated on the PRESENCE of the key, not on its contents: a request that
+  # mentions account_settings at all is asking to write account state, so this
+  # predicate can never be looser than the service's own
+  # `@params[:account_settings].present?` guard even if that guard is later
+  # relaxed. No frontend caller sends the section (all four call sites PUT a
+  # single self-service section), so nothing legitimate is caught by it.
+  #
+  # require_permission raises PermissionDenied, which halts the filter chain
+  # before the service runs — the row is not written and then refused.
+  before_action :authorize_account_settings_write!, only: [ :update ]
+
   # GET /api/v1/settings/public
   def public
     render_success({
@@ -104,6 +140,15 @@ class Api::V1::SettingsController < ApplicationController
 
   private
 
+  # Reads the raw params rather than settings_params so the gate does not
+  # depend on the permit-list: any shape of account_settings, permitted or not,
+  # is still an attempt to write account-wide state.
+  def authorize_account_settings_write!
+    return unless params[:settings].respond_to?(:key?) && params[:settings].key?(:account_settings)
+
+    require_permission("admin.settings.update")
+  end
+
   def settings_params
     params.require(:settings).permit(
       user_preferences: {},
@@ -142,91 +187,30 @@ class Api::V1::SettingsController < ApplicationController
     )
   end
 
-  def current_user_preferences
-    preferences = current_user.preferences || {}
+  # IMP-550e44e24220 follow-up — the payload now has ONE definition
+  # (SettingsSerializer), shared with SettingsUpdateService so the read and
+  # write halves of this resource cannot drift. These stay as named readers
+  # because #show and three single-section actions below render them
+  # individually. Built fresh per call rather than memoized: the preference and
+  # notification update actions serialize AFTER mutating current_user.
+  def settings_serializer
+    SettingsSerializer.new(user: current_user, account: current_account)
+  end
 
-    # Merge with defaults
-    {
-      theme: preferences["theme"] || "light",
-      language: preferences["language"] || "en",
-      timezone: preferences["timezone"] || "UTC",
-      date_format: preferences["date_format"] || "MM/dd/yyyy",
-      currency_display: preferences["currency_display"] || "symbol",
-      dashboard_layout: preferences["dashboard_layout"] || "grid",
-      analytics_default_period: preferences["analytics_default_period"] || "30_days",
-      items_per_page: preferences["items_per_page"] || 25,
-      auto_refresh_interval: preferences["auto_refresh_interval"] || 30,
-      keyboard_shortcuts_enabled: preferences["keyboard_shortcuts_enabled"] != false
-    }
+  def current_user_preferences
+    settings_serializer.user_preferences
   end
 
   def current_account_settings
-    settings = current_account.settings || {}
-
-    {
-      name: current_account.name,
-      subdomain: current_account.subdomain,
-      billing_email: current_account.billing_email,
-      tax_id: current_account.tax_id,
-      company_size: settings["company_size"],
-      industry: settings["industry"],
-      website: settings["website"],
-      phone: settings["phone"],
-      address: settings["address"],
-      logo_url: settings["logo_url"],
-      # IMP-94728a788498: writable through PATCH's blind settings merge, so it
-      # must be readable here too (kept in parity with
-      # SettingsUpdateService#current_account_settings — same duplicated
-      # serializer, same fields).
-      Account::DEFAULT_SDWAN_NETWORK_SETTING.to_sym => settings[Account::DEFAULT_SDWAN_NETWORK_SETTING]
-    }
+    settings_serializer.account_settings
   end
 
   def current_notification_preferences
-    notifications = current_user.notification_preferences || {}
-
-    # Merge with defaults
-    {
-      email_notifications: notifications["email_notifications"] != false,
-      invoice_notifications: notifications["invoice_notifications"] != false,
-      security_alerts: notifications["security_alerts"] != false,
-      marketing_emails: notifications["marketing_emails"] || false,
-      account_updates: notifications["account_updates"] != false,
-      system_maintenance: notifications["system_maintenance"] != false,
-      new_features: notifications["new_features"] || false,
-      usage_reports: notifications["usage_reports"] || false,
-      payment_reminders: notifications["payment_reminders"] != false
-    }
+    settings_serializer.notification_preferences
   end
 
   def current_security_settings
-    {
-      email_verified: current_user.email_verified?,
-      password_last_changed: current_user.password_changed_at,
-      two_factor_enabled: current_user.two_factor_enabled?,
-      two_factor_enabled_at: current_user.two_factor_enabled_at,
-      backup_codes_generated_at: current_user.two_factor_backup_codes_generated_at,
-      login_history: recent_login_history,
-      failed_attempts: current_user.failed_login_attempts,
-      account_locked: current_user.locked?,
-      authorized_keys: Array(current_user.authorized_keys)
-    }
-  end
-
-  def recent_login_history
-    # Get last 5 login audit logs
-    current_user.audit_logs
-                .where(action: "login")
-                .order(created_at: :desc)
-                .limit(5)
-                .pluck(:created_at, :ip_address, :user_agent)
-                .map do |created_at, ip, user_agent|
-      {
-        timestamp: created_at,
-        ip_address: ip,
-        user_agent: user_agent
-      }
-    end
+    settings_serializer.security_settings
   end
 
   def update_user_preferences(key, new_preferences)

@@ -698,6 +698,51 @@ RSpec.describe Ai::Provisioning::AdaptationDispatchService, type: :service do
       expect(plan.reload.status).to eq("completed")
     end
 
+    it "mints NO outcome for a change type whose fingerprint cannot clear in the settle window" do
+      # IMP-e68a93c47106. `project_cost_breach` fingerprints are derived from
+      # MONTH-TO-DATE spend, which is monotone within a billing month: a
+      # removal lowers the burn RATE and can never pull the accumulated total
+      # back under the ceiling inside SETTLE_WINDOW. Scoring one by fingerprint
+      # disappearance marks every WORKING cost adaptation ineffective, and
+      # three of those trip the validator's stuck streak into a false
+      # fleet.remediation_stuck escalation.
+      #
+      # The settle itself must still run — this exempts the SCORING, not the
+      # verification.
+      gate = gate_answering("auto_apply_within_bounds")
+      allow(gate).to receive(:record_adaptation_outcome!).and_return(nil)
+      stub_gate(gate)
+
+      plan = build_diff_plan!(fingerprint: "project_cost_breach:#{mission.id}",
+                              change_type: "cost_control")
+      service.dispatch!(plan: plan)
+      live_plan.reload.steps.where(status: "pending").find_each do |s|
+        s.update!(status: "completed",
+                  metadata: { "last_outputs" => { "outputs" => { "node_instance_ids" => %w[i-3 i-4] },
+                                                  "failures" => [] } })
+      end
+
+      result = service.settle!(adaptation_plan_ids: [ plan.id ])
+
+      expect(result[:healthy]).to be true
+      expect(result[:outcomes_recorded]).to eq(0)
+      expect(gate).not_to have_received(:record_adaptation_outcome!)
+    end
+
+    it "still mints an outcome for a change type whose fingerprint CAN clear" do
+      # The exemption is a declared list, not a blanket. Without this the
+      # example above would pass just as well if outcome recording had been
+      # switched off entirely.
+      recorded = 0
+      gate = gate_answering("auto_apply_within_bounds")
+      allow(gate).to receive(:record_adaptation_outcome!) { recorded += 1 }
+      stub_gate(gate)
+
+      dispatch_and_complete!.tap { |plan| service.settle!(adaptation_plan_ids: [ plan.id ]) }
+
+      expect(recorded).to eq(1)
+    end
+
     it "does not re-settle an adaptation that already settled" do
       recorded = 0
       gate = gate_answering("auto_apply_within_bounds")

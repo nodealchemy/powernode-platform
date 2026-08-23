@@ -181,12 +181,12 @@ RSpec.describe Worker, type: :model do
       end
     end
 
-    describe '#auth_token' do
+    describe '#token' do
       let(:worker) { create(:worker) }
 
-      it 'returns the virtual token attribute' do
+      it 'exposes the virtual token attribute' do
         worker.token = 'test_token'
-        expect(worker.auth_token).to eq('test_token')
+        expect(worker.token).to eq('test_token')
       end
     end
 

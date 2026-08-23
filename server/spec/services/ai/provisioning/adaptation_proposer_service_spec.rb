@@ -184,15 +184,18 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       expect(desired).to eq(5)
     end
 
-    it "declines to compose for project_cost_breach while no scale-in strategy exists" do
-      # Was: asserted a composed cost_control step carrying target_cost_usd.
-      # That step named `scale_project` but carried none of its required
-      # kwargs (project_id / target_count / scaling_strategy), so it could
-      # only ever fail at execution with "missing required input:
-      # project_id" — a cost breach implies scaling IN, and the skill offers
-      # only additive strategies. Declining is the correct composition until
-      # INC-4 (IMP-216a6dbc7e32) lands `remove_replicas`.
-      expect(service.propose_from_signals(signals: [cost_signal])).to be_nil
+    it "composes a bindable remove_replicas step for project_cost_breach" do
+      # Was: asserted a DECLINE. That was correct while `scale_project` offered
+      # only additive strategies — a composed step carried none of the skill's
+      # required kwargs and could only fail at execution. INC-4 landed
+      # `remove_replicas` and IMP-e68a93c47106 wired this arm to it, so the
+      # cost breach now composes a scale-IN carrying the full contract.
+      plan = service.propose_from_signals(signals: [cost_signal])
+      inputs = plan.steps.in_order.first.execution_config["inputs"]
+
+      expect(inputs["scaling_strategy"]).to eq(described_class::REMOVAL_STRATEGY)
+      expect(inputs["project_id"]).to eq(mission.id)
+      expect(inputs["target_count"]).to be_positive
     end
 
     it "declines region drift rather than composing an unbindable relocate step" do
@@ -237,16 +240,15 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
     it "reuses an existing adaptation goal across multiple signals" do
       # Second signal must be one that actually COMPOSES, otherwise the
       # assertion passes trivially without ever reaching find_or_create_goal!
-      # — cost_control now declines before that point.
       service.propose_from_signals(signals: [slo_signal])
       expect { service.propose_from_signals(signals: [region_drift_signal]) }
         .not_to change(Ai::AgentGoal, :count)
     end
 
     it "increments plan version on subsequent proposals" do
-      # Both signals must be ones that actually COMPOSE. cost_control declines
-      # outright, and region drift declines unless a proposal supplies
-      # relocate_workload's inputs — so neither can produce the second plan.
+      # Both signals must be ones that actually COMPOSE. Region drift declines
+      # unless a proposal supplies relocate_workload's inputs, so it cannot
+      # produce the second plan.
       first = service.propose_from_signals(signals: [slo_signal])
       second = service.propose_from_signals(signals: [slo_signal])
       expect(second.version).to eq(first.version + 1)
@@ -340,13 +342,16 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       expect(result[:plan].plan_data).not_to have_key("signal_fingerprint")
     end
 
-    it "composes nothing for a cost_breach, so there is nothing to gate" do
-      # Was: asserted approval routing tagged "project.adapt_cost_control".
-      # Gating is downstream of composition, so declining to compose (above)
-      # necessarily means a cost breach never reaches a gate at all. Pinning
-      # that consequence explicitly rather than leaving it implied: restoring
-      # cost_control actuation in INC-4 must restore this too.
-      expect(service.propose_from_signals(signals: [cost_signal])).to be_nil
+    it "hands a cost_breach plan to the gate as NOT auto-apply-eligible" do
+      # Was: asserted the cost breach composed nothing, so nothing reached a
+      # gate. It composes now (IMP-e68a93c47106) — and the property that
+      # replaces "never gated" is the one that matters: a plan that TERMINATES
+      # replicas is never eligible for unattended application. The allowlist in
+      # #auto_apply? is what makes that true by construction.
+      plan = service.propose_from_signals(signals: [cost_signal])
+
+      expect(plan).not_to be_nil
+      expect(service.auto_apply?(plan: plan)).to be false
     end
 
     it "swallows exceptions and returns nil when persistence fails" do

@@ -7,10 +7,11 @@ class Api::V1::EmailSettingsController < ApplicationController
   # Used by worker service to fetch SMTP configuration.
   #
   # SECURITY: only the worker (which actually sends mail) receives the real
-  # decrypted secrets. Human/UI callers receive masked indicators so SMTP
+  # decrypted secrets, and only when its identity was established
+  # CRYPTOGRAPHICALLY. Human/UI callers receive masked indicators so SMTP
   # passwords and provider API keys are never exposed through the admin UI.
   def show
-    email_settings = fetch_email_settings(reveal_secrets: current_worker.present?)
+    email_settings = fetch_email_settings(reveal_secrets: worker_may_read_secrets?)
 
     render_success(email_settings)
   end
@@ -154,8 +155,55 @@ class Api::V1::EmailSettingsController < ApplicationController
     }
   end
 
-  # Return the real secret only when the caller is allowed to see it (the worker,
-  # which sends the mail). For UI callers, never echo the value — return "".
+  # Whether THIS caller may receive the decrypted SMTP password and provider
+  # API keys.
+  #
+  # `current_worker.present?` is NOT sufficient. Worker identity can also be
+  # established from `X-Forwarded-Tls-Client-Cert-Info` alone
+  # (Security::MtlsTrust#verify_request's no-PEM branch), which is a header the
+  # client controls unless the reverse proxy strips it. Core attaches
+  # Core::IngressConfigWriter::STRIP_FORWARDED_CLIENT_CERT_MW to the backend
+  # routers it writes itself, but on a composed hub the per-account routers come
+  # from the system extension's ACME writer, which carries no strip AND outranks
+  # the host-login routers on Traefik's rule-length priority. The strip is
+  # therefore NOT a property core can prove. Composed with a worker CN that may
+  # be a published constant (Workers::EnsureSystemWorker::DEV_SENTINEL_NODE_ID,
+  # retained by a dev-bootstrapped database until its first non-development
+  # boot revokes it), "any worker" would hand
+  # plaintext mail credentials to an unauthenticated caller.
+  #
+  # So the reveal is gated on an identity the caller cannot forge — a
+  # signature-checked worker JWT, or a client-cert leaf verified against our own
+  # CA (the posture the proxy produces with passTLSClientCert pem=true). Defence
+  # in depth: this holds even when the forged header survives the ingress.
+  #
+  # ACCEPTED RESIDUAL: a forwarded-CN-only worker still authenticates and still
+  # reads the NON-secret delivery config (smtp_host, smtp_username,
+  # smtp_from_address, provider, and the `*_set` booleans) — the same surface a
+  # human admin sees. Only the four secret values are withheld.
+  def worker_may_read_secrets?
+    return true if worker_identity_cryptographically_verified?
+
+    # A worker that reached us on the unverifiable path gets the mask. That is
+    # the safe answer, but it is also indistinguishable from a misconfigured
+    # proxy: if this hub's pass-tls middleware does not forward the cert PEM,
+    # the REAL worker lands here and mail loses its SMTP password with no other
+    # symptom. Log it so the degradation is diagnosable instead of silent.
+    if current_worker.present?
+      Rails.logger.warn(
+        "[EmailSettings] masking secrets for worker #{current_worker.id}: identity came from the " \
+        "forwarded-CN header with no verifiable client cert. If this is the real worker, the ingress " \
+        "is not forwarding the client-cert PEM (passTLSClientCert pem=true) and mail delivery will " \
+        "lose its credentials."
+      )
+    end
+
+    false
+  end
+
+  # Return the real secret only when the caller is allowed to see it (a
+  # cryptographically identified worker, which sends the mail). For UI callers
+  # and unverifiable worker identities, never echo the value — return "".
   def secret_field(value, reveal)
     reveal ? value : ""
   end

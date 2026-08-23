@@ -166,12 +166,13 @@ module Ai
               mission_id: { type: "string", required: true, description: "Infrastructure mission ID" },
               change_type: { type: "string", required: true,
                              description: "One of: #{adapt_change_types.join(', ')}. " \
-                                          "NOTE: `cost_control` is accepted by the schema but is NOT " \
-                                          "currently actuatable — it scales IN, and while the scaling " \
-                                          "skill now offers `remove_replicas`, nothing composes a " \
-                                          "scale-in step yet (no delta, no inputs), so every call " \
-                                          "fails. Do not retry it; it will not begin working without " \
-                                          "a scale-in composer." },
+                                          "NOTE: `cost_control` scales the project IN — it composes a " \
+                                          "`remove_replicas` step that TERMINATES the newest replicas " \
+                                          "of this mission. Removals are never applied unattended: the " \
+                                          "plan is always handed to the gate as not auto-apply-eligible, " \
+                                          "so expect `routed` on the first call. It becomes " \
+                                          "`auto_apply_within_bounds` only on a later re-run, after a " \
+                                          "person has approved the request." },
               metric: { type: "string", required: false,
                         description: "Optional metric that motivated the change (e.g. p99_latency_ms)" },
               details: { type: "object", required: false,
@@ -180,7 +181,9 @@ module Ai
                                       "For scale_horizontal, include `replica_count` — the fleet's " \
                                       "CURRENT replica count. The sensor supplies it on autonomous " \
                                       "signals, but an operator-initiated request has no sensor, and " \
-                                      "the proposer declines rather than assuming the declared size." },
+                                      "the proposer declines rather than assuming the declared size. " \
+                                      "For cost_control, `breach_pct` sizes the removal — at or above " \
+                                      "50 it removes 2 replicas, otherwise 1." },
               proposed_change: { type: "object", required: false,
                                  description: "Legacy envelope: { change_type|kind: String, …details }. " \
                                               "Explicit change_type/metric/details take precedence." }

@@ -3,6 +3,9 @@
 module Ai
   module AutonomyApprovalActions
     extend ActiveSupport::Concern
+    # IMP-550e44e24220 — shared approval-payload core, also included by
+    # Api::V1::Ai::GovernanceController so both read surfaces cannot drift.
+    include ::Ai::ApprovalRequestSerialization
 
     # GET /api/v1/ai/autonomy/approvals
     def approval_queue
@@ -81,36 +84,22 @@ module Ai
       payload.merge(revealed_result: revealed)
     end
 
+    # IMP-550e44e24220 — the shared fields come from
+    # Ai::ApprovalRequestSerialization#approval_request_core, which is the
+    # single definition both approval read surfaces build on. Only this
+    # surface's own additions are listed here: the agent_*/action_*
+    # denormalisations lifted out of request_data for the approvals UI, the
+    # requester, and the step count (this surface reports total_steps in the
+    # list payload and only adds step_statuses on detail).
     def serialize_approval_request(request, detailed: false)
-      base = {
-        id: request.id,
-        request_id: request.request_id,
+      base = approval_request_core(request).merge(
         agent_id: request.request_data&.dig("agent_id"),
         agent_name: request.request_data&.dig("agent_name"),
         action_type: request.request_data&.dig("action_type"),
         action_category: request.request_data&.dig("action_category"),
-        source_type: request.source_type,
-        source_id: request.source_id,
-        status: request.status,
-        description: request.description,
-        # Filtered again at the read, not just at Ai::AutonomyGate's write:
-        # request_data has producers other than the gate (Ai::GovernanceService,
-        # Ai::Approvals::Gateway, the mission orchestrator), and rows written
-        # before the gate started redacting still hold plaintext — the read is
-        # the only surface that covers those retroactively.
-        request_data: ::Ai::SensitiveParams.filter(request.request_data),
         requested_by_id: request.requested_by_id,
-        # IMP-4bbb4227ac8a — declared post-approval execution outcome. Without
-        # these an approved-but-failed action is indistinguishable from an
-        # approved-and-done one on every approvals surface.
-        execution_status: request.execution_status,
-        execution_error: request.execution_error,
-        created_at: request.created_at,
-        expires_at: request.expires_at,
-        completed_at: request.completed_at,
-        current_step: request.current_step,
         total_steps: request.step_statuses&.size
-      }
+      )
       return base unless detailed
 
       base.merge(

@@ -166,6 +166,19 @@ module Ai
     validates :provenance, inclusion: { in: PROVENANCES }
     validates :trust_level, inclusion: { in: TRUST_LEVELS }
 
+    # A recipe is executable content (an ordered list of MCP tool invocations
+    # that Ai::SkillRecipeRunner dispatches), and it had NO write-time
+    # validation: #recipe returned metadata["recipe"] verbatim, so a malformed
+    # recipe was stored happily and failed at RUNTIME, mid-run, after earlier
+    # steps had already had effects. The runner has no compensation for a
+    # partially executed run, which makes write time the only cheap place to
+    # catch this.
+    #
+    # Guarded on the KEY rather than on #recipe?, because #recipe? already
+    # requires the value to be a Hash — using it would skip validation for the
+    # very case where the recipe is the wrong type entirely.
+    validate :recipe_structure, if: -> { metadata.is_a?(Hash) && metadata.key?("recipe") }
+
     # ==========================================
     # Scopes
     # ==========================================
@@ -211,8 +224,8 @@ module Ai
     # ==========================================
     before_validation :generate_slug, on: :create
     before_update :bump_version_on_routing_change
-    after_commit :sync_to_knowledge_graph, on: [:create, :update]
-    after_commit :enqueue_conflict_check, on: [:create, :update], if: :conflict_relevant_change?
+    after_commit :sync_to_knowledge_graph, on: [ :create, :update ]
+    after_commit :enqueue_conflict_check, on: [ :create, :update ], if: :conflict_relevant_change?
     # prepend: the has_one's dependent: :nullify callback (declared with the
     # association, above) otherwise runs FIRST and detaches one arbitrary copy
     # before this can archive it.
@@ -385,6 +398,39 @@ module Ai
     # Recipe skills are dispatched by Ai::SkillRecipeRunner rather than a
     # Ruby executor class — the metadata is the executable artifact.
 
+    # Structure only, deliberately not tool existence. Structure is invariant;
+    # which tools are registered is deployment-dependent (a core-mode install
+    # carries no extension tools), so rejecting an unknown tool here would
+    # refuse a recipe that is valid on the install it was authored for. The
+    # runner already reports "Unknown tool" clearly at dispatch.
+    def recipe_structure
+      spec = metadata["recipe"]
+      return errors.add(:metadata, "recipe must be an object") unless spec.is_a?(Hash)
+
+      steps = spec["steps"]
+      unless steps.is_a?(Array) && steps.any?
+        return errors.add(:metadata, "recipe steps must be a non-empty array")
+      end
+
+      max = ::Ai::SkillRecipeRunner::MAX_STEPS
+      if steps.size > max
+        errors.add(:metadata, "recipe has #{steps.size} steps, exceeding MAX_STEPS=#{max} — the runner refuses it at dispatch")
+      end
+
+      steps.each_with_index do |step, idx|
+        unless step.is_a?(Hash)
+          errors.add(:metadata, "recipe step #{idx} must be an object")
+          next
+        end
+
+        errors.add(:metadata, "recipe step #{idx} is missing 'tool'") if step["tool"].to_s.strip.empty?
+        # The runner keys captures and resume position on step["id"]
+        # (remaining_steps_for rejects completed ids), so an id-less step
+        # silently breaks resume rather than failing loudly.
+        errors.add(:metadata, "recipe step #{idx} is missing 'id'") if step["id"].to_s.strip.empty?
+      end
+    end
+
     def recipe?
       metadata.is_a?(Hash) && metadata["recipe"].is_a?(Hash)
     end
@@ -507,7 +553,7 @@ module Ai
       return 0.5 unless account_id.present?
 
       learnings = Ai::CompoundLearning.active.for_account(account_id)
-                    .where("tags @> ?", [slug].to_json)
+                    .where("tags @> ?", [ slug ].to_json)
       return 0.5 if learnings.empty?
 
       learnings.average(:effectiveness_score)&.to_f || 0.5

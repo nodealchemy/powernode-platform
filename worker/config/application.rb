@@ -94,6 +94,18 @@ Sidekiq.configure_server do |config|
     cap.queues = %w[code_intel]
   end
 
+  # Sidekiq's DEFAULT error handler logs the whole job hash — args included — on
+  # every raised job exception. That is a job-argument log sink separate from the
+  # ones BaseJob and JobsController own, and Sidekiq owns its own logger config
+  # (see setup_logging), so it must be cleaned at the context. The logic lives in
+  # JobArgRedaction because this block does not run under RSpec.
+  default_error_handlers = config.error_handlers.dup
+  config.error_handlers.replace([
+    lambda do |exception, ctx, cfg|
+      safe_ctx = JobArgRedaction.sanitize_context(ctx)
+      default_error_handlers.each { |handler| handler.call(exception, safe_ctx, cfg) }
+    end
+  ])
 end
 
 Sidekiq.configure_client do |config|

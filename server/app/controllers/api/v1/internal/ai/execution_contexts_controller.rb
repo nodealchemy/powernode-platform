@@ -10,7 +10,7 @@ module Api
           # Returns a memory-enriched execution context for an agent.
           # Reuses McpAgentExecutor::ContextAndFormatting logic.
           def create
-            agent = ::Ai::Agent.find(params[:agent_id])
+            agent = resolve_agent
             account = agent.account
 
             input = params[:input].to_s
@@ -92,7 +92,7 @@ module Api
           # Used by the worker to build direct LLM clients without needing
           # the full execution context (memory injection, skill enrichment).
           def provider_config
-            agent = ::Ai::Agent.find(params[:agent_id])
+            agent = resolve_agent
             # Coherent resolution triple — when the agent has no pinned model the
             # selector picks the best model across ANY active, credentialed
             # provider; the matching credential is resolved for whichever wins.
@@ -121,8 +121,7 @@ module Api
           # Returns the embedding provider configuration for an account.
           # Used by the worker to build its Ai::EmbeddingService with the right credentials.
           def embedding_config
-            account_id = params[:account_id]
-            account = Account.find(account_id)
+            account = account_scope.find(params[:account_id])
 
             # Prefer the designated embedding agent's provider for consistent routing.
             # Falls back to any provider with text_embedding capability.
@@ -157,6 +156,62 @@ module Api
           end
 
           private
+
+          # ------------------------------------------------------------------
+          # Tenancy anchors for this controller's caller-supplied lookups.
+          #
+          # Every action here renders account-derived material — the agent's
+          # resolved provider, its `provider_credential_id` (which the worker
+          # then POSTs to credentials#decrypt for the plaintext key), the
+          # account's id and its memory/skill-graph context. Loading the agent or
+          # account by bare id disclosed one tenant's provider wiring, and a
+          # decryptable credential handle, to any other.
+          #
+          # Same anchor as Internal::Ai::CredentialsController#credential_scope
+          # and e9352723d — the authenticated Worker principal's own account,
+          # with NO `is_system` exemption. See that controller for why an
+          # exemption would be inert in production (workers are account-bound by
+          # worker_provision.rake) and actively harmful in a dev-bootstrapped
+          # database (the system worker's CN is a published constant).
+          # ------------------------------------------------------------------
+
+          # Load the agent, then bind the RESOLVING account for a GLOBAL one.
+          #
+          # `for_account`, not a bare `where(account_id:)`, because
+          # `ai_agents.account_id` is NULLABLE: GLOBAL (platform-provided) agents
+          # belong to no account and are legitimately visible to every one of them
+          # (GloballyScopable => `account_id IN (NULL, :id)`). A bare equality
+          # scope would 404 every global agent and break each chat driven by one.
+          #
+          # Admitting globals alone would be INCOHERENT with credential_scope,
+          # which is strict equality (there are no global credentials —
+          # `ai_provider_credentials.account_id` is NOT NULL). A global agent has
+          # no provider of its own, so Ai::Agent#compute_model_resolution would
+          # fall through to `fallback_resolution` and hand back a credential
+          # belonging to whichever account seeded the agent's provider — both a
+          # cross-tenant handle disclosure in its own right AND a handle this
+          # worker cannot then decrypt, turning every global-agent chat into
+          # "Failed to decrypt credentials". `using_account` is the seam the model
+          # already provides for exactly this: a global agent used BY an account
+          # derives all provider characteristics from THAT account. It is a no-op
+          # for account-owned agents, which resolve under their own account.
+          def resolve_agent
+            agent = agent_scope.find(params[:agent_id])
+            agent.global? ? agent.using_account(current_account) : agent
+          end
+
+          # The tenancy VALUE is the worker's own `account_id` COLUMN, never
+          # `current_worker.account`, so a nil/half-provisioned principal narrows
+          # to globals only and reaches no tenant-owned row.
+          def agent_scope
+            ::Ai::Agent.for_account(current_worker&.account_id)
+          end
+
+          # `accounts.id` is never NULL, so a nil worker account_id matches no
+          # row — the nil principal is denied rather than granted.
+          def account_scope
+            Account.where(id: current_worker&.account_id)
+          end
 
           # Ordered non-Fable reasoning fallbacks for the worker's refusal handler.
           # Gated on refusal_capable? — non-Fable models never pay the resolution

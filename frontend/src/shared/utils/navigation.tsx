@@ -463,6 +463,16 @@ export const adminNavigationOverrides = {
           permissions: ['admin.role.read'],
           order: 2
         },
+        {
+          id: 'admin-accounts',
+          name: 'Accounts',
+          href: '/app/admin/accounts',
+          icon: Building2,
+          description: 'Provision tenant accounts',
+          permissions: ['admin.account.create'],
+          // order 3 is taken by the business extension's 'Impersonation' item.
+          order: 4
+        },
         // 'Impersonation' (order 3) is registered by the business extension via
         // featureRegistry.registerNavItems('business', [{ section: 'admin', ... }]);
         // the impersonation page/route/permission (admin.user.impersonate) live there.

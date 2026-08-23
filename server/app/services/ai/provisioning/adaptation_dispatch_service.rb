@@ -111,6 +111,29 @@ module Ai
       # status alone cannot answer that question.
       DISPATCH_STAMP_KEY = "adaptation_dispatched"
 
+      # Change types whose triggering fingerprint CANNOT clear inside the fleet
+      # validator's settle window even when the adaptation worked perfectly.
+      # No pending RemediationOutcome is minted for one — see #record_outcome!.
+      #
+      # DECLARED, never inferred, exactly as the fleet validator's own
+      # `NON_REMEDIATING_ACTION_CATEGORIES` is: a lane earns its place here by
+      # being listed, because "the signal is still firing" is normally real
+      # evidence that a remediation did not stick and must keep scoring
+      # ineffective.
+      #
+      #   cost_control — the `project_cost_breach` fingerprint is derived from
+      #     MONTH-TO-DATE spend against a ceiling. MTD cost is monotone
+      #     non-decreasing within a billing month, so removing replicas lowers
+      #     the burn RATE and can never pull the accumulated total back under
+      #     the ceiling within the window. Every executed cost adaptation would
+      #     therefore score INEFFECTIVE, and three of those trip the fleet
+      #     validator's stuck streak into a false `fleet.remediation_stuck`
+      #     HIGH escalation — the same failure that put the propose-only
+      #     exemption in `RemediationValidator#record_proceeded!`. Recorded
+      #     here (IMP-e68a93c47106) because wiring the cost_control composer is
+      #     what first made this lane able to reach settle at all.
+      UNSCORABLE_CHANGE_TYPES = %w[cost_control].freeze
+
       class NotAnAdaptationPlanError < ArgumentError; end
 
       attr_reader :account, :mission
@@ -169,16 +192,31 @@ module Ai
         # keep their provenance forever, so this plan id keeps being offered —
         # and it makes a sequential second call a no-op.
         #
-        # NOT a concurrency claim. The status transition happens after a full
-        # VerificationService run (seconds of live provider calls), so two
-        # workers finishing the final layer at the same moment can both read
-        # `executing`, both verify, and both settle. An earlier attempt here
-        # took `FOR UPDATE` and released it at the end of the read, which
-        # serialized nothing while reading as though it did. Closing this needs
-        # one deliberate mechanism — a compare-and-set status claim or an
-        # advisory lock — not a third bolt-on; deferred and reported as its own
-        # offer. The extension's pending-fingerprint dedup limits the blast
-        # radius to a duplicate verification for sensor-driven plans.
+        # IMP-ce77677917c7 (3) — SERIALIZED by a transaction-scoped advisory
+        # lock spanning the read, the verification and the settle, so two
+        # workers finishing the final layer cannot both verify and both settle.
+        #
+        # A LOCK RATHER THAN A COMPARE-AND-SET STATUS CLAIM, deliberately.
+        # Claiming the status first would mean transitioning BEFORE a
+        # VerificationService run that makes seconds of live provider calls; a
+        # crash in that window leaves a plan claimed out of `executing` with
+        # nothing left to retry it. The lock costs a held connection for the
+        # duration and leaves the status honest until the work is actually done.
+        #
+        # pg_advisory_xact_lock, not _lock: it releases with the transaction, so
+        # a raise mid-verification cannot leak the lock. Note the earlier
+        # FOR UPDATE attempt here failed because its transaction closed at the
+        # end of the READ — the span is the point, not the lock type.
+        ::Ai::GoalPlan.transaction do
+          ::ActiveRecord::Base.connection.execute(
+            "SELECT pg_advisory_xact_lock(#{settle_lock_key(ids)})"
+          )
+          settle_locked!(ids)
+        end
+      end
+
+      # The body of settle!, run while holding the advisory lock above.
+      def settle_locked!(ids)
         plans = ::Ai::GoalPlan
           .where(account_id: account.id, id: ids, status: "executing")
           .to_a
@@ -272,7 +310,15 @@ module Ai
 
         case answer[:disposition].to_s
         when GATE_ROUTED
+          # `cause` is the gate's OWN word for why a routed plan has no request
+          # to point at — forwarded verbatim, never interpreted here. Core has no
+          # opinion about the vocabulary (it is fleet policy language) and no
+          # behaviour depends on it; the consumer that raises the operator alarm
+          # does. Same declared-not-inferred discipline as `authority` below: the
+          # consumer used to infer the cause from `approval_request_id.nil?`,
+          # which conflates a missing policy with an operator's own rejection.
           { gate: GATE_ROUTED, approval_request_id: answer[:approval_request_id],
+            cause: answer[:cause].presence,
             detail: answer[:detail].presence || "held for an operator decision" }
         when GATE_AUTO_APPLY
           # A POLICY may NARROW core's bounds; it may never widen them. An
@@ -371,26 +417,58 @@ module Ai
         # Keyed on the live plan's own rows rather than on `plan.status`, which
         # is written after the append and so cannot describe the middle state.
         #
-        # NOT race-safe: this is an unlocked read-then-write, so two concurrent
-        # dispatch! calls on one plan can both read zero rows and both append.
-        # Closing that needs one deliberate mechanism (a partial unique index on
-        # (plan_id, adapted_from_plan_id), or an advisory lock) rather than a
-        # third guard here — deferred and reported as its own offer. Sequential
-        # re-entry, which is the path an MCP retry and an approval release
-        # actually take, IS covered.
-        existing = already_appended(live_plan, plan)
-        if existing.any?
-          return resume_or_refuse(plan, live_plan, existing, base)
-        end
-
-        # A raise here rolls the whole append back — `append_steps!` runs in a
-        # transaction — so nothing is on the live plan and PARKED is honest.
-        # This is the ONLY post-gate path on which it is.
+        # IMP-ce77677917c7 (2) — the absence check and the append are SERIALIZED
+        # by a transaction-scoped advisory lock on this (live plan, adaptation
+        # plan) pair. Previously this was an unlocked read-then-write: two
+        # concurrent dispatch! calls could both read zero rows and both append.
+        #
+        # THE LOCK MUST SPAN BOTH, and that is the whole point. pg_advisory_xact
+        # _lock releases at COMMIT, so a transaction that closes after the READ
+        # serializes nothing while reading as though it does — which is exactly
+        # how the earlier FOR UPDATE attempt failed and why it was removed
+        # rather than left in place. Hence one transaction around the check AND
+        # append_steps!.
+        #
+        # An advisory lock rather than the partial unique index the old comment
+        # suggested, because that index is not implementable here: the
+        # provenance key lives inside execution_config JSONB (no column to
+        # index), and ONE adaptation legitimately appends N steps sharing that
+        # value, so uniqueness would reject steps 2..N of every honest
+        # multi-step adaptation. In-tree precedent for the lock:
+        # Ai::Land::LandingQueue.next_for.
+        #
+        # NOT SPEC-COVERED, and deliberately not faked. pg_advisory_xact_lock
+        # releases at the OUTERMOST transaction commit, and specs run inside a
+        # wrapping transaction, so `Ai::GoalPlan.transaction` here is only a
+        # SAVEPOINT during a test — the lock is held for the whole example
+        # whether or not this block spans the append. Both a transaction_open?
+        # probe and a pg_locks probe were written, and a mutant restaging the
+        # commit-after-read mistake SURVIVED both. A spec that cannot fail for
+        # the defect it names is worse than none, so the span is guarded by this
+        # comment and by review rather than by a green example that proves
+        # nothing.
+        #
+        # A raise inside rolls the whole append back, so nothing is on the live
+        # plan and PARKED is honest. This is the ONLY post-gate path on which it
+        # is.
+        existing = nil
+        appended = nil
         begin
-          appended = append_steps!(live_plan, plan)
+          ::Ai::GoalPlan.transaction do
+            ::ActiveRecord::Base.connection.execute(
+              "SELECT pg_advisory_xact_lock(#{append_lock_key(live_plan, plan)})"
+            )
+
+            existing = already_appended(live_plan, plan)
+            appended = append_steps!(live_plan, plan) if existing.empty?
+          end
         rescue StandardError => e
           return base.merge(gate: GATE_PARKED, dispatched: false, live_plan_id: live_plan.id,
                             detail: "append failed, nothing applied: #{e.class}: #{e.message[0, 200]}")
+        end
+
+        if existing.any?
+          return resume_or_refuse(plan, live_plan, existing, base)
         end
 
         if appended.empty?
@@ -399,6 +477,27 @@ module Ai
         end
 
         dispatch_appended!(plan, live_plan, appended, base, claim: true)
+      end
+
+      # Advisory-lock key for a settle over this set of adaptation plans. Keyed
+      # on the SORTED id set so two callers naming the same plans collide
+      # regardless of the order they were handed them.
+      def settle_lock_key(ids)
+        ::Digest::SHA256.hexdigest(
+          "ai_adaptation_settle:#{account.id}:#{ids.sort.join(',')}"
+        ).to_i(16) % (2**63)
+      end
+
+      # Advisory-lock key for one (live plan, adaptation plan) pair. Both ids
+      # participate: concurrent dispatches of DIFFERENT adaptations onto the
+      # same live plan are legitimate and must not serialize against each other.
+      #
+      # Hashed into a signed 64-bit space because pg_advisory_xact_lock takes a
+      # bigint. Same derivation as Ai::Land::LandingQueue.lock_key.
+      def append_lock_key(live_plan, adaptation_plan)
+        ::Digest::SHA256.hexdigest(
+          "ai_adaptation_append:#{live_plan.id}:#{adaptation_plan.id}"
+        ).to_i(16) % (2**63)
       end
 
       # Enqueue `steps` and report honestly if that fails.
@@ -612,10 +711,14 @@ module Ai
       # on a synthetic fingerprint would score EFFECTIVE for free on the next
       # tick and manufacture a success in the ground-truth table the LEARN step
       # reads.
+      #
+      # NO SCORABLE FINGERPRINT, NO OUTCOME EITHER — see
+      # UNSCORABLE_CHANGE_TYPES.
       def record_outcome!(plan, status: "pending")
         data = plan_data(plan)
         fingerprint = data["signal_fingerprint"].presence
         return false if fingerprint.blank?
+        return false if UNSCORABLE_CHANGE_TYPES.include?(data["change_type"].to_s)
 
         gate = gate_provider
         return false unless gate.respond_to?(:record_adaptation_outcome!)

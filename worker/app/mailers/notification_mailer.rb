@@ -3,6 +3,26 @@
 require_relative 'application_mailer'
 
 class NotificationMailer < ApplicationMailer
+  # NOTE: subscription_renewal, payment_failed and subscription_cancelled have
+  # NO ERB template under app/views/notification_mailer/. Until one is authored,
+  # calling them raises ActionView::MissingTemplate at `mail(...)`. Before
+  # IMP-cd78fa6e7522 they returned early (the lookup always failed) and so
+  # failed silently instead; that silence was the bug, and a loud
+  # MissingTemplate is the intended interim behaviour. None of the three has a
+  # caller today.
+  #
+  # email_verification was in that list until IMP-f2cfaed728c4: the server had
+  # been enqueuing "NotificationEmailJob", a class no worker app defines, so the
+  # verification path was dead at the API boundary (422 "Invalid job class").
+  # Making it reachable via Notifications::NotificationEmailJob required
+  # authoring email_verification.html.erb — shipping the route without the
+  # template would only have converted a silent dead path into a raising one.
+
+  # invitation_email.{html,text}.erb call app_name; private mailer methods are
+  # not exposed to views, so without this the template raises NameError at
+  # render time and the invitation is never delivered.
+  helper_method :app_name
+
   # Welcome email for new users
   def welcome_email(user_id)
     user = fetch_user(user_id)
@@ -35,12 +55,18 @@ class NotificationMailer < ApplicationMailer
   end
   
   # Email verification
-  def email_verification(user_id, verification_token)
+  # verification_token is optional and defaults to the value on the fetched
+  # user. Preferring the fetched value is what lets the producer keep the token
+  # OUT of the Sidekiq job arguments (logged twice, persisted in Redis); it is
+  # plaintext in users.email_verification_token, so the internal endpoint can
+  # serve it. The explicit parameter is kept for direct callers.
+  def email_verification(user_id, verification_token = nil)
     user = fetch_user(user_id)
     return if user.nil?
-    
+
     @user = user
-    @verification_url = "#{frontend_url}/verify-email?token=#{verification_token}"
+    token = verification_token.presence || user[:email_verification_token]
+    @verification_url = "#{frontend_url}/verify-email?token=#{token}"
     @expiry_hours = EmailConfigurationService.instance.settings[:email_verification_expiry_hours] || 24
     
     mail(
@@ -106,7 +132,10 @@ class NotificationMailer < ApplicationMailer
   end
 
   # Account invitation email
-  def invitation_email(invitation_id, invitation_token)
+  # invitation_token is optional for the same reason as email_verification's:
+  # invitations.token is plaintext, so the worker reads it from the internal
+  # endpoint rather than receiving it in the job arguments.
+  def invitation_email(invitation_id, invitation_token = nil)
     invitation = fetch_invitation(invitation_id)
     return if invitation.nil?
 
@@ -114,7 +143,7 @@ class NotificationMailer < ApplicationMailer
     @inviter_name = "#{invitation[:inviter_first_name]} #{invitation[:inviter_last_name]}"
     @invitee_name = "#{invitation[:first_name]} #{invitation[:last_name]}"
     @account_name = invitation[:account_name]
-    @invitation_url = "#{frontend_url}/accept-invitation?token=#{invitation_token}"
+    @invitation_url = "#{frontend_url}/accept-invitation?token=#{invitation_token.presence || invitation[:token]}"
     @expires_at = invitation[:expires_at]
     @role_names = invitation[:role_names]&.join(', ') || 'Member'
 
@@ -141,21 +170,46 @@ class NotificationMailer < ApplicationMailer
   private
 
   def fetch_user(user_id)
-    api_client.get_user(user_id)
+    api_client.get_internal_user(user_id)
   rescue StandardError => e
+    log_lookup_failure('user', user_id, e)
     nil
   end
-  
+
   def fetch_account(account_id)
-    api_client.get_account(account_id)
+    api_client.get_internal_account(account_id)
   rescue StandardError => e
+    log_lookup_failure('account', account_id, e)
     nil
   end
 
   def fetch_invitation(invitation_id)
-    api_client.get_invitation(invitation_id)
+    api_client.get_internal_invitation(invitation_id)
   rescue StandardError => e
+    log_lookup_failure('invitation', invitation_id, e)
     nil
+  end
+
+  # A failed lookup degrades to nil (the mailer then declines to send), but it
+  # must not do so silently: without this, a missing constant, a timeout and a
+  # 404 were indistinguishable and the mail simply never arrived.
+  #
+  # Log the exception class and message, never the exception's response_body —
+  # that carries the looked-up record in full. Note BackendApiClient#handle_response
+  # lifts the server's own error string into the message for 4xx, so keep the
+  # server's internal error strings free of record data.
+  def log_lookup_failure(kind, id, error)
+    worker_logger.error(
+      "[NotificationMailer] #{kind} lookup failed for id=#{id}: " \
+      "#{error.class}: #{error.message}"
+    )
+  rescue StandardError => logging_error
+    # Never let diagnostics mask the original failure — but do not vanish either.
+    warn("[NotificationMailer] failed to log #{kind} lookup failure: #{logging_error.class}")
+  end
+
+  def worker_logger
+    PowernodeWorker.application.logger
   end
 
   def frontend_url
@@ -166,7 +220,10 @@ class NotificationMailer < ApplicationMailer
     EmailConfigurationService.instance.settings[:smtp_from_name] || 'Powernode'
   end
   
+  # BackendApiClient is the client config/boot.rb actually requires; it also
+  # carries the circuit breaker, retry policy and the dev mTLS header the
+  # /api/v1/internal/* endpoints authenticate against.
   def api_client
-    @api_client ||= ApiClient.new
+    @api_client ||= BackendApiClient.new
   end
 end

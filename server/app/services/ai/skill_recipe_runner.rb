@@ -75,7 +75,9 @@ module Ai
         global_idx = (@run.steps_log || []).size + idx
         raise RecipeError, "Recipe exceeds MAX_STEPS=#{MAX_STEPS}" if global_idx >= MAX_STEPS
 
-        if step["require_approval"] && !@dry_run && !approval_already_granted_for?(step)
+        enforce_policy_block!(step) unless @dry_run
+
+        if requires_approval?(step) && !@dry_run && !approval_already_granted_for?(step)
           pause_for_approval!(step)
           return @run
         end
@@ -133,6 +135,70 @@ module Ai
                                     .map { |spec| spec["name"] }
                                     .reject { |name| @inputs.key?(name) }
       raise RecipeError, "Missing required input(s): #{missing.join(', ')}" if missing.any?
+    end
+
+    # === Approval resolution ========================================
+    #
+    # `step["require_approval"]` is recipe CONTENT, so on its own it let the
+    # author of a recipe decide whether their own recipe pauses — circular as a
+    # control on caller-supplied material. Operator policy can now force the
+    # pause, and the two combine one-way: policy may only ADD friction. A
+    # permissive policy never removes an author-requested approval.
+    def requires_approval?(step)
+      return true if step["require_approval"]
+
+      policy_forces_approval?(step)
+    end
+
+    # Resolves against Ai::InterventionPolicyService under a recipe-scoped
+    # category ("ai.recipe.<tool>"), namespaced so it cannot collide with the
+    # autonomy categories executors use.
+    #
+    # KEYED ON `record`, NOT ON THE VERDICT, and that is the load-bearing
+    # detail. InterventionPolicyService#default_policy returns
+    # "require_approval" when NOTHING matches, so asking for the verdict alone
+    # would pause every step on every platform where no recipe policy has been
+    # written. A gate that fires that readily gets routed around, which is
+    # worse than the gap it closes. `record` is nil for the default and present
+    # only when a real row matched, so "unconfigured" stays distinguishable
+    # from "configured to require approval".
+    def policy_verdict_for(step)
+      resolved = ::Ai::InterventionPolicyService
+                 .new(account: @account)
+                 .resolve(action_category: recipe_action_category(step),
+                          agent: @agent, user: @user)
+      return nil if resolved[:record].nil?
+
+      resolved[:policy].to_s
+    end
+
+    def policy_forces_approval?(step)
+      policy_verdict_for(step) == "require_approval"
+    rescue StandardError => e
+      # FAIL CLOSED. An exception here is not a normal path, and the two
+      # failure modes are not symmetric: pausing a run an operator can release
+      # is recoverable, silently skipping a gate they configured is not.
+      Rails.logger.error("[SkillRecipeRunner] policy resolution failed, pausing: #{e.class}: #{e.message}")
+      true
+    end
+
+    # A blocked action is refused outright rather than paused: pausing would
+    # offer an approver the chance to release something the operator blocked,
+    # which is a different (and weaker) verdict than the one they set.
+    def enforce_policy_block!(step)
+      return unless policy_verdict_for(step) == "block"
+
+      raise RecipeError,
+            "Step '#{step['id']}' blocked by operator policy for #{recipe_action_category(step)}"
+    rescue ::Ai::SkillRecipeRunner::RecipeError
+      raise
+    rescue StandardError => e
+      Rails.logger.error("[SkillRecipeRunner] policy block check failed: #{e.class}: #{e.message}")
+      nil
+    end
+
+    def recipe_action_category(step)
+      "ai.recipe.#{step['tool']}"
     end
 
     # Reconstructs captures from prior step results when resuming a paused run.
@@ -202,10 +268,24 @@ module Ai
     # `initialize`, and `Ai::SkillRecipeRun belongs_to :user, optional: true`),
     # so refuse outright when both are nil rather than let it fall through to
     # a downstream "permission denied: <perm> required" that reads like a
-    # misconfigured grant. An agent-only principal (no user) is legitimate —
-    # it's the same "LLM tool-calling path" `Ai::Tools::McpPlatformToolRegistrar`
-    # already recognizes for a bound `mcp_agent` — so only the *no-principal*
-    # case is refused, not the user-less one.
+    # misconfigured grant. This guard refuses only the *no-principal* case.
+    #
+    # CORRECTED (IMP-245d8ae56f8c): this comment used to claim an agent-only
+    # principal is legitimate because it is "the same LLM tool-calling path
+    # McpPlatformToolRegistrar already recognizes for a bound mcp_agent". That
+    # was false, and it is worth naming because it justified skipping the gate.
+    # #enforce_permission! exempts exactly one user-less caller — an
+    # `instance_authorized` mTLS principal — and otherwise raises
+    # "Authentication required" whenever `user` is nil. A bound `mcp_agent` is
+    # passed to CONSTRUCTION, never to authorization, so it has never stood in
+    # for a permission.
+    #
+    # So an agent-only recipe now reaches the gate and is refused there, which
+    # is the correct outcome rather than a regression: a recipe is
+    # caller-supplied content, and "an agent authored it" is not authority to
+    # run a tool the agent's principal cannot be checked against. The guard
+    # below still admits it, because refusing at the gate produces the accurate
+    # error; refusing here would report a missing principal that is present.
     #
     # `internal:` is deliberately NEVER passed to `klass.new` below. A recipe
     # is arbitrary caller-supplied content (skill metadata), not an in-process
@@ -224,9 +304,35 @@ module Ai
       tool_class_name = ::Ai::Tools::PlatformApiToolRegistry.all_tools[tool_name]
       raise RecipeError, "Unknown tool: #{tool_name}" if tool_class_name.blank?
 
-      klass = tool_class_name.constantize
-      tool = klass.new(account: @account, user: @user, agent: @agent)
-      tool.execute(params: params.merge(action: tool_name).with_indifferent_access)
+      # IMP-245d8ae56f8c — dispatch through the REGISTRAR, not by constructing
+      # the tool here.
+      #
+      # This used to do `klass.new(...).execute(...)` directly, which skipped
+      # McpPlatformToolRegistrar#enforce_permission! — the ONLY reader of
+      # REQUIRED_PERMISSION on an execution path. Ai::Tools::BaseTool#execute
+      # runs the deny overlay, param validation and guardrails, and no
+      # permission check at all, so for the 53 registry tool classes that carry
+      # a floor constant and no ACTION_PERMISSIONS map the constant was
+      # enforced NOWHERE on this path. The 12 map-carrying classes kept their
+      # in-tool check, which made the hole invisible from the call site: the
+      # same line was gated or ungated depending on the tool it named.
+      #
+      # Routing through execute_tool rather than re-implementing the check
+      # keeps ONE enforcement seam, and picks up the rate limiter, the audit
+      # log line and the action-scope check that the direct construction also
+      # skipped.
+      #
+      # The `internal:` note above still holds and is now structural: this
+      # method never constructs the tool, so it cannot pass `internal:` even by
+      # accident.
+      ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+        tool_name,
+        params: params.merge(action: tool_name).with_indifferent_access,
+        account: @account,
+        user: @user,
+        agent_id: @agent&.id,
+        mcp_agent: @agent
+      )
     end
 
     # === Variable interpolation =====================================

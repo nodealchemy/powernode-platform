@@ -10,6 +10,10 @@ module Ai
     # pattern. With nothing registered (core mode), the land gate still runs the
     # in-process core secret-scan; registered handlers ADD findings on top.
     #
+    # The register / unregister / registered? / names / handlers / reset! surface
+    # is the shared ::Powernode::HandlerRegistry shape; @handlers memoizes on this
+    # module, so this registry's state is its own.
+    #
     # A handler is any callable responding to #call(context) and returning an Array
     # of finding hashes: { scanner:, severity:, detail: }. `severity` is one of
     # Ai::Land::SecurityGateService::SEVERITY_ORDER. Example (in an extension's
@@ -19,40 +23,13 @@ module Ai
     #     MyExt::Sast.scan(context[:changed_files]) # => [{ scanner: "brakeman", ... }]
     #   end
     module SecurityScannerRegistry
+      extend ::Powernode::HandlerRegistry
+
       class << self
-        # Register (or replace) a scanner handler by name. Accepts a callable
-        # argument or a block.
-        def register(name, callable = nil, &block)
-          handler = callable || block
-          unless handler.respond_to?(:call)
-            raise ArgumentError, "scanner handler for #{name.inspect} must respond to #call"
-          end
+        private
 
-          handlers[name.to_sym] = handler
-          name.to_sym
-        end
-
-        def unregister(name)
-          handlers.delete(name.to_sym)
-        end
-
-        def registered?(name)
-          handlers.key?(name.to_sym)
-        end
-
-        def names
-          handlers.keys
-        end
-
-        # The live name => callable map. Returned by reference; callers iterate it
-        # read-only.
-        def handlers
-          @handlers ||= {}
-        end
-
-        # Clears all registered handlers (test isolation / re-boot).
-        def reset!
-          @handlers = {}
+        def handler_noun
+          "scanner handler"
         end
       end
     end

@@ -166,6 +166,127 @@ RSpec.describe Ai::Provisioning::VerificationService, type: :service do
       expect(result[:healthy]).to be false
     end
 
+    # IMP-529b8514bbc6 — THE OTHER DIRECTION of the same permanent failure.
+    #
+    # `add_region` provisions a parallel stack in a NEW region: the executor
+    # composes ProvisionFullStackExecutor and reports the new instances in
+    # node_instance_ids, and the skill's own descriptor calls target_count
+    # "Number of instances to add (add_replicas / add_region)". It was missing
+    # from this reader's additive set, so a region scale-out that fully
+    # SUCCEEDED expected 0, saw N, and scored "provisioned N/0" — unhealthy
+    # forever, with nothing an operator could do about it.
+    #
+    # Verified against CostEstimatorService below: the quote already counted
+    # this arm as new compute, so quote and oracle described one step two ways.
+    it "counts an add_region scale-out against its declared target_count" do
+      provision_step!(number: 1, count: 1, instance_ids: %w[i-1])
+      plan.steps.create!(
+        step_number: 2, step_type: "provisioning_skill", description: "Scale into a new region",
+        status: "completed",
+        execution_config: { "skill" => "scale_project", "on_failure" => "rollback",
+                            "inputs" => { "target_count" => 3,
+                                          "scaling_strategy" => "add_region",
+                                          "provider_region_id" => "region-9" } },
+        metadata: { "last_outputs" => { "outputs" => { "node_instance_ids" => %w[i-3 i-4 i-5] },
+                                        "failures" => [] } }
+      )
+      stub_verifier(nil)
+
+      result = service.verify
+
+      count_check = result[:checks].find { |c| c[:name] == "step_2_count" }
+      expect(count_check[:detail]).to eq("provisioned 3/3 instances")
+      expect(count_check[:ok]).to be true
+      expect(result[:healthy]).to be true
+    end
+
+    it "still fails an add_region scale-out that produced fewer than it asked for" do
+      provision_step!(number: 1, count: 1, instance_ids: %w[i-1])
+      plan.steps.create!(
+        step_number: 2, step_type: "provisioning_skill", description: "Scale into a new region",
+        status: "completed",
+        execution_config: { "skill" => "scale_project", "on_failure" => "rollback",
+                            "inputs" => { "target_count" => 3,
+                                          "scaling_strategy" => "add_region" } },
+        metadata: { "last_outputs" => { "outputs" => { "node_instance_ids" => %w[i-3] },
+                                        "failures" => [] } }
+      )
+      stub_verifier(nil)
+
+      result = service.verify
+
+      count_check = result[:checks].find { |c| c[:name] == "step_2_count" }
+      # The detail, not just ok:false — pre-fix this scored "provisioned 1/0",
+      # which is ALSO a failure, so the boolean alone passes either way.
+      expect(count_check[:detail]).to eq("provisioned 1/3 instances")
+      expect(count_check[:ok]).to be false
+      expect(result[:healthy]).to be false
+    end
+
+    # The fork itself, stated as one assertion. Two readers of "does this
+    # strategy create instances?" must never answer differently again: the
+    # quote prices what verification will be asked to find.
+    it "agrees with CostEstimatorService about every scale_project strategy" do
+      estimator = Ai::Provisioning::CostEstimatorService.new(account: account)
+
+      # BOTH input keys. Scoping only the target_count fallback left the same
+      # fork open on `count`: a stray count beside a non-additive strategy was
+      # priced at 0 and verified against N.
+      declarations = [ { "target_count" => 4 }, { "count" => 2 },
+                       { "count" => 2, "target_count" => 4 } ]
+
+      %w[add_replicas add_region vertical_resize remove_replicas].each do |strategy|
+        declarations.each do |declaration|
+          inputs = declaration.merge("scaling_strategy" => strategy)
+          label = "#{strategy.inspect} declaring #{declaration.keys.inspect}"
+
+          expect(service.send(:additive_scaling?, inputs))
+            .to eq(estimator.send(:additive_scaling?, inputs)),
+                "verification and the quote disagree about #{label}"
+          expect(service.send(:declared_instance_count,
+                              { "skill" => "scale_project", "inputs" => inputs }))
+            .to eq(estimator.send(:instance_count, inputs: inputs, brief: {},
+                                                   skill: "scale_project")),
+                "verification and the quote count #{label} differently"
+        end
+      end
+    end
+
+    # The `count` half of the same fork, as a whole-service oracle rather than
+    # a method comparison: a vertical resize that carried a stray count used to
+    # expect instances from a step that creates none, and failed the mission
+    # for it — while the quote priced that step at nothing.
+    it "does NOT read a stray count for a non-additive scaling step either" do
+      provision_step!(number: 1, count: 1, instance_ids: %w[i-1])
+      plan.steps.create!(
+        step_number: 2, step_type: "provisioning_skill", description: "Resize", status: "completed",
+        execution_config: { "skill" => "scale_project", "on_failure" => "rollback",
+                            "inputs" => { "count" => 2, "target_count" => 2,
+                                          "scaling_strategy" => "vertical_resize" } },
+        metadata: { "last_outputs" => { "outputs" => { "node_instance_ids" => [] },
+                                        "failures" => [] } }
+      )
+      stub_verifier(nil)
+
+      result = service.verify
+
+      expect(result[:checks].map { |c| c[:name] }).not_to include("step_2_count")
+      expect(result[:healthy]).to be true
+    end
+
+    # The over-narrowing guard for the scoping above: `count` must still be
+    # read for the skills that are not strategy-driven at all.
+    it "still reads count for a plain provisioning step" do
+      provision_step!(number: 1, count: 2, instance_ids: %w[i-1])
+      stub_verifier(nil)
+
+      result = service.verify
+
+      expect(result[:checks].find { |c| c[:name] == "step_1_count" }[:detail])
+        .to eq("provisioned 1/2 instances")
+      expect(result[:healthy]).to be false
+    end
+
     it "does NOT read target_count for a non-additive scaling step" do
       # A vertical resize / rolling upgrade takes a target_count but creates no
       # instances and returns an empty node_instance_ids. An unscoped fallback

@@ -27,6 +27,22 @@ module Authentication
     before_action :authenticate_request
     attr_reader :current_user, :current_account, :current_worker, :current_jwt_payload
 
+    # HOW the current worker identity was established. Nil when there is no
+    # worker, otherwise one of:
+    #   :jwt                — bearer worker token, signature-checked. Unforgeable.
+    #   :mtls_pem_verified  — a forwarded client-cert PEM that chained to OUR CA.
+    #   :mtls_forwarded_cn  — the X-Forwarded-Tls-Client-Cert-Info CN ONLY, with
+    #                         no PEM to verify. Sound only while the ingress
+    #                         strips a client-supplied header; core cannot prove
+    #                         that for routers it does not write (the system
+    #                         extension's ACME routers carry no strip), so this
+    #                         value must NEVER gate a secret reveal.
+    # Callers gate on `worker_identity_cryptographically_verified?` rather than
+    # on `current_worker.present?` when the response carries secret material.
+    # Deliberately NOT an attr_reader: a public reader on ApplicationController
+    # lands in Rails' `action_methods` and publishes the auth posture. The
+    # predicate below is the whole intended surface.
+
     # Self-halting permission checks raise PermissionDenied; render the canonical
     # 403 shape here. Registered in Authentication (included before ApiResponse),
     # but since PermissionDenied is not a StandardError the ordering vs the global
@@ -100,7 +116,7 @@ module Authentication
   # only in the no-PEM posture where Traefik's chain-check is authoritative. This
   # closes the impersonation vector of trusting a client-forgeable Info header.
   def authenticate_worker_via_forwarded_cert
-    cn = Security::MtlsTrust.verify_request(request)
+    cn = resolve_forwarded_cert_cn
     return false if cn.blank?
 
     worker = Worker.find_by(node_instance_id: cn)
@@ -110,6 +126,39 @@ module Authentication
     @current_account = worker.account
     request.env["powernode.internal_request"] = true
     true
+  end
+
+  # Resolve the forwarded client-cert CN AND record which trust posture produced
+  # it in @current_worker_auth. Shared with MtlsClientAuthentication so every
+  # mTLS entry point records the posture — a site that resolves a worker without
+  # recording it reads as "not cryptographically verified" forever, which fails
+  # closed but silently denies a legitimately PEM-verified caller.
+  #
+  # Tries the CRYPTOGRAPHIC posture FIRST rather than resolving leniently and
+  # then sniffing: a forwarded PEM that FAILS verification must never silently
+  # downgrade to the header CN. verify_request's PEM branch returns nil without
+  # consulting the Info header, so the lenient retry returns nil too. Only a
+  # request carrying no PEM at all can reach :mtls_forwarded_cn.
+  def resolve_forwarded_cert_cn
+    cn = Security::MtlsTrust.verify_request(request, require_pem: true)
+    if cn.present?
+      @current_worker_auth = :mtls_pem_verified
+      return cn
+    end
+
+    cn = Security::MtlsTrust.verify_request(request)
+    @current_worker_auth = :mtls_forwarded_cn if cn.present?
+    cn
+  end
+
+  # True only when the worker identity rests on something the caller cannot
+  # forge: a signature-checked bearer token, or a client-cert leaf we verified
+  # against our own CA. False for the forwarded-CN-only posture — and false
+  # when there is no worker at all — so every caller fails closed.
+  def worker_identity_cryptographically_verified?
+    return false if @current_worker.blank?
+
+    %i[jwt mtls_pem_verified].include?(@current_worker_auth)
   end
 
   def authenticate_optional
@@ -134,6 +183,7 @@ module Authentication
         worker = Worker.find(payload[:sub])
         if worker&.active? && worker.account&.active?
           @current_worker = worker
+          @current_worker_auth = :jwt
           @current_account = worker.account
         end
       when "impersonation"
@@ -143,6 +193,7 @@ module Authentication
       @current_user = nil
       @current_account = nil
       @current_worker = nil
+      @current_worker_auth = nil
     end
   end
 
@@ -164,6 +215,7 @@ module Authentication
 
   def handle_worker_token(payload)
     @current_worker = Worker.find(payload[:sub])
+    @current_worker_auth = :jwt
     @current_account = @current_worker.account
     @current_jwt_payload = payload
   end
@@ -246,12 +298,6 @@ module Authentication
     require_any_permission("admin.access", *also_allow)
   end
 
-  # Deprecated: Use permission checks instead
-  def require_admin!
-    # Legacy method - redirects to permission check
-    require_any_permission("admin.access", "system.admin")
-  end
-
   # Check if current entity (user or worker) has permission without rendering error
   def has_permission?(permission_name)
     # Account-switch / delegation session: the JWT carries a delegation_id and the
@@ -295,7 +341,11 @@ module Authentication
     delegation.effective_permissions.include?(permission_name)
   end
 
-  # Alias for backwards compatibility
+  # LIVE controller-level permission check — not disposable back-compat.
+  # Distinct from User#can?(permission_or_action, resource = nil): this one is
+  # the controller-side single-arg form resolved against the request's entity
+  # (user OR worker, delegation-aware). Called from controllers by the bare
+  # name, so a plain grep for `.can?` will not find its callers.
   def can?(permission_name)
     has_permission?(permission_name)
   end

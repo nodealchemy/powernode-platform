@@ -438,8 +438,9 @@ module Core
       # worker mTLS: when present the default TLS store requests+verifies client
       # certs against it (VerifyClientCertIfGiven, so cert-less browser login
       # still works) and the pass-tls-client-cert middleware — applied at the
-      # ROUTER level on the backend routers below — forwards the verified CN to
-      # the backend (the /api router covers /api/v1/internal + /api/v1/system/*).
+      # ROUTER level on the backend routers below — forwards the verified leaf
+      # cert AND its CN to the backend (the /api router covers
+      # /api/v1/internal + /api/v1/system/*).
       # Applied per-router, NOT relied on at the websecure entrypoint:
       # write_static_config! emits that entrypoint reference, but a composed hub
       # node's traefik static config (from the reverse-proxy module) does NOT, so
@@ -481,29 +482,80 @@ module Core
           "http" => {
             "routers"     => routers,
             "services"    => render_services,
-            "middlewares" => {
-              # DELETES any client-supplied forwarded-client-cert header at the
-              # trust boundary: an empty customRequestHeaders value makes Traefik's
-              # headers middleware call req.Header.Del(name) unconditionally
-              # (v3.7.1). Strips exactly the two headers MtlsTrust consumes so only
-              # Traefik-populated, handshake-verified values reach the backend.
-              # Applied FIRST on every backend router (see backend_mw above).
-              STRIP_FORWARDED_CLIENT_CERT_MW => {
-                "headers" => {
-                  "customRequestHeaders" => {
-                    ::Security::MtlsTrust::PEM_HEADER     => "",
-                    ::Security::MtlsTrust::SUBJECT_HEADER => ""
-                  }
-                }
-              },
+            "middlewares" => strip_forwarded_client_cert_middleware.merge(
               # The CN-forwarding middleware, referenced by the backend routers
               # above (when worker mTLS is on) and by the websecure entrypoint that
               # write_static_config! emits. It only *sets* the CN when a client
               # cert is negotiated (never strips a forged one — hence the strip
               # middleware above), so it is always safe to define.
-              PASS_TLS_CLIENT_CERT_MW => {
-                "passTLSClientCert" => { "info" => { "subject" => { "commonName" => true } } }
+              pass_tls_client_cert_middleware
+            )
+          }
+        }
+      end
+
+      # The strip middleware, as a one-entry `http.middlewares` fragment.
+      #
+      # DELETES any client-supplied forwarded-client-cert header at the trust
+      # boundary: an empty customRequestHeaders value makes Traefik's headers
+      # middleware call req.Header.Del(name) unconditionally (v3.7.1). Strips
+      # exactly the two headers MtlsTrust consumes so only Traefik-populated,
+      # handshake-verified values reach the backend.
+      #
+      # Emitted by BOTH dynamic files core writes — the host-login file AND the
+      # per-account baseline file — because each must stand alone, not because
+      # they coexist. They do NOT: `ensure_host_login_ingress!` has exactly one
+      # caller (the system extension's rails-start.sh), and in extension mode the
+      # per-account file comes from the extension's writer, not from the baseline
+      # below. So each file is written in a mode where the other is absent, and a
+      # cross-file reference would leave its routers referencing an undefined
+      # middleware. Both definitions come from THIS method, so if some future
+      # topology does put them in one directory they are byte-identical and
+      # Traefik's skip-duplicates merge is a no-op either way.
+      def strip_forwarded_client_cert_middleware
+        {
+          STRIP_FORWARDED_CLIENT_CERT_MW => {
+            "headers" => {
+              "customRequestHeaders" => {
+                ::Security::MtlsTrust::PEM_HEADER     => "",
+                ::Security::MtlsTrust::SUBJECT_HEADER => ""
               }
+            }
+          }
+        }
+      end
+
+      # The client-cert-forwarding middleware, as a one-entry `http.middlewares`
+      # fragment. Emitted by every dynamic file whose routers reference it, for
+      # the same stand-alone reason as the strip above.
+      #
+      # `pem: true` forwards the FULL verified leaf certificate on
+      # X-Forwarded-Tls-Client-Cert, which is what gives the Rails layer a
+      # cryptographic second factor. Without it Traefik populates only the
+      # `info` header (the subject CN), so Security::MtlsTrust#verify_request
+      # always fell through to its no-PEM branch and TRUSTED that CN — the
+      # ingress chain-check was the sole gate — and `require_pem: true`, the
+      # posture credential-revealing endpoints ask for, could never be satisfied
+      # because the header it demands was never emitted (imp 01a028ab-f39b).
+      #
+      # `info.subject.commonName` STAYS on: FederationApi::BaseController
+      # resolves the calling peer from that header before its per-peer signature
+      # check, and verify_request's no-PEM fallback still serves routes fronted
+      # by an ingress core did not write.
+      #
+      # Wire format (Traefik v3.7.1 pkg/middlewares/passtlsclientcert): the PEM
+      # is sanitized — BEGIN/END lines and all newlines deleted — then
+      # url-escaped, i.e. percent-escaped bare base64. MtlsTrust#reconstruct_pem
+      # rewraps exactly that; spec/services/security/mtls_trust_spec.rb pins the
+      # shape so this switch can't silently start emitting something the backend
+      # cannot parse. Size: ~1-2 KB per cert before escaping, ~3 KB after, well
+      # under Puma's 112 KiB Puma::Const::MAX_HEADER budget for the whole block.
+      def pass_tls_client_cert_middleware
+        {
+          PASS_TLS_CLIENT_CERT_MW => {
+            "passTLSClientCert" => {
+              "pem"  => true,
+              "info" => { "subject" => { "commonName" => true } }
             }
           }
         }
@@ -690,8 +742,17 @@ module Core
           ]
         },
         "http" => {
-          "routers"  => render_routers(host),
-          "services" => self.class.render_services
+          "routers"     => render_routers(host),
+          "services"    => self.class.render_services,
+          # Self-contained: the backend routers above reference BOTH middlewares,
+          # so this file defines both. It must not lean on the host-login file —
+          # in core mode nothing writes that file at all (its only caller is the
+          # system extension's rails-start.sh), so a cross-file reference here
+          # would leave every backend router in error, and the
+          # pass-tls-client-cert@file reference write_static_config! puts on the
+          # websecure entrypoint would have nothing to resolve either.
+          "middlewares" => self.class.strip_forwarded_client_cert_middleware
+                                     .merge(self.class.pass_tls_client_cert_middleware)
         }
       }
 
@@ -711,7 +772,7 @@ module Core
       slug = self.class.router_slug_for(host)
       BASELINE_ROUTER_SPECS.map do |suffix, path_prefix, service|
         rule = path_prefix.nil? ? hosts_matcher : "#{hosts_matcher} && PathPrefix(`#{path_prefix}`)"
-        [ "#{slug}-#{suffix}", {
+        router = {
           "rule"        => rule,
           "service"     => service,
           "entryPoints" => [ ENTRYPOINT ],
@@ -720,7 +781,27 @@ module Core
           # router with no tls section is HTTP-only and 404s every HTTPS
           # request on a bare TLS entrypoint (imp 019f6c3d-aab2).
           "tls"         => {}
-        } ]
+        }
+        # Every router that reaches the Rails backend strips a client-supplied
+        # forwarded-client-cert header, for the same reason the host-login
+        # backend routers do: MtlsTrust#verify_request's no-PEM branch trusts
+        # the forwarded CN, so an un-stripped router lets a cert-less caller
+        # authenticate as any worker whose CN it can guess. These routers match
+        # `Host(...) && PathPrefix(...)`, a LONGER rule than the host-login
+        # `PathPrefix(...)` routers, so they win on Traefik's rule-length
+        # priority — they cannot inherit the host-login strip.
+        #
+        # pass-tls MUST follow the strip, exactly as on the host-login backend
+        # routers. Traefik PREPENDS an entrypoint's middlewares to the router's
+        # own chain, and write_static_config! puts pass-tls-client-cert@file on
+        # `websecure`. A strip-only router therefore runs
+        # `pass-tls (sets CN) → strip (deletes it)` and the backend sees NO CN
+        # at all — worker mTLS auth would lose its identity outright, which is
+        # worse than the forgery this strip exists to prevent.
+        if service == "powernode-backend"
+          router["middlewares"] = [ STRIP_FORWARDED_CLIENT_CERT_MW.dup, PASS_TLS_CLIENT_CERT_MW.dup ]
+        end
+        [ "#{slug}-#{suffix}", router ]
       end.to_h
     end
   end
