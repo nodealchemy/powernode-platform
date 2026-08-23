@@ -127,7 +127,11 @@ RSpec.describe Ai::Provisioning::DryrunHarness do
       expect(finding_for(grade_with_executions(harness, mission), "observation")).to be_present
     end
 
-    it "keeps exit_code / passed? a pure function of the finding list" do
+    it "adds exactly ONE finding — it does not also grade routing as failed" do
+      # The count, not the derived readers: `exit_code == findings.size` is true
+      # by construction of the Struct and would hold just as well if the new
+      # branch emitted a dozen spurious findings. `skills` is the unrelated
+      # baseline finding this fixture always produces (no SkillUsageRecord rows).
       harness = build_harness
       mission = dryrun_mission
       harness.send(:enable_gate!)
@@ -135,8 +139,28 @@ RSpec.describe Ai::Provisioning::DryrunHarness do
 
       result = grade_with_executions(harness, mission)
 
-      expect(result.exit_code).to eq(result.findings.size)
-      expect(result.passed?).to be(result.findings.empty?)
+      expect(result.findings.map(&:dimension)).to eq(%w[skills observation])
+      expect(result.exit_code).to eq(2)
+    end
+
+    it "stays quiet when the reaped run made no LLM call at all" do
+      # Nothing to route and nothing to measure: the deterministic path produces
+      # neither a RoutingDecision nor a reason to care whether the gate was on,
+      # so a reap on such a run is not a defect. Without this the reap branch
+      # would fail an otherwise clean deterministic run — findings are defects
+      # and the exit code counts them.
+      harness = build_harness
+      mission = dryrun_mission
+      harness.send(:enable_gate!)
+      simulate_concurrent_reap!
+
+      allow(harness).to receive(:execution_count).and_return(0)
+      allow(harness).to receive(:routing_count).and_return(0)
+      harness.send(:grade!, mission)
+      result = harness.send(:build_result, mission)
+
+      expect(finding_for(result, "observation")).to be_nil
+      expect(finding_for(result, "routing")).to be_nil
     end
   end
 
@@ -181,6 +205,29 @@ RSpec.describe Ai::Provisioning::DryrunHarness do
 
       expect(finding_for(result, "routing")).to be_nil
       expect(finding_for(result, "observation")).to be_nil
+    end
+  end
+
+  # gate_claims is newly extracted and now has two callers, so its normalization
+  # is load-bearing in both directions: live_holders' reaping AND the reap
+  # detector. A shape it mishandles reads as "claim absent" and fabricates a
+  # not-measured finding on every run.
+  describe "the persisted holder shapes the claim reader must survive" do
+    it "reads the current Hash shape and the legacy Array shape alike" do
+      harness = build_harness
+
+      expect(harness.send(:gate_claims, { described_class::GATE_HOLDERS_SETTING => { run_id => "2026-08-22T00:00:00Z" } }))
+        .to eq(run_id => "2026-08-22T00:00:00Z")
+      expect(harness.send(:gate_claims, { described_class::GATE_HOLDERS_SETTING => [ run_id ] }))
+        .to eq(run_id => nil)
+    end
+
+    it "degrades a missing or junk value to no claims rather than raising" do
+      harness = build_harness
+
+      expect(harness.send(:gate_claims, {})).to eq({})
+      expect(harness.send(:gate_claims, { described_class::GATE_HOLDERS_SETTING => nil })).to eq({})
+      expect(harness.send(:gate_claims, { described_class::GATE_HOLDERS_SETTING => "not-a-holder-list" })).to eq({})
     end
   end
 end
