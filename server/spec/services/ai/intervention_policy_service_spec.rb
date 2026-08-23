@@ -609,4 +609,128 @@ RSpec.describe Ai::InterventionPolicyService do
       expect(result[:notifications_suppressed]).to be_falsey
     end
   end
+
+  # IMP-e75e843bd42b — the cap's COUNT excludes approval consent traffic.
+  #
+  # Exhausting the cap degrades the verb to require_approval; parking then
+  # emits one category-"ai" approval notification per approver (the default
+  # chain's ["*"] resolves to EVERY active user), and those rows fed straight
+  # back into notification_limit_reached?'s count. The budget cannot suppress
+  # them — Ai::ApprovalRequestNotifier never consults it — so an exhausted
+  # budget INFLATED ITSELF with traffic it has no lever over, and ordinary
+  # consent activity under the (default!) require_approval policy burned the
+  # outreach budget of users who had received no outreach at all.
+  #
+  # DECIDED: consent traffic is neither counted toward nor throttled by the
+  # budget. The discriminator is the `approval_request_id` metadata key, which
+  # Ai::ApprovalRequestNotifier#notify_current_step! writes unconditionally at
+  # the single fan-out site — producer-declared, independent of the pluggable
+  # content handler's notification_type.
+  describe "#resolve approval fan-out excluded from the counted budget (IMP-e75e843bd42b)" do
+    let(:user) { create(:user, account: account) }
+
+    let!(:relaxed_row) do
+      create_policy!(policy: "notify_and_proceed",
+                     conditions: { "max_daily_notifications" => 2 })
+    end
+
+    def send_approval_notifications!(count)
+      count.times do
+        create(:notification, account: account, user: user,
+                              notification_type: "autonomy_approval_required", category: "ai",
+                              metadata: { "approval_request_id" => SecureRandom.uuid })
+      end
+    end
+
+    def send_outreach_notifications!(count)
+      count.times do
+        create(:notification, account: account, user: user,
+                              notification_type: "agent_status_update", category: "ai")
+      end
+    end
+
+    it "does not count approval fan-out notifications toward the budget" do
+      send_approval_notifications!(3)
+
+      result = service.resolve(action_category: "widget.create", user: user)
+
+      expect(result[:policy]).to eq("notify_and_proceed")
+      expect(result[:notifications_suppressed]).to be_falsey
+    end
+
+    # Positive control: the exclusion must not disable the cap. Outreach
+    # traffic — no approval_request_id key — still counts and still degrades.
+    it "still counts outreach notifications and degrades once they reach the cap" do
+      send_outreach_notifications!(2)
+
+      result = service.resolve(action_category: "widget.create", user: user)
+
+      expect(result[:policy]).to eq("require_approval")
+      expect(result[:notifications_suppressed]).to be(true)
+    end
+
+    # Mixed day: only the outreach rows count. 1 outreach + 3 approval rows
+    # against a cap of 2 leaves headroom.
+    it "counts only the outreach share of a mixed day" do
+      send_outreach_notifications!(1)
+      send_approval_notifications!(3)
+
+      result = service.resolve(action_category: "widget.create", user: user)
+
+      expect(result[:policy]).to eq("notify_and_proceed")
+      expect(result[:notifications_suppressed]).to be_falsey
+    end
+
+    # The measured amplification, end-to-end through the REAL fan-out
+    # (Ai::ApprovalRequest after_create → Ai::ApprovalRequestNotifier), on a
+    # step whose approvers are ["*"] exactly like the default chain
+    # Ai::AutonomyGate#resolve_chain builds:
+    #
+    #   1. one parked write emits one category-"ai" notification per ACTIVE
+    #      USER in the account — the fan-out width the filing asked to have
+    #      measured;
+    #   2. every one of those rows carries the `approval_request_id` metadata
+    #      key — the premise the count exclusion above stands on, pinned
+    #      against the producer so a notifier refactor that drops the key
+    #      fails HERE and not silently in the count;
+    #   3. the fan-out does not consume the recipients' outreach budget: a
+    #      user whose day held nothing but consent traffic still resolves
+    #      notify_and_proceed. Before this fix the same resolve degraded —
+    #      the exhausted path inflating the very count that exhausts it.
+    it "one parked write fans out to every active user without consuming their outreach budget" do
+      relaxed_row.update!(conditions: { "max_daily_notifications" => 1 })
+      others = create_list(:user, 3, account: account)
+      approvers = [ user ] + others
+
+      expect {
+        create(:ai_approval_request, account: account, requested_by: user)
+      }.to change { Notification.where(account_id: account.id).count }.by(approvers.size)
+
+      fan_out = Notification.where(account_id: account.id, user_id: approvers.map(&:id))
+      expect(fan_out.count).to eq(approvers.size)
+      expect(fan_out.pluck(:category).uniq).to eq([ "ai" ])
+      expect(fan_out.map { |n| n.metadata["approval_request_id"] }).to all(be_present)
+
+      result = service.resolve(action_category: "widget.create", user: user)
+
+      expect(result[:policy]).to eq("notify_and_proceed")
+      expect(result[:notifications_suppressed]).to be_falsey
+    end
+
+    # Composition with IMP-34beef811fdf: nothing here adds a suppression path.
+    # Approval fan-out has NO suppression path at all (the notifier never
+    # reads the flag or the cap), and the producer-side critical exemption is
+    # untouched — over a cap genuinely exhausted by outreach, a critical
+    # event still cannot express notifications_suppressed: true.
+    it "leaves the critical exemption intact over a cap exhausted by outreach" do
+      send_outreach_notifications!(5)
+      send_approval_notifications!(2)
+
+      result = service.resolve(action_category: "widget.create", user: user, severity: "critical")
+
+      expect(result[:policy]).to eq("require_approval")
+      expect(result[:notifications_suppressed]).to be_falsey
+      expect(result[:channels]).to eq(%w[notification])
+    end
+  end
 end

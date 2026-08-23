@@ -151,10 +151,19 @@ module Ai
       # Notification per approver, and the default chain's ["*"] resolves to
       # every active user. So over the cap a gated write emits MORE
       # notifications than the healthy under-cap path, which emits none (the
-      # gate never notifies on :proceed). That is one-per-write amplification
-      # rather than a loop — those rows count toward an already-exceeded cap but
-      # never re-enter resolve — and it is accepted because parking silently
-      # would strand the operator's own write, which is worse than the 422.
+      # gate never notifies on :proceed). That one-per-write amplification is
+      # ACCEPTED (IMP-e75e843bd42b, weighed and decided): an approval demands
+      # action, and suppressing the fan-out would strand the operator's own
+      # write in a silent park — worse than the 422 this verb replaced.
+      #
+      # What is NOT accepted is the feedback: those approval rows used to feed
+      # `notification_limit_reached?`'s own count, so the budget was exhausted
+      # by traffic it has no way to suppress. Consent traffic is now OUTSIDE
+      # the budget on both sides — never throttled by it (unchanged; the
+      # notifier does not consult the cap) and never counted toward it (the
+      # `approval_request_id` metadata exclusion in the count below). The
+      # budget governs outreach; approvals are the product of the verb the
+      # budget degrades to, not chatter.
       #
       # Core-mode fork worth knowing: when Ai::ApprovalChain is absent,
       # require_approval falls through to execute_now!, so an over-cap write
@@ -235,6 +244,26 @@ module Ai
       }
     end
 
+    # The count measures what the budget can govern: agent OUTREACH.
+    #
+    # Approval consent traffic is excluded (IMP-e75e843bd42b) — the
+    # `approval_request_id` metadata key marks it, written unconditionally by
+    # Ai::ApprovalRequestNotifier#notify_current_step! at the single fan-out
+    # site. That key is the PRODUCER's declaration; the handler-supplied
+    # notification_type ("autonomy_approval_required" from the default
+    # content provider) is deliberately not the discriminator, because
+    # SOURCE_HANDLERS lets an extension substitute its own type and its
+    # fan-out must stay excluded too. `->>` because the column is json, not
+    # jsonb.
+    #
+    # Why excluded: the budget cannot SUPPRESS those rows — the notifier
+    # never consults it, by design (an approval demands action; suppressing
+    # it strands the parked write) — so counting them let traffic the cap
+    # has no lever over exhaust it. Worst at the default policy
+    # (require_approval, no cap involvement at all): a day of ordinary
+    # consent activity burned the outreach budget of users who had received
+    # no outreach, and past the cap the parking fan-out inflated the very
+    # count that keeps the cap exhausted.
     def notification_limit_reached?(policy, user)
       max_daily = policy.conditions["max_daily_notifications"]
       return false unless max_daily && user
@@ -243,6 +272,7 @@ module Ai
         .where(account_id: account.id, user_id: user.id)
         .where("created_at >= ?", Time.current.beginning_of_day)
         .where(category: "ai")
+        .where("(metadata ->> 'approval_request_id') IS NULL")
         .count
 
       today_count >= max_daily
