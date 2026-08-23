@@ -183,6 +183,31 @@ module Ai
       # emits it (IMP-e68a93c47106).
       REMOVAL_STRATEGY = "remove_replicas"
 
+      # The OTHER strategy that creates instances: a parallel stack in a NEW
+      # region. Named here for the same reason as the two above — a plain
+      # string flowing through the skill seam — and NOT proposed by this
+      # service (nothing in core composes it; it arrives on operator-authored
+      # or LLM-decomposed plans). It is named here because it is a
+      # `scale_project` strategy and this is where core keeps that vocabulary.
+      REGION_SCALE_OUT_STRATEGY = "add_region"
+
+      # The `scale_project` strategies whose `target_count` means "instances to
+      # CREATE". IMP-529b8514bbc6: the two readers of that question —
+      # CostEstimatorService (is this delta real marginal compute?) and
+      # VerificationService (how many instances must this step have produced?)
+      # — each carried their own answer and DISAGREED about `add_region`: the
+      # quote priced it as new compute while verification expected ZERO
+      # instances from it, so a region scale-out that fully succeeded scored
+      # "provisioned N/0" and failed its mission permanently.
+      #
+      # The skill's own input descriptor settles it — `target_count` is
+      # "Number of instances to add (add_replicas / add_region)" — so both
+      # readers now share ONE list rather than two hand-written rules about
+      # the same seam. The skill's remaining arms (`vertical_resize`,
+      # REMOVAL_STRATEGY) also carry a target_count and create NOTHING, which
+      # is why this is an allowlist and not "anything but removal".
+      INSTANCE_CREATING_STRATEGIES = [ SCALE_OUT_STRATEGY, REGION_SCALE_OUT_STRATEGY ].freeze
+
       # Scale-IN step size, by cost-breach severity.
       #
       # THE SHAPE LOOKS LIKE #recommended_replica_count's LADDER AND IS NOT THE

@@ -93,12 +93,12 @@ module Ai
       # and would be worse than the old behaviour, which priced scale_project at
       # nothing at all.
       #
-      # Same rule as VerificationService#additive_scaling?, widened by
-      # `add_region` because the skill's own input descriptor counts that arm as
-      # instances to ADD. Plain strings flowing through the skill-resolution
-      # seam — core does not reference the extension executor or its strategy
-      # list (the same reason AdaptationProposerService names its own).
-      ADD_REGION_STRATEGY = "add_region"
+      # Same rule as VerificationService#additive_scaling? — and now literally
+      # the same list. IMP-529b8514bbc6: this service used to widen the set
+      # with a LOCAL `add_region` constant while VerificationService did not,
+      # so the quote and the oracle disagreed about the one arm. Both now read
+      # AdaptationProposerService::INSTANCE_CREATING_STRATEGIES; see that
+      # constant for why the widening is correct and why it must be shared.
 
       # Skills that compose only network/sdwan resources.
       NETWORK_SKILLS = %w[
@@ -373,7 +373,7 @@ module Ai
       # `scale_project` prices a DELTA: AdaptationProposerService stamps
       # `target_count` as "the number of NEW instances to add", not an absolute
       # target, so the marginal cost of an additive scale-out IS that value —
-      # but ONLY for the additive arms (see ADD_REGION_STRATEGY).
+      # but ONLY for the additive arms (see #additive_scaling?).
       #
       # The brief's `scale.initial` fallback applies to FLEET_SIZED_SKILLS only
       # — see that constant for why inheriting it elsewhere over-quotes.
@@ -404,14 +404,14 @@ module Ai
 
       # Whether a `scale_project` step's strategy is one that ADDS instances.
       # Resolved through AdaptationProposerService's own constant so core states
-      # the scale-out strategy in exactly one place, matching
-      # VerificationService#additive_scaling?.
+      # the instance-creating strategies in exactly one place — the SAME place
+      # VerificationService#additive_scaling? reads (IMP-529b8514bbc6).
       def additive_scaling?(inputs)
         strategy = (inputs["scaling_strategy"] || inputs[:scaling_strategy]).to_s
         return false if strategy.blank?
 
-        strategy == ::Ai::Provisioning::AdaptationProposerService::SCALE_OUT_STRATEGY ||
-          strategy == ADD_REGION_STRATEGY
+        ::Ai::Provisioning::AdaptationProposerService::INSTANCE_CREATING_STRATEGIES
+          .include?(strategy)
       end
 
       # A resource size the step explicitly declares, in GB, or 0 when it

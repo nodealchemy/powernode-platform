@@ -29,6 +29,13 @@ module Ai
     # The caller (internal verify endpoint) fails the phase on unhealthy —
     # verification that cannot block is theater.
     class VerificationService
+      # The skill whose `scaling_strategy` decides whether its declared count
+      # means "instances to create" (IMP-529b8514bbc6). A plain slug flowing
+      # through the skill-resolution seam, spelled the same way
+      # CostEstimatorService#instance_count spells it — the two must agree
+      # about which steps the strategy scoping applies to.
+      SCALING_SKILL = "scale_project"
+
       def initialize(account:, mission:)
         @account = account
         @mission = mission
@@ -109,8 +116,31 @@ module Ai
       # target_count but create nothing and return an empty node_instance_ids,
       # so an unscoped fallback would expect N and see 0 — failing that step,
       # and therefore the mission, permanently and unfixably.
+      #
+      # IMP-529b8514bbc6: it was scoped TOO narrowly, and the same permanent
+      # failure arrived from the other direction. `add_region` creates
+      # instances (it composes ProvisionFullStackExecutor and reports their
+      # ids) but was not in this reader's copy of the additive set, so a region
+      # scale-out with `target_count: 3` and no `count` expected ZERO, saw 3,
+      # and scored "provisioned 3/0" — the mission verified unhealthy forever.
+      # CostEstimatorService already counted that arm as additive, so the quote
+      # and the oracle described the same step two different ways. Both now
+      # read one list.
+      #
+      # The strategy scoping covers `count` as well, not just the fallback.
+      # A `scale_project` step that carries a stray `count` alongside a
+      # NON-additive strategy creates nothing either — the executor's arm
+      # never provisions — and CostEstimatorService#instance_count already
+      # returns 0 for that shape regardless of an authored count. Reading it
+      # here anyway reproduced the whole defect on the other key: the quote
+      # priced 0 while this oracle expected N and saw an empty
+      # node_instance_ids, failing the mission permanently. Reachable the same
+      # way the add_region shape is — AdaptationProposerService#sanitize_steps
+      # preserves whatever `inputs` an LLM-proposed step carries.
       def declared_instance_count(cfg)
         inputs = step_inputs(cfg)
+        return 0 if cfg["skill"].to_s == SCALING_SKILL && !additive_scaling?(inputs)
+
         declared = inputs["count"]
         if declared.blank? && additive_scaling?(inputs)
           declared = inputs["target_count"]
@@ -123,8 +153,8 @@ module Ai
       end
 
       def additive_scaling?(inputs)
-        inputs["scaling_strategy"].to_s ==
-          ::Ai::Provisioning::AdaptationProposerService::SCALE_OUT_STRATEGY
+        ::Ai::Provisioning::AdaptationProposerService::INSTANCE_CREATING_STRATEGIES
+          .include?(inputs["scaling_strategy"].to_s)
       end
 
       def removal_scaling?(inputs)
