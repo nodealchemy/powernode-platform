@@ -3,6 +3,10 @@
 require_relative "boot"
 require_relative "version"
 require_relative "../lib/powernode/extension_registry"
+# Explicitly required (not autoloaded) for the same reason as the extension
+# registry: engines register gate mechanisms into it at boot, and a Zeitwerk
+# reload of the module would silently drop those registrations in dev.
+require_relative "../lib/powernode/gate_registry"
 require_relative "../lib/devops/step_handler_registry"
 
 # Only require necessary Rails components for API-only application
