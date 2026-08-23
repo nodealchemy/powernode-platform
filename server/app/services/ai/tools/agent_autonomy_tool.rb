@@ -634,12 +634,21 @@ module Ai
         outreach = Ai::AgentOutreachService.new(account: account, agent: agent)
         admin = account.owner
         if admin
+          # Renders a critical issue as the notification severity "error" (see
+          # Ai::AgentOutreachService#notify_escalation for why), so it has to
+          # DECLARE criticality to the policy layer rather than let it be
+          # inferred from that word — otherwise a critical issue report is
+          # withheld once the daily notification budget is spent
+          # (IMP-34beef811fdf).
+          issue_critical = params["severity"] == "critical"
+
           outreach.notify(
             user: admin,
             type: "agent_issue_detected",
             title: "Issue detected: #{params['title']}",
             message: params["description"],
-            severity: params["severity"] == "critical" ? "error" : "warning"
+            severity: issue_critical ? "error" : "warning",
+            policy_severity: issue_critical ? "critical" : nil
           )
         end
 

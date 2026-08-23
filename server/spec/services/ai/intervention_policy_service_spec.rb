@@ -513,6 +513,89 @@ RSpec.describe Ai::InterventionPolicyService do
       expect(result[:notifications_suppressed]).to be_falsey
     end
 
+    # IMP-34beef811fdf — the cap branch sat directly beneath an override whose
+    # whole stated intent is that a critical event never resolves silently, and
+    # disagreed with it: it set `notifications_suppressed` without consulting
+    # `severity`, and Ai::AgentOutreachService#notify returns delivered:false on
+    # that flag before it reaches a channel. A volume budget may reduce routine
+    # chatter; it may never withhold a critical notification.
+    #
+    # Asserted on the PRODUCER because that is where the fix lives: the flag is
+    # unexpressible for a critical severity, so a consumer cannot re-create the
+    # inversion by forgetting to re-check.
+    context "when the event is critical" do
+      it "never reports the delivery as suppressed" do
+        send_ai_notifications!(5)
+
+        result = service.resolve(action_category: "widget.create", user: user, severity: "critical")
+
+        expect(result[:notifications_suppressed]).to be_falsey
+      end
+
+      it "returns audible channels rather than the empty suppression array" do
+        send_ai_notifications!(5)
+
+        result = service.resolve(action_category: "widget.create", user: user, severity: "critical")
+
+        expect(result[:channels]).to eq(%w[notification])
+      end
+
+      it "honours the row's own preferred channels" do
+        relaxed_row.update!(preferred_channels: %w[workspace])
+        send_ai_notifications!(5)
+
+        result = service.resolve(action_category: "widget.create", user: user, severity: "critical")
+
+        expect(result[:channels]).to eq(%w[workspace])
+      end
+
+      # The exemption is DELIVERY-only. IMP-73dff8186c1e's authorisation
+      # contract — the cap parks a gated write rather than refusing it — is
+      # unchanged for every severity, so a critical event over the cap is still
+      # a require_approval and still never a denial verb.
+      it "still degrades the verb to require_approval" do
+        send_ai_notifications!(5)
+
+        result = service.resolve(action_category: "widget.create", user: user, severity: "critical")
+
+        expect(result[:policy]).to eq("require_approval")
+        expect(result[:policy]).not_to be_in(%w[silent block])
+        expect(result[:reason]).to match(/Daily notification limit reached/)
+      end
+
+      # The operator preview endpoint
+      # (Api::V1::Ai::InterventionPoliciesController#resolve) renders this
+      # hash verbatim, so the reason has to say which of the two things
+      # happened rather than leave "limit reached" sitting next to audible
+      # channels.
+      it "says the limit was reached WITHOUT suppressing" do
+        send_ai_notifications!(5)
+
+        result = service.resolve(action_category: "widget.create", user: user, severity: "critical")
+
+        expect(result[:reason]).to eq(
+          "Daily notification limit reached (critical severity exempt from suppression)"
+        )
+      end
+
+      # The budget must keep working, or the fix would just be a disabled cap.
+      it "leaves a non-critical event suppressed under the same exhausted cap" do
+        send_ai_notifications!(5)
+
+        # "error" is deliberately in this list. It is a NOTIFICATION severity,
+        # not a policy one, and resolution must not learn to read it as
+        # critical: Ai::AgentOutreachService callers DECLARE criticality via
+        # `policy_severity`, precisely so that an agent choosing "error" for
+        # its own routine traffic cannot exempt itself from an operator's cap.
+        %w[info warning error].each do |severity|
+          result = service.resolve(action_category: "widget.create", user: user, severity: severity)
+
+          expect(result[:notifications_suppressed]).to be(true), "#{severity} escaped the cap"
+          expect(result[:channels]).to eq([])
+        end
+      end
+    end
+
     # Only notify_and_proceed rows consult the cap, so a row already sitting on
     # a stricter verb is not silently relaxed OR tightened by notification volume.
     it "leaves a require_approval row unchanged and unflagged over the cap" do

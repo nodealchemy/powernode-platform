@@ -161,13 +161,42 @@ module Ai
       # EXECUTES there instead of parking. Intent-consistent, since the matched
       # row said notify_and_proceed, but it is the one place this verb is less
       # restrictive than "silent" was.
+      #
+      # CRITICALITY OUTRANKS QUIETNESS (IMP-34beef811fdf). A volume budget may
+      # reduce routine chatter; it may never withhold a CRITICAL notification.
+      # This branch used to set `notifications_suppressed` without consulting
+      # `severity` at all, which contradicted the override directly above it —
+      # whose whole stated intent is that a critical event never resolves
+      # silently — and Ai::AgentOutreachService#notify honours the flag before
+      # it reaches a channel, so a critical event raised over the cap was
+      # dropped with no delivery on any channel.
+      #
+      # The exemption lives HERE, in the producer, rather than in that
+      # consumer's flag test: `notifications_suppressed: true` is now
+      # unexpressible for a critical severity, so no present or future reader
+      # of the flag can re-create the inversion by forgetting to re-check.
+      #
+      # Only the DELIVERY half is exempted. The verb still degrades to
+      # require_approval for every severity, so IMP-73dff8186c1e's
+      # authorisation contract — a notification budget parks a gated write, it
+      # never refuses one — is unchanged, and the shape returned for a critical
+      # event is now exactly the shape the override above returns: a real verb
+      # plus audible channels.
+      #
+      # `reason` distinguishes the two, because
+      # Api::V1::Ai::InterventionPoliciesController#resolve renders this hash
+      # straight back to an operator previewing a policy: an unqualified "limit
+      # reached" next to audible channels and notifications_suppressed:false
+      # reads as a contradiction.
       if best.policy == "notify_and_proceed" && notification_limit_reached?(best, user)
+        suppress = severity != "critical"
+
         return {
           policy: "require_approval",
-          channels: [],
+          channels: suppress ? [] : (best.preferred_channels.presence || %w[notification]),
           conditions: best.conditions,
-          reason: "Daily notification limit reached",
-          notifications_suppressed: true,
+          reason: suppress ? "Daily notification limit reached" : "Daily notification limit reached (critical severity exempt from suppression)",
+          notifications_suppressed: suppress,
           record: best
         }
       end

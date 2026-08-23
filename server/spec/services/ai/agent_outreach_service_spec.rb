@@ -140,4 +140,174 @@ RSpec.describe Ai::AgentOutreachService do
       expect(result[:delivered]).to be(true)
     end
   end
+
+  # IMP-34beef811fdf — a notification VOLUME budget must never withhold a
+  # CRITICAL notification. Resolution already carries that principle for the
+  # stored verb (`severity == "critical" && best.policy == "silent"` returns
+  # require_approval WITH channels, which #notify delivers), and the cap branch
+  # sitting immediately below it disagreed: it set `notifications_suppressed`
+  # without consulting severity, and #notify honours that flag before it
+  # reaches a channel.
+  #
+  # Both directions are load-bearing. A "fix" that merely stopped capping would
+  # satisfy the first example and destroy the budget, so the second is an
+  # oracle and not decoration.
+  describe "a critical notification against an exhausted daily budget" do
+    it "still delivers" do
+      spend_budget!(2)
+
+      result = nil
+      expect do
+        result = service.notify(user: user, type: "agent_issue_detected",
+                                title: "Node unreachable", message: "ops-hub stopped answering",
+                                severity: "error", priority: 3, policy_severity: "critical")
+      end.to change { Notification.where(category: "ai").count }.by(1)
+
+      expect(result[:delivered]).to be(true)
+      expect(result[:channel]).to eq("notification")
+    end
+
+    it "still suppresses a non-critical notification against the same budget" do
+      spend_budget!(2)
+
+      result = nil
+      expect do
+        result = service.notify(user: user, type: "agent_status_update",
+                                title: "Fleet update", message: "Two nodes reconciled",
+                                severity: "warning")
+      end.not_to change(Notification, :count)
+
+      expect(result[:delivered]).to be(false)
+      expect(result[:reason]).to eq("notification_limit_reached")
+    end
+  end
+
+  # The shape the finding actually names. #notify_escalation renders a critical
+  # escalation into the NOTIFICATION severity vocabulary ("error"), not the
+  # policy vocabulary ("critical"), so the criticality of the event has to
+  # survive that translation or the exemption above never reaches the one
+  # caller that most needs it.
+  describe "#notify_escalation against an exhausted daily budget" do
+    def escalation!(severity)
+      Ai::AgentEscalation.create!(
+        account: account, ai_agent_id: agent.id, escalated_to_user: user,
+        escalation_type: "error", severity: severity, title: "Agent stuck mid-deploy"
+      )
+    end
+
+    it "delivers a critical escalation" do
+      escalation = escalation!("critical")
+      spend_budget!(2)
+
+      result = nil
+      expect { result = service.notify_escalation(escalation: escalation) }
+        .to change { Notification.where(category: "ai").count }.by(1)
+
+      expect(result[:delivered]).to be(true)
+    end
+
+    it "still suppresses a low-severity escalation" do
+      escalation = escalation!("low")
+      spend_budget!(2)
+
+      result = nil
+      expect { result = service.notify_escalation(escalation: escalation) }
+        .not_to change(Notification, :count)
+
+      expect(result[:delivered]).to be(false)
+      expect(result[:reason]).to eq("notification_limit_reached")
+    end
+  end
+
+  # IMP-34beef811fdf, governance guard. Criticality must be DECLARED by the
+  # producer, never inferred from the rendered notification severity.
+  #
+  # "error" is not a synonym for "critical" across this service's callers. It
+  # is that for #notify_escalation and Ai::Tools::AgentAutonomyTool#report_issue,
+  # which both write `x == "critical" ? "error" : "warning"` — but
+  # #send_proactive_notification forwards `params["severity"]` verbatim, and its
+  # tool schema documents the enum as "info, warning, error". There "error" is
+  # the AGENT'S OWN top-of-enum choice for a routine notification.
+  #
+  # Inferring criticality from that word would hand an LLM-driven caller a way
+  # to defeat the two controls an operator has over it: the volume budget and a
+  # `silent` policy. Both directions are pinned here because both are one-line
+  # regressions away.
+  describe "an agent-chosen notification severity" do
+    it "does not buy exemption from the daily budget" do
+      spend_budget!(2)
+
+      result = nil
+      expect do
+        result = service.notify(user: user, type: "agent_status_update",
+                                title: "Routine sweep", message: "Nothing to report",
+                                severity: "error")
+      end.not_to change(Notification, :count)
+
+      expect(result[:delivered]).to be(false)
+      expect(result[:reason]).to eq("notification_limit_reached")
+    end
+
+    it "does not buy exemption from the daily budget when the agent writes \"critical\"" do
+      spend_budget!(2)
+
+      result = nil
+      expect do
+        result = service.notify(user: user, type: "agent_status_update",
+                                title: "Routine sweep", message: "Nothing to report",
+                                severity: "critical")
+      end.not_to change(Notification, :count)
+
+      expect(result[:delivered]).to be(false)
+      expect(result[:reason]).to eq("notification_limit_reached")
+    end
+
+    it "does not override an operator's silent policy when the agent writes \"critical\"" do
+      relaxed_row.update!(policy: "silent", conditions: {})
+
+      result = nil
+      expect do
+        result = service.notify(user: user, type: "agent_status_update",
+                                title: "Routine sweep", message: "Nothing to report",
+                                severity: "critical")
+      end.not_to change(Notification, :count)
+
+      expect(result[:delivered]).to be(false)
+      expect(result[:reason]).to eq("silent_policy")
+    end
+
+    it "does not override an operator's silent policy" do
+      relaxed_row.update!(policy: "silent", conditions: {})
+
+      result = nil
+      expect do
+        result = service.notify(user: user, type: "agent_status_update",
+                                title: "Routine sweep", message: "Nothing to report",
+                                severity: "error")
+      end.not_to change(Notification, :count)
+
+      expect(result[:delivered]).to be(false)
+      expect(result[:reason]).to eq("silent_policy")
+    end
+  end
+
+  # The counterpart, and the branch this change makes reachable for the first
+  # time: a caller that DECLARES criticality overrides a silent row, which is
+  # the stated intent of the severity override in
+  # Ai::InterventionPolicyService#resolve. Before this change #notify_escalation
+  # rendered a critical escalation as "error" and that override was dead for
+  # every caller of this service.
+  it "delivers a critical escalation over an operator's silent policy" do
+    relaxed_row.update!(policy: "silent", conditions: {})
+    escalation = Ai::AgentEscalation.create!(
+      account: account, ai_agent_id: agent.id, escalated_to_user: user,
+      escalation_type: "error", severity: "critical", title: "Agent stuck mid-deploy"
+    )
+
+    result = nil
+    expect { result = service.notify_escalation(escalation: escalation) }
+      .to change { Notification.where(category: "ai").count }.by(1)
+
+    expect(result[:delivered]).to be(true)
+  end
 end
