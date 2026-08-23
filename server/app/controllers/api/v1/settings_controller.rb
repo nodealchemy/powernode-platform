@@ -2,6 +2,42 @@
 
 class Api::V1::SettingsController < ApplicationController
   skip_before_action :authenticate_request, only: [ :public ]
+
+  # IMP-e639a38f4d8c — #update is FOUR writers behind one route, and only one of
+  # them leaves the caller's own row.
+  #
+  #   user_preferences / notification_preferences / security_settings
+  #       -> columns on the CALLING User (theme, notification opt-ins, own
+  #          password + own email). Self-service by definition; every
+  #          authenticated user may write them, and the frontend does exactly
+  #          that for every user (ThemeContext, ProfilePage).
+  #   account_settings
+  #       -> the SHARED Account row. SettingsUpdateService#update_account_settings
+  #          blind-merges whatever is left into the `settings` jsonb (company
+  #          profile, default_sdwan_network_id — which decides the fabric every
+  #          future instance lands on — and any other key a consumer reads out
+  #          of that column) AND lifts name/subdomain/billing_email/tax_id
+  #          straight onto the account.
+  #
+  # That second group is account-wide configuration, and the OTHER writer of the
+  # same column, Api::V1::AccountsController#update, has always required
+  # `admin.settings.update`. This action required nothing, which made it the
+  # more capable of the two doors: AccountsController permits :settings as a
+  # SCALAR (strong params drops a Hash, so it cannot write nested settings at
+  # all) while this one permits `account_settings: {}` and can write anything.
+  # One column now has one permission behind both doors.
+  #
+  # Gated on the PRESENCE of the key, not on its contents: a request that
+  # mentions account_settings at all is asking to write account state, so this
+  # predicate can never be looser than the service's own
+  # `@params[:account_settings].present?` guard even if that guard is later
+  # relaxed. No frontend caller sends the section (all four call sites PUT a
+  # single self-service section), so nothing legitimate is caught by it.
+  #
+  # require_permission raises PermissionDenied, which halts the filter chain
+  # before the service runs — the row is not written and then refused.
+  before_action :authorize_account_settings_write!, only: [ :update ]
+
   # GET /api/v1/settings/public
   def public
     render_success({
@@ -103,6 +139,15 @@ class Api::V1::SettingsController < ApplicationController
   end
 
   private
+
+  # Reads the raw params rather than settings_params so the gate does not
+  # depend on the permit-list: any shape of account_settings, permitted or not,
+  # is still an attempt to write account-wide state.
+  def authorize_account_settings_write!
+    return unless params[:settings].respond_to?(:key?) && params[:settings].key?(:account_settings)
+
+    require_permission("admin.settings.update")
+  end
 
   def settings_params
     params.require(:settings).permit(
