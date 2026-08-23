@@ -845,7 +845,9 @@ Rails.application.routes.draw do
       end
 
       # Protected resources (will be added later)
-      resources :accounts, only: [ :show, :update ] do
+      # :create provisions an additional TENANT account (+ its initial
+      # administrator) and is gated on `admin.account.create` in the controller.
+      resources :accounts, only: [ :show, :update, :create ] do
         collection do
           get :accessible
           post :switch

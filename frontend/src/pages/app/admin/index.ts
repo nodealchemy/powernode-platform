@@ -15,3 +15,5 @@ export { AdminUsersPage } from './AdminUsersPage';
 // Admin Roles Management
 export { AdminRolesPage } from './AdminRolesPage';
 
+// Admin Accounts (tenant provisioning)
+export { AdminAccountsPage } from './AdminAccountsPage';

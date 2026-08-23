@@ -27,6 +27,7 @@ const NotificationsPage = React.lazy(() => import('./account/NotificationsPage')
 const AdminSettingsPage = React.lazy(() => import('@/pages/app/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
 const AdminUsersPage = React.lazy(() => import('@/pages/app/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })));
 const AdminRolesPage = React.lazy(() => import('@/pages/app/admin/AdminRolesPage').then(m => ({ default: m.AdminRolesPage })));
+const AdminAccountsPage = React.lazy(() => import('@/pages/app/admin/AdminAccountsPage').then(m => ({ default: m.AdminAccountsPage })));
 const AdminWorkersPage = React.lazy(() => import('@/pages/app/admin/WorkersPage').then(m => ({ default: m.WorkersPage })));
 const AdminStoragePage = React.lazy(() => import('@/pages/app/admin/StorageProvidersPage'));
 const AdminStorageAssignmentsPage = React.lazy(() => import('@/pages/app/admin/StorageProviderAssignmentsPage'));
@@ -294,6 +295,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/settings/*" element={<AdminSettingsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
+        <Route path="/admin/accounts" element={<AdminAccountsPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
         <Route path="/admin/workers/*" element={<AdminWorkersPage />} />
         <Route path="/admin/storage" element={<AdminStoragePage />} />

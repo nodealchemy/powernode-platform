@@ -73,6 +73,9 @@ module Setup
       user.roles << super_admin unless user.roles.include?(super_admin)
     end
 
+    # PUBLIC: also used by Accounts::ProvisionService, the non-bootstrap path
+    # that creates additional tenant accounts. Subdomain uniqueness is an Account
+    # validation, so both creators must resolve it the same way.
     def self.unique_subdomain(base = "admin")
       candidate = base
       counter = 1
@@ -83,6 +86,6 @@ module Setup
       candidate
     end
 
-    private_class_method :assign_super_admin!, :unique_subdomain
+    private_class_method :assign_super_admin!
   end
 end

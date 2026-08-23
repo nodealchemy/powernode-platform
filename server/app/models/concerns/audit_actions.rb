@@ -39,6 +39,7 @@ module AuditActions
   # impersonation_started / impersonation_ended are extension-owned (business).
   # =============================================================================
   ACCOUNT_ACTIONS = %w[
+    account_created
     suspend_account activate_account admin_settings_update
   ].freeze
 
