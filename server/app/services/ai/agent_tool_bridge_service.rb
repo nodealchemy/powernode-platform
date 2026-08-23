@@ -98,21 +98,171 @@ module Ai
       @tool_definitions_for_llm ||= build_tool_definitions
     end
 
-    # Dispatch a tool call from an LLM response through the platform tool registrar.
-    # Tools whose results should be surfaced (non-truncated) to the chat UI as
-    # rich cards. Each entry maps a tool name to a card kind that the frontend
-    # uses to pick a renderer. Add new entries as cards land.
-    CARD_TOOLS = {
-      "platform_provisioning_capture_brief" => "provisioning_brief",
-      "platform_provisioning_compose_plan"  => "provisioning_plan",
-      "platform_provisioning_approve_plan"  => "provisioning_plan_approved",
-      "platform_provisioning_status"        => "provisioning_status",
-      "platform_provisioning_adapt"         => "provisioning_adaptation",
-      # D3 — Platform deployment wizard. Two-shape payload: wizard form
-      # (no mode supplied) or deployment-done envelope (mode set). The
+    # Tools whose results are surfaced to the chat UI as rich cards.
+    #
+    # READ BEFORE ADDING AN ENTRY (IMP-6af3dc79efb3). A card is not a view. Every
+    # card collected here is written by Ai::ConciergeService into
+    # ai_messages.content_metadata — a jsonb column that is durable, never
+    # re-filtered on read, and never routed through Ai::SensitiveParams. Adding a
+    # tool here therefore enrolls part of its result payload into permanent
+    # at-rest storage in the clear. That is how a plaintext federation acceptance
+    # token reached the column (IMP-c0687cfb3a05).
+    #
+    # So an entry is not a card kind — it is a DECLARATION. Each Ai::CardPayloadDeclaration
+    # names the exact keys of `result[:data]` that may be copied, and
+    # #card_payload_from_result projects only those. Everything the author did not
+    # write down is dropped, whatever it is named: the mechanism is default-deny
+    # projection, not a token/secret/key pattern match, because a pattern only ever
+    # catches material whose producer named it honestly.
+    #
+    # A bare `"tool" => "kind"` entry raises Ai::CardPayloadDeclaration::UndeclaredCardPayload
+    # from validate_map! below, at class load — the app refuses to boot rather than
+    # starting with a new silent sink.
+    CARD_TOOLS = CardPayloadDeclaration.validate_map!({
+      # Ai::Tools::ProvisioningTool#capture_brief. `brief` is the hazard: nothing
+      # key-whitelists it upstream (IntentCaptureService#normalize_brief is a bare
+      # deep_stringify_keys, and #coerce_brief `dup`s the hash and coerces only the
+      # keys it knows), so the caller-supplied `prior_brief` param, the mission's
+      # free-form configuration["brief"] jsonb, and the LLM extraction JSON can all
+      # inject arbitrary keys that used to land in the column verbatim. The nested
+      # list below is the BRIEF_SCHEMA field set, restated here on purpose: adding a
+      # field to that schema must not silently make it card-persisted.
+      #
+      # repo_url / branch / start_command / runtime_hint stay declared because
+      # BriefCard renders them back to the operator who typed them
+      # (frontend/.../BriefCard.tsx:98-101, 187-190). repo_url accepting inline
+      # `user:token@host` credentials is a producer-side validation gap, filed
+      # separately — projection cannot fix a secret in a field that must be shown.
+      "platform_provisioning_capture_brief" => CardPayloadDeclaration.new(
+        kind: "provisioning_brief",
+        fields: [
+          "mission_id",
+          "missing_fields",
+          { "brief" => [
+            "intent", "use_case", "regions", "compliance", "data_residency",
+            "budget_cap_usd_monthly", "preferred_provider", "preferred_template",
+            "repo_url", "branch", "start_command", "runtime_hint", "storage_gb",
+            { "scale" => %w[initial target growth_profile] },
+            { "latency_targets_ms" => %w[p99] }
+          ] }
+        ]
+      ),
+
+      # #compose_plan returns two shapes — the BYOC clarification envelope
+      # (clarification_needed/message/available_providers) or a
+      # PlanSnapshotService snapshot — so both are declared.
+      #
+      # topology_preview is deliberately NOT declared. It is the one unbounded
+      # part of the snapshot: TopologyRendererService emits 2+ nodes per instance
+      # in an unclamped `step_count.times` loop driven by the brief's
+      # scale.initial, so a large brief writes a proportionally large row. No card
+      # renderer reads it (ChatProvisioningCardSlot reads plan/cost/risk only).
+      "platform_provisioning_compose_plan" => CardPayloadDeclaration.new(
+        kind: "provisioning_plan",
+        fields: [
+          "mission_id", "plan_id", "clarification_needed", "message",
+          { "available_providers" => %w[id name type] },
+          { "dag" => [
+            { "nodes" => %w[id step_number name skill description dependencies status on_failure] },
+            { "edges" => %w[from to] }
+          ] },
+          { "cost_estimate" => [
+            "monthly_usd", "one_time_usd", "confidence",
+            { "by_resource" => %w[resource_type name monthly_usd count] }
+          ] },
+          { "risk" => [
+            "score", "severity",
+            { "factors" => %w[name weight severity explanation] }
+          ] },
+          { "budget" => %w[cap_usd_monthly estimate_usd_monthly within_budget overage_usd_monthly] }
+        ]
+      ),
+
+      # #approve_plan. serialize_plan already enumerates three scalars off the
+      # model; the declaration pins that it stays that way.
+      "platform_provisioning_approve_plan" => CardPayloadDeclaration.new(
+        kind: "provisioning_plan_approved",
+        fields: [
+          "plan_id", "approval_request_id", "mission_status",
+          { "plan" => %w[id status step_count] }
+        ]
+      ),
+
+      # #status_snapshot. Step NUMBERS and a phase enum, nothing else.
+      # `summary` is not declared because the tool does not emit it — the
+      # renderer's own default covers that. A producer that starts emitting one
+      # declares it here.
+      "platform_provisioning_status" => CardPayloadDeclaration.new(
+        kind: "provisioning_status",
+        fields: %w[phase current_step completed pending failed]
+      ),
+
+      # #adapt. `adaptation_plan.steps[].inputs` is dropped, and that is the
+      # point of this entry: serialize_adaptation_plan emits the step's raw
+      # execution_config["inputs"] jsonb, into which AdaptationProposerService
+      # copies the caller's `details:` hash verbatim as "signal_payload" and
+      # preserves every key of an LLM-composed step's inputs. Arbitrary
+      # caller-controlled content was round-tripping into the column.
+      # gate[:detail] is dropped for the same reason — it carries raw exception
+      # text. No card renderer reads either.
+      "platform_provisioning_adapt" => CardPayloadDeclaration.new(
+        kind: "provisioning_adaptation",
+        fields: [
+          "mission_id", "change_type", "plan_id", "summary",
+          { "adaptation_plan" => [
+            "id", "status", "version", "kind", "step_count",
+            { "steps" => %w[step_number skill description on_failure dependencies] }
+          ] },
+          { "gate" => %w[disposition dispatched approval_request_id action_type within_bounds] }
+        ]
+      ),
+
+      # D3 — Platform deployment wizard. Two-shape payload: wizard form (no mode
+      # supplied, under `card`) or deployment-done envelope (mode set). The
       # frontend renderer distinguishes via `payload.card.phase`.
-      "system_deploy_platform"              => "platform_deployment_wizard"
-    }.freeze
+      #
+      # acceptance_token and spawn_payload are NOT declared, and that is a
+      # standing guard rather than dead weight: the executor stopped emitting
+      # them when federated deploy was refused on this surface
+      # (IMP-c0687cfb3a05), but the frontend's WizardDonePayload type still
+      # declares both, so a future re-enablement would otherwise walk straight
+      # back into the column. Here it cannot without an explicit edit to this
+      # list.
+      #
+      # defaults / mount_points / recommended_size_gb_by_role are copied whole:
+      # they are producer-built maps with dynamic keys (role => path, role =>
+      # size), so there is nothing to enumerate. Their values come from
+      # System::Platform::StorageRecommendations, whose backing shared-memory key
+      # (powernode.storage_recommendations) an operator OR an autonomous agent can
+      # write through platform.write_shared_memory — so "not caller-controlled" is
+      # true of the shape, not of the values. Bounded by MAX_PAYLOAD_BYTES and
+      # self-inflicted, which is why they are declared rather than dropped.
+      #
+      # storage_volume's declaration drops `binding[vt_kind]`, which for
+      # NFS/SMB/iSCSI is the operator-supplied transport connection blob
+      # (System::PlatformDeploymentOrchestrator copies volume.config wholesale).
+      # That subtree used to reach the column.
+      "system_deploy_platform" => CardPayloadDeclaration.new(
+        kind: "platform_deployment_wizard",
+        fields: [
+          "mode", "node_instance_id", "federation_peer_id", "platform_deployment_id",
+          "next_steps",
+          { "storage_volume" => %w[volume_id volume_name size_gb device_name mount_point
+                                   role attached_at error] },
+          { "card" => [
+            "kind", "phase", "defaults",
+            { "fields" => %w[name type required help options] },
+            { "modes" => %w[value label help] },
+            { "templates" => %w[value label description] },
+            { "spawn_modes" => %w[value label] },
+            { "storage" => [
+              "stateful_roles", "mount_points", "recommended_size_gb_by_role", "updated_at",
+              { "available_volumes" => %w[id name size_gb provider_region_id created_at] }
+            ] }
+          ] }
+        ]
+      )
+    }).freeze
 
     # Dispatch a tool call. Returns the truncated JSON string the LLM sees as
     # the tool result message. Used by external callers (worker channel,
@@ -263,16 +413,21 @@ module Ai
             result_preview: result_json.to_s.truncate(200)
           }
 
-          # Surface non-truncated payload as a chat card when whitelisted.
-          card_kind = CARD_TOOLS[tool_name]
-          if card_kind && full_result.is_a?(Hash)
-            payload = card_payload_from_result(full_result)
+          # Surface the DECLARED slice of the payload as a chat card. The card is
+          # persisted to ai_messages.content_metadata, so only keys the tool's
+          # CardPayloadDeclaration names are copied (IMP-6af3dc79efb3).
+          card_spec = CARD_TOOLS[tool_name]
+          if card_spec && full_result.is_a?(Hash)
+            payload = card_payload_from_result(full_result, card_spec)
             if payload
-              chat_cards << {
-                kind: card_kind, tool: tool_name,
-                arguments: tool_call[:arguments] || tool_call["arguments"] || {},
-                payload: payload
-              }
+              # No `arguments` key. It carried the model's raw tool-call
+              # arguments — caller-controlled and entirely unprojected — into
+              # the same persisted card (ProvisioningTool#adapt takes a free-form
+              # `details:` object, #capture_brief a free-form `prior_brief:`), so
+              # it was a second copy of the hazard the projection above closes.
+              # Nothing consumes it: ChatCard.arguments is optional in
+              # frontend/src/shared/types/ai.ts and no renderer reads it.
+              chat_cards << { kind: card_spec.kind, tool: tool_name, payload: payload }
             end
           end
 
@@ -291,16 +446,37 @@ module Ai
       end
     end
 
-    # Pull the structured payload out of a tool result. Tool results from the
-    # Ai::Tools::* family come in two common shapes:
+    # Pull the DECLARED slice of a tool result out for a chat card. Tool results
+    # from the Ai::Tools::* family come in two common shapes:
     #   - { success: true, data: {...} }    (most platform tools)
     #   - { ...top-level payload... }       (a few legacy tools)
     # We prefer :data when present so the frontend reads the same shape it
     # would get from the corresponding REST endpoint.
-    def card_payload_from_result(result)
+    #
+    # The spec is required, not optional. This method used to return
+    # `result[:data]` verbatim, which is what made every CARD_TOOLS entry a
+    # durable unfiltered copy of an entire tool payload (IMP-6af3dc79efb3).
+    # A missing or malformed declaration raises rather than falling back to
+    # "send everything": CARD_TOOLS is validated at load, so the only way to get
+    # here without one is a map substituted at runtime.
+    #
+    # Calibrate "loud" honestly: this raise leaves execute_tool_loop and lands in
+    # Ai::ConciergeService#process_with_tool_bridge's blanket rescue, which logs a
+    # warn and re-runs the message through the action grammar. The load-time
+    # validate_map! below is the arm that actually refuses to start; this one
+    # guarantees no payload is copied, not that anyone is paged.
+    def card_payload_from_result(result, spec)
+      unless spec.is_a?(CardPayloadDeclaration)
+        raise CardPayloadDeclaration::UndeclaredCardPayload,
+              "chat-card payload requested with a #{spec.class} instead of an " \
+              "Ai::CardPayloadDeclaration. The payload is persisted to " \
+              "ai_messages.content_metadata; there is no safe default projection."
+      end
+
       return nil unless result.is_a?(Hash)
       return nil if result[:success] == false || result["success"] == false
-      result[:data] || result["data"] || result
+
+      spec.project(result[:data] || result["data"] || result)
     end
 
     # Extended agentic loop with optional reasoning, reflection, and evaluation.
