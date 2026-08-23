@@ -733,4 +733,73 @@ RSpec.describe Ai::InterventionPolicyService do
       expect(result[:channels]).to eq(%w[notification])
     end
   end
+
+  # IMP-e43194754178 — the predicate arms of the exhausted cap.
+  #
+  # Ai::Autonomy::ExecutionGateService consumes resolution ONLY through these
+  # two predicates (#check_intervention_policy: auto_approve? to promote a
+  # requires_approval to :proceed, blocked? to deny), and it passes `agent:`
+  # and `user:` on both calls — so both are cap-reachable call sites. They
+  # are inert over the cap by construction: the cap branch returns
+  # "require_approval", which satisfies neither `== "block"` nor
+  # `== "auto_approve"`. That inertness IS the contract being pinned — if the
+  # cap branch ever degraded to "block", ExecutionGateService would silently
+  # start folding a spent notification budget into a denial, the exact
+  # inversion IMP-73dff8186c1e removed from the other consumers.
+  #
+  # These examples assert already-correct behaviour, so they cannot be
+  # red-first; non-vacuity is carried by mutation instead (returning "block"
+  # from the cap branch must redden the blocked? example below) plus the
+  # positive anchors, which show the same call shape flipping on the real
+  # verbs.
+  describe "#blocked? / #auto_approve? under an exhausted cap (IMP-e43194754178)" do
+    let(:user) { create(:user, account: account) }
+
+    # scope "global" — the one audience that binds an agent+user caller, and
+    # the shape db/seeds/autonomy_data_seed.rb actually seeds.
+    let!(:relaxed_row) do
+      create_policy!(policy: "notify_and_proceed", scope: "global",
+                     conditions: { "max_daily_notifications" => 1 })
+    end
+
+    before do
+      create(:notification, account: account, user: user,
+                            notification_type: "agent_status_update", category: "ai")
+    end
+
+    it "keeps blocked? false while the cap degrades the verb" do
+      # Premise guard: the CAP branch specifically is live for this exact call
+      # shape — `reason` and `record` distinguish it from default_policy, which
+      # also answers "require_approval" but matches no row.
+      result = service.resolve(action_category: "widget.create", agent: agent, user: user)
+      expect(result[:policy]).to eq("require_approval")
+      expect(result[:reason]).to match(/Daily notification limit reached/)
+      expect(result[:record]).to eq(relaxed_row)
+
+      expect(service.blocked?(action_category: "widget.create", agent: agent, user: user)).to be(false)
+    end
+
+    it "keeps auto_approve? false while the cap degrades the verb" do
+      result = service.resolve(action_category: "widget.create", agent: agent, user: user)
+      expect(result[:policy]).to eq("require_approval")
+      expect(result[:reason]).to match(/Daily notification limit reached/)
+      expect(result[:record]).to eq(relaxed_row)
+
+      expect(service.auto_approve?(action_category: "widget.create", agent: agent, user: user)).to be(false)
+    end
+
+    # Anchors: the same predicates on the same call shape DO flip on the real
+    # verbs, so the falses above are read off the resolution, not vacuous.
+    it "still reports blocked? true for a genuine block row" do
+      relaxed_row.update!(policy: "block")
+
+      expect(service.blocked?(action_category: "widget.create", agent: agent, user: user)).to be(true)
+    end
+
+    it "still reports auto_approve? true for a genuine auto_approve row" do
+      relaxed_row.update!(policy: "auto_approve")
+
+      expect(service.auto_approve?(action_category: "widget.create", agent: agent, user: user)).to be(true)
+    end
+  end
 end

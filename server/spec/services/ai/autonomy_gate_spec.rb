@@ -162,6 +162,49 @@ RSpec.describe Ai::AutonomyGate do
         expect(result.decision).to eq(:proceed)
         expect(result.deferred_operation.reload.status).to eq('completed')
       end
+
+      # IMP-e43194754178 — parking is itself a notification emitter, and the
+      # amplification is the ACCEPTED contract (IMP-e75e843bd42b): the
+      # ApprovalRequest's after_create fan-out sends one category-"ai"
+      # Notification per approver, and the default chain #resolve_chain builds
+      # carries ["*"], which Ai::ApprovalRequestNotifier resolves to every
+      # ACTIVE user. Until now that lived only in a source comment; a change
+      # to the default chain's audience or the fan-out's active-user cut
+      # would move it undetected. Pinned here on the gate's own parked path —
+      # the e2e example in intervention_policy_service_spec fabricates its
+      # request from a factory with hardcoded step approvers, so it cannot
+      # see a change to the chain the gate actually builds.
+      it 'fans out one category-"ai" notification per active user when it parks' do
+        over_cap!
+        others = create_list(:user, 2, account: account)
+        create(:user, :inactive, account: account)
+        audience = [user, *others]
+
+        result = nil
+        expect {
+          result = described_class.evaluate(**base_args)
+        }.to change { Notification.where(account_id: account.id, category: 'ai').count }.by(audience.size)
+
+        request = result.deferred_operation.approval_request
+        fan_out = Notification.where(account_id: account.id, category: 'ai')
+                              .where("metadata ->> 'approval_request_id' = ?", request.id)
+        expect(fan_out.pluck(:user_id)).to match_array(audience.map(&:id))
+      end
+
+      # The contrast that makes the fan-out an AMPLIFICATION: the healthy
+      # under-cap path emits nothing — the gate never notifies on :proceed —
+      # so an exhausted budget strictly increases volume on the category.
+      it 'emits nothing on the healthy under-cap proceed' do
+        create_list(:user, 2, account: account)
+
+        result = nil
+        expect {
+          result = described_class.evaluate(**base_args)
+        }.not_to change { Notification.where(account_id: account.id).count }
+
+        # :proceed, specifically — :blocked would also emit nothing.
+        expect(result.decision).to eq(:proceed)
+      end
     end
 
     context 'when no policy is configured (default)' do
