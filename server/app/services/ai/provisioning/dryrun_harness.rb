@@ -471,13 +471,7 @@ module Ai
       # { run_id => claimed_at_iso8601 }; an older array-shaped value degrades to
       # "no timestamp", i.e. alive only while its mission is.
       def live_holders(settings)
-        raw = settings[GATE_HOLDERS_SETTING]
-        claims =
-          case raw
-          when Hash  then raw.transform_keys(&:to_s)
-          when Array then raw.to_h { |r| [ r.to_s, nil ] }
-          else {}
-          end
+        claims = gate_claims(settings)
         return {} if claims.empty?
 
         live = ::Ai::Mission
@@ -489,6 +483,39 @@ module Ai
         claims.select do |run_id, claimed_at|
           live.include?("dryrun-#{run_id}") || within_holder_grace?(claimed_at)
         end
+      end
+
+      # The claims as PERSISTED — `{ run_id => claimed_at_iso8601 }`, normalized
+      # over both shapes the setting has carried. No liveness filter; that is
+      # live_holders' job, and gate_claim_present? must not have it.
+      def gate_claims(settings)
+        case (raw = settings[GATE_HOLDERS_SETTING])
+        when Hash  then raw.transform_keys(&:to_s)
+        when Array then raw.to_h { |r| [ r.to_s, nil ] }
+        else {}
+        end
+      end
+
+      # Whether THIS run's gate claim is still on the account at grade time.
+      #
+      # The CLAIM is the observable, not the gate. Re-reading
+      # Ai::Routing::TaskTierResolver.enabled_for? here would detect nothing:
+      # grade! runs from drive!, long before this run's restore_gate!, and the
+      # concurrent run that reaps a claim does so inside enable_gate!, which
+      # writes GATE_SETTING = true in the same locked write — so the gate reads
+      # ON through most of the window the check targets.
+      #
+      # PRESENCE, not live_holders' verdict: a mission that failed or was
+      # cancelled still reaches grade!, and live_holders would drop that run's
+      # own (still-written) claim for being un-live, reporting a reap that never
+      # happened.
+      #
+      # Read from the ROW, uncached: `@account` last saw its own enable_gate!
+      # write, so an in-memory settings read would report this run's claim
+      # present forever — exactly the case the check exists to catch.
+      def gate_claim_present?
+        settings = ::Account.uncached { ::Account.where(id: @account.id).pick(:settings) }
+        gate_claims(settings.is_a?(Hash) ? settings : {}).key?(@run_id.to_s)
       end
 
       def within_holder_grace?(claimed_at)
@@ -801,11 +828,34 @@ module Ai
         # Skills oracle (F5): usage rows recorded for the run.
         add_finding("skills", "no skill-usage records for the run", :medium) if skill_usage_count.zero?
         # Routing oracle: a RoutingDecision exists for every LLM call the gate
-        # governs. Only a finding when executions actually happened — a plan
-        # synthesized without an LLM call (deterministic path) legitimately
-        # produces neither, and absence-without-a-call is not a defect.
-        if execution_count.positive? && routing_count.zero?
-          add_finding("routing", "#{execution_count} LLM execution(s) but no RoutingDecision despite the gate", :low)
+        # governs — but the oracle is only READABLE while this run still holds
+        # the gate claim it made. A concurrent run may have reaped that claim
+        # (HOLDER_GRACE_SECONDS is one-sided by design), and then the gate was
+        # never guaranteed on for this run's LLM calls: routing was NOT
+        # MEASURED, which is a different answer from "routing failed" and must
+        # not be reported as one. Same charter rule INC-5 applied to a batch of
+        # `unavailable` project metrics — not measured ≠ pass — hence :medium
+        # and its own dimension rather than an oracle footnote.
+        if gate_claim_present?
+          # Only a finding when executions actually happened — a plan synthesized
+          # without an LLM call (deterministic path) legitimately produces
+          # neither, and absence-without-a-call is not a defect.
+          #
+          # Both counts are ACCOUNT-WIDE and time-windowed: neither
+          # ai_agent_executions nor ai_routing_decisions carries a mission link,
+          # so the S2 mission-scoping used for skill usage is unavailable here.
+          # The finding says so rather than implying a mission-scoped count, the
+          # same way the soak budget finding names its own window.
+          if execution_count.positive? && routing_count.zero?
+            add_finding("routing", "#{execution_count} LLM execution(s) but no RoutingDecision despite the gate " \
+                                   "(both counts are account-wide since the run started, not mission-scoped — " \
+                                   "neither table carries a mission link)", :low)
+          end
+        else
+          add_finding("observation", "this run's gate claim was reaped from #{GATE_HOLDERS_SETTING} before grading, " \
+                                     "so tier routing was never guaranteed on for its LLM calls — the routing " \
+                                     "oracle was not measured for this run (this is a gate-lifecycle result, " \
+                                     "NOT a routing failure)", :medium)
         end
         # Budget (F7): the snapshot surfaces a budget block when the brief caps.
         if plan && brief["budget_cap_usd_monthly"].present?
