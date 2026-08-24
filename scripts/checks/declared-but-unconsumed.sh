@@ -113,6 +113,31 @@ unconsumed_notification_types() {
   done
 }
 
+# ── Completeness precondition ────────────────────────────────────────────────
+# "Referenced nowhere" is only sound if every tree that could hold a reference
+# was actually searched. A checkout without submodules (a fresh clone, CI before
+# `submodule update`, or a git worktree — extensions/system is absent in all
+# three) would search fewer trees and could report a symbol as inert purely
+# because its only producer was not on disk.
+#
+# Fail SAFE by declining to judge: warn and report 0. Blocking every
+# submodule-less checkout would be worse than missing a detection, and a check
+# that reports a confident wrong answer on incomplete input is precisely the
+# prose-contract failure this script exists to catch — it would just be making
+# the mistake itself.
+EXPECTED_TREES="server/app worker/app frontend/src extensions/system/server/app"
+missing=""
+for p in $EXPECTED_TREES; do
+  [ -d "$ROOT/$p" ] || missing="$missing $p"
+done
+if [ -n "$missing" ]; then
+  echo "[declared-but-unconsumed] SKIPPED — cannot judge: missing tree(s):$missing" >&2
+  echo "[declared-but-unconsumed] (submodules not checked out; run from a full checkout)" >&2
+  [ "$MODE" = "--list" ] && exit 0
+  echo 0
+  exit 0
+fi
+
 findings=$(unconsumed_notification_types)
 
 if [ "$MODE" = "--list" ]; then
