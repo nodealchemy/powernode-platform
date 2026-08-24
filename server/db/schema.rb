@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_14_021000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_24_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8606,6 +8606,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_14_021000) do
 
   create_table "system_claude_code_credentials", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.string "credential_kind", default: "api_key", null: false
     t.text "encrypted_credentials"
     t.string "encryption_key_id"
     t.datetime "migrated_to_vault_at"
@@ -10631,6 +10632,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_14_021000) do
     t.datetime "created_at", null: false
     t.datetime "degraded_at"
     t.string "nb_db_endpoint"
+    t.jsonb "nb_observed", default: {}, null: false
     t.string "northd_host"
     t.string "sb_db_endpoint"
     t.jsonb "settings", default: {}, null: false
@@ -10710,6 +10712,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_14_021000) do
     t.string "bgp_router_id_override"
     t.jsonb "bgp_session_state", default: {}, null: false
     t.jsonb "capabilities", default: {}, null: false
+    t.datetime "counters_sampled_at"
     t.datetime "created_at", null: false
     t.string "endpoint_host"
     t.string "endpoint_host_v4"
@@ -10722,9 +10725,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_14_021000) do
     t.jsonb "metadata", default: {}, null: false
     t.uuid "node_instance_id", null: false
     t.boolean "publicly_reachable", default: false, null: false
+    t.bigint "rx_bytes"
     t.uuid "sdwan_network_id", null: false
     t.string "status", default: "pending", null: false
     t.string "tags", default: [], null: false, array: true
+    t.bigint "tx_bytes"
     t.datetime "updated_at", null: false
     t.index ["account_id", "assigned_address"], name: "index_system_sdwan_peers_on_account_id_and_assigned_address", unique: true
     t.index ["account_id"], name: "index_system_sdwan_peers_on_account_id"
