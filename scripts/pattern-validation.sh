@@ -455,6 +455,24 @@ check_pattern "Forbidden submenu navigation (should be empty)" \
     "empty"
 
 echo ""
+echo -e "${BLUE}## Inert Declarations${NC}"
+# A symbol declared in a registry and referenced nowhere else has no other end —
+# it is inert by construction. This codebase's dominant defect class is the
+# mechanism that exists, passes review, and never fires (the build skip, the
+# task reaper, the worker-scoped dispatch chain — all month-scale, all found by
+# a person looking rather than by a test). This is the structural half of the
+# answer: the cheap mechanical cases fail at merge instead of being rediscovered
+# later as an improvement offer.
+#
+# RATCHET. Today's known-unconsumed set is a debt ledger inside the script, so
+# this passes on a clean tree and fails only on a NEW inert declaration. Clear
+# ledger entries by building the producer or deleting the declaration — never by
+# adding to the list to make a build green.
+check_pattern "Inert declarations (declared, referenced nowhere)" \
+    "bash scripts/checks/declared-but-unconsumed.sh" \
+    "empty"
+
+echo ""
 echo -e "${BLUE}## Schema Isolation${NC}"
 # Leak guard: the committed PUBLIC db/schema.rb must contain NO table owned by a
 # PRIVATE extension. Forbidden prefixes are derived dynamically from
