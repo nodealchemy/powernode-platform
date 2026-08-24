@@ -161,7 +161,6 @@ module Permissions
   @catalog_permissions = {}
   @catalog_grants = Hash.new { |h, k| h[k] = [] }
   # Permissions (core- or extension-registered) that require 2FA to hold.
-  @two_factor_required = []
   # Extension-registered GLOBAL roles (the role twin of @extension_permissions).
   # String-keyed `<namespace>.<short>` => role config Hash. A disabled extension
   # never runs its initializer, so it is naturally excluded — mirroring how
@@ -184,17 +183,6 @@ module Permissions
 
     def catalog_permissions = @catalog_permissions
     def catalog_grants = @catalog_grants
-
-    # 2FA-required registration seam. Core lists its own 2FA-sensitive perms;
-    # extensions add theirs here (e.g. business -> business.billing.manage) from
-    # their engine init, so the core 2FA enforcer names no extension.
-    def register_2fa_required(*names)
-      @two_factor_required.concat(names.flatten.map(&:to_s))
-    end
-
-    def two_factor_required
-      @two_factor_required.uniq
-    end
 
     # Extension sink — route through the register seam. Namespace mandatory.
     def register_catalog(namespace:, tier: :resource, &blk)
