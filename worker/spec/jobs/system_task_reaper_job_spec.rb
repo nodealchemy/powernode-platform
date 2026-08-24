@@ -2,9 +2,18 @@
 
 require "rails_helper"
 
-# Audit plan P0.2 — worker job spec. SystemTaskReaperJob is the hourly safety
-# net for stuck operations. GETs /tasks?status=pending and /tasks?status=running
-# with stuck_since thresholds, then re-enqueues or fails as appropriate.
+# SystemTaskReaperJob is the hourly safety net for stuck System tasks.
+#
+# It spent five weeks reporting "reap cycle complete, 0, 0" — a green log line —
+# while a backlog grew, because its list endpoint was scoped through
+# `System::Node.where(worker: current_worker)` and `node.worker_id` is NULL on
+# every node that has ever existed. The scope was the empty set; a janitor that
+# sees nothing and a clean fleet are indistinguishable from the outside.
+#
+# So these examples are written against the two things that were actually wrong:
+# WHERE it looks (the account-scoped janitor seam, not the worker-scoped tasks
+# endpoint), and WHETHER it can terminally close anything (it previously had no
+# lane that could ever finish an agent-delegated task whose agent was gone).
 RSpec.describe SystemTaskReaperJob, type: :job do
   subject { described_class }
 
@@ -16,78 +25,164 @@ RSpec.describe SystemTaskReaperJob, type: :job do
   let(:job_args) { nil }
   let(:api_client) { instance_spy(BackendApiClient) }
 
-  before { allow(job).to receive(:api_client).and_return(api_client) }
+  let(:janitor_path) { "/api/v1/system/worker_api/janitor/tasks" }
 
-  describe "#execute" do
-    context "happy path: no stuck tasks" do
-      before do
-        allow(api_client).to receive(:get)
-          .with("/api/v1/system/worker_api/tasks", anything)
-          .and_return({ "data" => { "tasks" => [] } })
-        # The reaper may also POST to clean up running tasks; allow either.
-        allow(api_client).to receive(:post).and_return({ "data" => {} })
-      end
+  before do
+    allow(job).to receive(:api_client).and_return(api_client)
+    allow(api_client).to receive(:get).and_return({ "data" => { "tasks" => [] } })
+    allow(api_client).to receive(:post).and_return({ "data" => { "reaped" => true, "transition" => "cancel" } })
+    allow(SystemExecuteTaskJob).to receive(:perform_async)
+  end
 
-      it "returns aggregate counts" do
-        result = job.execute
-        expect(result).to be_a(Hash)
-        expect(result).to include(reaped_pending: 0, reaped_running: 0)
-      end
+  def task(id:, status: "pending", command: "ssh_command", age: 10.minutes,
+           started_ago: nil, agent_delegated: false)
+    {
+      "id" => id,
+      "status" => status,
+      "command" => command,
+      "created_at" => age.ago.iso8601,
+      "started_at" => started_ago&.ago&.iso8601,
+      "agent_delegated" => agent_delegated
+    }
+  end
 
-      it "queries the tasks endpoint with pending+scheduled and running statuses" do
-        job.execute
-        expect(api_client).to have_received(:get)
-          .with("/api/v1/system/worker_api/tasks", hash_including(status: %w[pending scheduled])).at_least(:once)
-        expect(api_client).to have_received(:get)
-          .with("/api/v1/system/worker_api/tasks", hash_including(status: "running")).at_least(:once)
-      end
+  def stub_lane(status:, tasks:, older_than: nil)
+    matcher = older_than ? hash_including(status: status, older_than_seconds: older_than)
+                         : hash_including(status: status)
+    allow(api_client).to receive(:get).with(janitor_path, matcher)
+      .and_return({ "data" => { "tasks" => tasks } })
+  end
+
+  describe "where it looks" do
+    # The load-bearing example. The old endpoint's scope was empty by
+    # construction; querying it at all is the bug, so its absence is the
+    # assertion. Without this, a revert to the worker-scoped path would go
+    # unnoticed by every other example here, since they only stub the janitor.
+    it "never queries the worker-scoped tasks endpoint" do
+      job.execute
+
+      expect(api_client).not_to have_received(:get).with("/api/v1/system/worker_api/tasks", anything)
+      expect(api_client).not_to have_received(:post)
+        .with(a_string_matching(%r{worker_api/tasks/[^/]+/fail}), anything)
     end
 
-    context "when a scheduled task is stuck" do
-      # System::Task#schedule transitions pending -> scheduled (AASM), and the
-      # reaper's own comment says it covers "pending or scheduled operations
-      # whose enqueue might have been missed" — but the query only ever asked
-      # for status: "pending", so a stuck :scheduled task was never fetched
-      # and silently stranded forever.
-      let(:stuck_scheduled_task) do
-        { "id" => "sched-task-1", "created_at" => 10.minutes.ago.iso8601 }
-      end
+    it "queries the account-scoped janitor seam for every lane" do
+      job.execute
 
-      before do
-        allow(api_client).to receive(:get)
-          .with("/api/v1/system/worker_api/tasks", hash_including(status: "pending"))
-          .and_return({ "data" => { "tasks" => [] } })
-        allow(api_client).to receive(:get)
-          .with("/api/v1/system/worker_api/tasks", hash_including(status: %w[pending scheduled]))
-          .and_return({ "data" => { "tasks" => [ stuck_scheduled_task ] } })
-        allow(api_client).to receive(:get)
-          .with("/api/v1/system/worker_api/tasks", hash_including(status: "running"))
-          .and_return({ "data" => { "tasks" => [] } })
-        allow(api_client).to receive(:post).and_return({ "data" => {} })
-        allow(SystemExecuteTaskJob).to receive(:perform_async)
-      end
+      expect(api_client).to have_received(:get)
+        .with(janitor_path, hash_including(status: %w[pending scheduled])).at_least(:once)
+      expect(api_client).to have_received(:get)
+        .with(janitor_path, hash_including(status: %w[running])).at_least(:once)
+    end
+  end
 
-      it "re-enqueues the stuck scheduled task, not just pending ones" do
-        job.execute
-        expect(SystemExecuteTaskJob).to have_received(:perform_async).with("sched-task-1")
-      end
+  describe "lane 1 — re-enqueue" do
+    it "re-enqueues a stuck pending task" do
+      stub_lane(status: %w[pending scheduled], tasks: [ task(id: "t-pending") ],
+                older_than: described_class::STUCK_PENDING_THRESHOLD)
+
+      expect(job.execute[:reaped_pending]).to eq(1)
+      expect(SystemExecuteTaskJob).to have_received(:perform_async).with("t-pending")
     end
 
-    context "when the upstream tasks API errors" do
-      before do
-        allow(api_client).to receive(:get)
-          .with("/api/v1/system/worker_api/tasks", anything)
-          .and_raise(BackendApiClient::ApiError.new("upstream down"))
-        # The reaper continues to the second status call; stub that too.
-        allow(api_client).to receive(:post).and_return({ "data" => {} })
-      end
+    # System::Task#schedule transitions pending -> scheduled, and a stuck
+    # :scheduled task is exactly as re-enqueueable as a stuck :pending one.
+    it "re-enqueues a stuck scheduled task, not just pending ones" do
+      stub_lane(status: %w[pending scheduled],
+                tasks: [ task(id: "t-sched", status: "scheduled") ],
+                older_than: described_class::STUCK_PENDING_THRESHOLD)
 
-      it "handles the error gracefully (returns a Hash, doesn't crash)" do
-        # The reaper deliberately doesn't raise — it's a safety-net job that
-        # should soldier on through transient upstream issues. The aggregate
-        # counts reflect whatever it managed to reap before the error.
-        expect { job.execute }.not_to raise_error
-      end
+      job.execute
+
+      expect(SystemExecuteTaskJob).to have_received(:perform_async).with("t-sched")
+    end
+
+    # ExecutionDispatcher deliberately leaves agent-delegated tasks :pending for
+    # the node agent to poll. Re-enqueuing one runs a job that declines and
+    # changes nothing, so counting it as "re-enqueued" reported work that never
+    # happened. Skipping keeps the count meaning "actually re-dispatched".
+    it "does NOT re-enqueue an agent-delegated task" do
+      stub_lane(status: %w[pending scheduled],
+                tasks: [ task(id: "t-agent", command: "ci.module_build", agent_delegated: true) ],
+                older_than: described_class::STUCK_PENDING_THRESHOLD)
+
+      expect(job.execute[:reaped_pending]).to eq(0)
+      expect(SystemExecuteTaskJob).not_to have_received(:perform_async)
+    end
+
+    # Past the unrunnable threshold, lane 3 owns the row. Re-enqueuing it as
+    # well would fire a pointless job at something already being closed.
+    it "does NOT re-enqueue a task already past the unrunnable threshold" do
+      stub_lane(status: %w[pending scheduled],
+                tasks: [ task(id: "t-ancient", age: 30.days) ],
+                older_than: described_class::STUCK_PENDING_THRESHOLD)
+
+      expect(job.execute[:reaped_pending]).to eq(0)
+      expect(SystemExecuteTaskJob).not_to have_received(:perform_async)
+    end
+  end
+
+  describe "lane 2 — fail stuck running" do
+    it "reaps a running task stuck past the threshold" do
+      stub_lane(status: %w[running],
+                tasks: [ task(id: "t-run", status: "running", started_ago: 3.hours) ])
+
+      expect(job.execute[:reaped_running]).to eq(1)
+      expect(api_client).to have_received(:post)
+        .with("#{janitor_path}/t-run/reap", hash_including(:reason))
+    end
+
+    it "leaves a freshly-started running task alone" do
+      stub_lane(status: %w[running],
+                tasks: [ task(id: "t-fresh", status: "running", started_ago: 1.minute) ])
+
+      expect(job.execute[:reaped_running]).to eq(0)
+      expect(api_client).not_to have_received(:post)
+    end
+  end
+
+  describe "lane 3 — the terminal policy" do
+    # Without this lane the queue only ever grows: an agent-delegated task whose
+    # instance is gone can never be re-enqueued into completion, and nothing
+    # else closes it. This is the lane that drains the backlog.
+    it "reaps a pending task older than the unrunnable threshold" do
+      ancient = task(id: "t-old", age: 30.days, command: "ci.module_build", agent_delegated: true)
+      stub_lane(status: %w[pending scheduled], tasks: [ ancient ],
+                older_than: described_class::UNRUNNABLE_THRESHOLD)
+
+      expect(job.execute[:reaped_unrunnable]).to eq(1)
+      expect(api_client).to have_received(:post).with("#{janitor_path}/t-old/reap", hash_including(:reason))
+    end
+
+    it "does not count a task the server declined to reap" do
+      stub_lane(status: %w[pending scheduled], tasks: [ task(id: "t-raced", age: 30.days) ],
+                older_than: described_class::UNRUNNABLE_THRESHOLD)
+      allow(api_client).to receive(:post).with("#{janitor_path}/t-raced/reap", anything)
+        .and_return({ "data" => { "reaped" => false, "detail" => "already terminal (complete)" } })
+
+      expect(job.execute[:reaped_unrunnable]).to eq(0)
+    end
+
+    it "is far enough out that a node offline for a working day keeps its work" do
+      expect(described_class::UNRUNNABLE_THRESHOLD).to be > 24 * 3600
+    end
+  end
+
+  describe "resilience" do
+    it "soldiers on when the janitor endpoint errors" do
+      allow(api_client).to receive(:get).and_raise(BackendApiClient::ApiError.new("upstream down"))
+
+      expect { job.execute }.not_to raise_error
+      expect(job.execute).to include(reaped_pending: 0, reaped_running: 0, reaped_unrunnable: 0)
+    end
+
+    it "soldiers on when an individual reap errors" do
+      stub_lane(status: %w[running],
+                tasks: [ task(id: "t-run", status: "running", started_ago: 3.hours) ])
+      allow(api_client).to receive(:post).and_raise(BackendApiClient::ApiError.new("boom"))
+
+      expect { job.execute }.not_to raise_error
+      expect(job.execute[:reaped_running]).to eq(0)
     end
   end
 
@@ -98,9 +193,15 @@ RSpec.describe SystemTaskReaperJob, type: :job do
   end
 
   describe "threshold constants" do
-    it "exposes pending and running thresholds in seconds" do
+    it "exposes all three thresholds in seconds" do
       expect(described_class::STUCK_PENDING_THRESHOLD).to be_a(Integer).and(be > 0)
       expect(described_class::STUCK_RUNNING_THRESHOLD).to be_a(Integer).and(be > 0)
+      expect(described_class::UNRUNNABLE_THRESHOLD).to be_a(Integer).and(be > 0)
+    end
+
+    it "orders them so each lane fires only after the previous has had its chance" do
+      expect(described_class::STUCK_PENDING_THRESHOLD).to be < described_class::UNRUNNABLE_THRESHOLD
+      expect(described_class::STUCK_RUNNING_THRESHOLD).to be < described_class::UNRUNNABLE_THRESHOLD
     end
   end
 end
