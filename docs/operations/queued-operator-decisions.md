@@ -4,11 +4,11 @@ Decisions the autonomous loop deliberately did **not** take on its own, parked h
 for review. Each states what was verified, what the options are, and a
 recommendation. Nothing here is blocking other work.
 
-_Last updated: 2026-08-24._
+_Last updated: 2026-08-24. Items 1 and 3 are RESOLVED; item 2 is PARKED._
 
 ---
 
-## 1. Delete `TwoFactorEnforcement`? (security-labelled deletion)
+## 1. ~~Delete `TwoFactorEnforcement`?~~ — RESOLVED: DELETED
 
 **Offer:** `01a033df-bc14` · **File:** `server/app/controllers/concerns/two_factor_enforcement.rb`
 
@@ -28,9 +28,13 @@ extension, so there is currently nothing for it to protect.
 | Wire it up | Adds a real 2FA requirement to billing writes. Only meaningful if/when SaaS mode returns; would need a UX path for enrolling 2FA first. |
 | Leave inert | Status quo. The false signal persists. |
 
-**Recommendation:** delete, and if SaaS mode returns, rebuild it behind the gate
-registry with an inclusion-coherence spec so it cannot ship unincluded again.
-Held back only because it is security-labelled.
+**DECIDED (operator): delete.** Done in core `d34cd6121` + business extension
+`18ec7e7`. The whole chain went, not just the concern — deleting the concern
+alone would have relocated the inertness, since core's
+`Permissions.register_2fa_required` registry had no other reader. The 2FA
+FEATURE (enrolment/verification) is untouched and green. Offer `01a033df-bc14`
+dismissed. If SaaS mode returns, rebuild behind the gate registry with an
+inclusion-coherence spec so it cannot ship unincluded again.
 
 ---
 
@@ -43,12 +47,14 @@ dismissal. Fable's review notes its subject sits on the **G7 SDWAN data plane,
 which is inert at every layer** — so building residency governance for a plane
 that currently moves no packets would itself be a declaration with no consumer.
 
-**Recommendation:** park behind G7 liveness rather than sign off construction
-now. Revisit when the SDWAN data plane has a live path.
+**DECIDED (operator): park behind G7 liveness.** Left OPEN, not dismissed —
+building residency governance for a plane that moves no packets would itself be
+a declaration with no consumer. Revisit when the SDWAN data plane has a live
+path.
 
 ---
 
-## 3. Should `System::Task::COMMANDS` be narrowed?
+## 3. ~~Should `System::Task::COMMANDS` be narrowed?~~ — RESOLVED: NARROWED + VALIDATED
 
 **Discovered while retiring the zero-caller dispatch verbs (commit `58702a16`).**
 
@@ -63,10 +69,20 @@ alongside it — narrowing is its own decision about what the model should
 advertise, and it needs its own evidence (which commands are historical, which
 are aspirational, which should become a real validation).
 
-**Options:** narrow it to the executable set; or make it an actual validation
-and accept that historical rows carrying unlisted commands become unsaveable
-(the same hazard `operable_type` documents); or leave it as documentation with
-the warning comment now attached.
+**DECIDED (operator): narrow AND make it a real validation.** Done in extension
+`04be5e5b`. It is now exactly `COMMAND_REGISTRY.keys | AGENT_DELEGATED_COMMANDS`,
+with that equality asserted by spec. Validated ON CHANGE (the `operable_type`
+guard shape), so legacy rows stay transitionable but can never be re-pointed at
+an unlisted command.
+
+Two things the work surfaced. The list was not merely too wide — it also
+OMITTED every `storage.*` command and `ci.package_build`, which are real
+agent-delegated verbs in daily use. And it exposed a mistake in the preceding
+commit: `start`/`stop`/`reboot`/`terminate` had been retired from
+COMMAND_REGISTRY on the strength of a zero lifetime row count, but
+`NodeInstanceGating#control_or_error` produces them with the command as a
+VARIABLE, invisible to a literal grep. Zero rows proved UNUSED, not
+UNREACHABLE. Restored and pinned.
 
 ---
 
