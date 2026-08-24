@@ -76,7 +76,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
 
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/mcp_tool_executions/#{execution_id}")
+          .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
           .and_return(success: true, data: { mcp_tool_execution: execution_data })
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(job).to receive(:execute_mcp_tool).and_return(
@@ -87,7 +87,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
 
       it 'fetches execution details' do
         expect(api_client).to receive(:get)
-          .with("/api/v1/internal/mcp_tool_executions/#{execution_id}")
+          .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
 
         job.execute(execution_id)
       end
@@ -142,7 +142,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
     context 'when execution fails' do
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/mcp_tool_executions/#{execution_id}")
+          .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
           .and_return(success: true, data: { mcp_tool_execution: execution_data })
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(job).to receive(:execute_mcp_tool).and_return(
@@ -171,7 +171,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
     context 'when API request fails' do
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/mcp_tool_executions/#{execution_id}")
+          .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
           .and_return(success: false, error: 'Not found')
       end
 
@@ -186,7 +186,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
       context 'stdio execution' do
         before do
           allow(api_client).to receive(:get)
-            .with("/api/v1/internal/mcp_tool_executions/#{execution_id}")
+            .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
             .and_return(success: true, data: { mcp_tool_execution: execution_data })
           allow(api_client).to receive(:patch).and_return(success: true)
         end
@@ -212,7 +212,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
 
         before do
           allow(api_client).to receive(:get)
-            .with("/api/v1/internal/mcp_tool_executions/#{execution_id}")
+            .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
             .and_return(success: true, data: { mcp_tool_execution: http_execution_data })
           allow(api_client).to receive(:patch).and_return(success: true)
           stub_request(:post, 'http://localhost:3000/tools/call')
@@ -241,7 +241,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
 
         before do
           allow(api_client).to receive(:get)
-            .with("/api/v1/internal/mcp_tool_executions/#{execution_id}")
+            .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
             .and_return(success: true, data: { mcp_tool_execution: ws_execution_data })
           allow(api_client).to receive(:patch).and_return(success: true)
           # Mock the WebSocket library
@@ -267,7 +267,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
 
         before do
           allow(api_client).to receive(:get)
-            .with("/api/v1/internal/mcp_tool_executions/#{execution_id}")
+            .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
             .and_return(success: true, data: { mcp_tool_execution: unknown_execution_data })
           allow(api_client).to receive(:patch).and_return(success: true)
         end
@@ -287,7 +287,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
     context 'when execution raises exception' do
       before do
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/mcp_tool_executions/#{execution_id}")
+          .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
           .and_return(success: true, data: { mcp_tool_execution: execution_data })
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(job).to receive(:execute_mcp_tool).and_raise(StandardError, 'Unexpected error')

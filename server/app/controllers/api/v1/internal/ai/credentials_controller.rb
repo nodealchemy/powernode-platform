@@ -11,6 +11,8 @@ module Api
         # Api::V1::Ai::ProviderCredentialsController#decrypt stays JWT-gated for the
         # dashboard; this is its internal/mTLS counterpart.
         class CredentialsController < InternalBaseController
+          include Api::V1::Internal::WorkerTenancy
+
           before_action :set_credential
 
           # POST /api/v1/internal/ai/credentials/:id/decrypt
@@ -80,7 +82,11 @@ module Api
           # the API key here has no soft-failure mode. Tenancy scoping is safe
           # now; gating identity is not.
           def credential_scope
-            ::Ai::ProviderCredential.where(account_id: current_worker&.account_id)
+            # `worker_account_id` is the single, shared definition of this
+            # anchor (Api::V1::Internal::WorkerTenancy) — a second inline copy of
+            # `current_worker&.account_id` is exactly how this class regenerated
+            # across the namespace.
+            ::Ai::ProviderCredential.where(account_id: worker_account_id)
           end
         end
       end

@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseController
+  include Api::V1::Internal::WorkerTenancy
+
   # Internal API endpoints for MCP server management
   # These endpoints are called by background workers only
 
   # GET /api/v1/internal/mcp_servers
   def index
-    servers = McpServer.all
+    servers = mcp_server_scope
 
     # Filter by status if provided
     servers = servers.where(status: params[:status]) if params[:status].present?
@@ -21,7 +23,7 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
 
   # GET /api/v1/internal/mcp_servers/:id
   def show
-    server = McpServer.find(params[:id])
+    server = mcp_server_scope.find(params[:id])
 
     render_success({
       mcp_server: serialize_server(server, include_config: true)
@@ -35,7 +37,7 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
 
   # PATCH /api/v1/internal/mcp_servers/:id
   def update
-    server = McpServer.find(params[:id])
+    server = mcp_server_scope.find(params[:id])
     server.update!(server_params)
 
     # Broadcast status change if status was updated
@@ -56,7 +58,7 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
 
   # POST /api/v1/internal/mcp_servers/:id/health_result
   def health_result
-    server = McpServer.find(params[:id])
+    server = mcp_server_scope.find(params[:id])
 
     server.update!(
       last_health_check: Time.current,
@@ -83,7 +85,7 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
 
   # POST /api/v1/internal/mcp_servers/:id/register_tools
   def register_tools
-    server = McpServer.find(params[:id])
+    server = mcp_server_scope.find(params[:id])
     tools_registered = 0
 
     Array(params[:tools]).each do |tool_data|
@@ -152,6 +154,17 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
   end
 
   private
+
+  # Tenancy scope: MCP servers owned by the authenticated worker's account.
+  # #show/#index serialize `env` (API keys, tokens, connection secrets) with
+  # include_config, and the write actions mutate the row, so a bare
+  # `McpServer.find`/`.all` disclosed and let a forged worker mutate any
+  # tenant's server by enumerable id. `mcp_servers.account_id` is NOT NULL, so
+  # a nil worker account_id (fail-closed) catches no rows. Cross-account id ->
+  # 404, never 403. See Api::V1::Internal::WorkerTenancy.
+  def mcp_server_scope
+    McpServer.where(account_id: worker_account_id)
+  end
 
   def server_params
     params.permit(

@@ -5,9 +5,11 @@ module Api
     module Internal
       module Devops
         class DockerController < InternalBaseController
+          include Api::V1::Internal::WorkerTenancy
+
           # GET /api/v1/internal/devops/docker/hosts
           def index
-            hosts = ::Devops::DockerHost.auto_syncable
+            hosts = host_scope.auto_syncable
 
             render_success(
               hosts: hosts.map { |h|
@@ -25,7 +27,7 @@ module Api
 
           # GET /api/v1/internal/devops/docker/hosts/:id/connection
           def connection
-            host = ::Devops::DockerHost.find(params[:id])
+            host = host_scope.find(params[:id])
 
             render_success(
               connection: {
@@ -43,7 +45,7 @@ module Api
 
           # POST /api/v1/internal/devops/docker/hosts/:id/sync_results
           def sync_results
-            host = ::Devops::DockerHost.find(params[:id])
+            host = host_scope.find(params[:id])
 
             ActiveRecord::Base.transaction do
               sync_containers(host, params[:containers]) if params[:containers].present?
@@ -69,7 +71,7 @@ module Api
 
           # POST /api/v1/internal/devops/docker/hosts/:id/health_results
           def health_results
-            host = ::Devops::DockerHost.find(params[:id])
+            host = host_scope.find(params[:id])
 
             if params[:status] == "healthy"
               host.record_success!
@@ -103,14 +105,20 @@ module Api
           def create_event
             if params[:action_type] == "cleanup"
               days = (params[:older_than_days] || 30).to_i
+              # Anchored to the calling worker's account: `older_than_days` is
+              # caller-controlled (0/negative purges everything), so an unscoped
+              # delete_all let a forged worker CN destroy EVERY tenant's event
+              # history. devops_docker_events has no account_id column; scope via
+              # the host_scope (worker's own hosts). See WorkerTenancy.
               count = ::Devops::DockerEvent
+                .where(docker_host_id: host_scope.select(:id))
                 .where(acknowledged: true)
                 .where("created_at < ?", days.days.ago)
                 .delete_all
 
               render_success(deleted_count: count)
             else
-              host = ::Devops::DockerHost.find(params[:docker_host_id])
+              host = host_scope.find(params[:docker_host_id])
               event = host.docker_events.create!(
                 event_type: params[:event_type],
                 severity: params[:severity] || "info",
@@ -131,6 +139,18 @@ module Api
           end
 
           private
+
+          # Tenancy scope: docker hosts owned by the authenticated worker's
+          # account. #connection renders `encrypted_tls_credentials` +
+          # `encryption_key_id` (control-plane material), and the sync/health/
+          # event actions mutate host state, so a bare `find` disclosed and let
+          # a forged worker mutate any tenant's host by enumerable id.
+          # `devops_docker_hosts.account_id` is NOT NULL, so a nil worker
+          # account_id (fail-closed) catches no rows. Cross-account id -> 404,
+          # never 403. See Api::V1::Internal::WorkerTenancy.
+          def host_scope
+            ::Devops::DockerHost.where(account_id: worker_account_id)
+          end
 
           def sync_containers(host, containers_data)
             incoming_ids = containers_data.map { |c| c[:docker_container_id] || c["docker_container_id"] }

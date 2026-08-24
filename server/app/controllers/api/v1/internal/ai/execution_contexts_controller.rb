@@ -5,6 +5,8 @@ module Api
     module Internal
       module Ai
         class ExecutionContextsController < InternalBaseController
+          include Api::V1::Internal::WorkerTenancy
+
           # POST /api/v1/internal/ai/execution_contexts
           #
           # Returns a memory-enriched execution context for an agent.
@@ -204,13 +206,14 @@ module Api
           # `current_worker.account`, so a nil/half-provisioned principal narrows
           # to globals only and reaches no tenant-owned row.
           def agent_scope
-            ::Ai::Agent.for_account(current_worker&.account_id)
+            # Shared anchor definition — see Api::V1::Internal::WorkerTenancy.
+            ::Ai::Agent.for_account(worker_account_id)
           end
 
           # `accounts.id` is never NULL, so a nil worker account_id matches no
           # row — the nil principal is denied rather than granted.
           def account_scope
-            Account.where(id: current_worker&.account_id)
+            Account.where(id: worker_account_id)
           end
 
           # Ordered non-Fable reasoning fallbacks for the worker's refusal handler.

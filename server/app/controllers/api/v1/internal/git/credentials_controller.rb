@@ -5,11 +5,16 @@ module Api
     module Internal
       module Git
         class CredentialsController < InternalBaseController
+          include Api::V1::Internal::WorkerTenancy
+
           before_action :set_credential, except: [ :index ]
 
           # GET /api/v1/internal/git/credentials
           def index
-            credentials = ::Devops::GitProviderCredential.includes(:provider)
+            # Constrained to the calling worker's account (credential_scope);
+            # a caller-supplied account_id can only NARROW within it, never
+            # widen to another tenant.
+            credentials = credential_scope.includes(:provider)
             credentials = credentials.where(account_id: params[:account_id]) if params[:account_id].present?
             credentials = credentials.active if params[:active] == "true"
 
@@ -53,9 +58,20 @@ module Api
           private
 
           def set_credential
-            @credential = ::Devops::GitProviderCredential.includes(:provider).find(params[:id])
+            # Anchored to the calling worker's account. #decrypted renders the
+            # PLAINTEXT git token, so a bare `find(params[:id])` disclosed any
+            # account's tokens by enumerable id. Cross-account id -> 404 (not
+            # 403): existence must not leak. See Api::V1::Internal::WorkerTenancy.
+            @credential = credential_scope.includes(:provider).find(params[:id])
           rescue ActiveRecord::RecordNotFound
             render_error("Credential not found", status: :not_found)
+          end
+
+          # Tenancy scope: git credentials owned by the authenticated worker's
+          # account. `git_provider_credentials.account_id` is NOT NULL, so a nil
+          # worker account_id (fail-closed) catches no rows.
+          def credential_scope
+            ::Devops::GitProviderCredential.where(account_id: worker_account_id)
           end
 
           def serialize_credential(credential)

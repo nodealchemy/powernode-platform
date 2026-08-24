@@ -16,8 +16,16 @@ module Mcp
     def execute(execution_id)
       log_info("Starting MCP tool execution", execution_id: execution_id)
 
-      # Fetch execution details from backend API
-      response = api_client.get("/api/v1/internal/mcp_tool_executions/#{execution_id}")
+      # Fetch execution details from backend API. include_server_config=true
+      # asks the backend to include the MCP server's env (secrets) in the nested
+      # server payload — required by the stdio transport
+      # (Mcp::McpTransportClient#execute_stdio_tool). The backend omits env by
+      # default (see Api::V1::Internal::McpToolExecutionsController), so this
+      # opt-in is what keeps stdio execution working.
+      response = api_client.get(
+        "/api/v1/internal/mcp_tool_executions/#{execution_id}",
+        { include_server_config: true }
+      )
 
       unless response[:success]
         log_error("Failed to fetch execution details", nil, execution_id: execution_id)

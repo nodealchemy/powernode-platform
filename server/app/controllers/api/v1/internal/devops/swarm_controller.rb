@@ -5,9 +5,11 @@ module Api
     module Internal
       module Devops
         class SwarmController < InternalBaseController
+          include Api::V1::Internal::WorkerTenancy
+
           # GET /api/v1/internal/devops/swarm/clusters
           def index
-            clusters = ::Devops::SwarmCluster.auto_syncable
+            clusters = cluster_scope.auto_syncable
 
             if params[:auto_sync] == "true"
               clusters = clusters.where(auto_sync: true)
@@ -29,7 +31,7 @@ module Api
 
           # GET /api/v1/internal/devops/swarm/clusters/:id/connection
           def connection
-            cluster = ::Devops::SwarmCluster.find(params[:id])
+            cluster = cluster_scope.find(params[:id])
 
             render_success(
               connection: {
@@ -47,7 +49,7 @@ module Api
 
           # POST /api/v1/internal/devops/swarm/clusters/:id/sync_results
           def sync_results
-            cluster = ::Devops::SwarmCluster.find(params[:id])
+            cluster = cluster_scope.find(params[:id])
 
             ActiveRecord::Base.transaction do
               sync_nodes(cluster, params[:nodes]) if params[:nodes].present?
@@ -73,7 +75,7 @@ module Api
 
           # POST /api/v1/internal/devops/swarm/clusters/:id/health_results
           def health_results
-            cluster = ::Devops::SwarmCluster.find(params[:id])
+            cluster = cluster_scope.find(params[:id])
 
             if params[:status] == "healthy"
               cluster.record_success!
@@ -106,7 +108,7 @@ module Api
 
           # PATCH /api/v1/internal/devops/swarm/deployments/:id
           def update_deployment
-            deployment = ::Devops::SwarmDeployment.find(params[:id])
+            deployment = deployment_scope.find(params[:id])
 
             case params[:status]
             when "running"
@@ -126,14 +128,19 @@ module Api
           def create_event
             if params[:action_type] == "cleanup" || params[:action] == "cleanup"
               days = (params[:older_than_days] || 30).to_i
+              # Anchored to the calling worker's account (see the docker sibling):
+              # caller-controlled retention window over an unscoped delete_all was
+              # a cross-tenant destructive bypass. devops_swarm_events has no
+              # account_id column; scope via cluster_scope. See WorkerTenancy.
               count = ::Devops::SwarmEvent
+                .where(cluster_id: cluster_scope.select(:id))
                 .where(acknowledged: true)
                 .where("created_at < ?", days.days.ago)
                 .delete_all
 
               render_success(deleted_count: count)
             else
-              cluster = ::Devops::SwarmCluster.find(params[:cluster_id])
+              cluster = cluster_scope.find(params[:cluster_id])
               event = cluster.swarm_events.create!(
                 event_type: params[:event_type],
                 severity: params[:severity] || "info",
@@ -154,6 +161,26 @@ module Api
           end
 
           private
+
+          # Tenancy scope: swarm clusters owned by the authenticated worker's
+          # account. #connection renders `encrypted_tls_credentials` +
+          # `encryption_key_id` (cluster-wide control-plane material), and the
+          # sync/health/event actions mutate cluster state, so a bare `find`
+          # disclosed and let a forged worker mutate any tenant's cluster by
+          # enumerable id. `devops_swarm_clusters.account_id` is NOT NULL, so a
+          # nil worker account_id (fail-closed) catches no rows. Cross-account
+          # id -> 404, never 403. See Api::V1::Internal::WorkerTenancy.
+          def cluster_scope
+            ::Devops::SwarmCluster.where(account_id: worker_account_id)
+          end
+
+          # `devops_swarm_deployments` has no `account_id` column; tenancy is
+          # joined through cluster. Same anchor, same fail-closed property.
+          def deployment_scope
+            ::Devops::SwarmDeployment
+              .joins(:cluster)
+              .where(devops_swarm_clusters: { account_id: worker_account_id })
+          end
 
           def sync_nodes(cluster, nodes_data)
             existing_node_ids = cluster.swarm_nodes.pluck(:docker_node_id)

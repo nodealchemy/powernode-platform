@@ -115,10 +115,13 @@ RSpec.describe 'Api::V1::Internal::ApprovalTokens', type: :request do
 
   describe 'POST /api/v1/internal/approval_tokens/:step_execution_id/create_tokens' do
     context 'with service token authentication' do
-      it 'creates approval tokens for recipients with email only' do
+      # SECURITY (offer 01a02aac-195e, DEFECT 2): the recipient set derives from
+      # the step's OWN configured approver policy, NEVER from the request body.
+      # `:with_approval` configures a single approver, approver@example.com.
+      it 'mints for the step-configured approver and IGNORES caller-supplied recipients' do
         recipients = [
-          { 'value' => 'user1@example.com' },
-          { 'value' => 'user2@example.com' }
+          { 'value' => 'attacker1@evil.example' },
+          { 'value' => 'attacker2@evil.example' }
         ]
 
         post "/api/v1/internal/approval_tokens/#{step_execution.id}/create_tokens",
@@ -127,38 +130,34 @@ RSpec.describe 'Api::V1::Internal::ApprovalTokens', type: :request do
              as: :json
 
         expect_success_response
-        response_data = json_response
+        tokens = json_response['data']['tokens']
 
-        expect(response_data['data']['tokens'].size).to eq(2)
-        tokens = response_data['data']['tokens']
-
-        expect(tokens.first).to include(
-          'id',
-          'raw_token',
-          'recipient_email',
-          'expires_at'
-        )
-
-        expect(tokens.first['recipient_email']).to eq('user1@example.com')
-        expect(tokens.second['recipient_email']).to eq('user2@example.com')
+        # One token, for the configured approver — not the two attacker addresses.
+        expect(tokens.size).to eq(1)
+        expect(tokens.first).to include('id', 'raw_token', 'recipient_email', 'expires_at')
+        expect(tokens.first['recipient_email']).to eq('approver@example.com')
+        emails = tokens.map { |t| t['recipient_email'] }
+        expect(emails).not_to include('attacker1@evil.example', 'attacker2@evil.example')
       end
 
-      it 'creates approval tokens for recipients with user_id' do
-        recipients = [
-          { 'email' => user.email, 'user_id' => user.id }
-        ]
+      it 'resolves a user_id-typed approver from the pipeline policy' do
+        pipeline.update!(notification_recipients: [ { 'type' => 'user_id', 'value' => user.id } ])
+        # Step with no step-level override falls back to the pipeline policy.
+        step = create(:devops_pipeline_step, pipeline: pipeline,
+                      requires_approval: true, approval_settings: { 'timeout_hours' => 24 })
+        execution = create(:devops_step_execution, :waiting_approval,
+                           pipeline_run: pipeline_run, pipeline_step: step)
 
-        post "/api/v1/internal/approval_tokens/#{step_execution.id}/create_tokens",
-             params: { recipients: recipients },
+        post "/api/v1/internal/approval_tokens/#{execution.id}/create_tokens",
+             params: { recipients: [ { 'value' => 'attacker@evil.example' } ] },
              headers: internal_headers,
              as: :json
 
         expect_success_response
-        response_data = json_response
-
-        tokens = response_data['data']['tokens']
+        tokens = json_response['data']['tokens']
         expect(tokens.size).to eq(1)
         expect(tokens.first['recipient_email']).to eq(user.email)
+        expect(execution.approval_tokens.first.recipient_user_id).to eq(user.id)
       end
 
       it 'creates tokens with expiration' do
@@ -192,16 +191,21 @@ RSpec.describe 'Api::V1::Internal::ApprovalTokens', type: :request do
         expect(token_data['raw_token']).to be_a(String)
       end
 
-      it 'handles empty recipients array' do
-        post "/api/v1/internal/approval_tokens/#{step_execution.id}/create_tokens",
-             params: { recipients: [] },
+      it 'mints nothing when the step has no configured approvers' do
+        # No step-level recipients and an empty pipeline policy -> no approvers,
+        # regardless of what the caller puts in the body.
+        step = create(:devops_pipeline_step, pipeline: pipeline,
+                      requires_approval: true, approval_settings: { 'timeout_hours' => 24 })
+        execution = create(:devops_step_execution, :waiting_approval,
+                           pipeline_run: pipeline_run, pipeline_step: step)
+
+        post "/api/v1/internal/approval_tokens/#{execution.id}/create_tokens",
+             params: { recipients: [ { 'value' => 'attacker@evil.example' } ] },
              headers: internal_headers,
              as: :json
 
         expect_success_response
-        response_data = json_response
-
-        expect(response_data['data']['tokens']).to eq([])
+        expect(json_response['data']['tokens']).to eq([])
       end
     end
 
