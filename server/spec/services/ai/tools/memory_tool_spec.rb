@@ -5,7 +5,13 @@ require "rails_helper"
 RSpec.describe Ai::Tools::MemoryTool do
   let(:account) { create(:account) }
   let(:agent) { create(:ai_agent, account: account) }
-  let(:tool) { described_class.new(account: account, agent: agent) }
+  # These examples exercise the tool's BEHAVIOUR, not its authorization, and
+  # construct it the way an in-process system caller does — with no user. Since
+  # MemoryTool gained a per-action permission gate (G4), such a caller must opt
+  # in EXPLICITLY: a nil user does not imply internal, because an MCP instance
+  # principal also arrives with none. Authorization itself is pinned separately
+  # in read_gated_tools_action_permission_spec.rb.
+  let(:tool) { described_class.new(account: account, agent: agent, internal: true) }
   let(:pool) { create(:ai_memory_pool, account: account) }
 
   describe ".definition" do

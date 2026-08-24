@@ -4,7 +4,11 @@ require "rails_helper"
 
 RSpec.describe Ai::Tools::SharedKnowledgeTool do
   let(:account) { create(:account) }
-  let(:tool) { described_class.new(account: account) }
+  # Behaviour examples, constructed as an in-process system caller. The
+  # per-action gate (G4) requires that opt-in to be EXPLICIT — a nil user does
+  # not imply internal. Authorization is pinned in
+  # read_gated_tools_action_permission_spec.rb.
+  let(:tool) { described_class.new(account: account, internal: true) }
 
   describe ".action_definitions" do
     it "exposes a tags filter parameter on search_knowledge" do

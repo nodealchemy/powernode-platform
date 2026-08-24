@@ -5,6 +5,28 @@ module Ai
     class LearningTool < BaseTool
       REQUIRED_PERMISSION = "ai.agents.read"
 
+      # === Per-action permission gating (G4) ===
+      #
+      # This tool bundled WRITE and DESTRUCTIVE actions behind a single coarse
+      # REQUIRED_PERMISSION of "ai.agents.read", and performed no check of its
+      # own — so holding a READ permission was sufficient to run every one of
+      # them. Proven by execution before the fix, with row oracles rather than
+      # error strings.
+      #
+      # REST twin: LearningController gates `reinforce` and `promote` on
+      # ai.analytics.manage and the read arms on ai.analytics.read
+      # (learning_controller.rb:408-419).
+      #
+      # Keyed on the action that RUNS, never on the invoked NAME: a user
+      # principal is deliberately not pinned to the tool name
+      # (McpPlatformToolRegistrar#action_pinned_to_name?), so a name-keyed check
+      # is bypassable by supplying a sibling :action.
+      ACTION_PERMISSIONS = {
+        "create_learning" => "ai.analytics.manage",
+        "reinforce_learning" => "ai.analytics.manage"
+      }.freeze
+
+
       def self.definition
         {
           name: "compound_learning",
@@ -65,6 +87,16 @@ module Ai
       protected
 
       def call(params)
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[LearningTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
         case params[:action]
         when "query_learnings" then query_learnings(params)
         when "reinforce_learning" then reinforce_learning(params)
@@ -179,6 +211,27 @@ module Ai
           created_at: learning.created_at&.iso8601
         }
       end
+
+      # Falls back to the class floor for read actions, which the registrar has
+      # already enforced by the time this runs.
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two explicit bypasses, matching the sibling tools' ladder: in-process
+      # callers that opted in with `internal: true`, and an mTLS node principal
+      # whose specific tool name already cleared Mcp::Principal#may_invoke?.
+      # Never inferred from a nil user.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        # Compared against true rather than used for truthiness: nothing on the
+        # MCP path coerces a permission answer.
+        user.has_permission?(required_perm_for(action)) == true
+      end
+
     end
   end
 end

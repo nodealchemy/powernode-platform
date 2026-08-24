@@ -5,6 +5,31 @@ module Ai
     class SharedKnowledgeTool < BaseTool
       REQUIRED_PERMISSION = "ai.agents.read"
 
+      # === Per-action permission gating (G4) ===
+      #
+      # This tool bundled WRITE and DESTRUCTIVE actions behind a single coarse
+      # REQUIRED_PERMISSION of "ai.agents.read", and performed no check of its
+      # own — so holding a READ permission was sufficient to run every one of
+      # them. Proven by execution before the fix, with row oracles rather than
+      # error strings.
+      #
+      # REST twin: TieredMemoryController gates the SharedKnowledge reads
+      # (`shared_knowledge`) on ai.memory.read and every write arm
+      # (`shared_maintenance`, `consolidate_entry`) on ai.memory.write
+      # (tiered_memory_controller.rb:186-193).
+      #
+      # Keyed on the action that RUNS, never on the invoked NAME: a user
+      # principal is deliberately not pinned to the tool name
+      # (McpPlatformToolRegistrar#action_pinned_to_name?), so a name-keyed check
+      # is bypassable by supplying a sibling :action.
+      ACTION_PERMISSIONS = {
+        "create_knowledge" => "ai.memory.write",
+        "update_knowledge" => "ai.memory.write",
+        "promote_knowledge" => "ai.memory.write",
+        "delete_knowledge" => "ai.memory.write"
+      }.freeze
+
+
       def self.definition
         {
           name: "shared_knowledge",
@@ -74,6 +99,16 @@ module Ai
       protected
 
       def call(params)
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[SharedKnowledgeTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
         case params[:action]
         when "search_knowledge" then search_knowledge(params)
         when "create_knowledge" then create_knowledge(params)
@@ -198,6 +233,27 @@ module Ai
         current_index = levels.index(entry.access_level) || 0
         levels[current_index + 1]
       end
+
+      # Falls back to the class floor for read actions, which the registrar has
+      # already enforced by the time this runs.
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two explicit bypasses, matching the sibling tools' ladder: in-process
+      # callers that opted in with `internal: true`, and an mTLS node principal
+      # whose specific tool name already cleared Mcp::Principal#may_invoke?.
+      # Never inferred from a nil user.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        # Compared against true rather than used for truthiness: nothing on the
+        # MCP path coerces a permission answer.
+        user.has_permission?(required_perm_for(action)) == true
+      end
+
     end
   end
 end

@@ -7,6 +7,30 @@ module Ai
 
       REQUIRED_PERMISSION = "ai.agents.read"
 
+      # === Per-action permission gating (G4) ===
+      #
+      # This tool bundled WRITE and DESTRUCTIVE actions behind a single coarse
+      # REQUIRED_PERMISSION of "ai.agents.read", and performed no check of its
+      # own — so holding a READ permission was sufficient to run every one of
+      # them. Proven by execution before the fix, with row oracles rather than
+      # error strings.
+      #
+      # REST twin: KnowledgeGraphController gates reads on
+      # ai.knowledge_graph.read and writes on ai.knowledge_graph.manage
+      # (knowledge_graph_controller.rb:12-14).
+      #
+      # Keyed on the action that RUNS, never on the invoked NAME: a user
+      # principal is deliberately not pinned to the tool name
+      # (McpPlatformToolRegistrar#action_pinned_to_name?), so a name-keyed check
+      # is bypassable by supplying a sibling :action.
+      ACTION_PERMISSIONS = {
+        "upsert_node" => "ai.knowledge_graph.manage",
+        "create_relation" => "ai.knowledge_graph.manage",
+        "bulk_index" => "ai.knowledge_graph.manage",
+        "prune_stale" => "ai.knowledge_graph.manage"
+      }.freeze
+
+
       CODE_ENTITY_TYPES = %w[file directory class module method function variable type_definition interface constant].freeze
       CODE_RELATION_TYPES = %w[imports calls defines inherits implements contains related_to depends_on uses].freeze
 
@@ -95,6 +119,16 @@ module Ai
       protected
 
       def call(params)
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[CodeMemoryTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
         case params[:action]
         when "upsert_node" then upsert_node(params)
         when "create_relation" then create_relation(params)
@@ -353,6 +387,27 @@ module Ai
           confidence: edge.confidence
         }
       end
+
+      # Falls back to the class floor for read actions, which the registrar has
+      # already enforced by the time this runs.
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two explicit bypasses, matching the sibling tools' ladder: in-process
+      # callers that opted in with `internal: true`, and an mTLS node principal
+      # whose specific tool name already cleared Mcp::Principal#may_invoke?.
+      # Never inferred from a nil user.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        # Compared against true rather than used for truthiness: nothing on the
+        # MCP path coerces a permission answer.
+        user.has_permission?(required_perm_for(action)) == true
+      end
+
     end
   end
 end
