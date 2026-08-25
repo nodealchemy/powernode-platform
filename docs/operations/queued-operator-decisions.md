@@ -4,7 +4,7 @@ Decisions the autonomous loop deliberately did **not** take on its own, parked h
 for review. Each states what was verified, what the options are, and a
 recommendation. Nothing here is blocking other work.
 
-_Last updated: 2026-08-25. Items 1 and 3 RESOLVED; item 2 PARKED; item 4 OPEN._
+_Last updated: 2026-08-25. Items 1, 3 and 5 RESOLVED; item 2 PARKED; item 4 OPEN._
 
 ---
 
@@ -112,6 +112,41 @@ more official-looking name.
 
 **Not urgent:** unlike the six escalations closed in G4, nothing here crosses a
 read/write boundary — every option is a write permission.
+
+---
+
+## 5. ~~Why does every core-dispatched build publish but never promote?~~ — RESOLVED: FIXED
+
+Filed as improvement offer `01a0364d` after the symptom recurred three times;
+it recurred a fourth time on 2026-08-25 and was root-caused then. **No operator
+decision was needed** — this was a defect, not a policy question. Recorded here
+because the workaround had been applied four times and an operator reading the
+deploy history would otherwise see four unexplained hand-repointings.
+
+**Cause**: `System::CoreProvenanceGate` refused every core-sourced build. A
+core-sourced batch records its own `head_sha` as `expected_core_sha`, and this
+platform dispatches the short tag form (9 chars); the gate rejects any prefix
+under `MIN_ABBREV_LENGTH = 12`, so the expectation could never match the
+artifact's 40-char annotation.
+
+**Why four deploys missed it**: the refusal reason abbreviated *both* operands
+to 7 characters, printing `built from core b01d7c4 … but this batch expected
+core b01d7c4` — the same string twice.
+
+**Fixed in three places** (extension `system`): the gate now distinguishes an
+inconclusive comparison (`unusable_expectation`, passes + warns) from a
+conclusive one (`mismatch`, still refuses — a *differing* prefix is decisive at
+any length); `NativeModuleBuildOrchestrator#expand_core_sha` resolves a short
+`head_sha` to the full sha at dispatch, which also re-arms the CORE_REF clone
+pin that `config_controller` had been silently declining to set; and refusal
+reasons render both shas at their first differing character.
+
+**Operator-visible change**: a batch whose core expectation cannot be expanded
+(Gitea unreachable at dispatch) now PROMOTES with a warn-level
+`unusable_expectation` rather than refusing. That matches
+`System::CoreMirrorPreflight`, which has always treated the same input as
+non-refusing. If you would rather such a batch hard-fail, that *is* a policy
+question — say so and it becomes item 6.
 
 ---
 
