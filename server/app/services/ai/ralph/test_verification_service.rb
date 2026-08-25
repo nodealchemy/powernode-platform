@@ -152,8 +152,55 @@ module Ai
       end
       private_class_method :declared_tallies
 
+      # Diagnoses a PRESENT declared-evidence attempt that #declared_tallies
+      # would silently drop, so a caller with a real contract to enforce
+      # (DevLoopTool) can REFUSE the call instead of accepting-and-degrading
+      # (IMP-b103e873ee6d). Two symptoms land here on the same path: an
+      # executor naming a framework outside TEST_FRAMEWORK_NAMES ("custom-shell"
+      # for a shell/Go harness), and a tool call whose evidence block was
+      # truncated mid-object by a stray closing tag (dropping "failed" or a
+      # count's type) — both produce an entry #declared_tally rejects, and one
+      # fix here covers both rather than two.
+      #
+      # Returns nil when NOTHING was attempted (no "evidence" key at all —
+      # inference is the intended, silent path for that) or when every entry is
+      # valid. Only DevLoopTool#complete_task consults this: CampaignDriver and
+      # ExecutionService adjudicate free-form evidence with no declared contract
+      # to refuse (see the class comment on #adjudicate_check_results).
+      def self.declared_evidence_problem(check_results)
+        return nil unless check_results.is_a?(Hash)
+
+        raw = check_results["evidence"] || check_results[:evidence]
+        return nil if raw.nil?
+
+        entries = raw.is_a?(Array) ? raw : [ raw ]
+        return "evidence declared as an empty array" if entries.empty?
+
+        problems = entries.each_with_index.filter_map do |entry, i|
+          reason = declared_tally_problem(entry)
+          next unless reason
+
+          entries.size > 1 ? "entry #{i}: #{reason}" : reason
+        end
+        problems.presence&.join("; ")
+      end
+
       def self.declared_tally(entry)
-        return nil unless entry.is_a?(Hash)
+        return nil if declared_tally_problem(entry)
+
+        e = entry.transform_keys(&:to_s)
+        { framework: e["framework"].to_s.strip, passed: e["passed"], failures: e["failed"], declared: true }
+      end
+      private_class_method :declared_tally
+
+      # Single source of truth for "is this one declared entry usable", shared by
+      # #declared_tally (silent nil, for the tolerant adjudication path other
+      # callers rely on) and #declared_evidence_problem (a human-readable reason,
+      # for DevLoopTool to REFUSE on rather than silently degrade — IMP-b103e873ee6d).
+      # Keeping one function means the two can never disagree about what counts as
+      # valid.
+      def self.declared_tally_problem(entry)
+        return "not an object" unless entry.is_a?(Hash)
 
         e = entry.transform_keys(&:to_s)
         framework = e["framework"].to_s.strip
@@ -161,18 +208,21 @@ module Ai
         failed = e["failed"]
         # Both counts required and integral: "passed: 12" alone cannot show that
         # nothing failed, and a string count is a prose tally wearing a contract.
-        return nil if framework.empty?
+        return "missing framework" if framework.empty?
         # Must name a RUNNER. The inference path already refuses to credit a
         # gate/lint summary, and this is the only source that can auto-apply an
         # offer — so "framework": "validate.sh" must not buy what
-        # {"gate" => {...}} cannot. Unknown runners fall back to inference rather
-        # than being trusted.
-        return nil unless TEST_FRAMEWORK_NAMES.include?(framework.downcase.gsub(/[^a-z0-9]/, ""))
-        return nil unless passed.is_a?(Integer) && failed.is_a?(Integer)
+        # {"gate" => {...}} cannot.
+        unless TEST_FRAMEWORK_NAMES.include?(framework.downcase.gsub(/[^a-z0-9]/, ""))
+          return "unrecognized framework #{framework.inspect} — accepted values: #{TEST_FRAMEWORK_NAMES.join(', ')}"
+        end
+        unless passed.is_a?(Integer) && failed.is_a?(Integer)
+          return "passed/failed must both be integers (got passed=#{passed.inspect}, failed=#{failed.inspect})"
+        end
 
-        { framework: framework, passed: passed, failures: failed, declared: true }
+        nil
       end
-      private_class_method :declared_tally
+      private_class_method :declared_tally_problem
 
       # IMP-60f457f6e8a6: structured integer counts are BETTER evidence than a
       # prose tally, yet deep_string_values drops every non-String, so honest

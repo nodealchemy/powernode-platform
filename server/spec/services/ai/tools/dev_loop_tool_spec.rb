@@ -1057,6 +1057,35 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(recommendation.reload.status).to eq("applied")
       expect(Ai::RalphIteration.find_by(ralph_task_id: adj_task.id).checks_passed).to be(true)
     end
+
+    # IMP-b103e873ee6d: dev_complete_task previously accepted a correctly-shaped
+    # declared block naming an unrecognized framework ("custom-shell") and
+    # silently downgraded to inferred — the task passed, but the linked offer
+    # never closed and nothing said why. Refuse instead, naming the accepted
+    # values, and leave the task claimable for a corrected re-report.
+    it "refuses a declared evidence block naming an unrecognized framework, listing accepted values" do
+      result = complete_with({ "evidence" => { "framework" => "custom-shell", "passed" => 6, "failed" => 0 } })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/custom-shell/)
+      expect(result[:error]).to match(/rspec/)
+      expect(adj_task.reload.status).to eq("in_progress")
+      expect(recommendation.reload.status).to eq("approved")
+    end
+
+    # Same silent-fallback shape as the unrecognized-framework case, reached a
+    # different way: a stray closing tag in the tool call truncates the
+    # declared block (e.g. dropping "failed"), which previously fell back to
+    # inference just as silently. One fix (declared_evidence_problem) refuses
+    # both.
+    it "refuses a declared evidence block missing a required integer count" do
+      result = complete_with({ "evidence" => { "framework" => "rspec", "passed" => 173 } })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/integer/i)
+      expect(adj_task.reload.status).to eq("in_progress")
+      expect(recommendation.reload.status).to eq("approved")
+    end
   end
 
   # IMP-5f8a744b8892 — record_injection! at claim depresses effectiveness until

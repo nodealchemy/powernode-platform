@@ -497,6 +497,22 @@ module Ai
         verification = nil
         evidence_source = nil
         if outcome == "passed"
+          # IMP-b103e873ee6d: a PRESENT evidence block that can't be used as
+          # declared (unrecognized framework, or a stray-closing-tag-truncated
+          # shape missing a count) used to fall back to inference silently — the
+          # task still passed, but its offer never closed and nothing said why.
+          # Refuse instead: the executor gets an actionable message and the task
+          # stays claimable for a corrected re-report, rather than shipping a
+          # pass whose evidence contract quietly downgraded.
+          if (problem = ::Ai::Ralph::TestVerificationService.declared_evidence_problem(params[:check_results]))
+            return error_result(
+              "check_results.evidence could not be used as declared evidence (#{problem}). Declaring evidence " \
+              "is optional, but a PRESENT block must be usable — fix it and re-report, or drop the evidence key " \
+              "entirely to let the pass be adjudicated by inference (checks_passed still records, but the linked " \
+              "offer will not auto-apply)."
+            )
+          end
+
           adjudication = ::Ai::Ralph::TestVerificationService.adjudicate_check_results(params[:check_results])
           return error_result(contradiction_error(adjudication)) if adjudication[:verdict] == :contradicted
           verification = adjudication[:verdict]
