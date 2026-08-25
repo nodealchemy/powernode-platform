@@ -10,9 +10,21 @@ RSpec.describe Ai::Security::EncryptedCommunicationService, type: :service do
 
   subject(:service) { described_class.new(account: account) }
 
-  # Clean up Redis session keys after each test
+  # Every Redis handle in this file MUST be Powernode::Redis.client — never a
+  # hand-built `Redis.new(url: ENV.fetch("REDIS_URL", ...))`.
+  #
+  # The service under test writes through Powernode::Redis.client, which under
+  # RAILS_ENV=test is isolated onto TEST_DATABASE (db 15) — the isolation added
+  # after the suite sharing db 0 accumulated 425,484 orphaned keys / 10.6 GB and
+  # took a node down (2026-08-17). A raw handle defaults to db 0, so the spec
+  # wrote nothing there and read back nil.
+  #
+  # Note what that did to the deletion assertion at the bottom of this file: it
+  # asserted a key was absent from a database the service had never written to,
+  # so it PASSED while proving nothing. A wrong-database read fails loudly in
+  # the positive assertions and silently in the negative ones.
   after do
-    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379"))
+    redis = Powernode::Redis.client
     redis.keys("powernode:encrypted_session:*").each { |k| redis.del(k) }
   rescue StandardError
     nil
@@ -29,7 +41,7 @@ RSpec.describe Ai::Security::EncryptedCommunicationService, type: :service do
     it "stores session data in Redis" do
       session_id = service.establish_session!(agent_a: agent_a, agent_b: agent_b)
 
-      redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379"))
+      redis = Powernode::Redis.client
       data = redis.get("powernode:encrypted_session:#{session_id}")
       expect(data).to be_present
 
@@ -48,7 +60,7 @@ RSpec.describe Ai::Security::EncryptedCommunicationService, type: :service do
       task_id = SecureRandom.uuid
       session_id = service.establish_session!(agent_a: agent_a, agent_b: agent_b, task_id: task_id)
 
-      redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379"))
+      redis = Powernode::Redis.client
       data = JSON.parse(redis.get("powernode:encrypted_session:#{session_id}"))
       expect(data["task_id"]).to eq(task_id)
     end
@@ -133,7 +145,7 @@ RSpec.describe Ai::Security::EncryptedCommunicationService, type: :service do
     let(:session_id) { service.establish_session!(agent_a: agent_a, agent_b: agent_b) }
 
     it "uses atomic Redis INCR for sequence numbers" do
-      redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379"))
+      redis = Powernode::Redis.client
       seq_key = "powernode:encrypted_session:#{session_id}:seq"
 
       # Initial value should be "0"
@@ -172,7 +184,7 @@ RSpec.describe Ai::Security::EncryptedCommunicationService, type: :service do
     it "removes session from Redis" do
       service.close_session!(session_id: session_id)
 
-      redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379"))
+      redis = Powernode::Redis.client
       expect(redis.get("powernode:encrypted_session:#{session_id}")).to be_nil
     end
 
