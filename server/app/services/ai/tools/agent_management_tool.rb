@@ -5,6 +5,31 @@ module Ai
     class AgentManagementTool < BaseTool
       REQUIRED_PERMISSION = "ai.agents.execute"
 
+      # === Per-action permission gating (G4 tail) ===
+      #
+      # REST twin: Ai::AgentHelpers#validate_permissions maps destroy ->
+      # ai.agents.delete, create/clone -> ai.agents.create, update -> ai.agents.update,
+      # and accepts ai.agents.execute ONLY for execute/test/pause/resume/archive.
+      # The floor here is ai.agents.execute, so before this map an execute-only
+      # holder could DELETE an agent (measured: Ai::Agent 1 -> 0).
+      #
+      # READ actions are deliberately LEFT ON THE FLOOR rather than mapped down
+      # to their REST read permission. That leaves them stricter than REST,
+      # which is safe; mapping them would LOOSEN a live surface, and this change
+      # is scoped to closing an escalation, not to widening access.
+      #
+      # Keyed on the action that RUNS, never the invoked NAME — a user principal
+      # is not pinned to the name (McpPlatformToolRegistrar#action_pinned_to_name?),
+      # so a name-keyed check is bypassable via a sibling :action.
+      ACTION_PERMISSIONS = {
+        "create_agent" => "ai.agents.create",
+        "update_agent" => "ai.agents.update",
+        "delete_agent" => "ai.agents.delete",
+        "set_agent_autonomy_level" => "ai.agents.update",
+        "update_agent_trust_score" => "ai.agents.update"
+      }.freeze
+
+
       def self.definition
         {
           name: "agent_management",
@@ -123,6 +148,16 @@ module Ai
       protected
 
       def call(params)
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[AgentManagementTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
         case params[:action]
         when "create_agent" then create_agent(params)
         when "list_agents" then list_agents
@@ -490,6 +525,23 @@ module Ai
           account.ai_agents.find_by(slug: identifier) ||
           account.ai_agents.find_by(name: identifier)
       end
+
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two explicit bypasses, matching the sibling tools' ladder: in-process
+      # callers that opted in with `internal: true`, and an mTLS node principal
+      # whose specific tool name already cleared Mcp::Principal#may_invoke?.
+      # Never inferred from a nil user.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        user.has_permission?(required_perm_for(action)) == true
+      end
+
     end
   end
 end

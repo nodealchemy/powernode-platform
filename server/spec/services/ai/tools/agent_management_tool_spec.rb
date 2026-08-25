@@ -4,7 +4,16 @@ require "rails_helper"
 
 RSpec.describe Ai::Tools::AgentManagementTool do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
+  # Behaviour examples; the actor holds what the REST twin requires for these
+  # actions (Ai::AgentHelpers: create -> ai.agents.create, update ->
+  # ai.agents.update, destroy -> ai.agents.delete, execute -> ai.agents.execute).
+  # Authorization is pinned separately in
+  # read_gated_tools_action_permission_spec.rb.
+  let(:user) do
+    create(:user, account: account,
+                  permissions: %w[ai.agents.read ai.agents.execute ai.agents.create
+                                  ai.agents.update ai.agents.delete])
+  end
   let!(:provider) { create(:ai_provider, account: account, is_active: true) }
   let(:tool) { described_class.new(account: account, user: user) }
 

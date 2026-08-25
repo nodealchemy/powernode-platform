@@ -183,6 +183,63 @@ RSpec.describe "read-gated MCP tools: per-action authorization" do
     end
   end
 
+  # ── Escalations behind a WRITE floor (G4 tail) ─────────────────────────────
+  #
+  # These two do not sit behind a READ permission, so they are less severe than
+  # the four above — but the floor is still WEAKER than the action needs, which
+  # is the same defect in a smaller size. Nine tools bundle writes behind one
+  # coarse permission; only these two put a DESTRUCTIVE action behind a verb
+  # that the REST twin does not accept for it. The rest are granularity (their
+  # floor is already the `manage`-class verb) and are deliberately not touched.
+  describe "Ai::Tools::AgentManagementTool" do
+    # REST twin: Ai::AgentHelpers#validate_permissions maps destroy ->
+    # ai.agents.delete, create -> ai.agents.create, update -> ai.agents.update.
+    # The tool's floor is ai.agents.execute, which REST accepts only for
+    # execute/test/pause/resume/archive — never for deleting an agent.
+    let(:executor) { create(:user, account: account, permissions: %w[ai.agents.execute]) }
+    let!(:victim)  { create(:ai_agent, account: account) }
+
+    it "refuses delete_agent from an execute-only holder, and the agent survives" do
+      result = nil
+
+      expect {
+        result = refuse("delete_agent", { "agent_id" => victim.id }, user: executor)
+      }.not_to change { ::Ai::Agent.where(account_id: account.id).count }
+
+      expect_refused(result)
+      expect(::Ai::Agent.find_by(id: victim.id)).to be_present
+    end
+  end
+
+  describe "Ai::Tools::RalphLoopTool" do
+    # REST twin: RalphLoopsController maps destroy -> ai.loops.delete,
+    # update -> ai.loops.update, start/pause/resume/cancel/reset ->
+    # ai.loops.execute. The tool's floor is ai.agents.update — a DIFFERENT
+    # NAMESPACE entirely, so holding an agent permission deletes loops.
+    let(:agent_updater) { create(:user, account: account, permissions: %w[ai.agents.update]) }
+    let!(:loop_row) { create(:ai_ralph_loop, account: account) }
+
+    it "refuses delete_ralph_loop from an ai.agents.update holder, and the loop survives" do
+      result = nil
+
+      expect {
+        result = refuse("delete_ralph_loop", { "loop_id" => loop_row.id }, user: agent_updater)
+      }.not_to change { ::Ai::RalphLoop.where(account_id: account.id).count }
+
+      expect_refused(result)
+      expect(::Ai::RalphLoop.find_by(id: loop_row.id)).to be_present
+    end
+
+    it "permits delete_ralph_loop for a holder of ai.loops.delete" do
+      loops_admin = create(:user, account: account,
+                                  permissions: %w[ai.agents.update ai.loops.delete])
+
+      result = run("delete_ralph_loop", { "loop_id" => loop_row.id }, user: loops_admin)
+
+      expect(result[:error].to_s).not_to match(/permission|denied|requires/i)
+    end
+  end
+
   # The escalation is only closed if the WRITE permission actually opens the
   # write actions again — otherwise the fix is just a wall.
   describe "a holder of the write permission is not locked out" do

@@ -4,7 +4,18 @@ require "rails_helper"
 
 RSpec.describe Ai::Tools::RalphLoopTool do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
+  # NOT the account's first user — the ralph-loop factory creates one first, so
+  # this actor gets the `member` role rather than `owner`. These examples
+  # exercise the tool's BEHAVIOUR, so the actor is given the permissions the
+  # REST twin requires for those actions (RalphLoopsController: update ->
+  # ai.loops.update, destroy -> ai.loops.delete, pause/resume -> ai.loops.execute).
+  # Authorization itself is pinned separately in
+  # read_gated_tools_action_permission_spec.rb.
+  let(:user) do
+    create(:user, account: account,
+                  permissions: %w[ai.agents.update ai.loops.read ai.loops.update
+                                  ai.loops.delete ai.loops.execute])
+  end
   let(:tool) { described_class.new(account: account, user: user) }
   let(:ralph_loop) { create(:ai_ralph_loop, account: account, name: "spec-loop") }
 

@@ -7,6 +7,31 @@ module Ai
     class RalphLoopTool < BaseTool
       REQUIRED_PERMISSION = "ai.agents.update"
 
+      # === Per-action permission gating (G4 tail) ===
+      #
+      # REST twin: RalphLoopsController maps destroy -> ai.loops.delete,
+      # update -> ai.loops.update and start/pause/resume/cancel/reset ->
+      # ai.loops.execute. The floor here is ai.agents.update — a DIFFERENT
+      # NAMESPACE — so before this map an agent permission deleted loops
+      # (measured: Ai::RalphLoop 1 -> 0).
+      #
+      # READ actions are deliberately LEFT ON THE FLOOR rather than mapped down
+      # to their REST read permission. That leaves them stricter than REST,
+      # which is safe; mapping them would LOOSEN a live surface, and this change
+      # is scoped to closing an escalation, not to widening access.
+      #
+      # Keyed on the action that RUNS, never the invoked NAME — a user principal
+      # is not pinned to the name (McpPlatformToolRegistrar#action_pinned_to_name?),
+      # so a name-keyed check is bypassable via a sibling :action.
+      ACTION_PERMISSIONS = {
+        "delete_ralph_loop" => "ai.loops.delete",
+        "update_ralph_loop" => "ai.loops.update",
+        "pause_ralph_loop" => "ai.loops.execute",
+        "resume_ralph_loop" => "ai.loops.execute",
+        "reopen_ralph_loop" => "ai.loops.execute"
+      }.freeze
+
+
       def self.definition
         {
           name: "ralph_loop",
@@ -84,6 +109,16 @@ module Ai
       protected
 
       def call(params)
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[RalphLoopTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
         return { success: false, error: "User context required" } unless user
 
         case params[:action]
@@ -245,6 +280,23 @@ module Ai
       def account
         user.account
       end
+
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two explicit bypasses, matching the sibling tools' ladder: in-process
+      # callers that opted in with `internal: true`, and an mTLS node principal
+      # whose specific tool name already cleared Mcp::Principal#may_invoke?.
+      # Never inferred from a nil user.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        user.has_permission?(required_perm_for(action)) == true
+      end
+
     end
   end
 end
