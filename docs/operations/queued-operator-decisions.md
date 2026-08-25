@@ -4,7 +4,7 @@ Decisions the autonomous loop deliberately did **not** take on its own, parked h
 for review. Each states what was verified, what the options are, and a
 recommendation. Nothing here is blocking other work.
 
-_Last updated: 2026-08-24. Items 1 and 3 are RESOLVED; item 2 is PARKED._
+_Last updated: 2026-08-25. Items 1 and 3 RESOLVED; item 2 PARKED; item 4 OPEN._
 
 ---
 
@@ -83,6 +83,35 @@ COMMAND_REGISTRY on the strength of a zero lifetime row count, but
 `NodeInstanceGating#control_or_error` produces them with the command as a
 VARIABLE, invisible to a literal grep. Zero rows proved UNUSED, not
 UNREACHABLE. Restored and pinned.
+
+---
+
+## 4. What permission should `approve_improvement` require? (no REST twin)
+
+**Tool:** `server/app/services/ai/tools/improvement_tool.rb` · surfaced by the
+G4 per-action permission sweep.
+
+`ImprovementTool`'s floor is `ai.agents.update`, and `approve_improvement` sits
+behind it. That is plausibly under-gated: approving an offer **promotes it into
+a dev-loop task that executes code changes**, which is materially more than
+updating an agent. `revert_improvement` and the `enable_autonomy` /
+`disable_autonomy` pair are in the same bucket.
+
+**Why this was not fixed with the rest of G4.** Every other tool in that sweep
+was mapped to its REST twin's permission — parity established from evidence, not
+taste. Improvements have **no REST controller**, so there is no twin to match.
+Choosing a permission here would be *inventing* parity, and a wrong guess either
+locks operators out of the improvement pipeline or leaves the gap open under a
+more official-looking name.
+
+| Option | Consequence |
+|---|---|
+| Introduce `ai.improvements.approve` (or `.manage`) | Honest and specific; needs adding to the permission catalog and granting to whoever currently approves. Highest fidelity, most setup. |
+| Reuse `ai.loops.create` | Approving mints a dev-loop task, so this names the real consequence with an existing permission. No catalog change. |
+| Leave on `ai.agents.update` | Status quo. Anyone who can update an agent can queue executable work. |
+
+**Not urgent:** unlike the six escalations closed in G4, nothing here crosses a
+read/write boundary — every option is a write permission.
 
 ---
 
