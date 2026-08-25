@@ -148,6 +148,20 @@ reasons render both shas at their first differing character.
 non-refusing. If you would rather such a batch hard-fail, that *is* a policy
 question — say so and it becomes item 6.
 
+**Confirmed fixed**, deployed as module v69. A/B holding the commit range
+constant and varying only the sha form: batch `01a03760` dispatched with an
+8-char head_sha recorded a 40-char `expected_core_sha`, and its
+`system.module_published` carried `promoted: true` — against `promoted: false`
+on both short-sha batches before the fix.
+
+**Also done, and worth knowing since it moved a shared branch**: `develop` was
+fast-forwarded to the working branch on BOTH repos (core + extension) and BOTH
+remotes (Gitea + the GitHub mirror). This was required, not incidental — for a
+Class-B module the parent's submodule pointer selects the entire extension
+payload, and stage15 clones the mirror's DEFAULT branch, so a build could not
+contain the fix until `develop` carried it. Strict fast-forward of
+already-gate-verified commits, no merge commit, no history rewrite.
+
 ---
 
 ## Corrections recorded (no decision needed)
