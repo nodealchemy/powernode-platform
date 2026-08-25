@@ -99,6 +99,7 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
     echo -e "${YELLOW}  └─ SKIP all extension specs (--skip-extension-specs). Platform specs alone do NOT cover extensions.${NC}"
   else
     RSPEC_OPTOUT_FILE="$PROJECT_ROOT/scripts/rspec-check-optouts.txt"
+    EXT_SKIP_NOTES=()
     for ext_spec in "$PROJECT_ROOT"/extensions/*/server/spec "$PROJECT_ROOT"/extensions/private/*/server/spec; do
       [[ -d "$ext_spec" ]] || continue
       # No *_spec.rb means nothing to run; not a gap.
@@ -131,8 +132,35 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
         "$PROJECT_ROOT"/extensions/private/*)
           if [[ -f "$PROJECT_ROOT/server/Gemfile.private" ]]; then
             ext_bundle="$PROJECT_ROOT/server/Gemfile.private"
+
+            # A loadable bundle is necessary but NOT sufficient (IMP-d4583399ba5c):
+            # db:schema:load/db:prepare load the core-only schema.rb and mark every
+            # migration version <= the schema version as already-applied via
+            # assume_migrated_upto_version, WITHOUT running this extension's own
+            # engine migrations — so its tables are silently absent from a test DB
+            # never built by scripts/prepare-extension-test-db.sh, even though the
+            # bundle above loaded cleanly. Left unchecked, that produces hundreds of
+            # PG::UndefinedTable failures indistinguishable from a real regression
+            # (measured: 851 on the business extension). Check the real
+            # precondition — are THIS extension's migrations actually recorded in
+            # schema_migrations — instead of a wall of cascading spec failures.
+            ext_migrate_dir="$(dirname "$ext_spec")/db/migrate"
+            # `|| true` is load-bearing under `set -eo pipefail`: the checker
+            # deliberately exit 1s on STALE, and a bare `var="$(cmd)"` assignment
+            # is NOT exempt from `set -e` when cmd fails — without this, the one
+            # case this whole feature exists to catch (stale private-extension
+            # migrations) would abort the ENTIRE validate.sh run right here,
+            # silently skipping TS/pattern/secrets checks too, instead of
+            # gracefully skipping just this extension's specs.
+            migration_status="$("$SCRIPT_DIR/check-extension-bundle-migrations.sh" "$ext_migrate_dir" || true)"
+            if [[ "$migration_status" != "OK" ]]; then
+              echo -e "${YELLOW}  └─ SKIP extensions/$ext_slug specs SKIPPED (private bundle not migrated: ${migration_status}) — run 'bash scripts/prepare-extension-test-db.sh'${NC}"
+              EXT_SKIP_NOTES+=("extensions/$ext_slug specs SKIPPED (private bundle not migrated)")
+              continue
+            fi
           else
-            echo -e "${YELLOW}  └─ SKIP extensions/$ext_slug — private extension present but server/Gemfile.private is missing; run 'cd server && BUNDLE_GEMFILE=Gemfile.private bundle install'${NC}"
+            echo -e "${YELLOW}  └─ SKIP extensions/$ext_slug specs SKIPPED (private bundle not loaded) — run 'cd server && BUNDLE_GEMFILE=Gemfile.private bundle install'${NC}"
+            EXT_SKIP_NOTES+=("extensions/$ext_slug specs SKIPPED (private bundle not loaded)")
             continue
           fi
           ;;
@@ -157,6 +185,12 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
     RESULTS+=("${RED}FAIL${NC} Backend specs")
     OVERALL_EXIT=1
   fi
+  # Surface any precondition-skipped private extension explicitly in the
+  # summary, distinct from PASS/FAIL — a skip nobody sees in the final tally
+  # stops being a decision and reads as an accidental pass (IMP-d4583399ba5c).
+  for note in "${EXT_SKIP_NOTES[@]:-}"; do
+    [[ -n "$note" ]] && RESULTS+=("${YELLOW}SKIP${NC} $note")
+  done
   echo ""
 else
   RESULTS+=("${YELLOW}SKIP${NC} Backend specs")
