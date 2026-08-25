@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_24_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8611,9 +8611,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_24_100000) do
     t.string "encryption_key_id"
     t.datetime "migrated_to_vault_at"
     t.uuid "node_instance_id", null: false
+    t.string "provider_type", default: "anthropic", null: false
     t.datetime "updated_at", null: false
     t.string "vault_path_credentials"
-    t.index ["node_instance_id"], name: "index_system_claude_code_credentials_on_node_instance_id", unique: true
+    t.index ["node_instance_id", "provider_type"], name: "index_system_cc_credentials_on_instance_and_provider", unique: true
   end
 
   create_table "system_cve_exposures", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
