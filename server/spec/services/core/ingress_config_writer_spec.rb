@@ -326,11 +326,19 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
   # forward the CN. The host-login ingress carries clientAuth ONLY when this
   # node has enrolled (agent CA on disk); pure core mode is unchanged.
   describe "worker mTLS (host-login clientAuth + pass-tls-client-cert)" do
+    # Both CA-source env vars are controlled here, not just WORKER_PKI_DIR.
+    # POWERNODE_CA_LOCAL_DIR is set suite-wide (spec/support/internal_ca_store.rb)
+    # so the CA has a writable store, which would otherwise leak a real local CA
+    # into the examples below that assert its ABSENCE ("pure core mode"). Each
+    # example opts back in explicitly when it wants one.
     around do |ex|
-      orig = ENV["WORKER_PKI_DIR"]
+      orig_pki   = ENV["WORKER_PKI_DIR"]
+      orig_local = ENV["POWERNODE_CA_LOCAL_DIR"]
+      ENV.delete("POWERNODE_CA_LOCAL_DIR")
       ex.run
     ensure
-      orig.nil? ? ENV.delete("WORKER_PKI_DIR") : (ENV["WORKER_PKI_DIR"] = orig)
+      orig_pki.nil?   ? ENV.delete("WORKER_PKI_DIR")        : (ENV["WORKER_PKI_DIR"] = orig_pki)
+      orig_local.nil? ? ENV.delete("POWERNODE_CA_LOCAL_DIR") : (ENV["POWERNODE_CA_LOCAL_DIR"] = orig_local)
     end
 
     let(:ca_pem) do

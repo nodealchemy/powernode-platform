@@ -644,6 +644,14 @@ module Core
       def client_auth_ca_sources
         sources = [ File.join(ENV["WORKER_PKI_DIR"].presence || AGENT_PKI_DIR_DEFAULT, "ca-chain.crt") ]
         if (local_dir = ENV["POWERNODE_CA_LOCAL_DIR"].presence)
+          # v2 layout: `live` is a symlink to an immutable version dir holding
+          # chain.crt (this CA plus every ancestor, anchor last). Read through
+          # the symlink — File.join follows it, and the dedupe below makes a
+          # deeper chain idempotent against the agent chain above.
+          sources << File.join(local_dir, "live", "chain.crt")
+          # v1 layout, still read while the legacy store is supported. Deleted
+          # with the layout after the cutover, not before: every deployment in
+          # existence holds this shape today.
           sources << File.join(local_dir, "root.crt")
         end
         sources
