@@ -26,7 +26,9 @@ RSpec.describe Mcp::Principal do
       expect(p.user).to eq(user)
       expect(p.node_instance).to be_nil
       expect(p.subject_id).to eq(user.id)
-      expect(p.capability_scope).to be_nil
+      # A user principal is unrestricted: no tool-pattern gate applies.
+      expect(p.restricted?).to be(false)
+      expect(p.may_invoke?("platform.anything")).to be(true)
     end
   end
 
@@ -46,13 +48,30 @@ RSpec.describe Mcp::Principal do
       expect(p.account).to eq(account)
       expect(p.node_instance).to eq(fake_instance)
       expect(p.subject_id).to eq("inst-1")
-      expect(p.capability_scope).to eq(%w[system.read fleet.read])
     end
 
-    it "scopes to an empty capability set when the instance declares none (default-deny)" do
+    # DEFAULT-DENY is a property of the injected GRANT RESOLVER, not of the
+    # instance's self-declared capabilities. An instance that declares nothing is
+    # denied; so is one that declares everything but was granted nothing.
+    it "denies every tool when no grant resolver is injected (default-deny)" do
       bare = instance_double("NodeInstance", id: "inst-2", account: account, declared_capabilities: nil)
       described_class.instance_resolver = ->(_cn) { bare }
-      expect(described_class.for_instance_cn("inst-2").capability_scope).to eq([])
+      described_class.tool_grant_resolver = nil
+
+      p = described_class.for_instance_cn("inst-2")
+      expect(p.granted_tool_patterns).to eq([])
+      expect(p.may_invoke?("platform.health")).to be(false)
+    end
+
+    it "ignores self-declared capabilities the grant resolver did not grant" do
+      boastful = instance_double("NodeInstance", id: "inst-3", account: account,
+                                 declared_capabilities: %w[platform.* system.*])
+      described_class.instance_resolver = ->(_cn) { boastful }
+      described_class.tool_grant_resolver = ->(_i) { [ "platform.health" ] }
+
+      p = described_class.for_instance_cn("inst-3")
+      expect(p.may_invoke?("platform.health")).to be(true)
+      expect(p.may_invoke?("platform.kb_publish")).to be(false)
     end
 
     it "returns nil when the CN does not resolve" do
@@ -134,8 +153,8 @@ RSpec.describe Mcp::Principal do
       expect(kept.map { |t| t["name"] }).to eq(%w[platform.system_list_templates])
     end
 
-    it "exposes allowed_capabilities as its capability_scope" do
-      expect(principal.capability_scope).to eq([ "platform.system_list_*", "platform.health" ])
+    it "scopes tool authorization to allowed_capabilities via granted_tool_patterns" do
+      expect(principal.granted_tool_patterns).to eq([ "platform.system_list_*", "platform.health" ])
     end
   end
 end

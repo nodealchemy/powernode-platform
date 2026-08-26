@@ -240,17 +240,6 @@ module Mcp
       instance? || federation?
     end
 
-    # The capability tokens used to scope the tool catalog. nil => unrestricted
-    # (users keep their existing permission-based behavior). For an instance, its
-    # declared capabilities (an empty list scopes to read-shape/introspection
-    # tools — default-deny on mutating tools).
-    def capability_scope
-      return nil if user?
-      return Array(federation_partner&.allowed_capabilities).map(&:to_s) if federation?
-
-      Array(node_instance.try(:declared_capabilities)).map(&:to_s)
-    end
-
     # nil-safe tool authorization. Users are unrestricted (existing permission
     # behavior). Instances are DEFAULT-DENY: a tool is invocable only when it
     # matches one of the instance's granted patterns (from the injected
