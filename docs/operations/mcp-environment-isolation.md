@@ -202,24 +202,9 @@ never-used and rare-destructive verbs change behavior.
 
 ## 5. What this does NOT protect against
 
-- **Bash-level bypass**: the proxy on 127.0.0.1:18443 is unauthenticated locally and
-  `Bash(curl:*)` is allow-listed — a hand-rolled `curl` `tools/call` skips MCP permission rules
-  entirely. Only the server-side grant (layer 1) catches it. Same for direct authenticated calls
-  to `https://ops-hub.ipnode.us`.
-- **Verbs that stay granted**: a mis-prefixed `deploy_platform` / `promote_module_version` /
-  `abort_task` is still a production action. The design shrinks the dangerous surface; it cannot
-  eliminate verbs the workflow legitimately needs.
-- **Self-regrant until fixed**: while `system_grant_instance_mcp_tools` remains in the instance
-  grant, a sufficiently confused (or injected) agent can re-widen the grant with one deliberate
-  call.
-- **Other principals**: user-principal sessions (frontend, admin connectors) get the full catalog
-  by design; nothing here constrains them.
-- **Other machines/sessions**: user-scope deny rules live on this machine only; another cell with
-  its own proxy needs the same grant trim (which is why layer 1 is primary).
-- **Non-MCP channels**: `psql` to the wrong DB, `ssh`, `qm` — the prod/sandbox confusion class is
-  broader than MCP.
-- **Stale docs/config drift**: nothing stops a future edit re-adding a lookalike server; the
-  deleted decoy blocks only stay deleted by convention.
+> Moved to the maintainer-local `CLAUDE.local.md` (gitignored). This section enumerated
+> currently-unmitigated bypasses of a live control plane; that belongs in operator-local
+> notes, not a public repository. The levers themselves are described in §2 and §4 above.
 
 ## 6. Verification notes (for whoever implements)
 
@@ -399,14 +384,4 @@ config surface.
 
 ## 13. What Part II does NOT protect against (delta to §5)
 
-- Everything in §5 except the "`curl` through the proxy" item, which proxy policy now covers.
-- **Direct-to-upstream bypass**: a process with its own credentials calling
-  `https://ops-hub.ipnode.us` or a peer directly never meets the proxy. Only layer 1 / the
-  destination's own gates apply.
-- **Prefix confusion between registered destinations**: still possible by construction; bounded,
-  not eliminated, by layers 1–3.
-- **Older-protocol header lying** on policy routes until the version pin (or body parsing) from
-  §11 is in place.
-- **A compromised proxy**: it holds every destination credential; its integrity is now
-  load-bearing for all three trust domains. Root-only config, minimal diff review, and the
-  existing "never log bodies" discipline are the mitigations, not guarantees.
+> Moved to the maintainer-local `CLAUDE.local.md`, same reasoning as §5.
