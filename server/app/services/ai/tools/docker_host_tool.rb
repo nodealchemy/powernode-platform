@@ -5,7 +5,37 @@ module Ai
     class DockerHostTool < BaseTool
       include Concerns::DockerContextResolvable
 
-      REQUIRED_PERMISSION = "docker.hosts.read"
+      # SECURITY (IMP-48abfa2f9e74): this floor used to be "docker.hosts.read", a
+      # name that appears ZERO times in config/permissions.rb. User#has_permission?
+      # is an exact match on a role_permissions row plus a system.admin
+      # short-circuit, so no row can ever exist for an undeclared name: every action
+      # on this class was super-admin-only while tools/list advertised the whole
+      # surface to everyone. b7598df74 created the devops.* family and moved the
+      # REST twin onto it (Api::V1::Devops::Docker::HostsController); this class was
+      # missed by that sweep. Retargeted onto the same declared family, at the same
+      # read/manage split the twin uses action for action.
+      REQUIRED_PERMISSION = "devops.docker.read"
+
+      # The floor retarget ALONE would be an escalation: pointing it at a read
+      # permission newly grants every read holder the write/exec actions sitting
+      # behind it. ACTION_PERMISSIONS raises each of those to the manage tier,
+      # enforced against the action that RUNS — never against the invoked name,
+      # since a user principal is not pinned to it
+      # (McpPlatformToolRegistrar#action_pinned_to_name?) and can supply a sibling
+      # :action. Actions ABSENT from this map sit at the floor deliberately:
+      #
+      #   docker_test_host stays at the READ floor on purpose. It is a
+      #     connectivity probe — HostManager#test_connection pings, reads
+      #     /info, then records connection bookkeeping
+      #     (record_success!/record_failure!). No host mutation. b7598df74
+      #     classified the identical hosts#test_connection action as read for
+      #     exactly that reason; following the precedent, not the verb's name.
+      #   docker_sync_host is manage: HostManager#sync_host rewrites the
+      #     account's container and image rows from the daemon, and hosts#sync
+      #     is gated devops.docker.manage.
+      ACTION_PERMISSIONS = {
+        "docker_sync_host" => "devops.docker.manage"
+      }.freeze
 
       def self.definition
         {
@@ -48,6 +78,16 @@ module Ai
       protected
 
       def call(params)
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[DockerHostTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
         case params[:action]
         when "docker_list_hosts" then list_hosts(params)
         when "docker_get_host" then get_host(params)
@@ -64,6 +104,28 @@ module Ai
       end
 
       private
+
+      # Falls back to the class floor for the read actions, which the registrar has
+      # already enforced by the time this runs.
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two explicit bypasses, matching the sibling tools' ladder (MemoryTool,
+      # AgentAutonomyTool, SharedKnowledgeTool): in-process callers that opted in
+      # with `internal: true`, and an mTLS node principal whose specific tool name
+      # already cleared Mcp::Principal#may_invoke? and whose action the registrar
+      # pinned to that same name. Never inferred from a nil user.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        # Compared against true rather than used for truthiness: nothing on the MCP
+        # path coerces a permission answer, and a truthy non-boolean must not read
+        # as a grant.
+        user.has_permission?(required_perm_for(action)) == true
+      end
 
       def list_hosts(_params)
         hosts = account.devops_docker_hosts.order(:name)

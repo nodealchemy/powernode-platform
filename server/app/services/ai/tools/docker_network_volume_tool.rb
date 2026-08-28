@@ -5,7 +5,40 @@ module Ai
     class DockerNetworkVolumeTool < BaseTool
       include Concerns::DockerContextResolvable
 
-      REQUIRED_PERMISSION = "swarm.networks.read"
+      # SECURITY (IMP-48abfa2f9e74): this floor used to be "swarm.networks.read", a
+      # name that appears ZERO times in config/permissions.rb. User#has_permission?
+      # is an exact match on a role_permissions row plus a system.admin
+      # short-circuit, so no row can ever exist for an undeclared name: every action
+      # on this class was super-admin-only while tools/list advertised the whole
+      # surface to everyone. b7598df74 created the devops.* family and moved the
+      # REST twin onto it (Api::V1::Devops::Swarm::{Networks,Volumes}Controller); this class was
+      # missed by that sweep. Retargeted onto the same declared family, at the same
+      # read/manage split the twin uses action for action.
+      REQUIRED_PERMISSION = "devops.swarm.read"
+
+      # The floor retarget ALONE would be an escalation: pointing it at a read
+      # permission newly grants every read holder the write/exec actions sitting
+      # behind it. ACTION_PERMISSIONS raises each of those to the manage tier,
+      # enforced against the action that RUNS — never against the invoked name,
+      # since a user principal is not pinned to it
+      # (McpPlatformToolRegistrar#action_pinned_to_name?) and can supply a sibling
+      # :action. Actions ABSENT from this map sit at the floor deliberately:
+      #
+      #   FAMILY CHOICE: networks and volumes exist in BOTH the plain-Docker and
+      #   the Swarm worlds, and b7598df74 left two REST twins (devops/docker/*
+      #   and devops/swarm/*). This class resolves its context with
+      #   DockerContextResolvable#resolve_cluster (account.devops_swarm_clusters)
+      #   and drives NetworkManager/VolumeManager with `cluster:`, so its twin is
+      #   the SWARM pair — devops.swarm.*, not devops.docker.*.
+      #
+      #   docker_list_networks / docker_list_volumes stay at the read floor (twin
+      #     index/show); create and delete take manage (twin create/destroy).
+      ACTION_PERMISSIONS = {
+        "docker_create_network" => "devops.swarm.manage",
+        "docker_delete_network" => "devops.swarm.manage",
+        "docker_create_volume" => "devops.swarm.manage",
+        "docker_delete_volume" => "devops.swarm.manage"
+      }.freeze
 
       def self.definition
         {
@@ -79,6 +112,16 @@ module Ai
       protected
 
       def call(params)
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[DockerNetworkVolumeTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
         case params[:action]
         when "docker_list_networks" then list_networks(params)
         when "docker_create_network" then create_network(params)
@@ -97,6 +140,28 @@ module Ai
       end
 
       private
+
+      # Falls back to the class floor for the read actions, which the registrar has
+      # already enforced by the time this runs.
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two explicit bypasses, matching the sibling tools' ladder (MemoryTool,
+      # AgentAutonomyTool, SharedKnowledgeTool): in-process callers that opted in
+      # with `internal: true`, and an mTLS node principal whose specific tool name
+      # already cleared Mcp::Principal#may_invoke? and whose action the registrar
+      # pinned to that same name. Never inferred from a nil user.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        # Compared against true rather than used for truthiness: nothing on the MCP
+        # path coerces a permission answer, and a truthy non-boolean must not read
+        # as a grant.
+        user.has_permission?(required_perm_for(action)) == true
+      end
 
       # --- Networks ---
 

@@ -17,8 +17,13 @@ RSpec.describe Ai::Tools::KubernetesClusterTool do
       )
     end
 
+    # IMP-48abfa2f9e74: retargeted off "kubernetes.clusters.read", which was
+    # never in the permissions catalog (so it matched no role_permissions row and
+    # silently degraded the whole class to super-admin-only), onto the declared
+    # devops.kubernetes.* family the REST twin already uses.
     it "scopes to read-level permission" do
-      expect(described_class::REQUIRED_PERMISSION).to eq("kubernetes.clusters.read")
+      expect(described_class::REQUIRED_PERMISSION).to eq("devops.kubernetes.read")
+      expect(Permissions.permission_exists?(described_class::REQUIRED_PERMISSION)).to be(true)
     end
   end
 

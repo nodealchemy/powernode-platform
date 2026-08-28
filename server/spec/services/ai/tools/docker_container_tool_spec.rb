@@ -4,7 +4,18 @@ require "rails_helper"
 
 RSpec.describe Ai::Tools::DockerContainerTool do
   let(:account) { create(:account) }
-  let(:tool) { described_class.new(account: account) }
+
+  # IMP-48abfa2f9e74 added a per-action ACTION_PERMISSIONS ladder to this class:
+  # docker_create_container now requires devops.docker.manage, enforced inside
+  # #call against the action that runs (not only by the registrar floor). These
+  # examples are about HostConfig.Runtime plumbing, not authorization, so the
+  # tool is constructed with a caller that legitimately holds the manage
+  # permission. A nil-user, non-internal caller is refused by design — the same
+  # stance the sibling ladders (MemoryTool, AgentAutonomyTool) take.
+  let(:tool_user) do
+    create(:user, account: account, permissions: %w[devops.docker.read devops.docker.manage])
+  end
+  let(:tool) { described_class.new(account: account, user: tool_user) }
 
   describe "docker_create_container — OCI runtime (L0 isolation consumption)" do
     let(:host) { double("DockerHost") }

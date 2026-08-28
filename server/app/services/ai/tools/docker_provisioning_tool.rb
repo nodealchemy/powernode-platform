@@ -23,7 +23,16 @@ module Ai
     # first is the agent's own heartbeat promotion (a heartbeat that parks for
     # approval is an outage), the second is a read.
     class DockerProvisioningTool < BaseTool
-      REQUIRED_PERMISSION = "docker.hosts.manage"
+      # SECURITY (IMP-48abfa2f9e74): this floor used to be "docker.hosts.manage", a
+      # name that appears ZERO times in config/permissions.rb. User#has_permission?
+      # is an exact match on a role_permissions row plus a system.admin
+      # short-circuit, so no row can ever exist for an undeclared name: every action
+      # on this class was super-admin-only while tools/list advertised the whole
+      # surface to everyone. b7598df74 created the devops.* family and moved the
+      # REST twin onto it (Api::V1::Devops::Docker::HostsController); this class was
+      # missed by that sweep. Retargeted onto the same declared family, at the same
+      # read/manage split the twin uses action for action.
+      REQUIRED_PERMISSION = "devops.docker.manage"
 
       def self.definition
         {

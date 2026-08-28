@@ -12,7 +12,16 @@ module Ai
     # DockerHostTool surface, docker.hosts.manage for the provisioning
     # surface.
     class KubernetesClusterTool < BaseTool
-      REQUIRED_PERMISSION = "kubernetes.clusters.read"
+      # SECURITY (IMP-48abfa2f9e74): this floor used to be "kubernetes.clusters.read", a
+      # name that appears ZERO times in config/permissions.rb. User#has_permission?
+      # is an exact match on a role_permissions row plus a system.admin
+      # short-circuit, so no row can ever exist for an undeclared name: every action
+      # on this class was super-admin-only while tools/list advertised the whole
+      # surface to everyone. b7598df74 created the devops.* family and moved the
+      # REST twin onto it (Api::V1::Devops::Kubernetes::{Clusters,Nodes}Controller); this class was
+      # missed by that sweep. Retargeted onto the same declared family, at the same
+      # read/manage split the twin uses action for action.
+      REQUIRED_PERMISSION = "devops.kubernetes.read"
 
       def self.definition
         {
