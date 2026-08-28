@@ -199,7 +199,11 @@ module Ai
         # Re-read driver_kind: a concurrent #delegate may have just reassigned this loop, so
         # the in-memory copy from find_loop could be stale.
         loop_record.reload
-        return nil if loop_record.driver_kind.blank? # legacy / not routed → ungated
+        # NOTE: a blank driver_kind is NOT an exemption. It used to return nil here
+        # ("legacy / not routed → ungated"), which skipped the lease check and let two
+        # drivers drain one campaign. No supported path produces that row
+        # (CampaignDriver#create_campaign_loop always sets driver_kind), so an unrouted
+        # campaign loop falls through to the lease below and is gated like any other.
         return "delegated_to_platform" if loop_record.platform_driven?
 
         campaign = loop_record.campaign
