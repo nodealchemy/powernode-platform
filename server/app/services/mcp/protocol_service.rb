@@ -140,25 +140,17 @@ module Mcp
     tool_id
   end
 
-  # List all available tools for client discovery (with permission filtering)
+  # List all available tools for client discovery (with permission filtering).
+  #
+  # Fails closed: discovery is authorization-scoped, so without a principal and
+  # an account to scope against we advertise nothing rather than the unfiltered
+  # catalog. Callers MUST pass `user:` — omitting it yields an empty list, not a
+  # bypass.
   def list_tools(filters = {}, user: nil)
-    tools = @registry.list_tools(filters)
+    return { "tools" => [] } unless user && @account
 
-    # Filter tools based on user permissions and account scope
-    if user && @account
-      tools = tools.select do |tool_manifest|
-        # Get the database record for permission checking
-        mcp_tool = McpTool.find_by(name: tool_manifest["name"])
-        next true unless mcp_tool # Include if no database record (legacy tools)
-
-        # Check if user can access this tool
-        validator = Mcp::PermissionValidator.new(
-          tool: mcp_tool,
-          user: user,
-          account: @account
-        )
-        validator.authorized?
-      end
+    tools = @registry.list_tools(filters).select do |tool_manifest|
+      tool_visible_to?(tool_manifest, user)
     end
 
     {
@@ -425,6 +417,34 @@ module Mcp
     name = manifest["name"]
     version = manifest["version"] || "1.0.0"
     "#{name.downcase.gsub(/[^a-z0-9]/, '_')}_v#{version.gsub('.', '_')}"
+  end
+
+  # Whether `user` may see `tool_manifest` in a discovery listing.
+  #
+  # A tool carrying an McpTool row is decided by PermissionValidator. A tool
+  # WITHOUT one previously short-circuited to `true` here (commented "legacy
+  # tools"), admitting it without ever constructing a validator; it is now
+  # decided by the manifest's own declared permissions, and a manifest that
+  # declares none is withheld rather than advertised. Note this is deliberately
+  # stricter than #invoke_tool's ladder, which still permits an undeclared
+  # tool with no DB row: hiding a callable tool is the safe asymmetry, whereas
+  # advertising an uncallable one is not.
+  def tool_visible_to?(tool_manifest, user)
+    mcp_tool = McpTool.find_by(name: tool_manifest["name"])
+
+    if mcp_tool
+      Mcp::PermissionValidator.new(
+        tool: mcp_tool,
+        user: user,
+        account: @account
+      ).authorized?
+    else
+      required = Array(tool_manifest["required_permissions"])
+      return false if required.empty?
+
+      user_permissions = user.respond_to?(:permission_names) ? user.permission_names : []
+      (required - user_permissions).empty?
+    end
   end
 
   def format_tool_for_discovery(tool)
