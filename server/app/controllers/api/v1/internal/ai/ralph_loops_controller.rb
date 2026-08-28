@@ -174,7 +174,10 @@ module Api
           PLATFORM_LEASE_HOLDER = "platform-executor"
 
           def platform_drain_blocked?(loop)
-            return false if loop.campaign_id.blank? || loop.driver_kind.blank?
+            # A blank driver_kind is NOT an exemption — it previously returned false here
+            # (= platform executor drains it), skipping the lease. An unrouted campaign loop
+            # now falls through to the blank?-check below, which blocks.
+            return false if loop.campaign_id.blank?
 
             # Re-read driver_kind: a concurrent #delegate may have flipped this loop to a
             # flat-rate CLI driver since due_for_execution loaded it.
