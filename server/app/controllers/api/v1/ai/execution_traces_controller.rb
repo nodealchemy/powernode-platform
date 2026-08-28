@@ -150,10 +150,12 @@ module Api
           (failed.to_f / traces.count * 100).round(2)
         end
 
+        # Preserves this controller's existing 403 message; halting behaviour and the
+        # delegation-aware check live in Authentication#authorize_action!. The body now
+        # also carries code: "FORBIDDEN" (render_forbidden), which the bare render_error
+        # here omitted — a shape gain, not a regression.
         def authorize_action!(permission)
-          unless current_user.has_permission?(permission)
-            render_error("You don't have permission to access execution traces", status: :forbidden)
-          end
+          super(permission, message: "You don't have permission to access execution traces")
         end
       end
     end

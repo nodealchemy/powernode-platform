@@ -121,13 +121,6 @@ module Api
             active_only: params[:active_only] != "false"
           }.compact
         end
-
-        def authorize_action!(permission)
-          unless current_user.has_permission?(permission)
-            render_forbidden("You don't have permission to perform this action")
-          end
-        end
-
       end
     end
   end

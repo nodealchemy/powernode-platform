@@ -276,6 +276,29 @@ module Authentication
     raise PermissionDenied.new("Permission denied: #{permission_name}", permission: permission_name)
   end
 
+  # Canonical `authorize_action!`, previously redefined privately in thirteen
+  # controllers. Twelve of those copies called render_forbidden / render_error
+  # from the action body with no `raise` and no `return` on the caller. Rails
+  # does not halt an action on a render, so the guard emitted a clean 403 and
+  # the mutation ran anyway; the resulting DoubleRenderError was swallowed by
+  # ApiResponse's `rescue_from StandardError ... unless performed?`, leaving no
+  # trace. Defining it once here means the halting behaviour cannot drift back.
+  #
+  # Also fixes a second defect the copies shared: they called
+  # `current_user.has_permission?`, bypassing the delegation-aware
+  # `has_permission?` below. In an account-switch session that resolves the
+  # user's OWN permissions instead of the delegation's scope. `has_permission?`
+  # is a superset for ordinary sessions, so this can only tighten delegated
+  # ones — it never denies a caller who passed before.
+  #
+  # `message:` preserves each controller's existing 403 body; controllers whose
+  # wording differed keep a one-line override that calls super.
+  def authorize_action!(permission, message: "You don't have permission to perform this action")
+    return if has_permission?(permission)
+
+    raise PermissionDenied.new(message, permission: permission)
+  end
+
   def require_any_permission(*permission_names)
     return if permission_names.any? { |p| has_permission?(p) }
 

@@ -118,13 +118,6 @@ module Api
 
           (scope.where(status: "completed").count.to_f / completed.count * 100).round(2)
         end
-
-        def authorize_action!(permission)
-          unless current_user.has_permission?(permission)
-            render_forbidden("You don't have permission to perform this action")
-          end
-        end
-
       end
     end
   end
