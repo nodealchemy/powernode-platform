@@ -6,6 +6,13 @@ module Ai
 
     STATUSES = %w[draft validated approved executing completed failed rejected].freeze
 
+    # Statuses that mean the runner has already taken the plan. A plan in one
+    # of these carries execution provenance on its steps
+    # (metadata["last_outputs"] — the node_instance_ids verification, rollback
+    # and adaptation read back), so nothing may rewrite or destroy its rows
+    # behind the operator's back.
+    EXECUTED_STATUSES = %w[executing completed failed].freeze
+
     belongs_to :account
     belongs_to :goal, class_name: "Ai::AgentGoal", foreign_key: "goal_id"
     belongs_to :agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id"
@@ -61,6 +68,18 @@ module Ai
         .or(steps.where(status: "pending").where("dependencies = '[]'::jsonb"))
         .order(:step_number)
         .first
+    end
+
+    # True once the plan has left the review gate — either the plan itself is
+    # in an executed status, or at least one step has moved off `pending`
+    # (the runner claims a step before the plan status is stamped, so the
+    # step check is not redundant). Callers that rewrite or delete steps —
+    # the composer's collapse passes, the operator read path — use this to
+    # stay off plans whose rows are the record of what actually ran.
+    def execution_started?
+      return true if EXECUTED_STATUSES.include?(status.to_s)
+
+      steps.where.not(status: "pending").exists?
     end
 
     def all_steps_completed?

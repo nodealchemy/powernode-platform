@@ -168,6 +168,12 @@ module Ai
         name_prefix
       ].freeze
 
+      # The inputs the step-collapse passes use to decide "same target". Only
+      # meaningful for steps that DECLARE them — see #mergeable?, which refuses
+      # to merge when they are absent on both sides rather than reading three
+      # nil comparisons as a match.
+      MERGE_FINGERPRINT_KEYS = %w[template_id provider_region_id provider_instance_type_id].freeze
+
       # The skills that CREATE INSTANCES FROM A NODE TEMPLATE, and therefore
       # take their fabric membership from that template's `sdwan_network_id`
       # declaration (IMP-883a1f6f89d0). This is what #check_network_declaration
@@ -308,7 +314,17 @@ module Ai
       # them in place — idempotent (no changes when the plan is already
       # compact).
       def compact_existing_plan!(plan)
-        collapse_consecutive_same_target_steps!(plan)
+        # IMP-cdbb0c06386c: a GET must not be able to lose persisted execution
+        # provenance. ProvisioningPage POSTs compose_plan on every deep-link
+        # mount and every `plan_ready` event — including for missions already
+        # in execute/verify — and this method used to run the row-destroying
+        # collapse passes unconditionally. Once the plan has left the review
+        # gate the rows ARE the record of what ran (metadata["last_outputs"]
+        # carries the node_instance_ids verification, rollback and adaptation
+        # read back), so we stop touching them; PlanSnapshotService folds
+        # display-identical duplicates for the operator's view instead
+        # (#build_dag), which costs nothing and destroys nothing.
+        collapse_consecutive_same_target_steps!(plan) unless plan.execution_started?
 
         # IMP-1fc00ac8547a: this is the operator-facing READ path — every
         # deep-link view of a cached plan lands here — and it is the only
@@ -1013,10 +1029,32 @@ module Ai
       # remaining steps + repoint any dependencies onto A. Repeat until a full
       # pass produces no merges.
       def collapse_consecutive_same_target_steps!(plan)
-        loop do
-          steps = plan.steps.reload.order(:step_number).to_a
-          merged = try_collapse_pass!(plan, steps)
-          break unless merged
+        # IMP-cdbb0c06386c: the generic pass merges ANY skill, so its reach is
+        # bounded only by #mergeable?. Scope it to plans the runner has not
+        # taken yet — a step that has executed (or a sibling of one) is a
+        # record, not a draft.
+        #
+        # The legacy provision_full_stack pass below carries no guard of its
+        # own, because folding already-executed duplicate clusters WAS its
+        # stated purpose. Be clear about what that means now: the caller
+        # (#compact_existing_plan!) gates this whole method on
+        # execution_started?, and the read path is the only production entry
+        # point, so in practice the legacy pass NO LONGER RUNS on an executed
+        # plan. That is deliberate — "a read endpoint must not lose provenance
+        # under any fingerprint logic" is the stronger requirement, and it wins
+        # over the legacy pass's convenience. Its destructive behaviour now
+        # applies only at compose time, on a freshly created plan.
+        #
+        # Anyone re-enabling it against executed plans must give #collapse_group!
+        # the per-step backstop #mergeable? has (pending + no provenance);
+        # collapse_group! destroy!s and renumbers with no checks of its own, on
+        # exactly the skill that owns node_instance_ids.
+        unless plan.execution_started?
+          loop do
+            steps = plan.steps.reload.order(:step_number).to_a
+            merged = try_collapse_pass!(plan, steps)
+            break unless merged
+          end
         end
 
         # Aggressive second pass — same fingerprint, ANY DAG shape.
@@ -1136,6 +1174,13 @@ module Ai
         cfg_b = step_b.execution_config || {}
         return false unless cfg_a["skill"].present? && cfg_a["skill"] == cfg_b["skill"]
 
+        # Per-step backstop for the plan-level scope in the caller: never
+        # rewrite or destroy a step that has been claimed, run, or already
+        # recorded outputs. Cheap, and it holds for any future caller that
+        # reaches this pass without the plan-level check.
+        return false unless step_a.status.to_s == "pending" && step_b.status.to_s == "pending"
+        return false if step_provenance?(step_a) || step_provenance?(step_b)
+
         deps_b = Array(step_b.dependencies).map(&:to_i)
         return false unless deps_b == [step_a.step_number]
 
@@ -1146,9 +1191,41 @@ module Ai
 
         inputs_a = cfg_a["inputs"] || {}
         inputs_b = cfg_b["inputs"] || {}
-        %w[template_id provider_region_id provider_instance_type_id].all? do |key|
-          inputs_a[key] == inputs_b[key]
-        end
+        fingerprint_a = MERGE_FINGERPRINT_KEYS.map { |key| inputs_a[key] }
+        fingerprint_b = MERGE_FINGERPRINT_KEYS.map { |key| inputs_b[key] }
+
+        # IMP-cdbb0c06386c: FAIL CLOSED. The fingerprint only distinguishes
+        # steps that DECLARE it. A skill that declares none of these three
+        # (deploy_app_code, docker_provision, every sdwan_*_compose,
+        # attach_storage) used to compare nil == nil three times — an
+        # unconditional "yes" — so two steps deploying different repos merged
+        # and one of them was destroyed. Absent on both sides means "these are
+        # not comparable", which is not the same as "these are the same".
+        return false if fingerprint_a.all?(&:blank?) && fingerprint_b.all?(&:blank?)
+
+        fingerprint_a == fingerprint_b
+      end
+
+      # A step that has been DISPATCHED or has produced outputs is a record of
+      # an execution, not a composable draft.
+      #
+      # last_outputs alone is not enough. The runner enqueues
+      # AiProvisioningStepJob with the step_id and stamps
+      # metadata["adaptation_dispatched"], but the row stays `pending` until the
+      # worker reaches claim_step! — and SkillCompositionRunner never sets
+      # plan.status, so on the provisioning path execution_started? rests
+      # entirely on step status. In that window every step is pending, the plan
+      # is still `approved`, and no last_outputs exists yet: a compose_plan GET
+      # landing there would destroy a step whose job is already queued (the job
+      # then resolves nothing by step_id) and renumber the rest under
+      # dispatch_unblocked_successors, which resolves dependencies by
+      # step_number. The window is queue latency wide, not theoretical.
+      def step_provenance?(step)
+        metadata = step.metadata
+        return false unless metadata.is_a?(Hash)
+
+        metadata["last_outputs"].present? ||
+          metadata[::Ai::Provisioning::AdaptationDispatchService::DISPATCH_STAMP_KEY].present?
       end
 
       def merge_step_pair!(plan, step_a, step_b)
