@@ -46,7 +46,11 @@ RSpec.describe "MCP tool constant resolution" do
   it "is not vacuous: it actually walked the registry and extracted constants" do
     expect(report[:registry_keys]).to be > 100
     expect(report[:classes_scanned]).to be > 20
-    expect(report[:paths_scanned]).to be > 100
+    # ~319 namespaced paths exist across the core tool tree today. Pinned near
+# that, not at 100: a walk that regressed to partial extraction would still
+# clear a low bar, and partial under-extraction is the failure mode that
+# hides an offender rather than announcing itself.
+    expect(report[:paths_scanned]).to be > 250
     expect(ToolConstantResolution.registry_map).to include("decompose_goal")
   end
 

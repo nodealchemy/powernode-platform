@@ -21,7 +21,12 @@ module Ai
       # Allowed executor names — must match the `descriptor[:name]` of every
       # registered provisioning skill.
       #
-      # ENFORCED BY #rewrite_step! ONLY. #validate_plan also checks this list,
+      # ENFORCED ON THE WAY IN ONLY, via #rewrite_step! -> #semantic_lookup (the
+# membership test itself lives there, not in #rewrite_step!). Note the
+# STATIC_ACTION_MAP arm is in-list by CONSTRUCTION rather than by any check,
+# so an entry added there outside this list would slip through and falsify
+# this paragraph. Note also that "enforced" here means COERCE to
+# DEFAULT_EXECUTOR, not reject. #validate_plan also checks this list,
       # but it has NO production caller — nothing in core or in any extension
       # invokes it, only specs do (verified 2026-08-29, IMP-4707960fc610; see
       # also the note at #record_missing_required_inputs!). So the list is

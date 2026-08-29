@@ -30,9 +30,17 @@ require "ripper"
 #     ExtractionService in extraction_service.rb) does not resolve cold. That is
 #     a load-order question, not an existence question, and this check asks the
 #     existence question.
-#   * `defined?(X::Y)` references are skipped. That is the deliberate
-#     optional-constant seam (see McpPlatformToolRegistrar) — a reference the
-#     author has already declared conditional is not a broken reference.
+#   * `defined?(X::Y)` references are skipped: a reference the author has
+#     already declared conditional is not a broken reference. This is the
+#     optional-constant seam used across the tool classes themselves
+#     (system_acme_tool, system_architecture_catalog_tool, sdwan_tool, ...).
+#     NOT airtight, and worth stating rather than implying otherwise: a
+#     constant referenced ONLY inside `defined?`, with a refusal in the false
+#     branch, reproduces the exact defect signature this guard exists to catch
+#     — an advertised verb whose only reachable behaviour is its own "not
+#     available". Verified 2026-08-29 that every such site in the scanned
+#     classes is either also referenced unguarded in the same file (so it is
+#     collected anyway) or is a bare constant, so it masks nothing today.
 #   * Resolution is attempted absolutely and then against each enclosing module
 #     of the owning class, mirroring Ruby's own lexical lookup, so a relative
 #     `Autonomy::Foo` written inside `Ai::Tools` is not a false positive.

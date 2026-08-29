@@ -66,6 +66,12 @@ module Ai
       # STEERS which tools are offered in a turn, it does not GATE anything, and
       # the one live plan-approval verb is `platform_provisioning_approve_plan`,
       # which the provision_infrastructure intent already matches.
+      #
+      # One residual, stated so it is not mistaken for full coverage: that holds
+      # of the PATTERN, not of intent DETECTION. "approve" and "plan" are
+      # keywords for `governance`, not for `provision_infrastructure`, so a bare
+      # "approve the plan" turn now surfaces no plan-approval verb at all.
+      # Strictly better than surfacing an inert one, but it is a gap, not parity.
       "governance" => /\A(governance_|create_agent_goal|update_agent_goal|list_agent_goals|decompose_goal|escalate|create_proposal|propose_feature|report_issue|request_feedback|generate_self_challenge|list_challenges|get_challenge_result|detect_collusion|emit_signal|perceive_signals|reinforce_signal|measure_pressure|perceive_pressure|send_proactive_notification|emergency_|kill_switch_status)/,
       # Autonomous Improvement Campaigns + discovery/delegation control plane: surface the
       # campaign_* queue/delegation tools and the dev-loop drain tools when the user talks
