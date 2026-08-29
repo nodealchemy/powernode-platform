@@ -132,7 +132,20 @@ module Ai
           return error_result("permission denied: #{required_perm_for(action)} required")
         end
 
-        return { success: false, error: "User context required" } unless user
+        # Gate on the ACCOUNT, not the user (IMP-2d49d530fc6d). The account is what
+        # every one of these 8 actions actually scopes on, and McpPlatformToolRegistrar
+        # injects it for every principal kind; none of the action bodies read `user`.
+        # Gating on `user` made all 8 unreachable for a principal that carries no User.
+        #
+        # The arm this unblocks is RESTRICTED principals, not instance ones alone:
+        # StreamableHttpController sets instance_authorized from
+        # `current_mcp_principal&.restricted?`, and Mcp::Principal#restricted? is
+        # `instance? || federation?`. Reaching here still requires that principal's
+        # specific tool name to have cleared #may_invoke? (grant globs plus the
+        # destroy-shaped deny list) and the registrar to have pinned the action to
+        # that name. Mirrors the sibling DevLoopTool#call, which never broke because
+        # it already gated on the account.
+        return { success: false, error: "Account context required" } unless account
 
         case params[:action]
         when "list_ralph_loops" then list_loops
@@ -302,10 +315,6 @@ module Ai
           next_scheduled_at: loop_record.next_scheduled_at,
           created_at: loop_record.created_at
         }
-      end
-
-      def account
-        user.account
       end
 
       def required_perm_for(action)

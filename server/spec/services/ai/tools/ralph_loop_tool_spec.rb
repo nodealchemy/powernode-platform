@@ -215,4 +215,108 @@ RSpec.describe Ai::Tools::RalphLoopTool do
       expect(result[:error]).to match(/not found/)
     end
   end
+
+  # IMP-2d49d530fc6d: every one of this class's 8 actions was unreachable for a
+  # principal that carries no User. Two independent nil-user faults sat on the
+  # same request path:
+  #
+  #   1. `def account; user.account; end` OVERRODE BaseTool's injected
+  #      attr_reader, so BaseTool#enforce_guardrails! ->
+  #      #validate_account_context! raised NoMethodError on nil BEFORE #call.
+  #      (Live symptom on ops-hub: "undefined method 'account' for nil:NilClass".)
+  #   2. `unless user` in #call then refused with "User context required" — so
+  #      deleting the override alone converts the crash into a flat refusal.
+  #
+  # The account is INJECTED by McpPlatformToolRegistrar (tool_class.new(account:
+  # account, ...)) for every principal kind, so it is the correct context gate;
+  # nothing in these 8 action bodies reads `user` at all. The sibling DevLoopTool
+  # gates on `account` for exactly this reason and never broke.
+  #
+  # These examples assert the PERSISTED VALUE, not merely "no longer 500s" — a
+  # nil-tolerant `user&.account` would silently narrow the lookup to an empty
+  # scope and report "not found" for a loop that plainly exists, which a
+  # status-only assertion would wave through.
+  describe "instance principal (no User, no Agent)" do
+    let(:instance_tool) do
+      described_class.new(account: account, user: nil, agent: nil).tap do |t|
+        # Set by McpPlatformToolRegistrar once the specific tool name has cleared
+        # Mcp::Principal#may_invoke? for an mTLS node cert.
+        t.instance_authorized = true
+      end
+    end
+
+    describe "get_ralph_loop" do
+      it "reads the loop and returns its persisted attributes" do
+        ralph_loop.update!(current_iteration: 42, max_iterations: 500)
+
+        result = instance_tool.execute(params: { action: "get_ralph_loop", loop_id: ralph_loop.id })
+
+        expect(result[:success]).to be true
+        expect(result[:loop][:name]).to eq("spec-loop")
+        expect(result[:loop][:current_iteration]).to eq(42)
+        expect(result[:loop][:max_iterations]).to eq(500)
+      end
+
+      it "resolves the loop by NAME, proving the account scope is the real one" do
+        ralph_loop # force creation; the name lookup must hit the account's real scope
+
+        result = instance_tool.execute(params: { action: "get_ralph_loop", loop_id: "spec-loop" })
+
+        expect(result[:success]).to be true
+        expect(result[:loop][:id]).to eq(ralph_loop.id)
+      end
+
+      # The paired user-principal case: nothing above narrowed for a normal caller.
+      it "behaves identically for a user principal" do
+        ralph_loop.update!(current_iteration: 42, max_iterations: 500)
+
+        result = tool.execute(params: { action: "get_ralph_loop", loop_id: ralph_loop.id })
+
+        expect(result[:success]).to be true
+        expect(result[:loop][:current_iteration]).to eq(42)
+      end
+    end
+
+    describe "update_ralph_loop" do
+      it "WRITES the new cap and the row actually changes" do
+        ralph_loop.update!(max_iterations: 500)
+
+        result = instance_tool.execute(params: { action: "update_ralph_loop", loop_id: ralph_loop.id,
+                                                 max_iterations: 5000 })
+
+        expect(result[:success]).to be true
+        expect(result[:loop][:max_iterations]).to eq(5000)
+        expect(ralph_loop.reload.max_iterations).to eq(5000)
+      end
+
+      it "WRITES max_concurrent_claims into the shared configuration column" do
+        result = instance_tool.execute(params: { action: "update_ralph_loop", loop_id: ralph_loop.id,
+                                                 max_concurrent_claims: 3 })
+
+        expect(result[:success]).to be true
+        expect(ralph_loop.reload.configuration["max_concurrent_claims"]).to eq(3)
+      end
+
+      it "behaves identically for a user principal" do
+        ralph_loop.update!(max_iterations: 500)
+
+        result = tool.execute(params: { action: "update_ralph_loop", loop_id: ralph_loop.id,
+                                        max_iterations: 5000 })
+
+        expect(result[:success]).to be true
+        expect(ralph_loop.reload.max_iterations).to eq(5000)
+      end
+    end
+
+    # The account gate is real, not deleted: a call carrying NEITHER a user nor
+    # an account is still refused rather than reaching a nil scope.
+    it "still refuses when there is no account context either" do
+      contextless = described_class.new(account: nil, user: nil, agent: nil).tap { |t| t.instance_authorized = true }
+
+      result = contextless.execute(params: { action: "list_ralph_loops" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/context required/i)
+    end
+  end
 end
