@@ -32,11 +32,27 @@ module Ai
       def add_learning(learning_text, context: {})
         # Tier-2(c) §5: atomic read-append-write under a row lock — concurrent
         # appends previously clobbered each other (last save! wins, entries lost).
+        # IMP-3acfff02a847: the top-level "iteration" is the PRODUCING iteration's
+        # number, not the loop's counter at append time. Every real caller
+        # (RalphIteration#complete!, DevLoopTool#capture_learning) already passes the
+        # truth as context[:iteration]; current_iteration is only the fallback for a
+        # caller that supplies none. The two agree in the steady state — which is
+        # exactly why the divergence is invisible — but current_iteration moves
+        # independently of the iteration that produced the text (#increment_iteration!
+        # can advance it between an iteration starting and its learning landing), and
+        # #reset! zeroes it outright. Deriving the stamp from the context makes the
+        # top-level field and context.iteration agree by construction.
+        #
+        # Any migration keying learnings to iterations MUST read context.iteration:
+        # it is the field that was always correct, and pre-existing rows written
+        # before this change carry a top-level value that only happens to match.
+        ctx = context.is_a?(Hash) ? context.symbolize_keys : {}
+
         with_lock do
           learning_entry = {
             # G15: scrub secrets before a learning (loop output) is persisted.
             "text" => ::DataManagement::Sanitizer.sanitize_output(learning_text),
-            "iteration" => current_iteration,
+            "iteration" => ctx.fetch(:iteration, nil) || current_iteration,
             "timestamp" => Time.current.iso8601,
             "context" => context
           }

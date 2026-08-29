@@ -50,6 +50,26 @@ RSpec.describe Ai::RalphLoop, type: :model do
       loop_record.add_learning("locked append")
     end
 
+    # IMP-3acfff02a847: the top-level "iteration" stamp is the PRODUCING
+    # iteration's number, not the loop's counter at append time. The two agree
+    # in the steady state, which is exactly why the divergence is invisible —
+    # and #reset!, which zeroes current_iteration, is what desynchronizes them.
+    it "stamps the producing iteration's number when the caller supplies one" do
+      loop_record.update!(current_iteration: 7)
+      loop_record.add_learning("landed after the counter moved", context: { iteration: 3 })
+      entry = loop_record.reload.learnings.last
+
+      expect(entry["iteration"]).to eq(3)
+      expect(entry["context"]["iteration"]).to eq(3)
+    end
+
+    it "falls back to the loop counter only when the caller supplies no iteration" do
+      loop_record.update!(current_iteration: 5)
+      loop_record.add_learning("no iteration context")
+
+      expect(loop_record.reload.learnings.last["iteration"]).to eq(5)
+    end
+
     it "scrubs secrets out of the learning text before persisting (G15)" do
       loop_record.add_learning('Set api_key=sk-supersecretvalue123 in the env')
       text = loop_record.reload.learnings.last["text"]
@@ -437,6 +457,81 @@ RSpec.describe Ai::RalphLoop, type: :model do
         )
         expect(failed.reload).to have_attributes(status: "pending", error_message: nil, error_code: nil)
         expect(skipped.reload.status).to eq("skipped")
+      end
+
+      # IMP-3acfff02a847: reset! is a do-over of the RUN, not amnesia about what
+      # the run TAUGHT. delete_all destroys ai_ralph_iterations.learning_extracted
+      # — today one of three copies, and the only per-iteration one once the
+      # queued redesign retires the loop-level jsonb array. Both directions are
+      # asserted on purpose: a reset! that simply stopped deleting anything would
+      # satisfy the survival assertion alone.
+      it "recovers a learning carried only by an iteration row, then destroys the row" do
+        record.ralph_iterations.find_by(iteration_number: 2)
+              .update!(learning_extracted: "Webhook receivers must return 202, never 500")
+
+        record.reset!
+        record.reload
+
+        # 1. the learning is still retrievable on the loop-level record
+        expect(record.learnings.map { |l| l["text"] })
+          .to include("Webhook receivers must return 202, never 500")
+        expect(record.learnings.last["iteration"]).to eq(2)
+        # 2. and the iteration rows are genuinely gone, not merely detached
+        expect(record.ralph_iterations.count).to eq(0)
+        expect(Ai::RalphIteration.where(ralph_loop_id: record.id).count).to eq(0)
+      end
+
+      it "does not duplicate a learning the loop already records" do
+        record.ralph_iterations.find_by(iteration_number: 1)
+              .update!(learning_extracted: "Eager-load before iterating an association")
+        record.add_learning("Eager-load before iterating an association", context: { iteration: 1 })
+
+        record.reset!
+
+        expect(record.reload.learnings.count { |l| l["text"] == "Eager-load before iterating an association" })
+          .to eq(1)
+      end
+
+      # REGRESSION: every learning written before IMP-3acfff02a847 carries a
+      # top-level "iteration" that is NOT its row's iteration_number — the
+      # ExecutionService path increments the counter only AFTER
+      # RalphIteration#complete! has already appended (off by one), and the
+      # dev-loop bridge never increments it at all. Deduping on (text, iteration)
+      # would match none of them and re-append a loop's entire history on its
+      # first reset. Dedupe is on text alone; this pins that.
+      it "does not duplicate a legacy entry whose stamp disagrees with the row number" do
+        record.ralph_iterations.find_by(iteration_number: 2)
+              .update!(learning_extracted: "Stamped by the old counter semantics")
+        record.update!(learnings: [
+          { "text" => "Stamped by the old counter semantics", "iteration" => 0,
+            "timestamp" => Time.current.iso8601, "context" => { "iteration" => 2 } }
+        ])
+
+        record.reset!
+
+        expect(record.reload.learnings.length).to eq(1)
+      end
+
+      it "takes the loop row lock before appending recovered learnings" do
+        record.ralph_iterations.find_by(iteration_number: 1)
+              .update!(learning_extracted: "Needs the same lock #add_learning takes")
+        expect(record).to receive(:with_lock).and_call_original
+
+        record.reset!
+
+        expect(record.reload.learnings.map { |l| l["text"] })
+          .to eq([ "Needs the same lock #add_learning takes" ])
+      end
+
+      it "harvests the surviving learnings into the durable compound store, after the back-fill" do
+        record.ralph_iterations.find_by(iteration_number: 1)
+              .update!(learning_extracted: "Recovered from the iteration row")
+        harvested = nil
+        allow(record).to receive(:extract_compound_learnings) { harvested = record.learnings.map { |l| l["text"] } }
+
+        record.reset!
+
+        expect(harvested).to include("Recovered from the iteration row")
       end
 
       %i[pending running paused].each do |state|

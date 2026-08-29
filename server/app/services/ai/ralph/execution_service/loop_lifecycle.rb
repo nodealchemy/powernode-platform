@@ -213,8 +213,18 @@ module Ai
           "continue"
         end
 
+        # IMP-3acfff02a847: prefer context.iteration, which has ALWAYS carried the
+        # producing iteration's number. The top-level stamp only became reliable
+        # once #add_learning started deriving it from the same context; entries
+        # written earlier carry the loop counter at append time instead
+        # (iteration_number - 1 on the ExecutionService path, a stale value on the
+        # dev-loop path), which bucketed them under the wrong iteration here.
+        # Falling back to the top-level keeps entries that carry no context.
         def learnings_by_iteration
-          (ralph_loop.learnings || []).group_by { |l| l["iteration"] }
+          (ralph_loop.learnings || []).group_by do |l|
+            ctx = l["context"]
+            (ctx.is_a?(Hash) ? (ctx["iteration"] || ctx[:iteration]) : nil) || l["iteration"]
+          end
         end
 
         def complete_loop_result
