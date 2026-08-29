@@ -215,11 +215,11 @@ module Ai
             }
           },
           "create_gitea_user_token" => {
-            description: "Create a personal access token for the authenticated Gitea user. Returns plaintext EXACTLY ONCE — caller must capture. Use to mint scoped read tokens for CI workflows without leaving the chat.",
+            description: "Mint a scoped personal access token for the authenticated Gitea user and write it straight into a repo's Gitea Actions secrets. The plaintext is NOT returned — a tool result is persisted with the conversation and forwarded to the model provider, and Gitea cannot re-show a PAT afterwards, so there is no recovery path. set_as_secret is therefore REQUIRED; without it the call refuses before minting anything. Reference the token in the workflow as ${{ secrets.<secret_name> }}.",
             parameters: {
               token_name:        { type: "string",  required: true,  description: "Human-readable name for the token (e.g. 'platform-ci-readonly')" },
               scopes:            { type: "array",   required: false, description: "Gitea scope strings (default: ['read:repository']). Common: read:repository, write:repository, read:user, write:user, write:package" },
-              set_as_secret:     { type: "object",  required: false, description: "Optional: immediately set the new token as a Gitea Actions secret. Hash: {owner, repo, secret_name}. Combines mint + paste in one call." }
+              set_as_secret:     { type: "object",  required: true,  description: "REQUIRED delivery target — the minted token is written here instead of being returned. Hash: {owner, repo, secret_name}. Gitea reserves GITEA_*/GITHUB_* secret names, so pick another (e.g. PLATFORM_READ_TOKEN)." }
             }
           },
           "list_gitea_user_tokens" => {
@@ -498,13 +498,52 @@ module Ai
         { success: true, owner: owner, repo: repo, run_id: run_id, message: "Workflow run re-queued" }
       end
 
-      # Mint a Gitea PAT for the authenticated user. Optionally pipe it
-      # straight into a repo's Actions secret in a single call — collapses
-      # 3 manual web UI steps (generate token → copy → paste into secret)
-      # into one MCP invocation.
+      # Mint a Gitea PAT for the authenticated user and pipe it straight into a
+      # repo's Actions secret in a single call — collapses 3 manual web UI
+      # steps (generate token → copy → paste into secret) into one MCP
+      # invocation.
+      #
+      # SECRET DISCLOSURE (IMP-27cc7dceb97b). This used to also return
+      # `plaintext: result[:token]`. An MCP tool RESULT is not a private
+      # channel: Ai::AgentToolBridgeService writes a 200-char truncation of it
+      # into `tool_calls_log`, which Api::V1::Ai::ConversationsController
+      # persists into ai_messages.processing_metadata (durable jsonb, never
+      # re-filtered on read — Ai::SensitiveParams cannot reach it because the
+      # value is a String and `filter` returns non-Hash input unchanged), and
+      # it forwards the FULL json as a role:"tool" message to the model
+      # provider on the next turn. `plaintext` sat at roughly char 85 of this
+      # result, i.e. comfortably inside the persisted window.
+      #
+      # SUBSTITUTE CHOSEN: out-of-band delivery made MANDATORY, not a retrieval
+      # path. The CI-worker sites could name a retrieval endpoint because the
+      # platform can re-mint on demand; Gitea cannot — this tool's own
+      # `list_gitea_user_tokens` description states that Gitea never returns a
+      # PAT's plaintext after creation. Naming a recovery path that does not
+      # exist would be its own defect, so the only honest options here are
+      # out-of-band delivery or refusal. `set_as_secret` already IS that
+      # out-of-band channel (it writes the PAT into Gitea's own Actions secret
+      # store, which the workflow reads directly), so it is now required.
+      #
+      # The refusal happens BEFORE the mint: refusing afterwards would leave an
+      # orphaned PAT on the Gitea account that nobody holds and nobody can use.
+      # For the same reason, a mint whose delivery FAILS is revoked again
+      # rather than being stranded.
       def create_user_token(client, params)
         token_name = params[:token_name].to_s
         return { success: false, error: "token_name required" } if token_name.blank?
+
+        sas = params[:set_as_secret]
+        unless sas.is_a?(Hash) && sas[:owner].present? && sas[:repo].present? && sas[:secret_name].present?
+          return {
+            success: false,
+            error: "set_as_secret {owner, repo, secret_name} is required on this surface. The minted plaintext is " \
+                   "NOT returned here — a tool result is persisted with the conversation and forwarded to the model " \
+                   "provider, and Gitea cannot re-show a PAT afterwards, so there is no recovery path to offer. " \
+                   "Re-run with set_as_secret to have the token written straight into the repo's Gitea Actions " \
+                   "secrets, or mint it in the Gitea web UI (Settings → Applications) where the response is neither " \
+                   "persisted nor forwarded. No token was created by this call."
+          }
+        end
 
         scopes = Array(params[:scopes]).map(&:to_s)
         scopes = %w[read:repository] if scopes.empty?
@@ -512,31 +551,77 @@ module Ai
         result = client.create_user_token(token_name, scopes: scopes)
         return { success: false, error: result[:error] || "create failed" } unless result[:success]
 
-        response = {
+        # NOTE: Gitea reserves GITEA_* and GITHUB_* secret names. Caller must
+        # pick a non-reserved name (e.g. PLATFORM_READ_TOKEN).
+        #
+        # `result[:token]` stays local to this method: it is handed to Gitea's
+        # secret store and never bound into the response.
+        set_result = client.create_or_update_action_secret(
+          sas[:owner].to_s, sas[:repo].to_s, sas[:secret_name].to_s, result[:token]
+        )
+
+        unless set_result[:success]
+          # The only channel that could have delivered this PAT failed, and the
+          # plaintext is deliberately not being returned — so the mint is
+          # unreachable. Revoke it rather than accumulate a credential nobody
+          # holds.
+          #
+          # The RESULT of the revoke is what decides `revoked`, not the absence
+          # of an exception. Devops::Git::GiteaApiClient#delete_user_token
+          # signals failure by RETURN VALUE — a non-2xx, or a blank resolved
+          # username, yields {success: false, error: ...}, and
+          # ApiClient#with_error_handling converts NotFoundError/ApiError into
+          # the same shape rather than letting them escape. Treating "did not
+          # raise" as "revoked" would report revoked_undeliverable_token: true
+          # while a live, possibly write-scoped PAT stayed on the account —
+          # exactly the outcome this branch exists to prevent, misreported to
+          # the one caller who could fix it by hand. The rescue stays for
+          # genuine transport exceptions.
+          revoked = false
+          cleanup_error = nil
+          if result[:token_id].blank?
+            # delete_user_token(nil) addresses /tokens/ and 404s into the same
+            # silent-success hole; say so instead.
+            cleanup_error = "no token_id returned by Gitea — cannot revoke automatically"
+          else
+            begin
+              del = client.delete_user_token(result[:token_id])
+              revoked = del.is_a?(Hash) && del[:success]
+              cleanup_error = del[:error] || "revoke returned no success flag" unless revoked
+            rescue StandardError => e
+              cleanup_error = "#{e.class}: #{e.message}"
+            end
+          end
+
+          return {
+            success:    false,
+            token_id:   result[:token_id],
+            token_name: result[:name],
+            set_as_secret: { ok: false, error: set_result[:error] },
+            revoked_undeliverable_token: revoked,
+            cleanup_error: cleanup_error,
+            note: if revoked
+                    "The PAT was minted but could not be delivered to the Actions secret, and the plaintext is not " \
+                    "returned on this surface — so it was revoked again. Fix the secret target and retry."
+                  else
+                    "The PAT was minted, could NOT be delivered to the Actions secret, and could NOT be revoked " \
+                    "automatically. A live token now exists on the Gitea account that nobody holds — revoke it by " \
+                    "hand (delete_gitea_user_token, or Gitea Settings → Applications) before retrying."
+                  end
+          }
+        end
+
+        {
           success:    true,
           token_id:   result[:token_id],
           token_name: result[:name],
           scopes:     result[:scopes],
-          plaintext:  result[:token],
-          note:       "Plaintext token shown ONCE. Save it now — Gitea cannot retrieve it again."
+          set_as_secret: { ok: true, owner: sas[:owner].to_s, repo: sas[:repo].to_s, secret_name: sas[:secret_name].to_s },
+          note:       "Token minted and written directly into the repo's Gitea Actions secrets. The plaintext is not " \
+                      "returned on this surface and Gitea cannot re-show it — reference it in the workflow as " \
+                      "${{ secrets.#{sas[:secret_name].to_s.upcase} }} (Gitea stores Actions secret names " \
+                      "upper-cased). To replace it, delete_gitea_user_token then mint again."
         }
-
-        # Optional: pipe straight into a repo's Actions secret.
-        sas = params[:set_as_secret]
-        if sas.is_a?(Hash) && sas[:owner].present? && sas[:repo].present? && sas[:secret_name].present?
-          # NOTE: Gitea reserves GITEA_* and GITHUB_* secret names.
-          # Caller must pick a non-reserved name (e.g. PLATFORM_READ_TOKEN).
-          set_result = client.create_or_update_action_secret(
-            sas[:owner].to_s, sas[:repo].to_s, sas[:secret_name].to_s, result[:token]
-          )
-          response[:set_as_secret] = if set_result[:success]
-                                       { ok: true, owner: sas[:owner], repo: sas[:repo], secret_name: sas[:secret_name] }
-                                     else
-                                       { ok: false, error: set_result[:error] }
-                                     end
-        end
-
-        response
       end
 
       def list_user_tokens(client)
