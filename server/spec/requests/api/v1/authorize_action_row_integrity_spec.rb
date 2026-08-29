@@ -20,14 +20,18 @@ require "rails_helper"
 #
 #   destroy — the row must still EXIST     (uninstall_instance does destroy!)
 #   update  — name/configuration unchanged (update_instance writes attributes)
+#   create  — no row is INSERTED           (install_template does save!)
 #
-# Actions whose actuator is ALREADY broken independently of authorization are
-# deliberately NOT used, because a "row unchanged" assertion there holds under
-# the mutant too — a vacuous oracle. Verified by running this file against the
-# mutant: RegistryService#activate_instance/#deactivate_instance write
-# activated_at/deactivated_at and #install_template writes
-# devops_integration_template_id, none of which are columns on these tables, so
-# all three raise before persisting. Those are real, separate defects.
+# activate/deactivate are deliberately absent: both gate on the same
+# `integrations.update` permission the PATCH example already exercises, so a
+# third example of that guard would add no oracle.
+#
+# The create case was originally excluded here: RegistryService#install_template
+# wrote a `devops_integration_template_id` attribute that is not a column, so it
+# raised before persisting and "no new row" held under the mutant too — a
+# vacuous oracle. That actuator defect is fixed (IMP-7b9a31bf8a42), so the
+# create case now inserts a row when it reaches the service and is a genuine
+# oracle. It is included below.
 #
 # Non-vacuity is proven by mutation, not by inspection: reverting
 # Authentication#authorize_action! to render-without-raise must turn these red.
@@ -66,6 +70,28 @@ RSpec.describe "authorize_action! leaves the row untouched", type: :request do
       expect(response).to have_http_status(:forbidden)
       expect(instance.reload.name).to eq("zz-row-integrity-fixture"),
         "the guard rendered 403 but the update committed — authorize_action! did not halt"
+    end
+  end
+
+  # create — the mutant reaches install_template, which now really does insert.
+  # A valid template_id is essential: without one the service raises
+  # TemplateNotFoundError before saving and the oracle goes vacuous again.
+  describe "POST /api/v1/integrations/instances without integrations.create" do
+    let!(:template) { create(:devops_integration_template) }
+
+    it "returns 403 and no instance row is created" do
+      expect {
+        post "/api/v1/integrations/instances",
+             params: {
+               template_id: template.id,
+               instance: { name: "zz-row-integrity-create", slug: "zz-row-integrity-create" }
+             },
+             headers: headers, as: :json
+      }.not_to change(::Devops::IntegrationInstance, :count)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(::Devops::IntegrationInstance.exists?(slug: "zz-row-integrity-create")).to be(false),
+        "the guard rendered 403 but install_template committed — authorize_action! did not halt"
     end
   end
 

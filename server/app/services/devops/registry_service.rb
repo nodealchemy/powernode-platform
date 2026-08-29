@@ -97,7 +97,7 @@ module Devops
 
         instance = Devops::IntegrationInstance.new(
           account: account,
-          devops_integration_template_id: template.id,
+          integration_template_id: template.id,
           created_by_user: created_by,
           name: attributes[:name] || template.name,
           slug: attributes[:slug] || generate_slug(template.name, account),
@@ -110,7 +110,7 @@ module Devops
           credential = Devops::IntegrationCredential.find_by(id: attributes[:credential_id], account: account)
           raise ValidationError, "Invalid credential" unless credential
 
-          instance.devops_integration_credential_id = credential.id
+          instance.integration_credential_id = credential.id
         end
 
         ActiveRecord::Base.transaction do
@@ -164,14 +164,14 @@ module Devops
           raise ValidationError, "Connection test failed: #{test_result[:error]}"
         end
 
-        instance.update!(status: "active", activated_at: Time.current)
+        instance.update!(status: "active")
         instance
       end
 
       # Deactivate an instance
       def deactivate_instance(account:, instance_id:)
         instance = find_instance(account: account, instance_id: instance_id)
-        instance.update!(status: "paused", deactivated_at: Time.current)
+        instance.update!(status: "paused")
         instance
       end
 
@@ -227,7 +227,7 @@ module Devops
         raise InstanceNotFoundError, "Credential not found: #{credential_id}" unless credential
 
         # Check if credential is in use
-        if Devops::IntegrationInstance.where(devops_integration_credential_id: credential.id).exists?
+        if Devops::IntegrationInstance.where(integration_credential_id: credential.id).exists?
           raise ValidationError, "Credential is in use by one or more integrations"
         end
 
