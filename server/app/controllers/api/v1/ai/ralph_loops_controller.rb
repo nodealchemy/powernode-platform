@@ -18,7 +18,12 @@ module Api
           scope = scope.where(default_agent_id: params[:default_agent_id]) if params[:default_agent_id].present?
           scope = apply_pagination(scope)
 
-          render_success(items: scope.map(&:loop_summary), pagination: pagination_data(scope))
+          # IMP-4bc71cfb2d2c: #loop_summary now carries storage size + threshold
+          # verdict. Preload it in ONE aggregate query for the whole page —
+          # without this the per-loop fallback makes the index an N+1.
+          items = ::Ai::RalphLoop.preload_storage_metrics(scope.to_a)
+
+          render_success(items: items.map(&:loop_summary), pagination: pagination_data(scope))
           log_audit_event("ai.ralph_loops.list", resolved_account)
         end
 

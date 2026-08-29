@@ -54,6 +54,27 @@ export interface RalphDelegationConfig {
   fallback_executor_id?: string;
 }
 
+// IMP-4bc71cfb2d2c — loop growth, measured and compared to its bound.
+// Carried on every loop_summary / loop_details payload. The `learnings` jsonb
+// array reached 548 kB unnoticed because no summary surface had a size field;
+// `limit_exceeded` is the half that turns the size into a signal.
+// ai_output_bytes and ai_prompt_bytes stay SEPARATE: ai_prompt is written only
+// by the in-platform executor, ai_output by that AND the MCP dev_loop bridge,
+// so a combined figure hides which driver produced the volume.
+export interface RalphLoopStorage {
+  iteration_count: number;
+  learning_iteration_count: number;
+  ai_output_bytes: number;
+  ai_prompt_bytes: number;
+  learnings_column_bytes: number;
+  total_bytes: number;
+  limit_bytes: number;
+  limit_exceeded: boolean;
+  // null when limit_bytes is 0 (no cap) — a percentage of "unlimited" is not a
+  // number, and rendering 0 there would read as healthy.
+  usage_pct: number | null;
+}
+
 // Ralph Loop
 export interface RalphLoop {
   id: string;
@@ -101,6 +122,8 @@ export interface RalphLoop {
   task_count?: number;
   completed_task_count?: number;
   iteration_count?: number;
+  // IMP-4bc71cfb2d2c: optional because older cached payloads predate it.
+  storage?: RalphLoopStorage;
   // Scheduling fields
   scheduling_mode: RalphSchedulingMode;
   schedule_config?: RalphScheduleConfig;

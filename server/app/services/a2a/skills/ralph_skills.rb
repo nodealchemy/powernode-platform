@@ -137,7 +137,11 @@ module A2a
         page = (input["page"] || 1).to_i
         per_page = [ (input["per_page"] || 20).to_i, 100 ].min
 
-        loops = scope.offset((page - 1) * per_page).limit(per_page)
+        # IMP-4bc71cfb2d2c: one aggregate query for the page's storage metrics —
+        # #loop_summary would otherwise issue one per loop.
+        loops = ::Ai::RalphLoop.preload_storage_metrics(
+          scope.offset((page - 1) * per_page).limit(per_page).to_a
+        )
 
         {
           output: {
