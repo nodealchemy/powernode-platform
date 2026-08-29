@@ -8,10 +8,55 @@ module Ai
     # meaningful step.
     #
     # Highest-leverage action: `bootstrap_disk_image_ci` — provisions a
-    # webhook + CI worker via the platform API, sets all 4 needed
-    # secrets in the Gitea repo via the Gitea Actions API, returns the
-    # webhook URL + secret previews. After this single call, an
-    # operator's CI workflow can publish disk images end-to-end.
+    # webhook + CI worker via the platform API and sets all 4 needed
+    # secrets in the Gitea repo via the Gitea Actions API. After this
+    # single call, an operator's CI workflow can publish disk images
+    # end-to-end, and no plaintext ever rode the tool result: delivery
+    # happened out of band, into Gitea's own secret store.
+    #
+    # SECRET DISCLOSURE (IMP-fa6cf8ee1eb6). No action here returns minted
+    # key material — not in full, and not as a prefix "preview". A tool
+    # RESULT is not a private channel the way an HTTP response is:
+    # Ai::AgentToolBridgeService writes a 200-byte preview of it into
+    # `tool_calls_log`, which Api::V1::Ai::ConversationsController persists
+    # into ai_messages.processing_metadata (a durable jsonb column, never
+    # re-filtered on read — Ai::SensitiveParams cannot reach it, since the
+    # value is a String and `filter` returns non-Hash input unchanged), and
+    # it appends the FULL json as a role:"tool" message sent to the model
+    # provider on the next turn. So a mint that is correctly "shown once,
+    # never stored" on the REST twin becomes, here, a durable at-rest copy
+    # AND an outbound transmission to a third party.
+    #
+    # The REST twins are NOT the problem and are deliberately unchanged:
+    # Api::V1::System::DiskImageWebhooksController#create/#rotate_secret and
+    # Api::V1::System::CiWorkersController#create/#rotate_token reveal the
+    # plaintext in an HTTP response, which acquires neither sink.
+    #
+    # This surface therefore returns a REFERENCE plus the retrieval path,
+    # which is the shape Ai::Tools::AgentAutonomyTool#approve_deferred_operation
+    # and Ai::Tools::SdwanTool#propose_federation_peer already hold. It does
+    # not STRAND the caller: unlike a single-use federation acceptance token,
+    # both of these have an operator-facing rotate endpoint that mints a fresh
+    # usable secret on demand, named in the result.
+    #
+    # TWO CAVEATS ON THAT RETRIEVAL PATH, stated in the returned strings
+    # because an agent reading only the result must know them:
+    #
+    #   * ci_workers#rotate_token is ungated and answers in one 200.
+    #     disk_image_webhooks#rotate_secret is `gate!`-wrapped, and
+    #     Ai::InterventionPolicyService#default_policy is "require_approval"
+    #     whenever no policy row matches — the seeded declaration for
+    #     system.disk_image_webhook_rotate_secret is "notify_and_proceed", but
+    #     seeds do not re-run on an existing deployment, so `pending` is a live
+    #     possibility. On that branch the plaintext reaches the approver
+    #     through the reveal-once slot (IMP-7b81ca22f661) in the HTTP approval
+    #     decision — and NOT through approve_deferred_operation, which
+    #     deliberately drops it (agent_autonomy_tool.rb) and consumes the
+    #     operation. So: approve over the operator UI/API.
+    #   * this tool gates on system.platforms.publish_disk_image; the two
+    #     retrieval endpoints gate on system.disk_image_webhooks.rotate_secret
+    #     and system.ci_workers.rotate_token. Holding the tool does not imply
+    #     holding either.
     #
     # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — operator UX).
     class DiskImageOperatorTool < BaseTool
@@ -36,13 +81,13 @@ module Ai
       def self.action_definitions
         {
           "provision_disk_image_webhook" => {
-            description: "Create a per-pipeline disk-image webhook for the current account. Returns plaintext secret + absolute URL EXACTLY ONCE — caller must capture both, no recovery.",
+            description: "Create a per-pipeline disk-image webhook for the current account. Returns the webhook id + absolute URL. The plaintext secret is NOT returned on this surface — a tool result is persisted with the conversation and forwarded to the model provider. The webhook is inert until you fetch a secret: POST /api/v1/system/disk_image_webhooks/<id>/rotate_secret (separate permission; approval-gated — if it answers pending, the plaintext is revealed once in the HTTP approval-decision response, so approve via the operator UI/API, not via approve_deferred_operation). Or use bootstrap_disk_image_ci, which writes the secret straight into the repo's Gitea Actions secrets without returning it.",
             parameters: {
               label: { type: "string", required: true, description: "Operator-chosen identifier (unique per account, e.g. 'main-ci', 'release-pipeline')" }
             }
           },
           "provision_ci_worker" => {
-            description: "Create a per-pipeline CI worker (narrowly scoped: system.platforms.publish_disk_image only). Returns plaintext token EXACTLY ONCE.",
+            description: "Create a per-pipeline CI worker (narrowly scoped: system.platforms.publish_disk_image only). Returns the worker id + roles. The plaintext token is NOT returned on this surface — a tool result is persisted with the conversation and forwarded to the model provider. Obtain the token exactly once via POST /api/v1/system/ci_workers/<id>/rotate_token (ungated, separate permission), or use bootstrap_disk_image_ci, which writes it straight into the repo's Gitea Actions secrets without returning it.",
             parameters: {
               name:        { type: "string", required: true,  description: "Operator-chosen name (e.g. 'release-pipeline-runner')" },
               description: { type: "string", required: false, description: "Optional description shown in the operator UI" }
@@ -80,7 +125,12 @@ module Ai
         label = params[:label].to_s
         return { success: false, error: "label required" } if label.blank?
 
-        webhook, secret = ::System::DiskImageWebhook.create_with_secret!(
+        # The mint happens (the row needs a digest) and is then DROPPED on the
+        # floor — deliberately. `secret` is never bound into the return, so it
+        # reaches neither ai_messages.processing_metadata nor the provider. The
+        # webhook is fully usable the moment the operator rotates, which is the
+        # named retrieval path below; nothing is stranded.
+        webhook, _unreturned_secret = ::System::DiskImageWebhook.create_with_secret!(
           account: account,
           label:   label
         )
@@ -88,9 +138,16 @@ module Ai
           success: true,
           webhook_id:       webhook.id,
           label:            webhook.label,
-          secret_plaintext: secret,
           webhook_url:      build_webhook_url(webhook),
-          note:             "Save secret + URL now — secret is not recoverable. Rotate to replace."
+          secret_delivery:  "not disclosed here — a tool result is persisted with the conversation and forwarded to the model provider. " \
+                            "Get the plaintext at POST /api/v1/system/disk_image_webhooks/#{webhook.id}/rotate_secret " \
+                            "(needs system.disk_image_webhooks.rotate_secret, which this tool's permission does not imply). " \
+                            "That call is approval-gated: if it answers pending, the plaintext is revealed once in the HTTP " \
+                            "approval-decision response — approve via the operator UI/API, NOT via approve_deferred_operation, " \
+                            "which deliberately drops the reveal. Or call bootstrap_disk_image_ci to have the secret written " \
+                            "directly into the repo's Gitea Actions secrets instead.",
+          note:             "Save the webhook URL now. The webhook is inert until a secret is fetched over the operator API — " \
+                            "the one minted here was discarded rather than disclosed."
         }
       rescue ActiveRecord::RecordInvalid => e
         { success: false, error: "Validation failed: #{e.record.errors.full_messages.join(', ')}" }
@@ -106,13 +163,21 @@ module Ai
           account:     account,
           roles:       ["ci_worker"]
         )
+        # worker.token holds the plaintext (a virtual attribute set by
+        # create_worker!). It is deliberately NOT bound into the return — see
+        # the class docstring. The operator API's rotate_token endpoint is the
+        # disclosure surface.
         {
           success: true,
-          worker_id:       worker.id,
-          name:            worker.name,
-          token_plaintext: worker.token,
-          roles:           worker.roles.pluck(:name),
-          note:             "Save token now — not recoverable. Use as POWERNODE_CI_WORKER_TOKEN in your CI."
+          worker_id:      worker.id,
+          name:           worker.name,
+          roles:          worker.roles.pluck(:name),
+          token_delivery: "not disclosed here — a tool result is persisted with the conversation and forwarded to the model provider. " \
+                          "Get the plaintext exactly once at POST /api/v1/system/ci_workers/#{worker.id}/rotate_token " \
+                          "(ungated, answers in one response; needs system.ci_workers.rotate_token, which this tool's " \
+                          "permission does not imply). Or call bootstrap_disk_image_ci to have it written directly into " \
+                          "the repo's Gitea Actions secrets.",
+          note:           "Fetch the token over the operator API and store it as POWERNODE_CI_WORKER_TOKEN in your CI."
         }
       rescue StandardError => e
         { success: false, error: "Failed to create CI worker: #{e.message}" }
@@ -205,18 +270,28 @@ module Ai
               token_id:        token_result[:token_id],
               token_name:      token_result[:name],
               scopes:          token_result[:scopes],
-              plaintext_set_as_secret: "PLATFORM_READ_TOKEN",
-              token_preview:   token_result[:token][0, 12] + "..."
+              plaintext_set_as_secret: "PLATFORM_READ_TOKEN"
+              # No token_preview. A 12-char prefix is a partial disclosure into
+              # the same two durable sinks as the whole value, and nothing reads
+              # it: the delivery evidence the caller needs is the
+              # gitea_secrets_set["PLATFORM_READ_TOKEN"] status above.
             }
           else
             platform_token_result = { error: token_result[:error] }
           end
         end
 
+        # `webhook_secret` / `worker_token` stay local to this method: they were
+        # delivered to Gitea above and are not echoed back, not even as the
+        # 12-char previews this used to carry. The operator-visible
+        # disambiguator already exists on the row itself
+        # (system_disk_image_webhooks.secret_preview, rendered in the CI/webhooks
+        # tab); a copy on the tool result buys nothing and costs the same
+        # persist-plus-forward as the whole secret.
         result = {
           success: true,
-          webhook:  { id: webhook.id, label: webhook.label, action: webhook_action, url: webhook_url, secret_preview: webhook_secret[0, 12] + "..." },
-          ci_worker: { id: worker.id, name: worker.name, action: worker_action, token_preview: worker_token[0, 12] + "..." },
+          webhook:  { id: webhook.id, label: webhook.label, action: webhook_action, url: webhook_url },
+          ci_worker: { id: worker.id, name: worker.name, action: worker_action },
           gitea_secrets_set: secret_results,
           note:    "Operator's CI workflow can now publish disk images. Trigger via dispatch_gitea_workflow or push a tag."
         }
