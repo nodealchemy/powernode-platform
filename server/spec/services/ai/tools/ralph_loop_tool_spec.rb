@@ -19,6 +19,65 @@ RSpec.describe Ai::Tools::RalphLoopTool do
   let(:tool) { described_class.new(account: account, user: user) }
   let(:ralph_loop) { create(:ai_ralph_loop, account: account, name: "spec-loop") }
 
+  # The parallel-claim machinery already existed in DevLoopTool — cap, plus a
+  # file-collision guard that only engages above 1 — but nothing could TURN IT
+  # ON: update_ralph_loop exposed name/agent/cadence/caps and never
+  # `configuration`. A capability with no way to reach it is the same shape as
+  # an inert gate: present, described, and unusable. These examples pin the
+  # switch, not the machinery (DevLoopTool's own spec covers the claiming).
+  describe "update_ralph_loop max_concurrent_claims" do
+    it "writes the cap into configuration where DevLoopTool reads it" do
+      result = tool.execute(params: { action: "update_ralph_loop", loop_id: ralph_loop.id,
+                                      max_concurrent_claims: 3 })
+
+      expect(result[:success]).to be true
+      expect(ralph_loop.reload.configuration["max_concurrent_claims"]).to eq(3)
+      expect(result[:loop][:max_concurrent_claims]).to eq(3)
+    end
+
+    it "reports 1 when the loop has never set a cap, matching the claim path's default" do
+      result = tool.execute(params: { action: "get_ralph_loop", loop_id: ralph_loop.id })
+
+      expect(result[:loop][:max_concurrent_claims]).to eq(1)
+    end
+
+    # The whole point of a targeted merge: `configuration` is shared, and this
+    # action owns exactly one key in it.
+    it "preserves unrelated configuration keys rather than rewriting the column" do
+      ralph_loop.update!(configuration: { "kept_by_another_writer" => "value" })
+
+      tool.execute(params: { action: "update_ralph_loop", loop_id: ralph_loop.id,
+                             max_concurrent_claims: 2 })
+
+      config = ralph_loop.reload.configuration
+      expect(config["kept_by_another_writer"]).to eq("value")
+      expect(config["max_concurrent_claims"]).to eq(2)
+    end
+
+    it "refuses a cap above the ceiling instead of writing it" do
+      result = tool.execute(params: { action: "update_ralph_loop", loop_id: ralph_loop.id,
+                                      max_concurrent_claims: described_class::MAX_CONCURRENT_CLAIMS_CEILING + 1 })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/between 1 and/)
+      expect(ralph_loop.reload.configuration["max_concurrent_claims"]).to be_nil
+    end
+
+    it "refuses a cap below 1 instead of writing it" do
+      result = tool.execute(params: { action: "update_ralph_loop", loop_id: ralph_loop.id,
+                                      max_concurrent_claims: 0 })
+
+      expect(result[:success]).to be false
+      expect(ralph_loop.reload.configuration["max_concurrent_claims"]).to be_nil
+    end
+
+    it "is advertised, so an operator can discover the switch" do
+      params = described_class.action_definitions["update_ralph_loop"][:parameters]
+
+      expect(params).to have_key(:max_concurrent_claims)
+    end
+  end
+
   describe "get_ralph_loop" do
     it "returns loop details for a loop with iterations" do
       task = create(:ai_ralph_task, ralph_loop: ralph_loop)

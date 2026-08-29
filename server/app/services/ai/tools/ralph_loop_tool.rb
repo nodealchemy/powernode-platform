@@ -31,6 +31,14 @@ module Ai
         "reopen_ralph_loop" => "ai.loops.execute"
       }.freeze
 
+      # Upper bound on how many tasks one driver may hold at once. Not a
+      # correctness limit — DevLoopTool's file-collision guard is what keeps
+      # parallel claims from editing the same file — but a blast-radius one:
+      # every concurrent claim is an agent making commits against one branch,
+      # and they contend on a single shared test database. The worktree tooling
+      # caps its own fan-out at 4 for the same reason.
+      MAX_CONCURRENT_CLAIMS_CEILING = 4
+
 
       def self.definition
         {
@@ -70,9 +78,9 @@ module Ai
             }
           },
           "update_ralph_loop" => {
-            description: "Update mutable Ralph Loop config: name, default_agent_id, cycle_interval_minutes, max_iterations_per_day, max_iterations, schedule_paused. " \
-                         "Useful for repointing default_agent_id when consolidating duplicate agents, adjusting cadence without delete+recreate, or raising a loop's " \
-                         "lifetime iteration cap before it halts on max_iterations_reached.",
+            description: "Update mutable Ralph Loop config: name, default_agent_id, cycle_interval_minutes, max_iterations_per_day, max_iterations, schedule_paused, " \
+                         "max_concurrent_claims. Useful for repointing default_agent_id when consolidating duplicate agents, adjusting cadence without delete+recreate, " \
+                         "raising a loop's lifetime iteration cap before it halts on max_iterations_reached, or letting one driver hold several claims at once.",
             parameters: {
               loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
               name: { type: "string", required: false, description: "New loop name" },
@@ -80,7 +88,12 @@ module Ai
               cycle_interval_minutes: { type: "integer", required: false, description: "Time between iterations in minutes" },
               max_iterations_per_day: { type: "integer", required: false, description: "Daily iteration cap" },
               max_iterations: { type: "integer", required: false, description: "Lifetime iteration cap (distinct from the daily max_iterations_per_day throttle)" },
-              schedule_paused: { type: "boolean", required: false, description: "Pause/resume scheduling without a state machine event" }
+              schedule_paused: { type: "boolean", required: false, description: "Pause/resume scheduling without a state machine event" },
+              max_concurrent_claims: { type: "integer", required: false,
+                                       description: "How many tasks ONE driver may hold in_progress at once (default 1). " \
+                                                    "Above 1, dev_next_task additionally refuses a task whose metadata.files collide with " \
+                                                    "another in-flight claim, so parallel holders never edit the same file. Set 1 to restore " \
+                                                    "strict single-claim behaviour." }
             }
           },
           "delete_ralph_loop" => {
@@ -199,6 +212,19 @@ module Ai
           attrs[:schedule_paused] = ActiveModel::Type::Boolean.new.cast(params[:schedule_paused])
         end
 
+        # Targeted merge, not a whole-column rewrite: `configuration` is a shared
+        # jsonb document and this tool owns exactly one key in it. Rewriting the
+        # column from an in-memory read would drop whatever another writer put
+        # there between the read and the save.
+        if params[:max_concurrent_claims].present?
+          cap = params[:max_concurrent_claims].to_i
+          if cap < 1 || cap > MAX_CONCURRENT_CLAIMS_CEILING
+            return { success: false,
+                     error: "max_concurrent_claims must be between 1 and #{MAX_CONCURRENT_CLAIMS_CEILING}" }
+          end
+          attrs[:configuration] = (loop_record.configuration || {}).merge("max_concurrent_claims" => cap)
+        end
+
         if params[:cycle_interval_minutes].present? || params[:max_iterations_per_day].present?
           sc = (loop_record.schedule_config || {}).dup
           sc["cycle_interval_minutes"] = params[:cycle_interval_minutes].to_i if params[:cycle_interval_minutes].present?
@@ -271,6 +297,7 @@ module Ai
           max_iterations_per_day: loop_record.schedule_config&.dig("max_iterations_per_day"),
           current_iteration: loop_record.current_iteration,
           max_iterations: loop_record.max_iterations,
+          max_concurrent_claims: loop_record.configuration&.dig("max_concurrent_claims") || 1,
           daily_iteration_count: loop_record.daily_iteration_count,
           next_scheduled_at: loop_record.next_scheduled_at,
           created_at: loop_record.created_at
