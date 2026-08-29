@@ -125,6 +125,7 @@ module Mcp
       total_invocations: 0,
       successful_invocations: 0,
       failed_invocations: 0,
+      permission_denials: 0,
       total_execution_time: 0,
       average_execution_time: 0,
       last_invocation: nil
@@ -407,6 +408,7 @@ module Mcp
       total_invocations: tool_data[:total_invocations],
       successful_invocations: tool_data[:successful_invocations],
       failed_invocations: tool_data[:failed_invocations],
+      permission_denials: tool_data[:permission_denials] || 0,
       success_rate: calculate_success_rate(tool_data),
       average_execution_time: tool_data[:average_execution_time],
       last_invocation: tool_data[:last_invocation]
@@ -502,6 +504,7 @@ module Mcp
       total_tool_invocations: @metrics["tool_invocations.total"],
       successful_invocations: @metrics["tool_invocations.successful"],
       failed_invocations: @metrics["tool_invocations.failed"],
+      permission_denials: @metrics["tool_invocations.permission_denied"] || 0,
       overall_success_rate: calculate_overall_success_rate,
       total_messages: @metrics["messages.total"],
       total_errors: @metrics["messages.errors"]
@@ -529,12 +532,14 @@ module Mcp
     {
       total_tools: @tool_metrics.size,
       average_execution_time: calculate_average_histogram("tool_execution.duration"),
+      total_permission_denials: @tool_metrics.values.sum { |tool| tool[:permission_denials] || 0 },
       tools_breakdown: @tool_metrics.values.map do |tool|
         {
           tool_id: tool[:tool_id],
           name: tool[:name],
           type: tool[:type],
           total_invocations: tool[:total_invocations],
+          permission_denials: tool[:permission_denials] || 0,
           success_rate: calculate_success_rate(tool),
           average_execution_time: tool[:average_execution_time]
         }

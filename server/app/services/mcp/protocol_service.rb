@@ -210,17 +210,39 @@ module Mcp
 
       @logger.info "[MCP] Permission check passed for tool #{tool_id}"
     else
-      # No McpTool DB record — fall back to manifest-based permission check
+      # No McpTool DB record — fall back to manifest-based permission check.
+      # Both refusal arms below use the same telemetry seam as the
+      # McpTool-backed branch above (@telemetry.track_tool_permission_denied)
+      # so a denial here is not silently dropped from the telemetry stream —
+      # see spec/services/mcp/protocol_service_permission_denial_spec.rb.
       if user && tool_manifest["required_permissions"].present?
         required_perms = Array(tool_manifest["required_permissions"])
         user_perms = user.respond_to?(:permission_names) ? user.permission_names : []
         missing = required_perms - user_perms
         if missing.any?
           @logger.warn "[MCP] Permission denied for #{tool_id}: missing #{missing.join(', ')}"
+          fallback_auth_result = {
+            authorized: false,
+            errors: [ {
+              type: "required_permissions",
+              message: "Missing required permissions: #{missing.join(', ')}",
+              missing: missing,
+              required: required_perms
+            } ]
+          }
+          @telemetry.track_tool_permission_denied(tool_id, user, fallback_auth_result)
           raise PermissionDeniedError, "Permission denied: missing #{missing.join(', ')}"
         end
       elsif user.nil?
         @logger.warn "[MCP] No user context for tool #{tool_id} — denying execution"
+        fallback_auth_result = {
+          authorized: false,
+          errors: [ {
+            type: "unauthenticated",
+            message: "Authentication required for tool execution"
+          } ]
+        }
+        @telemetry.track_tool_permission_denied(tool_id, user, fallback_auth_result)
         raise PermissionDeniedError, "Authentication required for tool execution"
       end
     end

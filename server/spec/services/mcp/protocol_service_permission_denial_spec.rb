@@ -125,4 +125,61 @@ RSpec.describe Mcp::ProtocolService, type: :service do
       expect(Rails.logger).not_to have_received(:info).with(/\[MCP_TELEMETRY\] tool_invocation_start/)
     end
   end
+
+  # IMP-7e925afbabe1: iteration 509 fixed the McpTool-backed branch above. The
+  # OTHER branch of `invoke_tool` — no McpTool row at all, so permission is
+  # decided from `tool_manifest["required_permissions"]` alone
+  # (protocol_service.rb's `else` arm) — raised PermissionDeniedError but never
+  # called track_tool_permission_denied, so a denial there vanished from the
+  # telemetry stream entirely. And even when a denial IS recorded,
+  # `permission_denials` was a write-only counter: incremented, never read back
+  # by get_tool_performance/generate_tool_metrics/generate_summary_metrics, so
+  # get_telemetry_report never showed it.
+  #
+  # These examples drive a real denial down the fallback branch (no McpTool row
+  # for the tool) and assert the denial actually surfaces in
+  # get_telemetry_report — not merely that the counter incremented internally.
+  describe "#invoke_tool permission denial on the fallback (no McpTool row) branch" do
+    # Registers only in the in-memory registry (service.register_tool) — no
+    # McpTool row — so #invoke_tool's `mcp_tool` lookup is nil and it takes the
+    # manifest-based fallback arm.
+    def register_unbacked_tool(name, required_permissions:)
+      service.register_tool(manifest(name).merge("required_permissions" => required_permissions))
+    end
+
+    it "records the fallback-branch denial and surfaces it in get_telemetry_report" do
+      tool_id = register_unbacked_tool("zz_denial_fixture_fallback",
+                                       required_permissions: [ "zz.fixture.never_granted" ])
+
+      # Precondition: no backing McpTool row, so this exercises the fallback arm.
+      expect(McpTool.find_by(name: "zz_denial_fixture_fallback")).to be_nil
+
+      expect {
+        service.invoke_tool(tool_id, {}, user: user)
+      }.to raise_error(Mcp::ProtocolService::PermissionDeniedError, /missing zz\.fixture\.never_granted/)
+
+      telemetry = service.instance_variable_get(:@telemetry)
+      report = telemetry.get_telemetry_report
+
+      expect(report[:summary][:permission_denials]).to be >= 1
+
+      tool_report = report[:tools][:tools_breakdown].find { |t| t[:tool_id] == tool_id }
+      expect(tool_report).not_to be_nil
+      expect(tool_report[:permission_denials]).to eq(1)
+
+      expect(telemetry.get_tool_performance(tool_id)[:permission_denials]).to eq(1)
+    end
+
+    it "reports zero denials, not an absent field, for a tool that was never denied" do
+      tool_id = register_unbacked_tool("zz_denial_fixture_fallback_clean", required_permissions: [])
+
+      telemetry = service.instance_variable_get(:@telemetry)
+
+      expect(telemetry.get_tool_performance(tool_id)[:permission_denials]).to eq(0)
+
+      tool_report = telemetry.get_telemetry_report[:tools][:tools_breakdown]
+                             .find { |t| t[:tool_id] == tool_id }
+      expect(tool_report[:permission_denials]).to eq(0)
+    end
+  end
 end
