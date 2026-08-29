@@ -3,6 +3,7 @@
 class Api::V1::UsersController < ApplicationController
   include UserSerialization
   include AuditLogging
+  include RoleAssignmentGuard
 
   before_action :set_user, only: [ :show, :update, :destroy, :suspend, :activate, :unlock, :reset_password, :resend_verification, :manual_verify ]
   before_action -> { require_permission("admin.user.read") }, only: [ :index, :stats ]
@@ -212,6 +213,21 @@ class Api::V1::UsersController < ApplicationController
   # Remove this method to use the one from UserSerialization concern
   # The concern's user_data method properly handles permissions
 
+  # Confer the governing plan's default roles on a newly created user.
+  #
+  # The plan's `default_roles` are free-form role NAMES on an operator-owned
+  # row, so this is a role-conferral path and carries the same escalation risk
+  # as RolesController#assign_to_user: `admin` is a GLOBAL role (account_id
+  # nil), so a plan listing it would otherwise turn every admin.user.create
+  # holder into a global-admin factory. Each name is therefore filtered through
+  # the shared conferral rule (RoleAssignmentGuard#can_assign_role?), the same
+  # one the sanctioned role-assignment endpoint applies.
+  #
+  # SKIP, don't refuse: unlike RolesController the role names here come from
+  # operator configuration rather than this caller's input, and the user has
+  # already received the core default role (User#assign_default_role). Refusing
+  # the whole create would deny a legitimate operation over config the caller
+  # never chose; dropping the unassignable extra is the conservative outcome.
   def assign_default_roles(user)
     provider = Powernode::ExtensionRegistry.provider(:entitlements)
     return unless provider
@@ -219,10 +235,19 @@ class Api::V1::UsersController < ApplicationController
     plan = provider.plan_for(current_account)
     return unless plan
 
-    # Assign all default roles from the plan using the permission-based system
-    plan.default_roles.each do |role_name|
+    Array(plan.default_roles).each do |role_name|
       role = Role.find_by(name: role_name)
-      user.add_role(role.name) if role
+      next unless role
+
+      unless can_assign_role?(role)
+        Rails.logger.warn(
+          "Skipped plan default role #{role.name.inspect} for user #{user.id}: " \
+          "assigning user #{current_user.id} may not confer it"
+        )
+        next
+      end
+
+      user.add_role(role.name)
     end
   end
 
