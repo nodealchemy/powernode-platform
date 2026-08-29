@@ -569,10 +569,11 @@ module Ai
         "escalate" => "Ai::Tools::AgentAutonomyTool",
         "request_feedback" => "Ai::Tools::AgentAutonomyTool",
         "report_issue" => "Ai::Tools::AgentAutonomyTool",
-        # Goal decomposition (autonomous planning)
+        # Goal decomposition (autonomous planning).
+        # validate_plan / approve_plan were unregistered in IMP-4707960fc610:
+        # their bodies constantized services that exist nowhere, so both were
+        # permanently inert behind a `rescue NameError`.
         "decompose_goal" => "Ai::Tools::AgentAutonomyTool",
-        "validate_plan" => "Ai::Tools::AgentAutonomyTool",
-        "approve_plan" => "Ai::Tools::AgentAutonomyTool",
         # Intervention policies + deferred operations (operator control over autonomy)
         "list_intervention_policies" => "Ai::Tools::AgentAutonomyTool",
         "create_intervention_policy" => "Ai::Tools::AgentAutonomyTool",

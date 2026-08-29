@@ -27,7 +27,6 @@ agent_remember
 analyze_section
 approve_deferred_operation
 approve_improvement
-approve_plan
 attach_skill_to_agent
 auto_evolve_skill
 blast_radius
@@ -613,7 +612,6 @@ update_ralph_loop
 update_skill
 update_team
 upsert_node
-validate_plan
 verify_learning
 verify_learning_batch
 wait_for_task

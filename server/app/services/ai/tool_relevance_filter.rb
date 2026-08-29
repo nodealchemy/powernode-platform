@@ -55,7 +55,18 @@ module Ai
       "team" => /\A(team_|workspace_|create_team|add_team_member|execute_team|get_team|list_teams|update_team|optimize_team|invite_agent|active_sessions|create_workspace|list_workspaces|send_message|list_messages)/,
       "code" => /\Acode_/,
       "agent_management" => /\A(create_agent|list_agents|get_agent|update_agent|execute_agent|spawn_task|check_task_status|wait_for_task|recruit_agent|get_mission_status)/,
-      "governance" => /\A(governance_|create_agent_goal|update_agent_goal|list_agent_goals|decompose_goal|escalate|create_proposal|propose_feature|report_issue|request_feedback|approve_plan|validate_plan|generate_self_challenge|list_challenges|get_challenge_result|detect_collusion|emit_signal|perceive_signals|reinforce_signal|measure_pressure|perceive_pressure|send_proactive_notification|emergency_|kill_switch_status)/,
+      # `approve_plan` and `validate_plan` were listed here until
+      # IMP-4707960fc610. Steering an agent to them was the harmful half of that
+      # defect: the filter advertised them as the governance step for a plan,
+      # and both verbs answered "service not available" on every call, so an
+      # agent following the protocol could reasonably read the refusal as "no
+      # gate here" and proceed ungoverned. Neither verb exists any more.
+      #
+      # Nothing is lost by their removal, because nothing was there: this list
+      # STEERS which tools are offered in a turn, it does not GATE anything, and
+      # the one live plan-approval verb is `platform_provisioning_approve_plan`,
+      # which the provision_infrastructure intent already matches.
+      "governance" => /\A(governance_|create_agent_goal|update_agent_goal|list_agent_goals|decompose_goal|escalate|create_proposal|propose_feature|report_issue|request_feedback|generate_self_challenge|list_challenges|get_challenge_result|detect_collusion|emit_signal|perceive_signals|reinforce_signal|measure_pressure|perceive_pressure|send_proactive_notification|emergency_|kill_switch_status)/,
       # Autonomous Improvement Campaigns + discovery/delegation control plane: surface the
       # campaign_* queue/delegation tools and the dev-loop drain tools when the user talks
       # about campaigns, the proposal/discovery queue, delegation, or draining a loop.

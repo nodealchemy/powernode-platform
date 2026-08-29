@@ -19,8 +19,25 @@ module Ai
       class AgentMissingError < StandardError; end
 
       # Allowed executor names — must match the `descriptor[:name]` of every
-      # registered provisioning skill. Validated by #validate_plan and by
-      # #rewrite_step!.
+      # registered provisioning skill.
+      #
+      # ENFORCED BY #rewrite_step! ONLY. #validate_plan also checks this list,
+      # but it has NO production caller — nothing in core or in any extension
+      # invokes it, only specs do (verified 2026-08-29, IMP-4707960fc610; see
+      # also the note at #record_missing_required_inputs!). So the list is
+      # applied at rewrite time, on the way into the plan, and re-checked
+      # nowhere afterwards. Do not read "#validate_plan rejects X" as a live
+      # guarantee about composed plans.
+      #
+      # #validate_plan is kept, not deleted: it is the only real plan validator
+      # the codebase has, and it is the natural sink for a compose-time gate.
+      # Wiring it up is blocked on a POLICY decision, not on plumbing: none of
+      # AdaptationProposerService::ADAPTATION_SKILLS (scale_project,
+      # relocate_workload, attach_storage, configure_sdwan_for_project) is in
+      # this list, so calling #validate_plan on an adaptation plan today would
+      # reject every step of a lane that currently executes. Whether those four
+      # belong in ALLOWED_EXECUTORS is a decision about what may execute, and
+      # getting it wrong breaks a working lane — so it is not a mechanical fix.
       ALLOWED_EXECUTORS = %w[
         provision_full_stack
         drift_remediate

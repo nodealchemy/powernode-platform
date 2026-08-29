@@ -52,15 +52,20 @@ module Ai
         "delete_intervention_policy" => "ai.intervention_policies.manage",
 
         # Api::V1::Ai::GoalsController / GoalPlansController#validate_permissions
-        # — also blanket. decompose/validate/approve_plan write to a goal's plan,
-        # so they follow the goal surface rather than the approvals one:
-        # approve_plan approves a PLAN, not a deferred operation.
+        # — also blanket. decompose_goal writes to a goal's plan, so it follows
+        # the goal surface rather than the approvals one.
+        #
+        # validate_plan / approve_plan used to sit here too. They were
+        # unregistered (IMP-4707960fc610): both bodies constantized
+        # Ai::Autonomy::PlanValidationService / PlanApprovalService, which exist
+        # in neither core nor any extension, so behind a `rescue NameError` the
+        # only behaviour either verb ever had was "service not available".
+        # spec/services/ai/tools/tool_constant_resolution_spec.rb now fails on
+        # that shape rather than letting it be advertised.
         "create_agent_goal" => "ai.goals.manage",
         "list_agent_goals" => "ai.goals.manage",
         "update_agent_goal" => "ai.goals.manage",
         "decompose_goal" => "ai.goals.manage",
-        "validate_plan" => "ai.goals.manage",
-        "approve_plan" => "ai.goals.manage",
 
         # NOT an agent-voice action, despite sitting among them: it writes an
         # assistant message into an existing workspace conversation
@@ -213,19 +218,6 @@ module Ai
               max_sub_goals: { type: "integer", description: "Maximum sub-goals to create (default 5)", required: false }
             }
           },
-          "validate_plan" => {
-            description: "Validate a proposed plan for feasibility and safety",
-            parameters: {
-              goal_id: { type: "string", description: "Goal ID with the plan to validate", required: true }
-            }
-          },
-          "approve_plan" => {
-            description: "Approve a validated plan for execution",
-            parameters: {
-              goal_id: { type: "string", description: "Goal ID with the plan to approve", required: true },
-              notes: { type: "string", description: "Approval notes", required: false }
-            }
-          },
           # === Intervention policies (CRUD) ===
           "list_intervention_policies" => {
             description: "List intervention policies for the current account. Filterable by agent, action_category, is_active.",
@@ -324,8 +316,6 @@ module Ai
         when "request_feedback" then request_feedback(params)
         when "report_issue" then report_issue(params)
         when "decompose_goal" then decompose_goal(params)
-        when "validate_plan" then validate_plan(params)
-        when "approve_plan" then approve_plan(params)
         when "list_intervention_policies" then list_intervention_policies(params)
         when "create_intervention_policy" then create_intervention_policy(params)
         when "update_intervention_policy" then update_intervention_policy(params)
@@ -693,32 +683,6 @@ module Ai
         error_result("Goal decomposition service not available")
       rescue StandardError => e
         error_result("Failed to decompose goal: #{e.message}")
-      end
-
-      def validate_plan(params)
-        goal = account.ai_agent_goals.find_by(id: params["goal_id"])
-        return error_result("Goal not found") unless goal
-
-        service = Ai::Autonomy::PlanValidationService.new(account: account, agent: agent)
-        result = service.validate(goal: goal)
-        success_result(result)
-      rescue NameError
-        error_result("Plan validation service not available")
-      rescue StandardError => e
-        error_result("Failed to validate plan: #{e.message}")
-      end
-
-      def approve_plan(params)
-        goal = account.ai_agent_goals.find_by(id: params["goal_id"])
-        return error_result("Goal not found") unless goal
-
-        service = Ai::Autonomy::PlanApprovalService.new(account: account, agent: agent)
-        result = service.approve(goal: goal, notes: params["notes"])
-        success_result(result)
-      rescue NameError
-        error_result("Plan approval service not available")
-      rescue StandardError => e
-        error_result("Failed to approve plan: #{e.message}")
       end
 
       def resolve_agent(agent_id)
