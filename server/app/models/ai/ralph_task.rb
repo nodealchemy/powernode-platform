@@ -554,8 +554,11 @@ module Ai
       #
       # Lock choice is a deadlock question, not just a serialization one.
       # dev_complete_task takes task.with_lock and then reaches the LOOP row
-      # (record_outcome -> iteration.complete! -> RalphLoop#add_learning), i.e.
-      # task->loop. An earlier version of this method took loop->task, which is a
+      # (record_outcome -> iteration.complete!, and on the ExecutionService path
+      # #increment_iteration!'s with_lock), i.e. task->loop. IMP-7f415874c14a:
+      # RalphLoop#add_learning used to be the loop-row leg of that chain and no
+      # longer takes the lock; the ordering constraint is unchanged, because
+      # #increment_iteration! still reaches the loop row from inside a task lock. An earlier version of this method took loop->task, which is a
       # textbook AB/BA inversion: an operator amending while an executor reports
       # deadlocks, and Postgres aborts one side with ActiveRecord::Deadlocked,
       # unrescued at either seam. Same order as complete_task = no cycle.

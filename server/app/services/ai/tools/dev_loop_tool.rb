@@ -690,21 +690,23 @@ module Ai
         # IMP-9d49b9833a67 — CAPTURE BOUNDARY for executor-supplied learning text.
         #
         # This is where raw `params[:learning]` first enters the system, and it
-        # fans out to three sinks: the loop's `learnings` jsonb, the durable
-        # `ai_ralph_iterations.learning_extracted` column, and the embedded
-        # compound-learning store. Only the first was scrubbed (in
-        # RalphLoop#add_learning). All three are durable and all three are
-        # re-served; what makes 2 and 3 the sharper exposure is SCOPE. Sink 1 is
-        # re-served only within its own loop (recent_learnings(limit: 5) ->
+        # fans out to two sinks: the durable `ai_ralph_iterations.learning_extracted`
+        # column and the embedded compound-learning store. (IMP-7f415874c14a
+        # retired a third, the loop's `learnings` jsonb — the only one that was
+        # originally scrubbed, in RalphLoop#add_learning; both survivors are
+        # scrubbed here.) Both are durable and both are re-served; the sharper
+        # exposure is SCOPE. The iteration column is re-served only within its own
+        # loop (recent_learnings(limit: 5) ->
         # `context.recent_learnings`), whereas the compound store is
         # account-scoped and its rows are ranked and injected as
         # `context.relevant_learnings` into every later dev_next_task ACROSS
         # loops — so unscrubbed material there is actively redistributed to other
-        # loops' executors. Sink 2 is iteration-keyed, durable, and additionally
-        # exposed over the iterations API.
+        # loops' executors. The iteration column is iteration-keyed, durable, and
+        # additionally exposed over the iterations API — and, since
+        # IMP-7f415874c14a, over every learnings reader as well.
         #
         # Scrub ONCE here and hand the clean value to every branch, rather than
-        # adding a sanitize_output call to each of the three writes — the
+        # adding a sanitize_output call to each write — the
         # per-call-site control is what rots (same reasoning as the audit-log
         # redaction seam, 36951df81). Note this must sit ABOVE the case: the
         # "passed" branch does not go through #capture_learning, so a scrub
@@ -728,8 +730,8 @@ module Ai
             learning: learning
           )
           task.pass!(iteration_number: iteration.iteration_number)
-          # complete! appends the learning to the loop but doesn't embed it; do the
-          # mid-run embed here so the passed path matches the others (G12).
+          # complete! records the learning on the iteration row but doesn't embed
+          # it; do the mid-run embed here so the passed path matches the others (G12).
           embed_learning_mid_run(loop_record, learning, task: task, files: params[:files_changed])
           # Closing an offer is the one IRREVERSIBLE, self-crediting act here, so
           # it requires DECLARED evidence (IMP-019fed52): a verdict inferred by
