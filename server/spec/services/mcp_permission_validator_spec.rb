@@ -89,29 +89,6 @@ RSpec.describe Mcp::PermissionValidator, type: :service do
       end
     end
 
-    context 'with allowed scopes' do
-      let(:tool) do
-        create(:mcp_tool,
-               mcp_server: mcp_server,
-               permission_level: 'public',
-               required_permissions: [],
-               allowed_scopes: {
-                 'file_access' => [ 'read_files', 'list_directories' ],
-                 'network' => [ 'http_get' ]
-               })
-      end
-
-      it 'validates scope structure' do
-        validator = described_class.new(tool: tool, user: public_user, account: account)
-        expect(validator.authorized?).to be true
-      end
-
-      it 'rejects invalid scope categories' do
-        tool.update(allowed_scopes: { 'invalid_category' => [ 'something' ] })
-        validator = described_class.new(tool: tool, user: public_user, account: account)
-        expect(validator.authorized?).to be false
-      end
-    end
   end
 
   describe '#authorization_result' do
@@ -119,8 +96,7 @@ RSpec.describe Mcp::PermissionValidator, type: :service do
       create(:mcp_tool,
              mcp_server: mcp_server,
              permission_level: 'account',
-             required_permissions: [ 'ai.loops.read' ],
-             allowed_scopes: { 'file_access' => [ 'read_files' ] })
+             required_permissions: [ 'ai.loops.read' ])
     end
 
     it 'returns detailed authorization information' do
@@ -128,7 +104,8 @@ RSpec.describe Mcp::PermissionValidator, type: :service do
       result = validator.authorization_result
 
       expect(result).to include(:authorized, :errors, :tool, :user)
-      expect(result[:tool]).to include(:name, :permission_level, :required_permissions, :allowed_scopes)
+      expect(result[:tool]).to include(:name, :permission_level, :required_permissions)
+      expect(result[:tool]).not_to include(:allowed_scopes)
       expect(result[:user]).to include(:permission_level, :permissions)
     end
 
@@ -143,36 +120,6 @@ RSpec.describe Mcp::PermissionValidator, type: :service do
     end
   end
 
-  describe '#scope_permitted?' do
-    let(:tool) do
-      create(:mcp_tool,
-             mcp_server: mcp_server,
-             allowed_scopes: {
-               'file_access' => [ 'read_files', 'write_files' ],
-               'network' => [ 'http_get' ]
-             })
-    end
-
-    it 'returns true for permitted scopes' do
-      validator = described_class.new(tool: tool, user: public_user, account: account)
-      expect(validator.scope_permitted?(:file_access, :read_files)).to be true
-      expect(validator.scope_permitted?(:file_access, :write_files)).to be true
-      expect(validator.scope_permitted?(:network, :http_get)).to be true
-    end
-
-    it 'returns false for non-permitted scopes' do
-      validator = described_class.new(tool: tool, user: public_user, account: account)
-      expect(validator.scope_permitted?(:file_access, :delete_files)).to be false
-      expect(validator.scope_permitted?(:network, :http_post)).to be false
-    end
-
-    it 'returns true when no scopes are defined (permissive)' do
-      tool.update(allowed_scopes: {})
-      validator = described_class.new(tool: tool, user: public_user, account: account)
-      expect(validator.scope_permitted?(:file_access, :read_files)).to be true
-    end
-  end
-
   describe '#has_permission?' do
     it 'checks if user has a specific permission' do
       validator = described_class.new(tool: create(:mcp_tool, mcp_server: mcp_server),
@@ -184,6 +131,10 @@ RSpec.describe Mcp::PermissionValidator, type: :service do
     end
   end
 
+  # IMP-37471f8e1619: TOOL_PERMISSION_SCOPES survives as the well-formedness
+  # vocabulary for McpTool#validate_permission_fields and
+  # Mcp::RegistryService#validate_allowed_scopes!. It is no longer an
+  # authorization gate — see spec/services/mcp/permission_validator_scope_gate_spec.rb.
   describe 'TOOL_PERMISSION_SCOPES' do
     it 'defines all required scope categories' do
       expect(Mcp::PermissionValidator::TOOL_PERMISSION_SCOPES.keys).to include(
