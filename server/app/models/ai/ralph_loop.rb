@@ -7,6 +7,7 @@ module Ai
     include Ai::RalphLoopConcerns::StateMachine
     include Ai::RalphLoopConcerns::Scheduling
     include Ai::RalphLoopConcerns::TaskAndLearning
+    include Ai::RalphLoopConcerns::StorageMetrics
 
     # ==================== Constants ====================
     STATUSES = %w[pending running paused completed failed cancelled].freeze

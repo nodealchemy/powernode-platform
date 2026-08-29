@@ -98,7 +98,17 @@ module Ai
           schedule_paused: schedule_paused,
           next_scheduled_at: next_scheduled_at&.iso8601,
           last_scheduled_at: last_scheduled_at&.iso8601,
-          daily_iteration_count: daily_iteration_count
+          daily_iteration_count: daily_iteration_count,
+          # IMP-4bc71cfb2d2c — loop growth, MEASURED and COMPARED to its bound.
+          # The `learnings` array reached 548 kB unnoticed because no summary
+          # surface carried a size field. This is that field, and it carries the
+          # threshold verdict with it: a number alone reproduces the silence.
+          #
+          # COSTS ONE AGGREGATE QUERY PER LOOP unless preloaded. Every LIST caller
+          # must run Ai::RalphLoop.preload_storage_metrics(scope) first or this
+          # becomes the N+1 it exists to prevent — see the controller index,
+          # A2a::Skills::RalphSkills#list and RalphLoopTool#get_statistics.
+          storage: storage_summary
         }
       end
 

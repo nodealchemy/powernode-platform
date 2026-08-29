@@ -273,6 +273,12 @@ module Ai
 
       def get_statistics
         loops = account.ai_ralph_loops.includes(:default_agent)
+        # IMP-4bc71cfb2d2c: loop growth was invisible on every summary surface —
+        # the `learnings` array reached 548 kB and NOTHING reported it. Weigh the
+        # whole account in ONE aggregate query (never a query per loop, and never
+        # a row walk: that is the O(n) read this increment exists to report on).
+        records = ::Ai::RalphLoop.preload_storage_metrics(loops.to_a)
+        over_budget = records.select(&:storage_limit_exceeded?)
         {
           success: true,
           total_loops: loops.count,
@@ -283,9 +289,30 @@ module Ai
           improvement: Ai::RalphTask.improvement_scoreboard(account: account),
           # Convergence: recurrence rate of already-learned bug classes per discovery window
           convergence: Ai::Autonomy::LoopConvergenceService.compute(account: account),
-          loops: loops.map { |l|
+          # ai_output and ai_prompt stay SEPARATE: ai_prompt is 0 bytes in
+          # production only because the MCP dev_loop bridge never writes it, while
+          # the in-platform ExecutionService does. Summing them hides that and
+          # invites a wrong "unused, drop it" read of a live column.
+          storage: {
+            iterations: records.sum { |l| l.storage_metrics[:iteration_count] },
+            learning_iterations: records.sum { |l| l.storage_metrics[:learning_iteration_count] },
+            ai_output_bytes: records.sum { |l| l.storage_metrics[:ai_output_bytes] },
+            ai_prompt_bytes: records.sum { |l| l.storage_metrics[:ai_prompt_bytes] },
+            learnings_column_bytes: records.sum { |l| l.storage_metrics[:learnings_column_bytes] },
+            total_bytes: records.sum(&:storage_total_bytes),
+            # The threshold half. A size with no verdict is the same non-signal
+            # as no size at all — that silence is the original defect.
+            loops_over_limit: over_budget.size,
+            over_limit: over_budget.map { |l|
+              { name: l.name, total_bytes: l.storage_total_bytes,
+                limit_bytes: l.storage_limit_bytes, usage_pct: l.storage_usage_pct }
+            }
+          },
+          loops: records.map { |l|
             { name: l.name, status: l.status, paused: l.schedule_paused,
-              iterations_today: l.daily_iteration_count, agent: l.default_agent&.name }
+              iterations_today: l.daily_iteration_count, agent: l.default_agent&.name,
+              storage_bytes: l.storage_total_bytes,
+              storage_limit_exceeded: l.storage_limit_exceeded? }
           }
         }
       end
