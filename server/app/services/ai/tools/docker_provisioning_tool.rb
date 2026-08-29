@@ -34,6 +34,60 @@ module Ai
       # read/manage split the twin uses action for action.
       REQUIRED_PERMISSION = "devops.docker.manage"
 
+      # CORE MODE (IMP-2836d290f99a): this class is core-HOSTED but
+      # extension-BACKED — its provisioning actions run through
+      # System::DockerDaemonProvisionerService / System::NodeInstance, which ship
+      # in extensions/system. PlatformApiToolRegistry.available_tools drops
+      # extension-HOSTED tool classes on their own (constantize raises NameError,
+      # which it rescues), but this class constantizes fine with the extension
+      # absent, so all four actions stayed in tools/list and
+      # system_provision_docker_runtime answered a call with
+      # -32603 "Internal error: uninitialized constant System::...".
+      #
+      # NOT the only one of its kind: Ai::Tools::DiskImageOperatorTool is the
+      # other core-hosted, extension-backed tool (::System::DiskImageWebhook),
+      # and it is still unguarded — filed separately, deliberately out of scope
+      # here. `grep -rln '::System::' app/services/ai/tools/` names both.
+      #
+      # The guard shape is the one the extension's own tools already use —
+      # SystemFleetTool.permitted? and SystemAcmeTool.permitted? both open with
+      # `return false unless defined?(::System)`.
+      #
+      # SCOPE OF THE PREDICATE: it is a NAMESPACE PROXY, not a per-constant
+      # check. #provision_runtime needs ::System::NodeInstance and the gate later
+      # constantizes the executor STRINGS
+      # "System::Executors::Runtime::{Provision,Decommission}DockerHost" — a
+      # partially-present extension satisfies the proxy and still fails, and the
+      # deferred-approval replay resolves those strings in the WORKER process,
+      # where this guard has no reach at all.
+      #
+      # Both halves of the answer here are deliberate, and neither is the whole
+      # story. #permitted? is the ADVERTISEMENT gate for the surfaces that filter
+      # on it (available_tools -> tools/list, AgentToolBridgeService,
+      # ConciergeToolBridge): an action that cannot work must not be advertised,
+      # because an honest catalog is what makes agent tool selection work at all.
+      # #call covers invocation, since find_tool /
+      # McpPlatformToolRegistrar.find_tool_class resolve tools/call straight off
+      # the registry hash WITHOUT consulting permitted?, so a client holding a
+      # stale catalog can still invoke a de-advertised action and gets a plain
+      # envelope instead of a NameError.
+      #
+      # STILL DISHONEST IN CORE MODE (filed, not fixed here): three other
+      # surfaces walk all_tools without consulting permitted? and keep listing
+      # these four — McpPlatformToolRegistrar.sync_to_database! (the mcp_tools
+      # rows behind the frontend MCP browser), .register_all!/.tool_classes, and
+      # SemanticToolDiscoveryService#collect_all_tools (semantic discovery +
+      # the generated docs catalog).
+      def self.extension_available?
+        defined?(::System::DockerDaemonProvisionerService) ? true : false
+      end
+
+      def self.permitted?(agent:)
+        return false unless extension_available?
+
+        super
+      end
+
       def self.definition
         {
           name: "docker_provisioning",
@@ -90,6 +144,8 @@ module Ai
       protected
 
       def call(params)
+        return extension_unavailable_error unless self.class.extension_available?
+
         case params[:action]
         when "system_provision_docker_runtime"     then provision_runtime(params)
         when "system_decommission_docker_runtime"  then decommission_runtime(params)
@@ -111,6 +167,12 @@ module Ai
       end
 
       private
+
+      def extension_unavailable_error
+        { success: false,
+          error: "Docker runtime provisioning requires the 'system' extension, which is not installed on this " \
+                 "control plane. These actions are not advertised in core mode." }
+      end
 
       def provision_runtime(params)
         instance_id = params[:node_instance_id] or

@@ -732,11 +732,26 @@ module Ai
       }.freeze
 
       # Tool maps contributed by extensions at boot. Extensions call
-      # .register_extension_tools from an engine `to_prepare` hook so core holds
-      # zero references to extension tool classes — a slug-agnostic seam any
-      # extension can plug its action->class map into with no core edit. The
-      # backing store is a class-level ivar; to_prepare re-runs on every reload,
-      # so the registration survives development code reloading.
+      # .register_extension_tools from an engine `to_prepare` hook — a
+      # slug-agnostic seam any extension can plug its action->class map into with
+      # no core edit. The backing store is a class-level ivar; to_prepare re-runs
+      # on every reload, so the registration survives development code reloading.
+      #
+      # WHAT THIS SEAM DOES *NOT* YET MEAN (IMP-2836d290f99a): core does NOT hold
+      # zero references to extension tool classes. The static TOOLS map above
+      # hardcodes 263 entries pointing at 8 classes that live in
+      # extensions/system — SystemFleetTool (134), SdwanTool (86),
+      # SystemPackageRepositoryTool (16), SystemIngressTool (12),
+      # SystemArchitectureCatalogTool (6), SystemStorageOwnerTool (4),
+      # SystemAcmeTool (4), SystemBlastRadiusTool (1). The seam has exactly one
+      # consumer today — one extension's engine calls it from `to_prepare` — and
+      # it is not the system extension, whose migration onto it has not happened.
+      #
+      # Those 263 entries are harmless in core mode only because
+      # .available_tools rescues the NameError their constantize raises — a
+      # missing tool CLASS drops out of the catalog by itself. A core-HOSTED tool
+      # that merely DEPENDS on an extension does not, and must gate itself; see
+      # Ai::Tools::DockerProvisioningTool.extension_available?.
       @extension_tools = {}
 
       # Merge an extension's MCP tool map (action name => handler class name
