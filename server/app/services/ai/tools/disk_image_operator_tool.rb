@@ -68,6 +68,59 @@ module Ai
         bootstrap_disk_image_ci
       ].freeze
 
+      # CORE MODE (IMP-8f6ade11fbdf): this class is core-HOSTED but
+      # extension-BACKED — `provision_disk_image_webhook` and
+      # `bootstrap_disk_image_ci` both run through ::System::DiskImageWebhook,
+      # which ships in extensions/system. PlatformApiToolRegistry.available_tools
+      # drops extension-HOSTED tool classes on their own (constantize raises
+      # NameError, which it rescues), but this class constantizes fine with the
+      # extension absent, so all three actions stayed in tools/list and
+      # provision_disk_image_webhook / bootstrap_disk_image_ci answered a call
+      # with -32603 "Internal error: uninitialized constant System::...".
+      #
+      # This is the SAME defect class IMP-2836d290f99a (commit 5d4bcabc4) fixed
+      # for Ai::Tools::DockerProvisioningTool — that commit named this class as
+      # the other known instance and filed it separately. It is NOT the same
+      # SHAPE, though: DockerProvisioningTool's four actions are all
+      # extension-backed, so gating `.permitted?` for the whole class was
+      # correct there. Here only 2 of 3 actions depend on the extension —
+      # `provision_ci_worker` runs entirely on core's own ::Worker model and
+      # must stay advertised and working with the extension absent. Gating the
+      # whole class the same way would silently regress a core-only action, so
+      # the guard is per-ACTION (`.action_advertised?`, a new hook
+      # PlatformApiToolRegistry.available_tools consults) rather than
+      # per-class (`.permitted?`).
+      #
+      # #action_advertised? is the ADVERTISEMENT gate for the surfaces that
+      # filter on it (available_tools -> tools/list, AgentToolBridgeService,
+      # ConciergeToolBridge, all of which call tool_definitions ->
+      # available_tools): an action that cannot work must not be advertised.
+      # #call covers invocation, since find_tool / McpPlatformToolRegistrar
+      # resolve tools/call straight off the registry hash WITHOUT consulting
+      # available_tools at all, so a client holding a stale catalog can still
+      # invoke a de-advertised action and gets a plain envelope instead of a
+      # NameError.
+      #
+      # STILL DISHONEST IN CORE MODE (pre-existing, not fixed here — same three
+      # surfaces named in 5d4bcabc4's commit message): McpPlatformToolRegistrar
+      # .sync_to_database! / .register_all! / .tool_classes and
+      # SemanticToolDiscoveryService#collect_all_tools all walk
+      # PlatformApiToolRegistry.all_tools directly and do not consult
+      # available_tools/permitted? at all, so the DB-backed MCP browser catalog
+      # and semantic discovery index still list provision_disk_image_webhook /
+      # bootstrap_disk_image_ci in core mode even after this fix.
+      EXTENSION_BACKED_ACTIONS = %w[provision_disk_image_webhook bootstrap_disk_image_ci].freeze
+
+      def self.extension_available?
+        defined?(::System::DiskImageWebhook) ? true : false
+      end
+
+      def self.action_advertised?(action_name)
+        return true unless EXTENSION_BACKED_ACTIONS.include?(action_name.to_s)
+
+        extension_available?
+      end
+
       def self.definition
         {
           name: "disk_image_operator",
@@ -110,7 +163,10 @@ module Ai
       protected
 
       def call(params)
-        case params[:action].to_s
+        action = params[:action].to_s
+        return extension_unavailable_error(action) if EXTENSION_BACKED_ACTIONS.include?(action) && !self.class.extension_available?
+
+        case action
         when "provision_disk_image_webhook" then provision_webhook(params)
         when "provision_ci_worker"          then provision_ci_worker(params)
         when "bootstrap_disk_image_ci"      then bootstrap(params)
@@ -120,6 +176,12 @@ module Ai
       end
 
       private
+
+      def extension_unavailable_error(action)
+        { success: false,
+          error: "#{action} requires the 'system' extension, which is not installed on this control plane. " \
+                 "This action is not advertised in core mode." }
+      end
 
       def provision_webhook(params)
         label = params[:label].to_s

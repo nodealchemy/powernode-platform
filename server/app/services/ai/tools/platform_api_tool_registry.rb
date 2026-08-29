@@ -778,7 +778,19 @@ module Ai
       def self.available_tools(agent: nil)
         all_tools.each_with_object({}) do |(name, class_name), hash|
           klass = class_name.constantize
-          hash[name] = klass if klass.permitted?(agent: agent)
+          next unless klass.permitted?(agent: agent)
+
+          # Per-ACTION advertisement hook (IMP-8f6ade11fbdf), additive to the
+          # per-CLASS `.permitted?` above. Most tool classes are all-or-nothing
+          # extension-wise (see DockerProvisioningTool), for which `.permitted?`
+          # alone is correct. Ai::Tools::DiskImageOperatorTool is a mixed case —
+          # only 2 of its 3 actions depend on extensions/system — so gating the
+          # whole class would incorrectly de-advertise its core-only action too.
+          # `respond_to?` keeps this opt-in: classes that don't define
+          # `.action_advertised?` are unaffected.
+          next if klass.respond_to?(:action_advertised?) && !klass.action_advertised?(name)
+
+          hash[name] = klass
         rescue NameError => e
           Rails.logger.warn "[PlatformApiToolRegistry] Tool class not found: #{class_name} - #{e.message}"
         end
