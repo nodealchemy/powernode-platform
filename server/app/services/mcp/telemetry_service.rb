@@ -265,6 +265,52 @@ module Mcp
     @performance_data.delete(execution_id)
   end
 
+  # Track a tool invocation refused by the permission gate.
+  #
+  # This is NOT an invocation error. The refusal in
+  # Mcp::ProtocolService#invoke_tool happens BEFORE
+  # #track_tool_invocation_start, so there is no execution_id and no
+  # @performance_data entry to close out — a denial must never be counted as a
+  # started, failed, or completed invocation, or the success-rate metrics are
+  # wrong. It is recorded against its own counters instead.
+  #
+  # This method was called by ProtocolService but never defined (no
+  # method_missing either), so every denial for a tool WITH an McpTool row raised
+  # NoMethodError in place of PermissionDeniedError. The refusal still held — it
+  # failed closed — but the caller got the wrong error and the denial went
+  # unrecorded. Covered by
+  # spec/services/mcp/protocol_service_permission_denial_spec.rb, which drives a
+  # real denial end to end rather than asserting this method exists.
+  #
+  # @param tool_id [String] registry tool id (or name) that was refused
+  # @param user [Object, nil] the refused principal; only its id is recorded
+  # @param authorization_result [Hash] Mcp::PermissionValidator#authorization_result
+  def track_tool_permission_denied(tool_id, user, authorization_result = {})
+    @logger.debug "[MCP_TELEMETRY] Tracking tool permission denied: #{tool_id}"
+
+    result = authorization_result || {}
+    errors = Array(result[:errors] || result["errors"])
+    denial_types = errors.filter_map { |e| e[:type] || e["type"] }.uniq
+
+    # Per-tool denial count, alongside the invocation counters.
+    tool_data = @tool_metrics[tool_id]
+    tool_data[:permission_denials] = (tool_data[:permission_denials] || 0) + 1 if tool_data
+
+    increment_metric("tool_invocations.permission_denied")
+    denial_types.each do |type|
+      increment_metric("tool_invocations.permission_denied.by_type.#{type}")
+    end
+
+    persist_metric("tool_permission_denied", {
+      tool_id: tool_id,
+      user_id: (user.id if user.respond_to?(:id)),
+      account_id: @account&.id,
+      denial_types: denial_types,
+      denial_messages: errors.filter_map { |e| e[:message] || e["message"] },
+      timestamp: Time.current
+    })
+  end
+
   # =============================================================================
   # MESSAGE TELEMETRY
   # =============================================================================
@@ -393,6 +439,7 @@ module Mcp
       "tool_invocations.active" => 0,
       "tool_invocations.successful" => 0,
       "tool_invocations.failed" => 0,
+      "tool_invocations.permission_denied" => 0,
       "messages.total" => 0,
       "messages.errors" => 0
     }
