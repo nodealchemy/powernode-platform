@@ -533,6 +533,128 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "convergence + execu
   end
 
   # ---------------------------------------------------------------------
+  # IMP-15d12f9ace83 — the diff prompt must STATE each skill's input
+  # contract.
+  #
+  # The reported defect was that `schema_change` / `security_change` "can
+  # never compose a bindable step". That is false: the test above proves the
+  # lane composes and persists when the LLM returns bindable inputs. What was
+  # true is that the prompt gave the model no way to KNOW what bindable means
+  # — it listed skill NAMES (`ADAPTATION_SKILLS.inspect`) and the placeholder
+  # "structured input for the skill", nothing more. A model that guesses
+  # `node_instance_id` instead of `instance_id` has its step dropped by
+  # #reject_unbindable, and the operator reads that as "no composer exists".
+  #
+  # So the fix is the prompt, not a refusal: declaring these types
+  # UNSUPPORTED would have disabled a working lane.
+  # ---------------------------------------------------------------------
+  describe "the diff prompt states each skill's input contract" do
+    before do
+      skip "system extension not loaded" unless defined?(::System::Ai::Skills::AttachStorageExecutor)
+    end
+
+    def prompt_for(change_type)
+      mission = build_mission!
+      service = described_class.new(account: account, mission: mission)
+      signal = service.send(:explicit_signal, change_type, metric: nil, details: nil)
+      service.send(:build_diff_prompt, signal, change_type)
+    end
+
+    it "names the inputs attach_storage requires, marked REQUIRED" do
+      prompt = prompt_for("schema_change")
+
+      expect(prompt).to include("attach_storage")
+      expect(prompt).to match(/instance_id \(string, REQUIRED\)/)
+      expect(prompt).to match(/size_gb \(integer, REQUIRED\)/)
+    end
+
+    it "distinguishes optional inputs so the model does not treat them as mandatory" do
+      expect(prompt_for("schema_change")).to match(/mount_point \(string, optional\)/)
+    end
+
+    it "names the inputs configure_sdwan_for_project requires" do
+      prompt = prompt_for("security_change")
+
+      expect(prompt).to match(/project_id \(string, REQUIRED\)/)
+      expect(prompt).to match(/instance_ids \(array, REQUIRED\)/)
+      expect(prompt).to match(/network_name \(string, REQUIRED\)/)
+      expect(prompt).to match(/topology \(string, REQUIRED\)/)
+    end
+
+    it "tells the model a step missing a required input is discarded" do
+      expect(prompt_for("schema_change")).to include("discarded")
+    end
+
+    # An operator's structured `details:` is what makes this lane reachable in
+    # practice — it rides into the signal payload and then into the prompt, so
+    # a model told the contract has the values to satisfy it.
+    it "carries the operator's details into the prompt alongside the contract" do
+      mission = build_mission!
+      service = described_class.new(account: account, mission: mission)
+      signal = service.send(:explicit_signal, "schema_change", metric: nil,
+                                              details: { "instance_id" => "inst-42", "size_gb" => 25 })
+
+      prompt = service.send(:build_diff_prompt, signal, "schema_change")
+
+      expect(prompt).to include("inst-42")
+      expect(prompt).to match(/instance_id \(string, REQUIRED\)/)
+    end
+  end
+
+  describe "the contract block degrades rather than emitting an empty heading" do
+    it "falls back to the previous prompt shape when no skill resolves" do
+      allow(::Ai::Provisioning::SkillCompositionRunner)
+        .to receive(:input_contract_for).and_return(nil)
+
+      mission = build_mission!
+      service = described_class.new(account: account, mission: mission)
+      signal = service.send(:explicit_signal, "schema_change", metric: nil, details: nil)
+      prompt = service.send(:build_diff_prompt, signal, "schema_change")
+
+      expect(service.send(:skill_contracts_block)).to eq("")
+      expect(prompt).not_to include("Skill input contracts")
+      expect(prompt).to include("Mission brief:")
+    end
+  end
+
+  # The guard IMP-15d12f9ace83 most needs: whatever the prompt now says, the
+  # deterministic lane must still compose. A prompt change must not be able to
+  # reach the change types that never consult the LLM.
+  describe "a SUPPORTED change type still composes after the prompt change" do
+    it "composes a bindable deterministic step for cost_control without any LLM" do
+      mission = build_mission!
+      service = described_class.new(account: account, mission: mission)
+      # cost_control is deterministic — the LLM seam must not be consulted at
+      # all, so a raising stub is the assertion.
+      allow(service).to receive(:diff_from_llm) { raise "LLM consulted for a deterministic change type" }
+
+      result = service.propose_change(change_type: "cost_control")
+
+      expect(result[:plan]).not_to be_nil
+      step = result[:plan].steps.in_order.first
+      expect(step.execution_config["skill"]).to eq("scale_project")
+      expect(step.execution_config["composed_by"]).to eq("deterministic")
+      expect(step.execution_config["inputs"]["scaling_strategy"])
+        .to eq(described_class::REMOVAL_STRATEGY)
+    end
+
+    it "composes a bindable deterministic step for scale_horizontal" do
+      mission = build_mission!
+      service = described_class.new(account: account, mission: mission)
+      allow(service).to receive(:diff_from_llm) { raise "LLM consulted for a deterministic change type" }
+
+      plan = service.propose_from_signals(
+        signals: [ drift_signal(observed: 1, target: 3, mission: mission) ]
+      )
+
+      expect(plan).not_to be_nil
+      step = plan.steps.in_order.first
+      expect(step.execution_config["skill"]).to eq("scale_project")
+      expect(step.execution_config["composed_by"]).to eq("deterministic")
+    end
+  end
+
+  # ---------------------------------------------------------------------
   # cost_control cannot bind to an additive-only actuator
   # ---------------------------------------------------------------------
   describe "cost_control composes a bindable scale-IN step" do

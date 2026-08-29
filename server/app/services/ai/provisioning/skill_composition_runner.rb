@@ -54,6 +54,11 @@ module Ai
       # in flight, terminal, or skipped, and must not be re-entered.
       CLAIMABLE_STATUSES = %w[pending].freeze
 
+      # Per-input description budget for .input_contract_for. Its only consumer
+      # is a prompt, so a descriptor that grows a paragraph must not silently
+      # grow the prompt with it.
+      INPUT_DESCRIPTION_LIMIT = 160
+
       attr_reader :account, :mission, :plan, :runner_id, :started_at
 
       def initialize(account:, mission:, plan:)
@@ -350,6 +355,43 @@ module Ai
         declared.select { |_k, spec| spec.is_a?(Hash) && spec[:required] }.keys.map(&:to_s)
       rescue StandardError => e
         Rails.logger.warn("[SkillCompositionRunner] required-input lookup failed for #{skill_name}: #{e.message}")
+        nil
+      end
+
+      # The full declared input contract for a skill — name, type, required
+      # flag and description — resolved through the same seam as
+      # .required_inputs_for so a caller never has to reference an executor by
+      # name.
+      #
+      # Exists because .required_inputs_for answers "did this step bind?" but
+      # not "what should a composer PUT here?". A composer that is a language
+      # model needs the second question answered before it composes, or it
+      # guesses key names and its step is dropped by the bindability guard
+      # after the fact (IMP-15d12f9ace83).
+      #
+      # Same nil-vs-empty contract as .required_inputs_for: nil means "I
+      # cannot tell what this needs", never "this needs nothing". Descriptions
+      # are truncated because the only consumer is a prompt with a token
+      # budget.
+      def self.input_contract_for(skill_name)
+        klass = resolve_executor(skill_name)
+        return nil unless klass.respond_to?(:descriptor)
+
+        declared = klass.descriptor[:inputs]
+        return nil unless declared.is_a?(Hash)
+
+        declared.filter_map do |key, spec|
+          next nil unless spec.is_a?(Hash)
+
+          {
+            "name" => key.to_s,
+            "type" => spec[:type].to_s.presence || "string",
+            "required" => spec[:required] ? true : false,
+            "description" => spec[:description].to_s[0, INPUT_DESCRIPTION_LIMIT]
+          }
+        end
+      rescue StandardError => e
+        Rails.logger.warn("[SkillCompositionRunner] input-contract lookup failed for #{skill_name}: #{e.message}")
         nil
       end
 
