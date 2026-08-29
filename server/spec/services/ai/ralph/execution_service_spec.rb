@@ -957,20 +957,23 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
     let(:loop_status) { "running" }
 
     context "with existing learnings" do
+      # IMP-7f415874c14a: the source is ai_ralph_iterations, not the retired
+      # `learnings` jsonb column. Seeding the column instead would leave this
+      # green against a reader that returns nothing for real data.
       before do
-        ralph_loop.update!(learnings: [
-          { "text" => "Use smaller functions", "iteration" => 1 },
-          { "text" => "Test edge cases", "iteration" => 2 }
-        ])
+        create(:ai_ralph_iteration, ralph_loop: ralph_loop, iteration_number: 1,
+               learning_extracted: "Use smaller functions")
+        create(:ai_ralph_iteration, ralph_loop: ralph_loop, iteration_number: 2,
+               learning_extracted: "Test edge cases")
       end
 
       it "returns learnings grouped by iteration" do
         result = service.learnings
 
         expect(result[:total_count]).to eq(2)
-        expect(result[:learnings].size).to eq(2)
-        expect(result[:by_iteration]).to have_key(1)
-        expect(result[:by_iteration]).to have_key(2)
+        expect(result[:learnings].map { |l| l["text"] }).to eq(["Use smaller functions", "Test edge cases"])
+        expect(result[:by_iteration][1].map { |l| l["text"] }).to eq(["Use smaller functions"])
+        expect(result[:by_iteration][2].map { |l| l["text"] }).to eq(["Test edge cases"])
       end
     end
 

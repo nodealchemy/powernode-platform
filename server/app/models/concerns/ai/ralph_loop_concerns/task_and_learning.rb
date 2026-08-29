@@ -29,47 +29,72 @@ module Ai
 
       # Learning management
 
+      # IMP-7f415874c14a — THE WRITE TO THE `learnings` JSONB ARRAY IS RETIRED.
+      #
+      # This used to be `self.learnings = (learnings || []) + [entry]` under a row
+      # lock: an O(n) read-modify-write of the WHOLE column on every completion.
+      # Production measured 548 kB across 354 entries; at the loop's 1000-iteration
+      # ceiling that is ~n²/2 ≈ 1.5 GB of cumulative write traffic, on a row lock
+      # #increment_iteration! also contends for. IMP-44964469b565 derived the READ
+      # from ai_ralph_iterations, which fixed the read cost only — retiring the
+      # write is what fixes this, and it is why the lock is gone from here.
+      #
+      # THE COLUMN IS DELIBERATELY NOT DROPPED. It stays dormant and empty. A
+      # migration on a live install buys nothing here, and leaving it keeps the
+      # read+write switch a single contiguous revertible range. Do not "finish the
+      # job" by dropping it; every reader is derived from ai_ralph_iterations and
+      # a drop would only remove the fallback that makes a revert cheap.
+      #
+      # WHY THIS IS NOT A NO-OP. #add_learning is a public model API. Both real
+      # callers (RalphIteration#complete!, DevLoopTool#capture_learning) already
+      # write `learning_extracted` themselves, so for them this IS a no-op — but a
+      # caller that does not would otherwise have its learning silently vanish.
+      # So it back-fills the surviving channel: the producing iteration's row, and
+      # ONLY when that row carries nothing yet. It never CLOBBERS — the array held
+      # many entries per iteration, the column holds one, and losing the first to
+      # a later append would be strictly worse than dropping the later one.
+      #
+      # context[:iteration] is the producing iteration's number (IMP-3acfff02a847);
+      # current_iteration is the fallback for a caller supplying none. Deriving the
+      # target row from the context is what makes this land on the right iteration.
+      #
+      # G15: the scrub stays here. sanitize_output is effectively idempotent, so
+      # callers that already scrubbed are unaffected, and .to_s is load-bearing —
+      # sanitize_output passes a non-String through UNTOUCHED.
       def add_learning(learning_text, context: {})
-        # Tier-2(c) §5: atomic read-append-write under a row lock — concurrent
-        # appends previously clobbered each other (last save! wins, entries lost).
-        # IMP-3acfff02a847: the top-level "iteration" is the PRODUCING iteration's
-        # number, not the loop's counter at append time. Every real caller
-        # (RalphIteration#complete!, DevLoopTool#capture_learning) already passes the
-        # truth as context[:iteration]; current_iteration is only the fallback for a
-        # caller that supplies none. The two agree in the steady state — which is
-        # exactly why the divergence is invisible — but current_iteration moves
-        # independently of the iteration that produced the text (#increment_iteration!
-        # can advance it between an iteration starting and its learning landing), and
-        # #reset! zeroes it outright. Deriving the stamp from the context makes the
-        # top-level field and context.iteration agree by construction.
-        #
-        # Any migration keying learnings to iterations MUST read context.iteration:
-        # it is the field that was always correct, and pre-existing rows written
-        # before this change carry a top-level value that only happens to match.
         ctx = context.is_a?(Hash) ? context.symbolize_keys : {}
+        text = ::DataManagement::Sanitizer.sanitize_output(learning_text.to_s).presence
+        return if text.nil?
 
-        with_lock do
-          learning_entry = {
-            # G15: scrub secrets before a learning (loop output) is persisted.
-            "text" => ::DataManagement::Sanitizer.sanitize_output(learning_text),
-            "iteration" => ctx.fetch(:iteration, nil) || current_iteration,
-            "timestamp" => Time.current.iso8601,
-            "context" => context
-          }
-          self.learnings = (learnings || []) + [ learning_entry ]
-          save!
-        end
+        number = ctx.fetch(:iteration, nil) || current_iteration
+        iteration = ralph_iterations.find_by(iteration_number: number)
+        return if iteration.nil? || iteration.learning_extracted.present?
+
+        iteration.update!(learning_extracted: text)
+      end
+
+      # IMP-7f415874c14a — the FULL derived learning list, oldest first, in the
+      # exact entry shape the jsonb array used to carry. Every reader that used to
+      # index `learnings` reads this instead: ExecutionService#learnings and its
+      # #learnings_by_iteration, #loop_details, the API progress endpoint, and
+      # RalphLearningExtractor#extract via #extract_compound_learnings.
+      #
+      # A reader left on the raw column does not error — it goes PERMANENTLY EMPTY
+      # for new data. That silence is why the migration had to be simultaneous.
+      #
+      # Unbounded on purpose: these callers always returned the whole array. The
+      # bounded sibling is #recent_learnings.
+      def learning_entries
+        learning_iterations.order(iteration_number: :asc).map { |i| learning_entry_for(i) }
       end
 
       # IMP-44964469b565 — RECENCY CHANNEL: derived from ai_ralph_iterations,
       # not from the loop-level `learnings` jsonb array.
       #
-      # THE ARRAY IS STILL WRITTEN, DELIBERATELY. #add_learning,
-      # DevLoopTool#capture_learning and #preserve_iteration_learnings! all keep
-      # appending to it; this increment moves ONLY the read. While both channels
-      # are populated the switch is fully reversible and cannot lose data — the
-      # array is the fallback that makes it safe. Retiring the write is a
-      # separate, later increment; do not "finish the job" here.
+      # IMP-7f415874c14a: the array is no longer written either — see #add_learning.
+      # ai_ralph_iterations is now the SOLE per-iteration record of a learning, and
+      # the parity audit at iteration 497 established the derivation is lossless
+      # against production (0 of 354 array entries unrecoverable from the rows).
       #
       # Why the query is cheap: ORDER BY iteration_number DESC LIMIT k walks the
       # existing unique index [ralph_loop_id, iteration_number] backwards, so it
@@ -83,22 +108,20 @@ module Ai
       # DevLoopTool#iteration_context) render this list in order, so flipping it
       # would silently reverse every prompt's "Previous Learnings" block.
       #
-      # Blank guard mirrors #preserve_iteration_learnings!: DevLoopTool writes
-      # learning_extracted directly, without RalphIteration#complete!'s
-      # `.presence` normalisation, so "" is reachable and must not render "- ".
+      # Blank guard: DevLoopTool writes learning_extracted directly, without
+      # RalphIteration#complete!'s `.presence` normalisation, so "" is reachable
+      # and must not render "- ".
       #
       # #reset! DECISION: reset! deletes the iteration rows, so this goes EMPTY
       # after a reset. That is intended — a reset is "start this run over", and
       # the recency channel is per-run context. Nothing is lost:
-      # #preserve_iteration_learnings! still back-fills the array and
-      # #extract_compound_learnings still harvests into the durable
+      # #reset! runs #extract_compound_learnings BEFORE its delete_all, and deletes
+      # only if that harvest succeeded, so every learning reaches the durable
       # CompoundLearning store, which is re-injected as `relevant_learnings`.
       def recent_learnings(limit: 10)
-        ralph_iterations
-          .where.not(learning_extracted: [ nil, "" ])
+        learning_iterations
           .order(iteration_number: :desc)
           .limit(limit)
-          .includes(:ralph_task)
           .to_a
           .reverse
           .map { |iteration| learning_entry_for(iteration) }
@@ -164,7 +187,8 @@ module Ai
           repository_url: repository_url,
           branch: branch,
           progress_text: progress_text,
-          learnings: learnings,
+          # IMP-7f415874c14a: derived, not the (now dormant) `learnings` column.
+          learnings: learning_entries,
           configuration: configuration,
           prd_json: prd_json,
           error_message: error_message,
@@ -202,7 +226,15 @@ module Ai
 
       private
 
-      # Shape parity with the jsonb entries #add_learning writes — readers index
+      # The single source of truth both learning readers select from. `where.not`
+      # on an array containing nil is deliberate and correct: Rails renders it as
+      # NOT (col = '' OR col IS NULL). The hand-written-looking NOT IN (NULL, '')
+      # would match NOTHING — same intent, empty result, no error.
+      def learning_iterations
+        ralph_iterations.where.not(learning_extracted: [ nil, "" ]).includes(:ralph_task)
+      end
+
+      # Shape parity with the jsonb entries #add_learning used to write — readers index
       # "text"; the MCP payload carries the rest. Iteration rows also carry
       # git_commit_sha / cost / status / ralph_task_id: deliberately NOT
       # surfaced. Enriching the payload is a separate increment.

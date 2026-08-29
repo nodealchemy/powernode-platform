@@ -598,7 +598,9 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(iteration.check_results["rspec"]).to eq("2 examples, 0 failures")
       expect(iteration.check_results["files_changed"]).to include("server/app/models/ai/mission_approval.rb")
       expect(iteration.learning_extracted).to match(/GATES enum/)
-      expect(ralph_loop.reload.learnings.last["text"]).to match(/GATES enum/)
+      # IMP-7f415874c14a: recorded on the iteration row (asserted above); the
+      # loop-level jsonb array is retired and stays empty.
+      expect(ralph_loop.reload.learnings).to eq([])
       expect(result[:queue][:passed]).to eq(1)
     end
 
@@ -673,7 +675,10 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(result[:success]).to be true
       expect(result[:task_status]).to eq("failed")
       expect(ralph_loop.ralph_iterations.last.status).to eq("failed")
-      expect(ralph_loop.reload.learnings.last["text"]).to match(/worker running/)
+      # IMP-7f415874c14a: the learning lands on the iteration row; the loop-level
+      # jsonb array is retired and stays empty.
+      expect(ralph_loop.ralph_iterations.last.learning_extracted).to match(/worker running/)
+      expect(ralph_loop.reload.learnings).to eq([])
     end
 
     it "records a blocked outcome with a blocked error code" do

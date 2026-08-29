@@ -214,7 +214,10 @@ module Api
             loop_status: build_execution_service.status,
             progress_text: @ralph_loop.progress_text,
             progress_percentage: @ralph_loop.progress_percentage,
-            learnings: @ralph_loop.learnings || [],
+            # IMP-7f415874c14a: derived from ai_ralph_iterations. RalphProgressView
+            # renders this list; left on the retired jsonb column it would render
+            # empty for every loop from here on, with no error to notice.
+            learnings: @ralph_loop.learning_entries,
             recent_commits: recent_commits
           })
         end

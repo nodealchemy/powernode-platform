@@ -2,8 +2,10 @@
 
 module Ai
   module Learning
-    # Tier-2(c): promotes ralph-loop iteration learnings (the JSON entries that
-    # accumulate in ralph_loop.learnings) into durable CompoundLearning records so
+    # Tier-2(c): promotes ralph-loop iteration learnings (IMP-7f415874c14a: the
+    # entries RalphLoop#learning_entries derives from ai_ralph_iterations — this
+    # read used to index the now-retired ralph_loop.learnings jsonb column) into
+    # durable CompoundLearning records so
     # effective_importance / decay can measure them over time. This wires up the
     # gap recon identified: loop learnings were appended to JSON but never reached
     # the compounding-learning store.
@@ -66,9 +68,16 @@ module Ai
 
       # Harvest all of a loop's accumulated learnings. Idempotent. Returns the
       # number of new CompoundLearning records created.
-      def extract(ralph_loop)
+      #
+      # IMP-7f415874c14a: the source is the loop's DERIVED learning entries
+      # (ai_ralph_iterations), not the retired `learnings` jsonb column. `entries:`
+      # is how RalphLoop#extract_compound_learnings supplies its own list — the
+      # derived entries UNIONED with anything still stranded in the dormant column
+      # (a loop reset before this change). Re-deriving here would drop that union.
+      def extract(ralph_loop, entries: nil)
+        entries = ralph_loop.learning_entries if entries.nil?
         repo_id = repository_id_for(ralph_loop)
-        Array(ralph_loop.learnings).sum do |entry|
+        Array(entries).sum do |entry|
           store(entry_text(entry), repo_id: repo_id, loop: ralph_loop, context: entry_context(entry)) ? 1 : 0
         end
       rescue StandardError => e
