@@ -111,13 +111,13 @@ module Ai
           synced_names.size
         end
 
-        def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, token: nil, mcp_agent: nil, instance_authorized: false, node_instance: nil)
+        def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, mcp_agent: nil, instance_authorized: false, node_instance: nil)
           tool_name = tool_id.delete_prefix("#{TOOL_ID_PREFIX}.")
           tool_class = find_tool_class(tool_name)
           raise ArgumentError, "Unknown platform tool: #{tool_name}" unless tool_class
 
           # SECURITY: Enforce permission at execution time (defense-in-depth)
-          enforce_permission!(user: user, tool_class: tool_class, tool_id: tool_id, token: token, instance_authorized: instance_authorized)
+          enforce_permission!(user: user, tool_class: tool_class, tool_id: tool_id, instance_authorized: instance_authorized)
 
           # Rate limiting per agent
           if agent_id
@@ -262,13 +262,63 @@ module Ai
                 "authorized per tool name, so #{tool_id} may only run '#{expected}'"
         end
 
-        def enforce_permission!(user:, tool_class:, tool_id:, token: nil, instance_authorized: false)
+        # SCOPE OF THIS METHOD — deliberately stated narrowly, because a comment
+        # that claims more coverage than it has is how the next false citation
+        # gets written. This method enforces exactly ONE check: the
+        # REQUIRED_PERMISSION floor, against the User. It carries TWO exemptions
+        # that skip that check outright — `required.nil?` (a tool class declaring
+        # no floor is waved through entirely; that wave-through is the defect the
+        # SECURITY comments on ProvisioningTool, GovernanceTool, CoordinationTool,
+        # SelfImprovementTool, AgentAutonomyTool and AgentMemoryManagementTool
+        # exist to warn about) and `instance_authorized`.
+        #
+        # It is NOT the whole authorization ladder and must not be cited as one.
+        # The other rungs live elsewhere:
+        #   * Mcp::Principal#may_invoke? — grant globs + DESTRUCTIVE_TOOL_PATTERNS,
+        #     applied at streamable_http_controller.rb:604
+        #   * enforce_action_scope! — this file, defined :250, called from
+        #     execute_tool at :147
+        #   * Mcp::PermissionValidator — the ActionCable arm, protocol_service.rb:195
+        #   * per-action ACTION_PERMISSIONS maps in the tool classes themselves
+        #   * BaseTool#enforce_instance_deny_overlay!, re-applied at nested hops
+        #
+        # THERE IS NO TOKEN-LEVEL NARROWING, and nothing downstream should be
+        # written as though there were. This method used to carry a third check —
+        # a "token permission intersection" reading a `token:` kwarg — that no
+        # caller ever passed: all four call sites (streamable_http_controller,
+        # agent_tool_bridge_service, skill_recipe_runner, protocol_service)
+        # omitted it, so the branch was dead on every path while reading as a
+        # control. Deleted in IMP-a18f5a8ed393; it was the second instance of that
+        # shape after `capability_scope`.
+        #
+        # It was doubly dead. The only class that would have SATISFIED the branch
+        # is UserToken (it has both #permissions and #has_permission?), and
+        # UserToken is never minted in production: `create_token_for_user` has no
+        # production callers, and its one production reader —
+        # application_cable/connection.rb#authenticate_legacy_user (:155), whose
+        # first act is a [DEPRECATED] warning — is on an arm that builds its
+        # execution_options WITHOUT any token (mcp_channel.rb:121-126). So even
+        # where a UserToken exists in scope it never reaches this method.
+        #
+        # Building a real one is a NEW authorization layer, not a rewiring: the
+        # token the MCP path resolves is a Doorkeeper::AccessToken, which carries
+        # OAuth `scopes` and responds to neither #permissions nor
+        # #has_permission?. Any scope→permission mapping must cover all EIGHT
+        # scopes Doorkeeper ACCEPTS — read, write, admin, billing, users,
+        # webhooks, workflows, files (config/initializers/doorkeeper.rb:124;
+        # default `:read` at :121) — NOT the four ADVERTISED at
+        # well_known_controller.rb:48 (read, write, workflows, files). That gap is
+        # the trap: a token minted with `admin` falls straight through a map built
+        # from the advertised list. A genuine intersection therefore needs that
+        # mapping plus a mint-time surface to narrow a token, neither of which
+        # exists. Do not re-add the branch without both.
+        def enforce_permission!(user:, tool_class:, tool_id:, instance_authorized: false)
           required = tool_class::REQUIRED_PERMISSION
           return if required.nil?
 
           # An instance principal (mTLS node cert, no User) that reached here was
           # ALREADY grant-gated by the streamable controller's may_invoke? check
-          # (see streamable_http_controller.rb:563): that grant is what stands in
+          # (see streamable_http_controller.rb:604): that grant is what stands in
           # for its authorization. The grant is NAME-scoped, and enforce_action_scope!
           # above now holds the executed action to that same name, so what the
           # grant bounds is what runs. The intended downstream user:nil path is the
@@ -284,13 +334,6 @@ module Ai
           unless user.has_permission?(required)
             raise ::Mcp::ProtocolService::PermissionDeniedError,
                   "Permission denied for #{tool_id}: requires '#{required}'"
-          end
-
-          # Token permission intersection: if an MCP token is present with scoped
-          # permissions, the token must also grant the required permission
-          if token&.permissions.present? && !token.has_permission?(required)
-            raise ::Mcp::ProtocolService::PermissionDeniedError,
-                  "Token does not grant permission for #{tool_id}: requires '#{required}'"
           end
         end
 

@@ -6,8 +6,8 @@ require "rails_helper"
 # classes that still inherited BaseTool's REQUIRED_PERMISSION = nil.
 #
 # McpPlatformToolRegistrar#enforce_permission! opens with `return if
-# required.nil?` — ABOVE the authentication raise, the has_permission? raise and
-# the MCP token intersection. So every action on ProvisioningTool,
+# required.nil?` — ABOVE the authentication raise and the has_permission?
+# raise. So every action on ProvisioningTool,
 # SelfImprovementTool, GovernanceTool, CoordinationTool and
 # AgentMemoryManagementTool was reachable with no check at all. This is the same
 # shape that made AgentAutonomyTool a live authorization bypass
@@ -496,18 +496,15 @@ RSpec.describe "sibling MCP tools: per-action authorization parity" do
       }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /Authentication required/)
     end
 
-    it "refuses a token that does not grant the floor" do
-      token = ::UserToken.new(permissions: %w[ai.conversations.read])
-      allow(token).to receive(:has_permission?).with("ai.agents.read").and_return(false)
-
-      expect {
-        ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
-          "platform.agent_remember",
-          params: { "key" => "k", "value" => "v" },
-          account: account, user: reader, mcp_agent: agent, token: token
-        )
-      }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /Token does not grant/)
-    end
+    # REMOVED with the branch it covered (IMP-a18f5a8ed393). An example here used
+    # to build a ::UserToken, stub #has_permission? on it, and hand it to the
+    # registrar as `token:` to assert a "Token does not grant" refusal. It passed,
+    # and it was the reason the registrar's "token permission intersection" read
+    # as a live control: the example MANUFACTURED the only caller that ever passed
+    # a token. No production call site did — the branch was unreachable on all four
+    # — so the green example asserted a gate nobody could reach. The MCP path
+    # resolves Doorkeeper::AccessToken (OAuth scopes), never a UserToken. If a
+    # token-scoping layer is ever built, cover it from a real call site.
 
     # CONTROL — an agent's own memory must stay usable at member tier.
     it "keeps the agent's own memory operations usable at the floor" do

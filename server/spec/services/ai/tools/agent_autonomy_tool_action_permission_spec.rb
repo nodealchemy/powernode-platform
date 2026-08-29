@@ -7,8 +7,8 @@ require "rails_helper"
 #
 # Ai::Tools::BaseTool defines REQUIRED_PERMISSION = nil and AgentAutonomyTool
 # never overrode it, so McpPlatformToolRegistrar#enforce_permission! returned at
-# its first line — BEFORE the authentication check, the has_permission? check
-# and the token intersection. Every action on the tool was therefore reachable
+# its first line — BEFORE the authentication check and the has_permission?
+# check. Every action on the tool was therefore reachable
 # by any MCP caller with no permission check at all, including
 # approve_deferred_operation, which EXECUTES the approved operation. Its REST
 # twin requires ai.autonomy.approve.

@@ -7,12 +7,14 @@
 > marked **[NEW]**.
 >
 > **Implementation status, updated 2026-07-29** (the doc below is the original
-> recommendation and is left unedited):
+> recommendation; it is left unedited except where a later finding proved a
+> claim FALSE, which is corrected in place under a bold **Correction** marker —
+> see §2):
 >
 > | Migration step | State |
 > |---|---|
 > | 1. Provision `ops-cell` | **DONE** — VM 9003 on dna, pet (`lifecycle_class: persistent`), lean 6-module `powernode-ops-cell` template, enrolled and composing |
-> | 2. User-principal MCP + scoped tokens | **NOT STARTED** — blocked on an operator-set Claude Code credential; the managed tmux session cannot start until then, so the principal it authenticates as is still unverified (see "Open uncertainties") |
+> | 2. User-principal MCP + scoped tokens | **NOT STARTED** — and the "scoped tokens" half has no seam to build on: §2's claim that the registrar already enforces a token-permission intersection was FALSE (see the Correction in §2), so this step must now BUILD that control, not merely configure it. Also blocked on an operator-set Claude Code credential; the managed tmux session cannot start until then, so the principal it authenticates as is still unverified (see "Open uncertainties") |
 > | 3. Demote serial console to logged break-glass | not started |
 > | 4. Instance-grant deny-overlay **[NEW]** | **DONE and LIVE** — `Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS`, deny wins over any grant incl. exact-name; 60 destroy-shaped tools unreachable by any instance principal |
 > | 5. `require_approval` chains for destructive categories | not started |
@@ -20,10 +22,17 @@
 >
 > The §2 finding that motivated step 4 was **independently verified** before
 > implementing, not taken on trust: `mcp_platform_tool_registrar.rb`'s
-> `return if instance_authorized` skips both `has_permission?` and the token
-> intersection, and `system_fleet_tool.rb#action_permitted?`'s
-> `return true if @user.nil?` skips the per-action map — so the grant glob was
-> genuinely the only control. Both call sites were read directly.
+> `return if instance_authorized` skips `has_permission?`, and
+> `system_fleet_tool.rb#action_permitted?`'s `return true if @user.nil?` skips
+> the per-action map — so the grant glob was genuinely the only control. Both
+> call sites were read directly.
+>
+> That sentence originally said the early return skips "both `has_permission?`
+> and the token intersection". **There was no token intersection to skip**
+> (IMP-a18f5a8ed393, 2026-08-29): the registrar carried a `token:` kwarg that no
+> caller passed, so the branch reading it was dead on every path and has been
+> deleted. The finding's conclusion is unchanged and in fact stronger — one
+> fewer layer existed than was credited.
 
 **The question.** Should Claude Code (the operator's destructive-ops driver) run on
 ops-hub itself, on a new dedicated instance, or on the hypervisor `dna`? And what is
@@ -43,7 +52,7 @@ minimal and dumb, as the break-glass tier* — which it already is today.
 | Tier | Lives on | Authority | Exists? |
 |---|---|---|---|
 | **0 — Break-glass** | `dna` (hypervisor) | root + `qm`; no platform dependency | Yes (watchdog, qm, serial console) |
-| **1 — Management seat** | **ops-cell** (new NodeInstance on dna) | Claude Code via claude-tmux; MCP as **user principal** with scoped tokens | Module shipped; instance is new |
+| **1 — Management seat** | **ops-cell** (new NodeInstance on dna) | Claude Code via claude-tmux; MCP as **user principal** with scoped tokens | Module shipped; instance is new. **Scoped tokens do NOT exist** — no token narrows a user's authority (see the Correction in §2) |
 | **2 — Autonomous ops** | ops-hub (platform agents) + fleet instances | Ai::Agent intervention policies + ApprovalChain; instance principals default-deny, read/diagnostic only | Yes; needs grant hygiene **[NEW]** |
 
 The organizing rule, generalized from the 2026-07-27 self-detach incident (51 min
@@ -139,11 +148,49 @@ principals is another round of that treadmill.
   ([server/app/models/mcp_session.rb:21-29](../../server/app/models/mcp_session.rb)),
   and attributable to a human. The ops-cell operator authenticates the MCP
   connection with their own OAuth identity.
-- **Scope routine authority with MCP token intersection.** The registrar already
-  enforces token-permission intersection (registrar:183-188): mint a routine token
-  for the ops-cell session that *excludes* `system.instances.control` and similar,
-  and a break-glass token with full authority. Escalation = re-auth, not a standing
-  grant. This is the right authorization seam — it exists and is enforced today.
+- **Scope routine authority with MCP token intersection.** Mint a routine token for
+  the ops-cell session that *excludes* `system.instances.control` and similar, and a
+  break-glass token with full authority. Escalation = re-auth, not a standing grant.
+  This is still the right authorization seam, and the recommendation stands.
+
+  > **Correction (IMP-a18f5a8ed393, 2026-08-29). This bullet originally claimed
+  > "the registrar already enforces token-permission intersection
+  > (registrar:183-188) … it exists and is enforced today". That was FALSE. THE
+  > CONTROL DOES NOT EXIST.** (The quoted "registrar:183-188" was the original's
+  > own citation and did not point at the branch either; when deleted it was at
+  > `mcp_platform_tool_registrar.rb:289-294`.) The registrar carried a `token:` kwarg and a branch
+  > reading `token&.permissions` / `token.has_permission?`, but none of its four
+  > callers (`streamable_http_controller.rb`, `agent_tool_bridge_service.rb`,
+  > `skill_recipe_runner.rb`, `mcp/protocol_service.rb`) ever passed one, so the
+  > branch was unreachable on every path. It was deleted rather than left standing
+  > as an inert gate that reads as protection. Today a user principal's authority
+  > over MCP is bounded by `user.has_permission?` alone; **no token narrows it**.
+  >
+  > **Step 2 must therefore BUILD this seam, not configure it.** What exists to
+  > build on: MCP bearer tokens are `Doorkeeper::AccessToken`s, which do carry real
+  > OAuth **scopes** (verified in
+  > [`server/app/controllers/concerns/mcp_token_authentication.rb`](../../server/app/controllers/concerns/mcp_token_authentication.rb)).
+  >
+  > **Map the ACCEPTED scopes, not the advertised ones — the gap is the trap.**
+  > Doorkeeper *accepts* eight: `read`, `write`, `admin`, `billing`, `users`,
+  > `webhooks`, `workflows`, `files` (`config/initializers/doorkeeper.rb:124`;
+  > default `:read` at `:121`). Only four are *advertised* — `read`, `write`,
+  > `workflows`, `files` (`well_known_controller.rb:48`). A mapping built from the
+  > advertised list lets a token minted with `admin` fall straight through it.
+  >
+  > What is missing is (a) that scope→permission mapping, so a scope can narrow the
+  > permission set a tool call is checked against, (b) a mint-time surface for
+  > issuing a deliberately narrowed token — no UI offers one — and (c) the
+  > enforcement point in `enforce_permission!` itself. Note that the deleted branch
+  > could **not** simply be re-wired: a Doorkeeper token responds to neither
+  > `#permissions` nor `#has_permission?`. (`UserToken` does respond to both, but
+  > it is never minted in production — `create_token_for_user` has no production
+  > callers, and its one production reader is the `[DEPRECATED]`-logged ActionCable
+  > arm, which passes no token to the registrar. The branch was dead twice over.)
+  >
+  > Until all three land, do not treat "mint a routine token" as an available
+  > mitigation anywhere else in this doc or in operational runbooks: a narrowed
+  > token would be accepted and would narrow nothing.
 - **Instance principals never hold destroy-shaped tools.** Keep
   `granted_mcp_tools` to read/diagnostic/dev-loop patterns. **[NEW]** Add a small
   static deny-overlay so `Mcp::Principal#may_invoke?` (or
@@ -209,6 +256,10 @@ opposite of what you want on a terminate. Concretely:
    gets an auditable, dev-independent management seat pointed at the live plane.
 2. **Point its MCP at ops-hub as the operator's user principal**; mint the routine
    (reduced) and break-glass (full) MCP tokens; document the escalation step.
+   — **Blocked, and larger than it reads: the token-scoping seam does not exist**
+   (see the Correction in §2). A "reduced" token is accepted today and narrows
+   nothing, so this step must first BUILD the scope→permission mapping and a
+   mint-time surface. Do not tick it off by minting tokens.
 3. **Demote the serial console** to documented break-glass; add the logging wrapper
    on `dna`.
 4. **[NEW]** Land the instance-grant deny-overlay (small change in

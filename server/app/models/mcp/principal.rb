@@ -40,13 +40,25 @@ module Mcp
       # Tools an INSTANCE principal may never invoke, whatever it was granted.
       #
       # WHY A STATIC OVERLAY AND NOT JUST CAREFUL GRANTS. For an instance the
-      # grant glob is otherwise the ONLY control, because both layers beneath
+      # grant glob is otherwise the ONLY control, because the layers beneath
       # it are bypassed for a principal with no User:
       #
       #   * Ai::Tools::McpPlatformToolRegistrar#enforce_permission! does
-      #     `return if instance_authorized`, skipping BOTH
-      #     `user.has_permission?(required)` and the MCP-token permission
-      #     intersection.
+      #     `return if instance_authorized`, skipping
+      #     `user.has_permission?(required)`.
+      #
+      #     This bullet used to name a second thing skipped here — an "MCP-token
+      #     permission intersection". There was no such control. The registrar
+      #     carried a `token:` kwarg no caller ever passed, so the branch reading
+      #     it was dead on every path; it was deleted in IMP-a18f5a8ed393. Do not
+      #     count it as a layer, and do not re-add one without building it: MCP
+      #     tokens are Doorkeeper access tokens, which carry OAuth `scopes`, not
+      #     Powernode permissions, so a real intersection needs a scope→permission
+      #     mapping that does not exist. Such a mapping must cover all EIGHT
+      #     scopes Doorkeeper ACCEPTS (read, write, admin, billing, users,
+      #     webhooks, workflows, files — config/initializers/doorkeeper.rb:124),
+      #     not just the four ADVERTISED at well_known_controller.rb:48; a token
+      #     minted with `admin` would otherwise fall straight through it.
       #   * Tool bodies used to read `@user.nil?` as an "internal/system
       #     bypass". That premise — MCP-invoked callers always carry a user —
       #     predates instance principals and is false for them, so the
@@ -88,8 +100,9 @@ module Mcp
       # code rather than by reviewer attention.
       #
       # Destructive work belongs to a USER principal: human-attributable, run
-      # through has_permission? + token intersection, and eligible for
-      # Ai::ApprovalChain gating. This overlay does not touch users.
+      # through has_permission?, and eligible for Ai::ApprovalChain gating.
+      # This overlay does not touch users. (A user principal gets no token-level
+      # narrowing either — see the note above.)
       #
       # Patterns are matched against the tool name with any "platform." prefix
       # stripped, case-insensitively. Deliberately shape-based rather than an

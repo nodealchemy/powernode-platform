@@ -3,11 +3,13 @@
 require "rails_helper"
 
 # For an INSTANCE principal the grant glob is currently the ONLY control on a
-# destructive tool. Verified 2026-07-29, both layers below it are bypassed:
+# destructive tool. Verified 2026-07-29, the layers below it are bypassed:
 #
 #   * ai/tools/mcp_platform_tool_registrar.rb — `return if instance_authorized`
-#     skips BOTH `user.has_permission?(required)` and the MCP-token permission
-#     intersection.
+#     skips `user.has_permission?(required)`. (This bullet used to name a
+#     second thing skipped, an "MCP-token permission intersection". No such
+#     control existed — the branch read a `token:` kwarg no caller passed, and
+#     was deleted in IMP-a18f5a8ed393.)
 #   * system_fleet_tool.rb#action_permitted? — `return true if @user.nil?`,
 #     commented "internal/system bypass". Its assumption that "MCP-invoked
 #     callers always carry @user" predates instance principals and is false for
@@ -214,9 +216,9 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     expect(principal.may_invoke?("platform.system_destroy_instance")).to be(false)
   end
 
-  # Users are human-attributable and flow through has_permission? plus the
-  # token intersection plus approval chains. The overlay must not touch them,
-  # or it would break every operator action.
+  # Users are human-attributable and flow through has_permission? plus approval
+  # chains. The overlay must not touch them, or it would break every operator
+  # action. (There is no token-level narrowing for a user either.)
   it "does not restrict user principals" do
     user = create(:user, account: account)
     principal = described_class.for_user(user)

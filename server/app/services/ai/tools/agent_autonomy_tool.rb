@@ -6,9 +6,9 @@ module Ai
       # SECURITY (IMP-e8adfcfcab9b): authorization here is per ACTION, not per
       # tool. REQUIRED_PERMISSION was inherited as nil from BaseTool, and
       # McpPlatformToolRegistrar#enforce_permission! opens with
-      # `return if required.nil?` — ABOVE the authentication raise, the
-      # has_permission? raise and the token intersection. Every action on this
-      # tool was therefore reachable by any MCP caller with no check at all,
+      # `return if required.nil?` — ABOVE the authentication raise and the
+      # has_permission? raise. Every action on this tool was therefore
+      # reachable by any MCP caller with no check at all,
       # including approve_deferred_operation, which EXECUTES the approved
       # operation while its REST twin requires ai.autonomy.approve.
       #

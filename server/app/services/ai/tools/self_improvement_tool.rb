@@ -6,8 +6,8 @@ module Ai
       # SECURITY (IMP-6fbfeff384fa): authorization here is per ACTION, not per
       # tool. REQUIRED_PERMISSION was inherited as nil from BaseTool, and
       # McpPlatformToolRegistrar#enforce_permission! opens with
-      # `return if required.nil?` — ABOVE the authentication raise, the
-      # has_permission? raise and the token intersection. Every action was
+      # `return if required.nil?` — ABOVE the authentication raise and the
+      # has_permission? raise. Every action was
       # therefore reachable by any MCP caller with no check at all, including
       # mutate_skill and compose_skills, which write Ai::Skill records.
       #

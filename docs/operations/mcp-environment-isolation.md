@@ -290,7 +290,7 @@ federation → Doorkeeper) and `server/app/models/mcp/principal.rb`:
 | Destination | Auth arm | Principal on the far side | Far-side posture |
 |---|---|---|---|
 | Production ops-hub | node mTLS (proxy holds `node.key`) | `:instance` | default-deny grant + `DESTRUCTIVE_TOOL_PATTERNS` overlay; advertisement filtered |
-| Local dev sandbox | Doorkeeper bearer | `:user` | full catalog, `has_permission?` + token intersection; blast radius = one dev DB, no fleet |
+| Local dev sandbox | Doorkeeper bearer | `:user` | full catalog, gated by `has_permission?` ONLY — the bearer's OAuth scopes narrow nothing (no scope→permission mapping exists); blast radius = one dev DB, no fleet |
 | Federated peer | shared bearer + `X-Federation-Organization` header | `:federation` | default-deny, scoped to `FederationPartner#allowed_capabilities` (validated non-overbroad, `allowed_capabilities_not_overbroad`), destructive overlay applies, failure-throttled |
 
 Composition rules for the router: each route sends **exactly one** arm's credentials —
