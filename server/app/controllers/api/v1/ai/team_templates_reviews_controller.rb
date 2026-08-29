@@ -169,7 +169,13 @@ module Api
         end
 
         def authorize_team_manage!
-          return if current_user.has_permission?("ai.teams.manage")
+          # Delegation-aware: current_user.has_permission? ignores an
+          # account-switch session's delegation scope (IMP-d3aacf1ffc1e fixed
+          # this in the three code-review helpers below; this filter-registered
+          # sibling was out of that fix's scope). Authentication#has_permission?
+          # resolves the live delegation when present, so this can only
+          # NARROW who passes in a delegated session, never widen it.
+          return if has_permission?("ai.teams.manage")
 
           render_forbidden
         end
