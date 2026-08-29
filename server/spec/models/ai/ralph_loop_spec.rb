@@ -78,6 +78,118 @@ RSpec.describe Ai::RalphLoop, type: :model do
     end
   end
 
+  # ==========================================================================
+  # IMP-44964469b565 — the recency channel reads from ai_ralph_iterations, not
+  # the loop-level jsonb array. The array is STILL WRITTEN; only the READ moved,
+  # so the switch stays reversible while both channels are populated.
+  # ==========================================================================
+  describe "#recent_learnings" do
+    let(:record) { create(:ai_ralph_loop, account: account, current_iteration: 0) }
+
+    # Interleaved NULL learning_extracted rows are the production shape (142 of
+    # 496 rows carry none). They must be SKIPPED WITHOUT CONSUMING THE LIMIT —
+    # a fixture where every row carries a learning hides that off-by-one.
+    def seed_interleaved!
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 1, learning_extracted: "oldest")
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 2, learning_extracted: nil)
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 3, learning_extracted: "middle")
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 4, learning_extracted: nil)
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 5, learning_extracted: nil)
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 6, learning_extracted: "newest")
+    end
+
+    it "returns the iteration rows' learnings oldest-first, the newest LAST" do
+      seed_interleaved!
+
+      expect(record.recent_learnings.map { |l| l["text"] }).to eq(%w[oldest middle newest])
+    end
+
+    # The orientation the three readers render (TaskExecutor#format_learnings,
+    # IterationExecution#format_learnings, DevLoopTool#iteration_context) is the
+    # one `(learnings || []).last(limit)` produced. DESC is the SELECTION of the
+    # newest k; the result is reversed back. Pinning it here because flipping it
+    # would silently reverse every prompt's "Previous Learnings" block.
+    it "keeps only the newest `limit` learnings, skipping NULL rows without spending the limit" do
+      seed_interleaved!
+
+      expect(record.recent_learnings(limit: 2).map { |l| l["text"] }).to eq(%w[middle newest])
+    end
+
+    it "carries the jsonb entry shape the existing readers index" do
+      task = create(:ai_ralph_task, ralph_loop: record, task_key: "IMP-shape")
+      create(:ai_ralph_iteration, :completed, ralph_loop: record, ralph_task: task,
+             iteration_number: 9, learning_extracted: "Eager-load before iterating")
+
+      entry = record.recent_learnings.last
+
+      expect(entry["text"]).to eq("Eager-load before iterating")
+      expect(entry["iteration"]).to eq(9)
+      expect(entry["timestamp"]).to be_present
+      expect(entry["context"]).to eq({ "iteration" => 9, "task_key" => "IMP-shape" })
+      # NOT enriched: iteration rows carry these, array entries never did.
+      expect(entry.keys).to match_array(%w[text iteration timestamp context])
+    end
+
+    it "ignores an iteration row whose learning_extracted is blank" do
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 1, learning_extracted: "")
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 2, learning_extracted: "kept")
+
+      expect(record.recent_learnings.map { |l| l["text"] }).to eq(["kept"])
+    end
+
+    it "returns [] for a loop with no iteration rows at all" do
+      expect(record.recent_learnings).to eq([])
+    end
+
+    # ---- SOURCE ORACLE, half A -------------------------------------------
+    # Clearing the loop-level array must NOT affect the read. Alone this proves
+    # nothing (an empty-tolerant array read would also pass) — it is only
+    # meaningful paired with half B below.
+    it "still reads when the loop-level learnings array is empty (source oracle A)" do
+      seed_interleaved!
+      record.update!(learnings: [])
+
+      expect(record.reload.recent_learnings.map { |l| l["text"] }).to eq(%w[oldest middle newest])
+    end
+
+    # ---- SOURCE ORACLE, half B -------------------------------------------
+    # Clearing learning_extracted must empty the read EVEN THOUGH the array is
+    # fully populated. Alone this passes for code that reads neither; paired
+    # with half A it pins the source to the iteration rows.
+    it "goes empty when learning_extracted is cleared, array notwithstanding (source oracle B)" do
+      seed_interleaved!
+      record.add_learning("still in the array", context: { iteration: 6 })
+      record.ralph_iterations.update_all(learning_extracted: nil)
+
+      expect(record.reload.learnings).to be_present
+      expect(record.recent_learnings).to eq([])
+    end
+
+    # ---- #reset! interaction ---------------------------------------------
+    # DECISION (IMP-44964469b565): empty-after-reset is CORRECT and deliberate.
+    # A reset is "start this run over" — the recency channel is per-run context,
+    # so it should start empty, exactly as it does for a brand-new loop.
+    # Nothing is lost: #preserve_iteration_learnings! still back-fills the jsonb
+    # array (the reversible fallback), and #extract_compound_learnings still
+    # harvests into the durable CompoundLearning store, which is re-injected as
+    # `relevant_learnings` on the next claim. Pinned here so it is a decision,
+    # not a production discovery.
+    it "goes empty after #reset!, while the preserved array copy survives" do
+      terminal = create(:ai_ralph_loop, :failed, account: account, current_iteration: 4)
+      create(:ai_ralph_iteration, ralph_loop: terminal, iteration_number: 1,
+             learning_extracted: "Webhook receivers must return 202, never 500")
+      expect(terminal.recent_learnings.map { |l| l["text"] })
+        .to eq(["Webhook receivers must return 202, never 500"])
+
+      terminal.reset!
+      terminal.reload
+
+      expect(terminal.recent_learnings).to eq([])
+      expect(terminal.learnings.map { |l| l["text"] })
+        .to eq(["Webhook receivers must return 202, never 500"])
+    end
+  end
+
   describe "#real_test_execution?" do
     it "is ON by default (G1: the gate is opt-out, not opt-in)" do
       expect(loop_record.real_test_execution?).to be true

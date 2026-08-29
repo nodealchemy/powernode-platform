@@ -56,7 +56,14 @@ RSpec.describe Ai::Tools::DevLoopTool do
       campaign = create(:ai_campaign, account: account)
       ralph_loop.update!(campaign: campaign,
                          configuration: { "base_context_files" => ["CLAUDE.md", "docs/contributing/conventions"] })
+      # IMP-44964469b565: the recency channel now derives from the iteration
+      # rows, so the fixture writes BOTH sinks — exactly as the two production
+      # writers do (DevLoopTool#capture_learning and RalphIteration#complete!
+      # each append to the array AND set learning_extracted). The array write is
+      # kept so this still exercises the real dual-write shape.
       ralph_loop.add_learning("Prefer the generic seam over a direct extension ref")
+      create(:ai_ralph_iteration, ralph_loop: ralph_loop, iteration_number: 1,
+             learning_extracted: "Prefer the generic seam over a direct extension ref")
       campaign.record_decision!(decision_type: "build", title: "Unify the approval flows")
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "ctx", priority: 5)
 

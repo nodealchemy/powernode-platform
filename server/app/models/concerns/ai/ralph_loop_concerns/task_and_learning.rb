@@ -61,8 +61,47 @@ module Ai
         end
       end
 
+      # IMP-44964469b565 — RECENCY CHANNEL: derived from ai_ralph_iterations,
+      # not from the loop-level `learnings` jsonb array.
+      #
+      # THE ARRAY IS STILL WRITTEN, DELIBERATELY. #add_learning,
+      # DevLoopTool#capture_learning and #preserve_iteration_learnings! all keep
+      # appending to it; this increment moves ONLY the read. While both channels
+      # are populated the switch is fully reversible and cannot lose data — the
+      # array is the fallback that makes it safe. Retiring the write is a
+      # separate, later increment; do not "finish the job" here.
+      #
+      # Why the query is cheap: ORDER BY iteration_number DESC LIMIT k walks the
+      # existing unique index [ralph_loop_id, iteration_number] backwards, so it
+      # costs O(k) instead of deserializing an unbounded jsonb array to keep 5.
+      #
+      # ORDER IS UNCHANGED: ascending, oldest first, newest LAST — identical to
+      # the `(learnings || []).last(limit)` this replaces. DESC is the SELECTION
+      # of the newest k; the slice is reversed back before it is returned. All
+      # three readers (Ralph::TaskExecutor#format_learnings,
+      # ExecutionService::IterationExecution#format_learnings and
+      # DevLoopTool#iteration_context) render this list in order, so flipping it
+      # would silently reverse every prompt's "Previous Learnings" block.
+      #
+      # Blank guard mirrors #preserve_iteration_learnings!: DevLoopTool writes
+      # learning_extracted directly, without RalphIteration#complete!'s
+      # `.presence` normalisation, so "" is reachable and must not render "- ".
+      #
+      # #reset! DECISION: reset! deletes the iteration rows, so this goes EMPTY
+      # after a reset. That is intended — a reset is "start this run over", and
+      # the recency channel is per-run context. Nothing is lost:
+      # #preserve_iteration_learnings! still back-fills the array and
+      # #extract_compound_learnings still harvests into the durable
+      # CompoundLearning store, which is re-injected as `relevant_learnings`.
       def recent_learnings(limit: 10)
-        (learnings || []).last(limit)
+        ralph_iterations
+          .where.not(learning_extracted: [ nil, "" ])
+          .order(iteration_number: :desc)
+          .limit(limit)
+          .includes(:ralph_task)
+          .to_a
+          .reverse
+          .map { |iteration| learning_entry_for(iteration) }
       end
 
       # Iteration management
@@ -159,6 +198,28 @@ module Ai
 
       def available_mcp_tools
         mcp_servers.flat_map { |s| s.mcp_tools.where(enabled: true) }
+      end
+
+      private
+
+      # Shape parity with the jsonb entries #add_learning writes — readers index
+      # "text"; the MCP payload carries the rest. Iteration rows also carry
+      # git_commit_sha / cost / status / ralph_task_id: deliberately NOT
+      # surfaced. Enriching the payload is a separate increment.
+      #
+      # The one field the row cannot reconstruct is context["files"], which only
+      # DevLoopTool#capture_learning ever set. No reader indexes it; it is
+      # dropped rather than invented, and would need its own column to return.
+      def learning_entry_for(iteration)
+        {
+          "text" => iteration.learning_extracted,
+          "iteration" => iteration.iteration_number,
+          "timestamp" => (iteration.completed_at || iteration.updated_at)&.iso8601,
+          "context" => {
+            "iteration" => iteration.iteration_number,
+            "task_key" => iteration.ralph_task&.task_key
+          }.compact
+        }
       end
     end
   end
