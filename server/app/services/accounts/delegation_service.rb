@@ -49,6 +49,12 @@ module Accounts
             return { success: false, errors: [ "Some permissions not found" ] }
           end
 
+          # No privilege escalation: only permissions the delegator itself holds.
+          escalating = ungrantable_permission_names(specific_permissions)
+          if escalating.any?
+            return { success: false, errors: [ escalation_error(escalating) ] }
+          end
+
           # If role is specified, ensure all permissions are within the role's scope
           if role.present?
             invalid_permissions = specific_permissions.reject { |name| role.has_permission?(name) }
@@ -148,6 +154,12 @@ module Accounts
           unknown = specific_permissions.reject { |name| Permissions.permission_exists?(name) }
           if unknown.any?
             return { success: false, errors: [ "Some permissions not found" ] }
+          end
+
+          # No privilege escalation: only permissions the delegator itself holds.
+          escalating = ungrantable_permission_names(specific_permissions)
+          if escalating.any?
+            return { success: false, errors: [ escalation_error(escalating) ] }
           end
 
           # If role is being updated, validate permissions against new role
@@ -279,15 +291,19 @@ module Accounts
     end
 
     def list_available_permissions_for_delegation(role_id: nil)
+      # Only ever offer what the delegator could actually grant — the picker must
+      # not present permissions the create/update guards will then refuse.
+      grantable = grantable_permission_names
+
       if role_id.present?
         role = Role.find_by(id: role_id)
         return [] unless role && role.name != "Owner"
 
         # Permission NAME strings granted to this role
-        role.permission_names
+        role.permission_names & grantable
       else
-        # No role specified: return all code-defined catalog permission names
-        Permissions.all_permissions.keys.sort
+        # No role specified: every catalog permission the delegator may grant
+        grantable.sort
       end
     end
 
@@ -303,6 +319,12 @@ module Accounts
 
         unless Permissions.permission_exists?(permission_name)
           return { success: false, errors: [ "Permission not found" ] }
+        end
+
+        # No privilege escalation: only permissions the delegator itself holds.
+        escalating = ungrantable_permission_names([ permission_name ])
+        if escalating.any?
+          return { success: false, errors: [ escalation_error(escalating) ] }
         end
 
         # Validate permission is within role scope if role is assigned
@@ -351,6 +373,47 @@ module Accounts
     end
 
     private
+
+    # Privilege-escalation guard shared by every delegation write path.
+    #
+    # A delegation is LIVE AUTHORITY in the target account: for a delegated
+    # session Authentication#has_permission? resolves straight from
+    # Account::Delegation#effective_permissions, ahead of any role lookup. So a
+    # delegation may only carry authority the DELEGATOR already holds. That is
+    # exactly the rule the role editor applies via User#can_grant_permission?
+    # (grantable == held, and never the system tier) — reused here rather than
+    # restated, so the two cannot drift.
+    #
+    # Scope: this binds the CUSTOM permission names only, which is the right
+    # noun — Account::Delegation#effective_permissions returns the custom set
+    # whenever one exists and only falls back to role.permission_names when it
+    # is empty. Conferring a whole ROLE is a different question with its own
+    # existing answer (RoleAssignmentGuard#can_assign_role?), applied by
+    # Api::V1::DelegationsController#authorize_delegated_role!.
+    #
+    # Fails closed: with no delegator, nothing is grantable.
+    #
+    # The grantable SET is hoisted out of the loop rather than calling
+    # can_grant_permission? per name — a delegated role can carry hundreds of
+    # names and each call re-derives the same set. Same hoist, same rule, as
+    # RolesController#assignable does for the role subset test.
+    def ungrantable_permission_names(names)
+      names = Array(names)
+      return [] if names.empty?
+
+      grantable = grantable_permission_names
+      names.reject { |name| grantable.include?(name) }
+    end
+
+    def grantable_permission_names
+      return [] if delegator.blank?
+
+      delegator.grantable_permission_names
+    end
+
+    def escalation_error(names)
+      "You cannot grant permissions you do not hold (or system-tier permissions): #{Array(names).join(', ')}"
+    end
 
     def create_audit_log(action, delegation, additional_details = {})
       base_details = {

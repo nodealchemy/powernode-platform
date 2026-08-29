@@ -9,6 +9,9 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
     # Delegation management requires accounts.manage; grant it BY NAME through
     # the user's role (permissions are code-defined, no Permission AR model).
     user.roles.first.role_permissions.find_or_create_by!(permission_name: 'accounts.manage')
+    # A delegation may only carry authority the delegator already holds, so the
+    # examples below that delegate `admin_role` need its permission held here.
+    user.roles.first.role_permissions.find_or_create_by!(permission_name: 'users.create')
     user.reload
     user
   end
@@ -399,6 +402,167 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
       delete "/api/v1/accounts/#{account.id}/delegations/00000000-0000-0000-0000-000000000000/permissions/#{permission_name}", headers: headers
 
       expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  # Privilege escalation across every delegation write transport.
+  #
+  # A delegated session's authority IS the delegation: Authentication#has_permission?
+  # short-circuits a JWT carrying a delegation_id straight to
+  # Account::Delegation#effective_permissions, ahead of any role lookup. So whatever
+  # a delegation carries is live authority in the target account, and the delegator
+  # must only be able to confer authority it already holds — the same rule
+  # Api::V1::RolesController#apply_permission_names enforces through
+  # User#can_grant_permission? (held, and never the system tier).
+  #
+  # Every assertion below is on the stored ROW / effective_permissions, not on the
+  # HTTP status: a guard that renders an error from an action body does not halt,
+  # and the write can still land.
+  describe 'privilege escalation on what a delegation may carry' do
+    # manager_user holds the manager role + accounts.manage + users.create.
+    let(:held_permission) { 'report.generate' }
+    let(:unheld_permission) { 'admin.user.delete' }
+
+    def post_delegation(permission_names: nil, role_id: nil)
+      post "/api/v1/accounts/#{account.id}/delegations",
+           params: {
+             delegation: {
+               delegated_user_email: delegated_user.email,
+               permission_names: permission_names,
+               role_id: role_id
+             }.compact
+           },
+           headers: headers,
+           as: :json
+    end
+
+    def conferred_permissions
+      Account::Delegation.for_user(delegated_user).flat_map(&:effective_permissions)
+    end
+
+    it 'holds the premise: the delegator does not hold the escalation targets' do
+      expect(manager_user.has_permission?('system.admin')).to be false
+      expect(manager_user.has_permission?(unheld_permission)).to be false
+      expect(manager_user.has_permission?(held_permission)).to be true
+    end
+
+    context 'POST /delegations (custom permission_names)' do
+      it 'does not mint a delegation carrying system.admin' do
+        expect { post_delegation(permission_names: [ 'system.admin' ]) }
+          .not_to change(Account::Delegation, :count)
+
+        expect(conferred_permissions).not_to include('system.admin')
+      end
+
+      it 'does not mint a delegation carrying a catalog permission the delegator lacks' do
+        expect { post_delegation(permission_names: [ unheld_permission ]) }
+          .not_to change(Account::DelegationPermission, :count)
+
+        expect(conferred_permissions).not_to include(unheld_permission)
+      end
+
+      it 'still mints a delegation carrying a permission the delegator does hold' do
+        expect { post_delegation(permission_names: [ held_permission ]) }
+          .to change(Account::Delegation, :count).by(1)
+
+        expect(response).to have_http_status(:created)
+        expect(conferred_permissions).to include(held_permission)
+      end
+    end
+
+    context 'POST /delegations (role_id)' do
+      it 'does not mint a delegation whose role grants a permission the delegator lacks' do
+        escalating_role = create(:role, name: 'account.escalated', display_name: 'Escalated')
+        escalating_role.role_permissions.find_or_create_by!(permission_name: unheld_permission)
+
+        expect { post_delegation(role_id: escalating_role.id) }
+          .not_to change(Account::Delegation, :count)
+
+        expect(conferred_permissions).not_to include(unheld_permission)
+      end
+
+      it 'still mints a delegation whose role grants only permissions the delegator holds' do
+        safe_role = create(:role, name: 'account.reporter', display_name: 'Reporter')
+        safe_role.role_permissions.find_or_create_by!(permission_name: held_permission)
+
+        expect { post_delegation(role_id: safe_role.id) }
+          .to change(Account::Delegation, :count).by(1)
+
+        expect(conferred_permissions).to include(held_permission)
+      end
+
+      # NO-LOCKOUT, and the reason the role half of this guard is NOT the
+      # "grantable" (held-minus-system-tier) rule: extensions register real
+      # system.* names onto the seeded global admin/manager roles, so a
+      # grantable-based role test would make the platform's two broadest roles
+      # undelegatable by everyone, including a system.admin holder. The shared
+      # RoleAssignmentGuard rule is the one that matches this question.
+      it 'still lets an admin delegate a seeded global role carrying system-tier permissions' do
+        admin_delegator = create(:user, :admin, account: account)
+        global_admin_role = Role.find_by(name: 'admin')
+
+        expect(global_admin_role).to be_present
+        expect(global_admin_role.permission_names.select { |n| n.start_with?('system.') }).not_to be_empty
+
+        expect {
+          post "/api/v1/accounts/#{account.id}/delegations",
+               params: { delegation: { delegated_user_email: delegated_user.email,
+                                       role_id: global_admin_role.id } },
+               headers: auth_headers_for(admin_delegator),
+               as: :json
+        }.to change(Account::Delegation, :count).by(1)
+
+        expect(response).to have_http_status(:created)
+      end
+    end
+
+    context 'existing delegation write transports' do
+      let(:existing_delegation) do
+        d = create(:account_delegation, :active, account: account, delegated_by: manager_user,
+                                                 delegated_user: delegated_user, role: nil)
+        d.delegation_permissions.create!(permission_name: held_permission)
+        d
+      end
+
+      it 'does not add an unheld permission through POST /delegations/:id/permissions' do
+        expect {
+          post "/api/v1/accounts/#{account.id}/delegations/#{existing_delegation.id}/permissions",
+               params: { permission_name: unheld_permission },
+               headers: headers,
+               as: :json
+        }.not_to change { existing_delegation.reload.permission_names.sort }
+
+        expect(existing_delegation.reload.effective_permissions).not_to include(unheld_permission)
+      end
+
+      it 'still adds a held permission through POST /delegations/:id/permissions' do
+        post "/api/v1/accounts/#{account.id}/delegations/#{existing_delegation.id}/permissions",
+             params: { permission_name: 'report.export' },
+             headers: headers,
+             as: :json
+
+        expect(existing_delegation.reload.permission_names).to include('report.export')
+      end
+
+      it 'does not widen an existing delegation through PATCH /delegations/:id' do
+        expect {
+          patch "/api/v1/accounts/#{account.id}/delegations/#{existing_delegation.id}",
+                params: { delegation: { permission_names: [ unheld_permission ] } },
+                headers: headers,
+                as: :json
+        }.not_to change { existing_delegation.reload.permission_names.sort }
+
+        expect(existing_delegation.reload.effective_permissions).not_to include(unheld_permission)
+      end
+
+      it 'still rewrites an existing delegation to held permissions through PATCH /delegations/:id' do
+        patch "/api/v1/accounts/#{account.id}/delegations/#{existing_delegation.id}",
+              params: { delegation: { permission_names: [ 'report.export' ] } },
+              headers: headers,
+              as: :json
+
+        expect(existing_delegation.reload.permission_names).to eq([ 'report.export' ])
+      end
     end
   end
 end

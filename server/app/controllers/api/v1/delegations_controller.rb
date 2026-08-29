@@ -1,11 +1,15 @@
 # frozen_string_literal: true
 
 class Api::V1::DelegationsController < ApplicationController
+  # Shared privilege-escalation rule for conferring a whole ROLE's authority.
+  include RoleAssignmentGuard
+
   # Authentication is handled by ApplicationController's before_action :authenticate_request
   before_action :set_account
   before_action :set_delegation, only: [ :show, :update, :destroy, :activate, :deactivate, :revoke, :add_permission, :remove_permission ]
   before_action :authorize_delegation_management!, except: [ :show ]
   before_action :authorize_delegation_view!, only: [ :show ]
+  before_action :authorize_delegated_role!, only: [ :create, :update ]
 
   # GET /api/v1/accounts/:account_id/delegations
   def index
@@ -209,6 +213,36 @@ class Api::V1::DelegationsController < ApplicationController
     unless current_user.has_permission?("accounts.manage") || current_user.has_permission?("admin.access")
       render_error("Insufficient permissions to manage delegations", status: :forbidden)
     end
+  end
+
+  # `authorize_delegation_management!` binds WHO may manage delegations. It says
+  # nothing about WHAT a delegation may carry — and a delegation IS live
+  # authority in the target account, because Authentication#has_permission?
+  # resolves a delegated session straight from
+  # Account::Delegation#effective_permissions, ahead of any role lookup.
+  #
+  # A delegation with no custom permissions confers the delegated ROLE's entire
+  # permission set, which is the same authority transfer as assigning that role.
+  # So it is gated by the same shared rule (RoleAssignmentGuard#can_assign_role?:
+  # admins may confer any role, everyone else only a non-system role whose every
+  # permission they already hold) rather than by a second, drifting copy of it.
+  # The custom-permission-name half of the escalation check lives in
+  # Accounts::DelegationService, where the names are validated.
+  #
+  # Rendering from a before_action halts the chain, so the write never runs.
+  def authorize_delegated_role!
+    role_id = params.dig(:delegation, :role_id)
+    return if role_id.blank?
+
+    role = Role.find_by(id: role_id)
+    # An unknown role is the service's error to report, not an escalation.
+    return if role.nil?
+    return if can_assign_role?(role)
+
+    render_error(
+      "You cannot delegate the #{role.name} role: it grants privileges beyond your own",
+      status: :forbidden
+    )
   end
 
   def authorize_delegation_view!
