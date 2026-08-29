@@ -108,6 +108,22 @@ module Ai
           @declared_actions ||= {}
         end
 
+        # Is this name actual MCP registry surface? The allowlist that bounds
+        # undeclared-execution telemetry cardinality (see the private
+        # UNDECLARED-EXECUTION TELEMETRY block) — a caller-supplied
+        # params[:action] is an arbitrary string and must never become a cache
+        # key or an audit row on its own authority.
+        #
+        # Reads .all_tools rather than TOOLS + extension_tools so it cannot
+        # drift from the registry's own definition of its surface, and is
+        # deliberately NOT memoized: a memo would freeze the extension half at
+        # whatever was registered on first use. The cost is one merge of a
+        # ~600-entry frozen hash on a path that is already doing database work.
+        def registered_action_name?(name)
+          ::Ai::Tools::PlatformApiToolRegistry.all_tools.key?(name) ||
+            ::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.value?(name)
+        end
+
         # Walks the ancestry so a subclass inherits its parent's declarations
         # without re-declaring them.
         def declared_action(name)
@@ -157,7 +173,33 @@ module Ai
         validate_params!(params)
         enforce_guardrails!
 
-        declaration = self.class.declared_action(routed_action_name(params))
+        action_name = routed_action_name(params)
+        declaration = self.class.declared_action(action_name)
+
+        # UNDECLARED PATH. Behaviourally `return call(params)` — which is what
+        # an undeclared action always did, since gated_action?(nil) is false —
+        # plus one sighting recorded in an `ensure` AFTER the body has run.
+        #
+        # AFTER, not before (D4): AuditLog's integrity chain serializes every
+        # insert behind pg_advisory_xact_lock(SEQUENCE_LOCK_KEY), and an
+        # advisory *xact* lock is only released by the OUTERMOST transaction's
+        # commit. Emitting first meant that, inside a caller's transaction, the
+        # global audit-sequence lock was held across the whole of #call —
+        # provider/HTTP latency for a fleet tool — with every audit write on the
+        # platform queued behind it.
+        #
+        # `ensure`, so a raising tool still records its sighting. That makes an
+        # exception escaping the telemetry able to REPLACE the tool's own return
+        # value or exception, so #record_undeclared_action carries an outermost
+        # rescue. Not a silent swallow: it logs at ERROR level.
+        if declaration.nil?
+          begin
+            return call(params)
+          ensure
+            record_undeclared_action(action_name)
+          end
+        end
+
         return call(params) unless gated_action?(declaration)
 
         # A gated action never reaches #call, and tools that enforce per-action
@@ -445,6 +487,198 @@ module Ai
       private
 
       attr_reader :account, :agent, :user, :node_instance
+
+      # UNDECLARED-EXECUTION TELEMETRY (IMP-a0553dda1ec3) — measure the real
+      # breakage set BEFORE the fail-closed flip (IMP-439d31353f9b).
+      #
+      # 605 of the 606 registry actions execute with no declaration today. The
+      # flip's invariant ("an undeclared action is refused") would refuse every
+      # one of them, and nothing on the platform currently records WHICH of
+      # those 605 actually run, under which kind of principal. That is the
+      # number the flip has to be sized against, so this produces it from real
+      # traffic instead of from a guess.
+      #
+      # WHY HERE: this is the same chokepoint the declaration registry itself
+      # keys off, so the telemetry's notion of "the action" is #execute's, not
+      # a parallel one that could drift. (Ai::Tools::FederationTool#execute
+      # overrides #execute without super and is therefore unmeasured too — the
+      # pre-existing exemption already recorded above, not a new one.)
+      #
+      # PRIVATE, not protected: #principal_kind is what keeps identity out of
+      # both sinks, and a protected hook is one an extension subclass could
+      # override to put identity back in.
+      #
+      # PRIVACY: principal SHAPE only — the kind of caller, never who. No user,
+      # no email, no token, no node identity. See #principal_kind.
+      #
+      # CARDINALITY IS BOUNDED BY THE REGISTRY, NOT BY THE CALLER. The action
+      # name reaching #execute is NOT drawn from the 606-key registry: for a
+      # user or agent principal McpPlatformToolRegistrar#action_pinned_to_name?
+      # is false and enforce_action_scope! early-returns for a non-dispatched
+      # tool, so params[:action] is an arbitrary caller-supplied string that
+      # #routed_action_name returns verbatim. Feeding that to a cache key and an
+      # AuditLog row would let one authenticated caller mint an unbounded number
+      # of first-sightings — a row per call, each serialized behind the global
+      # audit-sequence advisory lock, with no retention job. So only a name that
+      # is actually a registry key (or an ACTION_ALIASES target) is emitted;
+      # everything else buckets under one sentinel. The sentinel is kept
+      # DISTINCT rather than dropped so an operator can still see that
+      # unregistered traffic exists and go looking for it.
+      #
+      # Fidelity cost, stated: an in-process caller that invokes a tool with an
+      # internal action name that is neither a registry key nor an alias target
+      # also buckets under the sentinel. The flip acts on the registry surface,
+      # which is exactly what stays resolved.
+      #
+      # VOLUME: this fires on nearly all traffic. It is deduped per (account,
+      # principal_kind, action) over a window — never per action alone, since
+      # losing which actions execute undeclared destroys the entire point — and
+      # a FIRST sighting is never dropped: the dedupe check fails OPEN (emit)
+      # whenever the cache is unavailable.
+      #
+      # WHY AuditLog IS THE SINK ANYWAY. mcp_protocol_service_spec.rb records an
+      # investigated objection to it for tool traffic: every insert serializes
+      # behind one global Postgres advisory lock for its hash-chain sequence
+      # number (Audit::LogIntegrityService::SEQUENCE_LOCK_KEY), and there is no
+      # retention job — "built for low-volume compliance events, not a firehose
+      # of tool calls". That objection is about a row PER CALL. The registry
+      # bound plus the dedupe is what answers it: the write rate is capped by
+      # the number of DISTINCT (account, principal_kind, registry action) tuples
+      # per window, none of which a caller can inflate. If the flip ever wants
+      # per-call fidelity it needs the purpose-built table that spec describes.
+      UNDECLARED_ACTION_AUDIT_ACTION = "mcp.tools.undeclared_action"
+
+      # Every caller-supplied action name that is not registry surface.
+      UNREGISTERED_ACTION_LABEL = "<unregistered>"
+
+      # How long one (account, principal_kind, action) tuple stays deduped. Long
+      # enough that a hot action costs one row per hour, short enough that the
+      # set stays a live picture rather than a one-time census.
+      UNDECLARED_ACTION_DEDUPE_WINDOW = 1.hour
+
+      # Defence in depth for the two sinks (D2). The registry allowlist above
+      # already means only bounded, code-defined names are emitted; this makes
+      # that guarantee LOCAL, so a future edit that widens the allowlist cannot
+      # forge a log line with an embedded newline or push an unbounded blob into
+      # jsonb and the cache key.
+      TELEMETRY_TOKEN_MAX = 120
+
+      # One structured sighting per (account, principal_kind, action) per window.
+      #
+      # The Rails.logger line is emitted FIRST and is not itself guarded, so the
+      # sighting exists even if the durable row cannot be written. The row is
+      # guarded, and so is the whole method — but by rescues that LOG at error
+      # level, never ones that return quietly. That is required by the `ensure`
+      # this runs in: an exception escaping here would replace the tool's own
+      # return value or exception, breaking exactly the undeclared calls this
+      # exists to observe.
+      def record_undeclared_action(action_name)
+        principal = principal_kind
+        label = telemetry_action_label(action_name)
+        return unless first_undeclared_sighting?(label, principal)
+
+        Rails.logger.info(
+          "[BaseTool] Undeclared action executed: " \
+          "action=#{label} tool=#{telemetry_token(self.class.name)} principal=#{principal}"
+        )
+        persist_undeclared_action_audit(label, principal)
+      rescue StandardError => e
+        Rails.logger.error(
+          "[BaseTool] Undeclared-action telemetry failed: " \
+          "tool=#{self.class.name} error=#{e.class}: #{e.message}"
+        )
+      end
+
+      # The name to emit: the real one when it is registry surface, one sentinel
+      # otherwise. See the cardinality note above — this is the bound.
+      def telemetry_action_label(action_name)
+        name = telemetry_token(action_name)
+        ::Ai::Tools::BaseTool.registered_action_name?(name) ? name : UNREGISTERED_ACTION_LABEL
+      end
+
+      # Strip anything that could forge a log line and clamp the length.
+      def telemetry_token(value)
+        value.to_s.gsub(/[[:cntrl:]]/, " ").slice(0, TELEMETRY_TOKEN_MAX).to_s
+      end
+
+      # The KIND of caller, never its identity. Ordered by how much the flip
+      # will care: an instance principal is the one whose only remaining bound
+      # is the deny overlay, so it is named first even when some other ivar is
+      # also set.
+      def principal_kind
+        return "instance" if instance_authorized?
+        return "user" if user
+        return "agent" if agent
+        return "internal" if internal?
+
+        "none"
+      end
+
+      # Account-scoped (D7): without it one account's sighting suppresses every
+      # other account's for the window, and the single row that survives names
+      # the wrong account.
+      #
+      # Fails OPEN — an unavailable cache means EMIT, never drop. A first
+      # sighting is the whole value of this telemetry; deduplication is only a
+      # volume concession and must never be the reason an action goes unseen.
+      def first_undeclared_sighting?(label, principal)
+        key = "ai:tools:undeclared_action:#{account&.id}:#{principal}:#{label}"
+        return false if Rails.cache.read(key)
+
+        Rails.cache.write(key, true, expires_in: UNDECLARED_ACTION_DEDUPE_WINDOW)
+        true
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[BaseTool] Undeclared-action dedupe unavailable (#{e.class}); emitting anyway: #{e.message}"
+        )
+        true
+      end
+
+      # SAVEPOINT, not just a rescue (D3). `rescue StandardError` does not undo a
+      # Postgres transaction abort: if this INSERT fails while #execute is inside
+      # a caller's open transaction, catching the error leaves the transaction
+      # aborted and the caller's NEXT statement raises PG::InFailedSqlTransaction
+      # — the tool then fails where it previously succeeded, which is precisely
+      # the overreach this change must not commit. requires_new: true issues a
+      # SAVEPOINT, so the failure rolls back to it and the caller's transaction
+      # stays usable.
+      #
+      # `resource_id` is varchar(36) and 16 of the registry's action names are
+      # longer, so the action name lives in metadata (jsonb, unbounded) and the
+      # resource pair follows AuditLog.log_system_event's precedent for an event
+      # with no natural record: a real type (the tool class, queryable) plus a
+      # synthetic id. The breakage set is then:
+      #   AuditLog.by_action("mcp.tools.undeclared_action")
+      #           .distinct.pluck(Arel.sql("metadata->>'action_name'"))
+      #
+      # `user: nil` is deliberate — the audit row carries principal SHAPE only.
+      def persist_undeclared_action_audit(label, principal)
+        return unless account.is_a?(Account) && account.persisted?
+
+        ::ActiveRecord::Base.transaction(requires_new: true) do
+          ::AuditLog.create!(
+            account: account,
+            user: nil,
+            action: UNDECLARED_ACTION_AUDIT_ACTION,
+            resource_type: telemetry_token(self.class.name),
+            resource_id: "undeclared_action",
+            source: "system",
+            severity: "low",
+            risk_level: "low",
+            metadata: {
+              action_name: label,
+              tool_class: telemetry_token(self.class.name),
+              principal_kind: principal
+            }
+          )
+        end
+      rescue StandardError => e
+        Rails.logger.error(
+          "[BaseTool] Failed to persist undeclared-action audit: " \
+          "action=#{label} tool=#{self.class.name} principal=#{principal} " \
+          "error=#{e.class}: #{e.message}"
+        )
+      end
     end
   end
 end
