@@ -111,7 +111,23 @@ module Ai
         end
 
         Rails.logger.info("[SharedKnowledge] Search for '#{query.truncate(50)}' returned #{entries.size} results")
-        { success: true, entries: entries, count: entries.size }
+        response = { success: true, entries: entries, count: entries.size }
+
+        # IMP-eddcbe102619: a zero-result answer is ambiguous between "no
+        # guidance on this topic" and "this store's knowledge corpus was
+        # never seeded" — both return success:true with an empty array,
+        # which is what let two dev-loop executors run with silently no
+        # guidance on a bare-fixture MCP instance. For a guidance-tagged
+        # recall, report which store answered and how many guidance-* rows
+        # it holds IN TOTAL via one cheap COUNT aggregate (never walk rows)
+        # so the caller can tell the two apart itself: "0 of 0" is a bare
+        # store, "0 of 47" is a genuine miss.
+        if guidance_tag_search?(tags)
+          response[:store] = store_identifier
+          response[:guidance_corpus_size] = guidance_corpus_size
+        end
+
+        response
       rescue StandardError => e
         Rails.logger.error("[SharedKnowledge] Search failed: #{e.message}")
         { success: false, error: "Search failed: #{e.message}", entries: [], count: 0 }
@@ -491,6 +507,27 @@ module Ai
         score += 0.05 if content.to_s.match?(/```/)
 
         [score.round(4), 1.0].min
+      end
+
+      # IMP-eddcbe102619: a search scoped to a "guidance-*" tag is the
+      # MCP-first mandatory recall path (CLAUDE.md), where a silent empty
+      # result is indistinguishable from "no guidance exists on this topic".
+      def guidance_tag_search?(tags)
+        Array(tags).any? { |t| t.to_s.start_with?("guidance") }
+      end
+
+      # ONE cheap COUNT aggregate on the canonical "guidance" tag every
+      # GuidanceKnowledgeSeeder-created entry carries — never walk rows.
+      def guidance_corpus_size
+        Ai::SharedKnowledge.where(account: @account).not_archived.with_any_tags(["guidance"]).count
+      end
+
+      # Which physical knowledge store answered — distinguishes a bare/local
+      # fixture DB from the production corpus without adding new config.
+      def store_identifier
+        ActiveRecord::Base.connection_db_config.database
+      rescue StandardError
+        "unknown"
       end
 
       def keyword_search(query, scope, limit)

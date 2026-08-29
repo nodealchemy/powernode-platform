@@ -229,6 +229,38 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
         expect(result[:entries].map { |e| e[:id] }).to include(target.id)
       end
     end
+
+    context "guidance-tagged search (IMP-eddcbe102619: empty store vs genuine miss)" do
+      it "reports the store identifier and the total guidance corpus size alongside a zero-result answer" do
+        result = service.search(query: "testing patterns rspec", tags: ["guidance-testing-patterns"])
+
+        expect(result[:success]).to be true
+        expect(result[:count]).to eq(0)
+        expect(result[:guidance_corpus_size]).to eq(0)
+        expect(result[:store]).to be_present
+      end
+
+      it "distinguishes a genuine miss (nonzero corpus, zero matches) from an empty store" do
+        # A distinct embedding, not one of the three cycled by the outer
+        # `before` block, so this create isn't rejected as a near-duplicate.
+        allow_any_instance_of(Ai::Memory::EmbeddingService)
+          .to receive(:generate).and_return(Array.new(1536) { rand(-1.0..1.0) })
+
+        service.create(
+          title: "Some Other Guidance",
+          content: "Unrelated guidance content.",
+          content_type: "reference",
+          access_level: "account",
+          tags: ["guidance", "guidance-some-other-topic"]
+        )
+
+        result = service.search(query: "testing patterns rspec", tags: ["guidance-testing-patterns"])
+
+        expect(result[:success]).to be true
+        expect(result[:count]).to eq(0)
+        expect(result[:guidance_corpus_size]).to eq(1)
+      end
+    end
   end
 
   # ===========================================================================

@@ -24,7 +24,7 @@ module Ai
       # Opening cluster — identical across all three loops.
       HEAD = [
         "One task per iteration — finish or report before pulling the next",
-        "Consult model-agnostic guidance BEFORE changing code: run search_knowledge with tag guidance-* and honor the applicable safety/governance/convention rules — the SessionStart digest is Claude-only, so non-Claude executors MUST query",
+        "Consult model-agnostic guidance BEFORE changing code: run search_knowledge with tag guidance-* on the PRODUCTION connector (mcp__powernode__*, not a sandbox/dev connector such as mcp__powernode-local__*) and honor the applicable safety/governance/convention rules — the SessionStart digest is Claude-only, so non-Claude executors MUST query. A sandbox connector's knowledge store can be unseeded: success:true with count:0 there is an empty-store signal, not evidence the guidance doesn't exist — expected, not informative",
         "Never batch-approve — review auto-discovered changes, permission grants, and financial/training decisions ONE at a time; state the count before any bulk action (>5 items needs explicit confirmation)"
       ].freeze
 

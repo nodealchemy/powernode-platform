@@ -9,6 +9,10 @@ seeded by `Ai::DevLoop::ImprovementPromotionService` on approval and drained via
 - `task.metadata.kind` ∈ {`code_lint`, `dead_code`, `code_duplication`, `convention_adherence`, `test_gap`}.
 - `task.metadata.files` / `repository` / `verifier_evidence` describe the finding.
 - Findings rot — ALWAYS re-verify the claim against current code before changing anything.
+- MCP-first guidance recall (`search_knowledge tag:guidance-*`) MUST target the production
+  connector (`mcp__powernode__*`). A sandbox/dev connector (e.g. `mcp__powernode-local__*`) can
+  have an unseeded knowledge store — a zero-result answer there is expected, not informative,
+  and is not evidence the guidance doesn't exist.
 
 ## Iteration (one task)
 1. **Re-verify:** confirm the finding still holds on HEAD. For `dead_code`/`code_duplication`,
