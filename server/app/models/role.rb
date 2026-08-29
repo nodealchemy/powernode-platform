@@ -129,6 +129,41 @@ class Role < ApplicationRecord
     role_permissions.pluck(:permission_name).uniq.sort
   end
 
+  # THE privilege-escalation rule for CONFERRING A WHOLE ROLE.
+  #
+  # It lives on the model rather than only in RoleAssignmentGuard because role
+  # conferral also happens outside controllers — plan `default_roles` appliers,
+  # services, extensions — and those callers have no `current_user`. Restating
+  # the rule there is what the guard's own header warns about: two copies drift,
+  # and the weaker one becomes the way in. RoleAssignmentGuard#can_assign_role?
+  # now delegates here, so RolesController#assign_to_user,
+  # Admin::UsersController#update, DelegationsController and every non-controller
+  # caller answer the same question with the same code.
+  #
+  # NOT to be confused with User#grantable_permission_names / #can_grant_permission?,
+  # which govern a list of permission NAMES. Conferring a role is a different
+  # question with a different rule (see Accounts::DelegationService's note).
+  #
+  # Fails closed: with no actor, nothing is assignable.
+  def assignable_by?(user)
+    return false if user.nil?
+    return true if Role.assignment_admin?(user)
+    return false if system_role?
+
+    user_permissions = user.permission_names
+    permission_names.all? { |perm| user_permissions.include?(perm) }
+  end
+
+  # System/regular admins bypass the escalation subset check. The set of bypass
+  # permissions lives here so a change applies to every conferral site at once.
+  # (The bypass's own weakness — an admin.access holder reaching `super_admin` —
+  # is tracked separately as IMP-1635cb7fa768; this is a move, not a change.)
+  def self.assignment_admin?(user)
+    return false if user.nil?
+
+    user.has_permission?("system.admin") || user.has_permission?("admin.access")
+  end
+
   # Destructively reconcile this role's grants to the given catalog permission
   # names. Used by Role.sync_from_config! for GLOBAL (code-defined) roles, whose
   # grants are owned by the catalog. Account-scoped roles are NOT synced here —

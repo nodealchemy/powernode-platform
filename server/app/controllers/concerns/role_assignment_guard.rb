@@ -20,19 +20,21 @@ module RoleAssignmentGuard
 
   # True if current_user may assign `role` to a user without escalating
   # privilege beyond what they already hold.
+  #
+  # The rule itself now lives on Role#assignable_by? so NON-controller conferral
+  # sites can reuse it rather than restate it (plan `default_roles` appliers,
+  # services, extension models — none of which have a `current_user`). This is a
+  # pure delegation: same admin bypass, same system-role refusal, same subset
+  # test, one implementation.
   def can_assign_role?(role)
-    return true if role_assignment_admin?
-    return false if role.system_role?
-
-    # Non-admins may only assign roles whose effective permissions they all hold.
-    role_permissions_subset_of_user?(role, current_user.permission_names)
+    role.assignable_by?(current_user)
   end
 
   # System/regular admins bypass the escalation subset check and may assign any
-  # (non-system, for non-admins) role. The set of bypass permissions lives here
-  # so a change applies to every assignment call site at once.
+  # (non-system, for non-admins) role. Delegates to the same predicate the model
+  # rule uses, so the bypass set cannot diverge between the two.
   def role_assignment_admin?
-    current_user.has_permission?("system.admin") || current_user.has_permission?("admin.access")
+    Role.assignment_admin?(current_user)
   end
 
   # Every effective permission `role` grants is one the user already holds.
