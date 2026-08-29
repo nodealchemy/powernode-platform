@@ -687,6 +687,35 @@ module Ai
 
       def record_outcome(loop_record, task, iteration, outcome, summary, params,
                          verification: nil, evidence_source: nil)
+        # IMP-9d49b9833a67 — CAPTURE BOUNDARY for executor-supplied learning text.
+        #
+        # This is where raw `params[:learning]` first enters the system, and it
+        # fans out to three sinks: the loop's `learnings` jsonb, the durable
+        # `ai_ralph_iterations.learning_extracted` column, and the embedded
+        # compound-learning store. Only the first was scrubbed (in
+        # RalphLoop#add_learning). All three are durable and all three are
+        # re-served; what makes 2 and 3 the sharper exposure is SCOPE. Sink 1 is
+        # re-served only within its own loop (recent_learnings(limit: 5) ->
+        # `context.recent_learnings`), whereas the compound store is
+        # account-scoped and its rows are ranked and injected as
+        # `context.relevant_learnings` into every later dev_next_task ACROSS
+        # loops — so unscrubbed material there is actively redistributed to other
+        # loops' executors. Sink 2 is iteration-keyed, durable, and additionally
+        # exposed over the iterations API.
+        #
+        # Scrub ONCE here and hand the clean value to every branch, rather than
+        # adding a sanitize_output call to each of the three writes — the
+        # per-call-site control is what rots (same reasoning as the audit-log
+        # redaction seam, 36951df81). Note this must sit ABOVE the case: the
+        # "passed" branch does not go through #capture_learning, so a scrub
+        # placed there would leave the passed path's compound-store write raw.
+        # .to_s is load-bearing, not defensive noise: sanitize_output returns its
+        # input UNTOUCHED for a non-String, and BaseTool skips type validation for
+        # `type:`-style param defs, so a caller sending learning: {"text" => "..."}
+        # would otherwise land raw in every sink. .presence restores the nil that
+        # the downstream `learning.present?` / blank? guards expect.
+        learning = ::DataManagement::Sanitizer.sanitize_output(params[:learning].to_s).presence
+
         case outcome
         when "passed"
           # complete! promotes the learning onto the loop automatically.
@@ -696,12 +725,12 @@ module Ai
             output: summary,
             checks_passed: verification == :verified,
             commit_sha: params[:commit_sha],
-            learning: params[:learning]
+            learning: learning
           )
           task.pass!(iteration_number: iteration.iteration_number)
           # complete! appends the learning to the loop but doesn't embed it; do the
           # mid-run embed here so the passed path matches the others (G12).
-          embed_learning_mid_run(loop_record, params[:learning], task: task, files: params[:files_changed])
+          embed_learning_mid_run(loop_record, learning, task: task, files: params[:files_changed])
           # Closing an offer is the one IRREVERSIBLE, self-crediting act here, so
           # it requires DECLARED evidence (IMP-019fed52): a verdict inferred by
           # sniffing key names may still record checks_passed, but it can no
@@ -717,15 +746,15 @@ module Ai
         when "failed"
           iteration.fail!(error_message: summary)
           task.fail!(error_message: summary)
-          capture_learning(loop_record, task, iteration, params[:learning], files: params[:files_changed])
+          capture_learning(loop_record, task, iteration, learning, files: params[:files_changed])
         when "blocked"
           iteration.fail!(error_message: summary, error_code: "blocked")
           task.block!(reason: summary, blocked_for: "review")
-          capture_learning(loop_record, task, iteration, params[:learning], files: params[:files_changed])
+          capture_learning(loop_record, task, iteration, learning, files: params[:files_changed])
         when "skipped"
           iteration.skip!(reason: summary)
           task.skip!(reason: summary)
-          capture_learning(loop_record, task, iteration, params[:learning], files: params[:files_changed])
+          capture_learning(loop_record, task, iteration, learning, files: params[:files_changed])
         end
       end
 

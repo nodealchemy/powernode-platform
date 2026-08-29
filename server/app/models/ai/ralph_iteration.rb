@@ -50,6 +50,20 @@ module Ai
     def complete!(output:, checks_passed: nil, commit_sha: nil, learning: nil)
       raise InvalidTransitionError, "Cannot complete iteration in #{status} status" unless can_complete?
 
+      # IMP-9d49b9833a67 — CAPTURE BOUNDARY for the durable learning column.
+      #
+      # learning_extracted is durable and iteration-keyed, and #complete! is a
+      # public model API with more than one caller, so the scrub belongs at the
+      # WRITE rather than in each caller. Scrubbing here also covers the
+      # RalphLoop#add_learning promotion below, so the loop's jsonb cache and this
+      # column can never disagree about what was redacted. sanitize_output is
+      # effectively idempotent, so a caller that already scrubbed (the dev-loop
+      # bridge, ExecutionService#process_successful_iteration) is unaffected.
+      # .to_s: sanitize_output passes a non-String through UNTOUCHED, so a caller
+      # handing complete! a Hash/Array would bypass the scrub entirely.
+      # .presence keeps today's nil semantics for the learning.present? guard below.
+      learning = ::DataManagement::Sanitizer.sanitize_output(learning.to_s).presence
+
       attrs = {
         status: "completed",
         completed_at: Time.current,
