@@ -40,6 +40,7 @@ module Ai
             timeout: { type: "integer", required: false, description: "Await timeout seconds (max 300)" },
             budget_cents: { type: "integer", required: false, description: "Budget for the delegated task" },
             holder: { type: "string", required: false, description: "Driver identity (lease holder) for campaign-loop pulls" },
+            claim_if_pending: { type: "boolean", required: false, description: "dev_complete_task: atomically claim a pending task and close it (out-of-band work)" },
             description: { type: "string", required: false, description: "Task title (dev_update_task)" },
             acceptance_criteria: { type: "string", required: false, description: "Executor-facing brief (dev_update_task)" },
             priority: { type: "integer", required: false, description: "Queue priority (dev_update_task)" },
@@ -59,12 +60,18 @@ module Ai
       def self.action_definitions
         {
           "dev_next_task" => {
-            description: "Claim the next pending task from a Ralph Loop queue (priority/dependency ordered). " \
+            description: "Claim the next pending task from a Ralph Loop queue (priority/dependency ordered), " \
+                         "or a SPECIFIC pending task with task_key. " \
                          "Returns the task with acceptance criteria, guardrails, and loop context. " \
                          "Idempotent: re-claiming returns your own in-progress task. " \
                          "Refuses when the loop is halted (kill switch, paused, terminal, max iterations).",
             parameters: {
               loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
+              task_key: { type: "string", required: false,
+                          description: "Claim THIS pending task (key or task UUID) instead of the queue head. " \
+                                       "Applies every guard the positional claim applies and refuses loudly " \
+                                       "rather than falling back: a task held by another claimant is NOT stolen, " \
+                                       "and no other task is ever handed back in its place." },
               holder: { type: "string", required: false,
                         description: "Driver identity (lease holder). For a campaign loop the single-driver " \
                                      "lease gates pulls — pass the same holder you claimed the campaign with; " \
@@ -92,6 +99,14 @@ module Ai
                                             "INFERRED by parsing: it still records a pass, but will NOT auto-apply " \
                                             "the linked improvement offer (the response says which via " \
                                             "evidence_source)." },
+              claim_if_pending: { type: "boolean", required: false,
+                                  description: "Record work finished OUT OF BAND: atomically claim task_key if it " \
+                                               "is still pending and close it in the same transaction, so an " \
+                                               "interrupted executor can never strand it in_progress. Refuses " \
+                                               "rather than steals a task held by another claimant. A `passed` " \
+                                               "outcome on this path REQUIRES declared check_results.evidence — " \
+                                               "the platform never saw the claim, so inferred evidence is not " \
+                                               "enough to close it." },
               learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
               git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
               commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
@@ -182,7 +197,11 @@ module Ai
 
         result = nil
         loop_record.with_lock do
-          result = claim_under_lock(loop_record, params[:holder])
+          result = if params[:task_key].present?
+                     claim_by_key_under_lock(loop_record, params[:holder], params[:task_key])
+                   else
+                     claim_under_lock(loop_record, params[:holder])
+                   end
         end
         result
       rescue Ai::RalphTask::InvalidTransitionError, ActiveRecord::RecordInvalid => e
@@ -381,19 +400,93 @@ module Ai
                    reason: "file_collision", queue: queue_snapshot(loop_record) }
         end
 
+        start_claim!(loop_record, task, holder)
+
+        task_payload(loop_record, task)
+      end
+
+      # IMP-f573eb10a99f — claim a task BY NAME rather than by queue position.
+      # Runs under the same loop lock as the positional claim and applies every
+      # guard it applies: the halt/kill-switch and campaign-lease checks upstream
+      # in #next_task, and here the loop scope (a key from another loop is simply
+      # not found), the already-claimed check, terminal status, human
+      # execution_type, dependency satisfaction, the per-claimant concurrency cap
+      # and — once a loop opts into parallelism — the file-collision guard.
+      #
+      # A refusal is LOUD and never falls back to the positional claim. Handing
+      # back a different task than the one named is the exact failure this exists
+      # to remove: an executor asked for one key, got the queue head, and stranded
+      # it in_progress for every other consumer of the queue.
+      def claim_by_key_under_lock(loop_record, holder, key)
+        task = find_task(loop_record, key)
+        return error_result("Task not found in loop '#{loop_record.name}': #{key}") unless task
+
+        if task.in_progress?
+          # Idempotent re-claim, matching the positional path — but scoped to THIS
+          # key, not to whatever the caller happens to hold.
+          return task_payload(loop_record, task, reclaimed: true) if claimed_by_holder?(task, holder)
+
+          return error_result(
+            "Task #{task.task_key} is already in_progress under another holder " \
+            "(#{task.metadata&.dig('claimed_by') || 'unknown'}) — refusing to steal it"
+          )
+        end
+
+        unless task.status == "pending"
+          return error_result("Task #{task.task_key} is #{task.status}, not pending — it cannot be claimed")
+        end
+
+        if (refusal = named_claim_refusal(task))
+          return error_result(refusal)
+        end
+
+        cap = max_concurrent_claims(loop_record)
+        if user_in_progress_count(loop_record) >= cap
+          return { success: true, task: nil, halted: true, reason: "max_concurrent_claims_reached",
+                   queue: queue_snapshot(loop_record) }
+        end
+
+        if cap > 1 && collides_with_any?(task_files(task), other_in_progress_tasks(loop_record, holder))
+          return error_result(
+            "Task #{task.task_key} collides on files with an in-progress task held by another claimant"
+          )
+        end
+
+        start_claim!(loop_record, task, holder)
+        task_payload(loop_record, task)
+      end
+
+      # Eligibility guards that apply to any claim of a task named by key, over
+      # and above its status. Returns a refusal string, or nil when claimable.
+      # The concurrency cap and the collision guard are deliberately NOT here:
+      # the keyed claim answers the cap with a `halted` payload while the atomic
+      # claim-and-close does not apply it at all (see #complete_task).
+      def named_claim_refusal(task)
+        if task.execution_type == "human"
+          "Task #{task.task_key} has execution_type 'human' — it is not claimable by an executor"
+        elsif !task.dependencies_satisfied?
+          "Task #{task.task_key} has unsatisfied dependencies: #{task.blocking_dependencies.join(', ')}"
+        end
+      end
+
+      # The claim mutation itself — shared by the positional claim, the keyed
+      # claim, and dev_complete_task's atomic claim-and-close so all three record
+      # provenance identically.
+      #
+      # Targeted merge: the claim paths run under the LOOP lock while
+      # dev_complete_task and dev_update_task write the same column under the TASK
+      # lock, so a whole-column rewrite here would drop their keys.
+      def start_claim!(loop_record, task, holder, via: nil)
         loop_record.start! if loop_record.can_start?
         task.start!
         task.record_execution_attempt!
-        # Targeted merge: this runs under the LOOP lock while dev_complete_task
-        # and dev_update_task write the same column under the TASK lock, so a
-        # whole-column rewrite here would drop their keys.
-        task.merge_metadata!(
+        claim_meta = {
           "claimed_by" => claimant_ref,
           "claimed_holder" => normalized_holder(holder),
           "claimed_at" => Time.current.iso8601
-        )
-
-        task_payload(loop_record, task)
+        }
+        claim_meta["claimed_via"] = via if via
+        task.merge_metadata!(claim_meta)
       end
 
       def max_concurrent_claims(loop_record)
@@ -415,6 +508,16 @@ module Ai
 
       def normalized_holder(holder)
         holder.presence || "default"
+      end
+
+      # MCP arguments arrive as parsed JSON, but the LLM tool-calling path and
+      # hand-rolled callers both send stringy booleans. Anything not explicitly
+      # affirmative is false — an opt-in this consequential must never be enabled
+      # by a value the caller did not mean as "yes".
+      def truthy_flag(value)
+        return true if value == true
+
+        %w[true 1 yes].include?(value.to_s.strip.downcase)
       end
 
       # True when `task` is the current claimant's own in-progress task under `holder`.
@@ -465,10 +568,29 @@ module Ai
 
         task = loop_record.ralph_tasks.find_by(task_key: params[:task_key])
         return error_result("Task not found: #{params[:task_key]}") unless task
+
+        # IMP-f573eb10a99f — opt-in atomic claim-and-close for work finished OUT
+        # OF BAND (an executor handed a task by name, or one whose claim was lost
+        # to a crash). The claim happens under the SAME task lock as the
+        # transition below, so there is no window in which an interrupted call
+        # leaves the task stranded in_progress — which is the failure a
+        # claim-then-close sequence would reintroduce.
+        #
+        # Opt-in rather than implicit: without the flag, reporting against a key
+        # you never claimed stays a loud refusal, which is the only signal that
+        # separates "I did this out of band" from "I am reporting against the
+        # wrong key".
+        claim_if_pending = truthy_flag(params[:claim_if_pending])
+
         # in_progress: report a claimed task. blocked: operator resolution of a
-        # task that stopped for a decision (no re-claim needed).
-        unless task.status.in?(%w[in_progress blocked])
-          return error_result("Task is #{task.status}, not in_progress or blocked — claim it via dev_next_task first, or resolve a blocked task directly")
+        # task that stopped for a decision (no re-claim needed). pending: only
+        # with claim_if_pending, and only after the guards below.
+        unless task.status.in?(%w[in_progress blocked]) || (claim_if_pending && task.status == "pending")
+          return error_result(
+            "Task is #{task.status}, not in_progress or blocked — claim it via dev_next_task " \
+            "(pass task_key to claim this specific task), resolve a blocked task directly, or pass " \
+            "claim_if_pending: true to atomically claim and close work you finished out of band"
+          )
         end
 
         outcome = params[:outcome].to_s
@@ -483,8 +605,13 @@ module Ai
         # accepted — it is remapped to a human-gated "blocked" (a park for review).
         # Only remap an in_progress task: a blocked task can't re-block (operator
         # resolution entries arrive already blocked).
+        # A claim-and-close of a PENDING task is an in_progress report in every
+        # respect but timing (the claim lands under the lock below), so it is
+        # remapped here too — otherwise the new path would be a way to land a
+        # protected-path change without the park-for-review.
         guardrail = nil
-        if outcome == "passed" && task.status == "in_progress" &&
+        remappable = task.status == "in_progress" || (claim_if_pending && task.status == "pending")
+        if outcome == "passed" && remappable &&
            (violation = scope_guardrail_violation(loop_record, params[:files_changed]))
           guardrail = violation
           outcome = "blocked"
@@ -521,6 +648,21 @@ module Ai
           return error_result(contradiction_error(adjudication)) if adjudication[:verdict] == :contradicted
           verification = adjudication[:verdict]
           evidence_source = adjudication[:source]
+
+          # IMP-f573eb10a99f — out-of-band recording is held to a STRICTER
+          # evidence bar than the ordinary report path, never a weaker one. The
+          # platform never observed this task being claimed, so the executor's
+          # own DECLARED block is the only thing standing behind the pass; an
+          # inferred/attested close here would add a completion record the
+          # platform cannot adjudicate on its own fields.
+          if claim_if_pending && task.status == "pending" && evidence_source != :declared
+            return error_result(
+              "claim_if_pending with outcome=passed requires DECLARED evidence: set check_results.evidence = " \
+              "{\"framework\": \"rspec\", \"passed\": N, \"failed\": 0} (an array for several suites). The " \
+              "platform never saw this task claimed, so an inferred pass is not enough to close it — declare " \
+              "the final green runs, or report outcome=failed/blocked instead."
+            )
+          end
         end
 
         iteration = nil
@@ -533,6 +675,45 @@ module Ai
         # and the autonomous loop can't flip a blocked task's status mid-transition and
         # orphan a half-applied iteration.
         task.with_lock do
+          # with_lock re-reads the row, so this is the authoritative status —
+          # a concurrent dev_next_task may have claimed it since the entry check.
+          if task.status == "pending"
+            unless claim_if_pending
+              pairing_error = "Task is pending, not in_progress or blocked — pass claim_if_pending: true " \
+                              "to claim and close it, or claim it via dev_next_task first"
+              next
+            end
+            if (refusal = named_claim_refusal(task))
+              pairing_error = refusal
+              next
+            end
+            # Reject an illegal (in_progress -> outcome) pairing BEFORE the claim
+            # lands. `skipped` is legal from pending but NOT from in_progress, so
+            # checking only afterwards would claim the task and then bail on the
+            # `next` below, stranding it in_progress — the exact failure this path
+            # exists to remove (and `next` commits: the enclosing with_lock
+            # transaction is not rolled back by it). Probed on a detached copy so
+            # the real row is untouched, and through the model's own guards so it
+            # cannot drift from the state machine.
+            probe = task.dup
+            probe.status = "in_progress"
+            unless transition_allowed?(probe, outcome)
+              pairing_error = "Cannot mark a claimed (in_progress) task as #{outcome}"
+              next
+            end
+            # No concurrency cap and no file-collision check here, unlike the
+            # keyed claim: both bound work IN FLIGHT, and this call retires work
+            # that is already finished rather than taking any on.
+            start_claim!(loop_record, task, params[:holder], via: "dev_complete_task")
+          elsif claim_if_pending && task.in_progress? &&
+                (owner = (task.metadata || {})["claimed_by"]).present? && owner != claimant_ref
+            # The caller asserted this task was unclaimed; it is held by someone
+            # else. Refuse rather than close another claimant's in-flight work.
+            pairing_error = "Task #{task.task_key} is in_progress under another claimant (#{owner}) — " \
+                            "refusing to close it; it was claimed between your call and the lock"
+            next
+          end
+
           unless transition_allowed?(task, outcome)
             pairing_error = "Cannot mark #{task.status} task as #{outcome}"
             next
