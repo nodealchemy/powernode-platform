@@ -38,6 +38,13 @@ module Accounts
           return { success: false, errors: [ "Cannot delegate Owner role" ] }
         end
 
+        # Conferring a whole ROLE is bound by Role#assignable_by? — see
+        # #unassignable_role_error for why the rule lives here as well as in the
+        # controller.
+        if role.present? && !role.assignable_by?(delegator)
+          return { success: false, errors: [ unassignable_role_error(role) ] }
+        end
+
         # Validate and process custom permissions (by NAME) if provided
         specific_permissions = []
         if permission_names.present?
@@ -89,21 +96,36 @@ module Accounts
           status: "active"
         )
 
-        if delegation.save
-          # Assign specific permissions (by name) if provided
-          if specific_permissions.any?
-            specific_permissions.each do |permission_name|
-              delegation.assign_permission(permission_name)
-            end
+        # SAME SHAPE AS update_delegation, AND FOR THE SAME REASON. The row and
+        # its custom permission set must commit together, and every
+        # #assign_permission return value must be checked: a delegation saved
+        # ACTIVE with a role whose custom set then failed to populate is a
+        # delegation with an EMPTY custom set, which falls back to the ROLE's
+        # FULL permission set (Account::Delegation#configured_permissions_for) —
+        # a narrowed grant silently promoted to the whole role, audit-logged as a
+        # success. Reachable only through a duplicate name or a concurrent role
+        # change today, since every name is pre-validated above; the point is
+        # that the guarantee should not rest on that.
+        result = nil
+        ActiveRecord::Base.transaction do
+          unless delegation.save
+            result = { success: false, errors: delegation.errors.full_messages }
+            raise ActiveRecord::Rollback
+          end
+
+          specific_permissions.each do |permission_name|
+            next if delegation.assign_permission(permission_name)
+
+            result = { success: false, errors: [ "Could not assign permission #{permission_name}: the delegation must be active and the permission within its role" ] }
+            raise ActiveRecord::Rollback
           end
 
           # Create audit log entry
           create_audit_log("delegation_created", delegation)
 
-          { success: true, delegation: delegation }
-        else
-          { success: false, errors: delegation.errors.full_messages }
+          result = { success: true, delegation: delegation }
         end
+        result
       rescue StandardError => e
         Rails.logger.error "Account::DelegationService#create_delegation failed: #{e.message}"
         { success: false, errors: [ "Failed to create delegation: #{e.message}" ] }
@@ -135,6 +157,17 @@ module Accounts
           # Validate role permissions (don't allow delegating Owner role)
           if role.name == "Owner"
             return { success: false, errors: [ "Cannot delegate Owner role" ] }
+          end
+
+          # A ROLE CHANGE IS AN AUTHORITY TRANSFER, and on a role-only row it is
+          # the WHOLE of the delegation's authority: an empty custom set falls
+          # back to the role's full permission set
+          # (Account::Delegation#configured_permissions_for). Bounding the
+          # explicit set by the live role (IMP-7964b5d261b4) does not reach this
+          # — that guard can only ever SUBTRACT from a non-empty custom set,
+          # while this path replaces the fallback wholesale.
+          if !role.assignable_by?(delegator)
+            return { success: false, errors: [ unassignable_role_error(role) ] }
           end
 
           update_params[:role] = role
@@ -451,6 +484,36 @@ module Accounts
       "You cannot grant permissions you do not hold (or system-tier permissions): #{Array(names).join(', ')}"
     end
 
+    # THE ROLE HALF OF THE CONFERRAL RULE, APPLIED IN THE SERVICE.
+    #
+    # Conferring a whole role through a delegation is the same authority
+    # transfer as assigning that role, so it is bound by Role#assignable_by? —
+    # the shared rule RoleAssignmentGuard#can_assign_role? delegates to. NOT
+    # User#grantable_permission_names, which binds a list of permission NAMES:
+    # extensions register real system.* names onto the seeded global admin and
+    # manager roles, so the grantable (held-minus-system-tier) rule would make
+    # the platform's two broadest roles undelegatable by everyone, including a
+    # system.admin holder.
+    #
+    # 4da742156 placed this check in Api::V1::DelegationsController
+    # (#authorize_delegated_role!) alone, and that controller is the service's
+    # only production caller today — so for the controller path this is a
+    # provable no-op. It is DEPTH, not replacement: the controller check stays.
+    # A rule that lives only in a controller concern is unavailable to every
+    # non-controller caller and gets skipped by all of them, and this service has
+    # non-controller significance.
+    #
+    # This helper deduplicates the service's OWN copies — create, update and
+    # #unconferrable_reason now share one string. The controller's literal
+    # (Api::V1::DelegationsController#authorize_delegated_role!) is a third copy
+    # that this cannot reach and nothing ties to it; it is byte-identical today,
+    # not structurally prevented from drifting. The predicate is shared
+    # (Role#assignable_by?) even where the wording is not, which is the half that
+    # matters.
+    def unassignable_role_error(role)
+      "You cannot delegate the #{role.name} role: it grants privileges beyond your own"
+    end
+
     # Names the delegation would GAIN if `permission_name` were removed.
     #
     # THE DESIGN FORK THIS SETTLES. An empty custom set currently promotes the
@@ -510,6 +573,50 @@ module Accounts
     #     LOCKOUT: extensions register real system.* names onto the seeded global
     #     admin and manager roles, so it would make the platform's two broadest
     #     roles unactivatable by everyone, including a system.admin holder.
+    #
+    # WHY A CUSTOM+ROLE ROW DOES NOT ALSO GET THE ROLE CHECK (IMP-ee308f92ea6a).
+    # It was asked whether the custom branch should re-vet the role too. It must
+    # not, and the reason is a property rather than a convenience: EVERY branch
+    # of Account::Delegation#configured_permissions_for that a non-empty custom
+    # set reaches returns a SUBSET of that custom set (verbatim, or filtered by
+    # the role, or filtered by nothing on a system.admin role). So on such a row
+    # the role can only ever SUBTRACT. It confers nothing the custom set does not
+    # already carry, and the custom set is exactly what this branch vets — a role
+    # check there would narrow nothing.
+    #
+    # It would, however, cost something real. The two rows that reach activation
+    # want different answers: one whose role WAS conferrable when minted and no
+    # longer is (a role that gained a permission, or an activator less privileged
+    # than the delegator) is legitimate and must still go live; one whose role was
+    # NEVER conferrable is the security case — and that one is already answered,
+    # because whatever its role carries cannot exceed the vetted custom set.
+    # Re-vetting here would strand the first to no benefit against the second.
+    #
+    # THE LINE THIS DEPENDS ON is the fallback KEY in #configured_permissions_for
+    # — `return role&.permission_names || [] if custom.empty?`, i.e. only an
+    # EMPTY custom set resolves from the role. NOT the role filter added by
+    # IMP-7964b5d261b4: that filter can only subtract, and deleting it returns
+    # `custom` verbatim (which is literally what the method did before that
+    # commit), so it is not what stands between this branch and an escalation.
+    # If the empty-set key ever moved — if a non-empty custom set could resolve
+    # from the role — this branch would have to check the role. The filter itself
+    # is pinned by spec/models/account_delegation_spec.rb
+    # ('explicit custom set bounded by the live role').
+    #
+    # THE EXCEPTION TO "THE ROLE CONFERS NOTHING": Account::Delegation's
+    # #can_manage_account? / #can_view_analytics? / #can_manage_users? answer
+    # from the ROLE alone and ignore the custom set entirely. They have no
+    # callers anywhere (server, worker, frontend, all extensions), so they do not
+    # reach this decision today — but wiring any of them to a gate would invert
+    # it, because then an unvetted role WOULD confer authority directly.
+    #
+    # NOT IN TENSION WITH create/update REFUSING SUCH A ROLE. Those paths are
+    # forward-looking and deliberately stricter: a custom+role row whose role the
+    # delegator cannot confer can no longer be MINTED, matching the controller's
+    # long-standing behaviour on both endpoints. This branch governs rows that
+    # ALREADY EXIST — minted before those guards, or whose role drifted since —
+    # and refusing to honour them buys nothing. Both directions are pinned in
+    # spec/services/accounts/delegation_service_role_conferral_spec.rb.
     def unconferrable_reason(delegation)
       custom = delegation.permission_names
       if custom.any?
@@ -521,7 +628,7 @@ module Accounts
       return nil if role.blank?
       return nil if role.assignable_by?(delegator)
 
-      "You cannot delegate the #{role.name} role: it grants privileges beyond your own"
+      unassignable_role_error(role)
     end
 
     def create_audit_log(action, delegation, additional_details = {})

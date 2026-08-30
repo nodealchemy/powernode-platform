@@ -65,6 +65,19 @@ class Account::Delegation < ApplicationRecord
     end
 
     # Permission methods
+    #
+    # THESE THREE ANSWER FROM THE ROLE ALONE and ignore the custom permission
+    # set entirely, so on a custom+role delegation they report authority the
+    # delegation does not actually confer through #effective_permissions. They
+    # have no callers anywhere — server, worker, frontend, or any extension —
+    # which is the only reason that is not a defect.
+    #
+    # Read this before wiring any of them to a gate: they are the standing
+    # exception to the reasoning in
+    # Accounts::DelegationService#unconferrable_reason, which does NOT re-vet the
+    # role on a custom+role row precisely because the role cannot contribute
+    # beyond the custom set. Route a new caller through #has_permission? instead,
+    # or that becomes false and activation has to start checking the role.
     def can_manage_account?
       active? && (role&.name == "Admin" || role&.name == "Owner")
     end
@@ -218,8 +231,21 @@ class Account::Delegation < ApplicationRecord
         return false
       end
 
-      delegation_permissions.create(permission_name: permission_name)
-      true
+      # THE RETURN VALUE IS THE CONTRACT, so it must reflect what actually
+      # happened. A bare `create` followed by an unconditional `true` reported
+      # success for every record that failed to persist — a failed validation,
+      # or Account::DelegationPermission's own `before_create` throwing :abort.
+      #
+      # Accounts::DelegationService#update_delegation rewrites the custom set as
+      # destroy_all + assign_permission and rolls the whole transaction back on a
+      # false. A silent success there would leave the custom set EMPTY, which
+      # falls back to the ROLE's full set — the exact promotion that guard exists
+      # to prevent, audit-logged as a success.
+      #
+      # #persisted? rather than create!: it answers both failure modes with one
+      # expression, where create! raises RecordInvalid for the first and
+      # RecordNotSaved for the second.
+      delegation_permissions.create(permission_name: permission_name).persisted?
     rescue ActiveRecord::RecordInvalid
       false
     end
