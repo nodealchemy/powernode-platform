@@ -44,7 +44,7 @@ module Security
       cache_key = "vault:#{path}:#{key}"
 
       if cache && (cached = @cache.read(cache_key))
-        return cached
+        return normalize_secret_data(cached)
       end
 
       result = with_retry do
@@ -52,7 +52,7 @@ module Security
         raise SecretNotFoundError, "Secret not found: #{path}" unless secret
 
         data = extract_secret_data(secret)
-        key ? data[key.to_sym] || data[key.to_s] : data
+        normalize_secret_data(key ? data[key.to_sym] || data[key.to_s] : data)
       end
 
       @cache.write(cache_key, result, expires_in: CACHE_TTL) if cache
@@ -283,6 +283,30 @@ module Security
 
     def build_credential_path(account_id, credential_type, credential_id)
       "secret/data/powernode/accounts/#{account_id}/#{credential_type}/#{credential_id}"
+    end
+
+    # Make #read_secret's no-key branch agree with its single-key branch on how
+    # a caller may spell a key.
+    #
+    # The vault gem parses every response with `symbolize_names: true`
+    # (vault-0.20.1 lib/vault/client.rb JSON_PARSE_OPTIONS, applied at :388 and
+    # :422), so #extract_secret_data always yields a SYMBOL-keyed Hash, while a
+    # cache round-trip through a JSON-coded store yields STRING keys. The
+    # single-key branch already tolerated both (`data[key.to_sym] ||
+    # data[key.to_s]`); the no-key branch returned the raw Hash, so a caller
+    # indexing it with strings read nil for every field — silently, since a
+    # wrong-keyed Hash is truthy and non-empty. Returning a
+    # HashWithIndifferentAccess makes both branches, and both cache states, read
+    # the same. Non-Hash values (the single-key branch's usual scalar) pass
+    # through untouched.
+    #
+    # Applied to the single-key branch too, and not only the no-key one:
+    # `symbolize_names` is DEEP, so a single-key read whose VALUE is itself a
+    # Hash would otherwise come back symbol-keyed on a cache MISS and
+    # indifferent on the following HIT — a worse failure than a consistently
+    # wrong one, because it only reproduces once per cache window.
+    def normalize_secret_data(data)
+      data.is_a?(Hash) ? data.with_indifferent_access : data
     end
 
     def extract_secret_data(secret)
