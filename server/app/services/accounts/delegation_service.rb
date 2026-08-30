@@ -187,9 +187,23 @@ module Accounts
             # Remove existing delegation permissions
             delegation.delegation_permissions.destroy_all
 
-            # Add new permissions (by name)
+            # Add new permissions (by name).
+            #
+            # The return value is NOT optional. Account::Delegation#assign_permission
+            # returns false for a NON-ACTIVE delegation, and this method guards
+            # only against `revoked?` — so on an inactive or expired row every
+            # assignment silently no-ops, the destroy_all above stands alone, and
+            # the delegation is left with an EMPTY custom set. An empty custom
+            # set falls back to the ROLE's full set, which is precisely the
+            # promotion remove_permission_from_delegation refuses: "narrow this
+            # delegation to [X]" became "promote it to its whole role", audit-
+            # logged as a success. Fail the whole transaction instead, so the
+            # previous set survives intact.
             specific_permissions.each do |permission_name|
-              delegation.assign_permission(permission_name)
+              next if delegation.assign_permission(permission_name)
+
+              result = { success: false, errors: [ "Could not assign permission #{permission_name}: the delegation must be active and the permission within its role" ] }
+              raise ActiveRecord::Rollback
             end
           end
 
@@ -217,6 +231,18 @@ module Accounts
 
         if delegation.expired?
           return { success: false, errors: [ "Cannot activate expired delegation" ] }
+        end
+
+        # RE-CHECK ON ACTIVATION. Every other guard here binds a write, so they
+        # are forward-only: a row that already carries authority the activator
+        # could not confer — minted before those guards existed, or left behind
+        # by a role that has since gained permissions — was honoured verbatim the
+        # moment it went active. Activation is the point where a stored row
+        # becomes live authority, so it is re-checked against the same rules the
+        # write paths apply, with `delegator` being whoever is activating.
+        blocked = unconferrable_reason(delegation)
+        if blocked
+          return { success: false, errors: [ blocked ] }
         end
 
         if delegation.activate!
@@ -360,6 +386,16 @@ module Accounts
           return { success: false, errors: [ "Permission not found" ] }
         end
 
+        # A REMOVAL MUST NOT WIDEN. Account::Delegation#configured_permissions
+        # falls back to the role's full set when the custom set is empty, so
+        # dropping the last custom name PROMOTES the delegation to everything the
+        # role grants — a call named "remove" raising effective authority. See
+        # the fork this settles in #widening_from_removal.
+        widened = widening_from_removal(delegation, permission_name)
+        if widened.any?
+          return { success: false, errors: [ widening_error(delegation, widened) ] }
+        end
+
         delegation.remove_permission(permission_name)
         create_audit_log("delegation_permission_removed", delegation, {
           permission: permission_name
@@ -413,6 +449,79 @@ module Accounts
 
     def escalation_error(names)
       "You cannot grant permissions you do not hold (or system-tier permissions): #{Array(names).join(', ')}"
+    end
+
+    # Names the delegation would GAIN if `permission_name` were removed.
+    #
+    # THE DESIGN FORK THIS SETTLES. An empty custom set currently promotes the
+    # delegation to the role's full set, so "remove" can widen. Two readings were
+    # on the table:
+    #
+    #   (a) an empty custom set means the delegation carries nothing beyond what
+    #       is explicitly listed — i.e. drop the role fallback; or
+    #   (b) apply the same grantable check to the RESULTING set that addition does.
+    #
+    # Neither, taken literally, is right. (a) as a change to
+    # #configured_permissions would strand every role-only delegation:
+    # create_delegation explicitly permits "role, no custom permissions", and the
+    # fallback is the only thing that makes such a row carry anything. (b) is too
+    # weak on its own: the widening is INTRINSIC to the fallback and happens even
+    # when every gained name is one the delegator holds and could have added by
+    # hand — a grantable test passes straight over that, exactly as a row-level
+    # assertion does.
+    #
+    # So: (a)'s SEMANTICS — an empty custom set must not silently promote —
+    # enforced at the write rather than by changing what #configured_permissions
+    # means. The invariant is the property, not the mechanism: a removal may
+    # never add a name to the set the delegation carries. Removals that genuinely
+    # narrow (including emptying a role-LESS delegation down to nothing) stay
+    # allowed; the one that would promote is refused, and the operator rewrites
+    # the set through update_delegation or revokes the delegation instead.
+    #
+    # Computed as a set delta rather than special-casing "custom set becomes
+    # empty", and the hypothetical set is resolved THROUGH the model's own
+    # fallback rule (#configured_permissions_for) rather than restated here, so
+    # a future change to that rule cannot leave this guard testing the old one.
+    def widening_from_removal(delegation, permission_name)
+      before = delegation.configured_permissions
+      after = delegation.configured_permissions_for(delegation.permission_names - [ permission_name ])
+
+      after - before
+    end
+
+    def widening_error(delegation, gained)
+      role_name = delegation.role&.name
+      "Removing this permission would widen the delegation" \
+        "#{role_name ? " to the full #{role_name} role" : ''}, granting: #{Array(gained).sort.join(', ')}. " \
+        "Update the delegation's permissions or revoke it instead."
+    end
+
+    # Reason the ACTIVATOR may not confer what this row already carries, or nil.
+    #
+    # Mirrors the same split the write paths use, because the two halves are
+    # different questions with different existing answers:
+    #
+    #   - a CUSTOM permission set is bound by the grantable rule
+    #     (User#grantable_permission_names — held, never the system tier), the
+    #     same rule create/update/add apply;
+    #   - a whole ROLE is bound by Role#assignable_by?, the shared
+    #     RoleAssignmentGuard rule Api::V1::DelegationsController applies on
+    #     create/update. Using the grantable rule here instead would be a
+    #     LOCKOUT: extensions register real system.* names onto the seeded global
+    #     admin and manager roles, so it would make the platform's two broadest
+    #     roles unactivatable by everyone, including a system.admin holder.
+    def unconferrable_reason(delegation)
+      custom = delegation.permission_names
+      if custom.any?
+        escalating = ungrantable_permission_names(custom)
+        return escalating.any? ? escalation_error(escalating) : nil
+      end
+
+      role = delegation.role
+      return nil if role.blank?
+      return nil if role.assignable_by?(delegator)
+
+      "You cannot delegate the #{role.name} role: it grants privileges beyond your own"
     end
 
     def create_audit_log(action, delegation, additional_details = {})

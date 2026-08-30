@@ -82,17 +82,49 @@ class Account::Delegation < ApplicationRecord
       delegation_permissions.pluck(:permission_name)
     end
 
-    # Effective permission NAME strings: custom delegation permissions when any
-    # are assigned, otherwise the delegation role's permission names.
+    # The permission set this delegation is CONFIGURED to carry, independent of
+    # status: the custom delegation permissions when any are assigned, otherwise
+    # the delegation role's permission names.
+    #
+    # Split out of #effective_permissions because two callers must reason about a
+    # delegation that is NOT (or not yet) active, and #effective_permissions
+    # deliberately returns [] for those:
+    #
+    #   - Accounts::DelegationService#activate_delegation re-checks the row
+    #     BEFORE flipping it active. Asking #effective_permissions there always
+    #     answers [], so the check would pass vacuously on every row.
+    #   - Accounts::DelegationService#remove_permission_from_delegation asks what
+    #     the set WOULD become; the answer must not depend on status.
+    #
+    # Note this is the seat of the removal hazard: an empty custom set falls back
+    # to the ROLE's full set, so emptying the custom set WIDENS the delegation.
+    # The fallback stays — a role-only delegation (which create_delegation
+    # explicitly permits) carries nothing without it — and the write path guards
+    # the transition instead.
+    def configured_permissions
+      configured_permissions_for(permission_names)
+    end
+
+    # What this delegation WOULD carry if its custom set were `custom`.
+    #
+    # The fallback rule lives here once so a write-path guard asking "what would
+    # this become?" cannot drift from what the delegation actually resolves —
+    # Accounts::DelegationService#widening_from_removal restating the rule for
+    # itself would leave two copies to keep in step, and the weaker one becomes
+    # the way in.
+    def configured_permissions_for(custom)
+      custom = Array(custom)
+      return custom if custom.any?
+
+      role&.permission_names || []
+    end
+
+    # Effective permission NAME strings: the configured set, but only while the
+    # delegation is actually active.
     def effective_permissions
       return [] unless active?
 
-      custom = permission_names
-      if custom.any?
-        custom
-      else
-        role&.permission_names || []
-      end
+      configured_permissions
     end
 
     # Display helpers

@@ -564,5 +564,183 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
         expect(existing_delegation.reload.permission_names).to eq([ 'report.export' ])
       end
     end
+
+    # RESIDUALS of this same escalation, disclosed by 4da742156's own executor
+    # rather than swept in. Everything that commit added constrains what a write
+    # ADDS. Two paths are not additions and were therefore left uncovered:
+    #
+    #   1. REMOVAL. Account::Delegation#effective_permissions falls back to the
+    #      ROLE's full set whenever the custom set is empty, so emptying the
+    #      custom set PROMOTES the delegation. A call named "remove" can raise
+    #      effective authority.
+    #   2. ACTIVATION. activate_delegation re-validated nothing, so a row
+    #      carrying authority its activator could not confer was honoured
+    #      verbatim the moment it went active.
+    #
+    # Every assertion below is on effective_permissions, NEVER on the
+    # delegation_permissions rows: the rows SHRINKING is exactly what makes the
+    # effective set GROW, so a row-level assertion passes straight over item 1.
+    # HTTP status is asserted alongside, so a green cannot come from a 500 or an
+    # early return instead of the guard.
+    context 'residual 1: removal must not widen the effective set' do
+      def delete_permission(delegation, name)
+        delete "/api/v1/accounts/#{account.id}/delegations/#{delegation.id}/permissions/#{name}",
+               headers: headers
+      end
+
+      # Reachable through the PUBLIC API today, with no unheld permission
+      # anywhere: a role plus a NARROWER custom subset of it. The delegator holds
+      # every name involved, so this is not an escalation beyond the delegator —
+      # the widening is intrinsic to the fallback.
+      it 'does not promote a narrowed delegation to the role set when the last custom permission goes' do
+        narrowing_role = create(:role, name: 'account.narrowed', display_name: 'Narrowed')
+        narrowing_role.role_permissions.find_or_create_by!(permission_name: held_permission)
+        narrowing_role.role_permissions.find_or_create_by!(permission_name: 'report.export')
+
+        post_delegation(permission_names: [ held_permission ], role_id: narrowing_role.id)
+        expect(response).to have_http_status(:created)
+
+        delegation = Account::Delegation.for_user(delegated_user).first
+        before_set = delegation.effective_permissions
+        expect(before_set).to contain_exactly(held_permission)
+
+        delete_permission(delegation, held_permission)
+
+        after_set = delegation.reload.effective_permissions
+        expect(after_set - before_set).to be_empty
+        expect(after_set).not_to include('report.export')
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      # The escalating flavour: a row whose ROLE carries a permission the
+      # delegator does not hold, narrowed by a custom subset. Built directly
+      # because the create guard now refuses to mint it — this is the shape a
+      # pre-4da742156 row, or a role that later gained a permission, leaves behind.
+      it 'does not promote a delegation to a role permission the remover does not hold' do
+        escalating_role = create(:role, name: 'account.residual', display_name: 'Residual')
+        escalating_role.role_permissions.find_or_create_by!(permission_name: held_permission)
+        escalating_role.role_permissions.find_or_create_by!(permission_name: unheld_permission)
+
+        delegation = create(:account_delegation, :active, account: account, delegated_by: manager_user,
+                                                          delegated_user: delegated_user, role: escalating_role)
+        delegation.delegation_permissions.create!(permission_name: held_permission)
+        expect(delegation.effective_permissions).to contain_exactly(held_permission)
+
+        delete_permission(delegation, held_permission)
+
+        expect(delegation.reload.effective_permissions).not_to include(unheld_permission)
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      it 'still removes a permission when the removal genuinely narrows' do
+        delegation = create(:account_delegation, :active, account: account, delegated_by: manager_user,
+                                                          delegated_user: delegated_user, role: nil)
+        delegation.delegation_permissions.create!(permission_name: held_permission)
+        delegation.delegation_permissions.create!(permission_name: 'report.export')
+
+        delete_permission(delegation, 'report.export')
+
+        expect(response).to have_http_status(:ok)
+        expect(delegation.reload.effective_permissions).to contain_exactly(held_permission)
+      end
+
+      # Emptying a role-LESS delegation leaves it carrying nothing. That narrows,
+      # so it must stay allowed — the guard is "never widen", not "never empty".
+      it 'still empties a role-less delegation down to no permissions' do
+        delegation = create(:account_delegation, :active, account: account, delegated_by: manager_user,
+                                                          delegated_user: delegated_user, role: nil)
+        delegation.delegation_permissions.create!(permission_name: held_permission)
+
+        delete_permission(delegation, held_permission)
+
+        expect(response).to have_http_status(:ok)
+        expect(delegation.reload.effective_permissions).to be_empty
+      end
+    end
+
+    # SAME MECHANISM, DIFFERENT TRANSPORT — surfaced by the independent review of
+    # the removal guard above, not by the brief. update_delegation rewrites the
+    # custom set as destroy_all + assign_permission, and #assign_permission
+    # returns false for a NON-ACTIVE delegation while update_delegation guards
+    # only against `revoked?`. Ignoring that return value made "narrow this
+    # delegation to [X]" wipe the custom set and add nothing back — which is
+    # exactly the empty-set promotion the removal guard exists to prevent,
+    # reached through a method that never calls remove_permission at all.
+    context 'residual 1b: a permission REWRITE must not empty the custom set' do
+      it 'does not promote an inactive delegation to its role set through a narrowing PATCH' do
+        role = create(:role, name: 'account.rewrite', display_name: 'Rewrite')
+        role.role_permissions.find_or_create_by!(permission_name: held_permission)
+        role.role_permissions.find_or_create_by!(permission_name: 'report.export')
+        # The activator must be able to confer the whole role, or the activation
+        # re-check would refuse and mask the defect under test.
+        expect(role.assignable_by?(manager_user)).to be true
+
+        delegation = create(:account_delegation, :inactive, account: account, delegated_by: manager_user,
+                                                            delegated_user: delegated_user, role: role)
+        delegation.delegation_permissions.create!(permission_name: held_permission)
+
+        patch "/api/v1/accounts/#{account.id}/delegations/#{delegation.id}",
+              params: { delegation: { permission_names: [ held_permission ] } },
+              headers: headers,
+              as: :json
+
+        patch "/api/v1/accounts/#{account.id}/delegations/#{delegation.id}/activate", headers: headers
+
+        expect(delegation.reload).to be_active
+        expect(delegation.effective_permissions).to contain_exactly(held_permission)
+      end
+    end
+
+    context 'residual 2: activation must re-check what the row already carries' do
+      def activate(delegation, as_headers = headers)
+        patch "/api/v1/accounts/#{account.id}/delegations/#{delegation.id}/activate", headers: as_headers
+      end
+
+      # NOTE ON THE ORACLE: #effective_permissions returns [] for any non-active
+      # delegation, so "the activated set excludes X" would pass vacuously on a
+      # refusal AND on a crash. The row's own status is asserted alongside it.
+      it 'does not activate a row carrying a permission the activator cannot grant' do
+        delegation = create(:account_delegation, :inactive, account: account, delegated_by: manager_user,
+                                                            delegated_user: delegated_user, role: nil)
+        delegation.delegation_permissions.create!(permission_name: unheld_permission)
+
+        activate(delegation)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(delegation.reload).not_to be_active
+        expect(delegation.effective_permissions).not_to include(unheld_permission)
+      end
+
+      it 'still activates a row carrying only permissions the activator holds' do
+        delegation = create(:account_delegation, :inactive, account: account, delegated_by: manager_user,
+                                                            delegated_user: delegated_user, role: nil)
+        delegation.delegation_permissions.create!(permission_name: held_permission)
+
+        activate(delegation)
+
+        expect(response).to have_http_status(:ok)
+        expect(delegation.reload).to be_active
+        expect(delegation.effective_permissions).to include(held_permission)
+      end
+
+      # NO-LOCKOUT, for the same reason 4da742156 used the role-assignment rule
+      # and not the grantable rule for whole-role conferral: extensions register
+      # real system.* names onto the seeded global roles, so a grantable-based
+      # test here would make them unactivatable by everyone, including an admin.
+      it 'still activates a role-only delegation on a seeded global role carrying system-tier permissions' do
+        admin_delegator = create(:user, :admin, account: account)
+        global_admin_role = Role.find_by(name: 'admin')
+        expect(global_admin_role).to be_present
+        expect(global_admin_role.permission_names.select { |n| n.start_with?('system.') }).not_to be_empty
+
+        delegation = create(:account_delegation, :inactive, account: account, delegated_by: admin_delegator,
+                                                            delegated_user: delegated_user, role: global_admin_role)
+
+        activate(delegation, auth_headers_for(admin_delegator))
+
+        expect(response).to have_http_status(:ok)
+        expect(delegation.reload).to be_active
+      end
+    end
   end
 end
