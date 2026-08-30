@@ -20,6 +20,16 @@ SKIP_PATTERNS=false
 SKIP_SECRETS=false
 SKIP_EXT_SPECS=false
 
+# Test seam for scripts/checks/tests/validate-stale-ext-gate-check.sh: skips the
+# real `bundle exec rspec` invocations below (platform alone is 1056 spec
+# files; extensions/system ships 608 more) while leaving every decision and
+# reporting branch around them — including the private-extension
+# migration-staleness check (IMP-93291dfa635f) — real. Lets that test drive
+# THIS script end-to-end without paying for a full backend-spec run or
+# touching the shared test DB (memory: "TARGETED specs only ... nor bare
+# validate.sh").
+VALIDATE_SELFTEST_SKIP_RSPEC="${VALIDATE_SELFTEST_SKIP_RSPEC:-}"
+
 for arg in "$@"; do
   case "$arg" in
     --skip-tests)   SKIP_TESTS=true ;;
@@ -77,7 +87,7 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
 
   # Platform specs. `bundle exec rspec` uses RSpec's default pattern
   # spec/**/*_spec.rb RELATIVE TO THE CWD, so this covers server/spec ONLY.
-  if (cd "$PROJECT_ROOT/server" && bundle exec rspec --format progress 2>&1); then
+  if [[ -n "$VALIDATE_SELFTEST_SKIP_RSPEC" ]] || (cd "$PROJECT_ROOT/server" && bundle exec rspec --format progress 2>&1); then
     :
   else
     echo -e "${RED}  └─ platform server/spec failed${NC}"
@@ -100,6 +110,7 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
   else
     RSPEC_OPTOUT_FILE="$PROJECT_ROOT/scripts/rspec-check-optouts.txt"
     EXT_SKIP_NOTES=()
+    EXT_FAIL_NOTES=()
     for ext_spec in "$PROJECT_ROOT"/extensions/*/server/spec "$PROJECT_ROOT"/extensions/private/*/server/spec; do
       [[ -d "$ext_spec" ]] || continue
       # No *_spec.rb means nothing to run; not a gap.
@@ -154,8 +165,20 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
             # gracefully skipping just this extension's specs.
             migration_status="$("$SCRIPT_DIR/check-extension-bundle-migrations.sh" "$ext_migrate_dir" || true)"
             if [[ "$migration_status" != "OK" ]]; then
-              echo -e "${YELLOW}  └─ SKIP extensions/$ext_slug specs SKIPPED (private bundle not migrated: ${migration_status}) — run 'bash scripts/prepare-extension-test-db.sh'${NC}"
-              EXT_SKIP_NOTES+=("extensions/$ext_slug specs SKIPPED (private bundle not migrated)")
+              # Unlike a missing Gemfile.private (a genuine, unavoidable gap on
+              # a public checkout — nothing to do about it, so it stays a
+              # SKIP), a stale bundle is INCIDENTAL: it happens whenever
+              # anyone adds a routine migration and hasn't re-run
+              # prepare-extension-test-db.sh, and it is trivially fixable.
+              # Reporting it as a SKIP that still lets the overall gate PASS
+              # was IMP-93291dfa635f: a routine migration add earned a green
+              # gate that covered strictly less than before, exactly when a
+              # migration's blast radius matters most. Fail the gate instead
+              # of just noting the gap — do NOT relax the check above to
+              # tolerate new migrations, that would remove a real signal.
+              echo -e "${RED}  └─ FAIL extensions/$ext_slug specs NOT RUN (private bundle not migrated: ${migration_status}) — run 'bash scripts/prepare-extension-test-db.sh'${NC}"
+              EXT_FAIL_NOTES+=("extensions/$ext_slug specs NOT RUN — private bundle not migrated (${migration_status}); run scripts/prepare-extension-test-db.sh")
+              SPECS_OK=false
               continue
             fi
           else
@@ -169,7 +192,7 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
       echo -e "${BLUE}  └─ extensions/$ext_slug specs...${NC}"
       # Run from the PLATFORM's server/ so rails_helper, factories and the
       # engine's autoload paths resolve exactly as they do in CI.
-      if (cd "$PROJECT_ROOT/server" && BUNDLE_GEMFILE="${ext_bundle:-$PROJECT_ROOT/server/Gemfile}" \
+      if [[ -n "$VALIDATE_SELFTEST_SKIP_RSPEC" ]] || (cd "$PROJECT_ROOT/server" && BUNDLE_GEMFILE="${ext_bundle:-$PROJECT_ROOT/server/Gemfile}" \
             bundle exec rspec "$ext_spec" --format progress 2>&1); then
         :
       else
@@ -190,6 +213,13 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
   # stops being a decision and reads as an accidental pass (IMP-d4583399ba5c).
   for note in "${EXT_SKIP_NOTES[@]:-}"; do
     [[ -n "$note" ]] && RESULTS+=("${YELLOW}SKIP${NC} $note")
+  done
+  # Distinct from the SKIP notes above: these are suites that did NOT run and
+  # for that reason alone must not coexist with an unqualified overall PASS
+  # (IMP-93291dfa635f). SPECS_OK is already false whenever this array is
+  # non-empty, so OVERALL_EXIT is already 1 by the time we get here.
+  for note in "${EXT_FAIL_NOTES[@]:-}"; do
+    [[ -n "$note" ]] && RESULTS+=("${RED}FAIL${NC} $note")
   done
   echo ""
 else
