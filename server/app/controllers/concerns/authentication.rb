@@ -333,12 +333,27 @@ module Authentication
       return delegated_permission?(delegation_id, permission_name)
     end
 
-    # For JWT tokens, check permissions directly from token payload (faster)
-    if @current_jwt_payload&.dig(:permissions)&.include?(permission_name)
-      return true
-    end
-
-    # Fallback to database checks
+    # NO token-borne short-circuit. This method used to `return true` on a
+    # `permissions` array in the decoded payload before any database read, which
+    # authorized off a mint-time snapshot for the token's whole remaining lifetime
+    # — every permission narrowing silently reopening for already-issued tokens.
+    #
+    # No PRODUCTION mint path populates that claim: build_user_payload and
+    # build_worker_payload carry permission_version (a digest), not a list, and
+    # AccountSwitchService returns permissions in the RESPONSE BODY while putting
+    # only delegation_id in the payload. So on a live deployment the branch could
+    # not fire. It was NOT unreachable in the suite, though — spec/support/
+    # auth_helpers.rb#token_for minted the claim into every test token, so this
+    # branch, not the database, answered most request specs. That helper no longer
+    # mints it, which is what makes the specs exercise the production path.
+    #
+    # Deleted rather than guarded: with no reader, a future mint path that adds
+    # the claim cannot reopen anything, and there is no tripwire left to watch. Do
+    # not reintroduce it as an optimisation without an invalidation story keyed to
+    # permission_version — one that answers what a token minted BEFORE a narrowing
+    # is allowed to do. Pinned by spec/controllers/concerns/jwt_permissions_claim_spec.rb.
+    #
+    # Resolve live from the database, so revocation takes effect immediately.
     return current_user.has_permission?(permission_name) if current_user
     return current_worker.has_permission?(permission_name) if current_worker
     false
