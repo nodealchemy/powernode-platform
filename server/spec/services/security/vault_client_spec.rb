@@ -94,6 +94,67 @@ RSpec.describe Security::VaultClient do
 
       expect(Rails.cache.read("vault:secret/data/x:")).to be_nil
     end
+
+    # The ABSENT arm needs it too, and in the more alarming direction: a stale
+    # cached payload from before the secret was deleted would let the sync keep
+    # succeeding while the probe reports the path missing. The probe disagreeing
+    # with the sync is the failure this whole surface exists to prevent, and it
+    # does not care which of the two is the optimistic one.
+    it "invalidates the cache even when the path turns out to be absent" do
+      allow(logical).to receive(:read).and_return(nil)
+      Rails.cache.write("vault:secret/data/gone:", { "password" => "stale" })
+
+      expect { vault.probe_secret("secret/data/gone") }
+        .to raise_error(described_class::SecretNotFoundError)
+
+      expect(Rails.cache.read("vault:secret/data/gone:")).to be_nil
+    end
+
+    # A STATE oracle, not a message oracle. `not_to receive(:record_failure)`
+    # only proves this code path does not call that method; it says nothing
+    # about the breaker actually staying closed, and it would pass against an
+    # implementation that opened the circuit by some other route. Drive the
+    # probe past failure_threshold (3) on a missing path and assert the state
+    # itself is unchanged.
+    it "leaves circuit-breaker state untouched across repeated probes of a missing path" do
+      vault.send(:setup_circuit_breaker,
+                 resource_id: "vault-probe-oracle-#{SecureRandom.hex(4)}",
+                 service_name: "security_vault",
+                 config: { failure_threshold: 3, success_threshold: 2, timeout_duration: 30_000,
+                           monitoring_window: 300_000, reset_timeout: 300_000 })
+      before_state = vault.circuit_state
+      allow(logical).to receive(:read).and_return(nil)
+
+      5.times do
+        expect { vault.probe_secret("secret/data/gone") }
+          .to raise_error(described_class::SecretNotFoundError)
+      end
+
+      expect(vault.circuit_state).to eq(before_state)
+      expect(vault.circuit_state).to eq("closed")
+      expect(vault.circuit_stats[:failure_count]).to eq(0)
+    end
+
+    # Same oracle for the arm that actually would have opened it: a denied
+    # policy is a non-retryable Vault::HTTPError, which is what read_secret
+    # counts toward failure_threshold.
+    it "leaves circuit-breaker state untouched across repeated DENIED probes" do
+      vault.send(:setup_circuit_breaker,
+                 resource_id: "vault-probe-oracle-#{SecureRandom.hex(4)}",
+                 service_name: "security_vault",
+                 config: { failure_threshold: 3, success_threshold: 2, timeout_duration: 30_000,
+                           monitoring_window: 300_000, reset_timeout: 300_000 })
+      allow(logical).to receive(:read)
+        .and_raise(Vault::HTTPError.new("addr", double(code: 403), [ "permission denied" ]))
+
+      5.times do
+        expect { vault.probe_secret("secret/data/denied") }
+          .to raise_error(described_class::ConnectionError)
+      end
+
+      expect(vault.circuit_state).to eq("closed")
+      expect(vault.circuit_stats[:failure_count]).to eq(0)
+    end
   end
 
   describe ".instance" do

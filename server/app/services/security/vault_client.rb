@@ -83,11 +83,15 @@ module Security
     # definition. Raises SecretNotFoundError when the path is absent.
     def probe_secret(path)
       secret = @client.logical.read(path)
+      # Invalidate BEFORE the not-found raise, so the absent arm clears the
+      # cache too. A stale payload cached before the secret was deleted would
+      # otherwise let the sync keep succeeding while the probe reports the path
+      # missing — the probe and the sync disagreeing is the failure this
+      # surface exists to prevent, in either direction.
+      invalidate_cache_for_path(path)
       raise SecretNotFoundError, "Secret not found: #{path}" unless secret
 
-      normalize_secret_data(extract_secret_data(secret)).tap do
-        invalidate_cache_for_path(path)
-      end
+      normalize_secret_data(extract_secret_data(secret))
     rescue Vault::HTTPConnectionError, Vault::HTTPError => e
       raise ConnectionError, "Vault connection error: #{e.message}"
     end
