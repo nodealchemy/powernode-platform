@@ -25,6 +25,77 @@ RSpec.describe Security::VaultClient do
     yield
   end
 
+  # IMP-0f914db2c7cf. #probe_secret is the DIAGNOSTIC read behind the
+  # credential-path probe on POST /api/v1/admin_settings/vault/test. Its whole
+  # reason for existing separately from #read_secret is that a diagnostic must
+  # not be able to break the subsystem it diagnoses: read_secret counts a
+  # non-retryable Vault::HTTPError (a denied policy on the probed path) against
+  # the SHARED `vault` circuit breaker, whose state lives in Rails.cache — three
+  # probes of an unreadable path would open it for five minutes for every Vault
+  # consumer in the platform.
+  describe "#probe_secret" do
+    let(:logical) { instance_double(Vault::Logical) }
+    let(:client)  { instance_double(Vault::Client, logical: logical) }
+
+    subject(:vault) do
+      described_class.allocate.tap do |v|
+        v.instance_variable_set(:@client, client)
+        v.instance_variable_set(:@cache, Rails.cache)
+      end
+    end
+
+    def secret_double(data)
+      instance_double(Vault::Secret, data: data)
+    end
+
+    it "returns the KV v2 payload normalized to string-indexable keys" do
+      allow(logical).to receive(:read).with("secret/data/x")
+                                      .and_return(secret_double({ data: { username: "bot", password: "pw" } }))
+
+      result = vault.probe_secret("secret/data/x")
+
+      expect(result["username"]).to eq("bot")
+      expect(result[:password]).to eq("pw")
+    end
+
+    it "raises SecretNotFoundError when the path holds nothing" do
+      allow(logical).to receive(:read).with("secret/data/missing").and_return(nil)
+
+      expect { vault.probe_secret("secret/data/missing") }
+        .to raise_error(described_class::SecretNotFoundError, /secret\/data\/missing/)
+    end
+
+    # The property the whole method exists for.
+    it "neither checks nor records circuit-breaker state on a denied read" do
+      allow(logical).to receive(:read).and_raise(Vault::HTTPError.new("addr", double(code: 403), [ "permission denied" ]))
+      expect(vault).not_to receive(:record_failure)
+      expect(vault).not_to receive(:check_circuit_breaker!)
+
+      expect { vault.probe_secret("secret/data/denied") }
+        .to raise_error(described_class::ConnectionError)
+    end
+
+    it "does not consult the breaker on the success path either" do
+      allow(logical).to receive(:read).and_return(secret_double({ data: { password: "pw" } }))
+      expect(vault).not_to receive(:check_circuit_breaker!)
+
+      vault.probe_secret("secret/data/x")
+    end
+
+    # A probe that reported a shape the next reader would not see is the false
+    # reassurance this surface exists to prevent: RepoSyncService reads WITH the
+    # 5-minute cache, so without this the sync could keep failing on a payload
+    # the operator had already fixed and the probe had already blessed.
+    it "invalidates the path's cached entries so the next cached read agrees" do
+      allow(logical).to receive(:read).and_return(secret_double({ data: { password: "pw" } }))
+      Rails.cache.write("vault:secret/data/x:", { "password" => "stale" })
+
+      vault.probe_secret("secret/data/x")
+
+      expect(Rails.cache.read("vault:secret/data/x:")).to be_nil
+    end
+  end
+
   describe ".instance" do
     it "raises AuthenticationError constructing the client when Vault is unconfigured " \
        "(documents why .sealed?/.healthy?/.status must rescue it, not just the health check)" do

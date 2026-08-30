@@ -63,6 +63,35 @@ module Security
       raise ConnectionError, "Vault connection error: #{e.message}"
     end
 
+    # Diagnostic sibling of #read_secret for "does this KV path resolve, and
+    # what shape does it hold". Deliberately does NOT participate in the
+    # circuit breaker: it neither calls check_circuit_breaker! nor records a
+    # failure. A probe of a path this AppRole cannot read raises a
+    # non-retryable Vault::HTTPError, which through #read_secret would count
+    # against the shared `vault` breaker — three such probes would open it for
+    # five minutes for EVERY Vault consumer in the platform. A diagnostic must
+    # not be able to break the subsystem it diagnoses.
+    #
+    # Also uncached in both directions, and it INVALIDATES the path's cached
+    # entries on success: a probe that reported a shape the next reader would
+    # not see is the false reassurance this method exists to prevent, so the
+    # probe is made authoritative for subsequent reads rather than merely
+    # fresh for itself.
+    #
+    # Returns the same normalized (string-indexable) hash #read_secret returns,
+    # via the same extract/normalize pair — the shape must not be a second
+    # definition. Raises SecretNotFoundError when the path is absent.
+    def probe_secret(path)
+      secret = @client.logical.read(path)
+      raise SecretNotFoundError, "Secret not found: #{path}" unless secret
+
+      normalize_secret_data(extract_secret_data(secret)).tap do
+        invalidate_cache_for_path(path)
+      end
+    rescue Vault::HTTPConnectionError, Vault::HTTPError => e
+      raise ConnectionError, "Vault connection error: #{e.message}"
+    end
+
     # Write secret
     def write_secret(path, data)
       check_circuit_breaker!
@@ -388,7 +417,7 @@ module Security
         {}
       end
 
-      delegate :read_secret, :write_secret, :delete_secret, :list_secrets,
+      delegate :read_secret, :probe_secret, :write_secret, :delete_secret, :list_secrets,
                :store_credential, :get_credential, :delete_credential, :rotate_credential,
                :store_system_secret, :get_system_secret,
                :generate_container_token, :revoke_token,

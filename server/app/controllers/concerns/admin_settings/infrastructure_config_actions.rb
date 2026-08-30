@@ -192,13 +192,21 @@ module AdminSettings
       # Refresh singleton with successful config
       Security::VaultClient.reconfigure!
 
-      render_success(
+      payload = {
         connected: sealed == false,
         sealed: sealed,
         initialized: initialized,
         version: version,
         latency_ms: latency_ms
-      )
+      }
+
+      # The path probe runs ONLY once Vault is confirmed reachable and unsealed.
+      # A sealed or unreachable Vault returns above/below without it, so the
+      # four operator-visible cases stay distinct rather than collapsing into
+      # one "not ok": unreachable / sealed / path-absent / wrong-shape.
+      payload.merge!(probe_credential_path) if params[:path].present? && sealed == false
+
+      render_success(**payload)
     rescue Vault::HTTPConnectionError
       latency_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time) * 1000).round(1)
       render_success(connected: false, error: "Cannot reach Vault at #{vault_addr}", latency_ms: latency_ms)
@@ -208,6 +216,67 @@ module AdminSettings
     end
 
     private
+
+    # Answers the two questions #test_vault_connection could not: does a KV
+    # path RESOLVE, and does its payload carry the keys a caller needs. Filed
+    # as IMP-0f914db2c7cf from the GitOps side, where a repository's
+    # `vault_credential_path` holding the wrong keys surfaced as a git
+    # authentication error with no Vault anywhere in it.
+    #
+    # ABSOLUTE: reports PRESENCE, SHAPE and KEY NAMES. It must never return,
+    # log or echo a credential VALUE — `credential_keys` is `data.keys`, and
+    # nothing here touches `data.values`. Preserve that if you extend it.
+    #
+    # Generic by construction: the caller supplies `required_keys`, so no
+    # subsystem's key vocabulary lives in core. A GitOps repository advertises
+    # its own set as `required_credential_keys`; a package repository can pass
+    # a different one.
+    #
+    # Fails CLOSED — no arm returns `shape_ok: true` without having positively
+    # compared a NON-EMPTY required-key set against real payload data. With no
+    # requirement to compare there is nothing to pass, so the verdict is `nil`
+    # (declined) rather than `true`; `true` there would be a pass mark awarded
+    # for no test, and would make this an unqualified key-name enumerator for
+    # any readable path. A read error is likewise distinguished from an absent
+    # path (`path_present: nil` vs `false`) rather than reported as "missing".
+    def probe_credential_path
+      path = params[:path].to_s
+      required = params[:required_keys].is_a?(Array) ? params[:required_keys].map(&:to_s).reject(&:blank?) : []
+      base = { credential_path: path, required_keys: required }
+
+      # probe_secret, NOT read_secret: it must not drive the shared Vault
+      # circuit breaker (see Security::VaultClient#probe_secret). It also reads
+      # uncached and invalidates the path, so the next sync cannot disagree
+      # with what this reported.
+      data = Security::VaultClient.probe_secret(path)
+
+      unless data.is_a?(Hash)
+        return base.merge(path_present: true, shape_ok: false,
+                          path_error: "Payload at #{path} is not a key/value map (got #{data.class})")
+      end
+
+      present = data.keys.map(&:to_s).sort
+      # A present-but-blank value is the same failure wearing a different mask,
+      # and `require_creds!` on the sync side rejects it for the same reason:
+      # key presence is not the property, a usable value is.
+      missing = required.reject { |k| data[k].to_s.present? }
+
+      verdict = base.merge(path_present: true, credential_keys: present)
+      return verdict.merge(shape_ok: nil, path_error: "No required_keys supplied — key names reported, shape NOT checked") if required.empty?
+
+      verdict.merge(missing_keys: missing, shape_ok: missing.empty?)
+    rescue Security::VaultClient::SecretNotFoundError
+      base.merge(path_present: false, shape_ok: false,
+                 path_error: "No secret at #{path}")
+    rescue StandardError => e
+      # Keep the TAIL. Vault::HTTPError leads with ~140 characters of
+      # boilerplate ("The Vault server at `<addr>' responded with a <code>...")
+      # before the errors list, so a leading truncate discards the one line
+      # that says WHY. Vault's message carries only address, status code and
+      # its own server-generated error strings — never request or secret data.
+      base.merge(path_present: nil, shape_ok: false,
+                 path_error: e.message.length > 200 ? "...#{e.message.last(197)}" : e.message)
+    end
 
     def infrastructure_params
       params.require(:redis).permit(
