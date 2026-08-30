@@ -213,6 +213,10 @@ module Ai
         "system_gitops_sync_repository" => "Ai::Tools::SystemFleetTool",
         "system_gitops_get_sync_run" => "Ai::Tools::SystemFleetTool",
         "system_gitops_get_drift_report" => "Ai::Tools::SystemFleetTool",
+        # IMP-f07be27ba0b0 — the read half: nothing in the family above returns
+        # a repository, so its projection was reachable only on the create.
+        "system_gitops_list_repositories" => "Ai::Tools::SystemFleetTool",
+        "system_gitops_get_repository" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice Vault DR-3 — pepper rotation
         "system_rotate_vault_transit_pepper" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice 6b — GitOps apply path
