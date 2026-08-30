@@ -1,7 +1,11 @@
 #!/bin/bash
-# Red/green test for IMP-93291dfa635f: scripts/validate.sh must not report an
-# unqualified PASS when it skipped a private extension's spec suite because
-# its migration bundle reads STALE.
+# Red/green test for IMP-93291dfa635f and IMP-2433d0ebe0e7: scripts/validate.sh
+# must not report an unqualified PASS when it silently skipped a check it
+# ought to have run.
+#
+# IMP-93291dfa635f: a private extension's spec suite, skipped because its
+# migration bundle reads STALE.
+# IMP-2433d0ebe0e7: the secret scan, skipped because gitleaks isn't on PATH.
 #
 # Bug: adding a migration to a private extension without applying it to
 # powernode_test made scripts/check-extension-bundle-migrations.sh report
@@ -73,9 +77,69 @@ assert_not_contains() {
   fi
 }
 
+echo "=== validate.sh: missing gitleaks must hard-fail, not silently PASS ==="
+
+# gitleaks absence is simulated by stripping it from PATH (real filesystem
+# check, no env-var seam needed) rather than by a reimplementation — same
+# "drive the real script" discipline as the private-bundle test below. Only
+# directories that literally contain a `gitleaks` binary are removed, so
+# every other tool (bash builtins aside, this still needs cd/echo/grep/find/
+# gem, all resolved elsewhere on PATH) stays available; phase 0 (gem
+# pre-activation doctor) already degrades gracefully with no `gem` on PATH
+# (see its own header), so this is safe even on a machine with a leaner PATH.
+path_without_gitleaks=""
+IFS=':' read -ra __path_parts <<< "$PATH"
+for __p in "${__path_parts[@]}"; do
+  [[ -e "$__p/gitleaks" ]] && continue
+  path_without_gitleaks="${path_without_gitleaks:+$path_without_gitleaks:}$__p"
+done
+
+if command -v gitleaks &>/dev/null; then
+  # 1. Deliberately-absent gitleaks, no --skip-secrets: the defect's exact
+  #    repro. Must hard-fail and name what went unscanned, not silently PASS.
+  out_nogitleaks="$(env PATH="$path_without_gitleaks" VALIDATE_SELFTEST_SKIP_RSPEC=1 \
+    bash scripts/validate.sh --skip-tests --skip-ts --skip-patterns 2>&1)"
+  exit_nogitleaks=$?
+  echo "$out_nogitleaks" | sed 's/^/  /'
+  assert_exit "gitleaks missing, no flag: exit is nonzero" 1 "$exit_nogitleaks"
+  assert_not_contains "gitleaks missing, no flag: does NOT claim 'All checks passed'" "All checks passed" "$out_nogitleaks"
+  assert_contains "gitleaks missing, no flag: summary names the FAIL explicitly" "FAIL" "$out_nogitleaks"
+  assert_contains "gitleaks missing, no flag: summary says nothing was scanned" "nothing was scanned" "$out_nogitleaks"
+  assert_contains "gitleaks missing, no flag: summary names the remediation" "--skip-secrets" "$out_nogitleaks"
+
+  echo ""
+
+  # 2. Control A: gitleaks present, no flag — must behave exactly as before
+  #    this fix (PASS, exit 0, assuming a clean tree).
+  out_present="$(VALIDATE_SELFTEST_SKIP_RSPEC=1 \
+    bash scripts/validate.sh --skip-tests --skip-ts --skip-patterns 2>&1)"
+  exit_present=$?
+  echo "$out_present" | sed 's/^/  /'
+  assert_exit "gitleaks present: exit is 0 (no false positive introduced)" 0 "$exit_present"
+  assert_contains "gitleaks present: summary still reports PASS" "All checks passed" "$out_present"
+
+  echo ""
+
+  # 3. Control B: gitleaks absent BUT --skip-secrets given explicitly — the
+  #    documented escape hatch for a genuinely gitleaks-less environment.
+  #    Must stay a non-fatal, clearly-labeled SKIP (operator consent, not
+  #    silent inference) — exactly like --skip-tests/--skip-ts/--skip-patterns.
+  out_explicit_skip="$(env PATH="$path_without_gitleaks" VALIDATE_SELFTEST_SKIP_RSPEC=1 \
+    bash scripts/validate.sh --skip-tests --skip-ts --skip-patterns --skip-secrets 2>&1)"
+  exit_explicit_skip=$?
+  echo "$out_explicit_skip" | sed 's/^/  /'
+  assert_exit "gitleaks missing, --skip-secrets: exit is 0 (explicit consent honored)" 0 "$exit_explicit_skip"
+  assert_contains "gitleaks missing, --skip-secrets: summary reports PASS" "All checks passed" "$out_explicit_skip"
+  assert_contains "gitleaks missing, --skip-secrets: summary still labels it SKIP" "SKIP" "$out_explicit_skip"
+else
+  echo "SKIP: gitleaks not installed on THIS machine either — cannot exercise the 'gitleaks present' control paths for real"
+fi
+
+echo ""
+
 if [[ ! -f server/Gemfile.private || ! -d extensions/private/business/server/spec ]]; then
   echo "SKIP: no server/Gemfile.private / no extensions/private/business — not a maintainer checkout, nothing to verify for real"
-  exit 0
+  exit $fail
 fi
 
 echo "=== validate.sh: stale private-extension bundle must hard-fail, not silently PASS ==="

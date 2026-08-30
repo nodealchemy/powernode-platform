@@ -333,7 +333,20 @@ if [[ "$SKIP_SECRETS" == "false" ]]; then
       OVERALL_EXIT=1
     fi
   else
-    RESULTS+=("${YELLOW}SKIP${NC} Secret scanning (gitleaks not installed)")
+    # gitleaks absence here is INCIDENTAL, not structural: it's a public,
+    # freely installable binary (https://github.com/gitleaks/gitleaks) with no
+    # credential or submodule gate like server/Gemfile.private has — nothing
+    # stops any machine from installing it. Silently downgrading to a
+    # non-fatal SKIP let this gate report PASS having scanned nothing (found
+    # by iteration 2433d0ebe0e7, same shape as IMP-93291dfa635f's stale
+    # extension bundle: a routine, fixable environment gap must not coexist
+    # with an unqualified "All checks passed"). If a machine genuinely cannot
+    # install gitleaks, the operator must say so explicitly via
+    # --skip-secrets (already a distinct, loud SKIP line below) rather than
+    # have this branch infer it silently.
+    echo -e "${RED}  └─ gitleaks not installed — secrets NOT SCANNED. Install it (https://github.com/gitleaks/gitleaks#installing) or re-run with --skip-secrets to explicitly accept the gap.${NC}"
+    RESULTS+=("${RED}FAIL${NC} Secret scanning (gitleaks not installed — nothing was scanned; install gitleaks or pass --skip-secrets to accept this explicitly)")
+    OVERALL_EXIT=1
   fi
   echo ""
 else
