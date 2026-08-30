@@ -193,4 +193,66 @@ namespace :permissions do
     puts "Integrity Check Complete"
     puts "=" * 80
   end
+
+  # --- Catalog -> DB actuation (IMP-c043800b3f21) ---------------------------
+  #
+  # `db:seed` is FIRST-BOOT ONLY (the hub's rails-start.sh gates it behind a
+  # durable `.db-initialized` marker), and every other caller of
+  # Role.sync_from_config! is first-install-only too. So a grant added to the
+  # catalog after an install's first boot never reaches its role_permissions
+  # rows, and the operator is refused with nothing logged.
+  #
+  # These tasks close that WITHOUT running the destructive full sync:
+  # Permissions::RoleGrantReconciler creates absence only. `reconcile_role_grants`
+  # runs on every boot from rails-start.sh (see the hub-backend module).
+  desc "Create global-role grants the catalog declares but this database lacks (absence only; never deletes)"
+  task reconcile_role_grants: :environment do
+    result = Permissions::RoleGrantReconciler.new.reconcile!
+
+    result.created_roles.each { |name| puts "  + role #{name}" }
+    result.created_grants.each { |grant| puts "  + grant #{grant}" }
+    result.failed.each { |f| warn "  ! role #{f[:role]} failed: #{f[:error]}" }
+
+    # A partially-failed run must not print a green banner above the fold —
+    # report the failure as the headline, not as a footnote under a ✅.
+    if result.failed.any?
+      warn "❌ Reconcile FAILED for #{result.failed.size} role(s); " \
+           "#{result.created} grant(s) created before/around the failure"
+      exit 1
+    end
+
+    # Every created row WIDENS access. State the count rather than reporting a
+    # silent repair.
+    if result.changed?
+      puts "✅ Reconciled #{result.created} grant(s) and #{result.created_roles.size} role(s) " \
+           "— this WIDENS what those roles can do (#{result.already_present} already present)"
+    else
+      puts "✅ Role grants already in sync (#{result.already_present} present)"
+    end
+  end
+
+  desc "Report global-role grant drift against the catalog (read-only; exits 1 on missing grants)"
+  task role_grant_drift: :environment do
+    report = Permissions::RoleGrantReconciler.new.drift
+
+    report.missing_roles.each { |name| warn "  MISSING ROLE #{name}" }
+    report.missing_grants.each { |grant| warn "  MISSING #{grant}" }
+
+    # Reported, never acted on: these are the rows a destructive
+    # Role.sync_from_config! WOULD DELETE. Printed unconditionally so an
+    # operator sees them before choosing to run one.
+    report.extra_grants.each { |grant| puts "  EXTRA (a full sync would DELETE this) #{grant}" }
+
+    if report.drifted?
+      warn "❌ Role-grant drift: #{report.missing_grants.size} missing grant(s), " \
+           "#{report.missing_roles.size} missing role(s) — run `rails permissions:reconcile_role_grants`"
+      # A MISSING grant the catalog declares is recreated on every boot. If one
+      # is missing because someone revoked it deliberately, revoking it again
+      # will not hold: change the catalog instead.
+      warn "   (a declared grant cannot be revoked by deleting the row — the boot " \
+           "reconcile recreates it; remove it from the catalog)"
+      exit 1
+    end
+    puts "✅ No role-grant drift (#{report.present} grant(s) present, #{report.extra_grants.size} extra)"
+  end
 end
