@@ -112,11 +112,61 @@ class Account::Delegation < ApplicationRecord
     # Accounts::DelegationService#widening_from_removal restating the rule for
     # itself would leave two copies to keep in step, and the weaker one becomes
     # the way in.
+    #
+    # THE EXPLICIT SET IS BOUNDED BY THE ROLE, LIVE (IMP-7964b5d261b4).
+    # Five write sites already enforce "every custom name is within the role's
+    # scope": DelegationService create / update / add_permission,
+    # #assign_permission below, and Account::DelegationPermission's own
+    # before_create. All five bind the WRITE, so the invariant held only until
+    # the ROLE changed underneath an existing row — which is exactly what a
+    # catalog-remap migration does (`delegation_permissions` is a second,
+    # independent store of permission NAMES that such a migration does not
+    # reach). Resolving the explicit set verbatim let a delegation keep
+    # conferring a name its role no longer grants, permanently:
+    # Authentication#has_permission? short-circuits a delegated session to this
+    # set and never falls through to roles, and the row itself carries the name,
+    # so no token lifetime bounds it.
+    #
+    # Re-applying the same predicate at RESOLUTION is what makes a role-side
+    # revoke reach delegation-borne grants. It also gives the explicit set the
+    # live read the EMPTY set has always had — that fallback is the only reason
+    # the role-backed case was never affected.
+    #
+    # THE PREDICATE MUST BE Role#has_permission?, NOT Role#permission_names.
+    # The two agree for an ordinary role (both read role_permissions rows) and
+    # DIVERGE on a system.admin role: has_permission? answers true for any name,
+    # while permission_names answers the RUNNING PROCESS'S catalog
+    # (Permissions.all_permissions = core + whichever extension engines
+    # initialized). Filtering against that would strip an extension permission
+    # off a system.admin-backed delegation in any process where the extension is
+    # not loaded — and strip any name since removed from the catalog — neither of
+    # which the five write sites would have refused. So system.admin is
+    # short-circuited (one query, and no whole-catalog materialization), and only
+    # an ordinary role reaches the row-backed filter.
+    #
+    # A role-LESS delegation has no role to bound it; its bound is the
+    # delegator's own grantable set, applied at create/update/add and re-checked
+    # at activation.
+    #
+    # NOT the other half of a catalog remap. A migration that narrows a
+    # permission also GRANTS its own-account replacement to whoever held the old
+    # name; this guard only stops the stale name resolving. On a deployment that
+    # does carry delegations, an operator must still rewrite such a set through
+    # DelegationService#update_delegation — removing the LAST stale name one at
+    # a time is refused by #widening_from_removal, because emptying the custom
+    # set falls back to the whole role.
     def configured_permissions_for(custom)
       custom = Array(custom)
-      return custom if custom.any?
+      # Keyed on the RAW set being empty, never on the FILTERED result: a
+      # delegation whose every custom name went stale must resolve to NOTHING,
+      # not be promoted to its whole role. Falling back on the filtered set
+      # would turn this guard into the widening it exists to close.
+      return role&.permission_names || [] if custom.empty?
+      return custom if role.blank?
+      return custom if role.has_permission?("system.admin")
 
-      role&.permission_names || []
+      granted = role.permission_names.to_set
+      custom.select { |name| granted.include?(name) }
     end
 
     # Effective permission NAME strings: the configured set, but only while the

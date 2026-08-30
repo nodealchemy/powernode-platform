@@ -359,6 +359,144 @@ RSpec.describe Account::Delegation, type: :model do
       end
     end
 
+    # IMP-7964b5d261b4 — the explicit custom set must be LIVE-BOUNDED by the role.
+    #
+    # FIVE write sites enforce "each custom name is within the role's scope":
+    # DelegationService create/update/add, #assign_permission, and
+    # Account::DelegationPermission's own before_create. All five bind the
+    # WRITE. Nothing re-checked at RESOLUTION, so when the role's grants changed
+    # under an existing row — exactly what a catalog-remap migration does — the
+    # delegation kept carrying a name its role no longer confers. The empty-set
+    # case already reads role.permission_names live; these examples extend the
+    # same live read to the explicit set.
+    #
+    # The assertions are on the RESOLVED set, never on delegation_permissions
+    # ROWS: the rows are what stays stale, so a row-level assertion is blind to
+    # this by construction. #configured_permissions is the status-independent
+    # accessor — #effective_permissions answers [] for any non-active row and
+    # would pass vacuously.
+    describe 'explicit custom set bounded by the live role' do
+      # A real catalog permission granted to the role when the row is written
+      # and WITHDRAWN afterwards — the only way such a row comes to exist,
+      # since every write site refuses an out-of-scope name.
+      let(:withdrawn_name) { 'page.delete' }
+
+      # Write the row in scope, then take the name off the role. This is the
+      # migration's revoke, reproduced.
+      def stale_row_on(target_delegation)
+        role = target_delegation.role
+        role&.role_permissions&.find_or_create_by!(permission_name: withdrawn_name)
+        target_delegation.delegation_permissions.create!(permission_name: withdrawn_name)
+        # role_permissions is a PK-less join table (id: false) — destroy_all
+        # cannot build a delete-by-id and raises.
+        role&.role_permissions&.where(permission_name: withdrawn_name)&.delete_all
+        target_delegation.reload
+      end
+
+      it 'drops a custom name the role no longer grants from the resolved set' do
+        stale_row_on(delegation)
+
+        expect(delegation.permission_names).to include(withdrawn_name)
+        expect(delegation.configured_permissions).not_to include(withdrawn_name)
+        expect(delegation.effective_permissions).not_to include(withdrawn_name)
+        expect(delegation.has_permission?(withdrawn_name)).to be false
+      end
+
+      it 'keeps custom names the role still grants' do
+        stale_row_on(delegation)
+        delegation.delegation_permissions.create!(permission_name: role_permission_name)
+
+        expect(delegation.reload.configured_permissions).to eq([ role_permission_name ])
+      end
+
+      # THE WIDENING TRAP. The fallback to the role's full set must key on the
+      # RAW custom set being empty, never on the FILTERED set — otherwise a
+      # delegation whose every custom name went stale would be promoted to its
+      # whole role, turning this guard into the escalation it exists to close.
+      it 'resolves to nothing rather than the whole role when every custom name is stale' do
+        stale_row_on(delegation)
+
+        expect(delegation.permission_names).to eq([ withdrawn_name ])
+        expect(delegation.configured_permissions).to eq([])
+      end
+
+      it 'leaves a role-LESS delegation untouched' do
+        user = create(:user, account: account)
+        no_role = create(:account_delegation, account: account, delegated_by: delegator, delegated_user: user, role: nil)
+        stale_row_on(no_role)
+
+        expect(no_role.configured_permissions).to eq([ withdrawn_name ])
+      end
+
+      # A role holding system.admin confers every permission programmatically,
+      # so nothing on such a delegation is out of scope and nothing may be
+      # stripped — the lockout DelegationService#unconferrable_reason warns
+      # about.
+      it 'does not strip a delegation whose role holds system.admin' do
+        stale_row_on(delegation)
+        admin_role.role_permissions.find_or_create_by!(permission_name: 'system.admin')
+
+        expect(delegation.reload.configured_permissions).to eq([ withdrawn_name ])
+      end
+
+      # THE PREDICATE DIVERGENCE. Role#has_permission? answers true for ANY
+      # name on a system.admin role; Role#permission_names answers the running
+      # process's catalog. Filtering against the latter would strip a name that
+      # is absent from THIS process's catalog — an extension permission where
+      # the engine did not initialize, or a name since retired — even though
+      # every write site accepted it. Only a non-catalog name can tell the two
+      # implementations apart.
+      it 'keeps a name outside this process catalog when the role holds system.admin' do
+        admin_role.role_permissions.find_or_create_by!(permission_name: 'system.admin')
+        uncatalogued = 'zz.not.in.this.process.catalog'
+        expect(Permissions.permission_exists?(uncatalogued)).to be false
+        delegation.delegation_permissions.create!(permission_name: uncatalogued)
+
+        expect(delegation.reload.configured_permissions).to include(uncatalogued)
+      end
+    end
+
+    # The one consumer of #configured_permissions_for outside resolution.
+    # Nothing pinned this interaction, and a later flip of the empty-set key
+    # would change its verdict silently.
+    describe 'interaction with the removal-widening guard' do
+      let(:withdrawn_name) { 'page.delete' }
+      let(:service) { Accounts::DelegationService.new(delegator, account) }
+
+      before do
+        admin_role.role_permissions.find_or_create_by!(permission_name: withdrawn_name)
+        delegation.delegation_permissions.create!(permission_name: withdrawn_name)
+        delegation.delegation_permissions.create!(permission_name: role_permission_name)
+        admin_role.role_permissions.where(permission_name: withdrawn_name).delete_all
+        delegation.reload
+      end
+
+      it 'allows removing a stale name while an in-scope name remains' do
+        result = service.remove_permission_from_delegation(delegation: delegation, permission_name: withdrawn_name)
+
+        expect(result[:success]).to be true
+        expect(delegation.reload.configured_permissions).to eq([ role_permission_name ])
+      end
+
+      it 'allows removing an in-scope name while a stale name remains' do
+        result = service.remove_permission_from_delegation(delegation: delegation, permission_name: role_permission_name)
+
+        expect(result[:success]).to be true
+        # The stale name is still a ROW but confers nothing, so the delegation
+        # narrows to nothing rather than widening to the role.
+        expect(delegation.reload.configured_permissions).to eq([])
+      end
+
+      it 'still refuses the removal that would empty the custom set' do
+        delegation.delegation_permissions.where(permission_name: role_permission_name).destroy_all
+
+        result = service.remove_permission_from_delegation(delegation: delegation.reload, permission_name: withdrawn_name)
+
+        expect(result[:success]).to be false
+        expect(result[:errors].join(' ')).to include('widen')
+      end
+    end
+
     describe '#remove_permission' do
       it 'removes the permission by name' do
         delegation.delegation_permissions.create!(permission_name: role_permission_name)
