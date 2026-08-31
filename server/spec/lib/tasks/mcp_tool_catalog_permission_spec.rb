@@ -67,8 +67,8 @@ RSpec.describe "docs/reference/auto/mcp-tools.md publishes per-action permission
   end
 
   # The action the registrar actually DISPATCHES for a registry name. For 25
-  # names that is an alias of the key (ACTION_ALIASES, applied at
-  # mcp_platform_tool_registrar.rb:152), and a ladder is keyed on the action
+  # names that is an alias of the key (ACTION_ALIASES, applied in
+  # McpPlatformToolRegistrar#execute_tool), and a ladder is keyed on the action
   # that RUNS — see the rule stated at code_memory_tool.rb:22-25.
   def self.dispatched_action_for(registry_name)
     ::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.fetch(registry_name, registry_name)
