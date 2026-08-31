@@ -38,6 +38,82 @@ module Ai
       }.freeze
 
       class << self
+        # The permission that ACTUALLY gates `action_name` on `tool_class`.
+        #
+        # Dispatch resolves `ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION`
+        # (Ai::Tools::SystemFleetTool#required_perm_for and its 25 siblings), so
+        # publishing only the class floor understates the real bar on 339 of the
+        # registry's 606 advertised actions — storing "system.nodes.read" for
+        # system_deploy_platform and system_terminate_instance alike.
+        #
+        # NOT A PRIVILEGE ESCALATION, and the fix is not framed as closing one.
+        # Every consumer of the published value runs BEFORE the tool's own
+        # per-action check, so the composition fails closed: a weaker published
+        # permission never admits a call the tool would refuse. What it corrupts
+        # is what the platform SAYS. There are exactly TWO live consumers, both
+        # on the MCP wire path, and this list is deliberately exhaustive because
+        # a comment claiming a wider reach than it has is how the next false
+        # citation gets written:
+        #   * Mcp::PermissionValidator — returns "authorized" for a verb the tool
+        #     then refuses, so the refusal arrives from a gate the validator
+        #     reported wasn't there (protocol_service.rb:195).
+        #   * Mcp::ProtocolService#tool_visible_to? (:454-470) — advertises the
+        #     tool on the same value.
+        # NOT a consumer, contrary to what the sibling catalog fix's reasoning
+        # assumed: the frontend MCP browser. Api::V1::McpToolsController
+        # #serialize_mcp_tool omits required_permissions from both the summary
+        # and the include_details payload, and no MCP type in frontend/src
+        # carries the field — the operator's grant-sizing surface is the
+        # generated catalog (fixed in IMP-a63365dc0f41), not this column.
+        #
+        # A privilege understatement is still the direction that makes a
+        # dangerous verb look safe (IMP-bab07f770c0e).
+        #
+        # KEYED ON THE ACTION THAT RUNS, NOT ON THE NAME INVOKED. A ladder is
+        # consulted with the :action the registrar dispatches, which for 25 of
+        # the registry's names is an ALIAS of the registry key (ACTION_ALIASES,
+        # applied in #execute_tool where it injects execution_params[:action]).
+        # Looking the ladder up by registry key silently misses
+        # CodeMemoryTool's four entries — it keys on "upsert_node", not
+        # "code_upsert_node" — leaving four knowledge-graph write/destructive
+        # verbs at the "ai.agents.read" floor. That is the defect that survived
+        # inside its own fix in IMP-a63365dc0f41's first cut (333 of 337);
+        # code_memory_tool.rb:22-25 states the rule.
+        #
+        # A ladder entry keyed by the REGISTRY name of an aliased action would be
+        # dead at dispatch, so falling back to the floor for it is correct, not a
+        # miss. No class currently declares both forms.
+        #
+        # SINGLE COPY BY CONSTRUCTION. This is the only implementation; the
+        # catalog rake (lib/tasks/mcp_tool_catalog.rake) and both write sites in
+        # this file call it. A second copy is a second place to get the alias hop
+        # wrong, which is exactly how those four verbs survived last time.
+        #
+        # `const_defined?` WITH inheritance: a subclass that inherits both the map
+        # and #required_perm_for is really gated by the parent's ladder, because
+        # the constant in that method body resolves lexically to the defining
+        # class. (The one shape this reads wrong is a subclass declaring its own
+        # map but inheriting the parent's resolver, where dispatch uses the
+        # parent's. Inert today — every registry tool class is a direct
+        # Ai::Tools::BaseTool subclass, and BaseTool has no map.)
+        # `action_name` is normalized with #to_s, which makes this marginally
+        # MORE forgiving than dispatch — a tool's own `ACTION_PERMISSIONS[action]`
+        # does no normalization, so a Symbol action would fall to the floor there
+        # while resolving up here. Both call sites pass Strings (registry keys,
+        # and `definition[:name]`), and dispatch itself only ever sees Strings
+        # (execution_params is a HashWithIndifferentAccess), so the two agree in
+        # practice; the #to_s is there so a Symbol definition name cannot produce
+        # a silently wrong lookup rather than as a claimed dispatch equivalence.
+        def resolved_permission_for(tool_class, action_name)
+          name = action_name.to_s
+          dispatched_action = ACTION_ALIASES.fetch(name, name)
+
+          ladder = tool_constant(tool_class, :ACTION_PERMISSIONS) || {}
+          floor  = tool_constant(tool_class, :REQUIRED_PERMISSION)
+
+          ladder[dispatched_action] || floor
+        end
+
         def register_all!(account:)
           registry = ::Mcp::RegistryService.new(account: account)
 
@@ -77,7 +153,10 @@ module Ai
             description = action_def[:description] || tool_class.definition[:description]
             parameters = action_def[:parameters] || {}
             input_schema = convert_to_json_schema(parameters)
-            required_permission = tool_class::REQUIRED_PERMISSION rescue nil
+            # Per-ACTION, not the class floor: this loop writes one mcp_tools row
+            # per registry action, so each row can and must carry the permission
+            # that action really resolves to. See .resolved_permission_for.
+            required_permission = resolved_permission_for(tool_class, action_name)
 
             upsert_mcp_tool!(mcp_server, action_name, description, input_schema, "account", [required_permission].compact)
             synced_names << action_name
@@ -276,8 +355,8 @@ module Ai
         # The other rungs live elsewhere:
         #   * Mcp::Principal#may_invoke? — grant globs + DESTRUCTIVE_TOOL_PATTERNS,
         #     applied at streamable_http_controller.rb:604
-        #   * enforce_action_scope! — this file, defined :250, called from
-        #     execute_tool at :147
+        #   * enforce_action_scope! — this file, called from #execute_tool's
+        #     action_pinned_to_name? branch
         #   * Mcp::PermissionValidator — the ActionCable arm, protocol_service.rb:195
         #   * per-action ACTION_PERMISSIONS maps in the tool classes themselves
         #   * BaseTool#enforce_instance_deny_overlay!, re-applied at nested hops
@@ -337,6 +416,74 @@ module Ai
           end
         end
 
+        # The permission a CLASS-level manifest publishes. register_all! registers
+        # one manifest per tool class (tool_id "platform.#{definition[:name]}"),
+        # not one per action, so the per-action resolver is only the right
+        # question for a class that has exactly one action.
+        #
+        # For an :action-dispatched class, definition[:name] is an UMBRELLA
+        # ("code_memory", "agent_management") covering several differently-priced
+        # verbs, and asking "what gates this action?" of an umbrella is a category
+        # error. It happens to return the floor for all 66 registry classes today
+        # — no umbrella name is one of its own ladder keys, so the guard below
+        # moves nothing at present — but if one ever were, resolving it would
+        # publish that single verb's entry as the bar for REACHING the whole
+        # class. required_permissions is CONJUNCTIVE
+        # (Mcp::PermissionValidator#missing_required_permissions subtracts it from
+        # the user's set), so that would deny — and via #tool_visible_to? hide —
+        # the class from a caller legitimately entitled to its read siblings.
+        # That is the same harm as publishing the union of the ladder, arrived at
+        # by accident, which is why this is a guard and not a comment.
+        #
+        # The floor is the minimum needed to REACH a multi-action class; the
+        # tool's own ACTION_PERMISSIONS check supplies the per-action bar after
+        # that, and the mcp_tools rows carry the per-action value.
+        #
+        # Reuses #action_dispatched? — the same predicate execute_tool uses to
+        # decide whether the tool routes on :action — so the two cannot drift.
+        def manifest_permission_for(tool_class)
+          return tool_constant(tool_class, :REQUIRED_PERMISSION) if action_dispatched?(tool_class)
+
+          resolved_permission_for(tool_class, tool_class.definition[:name])
+        end
+
+        # Read a tool class's permission constant, or nil.
+        #
+        # `const_defined?` and `Klass::CONST` are NOT equivalent, and the gap is
+        # not academic here: const_defined? answers true for a `private_constant`
+        # and for a same-named TOP-LEVEL constant (Object is in every class's
+        # ancestry), where `::` raises NameError. A bare
+        # `const_defined? ? Klass::CONST : nil` therefore clears its own guard and
+        # then raises on the next token — and in sync_to_database! that NameError
+        # is caught by the per-action `rescue`, which skips the action, leaves it
+        # out of `synced_names`, and lets the stale sweep DELETE its row. One
+        # stray top-level ACTION_PERMISSIONS (a spec file assigning a constant
+        # inside an RSpec block is enough) would empty the platform server's
+        # mcp_tools table, visible only as a wall of log warnings.
+        #
+        # Nothing in the registry trips this today — no class has a private or
+        # inherited permission constant — so this is insurance, and it also keeps
+        # the pre-existing `tool_class::REQUIRED_PERMISSION rescue nil` behavior
+        # this method replaced: an unreadable constant reads as absent, it does
+        # not take the row down with it.
+        #
+        # Inheritance stays ENABLED (see .resolved_permission_for) — but only up
+        # the tool class's OWN ancestry. Object is skipped explicitly: it is an
+        # ancestor of every class, so including it is exactly the top-level
+        # contamination described above, and `Klass::CONST` does not reach it
+        # either (Ruby dropped top-level lookup through `::`). Matching the `::`
+        # semantics this replaced is the point.
+        def tool_constant(tool_class, const_name)
+          owner = tool_class.ancestors.find do |mod|
+            mod != Object && mod.const_defined?(const_name, false)
+          end
+          return nil unless owner
+
+          owner.const_get(const_name, false)
+        rescue NameError
+          nil
+        end
+
         def upsert_mcp_tool!(mcp_server, name, description, input_schema, permission_level, required_permissions)
           tool = mcp_server.mcp_tools.find_or_initialize_by(name: name)
           tool.assign_attributes(
@@ -358,7 +505,7 @@ module Ai
             "version" => "1.0.0",
             "category" => "platform",
             "permission_level" => "account",
-            "required_permissions" => [tool_class::REQUIRED_PERMISSION].compact,
+            "required_permissions" => [manifest_permission_for(tool_class)].compact,
             "inputSchema" => convert_to_json_schema(definition[:parameters]),
             "outputSchema" => default_output_schema,
             "metadata" => { "tool_class" => tool_class.name },

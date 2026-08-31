@@ -105,31 +105,16 @@ namespace :mcp do
         # privilege UNDERSTATEMENT is the direction that makes a dangerous verb
         # look safe (IMP-a63365dc0f41).
         #
-        # KEYED ON THE ACTION THAT RUNS, NOT ON THE NAME INVOKED. A ladder is
-        # consulted with the :action the registrar dispatches, which for 25 of
-        # the registry's names is an ALIAS of the registry key
-        # (McpPlatformToolRegistrar::ACTION_ALIASES, applied at :152). Looking
-        # the ladder up by registry key silently missed CodeMemoryTool's four
-        # entries — it keys on "upsert_node", not "code_upsert_node" — leaving
-        # four knowledge-graph write/destructive verbs still advertised at the
-        # "ai.agents.read" floor, i.e. the very defect this change removes.
-        # code_memory_tool.rb:22-25 states the rule; honor it here.
-        #
-        # A ladder entry keyed by the REGISTRY name of an aliased action would
-        # be dead at dispatch, so falling back to the floor for it is correct,
-        # not a miss. No class currently declares both forms.
-        dispatched_action = ::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.fetch(action_name, action_name)
-
-        # `const_defined?` WITH inheritance: a subclass that inherits both the
-        # map and #required_perm_for is really gated by the parent's ladder,
-        # because the constant in that method body resolves lexically to the
-        # defining class. (The one shape this still reads wrong is a subclass
-        # that declares its own map but inherits the parent's resolver, where
-        # dispatch uses the parent's. Inert today — every registry tool class
-        # is a direct Ai::Tools::BaseTool subclass, and BaseTool has no map.)
-        action_permissions = klass.const_defined?(:ACTION_PERMISSIONS) ? klass::ACTION_PERMISSIONS : {}
-        floor = klass.const_defined?(:REQUIRED_PERMISSION) ? klass::REQUIRED_PERMISSION : nil
-        permission = action_permissions[dispatched_action] || floor
+        # KEYED ON THE ACTION THAT RUNS, NOT ON THE NAME INVOKED — and resolved
+        # by the SHARED resolver, not re-derived here. The rule (alias hop,
+        # inherited-constant semantics, why a registry-key lookup misses
+        # CodeMemoryTool's four alias-keyed entries) is stated once, at
+        # Ai::Tools::McpPlatformToolRegistrar.resolved_permission_for, which the
+        # registrar's two database/manifest write sites call as well
+        # (IMP-bab07f770c0e). A second copy is a second place to get the alias
+        # hop wrong, which is how those four verbs survived inside this change's
+        # own first cut.
+        permission = ::Ai::Tools::McpPlatformToolRegistrar.resolved_permission_for(klass, action_name)
 
         categories[category] << {
           action: action_name,
