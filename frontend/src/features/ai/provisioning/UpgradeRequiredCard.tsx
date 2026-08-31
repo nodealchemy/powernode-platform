@@ -7,6 +7,7 @@ export type UpgradeReason =
   | 'free_hours_exhausted'
   | 'no_subscription'
   | 'llm_cost_cap_exceeded'
+  | 'quota_check_unavailable'
   | string;
 
 export interface UpgradeRequiredCardProps {
@@ -17,11 +18,18 @@ export interface UpgradeRequiredCardProps {
    */
   reason: UpgradeReason;
   /** Spend already accrued today (used for the cost-cap variant). */
-  spent?: number;
-  /** Daily / monthly cap that was hit (used for the cost-cap variant). */
-  cap?: number;
-  /** Custom CTA destination — defaults to "/checkout". */
-  upgradeUrl?: string;
+  spent?: number | null;
+  /**
+   * Daily / monthly cap that was hit (used for the cost-cap variant).
+   * Nullable: the backend contract always SENDS the key, null when unknown.
+   */
+  cap?: number | null;
+  /**
+   * Custom CTA destination. Nullable for the same reason as `cap` — and note
+   * a default parameter does NOT fire on null, so the fallback is applied
+   * with `??` in the body rather than in the signature.
+   */
+  upgradeUrl?: string | null;
   className?: string;
 }
 
@@ -31,9 +39,15 @@ interface ReasonCopy {
   ringClass: string;
   heading: string;
   body: (props: UpgradeRequiredCardProps) => React.ReactNode;
+  /**
+   * Suppress the "Upgrade plan" CTA. Set for reasons that are NOT a plan
+   * limit — pointing a user at checkout because our own billing check failed
+   * would sell them something that cannot fix their problem.
+   */
+  hideCta?: boolean;
 }
 
-const formatUsd = (value?: number): string => {
+const formatUsd = (value?: number | null): string => {
   if (typeof value !== 'number' || Number.isNaN(value)) return '$0.00';
   return `$${value.toFixed(2)}`;
 };
@@ -88,6 +102,22 @@ const REASON_COPY: Record<string, ReasonCopy> = {
       </p>
     ),
   },
+  // NOT a plan limit — the quota check itself failed and the backend denied
+  // rather than provisioning unmetered (BillingBridge fails CLOSED). Saying
+  // "you hit your plan's limit" here would be a false statement to the user.
+  quota_check_unavailable: {
+    icon: ShieldAlert,
+    iconClass: 'text-theme-warning-fg',
+    ringClass: 'bg-theme-warning-fg/10',
+    heading: "We couldn't check your plan limits",
+    body: () => (
+      <p className="text-sm text-theme-secondary">
+        Billing is temporarily unreachable, so we held off on provisioning rather than
+        starting something we can't meter. Nothing was created — try again in a moment.
+      </p>
+    ),
+    hideCta: true,
+  },
 };
 
 const FALLBACK: ReasonCopy = {
@@ -120,10 +150,12 @@ export const UpgradeRequiredCard: React.FC<UpgradeRequiredCardProps> = ({
   reason,
   spent,
   cap,
-  upgradeUrl = '/checkout',
+  upgradeUrl,
   className = '',
 }) => {
   const copy = REASON_COPY[reason] ?? FALLBACK;
+  // `??` not a default parameter: the backend sends an explicit null.
+  const ctaHref = upgradeUrl ?? '/checkout';
   const Icon = copy.icon;
 
   return (
@@ -143,17 +175,19 @@ export const UpgradeRequiredCard: React.FC<UpgradeRequiredCardProps> = ({
         </div>
         <div className="flex-1 min-w-0 space-y-2">
           <h4 className="text-sm font-semibold text-theme-primary">{copy.heading}</h4>
-          {copy.body({ reason, spent, cap, upgradeUrl })}
-          <div className="pt-1">
-            <a
-              href={upgradeUrl}
-              data-testid="upgrade-required-cta"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-theme-interactive-primary text-white hover:opacity-90 transition-opacity"
-            >
-              Upgrade plan
-              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-            </a>
-          </div>
+          {copy.body({ reason, spent, cap, upgradeUrl: ctaHref })}
+          {!copy.hideCta && (
+            <div className="pt-1">
+              <a
+                href={ctaHref}
+                data-testid="upgrade-required-cta"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-theme-interactive-primary text-white hover:opacity-90 transition-opacity"
+              >
+                Upgrade plan
+                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </Card>
