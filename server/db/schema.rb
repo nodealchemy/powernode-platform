@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1000,7 +1000,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.index ["expires_at"], name: "index_ai_approval_requests_on_expires_at"
     t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
     t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
-    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying, 'failed'::character varying]::text[]))", name: "check_execution_status"
+    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying::text, 'failed'::character varying::text]))", name: "check_execution_status"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_request_status"
   end
 
@@ -7566,6 +7566,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.boolean "immutable", default: false, null: false
     t.boolean "is_system", default: false, null: false
     t.string "name", limit: 100, null: false
+    t.bigint "permissions_version", default: 0, null: false
     t.string "role_type", limit: 20
     t.datetime "updated_at", null: false
     t.index ["account_id", "name"], name: "index_roles_on_account_id_and_name", unique: true, where: "(account_id IS NOT NULL)"
@@ -9603,6 +9604,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.string "data_checksum"
     t.string "data_file_name"
     t.integer "data_file_size"
+    t.uuid "deferred_promotion_batch_id"
     t.jsonb "file_spec", default: {}, null: false
     t.string "fsverity_root_hash"
     t.datetime "live_at"
@@ -9622,6 +9624,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.index ["artifacts"], name: "index_system_node_module_versions_on_artifacts", using: :gin
     t.index ["created_by_id"], name: "index_system_node_module_versions_on_created_by_id"
     t.index ["data_checksum"], name: "index_system_node_module_versions_on_data_checksum"
+    t.index ["deferred_promotion_batch_id"], name: "idx_module_versions_deferred_promotion_batch", where: "(deferred_promotion_batch_id IS NOT NULL)"
     t.index ["node_module_id", "version_number"], name: "idx_on_node_module_id_version_number_56c400291d", unique: true
     t.index ["node_module_id"], name: "index_system_node_module_versions_on_node_module_id"
     t.index ["oci_digest"], name: "index_system_node_module_versions_on_oci_digest"
@@ -12496,4 +12499,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
   add_foreign_key "worker_roles", "roles"
   add_foreign_key "worker_roles", "workers"
   add_foreign_key "workers", "accounts"
+
+  # Role-grant version trigger (IMP-95e4904258c8): bumps roles.permissions_version
+  # on every role_permissions write, so User#permission_names_cache_key can observe a
+  # narrowing made by RAW SQL. Not dumpable by the :ruby schema format — see
+  # config/initializers/role_permissions_version_schema_dump.rb.
+  execute("CREATE OR REPLACE FUNCTION bump_role_permissions_version() RETURNS trigger AS $$\nBEGIN\n  IF (TG_OP = 'DELETE') THEN\n    UPDATE roles SET permissions_version = permissions_version + 1 WHERE id = OLD.role_id;\n    RETURN OLD;\n  ELSIF (TG_OP = 'UPDATE') THEN\n    UPDATE roles SET permissions_version = permissions_version + 1 WHERE id IN (NEW.role_id, OLD.role_id);\n    RETURN NEW;\n  ELSE\n    UPDATE roles SET permissions_version = permissions_version + 1 WHERE id = NEW.role_id;\n    RETURN NEW;\n  END IF;\nEND;\n$$ LANGUAGE plpgsql;")
+  execute("CREATE OR REPLACE FUNCTION bump_all_role_permissions_versions() RETURNS trigger AS $$\nBEGIN\n  UPDATE roles SET permissions_version = permissions_version + 1;\n  RETURN NULL;\nEND;\n$$ LANGUAGE plpgsql;")
+  execute("DROP TRIGGER IF EXISTS role_permissions_version_bump ON role_permissions;")
+  execute("CREATE TRIGGER role_permissions_version_bump\nAFTER INSERT OR UPDATE OR DELETE ON role_permissions\nFOR EACH ROW EXECUTE FUNCTION bump_role_permissions_version();")
+  execute("ALTER TABLE role_permissions ENABLE ALWAYS TRIGGER role_permissions_version_bump;")
+  execute("DROP TRIGGER IF EXISTS role_permissions_version_bump_truncate ON role_permissions;")
+  execute("CREATE TRIGGER role_permissions_version_bump_truncate\nAFTER TRUNCATE ON role_permissions\nFOR EACH STATEMENT EXECUTE FUNCTION bump_all_role_permissions_versions();")
+  execute("ALTER TABLE role_permissions ENABLE ALWAYS TRIGGER role_permissions_version_bump_truncate;")
 end
