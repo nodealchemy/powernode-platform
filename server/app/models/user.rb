@@ -169,17 +169,24 @@ class User < ApplicationRecord
     grantable_permission_names.include?(permission_name)
   end
 
+  # UNCACHED WRAPS THE WHOLE BODY, NOT JUST THE KEY. Computing a fresh key is
+  # only half the job: on a miss the block re-reads the grants, and ActiveRecord's
+  # per-request query cache would answer those reads from the PRE-narrowing
+  # snapshot taken earlier in the same request (it is dirtied only by writes on
+  # THIS connection, and the narrowing is another process's). The wide set would
+  # then be written to the SHARED store under the correct post-narrowing key —
+  # the original defect, with a larger blast radius than the one it replaced.
   def permission_names
     # PERFORMANCE FIX: Cache permission names to avoid expensive queries on every token refresh
     # Cache expires after 5 minutes or when user's roles/permissions change
-    cache_key = "user:#{id}:permission_names:#{updated_at.to_i}:#{role_cache_key}"
-
-    Rails.cache.fetch(cache_key, expires_in: 5.minutes) do
-      if roles.joins(:role_permissions).exists?(role_permissions: { permission_name: "system.admin" })
-        # system.admin grants the entire catalog
-        Permissions.all_permissions.keys.sort
-      else
-        roles.joins(:role_permissions).pluck("role_permissions.permission_name").uniq.sort
+    self.class.uncached do
+      Rails.cache.fetch(permission_names_cache_key, expires_in: 5.minutes) do
+        if roles.joins(:role_permissions).exists?(role_permissions: { permission_name: "system.admin" })
+          # system.admin grants the entire catalog
+          Permissions.all_permissions.keys.sort
+        else
+          roles.joins(:role_permissions).pluck("role_permissions.permission_name").uniq.sort
+        end
       end
     end
   end
@@ -224,9 +231,45 @@ class User < ApplicationRecord
     clear_permission_cache
   end
 
-  # Cache key for role associations (changes when roles are added/removed)
+  # Cache key for the memoized permission set. EVERY input the set is derived
+  # from has to be observable here, or a narrowing leaves the stale, WIDER set
+  # addressable for the whole TTL — and Role#assignable_by? resolves its
+  # privilege-escalation subset check through #permission_names, so a blind key
+  # makes conferring a whole role fail OPEN (IMP-95e4904258c8).
+  #
+  #   updated_at      — the user's own row
+  #   role_cache_key  — WHICH roles the user holds, and WHAT each one grants
+  def permission_names_cache_key
+    "user:#{id}:permission_names:#{updated_at.to_i}:#{role_cache_key}"
+  end
+
+  # Identity AND grant-version of every role this user holds.
+  #
+  # roles.permissions_version is bumped by a DB trigger on role_permissions (see
+  # db/migrate/20260901000000_add_permissions_version_to_roles.rb), which is why
+  # a permission removed by a raw-SQL remap migration — firing no ActiveRecord
+  # callback — still changes this key.
+  #
+  # DELIBERATELY NOT MEMOIZED, AND DELIBERATELY UNCACHED. The version is bumped
+  # underneath this object by the database, so:
+  #   - memoizing it on the instance would reintroduce the same staleness one
+  #     object-lifetime wide, and
+  #   - letting ActiveRecord's per-request query cache serve it would do the
+  #     same one REQUEST wide. That cache is only dirtied by writes on THIS
+  #     connection, so a narrowing committed by another process (a remap
+  #     migration is exactly that) would not evict it.
+  # Either is precisely long enough for a conferral to be decided on a
+  # superseded permission set, and a conferral is durable.
+  #
+  # `.order(:id)` is LOAD-BEARING, not cosmetic. It spawns a fresh unloaded
+  # relation off the association scope; drop it and CollectionProxy#pluck takes
+  # its `loaded?` short-circuit and answers from stale in-memory Role objects,
+  # which no amount of trigger correctness can fix.
   def role_cache_key
-    @role_cache_key ||= role_ids.sort.join("-")
+    self.class.uncached do
+      roles.order(:id).pluck(:id, :permissions_version)
+           .map { |role_id, version| "#{role_id}.#{version}" }.join("-")
+    end
   end
 
   # Role checking methods
@@ -576,12 +619,36 @@ class User < ApplicationRecord
     Array.new(10) { SecureRandom.hex(4).upcase }
   end
 
-  # Clear permission cache when roles/permissions change
+  # Permission-cache invalidation is STRUCTURAL, not a deletion: every input the
+  # cached set is derived from is in #permission_names_cache_key, so any change
+  # that could widen or narrow the set changes the key. The superseded entry is
+  # unreachable from that moment and expires on its own TTL. There is nothing
+  # here that can fail, so there is no rescue downgrading a failed authorization-
+  # cache invalidation to a warning.
+  #
+  # WHAT THIS USED TO DO, AND WHY IT IS GONE (IMP-95e4904258c8). It called
+  # Rails.cache.delete_matched("user:<id>:permission_names:*") under a
+  # `rescue StandardError`, and what that did depended entirely on the store:
+  #   - on the store production resolves to when CACHE_STORE is unset
+  #     (:solid_cache_store, config/environments/production.rb:50 — the
+  #     environment file loads AFTER the :redis_cache_store assignment in
+  #     config/application.rb:87, so it wins), delete_matched is not implemented
+  #     and raises NotImplementedError. That is a ScriptError, NOT a
+  #     StandardError, so the rescue could not catch it: the invalidation had
+  #     never once run, and the exception propagated into whatever changed the
+  #     role. Loud, but in the wrong place.
+  #   - on the store the hub actually deploys with (CACHE_STORE=memory_store,
+  #     set in the powernode-hub-backend module manifest) it returns normally,
+  #     but MemoryStore is PER-PROCESS: it clears only the calling process's
+  #     copy. That is the whole cache today only because the hub leaves
+  #     WEB_CONCURRENCY unset and puma therefore runs single-process
+  #     (config/puma.rb:24); a second worker or an out-of-band `rails runner`
+  #     keeps its own stale entry.
+  # (The pattern was a WILDCARD over every entry for the user, so on those two
+  # stores it did reach the pre-change entry — it ran after the change, but it
+  # was not addressing only the new key. It was a real invalidation there; it
+  # was simply not one on the default store, and not one across processes.)
   def clear_permission_cache
-    @role_cache_key = nil
-    cache_key_pattern = "user:#{id}:permission_names:*"
-    Rails.cache.delete_matched(cache_key_pattern)
-  rescue StandardError => e
-    Rails.logger.warn "Failed to clear permission cache for user #{id}: #{e.message}"
+    true
   end
 end
