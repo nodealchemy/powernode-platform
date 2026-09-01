@@ -48,10 +48,21 @@ module Permissions
   # THE RULE: reconcile ABSENCE ONLY. Create a declared global role that does
   # not exist, and add a declared grant that is missing. Never update an
   # existing role's attributes, never delete a grant. Deliberate REVOCATION
-  # stays an explicit operator action — Role.sync_from_config!, reached through
-  # db:seed or a console — which is the right default for a destructive change
-  # to authorization. `rails permissions:role_grant_drift` names what a full
-  # sync would remove before anyone runs one.
+  # stays an explicit operator action — Role.sync_from_config! — which is the
+  # right default for a destructive change to authorization.
+  # `rails permissions:role_grant_drift` names what a full sync would remove
+  # before anyone runs one.
+  #
+  # READ THE CAVEAT BEFORE TAKING THAT ROUTE. `db:seed` calls
+  # Role.sync_from_config! UNCONDITIONALLY (server/db/seeds.rb), so running it
+  # on a module-composed instance triggers exactly the deletion described above:
+  # every grant belonging to an extension THIS PROCESS did not load is dropped
+  # from every global role, silently and unrecoverably. Sending an operator to
+  # `db:seed` to revoke one grant, without saying that, hands them the data-loss
+  # bug this class exists to refuse to automate. Revoke by removing the grant
+  # from the CATALOG; if a full sync is genuinely wanted, run it from a process
+  # that has loaded every extension the deployment composes, and read
+  # `permissions:role_grant_drift`'s EXTRA lines first.
   #
   # THE PRICE OF THAT RULE, stated plainly: once this runs per boot, the ONLY
   # durable way to revoke a grant the catalog still declares is to change the
@@ -80,8 +91,8 @@ module Permissions
       def changed? = created.positive? || created_roles.any?
     end
 
-    DriftReport = Struct.new(:missing_grants, :missing_roles, :extra_grants, :present,
-                             keyword_init: true) do
+    DriftReport = Struct.new(:missing_grants, :missing_roles, :extra_grants,
+                             :orphan_grants, :present, keyword_init: true) do
       # A declared global role missing from the database is drift in its own
       # right: it contributes no missing GRANTS precisely because it was never
       # examined, so counting only missing_grants would report that install as
@@ -91,7 +102,16 @@ module Permissions
       # destructive Role.sync_from_config! WOULD DELETE — reported so an
       # operator can see them before choosing to run one, never treated as a
       # defect this reconciler should act on. Absence-only is the decision.
-      def drifted? = missing_grants.any? || missing_roles.any?
+      # orphan_grants IS part of drifted?. A grant registered against a role name
+      # the catalog does not declare can never be reconciled — each_declared_role
+      # iterates all_roles, so the name is skipped with no error, no failed entry
+      # and no missing_grants entry. Left out of this predicate, the drift task
+      # prints a clean bill over a grant that is permanently inert, which is the
+      # same silent state this class exists to end — only now with an affirmative
+      # certification on top of it. Its remedy is different from a missing
+      # grant's (fix the registration, not run the reconcile), so the task
+      # reports it separately.
+      def drifted? = missing_grants.any? || missing_roles.any? || orphan_grants.any?
     end
 
     # Creates absent global roles and absent grants. Never updates, never
@@ -167,7 +187,8 @@ module Permissions
       end
 
       DriftReport.new(missing_grants: missing_grants, missing_roles: missing_roles,
-                      extra_grants: extra_grants, present: present)
+                      extra_grants: extra_grants, orphan_grants: orphan_grant_keys,
+                      present: present)
     end
 
     private
@@ -178,6 +199,37 @@ module Permissions
     # absence from the catalog.
     def each_declared_role
       ::Permissions.all_roles.each { |name, config| yield(name.to_s, config) }
+    end
+
+    # Role names that grants were registered AGAINST but that all_roles does not
+    # declare. Nothing validates the role key at registration time —
+    # Permissions.register_role_permissions accepts any string
+    # (config/permissions.rb), and the catalog DSL's `grant:` hash autovivifies
+    # on any key (config/permissions/catalog.rb) — so a typo, or a role whose
+    # definition was removed while its grants stayed, produces a grant that
+    # each_declared_role never yields and therefore never reconciles.
+    #
+    # Empty lists are skipped, but NOT for the reason it looks like. Every caller
+    # of permissions_for_role passes a name drawn from all_roles (this class via
+    # each_declared_role, Role.sync_from_config!, permissions:verify_admin), so
+    # the keys its indexing autovivifies are all DECLARED and the filter below
+    # already removes them. What the empty-list skip actually catches is a
+    # STALE UNDECLARED key: a grant list that was registered and then emptied,
+    # or a key autovivified by a read against an undeclared name. Those hold no
+    # grants, so reporting them would be a phantom orphan.
+    #
+    # NOT a deletion trigger and not something reconcile! can repair: the fix is
+    # to correct the registration. This exists so the drift report cannot
+    # certify such a grant as clean.
+    def orphan_grant_keys
+      declared = ::Permissions.all_roles.keys.map(&:to_s)
+
+      keys = ::Permissions.extension_role_permissions.reject { |_k, v| Array(v).empty? }.keys.map(&:to_s)
+      if ::Permissions.respond_to?(:catalog_grants)
+        keys += ::Permissions.catalog_grants.reject { |_k, v| Array(v).empty? }.keys.map(&:to_s)
+      end
+
+      keys.uniq.reject { |k| declared.include?(k) }.sort
     end
 
     # Mirrors the filter in Role#sync_permissions!: only catalog-defined names

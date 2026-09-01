@@ -243,9 +243,26 @@ namespace :permissions do
     # operator sees them before choosing to run one.
     report.extra_grants.each { |grant| puts "  EXTRA (a full sync would DELETE this) #{grant}" }
 
+    # A grant registered against a role name the catalog does not declare. The
+    # reconcile CANNOT fix these — it only iterates declared roles — so they get
+    # their own remediation line rather than riding the "run the reconcile" one.
+    report.orphan_grants.each do |role_name|
+      warn "  ORPHAN GRANT KEY #{role_name} — grants registered against a role the catalog does not declare; " \
+           "they are PERMANENTLY INERT (fix the registration's role name)"
+    end
+
     if report.drifted?
       warn "❌ Role-grant drift: #{report.missing_grants.size} missing grant(s), " \
-           "#{report.missing_roles.size} missing role(s) — run `rails permissions:reconcile_role_grants`"
+           "#{report.missing_roles.size} missing role(s), " \
+           "#{report.orphan_grants.size} orphan grant key(s)"
+      # Only name the reconcile when it can actually do something. An
+      # orphan-only failure pointed at a remedy for nothing.
+      if report.missing_grants.any? || report.missing_roles.any?
+        warn "   run `rails permissions:reconcile_role_grants` for the missing grants/roles"
+      end
+      if report.orphan_grants.any?
+        warn "   the orphan keys are a REGISTRATION defect — the reconcile cannot fix them"
+      end
       # A MISSING grant the catalog declares is recreated on every boot. If one
       # is missing because someone revoked it deliberately, revoking it again
       # will not hold: change the catalog instead.
@@ -253,6 +270,10 @@ namespace :permissions do
            "reconcile recreates it; remove it from the catalog)"
       exit 1
     end
-    puts "✅ No role-grant drift (#{report.present} grant(s) present, #{report.extra_grants.size} extra)"
+    # Interpolated, never the literal 0: hardcoding it makes this line assert
+    # something true only while orphan_grants is part of drifted?. Drop it from
+    # that predicate later and the hardcoded version affirmatively lies.
+    puts "✅ No role-grant drift (#{report.present} grant(s) present, #{report.extra_grants.size} extra, " \
+         "#{report.orphan_grants.size} orphan grant key(s))"
   end
 end

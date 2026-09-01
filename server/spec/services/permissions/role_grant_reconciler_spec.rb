@@ -72,10 +72,21 @@ RSpec.describe Permissions::RoleGrantReconciler do
       admin_role.role_permissions.where(permission_name: new_permission).delete_all
 
       described_class.new.reconcile!
+
+      # ASSERT THE ROW BEFORE ASSERTING THE COUNTS. Without this line the
+      # example cannot tell "idempotent" from "never wrote anything": delete
+      # the find_or_create_by! in #reconcile! and both runs create zero, so
+      # `second.created == 0` and `second.changed? == false` still hold and
+      # this example goes on passing. It survived exactly that mutant.
+      expect(admin_role.reload.role_permissions.exists?(permission_name: new_permission)).to be(true)
+
       second = described_class.new.reconcile!
 
       expect(second.created).to eq(0)
       expect(second.changed?).to be(false)
+      # And the row the FIRST run created is still there — idempotent must mean
+      # "no further change", never "undone and not recreated".
+      expect(admin_role.reload.role_permissions.exists?(permission_name: new_permission)).to be(true)
     end
 
     it "creates a global role that the catalog declares but the database lacks" do
@@ -160,6 +171,64 @@ RSpec.describe Permissions::RoleGrantReconciler do
 
       expect(custom.reload.permission_names).to eq(%w[users.read])
       expect(custom.role_permissions.exists?(permission_name: new_permission)).to be(false)
+    end
+  end
+
+  describe "#drift — an UNDECLARED role key cannot be certified clean" do
+    # Nothing validates the role key at registration time: register_role_permissions
+    # takes any string and the catalog DSL's `grant:` hash autovivifies on any key.
+    # each_declared_role only ever yields Permissions.all_roles, so a grant keyed
+    # to a name outside it is skipped with NO error, NO failed entry and NO
+    # missing_grants entry — and before this, `permissions:role_grant_drift`
+    # printed "✅ No role-grant drift" over it. A silent skip wearing an
+    # affirmative clean bill is worse than the silence it replaced.
+    orphan_role = "spec_role_that_is_not_declared"
+
+    after { Permissions.extension_role_permissions.delete(orphan_role) }
+
+    it "names the undeclared role key and counts it as drift" do
+      register(new_permission)
+      Permissions.register_role_permissions(orphan_role, [ new_permission ])
+      expect(Permissions.all_roles.keys.map(&:to_s)).not_to include(orphan_role)
+
+      report = described_class.new.drift
+
+      expect(report.orphan_grants).to include(orphan_role)
+      expect(report).to be_drifted
+    end
+
+    it "reports no orphan keys when every grant is keyed to a declared role" do
+      # CONTAINMENT half of the pair. Its real target is the filter's DIRECTION:
+      # invert `reject { declared.include?(k) }` to `select` and every declared
+      # role becomes an "orphan", which the sibling example above cannot see
+      # because it only asserts that its own key IS included. A reconcile first,
+      # deliberately, because permissions_for_role indexes the autovivifying
+      # extension hash and so leaves an empty key for every declared role —
+      # this pins that a normal run stays quiet.
+      described_class.new.reconcile!
+
+      expect(described_class.new.drift.orphan_grants).to eq([])
+    end
+
+    it "also detects an undeclared key registered through the catalog `grant:` hash" do
+      # The other grant source. permissions_for_role merges THREE hashes and
+      # orphan_grant_keys reads two of them; without this, deleting the
+      # catalog_grants branch entirely leaves the suite green.
+      Permissions.catalog_grants[orphan_role] << new_permission
+
+      expect(described_class.new.drift.orphan_grants).to include(orphan_role)
+    ensure
+      Permissions.catalog_grants.delete(orphan_role)
+    end
+
+    it "does not report a declared role whose grant list was emptied" do
+      # What the empty-list skip ACTUALLY guards (the code comment used to give
+      # a different, false reason): a key holding no grants is not an orphan,
+      # it is nothing. Registering then emptying leaves exactly that shape.
+      Permissions.register_role_permissions(orphan_role, [ new_permission ])
+      Permissions.extension_role_permissions[orphan_role].clear
+
+      expect(described_class.new.drift.orphan_grants).not_to include(orphan_role)
     end
   end
 
