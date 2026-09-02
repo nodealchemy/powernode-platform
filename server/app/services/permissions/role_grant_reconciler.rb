@@ -20,10 +20,14 @@ module Permissions
   #   * Setup::FirstAdminService — `return if Role.exists?(name: "super_admin")`.
   #   * lib/tasks/powernode_setup.rake — bails once any Account exists.
   #
-  # config/initializers/ contains no sync. (`rails roles:standardize` is a
-  # second, MANUAL path — lib/tasks/standardize_roles.rake:58 — and a worse one:
-  # it syncs against `config[:permissions]`, the static ROLES hash, so it drops
-  # every extension-registered and catalog-DSL grant. Nothing invokes it.)
+  # config/initializers/ contains no sync. (A second, MANUAL path once existed in
+  # a `roles` rake namespace and was a worse one: it passed config[:permissions]
+  # to Role#sync_permissions! instead of Permissions.permissions_for_role, so its
+  # destructive reconcile dropped every grant contributed by
+  # register_role_permissions or a catalog-DSL `grant:`; and its cleanup pass ran
+  # Role.where.not(name: ...).destroy! with NO account_id scope, destroying unused
+  # account-scoped custom roles. No code path invoked it. Deleted in
+  # IMP-6477865679f4; guarded by spec/lib/tasks/roles_standardize_removed_spec.rb.)
   # So on an established deployment
   # every grant added to the catalog since its first boot is INERT: the
   # permission resolves for the role in Permissions.permissions_for_role, the
