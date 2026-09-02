@@ -557,6 +557,14 @@
       queue: maintenance
       description: 'Expire overdue approval requests (honours chain timeout_action)'
 
+    # Provisioning parked-step janitor - re-drive steps whose approval settled
+    # but whose synchronous resume never ran (process death between the two).
+    ai_provisioning_parked_step_reap:
+      cron: '*/15 * * * *'
+      class: AiProvisioningParkedStepReaperJob
+      queue: maintenance
+      description: 'Resume provisioning steps stranded in awaiting_approval after their approval settled'
+
     # Intervention policy tuning - analyze patterns and suggest policy adjustments
     ai_intervention_policy_tuning:
       cron: '0 6 * * 0'  # Weekly at 6:00 AM UTC on Sunday

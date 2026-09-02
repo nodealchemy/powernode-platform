@@ -94,6 +94,135 @@ RSpec.describe AiProvisioningStepJob, type: :job do
       end
     end
 
+    # IMP-842b56d3a5d4 — the job logged "Provisioning step complete" off the
+    # HTTP envelope's `success`, which is true for EVERY 200 the controller
+    # renders. The runner's own verdict lives one level down, in `data`: a
+    # PARKED step answers `data.pending`, a failed step answers
+    # `data.success == false`, and a duplicate dispatch answers
+    # `data.already_running`. All three read as "complete" in the log, and the
+    # `data.status` the old line reported does not exist on that payload at all.
+    context "when the runner PARKED the step on an approval" do
+      before do
+        allow(api_client_double).to receive(:post).and_return(
+          "success" => true,
+          "data" => {
+            "success" => false, "pending" => true, "outputs" => {}, "error" => nil,
+            "deferred_operation_id" => "op-uuid-1", "approval_request_id" => "req-uuid-1"
+          }
+        )
+      end
+
+      it "does not log the step as complete" do
+        expect(job_instance).not_to receive(:log_info).with(/complete/i, any_args)
+        allow(job_instance).to receive(:log_info)
+
+        job_instance.execute(job_args)
+      end
+
+      it "logs the step as parked on an approval" do
+        allow(job_instance).to receive(:log_info)
+
+        job_instance.execute(job_args)
+
+        expect(job_instance).to have_received(:log_info)
+          .with("Provisioning step parked on approval", hash_including(deferred_operation_id: "op-uuid-1"))
+      end
+
+      it "returns the payload unchanged" do
+        allow(job_instance).to receive(:log_info)
+
+        expect(job_instance.execute(job_args).dig("data", "pending")).to be true
+      end
+    end
+
+    context "when the runner reported an inner failure under a 200" do
+      before do
+        allow(api_client_double).to receive(:post).and_return(
+          "success" => true,
+          "data" => { "success" => false, "outputs" => {}, "error" => "provider refused" }
+        )
+      end
+
+      it "does not log the step as complete" do
+        expect(job_instance).not_to receive(:log_info).with(/complete/i, any_args)
+        allow(job_instance).to receive(:log_info)
+        allow(job_instance).to receive(:log_warn)
+
+        job_instance.execute(job_args)
+      end
+
+      it "warns with the runner's own error" do
+        allow(job_instance).to receive(:log_info)
+        allow(job_instance).to receive(:log_warn)
+
+        job_instance.execute(job_args)
+
+        expect(job_instance).to have_received(:log_warn)
+          .with("Provisioning step reported failure", hash_including(error: "provider refused"))
+      end
+    end
+
+    context "when the runner refused a duplicate invocation" do
+      before do
+        allow(api_client_double).to receive(:post).and_return(
+          "success" => true,
+          "data" => { "success" => false, "outputs" => {}, "error" => nil, "already_running" => true }
+        )
+      end
+
+      it "does not log the step as complete" do
+        expect(job_instance).not_to receive(:log_info).with(/complete/i, any_args)
+        allow(job_instance).to receive(:log_info)
+
+        job_instance.execute(job_args)
+      end
+    end
+
+    # REVIEW FINDING (IMP-842b56d3a5d4): #resume_step! also returns a
+    # `{ skipped: true }` envelope — the resume claim was lost to a concurrent
+    # release, or the row is no longer parked. It carries NO error, so the
+    # failure arm logged `error: nil` for a benign race: the same
+    # log-fidelity defect, one branch over.
+    context "when the runner SKIPPED the step (lost claim / no longer parked)" do
+      before do
+        allow(api_client_double).to receive(:post).and_return(
+          "success" => true,
+          "data" => { "success" => false, "outputs" => {}, "error" => nil, "skipped" => true }
+        )
+      end
+
+      it "does not log a failure for a benign lost race" do
+        expect(job_instance).not_to receive(:log_warn).with(/failure/i, any_args)
+        allow(job_instance).to receive(:log_info)
+
+        job_instance.execute(job_args)
+      end
+
+      it "does not log the step as complete either" do
+        expect(job_instance).not_to receive(:log_info).with(/complete/i, any_args)
+        allow(job_instance).to receive(:log_info)
+
+        job_instance.execute(job_args)
+      end
+    end
+
+    context "when the runner actually completed the step" do
+      before do
+        allow(api_client_double).to receive(:post).and_return(
+          "success" => true,
+          "data" => { "success" => true, "outputs" => { "instance_id" => "i-7" }, "error" => nil }
+        )
+      end
+
+      it "logs the step as complete" do
+        allow(job_instance).to receive(:log_info)
+
+        job_instance.execute(job_args)
+
+        expect(job_instance).to have_received(:log_info).with("Provisioning step complete", any_args)
+      end
+    end
+
     context "when the API returns success: false" do
       before do
         allow(api_client_double).to receive(:post).and_return(
