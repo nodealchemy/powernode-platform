@@ -36,7 +36,99 @@ module Ai
         }
       }.freeze
 
+      # === LIST PAGINATION (APO-8b, IMP-c5a62a32d3bb) ===
+      #
+      # Before this seam, a list action on the MCP surface answered in one of
+      # three incompatible ways: it serialized every matching row, or it applied
+      # a hard-coded cap, or it accepted a `limit` of its own invention. The
+      # `count` beside the rows was worse than absent, because it did not mean
+      # the same thing twice — some actions counted the UNCAPPED relation, some
+      # counted the relation AFTER the cap (so a 100-row account and a
+      # 10,000-row account answered identically), and some returned no count.
+      # None offered a page two.
+      #
+      # This is core, not extension, because the defect is not extension-shaped:
+      # any tool that serializes a relation has it, and a per-tool fix would
+      # reproduce exactly the inconsistency that is the finding.
+      #
+      # THE CONTRACT every paginated action inherits:
+      #   count       the UNCAPPED total matching the filters
+      #   returned    rows in THIS page
+      #   limit       the effective page size actually applied
+      #   has_more    true when rows remain beyond this page
+      #   next_cursor pass back as `cursor` to fetch them; null at the end
+      #
+      # KEYSET, NOT OFFSET. The cursor pins the position of the last row
+      # returned on (sort key, id) and the next page asks for rows strictly past
+      # it. Ids are UUIDv7 (uuidv7-everywhere), so the id tiebreak is
+      # time-ordered and total: two rows sharing a sort value still have a
+      # deterministic order, and a row inserted mid-walk cannot shift a page
+      # boundary the way an OFFSET would.
+      LIST_DEFAULT_LIMIT_SETTING = "ai_tools_list_default_limit"
+      LIST_MAX_LIMIT_SETTING     = "ai_tools_list_max_limit"
+      LIST_DEFAULT_LIMIT         = 100
+      LIST_MAX_LIMIT             = 500
+
+      # The fragment a paginated action splats into its declared parameters, so
+      # the two names and their prose are written once. No `default:` key: the
+      # effective default is operator config resolved per call, and freezing the
+      # fallback into the advertised schema would state a number the platform
+      # may not be using.
+      PAGINATION_PARAMETERS = {
+        limit: {
+          type: "integer", required: false,
+          description: "Maximum rows in this page. Omit for the operator-configured default page size. " \
+                       "A value above the configured maximum is clamped down, not refused."
+        },
+        cursor: {
+          type: "string", required: false,
+          description: "Opaque keyset cursor taken from a previous page's `next_cursor`. Omit for the first page. " \
+                       "Read `count` (the total matching your filters, NOT this page's size) and `has_more` to tell " \
+                       "a complete answer from a truncated one."
+        }
+      }.freeze
+
+      # One page plus the numbers a caller needs to know what it is holding.
+      ListPage = Struct.new(:records, :total, :limit, :next_cursor) do
+        def envelope
+          {
+            count:       total,
+            returned:    records.size,
+            limit:       limit,
+            has_more:    !next_cursor.nil?,
+            next_cursor: next_cursor
+          }
+        end
+      end
+
+      # A cursor the platform did not issue, or a limit that is not a number.
+      # Raised only INSIDE #paginated_result, which converts it to an
+      # error_result — SdwanTool#call and SystemPackageRepositoryTool#call do
+      # not rescue ArgumentError, so a raise escaping a list action would reach
+      # the agent as a JSON-RPC -32603 internal error instead of a refusal it
+      # can read and correct.
+      class InvalidPageRequest < StandardError; end
+
       class << self
+        # Operator-configured page size, with the constant as the fallback.
+        # A non-positive configured value is ignored rather than honoured: a
+        # zero would make every list action answer with an empty page and no
+        # way to walk past it.
+        def default_list_limit
+          positive_setting(LIST_DEFAULT_LIMIT_SETTING, LIST_DEFAULT_LIMIT)
+        end
+
+        # The ceiling a caller-supplied `limit` is clamped to.
+        def max_list_limit
+          positive_setting(LIST_MAX_LIMIT_SETTING, LIST_MAX_LIMIT)
+        end
+
+        def positive_setting(key, fallback)
+          value = ::SiteSetting.get(key).to_i
+          value.positive? ? value : fallback
+        end
+        private :positive_setting
+
         # THE ONE BUILDER for the body PENDING_RESULT_PROPERTIES describes
         # (APO-1f, IMP-117b34656921).
         #
@@ -726,6 +818,158 @@ module Ai
       private
 
       attr_reader :account, :agent, :user, :node_instance
+
+      # === LIST PAGINATION — the call side of the contract above ===
+
+      # THE ONE BUILDER for a paginated list payload. Returns a finished tool
+      # result: success_result carrying the serialized rows under `key`, any
+      # per-action `extra` keys, and the shared page envelope — or error_result
+      # when the caller's limit/cursor cannot be honoured.
+      #
+      # Takes the relation UNORDERED and imposes its own order, because the
+      # keyset predicate and the ORDER BY have to agree exactly; a caller that
+      # ordered first would silently get a cursor pointing into a different
+      # sequence than the one it is walking.
+      #
+      # @param key       [Symbol] payload key the rows go under
+      # @param relation  [ActiveRecord::Relation] already filtered, NOT ordered
+      # @param params    [Hash] the action params (reads :limit and :cursor)
+      # @param sort      [Symbol] column the page is ordered by; :id walks in
+      #                  UUIDv7 (creation) order
+      # @param direction [:asc, :desc]
+      # @param extra     [Hash] additional payload keys for this action
+      # @yield [record] serializer for one row
+      def paginated_result(key, relation, params, sort: :id, direction: :desc, **extra, &serializer)
+        page = paginate_list(relation, params, sort: sort, direction: direction)
+        success_result(
+          { key => page.records.map(&serializer) }.merge(extra).merge(page.envelope)
+        )
+      rescue InvalidPageRequest => e
+        error_result(e.message)
+      end
+
+      def paginate_list(relation, params, sort: :id, direction: :desc)
+        sort      = sort.to_sym
+        direction = direction.to_sym == :asc ? :asc : :desc
+        limit     = resolve_list_limit(params[:limit])
+
+        # A NULL sort value makes the row comparison in #apply_list_cursor NULL
+        # — never true — so a nullable sort column would silently DROP every
+        # such row from page two onward and the walk would end short of `count`
+        # with nothing to show for it. Refused here as the call-site bug it is,
+        # rather than left to produce a quietly incomplete answer. Order by :id
+        # (UUIDv7, and a primary key) when the natural sort column is nullable.
+        assert_sortable_column!(relation.klass, sort) unless sort == :id
+
+        # UNCAPPED, and computed off the relation BEFORE the cursor narrows it:
+        # `count` answers "how many match my filters", which is the question a
+        # caller deciding whether to keep walking is actually asking.
+        total = relation.count
+
+        scoped = apply_list_cursor(relation, params[:cursor], sort, direction)
+        order  = sort == :id ? { id: direction } : { sort => direction, :id => direction }
+
+        # One row past the page: the only way to know whether a cursor is owed
+        # without a second COUNT over the narrowed scope.
+        rows = scoped.reorder(order).limit(limit + 1).to_a
+        more = rows.size > limit
+        rows = rows.first(limit)
+
+        ListPage.new(rows, total, limit, more ? encode_list_cursor(rows.last, sort) : nil)
+      end
+
+      def assert_sortable_column!(model, sort)
+        column = model.columns_hash[sort.to_s]
+        return if column && !column.null
+
+        raise ArgumentError,
+              "paginate_list: #{model.name}.#{sort} is #{column ? 'nullable' : 'not a column'} and cannot " \
+              "carry a keyset cursor — sort by :id instead"
+      end
+
+      def resolve_list_limit(raw)
+        return self.class.default_list_limit if raw.nil? || raw.to_s.strip.empty?
+
+        value = Integer(raw.to_s.strip, 10)
+        raise InvalidPageRequest, "limit: must be a positive integer" unless value.positive?
+
+        [ value, self.class.max_list_limit ].min
+      rescue ArgumentError, TypeError
+        raise InvalidPageRequest, "limit: must be a positive integer"
+      end
+
+      def apply_list_cursor(relation, raw, sort, direction)
+        return relation if raw.nil? || raw.to_s.strip.empty?
+
+        model  = relation.klass
+        cursor = decode_list_cursor(raw, model, sort)
+        table  = model.quoted_table_name
+        id_col = "#{table}.#{model.connection.quote_column_name(model.primary_key)}"
+        op     = direction == :asc ? ">" : "<"
+
+        if sort == :id
+          relation.where("#{id_col} #{op} ?", cursor[:id])
+        else
+          # Row comparison, so the sort column and the UUIDv7 tiebreak are one
+          # strict ordering rather than two clauses that can disagree on ties.
+          sort_col = "#{table}.#{model.connection.quote_column_name(sort)}"
+          relation.where("(#{sort_col}, #{id_col}) #{op} (?, ?)", cursor[:value], cursor[:id])
+        end
+      end
+
+      # Opaque by construction only — a base64 JSON pair. Deliberately not
+      # signed: it carries no authority, the relation it is applied to is still
+      # account-scoped by the caller, and a forged cursor can do nothing but
+      # start the walk somewhere else in rows the caller could already read.
+      def encode_list_cursor(record, sort)
+        value = record.public_send(sort)
+        value = value.utc.iso8601(6) if value.respond_to?(:utc) && value.respond_to?(:iso8601)
+        Base64.urlsafe_encode64({ "v" => value, "i" => record.id }.to_json, padding: false)
+      end
+
+      def decode_list_cursor(raw, model, sort)
+        parsed = JSON.parse(Base64.urlsafe_decode64(raw.to_s))
+        # Shape check before the read: valid base64 of valid JSON is not yet a
+        # cursor, and `5["i"]` is a NoMethodError this rescue would not catch.
+        raise InvalidPageRequest, cursor_refusal unless parsed.is_a?(Hash)
+
+        id = parsed["i"].to_s
+        raise InvalidPageRequest, cursor_refusal if id.empty?
+
+        # SHAPE-CHECK THE ID AGAINST THE PRIMARY KEY'S TYPE, not merely for
+        # emptiness. A non-empty id that is not a UUID is bound straight into
+        # `(sort, id) < (?, ?)` against a uuid column, and Postgres answers
+        # `invalid input syntax for type uuid` — an ActiveRecord::StatementInvalid
+        # that #paginated_result does not rescue and no tool's #call rescues
+        # either, so it escapes to the JSON-RPC handler as -32603 "Internal
+        # error". That is precisely the raise-instead-of-refuse this seam exists
+        # to prevent, so the refusal happens here where the message is useful.
+        raise InvalidPageRequest, cursor_refusal unless valid_cursor_id?(model, id)
+
+        value = sort == :id ? id : model.type_for_attribute(sort.to_s).cast(parsed["v"])
+
+        # A cursor whose sort value casts to NULL cannot satisfy the row
+        # comparison either — it would return an empty page forever rather than
+        # an error. Refused for the same reason.
+        raise InvalidPageRequest, cursor_refusal if sort != :id && value.nil?
+
+        { value: value, id: id }
+      rescue ArgumentError, TypeError, JSON::ParserError
+        raise InvalidPageRequest, cursor_refusal
+      end
+
+      UUID_CURSOR_ID = /\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/
+
+      def valid_cursor_id?(model, id)
+        column = model.columns_hash[model.primary_key.to_s]
+        return true unless column&.type == :uuid
+
+        UUID_CURSOR_ID.match?(id)
+      end
+
+      def cursor_refusal
+        "cursor: not a cursor this action issued — omit it to start at the first page"
+      end
 
       # UNDECLARED-EXECUTION TELEMETRY (IMP-a0553dda1ec3) — measure the real
       # breakage set BEFORE the fail-closed flip (IMP-439d31353f9b).
