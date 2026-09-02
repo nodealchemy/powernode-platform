@@ -3,10 +3,20 @@
 module Api
   module V1
     class InvitationsController < ApplicationController
+      # An invitation CONFERS ROLES (see #accept), so it is a role-assignment
+      # site and answers to the same escalation rule as every other one
+      # (IMP-1635cb7fa768). Until that rule was applied here, #create permitted
+      # `role_names: []` verbatim and Invitation#validate_role_names checked
+      # EXISTENCE only, so any holder of `team.invite` / `users.create` — the
+      # seeded `manager` among them — could mint an invitation carrying
+      # `super_admin` and redeem a grant-all user out of it.
+      include RoleAssignmentGuard
+
       before_action :authenticate_request, except: [ :accept ]
       before_action :set_invitation, only: [ :show, :update, :destroy, :resend, :cancel ]
       before_action :authorize_invitations_access!, only: [ :index, :create, :resend ]
       before_action :authorize_invitation_management!, only: [ :update, :destroy, :cancel ]
+      before_action :authorize_role_conferral!, only: [ :create, :update ]
 
       # GET /api/v1/invitations
       def index
@@ -124,10 +134,14 @@ module Api
             email_verified_at: Time.current # Auto-verify since they accepted invitation
           )
 
-          # Assign roles from invitation
+          # Assign roles from invitation. Resolve inside the INVITATION's
+          # account: a bare `Role.find_by(name:)` is global, and while an
+          # account-scoped role may not shadow a GLOBAL name, two accounts may
+          # each own a custom role of the same name — an unscoped lookup would
+          # then attach a foreign account's role to a brand-new user.
           invitation.role_names.each do |role_name|
-            role = Role.find_by(name: role_name)
-            user.add_role(role.name) if role
+            role = Role.for_account(invitation.account_id).find_by(name: role_name)
+            user.assign_role(role) if role
           end
 
           # Mark invitation as accepted
@@ -156,6 +170,35 @@ module Api
         unless current_user.has_permission?("team.invite") || current_user.has_permission?("users.create")
           render_forbidden
         end
+      end
+
+      # The INVITER is the actor whose authority bounds the invitation, and the
+      # bound is applied when the promise is MADE. Checking only at #accept
+      # would leave the promise mintable and would answer to whoever redeems the
+      # token — an unauthenticated caller. Names are resolved inside the acting
+      # account (`Role.for_account`), because the model's existence check is
+      # global and two accounts may each own a like-named custom role.
+      def authorize_role_conferral!
+        submitted = params.dig(:invitation, :role_names)
+        return if submitted.nil?
+
+        unless submitted.is_a?(Array)
+          return render_error("role_names must be an array", status: :unprocessable_content)
+        end
+
+        roles = Role.for_account(current_user.account_id).where(name: submitted)
+        missing = submitted.map(&:to_s).uniq - roles.map(&:name)
+        if missing.any?
+          return render_error("Unknown roles: #{missing.join(', ')}", status: :unprocessable_content)
+        end
+
+        unconferrable = roles.reject { |role| can_assign_role?(role) }.map(&:name)
+        return if unconferrable.empty?
+
+        render_error(
+          "You do not have permission to assign these roles: #{unconferrable.join(', ')}",
+          status: :unprocessable_content
+        )
       end
 
       def authorize_invitation_management!
