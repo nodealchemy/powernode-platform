@@ -58,6 +58,29 @@ module Ai
       # produced neither outputs nor orphans.
       PARKED_APPROVAL_KEY = "parked_approval"
 
+      # Ai::DeferredOperation statuses that mean the approval has been DECIDED
+      # and the operation will not move again. `approved` is deliberately absent
+      # — an approved-but-unexecuted operation has no outcome for #resume_step!
+      # to consume, so the reaper below leaves it alone rather than churning.
+      SETTLED_OPERATION_STATUSES = %w[completed rejected expired failed].freeze
+
+      # How long after an operation settles the janitor waits before treating a
+      # still-parked step as STRANDED. Long enough that a resume racing the
+      # sweep wins on its own; the runner's claim (#claim_resume!) is the real
+      # exclusion, this is just noise control. DB-driven: SiteSetting → constant.
+      PARKED_REAP_DELAY_SETTING = "ai_provisioning_parked_step_reap_delay_seconds"
+      DEFAULT_PARKED_REAP_DELAY_SECONDS = 900
+
+      # How many stranded steps ONE sweep may re-drive. A resumed step
+      # dispatches its successors, so an unbounded sweep over a backlog would
+      # advance every in-flight provisioning DAG on the fleet in a single
+      # 15-minute tick. The cap is the DEFAULT of .reap_parked_steps, not a
+      # parameter a caller has to remember: every door onto the sweep is
+      # bounded, and a backlog drains over several ticks instead. DB-driven:
+      # SiteSetting → constant.
+      PARKED_REAP_BATCH_LIMIT_SETTING = "ai_provisioning_parked_step_reap_batch_limit"
+      DEFAULT_PARKED_REAP_BATCH_LIMIT = 100
+
       # Step statuses that mean "this step is past the pending gate" — used
       # by the execute! and execute_step! idempotency guards to detect a
       # concurrent or completed run. A parked step belongs here: it is not
@@ -416,6 +439,147 @@ module Ai
                      .first
       end
       private_class_method :mission_for_plan
+
+      # ===== The parked-step janitor (IMP-842b56d3a5d4) =====
+      #
+      # Every caller of .resume_parked_step is SYNCHRONOUS with the approval
+      # decision — Ai::DeferredOperation#execute_now! and #on_approval_decision
+      # both call it inline. A process death between the operation settling and
+      # that call strands the step: #dispatch_unblocked_successors forwards only
+      # `pending` steps and PARKED_STATUS counts as IN_FLIGHT_STATUSES, so
+      # nothing re-drives it and the mission stops behind one row until a human
+      # re-invokes the step. This sweep is the safety net.
+      #
+      # It adds no new transition: it locates settled-but-unresumed rows and
+      # takes the same door a manual re-invocation would, so the claim, the
+      # sensitive-param filtering and the reject/expire lanes are all the ones
+      # already covered by the parked-approval spec.
+
+      # The reaper PREDICATE, isolated so it can be asserted on its own: parked
+      # steps whose deferred operation has SETTLED and has been settled longer
+      # than the delay. The join is on the operation id the step stamped into
+      # its own metadata when it parked — the same link .resume_parked_step
+      # reads in the other direction.
+      #
+      # @param now [Time] evaluation clock
+      # @param delay_seconds [Numeric, nil] override; nil resolves the setting
+      # @return [ActiveRecord::Relation<Ai::GoalPlanStep>]
+      def self.reapable_parked_steps(now: Time.current, delay_seconds: nil)
+        cutoff = now - (delay_seconds || parked_step_reap_delay_seconds)
+
+        ::Ai::GoalPlanStep
+          .where(status: PARKED_STATUS)
+          .joins(
+            "INNER JOIN ai_deferred_operations parked_ops " \
+            "ON parked_ops.id::text = " \
+            "ai_goal_plan_steps.metadata #>> '{#{PARKED_APPROVAL_KEY},deferred_operation_id}'"
+          )
+          .where(parked_ops: { status: SETTLED_OPERATION_STATUSES })
+          .where("parked_ops.updated_at <= ?", cutoff)
+          # A resumed step DISPATCHES its successors, so this sweep is
+          # autonomous action and the account kill switch has to hold here the
+          # same way it holds on the escalation and closure-driver janitor
+          # lanes. Without it `emergency_halt` would stop new work while a cron
+          # kept advancing every in-flight provisioning DAG.
+          .joins(plan: :account)
+          .where(accounts: { ai_suspended: [ false, nil ] })
+      end
+
+      # Sweep the stranded rows. One failing step must not abort the sweep — a
+      # janitor that dies on the first bad row is how a backlog forms behind a
+      # single poison record.
+      #
+      # @param limit [Integer, nil] rows this sweep may re-drive; defaults to the
+      #   configured batch cap, `nil` only if a caller explicitly asks for an
+      #   unbounded sweep
+      # @return [Hash] { examined:, resumed: }
+      def self.reap_parked_steps(now: Time.current, delay_seconds: nil,
+                                 limit: parked_step_reap_batch_limit)
+        scope = reapable_parked_steps(now: now, delay_seconds: delay_seconds)
+        scope = scope.limit(limit) if limit
+
+        examined = 0
+        resumed  = 0
+
+        scope.to_a.each do |step|
+          examined += 1
+          operation = ::Ai::DeferredOperation.find_by(id: parked_operation_id(step))
+          next if operation.nil?
+
+          resumed += 1 if resumed_by_this_sweep?(resume_parked_step(deferred_operation: operation))
+        rescue StandardError => e
+          Rails.logger.error(
+            "[SkillCompositionRunner] parked-step reap failed for step " \
+            "#{step.id}: #{e.class}: #{e.message}"
+          )
+        end
+
+        if examined.positive?
+          Rails.logger.info(
+            "[SkillCompositionRunner] parked-step reap: examined #{examined}, resumed #{resumed}"
+          )
+        end
+
+        { examined: examined, resumed: resumed }
+      end
+
+      # DB-driven config: SiteSetting → constant. A non-positive or unparseable
+      # value falls back rather than resolving to "reap immediately", which
+      # would have the janitor racing every live approval release.
+      def self.parked_step_reap_delay_seconds
+        raw = ::Ai::FableRouting.global_setting(PARKED_REAP_DELAY_SETTING)
+        value = raw.nil? ? 0 : raw.to_f
+        return value if value.positive?
+
+        if raw.present?
+          Rails.logger.warn(
+            "[SkillCompositionRunner] ignoring non-positive " \
+            "#{PARKED_REAP_DELAY_SETTING}=#{raw.inspect}; using #{DEFAULT_PARKED_REAP_DELAY_SECONDS}"
+          )
+        end
+        DEFAULT_PARKED_REAP_DELAY_SECONDS
+      rescue StandardError
+        DEFAULT_PARKED_REAP_DELAY_SECONDS
+      end
+
+      # Did the resume actually MOVE the step? #resume_step! returns a non-nil
+      # envelope for two non-events as well: `skipped` (the resume claim was
+      # lost to a concurrent live release, or the row is no longer parked) and
+      # `pending` (the released operation has not produced an outcome yet).
+      # Counting "not nil" reported work the janitor did not do — the same
+      # log-fidelity defect this increment set out to fix on the worker side.
+      def self.resumed_by_this_sweep?(outcome)
+        return false if outcome.nil?
+        return true unless outcome.is_a?(Hash)
+
+        !outcome[:skipped] && !outcome[:pending]
+      end
+
+      # DB-driven config: SiteSetting → constant. A non-positive or unparseable
+      # value falls back rather than resolving to "sweep nothing", which would
+      # make the janitor silently inert — indistinguishable from a clean fleet.
+      def self.parked_step_reap_batch_limit
+        raw = ::Ai::FableRouting.global_setting(PARKED_REAP_BATCH_LIMIT_SETTING)
+        value = raw.nil? ? 0 : raw.to_i
+        return value if value.positive?
+
+        if raw.present?
+          Rails.logger.warn(
+            "[SkillCompositionRunner] ignoring non-positive " \
+            "#{PARKED_REAP_BATCH_LIMIT_SETTING}=#{raw.inspect}; using #{DEFAULT_PARKED_REAP_BATCH_LIMIT}"
+          )
+        end
+        DEFAULT_PARKED_REAP_BATCH_LIMIT
+      rescue StandardError
+        DEFAULT_PARKED_REAP_BATCH_LIMIT
+      end
+
+      def self.parked_operation_id(step)
+        meta = step.respond_to?(:metadata) && step.metadata.is_a?(Hash) ? step.metadata : {}
+        payload = meta[PARKED_APPROVAL_KEY]
+        payload.is_a?(Hash) ? payload["deferred_operation_id"] : nil
+      end
+      private_class_method :parked_operation_id
 
       # Lazily-built orchestrator that owns the canonical
       # `provisioning_step_changed` emission path. We instantiate one per
