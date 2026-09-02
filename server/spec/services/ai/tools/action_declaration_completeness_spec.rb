@@ -20,14 +20,18 @@ require "rails_helper"
 #                           still runs undeclared while the declaration sits
 #                           there looking like coverage.
 #
-# NON-ENFORCING, deliberately. This increment records intent only. A
-# declaration reaches Ai::AutonomyGate only when BaseTool#gated_action? is true,
-# which needs mutating + action_category + executor_class + gate_context +
-# on_proceed all present; the declarations added here carry `mutating:` alone,
-# so #execute takes the same `return call(params)` path an undeclared action
-# took and every per-action permission check inside #call still runs. The last
-# example pins that: exactly one action on the platform is gate-routed today.
-# Flipping fail-closed, and wiring executors for the rest, is APO-1e.
+# NON-ENFORCING, deliberately, for the actions APO-1a declared. A declaration
+# reaches Ai::AutonomyGate only when BaseTool#gated_action? is true, which needs
+# mutating + action_category + executor_class + gate_context + on_proceed all
+# present; the declarations added by that increment carry `mutating:` alone, so
+# #execute takes the same `return call(params)` path an undeclared action took
+# and every per-action permission check inside #call still runs.
+#
+# GATE-ROUTED is therefore an ALLOWLIST, not a count, and the last example pins
+# it by name (GATE_ROUTED_ACTIONS below). Arming an action is a governance
+# decision — it needs a seeded Ai::InterventionPolicy category and an executor
+# the gate can replay — so it must be a deliberate edit here rather than a
+# number someone bumps. Wiring the rest is APO-1e.
 #
 # KNOWN BOUND: the walk is PlatformApiToolRegistry.all_tools, i.e. core TOOLS
 # plus whatever extension maps are registered in THIS environment. An
@@ -104,7 +108,29 @@ RSpec.describe "MCP action declaration completeness" do
     expect(declared.size).to be > 500
   end
 
-  it "leaves every newly declared action NON-ENFORCING" do
+  # The actions whose declarations carry the full quartet, i.e. the ones
+  # BaseTool#execute routes through Ai::AutonomyGate instead of #call. Each
+  # entry names the increment that armed it and the category it parks under, so
+  # adding one is a review of the pair rather than a list edit:
+  #
+  #   system_terminate_instance     IMP-d410a587d6bf  system.task.terminate
+  #   system_create_instance_pool   IMP-067f39468350  system.instance_pool_create
+  #   system_update_instance_pool   IMP-067f39468350  system.instance_pool_ceiling_raise
+  #                                                   / system.instance_pool_archive
+  #
+  # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
+  # gated: while they were declared `mutating:` only, an agent could raise the
+  # spend ceiling the ungated 60 s replenish tick spends up to — or mint a pool
+  # whose ceiling nobody approved — by naming the MCP door instead of the REST
+  # one. They replay through Ai::Executors::DeferredToolCall, so the action
+  # body stays the only writer on both branches.
+  GATE_ROUTED_ACTIONS = %w[
+    system_terminate_instance
+    system_create_instance_pool
+    system_update_instance_pool
+  ].freeze
+
+  it "arms the gate on exactly the actions that are meant to be gate-routed" do
     # Uses BaseTool's own predicate rather than restating its four conditions,
     # so this cannot drift from the routing decision #execute actually makes.
     probe = Ai::Tools::BaseTool.new(account: nil)
@@ -119,7 +145,17 @@ RSpec.describe "MCP action declaration completeness" do
       action if armed
     end
 
-    expect(gate_routed).to contain_exactly("system_terminate_instance")
+    expect(gate_routed).to match_array(GATE_ROUTED_ACTIONS), <<~MSG
+      The set of gate-routed MCP actions changed.
+
+      Arming one is a governance decision, not a refactor: BaseTool#execute
+      stops calling #call for it, so its action_category must be a category
+      Ai::InterventionPolicyService actually resolves (an unmatched one
+      defaults to require_approval) and its executor_class must be one the
+      gate can replay. Disarming one silently returns a mutation to the
+      ungated path. Either way, add or remove it in GATE_ROUTED_ACTIONS above
+      WITH its increment and category, in the same change.
+    MSG
   end
 
   # THE ROUTING PRECONDITION of the equality above (IMP-149b35e5f16f).
