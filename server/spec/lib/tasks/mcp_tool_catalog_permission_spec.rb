@@ -35,6 +35,21 @@ require "rails_helper"
 # reads McpPlatformToolRegistrar::ACTION_ALIASES, which is the dispatch table
 # itself, and the code_* spot checks below pin the four literals independently.
 RSpec.describe "docs/reference/auto/mcp-tools.md publishes per-action permissions" do
+  # This file's oracle is the COMMITTED catalog, which is defined as the
+  # PUBLIC-bundle rendering — scripts/check-mcp-catalog-fresh.sh pins the
+  # generator's environment to it. `.all_tools` is `TOOLS.merge(extension_tools)`,
+  # so in a private-mode bundle (`BUNDLE_GEMFILE=Gemfile.private`, which sets
+  # POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1) or on a deployed node
+  # (POWERNODE_DEPLOYED=1) the loaded extension engines register extra actions
+  # that the tracked file deliberately does not carry, and the equality below
+  # would fail for that reason rather than for a generator defect. Skip loudly
+  # instead of failing, and never silently: an absent refusal is not a pass.
+  before do
+    if ENV["POWERNODE_INCLUDE_PRIVATE_EXTENSIONS"] == "1" || ENV["POWERNODE_DEPLOYED"] == "1"
+      skip "extension engines are loaded in this environment; the committed catalog is the public-bundle rendering"
+    end
+  end
+
   # A method, not a constant: a constant assigned inside an RSpec block lands
   # on Object, where a same-named constant in another spec file can clobber it.
   def self.catalog_path
@@ -78,8 +93,14 @@ RSpec.describe "docs/reference/auto/mcp-tools.md publishes per-action permission
   # from the tool classes themselves: the class's ACTION_PERMISSIONS entry for
   # the dispatched action when it has one, else the class floor. Mirrors
   # Ai::Tools::SystemFleetTool#required_perm_for and its 25 siblings.
+  # Sourced from `.all_tools` — the same merged map the generator and the DB
+  # registrar read (IMP-86c839455f87). `::TOOLS` alone would under-count the
+  # catalog by exactly the extension-registered tools, which is the divergence
+  # that fix removed. Identical in the public bundle this spec is scoped to
+  # (extension_tools is empty there); the `before` guard above keeps the other
+  # bundles out.
   def self.expected_permissions
-    @expected_permissions ||= ::Ai::Tools::PlatformApiToolRegistry::TOOLS.each_with_object({}) do |(action, class_name), acc|
+    @expected_permissions ||= ::Ai::Tools::PlatformApiToolRegistry.all_tools.each_with_object({}) do |(action, class_name), acc|
       klass = class_name.safe_constantize
       next unless klass
 
@@ -98,7 +119,7 @@ RSpec.describe "docs/reference/auto/mcp-tools.md publishes per-action permission
   # only actions that can distinguish a correct generator from the broken one:
   # a class where the two coincide emits the same string either way.
   def self.laddered_above_floor
-    @laddered_above_floor ||= ::Ai::Tools::PlatformApiToolRegistry::TOOLS.filter_map do |action, class_name|
+    @laddered_above_floor ||= ::Ai::Tools::PlatformApiToolRegistry.all_tools.filter_map do |action, class_name|
       klass = class_name.safe_constantize
       next unless klass&.const_defined?(:ACTION_PERMISSIONS)
 
@@ -111,9 +132,9 @@ RSpec.describe "docs/reference/auto/mcp-tools.md publishes per-action permission
   end
 
   it "parses every advertised action out of the committed catalog" do
-    expect(published_permissions.size).to eq(::Ai::Tools::PlatformApiToolRegistry::TOOLS.size),
+    expect(published_permissions.size).to eq(::Ai::Tools::PlatformApiToolRegistry.all_tools.size),
       "parsed #{published_permissions.size} `### \\`action\\`` + Permission pairs out of the catalog but the " \
-      "registry advertises #{::Ai::Tools::PlatformApiToolRegistry::TOOLS.size} actions — the parser or the " \
+      "registry advertises #{::Ai::Tools::PlatformApiToolRegistry.all_tools.size} actions — the parser or the " \
       "generator's markup changed; every assertion below is unreliable until this matches"
   end
 

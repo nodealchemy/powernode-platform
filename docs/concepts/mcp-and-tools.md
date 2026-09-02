@@ -20,7 +20,7 @@
 
 MCP (Model Context Protocol) is how external AI sessions (Claude Code, custom agents, the chat concierge) reach into Powernode to invoke platform capabilities. The platform exposes its surface as `platform.*` tool actions — every action a session can take, from agent execution to Docker container lifecycle, is a registered tool with a JSON Schema, permission gate, and audit trail.
 
-This document covers the tool registry and the MCP server that fronts it. For the live action catalog (every tool, every parameter, every example), see [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md) — that file is auto-generated from `Ai::Tools::PlatformApiToolRegistry::TOOLS` and is the only source of truth for what's currently registered. Do not inline counts; query the catalog.
+This document covers the tool registry and the MCP server that fronts it. For the live action catalog (every tool, every parameter, every example), see [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md) — that file is auto-generated from `Ai::Tools::PlatformApiToolRegistry.all_tools` (static core `TOOLS` plus any extension-registered tools) and is the only source of truth for what's currently registered. Do not inline counts; query the catalog.
 
 ## `platform.*` tool registry
 
@@ -111,7 +111,7 @@ cd server
 bundle exec rails mcp:generate_tool_catalog
 ```
 
-This rake task introspects `Ai::Tools::PlatformApiToolRegistry::TOOLS`, calls `action_definitions` on each tool class, and writes `docs/reference/auto/mcp-tools.md`. The catalog regenerates automatically on tool-class change and is the only source for action counts and parameter shapes.
+This rake task introspects `Ai::Tools::PlatformApiToolRegistry.all_tools`, calls `action_definitions` on each tool class, and writes `docs/reference/auto/mcp-tools.md`. The catalog regenerates automatically on tool-class change and is the only source for action counts and parameter shapes.
 
 ## Claude Code integration
 
@@ -239,7 +239,7 @@ end
 
 ## Tool catalog
 
-The live tool catalog — every action, parameter, example, and permission — lives at [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md). It is auto-generated from `Ai::Tools::PlatformApiToolRegistry::TOOLS` and regenerates via `cd server && bundle exec rails mcp:generate_tool_catalog`.
+The live tool catalog — every action, parameter, example, and permission — lives at [`reference/auto/mcp-tools.md`](../reference/auto/mcp-tools.md). It is auto-generated from `Ai::Tools::PlatformApiToolRegistry.all_tools` and regenerates via `cd server && bundle exec rails mcp:generate_tool_catalog`.
 
 **Do not inline action counts, tool class counts, or per-domain numbers in concept or guide docs.** Always link to the catalog. Counts drift; the auto-generated reference is the source of truth.
 

@@ -223,19 +223,21 @@ else
 fi
 
 # MCP catalog freshness guard: docs/reference/auto/mcp-tools.md is generated
-# FROM Ai::Tools::PlatformApiToolRegistry::TOOLS action_definitions (rails
+# FROM Ai::Tools::PlatformApiToolRegistry.all_tools action_definitions (rails
 # mcp:generate_tool_catalog). A commit that adds/changes an MCP tool action's
 # params/description without regenerating this doc leaves it silently stale —
 # check-mcp-catalog-fresh.sh regenerates into the real output path and diffs
 # against the committed content (ignoring the timestamp line) to catch drift,
-# then restores the file so this check has no side effects of its own.
+# then restores the file so this check has no side effects of its own. It pins
+# the generation environment to the PUBLIC bundle, because `.all_tools` merges
+# in whatever the loaded extension engines registered — see that script.
 total_checks=$((total_checks + 1))
 echo -n "Checking: MCP tool catalog is up to date (rails mcp:generate_tool_catalog)... "
 if bash scripts/check-mcp-catalog-fresh.sh >/dev/null 2>&1; then
     echo -e "${GREEN}✓ PASS${NC}"
     passed_checks=$((passed_checks + 1))
 else
-    echo -e "${RED}✗ FAIL${NC} (Catalog stale; run: cd server && bundle exec rails mcp:generate_tool_catalog)"
+    echo -e "${RED}✗ FAIL${NC} (Catalog stale; run: cd server && env -u BUNDLE_GEMFILE POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=0 POWERNODE_DEPLOYED=0 bundle exec rails mcp:generate_tool_catalog)"
     failed_checks=$((failed_checks + 1))
 fi
 

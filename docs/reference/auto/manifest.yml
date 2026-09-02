@@ -9,7 +9,10 @@
 - filename: mcp-tools.md
   tracked: true
   generator: bundle exec rails mcp:generate_tool_catalog
-  source: Ai::Tools::PlatformApiToolRegistry::TOOLS (server/app/services/ai/tools/platform_api_tool_registry.rb)
+  source: Ai::Tools::PlatformApiToolRegistry.all_tools (server/app/services/ai/tools/platform_api_tool_registry.rb)
+  # .all_tools is TOOLS.merge(extension_tools), so the rendering depends on which
+  # extension engines are loaded. The TRACKED copy is the PUBLIC-bundle rendering;
+  # scripts/check-mcp-catalog-fresh.sh pins that environment when it regenerates.
   cadence: on-tool-class-change (manual)
 
 - filename: skills.md
