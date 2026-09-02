@@ -435,4 +435,57 @@ RSpec.describe Ai::ConciergeService do
       expect(prompt).to include("campaign_propose")
     end
   end
+
+  # IMP-128fe17fd8c8. The handoff override's "provision" example used to name
+  # `system_provision_docker_runtime` as a literal. That action is core-hosted
+  # but extension-BACKED, so PlatformApiToolRegistry.advertised_action? drops it
+  # from tools/list (and from every other advertisement surface) in core mode —
+  # while the prompt kept steering the model at it. The example is now derived
+  # from the same registry that answers tools/list.
+  describe "delegated_override provisioning example" do
+    def override_content
+      service.send(:delegated_override)[:content]
+    end
+
+    it "names the provisioning actions the registry currently advertises" do
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:available_tools).and_return(
+        { "system_provision_zz_widget" => Ai::Tools::DockerProvisioningTool,
+          "list_agents" => Ai::Tools::DockerProvisioningTool }
+      )
+
+      content = override_content
+      expect(content).to include("system_provision_zz_widget")
+      # Not a name the registry answered with, and not the old literal.
+      expect(content).not_to include("system_provision_docker_runtime")
+      expect(content).not_to include("list_agents")
+    end
+
+    # THE SELECTOR MUST NOT RE-HARDCODE A NAMING CONVENTION. Only three real
+    # registry keys carry the `system_provision_` prefix and all three are
+    # extension-backed, so a prefix-anchored pattern empties out in core mode
+    # while provision_ci_worker and the platform_provisioning_* family are
+    # advertised and runnable there. Both shapes below must be named.
+    it "names provisioning actions that do not carry the system_ prefix" do
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:available_tools).and_return(
+        { "zz_provision_widget_worker" => Ai::Tools::DiskImageOperatorTool,
+          "platform_zz_provisioning_compose_plan" => Ai::Tools::DiskImageOperatorTool,
+          "zz_list_widget_nodes" => Ai::Tools::DiskImageOperatorTool }
+      )
+
+      content = override_content
+      expect(content).to include("zz_provision_widget_worker")
+      expect(content).to include("platform_zz_provisioning_compose_plan")
+      expect(content).not_to include("zz_list_widget_nodes")
+    end
+
+    it "omits the clause entirely when the registry advertises no provisioning action" do
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:available_tools).and_return({})
+
+      content = override_content
+      expect(content).not_to match(/offered on this control plane/)
+      expect(content).not_to include("system_provision_")
+      # The instruction itself survives — only the example list is conditional.
+      expect(content).to include("call the matching")
+    end
+  end
 end

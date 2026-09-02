@@ -29,6 +29,19 @@ module Ai
     # Provider types that support function/tool calling
     TOOL_CAPABLE_PROVIDERS = %w[openai anthropic].freeze
 
+    # Selects the provisioning actions named as examples in #delegated_override
+    # out of the live tool registry. See #advertised_provisioning_actions.
+    #
+    # SUBSTRING, NOT A PREFIX, deliberately. `\Asystem_provision_` matches only
+    # three registry keys (system_provision_instance, system_provision_ci_worker,
+    # system_provision_docker_runtime) and all three are extension-backed, so on
+    # a core-mode control plane — the exact deployment this derivation exists to
+    # be honest about — every match disappears and the clause empties, while
+    # provision_ci_worker and the platform_provisioning_* family ARE advertised
+    # and runnable there. Anchoring on a naming convention that only part of the
+    # registry follows reproduces the hardcoded-name defect one level up.
+    PROVISIONING_ACTION_PATTERN = /provision/
+
     def initialize(conversation:, user:)
       @conversation = conversation
       @agent = conversation.agent
@@ -462,6 +475,38 @@ module Ai
       }
     end
 
+    # REGISTRY-DERIVED, NOT HARDCODED (IMP-128fe17fd8c8). This example used to
+    # name `system_provision_docker_runtime` literally. That action is
+    # core-hosted but extension-BACKED, so in core mode
+    # PlatformApiToolRegistry.advertised_action? drops it from tools/list and
+    # from every other advertisement surface — and the prompt went on steering
+    # the model at it anyway, which is the same "dishonest catalog" failure the
+    # advertisement predicate exists to prevent, arriving through the system
+    # prompt instead of the catalog.
+    #
+    # `agent: nil` is deliberate and is the AVAILABILITY question ("is the
+    # backing extension loaded?"), matching the account-wide advertisement
+    # surfaces: BaseTool.permitted? short-circuits before any permission lookup
+    # when no agent is given, so this neither consults nor leaks @agent's
+    # grants. The names are only examples in a prompt; what the model may
+    # actually run is still gated at invocation.
+    #
+    # Empty is a legitimate answer (no provisioning action available), and it
+    # yields no clause at all rather than an empty list.
+    def advertised_provisioning_actions
+      ::Ai::Tools::PlatformApiToolRegistry.available_tools.keys.grep(PROVISIONING_ACTION_PATTERN).sort
+    rescue StandardError => e
+      Rails.logger.warn "[ConciergeService] Could not resolve provisioning actions: #{e.message}"
+      []
+    end
+
+    def advertised_provisioning_clause
+      actions = advertised_provisioning_actions
+      return "" if actions.empty?
+
+      " (offered on this control plane right now: #{actions.join(', ')})"
+    end
+
     def delegated_override
       {
         role: "system",
@@ -495,9 +540,10 @@ module Ai
             * "How many package repos?" → call system_list_package_repositories
               (or invoke system-list-package-repositories-summary skill), then
               report the actual count. NOT generic CLI advice.
-            * "Provision a Docker runtime" → call request_confirmation with
-              the provision plan, then on confirm call system_provision_docker_runtime.
-              NOT generic "install Docker via apt" instructions.
+            * "Provision a runtime" → call request_confirmation with
+              the provision plan, then on confirm call the matching
+              provisioning action#{advertised_provisioning_clause}.
+              NOT generic "install it via apt" instructions.
             * "How is my fleet?" → call system_list_nodes / system_list_instances,
               report real data. NOT "you should check your dashboard."
 
