@@ -91,7 +91,7 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
 
       tool = json_response["result"]["tools"].first
       expect(tool["title"]).to eq("List Agents")
-      expect(tool["outputSchema"]).to eq({ "type" => "object" })
+      expect(tool["outputSchema"]["type"]).to eq("object")
       expect(tool["annotations"]).to eq({ "readOnlyHint" => true })
     end
 
@@ -100,6 +100,45 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
 
       tool = json_response["result"]["tools"].first
       expect(tool.keys).to contain_exactly("name", "description", "inputSchema")
+    end
+
+    # The manifest the ActionCable catalog publishes has carried the declared
+    # envelope (success / error / data with the pending approval body) since
+    # IMP-e809396f9eda, but tools/list — the only schema a streamable-HTTP
+    # client ever sees, and the transport real agents use — advertised a bare
+    # {"type" => "object"}. A strict client could not learn from the wire that
+    # a success:true response may be a PARKED action with nothing applied.
+    # One source of truth: McpPlatformToolRegistrar.default_output_schema.
+    it "advertises the declared result envelope, not a bare object schema" do
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/list"), headers: modern_headers
+
+      tool = json_response["result"]["tools"].first
+      expect(tool["outputSchema"]).to eq(
+        ::Ai::Tools::McpPlatformToolRegistrar.default_output_schema.deep_stringify_keys
+      )
+      expect(tool["outputSchema"]["properties"]).to include("success", "error", "data")
+      expect(tool["outputSchema"]["properties"]["data"]["properties"]).to include(
+        "pending", "action_category", "deferred_operation_id", "approval_request_id"
+      )
+      expect(tool["outputSchema"]["required"]).to eq(["success"])
+    end
+
+    # Introspection tools (platform.health, platform.metrics, ...) are served by
+    # Ai::Introspection::McpToolRegistrar.execute_tool, which returns the metrics
+    # / health service hash DIRECTLY — no success/error/data envelope. Handing
+    # them the platform envelope would advertise `required: ["success"]` for a
+    # result that never carries `success`, so a strict client would reject every
+    # valid introspection response. They keep the generic object schema.
+    it "does NOT give introspection tools the platform result envelope" do
+      stub_const(
+        "Ai::Introspection::McpToolRegistrar::INTROSPECTION_TOOLS",
+        [{ id: "platform.health", description: "Health", input_schema: { "type" => "object" } }]
+      )
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/list"), headers: modern_headers
+
+      tool = json_response["result"]["tools"].find { |t| t["name"] == "platform.health" }
+      expect(tool["outputSchema"]).to eq({ "type" => "object" })
     end
 
     it "does not mark non-read-only tools with readOnlyHint" do

@@ -62,6 +62,12 @@ module Api
         # whose action name is unambiguously read-only get the hint.
         READ_ONLY_ACTION_PREFIXES = %w[list get search query read describe check discover perceive measure recent].freeze
         READ_ONLY_ACTION_NAMES = %w[health metrics resources scoreboard].freeze
+
+        # Fallback outputSchema for a tools/list family that declares no result
+        # shape of its own — currently the introspection tools. Says only "a
+        # JSON object comes back", which is all handle_tools_call guarantees for
+        # them (it wraps a non-object result as {"result" => ...}).
+        GENERIC_OBJECT_SCHEMA = { "type" => "object" }.freeze
         SSE_KEEPALIVE_INTERVAL = 30 # seconds between SSE pings (keeps connection alive)
         SSE_ACTIVITY_TOUCH_CYCLES = 10 # Touch DB every N keepalive cycles (~5 min) — not every ping
         SSE_CHANNEL_REFRESH_CYCLES = 12 # Re-check workspace channels every N keepalive cycles (~6 min)
@@ -557,17 +563,30 @@ module Api
           # + platform.execute_agent.
           platform_tools = ::Ai::Tools::PlatformApiToolRegistry.tool_definitions.map do |defn|
             decorate_tool_entry(
-              "name" => "platform.#{defn[:name]}",
-              "description" => defn[:description],
-              "inputSchema" => build_input_schema(defn[:parameters])
+              {
+                "name" => "platform.#{defn[:name]}",
+                "description" => defn[:description],
+                "inputSchema" => build_input_schema(defn[:parameters])
+              },
+              output_schema: platform_output_schema
             )
           end
 
           introspection_tools = ::Ai::Introspection::McpToolRegistrar::INTROSPECTION_TOOLS.map do |defn|
             decorate_tool_entry(
-              "name" => defn[:id],
-              "description" => defn[:description],
-              "inputSchema" => defn[:input_schema]
+              {
+                "name" => defn[:id],
+                "description" => defn[:description],
+                "inputSchema" => defn[:input_schema]
+              },
+              # NOT the platform envelope. Ai::Introspection::McpToolRegistrar
+              # .execute_tool returns the metrics/health service hash DIRECTLY
+              # (mcp_tool_registrar.rb #execute_tool `case tool_id`) with no
+              # success/error/data wrapper, so advertising `required:
+              # ["success"]` here would make a strict client reject every valid
+              # introspection result. The generic object schema stays truthful
+              # for these until they declare a shape of their own.
+              output_schema: GENERIC_OBJECT_SCHEMA
             )
           end
 
@@ -683,10 +702,25 @@ module Api
               { type: "text", text: result.to_json }
             ]
           }
-          # Structured tool output (2025-06-18+). The advertised outputSchema is
-          # { "type" => "object" }, so structuredContent must always be a JSON
-          # object — non-object results are wrapped under "result". Never sent
-          # to clients on 2025-03-26 / 2024-11-05, which predate the field.
+          # Structured tool output (2025-06-18+). Never sent to clients on
+          # 2025-03-26 / 2024-11-05, which predate the field.
+          #
+          # Both advertised schemas (#platform_output_schema for the platform
+          # family, GENERIC_OBJECT_SCHEMA for introspection — see
+          # #decorate_tool_entry) say `"type" => "object"` at the top level, so
+          # structuredContent must always be a JSON object; a non-object result
+          # is wrapped under "result" to keep that half of the contract.
+          #
+          # That wrap is a DEFENSIVE arm, not a shape either family produces:
+          # every platform tool answers through Ai::Tools::BaseTool
+          # #success_result / #error_result, which always return a Hash
+          # carrying :success (base_tool.rb), and
+          # Ai::Introspection::McpToolRegistrar#execute_tool returns a service
+          # Hash. Only a stub (structured_tool_output_spec.rb "wraps non-object
+          # results") reaches it. If a future tool ever returns a bare scalar or
+          # array from the platform family, the wrap alone will NOT satisfy the
+          # advertised `required: ["success"]` — give that tool its own declared
+          # schema rather than relying on this arm.
           if protocol_at_least?("2025-06-18")
             response_payload[:structuredContent] = result.is_a?(Hash) ? result : { "result" => result }
           end
@@ -960,7 +994,11 @@ module Api
         # Version-gated tool metadata for tools/list entries. Fields never
         # leak to revisions that predate them: annotations (2025-03-26),
         # title + outputSchema (2025-06-18).
-        def decorate_tool_entry(tool)
+        #
+        # `output_schema` is supplied by the CALLER because the two families in
+        # tools/list return different shapes — see #platform_output_schema and
+        # GENERIC_OBJECT_SCHEMA.
+        def decorate_tool_entry(tool, output_schema:)
           action = tool["name"].to_s.delete_prefix("platform.")
 
           if protocol_at_least?("2025-03-26") && read_only_action?(action)
@@ -969,13 +1007,37 @@ module Api
 
           if protocol_at_least?("2025-06-18")
             tool["title"] = action.split("_").map(&:capitalize).join(" ")
-            # The generic object schema is the truthful contract: every
-            # tools/call result serializes a JSON object into
-            # structuredContent (see handle_tools_call).
-            tool["outputSchema"] = { "type" => "object" }
+            tool["outputSchema"] = output_schema
           end
 
           tool
+        end
+
+        # The DECLARED envelope every Ai::Tools::BaseTool subclass returns, not
+        # a bare {"type" => "object"}. tools/list is the only schema a
+        # streamable-HTTP client ever sees, and this is the transport real
+        # agents use — the bare object schema this replaced left a strict client
+        # unable to learn from the wire that a success:true result may be an
+        # autonomy-gate PARK (`data.pending`) with nothing applied. Read from
+        # the same source as the ActionCable manifest so the two cannot drift
+        # (IMP-b92421fb7c59). Built fresh per entry, like the literal it
+        # replaced: sharing one hash across every entry in a page would make a
+        # mutation of any one of them a mutation of all.
+        #
+        # ACCEPTED PAYLOAD COST, measured 2026-09-02 against the live registry
+        # (612 PlatformApiToolRegistry entries, TOOLS_PAGE_SIZE = 1000, so a
+        # user principal gets them all in ONE body): the outputSchema portion
+        # goes from 612 x 17 B = 10.2 KB to 612 x 1091 B = 652.0 KB, and the
+        # whole tools/list body from 392.1 KB to 1034.0 KB — 2.64x. That is the
+        # price of D14 and it is knowingly paid; the five `description` strings
+        # ARE the schema's reason to exist, so shortening them would defeat it.
+        # Instance and federation principals do not pay it in practice —
+        # Mcp::Principal#filter_tools trims their catalog to the granted
+        # patterns before this reaches the wire. If the user-principal body ever
+        # needs to shrink, hoist the repeated schema behind a JSON-Schema
+        # $defs/$ref rather than trimming what it says.
+        def platform_output_schema
+          ::Ai::Tools::McpPlatformToolRegistrar.default_output_schema
         end
 
         def read_only_action?(action)

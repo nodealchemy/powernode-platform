@@ -331,6 +331,49 @@ module Ai
           tool_instance.execute(params: execution_params)
         end
 
+        # The envelope EVERY platform tool returns (Ai::Tools::BaseTool
+        # #success_result / #error_result), including the third outcome that used
+        # to be undeclared: an approval-gated action that the autonomy gate PARKED
+        # returns success: true with a `data.pending` body and nothing applied
+        # (BaseTool#execute). With only {success, error} advertised, "done" and
+        # "parked, awaiting an operator" were distinguishable to a client solely
+        # by reading a sentence in `data.message` (IMP-e809396f9eda).
+        #
+        # `data` is declared WITHOUT a `type`: tools return objects, arrays and
+        # scalars there, and pinning it to "object" would make a strict client
+        # reject list-returning actions. `properties` and `additionalProperties`
+        # apply only when it IS an object, which is exactly the gated case.
+        #
+        # PUBLIC because it is the ONE source of the advertised envelope for
+        # both surfaces: #build_manifest here (the ActionCable catalog) and
+        # Api::V1::Mcp::StreamableHttpController#decorate_tool_entry, which
+        # used to hard-code a bare {"type" => "object"} on the transport real
+        # agents use (IMP-b92421fb7c59). Rebuilt per call, so a caller that
+        # assigns it into a tool entry gets its own hash.
+        def default_output_schema
+          {
+            "type" => "object",
+            "properties" => {
+              "success" => {
+                "type" => "boolean",
+                "description" => "False on refusal or failure; see `error`."
+              },
+              "error" => {
+                "type" => "string",
+                "description" => "Failure message. Present only when success is false."
+              },
+              "data" => {
+                "description" => "Action payload on success. For an approval-gated action " \
+                                 "parked by the autonomy gate it is the pending envelope below " \
+                                 "and NOTHING has been applied yet.",
+                "additionalProperties" => true,
+                "properties" => ::Ai::Tools::BaseTool::PENDING_RESULT_PROPERTIES.deep_dup
+              }
+            },
+            "required" => ["success"]
+          }
+        end
+
         private
 
         # True when the tool routes on an :action param — one tool class serving
@@ -665,42 +708,6 @@ module Ai
         # (IMP-e809396f9eda).
         def convert_to_json_schema(parameters)
           ::Ai::Tools::ParameterSchema.build(parameters)
-        end
-
-        # The envelope EVERY platform tool returns (Ai::Tools::BaseTool
-        # #success_result / #error_result), including the third outcome that used
-        # to be undeclared: an approval-gated action that the autonomy gate PARKED
-        # returns success: true with a `data.pending` body and nothing applied
-        # (BaseTool#execute). With only {success, error} advertised, "done" and
-        # "parked, awaiting an operator" were distinguishable to a client solely
-        # by reading a sentence in `data.message` (IMP-e809396f9eda).
-        #
-        # `data` is declared WITHOUT a `type`: tools return objects, arrays and
-        # scalars there, and pinning it to "object" would make a strict client
-        # reject list-returning actions. `properties` and `additionalProperties`
-        # apply only when it IS an object, which is exactly the gated case.
-        def default_output_schema
-          {
-            "type" => "object",
-            "properties" => {
-              "success" => {
-                "type" => "boolean",
-                "description" => "False on refusal or failure; see `error`."
-              },
-              "error" => {
-                "type" => "string",
-                "description" => "Failure message. Present only when success is false."
-              },
-              "data" => {
-                "description" => "Action payload on success. For an approval-gated action " \
-                                 "parked by the autonomy gate it is the pending envelope below " \
-                                 "and NOTHING has been applied yet.",
-                "additionalProperties" => true,
-                "properties" => ::Ai::Tools::BaseTool::PENDING_RESULT_PROPERTIES.deep_dup
-              }
-            },
-            "required" => ["success"]
-          }
         end
 
         # THE RESOLUTION SET, deliberately UNFILTERED (IMP-5039d026da0d).
