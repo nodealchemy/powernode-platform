@@ -647,6 +647,46 @@ else
     security_critical_failed_checks+=("Core source adds no NEW public-extension reference (core-purity mirror)")
 fi
 
+# core-purity gate (#9), EXTENSION-to-EXTENSION half. The two checks above cover only
+# CORE source, and the blocking hook used to exit early on ANY path under extensions/ —
+# under a comment ("a file inside an extension may reference its own namespace") that
+# stated a narrower rule than the code implemented. So nothing ever had an opinion on one
+# extension naming ANOTHER, including a PUBLIC MIT extension naming a PRIVATE one that is
+# absent from public clones. Same rule, same baseline ledger, same sanctioned forms —
+# see scripts/checks/extension-cross-reference-check.sh for the full contract and its
+# honest limits. Core mode (no extensions checked out) is a no-op PASS.
+total_checks=$((total_checks + 1))
+echo -n "Checking: Extension source references no OTHER extension (core-purity mirror)... "
+# FAIL CLOSED. A security-critical gate must not turn "the check script is gone,
+# renamed, or errored" into "0 hits" — that reads as a green gate for a tree nobody
+# checked. So: absence is its own FAIL, and a non-numeric result (a stderr leak, an
+# empty result, a crash) is a FAIL too, not a silent 0.
+if [ ! -r scripts/checks/extension-cross-reference-check.sh ]; then
+    echo -e "${RED}✗ FAIL${NC} (core-purity mirror script MISSING: scripts/checks/extension-cross-reference-check.sh)"
+    failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("Extension source references no OTHER extension (core-purity mirror)")
+else
+xext_hits=$(bash scripts/checks/extension-cross-reference-check.sh 2>/dev/null || true)
+case "$xext_hits" in
+    ''|*[!0-9]*)
+        echo -e "${RED}✗ FAIL${NC} (core-purity mirror script MISSING a usable result: produced '"'"'$xext_hits'"'"')"
+        failed_checks=$((failed_checks + 1))
+        security_critical_failed_checks+=("Extension source references no OTHER extension (core-purity mirror)")
+        xext_hits=""
+        ;;
+esac
+if [ -z "$xext_hits" ]; then
+    : # already reported above
+elif [ "$xext_hits" -eq 0 ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Found $xext_hits extension file(s) naming ANOTHER extension: $(bash scripts/checks/extension-cross-reference-check.sh --list 2>/dev/null | tr '\n' ' '))"
+    failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("Extension source references no OTHER extension (core-purity mirror)")
+fi
+fi
+
 echo ""
 echo -e "${BLUE}## Migration Version Uniqueness${NC}"
 # Duplicate-migration-version guard: schema_migrations is keyed by VERSION, so if two
