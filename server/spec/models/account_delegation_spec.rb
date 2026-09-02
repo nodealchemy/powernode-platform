@@ -4,7 +4,14 @@ require 'rails_helper'
 
 RSpec.describe Account::Delegation, type: :model do
   let(:account) { create(:account) }
-  let(:delegator) { create(:user, account: account) }
+  # THE DELEGATOR MUST HOLD WHAT THE DELEGATION'S ROLE GRANTS. A role-backed
+  # delegation resolves to the role's live set BOUNDED BY the delegator's own
+  # (Account::Delegation#role_backed_permissions, IMP-1635cb7fa768) — which is
+  # exactly what Role#assignable_by? already guarantees at mint time, so this
+  # makes the fixture match a delegation the service would actually create. A
+  # delegator holding none of these would resolve every role-backed example
+  # below to [] and test nothing.
+  let(:delegator) { create(:user, account: account, permissions: ROLE_PERMISSION_NAMES) }
   let(:delegated_user) { create(:user, account: account) }
   # Permissions are code-defined; grant real catalog permissions BY NAME.
   ROLE_PERMISSION_NAMES = %w[users.create analytics.read accounts.manage].freeze
@@ -409,11 +416,12 @@ RSpec.describe Account::Delegation, type: :model do
         expect(delegation.reload.configured_permissions).to eq([ role_permission_name ])
       end
 
-      # THE WIDENING TRAP. The fallback to the role's full set must key on the
-      # RAW custom set being empty, never on the FILTERED set — otherwise a
-      # delegation whose every custom name went stale would be promoted to its
-      # whole role, turning this guard into the escalation it exists to close.
-      it 'resolves to nothing rather than the whole role when every custom name is stale' do
+      # THE WIDENING TRAP. The fallback to the role (#role_backed_permissions)
+      # must key on the RAW custom set being empty, never on the FILTERED set —
+      # otherwise a delegation whose every custom name went stale would be
+      # promoted to its role's set, turning this guard into the escalation it
+      # exists to close.
+      it 'resolves to nothing rather than the role set when every custom name is stale' do
         stale_row_on(delegation)
 
         expect(delegation.permission_names).to eq([ withdrawn_name ])

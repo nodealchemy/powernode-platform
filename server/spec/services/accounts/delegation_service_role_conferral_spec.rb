@@ -294,8 +294,9 @@ RSpec.describe Accounts::DelegationService, type: :service do
   # `create`, so any record that failed to persist was reported as a success.
   # The return value is load-bearing: update_delegation's rewrite loop rolls the
   # whole transaction back on a false, and a silent success there leaves the
-  # custom set EMPTY — which falls back to the role's full set, the exact
-  # promotion 9f56d08b6 exists to prevent.
+  # custom set EMPTY — which falls back to the role
+  # (Account::Delegation#role_backed_permissions), the exact promotion
+  # 9f56d08b6 exists to prevent.
   describe 'Account::Delegation#assign_permission return contract' do
     let(:role_less_delegation) do
       create(:account_delegation, :active, account: account, delegated_by: delegator,

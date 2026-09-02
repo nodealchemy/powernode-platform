@@ -575,9 +575,10 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
     # ADDS. Two paths are not additions and were therefore left uncovered:
     #
     #   1. REMOVAL. Account::Delegation#effective_permissions falls back to the
-    #      ROLE's full set whenever the custom set is empty, so emptying the
-    #      custom set PROMOTES the delegation. A call named "remove" can raise
-    #      effective authority.
+    #      ROLE whenever the custom set is empty (to #role_backed_permissions —
+    #      the role's grants bounded by the delegator since IMP-1635cb7fa768),
+    #      so emptying the custom set PROMOTES the delegation off its pin. A
+    #      call named "remove" can raise effective authority.
     #   2. ACTIVATION. activate_delegation re-validated nothing, so a row
     #      carrying authority its activator could not confer was honoured
     #      verbatim the moment it went active.

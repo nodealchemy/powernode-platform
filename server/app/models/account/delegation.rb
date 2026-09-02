@@ -110,7 +110,9 @@ class Account::Delegation < ApplicationRecord
     #     the set WOULD become; the answer must not depend on status.
     #
     # Note this is the seat of the removal hazard: an empty custom set falls back
-    # to the ROLE's full set, so emptying the custom set WIDENS the delegation.
+    # to the role (#role_backed_permissions — the role's live grants bounded by
+    # the delegator since IMP-1635cb7fa768, which at mint IS the whole role), so
+    # emptying the custom set WIDENS the delegation.
     # The fallback stays — a role-only delegation (which create_delegation
     # explicitly permits) carries nothing without it — and the write path guards
     # the transition instead.
@@ -167,19 +169,81 @@ class Account::Delegation < ApplicationRecord
     # does carry delegations, an operator must still rewrite such a set through
     # DelegationService#update_delegation — removing the LAST stale name one at
     # a time is refused by #widening_from_removal, because emptying the custom
-    # set falls back to the whole role.
+    # set falls back to the role (#role_backed_permissions).
     def configured_permissions_for(custom)
       custom = Array(custom)
       # Keyed on the RAW set being empty, never on the FILTERED result: a
       # delegation whose every custom name went stale must resolve to NOTHING,
-      # not be promoted to its whole role. Falling back on the filtered set
+      # not be promoted to its role's set. Falling back on the filtered set
       # would turn this guard into the widening it exists to close.
-      return role&.permission_names || [] if custom.empty?
+      return role_backed_permissions if custom.empty?
       return custom if role.blank?
       return custom if role.has_permission?("system.admin")
 
       granted = role.permission_names.to_set
       custom.select { |name| granted.include?(name) }
+    end
+
+    # THE ROLE-BACKED SET: the role's live grants, bounded by what the DELEGATOR
+    # actually holds (IMP-1635cb7fa768 item 2).
+    #
+    # A delegation with an empty custom set resolves through the role, so the
+    # role IS its authority — and conferring that role was authorised exactly
+    # once, at mint time, against the delegator's own permissions
+    # (Role#assignable_by?). Nothing re-asked the question when the role changed
+    # underneath: Api::V1::RolesController#update gates on the EDITOR's grantable
+    # set and knows nothing about outstanding delegations, so a SECOND admin
+    # widening a role retroactively grew every delegation minted against it.
+    # Authentication#has_permission? resolves a delegated session straight from
+    # #effective_permissions ahead of any role lookup, so the widened set was
+    # live authority the delegator never held and could not have conferred.
+    #
+    # THIS IS THE PROPAGATION ANSWER, NOT A GATING ONE. Tightening
+    # RolesController#update would only narrow who can trigger it; the bound
+    # belongs where the delegation RESOLVES, for the same reason the explicit
+    # set's bound does (see #configured_permissions_for): a write-site hook is
+    # bypassed by Role.sync_from_config! at seed time and by any raw-SQL grant
+    # change, neither of which fires an ActiveRecord callback.
+    #
+    # NOT A MINT-TIME SNAPSHOT, which is the other way this question could have
+    # been answered. Freezing the set would reintroduce IMP-7964b5d261b4: the
+    # live read is the only reason a role-side REVOKE reaches a delegation-borne
+    # grant at all. Intersecting keeps narrowing live and stops only the
+    # widening. At mint the intersection is the whole role — #assignable_by?
+    # guarantees the subset — so nothing legitimately conferred changes.
+    #
+    # Fails CLOSED with no delegator: an authority with no source bounds nothing.
+    # system.admin short-circuits for the reason spelled out above — its
+    # #permission_names is the running process's catalog, not its true set.
+    #
+    # COST, since this adds a USER resolution to a path that previously touched
+    # only roles: User#permission_names is Rails.cache-backed, but its key calls
+    # #role_cache_key, which is deliberately `self.class.uncached` and NOT
+    # memoized (it must observe another process's narrowing), so every call
+    # issues a `roles.order(:id).pluck`. Memoized per delegation instance below
+    # so a row resolved more than once in a request pays it once. It is still
+    # once per ROW in DelegationsController#index — `includes(:delegated_by)`
+    # cannot help, because #role_cache_key spawns a fresh unloaded relation on
+    # purpose. Hoist a delegator_id -> set map into the serializer if that index
+    # ever grows hot.
+    def role_backed_permissions
+      return [] if role.blank?
+
+      names = role.permission_names
+      delegator = delegated_by
+      return [] if delegator.nil?
+      return names if delegator.has_permission?("system.admin")
+
+      held = delegator_permission_set
+      names.select { |name| held.include?(name) }
+    end
+
+    # The delegator's own grants, resolved once per delegation instance. Scoped
+    # to the instance rather than the class: it is a snapshot of another user's
+    # live authority, and holding it beyond one request would be exactly the
+    # staleness User#role_cache_key refuses to introduce.
+    def delegator_permission_set
+      @delegator_permission_set ||= delegated_by.permission_names.to_set
     end
 
     # Stored custom names this delegation NO LONGER CONFERS: the
@@ -207,8 +271,8 @@ class Account::Delegation < ApplicationRecord
     # way to see which stored names need rewriting. Clearing them one at a time
     # only goes so far: DelegationService#remove_permission_from_delegation
     # refuses the removal that would EMPTY the custom set (an empty set falls
-    # back to the whole role, so that removal WIDENS), and refuses any name that
-    # has left the code-defined catalog altogether
+    # back to #role_backed_permissions, so that removal WIDENS), and refuses any
+    # name that has left the code-defined catalog altogether
     # (`Permissions.permission_exists?`). A wholly-stale set is therefore
     # rewritten through #update_delegation.
     #
@@ -216,8 +280,10 @@ class Account::Delegation < ApplicationRecord
     # the display cannot drift from the resolver — which is the exact split this
     # method was added to close. `resolved` is an optimisation seam for a caller
     # that has ALREADY resolved THIS delegation (each resolution costs two role
-    # queries and nothing memoizes them, and the API serializer renders both
-    # sets in one payload); every other caller passes nothing.
+    # queries that nothing memoizes, plus — on a role-backed row — the
+    # delegator's own permission resolution, which #role_backed_permissions
+    # memoizes per instance; the API serializer renders both sets in one
+    # payload); every other caller passes nothing.
     def stale_permission_names(resolved = configured_permissions)
       permission_names - resolved
     end
@@ -279,8 +345,8 @@ class Account::Delegation < ApplicationRecord
       # Accounts::DelegationService#update_delegation rewrites the custom set as
       # destroy_all + assign_permission and rolls the whole transaction back on a
       # false. A silent success there would leave the custom set EMPTY, which
-      # falls back to the ROLE's full set — the exact promotion that guard exists
-      # to prevent, audit-logged as a success.
+      # falls back to #role_backed_permissions — the exact promotion that guard
+      # exists to prevent, audit-logged as a success.
       #
       # #persisted? rather than create!: it answers both failure modes with one
       # expression, where create! raises RecordInvalid for the first and

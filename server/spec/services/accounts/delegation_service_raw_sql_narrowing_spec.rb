@@ -66,8 +66,10 @@ RSpec.describe 'role conferral against a raw-SQL permission narrowing', type: :s
   end
 
   # POSITIVE CONTROLS. Without these every refusal below could pass for the wrong
-  # reason — an actor with no permissions at all refuses everything, and an
-  # admin-tier actor bypasses the subset check entirely.
+  # reason — an actor with no permissions at all refuses everything, and a
+  # system.admin actor short-circuits the subset check entirely (admin.access no
+  # longer does: IMP-1635cb7fa768 removed that exemption, and the assertions
+  # below keep pinning both).
   describe 'premises' do
     it 'the delegator really holds the permission and is not admin-tier' do
       expect(delegator.has_permission?(held_permission)).to be(true),

@@ -100,9 +100,10 @@ module Accounts
         # its custom permission set must commit together, and every
         # #assign_permission return value must be checked: a delegation saved
         # ACTIVE with a role whose custom set then failed to populate is a
-        # delegation with an EMPTY custom set, which falls back to the ROLE's
-        # FULL permission set (Account::Delegation#configured_permissions_for) —
-        # a narrowed grant silently promoted to the whole role, audit-logged as a
+        # delegation with an EMPTY custom set, which falls back to the ROLE
+        # (Account::Delegation#role_backed_permissions — the role's live grants
+        # bounded by the delegator since IMP-1635cb7fa768, which at mint IS the
+        # whole role) — a narrowed grant silently promoted, audit-logged as a
         # success. Reachable only through a duplicate name or a concurrent role
         # change today, since every name is pre-validated above; the point is
         # that the guarantee should not rest on that.
@@ -161,8 +162,8 @@ module Accounts
 
           # A ROLE CHANGE IS AN AUTHORITY TRANSFER, and on a role-only row it is
           # the WHOLE of the delegation's authority: an empty custom set falls
-          # back to the role's full permission set
-          # (Account::Delegation#configured_permissions_for). Bounding the
+          # back to the role (Account::Delegation#role_backed_permissions, the
+          # role's grants bounded by the delegator). Bounding the
           # explicit set by the live role (IMP-7964b5d261b4) does not reach this
           # — that guard can only ever SUBTRACT from a non-empty custom set,
           # while this path replaces the fallback wholesale.
@@ -227,10 +228,10 @@ module Accounts
             # only against `revoked?` — so on an inactive or expired row every
             # assignment silently no-ops, the destroy_all above stands alone, and
             # the delegation is left with an EMPTY custom set. An empty custom
-            # set falls back to the ROLE's full set, which is precisely the
-            # promotion remove_permission_from_delegation refuses: "narrow this
-            # delegation to [X]" became "promote it to its whole role", audit-
-            # logged as a success. Fail the whole transaction instead, so the
+            # set falls back to the ROLE (#role_backed_permissions), which is
+            # precisely the promotion remove_permission_from_delegation refuses:
+            # "narrow this delegation to [X]" became "promote it to its role",
+            # audit-logged as a success. Fail the whole transaction instead, so the
             # previous set survives intact.
             specific_permissions.each do |permission_name|
               next if delegation.assign_permission(permission_name)
@@ -413,9 +414,10 @@ module Accounts
         end
 
         # A REMOVAL MUST NOT WIDEN. Account::Delegation#configured_permissions
-        # falls back to the role's full set when the custom set is empty, so
-        # dropping the last custom name PROMOTES the delegation to everything the
-        # role grants — a call named "remove" raising effective authority. See
+        # falls back to the role (#role_backed_permissions) when the custom set
+        # is empty, so dropping the last custom name PROMOTES the delegation to
+        # what the role grants — a call named "remove" raising effective
+        # authority. See
         # the fork this settles in #widening_from_removal.
         widened = widening_from_removal(delegation, permission_name)
         if widened.any?
@@ -509,8 +511,9 @@ module Accounts
 
     # Names the delegation would GAIN if `permission_name` were removed.
     #
-    # THE DESIGN FORK THIS SETTLES. An empty custom set currently promotes the
-    # delegation to the role's full set, so "remove" can widen. Two readings were
+    # THE DESIGN FORK THIS SETTLES. An empty custom set promotes the delegation
+    # to its role's set (bounded by the delegator since IMP-1635cb7fa768, but
+    # still a promotion off the pin), so "remove" can widen. Two readings were
     # on the table:
     #
     #   (a) an empty custom set means the delegation carries nothing beyond what
@@ -538,9 +541,27 @@ module Accounts
     # empty", and the hypothetical set is resolved THROUGH the model's own
     # fallback rule (#configured_permissions_for) rather than restated here, so
     # a future change to that rule cannot leave this guard testing the old one.
+    # THE PROMOTION SURFACE IS THE ROLE'S WHOLE GRANT SET, not the part that
+    # resolves today (IMP-1635cb7fa768). Emptying the custom set converts a
+    # PINNED delegation into one that TRACKS its role, and since that item the
+    # role fallback is bounded by what the delegator holds
+    # (Account::Delegation#role_backed_permissions). That bound is LIVE: a name
+    # it filters out now surfaces the moment the delegator's own authority grows.
+    # Comparing against the bounded set alone would therefore let a removal
+    # surrender the pin whenever the role's extra grants happen to sit outside
+    # the delegator today — a widening deferred, not avoided. So the conversion
+    # is weighed against everything it exposes.
+    #
+    # Only on a genuine pin -> role-tracking conversion: a delegation whose
+    # custom set is ALREADY empty is already tracking, so removing a name it
+    # does not carry stays the no-op it always was.
     def widening_from_removal(delegation, permission_name)
+      current = delegation.permission_names
+      remaining = current - [ permission_name ]
+
       before = delegation.configured_permissions
-      after = delegation.configured_permissions_for(delegation.permission_names - [ permission_name ])
+      after = delegation.configured_permissions_for(remaining)
+      after |= delegation.role.permission_names if current.any? && remaining.empty? && delegation.role.present?
 
       after - before
     end
@@ -586,8 +607,10 @@ module Accounts
     # Re-vetting here would strand the first to no benefit against the second.
     #
     # THE LINE THIS DEPENDS ON is the fallback KEY in #configured_permissions_for
-    # — `return role&.permission_names || [] if custom.empty?`, i.e. only an
-    # EMPTY custom set resolves from the role. NOT the role filter added by
+    # — `return role_backed_permissions if custom.empty?`, i.e. only an EMPTY
+    # custom set resolves from the role (and since IMP-1635cb7fa768 that
+    # fallback is itself bounded by the delegator, which only subtracts
+    # further). NOT the role filter added by
     # IMP-7964b5d261b4: that filter can only subtract, and deleting it returns
     # `custom` verbatim (which is literally what the method did before that
     # commit), so it is not what stands between this branch and an escalation.
