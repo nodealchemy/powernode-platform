@@ -299,8 +299,13 @@ class Api::V1::DelegationsController < ApplicationController
       # CONFIGURED, NOT EFFECTIVE — and both bases appear in this payload on
       # purpose. `permissions` is status-INDEPENDENT: a revoked, inactive or
       # expired delegation still reports what its configuration resolves to, and
-      # a row with no custom permissions therefore reports its ROLE's whole set,
-      # because that is what an empty custom set resolves to. `permissions_summary`
+      # a row with no custom permissions therefore reports what its ROLE resolves
+      # to for its DELEGATOR — the role's live grants intersected with what
+      # `delegated_by` holds, which is what an empty custom set resolves to since
+      # IMP-1635cb7fa768 (Account::Delegation#role_backed_permissions). At mint
+      # that intersection IS the whole role, so the payload only narrows for a
+      # row whose role was widened, or whose delegator was cut back, afterwards.
+      # `permissions_summary`
       # below is built from #effective_permissions and is EMPTY unless the
       # delegation is active, so on a non-active row the two disagree by design;
       # `status` and `is_active` in this same payload say which case a reader is
@@ -310,7 +315,8 @@ class Api::V1::DelegationsController < ApplicationController
       # silently discarding them: they are what an operator rewrites through
       # PATCH /delegations/:id after a role change. Clearing them one at a time
       # only goes so far — DelegationService refuses the removal that would
-      # EMPTY the custom set, since an empty set falls back to the whole role.
+      # EMPTY the custom set, since an empty set falls back to the role (bounded
+      # by the delegator, but still wider than the pin the removal surrenders).
       permissions: configured.map { |name| permission_json(name) },
       stale_permission_names: delegation.stale_permission_names(configured),
       permission_source: delegation.permission_source,
