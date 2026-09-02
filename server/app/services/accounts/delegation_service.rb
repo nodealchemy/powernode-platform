@@ -342,13 +342,6 @@ module Accounts
           .order(:name)
     end
 
-    def list_available_roles_for_delegation
-      # Roles that can be delegated (exclude Owner role)
-      Role.where.not(name: "Owner")
-          .where(system_role: true)
-          .order(:name)
-    end
-
     def list_available_permissions_for_delegation(role_id: nil)
       # Only ever offer what the delegator could actually grant — the picker must
       # not present permissions the create/update guards will then refuse.
