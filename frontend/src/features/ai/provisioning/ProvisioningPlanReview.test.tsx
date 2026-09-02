@@ -106,6 +106,66 @@ describe('ProvisioningPlanReview', () => {
     expect(screen.queryByTestId('provisioning-plan-review')).not.toBeInTheDocument();
   });
 
+  // IMP-842b56d3a5d4 — a step parked on an approval carries the server's
+  // `awaiting_approval` status (Ai::GoalPlanStep::STATUSES). PlanStepStatus
+  // did not model it, so it fell through stepIcon's `default` and rendered
+  // as the pending circle — indistinguishable from "not started yet".
+  it('renders a parked step with its own awaiting-approval icon', () => {
+    const plan = buildPlan({
+      dag: {
+        nodes: [
+          { id: 's1', name: 'Provision compute', skill: 'compute_provision', status: 'awaiting_approval' }
+        ],
+        edges: []
+      }
+    });
+
+    render(
+      <ProvisioningPlanReview
+        isOpen
+        missionId="m-1"
+        plan={plan}
+        onApprove={onApprove}
+        onReject={onReject}
+        onModify={onModify}
+        onClose={onClose}
+      />
+    );
+
+    expect(screen.getByLabelText('awaiting approval')).toBeInTheDocument();
+  });
+
+  // REVIEW FINDING (IMP-842b56d3a5d4) — the snapshot serves the RAW step
+  // column (plan_snapshot_service.rb:200) and Ai::GoalPlanStep::STATUSES names
+  // the in-flight state `executing`, not `running`. PlanStepStatus modelled
+  // only `running`, so an in-flight step hit stepIcon's `default` and rendered
+  // the pending circle — the identical defect one case-arm away.
+  it('renders an executing step as in-flight, not pending', () => {
+    const plan = buildPlan({
+      dag: {
+        nodes: [
+          { id: 's1', name: 'Provision compute', skill: 'compute_provision', status: 'executing' }
+        ],
+        edges: []
+      }
+    });
+
+    render(
+      <ProvisioningPlanReview
+        isOpen
+        missionId="m-1"
+        plan={plan}
+        onApprove={onApprove}
+        onReject={onReject}
+        onModify={onModify}
+        onClose={onClose}
+      />
+    );
+
+    expect(screen.getByLabelText('running')).toBeInTheDocument();
+    expect(screen.queryByLabelText('pending')).not.toBeInTheDocument();
+  });
+
   it('renders one entry per DAG step with status icons + per-step Edit', () => {
     render(
       <ProvisioningPlanReview

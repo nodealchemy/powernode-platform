@@ -1,9 +1,49 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Loader2, CheckCircle, XCircle, Repeat, Circle, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  Loader2,
+  CheckCircle,
+  XCircle,
+  Repeat,
+  AlertTriangle,
+  Circle,
+  PauseCircle,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { logger } from '@/shared/utils/logger';
 
-export type ProvisioningStepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'rolled_back';
+/**
+ * Every status SkillCompositionRunner announces on `provisioning_step_changed`
+ * (#announce_step → OrchestratorService#broadcast_step_event!, which passes the
+ * value through verbatim), plus the two client-side values a plan snapshot can
+ * seed a row with.
+ *
+ * Broadcast by the runner: `completed`, `failed`, `rolled_back`,
+ * `rollback_failed`, `awaiting_approval`.
+ * Client-side only: `pending` (nothing dispatched yet) and `running` (the
+ * legacy alias for the server's `executing`, which a plan snapshot serves raw).
+ *
+ * `awaiting_approval` is Ai::GoalPlanStep::STATUSES /
+ * SkillCompositionRunner::PARKED_STATUS — the step's skill executor hit the
+ * autonomy gate, an approval was parked, and NOTHING was applied. It is not
+ * pending (the step has been dispatched) and not terminal.
+ *
+ * `rollback_failed` is the compensating rollback ITSELF failing
+ * (skill_composition_runner.rb:587, :599) — a leaked, un-compensated resource.
+ * Any value missing from this union falls through StatusIcon's `default` and
+ * renders as the pending circle, which reads as "not started yet": the worst
+ * possible rendering for both of those states.
+ */
+export type ProvisioningStepStatus =
+  | 'pending'
+  | 'running'
+  | 'executing'
+  | 'completed'
+  | 'failed'
+  | 'rolled_back'
+  | 'rollback_failed'
+  | 'awaiting_approval';
 
 export interface PlanStep {
   id: string;
@@ -45,15 +85,21 @@ interface MissionPhaseEvent {
 const STATUS_ICON_CLS: Record<ProvisioningStepStatus, string> = {
   pending: 'text-theme-secondary',
   running: 'text-theme-info-fg animate-spin',
+  executing: 'text-theme-info-fg animate-spin',
   completed: 'text-theme-success-fg',
   failed: 'text-theme-danger-fg',
   rolled_back: 'text-theme-warning-fg',
+  rollback_failed: 'text-theme-danger-fg',
+  awaiting_approval: 'text-theme-warning-fg',
 };
 
 function StatusIcon({ status }: { status: ProvisioningStepStatus }) {
   const cls = `h-4 w-4 ${STATUS_ICON_CLS[status]}`;
   switch (status) {
+    // `executing` is the server's own in-flight value (Ai::GoalPlanStep::STATUSES);
+    // `running` is the client-side alias. Both are the same spinner.
     case 'running':
+    case 'executing':
       return <Loader2 className={cls} aria-label="Running" data-testid="step-icon-running" />;
     case 'completed':
       return <CheckCircle className={cls} aria-label="Completed" data-testid="step-icon-completed" />;
@@ -61,6 +107,24 @@ function StatusIcon({ status }: { status: ProvisioningStepStatus }) {
       return <XCircle className={cls} aria-label="Failed" data-testid="step-icon-failed" />;
     case 'rolled_back':
       return <Repeat className={cls} aria-label="Rolled back" data-testid="step-icon-rolled_back" />;
+    // The rollback itself failed: the resource is LEAKED and uncompensated.
+    // Rendering this as the pending circle was the worst of the fall-throughs.
+    case 'rollback_failed':
+      return (
+        <AlertTriangle
+          className={cls}
+          aria-label="Rollback failed"
+          data-testid="step-icon-rollback_failed"
+        />
+      );
+    case 'awaiting_approval':
+      return (
+        <PauseCircle
+          className={cls}
+          aria-label="Awaiting approval"
+          data-testid="step-icon-awaiting_approval"
+        />
+      );
     case 'pending':
     default:
       return <Circle className={cls} aria-label="Pending" data-testid="step-icon-pending" />;
@@ -231,7 +295,7 @@ export const StepProgressStream: React.FC<StepProgressStreamProps> = ({
             outputs: step.outputs,
             updatedAt: new Date().toISOString(),
           };
-          const isFailed = state.status === 'failed';
+          const isFailed = state.status === 'failed' || state.status === 'rollback_failed';
           const isRolled = state.status === 'rolled_back';
           const isExpandable = !!state.error || (state.outputs && Object.keys(state.outputs).length > 0);
           const isExpanded = !!expanded[step.id];
