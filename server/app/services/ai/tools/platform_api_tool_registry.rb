@@ -182,6 +182,11 @@ module Ai
         "system_attach_volume" => "Ai::Tools::SystemFleetTool",
         "system_detach_volume" => "Ai::Tools::SystemFleetTool",
         "system_test_nfs_export" => "Ai::Tools::SystemFleetTool",
+        # Volume snapshots / restore (APO-5 / DR-2) — project data protection
+        "system_snapshot_volume" => "Ai::Tools::SystemFleetTool",
+        "system_list_volume_snapshots" => "Ai::Tools::SystemFleetTool",
+        "system_delete_volume_snapshot" => "Ai::Tools::SystemFleetTool",
+        "system_restore_volume_snapshot" => "Ai::Tools::SystemFleetTool",
         "system_get_storage_recommendations" => "Ai::Tools::SystemFleetTool",
         "system_update_storage_recommendations" => "Ai::Tools::SystemFleetTool",
         "system_migrate_storage_component" => "Ai::Tools::SystemFleetTool",
