@@ -60,7 +60,16 @@ export interface Delegation {
   delegated_user: DelegatedUser;
   delegated_by: DelegatedUser;
   role: Role | null;
+  // The RESOLVED permission set this delegation confers: the API bounds the stored
+  // custom rows by what the role grants LIVE, so this is NOT a count of stored rows.
   permissions?: Permission[];
+  // Stored permission names that no longer resolve (the role stopped granting them, or
+  // the delegation was moved to another role without a permission rewrite). They confer
+  // nothing but stay on the row, so the UI must show them. Clearing one means rewriting
+  // the stored permission set through the API (`updateDelegation` /
+  // `addPermissionToDelegation` / `removePermissionFromDelegation` below) — as of this
+  // change no component calls any of those three, so there is no in-UI editor for it.
+  stale_permission_names?: string[];
   status: string;
   expires_at: string | null;
   revoked_at: string | null;

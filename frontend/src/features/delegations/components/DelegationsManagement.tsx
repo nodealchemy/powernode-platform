@@ -255,14 +255,48 @@ export const DelegationsManagement: React.FC = () => {
                         <span className="text-theme-tertiary">
                           {delegation.users?.length || 0} user{(delegation.users?.length || 0) !== 1 ? 's' : ''}
                         </span>
-                        <span className="text-theme-tertiary">
-                          {delegation.permissions?.length || 0} permission{(delegation.permissions?.length || 0) !== 1 ? 's' : ''}
+                        <span
+                          className="text-theme-tertiary"
+                          title="Permissions this delegation currently confers. The API resolves the stored permission rows against the role LIVE, so this is the resolved set, not a count of stored rows."
+                        >
+                          {delegation.permissions?.length || 0} resolved permission{(delegation.permissions?.length || 0) !== 1 ? 's' : ''}
                         </span>
                       </div>
                       <span className="text-theme-link hover:text-theme-link-hover">
                         Manage →
                       </span>
                     </div>
+                    {(delegation.stale_permission_names?.length || 0) > 0 && (
+                      <div className="mt-2 pt-2 border-t border-theme">
+                        <p className="text-xs text-theme-warning-fg">
+                          {delegation.stale_permission_names?.length} stored permission
+                          {(delegation.stale_permission_names?.length || 0) !== 1 ? 's are' : ' is'} no longer
+                          granted by this delegation&apos;s role and confer
+                          {(delegation.stale_permission_names?.length || 0) !== 1 ? ' ' : 's '}nothing.
+                        </p>
+                        {/* Deliberately does NOT tell the operator to "rewrite the permission
+                            set" here: no component calls updateDelegation /
+                            addPermissionToDelegation / removePermissionFromDelegation, so that
+                            affordance does not exist in this UI. The card also renders on the
+                            incoming tab, where the viewer is the grantee and could not edit the
+                            grantor's delegation under any API. */}
+                        <p className="mt-1 text-xs text-theme-tertiary">
+                          Clearing {(delegation.stale_permission_names?.length || 0) !== 1 ? 'them' : 'it'} means
+                          rewriting the stored permission set through the delegations API; this UI has
+                          no permission-set editor yet.
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {(delegation.stale_permission_names || []).map((name) => (
+                            <span
+                              key={name}
+                              className="text-xs px-2 py-0.5 rounded-full bg-theme-warning-bg text-theme-warning-fg"
+                            >
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {delegation.expiresAt && (
                       <div className="mt-2 pt-2 border-t border-theme">
                         <span className="text-xs text-theme-tertiary">

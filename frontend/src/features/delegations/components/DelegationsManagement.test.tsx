@@ -75,7 +75,11 @@ describe('DelegationsManagement', () => {
       sourceAccountId: 'current',
       targetAccountId: 'other-1',
       users: ['user-1', 'user-2'],
+      // `permissions` is the RESOLVED set the API serializes (what the delegation
+      // actually confers); `stale_permission_names` are stored rows the role no
+      // longer grants and that therefore resolve to nothing.
       permissions: ['business.billing.read', 'business.billing.manage'],
+      stale_permission_names: ['business.billing.export'],
       expiresAt: '2025-12-31T00:00:00Z',
       updatedAt: '2025-01-15T00:00:00Z'
     },
@@ -243,12 +247,85 @@ describe('DelegationsManagement', () => {
       });
     });
 
-    it('shows permission count', async () => {
+    it('labels the permission count as the RESOLVED set, not the stored rows', async () => {
       render(<DelegationsManagement />);
 
       await waitFor(() => {
-        expect(screen.getByText('2 permissions')).toBeInTheDocument();
+        expect(screen.getByText('2 resolved permissions')).toBeInTheDocument();
       });
+    });
+
+    it('surfaces stale stored permission names so they can be rewritten', async () => {
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        // Scoped to the notice paragraph: a bare regex also matches every ancestor
+        // whose textContent contains it, which makes the query ambiguous.
+        expect(screen.getByText(/1 stored permission is no longer granted/i, { selector: 'p' })).toBeInTheDocument();
+      });
+      expect(screen.getByText('business.billing.export')).toBeInTheDocument();
+    });
+
+    it('states that clearing a stale name needs the API, since this UI has no editor', async () => {
+      // Pins the copy against naming an affordance that does not exist: nothing in
+      // the frontend calls updateDelegation / add|removePermissionToDelegation.
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Clearing it means rewriting the stored permission set through the delegations API/i, { selector: 'p' })
+        ).toBeInTheDocument();
+      });
+      expect(screen.getByText(/no permission-set editor yet/i, { selector: 'p' })).toBeInTheDocument();
+      expect(screen.queryByText(/Rewrite the permission set to clear/i)).not.toBeInTheDocument();
+    });
+
+    it('pluralises the stale notice when several stored names no longer resolve', async () => {
+      // The plural arm is unreachable from the shared fixture (one stale name), so
+      // render a card of its own rather than leaving the branch unexecuted.
+      mockGetDelegations.mockResolvedValue({
+        delegations: [
+          {
+            ...mockDelegations[0],
+            id: 'del-plural',
+            name: 'Plural Stale',
+            stale_permission_names: ['business.billing.export', 'business.billing.archive']
+          }
+        ]
+      });
+
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/2 stored permissions are no longer granted/i, { selector: 'p' })
+        ).toBeInTheDocument();
+      });
+      expect(screen.getByText(/Clearing them means rewriting/i, { selector: 'p' })).toBeInTheDocument();
+      expect(screen.getByText('business.billing.archive')).toBeInTheDocument();
+    });
+
+    it('shows no stale notice on a delegation whose stored names all resolve', async () => {
+      // Both no-notice shapes must actually RENDER on the default (outgoing) tab to
+      // pin the hide-when-empty guard: an empty array, and the key omitted entirely.
+      // The shared fixture renders only del-1 here, and del-1 carries a stale name,
+      // so counting notices across it proves nothing.
+      mockGetDelegations.mockResolvedValue({
+        delegations: [
+          { ...mockDelegations[0], id: 'del-empty', name: 'Empty Stale', stale_permission_names: [] },
+          { ...mockDelegations[0], id: 'del-absent', name: 'Absent Stale', stale_permission_names: undefined }
+        ]
+      });
+
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Empty Stale')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Absent Stale')).toBeInTheDocument();
+      expect(
+        screen.queryAllByText(/no longer granted by this delegation's role/i, { selector: 'p' })
+      ).toHaveLength(0);
     });
 
     it('shows expiration date when present', async () => {

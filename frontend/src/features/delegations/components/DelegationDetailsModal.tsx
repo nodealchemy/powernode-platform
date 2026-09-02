@@ -216,7 +216,10 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-theme-tertiary mb-3">Granted Permissions</h3>
+                {/* The API resolves the stored permission rows against the role LIVE, so
+                    this list is the RESOLVED set — what the delegation actually confers —
+                    not the rows stored against it. Naming it "Granted" hid that split. */}
+                <h3 className="text-sm font-medium text-theme-tertiary mb-3">Resolved Permissions</h3>
                 <div className="grid grid-cols-2 gap-3">
                   {(delegation.permissions || []).map((permission) => (
                     <div key={typeof permission === 'string' ? permission : permission.key} className="bg-theme-background rounded-lg p-3">
@@ -228,6 +231,37 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
                   ))}
                 </div>
               </div>
+
+              {/* Stored names the role no longer grants. They confer nothing but stay on
+                  the row, so an operator cleaning up after a role change needs to SEE
+                  them: these are the names to rewrite through the permission set. */}
+              {(delegation.stale_permission_names?.length || 0) > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-theme-tertiary mb-3">Stale Stored Permissions</h3>
+                  {/* No "rewrite the permission set" imperative: nothing in the frontend
+                      calls updateDelegation / addPermissionToDelegation /
+                      removePermissionFromDelegation, so that affordance does not exist here. */}
+                  <p className="text-sm text-theme-warning-fg mb-3">
+                    These permissions are stored on this delegation but are no longer granted by
+                    its role, so they confer nothing. Clearing them means rewriting the stored
+                    permission set through the delegations API; this UI has no permission-set
+                    editor yet.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(delegation.stale_permission_names || []).map((name) => (
+                      <div key={name} className="bg-theme-warning-bg rounded-lg p-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-theme-warning-fg">!</span>
+                          {/* Same vocabulary as the resolved list above (getPermissionLabel
+                              falls back to the raw key when the name has left the catalog);
+                              the stored string stays available as the title. */}
+                          <span className="text-theme-warning-fg text-sm" title={name}>{getPermissionLabel(name)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {delegation.status === 'active' && (
                 <div className="pt-6 border-t border-theme">
