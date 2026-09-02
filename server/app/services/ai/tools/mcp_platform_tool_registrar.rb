@@ -284,10 +284,15 @@ module Ai
           # this check the four advertisement surfaces unified by
           # IMP-5039d026da0d had no counterpart here: an action absent from
           # tools/list was still dispatched into the tool by any client that
-          # knew its name. Mcp::ProtocolService#invoke_tool does not diverge
-          # that way — its catalog and its dispatch table are the same
-          # Mcp::Registry, so a de-advertised tool is un-invocable on the
-          # ActionCable transport. This closes the same gap on HTTP.
+          # knew its name. Mcp::ProtocolService#invoke_tool did not diverge that
+          # way — but NOT for the reason recorded here until IMP-8e3bd13d0136.
+          # It is not that its catalog and its dispatch table are one filtered
+          # Mcp::Registry; it is that #register_all! discards the registry it
+          # fills (see .unavailable_action_refusal), so that path resolves no
+          # platform manifest at all and refuses de-advertised and advertised
+          # names alike. Its de-advertised half is now answered by
+          # .unavailable_action_refusal, with this same envelope. This check
+          # closes the gap on HTTP.
           #
           # AVAILABILITY, NOT AUTHORIZATION, in three respects. (1) The
           # predicate is asked with the default `agent: nil`, under which
@@ -372,6 +377,73 @@ module Ai
             },
             "required" => ["success"]
           }
+        end
+
+        # THE ONE PRODUCER of the availability refusal, exposed for the OTHER
+        # transport (IMP-8e3bd13d0136).
+        #
+        # #execute_tool refuses a de-advertised action inline (the streamable-HTTP
+        # tools/call path for a "platform."-prefixed name). The OTHER caller —
+        # Mcp::ProtocolService#invoke_tool, which serves the ActionCable channel
+        # and the HTTP else-branch for an unprefixed name — never reaches
+        # #execute_tool for such a name at all: it dispatches off a manifest read
+        # from a Mcp::RegistryService, the lookup misses, and the call used to
+        # die as a JSON-RPC ToolNotFoundError (-32601). Operator ruling
+        # 2026-09-02 (D15): both transports answer a de-advertised action with
+        # the RESULT envelope; ToolNotFoundError is reserved for names the
+        # platform has never registered.
+        #
+        # WHY that lookup misses, stated precisely because the obvious reading
+        # ("the registry carries only the ADVERTISED manifests") is FALSE:
+        # #register_all! constructs a ::Mcp::RegistryService of its own on its
+        # first line and DISCARDS it, while ProtocolService queries the instance
+        # built in its own #initialize. RegistryService keeps `@tools` per
+        # instance, rehydrates only AI-agent manifests (#load_existing_tools),
+        # and never reads its Redis mirror back in #get_tool. So NO platform
+        # manifest is visible on that path — advertised or not — which is why
+        # this seam RESOLVES the name itself rather than trusting the miss to
+        # mean "de-advertised". The residual gap that leaves (an ADVERTISED
+        # platform action is un-invocable there too, for that same plumbing
+        # reason) is pre-existing, out of this change's scope, and NOT what this
+        # method decides: it returns nil for an advertised name.
+        #
+        # BYTE-EQUALITY IS THE POINT, and it is structural rather than asserted:
+        # this method resolves through the same #find_tool_class, gates through
+        # the same #enforce_permission!, and answers through the same
+        # #unadvertised_refusal that #execute_tool uses, so the two transports
+        # cannot drift into two sentences that mean the same thing. Pinned by
+        # spec/services/mcp/protocol_service_advertisement_parity_spec.rb.
+        #
+        # ORDERING PARITY, and the reason this takes a `user:`. #execute_tool
+        # gates on the caller's permission BEFORE it refuses on availability, so
+        # a caller who may not run the action is answered PermissionDeniedError
+        # there and learns nothing about which extensions this control plane has
+        # loaded. Without the same gate here the other transport would answer
+        # that caller the availability envelope — a NEW divergence in place of
+        # the one being closed. The availability answer is computed first only
+        # because it is pure; it is returned only after #enforce_permission! has
+        # been cleared, so a caller of this method must be ready for
+        # PermissionDeniedError.
+        #
+        # Returns nil for a name that RESOLVES to no tool class — that is the
+        # "never registered" case, and the caller must keep raising there — and
+        # nil for an action that IS advertised, which leaves the caller's
+        # pre-existing ToolNotFoundError untouched.
+        def unavailable_action_refusal(tool_id, supplied_action: nil, user: nil)
+          tool_name = tool_id.to_s.delete_prefix("#{TOOL_ID_PREFIX}.")
+          tool_class = find_tool_class(tool_name)
+          return nil unless tool_class
+
+          refusal = unadvertised_refusal(tool_name: tool_name, tool_class: tool_class,
+                                         effective_action: supplied_action)
+          return nil unless refusal
+
+          # Normalized to the PREFIXED id so the denial sentence is byte-equal
+          # across transports: #execute_tool is only ever handed the prefixed
+          # form, while this seam is reachable under either.
+          enforce_permission!(user: user, tool_class: tool_class,
+                              tool_id: "#{TOOL_ID_PREFIX}.#{tool_name}")
+          refusal
         end
 
         private
@@ -740,21 +812,25 @@ module Ai
         # stable, while availability is not — an extension engine can register
         # after boot, and a memo here would freeze a core-mode answer.
         #
-        # ONE INVOCATION CONSEQUENCE, stated because it is real rather than
-        # hidden behind "advertisement only". #register_all! is the sole
-        # populator of Mcp::RegistryService for platform tools — `command grep
-        # -rn "McpPlatformToolRegistrar.register_all!" <repo>/server/app
-        # <repo>/server/db <repo>/server/lib <repo>/worker <repo>/extensions`
-        # finds two call sites outside spec/: app/channels/mcp_channel.rb and a
-        # seeded KB article's sample code — and
-        # Mcp::ProtocolService#invoke_tool looks the manifest up there and raises
-        # ToolNotFoundError when it is absent. So on the ActionCable channel
-        # path an unavailable tool becomes un-invocable, not merely unlisted.
-        # That is the intended reading of "not offered" for a surface whose
-        # catalog and its dispatch table are the same object. The streamable-HTTP
-        # tools/call path reaches the same outcome by a different route since
-        # IMP-128fe17fd8c8: it still RESOLVES through the unfiltered
-        # #find_tool_class, then refuses in #execute_tool via
+        # NO INVOCATION CONSEQUENCE ON THE CABLE PATH — corrected under
+        # IMP-8e3bd13d0136, because what stood here was false. This filter was
+        # described as making an unavailable tool un-invocable on the
+        # ActionCable channel. #register_all! is indeed the only thing that
+        # would publish platform manifests into a Mcp::RegistryService —
+        # `command grep -rn "McpPlatformToolRegistrar.register_all!"
+        # <repo>/server/app <repo>/server/db <repo>/server/lib <repo>/worker
+        # <repo>/extensions` finds two call sites outside spec/:
+        # app/channels/mcp_channel.rb and a seeded KB article's sample code —
+        # but it BUILDS that RegistryService itself and discards it, while
+        # Mcp::ProtocolService#invoke_tool reads the instance it built in its
+        # own #initialize. So this filter does not reach that path at all: every
+        # platform name misses there, advertised or not. The de-advertised half
+        # is answered by .unavailable_action_refusal with the same envelope the
+        # HTTP seam returns; the advertised half is a separate, pre-existing
+        # plumbing gap that still raises ToolNotFoundError. The streamable-HTTP
+        # tools/call path is where this filter DOES have an invocation
+        # counterpart, since IMP-128fe17fd8c8: it RESOLVES through the
+        # unfiltered #find_tool_class, then refuses in #execute_tool via
         # #unadvertised_refusal — a result envelope rather than a raise, and per
         # ACTION rather than per class.
         def advertised_tool_classes

@@ -9,10 +9,13 @@ require "rails_helper"
 # that the invocation half was deliberately left alone: tools/call on the
 # streamable-HTTP transport resolves through
 # McpPlatformToolRegistrar#find_tool_class, which reads
-# PlatformApiToolRegistry.all_tools RAW. The ActionCable transport does not
-# diverge that way — Mcp::ProtocolService#invoke_tool looks the manifest up in
-# Mcp::Registry, the same object register_all! populates from
-# .advertised_tool_classes, so a de-advertised tool is un-invocable there.
+# PlatformApiToolRegistry.all_tools RAW. The ActionCable transport did not
+# diverge that way — though not for the reason recorded here at the time, as
+# IMP-8e3bd13d0136 established: Mcp::ProtocolService#invoke_tool looks the
+# manifest up in a Mcp::RegistryService that register_all! never populates (it
+# builds and discards one of its own), so a de-advertised tool is un-invocable
+# there — and so is an advertised one. IMP-8e3bd13d0136 made that transport
+# answer the de-advertised case with this same envelope instead of a -32601.
 #
 # The result was a TRANSPORT DIVERGENCE: an action absent from tools/list (the
 # docker-runtime actions in core mode, the extension-backed disk-image actions)

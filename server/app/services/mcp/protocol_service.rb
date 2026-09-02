@@ -184,7 +184,65 @@ module Mcp
 
     # Get tool manifest
     tool_manifest = @registry.get_tool(tool_id)
-    raise ToolNotFoundError, "Tool not found: #{tool_id}" unless tool_manifest
+    unless tool_manifest
+      # TRANSPORT PARITY for a DE-ADVERTISED action (IMP-8e3bd13d0136).
+      #
+      # The lookup above misses for two very different reasons — "this platform
+      # has never heard of that name" and "that name exists but this control
+      # plane does not offer it" — and both used to become a JSON-RPC -32601,
+      # which a client reads as a method/transport fault and retries. The
+      # streamable-HTTP seam has answered the second case with a RESULT envelope
+      # since IMP-128fe17fd8c8. Operator ruling 2026-09-02 (D15): the envelope
+      # on BOTH transports, ToolNotFoundError only for a never-registered name.
+      #
+      # THE MISS CANNOT BE READ, which is why the seam below re-resolves the
+      # name instead of inferring anything from @registry. The tempting reading
+      # — "a de-advertised action is absent here by construction, because
+      # McpPlatformToolRegistrar#register_all! publishes only its advertised
+      # classes into this registry" — is FALSE: register_all! builds a
+      # ::Mcp::RegistryService of its own and discards it, while this service
+      # queries the one built in #initialize, which rehydrates AI-agent
+      # manifests only. So EVERY platform name misses here, advertised or not.
+      # This branch therefore asks the registrar to resolve the name and answers
+      # only when the registrar says the action exists but is not offered.
+      # Residual and pre-existing, deliberately unchanged here: an ADVERTISED
+      # platform action is un-invocable on this path for that same plumbing
+      # reason and still raises below.
+      #
+      # The envelope is produced by the registrar's ONE producer
+      # (.unavailable_action_refusal -> #unadvertised_refusal, resolving through
+      # the same #find_tool_class the HTTP seam uses), so the two transports are
+      # byte-equal by construction rather than by two matching string literals.
+      #
+      # AUTHORIZATION FIRST, exactly as at the HTTP seam, which gates on
+      # REQUIRED_PERMISSION before it refuses on availability: the seam runs the
+      # same #enforce_permission! and raises PermissionDeniedError for a caller
+      # who may not run the action, so that caller is answered identically on
+      # both transports and learns nothing about which extensions are loaded.
+      # Availability itself is asked with the default `agent: nil`, under which
+      # BaseTool.permitted? short-circuits before any permission lookup and the
+      # question degenerates to "is the backing extension loaded?". Nothing here
+      # grants: this branch only ever refuses, and every gate below still runs
+      # unchanged for every name that HAS a manifest.
+      #
+      # BOTH DOORS, as at the HTTP seam: the invoked NAME, and the :action a
+      # caller supplied, which is what would actually run for a caller whose
+      # action is not pinned to the name. `params` is whatever came off the wire,
+      # so anything without a keyed lookup must fall through to the
+      # ToolNotFoundError below rather than raise a TypeError here — asked as
+      # #key? rather than `is_a?(Hash)` because ActionController::Parameters is
+      # keyed but is NOT a Hash, and excluding it would silently close this door.
+      supplied_action = params.respond_to?(:key?) ? (params[:action] || params["action"]) : nil
+      refusal = ::Ai::Tools::McpPlatformToolRegistrar.unavailable_action_refusal(
+        tool_id, supplied_action: supplied_action, user: options[:user]
+      )
+      if refusal
+        @logger.warn "[MCP] Refused #{tool_id}: #{refusal[:error]}"
+        return create_mcp_response(result: refusal, id: SecureRandom.uuid)
+      end
+
+      raise ToolNotFoundError, "Tool not found: #{tool_id}"
+    end
 
     # Get the actual McpTool database record for permission checking
     mcp_tool = McpTool.find_by(name: tool_manifest["name"])
