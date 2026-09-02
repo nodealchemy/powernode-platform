@@ -238,9 +238,20 @@ for rel in server/config/database.yml server/.env worker/.env; do
       sed -E -i "s/powernode_(development|test|production)/${ISO_DB}_\1/g" "$dst"
       ok "$rel (copied → ${ISO_DB}_*)" ;;
     server/.env)
+      # NEVER write an env var that the Gemfile reads (POWERNODE_INCLUDE_PRIVATE_EXTENSIONS,
+      # POWERNODE_DEPLOYED) into .env — Bundler evaluates server/Gemfile (which calls
+      # discover_extension_gems) BEFORE any Ruby of the app runs, while dotenv-rails only loads
+      # .env at Rails' before_configuration hook. The Gemfile would see the var UNSET (private
+      # path-gems never declared, models never loaded) while post-boot readers like
+      # server/spec/rails_helper.rb see it SET and load those extensions' factories anyway.
+      # Private extensions are selected by BUNDLE_GEMFILE=Gemfile.private, whose `||=`
+      # (server/Gemfile.private:12) sets the flag at Gemfile-evaluation time UNLESS one is
+      # already inherited — an inherited 0 selects the private bundle and still loads ZERO
+      # private extensions, so pin it explicitly, as scripts/validate.sh:353 does. Step 5
+      # below only `bundle check`s that bundle; it does not exercise the flag.
+      # Guarded by server/spec/scripts/prepare_worktree_env_split_spec.rb.
       env_upsert "$dst" DATABASE_NAME "${ISO_DB}_development"
       [ -n "$ISO_PORT" ] && env_upsert "$dst" PORT "$ISO_PORT"
-      env_upsert "$dst" POWERNODE_INCLUDE_PRIVATE_EXTENSIONS 1
       ok "$rel (copied; DATABASE_NAME=${ISO_DB}_development${ISO_PORT:+, PORT=$ISO_PORT})" ;;
     *)
       ok "$rel (copied)" ;;
