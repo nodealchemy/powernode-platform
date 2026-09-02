@@ -86,11 +86,22 @@ RSpec.describe "MCP tools/list in core mode (system extension absent)", type: :r
   end
 
   # Both actions that actually raised NameError in core mode. The assertions are
-  # POSITIVE on the tool's own envelope as well as negative on -32603: a
+  # POSITIVE on the refusal envelope as well as negative on -32603: a
   # negative-only oracle would also pass on any other early return (e.g.
   # "label required"), which is not the property under test.
+  #
+  # THE ENVELOPE MOVED (IMP-128fe17fd8c8), deliberately. It used to be the
+  # tool's own "requires the 'system' extension" message, produced inside
+  # DiskImageOperatorTool#call after the registrar had already constructed and
+  # dispatched into the tool. tools/call now refuses at the invocation seam
+  # (McpPlatformToolRegistrar#unadvertised_refusal) before construction, per
+  # ACTION — which is why provision_ci_worker, core-only and still advertised on
+  # this same class, keeps working (asserted above). The tool's guard is
+  # unchanged and still covers callers that do not go through that seam; what
+  # this file asserts — a success:false envelope rather than -32603/NameError —
+  # is unchanged.
   %w[provision_disk_image_webhook bootstrap_disk_image_ci].each do |action|
-    it "answers a direct tools/call to #{action} with the extension-missing envelope, not -32603" do
+    it "answers a direct tools/call to #{action} with a refusal envelope, not -32603" do
       hide_const("System")
 
       post "/api/v1/mcp/message",
@@ -104,7 +115,8 @@ RSpec.describe "MCP tools/list in core mode (system extension absent)", type: :r
       body = JSON.parse(response.body)
       expect(body.dig("error", "code")).not_to eq(-32603)
       expect(body.dig("result", "structuredContent", "success")).to be(false)
-      expect(body.dig("result", "structuredContent", "error")).to match(/requires the 'system' extension/)
+      expect(body.dig("result", "structuredContent", "error"))
+        .to match(/#{action} is not offered by this control plane/)
     end
   end
 end

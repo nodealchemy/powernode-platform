@@ -66,11 +66,14 @@ module Ai
       # on it (available_tools -> tools/list, AgentToolBridgeService,
       # ConciergeToolBridge): an action that cannot work must not be advertised,
       # because an honest catalog is what makes agent tool selection work at all.
-      # #call covers invocation, since find_tool /
-      # McpPlatformToolRegistrar.find_tool_class resolve tools/call straight off
-      # the registry hash WITHOUT consulting permitted?, so a client holding a
-      # stale catalog can still invoke a de-advertised action and gets a plain
-      # envelope instead of a NameError.
+      # #call is DEFENCE IN DEPTH for invocation, not the only line: find_tool /
+      # McpPlatformToolRegistrar.find_tool_class still RESOLVE tools/call straight
+      # off the registry hash without consulting permitted?, but since
+      # IMP-128fe17fd8c8 McpPlatformToolRegistrar.execute_tool refuses a
+      # de-advertised action at the seam (#unadvertised_refusal) before
+      # constructing the tool. The guard below still answers the callers that do
+      # not go through that seam — the tool constructed directly, and any future
+      # dispatch path — with a plain envelope instead of a NameError.
       #
       # CLOSED BY IMP-5039d026da0d: the three other advertisement surfaces that
       # used to walk all_tools raw and keep listing these four — McpPlatform
@@ -80,10 +83,10 @@ module Ai
       # PlatformApiToolRegistry.advertised_action? / .advertised_class?, the one
       # definition of "the platform offers this", which calls this predicate.
       # STILL UNFILTERED, deliberately: .tool_classes (the RESOLUTION set behind
-      # #find_tool_class, so a stale-catalog tools/call on the live
-      # streamable-HTTP wire still reaches the envelope above rather than an
-      # opaque "Unknown platform tool"; the ActionCable channel path, whose
-      # catalog IS its dispatch table, does refuse) and the generated docs catalog in
+      # #find_tool_class — a stale-catalog tools/call on the live streamable-HTTP
+      # wire must resolve so that IMP-128fe17fd8c8's seam refusal can name the
+      # action, rather than dying as an opaque "Unknown platform tool") and the
+      # generated docs catalog in
       # lib/tasks/mcp_tool_catalog.rake, whose committed copy is the whole
       # registry rendered in the public bundle and must not vary by which
       # extensions a generating host happened to load.

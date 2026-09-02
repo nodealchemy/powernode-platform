@@ -95,11 +95,14 @@ module Ai
       # filter on it (available_tools -> tools/list, AgentToolBridgeService,
       # ConciergeToolBridge, all of which call tool_definitions ->
       # available_tools): an action that cannot work must not be advertised.
-      # #call covers invocation, since find_tool / McpPlatformToolRegistrar
-      # resolve tools/call straight off the registry hash WITHOUT consulting
-      # available_tools at all, so a client holding a stale catalog can still
-      # invoke a de-advertised action and gets a plain envelope instead of a
-      # NameError.
+      # #call is DEFENCE IN DEPTH for invocation, not the only line: find_tool /
+      # McpPlatformToolRegistrar still RESOLVE tools/call straight off the
+      # registry hash without consulting available_tools, but since
+      # IMP-128fe17fd8c8 McpPlatformToolRegistrar.execute_tool refuses a
+      # de-advertised action at the seam (#unadvertised_refusal) — checking both
+      # the registry key and a caller-supplied :action — before constructing the
+      # tool. The guard below still answers any caller that does not go through
+      # that seam with a plain envelope instead of a NameError.
       #
       # CLOSED BY IMP-5039d026da0d (the three surfaces named in 5d4bcabc4's
       # commit message): McpPlatformToolRegistrar.sync_to_database! and
@@ -119,11 +122,12 @@ module Ai
       # bootstrap_disk_image_ci in core mode. Only the per-ACTION surfaces
       # (tools/list, the mcp_tools rows, the semantic index) drop them. Making
       # the manifest per-action is a register_all!-shaped change, not this hook's
-      # job, and a call to either action still meets the envelope above.
+      # job, and a call to either action is refused by the seam (per action)
+      # before it reaches the envelope above.
       #
       # .tool_classes stays unfiltered on purpose: it is the RESOLUTION set
-      # behind #find_tool_class, so a stale-catalog tools/call on the live
-      # streamable-HTTP wire still reaches the envelope above.
+      # behind #find_tool_class, and this class must keep resolving in core mode
+      # so that provision_ci_worker — core-only, and still advertised — runs.
       EXTENSION_BACKED_ACTIONS = %w[provision_disk_image_webhook bootstrap_disk_image_ci].freeze
 
       def self.extension_available?

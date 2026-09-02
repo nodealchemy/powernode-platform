@@ -277,6 +277,43 @@ module Ai
             execution_params[:action] = ACTION_ALIASES.fetch(tool_name, tool_name)
           end
 
+          # THE INVOCATION HALF of the advertisement predicate (IMP-128fe17fd8c8).
+          #
+          # #find_tool_class resolves off PlatformApiToolRegistry.all_tools RAW
+          # and stays that way on purpose (see .tool_classes below), so before
+          # this check the four advertisement surfaces unified by
+          # IMP-5039d026da0d had no counterpart here: an action absent from
+          # tools/list was still dispatched into the tool by any client that
+          # knew its name. Mcp::ProtocolService#invoke_tool does not diverge
+          # that way — its catalog and its dispatch table are the same
+          # Mcp::Registry, so a de-advertised tool is un-invocable on the
+          # ActionCable transport. This closes the same gap on HTTP.
+          #
+          # AVAILABILITY, NOT AUTHORIZATION, in three respects. (1) The
+          # predicate is asked with the default `agent: nil`, under which
+          # BaseTool.permitted? short-circuits before any permission lookup and
+          # the question degenerates to "is the backing extension loaded?" — the
+          # same question the account-wide advertisement surfaces ask. (2) It is
+          # placed AFTER enforce_permission! and the rate limiter, so every
+          # authorization gate still runs first and unchanged; this adds a
+          # refusal, it never grants. (3) It answers with a RESULT envelope
+          # rather than raising, which is what the operator direction asked for
+          # and what keeps a refusal distinguishable from the -32001 permission
+          # denial and from the "Unknown platform tool" ArgumentError that the
+          # streamable controller re-routes to the introspection registrar.
+          #
+          # BOTH NAMES are checked, because there are two doors to the same
+          # action. The registry key is the advertised name; `execution_params
+          # [:action]` is what will actually run, and for a caller that is not
+          # action-pinned (see #action_pinned_to_name?) a supplied action wins
+          # over the key — so an advertised name could otherwise carry a
+          # de-advertised sibling action into an :action-dispatched class.
+          if (refusal = unadvertised_refusal(tool_name: tool_name, tool_class: tool_class,
+                                             effective_action: execution_params[:action]))
+            Rails.logger.warn("[McpPlatformTool] Refused #{tool_id}: #{refusal[:error]}")
+            return refusal
+          end
+
           tool_instance = tool_class.new(account: account, user: user, agent: mcp_agent)
           # Instance principals (mTLS node cert; user/agent both nil) need their
           # node_instance so DevLoopTool#claimant_ref can scope claims as
@@ -449,6 +486,55 @@ module Ai
         # from the advertised list. A genuine intersection therefore needs that
         # mapping plus a mint-time surface to narrow a token, neither of which
         # exists. Do not re-add the branch without both.
+
+        # Nil when every name that could run is advertised; otherwise the
+        # refusal envelope for the first one that is not. Blank names are
+        # dropped (a single-action tool carries no :action), and the two names
+        # collapse when they agree, which is the common case.
+        #
+        # THE MESSAGE SAYS ONLY WHAT THIS PREDICATE ESTABLISHES: that the
+        # platform does not offer the action, and that tools/list is filtered by
+        # the same predicate (PlatformApiToolRegistry.available_tools ->
+        # .advertised_action?, the identical call this method makes), so the
+        # caller can reconcile the two surfaces. It deliberately does NOT tell
+        # the wire WHY an action is de-advertised. Today every .permitted? /
+        # .action_advertised? override on the tree is a bare `true` or a
+        # `defined?(::Const)` probe, so "de-advertised" and "backing extension
+        # absent" happen to coincide — but nothing in the suite pins that shape,
+        # and the first override to gate on a flag or a tier would turn a
+        # sentence shipped to MCP clients into a false one with no failing test.
+        #
+        # THE SEAM IS NOT THE ONLY DOOR, and the per-class guards inside
+        # DockerProvisioningTool#call / DiskImageOperatorTool#call are retained
+        # as defence in depth (pinned by
+        # spec/services/ai/tools/extension_backed_tool_body_guard_spec.rb) for
+        # the three live paths that construct a platform tool without passing
+        # through here:
+        #
+        #   * Api::V1::System::Platform::StorageMigrationsController
+        #     #call_mcp_action (extensions/system) — resolves via
+        #     PlatformApiToolRegistry.find_tool off the RAW map, then constructs.
+        #   * System::Ai::Skills::BaseSkillExecutor#tool (extensions/system) —
+        #     nests a platform tool directly.
+        #   Both are inert as availability doors only because they SHIP INSIDE
+        #   extensions/system: wherever they are reachable, ::System is defined,
+        #   so the class-level guard is satisfied by construction. That is a
+        #   property of where they live, not a check they perform.
+        #   * McpTool#execute (server/app/models/mcp_tool.rb), the mcp_tools ROW
+        #     path behind Api::V1::McpToolsController — dispatches off a stored
+        #     row, so a row written before the platform dropped into core mode
+        #     survives until the next .sync_to_database! deletes it as stale.
+        def unadvertised_refusal(tool_name:, tool_class:, effective_action: nil)
+          names = [tool_name, effective_action].map(&:to_s).reject(&:blank?).uniq
+          unavailable = names.reject { |name| PlatformApiToolRegistry.advertised_action?(name, tool_class) }
+          return nil if unavailable.empty?
+
+          { success: false,
+            error: "Tool not available: #{unavailable.first} is not offered by this control plane. " \
+                   "tools/list is filtered by the same advertisement predicate, which is why the " \
+                   "action is absent there too." }
+        end
+
         def enforce_permission!(user:, tool_class:, tool_id:, instance_authorized: false)
           required = tool_class::REQUIRED_PERMISSION
           return if required.nil?
@@ -619,15 +705,15 @@ module Ai
 
         # THE RESOLUTION SET, deliberately UNFILTERED (IMP-5039d026da0d).
         #
-        # #find_tool_class falls back to this list to resolve a tools/call, so
-        # filtering it here would change what is INVOCABLE on the LIVE MCP wire
-        # (Api::V1::Mcp::StreamableHttpController#handle_tools_call ->
-        # .execute_tool -> #find_tool_class), not just what is advertised. That
-        # is a separate decision from this change: 5d4bcabc4 answered a call to a
-        # de-advertised, extension-backed action with the tool's own refusal
-        # envelope on purpose, and dropping the class from resolution would turn
-        # that into an opaque "Unknown platform tool".
-        # Advertisement filtering lives in #advertised_tool_classes.
+        # #find_tool_class falls back to this list to resolve a tools/call.
+        # Filtering it here would make a de-advertised action fail RESOLUTION,
+        # which #execute_tool reports as an ArgumentError "Unknown platform
+        # tool" — and the streamable controller re-routes that message to the
+        # INTROSPECTION registrar, so the caller would end up with whatever that
+        # says about a name it has never heard of. Availability is refused a
+        # step later instead, by #unadvertised_refusal, which names the action
+        # and the reason. Advertisement filtering for the ActionCable catalog
+        # lives in #advertised_tool_classes.
         def tool_classes
           @tool_classes ||= PlatformApiToolRegistry.all_tools.values.uniq.filter_map do |class_name|
             class_name.constantize
@@ -658,9 +744,12 @@ module Ai
         # ToolNotFoundError when it is absent. So on the ActionCable channel
         # path an unavailable tool becomes un-invocable, not merely unlisted.
         # That is the intended reading of "not offered" for a surface whose
-        # catalog and its dispatch table are the same object; the live
-        # streamable-HTTP tools/call path is unaffected because it resolves
-        # through #find_tool_class, which stays unfiltered above.
+        # catalog and its dispatch table are the same object. The streamable-HTTP
+        # tools/call path reaches the same outcome by a different route since
+        # IMP-128fe17fd8c8: it still RESOLVES through the unfiltered
+        # #find_tool_class, then refuses in #execute_tool via
+        # #unadvertised_refusal — a result envelope rather than a raise, and per
+        # ACTION rather than per class.
         def advertised_tool_classes
           tool_classes.select { |tool_class| PlatformApiToolRegistry.advertised_class?(tool_class) }
         end

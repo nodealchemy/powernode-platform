@@ -176,9 +176,12 @@ RSpec.describe "tool advertisement surface parity" do
     end
 
     it "leaves .tool_classes — the tools/call RESOLUTION set — unfiltered" do
-      # Advertisement and invocability are separate questions: a client holding a
-      # stale catalog must still resolve to the tool class so it gets the tool's
-      # own refusal envelope rather than "Unknown platform tool".
+      # RESOLUTION, not invocability. Since IMP-128fe17fd8c8 a de-advertised
+      # action IS refused on tools/call, but by #unadvertised_refusal one step
+      # later, not by failing to resolve — a client holding a stale catalog must
+      # still reach the tool class so the refusal can name the action, rather
+      # than becoming an "Unknown platform tool" ArgumentError that the
+      # streamable controller re-routes to the introspection registrar.
       expect(Ai::Tools::McpPlatformToolRegistrar.send(:tool_classes))
         .to include(ZzAdvertisementParityUnavailableTool)
       expect(Ai::Tools::McpPlatformToolRegistrar.send(:find_tool_class, unavailable_action))
