@@ -161,6 +161,78 @@ namespace :mcp do
       end
     end
 
+    # A markdown table cell is pipe-delimited, so an unescaped `|` inside a
+    # value ends the cell: the rest of it becomes phantom columns a renderer
+    # drops. Publishing declared value sets makes that reachable directly (a `|`
+    # inside an enum member), but it was NOT merely prospective — 107 rows of the
+    # committed catalog were already being truncated at the first `|` of a
+    # description that spelled its value set out as `a | b | c`, so
+    # `system_create_service`'s `protocol` published as "https" where the tool
+    # declares "https | http | tcp | tls (default https)".
+    md_cell = lambda do |value|
+      value.to_s.gsub(/\s*\n\s*/, " ").gsub("|") { '\|' }
+    end
+
+    # `array` on its own tells an operator nothing about what goes in it, and
+    # the wire schema always carries an `items` (ParameterSchema fills the
+    # permissive default when a tool declares none), so publish the element type
+    # with it.
+    type_cell = lambda do |spec|
+      declared = Array(spec["type"]).map(&:to_s).reject(&:empty?)
+      rendered = declared.presence&.join(" or ") || "string"
+
+      items = spec["items"]
+      if rendered == "array" && items.is_a?(Hash)
+        element = Array(items["type"]).first.presence
+        element ||= "object" if items.key?("properties")
+        rendered = "array<#{element}>" if element
+      end
+
+      md_cell.call(rendered)
+    end
+
+    render_enum = lambda do |values|
+      Array(values).map { |value| "`#{md_cell.call(value)}`" }.join(", ")
+    end
+
+    # The closed value set the wire constrains this parameter to. Before this it
+    # existed in the catalog only if the description prose happened to restate
+    # it, which is how the same set could be right on the wire and stale, partial
+    # or absent in the document an operator sizes a grant from.
+    #
+    # A set can also sit BELOW the parameter, and ParameterSchema carries those
+    # onto the wire too, so publishing only the top-level `enum` would leave the
+    # same understatement in place for them:
+    #   * on an array's `items` — the ELEMENTS are constrained, not the array, so
+    #     the set is stated unqualified next to a Type cell that already reads
+    #     `array<string>`;
+    #   * on one property of a nested object — the parameter itself is NOT
+    #     restricted to those values, so the set is prefixed with the property it
+    #     constrains.
+    # Depth stops at those two: a set nested two levels down (none is declared in
+    # any core or public-extension tool today) still publishes as `-`, so read a
+    # `-` as "nothing closed at this level", not as "the wire imposes no set".
+    values_cell = lambda do |spec|
+      sets = []
+      sets << render_enum.call(spec["enum"]) if spec["enum"].present?
+
+      items = spec["items"]
+      if sets.empty? && items.is_a?(Hash) && items["enum"].present?
+        sets << render_enum.call(items["enum"])
+      end
+
+      properties = spec["properties"]
+      if properties.is_a?(Hash)
+        properties.each do |nested_name, nested_spec|
+          next unless nested_spec.is_a?(Hash) && nested_spec["enum"].present?
+
+          sets << "#{md_cell.call(nested_name)}: #{render_enum.call(nested_spec['enum'])}"
+        end
+      end
+
+      sets.presence&.join("; ") || "-"
+    end
+
     # Generate markdown
     lines = []
     lines << "<!-- AUTO-GENERATED — DO NOT EDIT — see reference/auto/manifest.yml -->"
@@ -190,25 +262,40 @@ namespace :mcp do
         lines << "- **Tool class**: `#{action[:class_name]}`"
         lines << "- **Permission**: #{action[:permission] || 'none'}"
 
-        params = action[:parameters]
-        # Normalize JSON Schema format ({ type: "object", properties: {...}, required: [...] })
-        # to flat format ({ param_name: { type:, required:, description: } })
-        if params[:type] == "object" && params.key?(:properties)
-          required_list = Array(params[:required]).map(&:to_s)
-          flat_params = {}
-          (params[:properties] || {}).each do |pname, pspec|
-            flat_params[pname] = pspec.merge(required: required_list.include?(pname.to_s))
-          end
-          params = flat_params
-        end
+        # Render the SCHEMA a client is handed, not the authoring hash. Tool
+        # parameters declare JSON Schema keywords beyond type/description —
+        # measured in the public bundle, 72 of the 1818 published parameters
+        # carry a closed value set and 77 an array element type — and
+        # Ai::Tools::ParameterSchema has carried those onto both MCP wire paths
+        # since IMP-e809396f9eda
+        # (Api::V1::Mcp::StreamableHttpController's tools/list `inputSchema` and
+        # Ai::Tools::McpPlatformToolRegistrar's mcp_tools rows / registry
+        # manifest). This table read those keywords off the raw declaration and
+        # emitted none of them, so a closed value set survived only as whatever
+        # the description prose happened to say and an array published as
+        # untyped: the catalog UNDERSTATED the contract the wire enforces, on the
+        # surface an operator reads when sizing an MCP grant (IMP-fb5085178b09).
+        #
+        # Going through the shared converter — the same `.build` call both wire
+        # paths make, not a third reading of the declarations here — is also what
+        # makes the published defaults honest: an array that declares no `items`
+        # reaches the client as `array<string>` (ParameterSchema::
+        # DEFAULT_ARRAY_ITEMS) and is published as one. It subsumes the
+        # JSON-Schema-vs-flat normalisation this task used to carry, because
+        # `.build` accepts either form and hoists the DSL's per-parameter
+        # `required:` flag into the schema's `required` array.
+        schema = ::Ai::Tools::ParameterSchema.build(action[:parameters])
+        properties = schema["properties"] || {}
+        required_names = Array(schema["required"]).map(&:to_s)
 
-        if params.any?
+        if properties.any?
           lines << ""
-          lines << "| Parameter | Type | Required | Description |"
-          lines << "|-----------|------|----------|-------------|"
-          params.each do |param_name, spec|
-            required = spec[:required] ? "Yes" : "No"
-            lines << "| `#{param_name}` | #{spec[:type] || 'string'} | #{required} | #{spec[:description] || '-'} |"
+          lines << "| Parameter | Type | Required | Values | Description |"
+          lines << "|-----------|------|----------|--------|-------------|"
+          properties.each do |param_name, spec|
+            required = required_names.include?(param_name.to_s) ? "Yes" : "No"
+            lines << "| `#{param_name}` | #{type_cell.call(spec)} | #{required} | " \
+                     "#{values_cell.call(spec)} | #{md_cell.call(spec['description'].presence || '-')} |"
           end
         else
           lines << "- **Parameters**: none"
