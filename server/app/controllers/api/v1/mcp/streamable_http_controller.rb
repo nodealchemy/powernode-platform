@@ -983,36 +983,15 @@ module Api
             READ_ONLY_ACTION_PREFIXES.include?(action.split("_").first)
         end
 
+        # tools/list is the ONLY schema most clients ever see, and the flat-format
+        # branch this replaced copied just `type` and `description` — so an
+        # `enum`, `items`, `default` or nested `properties` declared on a tool
+        # parameter never reached the wire, and array parameters went out
+        # untyped. Shared with McpPlatformToolRegistrar's manifest/database
+        # schemas via one converter so the two cannot drift again
+        # (IMP-e809396f9eda).
         def build_input_schema(parameters)
-          return { "type" => "object", "properties" => {}, "required" => [] } if parameters.blank?
-
-          # Already in JSON Schema format (has type + properties keys)
-          if parameters.is_a?(Hash) && (parameters[:type] == "object" || parameters["type"] == "object")
-            props = parameters[:properties] || parameters["properties"] || {}
-            return {
-              "type" => "object",
-              "properties" => props.transform_keys(&:to_s).transform_values { |v|
-                v.is_a?(Hash) ? v.transform_keys(&:to_s) : { "type" => v.to_s }
-              },
-              "required" => (parameters[:required] || parameters["required"] || []).map(&:to_s)
-            }
-          end
-
-          # Flat hash format: { name: { type:, description:, required: } }
-          properties = {}
-          required = []
-
-          parameters.each do |name, defn|
-            next unless defn.is_a?(Hash)
-
-            properties[name.to_s] = {
-              "type" => defn[:type]&.to_s || defn["type"]&.to_s || "string",
-              "description" => defn[:description] || defn["description"]
-            }.compact
-            required << name.to_s if defn[:required] || defn["required"]
-          end
-
-          { "type" => "object", "properties" => properties, "required" => required }
+          ::Ai::Tools::ParameterSchema.build(parameters)
         end
 
         def build_protocol_service

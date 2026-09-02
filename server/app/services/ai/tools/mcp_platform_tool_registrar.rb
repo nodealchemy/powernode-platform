@@ -526,36 +526,46 @@ module Ai
           }
         end
 
+        # Delegated to Ai::Tools::ParameterSchema so this and the streamable-HTTP
+        # controller's tools/list schema cannot drift. The local copy this
+        # replaced kept only `type` and `description`, dropping every `enum`,
+        # `items`, `default` and nested `properties` a tool declared
+        # (IMP-e809396f9eda).
         def convert_to_json_schema(parameters)
-          return { "type" => "object", "properties" => {}, "required" => [] } if parameters.blank?
-
-          # If parameters already looks like a JSON Schema object (has "type" key), pass through
-          if parameters.key?(:type) || parameters.key?("type")
-            return parameters.deep_stringify_keys
-          end
-
-          properties = {}
-          required = []
-
-          parameters.each do |param_name, param_def|
-            next unless param_def.is_a?(Hash)
-
-            properties[param_name.to_s] = {
-              "type" => param_def[:type] || "string",
-              "description" => param_def[:description]
-            }.compact
-            required << param_name.to_s if param_def[:required]
-          end
-
-          { "type" => "object", "properties" => properties, "required" => required }
+          ::Ai::Tools::ParameterSchema.build(parameters)
         end
 
+        # The envelope EVERY platform tool returns (Ai::Tools::BaseTool
+        # #success_result / #error_result), including the third outcome that used
+        # to be undeclared: an approval-gated action that the autonomy gate PARKED
+        # returns success: true with a `data.pending` body and nothing applied
+        # (BaseTool#execute). With only {success, error} advertised, "done" and
+        # "parked, awaiting an operator" were distinguishable to a client solely
+        # by reading a sentence in `data.message` (IMP-e809396f9eda).
+        #
+        # `data` is declared WITHOUT a `type`: tools return objects, arrays and
+        # scalars there, and pinning it to "object" would make a strict client
+        # reject list-returning actions. `properties` and `additionalProperties`
+        # apply only when it IS an object, which is exactly the gated case.
         def default_output_schema
           {
             "type" => "object",
             "properties" => {
-              "success" => { "type" => "boolean" },
-              "error" => { "type" => "string" }
+              "success" => {
+                "type" => "boolean",
+                "description" => "False on refusal or failure; see `error`."
+              },
+              "error" => {
+                "type" => "string",
+                "description" => "Failure message. Present only when success is false."
+              },
+              "data" => {
+                "description" => "Action payload on success. For an approval-gated action " \
+                                 "parked by the autonomy gate it is the pending envelope below " \
+                                 "and NOTHING has been applied yet.",
+                "additionalProperties" => true,
+                "properties" => ::Ai::Tools::BaseTool::PENDING_RESULT_PROPERTIES.deep_dup
+              }
             },
             "required" => ["success"]
           }

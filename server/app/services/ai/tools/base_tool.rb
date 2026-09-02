@@ -6,6 +6,36 @@ module Ai
       REQUIRED_PERMISSION = nil
       MAX_CALLS_PER_EXECUTION = 20
 
+      # The `data` body of the third outcome #execute can produce: the autonomy
+      # gate returned :pending, so the action was PARKED for an operator and
+      # nothing was applied. Declared here, beside the site that builds it, and
+      # read by Ai::Tools::McpPlatformToolRegistrar.default_output_schema so the
+      # advertised outputSchema states the shape instead of leaving an agent to
+      # infer "done" vs "parked" from the prose in `message` (IMP-e809396f9eda).
+      PENDING_RESULT_PROPERTIES = {
+        "pending" => {
+          "type" => "boolean",
+          "description" => "True when the action was parked for operator approval. " \
+                           "Nothing has been applied; do not retry — poll the approval request."
+        },
+        "action_category" => {
+          "type" => "string",
+          "description" => "Autonomy-gate category that required approval, e.g. sdwan.network_create."
+        },
+        "deferred_operation_id" => {
+          "type" => "string",
+          "description" => "Ai::DeferredOperation UUID that will run on approval. May be null."
+        },
+        "approval_request_id" => {
+          "type" => "string",
+          "description" => "Ai::ApprovalRequest UUID an operator decides. May be null."
+        },
+        "message" => {
+          "type" => "string",
+          "description" => "Human-readable statement of what is awaiting approval."
+        }
+      }.freeze
+
       class << self
         def definition
           raise NotImplementedError, "#{name} must implement .definition"
