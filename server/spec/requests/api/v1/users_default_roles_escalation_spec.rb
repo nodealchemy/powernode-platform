@@ -109,8 +109,12 @@ RSpec.describe 'Api::V1::Users default-role escalation', type: :request do
 
     before { stub_entitlements_plan(%w[manager]) }
 
-    # The operator path must survive: admin.access bypasses the subset test in
-    # RoleAssignmentGuard, exactly as it does on RolesController#assign_to_user.
+    # The operator path must survive — and it does WITHOUT an exemption: the
+    # seeded `admin` role holds every grant on `manager`, so the subset test in
+    # Role#assignable_by? admits it on its own terms. (Until IMP-1635cb7fa768
+    # admin.access bypassed that test outright, which is what let an admin
+    # confer `super_admin`; this example passed for that reason and now passes
+    # for the right one.)
     it 'still confers a plan default role it could assign directly' do
       create_user_as(admin_actor, email: 'zz-escalation-admin-actor@example.com')
 

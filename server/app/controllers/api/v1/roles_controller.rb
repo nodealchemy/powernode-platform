@@ -97,12 +97,15 @@ class Api::V1::RolesController < ApplicationController
   def assignable
     assignable_roles = visible_roles.where.not(role_type: "system")
 
-    # System/regular admins can assign any visible role; others only roles whose
-    # effective permissions are a subset of their own (no privilege escalation).
-    # Mirrors RoleAssignmentGuard#can_assign_role? but hoists the admin check and
-    # permission_names lookup out of the per-role filter (system roles are
-    # already excluded by the query above, so its system_role? guard is moot).
-    unless role_assignment_admin?
+    # Every actor is filtered by the subset test — there is no admin exemption
+    # (IMP-1635cb7fa768). This MIRRORS Role#assignable_by? and must keep
+    # mirroring it: a picker that offers more than #assign_to_user will accept
+    # hands the operator a role the write path then refuses. The only remaining
+    # short-circuit is the one #assignable_by? has, `system.admin` (which holds
+    # everything by definition, and whose #permission_names is the running
+    # process's catalog rather than its true set); the system-role refusal is
+    # moot here because the query above already excluded them.
+    unless current_user.has_permission?("system.admin")
       user_permissions = current_user.permission_names
       assignable_roles = assignable_roles.select do |role|
         role_permissions_subset_of_user?(role, user_permissions)

@@ -145,19 +145,50 @@ class Role < ApplicationRecord
   # question with a different rule (see Accounts::DelegationService's note).
   #
   # Fails closed: with no actor, nothing is assignable.
+  #
+  # THE SUBSET TEST HAS NO ADMIN EXEMPTION (IMP-1635cb7fa768). It used to open
+  # with `return true if Role.assignment_admin?(user)`, which admits any
+  # admin.access holder — so an `admin` could confer `super_admin`, whose single
+  # grant `system.admin` short-circuits User#has_permission? to true for EVERY
+  # name. Conferring authority the caller does not itself hold is the one thing
+  # this guard exists to stop, so exempting the broadest case made it advisory.
+  # Fixing it here rather than at a call site is what makes RolesController,
+  # Admin::UsersController, the delegation channel and the plan appliers all
+  # inherit the correction.
+  #
+  # What survives is a bypass gated on something strictly ABOVE any role:
+  # `system.admin` itself. That is not a hole — a system.admin holder already
+  # holds every permission by definition, so the subset test would admit it
+  # anyway; the short-circuit only avoids materialising a whole-catalog set to
+  # prove it. It is also the CORRECT predicate rather than a cheaper one: a
+  # system.admin user's #permission_names answers the RUNNING PROCESS's catalog,
+  # so comparing against it would refuse a role carrying an extension permission
+  # in a process where that extension is not loaded. Account::Delegation
+  # #configured_permissions_for documents the same divergence.
+  #
+  # NO LOCKOUT for the ordinary operator: measured against the real seeded
+  # roles, `admin` holds every grant on `admin`, `owner`, `manager`, `member`,
+  # `developer`, `content_manager` and `ai_specialist`, so it confers all of
+  # them exactly as before. What it loses is `super_admin` and the worker roles
+  # — every one of which carries system.* grants an admin does not hold, which
+  # is precisely the escalation being closed. Worker provisioning is unaffected:
+  # that goes through #grant_to_worker, not this predicate.
   def assignable_by?(user)
     return false if user.nil?
-    return true if Role.assignment_admin?(user)
-    return false if system_role?
+    return false if system_role? && !Role.assignment_admin?(user)
+    return true if user.has_permission?("system.admin")
 
     user_permissions = user.permission_names
     permission_names.all? { |perm| user_permissions.include?(perm) }
   end
 
-  # System/regular admins bypass the escalation subset check. The set of bypass
-  # permissions lives here so a change applies to every conferral site at once.
-  # (The bypass's own weakness — an admin.access holder reaching `super_admin` —
-  # is tracked separately as IMP-1635cb7fa768; this is a move, not a change.)
+  # Who may reach the SYSTEM-ROLE tier at all. This is the whole of what the
+  # old "admin bypass" still governs: it no longer exempts anyone from the
+  # subset test (see #assignable_by?), it only decides whether a role_type
+  # "system" role is refused outright before the subset test is even asked.
+  # An admin.access holder therefore reaches the question but still has to hold
+  # the role's grants to pass it. The set lives here so a change applies to
+  # every conferral site at once.
   def self.assignment_admin?(user)
     return false if user.nil?
 
