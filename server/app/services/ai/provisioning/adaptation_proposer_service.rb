@@ -416,10 +416,16 @@ module Ai
         # have judged in bounds.
         return false if steps.empty?
 
-        max_replicas = watch_policies["auto_scale_max_replicas"]&.to_i
-        return false if max_replicas.nil? || max_replicas <= 0
+        # APO 3a: the window is the PROJECT's, resolved through
+        # `Ai::Mission#scaling_bounds` (mission `watch_policies` →
+        # Account#settings → SiteSetting → constant) rather than read as a bare
+        # ceiling key here. `auto_scale_out?` is false when no ceiling is
+        # declared anywhere and when the declaration is incoherent — both keep
+        # the previous fail-closed answer.
+        bounds = mission.scaling_bounds
+        return false unless bounds.auto_scale_out?
 
-        steps.all? { |s| additive_scale_out_within?(s, max_replicas) }
+        steps.all? { |s| additive_scale_out_within?(s, bounds) }
       rescue StandardError => e
         Rails.logger.warn("[AdaptationProposerService] auto_apply? failed: #{e.message}")
         false
@@ -484,9 +490,9 @@ module Ai
 
       # One step of a diff plan is eligible for auto-apply only if it is the
       # additive scale-out this composer emits, carries a real delta, and lands
-      # at or below the mission's replica ceiling. See #auto_apply? for why
+      # INSIDE the project's declared replica window. See #auto_apply? for why
       # this is an allowlist.
-      def additive_scale_out_within?(step, max_replicas)
+      def additive_scale_out_within?(step, bounds)
         cfg = step_config(step)
         return false unless cfg["skill"].to_s == "scale_project"
 
@@ -496,7 +502,7 @@ module Ai
         return false unless inputs["target_count"].to_i.positive?
 
         desired = inputs["desired_replica_count"].to_i
-        desired.positive? && desired <= max_replicas
+        desired.positive? && bounds.permits_replica_count?(desired)
       end
 
       # Signal-shaped envelope for an explicit request. Hash form is

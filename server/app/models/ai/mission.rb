@@ -12,6 +12,79 @@ module Ai
     STATUSES = %w[draft active paused completed failed cancelled].freeze
     TERMINAL_STATUSES = %w[completed failed cancelled].freeze
 
+    # ---- Per-project scaling bounds (APO 3a) ----------------------------
+    #
+    # A mission is the platform's PROJECT. An instance POOL has carried
+    # min_size/max_size since it existed; a mission had neither — only a bare
+    # `watch_policies.auto_scale_max_replicas` ceiling that the adaptation
+    # composer read directly, and NO floor at all, so the actuating scale-in
+    # skill clamped every project at one platform-wide constant. This is that
+    # missing home, read by both arms of the scale lane:
+    #
+    #   * the composer's downgrade-only bounds verdict
+    #     (Ai::Provisioning::AdaptationProposerService#auto_apply?), which may
+    #     clear a scale-OUT for unattended application only INSIDE the window;
+    #   * the actuating skill's replica floor, which bounds a scale-IN.
+    #
+    # Scale-IN is never released by these bounds. Ratified 2026-09-02:
+    # destructive removals take an operator approval regardless of policy, and
+    # the composer states that as an allowlist of the one additive strategy —
+    # so widening a project's window can never reach the removal arm.
+    #
+    # The `watch_policies` keys a mission declares them under. Both are
+    # OPTIONAL: an undeclared bound resolves through the settings ladder below.
+    MIN_REPLICAS_POLICY_KEY = "auto_scale_min_replicas"
+    MAX_REPLICAS_POLICY_KEY = "auto_scale_max_replicas"
+
+    # DB-driven config, resolved mission `watch_policies` → the mission
+    # TEMPLATE's `default_configuration` watch_policies → Account#settings →
+    # SiteSetting → the constant below. The template rung is what makes a
+    # seeded project shape (e.g. the system_provisioning template) carry a
+    # window at all: nothing merges a template's default_configuration into a
+    # mission's own configuration, so a bound declared there is only reachable
+    # by reading the template directly — the same shape other consumers of a
+    # template default already use. The SiteSetting keys let an operator move
+    # the platform-wide default without a deploy.
+    MIN_REPLICAS_SETTING = "ai.provisioning.auto_scale_min_replicas"
+    MAX_REPLICAS_SETTING = "ai.provisioning.auto_scale_max_replicas"
+
+    # Last-resort floor. The platform never scales a project to zero, and this
+    # mirrors the actuating skill's own minimum: a project may RAISE its floor,
+    # never lower it below this.
+    DEFAULT_AUTO_SCALE_MIN_REPLICAS = 1
+
+    # Last-resort ceiling — deliberately a NON-CEILING. Zero means "no ceiling
+    # was declared anywhere", and an undeclared ceiling must never license
+    # unattended scale-out: that is the fail-closed behaviour the bare
+    # `auto_scale_max_replicas` read already had, and resolving a real number
+    # here would silently widen unattended actuation for every project that
+    # declares nothing. An operator opts in per project, or globally through
+    # MAX_REPLICAS_SETTING.
+    DEFAULT_AUTO_SCALE_MAX_REPLICAS = 0
+
+    # The resolved window. `max` of 0 means "no ceiling declared" — see
+    # DEFAULT_AUTO_SCALE_MAX_REPLICAS — which is why #ceiling_declared? is a
+    # named question rather than a `max.positive?` scattered across callers.
+    ScalingBounds = Struct.new(:min, :max, keyword_init: true) do
+      def ceiling_declared? = max.to_i.positive?
+
+      # A floor ABOVE the ceiling is not a narrower window, it is an empty one.
+      # Guessing which half the operator meant is how a bounds check quietly
+      # becomes a rubber stamp, so an incoherent declaration clears nothing.
+      def coherent? = min.to_i >= 1 && (!ceiling_declared? || max.to_i >= min.to_i)
+
+      # Whether unattended scale-out is eligible AT ALL for this project. Not
+      # a decision to apply — the policy gate still has to grant it, and this
+      # verdict can only ever narrow what the gate may grant.
+      def auto_scale_out? = ceiling_declared? && coherent?
+
+      def permits_replica_count?(count)
+        return false unless auto_scale_out?
+
+        count.to_i >= min.to_i && count.to_i <= max.to_i
+      end
+    end
+
     # ==================== Associations ====================
     belongs_to :account
     belongs_to :created_by, class_name: "User", foreign_key: "created_by_id"
@@ -144,6 +217,24 @@ module Ai
 
       run_id = cfg["dryrun_run_id"].presence
       run_id ? "dryrun-#{run_id}" : nil
+    end
+
+    # This project's declared scaling window — see the ScalingBounds constants.
+    #
+    # The floor is clamped UP to DEFAULT_AUTO_SCALE_MIN_REPLICAS: a project may
+    # raise its floor, never declare one that permits scaling to zero. The
+    # ceiling is taken as declared and is not clamped here — the composer's own
+    # per-step delta bound and the actuating skill's ceiling already cap what a
+    # single step may reach, and clamping the ceiling here would silently
+    # rewrite an operator's number instead of honouring it.
+    def scaling_bounds
+      ScalingBounds.new(
+        min: [ resolved_scale_bound(MIN_REPLICAS_POLICY_KEY, MIN_REPLICAS_SETTING,
+                                    DEFAULT_AUTO_SCALE_MIN_REPLICAS),
+               DEFAULT_AUTO_SCALE_MIN_REPLICAS ].max,
+        max: resolved_scale_bound(MAX_REPLICAS_POLICY_KEY, MAX_REPLICAS_SETTING,
+                                  DEFAULT_AUTO_SCALE_MAX_REPLICAS)
+      )
     end
 
     # M4 Enterprise Polish — second-signature gate.
@@ -344,6 +435,87 @@ module Ai
     end
 
     private
+
+    # One scaling bound, resolved DB-first: this project's own
+    # `watch_policies` → its mission TEMPLATE's default_configuration →
+    # the account's settings → the global SiteSetting → the constant fallback.
+    # Reuses the settings reader Ai::FableRouting and the dry-run harness
+    # already share, so operators configure all of them the same way. Each rung
+    # is a lambda so a project that answers on the first one never pays for the
+    # template load or the SiteSetting read.
+    #
+    # PRESENCE is decisive: the first rung that CARRIES the key answers, even
+    # when what it carries is non-positive. A project declaring a zero ceiling
+    # is stating "no unattended scale-out here", and falling through to a wider
+    # account or global default would silently overrule it — the one direction
+    # a bounds ladder must never resolve. A value that is negative or not a
+    # number reads the same fail-closed way (0) and is logged, the way
+    # Ai::Provisioning::DryrunHarness#config_number logs an ignored one. `nil`
+    # and a blank string are the same statement as absent.
+    def resolved_scale_bound(policy_key, setting_key, default)
+      scale_bound_rungs(policy_key, setting_key).each do |rung, source|
+        raw = source.call
+        next if raw.nil? || (raw.respond_to?(:to_str) && raw.to_str.strip.empty?)
+
+        value = scale_bound_integer(raw)
+        unless value&.positive?
+          Rails.logger.warn("[Ai::Mission] #{policy_key}=#{raw.inspect} declared at #{rung}; " \
+                            "reading it as 0 (no window declared) rather than inheriting a wider default")
+          return 0
+        end
+
+        return value
+      end
+      default
+    rescue StandardError => e
+      Rails.logger.warn("[Ai::Mission] scaling bound #{policy_key} unresolved (#{e.class}); using #{default}")
+      default
+    end
+
+    # `.to_i` semantics for anything genuinely numeric (a JSON column can hand
+    # back an Integer, a Float or a numeric string), and nil for a value that
+    # is not a number at all — which #resolved_scale_bound then reads as an
+    # explicit 0 rather than as a silent 0 from `"abc".to_i`.
+    def scale_bound_integer(raw)
+      return raw.to_i if raw.is_a?(Numeric)
+
+      str = raw.to_s.strip
+      Integer(str, exception: false) || Float(str, exception: false)&.to_i
+    end
+
+    # The resolution ladder, most specific first. Lazy on purpose — see
+    # #resolved_scale_bound.
+    def scale_bound_rungs(policy_key, setting_key)
+      [
+        [ "the mission's watch_policies", -> { watch_policies_hash[policy_key] } ],
+        [ "the mission template's default_configuration", -> { template_watch_policies_hash[policy_key] } ],
+        [ "the account's settings", -> { ::Ai::FableRouting.setting(account, setting_key) } ],
+        [ "SiteSetting #{setting_key}", -> { ::Ai::FableRouting.global_setting(setting_key) } ]
+      ]
+    end
+
+    def watch_policies_hash
+      extract_watch_policies(configuration)
+    end
+
+    # Nothing merges a template's default_configuration into a mission's own
+    # configuration (Ai::Mission#set_defaults assigns the template, it does not
+    # copy its defaults), so a bound declared on the seeded project shape is
+    # only reachable by reading the template directly.
+    def template_watch_policies_hash
+      extract_watch_policies(mission_template&.default_configuration)
+    end
+
+    # Tolerant of a symbol-keyed configuration held in memory, matching the
+    # reader this replaced (AdaptationProposerService#watch_policies, which
+    # deep_stringify_keys first). A missed floor here would remove MORE
+    # replicas, not fewer.
+    def extract_watch_policies(cfg)
+      return {} unless cfg.is_a?(Hash)
+
+      policies = cfg["watch_policies"] || cfg[:watch_policies]
+      policies.is_a?(Hash) ? policies.deep_stringify_keys : {}
+    end
 
     def build_rejection_mappings
       if mission_template.present?
