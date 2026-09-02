@@ -211,12 +211,16 @@ module Ai
         # for the current set; it grows). They arrive HERE, which is why the
         # registrar is the wrong altitude for this and #execute is right.
         #
-        # ONE known exemption: Ai::Tools::FederationTool#execute overrides this
-        # method and never calls super, so it bypasses the registry along with
-        # the deny overlay and validate_params!. Pre-existing, not introduced
-        # here — but it is the tool that proxies arbitrary remote tool names,
-        # so IMP-439d31353f9b has to close it before the fail-closed flip or
-        # that tool silently stays outside the regime.
+        # NO exemptions. Ai::Tools::FederationTool used to override this method
+        # without super — the tool that proxies arbitrary remote tool names,
+        # outside the registry, the deny overlay and validate_params! —
+        # and IMP-149b35e5f16f moved its body to #call. That no class serving
+        # a PlatformApiToolRegistry action overrides this method is asserted
+        # positively — over every registry-backed class, not as a pin on the
+        # one known offender — in spec/services/ai/tools/
+        # action_declaration_completeness_spec.rb, so a new override cannot
+        # reappear unnoticed and read as coverage. (A tool outside that
+        # registry is outside the assertion, as it is outside the equality.)
         #
         # `mutating:` is INTENT for the registry: it can carry the fail-closed
         # invariant "an undeclared action is refused" (IMP-439d31353f9b owns
@@ -983,9 +987,11 @@ module Ai
       #
       # WHY HERE: this is the same chokepoint the declaration registry itself
       # keys off, so the telemetry's notion of "the action" is #execute's, not
-      # a parallel one that could drift. (Ai::Tools::FederationTool#execute
-      # overrides #execute without super and is therefore unmeasured too — the
-      # pre-existing exemption already recorded above, not a new one.)
+      # a parallel one that could drift — and, since IMP-149b35e5f16f closed the
+      # last #execute override on a registry-backed tool, with no such tool
+      # exempt from the measurement. (A tool outside PlatformApiToolRegistry is
+      # outside both that assertion and this measurement, exactly as it is
+      # outside the equality — the same bound recorded at declare_action above.)
       #
       # PRIVATE, not protected: #principal_kind is what keeps identity out of
       # both sinks, and a protected hook is one an extension subclass could

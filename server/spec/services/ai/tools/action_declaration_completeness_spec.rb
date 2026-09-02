@@ -122,23 +122,46 @@ RSpec.describe "MCP action declaration completeness" do
     expect(gate_routed).to contain_exactly("system_terminate_instance")
   end
 
-  # KNOWN-INERT DECLARATION — the equality cannot see this, so it is pinned
-  # here. Ai::Tools::FederationTool overrides #execute and never calls super
-  # (the same exemption base_tool.rb records), so BaseTool#execute's declaration
-  # lookup never runs for it: its two rows satisfy the equality above while
-  # governing nothing. APO-1e must close the override before it can read the
-  # equality as coverage for the tool that proxies arbitrary REMOTE tool names.
-  it "pins FederationTool as a declaration the equality counts but cannot govern" do
-    expect(Ai::Tools::FederationTool.instance_method(:execute).owner)
-      .to eq(Ai::Tools::FederationTool)
+  # THE ROUTING PRECONDITION of the equality above (IMP-149b35e5f16f).
+  #
+  # A declare_action row governs an action only if BaseTool#execute is what
+  # actually runs it — that is where the lookup, the instance deny overlay and
+  # #validate_params! live. A tool that defines its own #execute satisfies the
+  # set equality while governing nothing, and the equality cannot see it.
+  # Ai::Tools::FederationTool was exactly that tool, and it is the one that
+  # proxies arbitrary REMOTE tool names; APO-1e cannot read this file as
+  # coverage while any such override exists.
+  #
+  # Stated POSITIVELY over every registry-backed class rather than as a pin on
+  # the one known offender: a pin goes green by deletion and says nothing about
+  # the next override someone adds.
+  it "serves every advertised action through BaseTool#execute — no class overrides the chokepoint" do
+    # No SKIPS. A class that will not resolve, and an #execute the walk cannot
+    # introspect, are reported as offenders rather than filtered away: a guard
+    # stated as a positive completeness assertion must not have quiet escapes.
+    # `instance_method`, not `method_defined?`, so a PRIVATE or protected
+    # override is flagged too instead of reading as "no override".
+    overrides = registry_map.values.uniq.sort.filter_map do |class_name|
+      klass = class_name.safe_constantize
+      next "#{class_name} (does not resolve to a class)" unless klass.is_a?(Module)
 
-    source = File.read(Rails.root.join("app/services/ai/tools/federation_tool.rb"))
-    start  = source.index("      def execute(params:)")
-    finish = source.index("\n      private", start.to_i)
-    expect(start).to be_present, "FederationTool#execute moved; re-establish this region"
-    expect(finish).to be_present, "FederationTool#execute region has no trailing `private`"
+      begin
+        owner = klass.instance_method(:execute).owner
+      rescue NameError
+        next "#{class_name} (defines no #execute at all)"
+      end
 
-    expect(source[start...finish]).not_to include("super")
+      "#{class_name} (#execute owned by #{owner})" unless owner == Ai::Tools::BaseTool
+    end
+
+    expect(overrides).to be_empty, lambda {
+      "#{overrides.size} registry-backed tool class(es) do not serve #execute from " \
+      "Ai::Tools::BaseTool, so their declarations are counted by the equality above " \
+      "but govern nothing:\n  " +
+        overrides.join("\n  ") +
+        "\n\nMove the dispatch body into #call so BaseTool#execute runs the declaration lookup, " \
+        "the instance deny overlay and #validate_params! first."
+    }
   end
 
   describe "the oracle is genuinely red in both directions" do
