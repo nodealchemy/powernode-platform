@@ -206,12 +206,41 @@ class User < ApplicationRecord
 
     # Find or create a test role with these specific permissions
     # Use alphanumeric string that matches Role name validation
+    #
+    # SCOPED TO THIS USER'S ACCOUNT, never global. account_id nil is the marker
+    # for a GLOBAL role — the scope Role.sync_from_config! seeds the real
+    # catalog into, and the scope every "no global role holds <verb>" catalog
+    # assertion selects on. Minting the ad-hoc role there put a harness artefact
+    # in the catalog's own scope, reachable by a sweep two ways:
+    #   1. SAME transaction — a sweep example whose enclosing describe builds an
+    #      actor with `permissions: [...]` in a `let!`/`before` sees the harness
+    #      row immediately. No commit is involved; transactional rollback does
+    #      not help, because the sweep runs before it.
+    #   2. COMMITTED rows on the shared test DB — the suite is transactional
+    #      (spec/rails_helper.rb), but any non-transactional example commits:
+    #      `truncation: true` (rails_helper.rb) or `type: :performance` /
+    #      `:integration` (spec/support/ai_test_configuration.rb). There are
+    #      none today, so this arm is latent rather than active.
+    # Either way the failure reads "global <role> unexpectedly holds <verb>" —
+    # indistinguishable from the real catalog re-widening the sweep exists to
+    # catch. An account-scoped role is equally assignable
+    # (UserRole#role_available_to_user_account admits a role owned by the user's
+    # own account) and is invisible to Role.global.
+    #
+    # NOTE the remaining vector: `create(:role)` (spec/factories/roles.rb) still
+    # mints a GLOBAL `test_role_*` row, and its `:with_permissions` trait puts
+    # real catalog verbs on it, so a `test_role_*` red is not automatically
+    # stale. Fix such a red by scoping the role where it is CREATED — never by
+    # excluding the `test_role_*` prefix in the sweep, which every future author
+    # would then have to remember.
+    # See spec/models/user_factory_role_scope_spec.rb.
     role_name = "test_role_#{('a'..'z').to_a.sample(8).join}"
     role = Role.create!(
       name: role_name,
       display_name: "Test Role",
       role_type: "user",
-      description: "Test role with custom permissions"
+      description: "Test role with custom permissions",
+      account_id: account_id
     )
 
     # Grant permissions by name (the catalog is the source of truth). Tests may
