@@ -29,9 +29,26 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     
     return response.data;
   } catch (error) {
-    const apiError = error as { response?: { data?: { message?: string; error?: string } } };
+    const apiError = error as {
+      response?: { data?: { message?: string; error?: string; details?: string[] | string } };
+    };
     if (apiError.response?.data) {
-      throw new Error(apiError.response.data.message || apiError.response.data.error || 'API request failed');
+      const { message, error: errorLabel, details } = apiError.response.data;
+      // THE REASON IS IN `details`. ApiResponse#render_error puts the caller's
+      // message in `error` and the service's own reasons in `details`
+      // (server/app/controllers/concerns/api_response.rb) -- and the delegations
+      // controller gives `error` only a generic label ("Failed to remove
+      // permission") while every real refusal it can raise (privilege escalation,
+      // an out-of-role permission name, the widening removal) arrives in
+      // `details`. Mapping `message || error` alone therefore drops the entire
+      // explanation and leaves the operator with a label. There is no `message`
+      // key on that shape at all; it is kept first for the endpoints that do send
+      // one, and `details` is appended so the failed VERB stays visible next to
+      // the reason for it.
+      const reasons = (Array.isArray(details) ? details : [ details ])
+        .filter((reason): reason is string => typeof reason === 'string' && reason.length > 0);
+      const label = message || errorLabel || 'API request failed';
+      throw new Error(reasons.length > 0 ? `${label}: ${reasons.join('; ')}` : label);
     }
     throw error;
   }
@@ -67,9 +84,15 @@ export interface Delegation {
   // the delegation was moved to another role without a permission rewrite). They confer
   // nothing but stay on the row, so the UI must show them. Clearing one means rewriting
   // the stored permission set through the API (`updateDelegation` /
-  // `addPermissionToDelegation` / `removePermissionFromDelegation` below) — as of this
-  // change no component calls any of those three, so there is no in-UI editor for it.
+  // `addPermissionToDelegation` / `removePermissionFromDelegation` below), which is what
+  // DelegationDetailsModal's permission-set editor does.
   stale_permission_names?: string[];
+  // Which store the RESOLVED set above came from: 'custom' means the delegation carries
+  // delegation_permissions rows of its own, 'role' means it carries none and therefore
+  // confers its role's whole set, 'none' means neither. Only a 'custom' row has a stored
+  // set to edit — on a 'role' row the resolved names belong to the ROLE, and offering a
+  // removal for one would act on a delegation_permissions row that does not exist.
+  permission_source?: 'custom' | 'role' | 'none';
   status: string;
   expires_at: string | null;
   revoked_at: string | null;
@@ -214,7 +237,14 @@ export const delegationApi = {
     });
   },
 
-  // Update an existing delegation
+  // Update an existing delegation.
+  //
+  // A `permission_names` REWRITE is the only way to clear a stored set that
+  // one-at-a-time removal cannot: DelegationService#remove_permission_from_delegation
+  // refuses the removal that would empty the set (an empty custom set falls back to the
+  // role's whole permission set, so that removal WIDENS). Note the API treats an EMPTY
+  // `permission_names` as absent (`permission_names.present?`), so submitting [] is a
+  // silent no-op, never a clear — callers must never offer it as one.
   async updateDelegation(delegationId: string, updates: Partial<DelegationFormData>): Promise<DelegationResponse> {
     return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}`, {
       method: 'PATCH',

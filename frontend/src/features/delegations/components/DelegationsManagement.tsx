@@ -48,16 +48,33 @@ export const DelegationsManagement: React.FC = () => {
     }
   };
 
-  const loadDelegations = async () => {
+  const loadDelegations = async (): Promise<Delegation[]> => {
     try {
       setLoading(true);
       const data = await delegationApi.getDelegations();
-      setActiveDelegations(data.delegations || []);
+      const delegations = data.delegations || [];
+      setActiveDelegations(delegations);
+      return delegations;
     } catch (_error) {
-    // Error silently ignored
-  } finally {
+      // Error silently ignored
+      return [];
+    } finally {
       setLoading(false);
     }
+  };
+
+  // A child modal reporting a write reloads the LIST, but the details modal renders
+  // the row held in `selectedDelegation` — a separate copy that a list reload does not
+  // touch. Its permission-set editor derives what it offers from that row, so leaving
+  // it on the pre-write copy kept offering a removal for a stored name the operator had
+  // just cleared. Re-point it at the refreshed row; if the row has left the list (it was
+  // revoked, or a filter dropped it) KEEP the copy on screen rather than blanking the
+  // modal out from under an operator mid-edit.
+  const handleDelegationUpdated = async () => {
+    const delegations = await loadDelegations();
+    setSelectedDelegation(current =>
+      current ? delegations.find(delegation => delegation.id === current.id) || current : current
+    );
   };
 
   const loadRequests = async () => {
@@ -274,16 +291,14 @@ export const DelegationsManagement: React.FC = () => {
                           granted by this delegation&apos;s role and confer
                           {(delegation.stale_permission_names?.length || 0) !== 1 ? ' ' : 's '}nothing.
                         </p>
-                        {/* Deliberately does NOT tell the operator to "rewrite the permission
-                            set" here: no component calls updateDelegation /
-                            addPermissionToDelegation / removePermissionFromDelegation, so that
-                            affordance does not exist in this UI. The card also renders on the
-                            incoming tab, where the viewer is the grantee and could not edit the
-                            grantor's delegation under any API. */}
+                        {/* Names WHERE the editor is, not that the reader may use it. This
+                            card also renders on the incoming tab, where the viewer is the
+                            grantee, and the editor in the details modal is gated on the
+                            delegations permission -- so promising an edit here would be
+                            wrong for two different readers. */}
                         <p className="mt-1 text-xs text-theme-tertiary">
                           Clearing {(delegation.stale_permission_names?.length || 0) !== 1 ? 'them' : 'it'} means
-                          rewriting the stored permission set through the delegations API; this UI has
-                          no permission-set editor yet.
+                          rewriting the stored permission set in this delegation&apos;s details.
                         </p>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {(delegation.stale_permission_names || []).map((name) => (
@@ -389,7 +404,7 @@ export const DelegationsManagement: React.FC = () => {
             setSelectedDelegation(null);
           }}
           onRevoke={handleRevokeDelegation}
-          onUpdate={loadDelegations}
+          onUpdate={handleDelegationUpdated}
         />
       )}
 
