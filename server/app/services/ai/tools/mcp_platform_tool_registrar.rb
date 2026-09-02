@@ -117,7 +117,13 @@ module Ai
         def register_all!(account:)
           registry = ::Mcp::RegistryService.new(account: account)
 
-          tool_classes.each do |tool_class|
+          # ADVERTISEMENT surface (IMP-5039d026da0d): publishes one manifest per
+          # tool class into Mcp::RegistryService, so it asks the registry's
+          # advertisement predicate rather than walking the raw map. NOT
+          # `tool_classes` — that one is also a RESOLUTION set; see
+          # #advertised_tool_classes, which also states the one INVOCATION
+          # consequence this filter has (the McpChannel/ProtocolService path).
+          advertised_tool_classes.each do |tool_class|
             definition = tool_class.definition
             tool_id = "#{TOOL_ID_PREFIX}.#{definition[:name]}"
             manifest = build_manifest(tool_class)
@@ -144,9 +150,27 @@ module Ai
 
           synced_names = Set.new
 
-          # Sync platform tools from PlatformApiToolRegistry.all_tools
+          # Sync platform tools from PlatformApiToolRegistry.all_tools.
+          #
+          # ADVERTISEMENT surface (IMP-5039d026da0d): these rows ARE the catalog
+          # the frontend MCP browser lists, so an action the registry refuses to
+          # advertise must not get one. Before the predicate call below, this
+          # loop walked the raw map and kept writing rows for actions
+          # .available_tools had already dropped from tools/list — e.g. the
+          # docker-runtime actions in core mode after IMP-2836d290f99a.
+          #
+          # The stale-row delete at the bottom of this method is what makes the
+          # filter take effect on an EXISTING database rather than only on a
+          # fresh one: a de-advertised action drops out of `synced_names`, so its
+          # row is removed on the next sync — and is written back by the sync
+          # after the backing extension loads. No agent is in scope here (this is
+          # one account-wide catalog), so the predicate runs with `agent: nil`,
+          # which asks availability only. See
+          # PlatformApiToolRegistry.advertised_class?.
           PlatformApiToolRegistry.all_tools.each do |action_name, class_name|
             tool_class = class_name.constantize
+            next unless PlatformApiToolRegistry.advertised_action?(action_name, tool_class)
+
             action_defs = tool_class.action_definitions
             action_def = action_defs[action_name] || {}
 
@@ -177,8 +201,30 @@ module Ai
             end
           end
 
-          # Remove tools no longer in the registry
-          stale_count = mcp_server.mcp_tools.where.not(name: synced_names.to_a).delete_all
+          # Remove tools no longer in the registry.
+          #
+          # destroy_all, NOT delete_all (IMP-5039d026da0d). `mcp_tool_executions`
+          # carries a NO-ACTION foreign key on `mcp_tools` (schema.rb:
+          # `add_foreign_key "mcp_tool_executions", "mcp_tools"`, no `on_delete:`)
+          # and `mcp_tool_id` is `null: false`, so a bare DELETE raises
+          # ActiveRecord::InvalidForeignKey for any row that has ever been
+          # executed — relation#delete_all issues that DELETE directly and
+          # bypasses McpTool's `has_many :mcp_tool_executions, dependent:
+          # :destroy`. Execution rows on THESE rows are reachable today via
+          # Api::V1::McpToolsController#execute -> McpTool#execute and via
+          # Ai::AgentToolBridgeService#dispatch_external_mcp_tool, neither of
+          # which excludes the "Powernode MCP" server. The hazard was latent
+          # while these rows were never stale; the advertisement filter above
+          # makes it reachable, because a de-advertised action now drops out of
+          # `synced_names` on an EXISTING database. Neither non-spec caller
+          # (db/seeds/ai_skills_seed.rb, lib/tasks/mcp_tool_catalog.rake)
+          # rescues, so the raise would abort the whole catalog sync.
+          #
+          # Removal, not `enabled: false`: Api::V1::McpToolsController#index
+          # lists every row by default and only filters on `enabled` when the
+          # caller passes the param, so disabling would leave a de-advertised
+          # action visible in the frontend MCP browser.
+          stale_count = mcp_server.mcp_tools.where.not(name: synced_names.to_a).destroy_all.size
 
           # Update server capabilities with tool count
           mcp_server.update_columns(
@@ -571,6 +617,17 @@ module Ai
           }
         end
 
+        # THE RESOLUTION SET, deliberately UNFILTERED (IMP-5039d026da0d).
+        #
+        # #find_tool_class falls back to this list to resolve a tools/call, so
+        # filtering it here would change what is INVOCABLE on the LIVE MCP wire
+        # (Api::V1::Mcp::StreamableHttpController#handle_tools_call ->
+        # .execute_tool -> #find_tool_class), not just what is advertised. That
+        # is a separate decision from this change: 5d4bcabc4 answered a call to a
+        # de-advertised, extension-backed action with the tool's own refusal
+        # envelope on purpose, and dropping the class from resolution would turn
+        # that into an opaque "Unknown platform tool".
+        # Advertisement filtering lives in #advertised_tool_classes.
         def tool_classes
           @tool_classes ||= PlatformApiToolRegistry.all_tools.values.uniq.filter_map do |class_name|
             class_name.constantize
@@ -578,6 +635,34 @@ module Ai
             Rails.logger.warn "[McpPlatformToolRegistrar] Tool class not found: #{class_name} - #{e.message}"
             nil
           end
+        end
+
+        # The subset of #tool_classes the platform may ADVERTISE. Per-CLASS, not
+        # per-action: #register_all! publishes one manifest per class keyed on
+        # `definition[:name]`, so a mixed class like
+        # Ai::Tools::DiskImageOperatorTool (some actions extension-backed, one
+        # core-only) must keep its manifest — its per-action hook is applied on
+        # the surfaces that are per-action (tools/list, the mcp_tools rows).
+        # Not memoized: #tool_classes caches constant RESOLUTION, which is
+        # stable, while availability is not — an extension engine can register
+        # after boot, and a memo here would freeze a core-mode answer.
+        #
+        # ONE INVOCATION CONSEQUENCE, stated because it is real rather than
+        # hidden behind "advertisement only". #register_all! is the sole
+        # populator of Mcp::RegistryService for platform tools — `command grep
+        # -rn "McpPlatformToolRegistrar.register_all!" <repo>/server/app
+        # <repo>/server/db <repo>/server/lib <repo>/worker <repo>/extensions`
+        # finds two call sites outside spec/: app/channels/mcp_channel.rb and a
+        # seeded KB article's sample code — and
+        # Mcp::ProtocolService#invoke_tool looks the manifest up there and raises
+        # ToolNotFoundError when it is absent. So on the ActionCable channel
+        # path an unavailable tool becomes un-invocable, not merely unlisted.
+        # That is the intended reading of "not offered" for a surface whose
+        # catalog and its dispatch table are the same object; the live
+        # streamable-HTTP tools/call path is unaffected because it resolves
+        # through #find_tool_class, which stays unfiltered above.
+        def advertised_tool_classes
+          tool_classes.select { |tool_class| PlatformApiToolRegistry.advertised_class?(tool_class) }
         end
 
         def find_tool_class(tool_name)

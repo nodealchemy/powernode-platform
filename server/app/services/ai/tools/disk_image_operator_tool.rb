@@ -101,14 +101,29 @@ module Ai
       # invoke a de-advertised action and gets a plain envelope instead of a
       # NameError.
       #
-      # STILL DISHONEST IN CORE MODE (pre-existing, not fixed here — same three
-      # surfaces named in 5d4bcabc4's commit message): McpPlatformToolRegistrar
-      # .sync_to_database! / .register_all! / .tool_classes and
-      # SemanticToolDiscoveryService#collect_all_tools all walk
-      # PlatformApiToolRegistry.all_tools directly and do not consult
-      # available_tools/permitted? at all, so the DB-backed MCP browser catalog
-      # and semantic discovery index still list provision_disk_image_webhook /
-      # bootstrap_disk_image_ci in core mode even after this fix.
+      # CLOSED BY IMP-5039d026da0d (the three surfaces named in 5d4bcabc4's
+      # commit message): McpPlatformToolRegistrar.sync_to_database! and
+      # SemanticToolDiscoveryService#collect_all_tools now consult
+      # PlatformApiToolRegistry.advertised_action?, which applies THIS hook, so
+      # provision_disk_image_webhook / bootstrap_disk_image_ci drop out of the
+      # DB-backed MCP browser catalog and the semantic discovery index in core
+      # mode too. .register_all! filters per CLASS (.advertised_class?), which
+      # correctly keeps this class's manifest — provision_ci_worker is core-only.
+      #
+      # NOT closed for that class manifest, stated so the block above is not read
+      # as more than it is: McpPlatformToolRegistrar#build_manifest derives
+      # "inputSchema" from `.definition[:parameters]`, and this class's `action`
+      # parameter describes itself as "One of: #{ACTIONS.join(', ')}" — all
+      # three names, unconditionally. So the ActionCable catalog served out of
+      # Mcp::RegistryService still NAMES provision_disk_image_webhook and
+      # bootstrap_disk_image_ci in core mode. Only the per-ACTION surfaces
+      # (tools/list, the mcp_tools rows, the semantic index) drop them. Making
+      # the manifest per-action is a register_all!-shaped change, not this hook's
+      # job, and a call to either action still meets the envelope above.
+      #
+      # .tool_classes stays unfiltered on purpose: it is the RESOLUTION set
+      # behind #find_tool_class, so a stale-catalog tools/call on the live
+      # streamable-HTTP wire still reaches the envelope above.
       EXTENSION_BACKED_ACTIONS = %w[provision_disk_image_webhook bootstrap_disk_image_ci].freeze
 
       def self.extension_available?
@@ -120,6 +135,14 @@ module Ai
 
         extension_available?
       end
+
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "bootstrap_disk_image_ci", mutating: true
+      declare_action "provision_ci_worker", mutating: true
+      declare_action "provision_disk_image_webhook", mutating: true
 
       def self.definition
         {

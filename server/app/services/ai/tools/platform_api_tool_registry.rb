@@ -779,20 +779,56 @@ module Ai
         TOOLS.merge(extension_tools)
       end
 
+      # ADVERTISEMENT PREDICATE, per tool CLASS (IMP-5039d026da0d).
+      #
+      # THE ONE DEFINITION OF "the platform offers this". Before this existed,
+      # `.permitted?` gated exactly ONE of four advertisement surfaces — the
+      # tools/list path below — while McpPlatformToolRegistrar.sync_to_database!
+      # (the mcp_tools rows behind the frontend MCP browser),
+      # .register_all!/.tool_classes and
+      # SemanticToolDiscoveryService#collect_all_tools each walked `all_tools`
+      # raw. So after IMP-2836d290f99a the four docker-runtime actions were
+      # correctly absent from tools/list in core mode and still present in the
+      # browsable catalog and the semantic discovery index, which is how an
+      # agent doing discovery-by-embedding got steered at an action that is not
+      # offered and cannot run. The fix is that all four now ask HERE.
+      #
+      # `agent:` DEFAULTS TO NIL, AND NIL IS NOT A WEAKER CHECK — it is a
+      # DIFFERENT one. BaseTool.permitted? short-circuits `return true unless
+      # agent`, so with no agent the predicate degenerates to exactly the
+      # AVAILABILITY question ("is the backing extension loaded?", the
+      # `defined?(::System)` / `.extension_available?` guards) and asks nothing
+      # about permissions. That is the right question for the three account-wide
+      # surfaces: none of them has an agent, and each publishes ONE catalog the
+      # whole account reads, so filtering it by any single agent's grants would
+      # be wrong even if an agent were in hand. Verified over every override on
+      # the tree at the time of writing — `command grep -rnE "^ *def self\.permitted\?"
+      # <repo>/server/app <repo>/extensions` finds 14, and every one of them is
+      # either a bare `true` or a `defined?(::Const)` namespace probe followed by
+      # `super` — so nil-agent filtering removes only UNAVAILABLE tools today.
+      def self.advertised_class?(klass, agent: nil)
+        klass.permitted?(agent: agent)
+      end
+
+      # ADVERTISEMENT PREDICATE, per registry ACTION. Per-class gate first, then
+      # the per-ACTION hook (IMP-8f6ade11fbdf). Most tool classes are
+      # all-or-nothing extension-wise (see DockerProvisioningTool), for which
+      # `.permitted?` alone is correct. Ai::Tools::DiskImageOperatorTool is a
+      # mixed case — only 2 of its 3 actions depend on extensions/system — so
+      # gating the whole class would incorrectly de-advertise its core-only
+      # action too. `respond_to?` keeps the hook opt-in: classes that don't
+      # define `.action_advertised?` are unaffected.
+      def self.advertised_action?(name, klass, agent: nil)
+        return false unless advertised_class?(klass, agent: agent)
+        return false if klass.respond_to?(:action_advertised?) && !klass.action_advertised?(name)
+
+        true
+      end
+
       def self.available_tools(agent: nil)
         all_tools.each_with_object({}) do |(name, class_name), hash|
           klass = class_name.constantize
-          next unless klass.permitted?(agent: agent)
-
-          # Per-ACTION advertisement hook (IMP-8f6ade11fbdf), additive to the
-          # per-CLASS `.permitted?` above. Most tool classes are all-or-nothing
-          # extension-wise (see DockerProvisioningTool), for which `.permitted?`
-          # alone is correct. Ai::Tools::DiskImageOperatorTool is a mixed case —
-          # only 2 of its 3 actions depend on extensions/system — so gating the
-          # whole class would incorrectly de-advertise its core-only action too.
-          # `respond_to?` keeps this opt-in: classes that don't define
-          # `.action_advertised?` are unaffected.
-          next if klass.respond_to?(:action_advertised?) && !klass.action_advertised?(name)
+          next unless advertised_action?(name, klass, agent: agent)
 
           hash[name] = klass
         rescue NameError => e

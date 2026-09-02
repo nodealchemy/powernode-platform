@@ -77,9 +77,23 @@ module Ai
       def collect_all_tools
         tools = []
 
-        # Platform tools (static registry + extension-registered tools)
+        # Platform tools (static registry + extension-registered tools).
+        #
+        # ADVERTISEMENT surface (IMP-5039d026da0d): this list is both the
+        # candidate set for #discover and the corpus #index_tools! embeds, so an
+        # action the registry refuses to advertise must not be in it — otherwise
+        # discovery-by-embedding steers an agent at an action tools/list does not
+        # offer and the tool cannot run. Before the predicate call below this
+        # walked the raw map, which is why the docker-runtime actions stayed in
+        # the index in core mode after IMP-2836d290f99a.
+        #
+        # `agent: nil` (the default) is what the predicate is asked here: the
+        # index is per-ACCOUNT and cached under the account id, and no agent is
+        # in scope, so the question is availability, not any one agent's grants.
         PlatformApiToolRegistry.all_tools.each do |name, class_name|
           klass = class_name.constantize
+          next unless PlatformApiToolRegistry.advertised_action?(name, klass)
+
           defn = klass.definition
           tools << {
             id: "platform.#{name}",

@@ -72,12 +72,21 @@ module Ai
       # stale catalog can still invoke a de-advertised action and gets a plain
       # envelope instead of a NameError.
       #
-      # STILL DISHONEST IN CORE MODE (filed, not fixed here): three other
-      # surfaces walk all_tools without consulting permitted? and keep listing
-      # these four — McpPlatformToolRegistrar.sync_to_database! (the mcp_tools
-      # rows behind the frontend MCP browser), .register_all!/.tool_classes, and
-      # SemanticToolDiscoveryService#collect_all_tools (semantic discovery +
-      # the generated docs catalog).
+      # CLOSED BY IMP-5039d026da0d: the three other advertisement surfaces that
+      # used to walk all_tools raw and keep listing these four — McpPlatform
+      # ToolRegistrar.sync_to_database! (the mcp_tools rows behind the frontend
+      # MCP browser), .register_all!, and SemanticToolDiscoveryService
+      # #collect_all_tools (the semantic discovery index) — now all ask
+      # PlatformApiToolRegistry.advertised_action? / .advertised_class?, the one
+      # definition of "the platform offers this", which calls this predicate.
+      # STILL UNFILTERED, deliberately: .tool_classes (the RESOLUTION set behind
+      # #find_tool_class, so a stale-catalog tools/call on the live
+      # streamable-HTTP wire still reaches the envelope above rather than an
+      # opaque "Unknown platform tool"; the ActionCable channel path, whose
+      # catalog IS its dispatch table, does refuse) and the generated docs catalog in
+      # lib/tasks/mcp_tool_catalog.rake, whose committed copy is the whole
+      # registry rendered in the public bundle and must not vary by which
+      # extensions a generating host happened to load.
       def self.extension_available?
         defined?(::System::DockerDaemonProvisionerService) ? true : false
       end
@@ -87,6 +96,15 @@ module Ai
 
         super
       end
+
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "system_decommission_docker_runtime", mutating: true
+      declare_action "system_list_managed_docker_hosts", mutating: false
+      declare_action "system_mark_docker_ready", mutating: true
+      declare_action "system_provision_docker_runtime", mutating: true
 
       def self.definition
         {
