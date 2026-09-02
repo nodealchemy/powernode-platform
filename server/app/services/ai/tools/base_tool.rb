@@ -399,20 +399,40 @@ module Ai
       # no-ops for an unrecorded pair rather than guessing. The executor's own
       # params-level scoping remains the anchor for what it touches.
       def deferred_tool_call_context(params)
+        action = routed_action_name(params)
+        descriptor = caller_principal_descriptor(action)
+
+        # VALIDATE FIRST, so a call that could only ever be refused on replay
+        # does not park an approval an operator then has to dispose of. An
+        # "unattributed" caller (a federation principal, or any restricted
+        # principal arriving without a node instance) is exactly that: the
+        # executor's rehydrate step returns nil for it and refuses. Raising
+        # ArgumentError is the seam #run_through_autonomy_gate already rescues
+        # around the context build, and it converts to the caller's error
+        # envelope BEFORE Ai::AutonomyGate.evaluate is reached.
+        if descriptor["kind"] == "unattributed"
+          raise ArgumentError,
+                "Action #{action} is approval-gated and cannot be parked for an unattributed " \
+                "caller (#{descriptor['detail']}): an approval granted for it could never be replayed"
+        end
+
         {
           executor_params: ::Ai::Executors::DeferredToolCall.pack(
             tool_class: self.class.name,
-            action: routed_action_name(params),
+            action: action,
             tool_params: params,
-            principal: caller_principal_descriptor
+            principal: descriptor
           ),
           description: deferred_tool_call_description(params)
         }
       end
 
       # Override for a better approval-card line. Keep it free of caller param
-      # VALUES — Ai::SensitiveParams covers the params copy by key, and a
-      # description that interpolates them lands outside that cover.
+      # VALUES — Ai::SensitiveParams covers the APPROVAL-CARD copy
+      # (Ai::AutonomyGate writes `request_data` through the filter) and NOT the
+      # executor params on the operation row, which the replay needs verbatim.
+      # A description that interpolates a param value therefore lands outside
+      # the only cover there is.
       def deferred_tool_call_description(params)
         "#{routed_action_name(params)} via #{self.class.name}"
       end
@@ -434,24 +454,53 @@ module Ai
       # carries no User, and a nil user is NOT evidence of an in-process caller
       # (IMP-9030413bc292) — `internal:` has to have been passed explicitly.
       #
-      # Anything else is recorded as "unattributed" and the executor refuses it.
-      # That is the fail-closed arm and it is reachable: a FEDERATION principal
-      # arrives here `instance_authorized` with no node instance, because the
-      # controller passes `restricted?` rather than `instance?`.
-      def caller_principal_descriptor
+      # Anything else is recorded as "unattributed"; #deferred_tool_call_context
+      # refuses to park such a call at all. That arm is reachable: a FEDERATION
+      # principal arrives here `instance_authorized` with no node instance,
+      # because the controller passes `restricted?` rather than `instance?`.
+      #
+      # `internal` rides ALONGSIDE the kind rather than as a kind of its own,
+      # because the two are orthogonal at depth: a skill executor nests every
+      # tool with `internal: internal_caller?` while still forwarding the
+      # caller's user/agent, so a nested hop is routinely BOTH `agent` and
+      # internal. Recording only the kind would rebuild a strictly WEAKER tool
+      # on replay, and a tool enforcing per-action permissions with
+      # `return true if internal?` would then refuse the action an operator had
+      # just approved — the approval silently becoming a no-op.
+      def caller_principal_descriptor(action = nil)
         if instance_authorized?
-          return { "kind" => "instance", "node_instance_id" => node_instance&.id } if node_instance
+          if node_instance
+            return { "kind" => "instance", "node_instance_id" => node_instance.id,
+                     "granted_tool_name" => granted_tool_name_for(action) }
+          end
 
           { "kind" => "unattributed", "detail" => "restricted principal with no node instance" }
         elsif user
-          { "kind" => "user", "user_id" => user.id, "agent_id" => agent&.id }
+          { "kind" => "user", "user_id" => user.id, "agent_id" => agent&.id, "internal" => internal? }
         elsif agent
-          { "kind" => "agent", "agent_id" => agent.id }
+          { "kind" => "agent", "agent_id" => agent.id, "internal" => internal? }
         elsif internal?
           { "kind" => "internal" }
         else
           { "kind" => "unattributed", "detail" => "no user, agent or explicit internal flag" }
         end
+      end
+
+      # WHICH NAME the instance grant was actually checked against on the first
+      # hop. StreamableHttpController asks `may_invoke?("platform.<tool_name>")`
+      # — the advertised REGISTRY KEY — and McpPlatformToolRegistrar#
+      # enforce_action_scope! then pins the action to
+      # `ACTION_ALIASES.fetch(tool_name, tool_name)`, i.e. the alias TARGET. For
+      # the 25 aliased keys the routed action is therefore NOT the granted name:
+      # a call granted as "platform.code_upsert_node" runs as "upsert_node", and
+      # re-asking `may_invoke?("platform.upsert_node")` on replay matches no
+      # realistic glob and would refuse every approved replay of an aliased
+      # mutating action. Inverting the table (values are unique) recovers the
+      # name the grant was read against; an unaliased action is its own name.
+      def granted_tool_name_for(action)
+        return nil if action.blank?
+
+        ::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.key(action.to_s) || action.to_s
       end
 
       # A declaration is GATED only when it can actually be replayed. Ai::
