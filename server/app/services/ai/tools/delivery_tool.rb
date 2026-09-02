@@ -10,6 +10,14 @@ module Ai
     class DeliveryTool < BaseTool
       REQUIRED_PERMISSION = "git.pipelines.manage"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "deliver", mutating: true
+      declare_action "delivery_list", mutating: false
+      declare_action "delivery_status", mutating: false
+
       def self.definition
         {
           name: "delivery",

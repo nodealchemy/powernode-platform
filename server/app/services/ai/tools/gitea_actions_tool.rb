@@ -61,6 +61,29 @@ module Ai
         delete_gitea_user_token
       ].freeze
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "cancel_gitea_workflow_run", mutating: true
+      declare_action "create_gitea_user_token", mutating: true
+      declare_action "delete_gitea_action_secret", mutating: true
+      declare_action "delete_gitea_user_token", mutating: true
+      declare_action "delete_gitea_workflow_run", mutating: true
+      declare_action "dispatch_gitea_workflow", mutating: true
+      declare_action "get_gitea_job_logs", mutating: false
+      declare_action "get_gitea_workflow_run", mutating: false
+      declare_action "list_gitea_action_secrets", mutating: false
+      declare_action "list_gitea_run_artifacts", mutating: false
+      declare_action "list_gitea_user_tokens", mutating: false
+      declare_action "list_gitea_workflow_runs", mutating: false
+      declare_action "list_gitea_workflows", mutating: false
+      declare_action "rerun_gitea_job", mutating: true
+      declare_action "rerun_gitea_workflow", mutating: true
+      declare_action "rerun_gitea_workflow_failed_jobs", mutating: true
+      declare_action "set_gitea_action_secret", mutating: true
+      declare_action "set_gitea_action_secrets_bulk", mutating: true
+
       def self.definition
         {
           name: "gitea_actions",

@@ -30,6 +30,16 @@ module Ai
       }.freeze
 
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "create_knowledge", mutating: true
+      declare_action "delete_knowledge", mutating: true
+      declare_action "promote_knowledge", mutating: true
+      declare_action "search_knowledge", mutating: false
+      declare_action "update_knowledge", mutating: true
+
       def self.definition
         {
           name: "shared_knowledge",

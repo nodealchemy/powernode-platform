@@ -5,9 +5,12 @@ require "rails_helper"
 # COVERAGE RATCHET (IMP-a0553dda1ec3).
 #
 # Ai::Tools::BaseTool.declare_action is the governance registry the fail-closed
-# flip (IMP-439d31353f9b) will act on: "an undeclared action is refused". One
-# action is declared platform-wide today, so the flip cannot be made until the
-# tail is measured and bounded. This spec bounds it.
+# flip (IMP-439d31353f9b) will act on: "an undeclared action is refused". When
+# this ratchet was written almost nothing was declared, so the flip could not be
+# made until the tail was measured and bounded. This spec bounds it. APO-1a
+# (IMP-1e58753b3b6c) then drove the tail to ZERO — every advertised action
+# carries a declaration and the snapshot is empty — so what this spec guards
+# now is REGROWTH, not the original backlog.
 #
 # It does NOT declare anything and does NOT change any gate. It asserts a
 # two-way correspondence between the live registry and a CHECKED-IN snapshot so
@@ -26,8 +29,12 @@ require "rails_helper"
 # KNOWN BOUND: the walk is PlatformApiToolRegistry.all_tools, i.e. core TOOLS
 # plus whatever extension maps are registered in THIS environment. An
 # environment that loads an extension tool map absent here will see its actions
-# as growth — which is the ratchet working, and is resolved by a reviewed
-# snapshot addition, not by loosening the check.
+# as growth — which is the ratchet working. With the snapshot now empty the
+# remedy is to DECLARE that extension's actions (a snapshot addition is still
+# available, but re-growing the ungoverned surface is the worse of the two).
+# The same bound applies to
+# spec/services/ai/tools/action_declaration_completeness_spec.rb, which takes
+# no snapshot input at all.
 RSpec.describe "MCP action declaration coverage ratchet" do
   subject(:report) { ToolDeclarationCoverage.report }
 

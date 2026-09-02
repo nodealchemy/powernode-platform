@@ -39,6 +39,21 @@ module Ai
         "docker_container_exec" => "devops.docker.manage"
       }.freeze
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "docker_container_exec", mutating: true
+      declare_action "docker_container_logs", mutating: false
+      declare_action "docker_container_stats", mutating: false
+      declare_action "docker_create_container", mutating: true
+      declare_action "docker_delete_container", mutating: true
+      declare_action "docker_get_container", mutating: false
+      declare_action "docker_list_containers", mutating: false
+      declare_action "docker_restart_container", mutating: true
+      declare_action "docker_start_container", mutating: true
+      declare_action "docker_stop_container", mutating: true
+
       def self.definition
         {
           name: "docker_container_management",

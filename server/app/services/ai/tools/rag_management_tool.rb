@@ -5,6 +5,17 @@ module Ai
     class RagManagementTool < BaseTool
       REQUIRED_PERMISSION = "ai.knowledge.manage"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "add_document", mutating: true
+      declare_action "create_knowledge_base", mutating: true
+      declare_action "delete_document", mutating: true
+      declare_action "list_knowledge_bases", mutating: false
+      declare_action "process_document", mutating: true
+      declare_action "search_documents", mutating: false
+
       def self.definition
         {
           name: "rag_management",

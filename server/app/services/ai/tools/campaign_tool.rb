@@ -8,6 +8,26 @@ module Ai
     class CampaignTool < BaseTool
       REQUIRED_PERMISSION = "ai.campaigns.manage"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "campaign_answer_question", mutating: true
+      declare_action "campaign_approve_proposal", mutating: true
+      declare_action "campaign_check_rebase", mutating: false
+      declare_action "campaign_claim", mutating: true
+      declare_action "campaign_delegate", mutating: true
+      declare_action "campaign_list", mutating: false
+      declare_action "campaign_list_proposals", mutating: false
+      declare_action "campaign_propose", mutating: true
+      declare_action "campaign_record_increment", mutating: true
+      declare_action "campaign_reject_proposal", mutating: true
+      declare_action "campaign_release", mutating: true
+      declare_action "campaign_start", mutating: true
+      declare_action "campaign_status", mutating: false
+      declare_action "campaign_stop", mutating: true
+      declare_action "campaign_update_proposal", mutating: true
+
       def self.definition
         {
           name: "campaign",

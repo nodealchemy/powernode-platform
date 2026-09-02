@@ -37,6 +37,24 @@ module Ai
         "delete_skill"            => "ai.skills.delete"
       }.freeze
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "attach_skill_to_agent", mutating: true
+      declare_action "clone_skill", mutating: true
+      declare_action "create_skill", mutating: true
+      declare_action "delete_skill", mutating: true
+      declare_action "detach_skill_from_agent", mutating: true
+      declare_action "discover_skills", mutating: false
+      declare_action "get_skill", mutating: false
+      declare_action "get_skill_context", mutating: false
+      declare_action "list_skills", mutating: false
+      declare_action "skill_health", mutating: false
+      declare_action "skill_metrics", mutating: false
+      declare_action "toggle_skill", mutating: true
+      declare_action "update_skill", mutating: true
+
       def self.definition
         {
           name: "skill_management",

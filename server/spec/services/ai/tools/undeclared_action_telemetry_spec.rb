@@ -16,9 +16,12 @@ require "rails_helper"
 RSpec.describe "Ai::Tools::BaseTool undeclared-action telemetry" do
   let(:account) { create(:account) }
 
-  # Real, currently-undeclared MCP registry action names. The telemetry only
-  # emits names that are registry surface, so a fabricated name would test the
-  # sentinel path instead of the real one.
+  # Real MCP registry action names. The telemetry only emits names that are
+  # registry surface, so a fabricated name would test the sentinel path instead
+  # of the real one. Whether the name is declared on its OWN tool class is
+  # irrelevant here (APO-1a declared all three): the fixture tool below
+  # subclasses BaseTool directly and inherits no declaration, so these actions
+  # are undeclared FOR IT — which is the state the telemetry keys on.
   let(:registry_action)   { "active_sessions" }
   let(:registry_action_b) { "add_document" }
   # A name reached only through McpPlatformToolRegistrar::ACTION_ALIASES

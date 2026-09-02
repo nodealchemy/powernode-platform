@@ -36,6 +36,13 @@ module Ai
       # read/manage split the twin uses action for action.
       REQUIRED_PERMISSION = "devops.kubernetes.manage"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "kubernetes_decommission_cluster", mutating: true
+      declare_action "kubernetes_get_kubeconfig", mutating: false
+
       def self.definition
         {
           name: "kubernetes_provisioning",

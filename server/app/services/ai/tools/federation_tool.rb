@@ -17,6 +17,13 @@ module Ai
     class FederationTool < BaseTool
       REQUIRED_PERMISSION = "ai.federation.invoke"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "federation_invoke_tool", mutating: true
+      declare_action "federation_list_partners", mutating: false
+
       # BaseTool.definition raises NotImplementedError, and McpPlatformToolRegistrar
       # calls it OUTSIDE its per-tool rescue (register_all!), so a tool missing this
       # aborts registration for every tool after it — and McpChannel#subscribed does

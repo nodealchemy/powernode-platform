@@ -5,6 +5,12 @@ module Ai
     class ContainerStatusTool < BaseTool
       REQUIRED_PERMISSION = "ai.agents.execute"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "agent_container_status", mutating: false
+
       def self.definition
         {
           name: "agent_container_status",

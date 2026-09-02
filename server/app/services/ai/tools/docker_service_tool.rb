@@ -36,6 +36,20 @@ module Ai
         "docker_delete_service" => "devops.swarm.manage"
       }.freeze
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "docker_create_service", mutating: true
+      declare_action "docker_delete_service", mutating: true
+      declare_action "docker_get_service", mutating: false
+      declare_action "docker_list_services", mutating: false
+      declare_action "docker_rollback_service", mutating: true
+      declare_action "docker_scale_service", mutating: true
+      declare_action "docker_service_logs", mutating: false
+      declare_action "docker_service_tasks", mutating: false
+      declare_action "docker_update_service", mutating: true
+
       def self.definition
         {
           name: "docker_service_management",

@@ -5,6 +5,13 @@ module Ai
     class ImageGenerationTool < BaseTool
       REQUIRED_PERMISSION = "ai.image.generate"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "generate_image", mutating: true
+      declare_action "list_generated_images", mutating: false
+
       def self.definition
         {
           name: "image_generation",

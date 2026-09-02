@@ -64,6 +64,18 @@ module Ai
       # floor is a member-tier permission, so BaseTool.permitted? re-arming
       # narrows advertisement only in an account where NO user can read agents.
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "emit_signal", mutating: true
+      declare_action "measure_pressure", mutating: true
+      declare_action "optimize_team", mutating: true
+      declare_action "perceive_pressure", mutating: true
+      declare_action "perceive_signals", mutating: true
+      declare_action "recruit_agent", mutating: true
+      declare_action "reinforce_signal", mutating: true
+
       def self.definition
         {
           name: "coordination",

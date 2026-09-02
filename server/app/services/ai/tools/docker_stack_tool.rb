@@ -37,6 +37,16 @@ module Ai
         "docker_adopt_stack" => "devops.swarm.manage"
       }.freeze
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "docker_adopt_stack", mutating: true
+      declare_action "docker_delete_stack", mutating: true
+      declare_action "docker_deploy_stack", mutating: true
+      declare_action "docker_get_stack", mutating: false
+      declare_action "docker_list_stacks", mutating: false
+
       def self.definition
         {
           name: "docker_stack_management",

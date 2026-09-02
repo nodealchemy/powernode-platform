@@ -5,6 +5,12 @@ module Ai
     class RunnerDispatchTool < BaseTool
       REQUIRED_PERMISSION = "devops.ci.write"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "dispatch_to_runner", mutating: true
+
       def self.definition
         {
           name: "dispatch_to_runner",

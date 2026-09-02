@@ -14,6 +14,13 @@ module Ai
     class ContentProductionMissionTool < BaseTool
       REQUIRED_PERMISSION = "ai.missions.manage"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "content_production_status", mutating: false
+      declare_action "start_content_production", mutating: true
+
       def self.definition
         {
           name: "content_production",

@@ -43,6 +43,15 @@ module Ai
       #     and it too addresses arbitrary agents by :agent_id.
       REQUIRED_PERMISSION = "ai.agents.read"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "agent_forget", mutating: true
+      declare_action "agent_recall", mutating: false
+      declare_action "agent_reflect", mutating: true
+      declare_action "agent_remember", mutating: true
+
       def self.definition
         {
           name: "agent_memory_management",

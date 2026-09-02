@@ -45,6 +45,25 @@ module Ai
         "docker_delete_config" => "devops.swarm.manage"
       }.freeze
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "docker_cluster_health", mutating: false
+      declare_action "docker_create_config", mutating: true
+      declare_action "docker_create_secret", mutating: true
+      declare_action "docker_delete_config", mutating: true
+      declare_action "docker_delete_secret", mutating: true
+      declare_action "docker_get_cluster", mutating: false
+      declare_action "docker_list_clusters", mutating: false
+      declare_action "docker_list_configs", mutating: false
+      declare_action "docker_list_nodes", mutating: false
+      declare_action "docker_list_secrets", mutating: false
+      declare_action "docker_node_activate", mutating: true
+      declare_action "docker_node_demote", mutating: true
+      declare_action "docker_node_drain", mutating: true
+      declare_action "docker_node_promote", mutating: true
+
       def self.definition
         {
           name: "docker_cluster_management",

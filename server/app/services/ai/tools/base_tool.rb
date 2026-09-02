@@ -100,11 +100,33 @@ module Ai
         # so IMP-439d31353f9b has to close it before the fail-closed flip or
         # that tool silently stays outside the regime.
         #
-        # `mutating:` is INTENT for the registry: once every action is declared,
-        # it can carry the fail-closed invariant "an undeclared action is
-        # refused" (IMP-439d31353f9b owns that flip). Nothing enforces it today,
-        # and today exactly one action is declared platform-wide — flipping it
-        # now would refuse every undeclared verb on the platform.
+        # `mutating:` is INTENT for the registry: it can carry the fail-closed
+        # invariant "an undeclared action is refused" (IMP-439d31353f9b owns
+        # that flip). Nothing enforces it today.
+        #
+        # APO-1a (IMP-1e58753b3b6c) closed the gap that blocked the flip: every
+        # action Ai::Tools::PlatformApiToolRegistry.all_tools advertises now
+        # carries a declaration, asserted by set EQUALITY (both directions) in
+        # spec/services/ai/tools/action_declaration_completeness_spec.rb. An
+        # existence check could not do that job — a declaration keyed on the
+        # registry key rather than the ALIASED name #execute dispatches on
+        # reads as coverage while the action still runs undeclared.
+        #
+        # Those bulk declarations pass `mutating:` and NOTHING ELSE, on
+        # purpose. #gated_action? below needs action_category, executor_class,
+        # gate_context and on_proceed as well, so a `mutating:`-only
+        # declaration cannot arm the gate: #execute still takes `return
+        # call(params)`, and a tool that enforces per-action permissions inside
+        # #call (SystemFleetTool#action_permitted?) keeps that check. That is
+        # what makes the increment non-enforcing, and it is why
+        # action_category is absent rather than guessed: Ai::InterventionPolicy
+        # keeps a REGISTERED category vocabulary (see its STATIC_CATEGORIES and
+        # .register_category!), and a category no active policy row matches
+        # resolves to Ai::InterventionPolicyService#default_policy —
+        # "require_approval". A guessed category is therefore not inert: it
+        # would park real actions behind an approval nobody wrote a policy for.
+        # A category is only meaningful paired with the executor that can
+        # replay the action, so both are the gate-wiring increment's work.
         #
         # CORE PURITY: core never names an extension class. `executor_class` is
         # a STRING supplied by the declaring tool (which may live in an
