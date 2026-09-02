@@ -129,6 +129,63 @@ check_pattern "Skill KG-node reads are account-scoped (no bare has_one in app/)"
     "grep -rn '\.knowledge_graph_node\b' server/app/ --include=*.rb | grep -v 'knowledge_graph_node_for\|knowledge_graph_nodes' | grep -v 'ds\.knowledge_graph_node' | wc -l" \
     "empty" "0"
 
+# System::NodeModule#current_version_id is the FLEET ACTUATOR — every instance
+# carrying the module converges on whatever it points at. The guards that decide
+# whether a version may become that pointer live in ModulePublicationProcessor
+# (the auto_promote opt-out, the non-empty artifact floor from the 2026-08-07
+# empty-erofs incident, the core-provenance verdict, the batch-atomic hold from
+# the core/extension promote-skew outage), NOT in the writer — so a write that
+# reaches the column by any other route gets none of them.
+#
+# A comment on #promote_to_version! USED TO claim it was "the platform's ONLY
+# choke point" for that (deleted by IMP-9a5e40a21d70 increment 2, which is why
+# this is past tense). It never was: SIX sites write the column, and a
+# re-derivation from the column found the 5th and 6th that five separate readers
+# of that comment had not.
+#
+# This is the model-agnostic twin of
+# extensions/system/server/spec/lint/node_module_current_version_write_seam_spec.rb
+# — which is the precise check (path#receiver equality, both directions, each
+# exemption carrying its rationale and the guards it skips). This one is COARSER
+# (whole-file exclusions, no receiver resolution) but has the one thing the spec
+# cannot have: it runs from the repo root, so it also covers `server/` and
+# `extensions/private/*`, where a writer would be invisible to an extension spec
+# in a public clone.
+#
+# LIMIT, stated so a pass is not over-read: source scan only. A runtime-built
+# attribute hash, `send(:update!, attrs)`, raw SQL, or `execute("UPDATE ...")`
+# are all invisible to it. The wall is a model-layer runtime guard; this is a
+# tripwire on the AUTHORED shapes. Verified to fire on all four real mechanisms
+# (single-line kwarg, multi-line kwarg, in-place assign, update_all), and
+# verified NOT to fire on `current_version_number:` — the benign denormalized
+# column — because the regex requires the colon immediately after the name.
+#
+# THE TWO TWINS ARE NOT SUPERSETS OF EACH OTHER; each catches what the other
+# misses, which is why both exist:
+#   * this one catches a call whose earlier arguments contain a `)` inside a
+#     STRING LITERAL — the spec's bracket-depth walker stops early there.
+#   * the spec catches a keyword on the 3rd/4th line of a call; `-A2` here
+#     reaches only the 2nd.
+#
+# KNOWN FALSE-POSITIVE MODE (noisy, never silent): the second grep filters the
+# whole `-A2` stream, so a pure READ of the column sitting within two lines
+# AFTER any update-verb call is counted. That is the same context-bleed the
+# spec's walker was written to fix, and it is left here because grep cannot
+# bound a call. It can only produce a spurious FAIL, never a miss. If this check
+# fails on a line that is plainly a read, confirm against the spec — which
+# resolves receivers and call extents — before touching the exclusion list.
+#
+# Two exclusion groups, and they mean DIFFERENT things:
+#   extensions/system/... — the censused NodeModule writers. Adding a path here
+#     is a policy decision about the fleet; make it in the spec's CENSUS first,
+#     where it must name the guards it skips.
+#   extensions/private/business/.../mcp/ — NOT NodeModule. Mcp::HostedServer and
+#     Mcp::ServerDeployment have their own unrelated `current_version` columns;
+#     the shell rule cannot resolve receivers, so they are excluded by path.
+check_pattern "NodeModule#current_version_id written only by the censused seam" \
+    '( grep -rn -A2 -E "(\.|^[[:space:]]*)(update!?|update_columns?|update_all|assign_attributes)\(" --include=*.rb server/app server/lib extensions/*/server/app extensions/*/server/lib extensions/*/server/db/seeds extensions/private/*/server/app extensions/private/*/server/lib 2>/dev/null | grep -E "current_version(_id)?:" ; grep -rnE "\.current_version(_id)?[[:space:]]*(\|\|)?=[^=~]|^[[:space:]]*self\.current_version(_id)?[[:space:]]*(\|\|)?=[^=~]|=[[:space:]]*\{[[:space:]]*current_version(_id)?:" --include=*.rb server/app server/lib extensions/*/server/app extensions/*/server/lib extensions/*/server/db/seeds extensions/private/*/server/app extensions/private/*/server/lib 2>/dev/null ) | grep -vE "^extensions/system/server/(app/models/system/node_module|app/services/system/(account_bootstrap_service|manifest_import_service|module_version_service|package_build_webhook_service)|db/seeds/cutover_renamed_modules)\.rb[:-]" | grep -vE "^extensions/private/business/server/app/models/mcp/(hosted_server|server_deployment)\.rb[:-]" | wc -l' \
+    "empty" "0"
+
 # Cross-tenant IDOR guard: api/v1 controllers must not query account-scoped
 # models through a bare-constant receiver on a user param (Model.find(params[..]),
 # Model.find_by(id: params[..]), Model.all). The check-account-scoping.sh guard
