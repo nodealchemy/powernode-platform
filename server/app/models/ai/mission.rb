@@ -62,6 +62,66 @@ module Ai
     # MAX_REPLICAS_SETTING.
     DEFAULT_AUTO_SCALE_MAX_REPLICAS = 0
 
+    # ---- Per-project utilization ceilings (IMP-7684d3f8658a) ------------
+    #
+    # The cpu / memory percentages above which a project is UTILIZATION-BOUND
+    # and its SLO sensor should say so. They live here, next to the scaling
+    # window, for the reason APO-3a moved the window here: a project's declared
+    # numbers must have ONE home, or the sensor that fires and the composer
+    # that sizes the response end up holding different opinions of the same
+    # project.
+    #
+    # The keys a mission declares them under, inside `configuration
+    # ["slo_targets"]` — the hash that already carries availability_pct,
+    # p99_latency_ms, cost_ceiling_usd and min_throughput_bytes_per_s.
+    MAX_CPU_PCT_SLO_KEY    = "max_cpu_pct"
+    MAX_MEMORY_PCT_SLO_KEY = "max_memory_pct"
+
+    # Operator-movable platform defaults, same ladder as the scaling bounds.
+    # Setting either one turns the corresponding check on FLEET-WIDE — read
+    # DEFAULT_MAX_CPU_PCT below before you do.
+    MAX_CPU_PCT_SETTING    = "ai.provisioning.max_cpu_pct"
+    MAX_MEMORY_PCT_SETTING = "ai.provisioning.max_memory_pct"
+
+    # Constant fallbacks — the last rung, never a literal at a call site.
+    #
+    # DECLARED-ONLY, exactly like the SDWAN throughput floor: nil means no
+    # ceiling is checked until an operator declares one (on the project, on its
+    # template, on the account, or fleet-wide via the SiteSetting above).
+    #
+    # A shipped default was considered and rejected, because a utilization
+    # ceiling is NOT the quiet direction the scaling window's 0 is. A
+    # `system.project_slo_violation` on cpu_pct maps to change_type
+    # `scale_horizontal`, which System::AdaptationGate seeds `auto_approve`
+    # deliberately paired with the watch_policies ceiling — and the seeded
+    # `system_provisioning` mission template, which EVERY mission
+    # Ai::Tools::ProvisioningTool creates inherits from, declares
+    # auto_scale_min_replicas 1 / auto_scale_max_replicas 5. #scaling_bounds
+    # therefore reads that window off the TEMPLATE rung and #auto_scale_out? is
+    # already true for a project that declared nothing itself. A defaulted
+    # ceiling would consequently open an UNATTENDED, money-spending provision
+    # path on existing projects the moment this shipped, which is not a default
+    # a code change gets to choose. Declaring a ceiling is that decision, made
+    # deliberately and per project (or once, fleet-wide, via the SiteSetting).
+    DEFAULT_MAX_CPU_PCT    = nil
+    DEFAULT_MAX_MEMORY_PCT = nil
+
+    # A resolved target of nil means NO CEILING for that metric: nothing usable
+    # was declared, so the metric is not checked at all. See
+    # #resolved_utilization_target for why an unusable declaration resolves
+    # this way rather than to a wider default.
+    UtilizationTargets = Struct.new(:cpu_pct, :memory_pct, keyword_init: true) do
+      # Keyed by the CANONICAL METRIC NAME a project metrics sample carries
+      # ("cpu_pct" / "memory_pct"), so a reader maps a sample to its ceiling
+      # without maintaining a second name table alongside this one.
+      def target_for(metric_name)
+        case metric_name.to_s
+        when "cpu_pct"    then cpu_pct
+        when "memory_pct" then memory_pct
+        end
+      end
+    end
+
     # The resolved window. `max` of 0 means "no ceiling declared" — see
     # DEFAULT_AUTO_SCALE_MAX_REPLICAS — which is why #ceiling_declared? is a
     # named question rather than a `max.positive?` scattered across callers.
@@ -234,6 +294,37 @@ module Ai
                DEFAULT_AUTO_SCALE_MIN_REPLICAS ].max,
         max: resolved_scale_bound(MAX_REPLICAS_POLICY_KEY, MAX_REPLICAS_SETTING,
                                   DEFAULT_AUTO_SCALE_MAX_REPLICAS)
+      )
+    end
+
+    # The GLOBAL rung of the utilization ladder, resolved once. SiteSetting.get
+    # is an uncached `find_by`, and these two keys are per-DEPLOYMENT values,
+    # not per-mission ones — so a caller that walks many missions in one pass
+    # (System::Fleet::Sensors::ProjectSloSensor, every tick) reads them ONCE
+    # here and hands the result to #utilization_targets, instead of paying two
+    # SELECTs per mission per tick. Returns a hash keyed by setting key; a
+    # missing setting is present with a nil value, so "resolved and unset" is
+    # distinguishable from "not supplied".
+    def self.global_utilization_settings
+      [ MAX_CPU_PCT_SETTING, MAX_MEMORY_PCT_SETTING ].index_with do |key|
+        ::Ai::FableRouting.global_setting(key)
+      end
+    end
+
+    # This project's declared utilization ceilings — see the
+    # UtilizationTargets constants. Resolved per metric and INDEPENDENTLY: an
+    # unreadable cpu declaration must not take the memory ceiling with it.
+    #
+    # `global_settings:` is the optional hoist described on
+    # .global_utilization_settings. nil (the default) keeps the ladder LAZY, as
+    # #scaling_bounds is: a project that answers on its own rung never reads a
+    # SiteSetting at all.
+    def utilization_targets(global_settings: nil)
+      UtilizationTargets.new(
+        cpu_pct: resolved_utilization_target(MAX_CPU_PCT_SLO_KEY, MAX_CPU_PCT_SETTING,
+                                             DEFAULT_MAX_CPU_PCT, global_settings),
+        memory_pct: resolved_utilization_target(MAX_MEMORY_PCT_SLO_KEY, MAX_MEMORY_PCT_SETTING,
+                                                DEFAULT_MAX_MEMORY_PCT, global_settings)
       )
     end
 
@@ -492,6 +583,98 @@ module Ai
         [ "the account's settings", -> { ::Ai::FableRouting.setting(account, setting_key) } ],
         [ "SiteSetting #{setting_key}", -> { ::Ai::FableRouting.global_setting(setting_key) } ]
       ]
+    end
+
+    # One utilization ceiling, resolved on the same DB-first ladder as a
+    # scaling bound: this project's `slo_targets` → its mission TEMPLATE's
+    # default_configuration → the account's settings → the global SiteSetting →
+    # the constant fallback (nil — see DEFAULT_MAX_CPU_PCT: these ceilings are
+    # declared-only, so a project nobody declared one for is UNCHECKED, not
+    # checked at a shipped number).
+    #
+    # PRESENCE IS DECISIVE, as it is for a scaling bound — but an unusable
+    # declaration resolves to nil (NO ceiling, the metric goes unchecked)
+    # rather than to 0. The two fail different ways on purpose: a scaling bound
+    # of 0 means "no unattended scale-out", the quiet direction; a utilization
+    # ceiling of 0 would mean "breach on every tick", the loudest possible
+    # direction, so reading a garbled declaration that way would flood an
+    # operator with signals for a number the platform could not parse. Out of
+    # range (<= 0 or > 100) is unusable for the same reason: these are
+    # percentages of a bounded quantity, and a 140% ceiling can never be
+    # crossed, so honouring it silently would disable the check while looking
+    # like a declaration.
+    def resolved_utilization_target(slo_key, setting_key, default, global_settings = nil)
+      utilization_target_rungs(slo_key, setting_key, global_settings).each do |rung, source|
+        raw = source.call
+        next if raw.nil? || (raw.respond_to?(:to_str) && raw.to_str.strip.empty?)
+
+        value = utilization_percent(raw)
+        unless value
+          Rails.logger.warn("[Ai::Mission] #{slo_key}=#{raw.inspect} declared at #{rung} is not a " \
+                            "usable percentage; reading it as NO ceiling rather than inheriting " \
+                            "a wider default")
+          return nil
+        end
+
+        return value
+      end
+      default
+    rescue StandardError => e
+      Rails.logger.warn("[Ai::Mission] utilization target #{slo_key} unresolved (#{e.class}); using #{default}")
+      default
+    end
+
+    # A percentage in (0, 100], as a Float — or nil for anything else. A JSON
+    # column and a SiteSetting both hand values back as Integer, Float or
+    # String, so all three are accepted; a non-number is nil, never `"abc"
+    # .to_f`'s silent 0.0.
+    def utilization_percent(raw)
+      value = raw.is_a?(Numeric) ? raw.to_f : Float(raw.to_s.strip, exception: false)
+      return nil if value.nil?
+      return nil unless value.positive? && value <= 100.0
+
+      value
+    end
+
+    # The resolution ladder, most specific first. Lazy, exactly like
+    # #scale_bound_rungs — a project that answers on the first rung never pays
+    # for the template load or the SiteSetting read.
+    def utilization_target_rungs(slo_key, setting_key, global_settings = nil)
+      [
+        [ "the mission's slo_targets", -> { slo_targets_hash[slo_key] } ],
+        [ "the mission template's default_configuration", -> { template_slo_targets_hash[slo_key] } ],
+        [ "the account's settings", -> { ::Ai::FableRouting.setting(account, setting_key) } ],
+        [ "SiteSetting #{setting_key}",
+          # `key?`, not `[]` — a hoisted hash that resolved the setting to nil
+          # must NOT silently re-read it here, or the hoist stops being a hoist
+          # for exactly the common case (nothing set) it exists to make cheap.
+          lambda do
+            if global_settings.is_a?(Hash) && global_settings.key?(setting_key)
+              global_settings[setting_key]
+            else
+              ::Ai::FableRouting.global_setting(setting_key)
+            end
+          end ]
+      ]
+    end
+
+    def slo_targets_hash
+      extract_slo_targets(configuration)
+    end
+
+    # Same reason as #template_watch_policies_hash: nothing merges a template's
+    # default_configuration into a mission's own configuration, so a target
+    # declared on the seeded project shape is only reachable by reading the
+    # template directly.
+    def template_slo_targets_hash
+      extract_slo_targets(mission_template&.default_configuration)
+    end
+
+    def extract_slo_targets(cfg)
+      return {} unless cfg.is_a?(Hash)
+
+      targets = cfg["slo_targets"] || cfg[:slo_targets]
+      targets.is_a?(Hash) ? targets.deep_stringify_keys : {}
     end
 
     def watch_policies_hash
