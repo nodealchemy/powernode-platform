@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_02_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9476,6 +9476,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000000) do
     t.string "lifecycle_class"
     t.decimal "longitude", precision: 10, scale: 7, comment: "Longitude coordinate"
     t.string "mac_address", comment: "Primary MAC address"
+    t.jsonb "module_first_seen_running_at", default: {}, null: false
     t.string "mtls_subject"
     t.string "name", null: false
     t.string "network_profile", default: "lightweight", null: false, comment: "OVS+OVN dual-profile selector — see System::NodeInstance::NETWORK_PROFILES"
