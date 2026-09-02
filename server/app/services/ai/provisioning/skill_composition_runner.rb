@@ -46,10 +46,23 @@ module Ai
       EVENT_TYPE    = "provisioning_step_changed"
       RUN_START_EVENT = "provisioning_run_started"
 
+      # A step whose skill executor PARKED an approval (APO-1f,
+      # IMP-117b34656921). Deliberately neither `failed` nor `completed`:
+      # nothing was applied, so there is nothing to compensate and nothing a
+      # successor may inherit — and deliberately not `pending`, because the step
+      # HAS been dispatched and must not be claimed a second time.
+      PARKED_STATUS = "awaiting_approval"
+
+      # Step metadata key holding the identifiers the resume keys on. Separate
+      # from "last_outputs" and from the failure-outputs key: a parked approval
+      # produced neither outputs nor orphans.
+      PARKED_APPROVAL_KEY = "parked_approval"
+
       # Step statuses that mean "this step is past the pending gate" — used
       # by the execute! and execute_step! idempotency guards to detect a
-      # concurrent or completed run.
-      IN_FLIGHT_STATUSES = %w[executing completed failed].freeze
+      # concurrent or completed run. A parked step belongs here: it is not
+      # finished, but re-dispatching it must not re-invoke the executor.
+      IN_FLIGHT_STATUSES = (%w[executing completed failed] + [ PARKED_STATUS ]).freeze
       # The only status a claim may transition FROM. Anything else is already
       # in flight, terminal, or skipped, and must not be re-entered.
       CLAIMABLE_STATUSES = %w[pending].freeze
@@ -190,6 +203,13 @@ module Ai
       # @return [Hash] { success:, outputs:, error: }
       def execute_step!(step)
         current = step_status(step)
+        # A parked step re-entered here is RESUMED, not re-invoked:
+        # #resume_step! reads the released Ai::DeferredOperation off the row and
+        # no-ops while the operator is still deciding. Reached by a manual or
+        # internal re-invocation — the approval lanes reach the resume directly
+        # (.resume_parked_step).
+        return resume_step!(step) if current == PARKED_STATUS
+
         if IN_FLIGHT_STATUSES.include?(current)
           Rails.logger.info(
             "[SkillCompositionRunner] execute_step! no-op — step #{step_id(step)[0..7]} " \
@@ -230,7 +250,15 @@ module Ai
           started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           result = invoke_executor(executor_class, inputs)
 
-          if result_success?(result)
+          # PENDING IS CHECKED FIRST, and that order is the whole point of
+          # APO-1f. A parked envelope is `success: true`, so leaving it to
+          # #result_success? below would mark the step COMPLETED, record its
+          # (resource-free) pending body as `last_outputs` for every
+          # `depends_on_outputs` successor to inherit, and dispatch those
+          # successors against infrastructure nothing created.
+          if result_pending?(result)
+            park_step!(step, result)
+          elsif result_success?(result)
             outputs = result_outputs(result)
             mark_completed(step, outputs)
             record_skill_usage(step, skill_name, "success", started_at)
@@ -255,6 +283,139 @@ module Ai
           { success: false, outputs: {}, error: e.message }
         end
       end
+
+      # Resume a step this runner PARKED (APO-1f, IMP-117b34656921).
+      #
+      # The executor is NOT re-invoked here. Ai::DeferredOperation#execute_now!
+      # is the platform's replay seam and it has already run the operation by
+      # the time a resume is reachable; re-running it would double-apply. So
+      # this consumes the outcome — handed in directly by the replay
+      # (.resume_parked_step), or, when no caller holds it, read back off the
+      # operation row (#released_result_for). The row-read door is what the
+      # REJECT and EXPIRE lanes take: those decisions never run an executor, so
+      # Ai::DeferredOperation#on_approval_decision calls .resume_parked_step
+      # with no result and the settled row supplies the verdict.
+      #
+      # No scheduler re-dispatches a parked step today — #dispatch_unblocked_successors
+      # only forwards `pending` ones and PARKED_STATUS counts as in flight — so
+      # a step whose resume is missed needs a manual re-invocation, which lands
+      # on #execute_step! and takes the same row-read door.
+      #
+      # @param step [#status, #metadata, …] a step in PARKED_STATUS
+      # @param result [Hash, nil] the replayed executor envelope, when the
+      #   caller already holds it
+      # @return [Hash] { success:, outputs:, error:, … }
+      def resume_step!(step, result: nil)
+        unless step_status(step) == PARKED_STATUS
+          return { success: false, outputs: {}, error: nil, skipped: true }
+        end
+
+        outcome = result || released_result_for(step)
+        # Still parked: the operator has not decided, or the released operation
+        # has not finished. Leave the step exactly as it is.
+        return { success: false, outputs: {}, error: nil, pending: true } if outcome.nil?
+
+        # CLAIMED, for the same reason #execute_step! claims. A resume cannot
+        # double-provision — the executor already ran, on the replay — but two
+        # of them would dispatch every successor twice and write a second
+        # skill-usage row, and #dispatch_step_job enqueues with no
+        # already-dispatched check.
+        unless claim_resume!(step)
+          return { success: false, outputs: {}, error: nil, skipped: true }
+        end
+
+        config = step_config(step)
+        skill_name = config["skill"] || config[:skill]
+        on_failure = config["on_failure"] || config[:on_failure] || "continue"
+        started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+        if result_success?(outcome) && !result_pending?(outcome)
+          outputs = result_outputs(outcome)
+          mark_completed(step, outputs)
+          record_skill_usage(step, skill_name, "success", started_at)
+          announce_step(step, status: "completed", outputs: outputs)
+          dispatch_unblocked_successors(step)
+          settle_adaptation_for_step!(step)
+          advance_mission_if_dag_complete!
+          { success: true, outputs: outputs, error: nil, resumed: true }
+        else
+          error_message = result_error(outcome) || "approval released but the skill did not succeed"
+          record_skill_usage(step, skill_name, "failure", started_at)
+          handle_failure(step, error_message, on_failure, result: outcome)
+          { success: false, outputs: {}, error: error_message, resumed: true }
+        end
+      end
+
+      # Entry point for the approval replay seam
+      # (System::Ai::Skills::BaseSkillExecutor.execute, called by
+      # Ai::DeferredOperation#execute_now!). A released operation names no plan,
+      # so the parked step is located by the operation id it stamped on its own
+      # metadata when it parked.
+      #
+      # Returns nil — not an error — when the operation belongs to no parked
+      # step. That is the COMMON case: most gated executor calls arrive through
+      # MCP or REST and were never part of a composition.
+      #
+      # @return [Hash, nil] #resume_step!'s result, or nil when there is nothing
+      #   to resume
+      def self.resume_parked_step(deferred_operation:, result: nil)
+        return nil if deferred_operation.nil?
+
+        step = ::Ai::GoalPlanStep
+                 .joins(:plan)
+                 .where(status: PARKED_STATUS)
+                 .where(ai_goal_plans: { account_id: deferred_operation.account_id })
+                 # `#>>` with an explicitly cast path array: `-> ?` leaves the
+                 # bind's type unknown and Postgres cannot choose between the
+                 # int and text forms of the operator.
+                 .where("ai_goal_plan_steps.metadata #>> ?::text[] = ?",
+                        "{#{PARKED_APPROVAL_KEY},deferred_operation_id}",
+                        deferred_operation.id)
+                 .first
+        return nil if step.nil?
+
+        plan = step.plan
+        mission = mission_for_plan(plan)
+        if mission.nil?
+          # Every door onto this runner supplies a mission, and the broadcast /
+          # step-dispatch paths address it by id. Refusing beats resuming into a
+          # NoMethodError halfway through the transitions.
+          Rails.logger.error(
+            "[SkillCompositionRunner] cannot resume parked step #{step.id} — " \
+            "no mission references plan #{plan.id}"
+          )
+          return nil
+        end
+
+        new(account: deferred_operation.account, mission: mission, plan: plan)
+          # FILTERED, not raw. `result` is the executor's return exactly as
+          # Ai::DeferredOperation#execute_now! received it — the value that
+          # method deliberately keeps OUT of its own `:result` column because
+          # "persisting the same value into :result would make this row a
+          # durable second copy outside Vault". #resume_step! writes what it is
+          # given to ai_goal_plan_steps.metadata["last_outputs"] and
+          # result_summary, broadcasts it over MissionChannel and persists it
+          # into ai_messages — four more durable/broadcast sinks. A gated
+          # executor that MINTS material (federation acceptance returns
+          # :node_enrollment / :federation_certificate) would land it in all of
+          # them. The row-read path below is already filtered at write, so
+          # filtering here makes BOTH doors agree.
+          .resume_step!(step, result: result && ::Ai::SensitiveParams.filter(result))
+      end
+
+      # The mission that owns a plan. The link is one-way in the schema
+      # (Ai::Mission#configuration["plan"]["plan_id"], written by
+      # Api::V1::Internal::Ai::ProvisioningController), so this is the reverse
+      # read of it.
+      def self.mission_for_plan(plan)
+        return nil unless plan.respond_to?(:id)
+
+        ::Ai::Mission.where(account_id: plan.account_id)
+                     .where("configuration -> 'plan' ->> 'plan_id' = ?", plan.id)
+                     .order(created_at: :desc)
+                     .first
+      end
+      private_class_method :mission_for_plan
 
       # Lazily-built orchestrator that owns the canonical
       # `provisioning_step_changed` emission path. We instantiate one per
@@ -589,6 +750,36 @@ module Ai
         result[:error] || result["error"] || result[:message] || result["message"]
       end
 
+      # The PARKED reading of an envelope (APO-1f). Both spellings are honoured
+      # deliberately: `data.pending` is the wire contract every MCP door carries
+      # (Ai::Tools::BaseTool::PENDING_RESULT_PROPERTIES), and the top-level copy
+      # is what an in-process executor result carries for consumers like this
+      # one that never see a tool envelope. A producer that emits only one of
+      # them still reads as parked here — the failure mode this closes is
+      # "parked read as DONE", so the check has to be the permissive one.
+      def result_pending?(result)
+        return false unless result.respond_to?(:[])
+        return true if result[:pending] == true || result["pending"] == true
+
+        data = result[:data] || result["data"]
+        data.is_a?(Hash) && (data[:pending] == true || data["pending"] == true)
+      rescue StandardError
+        false
+      end
+
+      # The identifiers a parked envelope carries, normalised to string keys.
+      def pending_body(result)
+        data = result_outputs(result)
+        data = {} unless data.is_a?(Hash)
+
+        {
+          "action_category" => data[:action_category] || data["action_category"],
+          "deferred_operation_id" => data[:deferred_operation_id] || data["deferred_operation_id"],
+          "approval_request_id" => data[:approval_request_id] || data["approval_request_id"],
+          "message" => data[:message] || data["message"]
+        }
+      end
+
       # ===== Step state transitions =====
       #
       # We try to use the Ai::GoalPlanStep AASM-style helpers (start!,
@@ -629,6 +820,30 @@ module Ai
         false
       end
 
+      # Compare-and-set on a PARKED row: awaiting_approval -> executing in ONE
+      # statement, so only one resume proceeds. DUCK-TYPE SAFE in the same way
+      # #claim_step! is — a step that cannot be claimed at the database keeps
+      # the plain in-memory transition.
+      def claim_resume!(step)
+        unless step.respond_to?(:id) && step.class.respond_to?(:where)
+          mark_executing(step)
+          return true
+        end
+
+        claimed = step.class
+                      .where(id: step.id, status: PARKED_STATUS)
+                      .update_all(status: "executing", updated_at: Time.current)
+        return false if claimed.zero?
+
+        step.reload if step.respond_to?(:reload)
+        true
+      rescue StandardError => e
+        Rails.logger.error(
+          "[SkillCompositionRunner] resume claim failed for step #{step_id(step)}: #{e.class}: #{e.message}"
+        )
+        false
+      end
+
       def mark_executing(step)
         if step.respond_to?(:start!)
           step.start!
@@ -643,6 +858,94 @@ module Ai
           step.complete!(result: outputs)
         elsif step.respond_to?(:update!)
           step.update!(status: "completed", completed_at: Time.current, result_summary: outputs)
+        end
+      end
+
+      # Park a step whose executor returned the pending envelope.
+      #
+      # No skill-usage record is written: Ai::SkillUsageRecord::OUTCOMES has no
+      # "pending" value, and the skill did not run — a "failure" row here would
+      # tell the utilization oracle a skill was tried and lost.
+      #
+      # The metadata assignment lands BEFORE update! on purpose: metadata= is an
+      # in-memory write and the update! is what flushes it, the same ordering
+      # #record_failure_outputs relies on.
+      def park_step!(step, result)
+        body = pending_body(result)
+        record_parked_approval(step, body)
+        step.update!(status: PARKED_STATUS) if step.respond_to?(:update!)
+        announce_step(step, status: PARKED_STATUS, outputs: {}, error: nil)
+
+        Rails.logger.info(
+          "[SkillCompositionRunner] step #{step_id(step)[0..7]} parked on approval " \
+          "#{body['approval_request_id'] || body['deferred_operation_id']} " \
+          "(#{body['action_category']})"
+        )
+
+        {
+          success: false, outputs: {}, error: nil, pending: true,
+          approval_request_id: body["approval_request_id"],
+          deferred_operation_id: body["deferred_operation_id"]
+        }
+      end
+
+      def record_parked_approval(step, body)
+        return unless step.respond_to?(:metadata) && step.respond_to?(:metadata=)
+
+        meta = step.metadata.is_a?(Hash) ? step.metadata.dup : {}
+        meta[PARKED_APPROVAL_KEY] = body
+        step.metadata = meta
+      end
+
+      def parked_approval_for(step)
+        return {} unless step.respond_to?(:metadata)
+
+        meta = step.metadata.is_a?(Hash) ? step.metadata : {}
+        payload = meta[PARKED_APPROVAL_KEY] || meta[PARKED_APPROVAL_KEY.to_sym]
+        payload.is_a?(Hash) ? payload.transform_keys(&:to_s) : {}
+      end
+
+      # What the parked approval settled to, read off the durable row — the path
+      # a LATER re-dispatch takes, when nobody is holding the replay's return
+      # value any more.
+      #
+      # nil means "not settled yet" and leaves the step parked. A rejected or
+      # expired approval is a decision, and it fails the step: the plan cannot
+      # proceed past a step an operator refused.
+      #
+      # `operation.result` is what #complete! persisted, and that is
+      # `Ai::SensitiveParams.filter`ed. .resume_parked_step filters the replay
+      # path to match, so both doors agree — a successor pulling a
+      # secret-NAMED key through `depends_on_outputs` gets the mask either way,
+      # which is the intended direction (a step row must not become a durable
+      # second copy of minted material).
+      def released_result_for(step)
+        operation_id = parked_approval_for(step)["deferred_operation_id"]
+        return nil if operation_id.blank?
+
+        operation = ::Ai::DeferredOperation.find_by(id: operation_id)
+        return nil if operation.nil?
+
+        case operation.status
+        when "completed"
+          # The row holds the executor's WHOLE envelope, not its data:
+          # #execute_now! persists `result_data` verbatim and completes the
+          # OPERATION regardless of that envelope's own `success` (a skill that
+          # failed is rescued into `failure(...)`, never raised). So re-wrapping
+          # it would read a failed skill as a completed step and dispatch
+          # successors against nothing — and would double-wrap a successful
+          # body, putting it out of reach of `depends_on_outputs`. Hand it back
+          # as-is whenever it IS an envelope.
+          persisted = operation.result
+          if persisted.is_a?(Hash) && (persisted.key?("success") || persisted.key?(:success))
+            persisted
+          else
+            { success: true, data: persisted || {} }
+          end
+        when "rejected", "expired"
+          { success: false, error: "approval #{operation.status} for #{operation.action_category}" }
+        when "failed"
+          { success: false, error: operation.error_message.presence || "deferred operation failed" }
         end
       end
 

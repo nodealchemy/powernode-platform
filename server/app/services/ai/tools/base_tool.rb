@@ -37,6 +37,32 @@ module Ai
       }.freeze
 
       class << self
+        # THE ONE BUILDER for the body PENDING_RESULT_PROPERTIES describes
+        # (APO-1f, IMP-117b34656921).
+        #
+        # Three producers emit this envelope — #run_through_autonomy_gate's
+        # :pending arm below, SdwanTool#gated_result, and (through
+        # System::Ai::Skills::BaseSkillExecutor#gate_action!) every
+        # approval-gated system skill — and Ai::Provisioning::SkillCompositionRunner
+        # READS it to decide a composed step parked rather than completed. A
+        # second spelling of the shape is what let the same parked category
+        # answer "pending" through one door and "failed" through another, so the
+        # keys are built here, once, beside the constant the outputSchema
+        # advertises and the fidelity spec pins them against.
+        #
+        # A tool may still splat its own extra keys alongside (SdwanTool's
+        # `pending_extra`); this is the floor, not the ceiling.
+        def pending_payload(action_category:, deferred_operation: nil,
+                            approval_request: nil, message: nil)
+          {
+            pending: true,
+            action_category: action_category,
+            deferred_operation_id: deferred_operation&.id,
+            approval_request_id: approval_request&.id,
+            message: message.presence || "Approval required: #{action_category}"
+          }
+        end
+
         def definition
           raise NotImplementedError, "#{name} must implement .definition"
         end
@@ -211,6 +237,18 @@ module Ai
       # nil for user/agent callers, whose paths are unchanged. (BUG-S)
       attr_writer :node_instance
 
+      # Set by Ai::Executors::DeferredToolCall when it re-invokes a tool call an
+      # operator has APPROVED (APO-1b; docs/concepts/deferred-tool-call-replay.md).
+      # The gate already ran for this call, so #execute must not park it a second
+      # time — see #approved_replay?, which is where the bypass is decided.
+      #
+      # Deliberately the OPERATION and not a boolean. A `replaying = true` flag
+      # would be a gate bypass any in-process caller could set, which is exactly
+      # the hole #run_through_autonomy_gate refuses to open for `internal: true`.
+      # Taking the row means the bypass exists only where an approved
+      # Ai::DeferredOperation naming that executor exists.
+      attr_writer :replaying_operation
+
       # Set by McpPlatformToolRegistrar when the caller is an instance principal
       # whose SPECIFIC tool name already passed Mcp::Principal#may_invoke? in
       # the streamable controller. Lets a tool tell a grant-gated instance call
@@ -261,6 +299,14 @@ module Ai
         # seam that keeps the two in step.
         refusal = authorization_error(params)
         return refusal if refusal
+
+        # APPROVED REPLAY. Everything above this line still runs — the deny
+        # overlay, #validate_params!, #enforce_guardrails! and the tool's own
+        # #authorization_error — because a decision made hours ago does not
+        # re-authorise a principal that has changed since. Only the gate is
+        # skipped, and only because it already ran and an operator answered it.
+        # Without this the replayed call would park a second approval, forever.
+        return call(params) if approved_replay?
 
         run_through_autonomy_gate(declaration, params)
       end
@@ -314,6 +360,98 @@ module Ai
       # .permitted? / the MCP layer before construction.
       def authorization_error(_params)
         nil
+      end
+
+      # True only for a call Ai::Executors::DeferredToolCall is re-invoking on
+      # behalf of an APPROVED operation, in THIS tool's account.
+      #
+      # Every clause is load-bearing. The row must name that executor (nothing
+      # else stamps this writer), it must be past the approval decision
+      # (#execute_now! moves it to :executing before calling the executor), and
+      # it must belong to the account the tool is running in — otherwise a row
+      # from another tenant would license a bypass here.
+      def approved_replay?
+        operation = @replaying_operation
+        return false if operation.nil?
+        return false unless operation.respond_to?(:executor_class) &&
+                            operation.respond_to?(:status) &&
+                            operation.respond_to?(:account_id)
+        return false unless operation.executor_class.to_s == ::Ai::Executors::DeferredToolCall.name
+        return false unless ::Ai::Executors::DeferredToolCall::REPLAYABLE_STATUSES
+                              .include?(operation.status.to_s)
+
+        !account.nil? && operation.account_id == account.id
+      end
+
+      # THE generic `gate_context` (APO-1b). A tool wires an action to the gate
+      # with:
+      #
+      #   declare_action "system_terminate_instance",
+      #                  mutating: true,
+      #                  action_category: "system.instance.terminate",
+      #                  executor_class: "Ai::Executors::DeferredToolCall",
+      #                  gate_context: :deferred_tool_call_context,
+      #                  on_proceed: :deferred_tool_call_result
+      #
+      # and needs no executor of its own. `source_type`/`source_id` are
+      # deliberately absent: this seam does not know which of a caller's params
+      # names a row, and Ai::DeferredOperation#assert_source_within_account!
+      # no-ops for an unrecorded pair rather than guessing. The executor's own
+      # params-level scoping remains the anchor for what it touches.
+      def deferred_tool_call_context(params)
+        {
+          executor_params: ::Ai::Executors::DeferredToolCall.pack(
+            tool_class: self.class.name,
+            action: routed_action_name(params),
+            tool_params: params,
+            principal: caller_principal_descriptor
+          ),
+          description: deferred_tool_call_description(params)
+        }
+      end
+
+      # Override for a better approval-card line. Keep it free of caller param
+      # VALUES — Ai::SensitiveParams covers the params copy by key, and a
+      # description that interpolates them lands outside that cover.
+      def deferred_tool_call_description(params)
+        "#{routed_action_name(params)} via #{self.class.name}"
+      end
+
+      # THE generic `on_proceed`. On the auto-approve branch the executor has
+      # already replayed the call, so this SERIALIZES what it returned — the
+      # tool's own envelope, byte-identical to an ungated call — and must not
+      # repeat the work.
+      def deferred_tool_call_result(_params, gate_result)
+        return gate_result.result if gate_result.result.is_a?(::Hash)
+
+        success_result(replayed: true)
+      end
+
+      # WHO is calling, in the shape Ai::Executors::DeferredToolCall rebuilds.
+      #
+      # Minted from this tool's OWN constructor state, never from params, so a
+      # caller cannot describe itself. Order matters: an instance principal
+      # carries no User, and a nil user is NOT evidence of an in-process caller
+      # (IMP-9030413bc292) — `internal:` has to have been passed explicitly.
+      #
+      # Anything else is recorded as "unattributed" and the executor refuses it.
+      # That is the fail-closed arm and it is reachable: a FEDERATION principal
+      # arrives here `instance_authorized` with no node instance, because the
+      # controller passes `restricted?` rather than `instance?`.
+      def caller_principal_descriptor
+        if instance_authorized?
+          return { "kind" => "instance", "node_instance_id" => node_instance&.id } if node_instance
+
+          { "kind" => "unattributed", "detail" => "restricted principal with no node instance" }
+        elsif user
+          { "kind" => "user", "user_id" => user.id, "agent_id" => agent&.id }
+        elsif agent
+          { "kind" => "agent", "agent_id" => agent.id }
+        elsif internal?
+          { "kind" => "internal" }
+        else
+          { "kind" => "unattributed", "detail" => "no user, agent or explicit internal flag" }
+        end
       end
 
       # A declaration is GATED only when it can actually be replayed. Ai::
@@ -385,11 +523,11 @@ module Ai
           send(declaration[:on_proceed], params, gate)
         when :pending
           success_result(
-            pending: true,
-            action_category: declaration[:action_category],
-            deferred_operation_id: gate.deferred_operation&.id,
-            approval_request_id: gate.approval_request&.id,
-            message: "Approval required: #{declaration[:action_category]}"
+            self.class.pending_payload(
+              action_category: declaration[:action_category],
+              deferred_operation: gate.deferred_operation,
+              approval_request: gate.approval_request
+            )
           )
         else
           error_result(gate.error || "Action #{declaration[:action_category]} is blocked by policy")

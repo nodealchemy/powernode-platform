@@ -123,8 +123,10 @@ module Ai
         execute_now!
       when "rejected"
         reject!
+        release_composed_plan_step!
       when "expired"
         expire!
+        release_composed_plan_step!
       else
         return Ai::ApprovalRequest::DISPATCH_NOOP
       end
@@ -136,6 +138,40 @@ module Ai
       # travels via #take_revealed_result!, not this return value.
       Ai::ApprovalRequest::DISPATCH_EXECUTED
     end
+
+    # A composed provisioning step parked on THIS operation waits on the
+    # DECISION, not only on a replay (APO-1f, IMP-117b34656921).
+    #
+    # The approved arm reaches Ai::Provisioning::SkillCompositionRunner through
+    # the executor replay (#execute_now! -> the skill executor's own .execute).
+    # Reject and expire run no executor at all, so without this door the step
+    # would sit in SkillCompositionRunner::PARKED_STATUS forever: its mission
+    # never advances (that requires every step `completed`) and its adaptation
+    # never settles, which blocks every LATER adaptation on the same mission.
+    # Before the parked state existed the step was recorded FAILED here, so this
+    # keeps the pre-existing terminal behaviour for a refused approval.
+    #
+    # No result is handed over: the runner reads this row's settled status and
+    # fails the step with the decision as its reason.
+    #
+    # Best-effort by construction — the decision has already been applied to
+    # this row, and a resume that raises must not turn a recorded rejection into
+    # an exception the approval callback surfaces. A missed step is recoverable
+    # by re-invoking it; a lost decision is not. The runner is a no-op for the
+    # common case where the operation belongs to no plan at all.
+    def release_composed_plan_step!
+      return unless defined?(::Ai::Provisioning::SkillCompositionRunner)
+
+      ::Ai::Provisioning::SkillCompositionRunner.resume_parked_step(deferred_operation: self)
+    rescue StandardError => e
+      Rails.logger.error(
+        "[DeferredOperation##{id}] composed-plan release failed: #{e.class}: #{e.message}"
+      )
+      nil
+    end
+    # An internal lane of #on_approval_decision, not a promise: nothing outside
+    # this model may drive a plan resume from an operation.
+    private :release_composed_plan_step!
 
     # Synchronous execution. Used by AutonomyGate for auto-approved operations
     # (so the calling controller gets the result inline) and by

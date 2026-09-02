@@ -25,8 +25,13 @@ module Ai
     # so a failing renderer doesn't 500 the response — the operator sees a
     # placeholder card instead.
     class PlanSnapshotService
-      # A step in one of these is still moving; see #display_folds.
-      IN_FLIGHT_STEP_STATUSES = %w[pending executing].freeze
+      # A step in one of these is still moving; see #display_folds. A step
+      # PARKED on an approval (SkillCompositionRunner::PARKED_STATUS) counts:
+      # the plan is not finished, and folding its rows away would drop the
+      # operator out of the live view while they are being asked to decide.
+      IN_FLIGHT_STEP_STATUSES = (
+        %w[pending executing] + [ ::Ai::Provisioning::SkillCompositionRunner::PARKED_STATUS ]
+      ).freeze
 
       def initialize(account:)
         @account = account
