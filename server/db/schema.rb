@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_02_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_02_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8998,6 +8998,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_160000) do
     t.index ["account_id", "status", "settle_until"], name: "idx_on_account_id_status_settle_until_f7bbeeaab4"
     t.index ["account_id"], name: "index_system_fleet_remediation_outcomes_on_account_id"
     t.index ["fingerprint"], name: "index_system_fleet_remediation_outcomes_on_fingerprint"
+  end
+
+  create_table "system_fleet_sensor_configs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.string "sensor", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "sensor"], name: "idx_fleet_sensor_configs_on_account_and_sensor", unique: true
   end
 
   create_table "system_fulfillment_requests", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
