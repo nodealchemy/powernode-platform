@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_02_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_02_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10836,6 +10836,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_180000) do
     t.check_constraint "scope::text = ANY (ARRAY['account'::character varying::text, 'network'::character varying::text, 'peer'::character varying::text])", name: "sdwan_route_policies_scope_enum"
   end
 
+  create_table "system_sdwan_service_backends", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "backend_host"
+    t.integer "backend_port", null: false
+    t.uuid "backend_vip_id"
+    t.datetime "created_at", null: false
+    t.uuid "sdwan_service_id", null: false
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.integer "weight", default: 1, null: false
+    t.index "sdwan_service_id, backend_port, COALESCE((backend_vip_id)::text, (backend_host)::text)", name: "idx_sdwan_service_backends_unique_address", unique: true
+    t.index ["account_id"], name: "index_system_sdwan_service_backends_on_account_id"
+    t.index ["backend_vip_id"], name: "index_system_sdwan_service_backends_on_backend_vip_id"
+    t.index ["sdwan_service_id", "status", "created_at"], name: "idx_sdwan_service_backends_on_service_status_created"
+    t.check_constraint "backend_port >= 1 AND backend_port <= 65535", name: "sdwan_service_backends_port_range"
+    t.check_constraint "backend_vip_id IS NOT NULL OR backend_host IS NOT NULL", name: "sdwan_service_backends_backend_present"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'draining'::character varying]::text[])", name: "sdwan_service_backends_status_enum"
+    t.check_constraint "weight >= 1 AND weight <= 1000", name: "sdwan_service_backends_weight_range"
+  end
+
   create_table "system_sdwan_services", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "backend_host"
@@ -12452,6 +12472,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_02_180000) do
   add_foreign_key "system_sdwan_route_leaks", "system_sdwan_networks", column: "source_network_id"
   add_foreign_key "system_sdwan_route_leaks", "users", column: "approved_by_id"
   add_foreign_key "system_sdwan_route_policies", "accounts"
+  add_foreign_key "system_sdwan_service_backends", "accounts"
+  add_foreign_key "system_sdwan_service_backends", "system_sdwan_services", column: "sdwan_service_id", on_delete: :cascade
+  add_foreign_key "system_sdwan_service_backends", "system_sdwan_virtual_ips", column: "backend_vip_id"
   add_foreign_key "system_sdwan_services", "accounts"
   add_foreign_key "system_sdwan_services", "system_acme_certificates", column: "local_certificate_id"
   add_foreign_key "system_sdwan_services", "system_sdwan_virtual_ips", column: "backend_vip_id"
