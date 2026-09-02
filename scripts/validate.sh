@@ -246,7 +246,7 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
     # also override an inherited one), and that bundle never sets
     # POWERNODE_INCLUDE_PRIVATE_EXTENSIONS, so no private extension is on the
     # load path. (Precisely: selecting a Gemfile cannot CLEAR an inherited env
-    # var — only Gemfile.private:13 ever sets the flag, and it does so with
+    # var — only Gemfile.private:12 ever sets the flag, and it does so with
     # `||=`. Hence the explicit pin on the pass-2 invocation below.)
     #
     # That is CORRECT for a public clone — there is no extensions/private/*
@@ -339,13 +339,17 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
             # observing the argv that actually runs.
             #
             # The env pin is load-bearing, not belt-and-braces. Gemfile.private
-            # sets the flag with `||=` (server/Gemfile.private:13) and
+            # sets the flag with `||=` (server/Gemfile.private:12) and
             # extensions_loader_helper.rb:44 compares `== "1"`, so an inherited
             # POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=0 survives selection of the
             # private bundle and loads ZERO private extensions — a second pass
             # byte-identical to the first, silently green, pure cost. Verified
-            # in ruby. scripts/prepare-worktree.sh:243 writes this variable into
-            # a worktree's server/.env, so an inherited value is not theoretical.
+            # in ruby. An inherited value is not theoretical: any exported
+            # shell value, or a hand-written server/.env, reaches this pass.
+            # (scripts/prepare-worktree.sh no longer writes the flag into a
+            # worktree's server/.env — IMP-a31d6e31023e removed that write
+            # because .env is on the WRONG side of Bundler; see the comment at
+            # its server/.env branch.)
             private_pass_cmd=(env POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=1 \
               BUNDLE_GEMFILE="$private_pass_bundle" \
               bundle exec rspec "$ext_spec" --format progress)
