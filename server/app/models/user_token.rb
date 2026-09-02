@@ -22,7 +22,11 @@ class UserToken < ApplicationRecord
   validates :name, length: { maximum: 100 }
   validates :scopes, length: { maximum: 500 }
 
-  # Serialization
+  # Serialization. `permissions` is NOT an authorization input — see
+  # #has_permission?. Nothing writes it and nothing in production reads it any
+  # more; the coder is retained only so the surviving rows still present as the
+  # Array they were written as, for anyone inspecting the table or writing a
+  # migration to drop it. Do not read it as a grant.
   serialize :permissions, coder: JSON
 
   # Scopes
@@ -41,21 +45,26 @@ class UserToken < ApplicationRecord
     SecureRandom.urlsafe_base64(48)
   end
 
-  def self.create_token_for_user(user, type: "access", name: nil, scopes: nil, expires_in: nil, permissions: nil)
+  # NO `permissions:` kwarg. It used to exist and defaulted to
+  # `user.permission_names`, so every token was stamped with the user's FULL
+  # permission set as of its mint, and #has_permission? then answered from that
+  # stamp instead of the database. Removed rather than left ignored: a kwarg that
+  # silently discards its argument invites a caller to believe it narrows a token.
+  # It never did — nobody ever passed a narrowed set (the sole production mint
+  # omitted it, and #refresh! only copied the stamp forward), so no scoping
+  # behaviour is lost here. Reintroducing a genuinely scoped token means a
+  # deliberate design, not restoring this parameter; see #has_permission?.
+  def self.create_token_for_user(user, type: "access", name: nil, scopes: nil, expires_in: nil)
     token = generate_token
     token_digest = Digest::SHA256.hexdigest(token)
 
     expires_at = expires_in ? expires_in.from_now : EXPIRATION_TIMES[type.to_sym].from_now
-
-    # Cache user permissions for faster lookup
-    cached_permissions = permissions || user.permission_names
 
     user_token = create!(
       user: user,
       token_digest: token_digest,
       token_type: type,
       name: name,
-      permissions: cached_permissions,
       scopes: scopes,
       expires_at: expires_at
     )
@@ -114,12 +123,12 @@ class UserToken < ApplicationRecord
   def refresh!
     return nil unless token_type == "refresh" && active?
 
-    # Generate new access token
-    UserToken.create_token_for_user(
-      user,
-      type: "access",
-      permissions: permissions
-    )
+    # The successor deliberately carries NO permission snapshot. This call used to
+    # pass `permissions: permissions`, copying the stamp into every successor, so
+    # a stamp outlived the token it was taken for and nothing bounded how long a
+    # revocation could go unseen. Latent rather than observed — this method has no
+    # caller outside its spec — but it is what made the staleness unbounded.
+    UserToken.create_token_for_user(user, type: "access")
   end
 
   def scope_list
@@ -131,14 +140,45 @@ class UserToken < ApplicationRecord
     scope_list.include?(scope.to_s)
   end
 
+  # Resolved LIVE from the user on every call, so a revocation takes effect
+  # immediately for an already-issued token.
+  #
+  # There is NO token-borne short-circuit. Two used to read the `permissions`
+  # column — a stamp of the user's full permission set taken at mint time:
+  #
+  #   return true if permissions&.include?("system.admin")
+  #   return permissions&.include?(permission_name) if permissions.present?
+  #
+  # The first answered true for ANY permission off a stale admin stamp. The second
+  # answered the stamp VERBATIM, so it had a false-NEGATIVE direction too: a
+  # permission granted after the mint was invisible to the token. Because the
+  # column was persisted, reloading did not clear it, and #refresh! copied it into
+  # each successor, so neither error would have been bounded by a token lifetime.
+  #
+  # LATENT, not exploited: no caller of this method is findable in server/,
+  # extensions/ (including extensions/private) or worker/ — the receiver of every
+  # .has_permission? call in the tree is a user, role, delegation or worker, never
+  # a token — and the one call site was deleted in IMP-a18f5a8ed393. In particular
+  # an impersonation UserToken is NOT an authorization principal: the arm that
+  # authenticates one sets current_user to the impersonated User and every gate
+  # resolves through that, while the token itself is assigned and never read. A
+  # literal-name grep cannot see symbol or composed dispatch, so treat that as
+  # strong evidence of no caller, not proof.
+  #
+  # Deleted rather than intersected (`stamp & live`). Intersection would NOT have
+  # been a no-op today: the stamp is the full set as of the MINT, not as of now,
+  # so it would have preserved the false-negative half — a permission granted
+  # after the mint stays denied for the token's life. It is also an affordance
+  # nothing uses; no caller ever passed a narrowed set, so there is no scoped
+  # token for a deletion to break. With no reader left, a future writer of the
+  # column cannot reopen or close anything by accident.
+  #
+  # Do not reintroduce a stamp as an optimisation. A real scoped token needs a
+  # mint-time surface for narrowing AND an invalidation story that answers what a
+  # token minted BEFORE a narrowing may do — neither exists. Same shape as the JWT
+  # `permissions` claim deleted in IMP-4b5fffbf5421. Pinned by
+  # spec/models/user_token_permission_snapshot_spec.rb.
   def has_permission?(permission_name)
-    # Users with system.admin permission have all permissions
-    return true if permissions&.include?("system.admin")
-
-    # Check cached permissions first (faster)
-    return permissions&.include?(permission_name) if permissions.present?
-
-    # Fallback to user permissions
     user.has_permission?(permission_name)
   end
 

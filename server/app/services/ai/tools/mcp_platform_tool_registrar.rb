@@ -370,14 +370,26 @@ module Ai
         # control. Deleted in IMP-a18f5a8ed393; it was the second instance of that
         # shape after `capability_scope`.
         #
-        # It was doubly dead. The only class that would have SATISFIED the branch
-        # is UserToken (it has both #permissions and #has_permission?), and
-        # UserToken is never minted in production: `create_token_for_user` has no
-        # production callers, and its one production reader —
+        # It was dead on THIS path regardless. The only class that would have
+        # SATISFIED the branch is UserToken (it has both #permissions and
+        # #has_permission?), and no UserToken reaches this method. The only arm
+        # that authenticates one ON A PATH LEADING HERE is
         # application_cable/connection.rb#authenticate_legacy_user (:155), whose
-        # first act is a [DEPRECATED] warning — is on an arm that builds its
-        # execution_options WITHOUT any token (mcp_channel.rb:121-126). So even
-        # where a UserToken exists in scope it never reaches this method.
+        # first act is a [DEPRECATED] warning, and it builds its execution_options
+        # WITHOUT any token (mcp_channel.rb:121-126). Other arms authenticate a
+        # UserToken elsewhere in the app; none of them reach the registrar.
+        #
+        # CORRECTION. An earlier revision of this comment also claimed
+        # `create_token_for_user` "has no production callers" and that UserToken is
+        # "never minted in production". BOTH WERE FALSE, and neither was ever load
+        # bearing for this path. An extension mints impersonation UserTokens on a
+        # live path and reads them back through UserToken.authenticate /
+        # .find_by_token. What is true is narrower and is the only part to rely on:
+        # no UserToken is passed to THIS method. Do not restate the mint as dead.
+        #
+        # UserToken#has_permission? itself no longer carries a snapshot
+        # short-circuit either — it resolves live from the user (IMP-f86b6be57e74),
+        # so its `permissions` column is not an authorization input on any path.
         #
         # Building a real one is a NEW authorization layer, not a rewiring: the
         # token the MCP path resolves is a Doorkeeper::AccessToken, which carries

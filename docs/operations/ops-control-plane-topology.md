@@ -184,9 +184,17 @@ principals is another round of that treadmill.
   > enforcement point in `enforce_permission!` itself. Note that the deleted branch
   > could **not** simply be re-wired: a Doorkeeper token responds to neither
   > `#permissions` nor `#has_permission?`. (`UserToken` does respond to both, but
-  > it is never minted in production — `create_token_for_user` has no production
-  > callers, and its one production reader is the `[DEPRECATED]`-logged ActionCable
-  > arm, which passes no token to the registrar. The branch was dead twice over.)
+  > no `UserToken` ever reaches the registrar: the only arm that authenticates one
+  > *on a path leading there* is the `[DEPRECATED]`-logged ActionCable path, which
+  > passes no token to it. An earlier revision of this note went further and said
+  > `UserToken` "is never minted in production" and has "no production callers".
+  > Both were FALSE and are corrected here: an extension mints an impersonation
+  > `UserToken` on a live path and authenticates it on another.
+  > Neither claim was ever the reason the branch was dead — only "no token reaches
+  > the registrar" is. And since IMP-f86b6be57e74 `UserToken#has_permission?`
+  > resolves live from the user, so its `permissions` column narrows nothing
+  > either. Note this is an extension-only path; in core mode nothing mints a
+  > `UserToken` at all.)
   >
   > Until all three land, do not treat "mint a routine token" as an available
   > mitigation anywhere else in this doc or in operational runbooks: a narrowed
