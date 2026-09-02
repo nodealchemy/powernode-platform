@@ -182,6 +182,46 @@ class Account::Delegation < ApplicationRecord
       custom.select { |name| granted.include?(name) }
     end
 
+    # Stored custom names this delegation NO LONGER CONFERS: the
+    # delegation_permissions rows minus what #configured_permissions actually
+    # resolves to.
+    #
+    # No write site MINTS one — DelegationService create / update /
+    # add_permission, #assign_permission below and
+    # Account::DelegationPermission's before_create all refuse to STORE a name
+    # outside the role's scope. A stale name appears when the ROLE changes
+    # underneath an already-stored set, which has two producers, not one:
+    #
+    #   - the role's grant is revoked underneath the row (a catalog remap);
+    #   - the delegation is moved to a DIFFERENT role without a permission
+    #     rewrite. Accounts::DelegationService#update_delegation validates the
+    #     custom set against the target role, and rewrites it, only when
+    #     `permission_names` is supplied, so a role-only PATCH leaves the
+    #     existing rows in place and unchecked against the new role.
+    #
+    # So a non-empty stale set does NOT by itself imply a remap.
+    #
+    # This exists so the API can keep the stale set VISIBLE while reporting the
+    # resolved set as the delegation's permissions. Dropping the stale names
+    # silently would leave an operator cleaning up after a role change with no
+    # way to see which stored names need rewriting. Clearing them one at a time
+    # only goes so far: DelegationService#remove_permission_from_delegation
+    # refuses the removal that would EMPTY the custom set (an empty set falls
+    # back to the whole role, so that removal WIDENS), and refuses any name that
+    # has left the code-defined catalog altogether
+    # (`Permissions.permission_exists?`). A wholly-stale set is therefore
+    # rewritten through #update_delegation.
+    #
+    # Derived from #configured_permissions rather than restating the filter, so
+    # the display cannot drift from the resolver — which is the exact split this
+    # method was added to close. `resolved` is an optimisation seam for a caller
+    # that has ALREADY resolved THIS delegation (each resolution costs two role
+    # queries and nothing memoizes them, and the API serializer renders both
+    # sets in one payload); every other caller passes nothing.
+    def stale_permission_names(resolved = configured_permissions)
+      permission_names - resolved
+    end
+
     # Effective permission NAME strings: the configured set, but only while the
     # delegation is actually active.
     def effective_permissions

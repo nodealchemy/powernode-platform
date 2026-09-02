@@ -158,7 +158,12 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
       json = JSON.parse(response.body)
       expect(json['data']['delegation']['role']['id']).to eq(admin_role.id)
       expect(json['data']['delegation']['permission_source']).to eq('role')
-      expect(json['data']['delegation']['permissions'].size).to eq(0) # No specific delegation_permissions
+      # No specific delegation_permissions rows, so the delegation resolves to
+      # the ROLE's set — and `permissions` reports what it CONFERS
+      # (Account::Delegation#configured_permissions), not the stored rows.
+      expect(json['data']['delegation']['permissions'].map { |p| p['name'] })
+        .to match_array(admin_role.permission_names)
+      expect(json['data']['delegation']['stale_permission_names']).to eq([])
     end
 
     it 'returns error for non-existent user email' do

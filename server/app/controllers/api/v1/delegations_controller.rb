@@ -256,6 +256,12 @@ class Api::V1::DelegationsController < ApplicationController
   end
 
   def delegation_json(delegation)
+    # RESOLVE ONCE PER ROW. Account::Delegation#configured_permissions costs two
+    # role queries (Role#has_permission? and Role#permission_names each hit the
+    # DB, and neither the role nor the delegation memoizes), so asking for it
+    # per field would multiply those across every row of #index.
+    configured = delegation.configured_permissions
+
     {
       id: delegation.id,
       account: {
@@ -278,7 +284,35 @@ class Api::V1::DelegationsController < ApplicationController
         name: delegation.role.name,
         description: delegation.role.description
       } : nil,
-      permissions: delegation.permission_names.map { |name| permission_json(name) },
+      # THE DISPLAY MUST AGREE WITH THE RESOLVER.
+      #
+      # `permissions` is the set this delegation is CONFIGURED to confer
+      # (Account::Delegation#configured_permissions), NOT the stored
+      # delegation_permissions rows. The two diverge once the role changes
+      # underneath an existing row: #configured_permissions_for bounds the
+      # explicit set by the role LIVE, so a stale stored name stops resolving
+      # while the row keeps carrying it. Serializing the raw rows made the API
+      # over-report authority — an operator checking whether a delegation is
+      # over-scoped read a verb that in fact 403s, and nobody chasing the
+      # unexpected 403 found the explanation on the surface meant to explain it.
+      #
+      # CONFIGURED, NOT EFFECTIVE — and both bases appear in this payload on
+      # purpose. `permissions` is status-INDEPENDENT: a revoked, inactive or
+      # expired delegation still reports what its configuration resolves to, and
+      # a row with no custom permissions therefore reports its ROLE's whole set,
+      # because that is what an empty custom set resolves to. `permissions_summary`
+      # below is built from #effective_permissions and is EMPTY unless the
+      # delegation is active, so on a non-active row the two disagree by design;
+      # `status` and `is_active` in this same payload say which case a reader is
+      # in. Pinned by spec/requests/api/v1/delegations_serializer_resolved_permissions_spec.rb.
+      #
+      # `stale_permission_names` keeps the dropped names VISIBLE rather than
+      # silently discarding them: they are what an operator rewrites through
+      # PATCH /delegations/:id after a role change. Clearing them one at a time
+      # only goes so far — DelegationService refuses the removal that would
+      # EMPTY the custom set, since an empty set falls back to the whole role.
+      permissions: configured.map { |name| permission_json(name) },
+      stale_permission_names: delegation.stale_permission_names(configured),
       permission_source: delegation.permission_source,
       permissions_summary: delegation.permissions_summary,
       status: delegation.status,
