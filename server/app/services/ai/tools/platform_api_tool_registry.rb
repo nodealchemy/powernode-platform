@@ -157,6 +157,9 @@ module Ai
         # Gap remediation slice 1 — operator-runbook-driven actions
         "system_drain_instance" => "Ai::Tools::SystemFleetTool",
         "system_get_silent_instances" => "Ai::Tools::SystemFleetTool",
+        # IMP-ca485128072e (APO-2e) — operator-tunable fleet sensor thresholds.
+        "system_get_sensor_config" => "Ai::Tools::SystemFleetTool",
+        "system_update_sensor_config" => "Ai::Tools::SystemFleetTool",
         "system_validate_module_manifest" => "Ai::Tools::SystemFleetTool",
         # Gap remediation slice 2 — CVE catalog + module assignment cleanup
         "system_get_cve" => "Ai::Tools::SystemFleetTool",
