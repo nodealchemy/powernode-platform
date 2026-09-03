@@ -241,6 +241,39 @@ else
     failed_checks=$((failed_checks + 1))
 fi
 
+# Claude Code agent skeleton freshness guard: .claude/agents/powernode/*.md is
+# generated FROM the canonical (global, seeded) Ai::Agent rows by
+# `rails claude:sync_agents` (Ai::ClaudeExport::AgentSkeletonSync) and COMMITTED
+# so any checkout can Agent(subagent_type: "<slug>") a platform agent. A seed
+# change that adds/renames/retiers a canonical agent — or a renderer change —
+# leaves the files silently stale; check-claude-agents-fresh.sh regenerates into
+# a temp dir with the PUBLIC bundle and diffs. It reads the development database,
+# so on an install whose agent seeds never ran it cannot produce the set at all:
+# that is exit 2 and reported as a WARN here (an empty regeneration is neither
+# fresh nor stale — never a PASS), exit 1 is a real FAIL. Exit 3 is a FAILED
+# generator and is scored a FAIL with its own message: a crash writes zero files
+# too, so folding it into the exit-2 WARN would hide it behind this cell's
+# steady state.
+total_checks=$((total_checks + 1))
+echo -n "Checking: Claude Code agent skeletons are up to date (rails claude:sync_agents)... "
+# `|| status=$?` rather than a bare call: this script runs under `set -e`, and a
+# bare non-zero exit here would abort the whole audit instead of scoring a check.
+claude_agents_status=0
+bash scripts/check-claude-agents-fresh.sh >/dev/null 2>&1 || claude_agents_status=$?
+if [[ $claude_agents_status -eq 0 ]]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+elif [[ $claude_agents_status -eq 2 ]]; then
+    echo -e "${YELLOW}⚠ WARN${NC} (Unverifiable: the dev DB holds no canonical agent; regenerate on a seeded install: cd server && env -u BUNDLE_GEMFILE POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=0 POWERNODE_DEPLOYED=0 bundle exec rails claude:sync_agents)"
+    warnings=$((warnings + 1))
+elif [[ $claude_agents_status -eq 3 ]]; then
+    echo -e "${RED}✗ FAIL${NC} (The export itself FAILED — a broken renderer/migration/bundle, NOT an unseeded checkout. Run it for the error: cd server && env -u BUNDLE_GEMFILE POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=0 POWERNODE_DEPLOYED=0 bundle exec rails claude:sync_agents)"
+    failed_checks=$((failed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Skeletons stale; run: cd server && env -u BUNDLE_GEMFILE POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=0 POWERNODE_DEPLOYED=0 bundle exec rails claude:sync_agents, then commit .claude/agents/powernode/)"
+    failed_checks=$((failed_checks + 1))
+fi
+
 # Inline-permission-check guard: require_permission* now raise + self-halt, but
 # an inline check in an action body still runs after preceding side effects. The
 # correct usage is a before_action gate. check-inline-require-permission.sh flags
