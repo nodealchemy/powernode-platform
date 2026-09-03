@@ -97,6 +97,12 @@ kept fresh by a `check-claude-agents-fresh.sh` gate (same shape as the MCP catal
 rendered in the body; SessionStart shows the count, a Stop hook regenerates after seed edits; and the
 reverse path `rake claude:import_agents` turns a hand-authored Claude Code agent into an
 `Ai::AgentProposal` (never a direct create — canonical rule). Skills as `SKILL.md` follow later.
+Automatic delegation (operator direction 18:35): each exported description is a routing description
+("Use this agent when … / Do not use for …", derived from skills and policy domains) so Claude Code's
+Agent tool picks the right subagent by itself, and one router — the existing
+`Ai::Routing::AgentRouterService`, exposed as `platform.route_task` and wired into the Concierge's
+delegation path — ranks the same canonical set for both Claude Code and the platform, honouring
+delegation policies.
 
 ### Phase 2 — split responsibilities so every domain has an owner
 New global agents (seed + prompt + approval chain + policy set with `agent_key` + trust bootstrap +
