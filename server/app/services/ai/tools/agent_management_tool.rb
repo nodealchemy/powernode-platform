@@ -53,6 +53,7 @@ module Ai
           parameters: {
             action: { type: "string", required: true, description: "Action: create_agent, list_agents, get_agent, update_agent, execute_agent" },
             agent_id: { type: "string", required: false, description: "Agent ID (for execute)" },
+            slug: { type: "string", required: false, description: "Canonical agent slug (for get_agent; override-aware)" },
             canonical_slug: { type: "string", required: false, description: "Global canonical agent to clone (for create; required without ai.agents.manage)" },
             name: { type: "string", required: false, description: "Agent name (for create)" },
             description: { type: "string", required: false, description: "Agent description (for create)" },
@@ -85,9 +86,11 @@ module Ai
             parameters: {}
           },
           "get_agent" => {
-            description: "Get detailed information about a specific AI agent",
+            description: "Get detailed information about a specific AI agent (by agent_id, or by canonical slug " \
+                         "resolved override-aware: an account clone wins over the global canonical)",
             parameters: {
-              agent_id: { type: "string", required: true, description: "Agent UUID, slug, or exact name" }
+              agent_id: { type: "string", required: false, description: "Agent UUID, slug, or exact name (one of agent_id or slug is required)" },
+              slug: { type: "string", required: false, description: "Canonical agent slug (stable across installs); resolved via Ai::Agent.resolve_for so an account clone wins over the global canonical — the lookup Claude Code subagent skeletons use" }
             }
           },
           "update_agent" => {
@@ -394,13 +397,23 @@ module Ai
         { success: false, error: "Failed to dispatch execution: #{e.message}" }
       end
 
+      # `slug:` is the environment-independent lookup the Claude Code skeletons
+      # use (HIER-P1B): Ai::Agent.resolve_for reaches the GLOBAL canonical
+      # (account.ai_agents, which #resolve_agent uses for slugs, cannot) and
+      # prefers the account's own clone when both share the slug.
       def get_agent(params)
-        agent_record = resolve_agent(params[:agent_id])
+        agent_record = if params[:slug].present?
+          ::Ai::Agent.resolve_for(account.id, slug: params[:slug].to_s)
+        else
+          resolve_agent(params[:agent_id])
+        end
         return { success: false, error: "Agent not found" } unless agent_record
         {
           success: true,
           agent: {
             id: agent_record.id,
+            slug: agent_record.slug,
+            global: agent_record.account_id.nil?,
             name: agent_record.name,
             description: agent_record.description,
             status: agent_record.status,

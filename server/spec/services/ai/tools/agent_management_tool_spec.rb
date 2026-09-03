@@ -36,6 +36,45 @@ RSpec.describe Ai::Tools::AgentManagementTool do
     end
   end
 
+  # HIER-P1B item 1 — Claude Code skeletons bootstrap by SLUG (stable across
+  # installs) rather than by the per-install UUID. `slug:` resolves through
+  # Ai::Agent.resolve_for so an account clone wins over the global canonical,
+  # which `agent_id: "<slug>"` (account.ai_agents only) cannot reach.
+  describe "#execute get_agent by slug" do
+    let!(:canonical) do
+      create(:ai_agent, :global, is_system: true, name: "Canonical Planner", description: "Global default.")
+    end
+
+    it "resolves a GLOBAL canonical by slug (unreachable via agent_id, which is account-scoped for slugs)" do
+      result = tool.execute(params: { action: "get_agent", slug: canonical.slug })
+
+      expect(result[:success]).to be true
+      expect(result[:agent][:id]).to eq(canonical.id)
+      expect(result[:agent][:slug]).to eq(canonical.slug)
+      expect(result[:agent][:global]).to be true
+    end
+
+    it "prefers the account's clone over the canonical when both share the slug" do
+      clone = create(:ai_agent, account: account, name: "Canonical Planner", description: "Account override.")
+      expect(clone.slug).to eq(canonical.slug)
+
+      result = tool.execute(params: { action: "get_agent", slug: canonical.slug })
+
+      expect(result[:agent][:id]).to eq(clone.id)
+      expect(result[:agent][:global]).to be false
+    end
+
+    it "reports not found for an unknown slug" do
+      result = tool.execute(params: { action: "get_agent", slug: "no-such-agent" })
+
+      expect(result).to eq(success: false, error: "Agent not found")
+    end
+
+    it "advertises the slug parameter on the get_agent action" do
+      expect(described_class.action_definitions.dig("get_agent", :parameters)).to have_key(:slug)
+    end
+  end
+
   describe "#execute" do
     context "with create_agent action" do
       # An ai.agents.create holder creates by CLONING a seeded canonical
