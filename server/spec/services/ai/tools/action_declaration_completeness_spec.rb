@@ -128,6 +128,8 @@ RSpec.describe "MCP action declaration completeness" do
     system_terminate_instance
     system_create_instance_pool
     system_update_instance_pool
+    system_replace_instance
+    system_reap_instance
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

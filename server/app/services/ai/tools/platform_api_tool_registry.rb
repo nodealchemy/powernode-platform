@@ -65,6 +65,13 @@ module Ai
         "system_list_isolation_tiers" => "Ai::Tools::SystemFleetTool",
         "system_provision_instance" => "Ai::Tools::SystemFleetTool",
         "system_terminate_instance" => "Ai::Tools::SystemFleetTool",
+        # IMP-4e49eb79c5e0 — the disaster-recovery lane's two doors. Both are
+        # approval-gated on the tool (declare_action), and both replay a skill
+        # executor rather than the action body. Without these rows the
+        # declarations are inert: BaseTool#execute is only reached because this
+        # map routes the action name onto the serving class.
+        "system_replace_instance" => "Ai::Tools::SystemFleetTool",
+        "system_reap_instance" => "Ai::Tools::SystemFleetTool",
         "system_destroy_instance" => "Ai::Tools::SystemFleetTool",
         "system_start_instance" => "Ai::Tools::SystemFleetTool",
         "system_stop_instance" => "Ai::Tools::SystemFleetTool",
