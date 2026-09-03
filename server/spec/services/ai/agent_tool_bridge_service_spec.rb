@@ -138,15 +138,25 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
 
     context 'with allowed_tools filter' do
       before do
+        allow(Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return([
+          { name: "search_knowledge", description: "Search", parameters: {} },
+          { name: "query_learnings", description: "Learnings", parameters: {} },
+          { name: "system_create_node", description: "Infra", parameters: {} }
+        ])
         agent.mcp_metadata = { "tool_access" => { "allowed_tools" => ["search_knowledge"] } }
       end
 
-      it 'only includes allowed tools' do
+      # HIER-P2H — the whitelist still bites (system_create_node is out), but the
+      # bootstrap set rides along here for the same reason it rides along with a
+      # family scope: BASE_GUARDRAILS orders EVERY agent to call those verbs, and
+      # the Claude Code exporter (ToolAllowlist#for) already unions them onto this
+      # very branch, so a bridge that did not would disagree with the skeleton
+      # committed for the same agent.
+      it 'includes the allowed tools plus the bootstrap set, and nothing else' do
         bridge = described_class.new(agent: agent)
-        tools = bridge.tool_definitions_for_llm
+        names = bridge.tool_definitions_for_llm.map { |t| t[:name] }
 
-        expect(tools.length).to eq(1)
-        expect(tools.first[:name]).to eq("search_knowledge")
+        expect(names).to contain_exactly("search_knowledge", "query_learnings")
       end
     end
 
@@ -191,7 +201,8 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
                                            .and_return({ "assistant" => ["system"] })
         tools = described_class.new(agent: agent).tool_definitions_for_llm
 
-        expect(tools.map { |t| t[:name] }).to contain_exactly("system_create_node", "system_list_nodes")
+        # search_knowledge rides along: it is a bootstrap verb (HIER-P2H).
+        expect(tools.map { |t| t[:name] }).to contain_exactly("system_create_node", "system_list_nodes", "search_knowledge")
       end
 
       it 'full_registry: true opts out of scoping (broad agents) even with defaults configured' do
@@ -222,7 +233,88 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
                                                   "tool_families" => ["data_source"] } }
         tools = described_class.new(agent: agent).tool_definitions_for_llm
 
-        expect(tools.map { |t| t[:name] }).to contain_exactly("system_create_node")
+        # data_source_query is absent: the families list never narrows a
+        # whitelist. search_knowledge is present because it is a bootstrap verb
+        # (HIER-P2H), not because the family scope was applied.
+        expect(tools.map { |t| t[:name] }).to contain_exactly("system_create_node", "search_knowledge")
+      end
+    end
+
+    # HIER-P2H — the bootstrap set rides along with EVERY family scope. Before
+    # this a scoped agent lost discover_skills / get_skill_context /
+    # search_knowledge / query_learnings / describe_tool / route_task at run
+    # time while BASE_GUARDRAILS (prepended to its every prompt) ordered it to
+    # call them; the Ingress seed listed them per agent as a workaround. The
+    # set is Ai::Tools::BootstrapVerbs::ACTIONS — the same constant the Claude
+    # Code exporter unions in — so the two surfaces cannot drift.
+    context 'with tool_families scoping and the bootstrap set' do
+      let(:bootstrap_definitions) do
+        Ai::Tools::BootstrapVerbs::ACTIONS.map { |name| { name: name, description: "Bootstrap", parameters: {} } }
+      end
+
+      before do
+        allow(Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return(
+          bootstrap_definitions + [
+            { name: "system_create_node", description: "Infra", parameters: {} },
+            { name: "system_list_nodes", description: "Infra", parameters: {} },
+            { name: "data_source_query", description: "Data", parameters: {} }
+          ]
+        )
+      end
+
+      it 'serves an agent scoped to one family its family AND every bootstrap verb' do
+        agent.mcp_metadata = { "tool_access" => { "tool_families" => ["data_source"] } }
+        names = described_class.new(agent: agent).tool_definitions_for_llm.map { |t| t[:name] }
+
+        expect(names).to include("data_source_query", *Ai::Tools::BootstrapVerbs::ACTIONS)
+        expect(names).not_to include("system_create_node", "system_list_nodes")
+      end
+
+      it 'serves the bootstrap set under SiteSetting per-agent-type family defaults too' do
+        allow(SiteSetting).to receive(:get).and_call_original
+        allow(SiteSetting).to receive(:get).with(described_class::FAMILY_DEFAULTS_SETTING)
+                                           .and_return({ "assistant" => ["system"] })
+        names = described_class.new(agent: agent).tool_definitions_for_llm.map { |t| t[:name] }
+
+        expect(names).to include("system_create_node", "system_list_nodes", *Ai::Tools::BootstrapVerbs::ACTIONS)
+        expect(names).not_to include("data_source_query")
+      end
+
+      # The exporter (Ai::ClaudeExport::ToolAllowlist#for) unions BOOTSTRAP_ACTIONS
+      # on EVERY branch, allowed_tools included. The bridge does the same, so the
+      # runtime surface and the committed Claude Code skeleton of an
+      # allowed_tools agent do not disagree about what it always has.
+      it 'serves the bootstrap set on the allowed_tools branch too' do
+        agent.mcp_metadata = { "tool_access" => { "allowed_tools" => ["system_create_node"] } }
+        names = described_class.new(agent: agent).tool_definitions_for_llm.map { |t| t[:name] }
+
+        expect(names).to include("system_create_node", *Ai::Tools::BootstrapVerbs::ACTIONS)
+        expect(names).not_to include("data_source_query", "system_list_nodes")
+      end
+
+      # The bootstrap union is a SCOPING decision, not an authorization one:
+      # the definitions arrive already permission-filtered, and a bootstrap
+      # verb the agent may not call is not conjured back.
+      it 'does not add a bootstrap verb the permission filter already removed' do
+        allow(Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return([
+          { name: "search_knowledge", description: "Search", parameters: {} },
+          { name: "data_source_query", description: "Data", parameters: {} }
+        ])
+        agent.mcp_metadata = { "tool_access" => { "tool_families" => ["data_source"] } }
+        names = described_class.new(agent: agent).tool_definitions_for_llm.map { |t| t[:name] }
+
+        expect(names).to contain_exactly("data_source_query", "search_knowledge")
+      end
+
+      # Fail-open is decided on the FAMILY match alone. A list matching nothing
+      # still serves the full registry — the bootstrap set must not turn a
+      # misconfiguration into "bootstrap verbs only", which would disarm the
+      # agent just as silently.
+      it 'still fails open to the full registry when the families match nothing' do
+        agent.mcp_metadata = { "tool_access" => { "tool_families" => ["nonexistent_family"] } }
+        tools = described_class.new(agent: agent).tool_definitions_for_llm
+
+        expect(tools.length).to eq(bootstrap_definitions.size + 3)
       end
     end
   end

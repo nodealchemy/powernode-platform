@@ -660,9 +660,22 @@ module Ai
       # Without an explicit whitelist, use agent-scoped definitions for permission
       # filtering, then narrow to the agent's tool families (prompt-size/cost measure;
       # dispatch-side authorization is unchanged and remains the security boundary).
+      #
+      # THE BOOTSTRAP SET RIDES ALONG ON BOTH BRANCHES (HIER-P2H). A whitelist
+      # scopes what the agent is ADVERTISED, and BASE_GUARDRAILS orders every
+      # agent — whitelisted or family-scoped — to call the read-only verbs in
+      # Ai::Tools::BootstrapVerbs::ACTIONS. Ai::ClaudeExport::ToolAllowlist#for
+      # already unions the same constant onto this branch when it renders the
+      # agent's Claude Code skeleton, so a bridge that skipped it would leave
+      # the platform and the committed skeleton disagreeing about what the same
+      # agent always has. This widens no authorization: every dispatch still
+      # goes through McpPlatformToolRegistrar.execute_tool as agent.creator
+      # (#dispatch_tool_call), which is where permission denial happens.
       if (allowed = allowed_tool_names)
         definitions = Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: nil)
-        definitions = definitions.select { |d| allowed.include?(d[:name].to_s) }
+        definitions = definitions.select do |d|
+          allowed.include?(d[:name].to_s) || Ai::Tools::BootstrapVerbs.include?(d[:name])
+        end
       else
         definitions = scope_to_tool_families(
           Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: agent)
@@ -799,6 +812,26 @@ module Ai
     #   4. nothing configured                    → unscoped (behavior-neutral default)
     # A families list that matches NOTHING fails open to the full registry —
     # misconfiguration must not silently disarm an agent.
+    #
+    # THE BOOTSTRAP SET RIDES ALONG (HIER-P2H). Every scoped list is unioned
+    # with Ai::Tools::BootstrapVerbs::ACTIONS — the read-only verbs
+    # BASE_GUARDRAILS orders every agent to call (search_knowledge,
+    # discover_skills, get_skill_context, …). Before this the select was plain,
+    # so any agent with a configured family list lost those verbs at run time
+    # while its own prompt kept demanding them; the Ingress seed listed them
+    # per agent as a workaround. The same constant is what the Claude Code
+    # exporter (Ai::ClaudeExport::ToolAllowlist) unions into a skeleton's
+    # `tools:`, so the two surfaces agree — on the allowed_tools branch too,
+    # which never reaches this method and does its own union in
+    # #platform_tool_definitions.
+    #
+    # Two deliberate bounds. The union is over the DEFINITIONS handed in —
+    # already permission-filtered by PlatformApiToolRegistry.tool_definitions
+    # (agent:) — so a bootstrap verb the agent may not call is not conjured
+    # back: this is scoping, not authorization. And fail-open is decided on the
+    # family match ALONE, before the union: a list matching nothing must still
+    # serve the full registry, not "bootstrap verbs only", which would disarm
+    # the agent just as silently as the empty list did.
     def scope_to_tool_families(definitions)
       return definitions if @tool_access_config["full_registry"] == true
 
@@ -816,8 +849,14 @@ module Ai
         return definitions
       end
 
+      bootstrap = definitions.select do |d|
+        Ai::Tools::BootstrapVerbs.include?(d[:name]) && !scoped.include?(d)
+      end
+      scoped += bootstrap
+
       Rails.logger.info "[AgentToolBridge] Scoped agent #{agent.id} (#{agent.agent_type}) to " \
-                        "#{scoped.size}/#{definitions.size} tools via families #{families.inspect}"
+                        "#{scoped.size}/#{definitions.size} tools via families #{families.inspect} " \
+                        "(+#{bootstrap.size} bootstrap)"
       scoped
     end
 

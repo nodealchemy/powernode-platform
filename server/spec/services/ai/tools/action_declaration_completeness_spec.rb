@@ -123,6 +123,13 @@ RSpec.describe "MCP action declaration completeness" do
   #   system_cordon_instance        IMP-0467eee9fc57  system.instance_cordon
   #   system_uncordon_instance      IMP-0467eee9fc57  system.instance_cordon
   #   system_gitops_register_repository SWEEP-2026-09-03 system.gitops_register_repository
+  #   system_replace_instance       IMP-4e49eb79c5e0  system.instance_replace
+  #   system_reap_instance          IMP-4e49eb79c5e0  system.instance_reap
+  #   system_set_default_disk_image_publication
+  #                                 HIER-P2H          system.disk_image_publication_promote
+  #   system_revert_disk_image      HIER-P2H          system.disk_image_publication_rollback
+  #   system_set_disk_image_retention
+  #                                 HIER-P2H          system.disk_image_retention_update
   #   set_delegation_policy         HIER-P0           ai.delegation_policy.update
   #                                 (core category; an agent PROPOSES its own
   #                                 delegation authority, an operator grants it)
@@ -146,6 +153,9 @@ RSpec.describe "MCP action declaration completeness" do
     system_uncordon_instance
     system_gitops_register_repository
     set_delegation_policy
+    system_set_default_disk_image_publication
+    system_revert_disk_image
+    system_set_disk_image_retention
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

@@ -29,6 +29,18 @@ RSpec.describe Ai::ClaudeExport::ToolAllowlist do
                                "mcp__powernode__platform_record_agent_execution")
     end
 
+    # HIER-P2H — ONE bootstrap set, shared with the runtime bridge
+    # (Ai::Tools::BootstrapVerbs), so Claude Code and the platform agree on
+    # what an agent always has. The self-report verb stays the exporter's own
+    # addition: it is a write, and the shared set is read-only by contract.
+    it "unions the platform's bootstrap set (Ai::Tools::BootstrapVerbs) plus the self-report verb into every skeleton" do
+      expect(described_class::BOOTSTRAP_ACTIONS).to eq(Ai::Tools::BootstrapVerbs::ACTIONS + described_class::SELF_REPORT_ACTIONS)
+      expect(described_class::SELF_REPORT_ACTIONS).to eq(%w[record_agent_execution])
+
+      actions = mcp_actions(described_class.for(agent_with(tool_access: { "tool_families" => %w[docker_list] })))
+      expect(actions).to include(*Ai::Tools::BootstrapVerbs::ACTIONS, "record_agent_execution")
+    end
+
     it "adds Edit/Write/Bash only for code_assistant" do
       expect(described_class.for(agent_with(agent_type: "code_assistant"))).to include("Edit", "Write", "Bash")
       expect(described_class.for(agent_with(agent_type: "monitor"))).not_to include("Edit", "Write", "Bash")
@@ -49,7 +61,7 @@ RSpec.describe Ai::ClaudeExport::ToolAllowlist do
       tools = described_class.for(agent_with(tool_access: { "allowed_tools" => %w[search_knowledge no_such_action] }))
       actions = mcp_actions(tools)
 
-      expect(actions).to contain_exactly("search_knowledge", "get_agent", "get_skill_context", "record_agent_execution")
+      expect(actions).to match_array(%w[search_knowledge] | described_class::BOOTSTRAP_ACTIONS)
     end
 
     it "treats allowed_tools ['*'] as unscoped" do
@@ -60,7 +72,7 @@ RSpec.describe Ai::ClaudeExport::ToolAllowlist do
       actions = mcp_actions(described_class.for(agent_with(tool_access: { "tool_families" => %w[list_agents docker_list] })))
 
       expect(actions).to include("list_agents", "docker_list_hosts", "docker_list_containers")
-      expect(actions).not_to include("docker_get_host", "search_knowledge")
+      expect(actions).not_to include("docker_get_host", "delete_agent")
     end
 
     it "fails open to unscoped when the families match nothing (the bridge's rule: misconfiguration must not disarm)" do
@@ -74,13 +86,24 @@ RSpec.describe Ai::ClaudeExport::ToolAllowlist do
 
       actions = mcp_actions(described_class.for(agent_with(agent_type: "monitor")))
 
-      expect(actions).to contain_exactly("list_skills", "get_agent", "get_skill_context", "record_agent_execution")
+      expect(actions).to match_array(%w[list_skills] | described_class::BOOTSTRAP_ACTIONS)
     end
 
+    # Enumerated, NOT matched against the constant: this is the kill switch's
+    # residual surface, so growing BootstrapVerbs must be a reviewed widening of
+    # what a DISABLED agent still gets, not a silent one. HIER-P2H took it from
+    # three verbs to nine; every one is declared `mutating: false`
+    # (bootstrap_verbs_spec) except record_agent_execution, which writes only
+    # this run's own history row.
     it "keeps only the bootstrap verbs when platform tools are disabled for the agent" do
       actions = mcp_actions(described_class.for(agent_with(tool_access: { "enabled" => false })))
 
-      expect(actions).to contain_exactly("get_agent", "get_skill_context", "record_agent_execution")
+      expect(actions).to contain_exactly(
+        "get_agent", "discover_skills", "get_skill_context", "search_knowledge",
+        "query_learnings", "code_semantic_search", "describe_tool", "route_task",
+        "record_agent_execution"
+      )
+      expect(actions).to match_array(described_class::BOOTSTRAP_ACTIONS)
     end
   end
 

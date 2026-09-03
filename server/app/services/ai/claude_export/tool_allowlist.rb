@@ -27,13 +27,16 @@ module Ai
     #      (this is where the export is STRICTER than the bridge, which serves the
     #      full registry — a committed CC allowlist errs on the side of read-only)
     #
-    # Every skeleton always carries the bootstrap verbs (get_agent /
-    # get_skill_context — the file cannot fetch its own prompt without them),
-    # the self-report verb (record_agent_execution — HIER-P1C: the body's final
-    # step reports the run back so the platform's statistics see it; the verb
-    # records history and is not autonomy-gated), and the CC built-ins its agent
-    # type needs: Read/Grep/Glob for every agent; Edit/Write/Bash only for
-    # code_assistant.
+    # Every skeleton always carries the bootstrap verbs — Ai::Tools::
+    # BootstrapVerbs::ACTIONS, THE ONE read-only set shared with the runtime
+    # bridge since HIER-P2H (get_agent so the file can fetch its own prompt,
+    # plus the discovery/knowledge/routing verbs BASE_GUARDRAILS orders every
+    # agent to call), the self-report verb (record_agent_execution — HIER-P1C:
+    # the body's final step reports the run back so the platform's statistics
+    # see it; the verb records history and is not autonomy-gated, but it IS a
+    # write, so it lives beside the shared read-only set rather than in it),
+    # and the CC built-ins its agent type needs: Read/Grep/Glob for every
+    # agent; Edit/Write/Bash only for code_assistant.
     #
     # Registered action names come from the registry's own surface
     # (PlatformApiToolRegistry.all_tools), never a literal list; a READ verb is
@@ -45,7 +48,8 @@ module Ai
       BASE_BUILTINS = %w[Read Grep Glob].freeze
       CODE_BUILTINS = %w[Edit Write Bash].freeze
       CODE_AGENT_TYPES = %w[code_assistant].freeze
-      BOOTSTRAP_ACTIONS = %w[get_agent get_skill_context record_agent_execution].freeze
+      SELF_REPORT_ACTIONS = %w[record_agent_execution].freeze
+      BOOTSTRAP_ACTIONS = (::Ai::Tools::BootstrapVerbs::ACTIONS + SELF_REPORT_ACTIONS).freeze
       UNSCOPED = :all
 
       # One walk of the registry per export run (~600 constantize + declaration
