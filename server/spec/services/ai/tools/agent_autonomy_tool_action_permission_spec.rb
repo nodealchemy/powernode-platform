@@ -437,7 +437,13 @@ RSpec.describe "agent_autonomy MCP per-action authorization" do
         send_proactive_notification request_code_change discover_claude_sessions
       ]
 
-      write_shaped = registry_actions.grep(/\A(create|update|delete|approve|reject)_/) - agent_voice
+      # HIER-P0 widened the prefix set: set_delegation_policy was the first
+      # `set_`-shaped write this tool serves, and the old alternation
+      # (create|update|delete|approve|reject) matched nothing for it — the
+      # guard would have passed with the verb sitting at the ai.agents.read
+      # floor. `assign|grant|revoke` are added for the same reason, before a
+      # write arrives wearing one of them.
+      write_shaped = registry_actions.grep(/\A(create|update|delete|approve|reject|set|assign|grant|revoke)_/) - agent_voice
       expect(write_shaped).not_to be_empty # premise: the heuristic matches something
 
       unmapped = write_shaped - tool_class::ACTION_PERMISSIONS.keys

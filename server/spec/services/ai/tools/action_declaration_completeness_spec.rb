@@ -123,6 +123,9 @@ RSpec.describe "MCP action declaration completeness" do
   #   system_cordon_instance        IMP-0467eee9fc57  system.instance_cordon
   #   system_uncordon_instance      IMP-0467eee9fc57  system.instance_cordon
   #   system_gitops_register_repository SWEEP-2026-09-03 system.gitops_register_repository
+  #   set_delegation_policy         HIER-P0           ai.delegation_policy.update
+  #                                 (core category; an agent PROPOSES its own
+  #                                 delegation authority, an operator grants it)
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -142,6 +145,7 @@ RSpec.describe "MCP action declaration completeness" do
     system_cordon_instance
     system_uncordon_instance
     system_gitops_register_repository
+    set_delegation_policy
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

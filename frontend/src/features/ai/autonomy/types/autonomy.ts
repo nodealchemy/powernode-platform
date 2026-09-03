@@ -5,7 +5,28 @@ export interface AgentLineageNode {
   status: string;
   trust_level?: string;
   depth: number;
+  /** A global seeded platform agent (is_system && account_id null). An account's clone is not canonical. */
+  canonical?: boolean;
   children: AgentLineageNode[];
+}
+
+/** A parent reference on the single-agent lineage payload (sibling data, not a tree node). */
+export interface AgentLineageParent {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  canonical?: boolean;
+}
+
+/** GET /ai/autonomy/lineage/:agent_id — the node rooted at the agent, plus its parents and legacy counters. */
+export interface AgentLineage extends AgentLineageNode {
+  parents: AgentLineageParent[];
+  meta?: {
+    agent_id: string;
+    total_children: number;
+    total_parents: number;
+  };
 }
 
 export interface TrustScore {
@@ -162,6 +183,8 @@ export interface DelegationPolicy {
   id: string;
   agent_id: string;
   agent_name: string;
+  /** Seed-managed global row (account_id null) — read-only from the account surface. */
+  canonical?: boolean;
   max_depth: number;
   allowed_delegate_types: string[];
   delegatable_actions: string[];

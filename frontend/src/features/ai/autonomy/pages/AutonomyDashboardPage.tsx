@@ -27,7 +27,7 @@ import { FeedbackPanel } from '../components/FeedbackPanel';
 import { InterventionPoliciesPanel } from '../components/InterventionPoliciesPanel';
 import { ShadowModeResultsPanel } from '../components/ShadowModeResultsPanel';
 import { KillSwitchStatusBar } from '../components/KillSwitchStatusBar';
-import type { TrustScore, AgentBudget, AutonomyStats, BudgetRegime } from '../types/autonomy';
+import type { TrustScore, AgentBudget, AutonomyStats, BudgetRegime, AgentLineageNode } from '../types/autonomy';
 
 const breadcrumbs = [
   { label: 'Dashboard', href: '/app' },
@@ -107,14 +107,25 @@ const TrustScoresTab: React.FC<{ trustScores: TrustScore[] }> = ({ trustScores }
   </div>
 );
 
+/** Every node the forest can render, flattened and sorted by name — the picker lists exactly these. */
+function flattenLineageNodes(nodes: AgentLineageNode[], acc: AgentLineageNode[] = []): AgentLineageNode[] {
+  for (const node of nodes) {
+    acc.push(node);
+    flattenLineageNodes(node.children ?? [], acc);
+  }
+  return acc;
+}
+
 const LineageTab: React.FC<{
-  trustScores: TrustScore[];
   selectedAgentId: string;
   onAgentSelect: (id: string) => void;
-}> = ({ trustScores, selectedAgentId, onAgentSelect }) => {
+}> = ({ selectedAgentId, onAgentSelect }) => {
   const { data: forest, isLoading: forestLoading } = useAgentLineageForest();
   const { data: singleLineage } = useAgentLineage(selectedAgentId);
   const [showOrphans, setShowOrphans] = useState(false);
+  const pickerAgents = forest
+    ? flattenLineageNodes([...forest.trees, ...forest.orphans]).sort((a, b) => a.name.localeCompare(b.name))
+    : [];
 
   return (
     <div className="space-y-6">
@@ -129,9 +140,9 @@ const LineageTab: React.FC<{
               onChange={(e) => onAgentSelect(e.target.value)}
             >
               <option value="">All agents (forest view)</option>
-              {trustScores.map((s) => (
-                <option key={s.agent_id} value={s.agent_id}>
-                  {s.agent_name}
+              {pickerAgents.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}{agent.canonical ? ' (canonical)' : ''}
                 </option>
               ))}
             </select>
@@ -155,7 +166,8 @@ const LineageTab: React.FC<{
             </div>
           ) : (
             <p className="text-sm text-theme-tertiary py-4 text-center">
-              No lineage trees found. Agent lineage is created when agents are organized into team hierarchies.
+              No lineage trees found. A lineage row is written when an agent is spawned or cloned from a parent;
+              team membership alone does not create one.
             </p>
           )}
 
@@ -166,7 +178,7 @@ const LineageTab: React.FC<{
                 className="text-sm text-theme-info-fg hover:underline flex items-center gap-1"
               >
                 <GitBranch className="h-3.5 w-3.5" />
-                {showOrphans ? 'Hide' : 'Show'} Standalone Agents ({forest.orphans.length})
+                {showOrphans ? 'Hide' : 'Show'} Root agents (no parent) ({forest.orphans.length})
               </button>
               {showOrphans && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
@@ -255,7 +267,6 @@ export const AutonomyContent: React.FC = () => {
       case 'lineage':
         return (
           <LineageTab
-            trustScores={safeTrustScores}
             selectedAgentId={selectedAgentId}
             onAgentSelect={setSelectedAgentId}
           />

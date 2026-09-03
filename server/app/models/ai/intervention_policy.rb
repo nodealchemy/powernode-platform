@@ -11,12 +11,21 @@ module Ai
     # `Ai::InterventionPolicy.register_category!("ext.action_name")` from
     # their Engine#after_initialize. The registry is thread-safe at boot
     # (single-threaded init); reads are lock-free at request time.
+    #
+    # ai.delegation_policy.update (HIER-P0): the MCP verb
+    # platform.set_delegation_policy PROPOSES an agent's own delegation
+    # authority. No seed writes a policy row for it on purpose —
+    # Ai::InterventionPolicyService#default_policy resolves an unmatched
+    # category to require_approval, which is the escalation rule
+    # (guidance-agent-escalation: an agent may propose, never grant). An
+    # operator who wants it to land unattended writes an auto_approve row.
     STATIC_CATEGORIES = %w[
       approval proposal escalation status_update issue_alert
       feedback
       project.adapt project.cost_control project.scale_horizontal project.relocate project.schema_change project.security_change
       dev.pull_task dev.complete_task dev.commit_to_branch
       dev.multi_file_change dev.merge
+      ai.delegation_policy.update
       *
     ].freeze
 

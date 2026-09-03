@@ -469,6 +469,8 @@ module Ai
         "spawn_task" => "Ai::Tools::AgentManagementTool",
         "check_task_status" => "Ai::Tools::AgentManagementTool",
         "wait_for_task" => "Ai::Tools::AgentManagementTool",
+        # Task -> agent routing (one router for MCP and the Concierge; read-only)
+        "route_task" => "Ai::Tools::AgentRoutingTool",
         # Team management
         "create_team" => "Ai::Tools::TeamManagementTool",
         "add_team_member" => "Ai::Tools::TeamManagementTool",
@@ -610,6 +612,10 @@ module Ai
         "list_deferred_operations" => "Ai::Tools::AgentAutonomyTool",
         "approve_deferred_operation" => "Ai::Tools::AgentAutonomyTool",
         "reject_deferred_operation" => "Ai::Tools::AgentAutonomyTool",
+        # Delegation authority (HIER-P0): an agent reads its own delegation policy
+        # + effective authority, and PROPOSES a policy (gated: ai.delegation_policy.update)
+        "describe_delegation" => "Ai::Tools::AgentAutonomyTool",
+        "set_delegation_policy" => "Ai::Tools::AgentAutonomyTool",
         # Self-improvement (skill mutation, challenges)
         "generate_self_challenge" => "Ai::Tools::SelfImprovementTool",
         "list_challenges" => "Ai::Tools::SelfImprovementTool",

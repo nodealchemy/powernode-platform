@@ -32,6 +32,7 @@ const LineageNode: React.FC<LineageNodeProps> = ({ node, depth = 0 }) => {
   return (
     <div>
       <div
+        data-testid={`lineage-node-${node.id}`}
         className={cn(
           'flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-theme-surface-hover transition-colors',
           hasChildren && 'cursor-pointer'
@@ -57,9 +58,20 @@ const LineageNode: React.FC<LineageNodeProps> = ({ node, depth = 0 }) => {
           )}
         </div>
 
+        {/* Name FIRST; agent_type is a secondary label. Several distinct agents share
+            one type (seven carry data_analyst), so a type-led label reads as duplicates. */}
         <div className="flex-1 min-w-0 flex items-center gap-2">
-          <EntityLink type="agent" id={node.id} label={node.name} className="text-sm font-medium truncate" />
-          <span className="text-xs text-theme-secondary">({node.type})</span>
+          <span data-testid="lineage-node-name" className="min-w-0 truncate">
+            <EntityLink type="agent" id={node.id} label={node.name} className="text-sm font-medium truncate" />
+          </span>
+          <span data-testid="lineage-node-type" className="text-xs text-theme-secondary shrink-0">
+            {node.type}
+          </span>
+          {node.canonical && (
+            <span className="shrink-0" title="Global seeded platform agent (read-only; clone to customize)">
+              <Badge variant="outline" size="sm">canonical</Badge>
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
 import type {
   TrustScore,
+  AgentLineage,
   AgentLineageNode,
   AgentBudget,
   AutonomyStats,
@@ -92,7 +93,7 @@ export function useAgentLineage(agentId: string) {
     queryKey: AUTONOMY_KEYS.lineage(agentId),
     queryFn: async () => {
       const response = await apiClient.get(`/ai/autonomy/lineage/${agentId}`);
-      return (response.data?.data ?? null) as AgentLineageNode;
+      return (response.data?.data ?? null) as AgentLineage | null;
     },
     enabled: !!agentId,
   });

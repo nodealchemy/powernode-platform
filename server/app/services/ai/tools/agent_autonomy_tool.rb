@@ -74,7 +74,24 @@ module Ai
         # therefore on the MCP surface rather than REST, and the invariant holds
         # just the same — leaving it at the floor would let a caller write into a
         # conversation through this tool that platform.send_message refuses.
-        "request_code_change" => "ai.conversations.create"
+        "request_code_change" => "ai.conversations.create",
+
+        # HIER-P0 — set_delegation_policy PROPOSES an agent's delegation
+        # authority; the write itself lands only after Ai::AutonomyGate
+        # (category ai.delegation_policy.update, default require_approval)
+        # lets it through. Operator ruling: ai.agents.update, the agent-update
+        # permission, rather than ai.autonomy.manage (what the REST twins
+        # create/update_delegation_policy demand): the REST verbs WRITE the
+        # row directly, while this verb only parks a proposal — and a caller
+        # who may edit an agent may propose its delegation policy. The read
+        # (describe_delegation) stays at the floor: its twin, GET
+        # /api/v1/ai/autonomy/delegation_policies/:agent_id, is gated on
+        # ai.agents.read by AutonomyController#validate_permissions.
+        #
+        # This entry prices the SELF case only. A proposal naming another agent
+        # is charged CROSS_AGENT_DELEGATION_PERMISSION in #effective_perm_for —
+        # see the comment there.
+        "set_delegation_policy" => "ai.agents.update"
 
         # list_deferred_operations stays at the floor on purpose: its twin is
         # GET /api/v1/ai/autonomy/approvals, which validate_permissions gates on
@@ -121,12 +138,26 @@ module Ai
       declare_action "update_agent_goal", mutating: true
       declare_action "update_intervention_policy", mutating: true
 
+      # HIER-P0 — delegation authority. The read is plain; the write is the
+      # first action on this tool wired to the gate through the generic
+      # DeferredToolCall replay seam (BaseTool#deferred_tool_call_context /
+      # #deferred_tool_call_result), so an approved proposal is replayed as
+      # the ORIGINAL caller and the action body below runs only on that
+      # replay (or on an operator's explicit auto_approve policy).
+      declare_action "describe_delegation", mutating: false
+      declare_action "set_delegation_policy",
+                     mutating: true,
+                     action_category: "ai.delegation_policy.update",
+                     executor_class: "Ai::Executors::DeferredToolCall",
+                     gate_context: :deferred_tool_call_context,
+                     on_proceed: :deferred_tool_call_result
+
       def self.definition
         {
           name: "agent_autonomy",
           description: "Agent autonomy tools: goals, proposals, escalations, introspection, proactive notifications, and code change requests",
           parameters: {
-            action: { type: "string", required: true, description: "Action: create_agent_goal, list_agent_goals, update_agent_goal, agent_introspect, propose_feature, send_proactive_notification, discover_claude_sessions, request_code_change, create_proposal, escalate, request_feedback, report_issue" }
+            action: { type: "string", required: true, description: "Action: create_agent_goal, list_agent_goals, update_agent_goal, agent_introspect, propose_feature, send_proactive_notification, discover_claude_sessions, request_code_change, create_proposal, escalate, request_feedback, report_issue, describe_delegation, set_delegation_policy" }
           }
         }
       end
@@ -302,6 +333,24 @@ module Ai
               deferred_operation_id: { type: "string", required: true, description: "DeferredOperation UUID OR ApprovalRequest UUID" },
               comments: { type: "string", required: false, description: "Reason for rejection (recommended)" }
             }
+          },
+          # === Delegation authority (HIER-P0) ===
+          "describe_delegation" => {
+            description: "Describe an agent's delegation authority: its delegation policy (the account's own row, else the canonical global row, else none) and its resolved effective authority (trust tier + capability matrix). Defaults to the calling agent.",
+            parameters: {
+              agent_id: { type: "string", required: false, description: "Target agent ID (omit for self)" }
+            }
+          },
+          "set_delegation_policy" => {
+            description: "PROPOSE a delegation policy for an agent (self by default). Approval-gated under ai.delegation_policy.update — by default the call returns a pending approval envelope and no policy is written until an operator approves; an agent may propose its own authority, never grant it. Naming another agent is a lateral rewrite of THAT agent's authority and additionally requires ai.autonomy.manage, the permission its REST twin charges. Creates the account's row for the agent or updates the existing one.",
+            parameters: {
+              agent_id: { type: "string", required: false, description: "Target agent ID (omit for self; another agent's ID requires ai.autonomy.manage)" },
+              max_depth: { type: "integer", required: false, description: "Maximum delegation depth, 1..10" },
+              allowed_delegate_types: { type: "array", required: false, description: "Agent types this agent may delegate to (empty = any)" },
+              delegatable_actions: { type: "array", required: false, description: "Action types this agent may delegate (empty = any)" },
+              budget_delegation_pct: { type: "number", required: false, description: "Fraction 0..1 of remaining budget delegatable per task" },
+              inheritance_policy: { type: "string", required: false, description: "conservative | moderate | permissive" }
+            }
           }
         }
       end
@@ -348,9 +397,30 @@ module Ai
         when "list_deferred_operations" then list_deferred_operations(params)
         when "approve_deferred_operation" then approve_deferred_operation(params)
         when "reject_deferred_operation" then reject_deferred_operation(params)
+        when "describe_delegation" then describe_delegation(params)
+        when "set_delegation_policy" then set_delegation_policy(params)
         else
           error_result("Unknown action: #{action}")
         end
+      end
+
+      protected
+
+      # A GATED action (set_delegation_policy) returns from BaseTool#execute
+      # before #call, so the per-action permission check at the top of #call
+      # would be skipped for exactly the action that needs it most. This is
+      # the seam BaseTool provides for that: the same #action_permitted? the
+      # ungated path runs, keyed on the routed action, never params[:action].
+      def authorization_error(params)
+        action = routed_action_name(params)
+        required = effective_perm_for(action, params)
+        return nil if action_permitted?(action, required)
+
+        Rails.logger.warn(
+          "[AgentAutonomyTool] Refused gated action for insufficient permission: " \
+          "action=#{action} requires=#{required} user=#{user&.id}"
+        )
+        error_result("permission denied: #{required} required")
       end
 
       private
@@ -359,6 +429,35 @@ module Ai
 
       def required_perm_for(action)
         ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # HIER-P0 — the operator ruling priced set_delegation_policy at
+      # ai.agents.update because an agent PROPOSES ITS OWN authority
+      # (guidance-agent-escalation). A proposal aimed at a THIRD agent is a
+      # different act: under an operator's auto_approve row for
+      # ai.delegation_policy.update it rewrites that agent's delegation
+      # authority laterally, which is exactly what the REST twin charges
+      # ai.autonomy.manage for (Ai::AutonomyWriteActions#require_write_permission).
+      # Charged from #authorization_error, i.e. BEFORE Ai::AutonomyGate, so a
+      # foreign proposal is not even parked as a pending approval.
+      CROSS_AGENT_DELEGATION_PERMISSION = "ai.autonomy.manage"
+
+      def effective_perm_for(action, params)
+        return required_perm_for(action) unless action == "set_delegation_policy"
+        return required_perm_for(action) unless cross_agent_delegation_target?(params)
+
+        CROSS_AGENT_DELEGATION_PERMISSION
+      end
+
+      # Params arrive string-keyed from the registrar and symbol-keyed from the
+      # DeferredToolCall replay, so the read goes through #indifferent — a
+      # string-only read here would make every replayed foreign proposal look
+      # like a self-proposal.
+      def cross_agent_delegation_target?(params)
+        target_id = indifferent(params)["agent_id"].presence
+        return false if target_id.nil?
+
+        agent.nil? || target_id.to_s != agent.id.to_s
       end
 
       # Two bypasses, both EXPLICIT, matching the sibling tools' ladder:
@@ -379,7 +478,7 @@ module Ai
       # unreachable here anyway: REQUIRED_PERMISSION is no longer nil, so the
       # registrar has already called user.has_permission? on any caller that
       # gets this far. A principal that cannot answer the question is refused.
-      def action_permitted?(action)
+      def action_permitted?(action, required = required_perm_for(action))
         return true if internal?
         return true if instance_authorized?
         return false unless user.respond_to?(:has_permission?)
@@ -387,7 +486,7 @@ module Ai
         # Compared against true rather than used for truthiness: nothing on the
         # MCP path coerces a permission answer, and a truthy non-boolean must
         # not read as a grant.
-        user.has_permission?(required_perm_for(action)) == true
+        user.has_permission?(required) == true
       end
 
       def create_agent_goal(params)
@@ -716,6 +815,75 @@ module Ai
         else
           agent
         end
+      end
+
+      # === Delegation authority (HIER-P0) ===
+
+      def describe_delegation(params)
+        p = indifferent(params)
+        target_agent = resolve_agent(p["agent_id"])
+        return error_result("Agent not found") unless target_agent
+
+        policy = Ai::DelegationPolicy.resolve_for(agent_id: target_agent.id, account_id: account.id)
+        authority = Ai::Autonomy::DelegationAuthorityService.new(account: account)
+          .effective_capabilities(agent: target_agent)
+
+        success_result(
+          agent: { id: target_agent.id, name: target_agent.name,
+                   agent_type: target_agent.agent_type, status: target_agent.status,
+                   canonical: target_agent.global? && target_agent.is_system == true },
+          policy: policy ? serialize_delegation_policy(policy) : nil,
+          effective_authority: authority
+        )
+      end
+
+      # Runs ONLY on the gate's proceed branch — the DeferredToolCall replay
+      # after an operator approved, or synchronously under an explicit
+      # auto_approve intervention policy. The gate never reaches here on the
+      # default require_approval path; BaseTool#execute returns the pending
+      # envelope instead. Always writes the ACCOUNT's row: a canonical global
+      # row is seed-managed and never edited from an agent surface.
+      def set_delegation_policy(params)
+        p = indifferent(params)
+        target_agent = resolve_agent(p["agent_id"])
+        return error_result("Agent not found") unless target_agent
+
+        policy = Ai::DelegationPolicy.find_or_initialize_by(account_id: account.id, agent_id: target_agent.id)
+        attrs = DELEGATION_POLICY_FIELDS.each_with_object({}) do |field, acc|
+          acc[field] = p[field] if p.key?(field)
+        end
+        policy.assign_attributes(attrs)
+        policy.save!
+
+        success_result(agent_id: target_agent.id, policy: serialize_delegation_policy(policy))
+      rescue ActiveRecord::RecordInvalid => e
+        error_result(e.message)
+      end
+
+      DELEGATION_POLICY_FIELDS = %w[
+        max_depth allowed_delegate_types delegatable_actions budget_delegation_pct inheritance_policy
+      ].freeze
+      private_constant :DELEGATION_POLICY_FIELDS
+
+      def serialize_delegation_policy(policy)
+        {
+          id: policy.id,
+          agent_id: policy.agent_id,
+          canonical: policy.global?,
+          max_depth: policy.max_depth,
+          allowed_delegate_types: policy.allowed_delegate_types,
+          delegatable_actions: policy.delegatable_actions,
+          budget_delegation_pct: policy.budget_delegation_pct,
+          inheritance_policy: policy.inheritance_policy
+        }
+      end
+
+      # Params arrive indifferent from McpPlatformToolRegistrar but SYMBOL-keyed
+      # from the DeferredToolCall replay (it deep_symbolize_keys the parked
+      # copy); string reads against the latter would silently see nothing.
+      def indifferent(params)
+        raw = params.respond_to?(:to_unsafe_h) ? params.to_unsafe_h : params.to_h
+        raw.with_indifferent_access
       end
 
       # === Intervention policies ===
