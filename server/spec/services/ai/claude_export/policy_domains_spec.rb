@@ -8,7 +8,20 @@ require "rails_helper"
 # here and core falls back to a generic prefix heuristic when nothing is
 # registered for a category.
 RSpec.describe Ai::ClaudeExport::PolicyDomains do
-  after { described_class.reset! }
+  # The registry is a process-global module ivar and extensions REGISTER into it
+  # at boot (`config.to_prepare`), so these examples cannot assume it is empty:
+  # the two below that pin the UNREGISTERED fallback have to establish that
+  # precondition themselves. Restoring the snapshot afterwards matters just as
+  # much in the other direction — a bare `reset!` here would silently strip the
+  # boot registration from every spec that runs after this file in the same
+  # process.
+  around do |example|
+    snapshot = described_class.registered.dup
+    described_class.reset!
+    example.run
+  ensure
+    described_class.instance_variable_set(:@registered, snapshot)
+  end
 
   it "resolves a registered prefix map first-match, in registration order" do
     described_class.register("topology", %w[system.sdwan_federation_compose])
