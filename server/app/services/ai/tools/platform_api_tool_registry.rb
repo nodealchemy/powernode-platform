@@ -469,6 +469,9 @@ module Ai
         "spawn_task" => "Ai::Tools::AgentManagementTool",
         "check_task_status" => "Ai::Tools::AgentManagementTool",
         "wait_for_task" => "Ai::Tools::AgentManagementTool",
+        # HIER-P1C — a Claude Code run of a platform agent reports back so the
+        # platform's execution, trust and model statistics see it.
+        "record_agent_execution" => "Ai::Tools::AgentManagementTool",
         # Task -> agent routing (one router for MCP and the Concierge; read-only)
         "route_task" => "Ai::Tools::AgentRoutingTool",
         # Team management

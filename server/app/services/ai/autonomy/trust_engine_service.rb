@@ -261,7 +261,11 @@ module Ai
 
       def find_or_create_trust_score(agent)
         Ai::AgentTrustScore.find_or_create_by!(agent_id: agent.id) do |ts|
-          ts.account = agent.account
+          # A GLOBAL canonical agent (account_id nil) is executed — and now
+          # reported from Claude Code (HIER-P1C) — under the calling account;
+          # the score row's NOT NULL account is that account, else the create
+          # fails inside the execution hook's rescue and no score ever lands.
+          ts.account = agent.account || account
           ts.reliability = 0.5
           ts.cost_efficiency = 0.5
           ts.safety = 1.0

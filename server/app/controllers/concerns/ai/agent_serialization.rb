@@ -182,8 +182,16 @@ module Ai
         successful_executions: executions.count { |e| e.status == "completed" },
         failed_executions: executions.count { |e| e.status == "failed" },
         success_rate: agent.success_rate || 0,
-        avg_execution_time: executions.where.not(completed_at: nil).average("EXTRACT(epoch FROM (completed_at - started_at))")&.to_f&.round(2) || 0
+        avg_execution_time: executions.where.not(completed_at: nil).average("EXTRACT(epoch FROM (completed_at - started_at))")&.to_f&.round(2) || 0,
+        # HIER-P1C: runs the platform's own executor performed vs runs a Claude
+        # Code session performed locally and reported back (both count above).
+        by_executor_kind: executions_by_executor_kind(executions)
       }
+    end
+
+    def executions_by_executor_kind(executions)
+      claude_code = executions.count { |e| e.claude_code_run? }
+      { platform: executions.size - claude_code, claude_code: claude_code }
     end
 
     def build_detailed_stats(executions)

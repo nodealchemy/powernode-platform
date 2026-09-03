@@ -201,7 +201,10 @@ module Ai
         return prov ? [ prov ] : []
       end
 
-      providers = @account.ai_providers.where(is_active: true).to_a
+      # platform_routable: never the Claude Code-only scope
+      # (Ai::ClaudeExport::ExecutionRecorder) — its statistics are real, but no
+      # platform credential can serve a run there.
+      providers = @account.ai_providers.platform_routable.where(is_active: true).to_a
       credentialed = ::Ai::ProviderCredential.where(account_id: @account.id, is_active: true)
                                              .distinct.pluck(:ai_provider_id).to_set
       providers.select { |p| credentialed.include?(p.id) }.presence || providers
@@ -210,8 +213,8 @@ module Ai
     def constraint_provider
       return @provider if @provider.is_a?(::Ai::Provider)
 
-      @account.ai_providers.active.find_by(provider_type: @provider.to_s) ||
-        @account.ai_providers.find_by(provider_type: @provider.to_s)
+      @account.ai_providers.platform_routable.active.find_by(provider_type: @provider.to_s) ||
+        @account.ai_providers.platform_routable.find_by(provider_type: @provider.to_s)
     end
 
     # Confidence-weighted scoring. Static priors (tier match, cost, profile
@@ -443,8 +446,8 @@ module Ai
 
     def fallback
       provider = candidate_providers.first ||
-                 @account.ai_providers.where(is_active: true).order(priority_order: :asc).first ||
-                 @account.ai_providers.order(priority_order: :asc).first
+                 @account.ai_providers.platform_routable.where(is_active: true).order(priority_order: :asc).first ||
+                 @account.ai_providers.platform_routable.order(priority_order: :asc).first
       model = provider&.default_model
       # Fable-5 candidacy gate (mirrors models_for_tier): never fall back to a
       # Fable/Mythos default_model when the framework is off — pick the provider's

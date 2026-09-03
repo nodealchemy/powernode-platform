@@ -45,6 +45,10 @@ module Ai
       declare_action "update_agent", mutating: true
       declare_action "update_agent_trust_score", mutating: true
       declare_action "wait_for_task", mutating: true
+      # HIER-P1C — mutating (it mints an execution row) but NOT autonomy-gated:
+      # it records history of a run that already happened in a Claude Code
+      # session; nothing on the platform acts on the report.
+      declare_action "record_agent_execution", mutating: true
 
       def self.definition
         {
@@ -163,6 +167,25 @@ module Ai
               task_id: { type: "string", required: true, description: "A2A task ID" },
               timeout_seconds: { type: "integer", required: false, description: "Maximum wait time in seconds (default: 300)" }
             }
+          },
+          "record_agent_execution" => {
+            description: "Report a Claude Code run of a platform agent (Agent(subagent_type: \"<slug>\") on a " \
+                         ".claude/agents/powernode/ skeleton) so the platform's execution, trust and model statistics " \
+                         "see it: mints ONE Ai::AgentExecution on the target agent, executed by the calling session's " \
+                         "mcp_client identity, through the same terminal hooks a platform execution fires. Idempotent on " \
+                         "run_key (a retry updates, never duplicates). Counts toward model statistics and the trust score " \
+                         "only — never toward autonomy budgets, consent ceilings or approval accounting. Mutating but " \
+                         "not autonomy-gated: it records history, it does not act.",
+            parameters: {
+              agent_slug: { type: "string", required: true, description: "The platform agent that ran — canonical slug or the account's clone (resolved override-aware via Ai::Agent.resolve_for)" },
+              model: { type: "string", required: true, description: "The Claude Code model id that served the run (e.g. claude-opus-5, claude-sonnet-5, claude-haiku-4-5)" },
+              outcome: { type: "string", required: true, enum: %w[completed failed cancelled], description: "Terminal outcome of the run" },
+              duration_ms: { type: "integer", required: false, description: "Wall-clock duration of the run in milliseconds" },
+              tokens: { type: "object", required: false, description: "{ input: <prompt tokens>, output: <completion tokens> }" },
+              cost_usd: { type: "number", required: false, description: "Cost in USD when known; else priced from the platform's own model pricing (0 when none is synced)" },
+              task_digest: { type: "string", required: false, description: "≤ 500 chars describing the task; redacted through the platform's PII path before it is stored" },
+              run_key: { type: "string", required: true, description: "Idempotency key: the Claude Code session id + the subagent run id (the SubagentStop hook and the skeleton's self-report use the same key so the platform sees one row)" }
+            }
           }
         }
       end
@@ -192,6 +215,7 @@ module Ai
         when "spawn_task" then spawn_task(params)
         when "check_task_status" then check_task_status(params)
         when "wait_for_task" then wait_for_task(params)
+        when "record_agent_execution" then record_agent_execution(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
       end
@@ -421,9 +445,51 @@ module Ai
             model: agent_record.model,
             system_prompt: agent_record.system_prompt,
             conversation_profile: agent_record.conversation_profile,
-            mcp_metadata: agent_record.mcp_metadata
+            mcp_metadata: agent_record.mcp_metadata,
+            execution_stats: execution_stats_for(agent_record)
           }
         }
+      end
+
+      # Executions by executor kind (HIER-P1C item 5): the platform's own runs
+      # vs Claude Code runs reported through record_agent_execution. Two
+      # indexed counts on ai_agent_id — get_agent is every skeleton's first call.
+      #
+      # ACCOUNT-SCOPED on purpose: a GLOBAL canonical is shared by every
+      # account, and every account's Claude Code reports land on that one
+      # ai_agent_id (ExecutionRecorder mints `account: <caller>, agent:
+      # <canonical>`), so an unscoped count on a canonical would disclose other
+      # tenants' run volume to this caller.
+      def execution_stats_for(agent_record)
+        scope = ::Ai::AgentExecution.for_agent(agent_record).where(account_id: account.id)
+        claude_code = scope.claude_code_runs.count
+        total = scope.count
+        { total_executions: total, by_executor_kind: { platform: total - claude_code, claude_code: claude_code } }
+      end
+
+      # HIER-P1C — see Ai::ClaudeExport::ExecutionRecorder. The executor is the
+      # calling session's mcp_client identity (McpPlatformToolRegistrar passes
+      # it as `agent:`); an instance principal has none, so its node is recorded
+      # as the executor reference instead.
+      def record_agent_execution(params)
+        recorder = ::Ai::ClaudeExport::ExecutionRecorder.new(
+          account: account,
+          user: user,
+          executor_agent: (agent if agent.respond_to?(:persisted?) && agent.persisted?),
+          executor_ref: executor_reference
+        )
+        success_result(recorder.record(params))
+      rescue ::Ai::ClaudeExport::ExecutionRecorder::Refusal => e
+        error_result(e.message)
+      rescue ActiveRecord::RecordInvalid => e
+        error_result("Failed to record execution: #{e.message}")
+      end
+
+      def executor_reference
+        return "instance:#{node_instance.id}" if node_instance.respond_to?(:id) && node_instance.id.present?
+        return "user:#{user.id}" if user.respond_to?(:id) && user.id.present?
+
+        nil
       end
 
       def update_agent(params)
