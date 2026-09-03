@@ -74,6 +74,105 @@ RSpec.describe Ai::ClaudeExport::RoutingDescription do
     end
   end
 
+  # HIER-P2G item 3 — the seed's OWN routing sentence. The wave-2 agent seeds
+  # hand-author a "Use when …" sentence in the agent description precisely
+  # because HIER-P1B exports it verbatim as the Claude Code routing
+  # description; the renderer took only the FIRST sentence of the description
+  # (a summary) and dropped that sentence from every committed skeleton. It is
+  # the most specific trigger the agent has, so it is pinned: never dropped for
+  # the MAX_CHARS budget, never truncated — derived triggers give way first,
+  # then derived text is truncated.
+  describe "the seed's own routing sentence" do
+    let(:storage_description) do
+      "Storage data plane — assignments and their reconciliation, volumes, snapshots, restores (copy-swap), " \
+        "migrations, chown, NFS exports. Use when the task is about protecting, moving or restoring data on " \
+        "a volume. Do not use for placement or capacity (use Capacity Manager) or node lifecycle (use Fleet Autonomy)."
+    end
+    let(:routing_sentence) { "Use when the task is about protecting, moving or restoring data on a volume." }
+
+    it "keeps the hand-authored 'Use when …' sentence whole after the derived triggers" do
+      text = described_class.build(agent(name: "Storage Manager", description: storage_description),
+                                   skills: [], domains: %w[storage], siblings: [])
+
+      expect(text).to include("involves storage; storage data plane — assignments")
+      expect(text).to include(routing_sentence)
+      expect(text).not_to include("Do not use for placement")
+    end
+
+    it "never drops or truncates it for the budget — derived triggers go first, then derived text" do
+      skills = 6.times.map { |i| skill(name: "Storage Skill Number #{i} With A Long Name", description: "d" * 80, tags: %w[storage volume snapshot]) }
+      sibling = { key: "capacity-manager", name: "Capacity Manager", domains: %w[capacity], agent_type: "monitor" }
+
+      text = described_class.build(agent(name: "Storage Manager", description: storage_description),
+                                   skills: skills, domains: %w[storage], siblings: [ sibling ])
+
+      expect(text.length).to be <= described_class::MAX_CHARS
+      expect(text).to include(routing_sentence)
+      expect(text).to include("Do not use for")
+    end
+
+    it "yields derived text, one part at a time then by truncation, before the pinned sentence" do
+      pinned = "Use when the task is about protecting data on a volume."
+      parts = [ "storage", "Snapshot Volume", "Restore Volume", "volumes and snapshots and restores" ]
+
+      roomy = described_class.fit_triggers(parts, 400, pinned: pinned)
+      expect(roomy).to eq("Use this agent when the task involves storage; Snapshot Volume; Restore Volume; " \
+                          "volumes and snapshots and restores. #{pinned}")
+
+      squeezed = described_class.fit_triggers(parts, pinned.length + 1 + "Use this agent when the task involves storage; Snapshot Volume.".length, pinned: pinned)
+      expect(squeezed).to eq("Use this agent when the task involves storage; Snapshot Volume. #{pinned}")
+
+      truncated = described_class.fit_triggers(parts, pinned.length + 1 + "Use this agent when the task involves stor….".length, pinned: pinned)
+      expect(truncated).to eq("Use this agent when the task involves stor…. #{pinned}")
+
+      only_pinned = described_class.fit_triggers(parts, pinned.length, pinned: pinned)
+      expect(only_pinned).to eq(pinned)
+    end
+
+    it "does not double the sentence when it is also the description's first sentence" do
+      text = described_class.build(agent(name: "Solo", description: "Use when a node must be quarantined. Quarantines nodes."),
+                                   skills: [], domains: [], siblings: [])
+
+      expect(text.scan("Use when a node must be quarantined").size).to eq(1)
+      expect(text).to include("involves quarantines nodes.")
+    end
+  end
+
+  # HIER-P2G item 3 — the exclusion sibling. A seed that writes "Do not use for
+  # placement or capacity (use Capacity Manager)" has named its neighbour; that
+  # beats any vocabulary score. Vocabulary (including the extension's policy
+  # domains) ranks the rest.
+  describe "the exclusion sibling" do
+    it "names the sibling the agent's own description points at, ahead of the vocabulary-adjacent one" do
+      storage = agent(name: "Storage Manager",
+                      description: "Storage data plane — volumes, snapshots, restores, migrations, data protection. " \
+                                   "Do not use for placement or capacity (use Capacity Manager).")
+      # Shares far more vocabulary with the storage agent than the named sibling does.
+      curator = { key: "knowledge-graph-curator", name: "Knowledge Graph Curator", agent_type: "assistant",
+                  domains: [], topics: [ "data analyst", "business search" ],
+                  vocabulary: %w[storage data plane volumes snapshots restores migrations protection].to_set }
+      capacity = { key: "capacity-manager", name: "Capacity Manager", agent_type: "monitor",
+                   domains: %w[capacity], topics: [ "capacity", "placement" ], vocabulary: %w[capacity placement].to_set }
+
+      text = described_class.build(storage, skills: [], domains: %w[storage], siblings: [ curator, capacity ])
+
+      expect(text).to include("use `capacity-manager` (Capacity Manager) instead")
+      expect(text).not_to include("knowledge-graph-curator")
+    end
+
+    it "ranks by shared vocabulary including the policy domains when the description names nobody" do
+      storage = agent(name: "Storage Manager", description: "Moves and protects data.")
+      capacity = { key: "capacity-manager", name: "Capacity Manager", agent_type: "monitor",
+                   domains: %w[capacity storage], topics: [ "capacity", "storage" ], vocabulary: %w[capacity storage].to_set }
+      curator = { key: "knowledge-graph-curator", name: "Knowledge Graph Curator", agent_type: "assistant",
+                  domains: [], topics: [ "business search" ], vocabulary: %w[business search].to_set }
+
+      text = described_class.build(storage, skills: [], domains: %w[storage], siblings: [ curator, capacity ])
+
+      expect(text).to include("`capacity-manager`")
+    end
+  end
+
   # The property the brief pins, walked over a canonical-shaped set through the
   # same batch entry point the exporter uses (siblings computed internally).
   describe ".build_all" do
@@ -132,6 +231,53 @@ RSpec.describe Ai::ClaudeExport::RoutingDescription do
       expect(by_key[storage.slug]).to include("`#{volumes.slug}`")
       expect(by_key[volumes.slug]).to include("`#{storage.slug}`")
       expect(by_key[storage.slug]).not_to include("`#{richest.slug}`")
+    end
+
+    # HIER-P2G: feeding the bound SKILLS into the vocabulary made the score a
+    # RAW overlap count over a set whose size varies wildly — and the hub agent
+    # (System Concierge binds nearly every system skill, so its vocabulary is
+    # close to the union of everyone else's) then out-shared every specialist's
+    # true neighbour, winning the exclusion slot for six unrelated agents. That
+    # is the same standing bias the foreign-topic ranking had, one level down.
+    # Normalising by the union charges a sibling for what it does NOT share.
+    it "does not let a vocabulary-rich hub agent win the exclusion for every specialist" do
+      planner = agent(name: "Storage Migration Planner", description: "Plans storage migrations between volumes.")
+      volumes = agent(name: "Storage Volume Operator", description: "Attaches, snapshots and restores storage volumes.")
+      cve     = agent(name: "CVE Responder", description: "Triages CVEs and plans upgrades.", agent_type: "monitor")
+      hub     = agent(name: "System Concierge", description: "Operator chat for the whole system extension surface.")
+
+      # The hub binds a superset of everyone's vocabulary (distinct rows, same words).
+      hub_skills = [
+        "Hub Plan Storage Migration", "Hub Snapshot Storage Volume", "Hub Restore Storage Volume",
+        "Hub Attach Storage Volume", "Hub Triage CVE Exposure", "Hub Generate CVE Runbook",
+        "Hub Deploy Platform Release", "Hub Compose Reverse Proxy", "Hub Recommend Fleet Capacity",
+        "Hub Provision Infrastructure", "Hub Refresh Package Module", "Hub Expose Service Publicly",
+        "Hub Discover Packages By Intent", "Hub Maintain Platform Schedule"
+      ].map { |name| skill(name: name, description: "#{name} skill.", tags: name.downcase.split - %w[hub]) }
+
+      by_key = described_class.build_all(
+        [ planner, volumes, cve, hub ],
+        skills_by_agent: {
+          planner.id => [ skill(name: "Plan Storage Migration", description: "Plans a migration.", tags: %w[storage migration]) ],
+          volumes.id => [ skill(name: "Snapshot Storage Volume", description: "Snapshots a volume.", tags: %w[storage volume]) ],
+          cve.id     => [ skill(name: "Triage CVE Exposure", description: "Triages a CVE.", tags: %w[cve security]) ],
+          hub.id     => hub_skills
+        },
+        domains_by_agent: {}
+      )
+
+      # Each specialist names its true neighbour, not the hub that lexically
+      # contains it.
+      expect(by_key[planner.slug]).to include("`#{volumes.slug}`")
+      expect(by_key[volumes.slug]).to include("`#{planner.slug}`")
+      expect(by_key[planner.slug]).not_to include("`#{hub.slug}`")
+      expect(by_key[volumes.slug]).not_to include("`#{hub.slug}`")
+
+      # And the property behind it: no single sibling is the answer for more
+      # than half the set.
+      excluded = by_key.values.map { |text| text[/use `([a-z0-9-]+)` \(/, 1] }.compact
+      expect(excluded.size).to eq(by_key.size)
+      expect(excluded.tally.values.max).to be <= (by_key.size / 2)
     end
 
     # Determinism: the freshness gate diffs the committed files byte for byte.

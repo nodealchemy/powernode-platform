@@ -47,8 +47,9 @@ module Ai
     # account) and publish one tenant's governance configuration. In the
     # canonical files "Reports to" comes from the agent's own parent_agent_id
     # column and the routing triggers from the agent's row plus its GLOBAL bound
-    # skills; the gitignored powernode-local/ export reads all four, scoped to
-    # the account it was run for.
+    # skills — including the policy DOMAINS those skills' action categories map
+    # to (HIER-P2G, see #domains_by_agent); the gitignored powernode-local/
+    # export reads all four, scoped to the account it was run for.
     #
     # Model tier: Ai::ModelTiers.classify(agent.resolved_model) maps to the CC
     # frontmatter `model:` value. frontier (Fable/Mythos) maps UNCONDITIONALLY to
@@ -147,7 +148,7 @@ module Ai
       def build_context(agents)
         ids = agents.map(&:id)
         skills = skills_by_agent(ids)
-        domains = domains_by_agent(ids)
+        domains = domains_by_agent(ids, skills)
         {
           skills: skills,
           domains: domains,
@@ -207,18 +208,42 @@ module Ai
              .transform_values { |skills| skills.sort_by(&:slug) }
       end
 
-      # Policy domains from the agent's active intervention-policy categories
-      # (PolicyDomains). ACCOUNT SCOPE ONLY — see canonical_only? above: the
-      # rows are account data (account_id NOT NULL), so a canonical description
-      # derives its triggers from the agent's own row and its GLOBAL bound
-      # skills instead, which are the same everywhere.
-      def domains_by_agent(ids)
-        return {} if ids.empty? || canonical_only?
+      # Policy domains (PolicyDomains — the owning extension registers its
+      # category → domain table at boot).
+      #
+      # ACCOUNT scope: the agent's active intervention-policy categories for
+      # that account. The rows are account data (account_id NOT NULL, see
+      # canonical_only?), so they never reach a canonical file.
+      #
+      # CANONICAL scope (HIER-P2G): the action categories the agent's GLOBAL
+      # bound skills carry in `metadata.action_category` — the seeds stamp each
+      # executor-backed skill with its executor's gate category — mapped
+      # through the REGISTERED domain table only. Global rows, deterministic on
+      # every install, and the domain names are what the extension registered,
+      # so the routing description and the sibling ranking see the extension's
+      # own vocabulary ("storage", "disk image", "topology") rather than a
+      # leading-token guess: the heuristic fallback would turn every unmapped
+      # category into a spurious trigger ("attribute", "fulfill"), so it is
+      # not consulted here.
+      def domains_by_agent(ids, skills_by_agent)
+        return {} if ids.empty?
+        return domains_from_skills(skills_by_agent) if canonical_only?
 
         ::Ai::InterventionPolicy.where(ai_agent_id: ids, is_active: true, account_id: @account.id)
                                 .distinct.pluck(:ai_agent_id, :action_category)
                                 .group_by(&:first)
                                 .transform_values { |rows| PolicyDomains.for_categories(rows.map(&:last).sort) }
+      end
+
+      def domains_from_skills(skills_by_agent)
+        registered = PolicyDomains.registered.map(&:first).to_set
+        skills_by_agent.each_with_object({}) do |(agent_id, skills), out|
+          categories = skills.filter_map do |skill|
+            skill.metadata.is_a?(Hash) ? skill.metadata["action_category"].to_s.strip.presence : nil
+          end.uniq.sort
+          domains = PolicyDomains.for_categories(categories).select { |domain| registered.include?(domain) }
+          out[agent_id] = domains if domains.any?
+        end
       end
 
       # One policy per agent, the account's own row. ACCOUNT SCOPE ONLY — see

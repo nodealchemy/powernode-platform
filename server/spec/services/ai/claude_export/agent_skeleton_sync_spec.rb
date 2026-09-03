@@ -576,6 +576,59 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
       expect(content).to include("global-capability")
       expect(content).not_to include("tenant-capability")
     end
+
+    # HIER-P2G item 3 — the extension's policy DOMAINS reach the canonical
+    # description through its GLOBAL skills: a seeded executor-backed skill
+    # carries its executor's action category in metadata, and the registered
+    # PolicyDomains table (the system extension registers it at boot, P2F)
+    # names the domain. Global rows only, so the render is the same on every
+    # install; the policy ROWS stay excluded (account data).
+    describe "policy domains derived from global skills" do
+      around do |example|
+        Ai::ClaudeExport::PolicyDomains.register("quarantine", %w[system.quarantine_])
+        example.run
+      ensure
+        Ai::ClaudeExport::PolicyDomains.registered.reject! { |(domain, _)| domain == "quarantine" }
+      end
+
+      def bind_global_skill(agent, slug:, name:, category:)
+        skill = create(:ai_skill, :global, slug: slug, name: name, metadata: { "action_category" => category })
+        create(:ai_agent_skill, agent: agent, skill: skill, is_active: true)
+        skill
+      end
+
+      it "renders a registered domain as a trigger, and feeds it to the sibling ranking" do
+        agent = build_canonical(name: "Canonical Quarantiner", description: "Isolates nodes.")
+        bind_global_skill(agent, slug: "system-quarantine-node", name: "Quarantine Node", category: "system.quarantine_node")
+        neighbour = build_canonical(name: "Canonical Neighbour", description: "Also isolates.")
+        bind_global_skill(neighbour, slug: "system-quarantine-review", name: "Quarantine Review", category: "system.quarantine_review")
+        far = build_canonical(name: "Canonical Far", description: "Writes marketing copy.")
+        bind_global_skill(far, slug: "copywriting", name: "Copywriting", category: "marketing.copy")
+        stub_canonical([ agent, neighbour, far ])
+
+        canonical_service.sync!
+        description = frontmatter_of(content_for(agent))["description"]
+
+        expect(description).to include("involves quarantine;")
+        expect(description).to include("`#{neighbour.slug}`")
+      end
+
+      it "derives nothing from an UNREGISTERED category (no heuristic noise) nor from an account skill" do
+        agent = build_canonical(name: "Canonical Plain", description: "Isolates nodes.")
+        bind_global_skill(agent, slug: "system-attribute-failure", name: "Attribute Failure", category: "system.attribute_failure")
+        tenant = create(:ai_skill, account: other_account, slug: "tenant-quarantine", name: "Tenant Quarantine",
+                                   metadata: { "action_category" => "system.quarantine_tenant" })
+        create(:ai_agent_skill, agent: agent, skill: tenant, is_active: true)
+        stub_canonical([ agent ])
+
+        canonical_service.sync!
+        description = frontmatter_of(content_for(agent))["description"]
+
+        expect(description).not_to include("involves attribute;")
+        expect(description).not_to include("quarantine")
+        expect(description).to include("Attribute Failure")
+      end
+    end
   end
 
   # allowed_delegate_types is matched against Ai::Agent#agent_type by every
