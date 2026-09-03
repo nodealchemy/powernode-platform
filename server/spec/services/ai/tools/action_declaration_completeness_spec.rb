@@ -117,6 +117,7 @@ RSpec.describe "MCP action declaration completeness" do
   #   system_create_instance_pool   IMP-067f39468350  system.instance_pool_create
   #   system_update_instance_pool   IMP-067f39468350  system.instance_pool_ceiling_raise
   #                                                   / system.instance_pool_archive
+  #   system_set_service_backends   IMP-0c10b9fd5596  system.service_backends_update
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -130,6 +131,7 @@ RSpec.describe "MCP action declaration completeness" do
     system_update_instance_pool
     system_replace_instance
     system_reap_instance
+    system_set_service_backends
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

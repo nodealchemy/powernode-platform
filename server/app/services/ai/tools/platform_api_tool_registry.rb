@@ -29,6 +29,8 @@ module Ai
         # Path B (public TLS-carrying TCP) — sole owner of public_enabled, both directions
         "system_expose_service_public_tcp"   => "Ai::Tools::SystemIngressTool",
         "system_unexpose_service_public_tcp" => "Ai::Tools::SystemIngressTool",
+        # APO-3d — declarative backend set + per-service load-balancer overrides (gated)
+        "system_set_service_backends"        => "Ai::Tools::SystemIngressTool",
 
         # === ACME certificate lifecycle (DNS-01 issuance, renewal, revocation) ===
         "system_acme_get_certificate"       => "Ai::Tools::SystemAcmeTool",
