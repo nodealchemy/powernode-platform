@@ -5071,7 +5071,7 @@ Rotate the Vault transit pepper that wraps per-account encryption keys. Bumps th
 
 ### `system_gitops_apply_proposal`
 
-Apply an approved GitOps proposal — executes the diff against the DB (creates/updates templates, modules, assignments). Errors with stale_conflict if reality drifted post-proposal. v1 supports template/module/assignment kinds; destroy + provider_config remain follow-ups.
+Apply an approved GitOps proposal — executes the diff against the DB (creates/updates templates, modules, assignments). APPROVAL-GATED (system.gitops_apply_proposal): when policy requires approval this returns {pending: true} with a deferred_operation_id and NOTHING is applied until an operator approves — do not retry and do not report the diff as applied on that response. Errors with stale_conflict if reality drifted post-proposal. v1 supports template/module/assignment kinds; destroy + provider_config remain follow-ups.
 
 - **Tool class**: `Ai::Tools::SystemFleetTool`
 - **Permission**: system.modules.update
