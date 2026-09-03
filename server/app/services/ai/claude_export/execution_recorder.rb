@@ -29,9 +29,13 @@ module Ai
     # MODEL MAPPING (item 2): the reported Claude Code model id is credited to
     # the account's credentialed Anthropic provider when one exists (so the
     # empirical signal reaches Ai::AgentModelSelector for a model the platform
-    # can also run), else to a synthetic, INACTIVE "claude-code" provider row
-    # scoped out of platform routing by Ai::Provider.platform_routable — the
-    # selector must never pick a Claude Code-only model for a platform run.
+    # can also run), else to the account's SEEDED, INACTIVE "claude-code"
+    # provider scope (Ai::ClaudeExport::ProviderScopeSeeder) scoped out of
+    # platform routing by Ai::Provider.platform_routable — the selector must
+    # never pick a Claude Code-only model for a platform run. This class only
+    # RESOLVES that scope: the report path is reachable by any
+    # ai.agents.execute holder, and that grant must not mint provider rows, so
+    # a missing scope is refused by name (MissingProviderScope) instead.
     #
     # BOUNDARY RULE (item 3): a Claude Code run counts toward model statistics
     # and the trust score and NEVER toward autonomy budgets, consent ceilings
@@ -44,16 +48,17 @@ module Ai
       OUTCOMES = %w[completed failed cancelled].freeze
       MAX_DIGEST_CHARS = 500
       EXECUTION_ID_PREFIX = "cc-"
-      SYNTHETIC_PROVIDER_SLUG = "claude-code"
-      SYNTHETIC_PROVIDER_NAME = "Claude Code (local sessions)"
-      # RFC 2606 reserved TLD: this provider row never serves a request; the
-      # endpoint exists only because Ai::Provider validates one.
-      SYNTHETIC_PROVIDER_ENDPOINT = "https://claude-code.invalid"
+      # The synthetic scope's identity lives with its seeder; the slug is
+      # re-exported because readers key on the recorder.
+      SYNTHETIC_PROVIDER_SLUG = ProviderScopeSeeder::SLUG
       # Anthropic is the only provider family Claude Code runs; the credentialed
       # provider lookup keys on Ai::Provider#provider_type.
-      PROVIDER_TYPE = "anthropic"
+      PROVIDER_TYPE = ProviderScopeSeeder::PROVIDER_TYPE
 
       class Refusal < StandardError; end
+      # A Refusal (the MCP verb reports it as an error rather than raising)
+      # for the operator-fixable case: the account has no seeded scope.
+      class MissingProviderScope < Refusal; end
 
       # @param account [Account] the calling session's account
       # @param user [User, nil] the calling principal (nil for an instance principal)
@@ -142,34 +147,18 @@ module Ai
                .ordered_by_priority.first
       end
 
-      # One inactive row per account, minted by the platform on the caller's
-      # behalf (a bookkeeping scope, not a routing target): it carries no
-      # credential, is is_active:false and is excluded by platform_routable, so
-      # the create is deliberately not laddered behind ai.providers.create —
-      # see the open question in the task record.
-      #
-      # `supported_models` stays empty on purpose:
-      # Ai::AgentModelSelector enumerates candidates from it, and an inactive
-      # provider is already outside its candidate set; platform_routable closes
-      # the fallback arm too.
+      # The account's seeded scope (one inactive row per account, a
+      # bookkeeping scope, not a routing target). Resolve only — never create:
+      # the seed (every account at seed time) and Accounts::ProvisionService
+      # (accounts created after first boot) own the row.
       def synthetic_provider
-        account.ai_providers.find_by(slug: SYNTHETIC_PROVIDER_SLUG) || account.ai_providers.create!(
-          name: SYNTHETIC_PROVIDER_NAME,
-          slug: SYNTHETIC_PROVIDER_SLUG,
-          provider_type: PROVIDER_TYPE,
-          description: "Synthetic scope for Claude Code runs of platform agents reported through " \
-                       "platform.record_agent_execution. Not a platform routing candidate.",
-          api_base_url: SYNTHETIC_PROVIDER_ENDPOINT,
-          api_endpoint: SYNTHETIC_PROVIDER_ENDPOINT,
-          capabilities: %w[text_generation chat],
-          supported_models: [],
-          configuration_schema: { "type" => "object", "properties" => {} },
-          requires_auth: false,
-          is_active: false,
-          metadata: { "execution_source" => SOURCE, "synthetic" => true }
+        ProviderScopeSeeder.find_for(account) || raise(
+          MissingProviderScope,
+          "Account #{account.id} has no `#{SYNTHETIC_PROVIDER_SLUG}` provider scope to record a Claude Code run " \
+          "under and no credentialed Anthropic provider; it is seeded by #{ProviderScopeSeeder::SEED_FILE} " \
+          "(a fresh install: `rails db:seed`; an established one, where db:seed is first-boot only: " \
+          "`#{ProviderScopeSeeder::REMEDY_TASK}`)"
         )
-      rescue ActiveRecord::RecordNotUnique
-        account.ai_providers.find_by!(slug: SYNTHETIC_PROVIDER_SLUG)
       end
 
       # The task digest is caller-supplied prose (a prompt excerpt): capped, then

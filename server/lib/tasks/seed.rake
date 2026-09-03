@@ -25,6 +25,28 @@ namespace :db do
       puts "\n✨ Database reset and seeded successfully!"
     end
 
+    # IMP-e8513b30152d — the narrow, absence-only remedy for the one baseline
+    # row that is PER-ACCOUNT rather than global.
+    #
+    # `db:seed` is FIRST BOOT ONLY on a deployed install (the hub's
+    # rails-start.sh seeds solely while its durable `.db-initialized` marker is
+    # absent, and runs `db:migrate` alone on every later boot — the same gap
+    # that left nine seeded governance rows unlanded on ops-hub, measured
+    # 2026-08-24). So an install upgraded ONTO the Claude Code provider scope
+    # has accounts without one, and Ai::ClaudeExport::ExecutionRecorder
+    # deliberately no longer mints it on report — it refuses by name and points
+    # here. Re-running the WHOLE seed set on an established install to add one
+    # row is the wrong shape; this task adds only what is missing.
+    #
+    # Idempotent and non-destructive: ensure_for! creates absence only and
+    # ADOPTS a row the pre-seed on-demand path already minted (backfilling its
+    # source key). It never deactivates, re-points or deletes an operator's row.
+    desc "Backfill the inactive claude-code Ai::Provider scope for every account (safe to re-run)"
+    task claude_code_provider_scopes: :environment do
+      seeded = Ai::ClaudeExport::ProviderScopeSeeder.ensure_all!
+      puts "✅ claude-code provider scope ensured for #{seeded} account(s)"
+    end
+
     desc "Load minimal production seeds only (no test data)"
     task minimal: :environment do
       # Temporarily set environment to production to skip test data loading

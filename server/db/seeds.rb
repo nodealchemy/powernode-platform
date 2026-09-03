@@ -13,6 +13,9 @@ puts "🌱 Seeding Powernode platform..."
 #              read-only, upserted by source_key): skills, prompt templates, KB
 #              documentation, default knowledge bases, agent/team/mission templates.
 #              Needs NO account (global content), so it seeds in core/prod too.
+#              ONE EXCEPTION (IMP-e8513b30152d): ai_claude_code_provider_seed.rb
+#              is baseline but PER-ACCOUNT — it no-ops when no account exists and
+#              is re-run for later accounts through its own seam. See its header.
 #   DEMO     — Powernode::Seeds.demo? (POWERNODE_SEED_DEMO=true / SEED_ADMIN_USERS).
 #              OFF by default in all envs — opt in explicitly.
 #              Account-scoped samples: test accounts/users, sample agents, showcase pages.
@@ -179,9 +182,18 @@ safe_load('knowledge_base_articles.rb')
 # ---------------------------------------------------------------------------
 # BASELINE: foundational GLOBAL content (account_id nil, upserted by source_key).
 # Seeds in core/prod too — no account required. Each of these files seeds its
-# content rows globally and demo-gates any instance creation internally.
+# content rows globally and demo-gates any instance creation internally, EXCEPT
+# the first member below, which is per-account by nature (IMP-e8513b30152d).
 # ---------------------------------------------------------------------------
 if Powernode::Seeds.baseline?
+  # Per-ACCOUNT (not global) but baseline: the inactive `claude-code` provider
+  # scope Claude Code runs are recorded under (IMP-e8513b30152d). Runs after
+  # the provider catalog above; no account yet ⇒ the seed no-ops (the account a
+  # wizard install creates later is covered by Setup::FirstAdminService, and an
+  # established install by `rails db:seed:claude_code_provider_scopes`).
+  puts "\n🧾 Loading the Claude Code provider scope..."
+  safe_load('ai_claude_code_provider_seed.rb')
+
   puts "\n🧩 Loading AI Skills..."
   safe_load('ai_skills_seed.rb')
 

@@ -17,6 +17,10 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, permissions: %w[ai.agents.read ai.agents.execute]) }
   let!(:provider) { create(:ai_provider, account: account, is_active: true) }
+  # The synthetic scope is SEEDED (db/seeds/ai_claude_code_provider_seed.rb /
+  # Accounts::ProvisionService), never minted by the report path —
+  # spec/services/ai/claude_export/execution_recorder_spec.rb pins the refusal.
+  let!(:claude_code_scope) { Ai::ClaudeExport::ProviderScopeSeeder.ensure_for!(account) }
   # The calling Claude Code session's identity (Ai::McpClientIdentityService
   # auto-registers one per MCP session); McpPlatformToolRegistrar hands it to
   # the tool as `agent:`.
@@ -150,23 +154,38 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       execution = Ai::AgentExecution.for_agent(canonical).last
       expect(execution.ai_provider_id).to eq(anthropic.id)
       expect(Ai::AgentModelPerformance.find_by(account_id: account.id, model: "claude-opus-5").ai_provider_id).to eq(anthropic.id)
-      expect(account.ai_providers.where(slug: Ai::ClaudeExport::ExecutionRecorder::SYNTHETIC_PROVIDER_SLUG)).to be_empty
+      expect(execution.ai_provider_id).not_to eq(claude_code_scope.id)
     end
 
-    it "records under a synthetic, inactive claude-code provider when no credentialed Anthropic provider exists" do
+    it "records under the SEEDED synthetic, inactive claude-code provider when no credentialed Anthropic provider exists" do
       report
       synthetic = account.ai_providers.find_by(slug: Ai::ClaudeExport::ExecutionRecorder::SYNTHETIC_PROVIDER_SLUG)
-      expect(synthetic).to be_present
+      expect(synthetic).to eq(claude_code_scope)
       expect(synthetic.is_active).to be false
       expect(synthetic.metadata["execution_source"]).to eq("claude_code")
       expect(Ai::AgentExecution.for_agent(canonical).last.ai_provider_id).to eq(synthetic.id)
       expect(Ai::AgentModelPerformance.find_by(account_id: account.id, model: "claude-opus-5").ai_provider_id).to eq(synthetic.id)
     end
 
-    it "reuses the synthetic provider across reports (one row per account)" do
+    it "reuses the seeded provider across reports (one row per account)" do
       report
       report(run_key: "sess-1:agent-b2")
       expect(account.ai_providers.where(slug: Ai::ClaudeExport::ExecutionRecorder::SYNTHETIC_PROVIDER_SLUG).count).to eq(1)
+    end
+
+    it "refuses by name, naming the seed, when the account's scope was never seeded — and mints no provider row" do
+      unseeded = create(:account)
+      unseeded_user = create(:user, account: unseeded, permissions: %w[ai.agents.execute])
+      create(:ai_provider, account: unseeded, is_active: true)
+
+      result = described_class.new(account: unseeded, user: unseeded_user)
+                              .execute(params: { action: "record_agent_execution", agent_slug: canonical.slug, model: "claude-opus-5",
+                                                 outcome: "completed", duration_ms: 1, tokens: { input: 1, output: 1 }, run_key: "u:1" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to include("ai_claude_code_provider_seed")
+      expect(unseeded.ai_providers.where(slug: Ai::ClaudeExport::ExecutionRecorder::SYNTHETIC_PROVIDER_SLUG)).to be_empty
+      expect(Ai::AgentExecution.for_agent(canonical).count).to eq(0)
     end
 
     it "the model selector never routes a platform execution to the synthetic provider" do
@@ -207,6 +226,7 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       other_account = create(:account)
       other_user = create(:user, account: other_account, permissions: %w[ai.agents.execute])
       create(:ai_provider, account: other_account, is_active: true)
+      Ai::ClaudeExport::ProviderScopeSeeder.ensure_for!(other_account)
       other_tool = described_class.new(account: other_account, user: other_user)
 
       report
@@ -269,6 +289,7 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
     it "refuses by name when the account has no user at all instead of raising RecordInvalid" do
       empty_account = create(:account)
       create(:ai_provider, account: empty_account, is_active: true)
+      Ai::ClaudeExport::ProviderScopeSeeder.ensure_for!(empty_account)
       expect(empty_account.users.count).to eq(0)
 
       result = instance_tool(empty_account).execute(
@@ -299,6 +320,7 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       other_account = create(:account)
       other_user = create(:user, account: other_account, permissions: %w[ai.agents.execute])
       create(:ai_provider, account: other_account, is_active: true)
+      Ai::ClaudeExport::ProviderScopeSeeder.ensure_for!(other_account)
       2.times do |i|
         described_class.new(account: other_account, user: other_user)
                        .execute(params: { action: "record_agent_execution", agent_slug: canonical.slug,
