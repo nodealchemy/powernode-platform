@@ -55,7 +55,7 @@ Campaign `01a0609d` (Autonomous Project Operations): increments 17–23 recorded
 
 Follow-ups filed and approved during the batch: IMP-0c10b9fd5596, IMP-5b38cd356010, IMP-2effedffc990, IMP-4c825848bb79, IMP-675ed7763230, IMP-bdb650b82c65.
 
-## 3. Deploy (approved 2026-09-03 02:48; in progress)
+## 3. Deploy (approved 2026-09-03 02:48; COMPLETE 04:24)
 
 Core `develop` = `0535932ed` (merge of `dev-loop/dev-improve`, 145 commits, resolving three conflicts against develop's dev-loop-tooling commits; merge-sensitive specs 80/0) pushed to Gitea and GitHub at 03:50. Batch A `01a06558-9869-7c43-8d03-a63333932edc` builds extension-system (unchanged ext tip), hub-backend, hub-frontend, hub-worker serially. **The extension `develop` push is deliberately held**: `PlatformPushController` auto-dispatches a native batch on a push to `powernode-system` develop, which would build the extension AND fan out to system-base + the whole module catalog before core is live (the 2026-08-28 skew outage shape). Sequence below is the plan of record.
 
@@ -64,6 +64,9 @@ Core `develop` = `0535932ed` (merge of `dev-loop/dev-improve`, 145 commits, reso
 3. Migrations that auto-apply on live: `20260902120000` module_first_seen_running_at, `20260902133000` lease_class rename, `20260902160000` lifecycle_class default→NULL, `20260902180000` sensor_configs, `20260902200000` sdwan_service_backends, `20260902210000` retire underscored architecture policies (data; read its WARNING lines).
 4. `rails db:seed` re-run (seeds never re-run on an existing install): platform_resilience skill prompt, system_provisioning template scaling bounds, `system.replica_promote` and the 14 gated-executor policy rows, the third skills seed (DR).
 5. Post-deploy checks: `/up` 502 window ~3 min; MCP connector reconnect; role-conferral fix live (IMP-1635cb7fa768 is the URGENT item — ops-hub is exposed today); pricing catalog populated before expecting any cost breach; R8 setting.
+
+
+**Outcome (04:24):** ops-hub runs core `44a1a0617` (hub-backend v88, hub-frontend v27, hub-worker v27) and extension `f14219df` (v79), verified by content on the node; all seven migrations applied (the architecture-policy retirement found 0 underscored rows and 4 dotted rows to keep); `db:seed` re-run by hand (rails-start seeds on first boot only) — Platform Resilience / Promote Replica skills refreshed, `system.replica_promote` and `system.platform.scale_out` policy rows present, template scaling bounds present; R8 `module_promotion_required_count` = 1. Two traps hit and recorded in memory: the core-range extension build clones the extension's `develop` tip (v78 was byte-identical to the 08-28 artifact), and a push to extension `develop` auto-dispatches a fan-out batch — parked via `system.module_builds.trigger_ref = refs/heads/deploy-hold-2026-09-03`, which stays parked until the agent/system-base rebuild is wanted. Breakglass armed 04:13–04:24 and revoked (verified on VM 600). Still owed: R9 (drive the 4 critical CVE exposures).
 
 ## 4. Branch health (03:40)
 
