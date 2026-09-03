@@ -4,9 +4,12 @@ module Ai
   class AgentProposal < ApplicationRecord
     self.table_name = "ai_agent_proposals"
 
+    # agent_create: a proposed CANONICAL agent spec (payload in proposed_changes),
+    # filed by claude:import_agents (Ai::ClaudeExport::AgentImportProposer) —
+    # nothing creates an agent directly on that path (canonical rule).
     PROPOSAL_TYPES = %w[
       feature knowledge_update code_change architecture
-      process_improvement configuration sweep_execution
+      process_improvement configuration sweep_execution agent_create
     ].freeze
 
     STATUSES = %w[pending_review approved rejected implemented withdrawn].freeze
