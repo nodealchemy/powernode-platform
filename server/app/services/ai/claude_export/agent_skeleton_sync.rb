@@ -108,7 +108,17 @@ module Ai
           end
         end
 
-        removed = cleanup_stale(agents.map { |agent| sync_key(agent) })
+        # An EMPTY canonical set is a database that never ran the agent seeds
+        # (a fresh dev cell), not a platform with no agents: cleaning up
+        # against it would delete every committed skeleton, and the Stop hook
+        # runs this after any seed edit. Refuse the cleanup, keep the files.
+        removed = if agents.empty? && canonical_scope?
+          Rails.logger.warn("[claude:sync_agents] canonical scope resolved 0 agents — " \
+                            "leaving #{@target_dir} untouched (unseeded database?)")
+          []
+        else
+          cleanup_stale(agents.map { |agent| sync_key(agent) })
+        end
 
         Result.new(written: written, unchanged: unchanged, removed: removed, total: agents.size)
       end

@@ -645,4 +645,20 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
       expect(File.exist?(hand_authored)).to be true
     end
   end
+  describe "an empty canonical set (unseeded database)" do
+    it "keeps every committed skeleton instead of cleaning up against nothing" do
+      Dir.mktmpdir do |dir|
+        committed = File.join(dir, "fleet-autonomy.md")
+        File.write(committed, "---\nname: fleet-autonomy\n---\n#{described_class::GENERATED_HEADER}\n")
+        ::Ai::Agent.where(account_id: nil).update_all(status: "inactive")
+
+        result = described_class.new(account: nil, target_dir: dir).sync!
+
+        expect(result.total).to eq(0)
+        expect(result.removed).to eq([])
+        expect(File.exist?(committed)).to be(true)
+      end
+    end
+  end
+
 end
