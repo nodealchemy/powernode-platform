@@ -39,7 +39,8 @@ or writes delegation policies.
 **Responsibility surface of the extension** (`PolicyDeclarations::POLICY_SETS`, 14 sets + manual):
 Fleet Autonomy owns 4 of the 8 agent-keyed sets and, inside its own 56-key set, the topology,
 ingress, storage, packages, architecture and gitops-drift domains — 70 of 134 agent-scoped
-policies. Six sets plus the manual set are operator-only (`agent_key: nil`, ~54 policies).
+policies. (Figures as of the 18:10 discovery; Phase 2A since moved 16 rows to their owners and regrouped
+the rest, see `PolicyDeclarations` for the live census.) Six sets plus the manual set are operator-only (`agent_key: nil`, ~54 policies).
 System Concierge (24 skills) and System Topology Designer (8 skills) carry no policies; Disk Image
 Manager (6 policies) and GitOps Reconciler (3) bind no skills. `system.sdwan_federation_compose` is
 registered but declared in no set.
