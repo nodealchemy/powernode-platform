@@ -5,6 +5,7 @@
  * Extracted from AgentsApiService.ts for better modularity.
  */
 
+import type { ExecutionsByExecutorKind } from '@/shared/types/ai';
 import type { QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 // ===================================================================
@@ -129,6 +130,8 @@ export interface AgentStats {
   estimated_total_cost: string;
   last_execution_at?: string;
   created_at: string;
+  /** Platform vs Claude Code runs; carried from the agent's embedded execution_stats when the stats endpoint omits it. */
+  by_executor_kind?: ExecutionsByExecutorKind;
 }
 
 export interface AgentAnalytics {

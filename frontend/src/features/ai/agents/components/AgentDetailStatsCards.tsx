@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
+import { CLAUDE_CODE_TOKEN_CONVENTION } from '../constants/agentConstants';
 import type { AgentStats } from '@/shared/services/ai/types/agent-api-types';
 
 interface AgentDetailStatsCardsProps {
@@ -27,6 +28,19 @@ export const AgentDetailStatsCards: React.FC<AgentDetailStatsCardsProps> = ({ st
             {stats.total_executions}
           </div>
           <div className="text-sm text-theme-secondary">Total Executions</div>
+          {/* Who ran them (IMP-e8513b30152d): the platform's own executor vs a
+              Claude Code session that reported back. useAgentDetail carries the
+              split from the agent's embedded execution_stats. */}
+          {stats.by_executor_kind && (
+            <div
+              data-testid="stats-by-executor-kind"
+              title={CLAUDE_CODE_TOKEN_CONVENTION}
+              aria-label={CLAUDE_CODE_TOKEN_CONVENTION}
+              className="mt-1 text-xs text-theme-tertiary cursor-help"
+            >
+              Platform {stats.by_executor_kind.platform} · Claude Code {stats.by_executor_kind.claude_code}
+            </div>
+          )}
         </CardContent>
       </Card>
       <Card>

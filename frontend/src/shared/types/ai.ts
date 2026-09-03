@@ -133,7 +133,20 @@ export interface AiAgent {
     failed_executions: number;
     success_rate: number;
     avg_execution_time: number;
+    by_executor_kind?: ExecutionsByExecutorKind;
   };
+}
+
+/**
+ * Executions split by who ran them (HIER-P1C): the platform's own executor vs
+ * a Claude Code session that ran the agent locally and reported back through
+ * platform.record_agent_execution. Both count toward total_executions. A
+ * Claude Code run's input tokens include cache_read + cache_creation, so its
+ * token figures are not directly comparable to a platform execution's.
+ */
+export interface ExecutionsByExecutorKind {
+  platform: number;
+  claude_code: number;
 }
 
 export interface AgentConfiguration {

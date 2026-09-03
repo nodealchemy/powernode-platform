@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Bot, MessageSquare, Brain, ArrowLeft, BookOpen, Trophy, Lightbulb } from 'lucide-react';
+import { Bot, MessageSquare, Brain, ArrowLeft, BookOpen, Trophy, Lightbulb, Activity, Info } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -12,6 +12,7 @@ import type { ExperienceReplay, SelfChallenge, IntelligenceSummary } from '@/sha
 import { AgentConnectionsGraph } from '@/features/ai/agents/components/AgentConnectionsGraph';
 import { ContextBrowser } from '@/features/ai/memory/components/ContextBrowser';
 import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
+import { CLAUDE_CODE_TOKEN_CONVENTION } from '@/features/ai/agents/constants/agentConstants';
 import type { AiAgent } from '@/shared/types/ai';
 
 const tabs = [
@@ -334,6 +335,35 @@ export const AgentDetailPage: React.FC = () => {
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6 mt-6" data-testid="agent-executions-card">
+            <div className="flex items-center gap-2 mb-4">
+              <Activity size={18} className="text-theme-info-fg" />
+              <h3 className="text-lg font-medium text-theme-primary">Executions</h3>
+              <span
+                data-testid="executions-token-convention"
+                title={CLAUDE_CODE_TOKEN_CONVENTION}
+                aria-label={CLAUDE_CODE_TOKEN_CONVENTION}
+                className="inline-flex text-theme-tertiary cursor-help"
+              >
+                <Info size={14} aria-hidden="true" />
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-theme-primary" data-testid="executions-platform-count">
+                  {agent.execution_stats?.by_executor_kind?.platform ?? 0}
+                </div>
+                <div className="text-xs text-theme-tertiary">Platform</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-theme-primary" data-testid="executions-claude-code-count">
+                  {agent.execution_stats?.by_executor_kind?.claude_code ?? 0}
+                </div>
+                <div className="text-xs text-theme-tertiary">Claude Code</div>
               </div>
             </div>
           </Card>

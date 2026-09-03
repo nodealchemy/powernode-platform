@@ -40,18 +40,25 @@ export function useAgentDetail(agentId: string | null): UseAgentDetailResult {
 
       if (agentData.status === 'fulfilled') {
         setAgent(agentData.value);
+        // by_executor_kind (platform vs Claude Code runs) rides the agent's
+        // embedded execution_stats; the stats endpoint does not carry it.
+        const embedded = agentData.value.execution_stats;
         // Fall back to embedded execution_stats if stats endpoint fails
         if (statsData.status === 'fulfilled') {
-          setStats(statsData.value);
-        } else if (agentData.value.execution_stats) {
           setStats({
-            total_executions: agentData.value.execution_stats.total_executions,
-            successful_executions: agentData.value.execution_stats.successful_executions,
-            failed_executions: agentData.value.execution_stats.failed_executions,
-            success_rate: agentData.value.execution_stats.success_rate,
-            avg_execution_time: agentData.value.execution_stats.avg_execution_time,
+            ...statsData.value,
+            by_executor_kind: statsData.value.by_executor_kind ?? embedded?.by_executor_kind,
+          });
+        } else if (embedded) {
+          setStats({
+            total_executions: embedded.total_executions,
+            successful_executions: embedded.successful_executions,
+            failed_executions: embedded.failed_executions,
+            success_rate: embedded.success_rate,
+            avg_execution_time: embedded.avg_execution_time,
             estimated_total_cost: '0.00',
             created_at: agentData.value.created_at,
+            by_executor_kind: embedded.by_executor_kind,
           });
         }
         if (analyticsData.status === 'fulfilled') {
