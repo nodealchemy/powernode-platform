@@ -27,12 +27,15 @@ require "rails_helper"
 # .available_tools -> klass.permitted?, and this spec drives that whole chain
 # over HTTP. The extension's ABSENCE is the only thing simulated.
 #
-# FIDELITY of the simulation: hide_const("System") removes the extension's
-# model/service namespace, which is what the four actions actually depend on.
-# It leaves the extension's own tool CLASSES defined (a real core-mode boot
-# would never load them), so the simulated catalog is a superset of a real
-# core-mode one — it cannot manufacture the exclusion asserted here. Several of
-# those tools do drop out anyway, because SystemFleetTool and SystemAcmeTool
+# FIDELITY of the simulation: `hide_system_extension` (spec/support/
+# core_mode_simulation.rb) removes the extension's model/service namespace,
+# which is what the four actions actually depend on, AND the extension-hosted
+# tool classes a real core-mode boot would never load (one binds an enum to an
+# extension constant inside action_definitions, so leaving it defined makes
+# tools/list itself raise). The tool under test is core-hosted, so it stays
+# defined — the simulation cannot manufacture the exclusion asserted here.
+# Before the classes were hidden several of them dropped out anyway, because
+# SystemFleetTool and SystemAcmeTool
 # already carry this same `defined?(::System)` guard on .permitted?; the fix
 # under test puts the core-hosted, extension-backed DockerProvisioningTool on
 # the same footing. That is why the assertion below is "these four crossed from
@@ -79,7 +82,7 @@ RSpec.describe "MCP tools/list in core mode (system extension absent)", type: :r
   it "advertises the docker-runtime actions with the extension, and drops every one without it" do
     with_extension = advertised_tools
 
-    hide_const("System")
+    hide_system_extension
     without_extension = advertised_tools
 
     expect(with_extension).to include(*docker_runtime_actions)
@@ -102,7 +105,7 @@ RSpec.describe "MCP tools/list in core mode (system extension absent)", type: :r
   # success:false envelope rather than -32603/NameError — is unchanged.
   %w[system_provision_docker_runtime system_mark_docker_ready].each do |action|
     it "answers a direct tools/call to #{action} with a refusal envelope, not -32603" do
-      hide_const("System")
+      hide_system_extension
 
       post "/api/v1/mcp/message",
            params: { jsonrpc: "2.0", id: 2, method: "tools/call",
