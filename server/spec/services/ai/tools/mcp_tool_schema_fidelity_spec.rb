@@ -213,8 +213,10 @@ RSpec.describe "MCP tool schema fidelity (IMP-e809396f9eda)" do
     end
   end
 
-  describe Api::V1::Mcp::StreamableHttpController do
-    let(:controller) { described_class.new }
+  # The tools/list wire builder moved off the controller onto Mcp::ToolCatalog
+  # (IMP-7e84ae0ccc91); the controller now only instantiates the catalog.
+  describe Mcp::ToolCatalog do
+    let(:controller) { described_class.new(protocol_version: "2025-11-25") }
 
     it "carries enum and items onto the tools/list wire schema" do
       schema = controller.send(
