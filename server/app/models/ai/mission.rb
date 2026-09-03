@@ -145,6 +145,44 @@ module Ai
       end
     end
 
+    # ---- Per-project snapshot schedule (IMP-e025722ef14e, APO-5 remainder) --
+    #
+    # A project's volumes can be snapshotted and restored (APO-5), but until
+    # this reader nothing let a project DECLARE how often, or how many restore
+    # points to keep — so no sensor could ask whether one was overdue and no
+    # retention could ever prune. Same home and same ladder as the scaling
+    # window, for the same reason: the sensor that fires and the applier that
+    # acts must read ONE declaration.
+    #
+    # The `watch_policies` keys a mission declares them under. Both OPTIONAL.
+    SNAPSHOT_INTERVAL_HOURS_POLICY_KEY  = "snapshot_interval_hours"
+    SNAPSHOT_RETENTION_COUNT_POLICY_KEY = "snapshot_retention_count"
+
+    # Operator-movable platform defaults, same ladder as the scaling bounds
+    # (mission watch_policies → template default_configuration → Account
+    # #settings → SiteSetting → constant).
+    SNAPSHOT_INTERVAL_HOURS_SETTING  = "ai.provisioning.snapshot_interval_hours"
+    SNAPSHOT_RETENTION_COUNT_SETTING = "ai.provisioning.snapshot_retention_count"
+
+    # Constant fallbacks — both 0, meaning "not declared anywhere", and both
+    # deliberately NOT a working number. A scheduled snapshot is a provider
+    # call that costs money on every interval for as long as the project
+    # lives, and a retention count DESTROYS restore points once exceeded;
+    # neither is a default a code change gets to choose for every project
+    # that declared nothing. An operator opts in per project, per template,
+    # per account, or fleet-wide through the SiteSettings above.
+    DEFAULT_SNAPSHOT_INTERVAL_HOURS  = 0
+    DEFAULT_SNAPSHOT_RETENTION_COUNT = 0
+
+    # The resolved policy. `interval_hours` 0 means no schedule; `retention
+    # _count` 0 means keep every completed snapshot. Named questions rather
+    # than `.positive?` scattered across callers, exactly like ScalingBounds.
+    SnapshotPolicy = Struct.new(:interval_hours, :retention_count, keyword_init: true) do
+      def scheduled? = interval_hours.to_i.positive?
+
+      def prunes? = retention_count.to_i.positive?
+    end
+
     # ==================== Associations ====================
     belongs_to :account
     belongs_to :created_by, class_name: "User", foreign_key: "created_by_id"
@@ -296,6 +334,77 @@ module Ai
                                   DEFAULT_AUTO_SCALE_MAX_REPLICAS)
       )
     end
+
+    # This project's declared snapshot schedule — see the SnapshotPolicy
+    # constants. Walks .resolve_scale_bound, the SAME ladder as a scaling
+    # bound and with the same fail-closed reading: presence is decisive, and
+    # a non-positive or garbled declaration is 0 ("off here") rather than a
+    # fall-through to a wider default that would silently start snapshotting
+    # or pruning a project whose operator said not to. Each half resolves
+    # independently, so an unreadable interval cannot take retention with it.
+    def snapshot_policy
+      SnapshotPolicy.new(
+        interval_hours: resolved_scale_bound(SNAPSHOT_INTERVAL_HOURS_POLICY_KEY,
+                                             SNAPSHOT_INTERVAL_HOURS_SETTING,
+                                             DEFAULT_SNAPSHOT_INTERVAL_HOURS),
+        retention_count: resolved_scale_bound(SNAPSHOT_RETENTION_COUNT_POLICY_KEY,
+                                              SNAPSHOT_RETENTION_COUNT_SETTING,
+                                              DEFAULT_SNAPSHOT_RETENTION_COUNT)
+      )
+    end
+
+    # THE ONE LADDER WALK for every home a scaling window has.
+    #
+    # Extracted from the instance ladder (IMP-f986d379120a) so the system
+    # extension's System::PlatformDeployment#scaling_bounds — the deployment-
+    # side twin of #scaling_bounds, read by the platform ReplicaReconciler's
+    # scale-out gate — resolves its window through the SAME walk rather than a
+    # copy that is free to drift in exactly the direction a bounds ladder must
+    # never resolve. `rungs` is an ordered list of [label, lambda] pairs, most
+    # specific first; a lambda answers nil (or a blank string) for "this rung
+    # does not carry the key". Core knows nothing of the caller: this is a
+    # generic reader, not a seam onto any extension.
+    #
+    # PRESENCE is decisive: the first rung that CARRIES the key answers, even
+    # when what it carries is non-positive. A project declaring a zero ceiling
+    # is stating "no unattended scale-out here", and falling through to a wider
+    # account or global default would silently overrule it — the one direction
+    # a bounds ladder must never resolve. A value that is negative or not a
+    # number reads the same fail-closed way (0) and is logged, the way
+    # Ai::Provisioning::DryrunHarness#config_number logs an ignored one. `nil`
+    # and a blank string are the same statement as absent. Any rung that
+    # RAISES resolves the whole bound to `default`, logged.
+    def self.resolve_scale_bound(rungs, key:, default:)
+      rungs.each do |rung, source|
+        raw = source.call
+        next if raw.nil? || (raw.respond_to?(:to_str) && raw.to_str.strip.empty?)
+
+        value = scale_bound_integer(raw)
+        unless value&.positive?
+          Rails.logger.warn("[Ai::Mission] #{key}=#{raw.inspect} declared at #{rung}; " \
+                            "reading it as 0 (no window declared) rather than inheriting a wider default")
+          return 0
+        end
+
+        return value
+      end
+      default
+    rescue StandardError => e
+      Rails.logger.warn("[Ai::Mission] scaling bound #{key} unresolved (#{e.class}); using #{default}")
+      default
+    end
+
+    # `.to_i` semantics for anything genuinely numeric (a JSON column can hand
+    # back an Integer, a Float or a numeric string), and nil for a value that
+    # is not a number at all — which .resolve_scale_bound then reads as an
+    # explicit 0 rather than as a silent 0 from `"abc".to_i`.
+    def self.scale_bound_integer(raw)
+      return raw.to_i if raw.is_a?(Numeric)
+
+      str = raw.to_s.strip
+      Integer(str, exception: false) || Float(str, exception: false)&.to_i
+    end
+    private_class_method :scale_bound_integer
 
     # The GLOBAL rung of the utilization ladder, resolved once. SiteSetting.get
     # is an uncached `find_by`, and these two keys are per-DEPLOYMENT values,
@@ -533,45 +642,11 @@ module Ai
     # Reuses the settings reader Ai::FableRouting and the dry-run harness
     # already share, so operators configure all of them the same way. Each rung
     # is a lambda so a project that answers on the first one never pays for the
-    # template load or the SiteSetting read.
-    #
-    # PRESENCE is decisive: the first rung that CARRIES the key answers, even
-    # when what it carries is non-positive. A project declaring a zero ceiling
-    # is stating "no unattended scale-out here", and falling through to a wider
-    # account or global default would silently overrule it — the one direction
-    # a bounds ladder must never resolve. A value that is negative or not a
-    # number reads the same fail-closed way (0) and is logged, the way
-    # Ai::Provisioning::DryrunHarness#config_number logs an ignored one. `nil`
-    # and a blank string are the same statement as absent.
+    # template load or the SiteSetting read. The walk itself is
+    # .resolve_scale_bound — shared with the deployment-side window.
     def resolved_scale_bound(policy_key, setting_key, default)
-      scale_bound_rungs(policy_key, setting_key).each do |rung, source|
-        raw = source.call
-        next if raw.nil? || (raw.respond_to?(:to_str) && raw.to_str.strip.empty?)
-
-        value = scale_bound_integer(raw)
-        unless value&.positive?
-          Rails.logger.warn("[Ai::Mission] #{policy_key}=#{raw.inspect} declared at #{rung}; " \
-                            "reading it as 0 (no window declared) rather than inheriting a wider default")
-          return 0
-        end
-
-        return value
-      end
-      default
-    rescue StandardError => e
-      Rails.logger.warn("[Ai::Mission] scaling bound #{policy_key} unresolved (#{e.class}); using #{default}")
-      default
-    end
-
-    # `.to_i` semantics for anything genuinely numeric (a JSON column can hand
-    # back an Integer, a Float or a numeric string), and nil for a value that
-    # is not a number at all — which #resolved_scale_bound then reads as an
-    # explicit 0 rather than as a silent 0 from `"abc".to_i`.
-    def scale_bound_integer(raw)
-      return raw.to_i if raw.is_a?(Numeric)
-
-      str = raw.to_s.strip
-      Integer(str, exception: false) || Float(str, exception: false)&.to_i
+      self.class.resolve_scale_bound(scale_bound_rungs(policy_key, setting_key),
+                                     key: policy_key, default: default)
     end
 
     # The resolution ladder, most specific first. Lazy on purpose — see

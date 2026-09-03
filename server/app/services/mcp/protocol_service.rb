@@ -158,8 +158,31 @@ module Mcp
     }
   end
 
-  # Get detailed information about a specific tool
-  def describe_tool(tool_id)
+  # Get detailed information about a specific tool.
+  #
+  # A platform / introspection name is answered from Mcp::ToolCatalog — the
+  # SAME builder tools/list and platform.describe_tool use — so the legacy
+  # ActionCable `tools/describe` path cannot drift from the streamable-HTTP
+  # entry (IMP-7e84ae0ccc91). The registry manifest path below stays for the
+  # AI-agent tools, which are the only manifests this registry holds (see
+  # McpPlatformToolRegistrar.unavailable_action_refusal for why no platform
+  # manifest is ever visible here).
+  #
+  # Fails closed on the catalog branch for exactly the reason #list_tools does:
+  # the platform catalog is authorization-scoped, so without a user and an
+  # account to scope against we do NOT answer from it. `user:` is a keyword
+  # with a nil default so the pre-existing registry callers (process_message's
+  # `tools/describe` route, which has no user in hand) keep working and simply
+  # never reach the catalog — the same shape as list_tools' empty list, not a
+  # bypass. McpChannel passes `user: current_user`.
+  def describe_tool(tool_id, user: nil)
+    if user && @account
+      catalog_entry = ::Mcp::ToolCatalog.new(
+        protocol_version: ::Mcp::ToolCatalog::DESCRIBE_PROTOCOL_VERSION
+      ).describe(tool_id)
+      return catalog_entry if catalog_entry
+    end
+
     tool_manifest = @registry.get_tool(tool_id)
     raise ToolNotFoundError, "Tool not found: #{tool_id}" unless tool_manifest
 

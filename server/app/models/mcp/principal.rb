@@ -176,9 +176,16 @@ module Mcp
       # in SystemFleetTool's gate context. That left the two halves
       # asymmetric: an instance principal could consume a pool member and
       # re-home another instance's workload, human-unattributably, and the
-      # gate-context refusal was the ONLY brake on the terminate riding along.
-      # Denying the whole verb makes the reap-through-replace refusal defence
-      # in depth instead of the sole control. Deliberately narrower than a
+      # gate-context refusal was the only PRINCIPAL-BASED brake on the
+      # terminate riding along. Not the only brake outright, stated precisely
+      # because the weaker claim is the one that justifies this pattern: the
+      # reap arm goes through Ai::AutonomyGate under system.instance_reap,
+      # declared require_approval (and an unmatched category resolves there
+      # too), so the terminate parked for an operator on every path. That
+      # verdict is operator-tunable and says nothing about WHO asked, which is
+      # the gap an overlay pattern closes. Denying the whole verb makes both
+      # the reap-through-replace refusal and the reap policy defence in depth
+      # instead of the sole controls. Deliberately narrower than a
       # `*replace*` so a future replace-shaped read or config verb is not
       # swept in; verified against the whole registry to match exactly this
       # one action (principal_deny_overlay_spec pins that).

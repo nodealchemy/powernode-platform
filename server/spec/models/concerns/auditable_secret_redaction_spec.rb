@@ -31,6 +31,11 @@ RSpec.describe "Auditable secret redaction" do
     PASSWORD = "zz-synthetic-audit-probe-Pw1!"
     EMAIL = "zz-synthetic-audit-probe@example.invalid"
     BENIGN_NAME = "zz-synthetic-audit-probe-benign-name"
+    KUBECONFIG = "zz-synthetic-audit-probe-kubeconfig-yaml"
+    SERVER_TOKEN = "zz-synthetic-audit-probe-k3s-server-token"
+    AGENT_TOKEN = "zz-synthetic-audit-probe-k3s-agent-token"
+    ROTATED_AGENT_TOKEN = "zz-synthetic-audit-probe-k3s-agent-token-rotated"
+    BENIGN_ENDPOINT = "https://zz-synthetic-audit-probe.example.invalid:6443"
 
     FILTERED = Auditable::REDACTED_PLACEHOLDER
   end
@@ -60,6 +65,23 @@ RSpec.describe "Auditable secret redaction" do
           "audit_logs##{row.id} (#{row.action}) new_values disclosed a synthetic secret (value withheld)"
       end
     end
+  end
+
+  # TRIPWIRE for the second redaction source. Auditable filters non-encrypted
+  # values through `self.class.filter_attributes`, which INHERITS from
+  # ActiveRecord::Base.filter_attributes. That base list is empty here only
+  # because the railtie initializer "active_record.set_filter_attributes"
+  # (activerecord/lib/active_record/railtie.rb) merges
+  # config.filter_parameters on the :active_record load hook, and this app's
+  # AR::Base is already loaded by then — config.filter_parameters carries ~50
+  # entries (:token, :_key, :secret, :email, :crypt, :salt, :certificate ...)
+  # that never arrive. If that load order is ever repaired, every Auditable
+  # model would begin masking audit values on those substrings platform-wide,
+  # gutting the trail. This example goes red first; the fix then is to narrow
+  # audit_attribute_filter to each class's OWN declaration, not to relax it.
+  it "keeps the global filter list out of the per-model redaction source" do
+    expect(ActiveRecord::Base.filter_attributes).to eq([])
+    expect(Rails.application.config.filter_parameters).not_to be_empty
   end
 
   describe "Ai::DataSourceCredential" do
@@ -173,6 +195,126 @@ RSpec.describe "Auditable secret redaction" do
       Auditable.with_logging { user = create(:user, email: SyntheticAuditProbe::EMAIL) }
 
       expect_no_disclosure(user, SyntheticAuditProbe::EMAIL)
+    end
+
+    # DELIBERATE COLLATERAL, pinned so the next reader sees a decision rather
+    # than a regression. `filter_attributes` matches attribute names as
+    # case-insensitive SUBSTRINGS, so User's `encrypts :email` entry also
+    # covers email_verification_sent_at / email_verification_token /
+    # email_verification_token_expires_at / email_verified / email_verified_at,
+    # and `encrypts :backup_codes` covers two_factor_backup_codes_generated_at.
+    # Those six are the ONLY columns anywhere that honouring the list newly
+    # masks (measured across every Auditable model), they are timestamps and
+    # flags rather than evidence, User#inspect already masks them, and no
+    # consumer reads them out of an audit row. Narrow the list, not this seam,
+    # if one ever needs to survive.
+    it "also masks the verification columns that User's email filter matches by substring" do
+      user = nil
+
+      Auditable.with_logging { user = create(:user, email: SyntheticAuditProbe::EMAIL) }
+
+      row = audit_rows_for(user).find_by(action: "created")
+      expect(row.new_values).to have_key("email_verified")
+      expect(row.new_values["email_verified"]).to eq(SyntheticAuditProbe::FILTERED)
+      expect(row.new_values["email_verification_token"]).to eq(SyntheticAuditProbe::FILTERED)
+      # ...while a benign, non-matching column keeps its real value.
+      expect(row.new_values["status"]).to eq(user.status)
+    end
+  end
+
+  # The encrypted_* columns here are NOT `encrypts` attributes: the cluster
+  # stores the cluster-admin kubeconfig and both k3s node-join tokens as
+  # plaintext under an encrypted_ name. The `encrypts`-derived redaction set is
+  # therefore empty for this model, and the only thing keeping the credentials
+  # out of audit_logs is the model's own `filter_attributes` declaration — the
+  # list `inspect` already masks with — which Auditable must honour.
+  #
+  # DESTROY is the case that matters most: decommissioning a cluster hard-deletes
+  # the row, so the audit snapshot is the copy that outlives the cluster.
+  describe "Devops::KubernetesCluster" do
+    def build_cluster_with_credentials(**overrides)
+      create(
+        :devops_kubernetes_cluster,
+        encrypted_kubeconfig: SyntheticAuditProbe::KUBECONFIG,
+        encrypted_server_token: SyntheticAuditProbe::SERVER_TOKEN,
+        encrypted_agent_token: SyntheticAuditProbe::AGENT_TOKEN,
+        **overrides
+      )
+    end
+
+    def all_cluster_secrets
+      [
+        SyntheticAuditProbe::KUBECONFIG,
+        SyntheticAuditProbe::SERVER_TOKEN,
+        SyntheticAuditProbe::AGENT_TOKEN
+      ]
+    end
+
+    it "declares the plaintext credential columns as filtered attributes" do
+      declared = Devops::KubernetesCluster.filter_attributes.map(&:to_s)
+
+      expect(declared).to include("encrypted_kubeconfig", "encrypted_server_token", "encrypted_agent_token")
+    end
+
+    it "does not write the kubeconfig or node-join tokens on DESTROY" do
+      cluster = build_cluster_with_credentials
+
+      Auditable.with_logging { cluster.destroy! }
+
+      expect(Devops::KubernetesCluster.exists?(cluster.id)).to be(false)
+      expect_no_disclosure(cluster, *all_cluster_secrets)
+    end
+
+    it "does not write the kubeconfig or node-join tokens on CREATE" do
+      cluster = nil
+
+      Auditable.with_logging { cluster = build_cluster_with_credentials }
+
+      expect_no_disclosure(cluster, *all_cluster_secrets)
+    end
+
+    it "does not write either half of a rotated node-join token on UPDATE" do
+      cluster = build_cluster_with_credentials
+
+      Auditable.with_logging do
+        cluster.update!(encrypted_agent_token: SyntheticAuditProbe::ROTATED_AGENT_TOKEN)
+      end
+
+      expect_no_disclosure(cluster, SyntheticAuditProbe::AGENT_TOKEN, SyntheticAuditProbe::ROTATED_AGENT_TOKEN)
+    end
+
+    # Anti-over-redaction oracle for the filter_attributes path: the credential
+    # keys survive as placeholders (so the trail still shows the cluster HAD a
+    # kubeconfig) while benign columns — including encryption_key_id, which
+    # merely names a key — keep their real values.
+    it "redacts the credential columns in place but preserves benign attributes on DESTROY" do
+      key_id = SecureRandom.uuid
+      cluster = build_cluster_with_credentials(
+        name: SyntheticAuditProbe::BENIGN_NAME,
+        api_endpoint: SyntheticAuditProbe::BENIGN_ENDPOINT,
+        encryption_key_id: key_id
+      )
+
+      Auditable.with_logging { cluster.destroy! }
+
+      row = audit_rows_for(cluster).find_by(action: "deleted")
+      expect(row).to be_present
+      expect(row.old_values["encrypted_kubeconfig"]).to eq(SyntheticAuditProbe::FILTERED)
+      expect(row.old_values["encrypted_server_token"]).to eq(SyntheticAuditProbe::FILTERED)
+      expect(row.old_values["encrypted_agent_token"]).to eq(SyntheticAuditProbe::FILTERED)
+      expect(row.old_values["name"]).to eq(SyntheticAuditProbe::BENIGN_NAME)
+      expect(row.old_values["api_endpoint"]).to eq(SyntheticAuditProbe::BENIGN_ENDPOINT)
+      expect(row.old_values["encryption_key_id"]).to eq(key_id)
+    end
+
+    # The same declaration is what keeps the credentials out of console and
+    # log output, so pin that side too rather than let the two drift.
+    it "masks the credential columns in #inspect" do
+      cluster = build_cluster_with_credentials
+
+      all_cluster_secrets.each do |secret|
+        expect(cluster.inspect.include?(secret)).to be(false), "#inspect disclosed a synthetic secret (value withheld)"
+      end
     end
   end
 end

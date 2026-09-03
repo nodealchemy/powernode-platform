@@ -25,6 +25,17 @@ module Devops
 
     include Auditable
 
+    # The three encrypted_* columns are NOT `encrypts` attributes: v1 stores
+    # the cluster-admin kubeconfig and both k3s node-join tokens as plaintext
+    # under an encrypted_ name (see KubernetesProvisioningTool#get_kubeconfig).
+    # Every mechanism that redacts by "is it encrypted?" therefore sees nothing
+    # to redact here, so the columns are declared on Rails' own filtered-
+    # attribute list instead — which masks them in #inspect and, because
+    # Auditable honours the same list, in audit_logs old_values/new_values.
+    # The delete snapshot is the copy that OUTLIVES the cluster row.
+    # encryption_key_id is deliberately absent: it names a key, it is not one.
+    self.filter_attributes += %i[encrypted_kubeconfig encrypted_server_token encrypted_agent_token]
+
     FLAVORS      = %w[k3s kubeadm].freeze
     ENVIRONMENTS = %w[staging production development custom].freeze
     STATUSES     = %w[pending bootstrapping active degraded disconnected error].freeze

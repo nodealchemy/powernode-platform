@@ -67,7 +67,8 @@ module Ai
           },
           "kubernetes_get_kubeconfig" => {
             description: "Retrieve the kubeconfig YAML for a managed cluster. SENSITIVE: this is the cluster admin " \
-                         "credential. Equivalent to root on every workload running in the cluster. Audit logged.",
+                         "credential. Equivalent to root on every workload running in the cluster. Retrieval is " \
+                         "recorded in the application log only — there is NO audit_logs entry for it.",
             parameters: {
               cluster_id: { type: "string", required: true, description: "Cluster ID, slug, or name" }
             }
@@ -121,8 +122,13 @@ module Ai
         # NOTE: encrypted_kubeconfig is named for the storage column —
         # in v1 we store the raw YAML directly in the DB column.
         # Vault-backed storage rotates in via Security::VaultCredentialProvider
-        # in a follow-up slice. The audit log captures the
-        # retrieval for forensics.
+        # in a follow-up slice. The plaintext-under-an-encrypted-name shape is
+        # why Devops::KubernetesCluster declares these columns on
+        # `filter_attributes`: nothing keyed on `encrypts` can see them.
+        #
+        # The line below is the ONLY record of a retrieval. There is no audit
+        # row: no MCP tool-call path writes one, and this tool writes none
+        # itself. Do not describe this as forensic coverage.
         Rails.logger.info(
           "[KubernetesProvisioningTool] kubeconfig retrieved for cluster_id=#{cluster.id}"
         )

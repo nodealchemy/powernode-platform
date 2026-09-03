@@ -95,7 +95,7 @@ class McpChannel < ApplicationCable::Channel
       tool_id = data.dig("params", "name")
       raise ProtocolError, "Missing tool name" unless tool_id
 
-      result = @mcp_protocol.describe_tool(tool_id)
+      result = @mcp_protocol.describe_tool(tool_id, user: current_user)
 
       transmit_mcp_message({
         id: data["id"],

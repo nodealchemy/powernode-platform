@@ -70,6 +70,7 @@ namespace :mcp do
       "Ai::Tools::KnowledgeTool" => "Knowledge & RAG",
       "Ai::Tools::RagManagementTool" => "Knowledge & RAG",
       "Ai::Tools::ApiReferenceTool" => "Knowledge & RAG",
+      "Ai::Tools::ToolCatalogTool" => "Knowledge & RAG",
       "Ai::Tools::KbArticleManagementTool" => "KB Article Management",
       "Ai::Tools::PageManagementTool" => "Page Management",
       "Ai::Tools::LearningTool" => "Compound Learning",

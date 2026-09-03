@@ -82,6 +82,19 @@ Per-agent tools (one tool per AI agent) are intentionally excluded from
 `tools/list` to avoid flooding the client. Agents remain callable via
 `platform.list_agents` + `platform.execute_agent`.
 
+`tools/list` carries a **one-line description** per tool — the first sentence,
+capped at 160 characters — so the full catalog stays small enough to fetch on
+every session start. The long-form text (gating, envelope and side-effect
+notes) is served on demand: call `platform.describe_tool` with a tool's exact
+listed name to get its complete description, `inputSchema`, `outputSchema`,
+title and annotations, plus `truncated: true|false` telling you whether the
+one-line summary lost text. An unknown name is answered with the nearest
+advertised names. `platform.describe_tool` is scoped exactly like `tools/list`:
+a restricted (fleet instance or federation) principal can describe only the
+tools its grant already advertises, and an ungranted name comes back as unknown.
+The auto-generated
+[MCP tool catalog](../reference/auto/mcp-tools.md) keeps the full descriptions.
+
 ## Prerequisites
 
 1. **A running Powernode instance.** The backend service

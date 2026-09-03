@@ -380,7 +380,7 @@ Container instances record security violations:
 | Host stuck in `pending` | API endpoint unreachable | Verify network / firewall + curl the endpoint manually |
 | Repeated `error` status | Bad TLS credentials | Re-upload credentials; check daemon TLS config |
 | Stack deploy fails with "service convergence" | Image pull failure on workers | Pre-pull image on every node; check registry auth |
-| Lost Swarm quorum | Manager nodes < majority | Demote / re-init managers; restore from etcd snapshot if needed |
+| Lost Swarm quorum | Manager nodes < majority | Bring lost managers back if you can; otherwise `docker swarm init --force-new-cluster` on a surviving manager (Swarm keeps its own Raft store under `/var/lib/docker/swarm` — there is no etcd to restore from), then re-join the others |
 | Container `provisioning` → never `running` | Vault token issuance failure | Check Vault reachability / policy; `cleanup_vault_token!` and retry |
 
 ---

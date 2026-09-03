@@ -123,7 +123,7 @@ The session lifecycle:
 |-------|----------|
 | Connect | Claude Code opens streamable-HTTP session; server creates `McpSession` row |
 | Authenticate | OAuth handshake; session bound to a Powernode `User` and `Account` |
-| Discovery | Claude Code lists available tools via `tools/list` MCP method |
+| Discovery | Claude Code lists available tools via `tools/list` MCP method — one-line descriptions; `platform.describe_tool` returns a tool's full entry on demand |
 | Invocation | Claude Code calls `tools/call` with action name and params; server validates permission, dispatches to tool class, returns structured result |
 | Reconnect | Lost connections reuse the same session if within the 10-minute grace window — agent state survives reconnects |
 | Cleanup | A daily job at 3 AM cleans up expired sessions |

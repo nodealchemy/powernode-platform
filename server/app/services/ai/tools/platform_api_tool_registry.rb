@@ -29,6 +29,8 @@ module Ai
         # Path B (public TLS-carrying TCP) — sole owner of public_enabled, both directions
         "system_expose_service_public_tcp"   => "Ai::Tools::SystemIngressTool",
         "system_unexpose_service_public_tcp" => "Ai::Tools::SystemIngressTool",
+        # APO-3d — declarative backend set + per-service load-balancer overrides (gated)
+        "system_set_service_backends"        => "Ai::Tools::SystemIngressTool",
 
         # === ACME certificate lifecycle (DNS-01 issuance, renewal, revocation) ===
         "system_acme_get_certificate"       => "Ai::Tools::SystemAcmeTool",
@@ -163,6 +165,10 @@ module Ai
         "system_replenish_instance_pool" => "Ai::Tools::SystemFleetTool",
         # Gap remediation slice 1 — operator-runbook-driven actions
         "system_drain_instance" => "Ai::Tools::SystemFleetTool",
+        # IMP-0467eee9fc57 — cordon-only (unschedulable) mode, the reversible
+        # half of the drain; both directions approval-gated in the tool.
+        "system_cordon_instance" => "Ai::Tools::SystemFleetTool",
+        "system_uncordon_instance" => "Ai::Tools::SystemFleetTool",
         "system_get_silent_instances" => "Ai::Tools::SystemFleetTool",
         # IMP-ca485128072e (APO-2e) — operator-tunable fleet sensor thresholds.
         "system_get_sensor_config" => "Ai::Tools::SystemFleetTool",
@@ -400,6 +406,9 @@ module Ai
         "agent_container_terminate" => "Ai::Tools::ContainerTerminateTool",
         # Integration health
         "integration_health" => "Ai::Tools::IntegrationHealthTool",
+        # Tool catalog detail (IMP-7e84ae0ccc91): tools/list is one line per
+        # tool; this returns the full entry on demand.
+        "describe_tool" => "Ai::Tools::ToolCatalogTool",
         # Ralph Loop management (autonomous agent duty cycles)
         "list_ralph_loops" => "Ai::Tools::RalphLoopTool",
         "get_ralph_loop" => "Ai::Tools::RalphLoopTool",
