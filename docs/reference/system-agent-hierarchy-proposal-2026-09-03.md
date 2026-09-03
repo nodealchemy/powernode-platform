@@ -104,6 +104,15 @@ Agent tool picks the right subagent by itself, and one router — the existing
 delegation path — ranks the same canonical set for both Claude Code and the platform, honouring
 delegation policies.
 
+### Phase 1c — Claude Code runs feed the platform's statistics (operator direction 19:00 UTC)
+Statistics come only from `Ai::AgentExecution` rows (trust evaluation on completion,
+`record_model_performance` → `Ai::AgentModelPerformance` → `AgentModelSelector`), all written by the
+platform's own executor. A new `platform.record_agent_execution` verb mints one such row for a Claude
+Code run of a platform agent, attributed to the session's `mcp_client` identity and idempotent on a
+run key; a `SubagentStop` hook reports automatically with the skeleton's own self-report as fallback.
+Boundary: a Claude Code run counts toward model statistics and trust, never toward autonomy budgets or
+consent ceilings; Claude Code-only models never become platform routing candidates.
+
 ### Phase 2 — split responsibilities so every domain has an owner
 New global agents (seed + prompt + approval chain + policy set with `agent_key` + trust bootstrap +
 `binds_to` aliases), each carved from `FLEET_AUTONOMY_POLICIES` or from an operator-only set:
