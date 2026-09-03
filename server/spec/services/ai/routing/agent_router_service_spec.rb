@@ -57,6 +57,30 @@ RSpec.describe Ai::Routing::AgentRouterService do
       expect(composed).not_to include("retired-skill")
     end
 
+    # HIER-P2G — the skill dimension profiles a canonical agent by the skills
+    # the ROUTING ACCOUNT can see (GloballyScopable.for_account: global rows +
+    # its own), never by another tenant's private skill bound to the shared
+    # canonical row. Before the system skills were global, the router saw
+    # Account.first's rows from every account, and saw nothing once they were
+    # converted — either way the wrong profile.
+    it "profiles a canonical agent by its GLOBAL skills and the routing account's own, never another tenant's" do
+      canonical = create(:ai_agent, :global, name: "Canonical Router Target", description: "Generic.", is_system: true)
+      global_skill = create(:ai_skill, :global, slug: "system-quarantine-node", name: "Quarantine Node",
+                                                description: "Quarantines a node.")
+      own_skill = create(:ai_skill, account: account, slug: "own-triage", name: "Own Triage", description: "Triage.")
+      foreign = create(:ai_skill, account: create(:account), slug: "foreign-zebra", name: "Foreign Zebra",
+                                  description: "Zebra handling.")
+      [ global_skill, own_skill, foreign ].each { |skill| create(:ai_agent_skill, agent: canonical, skill: skill, is_active: true) }
+
+      profile = router.send(:skills_by_agent, [ canonical.id ])[canonical.id].map(&:slug)
+      expect(profile).to eq(%w[own-triage system-quarantine-node])
+
+      result = router.route(task: "quarantine the zebra node")
+      target = result[:candidates].find { |c| c[:agent_id] == canonical.id }
+      expect(target[:reasons][:skill]).to include("quarantine")
+      expect(target[:reasons][:skill]).not_to include("zebra")
+    end
+
     it "consumes declared_capabilities in the skill dimension (not merely surviving its absence)" do
       matcher = agent(name: "Alpha", description: "Generic.",
                       mcp_metadata: { "capabilities" => %w[quarantine] })

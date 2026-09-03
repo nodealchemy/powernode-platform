@@ -25,6 +25,8 @@ module Ai
     #   trust       Ai::AgentTrustScore overall (0.3 when unscored)
     #   skill       keyword overlap between the task and the agent's name,
     #               description, prompt, DECLARED capabilities and bound skills
+    #               (the GLOBAL ones plus the account's own — never another
+    #               tenant's, HIER-P2G)
     #   domain      the task names one of the agent's policy domains
     #               (PolicyDomains over its intervention-policy categories)
     #   performance completed / total executions over the last 30 days
@@ -155,14 +157,21 @@ module Ai
 
       # The SAME predicate as Ai::Agent#skill_slugs (active binding to an active
       # skill), batched — so #declared_capabilities_for below composes exactly
-      # what #declared_capabilities returns. Sorted by slug so the profile text a
-      # candidate is matched against is deterministic (it feeds a scored
-      # comparison, and ties break on slug).
+      # what #declared_capabilities returns — restricted to the skills THIS
+      # account can see (GloballyScopable.for_account: GLOBAL rows plus its
+      # own). The canonical agents are shared rows, and Ai::AgentSkill carries
+      # no account, so another tenant's private skill bound to a canonical
+      # would otherwise shape this account's routing (HIER-P2G; before the
+      # system skills were global, every account routed on Account.first's
+      # rows). Sorted by slug so the profile text a candidate is matched
+      # against is deterministic (it feeds a scored comparison, and ties break
+      # on slug).
       def skills_by_agent(ids)
         return {} if ids.empty?
 
         ::Ai::AgentSkill.where(ai_agent_id: ids, is_active: true)
                         .joins(:skill).where(ai_skills: { status: "active" })
+                        .merge(::Ai::Skill.for_account(account&.id))
                         .includes(:skill)
                         .each_with_object(Hash.new { |h, k| h[k] = [] }) { |binding, h| h[binding.ai_agent_id] << binding.skill }
                         .transform_values { |skills| skills.compact.sort_by { |skill| skill.slug.to_s } }
