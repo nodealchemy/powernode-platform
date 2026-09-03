@@ -23,6 +23,21 @@ RSpec.describe 'Api::V1::Version', type: :request do
         data = json_response_data
         expect(data).to have_key('version')
       end
+
+      # The footer's display contract rides on this unauthenticated endpoint
+      # (spec/config/powernode_version_spec.rb pins the rule itself): the
+      # real payload, unstubbed, carries `display` plus the build identity.
+      it 'carries the display contract and build identity' do
+        get '/api/v1/version', as: :json
+
+        expect_success_response
+        data = json_response_data
+        expect(data['version']).to eq(Powernode::Version.current)
+        expect(data['display']).to eq(Powernode::Version.display_version)
+        expect(data).to include('release', 'short_sha', 'git_commit', 'git_branch', 'git_tag', 'built_at')
+        expect([ true, false ]).to include(data['release'])
+        expect(data['display']).to eq(data['version']) if data['release']
+      end
     end
 
     context 'with authentication' do
