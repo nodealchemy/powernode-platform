@@ -130,6 +130,8 @@ The session lifecycle:
 
 For configuring Claude Code itself, see [`getting-started/01-quickstart.md`](../getting-started/01-quickstart.md) and the `.claude/settings.json` reference in [`guides/devops.md`](../guides/devops.md).
 
+The integration runs in both directions. Platform agents are also **Claude Code subagents**: the canonical (global, seeded) agents are exported as committed, slug-keyed skeletons under `.claude/agents/powernode/` that bootstrap themselves over MCP (`platform_get_agent` by slug, `platform_get_skill_context`), and `platform.route_task` ranks the same canonical set — with the reasons and the delegation policy applied — for both an MCP caller and the platform's own Concierge. Hand-authored Claude Code agents come back as `agent_create` proposals, never as direct writes. See [`guides/use-powernode-from-claude.md` → Platform agents as Claude Code subagents](../guides/use-powernode-from-claude.md#platform-agents-as-claude-code-subagents).
+
 ## Telemetry and monitoring
 
 Tool invocations emit structured audit and metric events so operators can trace which session called which action, with what parameters, and to what effect.

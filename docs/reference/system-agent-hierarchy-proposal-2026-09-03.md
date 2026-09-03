@@ -81,16 +81,29 @@ agent. A `System::Seeds::HierarchyWriter` seam writes `parent_agent_id`, the `Ai
 row (`spawn_reason: seed`) and the `Ai::DelegationPolicy` row for each agent; the same seam is called
 from `AgentManagementTool#create_agent`, `AgentAutonomyService#create_agent_for_team` and
 `create_team_from_spec`, so runtime-created agents get lineage too.
-Delegation policies per agent: inheritance `conservative`, `max_depth` 2, `allowed_delegate_types`
-= the agent's own domain executors, `allowed_actions` = its policy set's categories, budget share
-from the existing agent budget. Concierge: `moderate`, depth 3, may delegate to any system agent.
+Delegation policies per agent: inheritance `conservative`, `max_depth` 2, budget share from the
+existing agent budget. Concierge: `moderate`, depth 3, may delegate to any system agent.
+
+> **Superseded (as built).** This proposal originally set `allowed_delegate_types` = "the agent's
+> own domain executors" and `allowed_actions` = its policy set's categories. Both columns are read
+> in a different vocabulary: `allowed_delegate_types` is compared against `Ai::Agent#agent_type`
+> (`Ai::DelegationPolicy#allows_delegate_type?`, called from
+> `Ai::Autonomy::DelegationAuthorityService` and from `Ai::Routing::AgentRouterService`, which
+> filters its candidate pool with it), and `delegatable_actions` against a task's `action_type`.
+> Writing skill slugs or policy categories there would refuse every delegation and empty every
+> router pool rather than scope them. As built, a domain agent is a leaf with an empty list and
+> `max_depth` 2 as the operative brake — see
+> `extensions/system/server/app/services/system/governance/hierarchy_reconciler.rb`.
 
 ### Phase 1b — share canonical agents with Claude Code (operator direction 18:30 UTC)
 "Seamlessly use platform agents within Claude Code and natively within the platform." The base
 exists: `Ai::ClaudeExport::AgentSkeletonSync` + `rake claude:sync_agents` write thin subagent
 skeletons to `.claude/agents/powernode/<slug>.md` that fetch the live prompt and skill context over
-MCP at spawn time, so the platform stays the source of truth. It has never run on a checkout, its
-output is gitignored, it embeds the per-install agent UUID, and it carries no tools or delegation.
+MCP at spawn time, so the platform stays the source of truth. As of 18:30, before this increment, it
+had never run on a checkout, its output was gitignored, it embedded the per-install agent UUID, and
+it carried no tools or delegation. (All four are addressed below: `.gitignore` now ignores only
+`.claude/agents/powernode-local/`, the committed skeletons are slug-keyed and carry no UUID, and
+they carry a `tools:` allowlist and a Delegation section.)
 The increment: slug-keyed, environment-independent skeletons for the CANONICAL set, committed and
 kept fresh by a `check-claude-agents-fresh.sh` gate (same shape as the MCP catalog check); a
 `tools:` allowlist derived from the agent's tool families; the delegation policy and lineage parent
