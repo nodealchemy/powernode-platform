@@ -85,6 +85,19 @@ Delegation policies per agent: inheritance `conservative`, `max_depth` 2, `allow
 = the agent's own domain executors, `allowed_actions` = its policy set's categories, budget share
 from the existing agent budget. Concierge: `moderate`, depth 3, may delegate to any system agent.
 
+### Phase 1b — share canonical agents with Claude Code (operator direction 18:30 UTC)
+"Seamlessly use platform agents within Claude Code and natively within the platform." The base
+exists: `Ai::ClaudeExport::AgentSkeletonSync` + `rake claude:sync_agents` write thin subagent
+skeletons to `.claude/agents/powernode/<slug>.md` that fetch the live prompt and skill context over
+MCP at spawn time, so the platform stays the source of truth. It has never run on a checkout, its
+output is gitignored, it embeds the per-install agent UUID, and it carries no tools or delegation.
+The increment: slug-keyed, environment-independent skeletons for the CANONICAL set, committed and
+kept fresh by a `check-claude-agents-fresh.sh` gate (same shape as the MCP catalog check); a
+`tools:` allowlist derived from the agent's tool families; the delegation policy and lineage parent
+rendered in the body; SessionStart shows the count, a Stop hook regenerates after seed edits; and the
+reverse path `rake claude:import_agents` turns a hand-authored Claude Code agent into an
+`Ai::AgentProposal` (never a direct create — canonical rule). Skills as `SKILL.md` follow later.
+
 ### Phase 2 — split responsibilities so every domain has an owner
 New global agents (seed + prompt + approval chain + policy set with `agent_key` + trust bootstrap +
 `binds_to` aliases), each carved from `FLEET_AUTONOMY_POLICIES` or from an operator-only set:
