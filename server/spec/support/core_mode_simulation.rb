@@ -14,24 +14,25 @@
 # `action_definitions`, and tools/list answers -32603 for a catalog that, in
 # real core mode, would simply not contain that tool.
 #
-# So the faithful simulation hides those classes too. The registry already
-# tolerates a missing tool class (`available_tools` rescues the constantize
-# NameError and skips the entry), which is exactly the path a real core boot
-# takes. Extension-hosted means "defined in a file under extensions/", read off
-# the constant's own source location so no list has to be maintained.
+# So the faithful simulation removes those tools from the registry's ONE
+# enumeration seam (`PlatformApiToolRegistry.all_tools`, which every lookup and
+# iteration path reads) for the duration of the example — the same catalog a
+# core boot produces, where `available_tools` skips each of them on the
+# constantize NameError. It deliberately does NOT hide the classes themselves:
+# rspec-mocks restores a hidden constant with `const_set`, which moves the
+# constant's recorded source location onto mutate_const.rb, and that poisons
+# every later spec in the process that reads `const_source_location` (the
+# tool-constant-resolution guard parsed rspec's own file as SdwanTool's source).
+# Extension-hosted means "defined in a file under extensions/", read off the
+# class's own methods so no list has to be maintained.
 module CoreModeSimulation
   EXTENSION_SOURCE = %r{/extensions/}
 
   def hide_system_extension
-    # Classify BEFORE hiding anything: a class Zeitwerk has not autoloaded yet
-    # reports the autoload stub (zeitwerk/cref.rb) as its source location, not
-    # its file, and loading it may touch `System` at class-body level.
-    #
-    # Classify by the class's OWN `action_definitions` source, not by
-    # `const_source_location`: once a hidden constant has been restored by
-    # rspec-mocks (`const_set`), the constant's recorded location is rspec's
-    # mutate_const.rb, so a second spec file in the same process would classify
-    # every previously hidden tool as core-hosted and hide nothing.
+    # Classify BEFORE hiding `System`: loading a not-yet-autoloaded tool class
+    # may touch `System` at class-body level. Classify by the class's OWN method
+    # source locations, not `const_source_location`, which reports Zeitwerk's
+    # autoload stub for a class that has not been loaded yet.
     # A single-action tool inherits `action_definitions` from BaseTool (e.g.
     # SystemBlastRadiusTool), so also consult `definition` and the tool's own
     # `call` — every tool defines at least one of the three in its own file.
@@ -42,8 +43,11 @@ module CoreModeSimulation
       extension_hosted_class?(klass)
     end
 
+    registry = ::Ai::Tools::PlatformApiToolRegistry
+    core_only = registry.all_tools.reject { |_name, class_name| extension_hosted.include?(class_name) }.freeze
+
     hide_const("System")
-    extension_hosted.each { |class_name| hide_const(class_name) }
+    allow(registry).to receive(:all_tools).and_return(core_only)
   end
 
   def extension_hosted_class?(klass)
