@@ -21,7 +21,12 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const frontendVersion = versionApi.getFrontendVersion();
+  const frontendBuild = versionApi.getFrontendBuildInfo();
+  const frontendVersion = frontendBuild.version;
+  const frontendDisplay = versionApi.displayVersion(frontendBuild);
+  const frontendTitle = versionApi.describeBuild('Frontend', frontendBuild);
+  const backendDisplay = backendVersion ? versionApi.displayVersion(backendVersion) : null;
+  const backendTitle = backendVersion ? versionApi.describeBuild('Backend', backendVersion) : '';
 
   useEffect(() => {
     const fetchVersionInfo = async () => {
@@ -91,15 +96,15 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         {showFrontend && (
-          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${versionApi.getVersionBadgeColor(frontendVersion)}`}>
+          <span title={frontendTitle} className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${versionApi.getVersionBadgeColor(frontendVersion)}`}>
             <Monitor className="w-3 h-3 mr-1" />
-            Frontend {versionApi.formatVersion(frontendVersion)}
+            Frontend {frontendDisplay}
           </span>
         )}
         {showBackend && backendVersion && (
-          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${versionApi.getVersionBadgeColor(backendVersion.version)}`}>
+          <span title={backendTitle} className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${versionApi.getVersionBadgeColor(backendVersion.version)}`}>
             <Server className="w-3 h-3 mr-1" />
-            Backend {versionApi.formatVersion(backendVersion.version)}
+            Backend {backendDisplay}
           </span>
         )}
       </div>
@@ -109,15 +114,18 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
   // Simple display
   if (show === 'simple') {
     const versions = [];
+    const titles = [];
     if (showFrontend) {
-      versions.push(`Frontend ${versionApi.formatVersion(frontendVersion)}`);
+      versions.push(`Frontend ${frontendDisplay}`);
+      titles.push(frontendTitle);
     }
-    if (showBackend && backendVersion) {
-      versions.push(`Backend ${versionApi.formatVersion(backendVersion.version)}`);
+    if (showBackend && backendDisplay) {
+      versions.push(`Backend ${backendDisplay}`);
+      titles.push(backendTitle);
     }
 
     return (
-      <div className={`text-xs text-theme-tertiary ${className}`}>
+      <div className={`text-xs text-theme-tertiary ${className}`} title={titles.join('\n')}>
         {versions.join(' • ')}
       </div>
     );
@@ -143,8 +151,23 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Version:</span>
-                  <span className="text-theme-primary font-mono">{frontendVersion}</span>
+                  <span className="text-theme-primary font-mono">{frontendDisplay}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-theme-secondary">Build:</span>
+                  <span className="text-theme-primary font-mono">
+                    {frontendBuild.release ? `release ${frontendBuild.version}` : `${frontendBuild.version} @ ${frontendBuild.short_sha ?? 'no sha'}`}
+                  </span>
+                </div>
+                {frontendBuild.branch !== 'unknown' && (
+                  <div className="flex justify-between">
+                    <span className="text-theme-secondary">Branch:</span>
+                    <span className="text-theme-primary flex items-center gap-1">
+                      <GitBranch className="w-3 h-3" />
+                      {frontendBuild.branch}{frontendBuild.tag ? ` (tag ${frontendBuild.tag})` : ''}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Environment:</span>
                   <span className="text-theme-primary">{process.env.NODE_ENV || 'development'}</span>
@@ -164,7 +187,7 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
                 <div className="flex justify-between">
                   <span className="text-theme-secondary">Version:</span>
                   <span className="text-theme-primary font-mono">
-                    {backendVersion?.version || fullVersion?.version}
+                    {backendDisplay ?? fullVersion?.display ?? fullVersion?.version}
                   </span>
                 </div>
                 {fullVersion && (

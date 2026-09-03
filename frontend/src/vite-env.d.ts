@@ -22,6 +22,18 @@ interface ImportMeta {
 
 // Extension build flags injected by Vite define
 declare const __EXTENSIONS__: string[];
+
+/** Build identity baked in by vite.config.ts (resolveBuildInfo). */
+declare const __BUILD_INFO__: {
+  version: string;
+  sha: string | null;
+  short_sha: string | null;
+  branch: string;
+  tag: string | null;
+  release: boolean;
+  built_at: string | null;
+  source: string;
+};
 declare const __DISABLED_EXTENSIONS__: string[];
 
 // Extension module declarations — TS types for extension modules resolved by Vite alias.

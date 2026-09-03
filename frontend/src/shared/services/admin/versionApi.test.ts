@@ -309,6 +309,43 @@ describe('versionApi', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // displayVersion — release → X.Y.Z, incremental → short sha, unknown → X.Y.Z-dev
+  // ---------------------------------------------------------------------------
+
+  describe('displayVersion', () => {
+    it('returns the version for a release build', () => {
+      expect(versionApi.displayVersion({ version: '1.2.3', short_sha: 'abcdef0', release: true })).toBe('1.2.3');
+    });
+
+    it('returns the short sha for an incremental build', () => {
+      expect(versionApi.displayVersion({ version: '1.2.3', short_sha: 'abcdef0', release: false })).toBe('abcdef0');
+    });
+
+    it('prefers a server-provided display string when present', () => {
+      expect(versionApi.displayVersion({ version: '1.2.3', display: 'fedcba9', short_sha: 'abcdef0', release: false })).toBe('fedcba9');
+    });
+
+    it('returns <version>-dev when no sha is known', () => {
+      expect(versionApi.displayVersion({ version: '1.2.3', short_sha: null, release: false })).toBe('1.2.3-dev');
+      expect(versionApi.displayVersion({ version: '1.2.3' })).toBe('1.2.3-dev');
+    });
+
+    it('does not double the -dev suffix on a prerelease version', () => {
+      expect(versionApi.displayVersion({ version: '0.0.1-dev' })).toBe('0.0.1-dev');
+    });
+  });
+
+  describe('getFrontendBuildInfo', () => {
+    it('falls back to the app version with no identity when no __BUILD_INFO__ define exists', () => {
+      const info = versionApi.getFrontendBuildInfo();
+      expect(info.version).toBe(versionApi.getFrontendVersion());
+      expect(info.release).toBe(false);
+      expect(info.short_sha).toBeNull();
+      expect(info.source).toBe('local');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // formatVersion
   // ---------------------------------------------------------------------------
 
