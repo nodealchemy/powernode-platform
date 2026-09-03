@@ -84,7 +84,11 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
   # workload and can retire the failed one as a follow-on, all of it
   # human-unattributable, so the whole verb is denied the same way its
   # destructive half is, and the gate-context refusal becomes defence in
-  # depth rather than the only brake. Collateral checked below against the
+  # depth rather than the only principal-based brake. It was never the only
+  # brake outright: the reap arm is gated on system.instance_reap, declared
+  # require_approval, so the terminate parked for an operator anyway — but
+  # that is an operator-tunable policy, not a bound on who may ask, which is
+  # what an overlay pattern is for. Collateral checked below against the
   # whole registry: the pattern matches exactly this one action.
   DESTRUCTIVE = %w[
     platform.approve_deferred_operation
