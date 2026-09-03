@@ -120,6 +120,9 @@ RSpec.describe "MCP action declaration completeness" do
   #   system_set_service_backends   IMP-0c10b9fd5596  system.service_backends_update
   #   system_delete_volume_snapshot IMP-e025722ef14e  system.volume_snapshot_delete
   #   system_gitops_apply_proposal  IMP-0b4f18ae4384  system.gitops_apply_proposal
+  #   system_cordon_instance        IMP-0467eee9fc57  system.instance_cordon
+  #   system_uncordon_instance      IMP-0467eee9fc57  system.instance_cordon
+  #   system_gitops_register_repository SWEEP-2026-09-03 system.gitops_register_repository
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -136,6 +139,9 @@ RSpec.describe "MCP action declaration completeness" do
     system_set_service_backends
     system_delete_volume_snapshot
     system_gitops_apply_proposal
+    system_cordon_instance
+    system_uncordon_instance
+    system_gitops_register_repository
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do
