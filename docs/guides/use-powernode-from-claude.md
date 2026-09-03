@@ -396,15 +396,43 @@ and the second report updates the first row.
 does not act) resolves `agent_slug` override-aware (an account's clone wins),
 redacts the digest through the platform's PII path, and credits the reported
 model to the account's **credentialed Anthropic provider** when one exists —
-otherwise to a synthetic, inactive `claude-code` provider row that
-`Ai::AgentModelSelector` never routes a platform execution to. A Claude Code
-run counts toward model statistics and the trust score and **never** toward
-autonomy budgets (`Ai::AgentBudget`), consent ceilings or approval accounting —
-those are platform-execution concepts.
+otherwise to the account's synthetic, inactive `claude-code` provider scope
+that `Ai::AgentModelSelector` never routes a platform execution to. That scope
+is **seeded**, never created by the report: `db/seeds/ai_claude_code_provider_seed.rb`
+(baseline) creates one per account, `Setup::FirstAdminService` creates it for the
+first account of a fresh install, and `Accounts::ProvisionService` creates it for
+a tenant provisioned after first boot. An account without one gets a refusal
+naming the seed. A Claude Code run counts toward model
+statistics and the trust score and **never** toward autonomy budgets
+(`Ai::AgentBudget`), consent ceilings or approval accounting — those are
+platform-execution concepts.
+
+**Token convention.** A report's `tokens.input` is the run's **full billed
+input footprint** — `input_tokens` + `cache_read` + `cache_creation` — because
+that is what the run actually consumed. A long Claude Code session reads a
+large prompt cache on every turn, so a Claude Code run's token figures are
+**not directly comparable** to a platform execution's, which ran without one;
+compare counts and outcomes across executor kinds, not tokens. The hook applies
+this convention when it parses the transcript; a self-report should do the same.
+
+**Upgrading an existing install.** `db:seed` runs on FIRST BOOT ONLY, so an
+install that predates the scope has accounts without one and every self-report
+against them is refused. Backfill once, after deploying:
+
+```bash
+rails db:seed:claude_code_provider_scopes   # absence-only, safe to re-run
+```
+
+Check first with `platform.record_agent_execution` (or the Rails console) rather
+than the `SubagentStop` hook: the hook posts in the background and **discards
+the response**, so it prints its usual "Reported platform agent run…" line even
+when the platform refused the report.
 
 **Where to see it.** `platform.get_agent` and the agent detail API expose
-`execution_stats.by_executor_kind` (`platform` vs `claude_code`); the
-Autonomy page's trust tab reflects the rows as it always has.
+`execution_stats.by_executor_kind` (`platform` vs `claude_code`); the agent
+detail page's **Executions** card renders both counts (its tooltip restates the
+token convention), and the Autonomy page's trust tab reflects the rows as it
+always has.
 
 ## Troubleshooting
 
