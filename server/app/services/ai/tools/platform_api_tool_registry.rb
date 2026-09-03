@@ -402,6 +402,9 @@ module Ai
         "agent_container_terminate" => "Ai::Tools::ContainerTerminateTool",
         # Integration health
         "integration_health" => "Ai::Tools::IntegrationHealthTool",
+        # Tool catalog detail (IMP-7e84ae0ccc91): tools/list is one line per
+        # tool; this returns the full entry on demand.
+        "describe_tool" => "Ai::Tools::ToolCatalogTool",
         # Ralph Loop management (autonomous agent duty cycles)
         "list_ralph_loops" => "Ai::Tools::RalphLoopTool",
         "get_ralph_loop" => "Ai::Tools::RalphLoopTool",

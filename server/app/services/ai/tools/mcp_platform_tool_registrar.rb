@@ -351,10 +351,12 @@ module Ai
         #
         # PUBLIC because it is the ONE source of the advertised envelope for
         # both surfaces: #build_manifest here (the ActionCable catalog) and
-        # Api::V1::Mcp::StreamableHttpController#decorate_tool_entry, which
-        # used to hard-code a bare {"type" => "object"} on the transport real
-        # agents use (IMP-b92421fb7c59). Rebuilt per call, so a caller that
-        # assigns it into a tool entry gets its own hash.
+        # Mcp::ToolCatalog#decorate_tool_entry (tools/list and
+        # platform.describe_tool; it lived on the streamable controller until
+        # IMP-7e84ae0ccc91), which used to hard-code a bare {"type" =>
+        # "object"} on the transport real agents use (IMP-b92421fb7c59).
+        # Rebuilt per call, so a caller that assigns it into a tool entry
+        # gets its own hash.
         def default_output_schema
           {
             "type" => "object",

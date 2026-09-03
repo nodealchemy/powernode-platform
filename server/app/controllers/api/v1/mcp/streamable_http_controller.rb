@@ -57,17 +57,29 @@ module Api
           "resources/read" => READ_RESULT_TTL_MS
         }.freeze
 
-        # Conservative read-only heuristic for ToolAnnotations.readOnlyHint
-        # (2025-03-26+). Annotations are untrusted hints per spec; only tools
-        # whose action name is unambiguously read-only get the hint.
-        READ_ONLY_ACTION_PREFIXES = %w[list get search query read describe check discover perceive measure recent].freeze
-        READ_ONLY_ACTION_NAMES = %w[health metrics resources scoreboard].freeze
+        # tools/list entries are built by Mcp::ToolCatalog — the ONE builder
+        # shared with platform.describe_tool and the legacy tools/describe
+        # path (IMP-7e84ae0ccc91). These names are kept here as aliases for
+        # readers and specs that reach them through the controller.
+        #
+        # LIST_DESCRIPTION_LIMIT: every listed `description` is the first
+        # sentence only, hard-capped at this many characters (cut at a word
+        # boundary with an ellipsis). The long-form text is served on demand
+        # by platform.describe_tool.
+        LIST_DESCRIPTION_LIMIT = ::Mcp::ToolCatalog::LIST_DESCRIPTION_LIMIT
+        READ_ONLY_ACTION_PREFIXES = ::Mcp::ToolCatalog::READ_ONLY_ACTION_PREFIXES
+        READ_ONLY_ACTION_NAMES = ::Mcp::ToolCatalog::READ_ONLY_ACTION_NAMES
+        GENERIC_OBJECT_SCHEMA = ::Mcp::ToolCatalog::GENERIC_OBJECT_SCHEMA
 
-        # Fallback outputSchema for a tools/list family that declares no result
-        # shape of its own — currently the introspection tools. Says only "a
-        # JSON object comes back", which is all handle_tools_call guarantees for
-        # them (it wraps a non-object result as {"result" => ...}).
-        GENERIC_OBJECT_SCHEMA = { "type" => "object" }.freeze
+        # Server instructions (initialize result + server/discover). Named
+        # here so both handlers carry the same text, and so the on-demand
+        # detail verb is discoverable from the handshake rather than only by
+        # reading the catalog.
+        SERVER_INSTRUCTIONS = "Powernode AI Platform control plane. The tool catalog is " \
+                              "permission-scoped per authenticated principal; call tools/list for it. " \
+                              "tools/list carries a one-line summary per tool; call " \
+                              "platform.describe_tool with a tool's exact listed name for its full " \
+                              "description, schemas and annotations."
         SSE_KEEPALIVE_INTERVAL = 30 # seconds between SSE pings (keeps connection alive)
         SSE_ACTIVITY_TOUCH_CYCLES = 10 # Touch DB every N keepalive cycles (~5 min) — not every ping
         SSE_CHANNEL_REFRESH_CYCLES = 12 # Re-check workspace channels every N keepalive cycles (~6 min)
@@ -494,7 +506,8 @@ module Api
             serverInfo: {
               name: "Powernode AI Platform",
               version: Rails.application.config.respond_to?(:version) ? Rails.application.config.version : "1.0.0"
-            }
+            },
+            instructions: SERVER_INSTRUCTIONS
           }
         end
 
@@ -561,43 +574,20 @@ module Api
           # flooding MCP clients with thousands of entries. Agents remain
           # callable via tools/call and discoverable via platform.list_agents
           # + platform.execute_agent.
-          platform_tools = ::Ai::Tools::PlatformApiToolRegistry.tool_definitions.map do |defn|
-            decorate_tool_entry(
-              {
-                "name" => "platform.#{defn[:name]}",
-                "description" => defn[:description],
-                "inputSchema" => build_input_schema(defn[:parameters])
-              },
-              output_schema: platform_output_schema
-            )
-          end
-
-          introspection_tools = ::Ai::Introspection::McpToolRegistrar::INTROSPECTION_TOOLS.map do |defn|
-            decorate_tool_entry(
-              {
-                "name" => defn[:id],
-                "description" => defn[:description],
-                "inputSchema" => defn[:input_schema]
-              },
-              # NOT the platform envelope. Ai::Introspection::McpToolRegistrar
-              # .execute_tool returns the metrics/health service hash DIRECTLY
-              # (mcp_tool_registrar.rb #execute_tool `case tool_id`) with no
-              # success/error/data wrapper, so advertising `required:
-              # ["success"]` here would make a strict client reject every valid
-              # introspection result. The generic object schema stays truthful
-              # for these until they declare a shape of their own.
-              output_schema: GENERIC_OBJECT_SCHEMA
-            )
-          end
-
-          all_tools = platform_tools + introspection_tools
-          # Instance principals get a default-deny, grant-scoped catalog; users keep
-          # the full list (their per-tool permissions gate execution).
-          tools = current_mcp_principal ? current_mcp_principal.filter_tools(all_tools) : all_tools
-
-          # Deterministic order (2026-07-28 SHOULD) — also keeps pagination
-          # cursors stable across processes and deploys.
-          tools = tools.sort_by { |tool| tool["name"].to_s }
+          #
+          # Mcp::ToolCatalog builds the entries (version-gated title /
+          # annotations / per-family outputSchema), applies the principal's
+          # grant filter (instance principals get a default-deny, grant-scoped
+          # catalog; users keep the full list — their per-tool permissions
+          # gate execution), sorts them by name (2026-07-28 SHOULD — also
+          # keeps pagination cursors stable across processes and deploys) and
+          # cuts every description to ONE LINE (LIST_DESCRIPTION_LIMIT). The
+          # full text is one platform.describe_tool call away, built by the
+          # same catalog so the two cannot drift (IMP-7e84ae0ccc91).
+          tools = ::Mcp::ToolCatalog.new(
+            protocol_version: request_protocol_version,
+            principal: current_mcp_principal
+          ).list_entries
 
           page = tools.slice(offset, TOOLS_PAGE_SIZE) || []
           result = { "tools" => page }
@@ -705,9 +695,10 @@ module Api
           # Structured tool output (2025-06-18+). Never sent to clients on
           # 2025-03-26 / 2024-11-05, which predate the field.
           #
-          # Both advertised schemas (#platform_output_schema for the platform
+          # Both advertised schemas (the platform envelope for the platform
           # family, GENERIC_OBJECT_SCHEMA for introspection — see
-          # #decorate_tool_entry) say `"type" => "object"` at the top level, so
+          # Mcp::ToolCatalog#decorate_tool_entry) say `"type" => "object"` at
+          # the top level, so
           # structuredContent must always be a JSON object; a non-object result
           # is wrapped under "result" to keep that half of the contract.
           #
@@ -744,8 +735,7 @@ module Api
             "capabilities" => build_protocol_service.build_server_capabilities(
               protocol_version: ::Mcp::ProtocolService::STATELESS_VERSIONS.first
             ),
-            "instructions" => "Powernode AI Platform control plane. The tool catalog is " \
-                              "permission-scoped per authenticated principal; call tools/list for it.",
+            "instructions" => SERVER_INSTRUCTIONS,
             "resultType" => "complete",
             "ttlMs" => DISCOVER_TTL_MS,
             "cacheScope" => "public",
@@ -991,91 +981,13 @@ module Api
           }
         end
 
-        # Version-gated tool metadata for tools/list entries. Fields never
-        # leak to revisions that predate them: annotations (2025-03-26),
-        # title + outputSchema (2025-06-18).
-        #
-        # `output_schema` is supplied by the CALLER because the two families in
-        # tools/list return different shapes — see #platform_output_schema and
-        # GENERIC_OBJECT_SCHEMA.
-        def decorate_tool_entry(tool, output_schema:)
-          action = tool["name"].to_s.delete_prefix("platform.")
-
-          if protocol_at_least?("2025-03-26") && read_only_action?(action)
-            tool["annotations"] = { "readOnlyHint" => true }
-          end
-
-          if protocol_at_least?("2025-06-18")
-            tool["title"] = action.split("_").map(&:capitalize).join(" ")
-            tool["outputSchema"] = output_schema
-          end
-
-          tool
-        end
-
-        # The DECLARED envelope every Ai::Tools::BaseTool subclass returns, not
-        # a bare {"type" => "object"}. tools/list is the only schema a
-        # streamable-HTTP client ever sees, and this is the transport real
-        # agents use — the bare object schema this replaced left a strict client
-        # unable to learn from the wire that a success:true result may be an
-        # autonomy-gate PARK (`data.pending`) with nothing applied. Read from
-        # the same source as the ActionCable manifest so the two cannot drift
-        # (IMP-b92421fb7c59). Built fresh per entry, like the literal it
-        # replaced: sharing one hash across every entry in a page would make a
-        # mutation of any one of them a mutation of all.
-        #
-        # ACCEPTED PAYLOAD COST, measured 2026-09-02 against the live registry
-        # (612 PlatformApiToolRegistry entries, TOOLS_PAGE_SIZE = 1000, so a
-        # user principal gets them all in ONE body): the outputSchema portion
-        # goes from 612 x 17 B = 10.2 KB to 612 x 1091 B = 652.0 KB, and the
-        # whole tools/list body from 392.1 KB to 1034.0 KB — 2.64x. That is the
-        # price of D14 and it is knowingly paid; the five `description` strings
-        # ARE the schema's reason to exist, so shortening them would defeat it.
-        # Instance and federation principals do not pay it in practice —
-        # Mcp::Principal#filter_tools trims their catalog to the granted
-        # patterns before this reaches the wire.
-        #
-        # DO NOT hoist this behind a shared JSON-Schema $defs/$ref to shrink
-        # the body (IMP-7e84ae0ccc91 re-measured and closed that route,
-        # 2026-09-03). Each entry's outputSchema is a STANDALONE schema
-        # document on the MCP wire: there is no cross-entry definitions store,
-        # and the reference client compiles every entry as soon as tools/list
-        # returns (@modelcontextprotocol/sdk 1.29.0 client/index.js
-        # Client#cacheToolMetadata -> AjvJsonSchemaValidator#getValidator ->
-        # ajv.compile, no rescue), so a $ref whose target is another entry,
-        # the result's _meta, or a server URL fails resolution inside
-        # listTools and drops the WHOLE catalog for that client; any client
-        # that validates each entry in isolation fails the same way. The
-        # literal is duplicated per entry on purpose. The wire is already
-        # shrunk where it matters: Rack::Deflater (config/application.rb)
-        # compresses the response when the client negotiates gzip — the full
-        # 2026-09-03 catalog measured 1,106,376 B raw / 109,888 B on the wire
-        # (10.1x). Note the two measurements above count DIFFERENT sets: the
-        # 2026-09-02 figure is 612 platform entries, the 2026-09-03 one is 624
-        # tools/list entries = 615 platform (PlatformApiToolRegistry::TOOLS) +
-        # 9 introspection; the platform family grew 612 -> 615, not 612 -> 624.
-        # Gzip shrinks the NETWORK cost only — the body a client parses is
-        # still ~1.1 MB. Both properties are pinned by
-        # structured_tool_output_spec.rb "outputSchema wire properties".
-        def platform_output_schema
-          ::Ai::Tools::McpPlatformToolRegistrar.default_output_schema
-        end
-
-        def read_only_action?(action)
-          READ_ONLY_ACTION_NAMES.include?(action) ||
-            READ_ONLY_ACTION_PREFIXES.include?(action.split("_").first)
-        end
-
-        # tools/list is the ONLY schema most clients ever see, and the flat-format
-        # branch this replaced copied just `type` and `description` — so an
-        # `enum`, `items`, `default` or nested `properties` declared on a tool
-        # parameter never reached the wire, and array parameters went out
-        # untyped. Shared with McpPlatformToolRegistrar's manifest/database
-        # schemas via one converter so the two cannot drift again
-        # (IMP-e809396f9eda).
-        def build_input_schema(parameters)
-          ::Ai::Tools::ParameterSchema.build(parameters)
-        end
+        # Entry building (version-gated metadata, per-family outputSchema, the
+        # read-only heuristic and the ParameterSchema converter) lives in
+        # Mcp::ToolCatalog, shared with platform.describe_tool and the legacy
+        # tools/describe path so the listing and the on-demand detail cannot
+        # drift (IMP-7e84ae0ccc91). The per-entry outputSchema stays inline
+        # there on purpose — see that class's comment for why a shared
+        # $defs/$ref cannot exist on this wire.
 
         def build_protocol_service
           ::Mcp::ProtocolService.new(

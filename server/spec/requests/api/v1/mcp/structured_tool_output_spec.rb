@@ -173,13 +173,34 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
   #      repeats no sub-schema within itself.
   #   2. The wire is ALREADY shrunk: Rack::Deflater (config/application.rb)
   #      compresses the response when the client negotiates gzip, and the
-  #      612+ identical schemas are exactly what LZ77 removes. Measured
-  #      2026-09-03 on the full registry (624 tools/list entries = 615
-  #      platform + 9 introspection): raw body 1,106,376 B, of which
-  #      outputSchema 671,118 B — exactly 615 x 1,091 B envelope + 9 x 17 B
-  #      generic object schema; gzip wire 109,888 B (10.1x). Gzip shrinks the
-  #      NETWORK cost only: the 1 MB figure is the payload a client still
-  #      parses, and a client that omits Accept-Encoding still receives it.
+  #      612+ identical schemas are exactly what LZ77 removes. Gzip shrinks
+  #      the NETWORK cost only: the ~1 MB figure below is the payload a
+  #      client still parses, and a client that omits Accept-Encoding still
+  #      receives it.
+  #
+  # What DID shrink (amended R4 ruling, 2026-09-03): the descriptions, not
+  # the envelope. Cutting every listing entry to its first sentence
+  # (LIST_DESCRIPTION_LIMIT — see the describe below) and moving the long
+  # form behind platform.describe_tool measures, over ONE session on ONE
+  # checkout, full registry, user principal, one page of 625 entries (616
+  # platform + 9 introspection):
+  #
+  #      BEFORE  raw 1,109,260 B — descriptions   120,227 B (248 entries over
+  #                                160 chars, longest 1,477); gzip 110,483 B
+  #      AFTER   raw 1,037,808 B — descriptions    48,941 B (longest exactly
+  #                                160); gzip 84,143 B (12.33x deflate)
+  #
+  # The outputSchema envelope is IDENTICAL either way at 672,209 B — exactly
+  # 616 x 1,091 B envelope + 9 x 17 B generic object schema — which is what
+  # makes this a description delta and not an envelope one.
+  #
+  # ONE CHECKOUT ON PURPOSE. Earlier runs of the same measurement recorded
+  # 1,106,704 B / 110,010 B, 1,106,376 B / 109,888 B and 1,105,655 B /
+  # 109,653 B (all at 624 entries, before platform.describe_tool existed).
+  # The raw body tracks the extension checkout's DESCRIPTION TEXT, which
+  # moves whenever an extension verb is reworded, so a before from one
+  # checkout and an after from another measures the rewording as much as the
+  # change. Do not mix a number from an older run into the pair above.
   #
   # The first example pins property 1 (any $ref on this transport is a
   # regression); the second pins property 2 (the wire stays deflated and
@@ -224,12 +245,16 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
       )
     end
 
-    # 256 KiB is a tripwire, not a target: measured 109,888 B on 2026-09-03
-    # (624 tools). It reddens if the MCP route ever stops being deflated
-    # (Rack::Deflater removed or bypassed) or the catalog's compressed size
-    # more than doubles — both are events the operator wants to hear about
-    # before an agent's first tools/list of the day is a megabyte.
-    let(:wire_bytes_ceiling) { 256 * 1024 }
+    # 160 KiB is a tripwire, not a target: measured 84,143 B on 2026-09-03
+    # (625 tools, one-line descriptions; the same catalog with the long-form
+    # descriptions was 110,483 B under a 256 KiB ceiling, before
+    # IMP-7e84ae0ccc91 cut the listing to one line per tool). It reddens if
+    # the MCP route ever stops being deflated (Rack::Deflater removed or
+    # bypassed), if the long-form descriptions ever creep back into the
+    # listing, or if the catalog's compressed size nearly doubles — all
+    # events the operator wants to hear about before an agent's first
+    # tools/list of the day is a megabyte.
+    let(:wire_bytes_ceiling) { 160 * 1024 }
 
     it "delivers the full catalog deflated and under the wire ceiling when gzip is negotiated" do
       post mcp_endpoint,
@@ -240,8 +265,140 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
       wire_bytes = response.body.bytesize
       expect(wire_bytes).to be < wire_bytes_ceiling,
         "tools/list gzip wire is #{wire_bytes} B, over the #{wire_bytes_ceiling} B " \
-        "ceiling. Either the MCP route lost Rack::Deflater or the catalog's " \
-        "compressed size doubled since 2026-09-03 (109,888 B / 624 tools)."
+        "ceiling. Either the MCP route lost Rack::Deflater, the long-form " \
+        "descriptions are back in the listing, or the catalog's compressed " \
+        "size nearly doubled since 2026-09-03 (84,143 B / 625 tools)."
+    end
+  end
+
+  # IMP-7e84ae0ccc91 (operator ruling R4, amended 2026-09-03: "drop
+  # descriptions and provide a mechanism to retrieve tool details on-demand").
+  # tools/list carries ONE LINE per tool — the first sentence, hard-capped at
+  # LIST_DESCRIPTION_LIMIT and cut at a word boundary with an ellipsis — and
+  # platform.describe_tool returns the FULL entry on demand. Both are built by
+  # the same Mcp::ToolCatalog, so the summary and the detail cannot drift.
+  describe "tools/list one-line descriptions + platform.describe_tool (full registry)" do
+    let(:limit) { Api::V1::Mcp::StreamableHttpController::LIST_DESCRIPTION_LIMIT }
+    let(:tools) do
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/list"), headers: modern_headers
+      json_response["result"]["tools"]
+    end
+
+    def describe_tool(name)
+      post mcp_endpoint,
+           params: jsonrpc_request(method: "tools/call",
+                                   params: { "name" => "platform.describe_tool", "arguments" => { "name" => name } }),
+           headers: modern_headers
+      json_response["result"]["structuredContent"]
+    end
+
+    # A literal alongside the constant, on purpose: a constant-only assertion
+    # stays green if someone lifts the cap to 5,000 and the wire regrows.
+    it "caps the limit itself at one line" do
+      expect(limit).to be_between(80, 200)
+    end
+
+    it "lists every tool with a description no longer than LIST_DESCRIPTION_LIMIT" do
+      expect(tools.size).to be > 100 # the real catalog, not a stub
+
+      offenders = tools.select { |t| t["description"].to_s.length > limit }.map do |t|
+        [t["name"], t["description"].to_s.length]
+      end
+      expect(offenders).to(
+        eq([]),
+        "#{offenders.size} tools/list entries exceed LIST_DESCRIPTION_LIMIT (#{limit}) " \
+        "(first: #{offenders.first.inspect}). The listing carries ONE LINE per tool; " \
+        "the long-form text is served by platform.describe_tool."
+      )
+    end
+
+    it "advertises platform.describe_tool in the listing, read-only" do
+      entry = tools.find { |t| t["name"] == "platform.describe_tool" }
+      expect(entry).not_to be_nil
+      expect(entry["annotations"]).to eq({ "readOnlyHint" => true })
+      expect(entry["inputSchema"]["required"]).to eq(["name"])
+    end
+
+    it "returns the untruncated description for a tool whose text exceeds the limit" do
+      # Pick from the REAL registry: the longest declared description.
+      name, full = ::Ai::Tools::PlatformApiToolRegistry.tool_definitions
+        .map { |d| ["platform.#{d[:name]}", d[:description].to_s] }
+        .max_by { |(_, d)| d.length }
+      expect(full.length).to be > limit # otherwise this example proves nothing
+
+      listed = tools.find { |t| t["name"] == name }
+      expect(listed["description"].length).to be <= limit
+      expect(listed["description"]).to end_with("…")
+
+      result = describe_tool(name)
+      expect(result["success"]).to be(true)
+      detail = result["data"]
+      expect(detail["name"]).to eq(name)
+      expect(detail["description"]).to eq(full)
+      expect(detail["truncated"]).to be(true)
+      expect(detail["summary"]).to eq(listed["description"])
+    end
+
+    it "returns exactly the tools/list entry (plus the full text) — same builder, no drift" do
+      listed = tools.find { |t| t["name"] == "platform.list_agents" }
+      detail = describe_tool("platform.list_agents")["data"]
+
+      expect(detail["inputSchema"]).to eq(listed["inputSchema"])
+      expect(detail["outputSchema"]).to eq(listed["outputSchema"])
+      expect(detail["annotations"]).to eq(listed["annotations"])
+      expect(detail["title"]).to eq(listed["title"])
+      expect(detail).to have_key("truncated")
+    end
+
+    it "describes an introspection tool with its own (generic) family schema" do
+      detail = describe_tool("platform.health")["data"]
+      expect(detail["outputSchema"]).to eq({ "type" => "object" })
+      expect(detail["truncated"]).to be(false)
+    end
+
+    it "answers an unknown name with the nearest matches, not a bare -32602" do
+      result = describe_tool("platform.list_agent")
+      expect(response).to have_http_status(:ok)
+      expect(json_response).not_to have_key("error")
+      expect(result["success"]).to be(false)
+      expect(result["error"]).to include("platform.list_agent")
+      expect(result["nearest_matches"]).to include("platform.list_agents")
+    end
+
+    it "mentions platform.describe_tool in the server instructions so clients discover it" do
+      post mcp_endpoint,
+           params: jsonrpc_request(method: "initialize", params: {
+             "protocolVersion" => "2025-11-25", "capabilities" => {}, "clientInfo" => { "name" => "t", "version" => "1" }
+           }),
+           headers: base_headers
+      expect(json_response["result"]["instructions"]).to include("platform.describe_tool")
+    end
+
+    # The legacy ActionCable `tools/describe` path (Mcp::ProtocolService
+    # #describe_tool) reads from the SAME builder for a platform name, so the
+    # two transports cannot answer two different entries.
+    it "serves the legacy tools/describe path from the shared builder" do
+      service = ::Mcp::ProtocolService.new(account: account, connection_id: "spec")
+      detail = service.describe_tool("platform.list_agents", user: user)
+      listed = tools.find { |t| t["name"] == "platform.list_agents" }
+
+      expect(detail["inputSchema"]).to eq(listed["inputSchema"])
+      expect(detail["outputSchema"]).to eq(listed["outputSchema"])
+      expect(detail["description"]).to eq(
+        ::Ai::Tools::PlatformApiToolRegistry.tool_definitions.find { |d| d[:name] == "list_agents" }[:description]
+      )
+    end
+
+    # ...and it must NOT become an unscoped door onto the platform catalog.
+    # #list_tools on this class is documented fail-closed ("without a principal
+    # and an account to scope against we advertise nothing rather than the
+    # unfiltered catalog"); the describe half has to hold the same line, or an
+    # unauthenticated ActionCable route would read every advertised entry.
+    it "fails closed on the legacy path when no user is scoped" do
+      service = ::Mcp::ProtocolService.new(account: account, connection_id: "spec")
+
+      expect { service.describe_tool("platform.list_agents") }
+        .to raise_error(::Mcp::ProtocolService::ToolNotFoundError)
     end
   end
 end
