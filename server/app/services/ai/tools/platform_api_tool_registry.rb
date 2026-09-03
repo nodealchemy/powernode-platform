@@ -165,6 +165,10 @@ module Ai
         "system_replenish_instance_pool" => "Ai::Tools::SystemFleetTool",
         # Gap remediation slice 1 — operator-runbook-driven actions
         "system_drain_instance" => "Ai::Tools::SystemFleetTool",
+        # IMP-0467eee9fc57 — cordon-only (unschedulable) mode, the reversible
+        # half of the drain; both directions approval-gated in the tool.
+        "system_cordon_instance" => "Ai::Tools::SystemFleetTool",
+        "system_uncordon_instance" => "Ai::Tools::SystemFleetTool",
         "system_get_silent_instances" => "Ai::Tools::SystemFleetTool",
         # IMP-ca485128072e (APO-2e) — operator-tunable fleet sensor thresholds.
         "system_get_sensor_config" => "Ai::Tools::SystemFleetTool",
