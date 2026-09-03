@@ -152,4 +152,96 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
       expect(tool).not_to have_key("annotations")
     end
   end
+
+  # IMP-7e84ae0ccc91 (operator ruling R4, 2026-09-03: "keep the envelope,
+  # shrink the wire"). The proposed mechanism — hoist the per-tool envelope
+  # behind one shared JSON-Schema $defs and put a $ref on every entry — is
+  # NOT implementable on this transport, and these two examples are the
+  # executable form of why, so the next reader does not re-derive it:
+  #
+  #   1. Every tools/list `outputSchema` is a STANDALONE JSON-Schema document.
+  #      MCP defines no cross-entry definitions store, and the reference
+  #      client compiles every entry the moment tools/list returns —
+  #      @modelcontextprotocol/sdk 1.29.0 client/index.js
+  #      Client#cacheToolMetadata -> AjvJsonSchemaValidator#getValidator ->
+  #      ajv.compile(tool.outputSchema) — so a $ref whose target lives in
+  #      another entry, in the result's _meta, or at a server URL raises
+  #      "can't resolve reference" INSIDE listTools (no rescue around the
+  #      compile) and the client loses the whole catalog. Any client that
+  #      validates each entry in isolation fails the same way. Intra-entry
+  #      $defs/$ref is resolvable but duplicates nothing: the envelope
+  #      repeats no sub-schema within itself.
+  #   2. The wire is ALREADY shrunk: Rack::Deflater (config/application.rb)
+  #      compresses the response when the client negotiates gzip, and the
+  #      612+ identical schemas are exactly what LZ77 removes. Measured
+  #      2026-09-03 on the full registry (624 tools/list entries = 615
+  #      platform + 9 introspection): raw body 1,106,376 B, of which
+  #      outputSchema 671,118 B — exactly 615 x 1,091 B envelope + 9 x 17 B
+  #      generic object schema; gzip wire 109,888 B (10.1x). Gzip shrinks the
+  #      NETWORK cost only: the 1 MB figure is the payload a client still
+  #      parses, and a client that omits Accept-Encoding still receives it.
+  #
+  # The first example pins property 1 (any $ref on this transport is a
+  # regression); the second pins property 2 (the wire stays deflated and
+  # bounded), each against the REAL registry rather than a stub.
+  describe "tools/list outputSchema wire properties (full registry)" do
+    let(:tools) do
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/list"), headers: modern_headers
+      json_response["result"]["tools"]
+    end
+
+    # Deep walk: a $ref / $dynamicRef anywhere in a schema, not only at the top.
+    def ref_keys_in(node, path = "")
+      case node
+      when Hash
+        node.flat_map do |k, v|
+          here = k.to_s.start_with?("$ref", "$dynamicRef") ? [ "#{path}/#{k}" ] : []
+          here + ref_keys_in(v, "#{path}/#{k}")
+        end
+      when Array
+        node.each_with_index.flat_map { |v, i| ref_keys_in(v, "#{path}[#{i}]") }
+      else
+        []
+      end
+    end
+
+    it "keeps every outputSchema self-contained — no $ref on any entry" do
+      expect(tools.size).to be > 100 # the real catalog, not a stub
+
+      offenders = tools.filter_map do |tool|
+        refs = ref_keys_in(tool["outputSchema"])
+        [ tool["name"], refs ] if refs.any?
+      end
+
+      expect(offenders).to(
+        eq([]),
+        "#{offenders.size} tools/list entries carry a $ref in outputSchema " \
+        "(first: #{offenders.first.inspect}). Each outputSchema is compiled " \
+        "as a standalone document by the reference client " \
+        "(Client#cacheToolMetadata -> ajv.compile) the moment tools/list " \
+        "returns; an unresolvable $ref there drops the ENTIRE catalog for " \
+        "that client. Inline the schema — see the comment above this describe."
+      )
+    end
+
+    # 256 KiB is a tripwire, not a target: measured 109,888 B on 2026-09-03
+    # (624 tools). It reddens if the MCP route ever stops being deflated
+    # (Rack::Deflater removed or bypassed) or the catalog's compressed size
+    # more than doubles — both are events the operator wants to hear about
+    # before an agent's first tools/list of the day is a megabyte.
+    let(:wire_bytes_ceiling) { 256 * 1024 }
+
+    it "delivers the full catalog deflated and under the wire ceiling when gzip is negotiated" do
+      post mcp_endpoint,
+           params: jsonrpc_request(method: "tools/list"),
+           headers: modern_headers.merge("Accept-Encoding" => "gzip")
+
+      expect(response.headers["Content-Encoding"]).to eq("gzip")
+      wire_bytes = response.body.bytesize
+      expect(wire_bytes).to be < wire_bytes_ceiling,
+        "tools/list gzip wire is #{wire_bytes} B, over the #{wire_bytes_ceiling} B " \
+        "ceiling. Either the MCP route lost Rack::Deflater or the catalog's " \
+        "compressed size doubled since 2026-09-03 (109,888 B / 624 tools)."
+    end
+  end
 end

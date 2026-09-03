@@ -1033,9 +1033,30 @@ module Api
         # ARE the schema's reason to exist, so shortening them would defeat it.
         # Instance and federation principals do not pay it in practice —
         # Mcp::Principal#filter_tools trims their catalog to the granted
-        # patterns before this reaches the wire. If the user-principal body ever
-        # needs to shrink, hoist the repeated schema behind a JSON-Schema
-        # $defs/$ref rather than trimming what it says.
+        # patterns before this reaches the wire.
+        #
+        # DO NOT hoist this behind a shared JSON-Schema $defs/$ref to shrink
+        # the body (IMP-7e84ae0ccc91 re-measured and closed that route,
+        # 2026-09-03). Each entry's outputSchema is a STANDALONE schema
+        # document on the MCP wire: there is no cross-entry definitions store,
+        # and the reference client compiles every entry as soon as tools/list
+        # returns (@modelcontextprotocol/sdk 1.29.0 client/index.js
+        # Client#cacheToolMetadata -> AjvJsonSchemaValidator#getValidator ->
+        # ajv.compile, no rescue), so a $ref whose target is another entry,
+        # the result's _meta, or a server URL fails resolution inside
+        # listTools and drops the WHOLE catalog for that client; any client
+        # that validates each entry in isolation fails the same way. The
+        # literal is duplicated per entry on purpose. The wire is already
+        # shrunk where it matters: Rack::Deflater (config/application.rb)
+        # compresses the response when the client negotiates gzip — the full
+        # 2026-09-03 catalog measured 1,106,376 B raw / 109,888 B on the wire
+        # (10.1x). Note the two measurements above count DIFFERENT sets: the
+        # 2026-09-02 figure is 612 platform entries, the 2026-09-03 one is 624
+        # tools/list entries = 615 platform (PlatformApiToolRegistry::TOOLS) +
+        # 9 introspection; the platform family grew 612 -> 615, not 612 -> 624.
+        # Gzip shrinks the NETWORK cost only — the body a client parses is
+        # still ~1.1 MB. Both properties are pinned by
+        # structured_tool_output_spec.rb "outputSchema wire properties".
         def platform_output_schema
           ::Ai::Tools::McpPlatformToolRegistrar.default_output_schema
         end
