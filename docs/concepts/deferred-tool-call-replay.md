@@ -12,10 +12,14 @@ A declaration only arms that gate when it can be **replayed**: `#gated_action?` 
 `action_category`, `executor_class`, `gate_context` and `on_proceed`, because the gate
 defers by storing `executor_class` and re-invoking it after an operator approves.
 
-After APO-1a every action is declared, and **none is gate-wired** — verified 2026-09-02 by
-parsing the `declare_action` call sites (not by grepping the token) across
+After APO-1a every action is declared, and almost none is gate-wired — verified
+2026-09-02 by parsing the `declare_action` call sites (not by grepping the token) across
 `server/app/services/ai/tools/**` and `extensions/system/server/app/services/ai/tools/**`:
-608 call sites, **0** passing `executor_class:`. Wiring them one at a time means
+608 call sites, **0** passing `executor_class:` at that census. The census has since
+moved: the gate-routed set is pinned BY NAME in `GATE_ROUTED_ACTIONS` in
+`server/spec/services/ai/tools/action_declaration_completeness_spec.rb` (terminate, pool
+create/update, DR replace/reap as of 2026-09-03) — read that constant, not this sentence,
+for the current count. Wiring them one at a time means
 authoring a bespoke executor per action, and each such executor would have to re-derive
 the same thing: *who* asked. That is the hard half. `Ai::DeferredOperation` records
 `requested_by` and `ai_agent`, and nothing else. An MCP **instance principal** (mTLS node
@@ -143,7 +147,7 @@ Only `#run_through_autonomy_gate` is skipped, because it already ran.
 ```ruby
 declare_action "system_terminate_instance",
                mutating: true,
-               action_category: "system.instance.terminate",
+               action_category: "system.task.terminate",
                executor_class: "Ai::Executors::DeferredToolCall",
                gate_context: :deferred_tool_call_context,
                on_proceed: :deferred_tool_call_result
