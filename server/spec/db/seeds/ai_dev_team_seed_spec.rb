@@ -76,4 +76,33 @@ RSpec.describe "ai_dev_team_seed frontend developer agent" do
       FileUtils.remove_entry(target_dir) if File.exist?(target_dir)
     end
   end
+  # HIER-P1 — the Knowledge Graph Curator is a GLOBAL canonical
+  # (ai_utility_agents_seed.rb). The dev-team seed used to create a second,
+  # account-scoped `data_analyst` copy; it now binds the canonical instead.
+  describe "Knowledge Graph Curator (canonical rule)" do
+    let!(:global_curator) do
+      create(:ai_agent, account: nil, name: "Knowledge Graph Curator", slug: "knowledge-graph-curator",
+                        agent_type: "assistant", is_system: true, source_key: "knowledge-graph-curator",
+                        provider: ollama, creator: user)
+    end
+
+    it "does not seed an account-scoped duplicate" do
+      load_seed!("ai_dev_team_seed.rb")
+
+      expect(Ai::Agent.owned_by_account(account.id).where(name: "Knowledge Graph Curator")).to be_empty
+      expect(Ai::Agent.where(name: "Knowledge Graph Curator").count).to eq(1)
+    end
+
+    it "binds the team's shared memory pool to the global canonical" do
+      load_seed!("ai_dev_team_seed.rb")
+
+      pool = Ai::MemoryPool.find_by(account: account, name: "Powernode Platform Conventions")
+      expect(pool).to be_present
+      expect(
+        Ai::AgentConnection.exists?(account: account, connection_type: "shared_memory",
+                                    source_type: "Ai::Agent", source_id: global_curator.id,
+                                    target_type: "Ai::MemoryPool", target_id: pool.id)
+      ).to be true
+    end
+  end
 end

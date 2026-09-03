@@ -666,4 +666,47 @@ RSpec.describe Ai::ConciergeService do
       expect(posture_actions - advertised).to eq([])
     end
   end
+  # HIER-P1 — an agent the team composer creates from a spec is not a root:
+  # its lineage parent is the concierge that designed it (the conversation's
+  # agent), written through Ai::Agents::HierarchyWriter inside the same
+  # transaction as the team.
+  describe "#create_team_from_spec lineage" do
+    let(:params) do
+      {
+        "name" => "Lineage Team",
+        "coordination_strategy" => "hierarchical",
+        "members" => [
+          { "role" => "analyst", "priority" => 1,
+            "agent_spec" => { "name" => "Spec Analyst", "agent_type" => "data_analyst",
+                              "system_prompt_summary" => "Analyse things" } }
+        ],
+        "new_agents_to_create" => [
+          { "role" => "analyst",
+            "agent_spec" => { "name" => "Spec Analyst", "agent_type" => "data_analyst",
+                              "system_prompt_summary" => "Analyse things" } }
+        ]
+      }
+    end
+
+    before do
+      allow(Ai::AgentModelSelector).to receive(:recommend).and_return(
+        provider: provider, model: "test-model", provider_type: "ollama",
+        reason: "spec", score_details: {}
+      )
+    end
+
+    it "attaches every agent created from a spec under the composing concierge" do
+      service.send(:create_team_from_spec, params)
+
+      created = account.ai_agents.find_by(name: "Spec Analyst")
+      expect(created).to be_present
+      expect(created.parent_agent_id).to eq(agent.id)
+
+      edges = Ai::AgentLineage.for_child(created.id).active
+      expect(edges.pluck(:parent_agent_id)).to eq([ agent.id ])
+      expect(edges.first.spawn_reason).to eq("team_composition")
+      expect(edges.first.metadata["role"]).to eq("analyst")
+      expect(Ai::AgentTeam.find_by(account: account, name: "Lineage Team").members.count).to eq(1)
+    end
+  end
 end
