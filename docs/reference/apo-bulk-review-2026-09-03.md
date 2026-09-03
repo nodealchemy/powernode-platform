@@ -139,3 +139,15 @@ reaches the tool).
 `rake system:governance:reconcile`, then verify the new policy rows exist (volume_snapshot_delete,
 gitops_apply_proposal, gitops_register_repository, instance_cordon, service_backends_update,
 replica_promote). Then R9.
+
+**Deploy 2 outcome (16:00 UTC):** batch `01a067f2` planned hub-backend + extension-system only (the range
+touched neither core frontend nor worker). Extension v80 promoted at 15:50 and Rails restarted on it with
+core still v88 — the skew the 2026-08 outage memory warns about — and survived; hub-backend v89 followed at
+15:56. ops-hub runs core `0998bcdcb` + ext `82d8b746`, verified by content. Seeds re-run and
+`system:governance:reconcile` reported in sync; the seven gated-verb policy rows are present (register and
+service_backends_update in the agent-scoped set, snapshot delete / cordon / restart global).
+
+**R9 outcome:** all four critical exposures were the keyword fallback's name-only matches on 2009 CVEs
+(QEMU VNC use-after-free against qemu-guest-agent ×3; TLS renegotiation against nginx). Ruling 16:05:
+resolved by hand with a resolution note, no remediation fired; the fallback fix is IMP-7bba0413c36a
+(record match source, keyword rows non-actionable, published-age window, data migration).
