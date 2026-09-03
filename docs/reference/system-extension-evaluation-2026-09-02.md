@@ -83,6 +83,11 @@ Scale for reference: ~788 Ruby files in `server/app`, 802 specs, 171 controllers
 `docker_*`, 5 `kubernetes_*`. Per-instance grant trimming is the only mitigation
 for a 600-tool `tools/list`; there is no discovery or help action on any system
 tool, and core's `SemanticToolDiscoveryService` is not exposed through one.
+(SUPERSEDED 2026-09-03 by IMP-7e84ae0ccc91: grant trimming is no longer the
+only mitigation. `tools/list` now carries one line per tool and core's
+`platform.describe_tool` returns the full entry on demand for any advertised
+name, system verbs included. `SemanticToolDiscoveryService` is still not
+exposed through a tool.)
 
 **Strengths (verified).**
 - Every action and every parameter has a description; median ~190 chars, and the
