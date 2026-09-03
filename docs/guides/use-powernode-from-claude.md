@@ -318,9 +318,10 @@ and `Ai::Autonomy::DelegationAuthorityService` read the rows directly.
 |------|---------|--------------|
 | `description` | A **routing description** — `Use this agent when …` with concrete triggers, then `Do not use for … — use `<sibling>` instead` naming the vocabulary-adjacent sibling, plus tier guidance for reasoning/frontier agents | the agent's description, its bound global skills' names/tags, its sibling agents, and (local export only) its intervention-policy domains (`Ai::ClaudeExport::RoutingDescription`) |
 | `model` | `haiku` / `sonnet` / `opus` / `fable` | the agent's declared `model_requirements.tier` or pinned model (never this install's provider state) |
-| `tools` | `Read, Grep, Glob` (+ `Edit, Write, Bash` for `code_assistant`), the two bootstrap verbs, and the platform actions the agent's tool access allows — read verbs only when nothing is scoped; omitted (inherit everything) for `full_registry` agents | `Ai::ClaudeExport::ToolAllowlist`, mirroring `AgentToolBridgeService#scope_to_tool_families` |
+| `tools` | `Read, Grep, Glob` (+ `Edit, Write, Bash` for `code_assistant`), the bootstrap verbs (`get_agent`, `get_skill_context`) and the self-report verb, and the platform actions the agent's tool access allows — read verbs only when nothing is scoped; omitted (inherit everything) for `full_registry` agents | `Ai::ClaudeExport::ToolAllowlist`, mirroring `AgentToolBridgeService#scope_to_tool_families` |
 | body step 1 | `mcp__powernode__platform_get_agent` with `slug: "<slug>"` — adopts the returned `system_prompt` | override-aware: an account's clone of a canonical wins on that install |
 | body step 2 | `mcp__powernode__platform_get_skill_context` with the `id` returned by step 1 | the agent's active skill bindings |
+| body last step | `mcp__powernode__platform_record_agent_execution` — the run reports itself back before returning (see [Runs feed the platform's statistics](#runs-feed-the-platforms-statistics)) | the fallback for a checkout with the `SubagentStop` hook disabled; same `run_key` contract as the hook |
 | `## Delegation` | `Reports to` (lineage parent), and — in the local export only — `May delegate to`, `Max delegation depth`, `Inheritance` | `parent_agent_id` for the committed set; `Ai::AgentLineage` and `Ai::DelegationPolicy` additionally in the local export (rendered only when they exist) |
 | `## Baseline guardrails` | `Ai::Agent::BASE_GUARDRAILS` verbatim | the always-on floor; the fetched prompt already prepends it natively, the body says so |
 
@@ -366,6 +367,44 @@ agent when one exists, else the concierge — whose payload is the would-be
 canonical spec (slug, name, agent type, description, the body as system prompt,
 `tools` → tool families, `model` → model tier). Nothing is created directly:
 official agents are seeded canonicals, so an operator reviews and approves.
+
+### Runs feed the platform's statistics
+
+A Claude Code run of a platform agent counts. When a platform subagent stops,
+the platform receives one execution report and mints one `Ai::AgentExecution`
+on that agent — the same row a platform execution produces, transitioned
+through the same terminal hooks — so the agent's **execution history, trust
+score** (`Ai::Autonomy::TrustEngineService`) and **model statistics**
+(`Ai::AgentModelPerformance`, the substrate `Ai::AgentModelSelector` learns
+from) all see the run. The executor is recorded as the session's own
+`mcp_client` identity, so the row reads "this agent, run by that Claude Code
+session".
+
+Two paths deliver the report, and the platform sees **one row** either way
+(the verb is idempotent on `run_key`):
+
+| Path | Mechanism | When |
+|------|-----------|------|
+| **Hook** (automatic) | `.claude/hooks/subagent-report.sh` on the `SubagentStop` event, wired in `.claude/settings.json`. It reports only subagents whose name matches a *generated* skeleton (`.claude/agents/powernode/<slug>.md` or the local export), parses the subagent's transcript for the model, tokens, duration and outcome, and POSTs one `platform.record_agent_execution` call to the MCP endpoint the session already uses (`~/.claude.json` → `powernode`, else `127.0.0.1:18443/mcp`; `POWERNODE_MCP_URL` overrides). Fire-and-forget: 5 s budget, never blocks, never logs a body. | every checkout with hooks enabled |
+| **Self-report** (fallback) | The last numbered step of every skeleton body: *before returning, call `mcp__powernode__platform_record_agent_execution`* with the slug, model, outcome, duration, tokens, a ≤500-char digest and `run_key: "<session id>:<slug>:<UTC start time>"`. | hooks disabled |
+
+If both fire, the hook copies the self-report's `run_key` out of the transcript
+and the second report updates the first row.
+
+**What the verb does and does not do.** `platform.record_agent_execution`
+(`ai.agents.execute`, mutating, *not* autonomy-gated — it records history, it
+does not act) resolves `agent_slug` override-aware (an account's clone wins),
+redacts the digest through the platform's PII path, and credits the reported
+model to the account's **credentialed Anthropic provider** when one exists —
+otherwise to a synthetic, inactive `claude-code` provider row that
+`Ai::AgentModelSelector` never routes a platform execution to. A Claude Code
+run counts toward model statistics and the trust score and **never** toward
+autonomy budgets (`Ai::AgentBudget`), consent ceilings or approval accounting —
+those are platform-execution concepts.
+
+**Where to see it.** `platform.get_agent` and the agent detail API expose
+`execution_stats.by_executor_kind` (`platform` vs `claude_code`); the
+Autonomy page's trust tab reflects the rows as it always has.
 
 ## Troubleshooting
 
