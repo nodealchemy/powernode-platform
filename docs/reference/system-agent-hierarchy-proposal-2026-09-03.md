@@ -244,3 +244,14 @@ Phase 2b: ~5 lanes (one per new/promoted agent, plus the engineering policy set 
    `canonical_slug` (or `template`) and refuses a free-form agent unless the caller holds
    `ai.agents.manage`; `find_or_initialize_global_agent`'s adopt-a-stray behaviour is replaced by
    an explicit conflict error so an operator clone is never silently converted into a canonical.
+
+6. **Driver ruling 2026-09-03 23:45 (self-improvement readers).** `Ai::Learning::TrajectoryAnalyzer`
+   and `Ai::SelfImprovement::SkillMutationService` deliberately read only the account's OWN skills and
+   therefore see no global canonical skill (HIER-P2G made the system skills global). That is the
+   canonical rule applied to skills: an account never mutates a canonical in place; it clones and
+   refines the clone, and a canonical itself is refined only through the Platform Architect's
+   versioned path (Phase 3, `Ai::SkillVersion`, auto-approved on trusted agents per ruling 3). The
+   existing spec that pins "ignores shared system skills" stays.
+7. **Driver ruling 2026-09-03 23:20 (single-writer seeds).** `PolicyReconciler` is the only writer of
+   declared intervention-policy rows; agent seeds write identity, prompt, chain, trust, tool access and
+   skills. Legacy seeds that still upsert rows are rewritten under offer 01a0696f once approved.
