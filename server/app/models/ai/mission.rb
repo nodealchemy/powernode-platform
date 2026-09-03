@@ -297,6 +297,59 @@ module Ai
       )
     end
 
+    # THE ONE LADDER WALK for every home a scaling window has.
+    #
+    # Extracted from the instance ladder (IMP-f986d379120a) so the system
+    # extension's System::PlatformDeployment#scaling_bounds — the deployment-
+    # side twin of #scaling_bounds, read by the platform ReplicaReconciler's
+    # scale-out gate — resolves its window through the SAME walk rather than a
+    # copy that is free to drift in exactly the direction a bounds ladder must
+    # never resolve. `rungs` is an ordered list of [label, lambda] pairs, most
+    # specific first; a lambda answers nil (or a blank string) for "this rung
+    # does not carry the key". Core knows nothing of the caller: this is a
+    # generic reader, not a seam onto any extension.
+    #
+    # PRESENCE is decisive: the first rung that CARRIES the key answers, even
+    # when what it carries is non-positive. A project declaring a zero ceiling
+    # is stating "no unattended scale-out here", and falling through to a wider
+    # account or global default would silently overrule it — the one direction
+    # a bounds ladder must never resolve. A value that is negative or not a
+    # number reads the same fail-closed way (0) and is logged, the way
+    # Ai::Provisioning::DryrunHarness#config_number logs an ignored one. `nil`
+    # and a blank string are the same statement as absent. Any rung that
+    # RAISES resolves the whole bound to `default`, logged.
+    def self.resolve_scale_bound(rungs, key:, default:)
+      rungs.each do |rung, source|
+        raw = source.call
+        next if raw.nil? || (raw.respond_to?(:to_str) && raw.to_str.strip.empty?)
+
+        value = scale_bound_integer(raw)
+        unless value&.positive?
+          Rails.logger.warn("[Ai::Mission] #{key}=#{raw.inspect} declared at #{rung}; " \
+                            "reading it as 0 (no window declared) rather than inheriting a wider default")
+          return 0
+        end
+
+        return value
+      end
+      default
+    rescue StandardError => e
+      Rails.logger.warn("[Ai::Mission] scaling bound #{key} unresolved (#{e.class}); using #{default}")
+      default
+    end
+
+    # `.to_i` semantics for anything genuinely numeric (a JSON column can hand
+    # back an Integer, a Float or a numeric string), and nil for a value that
+    # is not a number at all — which .resolve_scale_bound then reads as an
+    # explicit 0 rather than as a silent 0 from `"abc".to_i`.
+    def self.scale_bound_integer(raw)
+      return raw.to_i if raw.is_a?(Numeric)
+
+      str = raw.to_s.strip
+      Integer(str, exception: false) || Float(str, exception: false)&.to_i
+    end
+    private_class_method :scale_bound_integer
+
     # The GLOBAL rung of the utilization ladder, resolved once. SiteSetting.get
     # is an uncached `find_by`, and these two keys are per-DEPLOYMENT values,
     # not per-mission ones — so a caller that walks many missions in one pass
@@ -533,45 +586,11 @@ module Ai
     # Reuses the settings reader Ai::FableRouting and the dry-run harness
     # already share, so operators configure all of them the same way. Each rung
     # is a lambda so a project that answers on the first one never pays for the
-    # template load or the SiteSetting read.
-    #
-    # PRESENCE is decisive: the first rung that CARRIES the key answers, even
-    # when what it carries is non-positive. A project declaring a zero ceiling
-    # is stating "no unattended scale-out here", and falling through to a wider
-    # account or global default would silently overrule it — the one direction
-    # a bounds ladder must never resolve. A value that is negative or not a
-    # number reads the same fail-closed way (0) and is logged, the way
-    # Ai::Provisioning::DryrunHarness#config_number logs an ignored one. `nil`
-    # and a blank string are the same statement as absent.
+    # template load or the SiteSetting read. The walk itself is
+    # .resolve_scale_bound — shared with the deployment-side window.
     def resolved_scale_bound(policy_key, setting_key, default)
-      scale_bound_rungs(policy_key, setting_key).each do |rung, source|
-        raw = source.call
-        next if raw.nil? || (raw.respond_to?(:to_str) && raw.to_str.strip.empty?)
-
-        value = scale_bound_integer(raw)
-        unless value&.positive?
-          Rails.logger.warn("[Ai::Mission] #{policy_key}=#{raw.inspect} declared at #{rung}; " \
-                            "reading it as 0 (no window declared) rather than inheriting a wider default")
-          return 0
-        end
-
-        return value
-      end
-      default
-    rescue StandardError => e
-      Rails.logger.warn("[Ai::Mission] scaling bound #{policy_key} unresolved (#{e.class}); using #{default}")
-      default
-    end
-
-    # `.to_i` semantics for anything genuinely numeric (a JSON column can hand
-    # back an Integer, a Float or a numeric string), and nil for a value that
-    # is not a number at all — which #resolved_scale_bound then reads as an
-    # explicit 0 rather than as a silent 0 from `"abc".to_i`.
-    def scale_bound_integer(raw)
-      return raw.to_i if raw.is_a?(Numeric)
-
-      str = raw.to_s.strip
-      Integer(str, exception: false) || Float(str, exception: false)&.to_i
+      self.class.resolve_scale_bound(scale_bound_rungs(policy_key, setting_key),
+                                     key: policy_key, default: default)
     end
 
     # The resolution ladder, most specific first. Lazy on purpose — see
