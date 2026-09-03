@@ -53,6 +53,7 @@ module Ai
           parameters: {
             action: { type: "string", required: true, description: "Action: create_agent, list_agents, get_agent, update_agent, execute_agent" },
             agent_id: { type: "string", required: false, description: "Agent ID (for execute)" },
+            canonical_slug: { type: "string", required: false, description: "Global canonical agent to clone (for create; required without ai.agents.manage)" },
             name: { type: "string", required: false, description: "Agent name (for create)" },
             description: { type: "string", required: false, description: "Agent description (for create)" },
             model: { type: "string", required: false, description: "Model name (for create)" },
@@ -67,8 +68,10 @@ module Ai
       def self.action_definitions
         {
           "create_agent" => {
-            description: "Create a new AI agent with the specified configuration",
+            description: "Create an AI agent by cloning a seeded canonical (canonical_slug), with lineage to it. " \
+                         "A free-form agent (no canonical_slug) needs ai.agents.manage.",
             parameters: {
+              canonical_slug: { type: "string", required: false, description: "Slug (or source_key) of the global canonical agent to clone into this account; required unless the caller holds ai.agents.manage" },
               name: { type: "string", required: true, description: "Agent name" },
               description: { type: "string", required: false, description: "Agent description" },
               model: { type: "string", required: false, description: "Model name (defaults to provider default)" },
@@ -246,22 +249,107 @@ module Ai
 
       private
 
+      # CANONICAL RULE (HIER-P1, operator ruling 2026-09-03 §5): official
+      # agents are seeded GLOBAL canonicals, read-only through the API; a new
+      # agent is a CLONE of one into the account (`cloned_from_id`,
+      # `source_version`, `source_snapshot` via the GloballyScopable clone path)
+      # with lineage written at clone time, parent = the canonical. A free-form
+      # agent — no canonical — is refused unless the caller holds
+      # ai.agents.manage; ai.agents.create alone clones. Either way the new
+      # agent is attached through Ai::Agents::HierarchyWriter, so an agent
+      # created through THIS tool is never a root on the Autonomy page.
+      # Api::V1::Ai::AgentsController#create is a separate door that still
+      # creates one (neither the canonical rule nor the lineage) — a later
+      # increment.
+      #
+      # NOTE: `ai.agents.manage` is the name the ruling gives this authority,
+      # but the Permissions catalog (config/permissions.rb) does not define it
+      # — RolePermission refuses to grant an undefined name — so until it is
+      # registered the only principal that satisfies the check is a
+      # system.admin holder (User#has_permission? short-circuits for them).
+      FREE_FORM_AGENT_PERMISSION = "ai.agents.manage"
+      CANONICAL_RULE_ERROR = "Canonical rule: create_agent requires canonical_slug (the slug or " \
+                             "source_key of a seeded global agent to clone into this account). " \
+                             "Official agents are seeded canonicals and new agents are clones of one; " \
+                             "a free-form agent with no canonical needs the #{FREE_FORM_AGENT_PERMISSION} " \
+                             "permission."
+
       def create_agent(params)
+        return clone_canonical_agent(params) if params[:canonical_slug].present?
+        return { success: false, error: CANONICAL_RULE_ERROR } unless free_form_agent_permitted?
+
         provider = account.ai_providers.where(is_active: true).first
         creator = user || account.users.first
 
-        agent = account.ai_agents.create!(
-          name: params[:name],
-          description: params[:description],
-          model: params[:model] || provider&.default_model || "claude-sonnet-4",
-          status: "active",
-          agent_type: params[:agent_type] || "assistant",
-          creator: creator,
-          provider: provider
-        )
-        { success: true, agent_id: agent.id, name: agent.name }
+        parent = nil
+        agent = ActiveRecord::Base.transaction do
+          created = account.ai_agents.create!(
+            name: params[:name],
+            description: params[:description],
+            model: params[:model] || provider&.default_model || "claude-sonnet-4",
+            status: "active",
+            agent_type: params[:agent_type] || "assistant",
+            creator: creator,
+            provider: provider
+          )
+          parent = free_form_parent_for(created)
+          hierarchy.attach!(child: created, parent: parent, spawn_reason: "free_form_create") if parent
+          created
+        end
+
+        { success: true, agent_id: agent.id, name: agent.name, parent_agent_id: parent&.id }
       rescue ActiveRecord::RecordInvalid => e
         { success: false, error: e.message }
+      end
+
+      def clone_canonical_agent(params)
+        slug = params[:canonical_slug].to_s
+        canonical = ::Ai::Agent.global.find_by(slug: slug) || ::Ai::Agent.global.find_by(source_key: slug)
+        return { success: false, error: "No global canonical agent matches canonical_slug: #{slug}" } unless canonical
+
+        provider = account.ai_providers.where(is_active: true).first
+        creator = user || account.users.first
+        overrides = { creator: creator, provider: provider || canonical.provider }.compact
+
+        agent = ActiveRecord::Base.transaction do
+          clone = canonical.clone_to_account(account, overrides)
+          # clone_to_account suffixes "(Copy)" for uniqueness; the caller's own
+          # name/description/model win once the copy exists.
+          requested = { name: params[:name], description: params[:description], model: params[:model] }.compact
+          clone.update!(requested) if requested.any?
+          hierarchy.attach!(
+            child: clone, parent: canonical, spawn_reason: "canonical_clone",
+            metadata: { "canonical_slug" => canonical.slug, "source_version" => clone.source_version }
+          )
+          clone
+        end
+
+        { success: true, agent_id: agent.id, name: agent.name, cloned_from_id: canonical.id, parent_agent_id: canonical.id }
+      rescue ActiveRecord::RecordInvalid => e
+        { success: false, error: e.message }
+      end
+
+      # In-process callers that opted in with `internal: true` are trusted
+      # code, matching #action_permitted?'s ladder; everyone else needs the
+      # permission. A node principal (instance_authorized?) is not a user and
+      # cannot hold it, so it clones.
+      def free_form_agent_permitted?
+        return true if internal?
+
+        user.respond_to?(:has_permission?) && user.has_permission?(FREE_FORM_AGENT_PERMISSION) == true
+      end
+
+      # A free-form agent hangs under whoever created it: the invoking agent
+      # when a tool call has one, else the account's concierge. Nil (a root)
+      # only when neither exists.
+      def free_form_parent_for(created)
+        candidate = agent if agent.respond_to?(:persisted?) && agent.persisted?
+        candidate ||= ::Ai::Agent.resolve_concierge_for(account.id)
+        candidate unless candidate.nil? || candidate.id == created.id
+      end
+
+      def hierarchy
+        @hierarchy ||= ::Ai::Agents::HierarchyWriter.new(account: account)
       end
 
       def list_agents
