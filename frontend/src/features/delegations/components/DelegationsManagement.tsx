@@ -48,16 +48,33 @@ export const DelegationsManagement: React.FC = () => {
     }
   };
 
-  const loadDelegations = async () => {
+  const loadDelegations = async (): Promise<Delegation[]> => {
     try {
       setLoading(true);
       const data = await delegationApi.getDelegations();
-      setActiveDelegations(data.delegations || []);
+      const delegations = data.delegations || [];
+      setActiveDelegations(delegations);
+      return delegations;
     } catch (_error) {
-    // Error silently ignored
-  } finally {
+      // Error silently ignored
+      return [];
+    } finally {
       setLoading(false);
     }
+  };
+
+  // A child modal reporting a write reloads the LIST, but the details modal renders
+  // the row held in `selectedDelegation` — a separate copy that a list reload does not
+  // touch. Its permission-set editor derives what it offers from that row, so leaving
+  // it on the pre-write copy kept offering a removal for a stored name the operator had
+  // just cleared. Re-point it at the refreshed row; if the row has left the list (it was
+  // revoked, or a filter dropped it) KEEP the copy on screen rather than blanking the
+  // modal out from under an operator mid-edit.
+  const handleDelegationUpdated = async () => {
+    const delegations = await loadDelegations();
+    setSelectedDelegation(current =>
+      current ? delegations.find(delegation => delegation.id === current.id) || current : current
+    );
   };
 
   const loadRequests = async () => {
@@ -255,14 +272,46 @@ export const DelegationsManagement: React.FC = () => {
                         <span className="text-theme-tertiary">
                           {delegation.users?.length || 0} user{(delegation.users?.length || 0) !== 1 ? 's' : ''}
                         </span>
-                        <span className="text-theme-tertiary">
-                          {delegation.permissions?.length || 0} permission{(delegation.permissions?.length || 0) !== 1 ? 's' : ''}
+                        <span
+                          className="text-theme-tertiary"
+                          title="Permissions this delegation currently confers. The API resolves the stored permission rows against the role LIVE, so this is the resolved set, not a count of stored rows."
+                        >
+                          {delegation.permissions?.length || 0} resolved permission{(delegation.permissions?.length || 0) !== 1 ? 's' : ''}
                         </span>
                       </div>
                       <span className="text-theme-link hover:text-theme-link-hover">
                         Manage →
                       </span>
                     </div>
+                    {(delegation.stale_permission_names?.length || 0) > 0 && (
+                      <div className="mt-2 pt-2 border-t border-theme">
+                        <p className="text-xs text-theme-warning-fg">
+                          {delegation.stale_permission_names?.length} stored permission
+                          {(delegation.stale_permission_names?.length || 0) !== 1 ? 's are' : ' is'} no longer
+                          granted by this delegation&apos;s role and confer
+                          {(delegation.stale_permission_names?.length || 0) !== 1 ? ' ' : 's '}nothing.
+                        </p>
+                        {/* Names WHERE the editor is, not that the reader may use it. This
+                            card also renders on the incoming tab, where the viewer is the
+                            grantee, and the editor in the details modal is gated on the
+                            delegations permission -- so promising an edit here would be
+                            wrong for two different readers. */}
+                        <p className="mt-1 text-xs text-theme-tertiary">
+                          Clearing {(delegation.stale_permission_names?.length || 0) !== 1 ? 'them' : 'it'} means
+                          rewriting the stored permission set in this delegation&apos;s details.
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {(delegation.stale_permission_names || []).map((name) => (
+                            <span
+                              key={name}
+                              className="text-xs px-2 py-0.5 rounded-full bg-theme-warning-bg text-theme-warning-fg"
+                            >
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {delegation.expiresAt && (
                       <div className="mt-2 pt-2 border-t border-theme">
                         <span className="text-xs text-theme-tertiary">
@@ -355,7 +404,7 @@ export const DelegationsManagement: React.FC = () => {
             setSelectedDelegation(null);
           }}
           onRevoke={handleRevokeDelegation}
-          onUpdate={loadDelegations}
+          onUpdate={handleDelegationUpdated}
         />
       )}
 

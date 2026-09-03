@@ -28,33 +28,155 @@ RSpec.describe Ai::RalphLoop, type: :model do
     end
   end
 
+  # IMP-7f415874c14a: the jsonb append is RETIRED. #add_learning is kept as the
+  # public API but now back-fills the surviving sink — the producing iteration's
+  # `learning_extracted` — and never touches the loop row. Full coverage lives in
+  # spec/models/ai/ralph_loop_learning_write_retirement_spec.rb.
   describe "#add_learning" do
-    it "appends a structured learning entry" do
-      loop_record.add_learning("Discovered a flaky spec", context: { task_key: "IMP-1" })
-      entry = loop_record.reload.learnings.last
+    it "records the learning on the producing iteration's row, not the loop array" do
+      create(:ai_ralph_iteration, ralph_loop: loop_record, iteration_number: 3)
+      loop_record.update!(current_iteration: 7)
 
-      expect(entry["text"]).to eq("Discovered a flaky spec")
-      expect(entry["context"]).to eq({ "task_key" => "IMP-1" })
-      expect(entry["iteration"]).to eq(loop_record.current_iteration)
+      loop_record.add_learning("Discovered a flaky spec", context: { iteration: 3, task_key: "IMP-1" })
+
+      expect(loop_record.ralph_iterations.find_by(iteration_number: 3).learning_extracted)
+        .to eq("Discovered a flaky spec")
+      expect(loop_record.reload.learnings).to eq([])
     end
 
-    it "preserves prior learnings across successive appends" do
-      loop_record.add_learning("first")
-      loop_record.add_learning("second")
-      texts = loop_record.reload.learnings.map { |l| l["text"] }
-      expect(texts).to eq(%w[first second])
-    end
+    it "falls back to the loop counter only when the caller supplies no iteration" do
+      loop_record.update!(current_iteration: 5)
+      create(:ai_ralph_iteration, ralph_loop: loop_record, iteration_number: 5)
 
-    it "appends under a row lock" do
-      expect(loop_record).to receive(:with_lock).and_call_original
-      loop_record.add_learning("locked append")
+      loop_record.add_learning("no iteration context")
+
+      expect(loop_record.ralph_iterations.find_by(iteration_number: 5).learning_extracted)
+        .to eq("no iteration context")
     end
 
     it "scrubs secrets out of the learning text before persisting (G15)" do
-      loop_record.add_learning('Set api_key=sk-supersecretvalue123 in the env')
-      text = loop_record.reload.learnings.last["text"]
+      create(:ai_ralph_iteration, ralph_loop: loop_record, iteration_number: 1)
+
+      loop_record.add_learning('Set api_key=sk-supersecretvalue123 in the env', context: { iteration: 1 })
+
+      text = loop_record.ralph_iterations.find_by(iteration_number: 1).learning_extracted
       expect(text).not_to include("sk-supersecretvalue123")
       expect(text).to match(/\[REDACTED/)
+    end
+  end
+
+  # ==========================================================================
+  # IMP-44964469b565 — the recency channel reads from ai_ralph_iterations, not
+  # the loop-level jsonb array. The array is STILL WRITTEN; only the READ moved,
+  # so the switch stays reversible while both channels are populated.
+  # ==========================================================================
+  describe "#recent_learnings" do
+    let(:record) { create(:ai_ralph_loop, account: account, current_iteration: 0) }
+
+    # Interleaved NULL learning_extracted rows are the production shape (142 of
+    # 496 rows carry none). They must be SKIPPED WITHOUT CONSUMING THE LIMIT —
+    # a fixture where every row carries a learning hides that off-by-one.
+    def seed_interleaved!
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 1, learning_extracted: "oldest")
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 2, learning_extracted: nil)
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 3, learning_extracted: "middle")
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 4, learning_extracted: nil)
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 5, learning_extracted: nil)
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 6, learning_extracted: "newest")
+    end
+
+    it "returns the iteration rows' learnings oldest-first, the newest LAST" do
+      seed_interleaved!
+
+      expect(record.recent_learnings.map { |l| l["text"] }).to eq(%w[oldest middle newest])
+    end
+
+    # The orientation the three readers render (TaskExecutor#format_learnings,
+    # IterationExecution#format_learnings, DevLoopTool#iteration_context) is the
+    # one `(learnings || []).last(limit)` produced. DESC is the SELECTION of the
+    # newest k; the result is reversed back. Pinning it here because flipping it
+    # would silently reverse every prompt's "Previous Learnings" block.
+    it "keeps only the newest `limit` learnings, skipping NULL rows without spending the limit" do
+      seed_interleaved!
+
+      expect(record.recent_learnings(limit: 2).map { |l| l["text"] }).to eq(%w[middle newest])
+    end
+
+    it "carries the jsonb entry shape the existing readers index" do
+      task = create(:ai_ralph_task, ralph_loop: record, task_key: "IMP-shape")
+      create(:ai_ralph_iteration, :completed, ralph_loop: record, ralph_task: task,
+             iteration_number: 9, learning_extracted: "Eager-load before iterating")
+
+      entry = record.recent_learnings.last
+
+      expect(entry["text"]).to eq("Eager-load before iterating")
+      expect(entry["iteration"]).to eq(9)
+      expect(entry["timestamp"]).to be_present
+      expect(entry["context"]).to eq({ "iteration" => 9, "task_key" => "IMP-shape" })
+      # NOT enriched: iteration rows carry these, array entries never did.
+      expect(entry.keys).to match_array(%w[text iteration timestamp context])
+    end
+
+    it "ignores an iteration row whose learning_extracted is blank" do
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 1, learning_extracted: "")
+      create(:ai_ralph_iteration, ralph_loop: record, iteration_number: 2, learning_extracted: "kept")
+
+      expect(record.recent_learnings.map { |l| l["text"] }).to eq(["kept"])
+    end
+
+    it "returns [] for a loop with no iteration rows at all" do
+      expect(record.recent_learnings).to eq([])
+    end
+
+    # ---- SOURCE ORACLE, half A -------------------------------------------
+    # Clearing the loop-level array must NOT affect the read. Alone this proves
+    # nothing (an empty-tolerant array read would also pass) — it is only
+    # meaningful paired with half B below.
+    it "still reads when the loop-level learnings array is empty (source oracle A)" do
+      seed_interleaved!
+      record.update!(learnings: [])
+
+      expect(record.reload.recent_learnings.map { |l| l["text"] }).to eq(%w[oldest middle newest])
+    end
+
+    # ---- SOURCE ORACLE, half B -------------------------------------------
+    # Clearing learning_extracted must empty the read EVEN THOUGH the array is
+    # fully populated. Alone this passes for code that reads neither; paired
+    # with half A it pins the source to the iteration rows.
+    it "goes empty when learning_extracted is cleared, array notwithstanding (source oracle B)" do
+      seed_interleaved!
+      record.update!(learnings: [ { "text" => "still in the legacy array", "iteration" => 6,
+                                    "timestamp" => Time.current.iso8601, "context" => {} } ])
+      record.ralph_iterations.update_all(learning_extracted: nil)
+
+      expect(record.reload.learnings).to be_present
+      expect(record.recent_learnings).to eq([])
+    end
+
+    # ---- #reset! interaction ---------------------------------------------
+    # DECISION (IMP-44964469b565): empty-after-reset is CORRECT and deliberate.
+    # A reset is "start this run over" — the recency channel is per-run context,
+    # so it should start empty, exactly as it does for a brand-new loop.
+    # Nothing is lost: IMP-7f415874c14a moved the preservation onto the channel
+    # that is actually read — #reset! captures #learning_entries BEFORE its
+    # delete_all and hands them to #extract_compound_learnings, so they land in the
+    # durable CompoundLearning store and come back as `relevant_learnings` on the
+    # next claim. Pinned here so it is a decision, not a production discovery.
+    it "goes empty after #reset!, the doomed learnings having been harvested" do
+      terminal = create(:ai_ralph_loop, :failed, account: account, current_iteration: 4)
+      create(:ai_ralph_iteration, ralph_loop: terminal, iteration_number: 1,
+             learning_extracted: "Webhook receivers must return 202, never 500")
+      expect(terminal.recent_learnings.map { |l| l["text"] })
+        .to eq(["Webhook receivers must return 202, never 500"])
+      harvested = nil
+      allow_any_instance_of(Ai::Learning::RalphLearningExtractor)
+        .to receive(:extract) { |_x, _loop, entries: nil| harvested = Array(entries).map { |e| e["text"] } }
+
+      terminal.reset!
+      terminal.reload
+
+      expect(terminal.recent_learnings).to eq([])
+      expect(harvested).to eq(["Webhook receivers must return 202, never 500"])
     end
   end
 
@@ -437,6 +559,55 @@ RSpec.describe Ai::RalphLoop, type: :model do
         )
         expect(failed.reload).to have_attributes(status: "pending", error_message: nil, error_code: nil)
         expect(skipped.reload.status).to eq("skipped")
+      end
+
+      # IMP-3acfff02a847 / IMP-7f415874c14a: reset! is a do-over of the RUN, not
+      # amnesia about what the run TAUGHT. delete_all destroys
+      # ai_ralph_iterations.learning_extracted, now the ONLY per-iteration record.
+      # The preservation used to back-fill the loop-level jsonb array; that array is
+      # no longer read, so it moved to the durable CompoundLearning store. Both
+      # directions are asserted on purpose: a reset! that simply stopped deleting
+      # anything would satisfy the survival assertion alone.
+      it "harvests a learning carried only by an iteration row, then destroys the row" do
+        record.ralph_iterations.find_by(iteration_number: 2)
+              .update!(learning_extracted: "Webhook receivers must return 202, never 500")
+        harvested = nil
+        allow_any_instance_of(Ai::Learning::RalphLearningExtractor)
+          .to receive(:extract) { |_x, _loop, entries: nil| harvested = Array(entries) }
+
+        record.reset!
+        record.reload
+
+        # 1. the learning reached the durable channel, attributed to its iteration
+        expect(harvested.map { |l| l["text"] })
+          .to include("Webhook receivers must return 202, never 500")
+        expect(harvested.last["iteration"]).to eq(2)
+        # 2. and the iteration rows are genuinely gone, not merely detached
+        expect(record.ralph_iterations.count).to eq(0)
+        expect(Ai::RalphIteration.where(ralph_loop_id: record.id).count).to eq(0)
+      end
+
+      # The harvest is idempotent (near-duplicate dedup in CompoundLearningService),
+      # which is what makes resetting a loop #complete! already harvested — or
+      # resetting the same loop twice — safe without a dedupe pass of its own. That
+      # idempotence is what replaced #preserve_iteration_learnings!'s text dedupe.
+      it "does not duplicate a learning the durable store already holds" do
+        allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+        record.ralph_iterations.find_by(iteration_number: 1)
+              .update!(learning_extracted: "Eager-load before iterating an association")
+        record.extract_compound_learnings
+
+        expect { record.reset! }.not_to change(Ai::CompoundLearning, :count)
+      end
+
+      it "leaves the retired jsonb column dormant and empty" do
+        allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+        record.ralph_iterations.find_by(iteration_number: 1)
+              .update!(learning_extracted: "Nothing may be written back to the dead column")
+
+        record.reset!
+
+        expect(record.reload.learnings).to eq([])
       end
 
       %i[pending running paused].each do |state|

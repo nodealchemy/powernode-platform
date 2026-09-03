@@ -58,7 +58,9 @@ describe('CreateDelegationModal', () => {
     it('shows close button', () => {
       render(<CreateDelegationModal {...defaultProps} />);
 
-      const closeButton = screen.getByRole('button', { name: '' });
+      // The button's accessible name comes from its aria-label, not from its
+      // icon-only content: querying for the empty name matched nothing.
+      const closeButton = screen.getByRole('button', { name: 'Close' });
       expect(closeButton.querySelector('svg')).toBeInTheDocument();
     });
 

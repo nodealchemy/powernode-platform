@@ -387,6 +387,11 @@ config/extensions_state.json
 /extensions/private/
 # Maintainer-local notes (never committed to the public repo)
 /CLAUDE.local.md
+# Gate-#9 grandfather entries whose PATH is inside extensions/private/. The tracked
+# baseline beside it is published to the PUBLIC mirror, where such a path would
+# disclose a private extension's name and internal layout. Written by
+# scripts/generate-core-purity-baseline.sh; read by the hook and the scan mirror.
+/.claude/hooks/core-purity-baseline.local.txt
 # Private-mode bundle lock (declares private-extension PATH gems — never commit; see server/Gemfile.private)
 /server/Gemfile.private.lock
 # The private-mode Gemfile itself IS committed (tiny; just flips the discovery

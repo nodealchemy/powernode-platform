@@ -129,10 +129,10 @@ module Api
           @service = ::Ai::DevopsService.new(current_account)
         end
 
+        # Preserves this controller's existing 403 body; halting behaviour and the
+        # delegation-aware check live in Authentication#authorize_action!.
         def authorize_action!(permission)
-          unless current_user.has_permission?(permission)
-            render_forbidden("Insufficient permissions")
-          end
+          super(permission, message: "Insufficient permissions")
         end
 
         def risk_json(risk)
@@ -197,7 +197,6 @@ module Api
 
           json
         end
-
       end
     end
   end

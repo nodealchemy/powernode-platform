@@ -115,7 +115,7 @@ module Api
 
         # GET /api/v1/ai/teams/reviews/:review_id/comments
         def list_review_comments
-          authorize_code_reviews_read!
+          authorize_action!("ai.code_reviews.read")
           review = current_account.ai_task_reviews.find(params[:review_id])
           comments = review.code_review_comments.ordered
           render_success({ comments: comments.map(&:comment_summary) })
@@ -123,7 +123,7 @@ module Api
 
         # POST /api/v1/ai/teams/reviews/:review_id/comments
         def create_review_comment
-          authorize_code_reviews_manage!
+          authorize_action!("ai.code_reviews.manage")
           review = current_account.ai_task_reviews.find(params[:review_id])
           comment = review.code_review_comments.create!(
             account: current_account,
@@ -134,7 +134,7 @@ module Api
 
         # PATCH /api/v1/ai/teams/reviews/:review_id/comments/:comment_id
         def update_review_comment
-          authorize_code_reviews_manage!
+          authorize_action!("ai.code_reviews.manage")
           review = current_account.ai_task_reviews.find(params[:review_id])
           comment = review.code_review_comments.find(params[:comment_id])
           comment.update!(review_comment_params)
@@ -169,26 +169,33 @@ module Api
         end
 
         def authorize_team_manage!
-          return if current_user.has_permission?("ai.teams.manage")
+          # Delegation-aware: current_user.has_permission? ignores an
+          # account-switch session's delegation scope (IMP-d3aacf1ffc1e fixed
+          # this in the three code-review helpers below; this filter-registered
+          # sibling was out of that fix's scope). Authentication#has_permission?
+          # resolves the live delegation when present, so this can only
+          # NARROW who passes in a delegated session, never widen it.
+          return if has_permission?("ai.teams.manage")
 
           render_forbidden
+        end
+
+        # The three code-review call sites above used to go through local
+        # `authorize_code_reviews_read!` / `authorize_code_reviews_manage!`
+        # methods that called a bare `render_forbidden` from the action body. Rails
+        # does not halt on a render, so each returned a clean 403 while the comment
+        # INSERT / UPDATE underneath ran anyway. Halting behaviour and the
+        # delegation-aware permission check now live in
+        # Authentication#authorize_action!; this override only preserves this
+        # controller's existing 403 body ("Access denied", from bare
+        # render_forbidden).
+        def authorize_action!(permission, message: "Access denied")
+          super
         end
 
         # Richer serialization for clone / update_from_source responses.
         def content_json(record)
           serialize_template(record, detailed: true)
-        end
-
-        def authorize_code_reviews_read!
-          return if current_user.has_permission?("ai.code_reviews.read")
-
-          render_forbidden
-        end
-
-        def authorize_code_reviews_manage!
-          return if current_user.has_permission?("ai.code_reviews.manage")
-
-          render_forbidden
         end
 
         def review_comment_params

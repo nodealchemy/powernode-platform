@@ -5,10 +5,8 @@ module Ai
     class AgentMemoryManagementTool < BaseTool
       # SECURITY (IMP-6fbfeff384fa): REQUIRED_PERMISSION was inherited as nil
       # from BaseTool, and McpPlatformToolRegistrar#enforce_permission! opens
-      # with `return if required.nil?` — ABOVE the authentication raise, the
-      # has_permission? raise and the MCP token intersection. So these four
-      # actions ran without any of the three, including for a scoped token that
-      # was never granted this surface.
+      # with `return if required.nil?` — ABOVE the authentication raise and the
+      # has_permission? raise. So these four actions ran without either.
       #
       # Unlike its four siblings in that sweep this tool gets ONE constant and
       # deliberately NO ACTION_PERMISSIONS map, because there is one decision
@@ -44,6 +42,15 @@ module Ai
       #     store from the Ai::MemoryPool rows AgentManagedMemoryService writes —
       #     and it too addresses arbitrary agents by :agent_id.
       REQUIRED_PERMISSION = "ai.agents.read"
+
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "agent_forget", mutating: true
+      declare_action "agent_recall", mutating: false
+      declare_action "agent_reflect", mutating: true
+      declare_action "agent_remember", mutating: true
 
       def self.definition
         {

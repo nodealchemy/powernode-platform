@@ -40,14 +40,44 @@ class AiProvisioningStepJob < BaseJob
       return result
     end
 
-    log_info("Provisioning step complete",
-             mission_id: mission_id, step_id: step_id,
-             status: result.is_a?(Hash) ? result.dig("data", "status") : nil)
+    log_step_outcome(result, mission_id: mission_id, step_id: step_id)
     result
   rescue StandardError => e
     log_error("AiProvisioningStepJob failed", e,
               mission_id: params && params["mission_id"],
               step_id: params && params["step_id"])
     raise
+  end
+
+  private
+
+  # The HTTP envelope's `success` is true for EVERY 200 the internal controller
+  # renders; the runner's own verdict is one level down, in `data` — which is
+  # SkillCompositionRunner#execute_step!'s return merged with the mission/step
+  # ids. Reading the envelope logged "Provisioning step complete" for a step
+  # that PARKED on an approval (data.pending), for one that failed inside a 200
+  # (data.success == false), and for one refused as a duplicate dispatch
+  # (data.already_running) — and reported a `data.status` key that payload never
+  # carries. A parked run reading as complete in the log is the worst of those:
+  # it hides that the plan is blocked on a human decision.
+  def log_step_outcome(result, mission_id:, step_id:)
+    inner = result.is_a?(Hash) && result["data"].is_a?(Hash) ? result["data"] : {}
+    context = { mission_id: mission_id, step_id: step_id }
+
+    if inner["pending"]
+      log_info("Provisioning step parked on approval",
+               **context,
+               deferred_operation_id: inner["deferred_operation_id"],
+               approval_request_id: inner["approval_request_id"])
+    elsif inner["already_running"] || inner["skipped"]
+      # `skipped` is #resume_step!'s lost-claim / no-longer-parked envelope —
+      # a benign race with a concurrent resume, not a failure. It carries no
+      # `error`, so the failure arm below would have logged `error: nil`.
+      log_info("Provisioning step already in flight; no-op", **context)
+    elsif inner["success"] == false
+      log_warn("Provisioning step reported failure", **context, error: inner["error"])
+    else
+      log_info("Provisioning step complete", **context, outputs: inner["outputs"])
+    end
   end
 end

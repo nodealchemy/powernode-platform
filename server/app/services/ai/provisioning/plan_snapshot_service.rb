@@ -25,6 +25,14 @@ module Ai
     # so a failing renderer doesn't 500 the response — the operator sees a
     # placeholder card instead.
     class PlanSnapshotService
+      # A step in one of these is still moving; see #display_folds. A step
+      # PARKED on an approval (SkillCompositionRunner::PARKED_STATUS) counts:
+      # the plan is not finished, and folding its rows away would drop the
+      # operator out of the live view while they are being asked to decide.
+      IN_FLIGHT_STEP_STATUSES = (
+        %w[pending executing] + [ ::Ai::Provisioning::SkillCompositionRunner::PARKED_STATUS ]
+      ).freeze
+
       def initialize(account:)
         @account = account
       end
@@ -84,9 +92,82 @@ module Ai
       def build_dag(plan)
         steps = plan.steps.reload.to_a.sort_by { |s| s.step_number.to_i }
         purpose = plan_purpose_for(plan)
-        nodes = steps.map { |s| node_for(s, plan_purpose: purpose) }
-        edges = build_edges(steps)
-        { nodes: nodes, edges: edges }
+
+        # IMP-cdbb0c06386c: once a plan has left the review gate the composer's
+        # read path no longer collapses its ROWS — they are the record of what
+        # ran. The cosmetic half of that job (a legacy plan showing N identical
+        # provisioning rows) happens here instead, on the rendered DAG only.
+        folds = display_folds(plan, steps)
+        folded_ids = folds.values.flatten.map(&:id)
+        kept = steps.reject { |s| folded_ids.include?(s.id) }
+
+        nodes = kept.map { |s| node_for(s, plan_purpose: purpose, folded: folds[s] || []) }
+        { nodes: nodes, edges: build_edges(steps, folds: folds) }
+      end
+
+      # Steps that are INDISTINGUISHABLE on screen — same status and a
+      # byte-identical execution_config apart from `count` — render as one row
+      # with the counts summed. Deliberately narrower than the composer's
+      # collapse passes: nothing folds unless every field the operator could
+      # tell them apart by already matched, and the surviving node names the
+      # step ids folded into it, so the fold adds information rather than
+      # dropping it.
+      #
+      # Two scope rules, both load-bearing:
+      #   - the plan must have left the review gate (a plan still at review has
+      #     had its rows compacted for real by the composer);
+      #   - NOTHING may still be in flight. The frontend derives its progress
+      #     denominator AND its allDone from `dag.nodes`, so folding while
+      #     steps are pending/executing would under-count the work and drop the
+      #     operator out of the live view the moment the first leg finished.
+      #
+      # The config — not just `inputs` — is the key: a per-instance fan-out
+      # (docker legs, per-region provisioning) carries identical inputs and
+      # differs only in `depends_on_outputs`, and those legs are distinct work.
+      #
+      # @return [Hash{Ai::GoalPlanStep => Array<Ai::GoalPlanStep>}] keeper => folded
+      def display_folds(plan, steps)
+        return {} if steps.size < 2
+        return {} unless plan.respond_to?(:execution_started?) && plan.execution_started?
+        return {} if steps.any? { |s| IN_FLIGHT_STEP_STATUSES.include?(s.status.to_s) }
+
+        steps.group_by { |s| display_fold_key(s) }.each_with_object({}) do |(_key, group), folds|
+          next if group.size < 2
+
+          folds[group.first] = group.drop(1)
+        end
+      rescue StandardError => e
+        Rails.logger.warn("[PlanSnapshotService] display fold failed: #{e.class}: #{e.message}")
+        {}
+      end
+
+      # A step with no skill is never folded — its own id keeps the key unique.
+      def display_fold_key(step)
+        cfg = step.execution_config.is_a?(Hash) ? step.execution_config.deep_stringify_keys : {}
+        return step.id.to_s if cfg["skill"].to_s.empty?
+
+        cfg["inputs"] = cfg["inputs"].is_a?(Hash) ? cfg["inputs"].except("count") : {}
+        [ step.status.to_s, cfg ]
+      end
+
+      # The kept node renders the SUM of the folded group's counts, so
+      # "Provision 1×" three times reads as "Provision 3×" — the number the
+      # destructive pass used to write into the row it kept.
+      def folded_display_config(step, folded)
+        cfg = step.execution_config.is_a?(Hash) ? step.execution_config.deep_dup : {}
+        return cfg if folded.empty?
+        return cfg unless cfg["inputs"].is_a?(Hash)
+
+        total = ([ step ] + folded).sum { |s| step_count(s) }
+        cfg["inputs"] = cfg["inputs"].merge("count" => total)
+        cfg
+      end
+
+      def step_count(step)
+        cfg = step.execution_config.is_a?(Hash) ? step.execution_config : {}
+        Integer((cfg["inputs"] || {})["count"] || 1)
+      rescue ArgumentError, TypeError
+        1
       end
 
       # Pulls the operator's stated purpose from the plan's goal — the brief's
@@ -105,8 +186,8 @@ module Ai
         nil
       end
 
-      def node_for(step, plan_purpose: nil)
-        cfg = step.execution_config.is_a?(Hash) ? step.execution_config : {}
+      def node_for(step, plan_purpose: nil, folded: [])
+        cfg = folded_display_config(step, folded)
         skill = (cfg["skill"] || cfg[:skill]).to_s
         inputs = (cfg["inputs"] || cfg[:inputs] || {})
         node = {
@@ -127,6 +208,14 @@ module Ai
         # shape for a healthy step.
         omitted = cfg["unnormalized_inputs"] || cfg[:unnormalized_inputs]
         node[:unnormalized_inputs] = omitted if omitted.present?
+
+        # Disclose the fold rather than performing it silently: the operator
+        # (and anyone reading the response) can see which persisted steps this
+        # single row stands for. Additive — absent for an unfolded node.
+        if folded.present?
+          node[:folded_step_ids] = folded.map { |s| s.id.to_s }
+          node[:folded_step_numbers] = folded.map { |s| s.step_number.to_i }
+        end
         node
       end
 
@@ -268,16 +357,28 @@ module Ai
 
       # Each step's `dependencies` field stores upstream step_numbers; resolve
       # them back to step IDs so the frontend can draw arrows between nodes.
-      def build_edges(steps)
+      def build_edges(steps, folds: {})
         by_number = steps.each_with_object({}) { |s, h| h[s.step_number.to_i] = s }
+
+        # A folded step has no node of its own, so every edge touching it is
+        # rerouted onto the node it folded into; self-edges and duplicates that
+        # rerouting creates are dropped.
+        keeper_for = {}
+        folds.each { |keeper, group| group.each { |s| keeper_for[s.id] = keeper } }
+        displayed = ->(step) { step && (keeper_for[step.id] || step) }
+
         edges = []
         steps.each do |s|
+          target = displayed.call(s)
           Array(s.dependencies).each do |dep_num|
-            source = by_number[dep_num.to_i]
-            edges << { from: source.id.to_s, to: s.id.to_s } if source
+            source = displayed.call(by_number[dep_num.to_i])
+            next unless source && target
+            next if source.id == target.id
+
+            edges << { from: source.id.to_s, to: target.id.to_s }
           end
         end
-        edges
+        edges.uniq
       end
 
       def build_cost_estimate(plan)

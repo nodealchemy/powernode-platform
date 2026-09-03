@@ -5,6 +5,18 @@ module Ai
     class KnowledgeQualityTool < BaseTool
       REQUIRED_PERMISSION = "ai.agents.manage"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "dispute_learning", mutating: true
+      declare_action "knowledge_health", mutating: false
+      declare_action "rate_knowledge", mutating: true
+      declare_action "resolve_contradiction", mutating: true
+      declare_action "unsupersede_learning", mutating: true
+      declare_action "verify_learning", mutating: true
+      declare_action "verify_learning_batch", mutating: true
+
       def self.definition
         {
           name: "knowledge_quality",

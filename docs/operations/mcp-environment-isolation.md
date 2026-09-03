@@ -290,15 +290,16 @@ federation → Doorkeeper) and `server/app/models/mcp/principal.rb`:
 | Destination | Auth arm | Principal on the far side | Far-side posture |
 |---|---|---|---|
 | Production ops-hub | node mTLS (proxy holds `node.key`) | `:instance` | default-deny grant + `DESTRUCTIVE_TOOL_PATTERNS` overlay; advertisement filtered |
-| Local dev sandbox | Doorkeeper bearer | `:user` | full catalog, `has_permission?` + token intersection; blast radius = one dev DB, no fleet |
+| Local dev sandbox | Doorkeeper bearer | `:user` | full catalog, gated by `has_permission?` ONLY — the bearer's OAuth scopes narrow nothing (no scope→permission mapping exists); blast radius = one dev DB, no fleet |
 | Federated peer | shared bearer + `X-Federation-Organization` header | `:federation` | default-deny, scoped to `FederationPartner#allowed_capabilities` (validated non-overbroad, `allowed_capabilities_not_overbroad`), destructive overlay applies, failure-throttled |
 
 Composition rules for the router: each route sends **exactly one** arm's credentials —
 node mTLS is never presented to a federated peer, federation bearers never to prod; the inbound
 `authorization` header stays dropped on every route (the client holds no credentials, on any
 arm). Trust ordering falls out of the far-side posture: federated peers are *already* the most
-constrained destination server-side — the peer enforces its own capability scope, so our router
-adds fan-out, not trust. The asymmetry worth stating: the **sandbox** is the least-guarded
+constrained destination server-side — the peer enforces its own `allowed_capabilities` (surfaced as
+`granted_tool_patterns`; note that the similarly-named `capability_scope` field is INERT and is
+NOT the control here), so our router adds fan-out, not trust. The asymmetry worth stating: the **sandbox** is the least-guarded
 destination by design (user principal, full catalog) — which is correct, because the design goal
 is "sandbox unrestricted, production requires more".
 
@@ -360,9 +361,19 @@ Adopt, in priority order:
    - Static root-only route table: `/mcp/prod` (node mTLS), `/mcp/dev` (Doorkeeper bearer moves
      out of `~/.claude.json` into root-only config), `/mcp/fed/<peer>` (per-peer shared bearer +
      `X-Federation-Organization`). One `https.Agent` per route built at boot; unknown paths 404.
-   - Per-route policy: prod route filters `tools/list` and denies destructive `tools/call` names
-     (same family list as layer 1, so the two layers mirror each other); dev route is
-     unrestricted; federation routes pass through to the peer's own capability scope.
+   - Per-route policy: prod route denies destructive `tools/call` names (same family list as
+     layer 1, so the two layers mirror each other); dev route is unrestricted; federation routes
+     pass through to the peer's own `allowed_capabilities`.
+
+     **AMENDED (design review, 2026-08-31): proxy-side `tools/list` filtering is dropped as
+     overbuilt.** Filtering an advertisement means parsing — and possibly re-framing SSE — of
+     upstream response bodies inside the root proxy: the same complexity class this design
+     correctly refuses for `tools/call`, smuggled back in for one method. The bound it would add
+     already exists and is verified real server-side: `Mcp::Principal#filter_tools`
+     (`server/app/models/mcp/principal.rb:271`) over default-deny instance and federation
+     principals (`:253`), whose patterns come from `FederationPartner#allowed_capabilities`
+     (`:279`) under an over-broad validation (`federation_partner.rb:42`, `:415-423`). Keep only
+     per-route credential injection plus `tools/call` name denial.
    - Policy trusts `Mcp-Name` only alongside a pinned 2026-07-28+ protocol requirement on the
      prod route (§11 caveat), upgrading to body parsing if adversarial-grade enforcement is ever
      required.
@@ -385,3 +396,86 @@ config surface.
 ## 13. What Part II does NOT protect against (delta to §5)
 
 > Moved to the maintainer-local `CLAUDE.local.md`, same reasoning as §5.
+
+---
+
+# Part III — Phase 1 as built (2026-08-31)
+
+## 14. What landed
+
+`dev-cell-mcp-proxy.js` now serves a **static route table** built at boot. Route selection is
+**exact-match on the path** — deliberately not a prefix match, which is precisely how a request
+for one destination ends up at another. Unknown path stays a 404.
+
+| Route | Credential | Source |
+|---|---|---|
+| `/mcp` | node mTLS | hardcoded (LEGACY alias, kept for cutover) |
+| `/mcp/prod` | node mTLS | hardcoded |
+| `/mcp/<name>` | bearer | `/etc/dev-cell/mcp-routes.json` (root-only, 0600) |
+
+**The two mTLS routes are hardcoded and cannot be redefined by config.** Config-declared routes
+are bearer-only. So no edit to the route file — however hostile or confused — can manufacture a
+route that presents the node's client cert. That is the credential-confusion incident class this
+phase most needed to exclude, and it is excluded structurally rather than by validation.
+
+A **missing** route file is the normal case and is harmless: the proxy then serves exactly the two
+mTLS routes, i.e. pre-routing behaviour. A **malformed** one is a boot failure, not a skipped
+route — an operator must never believe a destination is wired when it was silently dropped.
+
+Route file shape (the token is the only secret here; it belongs in this root-only file and
+nowhere else — never in `~/.claude.json`, never in this doc):
+
+```json
+{
+  "routes": [
+    {
+      "path": "/mcp/dev",
+      "url": "http://127.0.0.1:3000/api/v1/mcp/message",
+      "credential": { "type": "bearer", "token": "<DOORKEEPER-BEARER>" }
+    }
+  ]
+}
+```
+
+## 15. Verification performed
+
+`extensions/system/modules/dev-cell/test/dev-cell-mcp-proxy.test.js` — 14 tests, no dependencies
+(`node --test`), the module's first test harness. Seven mutants were run against the route table;
+each was proved to have applied (md5 before/after) and each was killed:
+
+| Mutant | Killed by |
+|---|---|
+| bearer route given the mTLS agent | 4 tests |
+| `selectRoute` becomes a prefix match | 6 tests |
+| reserved-path guard removed | 1 |
+| any credential type accepted | 1 |
+| authorization injected *before* the header allowlist | 1 |
+| empty-token guard removed | 1 |
+| traversal/shape guard removed | 1 |
+
+The source was restored from a scratchpad pristine copy (not `git checkout`, which would have
+discarded the uncommitted fix) and the baseline re-confirmed green afterwards.
+
+## 16. Cutover — remaining operator steps
+
+Phase 1 is **built, not deployed**. Nothing on a live cell has changed. In order:
+
+1. Deploy the dev-cell module so the new `dev-cell-mcp-proxy.js` reaches the box, and restart the
+   proxy unit. `/mcp` keeps working throughout — that is what the legacy alias is for.
+2. Create `/etc/dev-cell/mcp-routes.json` (0600 root:root) with the dev route, and **remove the
+   bearer from `~/.claude.json`**; repoint that registration at `http://127.0.0.1:18443/mcp/dev`.
+   The `powernode` (prod) registration keeps its name and needs no change — that is what avoids
+   retraining every skill, doc and memory reference.
+3. Move `dev-cell-mcp-register.sh` and `dev-cell-executor.sh` from `/mcp` to `/mcp/prod`, then
+   drop `LEGACY_PATH` once no consumer remains.
+
+## 17. Phase 2 is gated on a measurement, not a decision
+
+Proxy-side `tools/call` name denial is only sound if this client negotiates protocol
+`2026-07-28` and sends `Mcp-Name`. The server skips its **entire** header-mirror validation for
+clients that signal no stateless version (`streamable_http_controller.rb:857`;
+`STATELESS_VERSIONS = ["2026-07-28"]` only, `protocol_service.rb:33`) — so a header that is
+merely *present* is not trustworthy. Set `DEV_CELL_MCP_PROXY_LOG_PROTOCOL=1`, capture, turn it
+off. If the client does not negotiate 2026-07-28, **skip proxy-side denial entirely** and rely on
+the server-side grant plus ask-rules. Do not fall back to body parsing: that reintroduces exactly
+the property this design spends its budget avoiding.

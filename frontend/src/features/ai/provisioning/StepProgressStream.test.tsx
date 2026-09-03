@@ -148,4 +148,82 @@ describe('StepProgressStream', () => {
     expect(screen.getByText('3 of 3 steps')).toBeInTheDocument();
     expect(screen.getByText('100%')).toBeInTheDocument();
   });
+  // IMP-842b56d3a5d4 — `awaiting_approval` is a real server status
+  // (Ai::GoalPlanStep::STATUSES / SkillCompositionRunner::PARKED_STATUS,
+  // broadcast verbatim by #park_step!). It was absent from
+  // ProvisioningStepStatus, so a parked step fell through StatusIcon's
+  // `default` and rendered as PENDING — the one reading that hides the fact
+  // that the run is blocked on a human.
+  describe('a step parked on an approval', () => {
+    it('renders a distinct awaiting_approval icon, not the pending one', () => {
+      render(<StepProgressStream missionId="mission-1" steps={STEPS} />);
+      emit('provisioning_step_changed', {
+        mission_id: 'mission-1',
+        step_id: 'step-2',
+        status: 'awaiting_approval',
+      });
+
+      expect(screen.getByTestId('step-icon-awaiting_approval')).toBeInTheDocument();
+      expect(screen.getByTestId('step-step-2')).toHaveAttribute('data-status', 'awaiting_approval');
+    });
+
+    it('labels the icon so it is not read as pending', () => {
+      render(<StepProgressStream missionId="mission-1" steps={STEPS} />);
+      emit('provisioning_step_changed', {
+        mission_id: 'mission-1',
+        step_id: 'step-2',
+        status: 'awaiting_approval',
+      });
+
+      expect(screen.getByLabelText('Awaiting approval')).toBeInTheDocument();
+    });
+
+    it('renders rollback_failed with its own icon, not the pending circle', () => {
+      // REVIEW FINDING (IMP-842b56d3a5d4) — SkillCompositionRunner announces
+      // `rollback_failed` (skill_composition_runner.rb:587, :599) when a
+      // compensating rollback ITSELF failed. The union omitted it, so a leaked
+      // un-compensated resource fell through StatusIcon's `default` and read as
+      // "not started" — strictly worse than the parked case.
+      render(<StepProgressStream missionId="mission-1" steps={STEPS} />);
+      emit('provisioning_step_changed', {
+        mission_id: 'mission-1',
+        step_id: 'step-2',
+        status: 'rollback_failed',
+        error: 'terminate call failed',
+      });
+
+      expect(screen.getByTestId('step-icon-rollback_failed')).toBeInTheDocument();
+      expect(screen.getByLabelText('Rollback failed')).toBeInTheDocument();
+      expect(screen.getByTestId('step-step-2')).toHaveAttribute('data-status', 'rollback_failed');
+    });
+
+    it('renders the server-side executing status without falling back to pending', () => {
+      // `executing` is the real Ai::GoalPlanStep::STATUSES in-flight value;
+      // `running` is the client-side alias. A plan snapshot hands the raw
+      // column through (plan_snapshot_service.rb:200), so both must render.
+      render(<StepProgressStream missionId="mission-1" steps={STEPS} />);
+      emit('provisioning_step_changed', {
+        mission_id: 'mission-1',
+        step_id: 'step-2',
+        status: 'executing',
+      });
+
+      expect(screen.getByTestId('step-icon-running')).toBeInTheDocument();
+      expect(screen.getByTestId('step-step-2')).toHaveAttribute('data-status', 'executing');
+    });
+
+    it('does not count a parked step toward completion', () => {
+      const onAllComplete = jest.fn();
+      render(
+        <StepProgressStream missionId="mission-1" steps={STEPS} onAllComplete={onAllComplete} />
+      );
+
+      emit('provisioning_step_changed', { mission_id: 'mission-1', step_id: 'step-1', status: 'completed' });
+      emit('provisioning_step_changed', { mission_id: 'mission-1', step_id: 'step-2', status: 'awaiting_approval' });
+      emit('provisioning_step_changed', { mission_id: 'mission-1', step_id: 'step-3', status: 'completed' });
+
+      expect(onAllComplete).not.toHaveBeenCalled();
+      expect(screen.getByText('2 of 3 steps')).toBeInTheDocument();
+    });
+  });
 });

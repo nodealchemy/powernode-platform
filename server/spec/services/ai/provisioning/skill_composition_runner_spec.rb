@@ -588,4 +588,54 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner do
       expect(meta.keys).to match_array(meta.keys.uniq)
     end
   end
+
+  # ---------------------------------------------------------------------
+  # .input_contract_for (IMP-15d12f9ace83)
+  #
+  # .required_inputs_for answers "did this step bind?" after the fact.
+  # .input_contract_for answers "what should a composer PUT here?" before it
+  # composes — the question AdaptationProposerService's diff prompt could not
+  # answer, which is why LLM-composed schema_change / security_change steps
+  # were dropped for guessing key names.
+  # ---------------------------------------------------------------------
+  describe ".input_contract_for" do
+    it "returns nil — not [] — for an unresolvable skill, matching .required_inputs_for" do
+      expect(described_class.input_contract_for("no_such_skill_at_all")).to be_nil
+      expect(described_class.required_inputs_for("no_such_skill_at_all")).to be_nil
+    end
+
+    it "returns nil for a blank slug" do
+      expect(described_class.input_contract_for(nil)).to be_nil
+      expect(described_class.input_contract_for("")).to be_nil
+    end
+
+    context "with the system extension loaded" do
+      before do
+        skip "system extension not loaded" unless defined?(::System::Ai::Skills::AttachStorageExecutor)
+      end
+
+      it "describes every declared input with name, type and required flag" do
+        contract = described_class.input_contract_for("attach_storage")
+
+        instance_id = contract.find { |i| i["name"] == "instance_id" }
+        expect(instance_id).to include("type" => "string", "required" => true)
+        expect(instance_id["description"]).to be_present
+
+        expect(contract.find { |i| i["name"] == "mount_point" }["required"]).to be false
+      end
+
+      it "agrees with .required_inputs_for on which inputs are required" do
+        contract_required = described_class.input_contract_for("attach_storage")
+                                           .select { |i| i["required"] }.map { |i| i["name"] }
+
+        expect(contract_required).to match_array(described_class.required_inputs_for("attach_storage"))
+      end
+
+      it "caps each description at the prompt budget" do
+        described_class.input_contract_for("configure_sdwan_for_project").each do |spec|
+          expect(spec["description"].length).to be <= described_class::INPUT_DESCRIPTION_LIMIT
+        end
+      end
+    end
+  end
 end

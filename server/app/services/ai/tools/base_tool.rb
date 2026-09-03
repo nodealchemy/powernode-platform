@@ -6,7 +6,155 @@ module Ai
       REQUIRED_PERMISSION = nil
       MAX_CALLS_PER_EXECUTION = 20
 
+      # The `data` body of the third outcome #execute can produce: the autonomy
+      # gate returned :pending, so the action was PARKED for an operator and
+      # nothing was applied. Declared here, beside the site that builds it, and
+      # read by Ai::Tools::McpPlatformToolRegistrar.default_output_schema so the
+      # advertised outputSchema states the shape instead of leaving an agent to
+      # infer "done" vs "parked" from the prose in `message` (IMP-e809396f9eda).
+      PENDING_RESULT_PROPERTIES = {
+        "pending" => {
+          "type" => "boolean",
+          "description" => "True when the action was parked for operator approval. " \
+                           "Nothing has been applied; do not retry — poll the approval request."
+        },
+        "action_category" => {
+          "type" => "string",
+          "description" => "Autonomy-gate category that required approval, e.g. sdwan.network_create."
+        },
+        "deferred_operation_id" => {
+          "type" => "string",
+          "description" => "Ai::DeferredOperation UUID that will run on approval. May be null."
+        },
+        "approval_request_id" => {
+          "type" => "string",
+          "description" => "Ai::ApprovalRequest UUID an operator decides. May be null."
+        },
+        "message" => {
+          "type" => "string",
+          "description" => "Human-readable statement of what is awaiting approval."
+        }
+      }.freeze
+
+      # === LIST PAGINATION (APO-8b, IMP-c5a62a32d3bb) ===
+      #
+      # Before this seam, a list action on the MCP surface answered in one of
+      # three incompatible ways: it serialized every matching row, or it applied
+      # a hard-coded cap, or it accepted a `limit` of its own invention. The
+      # `count` beside the rows was worse than absent, because it did not mean
+      # the same thing twice — some actions counted the UNCAPPED relation, some
+      # counted the relation AFTER the cap (so a 100-row account and a
+      # 10,000-row account answered identically), and some returned no count.
+      # None offered a page two.
+      #
+      # This is core, not extension, because the defect is not extension-shaped:
+      # any tool that serializes a relation has it, and a per-tool fix would
+      # reproduce exactly the inconsistency that is the finding.
+      #
+      # THE CONTRACT every paginated action inherits:
+      #   count       the UNCAPPED total matching the filters
+      #   returned    rows in THIS page
+      #   limit       the effective page size actually applied
+      #   has_more    true when rows remain beyond this page
+      #   next_cursor pass back as `cursor` to fetch them; null at the end
+      #
+      # KEYSET, NOT OFFSET. The cursor pins the position of the last row
+      # returned on (sort key, id) and the next page asks for rows strictly past
+      # it. Ids are UUIDv7 (uuidv7-everywhere), so the id tiebreak is
+      # time-ordered and total: two rows sharing a sort value still have a
+      # deterministic order, and a row inserted mid-walk cannot shift a page
+      # boundary the way an OFFSET would.
+      LIST_DEFAULT_LIMIT_SETTING = "ai_tools_list_default_limit"
+      LIST_MAX_LIMIT_SETTING     = "ai_tools_list_max_limit"
+      LIST_DEFAULT_LIMIT         = 100
+      LIST_MAX_LIMIT             = 500
+
+      # The fragment a paginated action splats into its declared parameters, so
+      # the two names and their prose are written once. No `default:` key: the
+      # effective default is operator config resolved per call, and freezing the
+      # fallback into the advertised schema would state a number the platform
+      # may not be using.
+      PAGINATION_PARAMETERS = {
+        limit: {
+          type: "integer", required: false,
+          description: "Maximum rows in this page. Omit for the operator-configured default page size. " \
+                       "A value above the configured maximum is clamped down, not refused."
+        },
+        cursor: {
+          type: "string", required: false,
+          description: "Opaque keyset cursor taken from a previous page's `next_cursor`. Omit for the first page. " \
+                       "Read `count` (the total matching your filters, NOT this page's size) and `has_more` to tell " \
+                       "a complete answer from a truncated one."
+        }
+      }.freeze
+
+      # One page plus the numbers a caller needs to know what it is holding.
+      ListPage = Struct.new(:records, :total, :limit, :next_cursor) do
+        def envelope
+          {
+            count:       total,
+            returned:    records.size,
+            limit:       limit,
+            has_more:    !next_cursor.nil?,
+            next_cursor: next_cursor
+          }
+        end
+      end
+
+      # A cursor the platform did not issue, or a limit that is not a number.
+      # Raised only INSIDE #paginated_result, which converts it to an
+      # error_result — SdwanTool#call and SystemPackageRepositoryTool#call do
+      # not rescue ArgumentError, so a raise escaping a list action would reach
+      # the agent as a JSON-RPC -32603 internal error instead of a refusal it
+      # can read and correct.
+      class InvalidPageRequest < StandardError; end
+
       class << self
+        # Operator-configured page size, with the constant as the fallback.
+        # A non-positive configured value is ignored rather than honoured: a
+        # zero would make every list action answer with an empty page and no
+        # way to walk past it.
+        def default_list_limit
+          positive_setting(LIST_DEFAULT_LIMIT_SETTING, LIST_DEFAULT_LIMIT)
+        end
+
+        # The ceiling a caller-supplied `limit` is clamped to.
+        def max_list_limit
+          positive_setting(LIST_MAX_LIMIT_SETTING, LIST_MAX_LIMIT)
+        end
+
+        def positive_setting(key, fallback)
+          value = ::SiteSetting.get(key).to_i
+          value.positive? ? value : fallback
+        end
+        private :positive_setting
+
+        # THE ONE BUILDER for the body PENDING_RESULT_PROPERTIES describes
+        # (APO-1f, IMP-117b34656921).
+        #
+        # Three producers emit this envelope — #run_through_autonomy_gate's
+        # :pending arm below, SdwanTool#gated_result, and (through
+        # System::Ai::Skills::BaseSkillExecutor#gate_action!) every
+        # approval-gated system skill — and Ai::Provisioning::SkillCompositionRunner
+        # READS it to decide a composed step parked rather than completed. A
+        # second spelling of the shape is what let the same parked category
+        # answer "pending" through one door and "failed" through another, so the
+        # keys are built here, once, beside the constant the outputSchema
+        # advertises and the fidelity spec pins them against.
+        #
+        # A tool may still splat its own extra keys alongside (SdwanTool's
+        # `pending_extra`); this is the floor, not the ceiling.
+        def pending_payload(action_category:, deferred_operation: nil,
+                            approval_request: nil, message: nil)
+          {
+            pending: true,
+            action_category: action_category,
+            deferred_operation_id: deferred_operation&.id,
+            approval_request_id: approval_request&.id,
+            message: message.presence || "Approval required: #{action_category}"
+          }
+        end
+
         def definition
           raise NotImplementedError, "#{name} must implement .definition"
         end
@@ -63,18 +211,44 @@ module Ai
         # for the current set; it grows). They arrive HERE, which is why the
         # registrar is the wrong altitude for this and #execute is right.
         #
-        # ONE known exemption: Ai::Tools::FederationTool#execute overrides this
-        # method and never calls super, so it bypasses the registry along with
-        # the deny overlay and validate_params!. Pre-existing, not introduced
-        # here — but it is the tool that proxies arbitrary remote tool names,
-        # so IMP-439d31353f9b has to close it before the fail-closed flip or
-        # that tool silently stays outside the regime.
+        # NO exemptions. Ai::Tools::FederationTool used to override this method
+        # without super — the tool that proxies arbitrary remote tool names,
+        # outside the registry, the deny overlay and validate_params! —
+        # and IMP-149b35e5f16f moved its body to #call. That no class serving
+        # a PlatformApiToolRegistry action overrides this method is asserted
+        # positively — over every registry-backed class, not as a pin on the
+        # one known offender — in spec/services/ai/tools/
+        # action_declaration_completeness_spec.rb, so a new override cannot
+        # reappear unnoticed and read as coverage. (A tool outside that
+        # registry is outside the assertion, as it is outside the equality.)
         #
-        # `mutating:` is INTENT for the registry: once every action is declared,
-        # it can carry the fail-closed invariant "an undeclared action is
-        # refused" (IMP-439d31353f9b owns that flip). Nothing enforces it today,
-        # and today exactly one action is declared platform-wide — flipping it
-        # now would refuse every undeclared verb on the platform.
+        # `mutating:` is INTENT for the registry: it can carry the fail-closed
+        # invariant "an undeclared action is refused" (IMP-439d31353f9b owns
+        # that flip). Nothing enforces it today.
+        #
+        # APO-1a (IMP-1e58753b3b6c) closed the gap that blocked the flip: every
+        # action Ai::Tools::PlatformApiToolRegistry.all_tools advertises now
+        # carries a declaration, asserted by set EQUALITY (both directions) in
+        # spec/services/ai/tools/action_declaration_completeness_spec.rb. An
+        # existence check could not do that job — a declaration keyed on the
+        # registry key rather than the ALIASED name #execute dispatches on
+        # reads as coverage while the action still runs undeclared.
+        #
+        # Those bulk declarations pass `mutating:` and NOTHING ELSE, on
+        # purpose. #gated_action? below needs action_category, executor_class,
+        # gate_context and on_proceed as well, so a `mutating:`-only
+        # declaration cannot arm the gate: #execute still takes `return
+        # call(params)`, and a tool that enforces per-action permissions inside
+        # #call (SystemFleetTool#action_permitted?) keeps that check. That is
+        # what makes the increment non-enforcing, and it is why
+        # action_category is absent rather than guessed: Ai::InterventionPolicy
+        # keeps a REGISTERED category vocabulary (see its STATIC_CATEGORIES and
+        # .register_category!), and a category no active policy row matches
+        # resolves to Ai::InterventionPolicyService#default_policy —
+        # "require_approval". A guessed category is therefore not inert: it
+        # would park real actions behind an approval nobody wrote a policy for.
+        # A category is only meaningful paired with the executor that can
+        # replay the action, so both are the gate-wiring increment's work.
         #
         # CORE PURITY: core never names an extension class. `executor_class` is
         # a STRING supplied by the declaring tool (which may live in an
@@ -106,6 +280,22 @@ module Ai
 
         def declared_actions
           @declared_actions ||= {}
+        end
+
+        # Is this name actual MCP registry surface? The allowlist that bounds
+        # undeclared-execution telemetry cardinality (see the private
+        # UNDECLARED-EXECUTION TELEMETRY block) — a caller-supplied
+        # params[:action] is an arbitrary string and must never become a cache
+        # key or an audit row on its own authority.
+        #
+        # Reads .all_tools rather than TOOLS + extension_tools so it cannot
+        # drift from the registry's own definition of its surface, and is
+        # deliberately NOT memoized: a memo would freeze the extension half at
+        # whatever was registered on first use. The cost is one merge of a
+        # ~600-entry frozen hash on a path that is already doing database work.
+        def registered_action_name?(name)
+          ::Ai::Tools::PlatformApiToolRegistry.all_tools.key?(name) ||
+            ::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.value?(name)
         end
 
         # Walks the ancestry so a subclass inherits its parent's declarations
@@ -143,6 +333,18 @@ module Ai
       # nil for user/agent callers, whose paths are unchanged. (BUG-S)
       attr_writer :node_instance
 
+      # Set by Ai::Executors::DeferredToolCall when it re-invokes a tool call an
+      # operator has APPROVED (APO-1b; docs/concepts/deferred-tool-call-replay.md).
+      # The gate already ran for this call, so #execute must not park it a second
+      # time — see #approved_replay?, which is where the bypass is decided.
+      #
+      # Deliberately the OPERATION and not a boolean. A `replaying = true` flag
+      # would be a gate bypass any in-process caller could set, which is exactly
+      # the hole #run_through_autonomy_gate refuses to open for `internal: true`.
+      # Taking the row means the bypass exists only where an approved
+      # Ai::DeferredOperation naming that executor exists.
+      attr_writer :replaying_operation
+
       # Set by McpPlatformToolRegistrar when the caller is an instance principal
       # whose SPECIFIC tool name already passed Mcp::Principal#may_invoke? in
       # the streamable controller. Lets a tool tell a grant-gated instance call
@@ -157,7 +359,33 @@ module Ai
         validate_params!(params)
         enforce_guardrails!
 
-        declaration = self.class.declared_action(routed_action_name(params))
+        action_name = routed_action_name(params)
+        declaration = self.class.declared_action(action_name)
+
+        # UNDECLARED PATH. Behaviourally `return call(params)` — which is what
+        # an undeclared action always did, since gated_action?(nil) is false —
+        # plus one sighting recorded in an `ensure` AFTER the body has run.
+        #
+        # AFTER, not before (D4): AuditLog's integrity chain serializes every
+        # insert behind pg_advisory_xact_lock(SEQUENCE_LOCK_KEY), and an
+        # advisory *xact* lock is only released by the OUTERMOST transaction's
+        # commit. Emitting first meant that, inside a caller's transaction, the
+        # global audit-sequence lock was held across the whole of #call —
+        # provider/HTTP latency for a fleet tool — with every audit write on the
+        # platform queued behind it.
+        #
+        # `ensure`, so a raising tool still records its sighting. That makes an
+        # exception escaping the telemetry able to REPLACE the tool's own return
+        # value or exception, so #record_undeclared_action carries an outermost
+        # rescue. Not a silent swallow: it logs at ERROR level.
+        if declaration.nil?
+          begin
+            return call(params)
+          ensure
+            record_undeclared_action(action_name)
+          end
+        end
+
         return call(params) unless gated_action?(declaration)
 
         # A gated action never reaches #call, and tools that enforce per-action
@@ -167,6 +395,14 @@ module Ai
         # seam that keeps the two in step.
         refusal = authorization_error(params)
         return refusal if refusal
+
+        # APPROVED REPLAY. Everything above this line still runs — the deny
+        # overlay, #validate_params!, #enforce_guardrails! and the tool's own
+        # #authorization_error — because a decision made hours ago does not
+        # re-authorise a principal that has changed since. Only the gate is
+        # skipped, and only because it already ran and an operator answered it.
+        # Without this the replayed call would park a second approval, forever.
+        return call(params) if approved_replay?
 
         run_through_autonomy_gate(declaration, params)
       end
@@ -220,6 +456,147 @@ module Ai
       # .permitted? / the MCP layer before construction.
       def authorization_error(_params)
         nil
+      end
+
+      # True only for a call Ai::Executors::DeferredToolCall is re-invoking on
+      # behalf of an APPROVED operation, in THIS tool's account.
+      #
+      # Every clause is load-bearing. The row must name that executor (nothing
+      # else stamps this writer), it must be past the approval decision
+      # (#execute_now! moves it to :executing before calling the executor), and
+      # it must belong to the account the tool is running in — otherwise a row
+      # from another tenant would license a bypass here.
+      def approved_replay?
+        operation = @replaying_operation
+        return false if operation.nil?
+        return false unless operation.respond_to?(:executor_class) &&
+                            operation.respond_to?(:status) &&
+                            operation.respond_to?(:account_id)
+        return false unless operation.executor_class.to_s == ::Ai::Executors::DeferredToolCall.name
+        return false unless ::Ai::Executors::DeferredToolCall::REPLAYABLE_STATUSES
+                              .include?(operation.status.to_s)
+
+        !account.nil? && operation.account_id == account.id
+      end
+
+      # THE generic `gate_context` (APO-1b). A tool wires an action to the gate
+      # with:
+      #
+      #   declare_action "system_terminate_instance",
+      #                  mutating: true,
+      #                  action_category: "system.instance.terminate",
+      #                  executor_class: "Ai::Executors::DeferredToolCall",
+      #                  gate_context: :deferred_tool_call_context,
+      #                  on_proceed: :deferred_tool_call_result
+      #
+      # and needs no executor of its own. `source_type`/`source_id` are
+      # deliberately absent: this seam does not know which of a caller's params
+      # names a row, and Ai::DeferredOperation#assert_source_within_account!
+      # no-ops for an unrecorded pair rather than guessing. The executor's own
+      # params-level scoping remains the anchor for what it touches.
+      def deferred_tool_call_context(params)
+        action = routed_action_name(params)
+        descriptor = caller_principal_descriptor(action)
+
+        # VALIDATE FIRST, so a call that could only ever be refused on replay
+        # does not park an approval an operator then has to dispose of. An
+        # "unattributed" caller (a federation principal, or any restricted
+        # principal arriving without a node instance) is exactly that: the
+        # executor's rehydrate step returns nil for it and refuses. Raising
+        # ArgumentError is the seam #run_through_autonomy_gate already rescues
+        # around the context build, and it converts to the caller's error
+        # envelope BEFORE Ai::AutonomyGate.evaluate is reached.
+        if descriptor["kind"] == "unattributed"
+          raise ArgumentError,
+                "Action #{action} is approval-gated and cannot be parked for an unattributed " \
+                "caller (#{descriptor['detail']}): an approval granted for it could never be replayed"
+        end
+
+        {
+          executor_params: ::Ai::Executors::DeferredToolCall.pack(
+            tool_class: self.class.name,
+            action: action,
+            tool_params: params,
+            principal: descriptor
+          ),
+          description: deferred_tool_call_description(params)
+        }
+      end
+
+      # Override for a better approval-card line. Keep it free of caller param
+      # VALUES — Ai::SensitiveParams covers the APPROVAL-CARD copy
+      # (Ai::AutonomyGate writes `request_data` through the filter) and NOT the
+      # executor params on the operation row, which the replay needs verbatim.
+      # A description that interpolates a param value therefore lands outside
+      # the only cover there is.
+      def deferred_tool_call_description(params)
+        "#{routed_action_name(params)} via #{self.class.name}"
+      end
+
+      # THE generic `on_proceed`. On the auto-approve branch the executor has
+      # already replayed the call, so this SERIALIZES what it returned — the
+      # tool's own envelope, byte-identical to an ungated call — and must not
+      # repeat the work.
+      def deferred_tool_call_result(_params, gate_result)
+        return gate_result.result if gate_result.result.is_a?(::Hash)
+
+        success_result(replayed: true)
+      end
+
+      # WHO is calling, in the shape Ai::Executors::DeferredToolCall rebuilds.
+      #
+      # Minted from this tool's OWN constructor state, never from params, so a
+      # caller cannot describe itself. Order matters: an instance principal
+      # carries no User, and a nil user is NOT evidence of an in-process caller
+      # (IMP-9030413bc292) — `internal:` has to have been passed explicitly.
+      #
+      # Anything else is recorded as "unattributed"; #deferred_tool_call_context
+      # refuses to park such a call at all. That arm is reachable: a FEDERATION
+      # principal arrives here `instance_authorized` with no node instance,
+      # because the controller passes `restricted?` rather than `instance?`.
+      #
+      # `internal` rides ALONGSIDE the kind rather than as a kind of its own,
+      # because the two are orthogonal at depth: a skill executor nests every
+      # tool with `internal: internal_caller?` while still forwarding the
+      # caller's user/agent, so a nested hop is routinely BOTH `agent` and
+      # internal. Recording only the kind would rebuild a strictly WEAKER tool
+      # on replay, and a tool enforcing per-action permissions with
+      # `return true if internal?` would then refuse the action an operator had
+      # just approved — the approval silently becoming a no-op.
+      def caller_principal_descriptor(action = nil)
+        if instance_authorized?
+          if node_instance
+            return { "kind" => "instance", "node_instance_id" => node_instance.id,
+                     "granted_tool_name" => granted_tool_name_for(action) }
+          end
+
+          { "kind" => "unattributed", "detail" => "restricted principal with no node instance" }
+        elsif user
+          { "kind" => "user", "user_id" => user.id, "agent_id" => agent&.id, "internal" => internal? }
+        elsif agent
+          { "kind" => "agent", "agent_id" => agent.id, "internal" => internal? }
+        elsif internal?
+          { "kind" => "internal" }
+        else
+          { "kind" => "unattributed", "detail" => "no user, agent or explicit internal flag" }
+        end
+      end
+
+      # WHICH NAME the instance grant was actually checked against on the first
+      # hop. StreamableHttpController asks `may_invoke?("platform.<tool_name>")`
+      # — the advertised REGISTRY KEY — and McpPlatformToolRegistrar#
+      # enforce_action_scope! then pins the action to
+      # `ACTION_ALIASES.fetch(tool_name, tool_name)`, i.e. the alias TARGET. For
+      # the 25 aliased keys the routed action is therefore NOT the granted name:
+      # a call granted as "platform.code_upsert_node" runs as "upsert_node", and
+      # re-asking `may_invoke?("platform.upsert_node")` on replay matches no
+      # realistic glob and would refuse every approved replay of an aliased
+      # mutating action. Inverting the table (values are unique) recovers the
+      # name the grant was read against; an unaliased action is its own name.
+      def granted_tool_name_for(action)
+        return nil if action.blank?
+
+        ::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.key(action.to_s) || action.to_s
       end
 
       # A declaration is GATED only when it can actually be replayed. Ai::
@@ -291,11 +668,11 @@ module Ai
           send(declaration[:on_proceed], params, gate)
         when :pending
           success_result(
-            pending: true,
-            action_category: declaration[:action_category],
-            deferred_operation_id: gate.deferred_operation&.id,
-            approval_request_id: gate.approval_request&.id,
-            message: "Approval required: #{declaration[:action_category]}"
+            self.class.pending_payload(
+              action_category: declaration[:action_category],
+              deferred_operation: gate.deferred_operation,
+              approval_request: gate.approval_request
+            )
           )
         else
           error_result(gate.error || "Action #{declaration[:action_category]} is blocked by policy")
@@ -445,6 +822,352 @@ module Ai
       private
 
       attr_reader :account, :agent, :user, :node_instance
+
+      # === LIST PAGINATION — the call side of the contract above ===
+
+      # THE ONE BUILDER for a paginated list payload. Returns a finished tool
+      # result: success_result carrying the serialized rows under `key`, any
+      # per-action `extra` keys, and the shared page envelope — or error_result
+      # when the caller's limit/cursor cannot be honoured.
+      #
+      # Takes the relation UNORDERED and imposes its own order, because the
+      # keyset predicate and the ORDER BY have to agree exactly; a caller that
+      # ordered first would silently get a cursor pointing into a different
+      # sequence than the one it is walking.
+      #
+      # @param key       [Symbol] payload key the rows go under
+      # @param relation  [ActiveRecord::Relation] already filtered, NOT ordered
+      # @param params    [Hash] the action params (reads :limit and :cursor)
+      # @param sort      [Symbol] column the page is ordered by; :id walks in
+      #                  UUIDv7 (creation) order
+      # @param direction [:asc, :desc]
+      # @param extra     [Hash] additional payload keys for this action
+      # @yield [record] serializer for one row
+      def paginated_result(key, relation, params, sort: :id, direction: :desc, **extra, &serializer)
+        page = paginate_list(relation, params, sort: sort, direction: direction)
+        success_result(
+          { key => page.records.map(&serializer) }.merge(extra).merge(page.envelope)
+        )
+      rescue InvalidPageRequest => e
+        error_result(e.message)
+      end
+
+      def paginate_list(relation, params, sort: :id, direction: :desc)
+        sort      = sort.to_sym
+        direction = direction.to_sym == :asc ? :asc : :desc
+        limit     = resolve_list_limit(params[:limit])
+
+        # A NULL sort value makes the row comparison in #apply_list_cursor NULL
+        # — never true — so a nullable sort column would silently DROP every
+        # such row from page two onward and the walk would end short of `count`
+        # with nothing to show for it. Refused here as the call-site bug it is,
+        # rather than left to produce a quietly incomplete answer. Order by :id
+        # (UUIDv7, and a primary key) when the natural sort column is nullable.
+        assert_sortable_column!(relation.klass, sort) unless sort == :id
+
+        # UNCAPPED, and computed off the relation BEFORE the cursor narrows it:
+        # `count` answers "how many match my filters", which is the question a
+        # caller deciding whether to keep walking is actually asking.
+        total = relation.count
+
+        scoped = apply_list_cursor(relation, params[:cursor], sort, direction)
+        order  = sort == :id ? { id: direction } : { sort => direction, :id => direction }
+
+        # One row past the page: the only way to know whether a cursor is owed
+        # without a second COUNT over the narrowed scope.
+        rows = scoped.reorder(order).limit(limit + 1).to_a
+        more = rows.size > limit
+        rows = rows.first(limit)
+
+        ListPage.new(rows, total, limit, more ? encode_list_cursor(rows.last, sort) : nil)
+      end
+
+      def assert_sortable_column!(model, sort)
+        column = model.columns_hash[sort.to_s]
+        return if column && !column.null
+
+        raise ArgumentError,
+              "paginate_list: #{model.name}.#{sort} is #{column ? 'nullable' : 'not a column'} and cannot " \
+              "carry a keyset cursor — sort by :id instead"
+      end
+
+      def resolve_list_limit(raw)
+        return self.class.default_list_limit if raw.nil? || raw.to_s.strip.empty?
+
+        value = Integer(raw.to_s.strip, 10)
+        raise InvalidPageRequest, "limit: must be a positive integer" unless value.positive?
+
+        [ value, self.class.max_list_limit ].min
+      rescue ArgumentError, TypeError
+        raise InvalidPageRequest, "limit: must be a positive integer"
+      end
+
+      def apply_list_cursor(relation, raw, sort, direction)
+        return relation if raw.nil? || raw.to_s.strip.empty?
+
+        model  = relation.klass
+        cursor = decode_list_cursor(raw, model, sort)
+        table  = model.quoted_table_name
+        id_col = "#{table}.#{model.connection.quote_column_name(model.primary_key)}"
+        op     = direction == :asc ? ">" : "<"
+
+        if sort == :id
+          relation.where("#{id_col} #{op} ?", cursor[:id])
+        else
+          # Row comparison, so the sort column and the UUIDv7 tiebreak are one
+          # strict ordering rather than two clauses that can disagree on ties.
+          sort_col = "#{table}.#{model.connection.quote_column_name(sort)}"
+          relation.where("(#{sort_col}, #{id_col}) #{op} (?, ?)", cursor[:value], cursor[:id])
+        end
+      end
+
+      # Opaque by construction only — a base64 JSON pair. Deliberately not
+      # signed: it carries no authority, the relation it is applied to is still
+      # account-scoped by the caller, and a forged cursor can do nothing but
+      # start the walk somewhere else in rows the caller could already read.
+      def encode_list_cursor(record, sort)
+        value = record.public_send(sort)
+        value = value.utc.iso8601(6) if value.respond_to?(:utc) && value.respond_to?(:iso8601)
+        Base64.urlsafe_encode64({ "v" => value, "i" => record.id }.to_json, padding: false)
+      end
+
+      def decode_list_cursor(raw, model, sort)
+        parsed = JSON.parse(Base64.urlsafe_decode64(raw.to_s))
+        # Shape check before the read: valid base64 of valid JSON is not yet a
+        # cursor, and `5["i"]` is a NoMethodError this rescue would not catch.
+        raise InvalidPageRequest, cursor_refusal unless parsed.is_a?(Hash)
+
+        id = parsed["i"].to_s
+        raise InvalidPageRequest, cursor_refusal if id.empty?
+
+        # SHAPE-CHECK THE ID AGAINST THE PRIMARY KEY'S TYPE, not merely for
+        # emptiness. A non-empty id that is not a UUID is bound straight into
+        # `(sort, id) < (?, ?)` against a uuid column, and Postgres answers
+        # `invalid input syntax for type uuid` — an ActiveRecord::StatementInvalid
+        # that #paginated_result does not rescue and no tool's #call rescues
+        # either, so it escapes to the JSON-RPC handler as -32603 "Internal
+        # error". That is precisely the raise-instead-of-refuse this seam exists
+        # to prevent, so the refusal happens here where the message is useful.
+        raise InvalidPageRequest, cursor_refusal unless valid_cursor_id?(model, id)
+
+        value = sort == :id ? id : model.type_for_attribute(sort.to_s).cast(parsed["v"])
+
+        # A cursor whose sort value casts to NULL cannot satisfy the row
+        # comparison either — it would return an empty page forever rather than
+        # an error. Refused for the same reason.
+        raise InvalidPageRequest, cursor_refusal if sort != :id && value.nil?
+
+        { value: value, id: id }
+      rescue ArgumentError, TypeError, JSON::ParserError
+        raise InvalidPageRequest, cursor_refusal
+      end
+
+      UUID_CURSOR_ID = /\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/
+
+      def valid_cursor_id?(model, id)
+        column = model.columns_hash[model.primary_key.to_s]
+        return true unless column&.type == :uuid
+
+        UUID_CURSOR_ID.match?(id)
+      end
+
+      def cursor_refusal
+        "cursor: not a cursor this action issued — omit it to start at the first page"
+      end
+
+      # UNDECLARED-EXECUTION TELEMETRY (IMP-a0553dda1ec3) — measure the real
+      # breakage set BEFORE the fail-closed flip (IMP-439d31353f9b).
+      #
+      # 605 of the 606 registry actions execute with no declaration today. The
+      # flip's invariant ("an undeclared action is refused") would refuse every
+      # one of them, and nothing on the platform currently records WHICH of
+      # those 605 actually run, under which kind of principal. That is the
+      # number the flip has to be sized against, so this produces it from real
+      # traffic instead of from a guess.
+      #
+      # WHY HERE: this is the same chokepoint the declaration registry itself
+      # keys off, so the telemetry's notion of "the action" is #execute's, not
+      # a parallel one that could drift — and, since IMP-149b35e5f16f closed the
+      # last #execute override on a registry-backed tool, with no such tool
+      # exempt from the measurement. (A tool outside PlatformApiToolRegistry is
+      # outside both that assertion and this measurement, exactly as it is
+      # outside the equality — the same bound recorded at declare_action above.)
+      #
+      # PRIVATE, not protected: #principal_kind is what keeps identity out of
+      # both sinks, and a protected hook is one an extension subclass could
+      # override to put identity back in.
+      #
+      # PRIVACY: principal SHAPE only — the kind of caller, never who. No user,
+      # no email, no token, no node identity. See #principal_kind.
+      #
+      # CARDINALITY IS BOUNDED BY THE REGISTRY, NOT BY THE CALLER. The action
+      # name reaching #execute is NOT drawn from the 606-key registry: for a
+      # user or agent principal McpPlatformToolRegistrar#action_pinned_to_name?
+      # is false and enforce_action_scope! early-returns for a non-dispatched
+      # tool, so params[:action] is an arbitrary caller-supplied string that
+      # #routed_action_name returns verbatim. Feeding that to a cache key and an
+      # AuditLog row would let one authenticated caller mint an unbounded number
+      # of first-sightings — a row per call, each serialized behind the global
+      # audit-sequence advisory lock, with no retention job. So only a name that
+      # is actually a registry key (or an ACTION_ALIASES target) is emitted;
+      # everything else buckets under one sentinel. The sentinel is kept
+      # DISTINCT rather than dropped so an operator can still see that
+      # unregistered traffic exists and go looking for it.
+      #
+      # Fidelity cost, stated: an in-process caller that invokes a tool with an
+      # internal action name that is neither a registry key nor an alias target
+      # also buckets under the sentinel. The flip acts on the registry surface,
+      # which is exactly what stays resolved.
+      #
+      # VOLUME: this fires on nearly all traffic. It is deduped per (account,
+      # principal_kind, action) over a window — never per action alone, since
+      # losing which actions execute undeclared destroys the entire point — and
+      # a FIRST sighting is never dropped: the dedupe check fails OPEN (emit)
+      # whenever the cache is unavailable.
+      #
+      # WHY AuditLog IS THE SINK ANYWAY. mcp_protocol_service_spec.rb records an
+      # investigated objection to it for tool traffic: every insert serializes
+      # behind one global Postgres advisory lock for its hash-chain sequence
+      # number (Audit::LogIntegrityService::SEQUENCE_LOCK_KEY), and there is no
+      # retention job — "built for low-volume compliance events, not a firehose
+      # of tool calls". That objection is about a row PER CALL. The registry
+      # bound plus the dedupe is what answers it: the write rate is capped by
+      # the number of DISTINCT (account, principal_kind, registry action) tuples
+      # per window, none of which a caller can inflate. If the flip ever wants
+      # per-call fidelity it needs the purpose-built table that spec describes.
+      UNDECLARED_ACTION_AUDIT_ACTION = "mcp.tools.undeclared_action"
+
+      # Every caller-supplied action name that is not registry surface.
+      UNREGISTERED_ACTION_LABEL = "<unregistered>"
+
+      # How long one (account, principal_kind, action) tuple stays deduped. Long
+      # enough that a hot action costs one row per hour, short enough that the
+      # set stays a live picture rather than a one-time census.
+      UNDECLARED_ACTION_DEDUPE_WINDOW = 1.hour
+
+      # Defence in depth for the two sinks (D2). The registry allowlist above
+      # already means only bounded, code-defined names are emitted; this makes
+      # that guarantee LOCAL, so a future edit that widens the allowlist cannot
+      # forge a log line with an embedded newline or push an unbounded blob into
+      # jsonb and the cache key.
+      TELEMETRY_TOKEN_MAX = 120
+
+      # One structured sighting per (account, principal_kind, action) per window.
+      #
+      # The Rails.logger line is emitted FIRST and is not itself guarded, so the
+      # sighting exists even if the durable row cannot be written. The row is
+      # guarded, and so is the whole method — but by rescues that LOG at error
+      # level, never ones that return quietly. That is required by the `ensure`
+      # this runs in: an exception escaping here would replace the tool's own
+      # return value or exception, breaking exactly the undeclared calls this
+      # exists to observe.
+      def record_undeclared_action(action_name)
+        principal = principal_kind
+        label = telemetry_action_label(action_name)
+        return unless first_undeclared_sighting?(label, principal)
+
+        Rails.logger.info(
+          "[BaseTool] Undeclared action executed: " \
+          "action=#{label} tool=#{telemetry_token(self.class.name)} principal=#{principal}"
+        )
+        persist_undeclared_action_audit(label, principal)
+      rescue StandardError => e
+        Rails.logger.error(
+          "[BaseTool] Undeclared-action telemetry failed: " \
+          "tool=#{self.class.name} error=#{e.class}: #{e.message}"
+        )
+      end
+
+      # The name to emit: the real one when it is registry surface, one sentinel
+      # otherwise. See the cardinality note above — this is the bound.
+      def telemetry_action_label(action_name)
+        name = telemetry_token(action_name)
+        ::Ai::Tools::BaseTool.registered_action_name?(name) ? name : UNREGISTERED_ACTION_LABEL
+      end
+
+      # Strip anything that could forge a log line and clamp the length.
+      def telemetry_token(value)
+        value.to_s.gsub(/[[:cntrl:]]/, " ").slice(0, TELEMETRY_TOKEN_MAX).to_s
+      end
+
+      # The KIND of caller, never its identity. Ordered by how much the flip
+      # will care: an instance principal is the one whose only remaining bound
+      # is the deny overlay, so it is named first even when some other ivar is
+      # also set.
+      def principal_kind
+        return "instance" if instance_authorized?
+        return "user" if user
+        return "agent" if agent
+        return "internal" if internal?
+
+        "none"
+      end
+
+      # Account-scoped (D7): without it one account's sighting suppresses every
+      # other account's for the window, and the single row that survives names
+      # the wrong account.
+      #
+      # Fails OPEN — an unavailable cache means EMIT, never drop. A first
+      # sighting is the whole value of this telemetry; deduplication is only a
+      # volume concession and must never be the reason an action goes unseen.
+      def first_undeclared_sighting?(label, principal)
+        key = "ai:tools:undeclared_action:#{account&.id}:#{principal}:#{label}"
+        return false if Rails.cache.read(key)
+
+        Rails.cache.write(key, true, expires_in: UNDECLARED_ACTION_DEDUPE_WINDOW)
+        true
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[BaseTool] Undeclared-action dedupe unavailable (#{e.class}); emitting anyway: #{e.message}"
+        )
+        true
+      end
+
+      # SAVEPOINT, not just a rescue (D3). `rescue StandardError` does not undo a
+      # Postgres transaction abort: if this INSERT fails while #execute is inside
+      # a caller's open transaction, catching the error leaves the transaction
+      # aborted and the caller's NEXT statement raises PG::InFailedSqlTransaction
+      # — the tool then fails where it previously succeeded, which is precisely
+      # the overreach this change must not commit. requires_new: true issues a
+      # SAVEPOINT, so the failure rolls back to it and the caller's transaction
+      # stays usable.
+      #
+      # `resource_id` is varchar(36) and 16 of the registry's action names are
+      # longer, so the action name lives in metadata (jsonb, unbounded) and the
+      # resource pair follows AuditLog.log_system_event's precedent for an event
+      # with no natural record: a real type (the tool class, queryable) plus a
+      # synthetic id. The breakage set is then:
+      #   AuditLog.by_action("mcp.tools.undeclared_action")
+      #           .distinct.pluck(Arel.sql("metadata->>'action_name'"))
+      #
+      # `user: nil` is deliberate — the audit row carries principal SHAPE only.
+      def persist_undeclared_action_audit(label, principal)
+        return unless account.is_a?(Account) && account.persisted?
+
+        ::ActiveRecord::Base.transaction(requires_new: true) do
+          ::AuditLog.create!(
+            account: account,
+            user: nil,
+            action: UNDECLARED_ACTION_AUDIT_ACTION,
+            resource_type: telemetry_token(self.class.name),
+            resource_id: "undeclared_action",
+            source: "system",
+            severity: "low",
+            risk_level: "low",
+            metadata: {
+              action_name: label,
+              tool_class: telemetry_token(self.class.name),
+              principal_kind: principal
+            }
+          )
+        end
+      rescue StandardError => e
+        Rails.logger.error(
+          "[BaseTool] Failed to persist undeclared-action audit: " \
+          "action=#{label} tool=#{self.class.name} principal=#{principal} " \
+          "error=#{e.class}: #{e.message}"
+        )
+      end
     end
   end
 end

@@ -72,7 +72,10 @@ class McpChannel < ApplicationCable::Channel
 
     begin
       filters = data["params"] || {}
-      result = @mcp_protocol.list_tools(filters)
+      # `user:` is required for permission filtering — omitting it previously
+      # skipped the filter entirely and would have returned the unfiltered
+      # catalog once anything populated the per-connection registry.
+      result = @mcp_protocol.list_tools(filters, user: current_user)
 
       transmit_mcp_message({
         id: data["id"],

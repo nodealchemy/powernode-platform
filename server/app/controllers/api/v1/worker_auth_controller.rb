@@ -160,6 +160,17 @@ class Api::V1::WorkerAuthController < ApplicationController
     SecureRandom.uuid
   end
 
+  # The cached `permissions` array is a 24h snapshot that nothing busts (a raw-SQL
+  # permission migration will not touch it). Traced for IMP-4b5fffbf5421: NO
+  # authorization decision reads it, so it is not an unbusted authorization store.
+  # Its only reader is #verify_session, which echoes it into the response body
+  # after re-deriving the actual verdict LIVE from the User row
+  # (has_permission?("admin.access") || has_permission?("system.admin")) and
+  # deleting the entry when that now fails. On the consumer side, worker's
+  # app/middleware/sidekiq_web_auth.rb reads only `valid`, `session_token`,
+  # `user_email` and `expires_at` from that body — it never reads `permissions`.
+  # So the snapshot is display data with no live consumer; recorded here so the
+  # next reader does not re-investigate it.
   def store_worker_session!(session_token, user)
     Rails.cache.write(
       "worker_session:#{session_token}",

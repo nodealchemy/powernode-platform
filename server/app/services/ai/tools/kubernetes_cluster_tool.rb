@@ -12,7 +12,24 @@ module Ai
     # DockerHostTool surface, docker.hosts.manage for the provisioning
     # surface.
     class KubernetesClusterTool < BaseTool
-      REQUIRED_PERMISSION = "kubernetes.clusters.read"
+      # SECURITY (IMP-48abfa2f9e74): this floor used to be "kubernetes.clusters.read", a
+      # name that appears ZERO times in config/permissions.rb. User#has_permission?
+      # is an exact match on a role_permissions row plus a system.admin
+      # short-circuit, so no row can ever exist for an undeclared name: every action
+      # on this class was super-admin-only while tools/list advertised the whole
+      # surface to everyone. b7598df74 created the devops.* family and moved the
+      # REST twin onto it (Api::V1::Devops::Kubernetes::{Clusters,Nodes}Controller); this class was
+      # missed by that sweep. Retargeted onto the same declared family, at the same
+      # read/manage split the twin uses action for action.
+      REQUIRED_PERMISSION = "devops.kubernetes.read"
+
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "kubernetes_get_cluster", mutating: false
+      declare_action "kubernetes_list_clusters", mutating: false
+      declare_action "kubernetes_list_nodes", mutating: false
 
       def self.definition
         {

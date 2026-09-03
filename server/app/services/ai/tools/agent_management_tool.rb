@@ -30,6 +30,22 @@ module Ai
       }.freeze
 
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "check_task_status", mutating: false
+      declare_action "create_agent", mutating: true
+      declare_action "delete_agent", mutating: true
+      declare_action "execute_agent", mutating: true
+      declare_action "get_agent", mutating: false
+      declare_action "list_agents", mutating: false
+      declare_action "set_agent_autonomy_level", mutating: true
+      declare_action "spawn_task", mutating: true
+      declare_action "update_agent", mutating: true
+      declare_action "update_agent_trust_score", mutating: true
+      declare_action "wait_for_task", mutating: true
+
       def self.definition
         {
           name: "agent_management",

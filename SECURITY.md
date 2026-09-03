@@ -49,20 +49,37 @@ On-node agents enroll with the control plane over a bootstrap-token → mTLS-cer
 
 _Verified in:_ `extensions/system/agent/internal/enroll/csr.go` and `client.go` (keypair generation, CSR build, enroll exchange), `extensions/system/agent/internal/runtime/cert_rotation.go` (rotation), `server/app/services/security/vault_pki_client.rb` (Vault-PKI certificate issuance). Confirmed 2026-06-12.
 
-### Module artifact verification — Sigstore/Fulcio keyless + fs-verity (Enforced for module mounts)
+### Boot-image verification — Sigstore/Fulcio keyless (Enforced)
 
-Before the on-node agent mounts a platform module, it runs two cryptographic checks and refuses the mount if either fails:
+Boot images (UKI) **are** cosign-verified before use, on every path, with no dev bypass. `CosignVerifier.VerifyBlob` is invoked directly in the boot-upgrade flow and refuses to run at all without a trust anchor — with neither a `KeyPath` nor identity/issuer pins configured it returns `"no KeyPath and no identity/issuer pins — refusing to verify without a trust anchor"` rather than passing.
 
-1. **Sigstore/Fulcio keyless signature verification** — the agent shells out to `cosign verify-blob` with pinned Fulcio certificate-identity and OIDC-issuer regexps (the CI workflow's Actions OIDC identity). A signature that doesn't verify, or an identity that doesn't match the pin, blocks the mount.
-2. **fs-verity root-hash verification** — the agent enables fs-verity on the pulled blob (making it read-only with Merkle-tree-backed integrity checks at open time) and asserts the on-disk root hash matches the digest the control plane recorded at build time. A mismatch blocks the mount.
+_Verified in:_ `extensions/system/agent/internal/bootupgrade/bootupgrade.go:811` (CosignVerifier invoked on the boot blob), `extensions/system/agent/internal/verify/cosign.go:63-98` (`verify-blob` with identity/issuer pins; refuses without a trust anchor). Confirmed 2026-08-28.
 
-**Important honesty caveat — verification is enforced; signing and transparency-log are not yet end-to-end.** What is enforced is *consumption-side verification* of module artifacts. The complementary pieces are **not** shipped and must not be assumed:
+### Module artifact verification — Sigstore/Fulcio keyless + fs-verity (Partial / do-not-rely)
 
-- The module-signing **publish pipeline does not yet emit signatures** for all artifact paths. Verification is wired to enforce once signatures are present; until the publish side ships them everywhere, coverage is incomplete. (`server/app/services/ai/.../service.go` comment: CosignVerifier to be wired "once the M1 publish pipeline ships signatures.")
+**Correction (2026-08-28): a previous revision of this document labelled this capability "Enforced for module mounts". That was wrong, and this section previously overstated the guarantee. Both checks are implemented and fail-closed, but neither is currently wired into any path that mounts a module.** Reviewers assessing this platform should not assume module-mount signature verification today. The correction is recorded here rather than quietly edited, because the prior claim may already have been relied upon.
+
+The two checks exist and are correct in isolation:
+
+1. **Sigstore/Fulcio keyless signature verification** — `CosignVerifier` shells out to `cosign verify-blob` with pinned Fulcio certificate-identity and OIDC-issuer regexps, and refuses to verify without a trust anchor.
+2. **fs-verity root-hash verification** — `FsVerifier` enables fs-verity on the pulled blob and asserts the on-disk Merkle root matches the hash the control plane published; if fs-verity is enabled but the module has no published root hash, the mount is refused rather than allowed through.
+
+**What is actually wired on the module-mount paths:**
+
+- All three reconciler construction sites pass `verify.AlwaysOK{}` — a `Verifier` whose `VerifyBlob` unconditionally `return nil`s — as the module verifier: the service loop (`internal/runtime/service.go:361`), the pivot composer (`internal/runtime/compose.go:611`), and CLI attach/update/sync (`cmd/powernode-agent/internal/cli/reconciler_factory.go:38`). `AlwaysOK` is labelled in its own source comment "NEVER use in production"; it is nevertheless the current default on these paths.
+- `ReconcilerConfig.Fsverity` is **nil by default**, so the fs-verity gate is dormant — stated as such in the source at `internal/runtime/reconcile.go:934`.
+- `CosignVerifier` is reachable from only two places: the boot-upgrade path above, and the operator-invoked `powernode-agent verify` CLI subcommand (`cmd/powernode-agent/internal/cli/verify_cmd.go:69`). Neither runs during a module mount.
+- The gate at `internal/runtime/reconcile.go:926-944` is real and correctly fail-closed — it is simply handed a no-op verifier and a nil fs-verifier.
+
+**Consequently the only integrity control actually applied to a module mount today is the sha256 blob digest** (`internal/oci/pull.go:229`), which is delivered by the control plane over the same channel as the blob itself. That detects corruption and truncation in transit; it does **not** establish provenance, and it does not survive a compromised or impersonated control plane.
+
+Additional gaps, unchanged from the previous revision:
+
+- The module-signing **publish pipeline does not yet emit signatures** for all artifact paths. This is the stated reason the verifier is stubbed: `extensions/system/agent/internal/runtime/service.go:344-347` — "Wired with `verify.AlwaysOK` as a Phase 1 development default … production deployments will swap in a real `CosignVerifier` once the M1 publish pipeline ships signatures."
 - On-node **script execution does not yet verify cosign signatures** — that path currently requires an explicit `--allow-unsigned` dev flag and is **not** production-hardened. (`extensions/system/agent/cmd/powernode-agent/internal/cli/exec_cmd.go`: "cosign verification not yet implemented (use --allow-unsigned in dev only)".)
 - **No Rekor / transparency-log inclusion check** is performed. We make no transparency-log claim. Keyless verification here means Fulcio-identity-pinned signature checking, not tlog-backed inclusion proofs.
 
-_Verified in:_ `extensions/system/agent/internal/verify/cosign.go` (enforced `verify-blob` with identity/issuer pins; the `AlwaysOK` verifier is dev/test-only and labelled "NEVER use in production"), `extensions/system/agent/internal/verify/fsverity.go` (enable + root-hash assertion). Absence of Rekor/tlog and the signing/exec gaps confirmed by source grep 2026-06-12.
+_Verified in:_ `extensions/system/agent/internal/verify/cosign.go:46-108` (`CosignVerifier`; `AlwaysOK` at :101-108), `extensions/system/agent/internal/verify/fsverity.go` (enable + root-hash assertion), `extensions/system/agent/internal/runtime/reconcile.go:926-944` (the gate), and the three `AlwaysOK` call sites cited above. Re-confirmed by source review 2026-08-28.
 
 ### Read-only verified module filesystem — erofs + overlayfs (Enforced)
 
@@ -80,7 +97,9 @@ The supply-chain extension (`extensions/supply-chain/`, MIT, public) generates a
 
 **Maturity caveat:** This is real, format-aware functionality, but treat it as **operational tooling for producing and tracking supply-chain artifacts**, not as a fully closed signing-and-enforcement loop. Attestation **signing** infrastructure exists (the `SupplyChain::SigningKey` model supports cosign / KMS / Vault key types), but the end-to-end chain that would let a consumer *cryptographically reject* an unsigned or mis-attested artifact at install time is still maturing and overlaps with the module-signing publish gap noted above. The extension is also optional — these capabilities are absent in a core-mode install without it.
 
-_Verified in:_ `server/app/services/supply_chain/sbom_generation_service.rb` (formats + ecosystems), `server/app/services/supply_chain/slsa_provenance_generator.rb` (SLSA predicate types), `server/app/models/supply_chain/{attestation,signing_key,build_provenance}.rb`. Confirmed 2026-06-12.
+**Additional caveat (2026-08-28):** the `SupplyChain::SigningKey` model's own sign/verify methods are **placeholders** — `sign_with_cosign`/`_kms`/`_gpg` return `nil` and `verify_cosign`/`_kms`/`_gpg` return `false` (`extensions/supply-chain/server/app/models/supply_chain/signing_key.rb:160-200`). Attestation signing is therefore modelled but not performed in-platform; do not read the presence of this model as a working signing path.
+
+_Verified in:_ `extensions/supply-chain/server/app/services/supply_chain/sbom_generation_service.rb` (formats + ecosystems), `extensions/supply-chain/server/app/services/supply_chain/slsa_provenance_generator.rb` (SLSA predicate types), `extensions/supply-chain/server/app/models/supply_chain/{attestation,signing_key,build_provenance}.rb`. Paths corrected 2026-08-28 — these files live inside the `extensions/supply-chain/` submodule and a previous revision cited them under `server/`, where they do not exist. Mechanisms re-confirmed at the corrected paths.
 
 ### AI autonomy safety controls (Enforced / Shipped)
 
@@ -105,7 +124,7 @@ As a project rule, key generation happens inside Vault (or a service that writes
 
 For a reviewer's threat model, the most important concessions:
 
-- Module **signature verification is enforced on the consume side**, but the **signing/publish pipeline and on-node script-exec verification are not yet fully shipped**, and there is **no transparency-log (Rekor) check**. Do not assume an end-to-end signed supply chain today.
+- Module **signature verification is not currently applied to module mounts at all** — the cosign and fs-verity gates are implemented and fail-closed but are wired with a no-op verifier and a nil fs-verifier on all three mount paths, leaving a control-plane-supplied sha256 digest as the only integrity check. Boot-image verification *is* enforced. The signing/publish pipeline and on-node script-exec verification are not yet shipped, and there is **no transparency-log (Rekor) check**. Do not assume a signed supply chain for module artifacts today. (This corrects a prior revision of this document, which described module-mount verification as Enforced.)
 - Supply-chain SBOM/SLSA tooling is real and format-correct, but the **cryptographic reject-on-install enforcement loop is still maturing** and the extension is optional.
 - AI guardrails are **pattern/heuristic-based defense-in-depth**, not a proof against novel prompt-injection.
 - This is a **small-maintainer project**: there is no 24/7 security on-call and no paid bug bounty (see Acknowledgments).

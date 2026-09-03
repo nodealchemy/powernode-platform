@@ -141,7 +141,16 @@ export interface CoordinationSummary {
 // Goal Plan Types
 // ==========================================
 export type GoalPlanStatus = 'draft' | 'validated' | 'approved' | 'executing' | 'completed' | 'failed' | 'rejected';
-export type GoalPlanStepStatus = 'pending' | 'executing' | 'completed' | 'failed' | 'skipped';
+// Mirror of Ai::GoalPlanStep::STATUSES. `awaiting_approval` is the PARKED
+// state written by Ai::Provisioning::SkillCompositionRunner when a step's
+// skill executor reaches the autonomy gate.
+export type GoalPlanStepStatus =
+  | 'pending'
+  | 'executing'
+  | 'completed'
+  | 'failed'
+  | 'skipped'
+  | 'awaiting_approval';
 export type GoalPlanStepType = 'agent_execution' | 'workflow_run' | 'observation' | 'human_review' | 'sub_goal';
 
 export interface GoalPlanStep {

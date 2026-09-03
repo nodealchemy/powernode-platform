@@ -40,6 +40,19 @@ module Ai
       MAX_CONCURRENT_CLAIMS_CEILING = 4
 
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "delete_ralph_loop", mutating: true
+      declare_action "get_ralph_loop", mutating: false
+      declare_action "get_ralph_loop_statistics", mutating: false
+      declare_action "list_ralph_loops", mutating: false
+      declare_action "pause_ralph_loop", mutating: true
+      declare_action "reopen_ralph_loop", mutating: true
+      declare_action "resume_ralph_loop", mutating: true
+      declare_action "update_ralph_loop", mutating: true
+
       def self.definition
         {
           name: "ralph_loop",

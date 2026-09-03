@@ -601,6 +601,13 @@ Rails.application.routes.draw do
           # Approval-request expiry (worker → server) — drives ApprovalRequest#check_expiration!
           post "approval_requests/expire_overdue", to: "autonomy#expire_overdue_approval_requests"
 
+          # Provisioning parked-step janitor (worker → server) — IMP-842b56d3a5d4.
+          # Re-drives steps left in SkillCompositionRunner::PARKED_STATUS after
+          # their approval settled: every other caller of .resume_parked_step is
+          # synchronous with the decision, so a process death between the two
+          # strands the step and stops its mission behind one row.
+          post "provisioning/parked_steps/reap", to: "autonomy#reap_parked_provisioning_steps"
+
           # Autonomy intervention policy tuning (worker → server)
           post "intervention_policies/analyze_patterns", to: "autonomy#analyze_policy_patterns"
 

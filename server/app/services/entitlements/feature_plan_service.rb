@@ -77,8 +77,17 @@ module Entitlements
         current_count < limit
       end
 
-      # Upgrade user roles when plan is upgraded
-      def upgrade_user_roles_for_plan(user, new_plan)
+      # Upgrade user roles when plan is upgraded.
+      #
+      # A plan's `default_roles` are free-form role NAMES on an operator-owned
+      # row, so conferring them is a privilege-escalation surface, not a
+      # bookkeeping step: `admin` is a GLOBAL role (account_id nil). Every name
+      # is bounded by the platform's existing rule for conferring a whole role
+      # (Role#assignable_by?, which RoleAssignmentGuard#can_assign_role? also
+      # delegates to), so this path cannot grant authority `assigned_by` lacks.
+      # `assigned_by` is required and fails closed when nil — a conferral with
+      # no actor has nothing to bound it.
+      def upgrade_user_roles_for_plan(user, new_plan, assigned_by: nil)
         available_roles = new_plan&.metadata&.dig("available_roles") || []
         return if available_roles.empty?
 
@@ -93,9 +102,12 @@ module Entitlements
         roles_to_add = new_default_roles - current_roles
 
         # Add new default roles
-        roles_to_add.each do |role_name|
+        roles_to_add = roles_to_add.select do |role_name|
           role = Role.find_by(name: role_name)
-          user.roles << role if role && !user.roles.include?(role)
+          next false unless role&.assignable_by?(assigned_by)
+
+          user.roles << role unless user.roles.include?(role)
+          true
         end
 
         user.save! if roles_to_add.any?
@@ -108,7 +120,9 @@ module Entitlements
       end
 
       # Remove roles that are no longer available when plan is downgraded
-      def downgrade_user_roles_for_plan(user, new_plan)
+      # Removal needs no escalation check; the ADDITIVE half at the end does, for
+      # the same reason as #upgrade_user_roles_for_plan.
+      def downgrade_user_roles_for_plan(user, new_plan, assigned_by: nil)
         return unless new_plan
 
         current_roles = user.role_names
@@ -126,7 +140,9 @@ module Entitlements
         default_roles = new_plan.default_roles || []
         default_roles.each do |role_name|
           role = Role.find_by(name: role_name)
-          user.roles << role if role && !user.roles.include?(role)
+          next unless role&.assignable_by?(assigned_by)
+
+          user.roles << role unless user.roles.include?(role)
         end
 
         user.save!

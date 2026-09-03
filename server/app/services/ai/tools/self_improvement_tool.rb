@@ -6,8 +6,8 @@ module Ai
       # SECURITY (IMP-6fbfeff384fa): authorization here is per ACTION, not per
       # tool. REQUIRED_PERMISSION was inherited as nil from BaseTool, and
       # McpPlatformToolRegistrar#enforce_permission! opens with
-      # `return if required.nil?` — ABOVE the authentication raise, the
-      # has_permission? raise and the token intersection. Every action was
+      # `return if required.nil?` — ABOVE the authentication raise and the
+      # has_permission? raise. Every action was
       # therefore reachable by any MCP caller with no check at all, including
       # mutate_skill and compose_skills, which write Ai::Skill records.
       #
@@ -49,6 +49,17 @@ module Ai
       # whose escalate/report_issue are an agent's only route to a human). The
       # floor is a member-tier permission, so BaseTool.permitted? re-arming
       # narrows advertisement only in an account where NO user can read skills.
+
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "auto_evolve_skill", mutating: true
+      declare_action "compose_skills", mutating: true
+      declare_action "generate_self_challenge", mutating: true
+      declare_action "get_challenge_result", mutating: false
+      declare_action "list_challenges", mutating: false
+      declare_action "mutate_skill", mutating: true
 
       def self.definition
         { name: "self_improvement", description: "Self-challenge generation, skill mutation, and skill composition", parameters: { type: "object", properties: {} } }

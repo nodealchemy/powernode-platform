@@ -7,8 +7,8 @@ require "rails_helper"
 #
 # Ai::Tools::BaseTool defines REQUIRED_PERMISSION = nil and AgentAutonomyTool
 # never overrode it, so McpPlatformToolRegistrar#enforce_permission! returned at
-# its first line — BEFORE the authentication check, the has_permission? check
-# and the token intersection. Every action on the tool was therefore reachable
+# its first line — BEFORE the authentication check and the has_permission?
+# check. Every action on the tool was therefore reachable
 # by any MCP caller with no permission check at all, including
 # approve_deferred_operation, which EXECUTES the approved operation. Its REST
 # twin requires ai.autonomy.approve.
@@ -385,9 +385,15 @@ RSpec.describe "agent_autonomy MCP per-action authorization" do
 
       # Api::V1::Ai::GoalsController / GoalPlansController#validate_permissions
       %w[create_agent_goal list_agent_goals update_agent_goal
-         decompose_goal validate_plan approve_plan].each do |action|
+         decompose_goal].each do |action|
         expect(map.fetch(action)).to eq("ai.goals.manage")
       end
+
+      # validate_plan / approve_plan were unregistered in IMP-4707960fc610 —
+      # both constantized services that exist nowhere, so neither ever did
+      # anything but return "service not available".
+      expect(map).not_to have_key("validate_plan")
+      expect(map).not_to have_key("approve_plan")
 
       # request_code_change writes a conversation message, which is what
       # Ai::Tools::ConversationTool gates — read from that class rather than

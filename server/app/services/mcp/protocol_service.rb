@@ -140,25 +140,17 @@ module Mcp
     tool_id
   end
 
-  # List all available tools for client discovery (with permission filtering)
+  # List all available tools for client discovery (with permission filtering).
+  #
+  # Fails closed: discovery is authorization-scoped, so without a principal and
+  # an account to scope against we advertise nothing rather than the unfiltered
+  # catalog. Callers MUST pass `user:` — omitting it yields an empty list, not a
+  # bypass.
   def list_tools(filters = {}, user: nil)
-    tools = @registry.list_tools(filters)
+    return { "tools" => [] } unless user && @account
 
-    # Filter tools based on user permissions and account scope
-    if user && @account
-      tools = tools.select do |tool_manifest|
-        # Get the database record for permission checking
-        mcp_tool = McpTool.find_by(name: tool_manifest["name"])
-        next true unless mcp_tool # Include if no database record (legacy tools)
-
-        # Check if user can access this tool
-        validator = Mcp::PermissionValidator.new(
-          tool: mcp_tool,
-          user: user,
-          account: @account
-        )
-        validator.authorized?
-      end
+    tools = @registry.list_tools(filters).select do |tool_manifest|
+      tool_visible_to?(tool_manifest, user)
     end
 
     {
@@ -192,7 +184,65 @@ module Mcp
 
     # Get tool manifest
     tool_manifest = @registry.get_tool(tool_id)
-    raise ToolNotFoundError, "Tool not found: #{tool_id}" unless tool_manifest
+    unless tool_manifest
+      # TRANSPORT PARITY for a DE-ADVERTISED action (IMP-8e3bd13d0136).
+      #
+      # The lookup above misses for two very different reasons — "this platform
+      # has never heard of that name" and "that name exists but this control
+      # plane does not offer it" — and both used to become a JSON-RPC -32601,
+      # which a client reads as a method/transport fault and retries. The
+      # streamable-HTTP seam has answered the second case with a RESULT envelope
+      # since IMP-128fe17fd8c8. Operator ruling 2026-09-02 (D15): the envelope
+      # on BOTH transports, ToolNotFoundError only for a never-registered name.
+      #
+      # THE MISS CANNOT BE READ, which is why the seam below re-resolves the
+      # name instead of inferring anything from @registry. The tempting reading
+      # — "a de-advertised action is absent here by construction, because
+      # McpPlatformToolRegistrar#register_all! publishes only its advertised
+      # classes into this registry" — is FALSE: register_all! builds a
+      # ::Mcp::RegistryService of its own and discards it, while this service
+      # queries the one built in #initialize, which rehydrates AI-agent
+      # manifests only. So EVERY platform name misses here, advertised or not.
+      # This branch therefore asks the registrar to resolve the name and answers
+      # only when the registrar says the action exists but is not offered.
+      # Residual and pre-existing, deliberately unchanged here: an ADVERTISED
+      # platform action is un-invocable on this path for that same plumbing
+      # reason and still raises below.
+      #
+      # The envelope is produced by the registrar's ONE producer
+      # (.unavailable_action_refusal -> #unadvertised_refusal, resolving through
+      # the same #find_tool_class the HTTP seam uses), so the two transports are
+      # byte-equal by construction rather than by two matching string literals.
+      #
+      # AUTHORIZATION FIRST, exactly as at the HTTP seam, which gates on
+      # REQUIRED_PERMISSION before it refuses on availability: the seam runs the
+      # same #enforce_permission! and raises PermissionDeniedError for a caller
+      # who may not run the action, so that caller is answered identically on
+      # both transports and learns nothing about which extensions are loaded.
+      # Availability itself is asked with the default `agent: nil`, under which
+      # BaseTool.permitted? short-circuits before any permission lookup and the
+      # question degenerates to "is the backing extension loaded?". Nothing here
+      # grants: this branch only ever refuses, and every gate below still runs
+      # unchanged for every name that HAS a manifest.
+      #
+      # BOTH DOORS, as at the HTTP seam: the invoked NAME, and the :action a
+      # caller supplied, which is what would actually run for a caller whose
+      # action is not pinned to the name. `params` is whatever came off the wire,
+      # so anything without a keyed lookup must fall through to the
+      # ToolNotFoundError below rather than raise a TypeError here — asked as
+      # #key? rather than `is_a?(Hash)` because ActionController::Parameters is
+      # keyed but is NOT a Hash, and excluding it would silently close this door.
+      supplied_action = params.respond_to?(:key?) ? (params[:action] || params["action"]) : nil
+      refusal = ::Ai::Tools::McpPlatformToolRegistrar.unavailable_action_refusal(
+        tool_id, supplied_action: supplied_action, user: options[:user]
+      )
+      if refusal
+        @logger.warn "[MCP] Refused #{tool_id}: #{refusal[:error]}"
+        return create_mcp_response(result: refusal, id: SecureRandom.uuid)
+      end
+
+      raise ToolNotFoundError, "Tool not found: #{tool_id}"
+    end
 
     # Get the actual McpTool database record for permission checking
     mcp_tool = McpTool.find_by(name: tool_manifest["name"])
@@ -218,17 +268,39 @@ module Mcp
 
       @logger.info "[MCP] Permission check passed for tool #{tool_id}"
     else
-      # No McpTool DB record — fall back to manifest-based permission check
+      # No McpTool DB record — fall back to manifest-based permission check.
+      # Both refusal arms below use the same telemetry seam as the
+      # McpTool-backed branch above (@telemetry.track_tool_permission_denied)
+      # so a denial here is not silently dropped from the telemetry stream —
+      # see spec/services/mcp/protocol_service_permission_denial_spec.rb.
       if user && tool_manifest["required_permissions"].present?
         required_perms = Array(tool_manifest["required_permissions"])
         user_perms = user.respond_to?(:permission_names) ? user.permission_names : []
         missing = required_perms - user_perms
         if missing.any?
           @logger.warn "[MCP] Permission denied for #{tool_id}: missing #{missing.join(', ')}"
+          fallback_auth_result = {
+            authorized: false,
+            errors: [ {
+              type: "required_permissions",
+              message: "Missing required permissions: #{missing.join(', ')}",
+              missing: missing,
+              required: required_perms
+            } ]
+          }
+          @telemetry.track_tool_permission_denied(tool_id, user, fallback_auth_result)
           raise PermissionDeniedError, "Permission denied: missing #{missing.join(', ')}"
         end
       elsif user.nil?
         @logger.warn "[MCP] No user context for tool #{tool_id} — denying execution"
+        fallback_auth_result = {
+          authorized: false,
+          errors: [ {
+            type: "unauthenticated",
+            message: "Authentication required for tool execution"
+          } ]
+        }
+        @telemetry.track_tool_permission_denied(tool_id, user, fallback_auth_result)
         raise PermissionDeniedError, "Authentication required for tool execution"
       end
     end
@@ -425,6 +497,34 @@ module Mcp
     name = manifest["name"]
     version = manifest["version"] || "1.0.0"
     "#{name.downcase.gsub(/[^a-z0-9]/, '_')}_v#{version.gsub('.', '_')}"
+  end
+
+  # Whether `user` may see `tool_manifest` in a discovery listing.
+  #
+  # A tool carrying an McpTool row is decided by PermissionValidator. A tool
+  # WITHOUT one previously short-circuited to `true` here (commented "legacy
+  # tools"), admitting it without ever constructing a validator; it is now
+  # decided by the manifest's own declared permissions, and a manifest that
+  # declares none is withheld rather than advertised. Note this is deliberately
+  # stricter than #invoke_tool's ladder, which still permits an undeclared
+  # tool with no DB row: hiding a callable tool is the safe asymmetry, whereas
+  # advertising an uncallable one is not.
+  def tool_visible_to?(tool_manifest, user)
+    mcp_tool = McpTool.find_by(name: tool_manifest["name"])
+
+    if mcp_tool
+      Mcp::PermissionValidator.new(
+        tool: mcp_tool,
+        user: user,
+        account: @account
+      ).authorized?
+    else
+      required = Array(tool_manifest["required_permissions"])
+      return false if required.empty?
+
+      user_permissions = user.respond_to?(:permission_names) ? user.permission_names : []
+      (required - user_permissions).empty?
+    end
   end
 
   def format_tool_for_discovery(tool)

@@ -123,11 +123,16 @@ module Ai
         end
 
         # Get accumulated learnings
+        #
+        # IMP-7f415874c14a: derived from ai_ralph_iterations via #learning_entries,
+        # not the retired `learnings` jsonb column. Derived ONCE and threaded into
+        # the grouping — re-deriving there would run the query twice.
         def learnings
+          entries = ralph_loop.learning_entries
           {
-            learnings: ralph_loop.learnings || [],
-            total_count: (ralph_loop.learnings || []).count,
-            by_iteration: learnings_by_iteration
+            learnings: entries,
+            total_count: entries.count,
+            by_iteration: learnings_by_iteration(entries)
           }
         end
 
@@ -213,8 +218,23 @@ module Ai
           "continue"
         end
 
-        def learnings_by_iteration
-          (ralph_loop.learnings || []).group_by { |l| l["iteration"] }
+        # IMP-3acfff02a847: prefer context.iteration, which has ALWAYS carried the
+        # producing iteration's number. The top-level stamp only became reliable
+        # once #add_learning started deriving it from the same context; entries
+        # written earlier carried the loop counter at append time instead
+        # (iteration_number - 1 on the ExecutionService path, a stale value on the
+        # dev-loop path), which bucketed them under the wrong iteration here.
+        # Falling back to the top-level keeps entries that carry no context.
+        #
+        # IMP-7f415874c14a: KEPT, not inlined. Derived entries agree on both keys by
+        # construction, so this looks redundant — but it is the SHAPE contract of
+        # the endpoint (a Hash keyed by iteration number), and the naive
+        # re-derivation that loses is the one that returns a flat list.
+        def learnings_by_iteration(entries)
+          Array(entries).group_by do |l|
+            ctx = l["context"]
+            (ctx.is_a?(Hash) ? (ctx["iteration"] || ctx[:iteration]) : nil) || l["iteration"]
+          end
         end
 
         def complete_loop_result

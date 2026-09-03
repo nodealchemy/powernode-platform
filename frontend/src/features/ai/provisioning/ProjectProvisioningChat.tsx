@@ -25,9 +25,13 @@ export interface BriefCardData {
 export interface UpgradeRequiredPayload {
   requires_upgrade: true;
   reason: UpgradeReason;
-  spent?: number;
-  cap?: number;
-  upgrade_url?: string;
+  // Nullable, not merely optional: the backend's canonical denial contract
+  // (Powernode::BillingBridge::UPGRADE_PAYLOAD_KEYS) always SENDS these keys,
+  // carrying null where the value is unknown. Typing them as `?: number`
+  // alone is a lie about the wire that tsc will happily believe.
+  spent?: number | null;
+  cap?: number | null;
+  upgrade_url?: string | null;
 }
 
 export interface ProvisioningChatMessage {

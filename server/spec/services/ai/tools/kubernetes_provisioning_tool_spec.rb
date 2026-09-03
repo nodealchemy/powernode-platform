@@ -16,8 +16,13 @@ RSpec.describe Ai::Tools::KubernetesProvisioningTool do
       )
     end
 
+    # IMP-48abfa2f9e74: retargeted off "kubernetes.clusters.manage" (absent from
+    # the permissions catalog) onto devops.kubernetes.manage — the same permission
+    # Api::V1::Devops::Kubernetes::ClustersController requires for destroy and
+    # kubeconfig, the REST twins of these two actions.
     it "scopes to manage-level permission" do
-      expect(described_class::REQUIRED_PERMISSION).to eq("kubernetes.clusters.manage")
+      expect(described_class::REQUIRED_PERMISSION).to eq("devops.kubernetes.manage")
+      expect(Permissions.permission_exists?(described_class::REQUIRED_PERMISSION)).to be(true)
     end
   end
 

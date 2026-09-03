@@ -102,7 +102,6 @@ All MCP actions grouped by subsystem. Full parameter docs: [reference/auto/mcp-t
 | Autonomy (Goals) | `create_agent_goal`, `list_agent_goals`, `update_agent_goal`, `decompose_goal` |
 | Autonomy (Proposals/Escalations) | `create_proposal`, `propose_feature`, `escalate`, `report_issue`, `request_code_change`, `request_feedback` |
 | Autonomy (Communication) | `send_proactive_notification`, `discover_claude_sessions` |
-| Plans | `validate_plan`, `approve_plan` |
 | Missions | `get_mission_status` |
 | Ralph Loops | `list_ralph_loops`, `get_ralph_loop`, `pause_ralph_loop`, `resume_ralph_loop`, `delete_ralph_loop`, `get_ralph_loop_statistics` |
 | Dev Loop Bridge | `dev_next_task`, `dev_complete_task` |

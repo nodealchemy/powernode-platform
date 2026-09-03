@@ -3,11 +3,13 @@
 require "rails_helper"
 
 # For an INSTANCE principal the grant glob is currently the ONLY control on a
-# destructive tool. Verified 2026-07-29, both layers below it are bypassed:
+# destructive tool. Verified 2026-07-29, the layers below it are bypassed:
 #
 #   * ai/tools/mcp_platform_tool_registrar.rb — `return if instance_authorized`
-#     skips BOTH `user.has_permission?(required)` and the MCP-token permission
-#     intersection.
+#     skips `user.has_permission?(required)`. (This bullet used to name a
+#     second thing skipped, an "MCP-token permission intersection". No such
+#     control existed — the branch read a `token:` kwarg no caller passed, and
+#     was deleted in IMP-a18f5a8ed393.)
 #   * system_fleet_tool.rb#action_permitted? — `return true if @user.nil?`,
 #     commented "internal/system bypass". Its assumption that "MCP-invoked
 #     callers always carry @user" predates instance principals and is false for
@@ -70,6 +72,20 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
   # instance — no User, so has_permission? has nothing to ask about — which is
   # why AgentAutonomyTool's per-action map waives the check for it and this
   # overlay is the layer that bounds it.
+  #
+  # system_replace_instance (IMP-4d6423bf4eb3, operator ruling R5 of
+  # 2026-09-03): the additive half of a DR replace. Alone it terminates
+  # nothing — it claims a warm pool member and moves volumes, SDWAN
+  # membership and VIPs onto it — which is why it was left out of the overlay
+  # when the pair shipped, with `reap: true` (the terminate it can raise)
+  # refused for an instance principal in the tool's gate context instead. The
+  # ruling closes that asymmetry at the overlay too: an instance principal
+  # driving a replace consumes a pool member, re-homes another instance's
+  # workload and can retire the failed one as a follow-on, all of it
+  # human-unattributable, so the whole verb is denied the same way its
+  # destructive half is, and the gate-context refusal becomes defence in
+  # depth rather than the only brake. Collateral checked below against the
+  # whole registry: the pattern matches exactly this one action.
   DESTRUCTIVE = %w[
     platform.approve_deferred_operation
     platform.reject_deferred_operation
@@ -90,6 +106,7 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     platform.system_upgrade_boot_image
     platform.system_instance_hold
     platform.system_instance_release_hold
+    platform.system_replace_instance
   ].freeze
 
   # system_instance_hold_status / system_module_publish_target /
@@ -157,8 +174,12 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # checking collateral against the whole registry rather than by eye: those
     # two patterns match exactly the five intended actions across all 602
     # registered tool actions, and no others.
+    #
+    # 19 since IMP-4d6423bf4eb3 added *replace_instance* (ruling R5): the
+    # additive half of a DR replace is denied to instance principals alongside
+    # the reap it can raise. Collateral pinned below — one action, no others.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(18)
+      expect(patterns.size).to eq(19)
     end
 
     # The collateral check itself, kept mechanical: a pattern added later that
@@ -177,6 +198,20 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
         reject_deferred_operation
         update_intervention_policy
       ])
+    end
+
+    # Same mechanical collateral check for *replace_instance* (IMP-4d6423bf4eb3).
+    # The pattern is deliberately narrower than a `*replace*` — which would
+    # sweep in any future replace-shaped read or config verb — and is pinned
+    # here to the single DR action it exists for.
+    it "denies exactly system_replace_instance with the *replace_instance* pattern" do
+      expect(patterns).to include("*replace_instance*")
+
+      denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+        ::File.fnmatch("*replace_instance*", name, ::File::FNM_EXTGLOB)
+      end
+
+      expect(denied).to eq(%w[system_replace_instance])
     end
   end
 
@@ -214,9 +249,9 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     expect(principal.may_invoke?("platform.system_destroy_instance")).to be(false)
   end
 
-  # Users are human-attributable and flow through has_permission? plus the
-  # token intersection plus approval chains. The overlay must not touch them,
-  # or it would break every operator action.
+  # Users are human-attributable and flow through has_permission? plus approval
+  # chains. The overlay must not touch them, or it would break every operator
+  # action. (There is no token-level narrowing for a user either.)
   it "does not restrict user principals" do
     user = create(:user, account: account)
     principal = described_class.for_user(user)

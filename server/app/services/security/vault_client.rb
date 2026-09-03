@@ -44,7 +44,7 @@ module Security
       cache_key = "vault:#{path}:#{key}"
 
       if cache && (cached = @cache.read(cache_key))
-        return cached
+        return normalize_secret_data(cached)
       end
 
       result = with_retry do
@@ -52,7 +52,7 @@ module Security
         raise SecretNotFoundError, "Secret not found: #{path}" unless secret
 
         data = extract_secret_data(secret)
-        key ? data[key.to_sym] || data[key.to_s] : data
+        normalize_secret_data(key ? data[key.to_sym] || data[key.to_s] : data)
       end
 
       @cache.write(cache_key, result, expires_in: CACHE_TTL) if cache
@@ -60,6 +60,39 @@ module Security
       result
     rescue Vault::HTTPConnectionError, Vault::HTTPError => e
       record_failure(nil)
+      raise ConnectionError, "Vault connection error: #{e.message}"
+    end
+
+    # Diagnostic sibling of #read_secret for "does this KV path resolve, and
+    # what shape does it hold". Deliberately does NOT participate in the
+    # circuit breaker: it neither calls check_circuit_breaker! nor records a
+    # failure. A probe of a path this AppRole cannot read raises a
+    # non-retryable Vault::HTTPError, which through #read_secret would count
+    # against the shared `vault` breaker — three such probes would open it for
+    # five minutes for EVERY Vault consumer in the platform. A diagnostic must
+    # not be able to break the subsystem it diagnoses.
+    #
+    # Also uncached in both directions, and it INVALIDATES the path's cached
+    # entries on success: a probe that reported a shape the next reader would
+    # not see is the false reassurance this method exists to prevent, so the
+    # probe is made authoritative for subsequent reads rather than merely
+    # fresh for itself.
+    #
+    # Returns the same normalized (string-indexable) hash #read_secret returns,
+    # via the same extract/normalize pair — the shape must not be a second
+    # definition. Raises SecretNotFoundError when the path is absent.
+    def probe_secret(path)
+      secret = @client.logical.read(path)
+      # Invalidate BEFORE the not-found raise, so the absent arm clears the
+      # cache too. A stale payload cached before the secret was deleted would
+      # otherwise let the sync keep succeeding while the probe reports the path
+      # missing — the probe and the sync disagreeing is the failure this
+      # surface exists to prevent, in either direction.
+      invalidate_cache_for_path(path)
+      raise SecretNotFoundError, "Secret not found: #{path}" unless secret
+
+      normalize_secret_data(extract_secret_data(secret))
+    rescue Vault::HTTPConnectionError, Vault::HTTPError => e
       raise ConnectionError, "Vault connection error: #{e.message}"
     end
 
@@ -285,6 +318,30 @@ module Security
       "secret/data/powernode/accounts/#{account_id}/#{credential_type}/#{credential_id}"
     end
 
+    # Make #read_secret's no-key branch agree with its single-key branch on how
+    # a caller may spell a key.
+    #
+    # The vault gem parses every response with `symbolize_names: true`
+    # (vault-0.20.1 lib/vault/client.rb JSON_PARSE_OPTIONS, applied at :388 and
+    # :422), so #extract_secret_data always yields a SYMBOL-keyed Hash, while a
+    # cache round-trip through a JSON-coded store yields STRING keys. The
+    # single-key branch already tolerated both (`data[key.to_sym] ||
+    # data[key.to_s]`); the no-key branch returned the raw Hash, so a caller
+    # indexing it with strings read nil for every field — silently, since a
+    # wrong-keyed Hash is truthy and non-empty. Returning a
+    # HashWithIndifferentAccess makes both branches, and both cache states, read
+    # the same. Non-Hash values (the single-key branch's usual scalar) pass
+    # through untouched.
+    #
+    # Applied to the single-key branch too, and not only the no-key one:
+    # `symbolize_names` is DEEP, so a single-key read whose VALUE is itself a
+    # Hash would otherwise come back symbol-keyed on a cache MISS and
+    # indifferent on the following HIT — a worse failure than a consistently
+    # wrong one, because it only reproduces once per cache window.
+    def normalize_secret_data(data)
+      data.is_a?(Hash) ? data.with_indifferent_access : data
+    end
+
     def extract_secret_data(secret)
       # Handle KV v2 response format
       if secret.data.key?(:data)
@@ -364,7 +421,7 @@ module Security
         {}
       end
 
-      delegate :read_secret, :write_secret, :delete_secret, :list_secrets,
+      delegate :read_secret, :probe_secret, :write_secret, :delete_secret, :list_secrets,
                :store_credential, :get_credential, :delete_credential, :rotate_credential,
                :store_system_secret, :get_system_secret,
                :generate_container_token, :revoke_token,

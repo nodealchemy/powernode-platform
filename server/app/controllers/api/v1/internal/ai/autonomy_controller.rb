@@ -64,6 +64,21 @@ module Api
             render_success(goals_abandoned: goals_abandoned)
           end
 
+          # POST /api/v1/internal/ai/provisioning/parked_steps/reap
+          # Janitor sweep for provisioning steps stranded in
+          # SkillCompositionRunner::PARKED_STATUS — the approval settled but the
+          # synchronous resume never ran. Spans every account EXCEPT the
+          # AI-suspended ones (the predicate drops those: a resumed step
+          # dispatches successors, so the kill switch has to hold here too).
+          # The runner's own claim keeps it from racing a live release, and both
+          # the settle delay and the per-sweep batch cap are SiteSetting-resolved
+          # (the cap is the reaper's own default, so this sweep is bounded and a
+          # backlog drains over several ticks rather than dispatching every
+          # stranded DAG's successors at once).
+          def reap_parked_provisioning_steps
+            render_success(::Ai::Provisioning::SkillCompositionRunner.reap_parked_steps)
+          end
+
           # POST /api/v1/internal/ai/escalations/auto_escalate
           # Auto-escalate overdue escalations across all accounts
           def auto_escalate_escalations

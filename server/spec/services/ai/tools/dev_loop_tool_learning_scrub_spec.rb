@@ -2,8 +2,8 @@
 
 require "rails_helper"
 
-# IMP-9d49b9833a67: a dev-loop learning fans out to THREE sinks, and only one of
-# them was scrubbed.
+# IMP-9d49b9833a67: a dev-loop learning fanned out to THREE sinks, and only one
+# of them was scrubbed.
 #
 #   1. ralph_loops.learnings (jsonb)      -- scrubbed in RalphLoop#add_learning
 #   2. ai_ralph_iterations.learning_extracted -- RAW (durable, iteration-keyed)
@@ -11,10 +11,13 @@ require "rails_helper"
 #      `context.relevant_learnings` into EVERY later dev_next_task, INCLUDING
 #      other loops -- the store is cross-loop by design)
 #
-# Sink 1 is a denormalised cache of which only the last 5 entries are ever read.
-# Sinks 2 and 3 are the durable, redistributed ones -- so a spec that asserts
-# only sink 1 passes against the defective code and measures nothing. Every
-# example below asserts the STORED ROW of all three sinks.
+# IMP-7f415874c14a RETIRED sink 1: it was an O(n) rewrite of the whole jsonb
+# column on every completion, and every reader now derives from sink 2. Sinks 2
+# and 3 were always the durable, redistributed ones -- a spec that asserted only
+# sink 1 passed against the defective code and measured nothing -- so the two
+# that remain are exactly the two that mattered. Every example below asserts the
+# STORED ROW of both, and the leak example additionally pins sink 1 EMPTY, which
+# is what keeps the retirement from silently regressing at this seam.
 #
 # The "passed" outcome is the leakiest path: it does NOT go through
 # #capture_learning at all, so a scrub placed there alone would still leak sink 3.
@@ -59,8 +62,9 @@ RSpec.describe Ai::Tools::DevLoopTool, "learning secret scrubbing" do
 
   # --- Sink readers. Each returns a STRING read back from the database. ---
 
+  # RETIRED (IMP-7f415874c14a) -- asserted EMPTY, never as a carrier.
   def sink1_loop_learnings_array
-    ralph_loop.reload.learnings.to_s
+    ralph_loop.reload.learnings
   end
 
   def sink2_iteration_learning_extracted
@@ -73,8 +77,7 @@ RSpec.describe Ai::Tools::DevLoopTool, "learning secret scrubbing" do
   end
 
   def all_sinks
-    { "sink1 loop.learnings" => sink1_loop_learnings_array,
-      "sink2 iteration.learning_extracted" => sink2_iteration_learning_extracted,
+    { "sink2 iteration.learning_extracted" => sink2_iteration_learning_extracted,
       "sink3 compound store" => sink3_compound_store }
   end
 
@@ -86,7 +89,7 @@ RSpec.describe Ai::Tools::DevLoopTool, "learning secret scrubbing" do
   # single scrub, so it is covered by construction rather than by example.
   %w[passed failed blocked].each do |outcome|
     context "on a #{outcome} outcome" do
-      it "does not persist the synthetic secret in ANY of the three sinks" do
+      it "does not persist the synthetic secret in ANY live sink, the retired one staying empty" do
         complete(outcome: outcome, learning: leaky_learning)
 
         all_sinks.each do |name, stored|
@@ -94,6 +97,7 @@ RSpec.describe Ai::Tools::DevLoopTool, "learning secret scrubbing" do
           expect("#{name} leaked the secret: #{stored.include?(secret_marker)}")
             .to eq("#{name} leaked the secret: false")
         end
+        expect(sink1_loop_learnings_array).to eq([])
       end
 
       it "still persists the surrounding learning text, redacted rather than dropped" do
@@ -110,7 +114,7 @@ RSpec.describe Ai::Tools::DevLoopTool, "learning secret scrubbing" do
       # Over-redaction guard. An absence-only oracle is satisfied by a change that
       # scrubs EVERYTHING, which would destroy the learning corpus -- the exact trap
       # the Auditable redaction work (36951df81) had to avoid.
-      it "leaves benign learning text byte-for-byte intact in all three sinks" do
+      it "leaves benign learning text byte-for-byte intact in both live sinks" do
         complete(outcome: outcome, learning: benign_learning)
 
         all_sinks.each do |name, stored|

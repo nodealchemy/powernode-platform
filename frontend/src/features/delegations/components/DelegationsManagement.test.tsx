@@ -45,11 +45,13 @@ jest.mock('./CreateDelegationModal', () => ({
 }));
 
 jest.mock('./DelegationDetailsModal', () => ({
-  DelegationDetailsModal: ({ delegation, onClose, onRevoke }: { delegation: { id: string; name: string }; onClose: () => void; onRevoke: (id: string) => void }) => (
+  DelegationDetailsModal: ({ delegation, onClose, onRevoke, onUpdate }: { delegation: { id: string; name: string; stale_permission_names?: string[] }; onClose: () => void; onRevoke: (id: string) => void; onUpdate: () => void }) => (
     <div data-testid="delegation-details-modal">
       <span>Details: {delegation.name}</span>
+      <span data-testid="details-stale">{(delegation.stale_permission_names || []).join(',')}</span>
       <button onClick={onClose}>Close Details</button>
       <button onClick={() => onRevoke(delegation.id)}>Revoke</button>
+      <button onClick={onUpdate}>Signal Update</button>
     </div>
   )
 }));
@@ -75,7 +77,11 @@ describe('DelegationsManagement', () => {
       sourceAccountId: 'current',
       targetAccountId: 'other-1',
       users: ['user-1', 'user-2'],
+      // `permissions` is the RESOLVED set the API serializes (what the delegation
+      // actually confers); `stale_permission_names` are stored rows the role no
+      // longer grants and that therefore resolve to nothing.
       permissions: ['business.billing.read', 'business.billing.manage'],
+      stale_permission_names: ['business.billing.export'],
       expiresAt: '2025-12-31T00:00:00Z',
       updatedAt: '2025-01-15T00:00:00Z'
     },
@@ -243,12 +249,88 @@ describe('DelegationsManagement', () => {
       });
     });
 
-    it('shows permission count', async () => {
+    it('labels the permission count as the RESOLVED set, not the stored rows', async () => {
       render(<DelegationsManagement />);
 
       await waitFor(() => {
-        expect(screen.getByText('2 permissions')).toBeInTheDocument();
+        expect(screen.getByText('2 resolved permissions')).toBeInTheDocument();
       });
+    });
+
+    it('surfaces stale stored permission names so they can be rewritten', async () => {
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        // Scoped to the notice paragraph: a bare regex also matches every ancestor
+        // whose textContent contains it, which makes the query ambiguous.
+        expect(screen.getByText(/1 stored permission is no longer granted/i, { selector: 'p' })).toBeInTheDocument();
+      });
+      expect(screen.getByText('business.billing.export')).toBeInTheDocument();
+    });
+
+    it('points at the details modal, where the permission-set editor now lives', async () => {
+      // The card is a summary, not an editor: it must name the affordance that
+      // exists (the editor in DelegationDetailsModal) rather than the raw API, and
+      // must not resurrect the "no permission-set editor yet" claim now that one
+      // ships. The card also renders on the incoming tab, so it never promises the
+      // viewer can edit -- only where the editor is.
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Clearing it means rewriting the stored permission set in this delegation's details/i, { selector: 'p' })
+        ).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/no permission-set editor yet/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/through the delegations API/i)).not.toBeInTheDocument();
+    });
+
+    it('pluralises the stale notice when several stored names no longer resolve', async () => {
+      // The plural arm is unreachable from the shared fixture (one stale name), so
+      // render a card of its own rather than leaving the branch unexecuted.
+      mockGetDelegations.mockResolvedValue({
+        delegations: [
+          {
+            ...mockDelegations[0],
+            id: 'del-plural',
+            name: 'Plural Stale',
+            stale_permission_names: ['business.billing.export', 'business.billing.archive']
+          }
+        ]
+      });
+
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/2 stored permissions are no longer granted/i, { selector: 'p' })
+        ).toBeInTheDocument();
+      });
+      expect(screen.getByText(/Clearing them means rewriting/i, { selector: 'p' })).toBeInTheDocument();
+      expect(screen.getByText('business.billing.archive')).toBeInTheDocument();
+    });
+
+    it('shows no stale notice on a delegation whose stored names all resolve', async () => {
+      // Both no-notice shapes must actually RENDER on the default (outgoing) tab to
+      // pin the hide-when-empty guard: an empty array, and the key omitted entirely.
+      // The shared fixture renders only del-1 here, and del-1 carries a stale name,
+      // so counting notices across it proves nothing.
+      mockGetDelegations.mockResolvedValue({
+        delegations: [
+          { ...mockDelegations[0], id: 'del-empty', name: 'Empty Stale', stale_permission_names: [] },
+          { ...mockDelegations[0], id: 'del-absent', name: 'Absent Stale', stale_permission_names: undefined }
+        ]
+      });
+
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Empty Stale')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Absent Stale')).toBeInTheDocument();
+      expect(
+        screen.queryAllByText(/no longer granted by this delegation's role/i, { selector: 'p' })
+      ).toHaveLength(0);
     });
 
     it('shows expiration date when present', async () => {
@@ -436,6 +518,50 @@ describe('DelegationsManagement', () => {
       fireEvent.click(screen.getByText('Close Details'));
 
       expect(screen.queryByTestId('delegation-details-modal')).not.toBeInTheDocument();
+    });
+
+    it('re-syncs the open modal onto the refreshed row after a permission-set write', async () => {
+      // The permission-set editor writes through the API and then asks the parent to
+      // reload. Reloading only the LIST left the modal rendering the pre-write row, so
+      // a name the operator had just removed was still offered for removal.
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Finance Access')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Finance Access').closest('div[class*="cursor-pointer"]')!);
+      expect(screen.getByTestId('details-stale')).toHaveTextContent('business.billing.export');
+
+      mockGetDelegations.mockResolvedValue({
+        delegations: [{ ...mockDelegations[0], stale_permission_names: [] }, mockDelegations[1]]
+      });
+      fireEvent.click(screen.getByText('Signal Update'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('details-stale')).toHaveTextContent('');
+      });
+      expect(screen.getByText('Details: Finance Access')).toBeInTheDocument();
+    });
+
+    it('keeps the modal open when the refreshed list no longer carries the row', async () => {
+      // A row that has left the list (revoked elsewhere, filtered out) must not blank
+      // the modal out from under the operator mid-edit.
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Finance Access')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Finance Access').closest('div[class*="cursor-pointer"]')!);
+
+      mockGetDelegations.mockResolvedValue({ delegations: [] });
+      fireEvent.click(screen.getByText('Signal Update'));
+
+      await waitFor(() => {
+        expect(screen.queryByText('Finance Access')).not.toBeInTheDocument();
+      });
+      expect(screen.getByText('Details: Finance Access')).toBeInTheDocument();
     });
 
     it('calls revokeDelegation when Revoke clicked', async () => {

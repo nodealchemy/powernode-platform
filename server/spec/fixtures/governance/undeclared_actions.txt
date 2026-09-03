@@ -1,0 +1,20 @@
+# FROZEN SNAPSHOT — MCP registry actions that execute with NO governance
+# declaration (Ai::Tools::BaseTool.declare_action). IMP-a0553dda1ec3.
+#
+# THIS LIST MAY ONLY SHRINK.
+#   * A new registry action that is not declared and not listed here fails
+#     spec/services/ai/tools/declaration_coverage_ratchet_spec.rb.
+#   * An entry here that HAS since been declared (or whose registry key is
+#     gone) also fails, so this cannot rot into a permanent exemption list.
+#   * Adding a line is a reviewed decision to grow the ungoverned surface.
+#     Removing one is the point.
+#
+# Names are the RESOLVED action names BaseTool#execute looks declarations up
+# by (McpPlatformToolRegistrar::ACTION_ALIASES applied), not raw registry
+# keys. Sorted; one per line. Regenerate ONLY deliberately:
+#   bin/rails runner -e test 'require Rails.root.join("spec/support/tool_declaration_coverage"); ToolDeclarationCoverage.write_snapshot!'
+#
+# EMPTIED by APO-1a (IMP-1e58753b3b6c): every advertised MCP action now
+# carries a declaration, so there is nothing left to acknowledge. The list
+# stays here because the ratchet is still the brake on REGROWTH — a new
+# undeclared action fails the ratchet unless it is deliberately added back.

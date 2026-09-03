@@ -20,6 +20,16 @@ module Ai
       # design (see #relevant_compound_learnings).
       RELEVANT_LEARNINGS_LIMIT = 4
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "delegate_ralph_task", mutating: true
+      declare_action "dev_complete_task", mutating: true
+      declare_action "dev_list_tasks", mutating: false
+      declare_action "dev_next_task", mutating: true
+      declare_action "dev_update_task", mutating: true
+
       def self.definition
         {
           name: "dev_loop",

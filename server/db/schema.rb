@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_02_210000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1000,7 +1000,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.index ["expires_at"], name: "index_ai_approval_requests_on_expires_at"
     t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
     t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
-    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying, 'failed'::character varying]::text[]))", name: "check_execution_status"
+    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying::text, 'failed'::character varying::text]))", name: "check_execution_status"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_request_status"
   end
 
@@ -7566,6 +7566,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.boolean "immutable", default: false, null: false
     t.boolean "is_system", default: false, null: false
     t.string "name", limit: 100, null: false
+    t.bigint "permissions_version", default: 0, null: false
     t.string "role_type", limit: 20
     t.datetime "updated_at", null: false
     t.index ["account_id", "name"], name: "index_roles_on_account_id_and_name", unique: true, where: "(account_id IS NOT NULL)"
@@ -8999,6 +9000,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.index ["fingerprint"], name: "index_system_fleet_remediation_outcomes_on_fingerprint"
   end
 
+  create_table "system_fleet_sensor_configs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.string "sensor", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "sensor"], name: "idx_fleet_sensor_configs_on_account_and_sensor", unique: true
+  end
+
   create_table "system_fulfillment_requests", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "approved_at"
@@ -9471,10 +9481,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.datetime "last_sync_attempted_at"
     t.datetime "last_synced_at"
     t.decimal "latitude", precision: 10, scale: 7, comment: "Latitude coordinate"
+    t.string "lease_class"
     t.datetime "lease_expires_at"
-    t.string "lifecycle_class"
     t.decimal "longitude", precision: 10, scale: 7, comment: "Longitude coordinate"
     t.string "mac_address", comment: "Primary MAC address"
+    t.jsonb "module_first_seen_running_at", default: {}, null: false
     t.string "mtls_subject"
     t.string "name", null: false
     t.string "network_profile", default: "lightweight", null: false, comment: "OVS+OVN dual-profile selector — see System::NodeInstance::NETWORK_PROFILES"
@@ -9509,7 +9520,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.index ["last_heartbeat_at"], name: "index_system_node_instances_on_last_heartbeat_at"
     t.index ["last_sync_attempted_at"], name: "index_system_node_instances_on_last_sync_attempted_at"
     t.index ["last_synced_at"], name: "index_system_node_instances_on_last_synced_at"
-    t.index ["lifecycle_class", "lease_expires_at"], name: "idx_node_instances_task_scoped_lease", where: "(lifecycle_class IS NOT NULL)"
+    t.index ["lease_class", "lease_expires_at"], name: "idx_node_instances_task_scoped_lease", where: "(lease_class IS NOT NULL)"
     t.index ["mac_address"], name: "index_system_node_instances_on_mac_address", unique: true, where: "(mac_address IS NOT NULL)"
     t.index ["mtls_subject"], name: "index_system_node_instances_on_mtls_subject"
     t.index ["network_profile"], name: "index_system_node_instances_on_network_profile"
@@ -9603,6 +9614,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.string "data_checksum"
     t.string "data_file_name"
     t.integer "data_file_size"
+    t.uuid "deferred_promotion_batch_id"
     t.jsonb "file_spec", default: {}, null: false
     t.string "fsverity_root_hash"
     t.datetime "live_at"
@@ -9622,6 +9634,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.index ["artifacts"], name: "index_system_node_module_versions_on_artifacts", using: :gin
     t.index ["created_by_id"], name: "index_system_node_module_versions_on_created_by_id"
     t.index ["data_checksum"], name: "index_system_node_module_versions_on_data_checksum"
+    t.index ["deferred_promotion_batch_id"], name: "idx_module_versions_deferred_promotion_batch", where: "(deferred_promotion_batch_id IS NOT NULL)"
     t.index ["node_module_id", "version_number"], name: "idx_on_node_module_id_version_number_56c400291d", unique: true
     t.index ["node_module_id"], name: "index_system_node_module_versions_on_node_module_id"
     t.index ["oci_digest"], name: "index_system_node_module_versions_on_oci_digest"
@@ -9785,7 +9798,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.text "description"
     t.boolean "enabled", default: true, null: false
     t.uuid "internal_ca_id"
-    t.string "lifecycle_class", default: "persistent", null: false
+    t.string "lifecycle_class"
     t.string "name", null: false
     t.uuid "node_template_id", null: false
     t.string "public_address"
@@ -10821,6 +10834,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
     t.index ["scope", "scope_resource_id"], name: "idx_on_scope_scope_resource_id_cfab977127"
     t.check_constraint "direction::text = ANY (ARRAY['import'::character varying::text, 'export'::character varying::text])", name: "sdwan_route_policies_direction_enum"
     t.check_constraint "scope::text = ANY (ARRAY['account'::character varying::text, 'network'::character varying::text, 'peer'::character varying::text])", name: "sdwan_route_policies_scope_enum"
+  end
+
+  create_table "system_sdwan_service_backends", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "backend_host"
+    t.integer "backend_port", null: false
+    t.uuid "backend_vip_id"
+    t.datetime "created_at", null: false
+    t.uuid "sdwan_service_id", null: false
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.integer "weight", default: 1, null: false
+    t.index "sdwan_service_id, backend_port, COALESCE((backend_vip_id)::text, (backend_host)::text)", name: "idx_sdwan_service_backends_unique_address", unique: true
+    t.index ["account_id"], name: "index_system_sdwan_service_backends_on_account_id"
+    t.index ["backend_vip_id"], name: "index_system_sdwan_service_backends_on_backend_vip_id"
+    t.index ["sdwan_service_id", "status", "created_at"], name: "idx_sdwan_service_backends_on_service_status_created"
+    t.check_constraint "backend_port >= 1 AND backend_port <= 65535", name: "sdwan_service_backends_port_range"
+    t.check_constraint "backend_vip_id IS NOT NULL OR backend_host IS NOT NULL", name: "sdwan_service_backends_backend_present"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'draining'::character varying]::text[])", name: "sdwan_service_backends_status_enum"
+    t.check_constraint "weight >= 1 AND weight <= 1000", name: "sdwan_service_backends_weight_range"
   end
 
   create_table "system_sdwan_services", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -12439,6 +12472,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
   add_foreign_key "system_sdwan_route_leaks", "system_sdwan_networks", column: "source_network_id"
   add_foreign_key "system_sdwan_route_leaks", "users", column: "approved_by_id"
   add_foreign_key "system_sdwan_route_policies", "accounts"
+  add_foreign_key "system_sdwan_service_backends", "accounts"
+  add_foreign_key "system_sdwan_service_backends", "system_sdwan_services", column: "sdwan_service_id", on_delete: :cascade
+  add_foreign_key "system_sdwan_service_backends", "system_sdwan_virtual_ips", column: "backend_vip_id"
   add_foreign_key "system_sdwan_services", "accounts"
   add_foreign_key "system_sdwan_services", "system_acme_certificates", column: "local_certificate_id"
   add_foreign_key "system_sdwan_services", "system_sdwan_virtual_ips", column: "backend_vip_id"
@@ -12496,4 +12532,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_090000) do
   add_foreign_key "worker_roles", "roles"
   add_foreign_key "worker_roles", "workers"
   add_foreign_key "workers", "accounts"
+
+  # Role-grant version trigger (IMP-95e4904258c8): bumps roles.permissions_version
+  # on every role_permissions write, so User#permission_names_cache_key can observe a
+  # narrowing made by RAW SQL. Not dumpable by the :ruby schema format — see
+  # config/initializers/role_permissions_version_schema_dump.rb.
+  execute("CREATE OR REPLACE FUNCTION bump_role_permissions_version() RETURNS trigger AS $$\nBEGIN\n  IF (TG_OP = 'DELETE') THEN\n    UPDATE roles SET permissions_version = permissions_version + 1 WHERE id = OLD.role_id;\n    RETURN OLD;\n  ELSIF (TG_OP = 'UPDATE') THEN\n    UPDATE roles SET permissions_version = permissions_version + 1 WHERE id IN (NEW.role_id, OLD.role_id);\n    RETURN NEW;\n  ELSE\n    UPDATE roles SET permissions_version = permissions_version + 1 WHERE id = NEW.role_id;\n    RETURN NEW;\n  END IF;\nEND;\n$$ LANGUAGE plpgsql;")
+  execute("CREATE OR REPLACE FUNCTION bump_all_role_permissions_versions() RETURNS trigger AS $$\nBEGIN\n  UPDATE roles SET permissions_version = permissions_version + 1;\n  RETURN NULL;\nEND;\n$$ LANGUAGE plpgsql;")
+  execute("DROP TRIGGER IF EXISTS role_permissions_version_bump ON role_permissions;")
+  execute("CREATE TRIGGER role_permissions_version_bump\nAFTER INSERT OR UPDATE OR DELETE ON role_permissions\nFOR EACH ROW EXECUTE FUNCTION bump_role_permissions_version();")
+  execute("ALTER TABLE role_permissions ENABLE ALWAYS TRIGGER role_permissions_version_bump;")
+  execute("DROP TRIGGER IF EXISTS role_permissions_version_bump_truncate ON role_permissions;")
+  execute("CREATE TRIGGER role_permissions_version_bump_truncate\nAFTER TRUNCATE ON role_permissions\nFOR EACH STATEMENT EXECUTE FUNCTION bump_all_role_permissions_versions();")
+  execute("ALTER TABLE role_permissions ENABLE ALWAYS TRIGGER role_permissions_version_bump_truncate;")
 end

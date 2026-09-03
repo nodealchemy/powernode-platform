@@ -56,14 +56,19 @@ RSpec.describe Ai::Tools::DiskImageOperatorTool do
   end
 
   describe "provision_disk_image_webhook" do
-    it "creates a DiskImageWebhook + returns plaintext secret + URL" do
+    # IMP-fa6cf8ee1eb6 — the plaintext used to ride the result here. It no
+    # longer does; the retrieval path does instead. Absence is asserted
+    # end-to-end (including the persisted ai_messages row) in
+    # disk_image_operator_tool_mcp_disclosure_spec.rb.
+    it "creates a DiskImageWebhook + returns the URL and the secret retrieval path, not the secret" do
       expect {
         result = tool.execute(params: { action: "provision_disk_image_webhook", label: "main-ci" })
         expect(result[:success]).to be true
         expect(result[:label]).to eq("main-ci")
-        expect(result[:secret_plaintext]).to start_with("pndis_")
+        expect(result).not_to have_key(:secret_plaintext)
+        expect(result[:webhook_id]).to be_present
         expect(result[:webhook_url]).to match(%r{/api/v1/system/webhooks/disk_image/built/[\w-]{36}})
-        expect(result[:note]).to match(/not recoverable/)
+        expect(result[:secret_delivery]).to match(%r{/rotate_secret})
       }.to change(::System::DiskImageWebhook, :count).by(1)
     end
 
@@ -82,13 +87,15 @@ RSpec.describe Ai::Tools::DiskImageOperatorTool do
   end
 
   describe "provision_ci_worker" do
-    it "creates a Worker with ci_worker role + returns plaintext token" do
+    it "creates a Worker with ci_worker role + returns the token retrieval path, not the token" do
       expect {
         result = tool.execute(params: { action: "provision_ci_worker", name: "release-ci" })
         expect(result[:success]).to be true
         expect(result[:name]).to eq("release-ci")
-        expect(result[:token_plaintext]).to start_with("swt_")
+        expect(result).not_to have_key(:token_plaintext)
+        expect(result[:worker_id]).to be_present
         expect(result[:roles]).to include("ci_worker")
+        expect(result[:token_delivery]).to match(%r{/rotate_token})
       }.to change(::Worker, :count).by(1)
     end
 
@@ -178,7 +185,7 @@ RSpec.describe Ai::Tools::DiskImageOperatorTool do
     end
 
     context "with create_platform_read_token: true" do
-      it "mints a PAT, sets PLATFORM_READ_TOKEN secret, returns token preview" do
+      it "mints a PAT, sets PLATFORM_READ_TOKEN secret, and reports delivery without echoing the token" do
         allow(gitea_client).to receive(:delete_user_token) # idempotent cleanup; may noop
         expect(gitea_client).to receive(:create_user_token)
           .with("plat-test-platform-ci-readonly", scopes: %w[read:repository read:user])

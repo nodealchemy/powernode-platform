@@ -105,6 +105,40 @@ module Ai
       # fan-out a single MCP request can trigger.
       MAX_TARGETS = 25
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "data_source_config_versions", mutating: false
+      declare_action "data_source_contract", mutating: false
+      declare_action "data_source_create", mutating: true
+      declare_action "data_source_delete", mutating: true
+      declare_action "data_source_describe", mutating: false
+      declare_action "data_source_discover", mutating: false
+      declare_action "data_source_export", mutating: false
+      declare_action "data_source_failover_query", mutating: true
+      declare_action "data_source_get", mutating: false
+      declare_action "data_source_health", mutating: false
+      declare_action "data_source_impact", mutating: false
+      declare_action "data_source_import", mutating: true
+      declare_action "data_source_ingest_to_kb", mutating: true
+      declare_action "data_source_install_template", mutating: true
+      declare_action "data_source_introspect", mutating: false
+      declare_action "data_source_invalidate_cache", mutating: true
+      declare_action "data_source_list", mutating: false
+      declare_action "data_source_list_templates", mutating: false
+      declare_action "data_source_provenance", mutating: false
+      declare_action "data_source_quality", mutating: false
+      declare_action "data_source_query", mutating: false
+      declare_action "data_source_reconcile", mutating: true
+      declare_action "data_source_replay", mutating: true
+      declare_action "data_source_rollback_config", mutating: true
+      declare_action "data_source_schema_history", mutating: false
+      declare_action "data_source_subscribe", mutating: true
+      declare_action "data_source_unsubscribe", mutating: true
+      declare_action "data_source_update", mutating: true
+      declare_action "data_source_validate_config", mutating: false
+
       def self.definition
         {
           name: "data_source_management",

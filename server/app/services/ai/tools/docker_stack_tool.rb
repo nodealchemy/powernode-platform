@@ -5,7 +5,47 @@ module Ai
     class DockerStackTool < BaseTool
       include Concerns::DockerContextResolvable
 
-      REQUIRED_PERMISSION = "swarm.stacks.read"
+      # SECURITY (IMP-48abfa2f9e74): this floor used to be "swarm.stacks.read", a
+      # name that appears ZERO times in config/permissions.rb. User#has_permission?
+      # is an exact match on a role_permissions row plus a system.admin
+      # short-circuit, so no row can ever exist for an undeclared name: every action
+      # on this class was super-admin-only while tools/list advertised the whole
+      # surface to everyone. b7598df74 created the devops.* family and moved the
+      # REST twin onto it (Api::V1::Devops::Swarm::StacksController); this class was
+      # missed by that sweep. Retargeted onto the same declared family, at the same
+      # read/manage split the twin uses action for action.
+      REQUIRED_PERMISSION = "devops.swarm.read"
+
+      # The floor retarget ALONE would be an escalation: pointing it at a read
+      # permission newly grants every read holder the write/exec actions sitting
+      # behind it. ACTION_PERMISSIONS raises each of those to the manage tier,
+      # enforced against the action that RUNS — never against the invoked name,
+      # since a user principal is not pinned to it
+      # (McpPlatformToolRegistrar#action_pinned_to_name?) and can supply a sibling
+      # :action. Actions ABSENT from this map sit at the floor deliberately:
+      #
+      #   docker_list_stacks / docker_get_stack are DB reads (twin index/show).
+      #   docker_adopt_stack is MANAGE despite reading like a discovery verb:
+      #     SwarmManager#adopt_stack issues service_update against every
+      #     matching LIVE Docker service to write the powernode.managed label,
+      #     then creates or updates the SwarmStack row. It mutates the cluster.
+      #   docker_deploy_stack / docker_delete_stack are the twin's deploy and
+      #     remove_stack, both devops.swarm.manage.
+      ACTION_PERMISSIONS = {
+        "docker_deploy_stack" => "devops.swarm.manage",
+        "docker_delete_stack" => "devops.swarm.manage",
+        "docker_adopt_stack" => "devops.swarm.manage"
+      }.freeze
+
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "docker_adopt_stack", mutating: true
+      declare_action "docker_delete_stack", mutating: true
+      declare_action "docker_deploy_stack", mutating: true
+      declare_action "docker_get_stack", mutating: false
+      declare_action "docker_list_stacks", mutating: false
 
       def self.definition
         {
@@ -67,6 +107,16 @@ module Ai
       protected
 
       def call(params)
+        action = params[:action].to_s
+
+        unless action_permitted?(action)
+          Rails.logger.warn(
+            "[DockerStackTool] Refused action for insufficient permission: " \
+            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+          )
+          return error_result("permission denied: #{required_perm_for(action)} required")
+        end
+
         case params[:action]
         when "docker_list_stacks" then list_stacks(params)
         when "docker_get_stack" then get_stack(params)
@@ -84,6 +134,28 @@ module Ai
       end
 
       private
+
+      # Falls back to the class floor for the read actions, which the registrar has
+      # already enforced by the time this runs.
+      def required_perm_for(action)
+        ACTION_PERMISSIONS[action] || REQUIRED_PERMISSION
+      end
+
+      # Two explicit bypasses, matching the sibling tools' ladder (MemoryTool,
+      # AgentAutonomyTool, SharedKnowledgeTool): in-process callers that opted in
+      # with `internal: true`, and an mTLS node principal whose specific tool name
+      # already cleared Mcp::Principal#may_invoke? and whose action the registrar
+      # pinned to that same name. Never inferred from a nil user.
+      def action_permitted?(action)
+        return true if internal?
+        return true if instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        # Compared against true rather than used for truthiness: nothing on the MCP
+        # path coerces a permission answer, and a truthy non-boolean must not read
+        # as a grant.
+        user.has_permission?(required_perm_for(action)) == true
+      end
 
       def list_stacks(params)
         cluster = resolve_cluster(params[:cluster_id])

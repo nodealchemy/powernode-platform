@@ -47,4 +47,44 @@ describe('UpgradeRequiredCard', () => {
     rerender(<UpgradeRequiredCard reason="no_subscription" upgradeUrl="/billing/plans" />);
     expect(screen.getByTestId('upgrade-required-cta')).toHaveAttribute('href', '/billing/plans');
   });
+
+  // The backend contract always SENDS cap / upgrade_url, null when unknown.
+  // A default parameter does not fire on null, so this is the shape that
+  // silently produced an <a> with no href.
+  it('falls back to /checkout when the backend sends an explicit null upgrade_url', () => {
+    render(<UpgradeRequiredCard reason="no_subscription" upgradeUrl={null} cap={null} />);
+
+    expect(screen.getByTestId('upgrade-required-cta')).toHaveAttribute('href', '/checkout');
+  });
+
+  // The cost-cap copy formats spent/cap as currency. The denial contract sends
+  // those keys as explicit null when unknown, so the formatter must not be
+  // handed a null it cannot format.
+  it('renders the cost-cap variant without crashing when spent and cap are null', () => {
+    render(<UpgradeRequiredCard reason="llm_cost_cap_exceeded" spent={null} cap={null} />);
+
+    const card = screen.getByTestId('upgrade-required-card');
+    expect(card.textContent).toContain('$0.00');
+  });
+
+  describe('quota_check_unavailable (BillingBridge failed CLOSED)', () => {
+    it('says the check failed rather than claiming a plan limit was hit', () => {
+      render(<UpgradeRequiredCard reason="quota_check_unavailable" />);
+
+      expect(screen.getByText(/couldn't check your plan limits/i)).toBeInTheDocument();
+      expect(screen.queryByText(/plan's limit/i)).not.toBeInTheDocument();
+    });
+
+    it('renders no upgrade CTA — buying a plan cannot fix an unreachable billing check', () => {
+      render(<UpgradeRequiredCard reason="quota_check_unavailable" />);
+
+      expect(screen.queryByTestId('upgrade-required-cta')).not.toBeInTheDocument();
+    });
+
+    it('still renders the CTA for real plan-limit reasons', () => {
+      render(<UpgradeRequiredCard reason="max_active_instances_exceeded" />);
+
+      expect(screen.getByTestId('upgrade-required-cta')).toBeInTheDocument();
+    });
+  });
 });

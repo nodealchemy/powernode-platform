@@ -7,6 +7,17 @@ module Ai
 
       REQUIRED_PERMISSION = "ai.agents.read"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "analyze_section", mutating: false
+      declare_action "blast_radius", mutating: false
+      declare_action "dead_code", mutating: false
+      declare_action "find_duplicates", mutating: false
+      declare_action "index_status", mutating: false
+      declare_action "static_analysis", mutating: false
+
       def self.definition
         {
           name: "code_analysis",

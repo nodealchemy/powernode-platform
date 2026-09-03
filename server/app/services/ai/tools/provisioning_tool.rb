@@ -40,8 +40,8 @@ module Ai
       # SECURITY (IMP-6fbfeff384fa): authorization here is per ACTION, not per
       # tool. REQUIRED_PERMISSION was inherited as nil from BaseTool, and
       # McpPlatformToolRegistrar#enforce_permission! opens with
-      # `return if required.nil?` — ABOVE the authentication raise, the
-      # has_permission? raise and the token intersection. Every action was
+      # `return if required.nil?` — ABOVE the authentication raise and the
+      # has_permission? raise. Every action was
       # therefore reachable by any MCP caller with no check at all, including
       # approve_plan (which advances the mission the orchestrator then EXECUTES)
       # and adapt (which dispatches a change through the adaptation gate).
@@ -86,6 +86,16 @@ module Ai
       # whose escalate/report_issue are an agent's only route to a human). The
       # floor is a member-tier permission, so BaseTool.permitted? re-arming
       # narrows advertisement only in an account where NO user can read missions.
+
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "platform_provisioning_adapt", mutating: true
+      declare_action "platform_provisioning_approve_plan", mutating: true
+      declare_action "platform_provisioning_capture_brief", mutating: true
+      declare_action "platform_provisioning_compose_plan", mutating: true
+      declare_action "platform_provisioning_status", mutating: false
 
       def self.definition
         {

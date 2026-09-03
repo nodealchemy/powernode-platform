@@ -129,6 +129,63 @@ check_pattern "Skill KG-node reads are account-scoped (no bare has_one in app/)"
     "grep -rn '\.knowledge_graph_node\b' server/app/ --include=*.rb | grep -v 'knowledge_graph_node_for\|knowledge_graph_nodes' | grep -v 'ds\.knowledge_graph_node' | wc -l" \
     "empty" "0"
 
+# System::NodeModule#current_version_id is the FLEET ACTUATOR — every instance
+# carrying the module converges on whatever it points at. The guards that decide
+# whether a version may become that pointer live in ModulePublicationProcessor
+# (the auto_promote opt-out, the non-empty artifact floor from the 2026-08-07
+# empty-erofs incident, the core-provenance verdict, the batch-atomic hold from
+# the core/extension promote-skew outage), NOT in the writer — so a write that
+# reaches the column by any other route gets none of them.
+#
+# A comment on #promote_to_version! USED TO claim it was "the platform's ONLY
+# choke point" for that (deleted by IMP-9a5e40a21d70 increment 2, which is why
+# this is past tense). It never was: SIX sites write the column, and a
+# re-derivation from the column found the 5th and 6th that five separate readers
+# of that comment had not.
+#
+# This is the model-agnostic twin of
+# extensions/system/server/spec/lint/node_module_current_version_write_seam_spec.rb
+# — which is the precise check (path#receiver equality, both directions, each
+# exemption carrying its rationale and the guards it skips). This one is COARSER
+# (whole-file exclusions, no receiver resolution) but has the one thing the spec
+# cannot have: it runs from the repo root, so it also covers `server/` and
+# `extensions/private/*`, where a writer would be invisible to an extension spec
+# in a public clone.
+#
+# LIMIT, stated so a pass is not over-read: source scan only. A runtime-built
+# attribute hash, `send(:update!, attrs)`, raw SQL, or `execute("UPDATE ...")`
+# are all invisible to it. The wall is a model-layer runtime guard; this is a
+# tripwire on the AUTHORED shapes. Verified to fire on all four real mechanisms
+# (single-line kwarg, multi-line kwarg, in-place assign, update_all), and
+# verified NOT to fire on `current_version_number:` — the benign denormalized
+# column — because the regex requires the colon immediately after the name.
+#
+# THE TWO TWINS ARE NOT SUPERSETS OF EACH OTHER; each catches what the other
+# misses, which is why both exist:
+#   * this one catches a call whose earlier arguments contain a `)` inside a
+#     STRING LITERAL — the spec's bracket-depth walker stops early there.
+#   * the spec catches a keyword on the 3rd/4th line of a call; `-A2` here
+#     reaches only the 2nd.
+#
+# KNOWN FALSE-POSITIVE MODE (noisy, never silent): the second grep filters the
+# whole `-A2` stream, so a pure READ of the column sitting within two lines
+# AFTER any update-verb call is counted. That is the same context-bleed the
+# spec's walker was written to fix, and it is left here because grep cannot
+# bound a call. It can only produce a spurious FAIL, never a miss. If this check
+# fails on a line that is plainly a read, confirm against the spec — which
+# resolves receivers and call extents — before touching the exclusion list.
+#
+# Two exclusion groups, and they mean DIFFERENT things:
+#   extensions/system/... — the censused NodeModule writers. Adding a path here
+#     is a policy decision about the fleet; make it in the spec's CENSUS first,
+#     where it must name the guards it skips.
+#   extensions/private/business/.../mcp/ — NOT NodeModule. Mcp::HostedServer and
+#     Mcp::ServerDeployment have their own unrelated `current_version` columns;
+#     the shell rule cannot resolve receivers, so they are excluded by path.
+check_pattern "NodeModule#current_version_id written only by the censused seam" \
+    '( grep -rn -A2 -E "(\.|^[[:space:]]*)(update!?|update_columns?|update_all|assign_attributes)\(" --include=*.rb server/app server/lib extensions/*/server/app extensions/*/server/lib extensions/*/server/db/seeds extensions/private/*/server/app extensions/private/*/server/lib 2>/dev/null | grep -E "current_version(_id)?:" ; grep -rnE "\.current_version(_id)?[[:space:]]*(\|\|)?=[^=~]|^[[:space:]]*self\.current_version(_id)?[[:space:]]*(\|\|)?=[^=~]|=[[:space:]]*\{[[:space:]]*current_version(_id)?:" --include=*.rb server/app server/lib extensions/*/server/app extensions/*/server/lib extensions/*/server/db/seeds extensions/private/*/server/app extensions/private/*/server/lib 2>/dev/null ) | grep -vE "^extensions/system/server/(app/models/system/node_module|app/services/system/(account_bootstrap_service|manifest_import_service|module_version_service|package_build_webhook_service)|db/seeds/cutover_renamed_modules)\.rb[:-]" | grep -vE "^extensions/private/business/server/app/models/mcp/(hosted_server|server_deployment)\.rb[:-]" | wc -l' \
+    "empty" "0"
+
 # Cross-tenant IDOR guard: api/v1 controllers must not query account-scoped
 # models through a bare-constant receiver on a user param (Model.find(params[..]),
 # Model.find_by(id: params[..]), Model.all). The check-account-scoping.sh guard
@@ -166,19 +223,21 @@ else
 fi
 
 # MCP catalog freshness guard: docs/reference/auto/mcp-tools.md is generated
-# FROM Ai::Tools::PlatformApiToolRegistry::TOOLS action_definitions (rails
+# FROM Ai::Tools::PlatformApiToolRegistry.all_tools action_definitions (rails
 # mcp:generate_tool_catalog). A commit that adds/changes an MCP tool action's
 # params/description without regenerating this doc leaves it silently stale —
 # check-mcp-catalog-fresh.sh regenerates into the real output path and diffs
 # against the committed content (ignoring the timestamp line) to catch drift,
-# then restores the file so this check has no side effects of its own.
+# then restores the file so this check has no side effects of its own. It pins
+# the generation environment to the PUBLIC bundle, because `.all_tools` merges
+# in whatever the loaded extension engines registered — see that script.
 total_checks=$((total_checks + 1))
 echo -n "Checking: MCP tool catalog is up to date (rails mcp:generate_tool_catalog)... "
 if bash scripts/check-mcp-catalog-fresh.sh >/dev/null 2>&1; then
     echo -e "${GREEN}✓ PASS${NC}"
     passed_checks=$((passed_checks + 1))
 else
-    echo -e "${RED}✗ FAIL${NC} (Catalog stale; run: cd server && bundle exec rails mcp:generate_tool_catalog)"
+    echo -e "${RED}✗ FAIL${NC} (Catalog stale; run: cd server && env -u BUNDLE_GEMFILE POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=0 POWERNODE_DEPLOYED=0 bundle exec rails mcp:generate_tool_catalog)"
     failed_checks=$((failed_checks + 1))
 fi
 
@@ -586,6 +645,46 @@ else
     echo -e "${RED}✗ FAIL${NC} (Found $pub_hits core file(s) with a NEW public-extension reference: $(printf '%s\n' "$pub_files" | sort -u | grep -v '^$' | tr '\n' ' '))"
     failed_checks=$((failed_checks + 1))
     security_critical_failed_checks+=("Core source adds no NEW public-extension reference (core-purity mirror)")
+fi
+
+# core-purity gate (#9), EXTENSION-to-EXTENSION half. The two checks above cover only
+# CORE source, and the blocking hook used to exit early on ANY path under extensions/ —
+# under a comment ("a file inside an extension may reference its own namespace") that
+# stated a narrower rule than the code implemented. So nothing ever had an opinion on one
+# extension naming ANOTHER, including a PUBLIC MIT extension naming a PRIVATE one that is
+# absent from public clones. Same rule, same baseline ledger, same sanctioned forms —
+# see scripts/checks/extension-cross-reference-check.sh for the full contract and its
+# honest limits. Core mode (no extensions checked out) is a no-op PASS.
+total_checks=$((total_checks + 1))
+echo -n "Checking: Extension source references no OTHER extension (core-purity mirror)... "
+# FAIL CLOSED. A security-critical gate must not turn "the check script is gone,
+# renamed, or errored" into "0 hits" — that reads as a green gate for a tree nobody
+# checked. So: absence is its own FAIL, and a non-numeric result (a stderr leak, an
+# empty result, a crash) is a FAIL too, not a silent 0.
+if [ ! -r scripts/checks/extension-cross-reference-check.sh ]; then
+    echo -e "${RED}✗ FAIL${NC} (core-purity mirror script MISSING: scripts/checks/extension-cross-reference-check.sh)"
+    failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("Extension source references no OTHER extension (core-purity mirror)")
+else
+xext_hits=$(bash scripts/checks/extension-cross-reference-check.sh 2>/dev/null || true)
+case "$xext_hits" in
+    ''|*[!0-9]*)
+        echo -e "${RED}✗ FAIL${NC} (core-purity mirror script MISSING a usable result: produced '"'"'$xext_hits'"'"')"
+        failed_checks=$((failed_checks + 1))
+        security_critical_failed_checks+=("Extension source references no OTHER extension (core-purity mirror)")
+        xext_hits=""
+        ;;
+esac
+if [ -z "$xext_hits" ]; then
+    : # already reported above
+elif [ "$xext_hits" -eq 0 ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Found $xext_hits extension file(s) naming ANOTHER extension: $(bash scripts/checks/extension-cross-reference-check.sh --list 2>/dev/null | tr '\n' ' '))"
+    failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("Extension source references no OTHER extension (core-purity mirror)")
+fi
 fi
 
 echo ""

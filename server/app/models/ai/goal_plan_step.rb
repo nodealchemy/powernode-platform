@@ -4,7 +4,12 @@ module Ai
   class GoalPlanStep < ApplicationRecord
     self.table_name = "ai_goal_plan_steps"
 
-    STATUSES = %w[pending executing completed failed skipped].freeze
+    # `awaiting_approval` is the PARKED state (APO-1f, IMP-117b34656921): the
+    # step's skill executor reached the autonomy gate, the gate parked an
+    # approval, and NOTHING was applied. Neither terminal nor re-claimable —
+    # Ai::Provisioning::SkillCompositionRunner::PARKED_STATUS is the one writer,
+    # and its #resume_step! is the only way out.
+    STATUSES = %w[pending executing completed failed skipped awaiting_approval].freeze
     STEP_TYPES = %w[agent_execution workflow_run observation human_review sub_goal provisioning_skill].freeze
 
     belongs_to :plan, class_name: "Ai::GoalPlan", foreign_key: "plan_id"

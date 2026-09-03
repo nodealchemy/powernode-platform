@@ -9,6 +9,15 @@ module Ai
       # carries its own permission on the human path — see #publication_allowed?.
       PUBLISH_PERMISSION = "kb.publish"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "create_kb_article", mutating: true
+      declare_action "get_kb_article", mutating: false
+      declare_action "list_kb_articles", mutating: false
+      declare_action "update_kb_article", mutating: true
+
       def self.definition
         {
           name: "kb_article_management",

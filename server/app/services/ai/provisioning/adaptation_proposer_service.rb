@@ -99,7 +99,23 @@ module Ai
       # may name. Superset of `CHANGE_TYPES.values` because an operator can ask
       # for a relocate / schema / security change that no sensor signal derives
       # on its own — every entry must have a skill in DEFAULT_SKILL_FOR_CHANGE
-      # so the heuristic composer can always produce at least one step.
+      # so a composer has something to NAME.
+      #
+      # Naming a skill is NOT the same as being able to BIND it. This comment
+      # used to claim the heuristic composer "can always produce at least one
+      # step"; that stopped being true when #reject_unbindable landed, and the
+      # claim is what hid the gap. For `relocate` / `schema_change` /
+      # `security_change` the heuristic supplies only envelope keys
+      # (mission_id, change_type, signal_kind, signal_payload, correlation_id)
+      # and their executors require operational ones (instance_id + size_gb;
+      # project_id + instance_ids + network_name + topology), so every
+      # heuristic step for those three is DROPPED at the single exit of
+      # #build_steps_for. Their working composer is the LLM path, which is
+      # handed the operator's `details:` inside the signal payload plus, since
+      # IMP-15d12f9ace83, each skill's declared input contract — see
+      # #build_diff_prompt. A change type here composes when the LLM is
+      # reachable AND the caller supplied the executor's required inputs; it
+      # declines otherwise rather than emitting a step that dies on dispatch.
       REQUESTABLE_CHANGE_TYPES = (CHANGE_TYPES.values | DEFAULT_SKILL_FOR_CHANGE.keys).freeze
 
       # Signal kind stamped on the synthetic envelope built for an explicit
@@ -276,10 +292,27 @@ module Ai
       # stays stable — but cannot be actuated yet. An operator asking for one
       # gets this reason instead of a generic "nothing could be composed".
       #
-      # CURRENTLY EMPTY, and that is the accurate statement: every requestable
-      # change type has a composer. `cost_control` was the last entry and was
-      # removed in IMP-e68a93c47106 when the scale-in composer below landed —
-      # an advertisement of "not supported" that outlives its cause is its own
+      # CURRENTLY EMPTY. The accurate statement is narrower than the one this
+      # comment used to make ("every requestable change type has a composer"):
+      # every requestable change type has a REACHABLE composer, but not every
+      # one has a DETERMINISTIC composer that binds unaided.
+      #
+      #   scale_horizontal / cost_control — deterministic, bind unaided.
+      #   relocate / schema_change / security_change — the LLM path is their
+      #     only composer. It binds when the model is reachable and the
+      #     required executor inputs are available to it (the operator's
+      #     `details:` ride into the prompt via the signal payload, and
+      #     #build_diff_prompt now states each skill's input contract). When
+      #     either condition fails, #reject_unbindable drops the step and the
+      #     caller gets an empty plan.
+      #
+      # An entry here would mean "cannot be actuated under ANY reachable
+      # condition". None of the five qualifies: an empty plan from an
+      # unreachable LLM is a runtime/deployment outcome, not a property of the
+      # change type, and declaring it here would refuse the request even where
+      # the lane works. `cost_control` was the last entry and was removed in
+      # IMP-e68a93c47106 when the scale-in composer below landed — an
+      # advertisement of "not supported" that outlives its cause is its own
       # defect. The mechanism stays because the next change type to be
       # requestable-before-actuatable needs it; an entry here must be deleted
       # in the same commit that composes for it.
@@ -383,10 +416,16 @@ module Ai
         # have judged in bounds.
         return false if steps.empty?
 
-        max_replicas = watch_policies["auto_scale_max_replicas"]&.to_i
-        return false if max_replicas.nil? || max_replicas <= 0
+        # APO 3a: the window is the PROJECT's, resolved through
+        # `Ai::Mission#scaling_bounds` (mission `watch_policies` →
+        # Account#settings → SiteSetting → constant) rather than read as a bare
+        # ceiling key here. `auto_scale_out?` is false when no ceiling is
+        # declared anywhere and when the declaration is incoherent — both keep
+        # the previous fail-closed answer.
+        bounds = mission.scaling_bounds
+        return false unless bounds.auto_scale_out?
 
-        steps.all? { |s| additive_scale_out_within?(s, max_replicas) }
+        steps.all? { |s| additive_scale_out_within?(s, bounds) }
       rescue StandardError => e
         Rails.logger.warn("[AdaptationProposerService] auto_apply? failed: #{e.message}")
         false
@@ -451,9 +490,9 @@ module Ai
 
       # One step of a diff plan is eligible for auto-apply only if it is the
       # additive scale-out this composer emits, carries a real delta, and lands
-      # at or below the mission's replica ceiling. See #auto_apply? for why
+      # INSIDE the project's declared replica window. See #auto_apply? for why
       # this is an allowlist.
-      def additive_scale_out_within?(step, max_replicas)
+      def additive_scale_out_within?(step, bounds)
         cfg = step_config(step)
         return false unless cfg["skill"].to_s == "scale_project"
 
@@ -463,7 +502,7 @@ module Ai
         return false unless inputs["target_count"].to_i.positive?
 
         desired = inputs["desired_replica_count"].to_i
-        desired.positive? && desired <= max_replicas
+        desired.positive? && bounds.permits_replica_count?(desired)
       end
 
       # Signal-shaped envelope for an explicit request. Hash form is
@@ -1177,6 +1216,7 @@ module Ai
               "inputs": { ... structured input for the skill ... },
               "on_failure": "rollback" | "continue" }
 
+          #{skill_contracts_block}
           Mission brief:
           #{JSON.dump(brief)}
 
@@ -1188,6 +1228,49 @@ module Ai
 
           Recommended change_type: #{change_type}
         PROMPT
+      end
+
+      # The input contract for every skill the model may name, rendered into
+      # the prompt (IMP-15d12f9ace83).
+      #
+      # WHY THIS EXISTS. The prompt used to hand the model skill NAMES only —
+      # `ADAPTATION_SKILLS.inspect` plus the placeholder "structured input for
+      # the skill". Nothing told it that `attach_storage` needs `instance_id`
+      # and `size_gb`, or that `configure_sdwan_for_project` needs
+      # `project_id`, `instance_ids`, `network_name` and `topology`. A model
+      # asked to invent key names guesses (`node_instance_id`, `volume_size`),
+      # #bindable? then drops the step for missing required inputs, and the
+      # operator sees "nothing could be composed" for a lane that is wired
+      # end-to-end. Stating the contract is the difference between a lane that
+      # composes when its inputs exist and one that composes by luck.
+      #
+      # This does NOT relax #reject_unbindable. The guard stays the arbiter of
+      # what persists; this only stops the composer from failing it for a
+      # reason it was never told about. A model that still omits a required
+      # input is still dropped.
+      #
+      # Resolved through SkillCompositionRunner's seam, so core names no
+      # executor. In core mode nothing resolves and this returns an empty
+      # string — the prompt degrades to exactly its previous form rather than
+      # emitting an empty "contracts" heading.
+      def skill_contracts_block
+        contracts = ADAPTATION_SKILLS.filter_map do |skill|
+          inputs = ::Ai::Provisioning::SkillCompositionRunner.input_contract_for(skill)
+          next nil if inputs.blank?
+
+          lines = inputs.map do |spec|
+            flag = spec["required"] ? "REQUIRED" : "optional"
+            desc = spec["description"].presence
+            "    - #{spec['name']} (#{spec['type']}, #{flag})#{desc ? ": #{desc}" : ''}"
+          end
+          "  #{skill}:\n#{lines.join("\n")}"
+        end
+        return "" if contracts.empty?
+
+        "Skill input contracts — a step MISSING a REQUIRED input is discarded,\n" \
+        "so emit a step only when you can supply every REQUIRED input for it.\n" \
+        "Draw values from the mission brief and signal payload below; do not\n" \
+        "invent identifiers.\n#{contracts.join("\n")}\n"
       end
 
       def parse_diff_json(content)

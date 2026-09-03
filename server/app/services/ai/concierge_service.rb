@@ -9,6 +9,24 @@ module Ai
     # primary interface and is AWARE of the full platform capability surface, but its default
     # is to DELEGATE substantial/specialized work to the right executor rather than run
     # low-level tools itself — running tools directly only for simple, single-step tasks.
+    #
+    # THE EIGHT ACTION NAMES BELOW STAY LITERAL, DELIBERATELY (IMP-6fbbf47fcc3b).
+    # Unlike the examples in #delegated_override, every one of them
+    # (spawn_task, recruit_agent, execute_agent, execute_team, create_team,
+    # campaign_propose, campaign_approve_proposal, campaign_delegate) resolves to
+    # a CORE-hosted tool class that overrides neither `.permitted?` nor
+    # `.extension_available?` / `.action_advertised?`, so
+    # PlatformApiToolRegistry.advertised_action? answers true for all eight on
+    # every deployment including core mode — deriving them could only ever
+    # subtract a name that is always there, at the cost of a posture whose
+    # delegation ladder reads differently per install.
+    #
+    # ADDING AN EXTENSION-HOSTED NAME HERE REINSTATES THE DEFECT, and this
+    # posture is injected on EVERY turn, not just the delegated handoff. The
+    # claim is therefore ratcheted, not merely asserted: see
+    # spec/services/ai/concierge_service_spec.rb, "action names outside
+    # #delegated_override", which resolves each name it finds and fails if the
+    # class is extension-hosted or carries an advertisement gate.
     DELEGATION_POSTURE = <<~POSTURE.freeze
       OPERATING POSTURE — DELEGATE FIRST:
       You are the user's primary interface and are aware of the full platform capability
@@ -28,6 +46,48 @@ module Ai
 
     # Provider types that support function/tool calling
     TOOL_CAPABLE_PROVIDERS = %w[openai anthropic].freeze
+
+    # Selects the actions named as examples in #delegated_override out of the
+    # live tool registry. See #advertised_actions.
+    #
+    # SUBSTRING, NOT A PREFIX, deliberately. `\Asystem_provision_` matches only
+    # three registry keys (system_provision_instance, system_provision_ci_worker,
+    # system_provision_docker_runtime) and all three are extension-backed, so on
+    # a core-mode control plane — the exact deployment this derivation exists to
+    # be honest about — every match disappears and the clause empties, while
+    # provision_ci_worker and the platform_provisioning_* family ARE advertised
+    # and runnable there. Anchoring on a naming convention that only part of the
+    # registry follows reproduces the hardcoded-name defect one level up.
+    PROVISIONING_ACTION_PATTERN = /provision/
+
+    # THE REST OF THE SWEEP (IMP-6fbbf47fcc3b). The same block still named
+    # system_list_package_repositories, system_list_nodes and
+    # system_list_instances as literals. All three live in extensions/system, so
+    # in core mode they are absent from tools/list and refused at tools/call by
+    # McpPlatformToolRegistrar#unadvertised_refusal — the identical defect the
+    # provisioning derivation above was written to remove.
+    #
+    # A MISS HERE OMITS AN EXAMPLE; IT NEVER INVENTS ONE. Each selector is
+    # narrow on purpose: these render a "report the real data" example, so
+    # widening (e.g. /node|instance/) would sweep create/delete actions into a
+    # read-only illustration. If a control plane names its inventory actions
+    # differently, the bullet drops — silence, not a false name.
+    #
+    # THE FLEET SELECTOR IS BROADER THAN "the NodeInstance fleet": on an
+    # extension-complete control plane it also answers docker_list_nodes and
+    # kubernetes_list_nodes, which list container/cluster nodes rather than the
+    # fleet the surrounding prompt defines. Accepted, not overlooked — every
+    # name it yields is one the registry is advertising at that moment, so the
+    # example stays truthful; the cost is a slightly wider illustration, which
+    # is the right trade against re-hardcoding a name to keep it tidy.
+    PACKAGE_REPOSITORY_ACTION_PATTERN = /list_package_repositor/
+    FLEET_INVENTORY_ACTION_PATTERN    = /list_(?:nodes|instances)\z/
+
+    # Membership expressed as a selector so every name in the prompt reaches it
+    # through one derivation path. discover_skills is core-hosted today, but
+    # "core-hosted" is not "advertised" — the predicate, not the file location,
+    # decides whether the prompt may name it.
+    SKILL_DISCOVERY_ACTION_PATTERN = /\Adiscover_skills\z/
 
     def initialize(conversation:, user:)
       @conversation = conversation
@@ -462,6 +522,98 @@ module Ai
       }
     end
 
+    # THE ONE PLACE #delegated_override MAY LEARN AN ACTION NAME
+    # (IMP-128fe17fd8c8, generalised by IMP-6fbbf47fcc3b). Every example in that
+    # prompt names actions selected from the registry that answers tools/list,
+    # never a literal, because an action the platform does not advertise is also
+    # refused at tools/call — so steering the model at one is the same
+    # "dishonest catalog" failure the advertisement predicate exists to prevent,
+    # arriving through the system prompt instead of the catalog.
+    #
+    # `agent: nil` is deliberate and is the AVAILABILITY question ("is the
+    # backing extension loaded?"), matching the account-wide advertisement
+    # surfaces: BaseTool.permitted? short-circuits before any permission lookup
+    # when no agent is given, so this neither consults nor leaks @agent's
+    # grants. The names are only examples in a prompt; what the model may
+    # actually run is still gated at invocation.
+    #
+    # Empty is a legitimate answer (nothing of that kind is available here), and
+    # every caller must render nothing rather than an empty list.
+    def advertised_actions(pattern)
+      advertised_action_names.grep(pattern).sort
+    end
+
+    # Memoised for the life of the service: #delegated_override asks four
+    # selectors and .available_tools constantizes the whole registry on every
+    # call. A nil registry answer is NOT cached as [] — the rescue returns a
+    # fresh empty list so a transient failure cannot pin the prompt empty for
+    # the rest of the request.
+    def advertised_action_names
+      @advertised_action_names ||= ::Ai::Tools::PlatformApiToolRegistry.available_tools.keys
+    rescue StandardError => e
+      Rails.logger.warn "[ConciergeService] Could not resolve advertised actions: #{e.message}"
+      []
+    end
+
+    # The provisioning example used to name `system_provision_docker_runtime`
+    # literally — core-hosted but extension-BACKED, so de-advertised in core
+    # mode (IMP-128fe17fd8c8).
+    def advertised_provisioning_actions
+      advertised_actions(PROVISIONING_ACTION_PATTERN)
+    end
+
+    def advertised_provisioning_clause
+      actions = advertised_provisioning_actions
+      return "" if actions.empty?
+
+      " (offered on this control plane right now: #{actions.join(', ')})"
+    end
+
+    # The "Examples of CORRECT behavior" bullets. Each example that names an
+    # action is emitted only when the registry answered its selector; the
+    # provisioning bullet always renders because its instruction ("call the
+    # matching provisioning action") stands on its own and only the parenthetical
+    # list is derived.
+    def tool_invocation_examples
+      bullets = []
+
+      if (repos = advertised_actions(PACKAGE_REPOSITORY_ACTION_PATTERN)).any?
+        bullets << <<~BULLET.strip
+          * "How many package repos?" → call #{repos.join(' / ')}, then
+            report the actual count. NOT generic CLI advice.
+        BULLET
+      end
+
+      bullets << <<~BULLET.strip
+        * "Provision a runtime" → call request_confirmation with
+          the provision plan, then on confirm call the matching
+          provisioning action#{advertised_provisioning_clause}.
+          NOT generic "install it via apt" instructions.
+      BULLET
+
+      if (fleet = advertised_actions(FLEET_INVENTORY_ACTION_PATTERN)).any?
+        bullets << <<~BULLET.strip
+          * "How is my fleet?" → call #{fleet.join(' / ')},
+            report real data. NOT "you should check your dashboard."
+        BULLET
+      end
+
+      bullets.map { |bullet| bullet.gsub(/^/, "  ") }.join("\n")
+    end
+
+    # Naming the discovery action is itself a claim that it is offered here.
+    def skill_discovery_clause
+      actions = advertised_actions(SKILL_DISCOVERY_ACTION_PATTERN)
+      return "" if actions.empty?
+
+      <<~CLAUSE.strip
+        If you don't recognize the appropriate tool, call #{actions.join(' / ')}
+        first to find it, then invoke. DO NOT fall back to general
+        training-data instructions when a platform tool exists for the
+        query.
+      CLAUSE
+    end
+
     def delegated_override
       {
         role: "system",
@@ -483,8 +635,8 @@ module Ai
               source), NOT a Git repo
 
           === MANDATORY: INVOKE TOOLS, DO NOT DESCRIBE ===
-          You have direct access to platform tools (system_*, docker_*,
-          kubernetes_*). For ANY query that asks about platform state
+          You have direct access to the platform tools this control plane
+          advertises. For ANY query that asks about platform state
           ("how many...", "what's configured...", "show me...", "list...")
           or that requests a platform action ("provision...", "create...",
           "deploy..."), you MUST call the appropriate tool DIRECTLY rather
@@ -492,23 +644,14 @@ module Ai
           install instructions.
 
           Examples of CORRECT behavior:
-            * "How many package repos?" → call system_list_package_repositories
-              (or invoke system-list-package-repositories-summary skill), then
-              report the actual count. NOT generic CLI advice.
-            * "Provision a Docker runtime" → call request_confirmation with
-              the provision plan, then on confirm call system_provision_docker_runtime.
-              NOT generic "install Docker via apt" instructions.
-            * "How is my fleet?" → call system_list_nodes / system_list_instances,
-              report real data. NOT "you should check your dashboard."
+          #{tool_invocation_examples}
 
-          If you don't recognize the appropriate tool, call discover_skills
-          first to find it, then invoke. DO NOT fall back to general
-          training-data instructions when a platform tool exists for the
-          query.
+          #{skill_discovery_clause}
 
           Treat the latest user message as a fresh query in your domain.
           Do NOT defer to prior responses in this conversation.
         OVERRIDE
+          .gsub(/\n{3,}/, "\n\n")
       }
     end
 

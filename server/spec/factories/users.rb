@@ -18,6 +18,16 @@ FactoryBot.define do
     email_verified_at { 1.day.ago }
 
     # Transient attribute for permissions
+    #
+    # A non-nil value makes User#assign_permissions_after_create mint an ad-hoc
+    # `test_role_*` row carrying exactly those grants. That role is scoped to the
+    # user's OWN account, so it never appears in Role.global and cannot poison a
+    # "no global role holds <verb>" catalog sweep. Actors built this way are
+    # therefore structurally invisible to the catalog — assert the catalog
+    # against the real seeded global roles, not against these.
+    #
+    # This says nothing about `create(:role)`, which is still GLOBAL by default
+    # (spec/factories/roles.rb sets no account) and still named `test_role_*`.
     transient do
       permissions { nil }  # nil means use default role, [] means no permissions
     end

@@ -43,25 +43,35 @@ RSpec.describe Mcp::ProtocolService, type: :service do
              is_active: true)
     end
 
+    # Discovery is authorization-scoped and fails closed, so the registered
+    # manifest has to declare a permission the calling user actually holds for
+    # it to be listed at all. Registering a manifest with no declared
+    # permissions (and no McpTool row) would now be withheld by design — see
+    # spec/services/mcp/protocol_service_tool_listing_authz_spec.rb.
+    let(:granted_permission) { 'zz.mcp_protocol_service_spec.read' }
+
     before do
-      # Register the agent as an MCP tool
-      service.instance_variable_get(:@registry).register_tool(
-        agent.mcp_tool_manifest['name'],
-        agent.mcp_tool_manifest
-      )
+      manifest = agent.mcp_tool_manifest.merge('required_permissions' => [ granted_permission ])
+      service.instance_variable_get(:@registry).register_tool(manifest['name'], manifest)
+      allow(user).to receive(:permission_names).and_return([ granted_permission ])
     end
 
-    it 'returns available tools' do
-      result = service.list_tools
+    it 'returns available tools to a user holding the required permission' do
+      result = service.list_tools({}, user: user)
 
       expect(result).to include('tools' => be_an(Array))
       expect(result['tools']).not_to be_empty
     end
 
+    it 'returns no tools when called without a user' do
+      expect(service.list_tools['tools']).to be_empty
+    end
+
     it 'filters tools by type' do
-      result = service.list_tools({ type: 'ai_agent' })
+      result = service.list_tools({ type: 'ai_agent' }, user: user)
 
       # Formatted tools include name, description, and inputSchema (type is not exposed in discovery format)
+      expect(result['tools']).not_to be_empty
       expect(result['tools']).to all(include('name', 'description', 'inputSchema'))
     end
   end

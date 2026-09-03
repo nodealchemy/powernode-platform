@@ -75,6 +75,43 @@ RSpec.describe 'sidekiq.yml scheduler config' do
     end
   end
 
+  # IMP-842b56d3a5d4. AiProvisioningParkedStepReaperJob is the ONLY thing that
+  # re-drives a provisioning step stranded in `awaiting_approval` — every other
+  # caller of .resume_parked_step is synchronous with the approval decision. A
+  # missing or mistyped schedule entry leaves the mission blocked behind one
+  # row with no signal at all, so the entry is pinned here rather than trusted.
+  describe 'ai_provisioning_parked_step_reap' do
+    subject(:entry) { schedule['ai_provisioning_parked_step_reap'] }
+
+    it 'is scheduled' do
+      expect(entry).not_to be_nil
+    end
+
+    it 'names a class that actually resolves to an enqueueable job' do
+      klass = Object.const_get(entry['class'])
+      expect(klass).to be < BaseJob
+      expect(klass).to respond_to(:perform_async)
+    end
+
+    it 'agrees with the job class about the queue' do
+      expect(entry['queue']).to eq('maintenance')
+      expect(AiProvisioningParkedStepReaperJob.sidekiq_options['queue'].to_s).to eq('maintenance')
+    end
+
+    it 'has a parseable cron expression' do
+      expect(Fugit.parse_cron(entry['cron'])).not_to be_nil
+    end
+
+    # The reap DELAY (how long a step must sit stranded) is SiteSetting-resolved
+    # server-side and defaults to 900s. A cron slower than that delay would make
+    # the worst-case strand the sum of the two, so the tick has to stay under it.
+    it 'ticks at least as often as the default strand delay' do
+      cron = Fugit.parse_cron(entry['cron'])
+      from = Time.utc(2026, 1, 1, 0, 0, 0)
+      expect(cron.next_time(from).to_t - from).to be <= 900
+    end
+  end
+
   # The cleanup job destroys report rows and their stored artifacts against a
   # backlog of unknown size. It must stay off the cron until an operator
   # decides otherwise — a schedule entry here would be the unbounded first run.

@@ -16,6 +16,20 @@ module Ai
 
       CODE_TYPES = Ai::ImprovementRecommendation::CODE_QUALITY_TYPES
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "approve_improvement", mutating: true
+      declare_action "create_improvement", mutating: true
+      declare_action "disable_autonomy", mutating: true
+      declare_action "discover_improvements", mutating: false
+      declare_action "dismiss_improvement", mutating: true
+      declare_action "enable_autonomy", mutating: true
+      declare_action "list_improvements", mutating: false
+      declare_action "revert_improvement", mutating: true
+      declare_action "scoreboard", mutating: false
+
       def self.definition
         {
           name: "improvement",

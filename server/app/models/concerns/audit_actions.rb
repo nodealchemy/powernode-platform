@@ -236,10 +236,16 @@ module AuditActions
   # =============================================================================
   # MCP SERVER ACTIONS
   # =============================================================================
+  # mcp.tools.undeclared_action is governance telemetry (IMP-a0553dda1ec3): a
+  # tool action executed with no Ai::Tools::BaseTool.declare_action
+  # declaration. It records WHICH actions run ungoverned so the fail-closed
+  # flip (IMP-439d31353f9b) is a measured decision rather than a guess. Its
+  # payload is shape-only — principal KIND, tool class, action name; never
+  # identity, never credentials.
   MCP_ACTIONS = %w[
     mcp.servers.read mcp.servers.create mcp.servers.update mcp.servers.delete
     mcp.servers.connect mcp.servers.disconnect mcp.servers.health_check mcp.servers.discover_tools mcp.servers.workflow_builder_read
-    mcp.tools.read mcp.tools.execute
+    mcp.tools.read mcp.tools.execute mcp.tools.undeclared_action
     mcp.executions.read mcp.executions.cancel
     mcp.oauth.authorize_initiated mcp.oauth.callback_success mcp.oauth.disconnect mcp.oauth.status_read mcp.oauth.token_refreshed
   ].freeze

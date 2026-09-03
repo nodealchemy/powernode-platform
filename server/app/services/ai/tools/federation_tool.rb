@@ -17,6 +17,13 @@ module Ai
     class FederationTool < BaseTool
       REQUIRED_PERMISSION = "ai.federation.invoke"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "federation_invoke_tool", mutating: true
+      declare_action "federation_list_partners", mutating: false
+
       # BaseTool.definition raises NotImplementedError, and McpPlatformToolRegistrar
       # calls it OUTSIDE its per-tool rescue (register_all!), so a tool missing this
       # aborts registration for every tool after it — and McpChannel#subscribed does
@@ -54,7 +61,47 @@ module Ai
         }
       end
 
-      def execute(params:)
+      protected
+
+      # THE HOIST (IMP-149b35e5f16f). BaseTool#execute reaches #call only for an
+      # UNGATED action; a gated one returns from the gate branch without ever
+      # entering the body below (base_tool.rb: "tools that enforce per-action
+      # permissions INSIDE #call ... would lose that check the moment an action
+      # is declared — a privilege escalation introduced by a safety control").
+      #
+      # `federation_invoke_tool` is already `declare_action ... mutating: true`;
+      # it becomes gated the instant APO-1e adds the category/executor/context/
+      # on_proceed quartet. Without this hoist that wiring would delete the
+      # structural anti-relay refusal as a side effect and start PARKING
+      # approvals for calls that are forbidden outright. Same shape as
+      # SystemFleetTool#authorization_error.
+      def authorization_error(_params)
+        return nil unless instance_authorized?
+
+        error_result("Outbound federation is not available to a federated or instance principal")
+      end
+
+      # #call, NOT #execute (IMP-149b35e5f16f). This class used to define
+      # #execute and never call super, so it served every call OUTSIDE
+      # BaseTool#execute — the one chokepoint that performs the declaration
+      # lookup, re-arms Mcp::Principal's destructive deny overlay
+      # (IMP-0e6b216de843) and runs #validate_params!. Its two declare_action
+      # rows satisfied the completeness equality while governing nothing, on
+      # the single tool that proxies ARBITRARY remote tool names. APO-1e's
+      # fail-closed flip could not be honest with that exemption standing.
+      #
+      # The structural refusal below answers every restricted principal on the
+      # path that REACHES this body, and what now runs ahead of it only ever
+      # refuses (for an instance principal — the only caller the overlay
+      # applies to — a destroy-shaped action name raises before arriving here).
+      # But a GATED action returns from BaseTool#execute's gate branch (its
+      # `return call(params) unless gated_action?(declaration)` is the last
+      # line that can reach here) without ever calling #call, so the refusal is
+      # also hoisted into #authorization_error above:
+      # that is the seam BaseTool documents for exactly this, and keeping only
+      # the #call copy would make APO-1e's gate wiring silently delete the
+      # refusal. Both copies stand — the hoist is the load-bearing one.
+      def call(params)
         # A restricted principal (federation peer or fleet instance) must NEVER
         # drive OUTBOUND federation — that would turn this plane into an open
         # cross-plane relay / SSRF pivot and spend its outbound credentials on a

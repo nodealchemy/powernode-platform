@@ -544,6 +544,248 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
       expect(body['data']['error']).to include('Cannot reach Vault')
       expect(body['data']).to have_key('latency_ms')
     end
+
+    # IMP-0f914db2c7cf — the connectivity half of "is this credential usable"
+    # was already here (config-missing / unreachable / sealed, above). The two
+    # cases it could NOT answer were PATH-ABSENT and PATH-PRESENT-BUT-WRONG-
+    # SHAPE, which is exactly the pair a GitOps operator hits: the sync path
+    # reads {password} for an https remote and {ssh_key} for ssh, and a payload
+    # missing that key produced a git-flavoured error with no Vault in it.
+    #
+    # The probe is additive — omitting `path` leaves every example above
+    # unchanged — and reports PRESENCE, SHAPE and KEY NAMES only. Never a value.
+    describe 'credential-path probe (params[:path])' do
+      let(:headers) { auth_headers_for(user_with_security_permission) }
+      let(:path) { 'secret/data/powernode/gitops/deploy' }
+
+      def stub_reachable_vault(sealed: false)
+        allow(Security::VaultClient).to receive(:admin_setting_config).and_return(
+          'vault_addr' => 'http://vault.example.internal:8200',
+          'vault_role_id' => 'test-role',
+          'vault_secret_id' => 'test-secret'
+        )
+        health = Object.new
+        health.instance_variable_set(:@sealed, sealed)
+        health.instance_variable_set(:@initialized, true)
+        health.instance_variable_set(:@version, '1.15.0')
+        client = instance_double(Vault::Client)
+        allow(client).to receive(:auth).and_return(double(approle: true))
+        allow(client).to receive(:sys).and_return(double(health_status: health))
+        allow(Vault::Client).to receive(:new).and_return(client)
+        allow(Security::VaultClient).to receive(:reconfigure!)
+      end
+
+      def probe(required_keys: nil, as: headers)
+        body = { path: path }
+        body[:required_keys] = required_keys unless required_keys.nil?
+        post '/api/v1/admin_settings/vault/test', params: body, headers: as, as: :json
+        response.parsed_body['data']
+      end
+
+      # Found by review, and it would have been a platform outage: a denied
+      # policy on the probed path is a Vault::HTTPError, which read_secret
+      # counts via record_failure against the SHARED `vault` circuit breaker
+      # (failure_threshold 3, reset_timeout 5min, state in Rails.cache). Three
+      # probes of an unreadable path would have taken Vault offline for every
+      # consumer in the platform — and the doc tells the operator to re-probe
+      # after fixing the policy. A diagnostic must not be able to break the
+      # thing it diagnoses, so the probe reads through probe_secret, which
+      # neither checks nor records breaker state.
+      it 'does not touch the shared Vault circuit breaker' do
+        stub_reachable_vault
+        expect(Security::VaultClient).not_to receive(:read_secret)
+        expect(Security::VaultClient).to receive(:probe_secret).with(path).and_return({})
+
+        probe(required_keys: %w[password])
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      it 'reports path_present:false when the KV path does not exist' do
+        stub_reachable_vault
+        allow(Security::VaultClient).to receive(:probe_secret)
+          .and_raise(Security::VaultClient::SecretNotFoundError, "Secret not found: #{path}")
+
+        data = probe(required_keys: %w[password])
+
+        expect(response).to have_http_status(:ok)
+        expect(data['connected']).to be(true)
+        expect(data['credential_path']).to eq(path)
+        expect(data['path_present']).to be(false)
+        expect(data['shape_ok']).to be(false)
+      end
+
+      it 'reports the key NAMES and shape_ok:true when the payload satisfies the requirement' do
+        stub_reachable_vault
+        allow(Security::VaultClient).to receive(:probe_secret)
+          .and_return({ 'username' => 'deploy-bot', 'password' => 'hunter2' })
+
+        data = probe(required_keys: %w[password])
+
+        expect(data['path_present']).to be(true)
+        expect(data['credential_keys']).to eq(%w[password username])
+        expect(data['missing_keys']).to eq([])
+        expect(data['shape_ok']).to be(true)
+        # The leak oracle belongs on THIS arm too — it is the arm where the
+        # payload actually contains the value a leak would carry.
+        expect(response.body).not_to include('hunter2')
+      end
+
+      # Without a requirement there is nothing to compare, so `shape_ok: true`
+      # would be a pass mark awarded for no test — the one state the method's
+      # fail-closed contract says cannot happen, and it would also turn the
+      # endpoint into an unqualified key-name enumerator for any KV path.
+      it 'declines to judge the shape when no required_keys are supplied' do
+        stub_reachable_vault
+        allow(Security::VaultClient).to receive(:probe_secret)
+          .and_return({ 'username' => 'deploy-bot' })
+
+        data = probe
+
+        expect(data['path_present']).to be(true)
+        expect(data['credential_keys']).to eq(%w[username])
+        expect(data['shape_ok']).to be_nil
+        expect(data['path_error']).to include('required_keys')
+      end
+
+      it 'declines to judge the shape for an explicitly empty requirement' do
+        stub_reachable_vault
+        allow(Security::VaultClient).to receive(:probe_secret).and_return({ 'username' => 'x' })
+
+        expect(probe(required_keys: [])['shape_ok']).to be_nil
+      end
+
+      # THE ORACLE. A probe hardcoded to return ok passes every example above.
+      # This is the arm the whole task exists for: the path resolves, but not
+      # to the key the repository's auth mode needs.
+      it 'reports shape_ok:false naming the MISSING key when the payload is wrong-shaped' do
+        stub_reachable_vault
+        allow(Security::VaultClient).to receive(:probe_secret)
+          .and_return({ 'username' => 'deploy-bot', 'token' => 'ghp_leakme' })
+
+        data = probe(required_keys: %w[password])
+
+        expect(data['path_present']).to be(true)
+        expect(data['shape_ok']).to be(false)
+        expect(data['missing_keys']).to eq(%w[password])
+        expect(data['credential_keys']).to eq(%w[token username])
+      end
+
+      it 'never transmits a credential VALUE, on any arm' do
+        stub_reachable_vault
+        allow(Security::VaultClient).to receive(:probe_secret)
+          .and_return({ 'username' => 'deploy-bot', 'token' => 'ghp_leakme' })
+
+        probe(required_keys: %w[password])
+
+        expect(response.body).not_to include('ghp_leakme')
+        expect(response.body).not_to include('deploy-bot')
+      end
+
+      # Mirrors RepoSyncService#require_creds!, which rejects a blank value:
+      # `password.to_s` is already "" for nil, so a present-but-empty key
+      # reproduces the blank-password auth attempt exactly. Presence of the KEY
+      # is not the property; a usable VALUE is.
+      it 'treats a present-but-blank value as missing' do
+        stub_reachable_vault
+        allow(Security::VaultClient).to receive(:probe_secret)
+          .and_return({ 'username' => 'deploy-bot', 'password' => '' })
+
+        data = probe(required_keys: %w[password])
+
+        expect(data['shape_ok']).to be(false)
+        expect(data['missing_keys']).to eq(%w[password])
+      end
+
+      it 'fails closed when the payload is not a Hash' do
+        stub_reachable_vault
+        allow(Security::VaultClient).to receive(:probe_secret).and_return('a-bare-string')
+
+        data = probe(required_keys: %w[password])
+
+        expect(data['path_present']).to be(true)
+        expect(data['shape_ok']).to be(false)
+        expect(data['path_error']).to include('String')
+      end
+
+      # The message is the REAL vault-ruby shape, not a hand-written short one:
+      # Vault::HTTPError leads with ~140 chars of boilerplate before the errors
+      # list, and VaultClient prepends another 24. A leading truncate(200)
+      # keeps only the boilerplate and discards the one line the operator
+      # needs, while a stubbed 45-char message hides that entirely.
+      it 'fails closed on a read error, keeping the REASON rather than the boilerplate' do
+        stub_reachable_vault
+        realistic = "Vault connection error: The Vault server at `https://vault.example.internal:8200' " \
+                    "responded with a 403.\nAny additional information the server supplied is shown " \
+                    "below:\n\n  * 1 error occurred:\n\t* permission denied\n\n"
+        allow(Security::VaultClient).to receive(:probe_secret)
+          .and_raise(Security::VaultClient::ConnectionError, realistic)
+
+        data = probe(required_keys: %w[password])
+
+        # path_present must be REPORTED as null, not merely absent: it is what
+        # distinguishes "the read failed" from "the path is not there".
+        expect(data).to have_key('path_present')
+        expect(data['path_present']).to be_nil
+        expect(data['shape_ok']).to be(false)
+        expect(data['path_error']).to include('permission denied')
+      end
+
+      # The four cases stay DISTINCT. A sealed or unreachable Vault must not be
+      # answered as "the path is missing" — collapsing them reproduces the dead
+      # end this thread started from.
+      it 'does not probe the path at all when Vault is sealed' do
+        stub_reachable_vault(sealed: true)
+        expect(Security::VaultClient).not_to receive(:probe_secret)
+
+        data = probe(required_keys: %w[password])
+
+        expect(data['connected']).to be(false)
+        expect(data['sealed']).to be(true)
+        expect(data).not_to have_key('path_present')
+      end
+
+      it 'does not probe the path at all when Vault is unreachable' do
+        allow(Security::VaultClient).to receive(:admin_setting_config).and_return(
+          'vault_addr' => 'http://vault.example.internal:8200',
+          'vault_role_id' => 'test-role', 'vault_secret_id' => 'test-secret'
+        )
+        failing = instance_double(Vault::Client)
+        allow(failing).to receive(:auth).and_raise(
+          Vault::HTTPConnectionError.new('http://vault.example.internal:8200', StandardError.new('refused'))
+        )
+        allow(Vault::Client).to receive(:new).and_return(failing)
+        expect(Security::VaultClient).not_to receive(:probe_secret)
+
+        data = probe(required_keys: %w[password])
+
+        expect(data['connected']).to be(false)
+        expect(data['error']).to include('Cannot reach Vault')
+        expect(data).not_to have_key('path_present')
+      end
+
+      # Reading which key names live at an arbitrary KV path is a disclosure,
+      # small but real. The class-level gate on this controller is only
+      # `admin.settings.read`; probing a path requires the same
+      # `admin.settings.security` the other Vault actions require.
+      it 'refuses a path probe from a holder of only admin.settings.read' do
+        expect(Security::VaultClient).not_to receive(:probe_secret)
+
+        probe(required_keys: %w[password], as: auth_headers_for(user_with_settings_view))
+
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it 'still answers plain connectivity for a read-only holder (no path given)' do
+        stub_reachable_vault
+
+        post '/api/v1/admin_settings/vault/test',
+             headers: auth_headers_for(user_with_settings_view), as: :json
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body.dig('data', 'connected')).to be(true)
+      end
+    end
   end
 
   # ===========================================================================

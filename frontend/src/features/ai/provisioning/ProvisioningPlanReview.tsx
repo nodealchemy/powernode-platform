@@ -10,7 +10,8 @@ import {
   CheckCircle,
   Loader2,
   AlertCircle,
-  SkipForward
+  SkipForward,
+  PauseCircle
 } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
@@ -65,12 +66,23 @@ const stepIcon = (status: PlanStepStatus | undefined): React.ReactElement => {
   switch (status) {
     case 'completed':
       return <CheckCircle className="w-4 h-4 text-theme-success-fg" aria-label="completed" />;
+    // `executing` is the server's in-flight value in Ai::GoalPlanStep::STATUSES —
+    // the snapshot hands the raw column through — and `running` is the legacy
+    // client-side alias. Both are in flight; neither is "not started yet".
+    case 'executing':
     case 'running':
       return <Loader2 className="w-4 h-4 text-theme-info-fg animate-spin" aria-label="running" />;
     case 'failed':
       return <AlertCircle className="w-4 h-4 text-theme-danger-fg" aria-label="failed" />;
     case 'skipped':
       return <SkipForward className="w-4 h-4 text-theme-tertiary" aria-label="skipped" />;
+    // Parked on an autonomy gate (SkillCompositionRunner::PARKED_STATUS) —
+    // dispatched, blocked on a human, nothing applied. Falling through to the
+    // pending circle read as "not started yet".
+    case 'awaiting_approval':
+      return (
+        <PauseCircle className="w-4 h-4 text-theme-warning-fg" aria-label="awaiting approval" />
+      );
     default:
       return <Circle className="w-4 h-4 text-theme-secondary" aria-label="pending" />;
   }

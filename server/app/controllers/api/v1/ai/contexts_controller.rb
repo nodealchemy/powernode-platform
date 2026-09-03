@@ -346,13 +346,6 @@ module Api
 
           highlights.uniq.first(3)
         end
-
-        def authorize_action!(permission)
-          return if current_user.has_permission?(permission)
-
-          render_forbidden("You don't have permission to perform this action")
-        end
-
       end
     end
   end

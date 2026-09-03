@@ -225,7 +225,9 @@ module Ai
       # never raised so we don't break the runner's transaction.
       #
       # @param step [#id, #step_number, Hash, String] step record, hash payload, or id
-      # @param status [String] one of: started, completed, failed, executing, rolled_back
+      # @param status [String] one of: started, completed, failed, executing,
+      #        rolled_back, awaiting_approval (the step parked on an autonomy
+      #        approval — SkillCompositionRunner::PARKED_STATUS)
       # @param outputs [Hash, nil] optional outputs hash (omitted from payload when nil/blank)
       # @param error [String, nil] optional error message (omitted when blank)
       # @param extra [Hash] optional supplemental fields merged into the payload

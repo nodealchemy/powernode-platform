@@ -23,7 +23,91 @@ module Ai
     # first is the agent's own heartbeat promotion (a heartbeat that parks for
     # approval is an outage), the second is a read.
     class DockerProvisioningTool < BaseTool
-      REQUIRED_PERMISSION = "docker.hosts.manage"
+      # SECURITY (IMP-48abfa2f9e74): this floor used to be "docker.hosts.manage", a
+      # name that appears ZERO times in config/permissions.rb. User#has_permission?
+      # is an exact match on a role_permissions row plus a system.admin
+      # short-circuit, so no row can ever exist for an undeclared name: every action
+      # on this class was super-admin-only while tools/list advertised the whole
+      # surface to everyone. b7598df74 created the devops.* family and moved the
+      # REST twin onto it (Api::V1::Devops::Docker::HostsController); this class was
+      # missed by that sweep. Retargeted onto the same declared family, at the same
+      # read/manage split the twin uses action for action.
+      REQUIRED_PERMISSION = "devops.docker.manage"
+
+      # CORE MODE (IMP-2836d290f99a): this class is core-HOSTED but
+      # extension-BACKED — its provisioning actions run through
+      # System::DockerDaemonProvisionerService / System::NodeInstance, which ship
+      # in extensions/system. PlatformApiToolRegistry.available_tools drops
+      # extension-HOSTED tool classes on their own (constantize raises NameError,
+      # which it rescues), but this class constantizes fine with the extension
+      # absent, so all four actions stayed in tools/list and
+      # system_provision_docker_runtime answered a call with
+      # -32603 "Internal error: uninitialized constant System::...".
+      #
+      # NOT the only one of its kind: Ai::Tools::DiskImageOperatorTool is the
+      # other core-hosted, extension-backed tool (::System::DiskImageWebhook),
+      # and it is still unguarded — filed separately, deliberately out of scope
+      # here. `grep -rln '::System::' app/services/ai/tools/` names both.
+      #
+      # The guard shape is the one the extension's own tools already use —
+      # SystemFleetTool.permitted? and SystemAcmeTool.permitted? both open with
+      # `return false unless defined?(::System)`.
+      #
+      # SCOPE OF THE PREDICATE: it is a NAMESPACE PROXY, not a per-constant
+      # check. #provision_runtime needs ::System::NodeInstance and the gate later
+      # constantizes the executor STRINGS
+      # "System::Executors::Runtime::{Provision,Decommission}DockerHost" — a
+      # partially-present extension satisfies the proxy and still fails, and the
+      # deferred-approval replay resolves those strings in the WORKER process,
+      # where this guard has no reach at all.
+      #
+      # Both halves of the answer here are deliberate, and neither is the whole
+      # story. #permitted? is the ADVERTISEMENT gate for the surfaces that filter
+      # on it (available_tools -> tools/list, AgentToolBridgeService,
+      # ConciergeToolBridge): an action that cannot work must not be advertised,
+      # because an honest catalog is what makes agent tool selection work at all.
+      # #call is DEFENCE IN DEPTH for invocation, not the only line: find_tool /
+      # McpPlatformToolRegistrar.find_tool_class still RESOLVE tools/call straight
+      # off the registry hash without consulting permitted?, but since
+      # IMP-128fe17fd8c8 McpPlatformToolRegistrar.execute_tool refuses a
+      # de-advertised action at the seam (#unadvertised_refusal) before
+      # constructing the tool. The guard below still answers the callers that do
+      # not go through that seam — the tool constructed directly, and any future
+      # dispatch path — with a plain envelope instead of a NameError.
+      #
+      # CLOSED BY IMP-5039d026da0d: the three other advertisement surfaces that
+      # used to walk all_tools raw and keep listing these four — McpPlatform
+      # ToolRegistrar.sync_to_database! (the mcp_tools rows behind the frontend
+      # MCP browser), .register_all!, and SemanticToolDiscoveryService
+      # #collect_all_tools (the semantic discovery index) — now all ask
+      # PlatformApiToolRegistry.advertised_action? / .advertised_class?, the one
+      # definition of "the platform offers this", which calls this predicate.
+      # STILL UNFILTERED, deliberately: .tool_classes (the RESOLUTION set behind
+      # #find_tool_class — a stale-catalog tools/call on the live streamable-HTTP
+      # wire must resolve so that IMP-128fe17fd8c8's seam refusal can name the
+      # action, rather than dying as an opaque "Unknown platform tool") and the
+      # generated docs catalog in
+      # lib/tasks/mcp_tool_catalog.rake, whose committed copy is the whole
+      # registry rendered in the public bundle and must not vary by which
+      # extensions a generating host happened to load.
+      def self.extension_available?
+        defined?(::System::DockerDaemonProvisionerService) ? true : false
+      end
+
+      def self.permitted?(agent:)
+        return false unless extension_available?
+
+        super
+      end
+
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "system_decommission_docker_runtime", mutating: true
+      declare_action "system_list_managed_docker_hosts", mutating: false
+      declare_action "system_mark_docker_ready", mutating: true
+      declare_action "system_provision_docker_runtime", mutating: true
 
       def self.definition
         {
@@ -81,6 +165,8 @@ module Ai
       protected
 
       def call(params)
+        return extension_unavailable_error unless self.class.extension_available?
+
         case params[:action]
         when "system_provision_docker_runtime"     then provision_runtime(params)
         when "system_decommission_docker_runtime"  then decommission_runtime(params)
@@ -102,6 +188,12 @@ module Ai
       end
 
       private
+
+      def extension_unavailable_error
+        { success: false,
+          error: "Docker runtime provisioning requires the 'system' extension, which is not installed on this " \
+                 "control plane. These actions are not advertised in core mode." }
+      end
 
       def provision_runtime(params)
         instance_id = params[:node_instance_id] or

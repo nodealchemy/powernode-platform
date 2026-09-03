@@ -5,6 +5,14 @@ module Ai
     class KillSwitchTool < BaseTool
       REQUIRED_PERMISSION = "ai.kill_switch.manage"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "emergency_halt", mutating: true
+      declare_action "emergency_resume", mutating: true
+      declare_action "kill_switch_status", mutating: false
+
       def self.definition
         {
           name: "kill_switch",

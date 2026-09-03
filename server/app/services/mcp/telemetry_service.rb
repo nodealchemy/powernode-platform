@@ -125,6 +125,7 @@ module Mcp
       total_invocations: 0,
       successful_invocations: 0,
       failed_invocations: 0,
+      permission_denials: 0,
       total_execution_time: 0,
       average_execution_time: 0,
       last_invocation: nil
@@ -265,6 +266,52 @@ module Mcp
     @performance_data.delete(execution_id)
   end
 
+  # Track a tool invocation refused by the permission gate.
+  #
+  # This is NOT an invocation error. The refusal in
+  # Mcp::ProtocolService#invoke_tool happens BEFORE
+  # #track_tool_invocation_start, so there is no execution_id and no
+  # @performance_data entry to close out — a denial must never be counted as a
+  # started, failed, or completed invocation, or the success-rate metrics are
+  # wrong. It is recorded against its own counters instead.
+  #
+  # This method was called by ProtocolService but never defined (no
+  # method_missing either), so every denial for a tool WITH an McpTool row raised
+  # NoMethodError in place of PermissionDeniedError. The refusal still held — it
+  # failed closed — but the caller got the wrong error and the denial went
+  # unrecorded. Covered by
+  # spec/services/mcp/protocol_service_permission_denial_spec.rb, which drives a
+  # real denial end to end rather than asserting this method exists.
+  #
+  # @param tool_id [String] registry tool id (or name) that was refused
+  # @param user [Object, nil] the refused principal; only its id is recorded
+  # @param authorization_result [Hash] Mcp::PermissionValidator#authorization_result
+  def track_tool_permission_denied(tool_id, user, authorization_result = {})
+    @logger.debug "[MCP_TELEMETRY] Tracking tool permission denied: #{tool_id}"
+
+    result = authorization_result || {}
+    errors = Array(result[:errors] || result["errors"])
+    denial_types = errors.filter_map { |e| e[:type] || e["type"] }.uniq
+
+    # Per-tool denial count, alongside the invocation counters.
+    tool_data = @tool_metrics[tool_id]
+    tool_data[:permission_denials] = (tool_data[:permission_denials] || 0) + 1 if tool_data
+
+    increment_metric("tool_invocations.permission_denied")
+    denial_types.each do |type|
+      increment_metric("tool_invocations.permission_denied.by_type.#{type}")
+    end
+
+    persist_metric("tool_permission_denied", {
+      tool_id: tool_id,
+      user_id: (user.id if user.respond_to?(:id)),
+      account_id: @account&.id,
+      denial_types: denial_types,
+      denial_messages: errors.filter_map { |e| e[:message] || e["message"] },
+      timestamp: Time.current
+    })
+  end
+
   # =============================================================================
   # MESSAGE TELEMETRY
   # =============================================================================
@@ -361,6 +408,7 @@ module Mcp
       total_invocations: tool_data[:total_invocations],
       successful_invocations: tool_data[:successful_invocations],
       failed_invocations: tool_data[:failed_invocations],
+      permission_denials: tool_data[:permission_denials] || 0,
       success_rate: calculate_success_rate(tool_data),
       average_execution_time: tool_data[:average_execution_time],
       last_invocation: tool_data[:last_invocation]
@@ -393,6 +441,7 @@ module Mcp
       "tool_invocations.active" => 0,
       "tool_invocations.successful" => 0,
       "tool_invocations.failed" => 0,
+      "tool_invocations.permission_denied" => 0,
       "messages.total" => 0,
       "messages.errors" => 0
     }
@@ -455,6 +504,7 @@ module Mcp
       total_tool_invocations: @metrics["tool_invocations.total"],
       successful_invocations: @metrics["tool_invocations.successful"],
       failed_invocations: @metrics["tool_invocations.failed"],
+      permission_denials: @metrics["tool_invocations.permission_denied"] || 0,
       overall_success_rate: calculate_overall_success_rate,
       total_messages: @metrics["messages.total"],
       total_errors: @metrics["messages.errors"]
@@ -482,12 +532,14 @@ module Mcp
     {
       total_tools: @tool_metrics.size,
       average_execution_time: calculate_average_histogram("tool_execution.duration"),
+      total_permission_denials: @tool_metrics.values.sum { |tool| tool[:permission_denials] || 0 },
       tools_breakdown: @tool_metrics.values.map do |tool|
         {
           tool_id: tool[:tool_id],
           name: tool[:name],
           type: tool[:type],
           total_invocations: tool[:total_invocations],
+          permission_denials: tool[:permission_denials] || 0,
           success_rate: calculate_success_rate(tool),
           average_execution_time: tool[:average_execution_time]
         }

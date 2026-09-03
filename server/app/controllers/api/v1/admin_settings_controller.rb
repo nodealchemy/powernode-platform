@@ -21,6 +21,14 @@ class Api::V1::AdminSettingsController < ApplicationController
   before_action -> { require_permission("admin.settings.update") }, only: %i[update toggle_extension update_development]
   before_action -> { require_permission("admin.account.suspend") }, only: %i[suspend_account activate_account]
   before_action -> { require_permission("admin.settings.security") }, only: %i[update_infrastructure_config update_vault_config]
+  # test_vault_connection is a READ, so the class-level admin.settings.read gate
+  # covers its connectivity/sealed answer. Naming a `path` turns it into a probe
+  # that discloses which KEY NAMES live at an arbitrary Vault KV path — small
+  # but real, and it belongs behind the same gate as the other Vault actions.
+  # A raise (require_permission) rather than a render, so it HALTS.
+  before_action -> { require_permission("admin.settings.security") },
+                only: %i[test_vault_connection],
+                if: -> { params[:path].present? }
 
   # =============================================================================
   # OVERVIEW & METRICS

@@ -395,8 +395,16 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
     end
   end
 
+  # IMP-27cc7dceb97b — the minted PAT is no longer returned on this surface
+  # (an MCP result is persisted into ai_messages.processing_metadata and
+  # forwarded to the model provider). Gitea cannot re-show a PAT, so there is
+  # no retrieval path to name: the out-of-band `set_as_secret` delivery is now
+  # mandatory. The disclosure oracle proper lives in
+  # gitea_actions_tool_mcp_disclosure_spec.rb.
   describe "create_gitea_user_token" do
-    it "delegates to client.create_user_token + returns plaintext" do
+    let(:delivery) { { owner: "o", repo: "r", secret_name: "PLATFORM_READ_TOKEN" } }
+
+    it "mints and delivers the token to Gitea without returning the plaintext" do
       expect(client).to receive(:create_user_token)
         .with("my-token", scopes: %w[read:repository])
         .and_return({
@@ -404,48 +412,114 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
           token: "abcdef0123456789abcdef0123456789abcdef01",
           scopes: %w[read:repository]
         })
+      expect(client).to receive(:create_or_update_action_secret)
+        .with("o", "r", "PLATFORM_READ_TOKEN", "abcdef0123456789abcdef0123456789abcdef01")
+        .and_return({ success: true })
 
-      result = tool.execute(params: { action: "create_gitea_user_token", token_name: "my-token" })
+      result = tool.execute(params: {
+        action: "create_gitea_user_token", token_name: "my-token", set_as_secret: delivery
+      })
       expect(result[:success]).to be true
-      expect(result[:plaintext]).to start_with("abcdef")
+      expect(result).not_to have_key(:plaintext)
       expect(result[:token_id]).to eq(42)
-      expect(result[:note]).to match(/shown ONCE/)
+      expect(result[:set_as_secret]).to include(ok: true, secret_name: "PLATFORM_READ_TOKEN")
+      expect(result[:note]).to match(/secrets\.PLATFORM_READ_TOKEN/)
     end
 
     it "respects custom scopes" do
       expect(client).to receive(:create_user_token)
         .with("admin-token", scopes: %w[write:user write:repository])
         .and_return({ success: true, token_id: 1, name: "admin-token", token: "x" * 40, scopes: %w[write:user write:repository] })
+      allow(client).to receive(:create_or_update_action_secret).and_return({ success: true })
 
-      tool.execute(params: { action: "create_gitea_user_token", token_name: "admin-token", scopes: %w[write:user write:repository] })
+      tool.execute(params: {
+        action: "create_gitea_user_token", token_name: "admin-token",
+        scopes: %w[write:user write:repository], set_as_secret: delivery
+      })
     end
 
-    it "pipes through to set_as_secret when provided" do
-      allow(client).to receive(:create_user_token).and_return({ success: true, token_id: 7, name: "n", token: "t" * 40, scopes: %w[read:repository] })
-      expect(client).to receive(:create_or_update_action_secret)
-        .with("o", "r", "PLATFORM_READ_TOKEN", "t" * 40)
-        .and_return({ success: true })
+    it "refuses BEFORE minting when no delivery target is given" do
+      expect(client).not_to receive(:create_user_token)
+
+      result = tool.execute(params: { action: "create_gitea_user_token", token_name: "n" })
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/set_as_secret/)
+      expect(result[:error]).to match(/No token was created/)
+    end
+
+    it "refuses on a partial delivery target rather than minting an undeliverable token" do
+      expect(client).not_to receive(:create_user_token)
 
       result = tool.execute(params: {
-        action: "create_gitea_user_token",
-        token_name: "n",
-        set_as_secret: { owner: "o", repo: "r", secret_name: "PLATFORM_READ_TOKEN" }
+        action: "create_gitea_user_token", token_name: "n",
+        set_as_secret: { owner: "o", repo: "r" }
       })
-      expect(result[:set_as_secret]).to include(ok: true, secret_name: "PLATFORM_READ_TOKEN")
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/set_as_secret/)
     end
 
-    it "surfaces set_as_secret failures without losing the plaintext token" do
+    it "revokes the mint when delivery fails, since the plaintext is not returned" do
       allow(client).to receive(:create_user_token).and_return({ success: true, token_id: 7, name: "n", token: "t" * 40, scopes: [] })
       allow(client).to receive(:create_or_update_action_secret).and_return({ success: false, error: "rejected" })
+      expect(client).to receive(:delete_user_token).with(7).and_return({ success: true })
 
       result = tool.execute(params: {
-        action: "create_gitea_user_token",
-        token_name: "n",
+        action: "create_gitea_user_token", token_name: "n",
         set_as_secret: { owner: "o", repo: "r", secret_name: "X" }
       })
-      expect(result[:success]).to be true # PAT was minted; secret-set failure is reported separately
-      expect(result[:plaintext]).to eq("t" * 40)
+      expect(result[:success]).to be false
+      expect(result).not_to have_key(:plaintext)
       expect(result[:set_as_secret][:ok]).to be false
+      expect(result[:revoked_undeliverable_token]).to be true
+      expect(result[:note]).to match(/revoked again/)
+    end
+
+    # GiteaApiClient#delete_user_token signals failure by RETURN VALUE, not by
+    # raising (with_error_handling converts NotFoundError/ApiError into
+    # {success: false}). This is the LIKELY failure mode, and a rescue-only
+    # cleanup check would report revoked_undeliverable_token: true while a live
+    # PAT stayed on the account.
+    it "reports a return-value revoke failure as NOT revoked and says the token is live" do
+      allow(client).to receive(:create_user_token).and_return({ success: true, token_id: 7, name: "n", token: "t" * 40, scopes: [] })
+      allow(client).to receive(:create_or_update_action_secret).and_return({ success: false, error: "rejected" })
+      allow(client).to receive(:delete_user_token).and_return({ success: false, error: "Gitea PAT deletion failed (404)" })
+
+      result = tool.execute(params: {
+        action: "create_gitea_user_token", token_name: "n",
+        set_as_secret: { owner: "o", repo: "r", secret_name: "X" }
+      })
+      expect(result[:success]).to be false
+      expect(result[:revoked_undeliverable_token]).to be false
+      expect(result[:cleanup_error]).to match(/404/)
+      expect(result[:note]).to match(/revoke it by hand/)
+    end
+
+    it "reports a cleanup failure instead of raising when the revoke also fails" do
+      allow(client).to receive(:create_user_token).and_return({ success: true, token_id: 7, name: "n", token: "t" * 40, scopes: [] })
+      allow(client).to receive(:create_or_update_action_secret).and_return({ success: false, error: "rejected" })
+      allow(client).to receive(:delete_user_token).and_raise(StandardError, "gitea down")
+
+      result = tool.execute(params: {
+        action: "create_gitea_user_token", token_name: "n",
+        set_as_secret: { owner: "o", repo: "r", secret_name: "X" }
+      })
+      expect(result[:success]).to be false
+      expect(result[:revoked_undeliverable_token]).to be false
+      expect(result[:cleanup_error]).to match(/gitea down/)
+      expect(result[:note]).to match(/revoke it by hand/)
+    end
+
+    it "does not claim an automatic revoke when Gitea returned no token_id" do
+      allow(client).to receive(:create_user_token).and_return({ success: true, token_id: nil, name: "n", token: "t" * 40, scopes: [] })
+      allow(client).to receive(:create_or_update_action_secret).and_return({ success: false, error: "rejected" })
+      expect(client).not_to receive(:delete_user_token)
+
+      result = tool.execute(params: {
+        action: "create_gitea_user_token", token_name: "n",
+        set_as_secret: { owner: "o", repo: "r", secret_name: "X" }
+      })
+      expect(result[:revoked_undeliverable_token]).to be false
+      expect(result[:cleanup_error]).to match(/no token_id/)
     end
 
     it "rejects blank token_name" do
@@ -456,7 +530,9 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
 
     it "surfaces upstream Gitea PAT creation errors" do
       expect(client).to receive(:create_user_token).and_return({ success: false, error: "Gitea PAT creation failed (401): bad credentials" })
-      result = tool.execute(params: { action: "create_gitea_user_token", token_name: "x" })
+      result = tool.execute(params: {
+        action: "create_gitea_user_token", token_name: "x", set_as_secret: delivery
+      })
       expect(result[:success]).to be false
       expect(result[:error]).to match(/Gitea PAT creation failed/)
     end

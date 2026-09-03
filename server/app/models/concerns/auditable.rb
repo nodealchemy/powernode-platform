@@ -46,6 +46,19 @@ module Auditable
   FAILURE_NOTIFICATION = "audit.write_failed.auditable"
   SKIPPED_NOTIFICATION = "audit.write_skipped.auditable"
 
+  # Secret material that Rails does not classify as "encrypted" but that must
+  # still never reach an audit row. Kept deliberately SHORT: a hand-maintained
+  # list of column names is exactly what failed here — it named these two and
+  # missed every `encrypted_*` column on Ai::DataSourceCredential, and any
+  # encrypted column added tomorrow would have inherited the same gap silently.
+  # The self-maintaining half of the rule is audit_redacted_attribute_names.
+  ALWAYS_REDACTED_ATTRIBUTES = %w[password_digest encrypted_password].freeze
+
+  # Written in place of a redacted value. A placeholder rather than a dropped
+  # key, so the audit trail still records THAT a secret attribute was set or
+  # changed — which is the part an auditor needs — without disclosing it.
+  REDACTED_PLACEHOLDER = "[FILTERED]"
+
   def self.with_logging
     previous = logging_enabled
     self.logging_enabled = true
@@ -117,7 +130,7 @@ module Auditable
   private
 
   def log_record_creation
-    write_audit_log("created", new_values: auditable_attributes)
+    write_audit_log("created", new_values: redact_audit_values(auditable_attributes))
   end
 
   def log_record_update
@@ -127,15 +140,19 @@ module Auditable
     relevant_changes = saved_changes.except("updated_at", "created_at")
     return if relevant_changes.empty?
 
+    # saved_changes is the ONLY source here — it deliberately does not go
+    # through auditable_attributes, because an update audits what changed, not
+    # the whole row. That divergence is why the two paths could drift on
+    # secrets; redact_audit_values is the seam they now share.
     write_audit_log(
       "updated",
-      old_values: relevant_changes.transform_values(&:first),
-      new_values: relevant_changes.transform_values(&:last)
+      old_values: redact_audit_values(relevant_changes.transform_values(&:first)),
+      new_values: redact_audit_values(relevant_changes.transform_values(&:last))
     )
   end
 
   def log_record_deletion
-    write_audit_log("deleted", old_values: auditable_attributes)
+    write_audit_log("deleted", old_values: redact_audit_values(auditable_attributes))
   end
 
   def write_audit_log(action, old_values: nil, new_values: nil)
@@ -187,9 +204,45 @@ module Auditable
     nil
   end
 
-  # Override this method in models to specify which attributes should be audited
-  # By default, all attributes except sensitive ones are included
+  # The ONE seam every audit path runs its values through, so create/delete
+  # (which build from auditable_attributes) and update (which builds from
+  # saved_changes) cannot diverge on secret handling again. Previously only the
+  # create/delete path had any filter at all, and it lived inside
+  # auditable_attributes where the update path never reached it.
+  #
+  # Values arrive already flattened to scalars: a Hash of attribute name to
+  # value for create/delete, and to the old- or new-half of a saved_changes
+  # pair for update. Redaction is by attribute NAME, so both halves of a change
+  # are covered and the key survives to show the attribute changed.
+  def redact_audit_values(values)
+    return values if values.blank?
+
+    redacted = audit_redacted_attribute_names
+    values.each_with_object({}) do |(name, value), filtered|
+      filtered[name] = redacted.include?(name.to_s) ? REDACTED_PLACEHOLDER : value
+    end
+  end
+
+  # Which attribute names must never have their VALUE written to an audit row.
+  #
+  # The encrypted half is asked of the model rather than listed here, and that
+  # is the whole point of the fix. `encrypts` installs an attribute type that
+  # decrypts transparently, so `attributes` and `saved_changes` hand back
+  # plaintext — which makes the model's encrypted set exactly the set of values
+  # that would otherwise be disclosed, and makes the rule self-maintaining: a
+  # column that gains `encrypts` later is covered the moment it is declared,
+  # with no second place to remember to update. `encrypted_attributes` is
+  # defined on every ActiveRecord class and is nil until `encrypts` is called.
+  def audit_redacted_attribute_names
+    encrypted = self.class.try(:encrypted_attributes) || []
+    Set.new(ALWAYS_REDACTED_ATTRIBUTES).merge(encrypted.map(&:to_s))
+  end
+
+  # Override this method in models to specify WHICH attributes are audited.
+  # Secret values are not this method's concern — redact_audit_values runs over
+  # its result (and over the update path alike), so an override here cannot
+  # reintroduce the disclosure.
   def auditable_attributes
-    attributes.except("id", "created_at", "updated_at", "password_digest", "encrypted_password")
+    attributes.except("id", "created_at", "updated_at")
   end
 end

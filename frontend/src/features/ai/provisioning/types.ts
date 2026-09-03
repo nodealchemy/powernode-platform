@@ -45,7 +45,25 @@ export const REQUIRED_BRIEF_FIELDS = [
   'budget_cap_usd_monthly'
 ] as const;
 
-export type PlanStepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+/**
+ * Ai::GoalPlanStep::STATUSES, which Ai::Provisioning::PlanSnapshotService serves
+ * RAW as each DAG node's `status` — plus `running`, a client-side alias for the
+ * server's `executing` that predates this type and is still emitted locally.
+ *
+ * `awaiting_approval` is a step parked by SkillCompositionRunner on an autonomy
+ * gate: neither started-and-running nor terminal. Any member missing here falls
+ * through `stepIcon`'s `default` and renders as the pending circle, so a blocked
+ * or in-flight step reads as "not started yet" — which is how both
+ * `awaiting_approval` and `executing` were rendering.
+ */
+export type PlanStepStatus =
+  | 'pending'
+  | 'executing'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'skipped'
+  | 'awaiting_approval';
 
 export interface PlanStep {
   id: string;

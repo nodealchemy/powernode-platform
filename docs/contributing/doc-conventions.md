@@ -56,7 +56,7 @@ Generators currently in use:
 
 | Filename | Generator | Source |
 |----------|-----------|--------|
-| `mcp-tools.md` | `bundle exec rails mcp:generate_tool_catalog` | `Ai::Tools::PlatformApiToolRegistry::TOOLS` |
+| `mcp-tools.md` | `bundle exec rails mcp:generate_tool_catalog` | `Ai::Tools::PlatformApiToolRegistry.all_tools` |
 | `skills.md` | `bundle exec rails mcp:sync_docs` | `ai_skills` |
 | `knowledge-base.md` | `bundle exec rails mcp:sync_docs` | `ai_shared_knowledges` |
 | `knowledge-graph.md` | `bundle exec rails mcp:sync_docs` | `ai_knowledge_graph_nodes` + edges |

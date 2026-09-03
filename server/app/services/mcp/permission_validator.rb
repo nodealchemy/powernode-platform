@@ -2,15 +2,64 @@
 
 # McpPermissionValidator - Validates user permissions for MCP tool execution
 # Prevents over-privileged tool execution and tool combination attacks
+#
+# Two gates run here, and both can refuse: the tool's permission LEVEL and its
+# REQUIRED PERMISSIONS. There is deliberately no third, scope-based gate.
+#
+# IMP-37471f8e1619 removed one. `validate_allowed_scopes` short-circuited on
+# `tool.allowed_scopes.blank?`, and nothing writes that column. The four writers
+# of the mcp_tools table are:
+#
+#   * Ai::Tools::McpPlatformToolRegistrar#upsert_mcp_tool!   (platform catalogue;
+#     also the terminus of the mcp:sync_tools rake task)
+#   * Api::V1::Internal::McpServersController#register_tools (worker-discovered
+#     tools of externally-registered MCP servers)
+#   * db/seeds/mcp_servers_seeds.rb                          (explicit setters)
+#   * db/seeds/mcp_example_servers.rb                        (mass assignment —
+#     `tool.assign_attributes(tool_attrs)` over a literal hash, so the attribute
+#     list is in the DATA, not the call; every literal there carries only name,
+#     description, input_schema and permission_level)
+#
+# The table has no create/update route (index/show only), no nested attributes,
+# and no update_all/insert_all/upsert_all/raw UPDATE. Mcp::RegistryService — the
+# only reader of the "allowedScopes" manifest key — keeps tools in memory: its
+# #persist_tool_to_database is explicitly inert. The column therefore stays at
+# its `{}` schema default and `{}.blank?` passed every check, while
+# `authorization_result` advertised a "scope_permissions" refusal type. The
+# taxonomy asserted coverage that could not exist.
+#
+# It was vacuous a second, independent way: `find_unauthorized_scopes` returned
+# [] unconditionally and never consulted the user, making it a manifest
+# well-formedness check wearing a permission-refusal label.
+#
+# Worth knowing before anyone rebuilds this: a scope PAYLOAD does exist upstream.
+# examples/mcp-servers/shared/mcp-base.js:40 puts `allowedScopes` on every
+# advertised tool, and stdio-filesystem/index.js populates it. It is discarded on
+# ingest — worker/app/jobs/mcp/mcp_tool_discovery_job.rb#normalize_tool keeps only
+# name/description/input_schema — so a declaring server's scopes never reach the
+# column. That is the same declared-but-dropped shape as IMP-69c17aea6e81.
+#
+# Do NOT re-add a scope gate without BOTH of: a producer that actually writes the
+# column, and a scope -> permission mapping covering all EIGHT scopes Doorkeeper
+# accepts (config/initializers/doorkeeper.rb) rather than the four advertised by
+# well_known_controller.rb — a token minted with `admin` falls straight through a
+# map built from the advertised list.
+# Guarded by spec/services/mcp/permission_validator_scope_gate_spec.rb.
 module Mcp
   class PermissionValidator
   include ActiveModel::Model
   include ActiveModel::Attributes
 
   class PermissionDeniedError < StandardError; end
-  class InvalidScopeError < StandardError; end
 
-  # Tool permission scopes following the audit roadmap
+  # Scope catalogue: a well-formedness vocabulary, not an authorization gate.
+  # Kept for Mcp::RegistryService#validate_allowed_scopes!, which checks an
+  # in-memory MANIFEST key ("allowedScopes") — a different input from the column,
+  # suppliable by an operator-written Ai::Agent#mcp_tool_manifest.
+  # McpTool#validate_permission_fields also reads it, but that branch is gated by
+  # `allowed_scopes.present?` — the same never-true condition the deleted gate
+  # short-circuited on — so it is NOT independent justification. See the top of
+  # the file.
   TOOL_PERMISSION_SCOPES = {
     file_access: %i[read_files write_files delete_files list_directories],
     network: %i[http_get http_post external_api email_send webhook_call],
@@ -33,9 +82,8 @@ module Mcp
   # Check if user is authorized to execute this tool
   def authorized?
     validate_permission_level &&
-      validate_required_permissions &&
-      validate_allowed_scopes
-  rescue PermissionDeniedError, InvalidScopeError => e
+      validate_required_permissions
+  rescue PermissionDeniedError => e
     @logger.warn "[MCP_PERMISSION] Authorization failed: #{e.message}"
     false
   end
@@ -65,39 +113,19 @@ module Mcp
       }
     end
 
-    # Check allowed scopes
-    unless all_scopes_permitted?
-      unauthorized_scopes = find_unauthorized_scopes
-      errors << {
-        type: "scope_permissions",
-        message: "Unauthorized scopes: #{unauthorized_scopes.join(', ')}",
-        unauthorized: unauthorized_scopes,
-        allowed: tool.allowed_scopes
-      }
-    end
-
     {
       authorized: errors.empty?,
       errors: errors,
       tool: {
         name: tool.name,
         permission_level: tool.permission_level,
-        required_permissions: tool.required_permissions,
-        allowed_scopes: tool.allowed_scopes
+        required_permissions: tool.required_permissions
       },
       user: {
         permission_level: user_permission_level,
         permissions: user_permissions
       }
     }
-  end
-
-  # Validate that a specific scope operation is permitted
-  def scope_permitted?(scope_category, scope_permission)
-    return true if tool.allowed_scopes.blank?
-
-    scopes_for_category = tool.allowed_scopes[scope_category.to_s] || []
-    scopes_for_category.include?(scope_permission.to_s)
   end
 
   # Check if user has a specific permission
@@ -132,20 +160,6 @@ module Mcp
       raise PermissionDeniedError,
             "Missing required permissions for tool '#{tool.name}': #{missing.join(', ')}"
     end
-    true
-  end
-
-  def validate_allowed_scopes
-    return true if tool.allowed_scopes.blank? # No scope restrictions
-
-    unless all_scopes_valid?
-      invalid = find_invalid_scopes
-      raise InvalidScopeError,
-            "Tool '#{tool.name}' has invalid scopes: #{invalid.join(', ')}"
-    end
-
-    # All scopes are valid, no need for runtime user scope validation
-    # Scopes are enforced at execution time via scope_permitted? method
     true
   end
 
@@ -192,55 +206,6 @@ module Mcp
     current = user_permissions
 
     required - current
-  end
-
-  def all_scopes_permitted?
-    # If no scopes defined, all are permitted
-    return true if tool.allowed_scopes.blank?
-
-    # All defined scopes must be valid
-    all_scopes_valid?
-  end
-
-  def all_scopes_valid?
-    return true if tool.allowed_scopes.blank?
-
-    tool.allowed_scopes.all? do |category, permissions|
-      # Check category is valid
-      next false unless TOOL_PERMISSION_SCOPES.key?(category.to_sym)
-
-      # Check all permissions in category are valid
-      allowed_permissions = TOOL_PERMISSION_SCOPES[category.to_sym].map(&:to_s)
-      Array(permissions).all? { |perm| allowed_permissions.include?(perm.to_s) }
-    end
-  end
-
-  def find_invalid_scopes
-    return [] if tool.allowed_scopes.blank?
-
-    invalid = []
-
-    tool.allowed_scopes.each do |category, permissions|
-      unless TOOL_PERMISSION_SCOPES.key?(category.to_sym)
-        invalid << "#{category} (invalid category)"
-        next
-      end
-
-      allowed_permissions = TOOL_PERMISSION_SCOPES[category.to_sym].map(&:to_s)
-      Array(permissions).each do |perm|
-        unless allowed_permissions.include?(perm.to_s)
-          invalid << "#{category}.#{perm}"
-        end
-      end
-    end
-
-    invalid
-  end
-
-  def find_unauthorized_scopes
-    # For audit reporting - not currently enforcing user-level scope restrictions
-    # This would be used if we implement per-user scope limitations
-    []
   end
   end
 end

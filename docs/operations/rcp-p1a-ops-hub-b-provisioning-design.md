@@ -273,8 +273,10 @@ ops-hub-A's live spec (8 cores, 16384 MB, 160G disk) is an exact match for this 
 entry needed.
 
 **Node**: a **new**, distinct `System::Node` (proposed name **`ops-hub-b`**), bound to the *existing*
-`powernode-ops-hub` NodeTemplate, `lifecycle_class: "persistent"` (matching the pattern
-`PlatformDeploymentOrchestrator#resolve_or_provision_node!` uses for durable, non-pool nodes). I
+`powernode-ops-hub` NodeTemplate, and no `lifecycle_class` (this text originally said
+`lifecycle_class: "persistent"`, matching `PlatformDeploymentOrchestrator#resolve_or_provision_node!`;
+IMP-19843220ac68 retired `system_nodes.lifecycle_class` and removed that write, so a durable non-pool
+node now records no class at all). I
 considered reusing the *same* "ops-hub" Node with a second NodeInstance under it, and reject that: RCP's
 entire point is that A and B are independent, separately-terminable, separately-monitorable peers, not two
 interchangeable instances of one logical role — a shared Node row would conflate their health/lifecycle at

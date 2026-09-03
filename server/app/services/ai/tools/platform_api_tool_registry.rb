@@ -65,6 +65,13 @@ module Ai
         "system_list_isolation_tiers" => "Ai::Tools::SystemFleetTool",
         "system_provision_instance" => "Ai::Tools::SystemFleetTool",
         "system_terminate_instance" => "Ai::Tools::SystemFleetTool",
+        # IMP-4e49eb79c5e0 — the disaster-recovery lane's two doors. Both are
+        # approval-gated on the tool (declare_action), and both replay a skill
+        # executor rather than the action body. Without these rows the
+        # declarations are inert: BaseTool#execute is only reached because this
+        # map routes the action name onto the serving class.
+        "system_replace_instance" => "Ai::Tools::SystemFleetTool",
+        "system_reap_instance" => "Ai::Tools::SystemFleetTool",
         "system_destroy_instance" => "Ai::Tools::SystemFleetTool",
         "system_start_instance" => "Ai::Tools::SystemFleetTool",
         "system_stop_instance" => "Ai::Tools::SystemFleetTool",
@@ -157,6 +164,9 @@ module Ai
         # Gap remediation slice 1 — operator-runbook-driven actions
         "system_drain_instance" => "Ai::Tools::SystemFleetTool",
         "system_get_silent_instances" => "Ai::Tools::SystemFleetTool",
+        # IMP-ca485128072e (APO-2e) — operator-tunable fleet sensor thresholds.
+        "system_get_sensor_config" => "Ai::Tools::SystemFleetTool",
+        "system_update_sensor_config" => "Ai::Tools::SystemFleetTool",
         "system_validate_module_manifest" => "Ai::Tools::SystemFleetTool",
         # Gap remediation slice 2 — CVE catalog + module assignment cleanup
         "system_get_cve" => "Ai::Tools::SystemFleetTool",
@@ -179,6 +189,11 @@ module Ai
         "system_attach_volume" => "Ai::Tools::SystemFleetTool",
         "system_detach_volume" => "Ai::Tools::SystemFleetTool",
         "system_test_nfs_export" => "Ai::Tools::SystemFleetTool",
+        # Volume snapshots / restore (APO-5 / DR-2) — project data protection
+        "system_snapshot_volume" => "Ai::Tools::SystemFleetTool",
+        "system_list_volume_snapshots" => "Ai::Tools::SystemFleetTool",
+        "system_delete_volume_snapshot" => "Ai::Tools::SystemFleetTool",
+        "system_restore_volume_snapshot" => "Ai::Tools::SystemFleetTool",
         "system_get_storage_recommendations" => "Ai::Tools::SystemFleetTool",
         "system_update_storage_recommendations" => "Ai::Tools::SystemFleetTool",
         "system_migrate_storage_component" => "Ai::Tools::SystemFleetTool",
@@ -213,6 +228,10 @@ module Ai
         "system_gitops_sync_repository" => "Ai::Tools::SystemFleetTool",
         "system_gitops_get_sync_run" => "Ai::Tools::SystemFleetTool",
         "system_gitops_get_drift_report" => "Ai::Tools::SystemFleetTool",
+        # IMP-f07be27ba0b0 — the read half: nothing in the family above returns
+        # a repository, so its projection was reachable only on the create.
+        "system_gitops_list_repositories" => "Ai::Tools::SystemFleetTool",
+        "system_gitops_get_repository" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice Vault DR-3 — pepper rotation
         "system_rotate_vault_transit_pepper" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice 6b — GitOps apply path
@@ -569,10 +588,11 @@ module Ai
         "escalate" => "Ai::Tools::AgentAutonomyTool",
         "request_feedback" => "Ai::Tools::AgentAutonomyTool",
         "report_issue" => "Ai::Tools::AgentAutonomyTool",
-        # Goal decomposition (autonomous planning)
+        # Goal decomposition (autonomous planning).
+        # validate_plan / approve_plan were unregistered in IMP-4707960fc610:
+        # their bodies constantized services that exist nowhere, so both were
+        # permanently inert behind a `rescue NameError`.
         "decompose_goal" => "Ai::Tools::AgentAutonomyTool",
-        "validate_plan" => "Ai::Tools::AgentAutonomyTool",
-        "approve_plan" => "Ai::Tools::AgentAutonomyTool",
         # Intervention policies + deferred operations (operator control over autonomy)
         "list_intervention_policies" => "Ai::Tools::AgentAutonomyTool",
         "create_intervention_policy" => "Ai::Tools::AgentAutonomyTool",
@@ -731,11 +751,26 @@ module Ai
       }.freeze
 
       # Tool maps contributed by extensions at boot. Extensions call
-      # .register_extension_tools from an engine `to_prepare` hook so core holds
-      # zero references to extension tool classes — a slug-agnostic seam any
-      # extension can plug its action->class map into with no core edit. The
-      # backing store is a class-level ivar; to_prepare re-runs on every reload,
-      # so the registration survives development code reloading.
+      # .register_extension_tools from an engine `to_prepare` hook — a
+      # slug-agnostic seam any extension can plug its action->class map into with
+      # no core edit. The backing store is a class-level ivar; to_prepare re-runs
+      # on every reload, so the registration survives development code reloading.
+      #
+      # WHAT THIS SEAM DOES *NOT* YET MEAN (IMP-2836d290f99a): core does NOT hold
+      # zero references to extension tool classes. The static TOOLS map above
+      # hardcodes 263 entries pointing at 8 classes that live in
+      # extensions/system — SystemFleetTool (134), SdwanTool (86),
+      # SystemPackageRepositoryTool (16), SystemIngressTool (12),
+      # SystemArchitectureCatalogTool (6), SystemStorageOwnerTool (4),
+      # SystemAcmeTool (4), SystemBlastRadiusTool (1). The seam has exactly one
+      # consumer today — one extension's engine calls it from `to_prepare` — and
+      # it is not the system extension, whose migration onto it has not happened.
+      #
+      # Those 263 entries are harmless in core mode only because
+      # .available_tools rescues the NameError their constantize raises — a
+      # missing tool CLASS drops out of the catalog by itself. A core-HOSTED tool
+      # that merely DEPENDS on an extension does not, and must gate itself; see
+      # Ai::Tools::DockerProvisioningTool.extension_available?.
       @extension_tools = {}
 
       # Merge an extension's MCP tool map (action name => handler class name
@@ -759,10 +794,58 @@ module Ai
         TOOLS.merge(extension_tools)
       end
 
+      # ADVERTISEMENT PREDICATE, per tool CLASS (IMP-5039d026da0d).
+      #
+      # THE ONE DEFINITION OF "the platform offers this". Before this existed,
+      # `.permitted?` gated exactly ONE of four advertisement surfaces — the
+      # tools/list path below — while McpPlatformToolRegistrar.sync_to_database!
+      # (the mcp_tools rows behind the frontend MCP browser),
+      # .register_all!/.tool_classes and
+      # SemanticToolDiscoveryService#collect_all_tools each walked `all_tools`
+      # raw. So after IMP-2836d290f99a the four docker-runtime actions were
+      # correctly absent from tools/list in core mode and still present in the
+      # browsable catalog and the semantic discovery index, which is how an
+      # agent doing discovery-by-embedding got steered at an action that is not
+      # offered and cannot run. The fix is that all four now ask HERE.
+      #
+      # `agent:` DEFAULTS TO NIL, AND NIL IS NOT A WEAKER CHECK — it is a
+      # DIFFERENT one. BaseTool.permitted? short-circuits `return true unless
+      # agent`, so with no agent the predicate degenerates to exactly the
+      # AVAILABILITY question ("is the backing extension loaded?", the
+      # `defined?(::System)` / `.extension_available?` guards) and asks nothing
+      # about permissions. That is the right question for the three account-wide
+      # surfaces: none of them has an agent, and each publishes ONE catalog the
+      # whole account reads, so filtering it by any single agent's grants would
+      # be wrong even if an agent were in hand. Verified over every override on
+      # the tree at the time of writing — `command grep -rnE "^ *def self\.permitted\?"
+      # <repo>/server/app <repo>/extensions` finds 14, and every one of them is
+      # either a bare `true` or a `defined?(::Const)` namespace probe followed by
+      # `super` — so nil-agent filtering removes only UNAVAILABLE tools today.
+      def self.advertised_class?(klass, agent: nil)
+        klass.permitted?(agent: agent)
+      end
+
+      # ADVERTISEMENT PREDICATE, per registry ACTION. Per-class gate first, then
+      # the per-ACTION hook (IMP-8f6ade11fbdf). Most tool classes are
+      # all-or-nothing extension-wise (see DockerProvisioningTool), for which
+      # `.permitted?` alone is correct. Ai::Tools::DiskImageOperatorTool is a
+      # mixed case — only 2 of its 3 actions depend on extensions/system — so
+      # gating the whole class would incorrectly de-advertise its core-only
+      # action too. `respond_to?` keeps the hook opt-in: classes that don't
+      # define `.action_advertised?` are unaffected.
+      def self.advertised_action?(name, klass, agent: nil)
+        return false unless advertised_class?(klass, agent: agent)
+        return false if klass.respond_to?(:action_advertised?) && !klass.action_advertised?(name)
+
+        true
+      end
+
       def self.available_tools(agent: nil)
         all_tools.each_with_object({}) do |(name, class_name), hash|
           klass = class_name.constantize
-          hash[name] = klass if klass.permitted?(agent: agent)
+          next unless advertised_action?(name, klass, agent: agent)
+
+          hash[name] = klass
         rescue NameError => e
           Rails.logger.warn "[PlatformApiToolRegistry] Tool class not found: #{class_name} - #{e.message}"
         end

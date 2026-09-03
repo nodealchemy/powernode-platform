@@ -276,6 +276,29 @@ module Authentication
     raise PermissionDenied.new("Permission denied: #{permission_name}", permission: permission_name)
   end
 
+  # Canonical `authorize_action!`, previously redefined privately in thirteen
+  # controllers. Twelve of those copies called render_forbidden / render_error
+  # from the action body with no `raise` and no `return` on the caller. Rails
+  # does not halt an action on a render, so the guard emitted a clean 403 and
+  # the mutation ran anyway; the resulting DoubleRenderError was swallowed by
+  # ApiResponse's `rescue_from StandardError ... unless performed?`, leaving no
+  # trace. Defining it once here means the halting behaviour cannot drift back.
+  #
+  # Also fixes a second defect the copies shared: they called
+  # `current_user.has_permission?`, bypassing the delegation-aware
+  # `has_permission?` below. In an account-switch session that resolves the
+  # user's OWN permissions instead of the delegation's scope. `has_permission?`
+  # is a superset for ordinary sessions, so this can only tighten delegated
+  # ones — it never denies a caller who passed before.
+  #
+  # `message:` preserves each controller's existing 403 body; controllers whose
+  # wording differed keep a one-line override that calls super.
+  def authorize_action!(permission, message: "You don't have permission to perform this action")
+    return if has_permission?(permission)
+
+    raise PermissionDenied.new(message, permission: permission)
+  end
+
   def require_any_permission(*permission_names)
     return if permission_names.any? { |p| has_permission?(p) }
 
@@ -310,12 +333,27 @@ module Authentication
       return delegated_permission?(delegation_id, permission_name)
     end
 
-    # For JWT tokens, check permissions directly from token payload (faster)
-    if @current_jwt_payload&.dig(:permissions)&.include?(permission_name)
-      return true
-    end
-
-    # Fallback to database checks
+    # NO token-borne short-circuit. This method used to `return true` on a
+    # `permissions` array in the decoded payload before any database read, which
+    # authorized off a mint-time snapshot for the token's whole remaining lifetime
+    # — every permission narrowing silently reopening for already-issued tokens.
+    #
+    # No PRODUCTION mint path populates that claim: build_user_payload and
+    # build_worker_payload carry permission_version (a digest), not a list, and
+    # AccountSwitchService returns permissions in the RESPONSE BODY while putting
+    # only delegation_id in the payload. So on a live deployment the branch could
+    # not fire. It was NOT unreachable in the suite, though — spec/support/
+    # auth_helpers.rb#token_for minted the claim into every test token, so this
+    # branch, not the database, answered most request specs. That helper no longer
+    # mints it, which is what makes the specs exercise the production path.
+    #
+    # Deleted rather than guarded: with no reader, a future mint path that adds
+    # the claim cannot reopen anything, and there is no tripwire left to watch. Do
+    # not reintroduce it as an optimisation without an invalidation story keyed to
+    # permission_version — one that answers what a token minted BEFORE a narrowing
+    # is allowed to do. Pinned by spec/controllers/concerns/jwt_permissions_claim_spec.rb.
+    #
+    # Resolve live from the database, so revocation takes effect immediately.
     return current_user.has_permission?(permission_name) if current_user
     return current_worker.has_permission?(permission_name) if current_worker
     false

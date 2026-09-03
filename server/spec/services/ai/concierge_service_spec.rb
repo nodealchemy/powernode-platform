@@ -435,4 +435,235 @@ RSpec.describe Ai::ConciergeService do
       expect(prompt).to include("campaign_propose")
     end
   end
+
+  # IMP-128fe17fd8c8. The handoff override's "provision" example used to name
+  # `system_provision_docker_runtime` as a literal. That action is core-hosted
+  # but extension-BACKED, so PlatformApiToolRegistry.advertised_action? drops it
+  # from tools/list (and from every other advertisement surface) in core mode —
+  # while the prompt kept steering the model at it. The example is now derived
+  # from the same registry that answers tools/list.
+  describe "delegated_override provisioning example" do
+    def override_content
+      service.send(:delegated_override)[:content]
+    end
+
+    it "names the provisioning actions the registry currently advertises" do
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:available_tools).and_return(
+        { "system_provision_zz_widget" => Ai::Tools::DockerProvisioningTool,
+          "list_agents" => Ai::Tools::DockerProvisioningTool }
+      )
+
+      content = override_content
+      expect(content).to include("system_provision_zz_widget")
+      # Not a name the registry answered with, and not the old literal.
+      expect(content).not_to include("system_provision_docker_runtime")
+      expect(content).not_to include("list_agents")
+    end
+
+    # THE SELECTOR MUST NOT RE-HARDCODE A NAMING CONVENTION. Only three real
+    # registry keys carry the `system_provision_` prefix and all three are
+    # extension-backed, so a prefix-anchored pattern empties out in core mode
+    # while provision_ci_worker and the platform_provisioning_* family are
+    # advertised and runnable there. Both shapes below must be named.
+    it "names provisioning actions that do not carry the system_ prefix" do
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:available_tools).and_return(
+        { "zz_provision_widget_worker" => Ai::Tools::DiskImageOperatorTool,
+          "platform_zz_provisioning_compose_plan" => Ai::Tools::DiskImageOperatorTool,
+          "zz_list_widget_nodes" => Ai::Tools::DiskImageOperatorTool }
+      )
+
+      content = override_content
+      expect(content).to include("zz_provision_widget_worker")
+      expect(content).to include("platform_zz_provisioning_compose_plan")
+      expect(content).not_to include("zz_list_widget_nodes")
+    end
+
+    it "omits the clause entirely when the registry advertises no provisioning action" do
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:available_tools).and_return({})
+
+      content = override_content
+      expect(content).not_to match(/offered on this control plane/)
+      expect(content).not_to include("system_provision_")
+      # The instruction itself survives — only the example list is conditional.
+      expect(content).to include("call the matching")
+    end
+  end
+
+  # IMP-6fbbf47fcc3b. THE SWEEP, not one more literal. IMP-128fe17fd8c8 derived
+  # the provisioning example above but left three siblings hardcoded in the same
+  # block: system_list_package_repositories, system_list_nodes and
+  # system_list_instances. All three are hosted in extensions/system, so on a
+  # core-mode control plane PlatformApiToolRegistry.available_tools drops them
+  # from tools/list AND McpPlatformToolRegistrar#unadvertised_refusal refuses
+  # them at tools/call — while the handoff prompt kept naming them. Every
+  # literal action name in the override must now come from the registry or not
+  # be there at all.
+  describe "delegated_override action-name sweep" do
+    def override_content
+      service.send(:delegated_override)[:content]
+    end
+
+    # The shape a registry action name takes: 2+ snake_case segments.
+    let(:action_shaped) { /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/ }
+
+    # TWO SHAPES action_shaped CANNOT SEE, both of which this fix actually
+    # removed or could reintroduce (review finding):
+    #
+    #   * a hyphenated SKILL SLUG. The literal dropped here was exactly that —
+    #     "system-list-package-repositories-summary", seeded by
+    #     extensions/system and therefore absent in core mode for the same
+    #     reason the three action names were. It matches no snake_case shape at
+    #     all, so re-adding one would leave both sweep examples green.
+    #   * a SINGLE-SEGMENT registry key. "deliver", "escalate" and "scoreboard"
+    #     are real action names with no underscore. Scanned as bare words and
+    #     intersected with the REAL registry, so an ordinary English word only
+    #     counts when it is also an action the platform dispatches.
+    let(:slug_shaped) { /\b[a-z0-9]+(?:-[a-z0-9]+){2,}\b/ }
+    let(:word_shaped) { /\b[a-z][a-z0-9]+\b/ }
+
+    def bare_action_names(content)
+      content.scan(word_shaped).uniq & Ai::Tools::PlatformApiToolRegistry.all_tools.keys
+    end
+
+    # Tokens of this shape in the override that are NOT registry actions, and so
+    # cannot be registry-derived. Both entries are pinned by their own example
+    # below, so the allowlist cannot quietly absorb a regression.
+    let(:prose_tokens) do
+      %w[
+        system_packages
+        system_package_repositories
+        request_confirmation
+      ]
+    end
+
+    # A registry that answers every selector with a name no hardcoded prompt
+    # could have known. Any real action name surviving into the rendered
+    # override is therefore a literal, not a derivation.
+    let(:fixture_registry) do
+      { "zz_list_package_repositories" => Ai::Tools::DockerProvisioningTool,
+        "zz_provision_widget"          => Ai::Tools::DockerProvisioningTool,
+        "zz_list_nodes"                => Ai::Tools::DiskImageOperatorTool,
+        "zz_list_instances"            => Ai::Tools::DiskImageOperatorTool,
+        "discover_skills"              => Ai::Tools::SkillTool }
+    end
+
+    it "names no action beyond the ones the registry answered with" do
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:available_tools).and_return(fixture_registry)
+
+      content = override_content
+      tokens = content.scan(action_shaped).uniq
+      # POSITIVE CONTROL: the derivation actually fired, so an empty/erased
+      # prompt cannot pass this example by naming nothing at all.
+      expect(tokens).to include(
+        "zz_list_package_repositories", "zz_provision_widget",
+        "zz_list_nodes", "zz_list_instances", "discover_skills"
+      )
+      expect(tokens - fixture_registry.keys - prose_tokens).to eq([])
+      expect(content.scan(slug_shaped)).to eq([])
+      expect(bare_action_names(content) - fixture_registry.keys).to eq([])
+    end
+
+    it "drops every example whose action this control plane does not advertise" do
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:available_tools).and_return({})
+
+      content = override_content
+      expect(content.scan(action_shaped).uniq - prose_tokens).to eq([])
+      expect(content.scan(slug_shaped)).to eq([])
+      expect(bare_action_names(content)).to eq([])
+      # The mandate itself survives — only the examples are conditional.
+      expect(content).to include("MANDATORY: INVOKE TOOLS, DO NOT DESCRIBE")
+      expect(content).to include("call the matching")
+    end
+
+    # THE DEGRADED SHAPE IS A DECISION, NOT AN ACCIDENT (review finding). One
+    # derivation now feeds four selectors, so a registry that raises drops the
+    # package-repo example, the fleet example AND the discovery instruction —
+    # strictly more than the parenthetical clause the previous version lost.
+    # That is the direction the sweep chose (name nothing you cannot confirm),
+    # and this pins that a raise still leaves a usable prompt rather than an
+    # empty or half-rendered one.
+    it "keeps the mandate, and names nothing, when the registry raises" do
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:available_tools)
+        .and_raise(StandardError, "registry unavailable")
+
+      content = override_content
+      expect(content.scan(action_shaped).uniq - prose_tokens).to eq([])
+      expect(bare_action_names(content)).to eq([])
+      expect(content).to include("MANDATORY: INVOKE TOOLS, DO NOT DESCRIBE")
+      expect(content).to include("call the matching")
+      expect(content).to include("AGENT HANDOFF FOR THIS QUERY")
+    end
+
+    it "allowlists only tokens that are not registry actions" do
+      real = Ai::Tools::PlatformApiToolRegistry.all_tools.keys
+      expect(prose_tokens & real).to eq([])
+    end
+
+    it "pins request_confirmation to the bridge that synthesises it" do
+      bridge = Ai::ConciergeToolBridge.new(
+        agent: agent, account: account, conversation: conversation, user: user
+      )
+      expect(bridge.send(:confirmation_tool_definition)[:name]).to eq("request_confirmation")
+    end
+  end
+
+  # IMP-6fbbf47fcc3b, review finding. #delegated_override is NOT the only
+  # concierge prompt that names actions, and it is the rarest: it renders only
+  # on a router handoff, while DELEGATION_POSTURE is appended to both assembled
+  # prompts on EVERY turn and names eight registry actions as literals.
+  #
+  # Those eight stay literal by decision (see the constant's comment) because
+  # each resolves to a core-hosted class with no advertisement gate, so the
+  # registry answers true for them on every deployment. THIS IS THAT DECISION'S
+  # RATCHET: it resolves whatever the assembled prompt actually names and fails
+  # the moment one of those classes moves to an extension, grows a gate, or a
+  # new extension-hosted name joins the posture — the exact way the defect this
+  # task fixed would come back, in the prompt path that runs every turn.
+  describe "action names outside #delegated_override" do
+    let(:action_shaped) { /\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/ }
+    let(:registry) { Ai::Tools::PlatformApiToolRegistry.all_tools }
+    let(:posture_actions) do
+      described_class::DELEGATION_POSTURE.scan(action_shaped).uniq & registry.keys
+    end
+
+    it "names the delegation ladder's actions in the assembled prompt" do
+      # POSITIVE CONTROL for both examples below: the scan really does reach
+      # the posture's action names through the assembled prompt, so neither
+      # example can pass by finding nothing.
+      named = service.send(:legacy_system_prompt).scan(action_shaped).uniq & registry.keys
+
+      expect(posture_actions).to contain_exactly(
+        "spawn_task", "recruit_agent", "execute_agent", "execute_team",
+        "create_team", "campaign_propose", "campaign_approve_proposal",
+        "campaign_delegate"
+      )
+      expect(named).to include(*posture_actions)
+    end
+
+    it "names only core-hosted actions that carry no advertisement gate" do
+      base_owner = Ai::Tools::BaseTool.method(:permitted?).owner
+      named = service.send(:legacy_system_prompt).scan(action_shaped).uniq & registry.keys
+      expect(named).not_to be_empty
+
+      named.each do |name|
+        klass = registry[name].constantize
+        source = Object.const_source_location(klass.name)&.first
+
+        expect(source).to start_with(Rails.root.to_s),
+                          "#{name} (#{klass}) is hosted outside core (#{source.inspect}) — " \
+                          "derive it from available_tools instead of naming it literally"
+        expect(klass.method(:permitted?).owner).to eq(base_owner),
+                                                   "#{name} (#{klass}) overrides .permitted?, so it can be de-advertised — derive it"
+        expect(klass).not_to respond_to(:extension_available?),
+                             "#{name} (#{klass}) is extension-gated — derive it"
+        expect(klass).not_to respond_to(:action_advertised?),
+                             "#{name} (#{klass}) carries a per-action advertisement gate — derive it"
+      end
+    end
+
+    it "advertises every action the posture names, on this control plane" do
+      advertised = Ai::Tools::PlatformApiToolRegistry.available_tools.keys
+      expect(posture_actions - advertised).to eq([])
+    end
+  end
 end

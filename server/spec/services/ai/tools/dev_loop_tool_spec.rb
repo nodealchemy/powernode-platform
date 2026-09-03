@@ -56,7 +56,14 @@ RSpec.describe Ai::Tools::DevLoopTool do
       campaign = create(:ai_campaign, account: account)
       ralph_loop.update!(campaign: campaign,
                          configuration: { "base_context_files" => ["CLAUDE.md", "docs/contributing/conventions"] })
+      # IMP-44964469b565: the recency channel now derives from the iteration
+      # rows, so the fixture writes BOTH sinks — exactly as the two production
+      # writers do (DevLoopTool#capture_learning and RalphIteration#complete!
+      # each append to the array AND set learning_extracted). The array write is
+      # kept so this still exercises the real dual-write shape.
       ralph_loop.add_learning("Prefer the generic seam over a direct extension ref")
+      create(:ai_ralph_iteration, ralph_loop: ralph_loop, iteration_number: 1,
+             learning_extracted: "Prefer the generic seam over a direct extension ref")
       campaign.record_decision!(decision_type: "build", title: "Unify the approval flows")
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "ctx", priority: 5)
 
@@ -591,7 +598,9 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(iteration.check_results["rspec"]).to eq("2 examples, 0 failures")
       expect(iteration.check_results["files_changed"]).to include("server/app/models/ai/mission_approval.rb")
       expect(iteration.learning_extracted).to match(/GATES enum/)
-      expect(ralph_loop.reload.learnings.last["text"]).to match(/GATES enum/)
+      # IMP-7f415874c14a: recorded on the iteration row (asserted above); the
+      # loop-level jsonb array is retired and stays empty.
+      expect(ralph_loop.reload.learnings).to eq([])
       expect(result[:queue][:passed]).to eq(1)
     end
 
@@ -666,7 +675,10 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(result[:success]).to be true
       expect(result[:task_status]).to eq("failed")
       expect(ralph_loop.ralph_iterations.last.status).to eq("failed")
-      expect(ralph_loop.reload.learnings.last["text"]).to match(/worker running/)
+      # IMP-7f415874c14a: the learning lands on the iteration row; the loop-level
+      # jsonb array is retired and stays empty.
+      expect(ralph_loop.ralph_iterations.last.learning_extracted).to match(/worker running/)
+      expect(ralph_loop.reload.learnings).to eq([])
     end
 
     it "records a blocked outcome with a blocked error code" do

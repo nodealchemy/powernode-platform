@@ -5,6 +5,15 @@ module Ai
     class PageManagementTool < BaseTool
       REQUIRED_PERMISSION = "pages.manage"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "create_page", mutating: true
+      declare_action "get_page", mutating: false
+      declare_action "list_pages", mutating: false
+      declare_action "update_page", mutating: true
+
       def self.definition
         {
           name: "page_management",

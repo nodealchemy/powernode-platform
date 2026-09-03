@@ -1,9 +1,30 @@
 # frozen_string_literal: true
 
 module Ai
-  # Central choke point for any mutating operation that might require human
-  # approval. Every controller / service that performs a guarded mutation calls
-  # `Ai::AutonomyGate.evaluate(...)` and dispatches on the returned `decision`:
+  # The policy DECISION function for a mutating operation that might require
+  # human approval. Read the next paragraph before trusting the word "central".
+  #
+  # THIS CLASS IS NOT A CHOKE POINT, and calling itself one is part of why a
+  # coverage gap went unnoticed for so long (IMP-439d31353f9b). It decides; it
+  # does not intercept. Reaching it is a per-call-site obligation, and coverage
+  # is therefore whatever the call sites happen to be: SdwanTool carries 31
+  # hand-placed `evaluate` calls while SystemFleetTool carried none across
+  # ~4700 lines, and nothing in this file could tell you that.
+  #
+  # The actual chokepoint is Ai::Tools::BaseTool#execute, which every tool call
+  # passes through — including the seven call sites that construct a tool and
+  # call `.execute` directly, bypassing McpPlatformToolRegistrar. It already
+  # hosts one control hoisted there for exactly this reason
+  # (enforce_instance_deny_overlay!, moved by IMP-0e6b216de843 after
+  # per-call-site coverage failed at depth) and now consults `declare_action`
+  # declarations to decide whether to route a call through this gate.
+  #
+  # Until every mutating action is declared and the chokepoint fails CLOSED on
+  # undeclared ones, an unreferenced action is still an ungated one — silently.
+  # An audit of this file will not reveal that; only the declaration registry's
+  # coverage will.
+  #
+  # Callers dispatch on the returned `decision`:
   #
   #   :proceed  → executor ran synchronously; result is in `result.result`
   #   :pending  → ApprovalRequest created; caller should return HTTP 202

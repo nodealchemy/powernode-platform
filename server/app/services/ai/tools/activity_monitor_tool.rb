@@ -5,6 +5,18 @@ module Ai
     class ActivityMonitorTool < BaseTool
       REQUIRED_PERMISSION = "ai.agents.read"
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "dismiss_all_notifications", mutating: true
+      declare_action "dismiss_notification", mutating: true
+      declare_action "get_activity_feed", mutating: false
+      declare_action "get_mission_status", mutating: false
+      declare_action "get_notifications", mutating: false
+      declare_action "get_system_health", mutating: false
+      declare_action "mark_all_notifications_read", mutating: true
+
       def self.definition
         {
           name: "activity_monitor",

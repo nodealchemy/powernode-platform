@@ -6,13 +6,22 @@ module AuthHelpers
     # Reload user to ensure role associations are loaded (important for users created with permissions: [] option)
     user.reload if user.persisted?
 
-    # Build payload with all required fields for authentication
+    # Build payload with all required fields for authentication.
+    #
+    # Deliberately carries NO `permissions` key. It used to ("Include permissions
+    # for faster checks"), which made this helper the only mint path in the repo
+    # that populated that claim — no production path does. Authentication#
+    # has_permission? short-circuited on it before any DB read, so most request
+    # specs were authorized from this mint-time snapshot rather than from the
+    # live database, and a spec that revoked a permission after minting headers
+    # would still have been granted it. IMP-4b5fffbf5421 deleted that reader; the
+    # claim is dropped here too so the payload matches what Security::JwtService
+    # actually issues (sub / account_id / email / permission_version / version).
     payload = {
       sub: user.id,
       account_id: user.account_id,
       email: user.email,
       type: 'access',
-      permissions: user.permission_names, # Include permissions for faster checks
       version: Security::JwtService::CURRENT_TOKEN_VERSION
     }
 

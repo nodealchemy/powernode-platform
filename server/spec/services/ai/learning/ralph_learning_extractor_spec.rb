@@ -12,13 +12,24 @@ RSpec.describe Ai::Learning::RalphLearningExtractor, type: :service do
     allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
   end
 
+  # IMP-7f415874c14a: #extract now derives its entries from ai_ralph_iterations
+  # (RalphLoop#learning_entries), not the retired `learnings` jsonb column. These
+  # fixtures seed the surviving sink; seeding only the array pinned a dead reader.
+  def seed_learnings!(loop_record, *texts)
+    texts.each_with_index do |text, index|
+      create(:ai_ralph_iteration, ralph_loop: loop_record,
+             iteration_number: index + 1, learning_extracted: text)
+    end
+    loop_record
+  end
+
   describe "#extract" do
     it "promotes each loop learning into a durable, titled, repo-scoped CompoundLearning" do
-      loop_record = create(:ai_ralph_loop, account: account, repository_url: repo.clone_url,
-                           learnings: [
-                             { "text" => "Prefer a scope over a class method here", "iteration" => 1 },
-                             { "text" => "An N+1 lurks in the serializer", "iteration" => 2 }
-                           ])
+      loop_record = seed_learnings!(
+        create(:ai_ralph_loop, account: account, repository_url: repo.clone_url),
+        "Prefer a scope over a class method here",
+        "An N+1 lurks in the serializer"
+      )
 
       count = nil
       expect { count = described_class.new(account: account).extract(loop_record) }
@@ -35,25 +46,39 @@ RSpec.describe Ai::Learning::RalphLearningExtractor, type: :service do
     end
 
     it "is idempotent — re-extracting the same learnings does not duplicate" do
-      loop_record = create(:ai_ralph_loop, account: account,
-                           learnings: [{ "text" => "a uniquely phrased insight A" }])
+      loop_record = seed_learnings!(create(:ai_ralph_loop, account: account),
+                                    "a uniquely phrased insight A")
       extractor = described_class.new(account: account)
       extractor.extract(loop_record)
 
       expect { extractor.extract(loop_record) }.not_to change(Ai::CompoundLearning, :count)
     end
 
-    it "skips blank learnings and tolerates plain-string entries" do
-      loop_record = create(:ai_ralph_loop, account: account,
-                           learnings: [{ "text" => "" }, "a plain string insight"])
+    it "skips blank rows" do
+      loop_record = create(:ai_ralph_loop, account: account)
+      create(:ai_ralph_iteration, ralph_loop: loop_record, iteration_number: 1, learning_extracted: "")
+      create(:ai_ralph_iteration, ralph_loop: loop_record, iteration_number: 2,
+             learning_extracted: "a row-backed insight")
 
       expect { described_class.new(account: account).extract(loop_record) }
         .to change(Ai::CompoundLearning, :count).by(1)
     end
 
+    # #reset! supplies `entries:` from a pre-delete capture, so the entry-shape
+    # tolerance is still reachable and still has to hold.
+    it "skips blank entries and tolerates plain-string entries supplied via `entries:`" do
+      loop_record = create(:ai_ralph_loop, account: account)
+
+      expect {
+        described_class.new(account: account)
+                       .extract(loop_record, entries: [ { "text" => "" }, "a plain string insight" ])
+      }.to change(Ai::CompoundLearning, :count).by(1)
+    end
+
     it "leaves git_repository_id nil when the loop has no resolvable repository" do
-      loop_record = create(:ai_ralph_loop, account: account, repository_url: nil,
-                           learnings: [{ "text" => "an insight with no repo" }])
+      loop_record = seed_learnings!(
+        create(:ai_ralph_loop, account: account, repository_url: nil), "an insight with no repo"
+      )
       described_class.new(account: account).extract(loop_record)
 
       expect(Ai::CompoundLearning.where(extraction_method: "ralph_loop").last.git_repository_id).to be_nil
@@ -122,10 +147,9 @@ RSpec.describe Ai::Learning::RalphLearningExtractor, type: :service do
     end
 
     it "REGRESSION: can no longer produce the write-only null-title shape" do
-      loop_record = create(:ai_ralph_loop, account: account,
-                           learnings: [{ "text" => "some genuinely useful loop insight" },
-                                       "a bare-string insight"])
-      extractor.extract(loop_record)
+      loop_record = seed_learnings!(create(:ai_ralph_loop, account: account),
+                                    "some genuinely useful loop insight")
+      extractor.extract(loop_record, entries: loop_record.learning_entries + [ "a bare-string insight" ])
 
       produced = Ai::CompoundLearning.where(extraction_method: "ralph_loop")
       expect(produced).to be_present
@@ -135,14 +159,14 @@ RSpec.describe Ai::Learning::RalphLearningExtractor, type: :service do
 
   describe "RalphLoop#complete! wiring" do
     it "harvests learnings into CompoundLearning on completion" do
-      loop_record = create(:ai_ralph_loop, :running, account: account,
-                           learnings: [{ "text" => "a completion-harvest insight" }])
+      loop_record = seed_learnings!(create(:ai_ralph_loop, :running, account: account),
+                                    "a completion-harvest insight")
 
       expect { loop_record.complete! }.to change(Ai::CompoundLearning, :count).by(1)
     end
 
     it "is a no-op for a loop with no learnings" do
-      loop_record = create(:ai_ralph_loop, :running, account: account, learnings: [])
+      loop_record = create(:ai_ralph_loop, :running, account: account)
       expect { loop_record.complete! }.not_to change(Ai::CompoundLearning, :count)
     end
   end

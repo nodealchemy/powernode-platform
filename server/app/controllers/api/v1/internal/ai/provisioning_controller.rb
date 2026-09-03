@@ -134,7 +134,26 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
     # the worker-job path was bypassing it.
     quota = Powernode::BillingBridge.check_provisioning_quota(account: @mission.account, mission: @mission)
     unless quota[:allowed]
-      return render_success(quota[:payload].merge(mission_id: @mission.id))
+      payload = quota[:payload]
+
+      # A real plan verdict is a terminal, well-understood answer: 200 + the
+      # upgrade payload, which the caller renders as an upgrade card.
+      #
+      # A DEGRADED denial is not a verdict — the quota check itself failed and
+      # the bridge closed rather than provisioning unmetered. Rendering that as
+      # success strands the mission silently: AiProvisioningExecuteJob only
+      # calls report_failure on `success: false`, so a 200 here leaves the
+      # mission un-advanced, un-failed, and unretried, with nothing but a green
+      # "kicked off" log carrying a nil runner_id. Say it failed.
+      if payload[:reason] == ::Powernode::BillingBridge::DEGRADED_QUOTA_REASON
+        message = "Execute blocked: provisioning quota could not be checked"
+        @mission.update!(error_message: message)
+        Rails.logger.error("[Internal::Ai::Provisioning#execute] mission=#{@mission.id} #{message}")
+        return render_error(message, status: :unprocessable_content,
+                            details: payload.merge(mission_id: @mission.id))
+      end
+
+      return render_success(payload.merge(mission_id: @mission.id))
     end
 
     runner = ::Ai::Provisioning::SkillCompositionRunner.new(

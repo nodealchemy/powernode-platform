@@ -34,6 +34,16 @@ module Ai
       CODE_ENTITY_TYPES = %w[file directory class module method function variable type_definition interface constant].freeze
       CODE_RELATION_TYPES = %w[imports calls defines inherits implements contains related_to depends_on uses].freeze
 
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "bulk_index", mutating: true
+      declare_action "create_relation", mutating: true
+      declare_action "prune_stale", mutating: true
+      declare_action "search_graph", mutating: false
+      declare_action "upsert_node", mutating: true
+
       def self.definition
         {
           name: "code_memory",

@@ -65,12 +65,24 @@ FactoryBot.define do
       end
     end
 
+    # IMP-7f415874c14a: the surviving sink is ai_ralph_iterations.learning_extracted
+    # — every learning reader derives from it. A fixture that seeded ONLY the jsonb
+    # array made specs pass against readers that were already dead (and fail against
+    # correct ones). Both are seeded: the rows because they are what is read, the
+    # array because a legacy loop really does carry one.
     trait :with_learnings do
       learnings do
         [
           { "text" => "Learning 1", "iteration" => 1, "timestamp" => 1.hour.ago.iso8601 },
           { "text" => "Learning 2", "iteration" => 2, "timestamp" => 30.minutes.ago.iso8601 }
         ]
+      end
+
+      after(:create) do |ralph_loop|
+        create(:ai_ralph_iteration, ralph_loop: ralph_loop, iteration_number: 1,
+               learning_extracted: "Learning 1")
+        create(:ai_ralph_iteration, ralph_loop: ralph_loop, iteration_number: 2,
+               learning_extracted: "Learning 2")
       end
     end
 

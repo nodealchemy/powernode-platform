@@ -569,22 +569,29 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
     let(:ralph_loop) { create(:ai_ralph_loop, :with_learnings, account: account) }
 
     context 'with ai.loops.read permission' do
-      it 'returns learnings' do
-        allow_any_instance_of(Ai::Ralph::ExecutionService).to receive(:learnings)
-          .and_return(learnings: ralph_loop.learnings)
-
+      # IMP-7f415874c14a: stubbing ExecutionService#learnings here tested nothing
+      # but the route. The payload is now derived from ai_ralph_iterations, so the
+      # endpoint is exercised for real — a reader left on the retired jsonb column
+      # returns 200 with an empty list, which only a CONTENT assertion catches.
+      it 'returns the derived learnings, the count and the by-iteration grouping' do
         get "/api/v1/ai/ralph_loops/#{ralph_loop.id}/learnings",
             headers: headers,
             as: :json
 
         expect_success_response
+        data = json_response_data
+
+        expect(data['learnings'].map { |l| l['text'] }).to eq(['Learning 1', 'Learning 2'])
+        expect(data['total_count']).to eq(2)
+        expect(data['by_iteration'].keys).to match_array(%w[1 2])
+        expect(data['by_iteration']['2'].map { |l| l['text'] }).to eq(['Learning 2'])
       end
     end
   end
 
   describe 'GET /api/v1/ai/ralph_loops/:id/progress' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
-    let(:ralph_loop) { create(:ai_ralph_loop, account: account) }
+    let(:ralph_loop) { create(:ai_ralph_loop, :with_learnings, account: account) }
 
     context 'with ai.loops.read permission' do
       it 'returns progress data' do
@@ -602,6 +609,22 @@ RSpec.describe 'Api::V1::Ai::RalphLoops', type: :request do
         expect(data).to have_key('progress_percentage')
         expect(data).to have_key('learnings')
         expect(data).to have_key('recent_commits')
+      end
+
+      # IMP-7f415874c14a: RalphProgressView renders this list. have_key alone
+      # passes against a reader left on the retired jsonb column, which returns []
+      # for every loop from here on — so assert the CONTENT.
+      it 'returns the learnings derived from the iteration rows' do
+        allow_any_instance_of(Ai::Ralph::ExecutionService).to receive(:status)
+          .and_return('pending')
+
+        get "/api/v1/ai/ralph_loops/#{ralph_loop.id}/progress",
+            headers: headers,
+            as: :json
+
+        expect_success_response
+        expect(json_response_data['learnings'].map { |l| l['text'] })
+          .to eq(['Learning 1', 'Learning 2'])
       end
     end
   end

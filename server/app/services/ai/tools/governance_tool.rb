@@ -6,8 +6,8 @@ module Ai
       # SECURITY (IMP-6fbfeff384fa): authorization here is per ACTION, not per
       # tool. REQUIRED_PERMISSION was inherited as nil from BaseTool, and
       # McpPlatformToolRegistrar#enforce_permission! opens with
-      # `return if required.nil?` — ABOVE the authentication raise, the
-      # has_permission? raise and the token intersection. Every action was
+      # `return if required.nil?` — ABOVE the authentication raise and the
+      # has_permission? raise. Every action was
       # therefore reachable by any MCP caller with no check at all, including
       # resolve_governance_report, whose REST twin requires ai.governance.manage.
       #
@@ -47,6 +47,17 @@ module Ai
       # floor is a member-tier permission, so BaseTool.permitted? re-arming
       # narrows this tool's advertisement only in an account where NO user can
       # read governance at all — where withholding it is the correct answer.
+
+      # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
+      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
+      # BaseTool#gated_action? false, so #execute still routes to #call and
+      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      declare_action "detect_collusion", mutating: true
+      declare_action "get_governance_report", mutating: false
+      declare_action "governance_dashboard", mutating: false
+      declare_action "governance_scan", mutating: true
+      declare_action "list_governance_reports", mutating: false
+      declare_action "resolve_governance_report", mutating: true
 
       def self.definition
         { name: "governance", description: "Agent governance monitoring, scanning, and collusion detection", parameters: { type: "object", properties: {} } }
