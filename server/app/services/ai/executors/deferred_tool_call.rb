@@ -165,8 +165,11 @@ module Ai
           klass
         end
 
-        # Account-scoped in every arm. The gate opened this operation in ONE
-        # account, and a principal outside it is not the principal that asked.
+        # Bounded to the operation's account in every arm. The gate opened this
+        # operation in ONE account, and a principal outside it is not the
+        # principal that asked. For an agent that bound is the account's
+        # VISIBILITY (global canonicals plus its own rows), not ownership — see
+        # #agent_for.
         def rehydrate_caller(principal, account)
           descriptor = normalize(principal)
           return nil if account.nil?
@@ -213,14 +216,35 @@ module Ai
                      granted_tool_name: descriptor["granted_tool_name"].presence)
         end
 
+        # The account's VISIBILITY, not its ownership. Every official agent is a
+        # GLOBAL canonical (account_id NULL — GloballyScopable, HIER-P1), and an
+        # account customises one by cloning it; the canonical acting as the
+        # caller of a gated verb is therefore the common case, and an ownership
+        # match (`account_id: account.id`) broke BOTH arms for it, differently:
+        # the agent arm refused `principal_unresolvable`, while the user arm (an
+        # agent acting FOR a user — the shape MCP actually parks) treats a nil
+        # agent as benign and replayed agent-LESS, so the approved write failed
+        # SILENTLY in the tool body ("Agent not found") rather than refusing. A
+        # clone replayed fine either way.
+        # `for_account` is the same scope the tools' own agent resolution
+        # reads through (Ai::Agent.resolve_for), and it keeps account rows
+        # account-scoped: another account's agent, canonical-cloned or not, is
+        # not visible here and still fails closed.
         def agent_for(descriptor, account)
           id = descriptor["agent_id"]
           return nil if id.blank?
 
-          ::Ai::Agent.find_by(id: id, account_id: account.id)
+          ::Ai::Agent.for_account(account.id).find_by(id: id)
         end
 
-        # The SAME question each principal's own door asks, re-asked now.
+        # The SAME question each principal's own door asks, re-asked now — which
+        # also means it is no STRICTER than that door. Note the agent arm is
+        # INERT for a global canonical: BaseTool.permitted? returns true when the
+        # agent has no account, so REASON_PERMISSION_REVOKED cannot fire for a
+        # canonical principal. That fail-open is the first hop's, not one this
+        # seam opens; closing it (evaluating REQUIRED_PERMISSION against the
+        # OPERATION's account users) belongs with permitted?, since doing it only
+        # here would refuse on replay what the park had allowed.
         def authorized?(principal_ctx, tool_class, action)
           case principal_ctx.kind
           when "user"

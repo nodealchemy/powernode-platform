@@ -187,6 +187,24 @@ RSpec.describe "agent_autonomy MCP delegation verbs" do
         expect(result[:data]).to include(policy: a_hash_including(id: row.id, max_depth: 2))
       end
 
+      # HIER-P1: official agents are GLOBAL canonicals (account_id NULL). The
+      # replay seam rehydrates the parked agent through the account's visibility
+      # (global rows + its own), so a canonical caller's approved write lands on
+      # the account's row for that canonical rather than replaying agent-less
+      # (IMP-32b4f4fb7bbe).
+      it "writes the policy for a GLOBAL canonical calling agent through the replay seam" do
+        canonical = create(:ai_agent, :global, owner_account: account, name: "Canonical Ops",
+                                               agent_type: "assistant", creator: reader, provider: provider)
+
+        result = nil
+        expect {
+          result = run("set_delegation_policy", proposal, user: updater, mcp_agent: canonical)
+        }.to change { ::Ai::DelegationPolicy.where(account_id: account.id, agent_id: canonical.id).count }.from(0).to(1)
+
+        expect(result[:success]).to be(true), result.inspect
+        expect(result[:data]).to include(agent_id: canonical.id)
+      end
+
       it "updates the existing row rather than creating a second one" do
         existing = create(:ai_delegation_policy, account: account, agent: agent, max_depth: 5)
 

@@ -345,6 +345,66 @@ RSpec.describe Ai::Executors::DeferredToolCall do
     end
   end
 
+  # HIER-P1: every official agent is a GLOBAL canonical (account_id NULL), and an
+  # account customises one by cloning it. A canonical acting as the caller of a
+  # gated verb is therefore the COMMON case, and the operation it parks is opened
+  # in the account it acted for. Rehydrating it through the account's visibility
+  # (global rows + this account's rows) is what makes the approval replayable;
+  # an agent owned by ANOTHER account is still outside that visibility.
+  describe "a GLOBAL canonical agent as the parked principal (IMP-32b4f4fb7bbe)" do
+    let(:user) { create(:user, account: account, permissions: [ "ai.agents.manage" ]) }
+    let(:canonical) { create(:ai_agent, :global, owner_account: account, name: "Canonical Ops") }
+
+    it "replays an agent-principal call parked by the canonical under that agent" do
+      user
+      operation = park!(SpecReplayTool.new(account: account, agent: canonical))
+
+      expect(operation.params["principal"]).to include("kind" => "agent", "agent_id" => canonical.id)
+      result = operation.execute_now!
+
+      expect(result[:refused]).to be_nil, result.inspect
+      expect(sightings.size).to eq(1)
+      expect(sightings.first[:agent_id]).to eq(canonical.id)
+      expect(operation.reload.status).to eq("completed")
+    end
+
+    it "keeps the canonical on a user-principal call that it acted for" do
+      operation = park!(SpecReplayTool.new(account: account, user: user, agent: canonical))
+
+      expect(operation.params["principal"]).to include("kind" => "user", "agent_id" => canonical.id)
+      operation.execute_now!
+
+      expect(sightings.size).to eq(1)
+      expect(sightings.first[:user_id]).to eq(user.id)
+      expect(sightings.first[:agent_id]).to eq(canonical.id)
+    end
+
+    it "still replays an account clone of the canonical under the clone" do
+      user
+      clone = canonical.clone_to_account(account)
+      operation = park!(SpecReplayTool.new(account: account, agent: clone))
+
+      operation.execute_now!
+
+      expect(sightings.size).to eq(1)
+      expect(sightings.first[:agent_id]).to eq(clone.id)
+    end
+
+    it "still refuses an account clone that belongs to ANOTHER account" do
+      operation = park!(SpecReplayTool.new(account: account, user: user))
+      foreign_clone = canonical.clone_to_account(other_account)
+      operation.update!(params: operation.params.merge(
+        "principal" => { "kind" => "agent", "agent_id" => foreign_clone.id }
+      ))
+
+      result = operation.execute_now!
+
+      expect(result[:refused]).to be(true)
+      expect(result[:reason]).to eq("principal_unresolvable")
+      expect(sightings).to be_empty
+    end
+  end
+
   describe "cross-tenant clauses" do
     let(:user) { create(:user, account: account, permissions: [ "ai.agents.manage" ]) }
 
