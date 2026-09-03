@@ -218,8 +218,13 @@ module Auditable
     return values if values.blank?
 
     redacted = audit_redacted_attribute_names
+    filter = audit_attribute_filter
     values.each_with_object({}) do |(name, value), filtered|
-      filtered[name] = redacted.include?(name.to_s) ? REDACTED_PLACEHOLDER : value
+      filtered[name] = if redacted.include?(name.to_s)
+        REDACTED_PLACEHOLDER
+      else
+        filter.filter_param(name.to_s, value)
+      end
     end
   end
 
@@ -236,6 +241,37 @@ module Auditable
   def audit_redacted_attribute_names
     encrypted = self.class.try(:encrypted_attributes) || []
     Set.new(ALWAYS_REDACTED_ATTRIBUTES).merge(encrypted.map(&:to_s))
+  end
+
+  # The model's own filtered-attribute list, applied with the semantics Rails
+  # gives it for #inspect: `filter_attributes` entries match attribute names as
+  # case-insensitive substrings (or Regexp / Proc), and a Hash value is walked
+  # so a secret nested in a JSON column is masked too.
+  #
+  # This exists because "is it encrypted?" is not the same question as "is it
+  # secret?". A column can hold plaintext credential material under a name
+  # that merely LOOKS encrypted (Devops::KubernetesCluster#encrypted_kubeconfig
+  # and its two node-join tokens), and such a column is invisible to
+  # audit_redacted_attribute_names — no `encrypts`, no entry. Honouring
+  # `filter_attributes` gives those models one declaration that keeps the value
+  # out of the console, the logs and the audit trail alike, so a row written
+  # THROUGH THIS CONCERN can never disclose what `inspect` already refuses to
+  # print. Scope matters: Auditable is not the only writer of audit_logs —
+  # app/controllers/concerns/audit_logging.rb snapshots attributes into
+  # Audit::LoggingService with no redaction of any kind, and is tracked
+  # separately. Do not read this seam as covering that one.
+  #
+  # Source of the list: `self.class.filter_attributes`, which inherits from
+  # ActiveRecord::Base.filter_attributes. That base list is EMPTY in this app
+  # (asserted in spec/models/concerns/auditable_secret_redaction_spec.rb) even
+  # though config.filter_parameters has entries, because the railtie
+  # initializer "active_record.set_filter_attributes" merges them only on the
+  # :active_record load hook. If that ever changes, every Auditable model would
+  # start masking audit values on substrings like "token" / "_key" / "email";
+  # the spec is the tripwire, and the answer then is to narrow this to the
+  # class's OWN declaration rather than to accept the widened masking.
+  def audit_attribute_filter
+    ActiveSupport::ParameterFilter.new(self.class.filter_attributes, mask: REDACTED_PLACEHOLDER)
   end
 
   # Override this method in models to specify WHICH attributes are audited.
