@@ -540,70 +540,6 @@ agents_data = [
         Your system prompt is automatically injected with relevant compound learnings from past executions. Review these learnings and apply proven patterns to improve your output quality.
       PROMPT
     }
-  },
-  {
-    name: 'Knowledge Graph Curator',
-    agent_type: 'data_analyst',
-    provider: ollama_provider,
-    description: 'Dedicated agent for knowledge graph entity extraction, relationship mapping, and graph maintenance. Assigned to ExtractionService for structured JSON output from unstructured text.',
-    conversation_profile: {
-      'tone' => 'analytical',
-      'verbosity' => 'minimal',
-      'style' => 'structured',
-      'greeting' => 'Knowledge graph curator ready. Provide text for entity extraction.'
-    },
-    mcp_metadata: {
-      'specialization' => 'knowledge_graph_extraction',
-      'priority_level' => 'low',
-      'execution_mode' => 'analytical',
-      'capabilities_version' => '1.0',
-      'cost_tier' => 'free',
-      'model_config' => {
-        'provider' => 'ollama',
-        'temperature' => 0.1,
-        'max_tokens' => 4096,
-        'response_format' => 'structured_json',
-        'cost_per_1k' => { 'input' => 0.0, 'output' => 0.0 }
-      },
-      'fallback_provider' => 'openai',
-      'fallback_model' => 'gpt-4.1-mini',
-      'task_model_overrides' => {
-        'extraction' => 'qwen2.5:14b',
-        'classification' => 'qwen2.5:14b',
-        'summarization' => 'qwen2.5:14b'
-      },
-      'system_prompt' => <<~PROMPT.strip
-        You are a knowledge graph extraction specialist for the Powernode platform.
-
-        YOUR ROLE:
-        - Extract entities and relationships from technical text
-        - Classify entities by type: person, organization, technology, event, location
-        - Map relationships: depends_on, uses, inherits, creates, updates, calls, etc.
-        - Output structured JSON matching the requested schema exactly
-
-        EXTRACTION RULES:
-        - Be precise: only extract clearly stated facts, not inferences
-        - Classify software entities (services, models, adapters) as 'technology'
-        - Preserve exact class/module names (e.g., Ai::Llm::Client, not "LLM Client")
-        - Relationship descriptions should be concise (under 100 chars)
-        - Deduplicate entities by canonical name
-
-        POWERNODE CONTEXT:
-        - Backend: Rails 8 API with namespaced services (Ai::*, Shared::*, Devops::*)
-        - Frontend: React TypeScript with @/shared/ and @/features/ imports
-        - Worker: Standalone Sidekiq process communicating via HTTP API
-        - Business: Git submodule at extensions/business/
-
-        ## MCP Platform Tools Available
-        - Knowledge Graph: search_knowledge_graph, extract_to_knowledge_graph, get_graph_node
-        - Graph Analysis: reason_knowledge_graph, get_graph_neighbors, get_subgraph, graph_statistics
-        - Learnings: query_learnings, create_learning, reinforce_learning
-        - Shared Knowledge: search_knowledge, create_knowledge
-
-        ## Self-Improvement
-        Compound learnings are automatically injected. Apply proven extraction patterns.
-      PROMPT
-    }
   }
 ]
 
@@ -640,6 +576,18 @@ agents_data.each do |ad|
   agents_created += 1
   model = ad[:mcp_metadata].dig('model_config', 'model')
   puts "  ✅ Agent '#{agent.name}' (#{ad[:provider].name} / #{model})"
+end
+
+# The Knowledge Graph Curator is a GLOBAL canonical (ai_utility_agents_seed.rb,
+# baseline). This seed used to create a second, account-scoped `data_analyst`
+# copy beside it — the one real duplicate on the Autonomy page (HIER-P1). The
+# team binds the canonical instead; under the canonical rule an account copy
+# is a clone made through the API, never a seeded twin.
+if (global_curator = Ai::Agent.global.find_by(slug: 'knowledge-graph-curator'))
+  agents['Knowledge Graph Curator'] = global_curator
+  puts "  ✅ Agent 'Knowledge Graph Curator' → bound to the global canonical (#{global_curator.id})"
+else
+  puts "  ⚠️  Global Knowledge Graph Curator not seeded — run ai_utility_agents_seed.rb first"
 end
 
 # ---------------------------------------------------------------------------

@@ -242,6 +242,9 @@ if Powernode::Seeds.baseline?
   # re-seed after setup creates the admin user. Per-seed rescue so one failure
   # never aborts the rest of platform seeding (the system-extension agents seed
   # via the extension orchestrator below, also baseline).
+  # `ai_agent_hierarchy_seed` runs LAST: it attaches every canonical the seeds
+  # above created under the core concierge and writes their delegation
+  # policies (HIER-P1), so it must see all of them.
   puts "\n🤖 Loading fundamental global platform agents (baseline, canonical)..."
   %w[
     claude_agents_seed
@@ -250,6 +253,7 @@ if Powernode::Seeds.baseline?
     ai_concierge_seed
     autonomy_data_seed
     platform_skill_assignments_seed
+    ai_agent_hierarchy_seed
   ].each { |seed_file| safe_load("#{seed_file}.rb") }
 end
 
