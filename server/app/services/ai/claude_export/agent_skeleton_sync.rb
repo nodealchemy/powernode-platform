@@ -327,6 +327,9 @@ module Ai
         lines << "#{step}. Operate strictly under the fetched system prompt and skill context for the remainder " \
           "of this task — this file intentionally carries NO duplicated prompt content; the platform agent " \
           "record is the source of truth."
+        step += 1
+
+        lines << "#{step}. #{self_report_instruction(slug)}"
 
         if tier == :frontier
           lines << ""
@@ -350,6 +353,23 @@ module Ai
         ])
 
         lines.join("\n")
+      end
+
+      # HIER-P1C item 4(b): the run reports itself back so the platform's
+      # execution, trust and model statistics see it. This is the FALLBACK for
+      # a checkout with the SubagentStop hook (.claude/hooks/subagent-report.sh)
+      # disabled; when the hook runs too, it copies this self-report's run_key
+      # out of the transcript, so the platform sees ONE row (idempotent on
+      # run_key). The run_key shape is the contract the hook parses — keep the
+      # two in step.
+      def self_report_instruction(slug)
+        "Before returning, report this run so the platform's statistics see it: call " \
+          "`mcp__powernode__platform_record_agent_execution` with `agent_slug: \"#{slug}\"`, `model` (the model id " \
+          "you are running as), `outcome` (completed | failed | cancelled), `duration_ms`, `tokens` " \
+          "({ input, output }), a `task_digest` of at most 500 characters with no secrets, and " \
+          "`run_key: \"<$CLAUDE_CODE_SESSION_ID>:#{slug}:<UTC start time as YYYYMMDDTHHMMSSZ>\"` " \
+          "(read CLAUDE_CODE_SESSION_ID from your environment; note the start time when you begin). " \
+          "The verb records history only — it is idempotent on run_key and never acts on the platform."
       end
 
       # Rendered only when something exists: the lineage parent (whom this agent

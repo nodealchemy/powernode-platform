@@ -21,11 +21,12 @@ RSpec.describe Ai::ClaudeExport::ToolAllowlist do
   end
 
   describe ".for" do
-    it "gives every agent Read/Grep/Glob and the two bootstrap verbs" do
+    it "gives every agent Read/Grep/Glob, the bootstrap verbs and the self-report verb" do
       tools = described_class.for(agent_with)
 
       expect(tools).to include("Read", "Grep", "Glob")
-      expect(tools).to include("mcp__powernode__platform_get_agent", "mcp__powernode__platform_get_skill_context")
+      expect(tools).to include("mcp__powernode__platform_get_agent", "mcp__powernode__platform_get_skill_context",
+                               "mcp__powernode__platform_record_agent_execution")
     end
 
     it "adds Edit/Write/Bash only for code_assistant" do
@@ -48,7 +49,7 @@ RSpec.describe Ai::ClaudeExport::ToolAllowlist do
       tools = described_class.for(agent_with(tool_access: { "allowed_tools" => %w[search_knowledge no_such_action] }))
       actions = mcp_actions(tools)
 
-      expect(actions).to contain_exactly("search_knowledge", "get_agent", "get_skill_context")
+      expect(actions).to contain_exactly("search_knowledge", "get_agent", "get_skill_context", "record_agent_execution")
     end
 
     it "treats allowed_tools ['*'] as unscoped" do
@@ -73,13 +74,13 @@ RSpec.describe Ai::ClaudeExport::ToolAllowlist do
 
       actions = mcp_actions(described_class.for(agent_with(agent_type: "monitor")))
 
-      expect(actions).to contain_exactly("list_skills", "get_agent", "get_skill_context")
+      expect(actions).to contain_exactly("list_skills", "get_agent", "get_skill_context", "record_agent_execution")
     end
 
     it "keeps only the bootstrap verbs when platform tools are disabled for the agent" do
       actions = mcp_actions(described_class.for(agent_with(tool_access: { "enabled" => false })))
 
-      expect(actions).to contain_exactly("get_agent", "get_skill_context")
+      expect(actions).to contain_exactly("get_agent", "get_skill_context", "record_agent_execution")
     end
   end
 

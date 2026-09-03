@@ -9,7 +9,12 @@ module Ai
     # #scope_to_tool_families), in the same order, so the CC counterpart of an
     # agent sees the same platform surface the platform's own executor would
     # hand it:
-    #   1. tool_access.enabled == false          -> bootstrap verbs only
+    #   1. tool_access.enabled == false          -> bootstrap verbs only (which
+    #                                              since HIER-P1C include the
+    #                                              self-report verb: it writes
+    #                                              only this run's own history
+    #                                              row, so the kill switch still
+    #                                              denies every acting verb)
     #   2. tool_access.allowed_tools (not ["*"]) -> exactly those (registered) names
     #   3. tool_access.full_registry == true     -> UNSCOPED (nil: omit `tools:`,
     #                                              CC inherits every tool)
@@ -22,10 +27,13 @@ module Ai
     #      (this is where the export is STRICTER than the bridge, which serves the
     #      full registry — a committed CC allowlist errs on the side of read-only)
     #
-    # Every skeleton always carries the two bootstrap verbs (get_agent /
-    # get_skill_context — the file cannot fetch its own prompt without them) and
-    # the CC built-ins its agent type needs: Read/Grep/Glob for every agent;
-    # Edit/Write/Bash only for code_assistant.
+    # Every skeleton always carries the bootstrap verbs (get_agent /
+    # get_skill_context — the file cannot fetch its own prompt without them),
+    # the self-report verb (record_agent_execution — HIER-P1C: the body's final
+    # step reports the run back so the platform's statistics see it; the verb
+    # records history and is not autonomy-gated), and the CC built-ins its agent
+    # type needs: Read/Grep/Glob for every agent; Edit/Write/Bash only for
+    # code_assistant.
     #
     # Registered action names come from the registry's own surface
     # (PlatformApiToolRegistry.all_tools), never a literal list; a READ verb is
@@ -37,7 +45,7 @@ module Ai
       BASE_BUILTINS = %w[Read Grep Glob].freeze
       CODE_BUILTINS = %w[Edit Write Bash].freeze
       CODE_AGENT_TYPES = %w[code_assistant].freeze
-      BOOTSTRAP_ACTIONS = %w[get_agent get_skill_context].freeze
+      BOOTSTRAP_ACTIONS = %w[get_agent get_skill_context record_agent_execution].freeze
       UNSCOPED = :all
 
       # One walk of the registry per export run (~600 constantize + declaration

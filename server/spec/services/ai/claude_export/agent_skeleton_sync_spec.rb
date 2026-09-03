@@ -380,6 +380,35 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
       expect(content).to include(Ai::Agent::BASE_GUARDRAILS)
       expect(content).to include("already")
     end
+
+    # HIER-P1C item 4(b): the self-report is the fallback when the SubagentStop
+    # hook is disabled. It names the verb, the slug, and the run_key contract
+    # the hook reuses (the hook copies a self-report's run_key out of the
+    # transcript), so the platform sees ONE row either way.
+    it "ends with the record_agent_execution self-report instruction, before returning, keyed on the slug" do
+      agent = build_agent(name: "Reporting Agent", resolved_model: "claude-sonnet-4-6")
+      stub_syncable([ agent ])
+
+      service.sync!
+      body = body_of(content_for(agent))
+
+      expect(body).to include("mcp__powernode__platform_record_agent_execution")
+      expect(body).to include(%(agent_slug: "#{agent.slug}"))
+      expect(body).to include("run_key")
+      expect(body).to include("CLAUDE_CODE_SESSION_ID")
+      expect(body).to match(/before returning/i)
+      expect(body.index("record_agent_execution")).to be > body.index("source of truth")
+      # It is the last numbered step: after it comes the guardrails floor only.
+      expect(body.index("record_agent_execution")).to be < body.index("## Baseline guardrails")
+    end
+
+    it "allows the self-report verb in the tools frontmatter" do
+      agent = build_agent(name: "Allowed Reporter", resolved_model: "claude-sonnet-4-6")
+      stub_syncable([ agent ])
+
+      service.sync!
+      expect(frontmatter_of(content_for(agent))["tools"]).to include("mcp__powernode__platform_record_agent_execution")
+    end
   end
 
   # Item 4: delegation authority (Ai::DelegationPolicy, seeded by HIER-P1) and
