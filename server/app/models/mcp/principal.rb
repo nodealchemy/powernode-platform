@@ -166,6 +166,22 @@ module Mcp
       # exactly the five intended actions and no others, and the plural read
       # actions (list_deferred_operations, list_intervention_policies) do not
       # match, so an instance keeps its read surface.
+      #
+      # *replace_instance* (IMP-4d6423bf4eb3, operator ruling R5, 2026-09-03)
+      # denies system_replace_instance, the ADDITIVE half of a DR replace.
+      # Alone it terminates nothing — it claims a warm pool member and moves
+      # the failed instance's volumes, SDWAN membership and VIPs onto it —
+      # which is why the pair shipped with only *reap_* here and the
+      # `reap: true` terminate it can raise refused for an instance principal
+      # in SystemFleetTool's gate context. That left the two halves
+      # asymmetric: an instance principal could consume a pool member and
+      # re-home another instance's workload, human-unattributably, and the
+      # gate-context refusal was the ONLY brake on the terminate riding along.
+      # Denying the whole verb makes the reap-through-replace refusal defence
+      # in depth instead of the sole control. Deliberately narrower than a
+      # `*replace*` so a future replace-shaped read or config verb is not
+      # swept in; verified against the whole registry to match exactly this
+      # one action (principal_deny_overlay_spec pins that).
       DESTRUCTIVE_TOOL_PATTERNS = %w[
         *_deferred_operation
         *intervention_policy
@@ -185,6 +201,7 @@ module Mcp
         *_reboot_instance
         *upgrade_boot_image*
         *_hold
+        *replace_instance*
       ].freeze
 
       # True when the tool is destroy-shaped and therefore off-limits to every
