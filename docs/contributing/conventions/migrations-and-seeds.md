@@ -64,6 +64,7 @@ unique/partial/GIN variants on the same column.
 | One writer | **Never** run two `db:seed` (or seed + a migration) against the same DB concurrently — they collide. One DB writer at a time. |
 | Extension seeds | Each extension contributes via its `seed_orchestrator` contract (loaded by the core orchestrator); extension-specific content (KB articles, roles, permissions, audit actions) is registered through the extension's engine, never core seeds. |
 | Page/data extraction | Large inline seed blocks (pages, demo content) live in `db/seeds/*.rb` data files, not inline in the orchestrator. |
+| Declared policy rows have ONE writer | An agent seed writes **identity, prompt, approval chain, trust, tool_access and skills only**. Declared intervention-policy rows (an agent's action-category set) are written by the governance **reconciler** on every boot from the declarations it consumes — never upserted by the agent seed, which runs once at first boot and then never again, so a policy added to a seed after first boot would never reach an established install. The system extension's `System::Governance::PolicyReconciler` (over `PolicyDeclarations::POLICY_SETS`) is the reference implementation and its Supply Chain Manager seed the reference shape; the older system-extension seeds that still upsert their own rows are grandfathered pending a filed rewrite — do not copy that shape into a new seed. |
 
 ## Gotchas (do not relearn the hard way)
 
