@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_03_181500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2025,7 +2025,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
   end
 
   create_table "ai_delegation_policies", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
+    t.uuid "account_id"
     t.uuid "agent_id", null: false
     t.jsonb "allowed_delegate_types", default: [], null: false
     t.float "budget_delegation_pct", default: 0.5, null: false
@@ -2034,9 +2034,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
     t.string "inheritance_policy", default: "conservative", null: false
     t.integer "max_depth", default: 3, null: false
     t.datetime "updated_at", null: false
-    t.index ["account_id", "agent_id"], name: "index_ai_delegation_policies_on_account_id_and_agent_id"
     t.index ["account_id"], name: "index_ai_delegation_policies_on_account_id"
-    t.index ["agent_id"], name: "index_ai_delegation_policies_on_agent_id", unique: true
+    t.index ["agent_id", "account_id"], name: "index_ai_delegation_policies_on_agent_id_and_account_id", unique: true, where: "(account_id IS NOT NULL)"
+    t.index ["agent_id"], name: "index_ai_delegation_policies_on_agent_id_global", unique: true, where: "(account_id IS NULL)"
     t.check_constraint "inheritance_policy::text = ANY (ARRAY['conservative'::character varying::text, 'moderate'::character varying::text, 'permissive'::character varying::text])", name: "check_delegation_inheritance_policy"
   end
 
