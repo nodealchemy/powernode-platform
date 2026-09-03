@@ -1,6 +1,8 @@
 import { api } from '@/shared/services/api';
 import { isErrorWithResponse, getErrorMessage } from '@/shared/utils/errorHandling';
-import { getAppVersion } from '@/shared/utils/env';
+import { getAppVersion, getBuildInfo, type BuildInfo } from '@/shared/utils/env';
+
+export type { BuildInfo };
 
 export interface VersionInfo {
   version: string;
@@ -10,6 +12,22 @@ export interface VersionInfo {
   prerelease?: string;
   build_date: string;
   git_commit: string;
+  // Build identity (Powernode::Version#semantic_version, 2026-09). Optional so
+  // a frontend talking to an older backend still renders.
+  display?: string;
+  release?: boolean;
+  short_sha?: string | null;
+  git_branch?: string;
+  git_tag?: string | null;
+  built_at?: string | null;
+}
+
+/** The minimum either side needs to apply the display contract. */
+export interface DisplayableVersion {
+  version: string;
+  display?: string;
+  short_sha?: string | null;
+  release?: boolean;
 }
 
 export interface FullVersionInfo extends VersionInfo {
@@ -96,6 +114,37 @@ export const versionApi = {
   // Get frontend version from the VERSION file (injected at build time).
   getFrontendVersion(): string {
     return getAppVersion();
+  },
+
+  // The bundle's build identity (sha / branch / tag / release verdict).
+  getFrontendBuildInfo(): BuildInfo {
+    return getBuildInfo();
+  },
+
+  // DISPLAY CONTRACT, shared with Powernode::Version#display_version:
+  //   release build         -> "X.Y.Z"
+  //   any other known build -> "<7-char sha>"
+  //   no identity at all    -> "X.Y.Z-dev"
+  // A server-provided `display` wins so both halves can only ever disagree by
+  // the server's own choice.
+  displayVersion(info: DisplayableVersion): string {
+    if (info.display) return info.display;
+    if (info.release) return info.version;
+    if (info.short_sha) return info.short_sha;
+    return info.version.endsWith('-dev') ? info.version : `${info.version}-dev`;
+  },
+
+  // Tooltip text for a build: full sha, branch and tag when known.
+  describeBuild(label: string, info: { version: string; sha?: string | null; short_sha?: string | null; branch?: string; git_branch?: string; tag?: string | null; git_tag?: string | null; release?: boolean }): string {
+    const sha = info.sha ?? info.short_sha ?? null;
+    const branch = info.branch ?? info.git_branch;
+    const tag = info.tag ?? info.git_tag;
+    const parts = [`${label} ${info.version}`];
+    if (sha) parts.push(`commit ${sha}`);
+    if (branch && branch !== 'unknown') parts.push(`branch ${branch}`);
+    if (tag) parts.push(`tag ${tag}`);
+    parts.push(info.release ? 'release build' : 'incremental build');
+    return parts.join(' · ');
   },
 
   // Format version for display

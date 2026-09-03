@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_03_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1000,7 +1000,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_120000) do
     t.index ["expires_at"], name: "index_ai_approval_requests_on_expires_at"
     t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
     t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
-    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying::text, 'failed'::character varying::text]))", name: "check_execution_status"
+    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying, 'failed'::character varying]::text[]))", name: "check_execution_status"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_request_status"
   end
 
@@ -8622,6 +8622,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_120000) do
     t.datetime "created_at", null: false
     t.uuid "cve_id", null: false
     t.datetime "detected_at", default: -> { "now()" }, null: false
+    t.string "match_method", default: "keyword", null: false
     t.jsonb "metadata", default: {}, null: false
     t.uuid "node_module_version_id", null: false
     t.string "package_name", null: false
@@ -8633,9 +8634,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_120000) do
     t.index ["cve_id", "node_module_version_id", "package_name"], name: "idx_on_cve_id_node_module_version_id_package_name_a350319e5f", unique: true
     t.index ["cve_id"], name: "index_system_cve_exposures_on_cve_id"
     t.index ["detected_at"], name: "index_system_cve_exposures_on_detected_at"
+    t.index ["match_method"], name: "index_system_cve_exposures_on_match_method"
     t.index ["node_module_version_id"], name: "index_system_cve_exposures_on_node_module_version_id"
     t.index ["state"], name: "index_system_cve_exposures_on_state"
-    t.check_constraint "state::text = ANY (ARRAY['open'::character varying::text, 'remediating'::character varying::text, 'resolved'::character varying::text, 'wont_fix'::character varying::text])", name: "ck_cve_exposures_state"
+    t.check_constraint "state::text = ANY (ARRAY['open'::character varying, 'remediating'::character varying, 'resolved'::character varying, 'wont_fix'::character varying, 'suspected'::character varying]::text[])", name: "ck_cve_exposures_state"
   end
 
   create_table "system_cves", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|

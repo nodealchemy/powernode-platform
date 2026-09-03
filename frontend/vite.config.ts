@@ -6,6 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import packageJson from './package.json';
 import { createRequire } from 'module';
+import { execSync } from 'child_process';
 import { HOST_EXPOSED_IDS, hostChunkName } from './src/shared/host-api/modules';
 
 // Require bound to the frontend package root, used to enumerate the real
@@ -200,6 +201,42 @@ function getAllowedHosts(): string[] {
 }
 
 // https://vitejs.dev/config/
+
+// Build identity baked into the bundle as __BUILD_INFO__ (see
+// src/shared/utils/env.ts#getBuildInfo and versionApi.displayVersion). The
+// module build (extensions/system/scripts/module-build/stage15.sh) exports the
+// JSON it wrote for the server as POWERNODE_BUILD_INFO_JSON; a local dev build
+// falls back to the checkout's own git identity, which is never a release.
+function resolveBuildInfo(): Record<string, unknown> {
+  const fromBuild = process.env.POWERNODE_BUILD_INFO_JSON;
+  if (fromBuild) {
+    try {
+      const parsed = JSON.parse(fromBuild) as Record<string, unknown>;
+      return { version: packageJson.version, ...parsed };
+    } catch {
+      console.warn('[vite] POWERNODE_BUILD_INFO_JSON is not valid JSON; falling back to git identity');
+    }
+  }
+  const git = (args: string): string | null => {
+    try {
+      return execSync(`git ${args}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || null;
+    } catch {
+      return null;
+    }
+  };
+  const sha = git('rev-parse HEAD');
+  return {
+    version: packageJson.version,
+    sha,
+    short_sha: sha ? sha.slice(0, 7) : null,
+    branch: git('rev-parse --abbrev-ref HEAD') ?? 'unknown',
+    tag: null,
+    release: false,
+    built_at: null,
+    source: sha ? 'git' : 'local',
+  };
+}
+
 export default defineConfig(({ mode }: { mode: string }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
@@ -425,6 +462,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
       'process.env.REACT_APP_VERSION': JSON.stringify(packageJson.version),
+      '__BUILD_INFO__': JSON.stringify(resolveBuildInfo()),
       // __EXTENSIONS__ reflects extensions effectively active in this build.
       // Disabled extensions are removed so existing `__EXTENSIONS__.includes(slug)`
       // gates (App.tsx, Header.tsx, AdminSettingsTabs.tsx) tree-shake their imports.
