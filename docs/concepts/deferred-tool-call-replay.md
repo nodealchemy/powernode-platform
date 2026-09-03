@@ -51,7 +51,7 @@ tool.execute            gate_context ──► AutonomyGate.evaluate ──► D
 DeferredOperation#execute_now!
   └─ Ai::Executors::DeferredToolCall.execute(params, deferred_operation:)
        ├─ resolve tool class      (must be a BaseTool subclass, else refuse)
-       ├─ resolve principal       (account-scoped, else refuse)
+       ├─ resolve principal       (bounded to the operation's account, else refuse)
        ├─ RE-CHECK authorization  (else refuse — as a RESULT, not a raise)
        └─ rebuild tool with the principal, mark it as an approved replay, #execute
 ```
@@ -65,6 +65,19 @@ DeferredOperation#execute_now!
 | instance (mTLS) | `node_instance_id`, `granted_tool_name` | `instance_authorized = true`, `node_instance =` | `Mcp::Principal#may_invoke?("platform.<granted_tool_name>")` — grant globs **and** the destroy-shaped deny overlay |
 | internal (`internal: true`, no user/agent) | kind only | `internal: true` | nothing to re-check; there is no principal that can lose a permission |
 | anything else | kind `unattributed` | — | **not parked at all** |
+
+Every principal is resolved **within the operation's account** — a row outside it is not the
+principal that asked. A user or agent principal that will not resolve refuses
+`principal_unresolvable`; the *agent riding a user* is the exception, because a missing agent
+row does not invalidate the user, so that replay proceeds **agent-less** and the loss surfaces
+only as whatever the tool body says with no agent.
+
+For an `agent_id` the account bound is the account's *visibility* (`Ai::Agent.for_account`:
+global canonicals plus the account's own rows), not ownership: every official agent is a global
+canonical (`account_id NULL`, HIER-P1) and an account customises one by cloning it, so an
+ownership match would park approvals no decision could ever replay — refused outright in the
+agent arm, silently agent-less in the user arm. Another account's agent, clone or not, is
+outside that visibility and still fails closed.
 
 `internal` is recorded **alongside** the user/agent kinds rather than as a kind of its own,
 because at depth the two are orthogonal: a skill executor builds every tool it nests with
