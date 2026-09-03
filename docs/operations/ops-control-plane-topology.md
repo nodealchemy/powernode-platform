@@ -16,7 +16,7 @@
 > | 1. Provision `ops-cell` | **DONE** — VM 9003 on dna, pet (`lifecycle_class: persistent`), lean 6-module `powernode-ops-cell` template, enrolled and composing |
 > | 2. User-principal MCP + scoped tokens | **NOT STARTED** — and the "scoped tokens" half has no seam to build on: §2's claim that the registrar already enforces a token-permission intersection was FALSE (see the Correction in §2), so this step must now BUILD that control, not merely configure it. Also blocked on an operator-set Claude Code credential; the managed tmux session cannot start until then, so the principal it authenticates as is still unverified (see "Open uncertainties") |
 > | 3. Demote serial console to logged break-glass | not started |
-> | 4. Instance-grant deny-overlay **[NEW]** | **DONE and LIVE** — `Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS`, deny wins over any grant incl. exact-name; 60 destroy-shaped tools unreachable by any instance principal |
+> | 4. Instance-grant deny-overlay **[NEW]** | **DONE and LIVE** — `Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS`, deny wins over any grant incl. exact-name; every destroy-shaped tool unreachable by any instance principal. **Correction (IMP-4d6423bf4eb3, 2026-09-03): this cell read "60 destroy-shaped tools". A count is not the invariant — it is derived from the pattern list against the registry and moves whenever either changes, and it had already drifted to 71 before ruling R5 added `*replace_instance*`; it is 72 of 615 registered actions now.** |
 > | 5. `require_approval` chains for destructive categories | not started |
 > | 6. Enable `NodeInstancePeer` for ops-cell | not started |
 >
