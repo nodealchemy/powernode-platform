@@ -148,19 +148,16 @@ module Ai
         )
       end
 
+      # Lineage is written through the hierarchy seam (HIER-P1) — the ONE
+      # writer every seed and runtime creation path shares, which also snapshots
+      # the parent's trust level/type into the edge's metadata as this method
+      # used to. Kept as a private step of #spawn so the spawn contract (the
+      # lineage in the result hash) is unchanged.
       def create_lineage(parent, child, reason)
         return nil unless parent
 
-        Ai::AgentLineage.create!(
-          account: account,
-          parent_agent: parent,
-          child_agent: child,
-          spawn_reason: reason || "programmatic_spawn",
-          spawned_at: Time.current,
-          metadata: {
-            parent_trust_level: parent.try(:trust_level),
-            parent_type: parent.agent_type
-          }
+        Ai::Agents::HierarchyWriter.new(account: account).attach!(
+          child: child, parent: parent, spawn_reason: reason || "programmatic_spawn"
         )
       end
 
