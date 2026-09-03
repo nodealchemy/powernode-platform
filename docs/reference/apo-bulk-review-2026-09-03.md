@@ -83,3 +83,59 @@ Pattern validation 52/52; catalog and schema fresh; 19-file guard set on a drive
 - Solo/migration (after the deploy window): IMP-f2a7a729d39b (lifecycle step 2)
 - Held until deploy + telemetry window: IMP-31e7c3dbeb2a (APO-1e fail-closed)
 - Held (operator): IMP-4c0a826ad21a, IMP-b54e49ddfc40, IMP-01b1e152f667 (business extension), IMP-222dd9bce564 (permissions path); blocked IMP-74995230ed5b
+
+
+## 6. Batches 5–8 and the sweep (closed 2026-09-03; rulings 09:55)
+
+**Outcome.** Batch 5: 12/12 passed. Batch 6: 13/13. Batch 7 (fleet-tool set): 8/8. Batch 8 (R4
+amendment): 1/1. Sweep lane (SWEEP-2026-09-03, out-of-lane findings from all four): 12 commits.
+Queue after: 714 passed / 6 pending / 1 blocked; the six pending are all held categories
+(business extension ×3, IMP-222dd9bce564, IMP-31e7c3dbeb2a APO-1e, IMP-f2a7a729d39b lifecycle step 2).
+Driver-side fixes between batches: the prose the batch-5/6 lanes could not edit (ext 9b075e45), the
+`system_set_service_backends` member schema (ext ee3f5642), and the core-mode tools/list simulation
+that a definition-time enum broke (core d3a701a21).
+
+**Rulings taken 2026-09-03.**
+- 06:52 — IMP-4c825848bb79 disposed passed after the operator read the two protected-path hunks.
+- 06:52 — R4 amended: one-line tools/list descriptions (LIST_DESCRIPTION_LIMIT=160, SiteSetting
+  `mcp.tools_list.description_limit`) + `platform.describe_tool` for the full entry, grant-scoped
+  through the same principal filter as the listing. Shipped core c06f7cb94 / 7775ab872 / e425b2fc8.
+  Measured on one checkout: raw 1,109,260 → 1,037,808 B; descriptions 120,227 → 48,941 B;
+  gzip 110,483 → 84,143 B. Ceiling pin 256 → 160 KiB.
+- 09:55 — Deploy the sprint when the sweep is green (it is). R9 runs AFTER the deploy, same session.
+- 09:55 — `Identity::*Allocator::CapacityExhausted` stays a REFUSAL (identity_capacity_exhausted,
+  retryable:false).
+- 09:55 — Cordon + ReplicaReconciler: BOTH (exclude from live count, prefer as scale-in victim), plus
+  the promote_pool_ready!/release! readers → improvement 01a067e3-5647-7761-ac94-0ca905f3887c, approved
+  with that direction.
+
+**Behaviour changes worth knowing before the deploy.**
+- `system_gitops_register_repository` is now approval-gated (its seeded row always said
+  require_approval; the gate was decoration). `system_gitops_sync_repository` deliberately stays
+  ungated: its only seeded row is agent-scoped on an agent that never calls the verb.
+- REST `sync_now` answers 422 on a failed reconcile and 409 on a standby plane (GitopsTab updated).
+  REST `restore` honours `swap_into_place` and keeps the copy reachable when the swap fails.
+- `system_delete_volume_snapshot`, `system_gitops_apply_proposal`, `system_cordon_instance` /
+  `system_uncordon_instance` are gated; each ships a seed row. Seeds are FIRST-BOOT ONLY, so the
+  post-deploy step must re-run `db:seed` and `rake system:governance:reconcile`.
+- Extension-hosted refusals that escaped as JSON-RPC -32603 now return error results (four classes).
+- The agent's lifecycle handler validates `options["unit"]` (installed powernode-*.service only);
+  the `restart` verb default moved to require_approval. `start`/`stop` remain auto_approve with a
+  caller-chosen unit — residual, filed.
+- `FleetAutonomyService#notify_action` and the CVE twin both write a durable `autonomy.notified`
+  FleetEvent; PackageModuleRefreshExecutor reaches Sidekiq; ReplicaLagSensor produces the lag the
+  promote gate reads (the one sanctioned writing sensor).
+
+**Deferred by the sweep (design or >40 lines).** Reconciler::Result branchable `skipped`;
+system_create_module cleanup on the allocator raise path; SelfManagementViolation labelled "Gate
+evaluation failed"; ExposeServicePublicTcpExecutor reachability reporting; provider_credential.rb:79
+and package_repository.rb:166 persisting unsanitised provider error text; `system.service_backends_update`
+lives in the agent-scoped set (visible/tunable) rather than a global operator set (binding) — confirm the
+home. Federation principals are denied `platform.describe_tool` outright (fail-closed; partner row never
+reaches the tool).
+
+**Deploy plan (approved).** Same recipe as §3 with two additions: the extension develop push happens with
+`system.module_builds.trigger_ref` still parked; after the restart, re-run seeds AND
+`rake system:governance:reconcile`, then verify the new policy rows exist (volume_snapshot_delete,
+gitops_apply_proposal, gitops_register_repository, instance_cordon, service_backends_update,
+replica_promote). Then R9.
