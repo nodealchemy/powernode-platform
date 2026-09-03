@@ -184,3 +184,21 @@ Phase 2b: ~5 lanes (one per new/promoted agent, plus the engineering policy set 
 5. Engineering executor: Platform Developer as a platform_agent driver for dev-improve alongside
    Claude Code (recommended) vs Claude Code only, with the platform agents limited to research,
    review, release and docs.
+
+## 5. Operator rulings (2026-09-03 18:12 UTC)
+1. Root: **System Concierge** coordinates both hierarchies.
+2. Operations split: **four new managers** (Capacity, Storage, Ingress, Supply Chain) **and an agent
+   twin for every operator-only set** where a sensor exists.
+3. Authority: **skill and prompt refinements auto-approve on trusted agents**; structural changes
+   (agents, teams, delegation, promotion, deploy) stay `require_approval`.
+4. **Platform Developer** drives dev-improve as a platform_agent alongside Claude Code.
+5. **Canonical rule:** every official agent is a seeded canonical — global (`account_id NULL`),
+   `source_key`-managed, `is_system`, read-only through the API (the `GloballyScopedContent`
+   read-only guard and the architecture-catalog `is_canonical` precedent). New agents are created
+   only as clones of a canonical into an account (`cloned_from_id`, `source_version`,
+   `update_from_source` rebase), with lineage written at clone time. Consequences for the plan:
+   the demo account agents are either promoted to canonical (Documentation Specialist) or left as
+   demo data outside the hierarchy; `AgentManagementTool#create_agent` gains a required
+   `canonical_slug` (or `template`) and refuses a free-form agent unless the caller holds
+   `ai.agents.manage`; `find_or_initialize_global_agent`'s adopt-a-stray behaviour is replaced by
+   an explicit conflict error so an operator clone is never silently converted into a canonical.
