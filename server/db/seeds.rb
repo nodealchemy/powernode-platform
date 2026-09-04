@@ -254,9 +254,14 @@ if Powernode::Seeds.baseline?
   # re-seed after setup creates the admin user. Per-seed rescue so one failure
   # never aborts the rest of platform seeding (the system-extension agents seed
   # via the extension orchestrator below, also baseline).
+  # `ai_engineering_agents_seed` (HIER-P2B-ENG) adds the Engineering
+  # hierarchy's canonicals (Platform Architect, Platform Developer, Release
+  # Manager, Documentation Specialist) with their policy rows and chains;
+  # `platform_skill_assignments_seed` then binds skills to every canonical.
   # `ai_agent_hierarchy_seed` runs LAST: it attaches every canonical the seeds
-  # above created under the core concierge and writes their delegation
-  # policies (HIER-P1), so it must see all of them.
+  # above created — the core forest under the core concierge and the
+  # Engineering agents under the Platform Architect — and writes their
+  # delegation policies (HIER-P1), so it must see all of them.
   puts "\n🤖 Loading fundamental global platform agents (baseline, canonical)..."
   %w[
     claude_agents_seed
@@ -264,6 +269,7 @@ if Powernode::Seeds.baseline?
     ai_utility_agents_seed
     ai_concierge_seed
     autonomy_data_seed
+    ai_engineering_agents_seed
     platform_skill_assignments_seed
     ai_agent_hierarchy_seed
   ].each { |seed_file| safe_load("#{seed_file}.rb") }

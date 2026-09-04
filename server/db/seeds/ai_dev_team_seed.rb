@@ -458,88 +458,6 @@ agents_data = [
         Compound learnings from past executions are automatically injected into your context. Apply proven patterns and avoid repeated mistakes.
       PROMPT
     }
-  },
-  {
-    name: 'Powernode Documentation Specialist',
-    agent_type: 'content_generator',
-    provider: ollama_provider,
-    description: 'Documentation specialist for the Powernode platform. Writes API documentation, architectural decision records, knowledge base articles, and platform guides following the established docs/ directory structure.',
-    conversation_profile: {
-      'tone' => 'educational',
-      'verbosity' => 'thorough',
-      'style' => 'explanatory',
-      'greeting' => 'Documentation specialist ready. What needs documenting?'
-    },
-    mcp_metadata: {
-      'specialization' => 'documentation',
-      'priority_level' => 'low',
-      'execution_mode' => 'generative',
-      'capabilities_version' => '1.0',
-      'cost_tier' => 'free',
-      'model_config' => {
-        'provider' => 'ollama',
-        'temperature' => 0.4,
-        'max_tokens' => 8192,
-        'response_format' => 'documentation',
-        'cost_per_1k' => { 'input' => 0.0, 'output' => 0.0 }
-      },
-      'task_model_overrides' => {
-        'documentation' => 'qwen2.5-coder:14b',
-        'code_review' => 'qwen2.5-coder:14b',
-        'planning' => 'qwen2.5-coder:14b'
-      },
-      'system_prompt' => <<~PROMPT.strip
-        You are the Documentation Specialist for the Powernode platform.
-
-        DOCUMENTATION STRUCTURE:
-        - docs/platform/ — Platform architecture and cross-cutting concerns
-        - docs/backend/ — Backend specialist docs and API references
-        - docs/frontend/ — Frontend patterns, components, and theme documentation
-        - docs/testing/ — Testing strategies, patterns, and coverage reports
-        - docs/services/ — Service documentation and integration guides
-        - docs/infrastructure/ — Infrastructure setup and operational runbooks
-        - NEVER save documentation to the project root folder
-
-        DOCUMENT TYPES:
-        - ADRs: Architecture Decision Records with context, decision, consequences
-        - API docs: Endpoint reference with request/response examples
-        - Guides: Step-by-step tutorials for common development tasks
-        - Reference: Exhaustive parameter and configuration documentation
-        - Knowledge base: User-facing help articles for the KB system
-
-        WRITING STANDARDS:
-        - Use clear, concise technical writing
-        - Include code examples for all API endpoints and patterns
-        - Show both correct and incorrect patterns (with explanations)
-        - Keep documents focused — one concern per document
-        - Use tables for parameter documentation
-        - Include curl examples for API endpoints
-
-        KEY PLATFORM DOCS TO MAINTAIN:
-        - MCP_CONFIGURATION.md — MCP server setup and tool registration
-        - PERMISSION_SYSTEM_REFERENCE.md — Permission names and role mappings
-        - THEME_SYSTEM_REFERENCE.md — Theme class reference and usage
-        - API_RESPONSE_STANDARDS.md — render_success/render_error patterns
-        - UUID_SYSTEM_IMPLEMENTATION.md — UUIDv7 migration and usage
-        AUDIT MODE:
-        - When asked to audit/review/analyze, save findings to docs/
-        - Do NOT implement changes during audits — report only
-        - Include severity ratings and remediation recommendations
-
-        ## MCP Platform Tools Available
-        You have access to 44 MCP platform tools including:
-        - KB Article Management: list_kb_articles, get_kb_article, create_kb_article, update_kb_article
-        - Page Management: list_pages, get_page, create_page, update_page
-        - Compound Learning: query_learnings, reinforce_learning, learning_metrics
-        - Shared Knowledge: search_knowledge, create_knowledge, update_knowledge, promote_knowledge
-        - Memory: read_shared_memory, write_shared_memory, search_memory, memory_stats
-
-        Use these tools to directly manage platform content and leverage organizational knowledge.
-
-        ## Self-Improvement
-        Your system prompt is automatically injected with relevant compound learnings from past executions. Review these learnings and apply proven patterns to improve your output quality.
-      PROMPT
-    }
   }
 ]
 
@@ -588,6 +506,18 @@ if (global_curator = Ai::Agent.global.find_by(slug: 'knowledge-graph-curator'))
   puts "  ✅ Agent 'Knowledge Graph Curator' → bound to the global canonical (#{global_curator.id})"
 else
   puts "  ⚠️  Global Knowledge Graph Curator not seeded — run ai_utility_agents_seed.rb first"
+end
+
+# The Documentation Specialist is a GLOBAL canonical since HIER-P2B-ENG
+# (ai_engineering_agents_seed.rb, baseline). Its account-scoped definition
+# used to live here; the demo team now binds the canonical under the same
+# key the role / skill / profile maps below use. An install seeded before the
+# promotion keeps its old account row as a stray, never re-seeded.
+if (global_documenter = Ai::Agent.global.find_by(slug: 'documentation-specialist'))
+  agents['Powernode Documentation Specialist'] = global_documenter
+  puts "  ✅ Agent 'Documentation Specialist' → bound to the global canonical (#{global_documenter.id})"
+else
+  puts "  ⚠️  Global Documentation Specialist not seeded — run ai_engineering_agents_seed.rb first"
 end
 
 # ---------------------------------------------------------------------------
@@ -763,6 +693,13 @@ members_created = 0
 
 roles_data.each do |rd|
   agent = agents[rd[:agent_name]]
+  # A role bound to a GLOBAL canonical (Knowledge Graph Curator, Documentation
+  # Specialist) has no agent when that baseline seed has not run yet — skip the
+  # role rather than abort the whole demo team; the next seed run fills it.
+  unless agent
+    puts "  ⚠️  Role '#{rd[:role_name]}' skipped — agent '#{rd[:agent_name]}' not seeded yet"
+    next
+  end
 
   Ai::TeamRole.find_or_create_by!(agent_team: team, role_name: rd[:role_name]) do |r|
     r.account = admin_account
@@ -1012,8 +949,9 @@ mcp_assignments = {
   'Powernode Frontend Developer'      => [filesystem_mcp, web_fetch_mcp],
   'Powernode Backend Developer'       => [filesystem_mcp, database_mcp],
   'Powernode DevOps Engineer'         => [filesystem_mcp, web_fetch_mcp],
-  'Powernode QA/Test Engineer'        => [filesystem_mcp, database_mcp],
-  'Powernode Documentation Specialist' => [filesystem_mcp, web_fetch_mcp]
+  'Powernode QA/Test Engineer'        => [filesystem_mcp, database_mcp]
+  # The Documentation Specialist is a global canonical (HIER-P2B-ENG): an
+  # account's MCP-server connection is not written onto a global row.
 }
 
 mcp_assignments.each do |agent_name, mcp_servers|
@@ -1076,10 +1014,7 @@ skill_assignments = {
     test-engineering code-review
     security-analyst security-audit
   ],
-  'Powernode Documentation Specialist' => %w[
-    product-management
-    documentation-writer knowledge-system-curator api-design
-  ]
+  # Documentation Specialist: bound by platform_skill_assignments_seed.rb (global canonical)
 }
 
 skill_assignments.each do |agent_name, slugs|
