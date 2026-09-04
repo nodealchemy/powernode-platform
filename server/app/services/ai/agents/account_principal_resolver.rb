@@ -58,8 +58,10 @@ module Ai
     #
     # NOT a per-request cache and NOT a bypass: `acting` answers with the
     # canonical itself when no clone can be minted (an account with no user to
-    # own one), and the tool seam then refuses that canonical BY NAME — the
-    # failure is visible, never silently widened.
+    # own one, or no active provider to run one on — a canonical seeded before
+    # any provider existed carries none to fall back to, IMP-6cda93db7f31), and
+    # the tool seam then refuses that canonical BY NAME — the failure is
+    # visible, never silently widened.
     class AccountPrincipalResolver
       SEAM = name.freeze
       SPAWN_REASON = "canonical_clone"
@@ -170,6 +172,13 @@ module Ai
         end
 
         provider = account.ai_providers.where(is_active: true).order(:created_at).first || canonical.provider
+        unless provider
+          Rails.logger.warn(
+            "[#{SEAM}] cannot clone canonical #{canonical.slug.inspect} into account #{account.id}: " \
+            "the account has no active provider and the canonical carries none"
+          )
+          return nil
+        end
 
         ::Ai::Agent.transaction do
           # Two ticks (or a tick and a request door) can race to mint the same

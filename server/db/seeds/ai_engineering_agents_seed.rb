@@ -88,27 +88,22 @@
 # `rake db:seed:engineering_release_floor` for an install that is already up;
 # without running it the release gating parks every build dispatch.
 #
-# Graceful skip when prerequisites are missing (a fresh core/prod DB before
-# first-admin bootstrap) — re-seed after setup, like the sibling agent seeds.
+# The four canonical rows need NO account, user or provider to exist
+# (IMP-6cda93db7f31: creator and provider are optional on a global row; an
+# account's executing clone gets THAT account's through
+# Ai::Agents::AccountPrincipalResolver), so they seed on a fresh core/prod DB
+# before first-admin bootstrap. The account-scoped follow-on rows — trust
+# score, approval chain, policy rows — wait for the admin account; a re-seed
+# after setup writes them, like the sibling agent seeds.
 
 puts "\n🏗️  Seeding Engineering hierarchy canonicals (Platform Architect, Platform Developer, Release Manager, Documentation Specialist)..."
 
 engineering_admin_account = Account.find_by(name: "Powernode Admin")
 engineering_admin_user = engineering_admin_account&.users&.find_by(email: "admin@powernode.org")
 
-unless engineering_admin_account && engineering_admin_user
-  puts "  ⏭️  Admin account/user not found — skipping Engineering canonicals (re-seed after setup)"
-  return
-end
-
 engineering_provider = Ai::Provider.find_by(provider_type: "anthropic") ||
                        Ai::Provider.find_by(provider_type: "openai") ||
                        Ai::Provider.where(is_active: true).first
-
-unless engineering_provider
-  puts "  ⏭️  No AI provider found — skipping Engineering canonicals (re-seed after providers)"
-  return
-end
 
 # The loop guardrails the Platform Developer carries verbatim-by-reference:
 # Ai::Agent::BASE_GUARDRAILS is prepended to every agent's prompt natively, so
@@ -462,10 +457,11 @@ ActiveRecord::Base.transaction do
       # version on re-seed instead of churning an audit row.
       version: (agent.version || "1.0.0")
     )
-    if agent.new_record?
-      agent.creator  = engineering_admin_user
-      agent.provider = engineering_provider
-    end
+    # Owner columns are FILL-IN, not create-only: a canonical first written
+    # before the admin account and a provider existed (IMP-6cda93db7f31) would
+    # otherwise keep them NULL forever. Never blanks or overwrites.
+    agent.creator  = engineering_admin_user if engineering_admin_user && agent.creator_id.nil?
+    agent.provider = engineering_provider if engineering_provider && agent.ai_provider_id.nil?
     # system_prompt= writes into mcp_metadata in place, then a clean merge so
     # both survive AR dirty-tracking. No hardcoded model id — the tier is
     # what Ai::AgentModelSelector resolves at runtime and what the Claude
@@ -481,6 +477,14 @@ ActiveRecord::Base.transaction do
     agent.save!
     engineering_agents_written += 1
     puts "  ✅ #{agent.name}: #{agent.previously_new_record? ? 'created' : 'updated'} (#{agent.agent_type}, #{spec[:tier]} tier)"
+
+    # Everything below is keyed on an ACCOUNT (trust score, approval chain,
+    # policy rows) and waits for the admin account; the canonical above does
+    # not. A re-seed after setup writes them.
+    if engineering_admin_account.nil?
+      puts "  ⏭️  No admin account yet — #{agent.name}'s trust score, approval chain and policy rows wait for setup"
+      next
+    end
 
     # Trust bootstrap — CREATE-ONLY. A re-seed must never reset a tier the
     # agent earned (the refine pair unlocks on `trusted`).

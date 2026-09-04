@@ -422,11 +422,24 @@ RSpec.describe "ai_engineering_agents_seed" do
     expect(counts.call).to eq(before)
   end
 
-  it "skips cleanly before setup (no admin account yet)" do
+  # IMP-6cda93db7f31: a canonical row needs no account (creator and provider
+  # are optional on a global row), so before setup the four canonicals ARE
+  # written; only the account-keyed rows (trust score, approval chain, policy
+  # rows) wait. spec/db/seeds/core_canonicals_without_users_spec.rb pins the
+  # same on a database with no user at all.
+  it "seeds the canonicals before setup (no admin account yet) and defers the account-keyed rows" do
     allow(Account).to receive(:find_by).and_call_original
     allow(Account).to receive(:find_by).with(name: "Powernode Admin").and_return(nil)
 
     expect { load_seed!("ai_engineering_agents_seed.rb") }.not_to raise_error
-    expect(Ai::Agent.global.exists?(slug: "platform-architect")).to be(false)
+
+    architect = Ai::Agent.global.find_by(slug: "platform-architect")
+    expect(architect).to be_present
+    # No admin account ⇒ no admin user to be the creator; the provider is
+    # whichever exists (here the let! providers) and is optional either way.
+    expect(architect.creator).to be_nil
+    expect(Ai::AgentTrustScore.where(agent_id: architect.id)).to be_empty
+    expect(Ai::ApprovalChain.where(name: "Platform Architect Actions")).to be_empty
+    expect(Ai::InterventionPolicy.where(ai_agent_id: architect.id)).to be_empty
   end
 end

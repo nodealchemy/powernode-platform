@@ -7,32 +7,27 @@
 
 puts "🧠 Creating reasoning/analysis workflow agents..."
 
-# Graceful skip (not raise) when prerequisites are missing: on a fresh
-# core/prod DB no account exists until first-admin bootstrap / the setup
-# wizard runs — re-seeding afterwards creates these agents. Matches the
-# skip idiom of the sibling baseline agent seeds (ai_utility_agents_seed).
+# GLOBAL canonicals (account_id nil, source_key-managed) need NO account, user
+# or provider to exist (IMP-6cda93db7f31): on a fresh core/prod DB — before
+# first-admin bootstrap / the setup wizard — they are written with no creator
+# and no provider (both optional on a global row; an account's executing clone
+# gets THAT account's through Ai::Agents::AccountPrincipalResolver). Only the
+# provider configuration below, an account-scoped row, waits for setup.
+require_relative "concerns/canonical_agent_owner"
+
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
-
-unless admin_account && admin_user
-  puts "  ⏭️  Admin account/user not found — skipping reasoning/analysis agents (re-seed after setup)"
-  return
-end
-
 claude_provider = Ai::Provider.find_by(provider_type: 'anthropic')
-unless claude_provider
-  puts "  ⏭️  Anthropic provider not found — skipping reasoning/analysis agents (re-seed after providers)"
-  return
-end
 
 ActiveRecord::Base.transaction do
-  puts "✅ Using admin account: #{admin_account.name} (ID: #{admin_account.id})"
-  puts "✅ Using admin user: #{admin_user.name} (ID: #{admin_user.id})"
-  puts "✅ Using Claude provider: #{claude_provider.name} (ID: #{claude_provider.id})"
+  puts "✅ Admin account: #{admin_account ? "#{admin_account.name} (ID: #{admin_account.id})" : 'none yet — canonicals seed without a creator'}"
+  puts "✅ Claude provider: #{claude_provider ? "#{claude_provider.name} (ID: #{claude_provider.id})" : 'none yet — canonicals seed without a provider'}"
 
   # Only set default configuration if provider has no existing configuration
   # This prevents overwriting real API keys with placeholders
-  if claude_provider.configuration.blank? || claude_provider.configuration == {}
+  if claude_provider.nil?
+    puts "  ⏭️  No Anthropic provider yet — nothing to configure"
+  elsif claude_provider.configuration.blank? || claude_provider.configuration == {}
     model_names = claude_provider.supported_models.map { |m| m['name'] }
     model_ids = claude_provider.supported_models.map { |m| m['id'] }
     all_models = (model_names + model_ids).uniq
@@ -136,6 +131,11 @@ ActiveRecord::Base.transaction do
     }
   end
 
+  # The block above is create-only, so a canonical first written before the
+  # admin account and the providers existed acquires its owner columns here on
+  # the next re-seed (never blanking what is already set).
+  CoreSeeds::CanonicalAgentOwner.backfill_owner!(strategic_planner, creator: admin_user, provider: claude_provider)
+
   # Domain skills for the Strategic Planner are assigned by
   # platform_skill_assignments_seed.rb (loaded last, after all target agents
   # exist). It previously inherited SYSTEM-extension infra skills
@@ -232,6 +232,9 @@ ActiveRecord::Base.transaction do
     }
   end
 
+  CoreSeeds::CanonicalAgentOwner.backfill_owner!(research_analyst, creator: admin_user,
+                                                 provider: (ollama_provider || claude_provider))
+
   # Research Analyst's domain skills (technical-researcher / data /
   # knowledge-system-curator / business-search / user-research) are assigned by
   # platform_skill_assignments_seed.rb. It previously inherited SYSTEM-extension
@@ -245,7 +248,7 @@ ActiveRecord::Base.transaction do
   puts "✅ Created Research Analyst (ID: #{research_analyst.id})"
 
   puts "\n📊 Reasoning/Analysis Agents Summary:"
-  claude_agents = Ai::Agent.where(provider: claude_provider)
+  claude_agents = claude_provider ? Ai::Agent.where(provider: claude_provider) : Ai::Agent.none
   puts "   Total reasoning/analysis agents: #{claude_agents.count}"
   puts "   Strategic Planning: #{claude_agents.where(agent_type: 'assistant').count}"
   puts "   Research Analysis: #{claude_agents.where(agent_type: 'data_analyst').count}"

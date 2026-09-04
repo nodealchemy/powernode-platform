@@ -12,13 +12,15 @@ Rails.logger.info "[AutonomySeed] Starting autonomy data seeding..."
 # (The recursive clean_fk_references_for FK-cascade helper that lived here was
 # removed along with the legacy 37→10 consolidation it was the only caller of.)
 
+require_relative "concerns/canonical_agent_owner"
+
+# The three GLOBAL canonicals below (GLOBAL_AUTONOMY_AGENT_SLUGS) need NO
+# account, user or provider to exist (IMP-6cda93db7f31) and are written first;
+# everything account-scoped — the industry/business demo agents, provider
+# re-pointing, trust scores, budgets, intervention policies — waits for the
+# admin account + user (the gate sits below the canonical writes).
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user    = admin_account&.users&.find_by(email: "admin@powernode.org")
-
-unless admin_account && admin_user
-  Rails.logger.warn "[AutonomySeed] Admin account/user not found — skipping"
-  return
-end
 
 # ===========================================================================
 # STEP 1 — Agent Consolidation
@@ -136,10 +138,10 @@ GLOBAL_AUTONOMY_AGENT_SLUGS = %w[
 ].freeze
 
 extra_agents.each do |ad|
-  next unless ad[:provider]
-
   if GLOBAL_AUTONOMY_AGENT_SLUGS.include?(ad[:slug])
-    Ai::Agent.find_or_create_global(slug: ad[:slug]) do |a|
+    # Canonical: creator and provider are optional on a global row, so a
+    # missing provider (or user) never skips it.
+    canonical = Ai::Agent.find_or_create_global(slug: ad[:slug]) do |a|
       a.name        = ad[:name]
       a.agent_type  = ad[:agent_type]
       a.provider    = ad[:provider]
@@ -148,7 +150,14 @@ extra_agents.each do |ad|
       a.version     = "1.0.0"
       a.description = ad[:description]
     end
+    # The block above is create-only, so a canonical first written before the
+    # admin account and the providers existed acquires its owner columns here
+    # on the next re-seed (never blanking what is already set).
+    CoreSeeds::CanonicalAgentOwner.backfill_owner!(canonical, creator: admin_user, provider: ad[:provider])
   else
+    # Account-scoped demo agent: needs the admin account, its user and a provider.
+    next unless admin_account && admin_user && ad[:provider]
+
     Ai::Agent.find_or_create_by!(account: admin_account, name: ad[:name]) do |a|
       a.slug        = ad[:slug]
       a.agent_type  = ad[:agent_type]
@@ -167,6 +176,14 @@ end
 # (slug-scoped so it catches the now-global row too).
 Ai::Agent.where(slug: "visual-design-assistant", agent_type: "image_generator")
          .update_all(agent_type: "content_generator")
+
+# Everything from here on is account-scoped and waits for the admin account +
+# user; a re-seed after setup writes it. The canonicals above are already in.
+unless admin_account && admin_user
+  Rails.logger.warn "[AutonomySeed] Admin account/user not found — canonicals seeded; " \
+                    "skipping account-scoped trust scores, budgets and policies"
+  return
+end
 
 # Reassign providers for the dev team agents to match the plan
 provider_assignments = {

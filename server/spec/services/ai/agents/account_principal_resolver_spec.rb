@@ -95,6 +95,22 @@ RSpec.describe Ai::Agents::AccountPrincipalResolver do
         .not_to change(Ai::Agent, :count)
     end
 
+    # IMP-6cda93db7f31: a canonical seeded before any provider existed carries
+    # none, and an account with no active provider has none to give the clone
+    # — the account row would be invalid, so nothing is minted (the tool seam
+    # then refuses the canonical by name), never a RecordInvalid out of a tick.
+    it "returns nil (mints nothing) when neither the account nor the canonical has a provider" do
+      providerless = Ai::Agent.new(
+        account_id: nil, creator: nil, provider: nil, is_system: true, status: "active", agent_type: "monitor",
+        name: "Providerless Canonical", slug: "providerless-canonical", source_key: "providerless-canonical"
+      )
+      providerless.save!
+      expect(account.ai_providers.where(is_active: true)).to be_empty
+
+      expect { expect(described_class.for(canonical_slug: "providerless-canonical", account: account)).to be_nil }
+        .not_to change(Ai::Agent, :count)
+    end
+
     it "uses the given user as creator only when that user belongs to the account" do
       canonical
       foreign = create(:user, account: seeding_account)

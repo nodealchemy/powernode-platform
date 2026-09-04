@@ -249,11 +249,18 @@ if Powernode::Seeds.baseline?
 
   # Fundamental GLOBAL platform agents — the platform's canonical agent roster
   # (account_id nil; accounts clone to customize). BASELINE, not demo: they are
-  # core platform resources, no longer gated behind demo. Each seed skips
-  # gracefully if no platform user exists yet (fresh core/prod before setup) —
-  # re-seed after setup creates the admin user. Per-seed rescue so one failure
-  # never aborts the rest of platform seeding (the system-extension agents seed
-  # via the extension orchestrator below, also baseline).
+  # core platform resources, no longer gated behind demo. A canonical row needs
+  # NO account, user or provider (IMP-6cda93db7f31: creator and provider are
+  # optional on a global row), so every canonical seeds on a fresh core/prod DB
+  # before setup; only the account-scoped follow-on rows the seeds write (trust
+  # scores, approval chains, policy rows, budgets, lineage, the demo agents)
+  # wait for the admin account, and the canonicals' own creator/provider
+  # columns fill in on that same re-seed (db/seeds/concerns/canonical_agent_owner.rb).
+  # Per-seed rescue so one failure never aborts the rest of platform seeding
+  # (the agent seeds that ship with extensions run via the extension
+  # orchestrator below, also baseline; those still require an account, a user
+  # and a provider, which is why Ai::ClaudeExport::AgentSkeletonSync refuses to
+  # sync at all until all three exist — a partial roster is not a roster).
   # `ai_engineering_agents_seed` (HIER-P2B-ENG) adds the Engineering
   # hierarchy's canonicals (Platform Architect, Platform Developer, Release
   # Manager, Documentation Specialist) with their policy rows and chains;

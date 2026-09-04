@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -835,12 +835,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_100000) do
   create_table "ai_agents", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id"
     t.string "agent_type", limit: 50, null: false
-    t.uuid "ai_provider_id", null: false
+    t.uuid "ai_provider_id"
     t.jsonb "autonomy_config", default: {}
     t.uuid "cloned_from_id"
     t.jsonb "conversation_profile", default: {}, null: false
     t.datetime "created_at", null: false
-    t.uuid "creator_id", null: false
+    t.uuid "creator_id"
     t.text "description"
     t.jsonb "execution_stats", default: {}
     t.jsonb "governance_scope", default: {}
@@ -886,6 +886,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_100000) do
     t.index ["slug"], name: "index_ai_agents_on_slug_global", unique: true, where: "(account_id IS NULL)"
     t.index ["source_key"], name: "index_ai_agents_on_source_key"
     t.index ["status"], name: "index_ai_agents_on_status"
+    t.check_constraint "account_id IS NULL OR creator_id IS NOT NULL AND ai_provider_id IS NOT NULL", name: "chk_ai_agents_account_rows_need_creator_and_provider"
   end
 
   create_table "ai_agui_events", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
