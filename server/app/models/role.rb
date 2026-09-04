@@ -222,7 +222,11 @@ class Role < ApplicationRecord
       user: user,
       role: self
     ) do |ur|
-      ur.granted_by = granted_by&.id
+      # `granted_by` is the granting User (see User#assign_role), not an id —
+      # assign the association (UserRole#granted_by_user, FK granted_by_id).
+      # There is no `granted_by` attribute on UserRole; that writer never
+      # existed and raised NoMethodError on every new attributed grant.
+      ur.granted_by_user = granted_by
     end
   end
 

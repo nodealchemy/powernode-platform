@@ -345,4 +345,37 @@ RSpec.describe Role, type: :model do
       expect(role.has_permission?(permission_names[3])).to be true
     end
   end
+
+  describe "#grant_to_user" do
+    let(:role) { create(:role) }
+    let(:target_user) { create(:user) }
+    let(:granting_user) { create(:user) }
+
+    it "records the granting user on a new attributed grant" do
+      # IMP-88c729391339: UserRole has no `granted_by` writer — the association
+      # is `granted_by_user` (FK `granted_by_id`) — so the block inside
+      # find_or_create_by! used to raise NoMethodError on every new attributed
+      # grant.
+      role.grant_to_user(target_user, granting_user)
+
+      user_role = UserRole.find_by(user: target_user, role: role)
+      expect(user_role.granted_by_user).to eq(granting_user)
+      expect(user_role.granted_by_id).to eq(granting_user.id)
+    end
+
+    it "leaves granted_by_user nil when no grantor is given" do
+      role.grant_to_user(target_user)
+
+      user_role = UserRole.find_by(user: target_user, role: role)
+      expect(user_role.granted_by_user).to be_nil
+    end
+
+    it "is a no-op on an existing grant (does not re-run the create block)" do
+      role.grant_to_user(target_user)
+
+      expect { role.grant_to_user(target_user, granting_user) }.not_to raise_error
+      user_role = UserRole.find_by(user: target_user, role: role)
+      expect(user_role.granted_by_user).to be_nil
+    end
+  end
 end
