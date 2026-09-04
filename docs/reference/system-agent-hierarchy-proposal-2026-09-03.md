@@ -286,3 +286,10 @@ Phase 2b: ~5 lanes (one per new/promoted agent, plus the engineering policy set 
     parked by protected-path globs (IMP-222dd9bce564, IMP-b54e49ddfc40, IMP-10e4f6c3bcd2 — the last a
     `*signer*`/"designer" false positive) are disposed passed. (f) ops-hub's scratch upper is cleared by a full
     VM 600 reboot in an operator-chosen window, not by soft-recompose.
+11. **Operator rulings 2026-09-04 10:05.** (a) The VM 600 reboot happens with deploy 5, after Phase 3
+    and Phase 4 land. (b) The dev-cell instance grant gains `platform.record_agent_execution` from the
+    operator's admin connector (an instance principal may only narrow itself). (c) `mutate_skill` →
+    `dev.prompt_refine` and `auto_evolve_skill` → `dev.skill_refine` stay as mapped, and BOTH categories get
+    an account-wide auto_approve floor (the `release.build_dispatch` precedent) so row-less MCP callers stop
+    parking; agent-scoped rows keep the trust-conditioned verdict; the four release verbs keep parking.
+    (d) Lazy minting of account principals inside the fleet/CVE ticks and the reconcile stays.
