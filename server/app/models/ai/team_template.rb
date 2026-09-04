@@ -11,6 +11,7 @@ module Ai
     # Associations
     belongs_to :account, optional: true
     belongs_to :created_by, class_name: "User", foreign_key: "created_by_id", optional: true
+    has_many :teams, class_name: "Ai::AgentTeam", foreign_key: "template_id", dependent: :nullify
 
     # Validations
     validates :name, presence: true
@@ -26,6 +27,11 @@ module Ai
     scope :by_topology, ->(top) { where(team_topology: top) }
     scope :popular, -> { order(usage_count: :desc) }
     scope :top_rated, -> { where.not(average_rating: nil).order(average_rating: :desc) }
+    # CANONICAL teams (HIER-P4): the seeded, global, is_system, source_key-managed
+    # templates whose role_definitions name canonical agents by slug. Each is
+    # materialised per account by Ai::Teams::CanonicalTeamReconciler and is
+    # read-only through the API — clone it to customise, like a canonical agent.
+    scope :canonical, -> { global.system_templates.where.not(source_key: [ nil, "" ]) }
 
     # Callbacks
     before_validation :generate_slug, on: :create
@@ -60,11 +66,27 @@ module Ai
       update!(average_rating: new_avg)
     end
 
+    def canonical?
+      global? && is_system && source_key.present?
+    end
+
+    # The role definitions that bind a canonical agent (`agent_slug`), in
+    # priority order — the NODES of the team graph. Only a canonical template
+    # carries these; a free-form template's roles have no agent binding.
+    def member_definitions
+      Array(role_definitions).select { |d| d.is_a?(Hash) && d["agent_slug"].present? }
+                             .sort_by { |d| d["priority"].to_i }
+    end
+
+    def manager_definition
+      member_definitions.find { |d| d["is_lead"] == true }
+    end
+
     # Create team from template
     def create_team!(account:, name: nil, user: nil)
-      team = AiAgentTeam.create!(
+      team = Ai::AgentTeam.create!(
         account: account,
-        name: name || self.name,
+        name: name.presence || default_team_name_for(account),
         description: description,
         team_type: team_topology,
         team_topology: team_topology,
@@ -109,6 +131,22 @@ module Ai
 
       record_usage!
       team
+    end
+
+    # The clone-to-customise default name. Ai::AgentTeam validates name
+    # uniqueness per account, and a CANONICAL template's own name is already
+    # taken by the account's materialised canonical team — so defaulting to
+    # `self.name` raised RecordInvalid on exactly the path the docs tell a
+    # reader to use (POST /api/v1/ai/teams with template_id passes name: nil).
+    def default_team_name_for(account)
+      return name unless account.ai_agent_teams.exists?(name: name)
+
+      (2..99).each do |n|
+        candidate = "#{name} (#{n})"
+        return candidate unless account.ai_agent_teams.exists?(name: candidate)
+      end
+
+      "#{name} (#{SecureRandom.hex(4)})"
     end
 
     def template_summary

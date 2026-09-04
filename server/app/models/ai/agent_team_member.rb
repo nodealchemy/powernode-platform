@@ -9,6 +9,28 @@ module Ai
     # ==========================================
     ROLES = %w[manager researcher writer reviewer executor analyst coordinator facilitator specialist floater].freeze
 
+    # Member role → the Ai::TeamRole::ROLE_TYPES value the backing role carries.
+    # ONE mapping for every writer of a (member, role) pair: the MCP verb
+    # (TeamManagementTool#add_team_member) and the canonical team reconciler.
+    # Every key is a ROLES entry (pinned by the model spec) — a key that is not
+    # a member role would be an unreachable branch, since the only caller
+    # passes a member role. Roles with no entry take DEFAULT_ROLE_TYPE.
+    ROLE_TYPE_MAP = {
+      "manager"     => "manager",
+      "coordinator" => "coordinator",
+      "facilitator" => "coordinator",
+      "reviewer"    => "reviewer",
+      "researcher"  => "specialist",
+      "writer"      => "specialist",
+      "analyst"     => "specialist",
+      "specialist"  => "specialist"
+    }.freeze
+    DEFAULT_ROLE_TYPE = "worker"
+
+    def self.role_type_for(role)
+      ROLE_TYPE_MAP.fetch(role.to_s.downcase, DEFAULT_ROLE_TYPE)
+    end
+
     # ==========================================
     # Associations
     # ==========================================

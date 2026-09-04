@@ -60,8 +60,12 @@ module Ai
       # Developer and the Platform Architect (auto_approve conditioned on
       # trust_tier_minimum "trusted" above an unconditioned require_approval),
       # so the SAME declaration parks a supervised agent and proceeds for a
-      # trusted one — nothing new in the gate. A caller with no matching row
-      # meets the unmatched default and parks. The generic replay executor
+      # trusted one — nothing new in the gate. A caller with no row of its own
+      # — an operator's `mcp_client` session, a dev-cell instance principal —
+      # resolves the account-wide auto_approve FLOOR the same seed writes
+      # through Ai::Engineering::ReleaseDispatchFloorSeeder (proposal §5
+      # ruling 11c, IMP-a51963f8717f); the agent pair outranks that floor, so
+      # it speaks only for callers that own no row. The generic replay executor
       # re-invokes the action as the ORIGINAL principal on approval, so the
       # action body stays the single author of the write, and each gate
       # context resolves the target under the account BEFORE parking so an
@@ -118,7 +122,7 @@ module Ai
             }
           },
           "mutate_skill" => {
-            description: "Mutate a skill using a specified strategy to improve it — rewrites that ONE skill's prompt as a new version. APPROVAL-GATED (dev.prompt_refine): when policy requires approval this returns {pending: true} with a deferred_operation_id and NOTHING is mutated until an operator approves — do not retry and do not report the mutation as done on that response. The seeded Platform Developer / Platform Architect rows auto-approve only from the `trusted` trust tier and require approval below it; a caller with no matching row meets the unmatched default and parks.",
+            description: "Mutate a skill using a specified strategy to improve it — rewrites that ONE skill's prompt as a new version. APPROVAL-GATED (dev.prompt_refine): when policy requires approval this returns {pending: true} with a deferred_operation_id and NOTHING is mutated until an operator approves — do not retry and do not report the mutation as done on that response. The seeded Platform Developer / Platform Architect rows auto-approve only from the `trusted` trust tier and require approval below it; a caller with no row of its own (an operator's mcp_client session, an instance principal) auto-approves through the account-wide dev.prompt_refine floor unless an operator retuned it.",
             parameters: {
               skill_id: { type: "string", required: true, description: "Skill ID to mutate" },
               strategy: { type: "string", required: true, description: "Mutation strategy: learning_driven, failure_analysis, challenge_derived, peer_comparison" }
@@ -133,7 +137,7 @@ module Ai
             }
           },
           "auto_evolve_skill" => {
-            description: "Automatically find and mutate underperforming skills — a sweep that rewrites EVERY skill below the effectiveness threshold. APPROVAL-GATED (dev.skill_refine): when policy requires approval this returns {pending: true} with a deferred_operation_id and NOTHING is mutated until an operator approves — do not retry and do not report the sweep as done on that response. The seeded Platform Developer / Platform Architect rows auto-approve only from the `trusted` trust tier and require approval below it; a caller with no matching row meets the unmatched default and parks.",
+            description: "Automatically find and mutate underperforming skills — a sweep that rewrites EVERY skill below the effectiveness threshold. APPROVAL-GATED (dev.skill_refine): when policy requires approval this returns {pending: true} with a deferred_operation_id and NOTHING is mutated until an operator approves — do not retry and do not report the sweep as done on that response. The seeded Platform Developer / Platform Architect rows auto-approve only from the `trusted` trust tier and require approval below it; a caller with no row of its own (an operator's mcp_client session, an instance principal) auto-approves through the account-wide dev.skill_refine floor unless an operator retuned it.",
             parameters: {
               threshold: { type: "number", required: false, description: "Effectiveness threshold (default 0.4)" }
             }

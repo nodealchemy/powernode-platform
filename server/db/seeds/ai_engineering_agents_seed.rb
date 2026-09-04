@@ -77,17 +77,23 @@
 # above an unconditioned require_approval row at priority 10. Below `trusted`
 # the conditioned row does not match and the require_approval row resolves;
 # from `trusted` both match and the higher priority wins.
-# One account-wide FLOOR row (scope "global", no agent) auto-approves
-# release.build_dispatch, written through the single seam
-# Ai::Engineering::ReleaseDispatchFloorSeeder (which carries the full
-# rationale). Short version: an agent-scoped row matches ONLY the agent it
-# names, and the principals that legitimately dispatch a build over MCP carry
-# none — an operator's Claude Code session (an `mcp_client` identity, not the
-# Release Manager) and a dev-cell INSTANCE principal (no User, no Agent). Not
-# the push-triggered build path, which never reaches the MCP verb.
+# Account-wide FLOOR rows (scope "global", no agent) auto-approve
+# release.build_dispatch, dev.prompt_refine and dev.skill_refine, written
+# through the single seam Ai::Engineering::ReleaseDispatchFloorSeeder (which
+# carries the full rationale; the refine floors are proposal §5 ruling 11c,
+# IMP-a51963f8717f). Short version: an agent-scoped row matches ONLY the agent
+# it names, and the principals that legitimately dispatch a build or refine a
+# skill over MCP carry none — an operator's Claude Code session (an
+# `mcp_client` identity, not a seeded canonical) and a dev-cell INSTANCE
+# principal (no User, no Agent). The agent-scoped rows above OUTRANK the
+# floors, so the trust-conditioned verdict for the seeded agents is unchanged.
+# Not the push-triggered build path, which never reaches the MCP verb, and not
+# the Skills UI, which uses the REST twins.
 # BECAUSE THIS FILE IS FIRST-BOOT ONLY, the same seam is exposed as
-# `rake db:seed:engineering_release_floor` for an install that is already up;
-# without running it the release gating parks every build dispatch.
+# `rake db:seed:engineering_floors` for an install that is already up, and a
+# boot-time governance reconcile hook may call it on every boot; an install
+# with neither must run the rake, or the gating parks every build dispatch and
+# refinement from those principals.
 #
 # The four canonical rows need NO account, user or provider to exist
 # (IMP-6cda93db7f31: creator and provider are optional on a global row; an
@@ -185,9 +191,11 @@ ENGINEERING_AGENTS = [
          a delegation policy, a promotion, a deploy — is a proposal (an
          Ai::AgentProposal, an ImprovementRecommendation or a campaign proposal)
          until an operator approves. Proposing is auto-approved; landing is not.
-         Skill and prompt refinements auto-apply only once your trust tier is
-         `trusted`; below that they park for approval — do not retry a pending
-         refinement, report it.
+         Skill and prompt refinements are gated on dev.skill_refine /
+         dev.prompt_refine: your own trust-conditioned rows auto-apply from the
+         `trusted` tier, and where you carry none the account-wide floor applies
+         them at any tier. Do not predict the verdict — read the returned status,
+         and do not retry a pending refinement, report it.
       3. **Canonical rule.** Official agents are seeded global canonicals; a new
          agent is a clone of a canonical into an account, with lineage written at
          clone time. Design within that rule.
@@ -537,11 +545,11 @@ ActiveRecord::Base.transaction do
   end
 end
 
-# The account-wide build-dispatch floor, for EVERY account rather than only the
+# The account-wide engineering floors, for EVERY account rather than only the
 # admin one: the seam is absence-only, so this is idempotent, and it is the
-# same call `rake db:seed:engineering_release_floor` makes on an established
-# install (where this file never runs again). Outside the transaction above so
-# a floor row is not rolled back by an unrelated canonical failure.
+# same call `rake db:seed:engineering_floors` makes on an established install
+# (where this file never runs again). Outside the transaction above so a floor
+# row is not rolled back by an unrelated canonical failure.
 engineering_floors_written = Ai::Engineering::ReleaseDispatchFloorSeeder.ensure_all!
 engineering_policies_changed += engineering_floors_written
 

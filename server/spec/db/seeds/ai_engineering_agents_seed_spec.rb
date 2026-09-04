@@ -19,10 +19,11 @@ require "rails_helper"
 #     registered in core, the rows on their OWNING agent, the trust-conditioned
 #     refine pair (auto_approve only from `trusted`, require_approval below),
 #     the release verbs require_approval with no trust unlock, and the
-#     account-wide release.build_dispatch floor the agent-less MCP callers need
-#     (an operator's mcp_client session, a dev-cell instance principal), written
+#     account-wide floors the agent-less MCP callers need (an operator's
+#     mcp_client session, a dev-cell instance principal) for
+#     release.build_dispatch, dev.prompt_refine and dev.skill_refine, written
 #     through Ai::Engineering::ReleaseDispatchFloorSeeder so an ESTABLISHED
-#     install can land it too — db:seed is first-boot only;
+#     install can land them too — db:seed is first-boot only;
 #   * one approval chain per agent, bound to its require_approval rows;
 #   * the lineage + delegation rows the hierarchy seed writes through the P1
 #     seam (HierarchyWriter): Platform Architect moderate/depth 3 over every
@@ -278,6 +279,18 @@ RSpec.describe "ai_engineering_agents_seed" do
         # its own row.
         expect(Ai::InterventionPolicyService.new(account: account).resolve(action_category: "release.build_dispatch")[:policy]).to eq("auto_approve")
         expect(resolved(release, "release.build_dispatch")).to eq("auto_approve")
+      end
+
+      it "floors the two refine categories account-wide too, WITHOUT changing the seeded agents' trust-conditioned verdict (IMP-a51963f8717f)" do
+        %w[dev.prompt_refine dev.skill_refine].each do |category|
+          floor = Ai::InterventionPolicy.where(account: account, action_category: category, scope: "global", ai_agent_id: nil)
+          expect(floor.count).to eq(1), category
+          expect(floor.first.policy).to eq("auto_approve")
+          # A row-less caller resolves the floor ...
+          expect(Ai::InterventionPolicyService.new(account: account).resolve(action_category: category)[:policy]).to eq("auto_approve"), category
+          # ... while the supervised Platform Developer still resolves its own require_approval row above it.
+          expect(resolved(developer, category)).to eq("require_approval"), category
+        end
       end
 
       it "auto-approves the Documentation Specialist's docs.update" do

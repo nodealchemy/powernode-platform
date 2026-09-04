@@ -63,6 +63,23 @@ entitlements, no-op billing, empty aggregates — via the `Powernode::BillingBri
 - **A public extension may depend on core, never on the private `business` extension** (Extension
   Isolation). This is why marketplace *traits* stay core — the public `supply-chain` extension
   consumes them.
+- **The private-namespace boundary is ratcheted, specs included.** Two Rails-free lint specs pin it.
+  `extensions/system/server/spec/lint/billing_namespace_seam_spec.rb` scans every file the public
+  `system` extension publishes — `git ls-files -co --exclude-standard`, so app, spec and docs are all
+  in and comments count — for `Billing::`, with one substantive exemption,
+  `server/spec/integration/enterprise_smoke_spec.rb`, which skips itself unless `Billing::Plan` is
+  loaded (a second example pins that guard, so the exemption cannot outlive it); the lint file itself
+  is also skipped, since it must spell the token it forbids.
+  `server/spec/lint/extension_namespace_ratchet_spec.rb` holds core `server/spec` to an *equality*
+  baseline for all three private namespaces (`Billing::`, `BaaS::`, `Marketplace::` — the latter two
+  at zero): a new reference fails, and a removed one must lower the baseline in the same change.
+  Slug-shaped tokens (a private extension's directory name, camelized) are not spelled in either
+  spec — those are the leak `core-purity-check.sh` blocks, and the derived scan in
+  `extensions/system/server/spec/integration/private_extension_isolation_spec.rb` covers them without
+  naming one. Specs stub the seam —
+  `allow(::Powernode::BillingBridge).to receive(:check_provisioning_quota).and_return({ allowed: true })`
+  — never the private class behind it: a `defined?`-guarded stub of a private class is inert in core
+  mode and passes only transitively where the class is loaded.
 - **Namespaces stay domain-top-level** (`Billing::`, `BaaS::`, `Marketplace::`), never
   `Business::`-prefixed — matching `System::` / `Sdwan::`. The `business` extension
   augments core `Ai::` / `Mcp::` rather than introducing a `Business::` namespace.

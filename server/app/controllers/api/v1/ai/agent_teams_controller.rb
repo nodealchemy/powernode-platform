@@ -13,6 +13,14 @@ module Api
           render_error(e.message, status: :forbidden)
         end
 
+        # HIER-P4 — the account's materialisation of a canonical
+        # Ai::TeamTemplate is read-only through this door too, not only through
+        # the MCP verbs: without it DELETE /agent_teams/:id hard-destroyed the
+        # canonical team plus its members, channels and executions.
+        rescue_from ::Ai::AgentTeam::ReadOnlyCanonical do |e|
+          render_error(e.message, status: :forbidden)
+        end
+
         # Disable parameter wrapping entirely to avoid conflicts
         wrap_parameters false
 
@@ -20,6 +28,7 @@ module Api
         before_action :set_team, only: %i[show update destroy execute add_member remove_member auto_assign_lead optimize autonomy_config update_autonomy_config bind_infrastructure]
         before_action :authorize_teams_access!
         before_action :authorize_team_execution!, only: [ :execute ]
+        before_action :refuse_canonical_team!, only: %i[update destroy add_member remove_member]
 
         # GET /api/v1/ai/agent_teams
         def index
@@ -230,6 +239,13 @@ module Api
           @team = current_account.ai_agent_teams.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_not_found("Team") and return false
+        end
+
+        # Raises Ai::AgentTeam::ReadOnlyCanonical, rendered 403 by the
+        # rescue_from above — a before_action that RAISES halts the chain, so
+        # the action body never runs and no row is written.
+        def refuse_canonical_team!
+          @team&.guard_mutable!
         end
 
         def authorize_teams_access!

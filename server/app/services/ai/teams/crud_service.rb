@@ -50,8 +50,13 @@ module Ai
         template.create_team!(account: account, name: name, user: user)
       end
 
+      # A CANONICAL team is read-only through every door (HIER-P4): the MCP
+      # verbs answer a refusal envelope, and these two RAISE
+      # Ai::AgentTeam::ReadOnlyCanonical, which both REST controllers render as
+      # 403. Raising, not rendering from the action body, is what halts the write.
       def update_team(team_id, params)
         team = get_team(team_id)
+        team.guard_mutable!
         team.update!(params.slice(
           :name, :description, :goal_description, :team_topology,
           :coordination_strategy, :communication_pattern, :max_parallel_tasks,
@@ -63,6 +68,7 @@ module Ai
 
       def delete_team(team_id)
         team = get_team(team_id)
+        team.guard_mutable!
         team.destroy!
       end
 

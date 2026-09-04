@@ -265,10 +265,13 @@ if Powernode::Seeds.baseline?
   # hierarchy's canonicals (Platform Architect, Platform Developer, Release
   # Manager, Documentation Specialist) with their policy rows and chains;
   # `platform_skill_assignments_seed` then binds skills to every canonical.
-  # `ai_agent_hierarchy_seed` runs LAST: it attaches every canonical the seeds
-  # above created — the core forest under the core concierge and the
+  # `ai_agent_hierarchy_seed` runs after them: it attaches every canonical the
+  # seeds above created — the core forest under the core concierge and the
   # Engineering agents under the Platform Architect — and writes their
   # delegation policies (HIER-P1), so it must see all of them.
+  # `ai_canonical_teams_seed` (HIER-P4) runs LAST: the "Platform Engineering"
+  # canonical Ai::TeamTemplate is materialised for the admin account on top of
+  # those lineage edges and delegation rows, so it must see them too.
   puts "\n🤖 Loading fundamental global platform agents (baseline, canonical)..."
   %w[
     claude_agents_seed
@@ -279,6 +282,7 @@ if Powernode::Seeds.baseline?
     ai_engineering_agents_seed
     platform_skill_assignments_seed
     ai_agent_hierarchy_seed
+    ai_canonical_teams_seed
   ].each { |seed_file| safe_load("#{seed_file}.rb") }
 end
 

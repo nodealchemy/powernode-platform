@@ -25,6 +25,18 @@ require "rails_helper"
 # THE ORACLE IS THE SERVICE CALL: every gated example observes whether
 # Ai::SelfImprovement::SkillMutationService was reached, so "gated" cannot be
 # satisfied by a verb that refuses everything.
+#
+# THE ACCOUNT-WIDE FLOORS (IMP-a51963f8717f, proposal §5 ruling 11c). An
+# agent-scoped row matches only the agent it names, and the principals that
+# legitimately refine a skill over MCP carry none: an operator's Claude Code
+# session (an `mcp_client` identity) and a dev-cell instance principal (no
+# user, no agent). Without a floor both met the unmatched require_approval
+# default and parked where they previously ran. One scope-"global"
+# auto_approve row per category, written by the same seam as the
+# release.build_dispatch floor, carries their verdict; the agent-scoped pairs
+# OUTRANK it (Ai::InterventionPolicy#specificity_key ranks an agent row above
+# any global row whatever its priority), so a seeded agent's trust-conditioned
+# verdict is unchanged.
 RSpec.describe Ai::Tools::SelfImprovementTool, "refine verb gating (HIER-P2B-ENG)" do
   let(:account) { create(:account) }
   let(:user)    { create(:user, account: account, permissions: %w[ai.skills.read ai.skills.update]) }
@@ -72,6 +84,37 @@ RSpec.describe Ai::Tools::SelfImprovementTool, "refine verb gating (HIER-P2B-ENG
     with.execute(params: { action: "auto_evolve_skill", threshold: 0.3 }.merge(extra).with_indifferent_access)
   end
 
+  # The account-wide floors, through the one seam that writes them.
+  def seed_floors!
+    Ai::Engineering::ReleaseDispatchFloorSeeder.ensure_for!(account)
+  end
+
+  # An operator's Claude Code session: its MCP principal is an `mcp_client`
+  # identity minted by Ai::McpClientIdentityService — an agent that owns no
+  # policy row — acting for the operator's own user.
+  def mcp_client_tool
+    described_class.new(account: account, user: user,
+                        agent: create(:ai_agent, :mcp_client, account: account, name: "claude-code-1"))
+  end
+
+  # A dev-cell instance principal (mTLS node cert): no user and no agent at
+  # all, marked the way McpPlatformToolRegistrar marks it after the grant
+  # gate, with the node instance the auto-approve replay re-resolves through
+  # Mcp::Principal (a restricted principal WITHOUT one is federation-shaped
+  # and refused as unreplayable before the gate — a different contract).
+  let(:node_instance) { double("NodeInstance", id: "aa11bb22-0000-4000-8000-000000000002", account: account) }
+
+  def instance_principal_tool
+    ::Mcp::Principal.instance_resolver = ->(cn) { cn == node_instance.id ? node_instance : nil }
+    ::Mcp::Principal.tool_grant_resolver = ->(_instance) { %w[platform.mutate_skill platform.auto_evolve_skill] }
+    described_class.new(account: account).tap do |t|
+      t.instance_authorized = true
+      t.node_instance = node_instance
+    end
+  end
+
+  after { ::Mcp::Principal.reset! }
+
   shared_examples "a fully armed refine gate" do |action, category|
     it "arms #{action} with the full quartet on the generic replay executor under #{category}" do
       declaration = described_class.declared_action(action)
@@ -99,10 +142,70 @@ RSpec.describe Ai::Tools::SelfImprovementTool, "refine verb gating (HIER-P2B-ENG
     end
   end
 
+  # The floor's contract for one refine verb. `invoke` calls the verb through
+  # a given tool; `service_method` is the oracle the verb must reach.
+  shared_examples "a floored refine verb" do |category, service_method|
+    it "parks a row-less mcp_client identity while the floor is ABSENT — the floor is what carries its verdict" do
+      result = invoke.call(mcp_client_tool)
+
+      expect(result[:success]).to be(true)
+      expect(result[:data][:pending]).to be(true)
+      expect(result[:data][:action_category]).to eq(category)
+      expect(service).not_to have_received(service_method)
+    end
+
+    context "with the account-wide floor" do
+      before { seed_floors! }
+
+      it "proceeds for an operator's mcp_client identity, which owns no row of its own" do
+        result = invoke.call(mcp_client_tool)
+
+        expect(result[:success]).to be(true)
+        expect(result[:data][:pending]).to be_nil
+        expect(service).to have_received(service_method)
+        expect(pending_ops).to be_empty
+      end
+
+      it "proceeds for an instance principal — no user, no agent" do
+        result = invoke.call(instance_principal_tool)
+
+        expect(result[:success]).to be(true), result.inspect
+        expect(result[:data][:pending]).to be_nil
+        expect(service).to have_received(service_method)
+        expect(pending_ops).to be_empty
+      end
+
+      it "still parks a SUPERVISED agent that carries its own row pair — the agent row outranks the floor" do
+        trust!(:monitored)
+
+        result = invoke.call(tool)
+
+        expect(result[:success]).to be(true)
+        expect(result[:data][:pending]).to be(true)
+        expect(service).not_to have_received(service_method)
+        expect(pending_ops.count).to eq(1)
+      end
+
+      it "still proceeds for the TRUSTED agent through its own conditioned row" do
+        trust!(:trusted)
+
+        result = invoke.call(tool)
+
+        expect(result[:success]).to be(true)
+        expect(result[:data][:pending]).to be_nil
+        expect(service).to have_received(service_method)
+      end
+    end
+  end
+
   describe "mutate_skill" do
     include_examples "a fully armed refine gate", "mutate_skill", "dev.prompt_refine"
 
     before { seed_refine_pair!("dev.prompt_refine") }
+
+    include_examples "a floored refine verb", "dev.prompt_refine", :mutate! do
+      let(:invoke) { ->(with) { mutate!(with: with) } }
+    end
 
     it "parks a SUPERVISED agent's mutation: nothing mutated, one pending operation naming the category" do
       trust!(:monitored)
@@ -172,6 +275,10 @@ RSpec.describe Ai::Tools::SelfImprovementTool, "refine verb gating (HIER-P2B-ENG
 
     before { seed_refine_pair!("dev.skill_refine") }
 
+    include_examples "a floored refine verb", "dev.skill_refine", :auto_mutate_underperforming! do
+      let(:invoke) { ->(with) { evolve!(with: with) } }
+    end
+
     it "parks a SUPERVISED agent's evolution sweep" do
       trust!(:supervised)
 
@@ -202,6 +309,19 @@ RSpec.describe Ai::Tools::SelfImprovementTool, "refine verb gating (HIER-P2B-ENG
       expect(result[:success]).to be(false)
       expect(result[:error]).to include("threshold")
       expect(pending_ops).to be_empty
+    end
+  end
+
+  describe "what the floors do NOT cover" do
+    before { seed_floors! }
+
+    it "leaves release.promote / release.rollback / release.deploy_platform at the require_approval default for a row-less caller" do
+      resolver = Ai::InterventionPolicyService.new(account: account)
+
+      %w[release.promote release.rollback release.deploy_platform].each do |category|
+        expect(resolver.resolve(action_category: category)[:policy]).to eq("require_approval"),
+                                                                        "#{category} must keep parking"
+      end
     end
   end
 end

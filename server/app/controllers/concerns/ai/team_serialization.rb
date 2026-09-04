@@ -17,6 +17,8 @@ module Ai
         status: team.status,
         member_count: team.members.count,
         has_lead: team.has_lead?,
+        canonical: team.canonical?,
+        template_id: team.template_id,
         created_at: team.created_at,
         updated_at: team.updated_at
       }

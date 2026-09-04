@@ -52,8 +52,8 @@ beside `ai.delegation_policy.update`); the rows are seeded on the **owning** age
 |----------|-------|---------|----------|
 | `dev.task_claim`, `dev.task_complete` | Platform Developer | auto_approve | (rows for the loop's own bookkeeping; `dev_next_task` / `dev_complete_task` stay ungated so a Claude Code session is never parked) |
 | `dev.campaign_propose` | Platform Developer, Platform Architect | auto_approve — proposals **are** the gate | `campaign_propose` (ungated; the proposal itself awaits approval) |
-| `dev.skill_refine` | Platform Developer, Platform Architect | auto_approve from `trusted`, require_approval below | `auto_evolve_skill` |
-| `dev.prompt_refine` | Platform Developer, Platform Architect | auto_approve from `trusted`, require_approval below | `mutate_skill` |
+| `dev.skill_refine` | Platform Developer, Platform Architect + an account-wide floor | auto_approve from `trusted`, require_approval below; the floor auto-approves a row-less caller | `auto_evolve_skill` |
+| `dev.prompt_refine` | Platform Developer, Platform Architect + an account-wide floor | auto_approve from `trusted`, require_approval below; the floor auto-approves a row-less caller | `mutate_skill` |
 | `release.build_dispatch` | Release Manager + an account-wide floor | auto_approve (see the note below on "on develop") | `system_dispatch_module_build_batch` |
 | `release.promote` | Release Manager | require_approval, no trust unlock | `system_promote_module_version` |
 | `release.rollback` | Release Manager | require_approval, no trust unlock | `system_rollback_module_version` |
@@ -69,15 +69,38 @@ higher priority wins. The release rows carry no condition at all: promotion, rol
 deployment stay approval-gated whatever the tier, because a self-hosted control plane
 cannot recover itself from a bad rollout and the rollback tool is dead while it is down.
 
-**The build-dispatch floor.** An agent-scoped policy row matches only the agent it names,
-and the principals that legitimately dispatch a build over MCP carry none: an operator's
-Claude Code session (whose MCP principal is an `mcp_client` identity, not the Release
-Manager) and a dev-cell **instance** principal (mTLS node cert — no user and no agent at
-all). One `scope: "global"` auto_approve row for `release.build_dispatch` keeps that path
-flowing once the MCP verb is gated; every other release verb has no floor, so those
-callers meet the unmatched default and park. This is *not* about the automatic
-push-triggered build, which runs through the system extension's own trigger service and
-never reaches the MCP verb.
+**The account-wide floors.** An agent-scoped policy row matches only the agent it names,
+and the principals that legitimately dispatch a build or refine a skill over MCP carry
+none: an operator's Claude Code session (whose MCP principal is an `mcp_client` identity,
+not a seeded canonical) and a dev-cell **instance** principal (mTLS node cert — no user
+and no agent at all). One `scope: "global"` auto_approve row per category — for
+`release.build_dispatch`, `dev.prompt_refine` and `dev.skill_refine` (the refine pair is
+operator ruling 2026-09-04 11c) — keeps those paths flowing once the MCP verbs are gated;
+every other release verb has no floor, so those callers meet the unmatched default and
+park. The agent-scoped rows **outrank** a floor whatever its priority
+(`#specificity_key` ranks an agent row above any global row — `priority` cannot cross
+that tier), so a seeded agent's trust-conditioned verdict is unchanged: a supervised
+Platform Developer still parks a refinement, a trusted one still proceeds. This is *not*
+about the automatic push-triggered build, which runs through the system extension's own
+trigger service and never reaches the MCP verb, nor about the Skills UI, which uses the
+REST twins.
+
+**What "a row-less caller" includes — read this before adding a category.** A floor is
+written on **every** account (`ensure_all!`), while the trust-conditioned pairs above are
+seeded only on the **`Powernode Admin`** account's canonicals. `scope: "global"` rows are
+agent-**binding** (`Ai::InterventionPolicyService#resolve` admits an agent caller's own
+rows *plus* the global audience), so "row-less" is not only the MCP principals the floor
+was written for — it is **any agent in the account that owns no row for the category**,
+including a per-account clone of a canonical. Concretely, the refine floors auto-approve
+the system extension's governance-gap materialisation lane
+(`System::Governance::GapMaterializer`, which maps `skill_binding` → `dev.skill_refine`
+and `prompt_refinement` → `dev.prompt_refine`) at **every** trust tier on any account but
+`Powernode Admin`, where before the floors it met the unmatched `require_approval`
+default and parked. That widening is deliberate and pinned by
+`governance_gap_propose_executor_spec`; the extension runbook
+(`extensions/system/docs/runbooks/governance-gaps.md`) carries the per-account
+agent-scoped row that restores the park. The structural materialisation category
+`dev.governance_materialize` has no floor and parks everywhere.
 
 **Two clauses the rows cannot carry.** The ruling asks for `release.build_dispatch` to
 auto-approve *on develop*; `Ai::InterventionPolicy`'s conditions vocabulary has no
@@ -90,14 +113,20 @@ so "delegates to nobody" is spelled depth 1 plus the no-such-type sentinel `["no
 which `#allows_delegate_type?` refuses for every real agent type. Same verdict, in the
 vocabulary the model has.
 
-**Landing the floor on an install that is already up.** `db:seed` runs on **first boot
+**Landing the floors on an install that is already up.** `db:seed` runs on **first boot
 only** (the hub's `rails-start.sh` gates it behind a durable `.db-initialized` marker and
-runs `db:migrate` alone afterwards), so an install upgraded onto the release gating gets
-the *code* — the gated verbs — without the *row*. Every build dispatch would then park.
-The floor is therefore written through one seam,
-`Ai::Engineering::ReleaseDispatchFloorSeeder`, which the seed calls and which is also
-exposed as `rake db:seed:engineering_release_floor` — **run it once after upgrading**. It
-is absence-only: it never rewrites, deactivates or deletes a row an operator retuned.
+runs `db:migrate` alone afterwards), so an install upgraded onto the gating gets the
+*code* — the gated verbs — without the *rows*. Every build dispatch and every refinement
+from those principals would then park. The floors are therefore written through one
+seam, `Ai::Engineering::ReleaseDispatchFloorSeeder` (its `CATEGORIES` list is the
+authority on which categories are floored), which the seed calls, which a boot-time
+governance reconcile hook calls on **every boot** where an extension wires one (the hub
+image's per-boot reconcile does, behind `defined?` so the two trees may skew), and which
+is also exposed as `rake db:seed:engineering_floors` (`engineering_release_floor` remains
+as an alias) — **run it once after upgrading** on an install with no such hook. It is
+absence-only and per category: it never rewrites, deactivates or deletes a row an
+operator retuned, and an install carrying the older single floor gains only the rows it
+lacks.
 The other engineering rows are deliberately not backfilled — the agents they hang off do
 not exist on such an install either, and `release.promote` / `release.rollback` /
 `release.deploy_platform` are *meant* to start requiring approval.
@@ -200,6 +229,117 @@ What holds now:
   the *user's* principal (the MCP door's `mcp_client` identity), not the agent's, so the export
   of a canonical is a prompt, never a NULL-account principal reaching a tool.
 
+## The Platform Architect's loop: sense, propose, materialise, verify (HIER-P3)
+
+Phase 3 of the hierarchy proposal gives the Platform Architect a closed loop over the
+platform's own governance, so the drift the 2026-09-03 audit found by hand is found by
+the fleet tick from then on. The four arms, and where each lives:
+
+1. **Sense.** `System::Fleet::Sensors::GovernanceGapSensor` (system extension, on the
+   Fleet Autonomy tick) compares the declarations the hierarchy is built from with the
+   running database and emits one `system.governance_gap` signal per gap — a registered
+   category no agent set owns, an agent with a policy set and no skill, a lane bound to
+   no skill that nothing declares deliberate, an executor with no catalog row, a
+   canonical with no lineage edge or delegation policy, a declared category's row parked
+   on an agent the declarations do not know, a `tool_families` entry naming nothing the
+   registry serves. Each carries a stable fingerprint and, for a gap the runtime can
+   close, the exact materialisation.
+2. **Propose.** `DecisionEngine` routes the signal to `GovernanceGapProposeExecutor`,
+   bound to the Platform Architect (the first extension executor bound to a core
+   canonical) and gated under `dev.campaign_propose` — `auto_approve`, because the offer
+   IS the human gate. It files one `Ai::ImprovementRecommendation` per fingerprint of the
+   matching type (`capability_gap`, `team_composition`, `skill_creation`;
+   `prompt_refinement` is in the vocabulary but no detector emits it yet) with the
+   concrete spec: the files a code fix touches and the fix.
+   A re-detection updates the open offer; nothing ever files a second. Offers are the
+   code path; `Ai::AgentProposal` stays the runtime-materialisation vocabulary of other
+   lanes.
+3. **Materialise.** For a runtime-closable gap the executor also hands the
+   materialisation to `System::Governance::GapMaterializer`, which applies it through
+   the platform's own seams — `Ai::Agents::HierarchyWriter` for an edge or a delegation
+   policy, `Ai::AgentSkill` for a binding, `Ai::SelfImprovement::SkillRefinementService`
+   for a prompt — under the ruling-3 gates through `Ai::AutonomyGate`:
+   - a **skill binding** or a **prompt refinement** gates on the trust-conditioned
+     `dev.skill_refine` / `dev.prompt_refine` pair this document describes above: it
+     applies at once for a `trusted` Platform Architect and parks below that tier;
+   - a **lineage edge** or a **delegation policy** is structural and gates on
+     `dev.governance_materialize` (`require_approval`, declared by the system extension
+     on the Platform Architect): it parks whatever the tier.
+   A parked materialisation is an `Ai::DeferredOperation` on the `Platform Architect
+   Actions` chain that replays on approval as the same principal; an applied one
+   closes the offer as `applied` and writes one audit row and one fleet event naming
+   it. The existing MCP verbs (`set_delegation_policy`, `attach_skill_to_agent`,
+   `mutate_skill`) are deliberately not called from here — each carries its own gate,
+   and a gated call under this gate would park twice for one decision.
+
+   `SkillRefinementService` is ruling 6's versioned path for a canonical skill: the new
+   prompt is recorded as an active `Ai::SkillVersion` (the previous prompt kept in its
+   metadata, the acting agent as its author) and then applied to the skill, so a
+   canonical is never edited in place without a record and any refinement can be
+   reverted by re-activating the prior version. It writes and does not gate; the caller
+   resolves `dev.prompt_refine` first.
+
+   The prompt-refinement arm is WIRED but has NO SENSOR PRODUCER: every
+   `materialization` hash `GovernanceGapSensor` stamps today is a skill binding, a
+   lineage edge or a delegation policy — there is no prompt-drift detector, so no
+   governance offer carries a prompt refinement yet. The seam exists so that when one
+   arrives (or the Platform Architect proposes a refinement of its own) the write is
+   gated and versioned rather than an in-place edit of `ai_skills.system_prompt`.
+4. **Verify.** The sensor clears the moment the gap closes, so nothing needs cleaning
+   up. The lane is scored, not exempt: filing the offer is its remediation, so
+   `RemediationValidator` mints an outcome for the fingerprint and a gap that stands
+   `STUCK_STREAK_THRESHOLD` settle windows escalates as a HIGH
+   `fleet.governance_gap_stuck` event with the lane forced to `require_approval` — one
+   operator decision on the Platform Architect's chain, quiet while it is open. The
+   recommendation scoreboard records the cycle like any other offer.
+
+Two declarations make the loop possible, both in the system extension's
+`PolicyDeclarations`: the Platform Architect is listed in `AGENT_IDENTITIES` under
+`CORE_CANONICAL_KEYS` (declared as an owner, seeded and delegation-governed by core — the
+extension's hierarchy reconciler attaches its edge under System Concierge and never
+writes its delegation policy), and `PLATFORM_ARCHITECT_POLICIES` declares
+`dev.campaign_propose` and `dev.governance_materialize` on it. The first is a core
+category that `ai_engineering_agents_seed.rb` writes on the admin account at the same
+verb; the extension's declaration exists so the routed lane has an owner and so every
+other account converges through `PolicyReconciler`, which finds the admin row present and
+writes nothing. The operator procedure — what each offer means, what parks and what
+applies, how to read the stuck event — is the system extension's
+`docs/runbooks/governance-gaps.md`.
+
+## The Platform Engineering team (HIER-P4)
+
+The hierarchy above is also a **canonical team** — `Ai::TeamTemplate` `platform-engineering`
+(global, `is_system`, `source_key`-managed; `server/db/seeds/ai_canonical_teams_seed.rb`),
+materialised for the account as a `hierarchical` / `manager_led` / `hub_spoke` `Ai::AgentTeam`
+whose manager is the Platform Architect:
+
+| Member | Team role |
+|--------|-----------|
+| Platform Architect | `manager` (lead) |
+| Platform Developer, Release Manager | `executor` |
+| Research Analyst, Strategic Planner | `researcher` |
+| PRD Generator, Documentation Specialist | `writer` |
+| LLM Judge, System Quality Assurance | `reviewer` |
+| Knowledge Graph Curator | `analyst` |
+
+**One structure, three views.** The template is the nodes and roles; the lineage edges the
+hierarchy seed writes are the tree; the Platform Architect's delegation policy is the edge set the
+manager may actually use. `Ai::Teams::CanonicalTeamReconciler` reports where they disagree
+(`drift`: a removed lineage edge, a member the Architect's policy cannot delegate to, a delegate
+type the team lacks) and repairs the team's **membership** on `rails system:governance:reconcile`
+— never the edges or policies, which keep their own writers. The seated members are the account's
+executing principals (the clones `Ai::Agents::AccountPrincipalResolver` mints), never the
+canonicals: ruling 8 applies to teams exactly as to agents.
+
+**Running it.** `platform.execute_team` on "Platform Engineering" dispatches to the worker, which
+calls back into `Ai::TeamStrategies::HierarchicalStrategy`. Before the Architect decomposes the
+objective, every worker is checked with `Ai::Autonomy::DelegationAuthorityService`; a member outside
+the Architect's `allowed_delegate_types` is refused with the policy's reason and never executed
+(pinned by `spec/services/ai/team_strategies/hierarchical_strategy_delegation_spec.rb`). Through the
+MCP verbs the team is read-only — clone the template to customise. The "System Operations" twin
+(manager System Concierge, the eleven domain agents) is the system extension's seed. See
+[Canonical teams](canonical-teams.md).
+
 ## Claude Code subagents
 
 Each Engineering canonical is exported as a Claude Code subagent under
@@ -210,6 +350,7 @@ and promotes through platform verbs only.
 
 ## Related
 
+- [Canonical teams](canonical-teams.md) — the two seeded teams, drift and repair, execution under the delegation policies
 - [Agents and autonomy](agents-and-autonomy.md)
 - [Deferred tool-call replay](deferred-tool-call-replay.md)
-- The ruling record: `docs/reference/system-agent-hierarchy-proposal-2026-09-03.md` §2 Phase 2b and §5
+- The ruling record: `docs/reference/system-agent-hierarchy-proposal-2026-09-03.md` §2 Phases 2b and 3, and §5

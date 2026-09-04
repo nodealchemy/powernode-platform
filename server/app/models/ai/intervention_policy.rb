@@ -30,13 +30,17 @@ module Ai
     #     (Platform Developer + Platform Architect; ruling #3 — auto_approve only
     #     from the `trusted` tier, require_approval below it, expressed as a row
     #     PAIR through the existing trust_tier_minimum condition; gated by
-    #     auto_evolve_skill / mutate_skill on Ai::Tools::SelfImprovementTool)
+    #     auto_evolve_skill / mutate_skill on Ai::Tools::SelfImprovementTool.
+    #     Plus an account-wide auto_approve FLOOR row each — ruling 11c,
+    #     IMP-a51963f8717f — for the row-less MCP principals below; the agent
+    #     pair outranks it, so the seeded agents' verdict is unchanged.)
     #   release.build_dispatch                                       auto_approve
     #     (Release Manager, plus an account-wide FLOOR row — see
-    #     Ai::Engineering::ReleaseDispatchFloorSeeder — because an agent-scoped
-    #     row matches only its own agent and the principals that dispatch builds
-    #     over MCP carry none: an operator's `mcp_client` session and a dev-cell
-    #     instance principal. Gated by system_dispatch_module_build_batch.)
+    #     Ai::Engineering::ReleaseDispatchFloorSeeder, which writes all three
+    #     floors — because an agent-scoped row matches only its own agent and
+    #     the principals that dispatch builds or refine skills over MCP carry
+    #     none: an operator's `mcp_client` session and a dev-cell instance
+    #     principal. Gated by system_dispatch_module_build_batch.)
     #   release.promote / release.rollback / release.deploy_platform require_approval
     #     (Release Manager; NO trust unlock — structural changes stay gated
     #     whatever the tier; gated by system_promote_module_version /

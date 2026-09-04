@@ -274,3 +274,67 @@ Phase 2b: ~5 lanes (one per new/promoted agent, plus the engineering policy set 
    six pending dev-improve tasks (three business-extension, IMP-222dd9bce564, IMP-31e7c3dbeb2a,
    IMP-f2a7a729d39b) are drained now as one batch; the two with deploy-window preconditions report
    `blocked` with the reading if the precondition is unmet.
+10. **Operator rulings 2026-09-04 10:00 (post-deploy-4 review).** (a) Deploy 4 shipped phases 0–2i
+    (core b24da2acf / ext 5e9d2c55, hub-backend v93, hub-frontend v29); the three incidents it exposed
+    (ext-before-core promote skew, scratch-upper budget exhaustion masking a stale node, provider/model-pin
+    mismatch on clone mint and seed back-fill) are fixed or filed. (b) The two API doors that HIER-P2I made
+    resolve a global canonical to the account clone (agents/:id/execute, agents/:id/conversations) KEEP the
+    silent mapping; the response carries the acting clone. (c) `process-automation-optimizer` stays in the
+    Claude Code export. (d) IMP-01b1e152f667's postures stand: the provisioning meter fails open and
+    visible, the quota check on the direct path fails closed; the `Billing::` purity property widens to the
+    whole extension tree with one exemption (offer 01a06b11-95ca approved). (e) The three lane-passed tasks
+    parked by protected-path globs (IMP-222dd9bce564, IMP-b54e49ddfc40, IMP-10e4f6c3bcd2 — the last a
+    `*signer*`/"designer" false positive) are disposed passed. (f) ops-hub's scratch upper is cleared by a full
+    VM 600 reboot in an operator-chosen window, not by soft-recompose.
+11. **Operator rulings 2026-09-04 10:05.** (a) The VM 600 reboot happens with deploy 5, after Phase 3
+    and Phase 4 land. (b) The dev-cell instance grant gains `platform.record_agent_execution` from the
+    operator's admin connector (an instance principal may only narrow itself). (c) `mutate_skill` →
+    `dev.prompt_refine` and `auto_evolve_skill` → `dev.skill_refine` stay as mapped, and BOTH categories get
+    an account-wide auto_approve floor (the `release.build_dispatch` precedent) so row-less MCP callers stop
+    parking; agent-scoped rows keep the trust-conditioned verdict; the four release verbs keep parking.
+    (d) Lazy minting of account principals inside the fleet/CVE ticks and the reconcile stays.
+
+## 6. Delivered (written by HIER-P4, the last increment, 2026-09-04)
+
+Every phase's commits on `dev-loop/dev-improve`, core first then `extensions/system` (ext). Deploy 4
+shipped phases 0–2i (core b24da2acf / ext 5e9d2c55); phases 3 and 4 ride deploy 5.
+
+| Phase | Core commits | Extension commits |
+|-------|--------------|-------------------|
+| **0** — truthful Autonomy page, account-scoped delegation policies, MCP delegation verbs | d0039ccdf, 28509015b, e0a2ea25c | — |
+| **1** — hierarchy, lineage and delegation as seeded data; one hierarchy seam; canonical-clone rule on `create_agent`; `ai.agents.manage` | e93b65530, 435c845c3, 33559d5ba, 3cb839e5f, 17d4090c2 | 072d3b5f, 80195229 |
+| **1b** — canonical agents as Claude Code subagents (skeletons, sync rake, freshness gate, batched router, `get_agent` by slug) | 2eefbb54b, 9eda45e3e, 8e31358f8, c4497a937, d3a8919b8, fdff6ff04, 8210ee604, cde3bf9f1, 1d7eaca19 | — |
+| **1c** — Claude Code runs feed the platform's statistics (`record_agent_execution`, SubagentStop self-report) | 173a1ba25, 378f99ed5, 6d5a9dbe4, 908571bc8, 73c074744 | — |
+| **2a** — every fleet sensor gated under its declared owner; policy rows re-homed | — | 5ab25374, cc4795fc, 924a4b5f |
+| **2decl** — the four operations managers, the topology owner and the operator-set twins declared | — | f0681734, 54c86f51, d931f045 |
+| **2b** — Capacity Manager | 3840d9494 | e17e4174, 4209434f, 8223ab44, ae65d357 |
+| **2c** — Storage Manager | ebec60ccb | db043b34, adfd3817 |
+| **2d** — Ingress Manager | b09d7287b | 4d399613, 5128097d, 10b4f466 |
+| **2e** — Supply Chain Manager | 338cf50f5 | 0b631c75, 1edaee98, b9338439, 9cddb0df |
+| **2f** — Disk Image Manager, GitOps Reconciler and Topology Designer made whole; policy domains registered with the exporter | 2c9e9f53e, 7dfd23f5c | 2c6ed674, 97e8657f, 617bbc37, 574ffe64, d22d026a |
+| **2sweep** — wave-2 roster prose and the single-writer seed convention | 7070605a3 | 054d1f72, 7818caf8, ee45650f |
+| **2g** — system skill catalog as global canonicals; bindings reconciled on every boot; router scoped to visible skills | 7433f7643, cfa0f89a9 | ab930029, 96e2ad58 |
+| **2h** — one bootstrap verb set; disk-image MCP verbs approval-gated | 73b0dd2e8, 454991e6d | 56fe14c3, 2049da77 |
+| **2b-eng** — the Engineering hierarchy: canonicals, `engineering` policy set, Platform Architect lineage, release verbs gated, platform_agent loop, docs, skeletons | fe71223e3, 7ccafd87a, 4ade2ba15, 1a46dd7b1, 90c154de5, 930702941 | c15c6db7, 051563cb |
+| **2i** — canonical principals never execute: refusal at the tool seam, the account-principal clone seam, provider/model-pin rules | 2550e461b, ee88fc75a, 7e5c1564b, 5d052d4c0, d4f4f1ef6, 33e5e60fd, 216fddd97, ba7f2c6ae | 406a6ba8, 630b4ecb |
+| **3** — autonomous design / improve / implement (governance-gap sensor and lane, gap materialiser, skill refinement) | 9e8912a30, b2e1900a7, 8916106d2, c7f611f78 | de079f85, fb81c5b2, 774deb00, 32ed9a31, b3cbdaea |
+| **4** — canonical teams: "System Operations" and "Platform Engineering" as `Ai::TeamTemplate`s, the canonical team reconciler, manager_led execution under the delegation policies, read-only at every door | 0f35721c1, 9754077e1, e02f5cfa0, e62567da0, 30505ccf4, 1eea0dbde | 900726ff, 69451179 |
+
+Inclusion rule: every campaign commit on the branch, whether or not its subject carries the phase
+tag — the last two Phase 1b entries (`cde3bf9f1`, `1d7eaca19`) are the skeleton-cleanup fix and the
+regeneration that followed it, and neither subject names a phase. Phases 3 and 4 were filled in by the driver once both lanes finalised (2026-09-04 14:35 UTC);
+`git log --oneline --grep=HIER-P3` / `--grep=HIER-P4` in each repository lists them.
+
+What Phase 4 delivered, against §2 "Phase 4 — teams and graphs": no agent-graph model — a graph is a
+`TeamTemplate` (nodes + roles) plus the manager's delegation policy and the lineage edges (edges)
+plus an `Ai::TeamExecution` when run; both canonical teams seeded global and `source_key`-managed,
+materialised per account on the account's executing principals (ruling 8), verified against the
+lineage forest and delegation graph and repaired on `system:governance:reconcile`
+(`Ai::Teams::CanonicalTeamReconciler`, whose boot repair pass is scoped to the accounts that already
+hold a canonical team plus the primary account, so no tenant is written to); `platform.list_teams` /
+`get_team` show them read-only with the clone path, and the REST doors
+(`agent_teams` update/destroy/members, `teams` update/destroy, `Ai::Teams::CrudService`) refuse with
+403 through the one guard `Ai::AgentTeam#guard_mutable!`; `execute_team` runs the manager_led strategy under the delegation policies, refusing a
+member outside the manager's `allowed_delegate_types`. Documented in
+[docs/concepts/canonical-teams.md](../concepts/canonical-teams.md) and the Platform Engineering
+agents page.

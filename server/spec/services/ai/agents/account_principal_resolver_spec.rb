@@ -352,4 +352,22 @@ RSpec.describe Ai::Agents::AccountPrincipalResolver do
       expect(clone.mcp_metadata.dig("model_config", "effort")).to eq("high")
     end
   end
+
+  # HIER-P4 — the READ-ONLY lookup a drift report needs: the account's existing
+  # clone of a canonical, or nil, minting nothing (the reason
+  # System::Governance::AgentResolver asks with `mint: false`).
+  describe ".existing(agent, account:)" do
+    it "returns nil and mints nothing when the account has no clone yet" do
+      canonical
+      expect { expect(described_class.existing(canonical, account: account)).to be_nil }
+        .not_to change(Ai::Agent, :count)
+    end
+
+    it "returns the clone once minted, and an account-scoped agent as itself" do
+      canonical
+      clone = described_class.for(canonical_slug: "fleet-autonomy", account: account)
+      expect(described_class.existing(canonical, account: account)).to eq(clone)
+      expect(described_class.existing(clone, account: account)).to eq(clone)
+    end
+  end
 end
