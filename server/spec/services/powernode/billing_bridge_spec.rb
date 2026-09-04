@@ -12,7 +12,8 @@ RSpec.describe Powernode::BillingBridge do
       payment_model: described_class.payment_model,
       plan_model: described_class.plan_model,
       revenue_snapshot_model: described_class.revenue_snapshot_model,
-      provisioning_quota_handler: described_class.provisioning_quota_handler
+      provisioning_quota_handler: described_class.provisioning_quota_handler,
+      provisioning_meter_handler: described_class.provisioning_meter_handler
     }
     example.run
   ensure
@@ -21,6 +22,7 @@ RSpec.describe Powernode::BillingBridge do
     described_class.plan_model = original[:plan_model]
     described_class.revenue_snapshot_model = original[:revenue_snapshot_model]
     described_class.provisioning_quota_handler = original[:provisioning_quota_handler]
+    described_class.provisioning_meter_handler = original[:provisioning_meter_handler]
   end
 
   let(:account) { instance_double(Account, id: "acct-1") }
@@ -293,12 +295,13 @@ RSpec.describe Powernode::BillingBridge do
   end
 
   describe ".reset!" do
-    it "clears all registered models and the quota handler back to core mode" do
+    it "clears all registered models and both provisioning handlers back to core mode" do
       described_class.subscription_model = Class.new
       described_class.payment_model = Class.new
       described_class.plan_model = Class.new
       described_class.revenue_snapshot_model = Class.new
       described_class.provisioning_quota_handler = ->(account:, mission:) { { allowed: false, payload: {} } }
+      described_class.provisioning_meter_handler = ->(node_instance:, event:) { raise "never" }
 
       described_class.reset!
 
@@ -307,6 +310,7 @@ RSpec.describe Powernode::BillingBridge do
       expect(described_class.plan_model).to be_nil
       expect(described_class.revenue_snapshot_model).to be_nil
       expect(described_class.provisioning_quota_handler).to be_nil
+      expect(described_class.provisioning_meter_handler).to be_nil
       expect(described_class.check_provisioning_quota(account: account, mission: mission))
         .to eq({ allowed: true })
     end
