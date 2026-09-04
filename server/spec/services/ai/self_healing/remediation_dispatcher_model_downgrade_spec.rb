@@ -121,16 +121,25 @@ RSpec.describe Ai::SelfHealing::RemediationDispatcher, type: :service do
         .from(pinned_model).to(economy_model)
     end
 
-    # KNOWN GAP, deliberately pinned: Ai::RemediationLog::ACTION_TYPES lists only
-    # provider_failover / workflow_retry / alert_escalation, so the log write for
-    # a model_downgrade (and a context_trim) fails its inclusion validation and is
-    # swallowed by log_remediation's rescue — the remediation happens but is never
-    # audited. Fixing that means editing app/models/ai/remediation_log.rb, which is
-    # outside this task's file scope; this example makes the gap visible and will
-    # red the moment the action type is admitted.
-    it 'does not yet audit the downgrade (model_downgrade missing from RemediationLog::ACTION_TYPES)' do
-      expect(Ai::RemediationLog::ACTION_TYPES).not_to include('model_downgrade')
-      expect { dispatch }.not_to change(Ai::RemediationLog, :count)
+    # This example was left as a pinned KNOWN GAP by the lane that fixed
+    # execute_model_downgrade: ACTION_TYPES listed only provider_failover /
+    # workflow_retry / alert_escalation, so the log write for a model_downgrade
+    # failed its inclusion validation and was swallowed by log_remediation's
+    # rescue — an agent's model pin was rewritten with no record that anything
+    # had acted. IMP-8847e9e37e33 admitted the action type; the assertion is
+    # flipped here to hold the audit row down. The drift that produced the gap is
+    # guarded in remediation_audit_coverage_spec.rb.
+    it 'audits the downgrade' do
+      expect(Ai::RemediationLog::ACTION_TYPES).to include('model_downgrade')
+      expect { dispatch }.to change(Ai::RemediationLog, :count).by(1)
+
+      log = Ai::RemediationLog.order(:executed_at).last
+      expect(log.action_type).to eq('model_downgrade')
+      expect(log.result).to eq('success')
+      expect(log.executed_at).to be_present
+      expect(log.account_id).to eq(account.id)
+      expect(log.trigger_source).to eq('agent_execution')
+      expect(log.trigger_event).to eq('execution_degradation')
     end
   end
 end

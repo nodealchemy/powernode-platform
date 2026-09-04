@@ -47,7 +47,8 @@ RSpec.describe Ai::RemediationLog, type: :model do
     end
 
     it 'defines valid ACTION_TYPES' do
-      expect(Ai::RemediationLog::ACTION_TYPES).to eq(%w[provider_failover workflow_retry alert_escalation])
+      expect(Ai::RemediationLog::ACTION_TYPES)
+        .to eq(%w[provider_failover workflow_retry alert_escalation model_downgrade context_trim])
     end
   end
 

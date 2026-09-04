@@ -5,7 +5,28 @@ module Ai
     belongs_to :account
 
     RESULTS = %w[success failure skipped rate_limited].freeze
-    ACTION_TYPES = %w[provider_failover workflow_retry alert_escalation].freeze
+
+    # Every action_type any producer may write. This list is a SUPERSET by design
+    # — workflow_retry has no production producer today — so the guard on it is
+    # containment, not equality.
+    #
+    # It is enumerated here but produced elsewhere, which is exactly how
+    # model_downgrade and context_trim came to execute against live agents with
+    # no audit row at all: they were added to the dispatcher and the list did not
+    # move, so every log write for them failed the inclusion validation below and
+    # was swallowed by log_remediation's rescue. The mechanical link that was
+    # missing now lives in
+    # spec/services/ai/self_healing/remediation_audit_coverage_spec.rb, which
+    # derives the produced set from the producers' own source and reflection:
+    # RemediationDispatcher's execute_* methods, #determine_action, and
+    # PredictiveMonitorService#determine_preemptive_action (the action_hint path).
+    ACTION_TYPES = %w[
+      provider_failover
+      workflow_retry
+      alert_escalation
+      model_downgrade
+      context_trim
+    ].freeze
 
     validates :trigger_source, presence: true
     validates :trigger_event, presence: true

@@ -12,6 +12,7 @@ module Ai
 
           action = determine_action(trigger_event, context)
           return unless action
+          return unless auditable?(action)
 
           before_state = capture_state(action, context)
 
@@ -52,6 +53,27 @@ module Ai
           when "context_overflow"
             "context_trim"
           end
+        end
+
+        # Fail CLOSED: an action Ai::RemediationLog will not accept cannot be
+        # audited, and this dispatcher mutates production agents with no operator
+        # in the loop — the audit row is the only record that it acted at all. So
+        # an unauditable remediation must not run.
+        #
+        # This is checked BEFORE execute_action because that is the only point at
+        # which refusing still means something. Once the model pin has been
+        # rewritten, raising on the audit write would surface the problem but
+        # would not undo the mutation, and would take the caller's own bookkeeping
+        # down with it. Fail-closed before acting; after acting, see the rescue in
+        # log_remediation.
+        def auditable?(action)
+          return true if Ai::RemediationLog::ACTION_TYPES.include?(action)
+
+          Rails.logger.error(
+            "[RemediationDispatcher] Refusing unauditable remediation #{action.inspect}: " \
+            "not in Ai::RemediationLog::ACTION_TYPES, no action taken"
+          )
+          false
         end
 
         def execute_action(action, account:, context:)
@@ -260,8 +282,19 @@ module Ai
             result_message: result_message,
             executed_at: Time.current
           )
+        # Deliberately still swallows, and deliberately no wider than before. By
+        # the time this runs the remediation has already executed and changed
+        # state; raising cannot undo it, and would additionally lose the caller's
+        # result. The unauditable case that made this rescue dangerous is now
+        # refused up front by auditable?, so what remains here is an infrastructure
+        # failure — for which the best available outcome is that the row it could
+        # not write is reconstructable from the log line.
         rescue => e
-          Rails.logger.error "[RemediationDispatcher] Failed to log remediation: #{e.message}"
+          Rails.logger.error(
+            "[RemediationDispatcher] Failed to log remediation: #{e.class}: #{e.message} " \
+            "(account=#{account&.id} #{trigger_source}/#{trigger_event} " \
+            "action_type=#{action_type} result=#{result})"
+          )
         end
       end
     end
