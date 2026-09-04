@@ -441,7 +441,7 @@ Ai::InterventionPolicy.category_registered?("system.sdwan.peer_revocation")
 | Symptom | Likely cause | First action |
 |---------|--------------|--------------|
 | Action always requires approval despite a matching policy | Policy has `is_active: false`, or `trust_tier_minimum` excludes the agent | `platform.list_intervention_policies(action_category:)`; check `is_active` and conditions vs agent's current tier |
-| Global policy isn't applying - agent-scoped policy wins instead | Resolution prefers agent-scoped matches when an agent is provided | Bump global policy's `priority` above the agent-scoped one, or delete the agent-scoped row |
+| Global policy isn't applying - agent-scoped policy wins instead | `#specificity_key` ranks `ai_agent_id` presence ABOVE `priority`, so an agent-scoped row wins at every priority value | Edit or deactivate the agent-scoped row - `priority` cannot promote a global row across that tier, whatever value you give it (IMP-6430e3a8c4a1). The account-wide engineering floors are the same shape: retune them by giving the agent its own row, not by raising the floor's priority |
 | Critical actions still firing silently | `severity: "critical"` not passed to `resolve` from caller | Check the call site - severity must be threaded through from the action's service layer |
 | `notify_and_proceed` flooding the on-call channel | No `max_daily_notifications` cap on the conditions | `platform.update_intervention_policy(conditions: { max_daily_notifications: 10 })` |
 | New action category not gating - `resolve` returns default `require_approval` | Category not registered at boot, or seed didn't run | Verify with `Ai::InterventionPolicy.category_registered?("...")`; run `rails db:seed` |

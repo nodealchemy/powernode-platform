@@ -52,8 +52,8 @@ beside `ai.delegation_policy.update`); the rows are seeded on the **owning** age
 |----------|-------|---------|----------|
 | `dev.task_claim`, `dev.task_complete` | Platform Developer | auto_approve | (rows for the loop's own bookkeeping; `dev_next_task` / `dev_complete_task` stay ungated so a Claude Code session is never parked) |
 | `dev.campaign_propose` | Platform Developer, Platform Architect | auto_approve — proposals **are** the gate | `campaign_propose` (ungated; the proposal itself awaits approval) |
-| `dev.skill_refine` | Platform Developer, Platform Architect | auto_approve from `trusted`, require_approval below | `auto_evolve_skill` |
-| `dev.prompt_refine` | Platform Developer, Platform Architect | auto_approve from `trusted`, require_approval below | `mutate_skill` |
+| `dev.skill_refine` | Platform Developer, Platform Architect + an account-wide floor | auto_approve from `trusted`, require_approval below; the floor auto-approves a row-less caller | `auto_evolve_skill` |
+| `dev.prompt_refine` | Platform Developer, Platform Architect + an account-wide floor | auto_approve from `trusted`, require_approval below; the floor auto-approves a row-less caller | `mutate_skill` |
 | `release.build_dispatch` | Release Manager + an account-wide floor | auto_approve (see the note below on "on develop") | `system_dispatch_module_build_batch` |
 | `release.promote` | Release Manager | require_approval, no trust unlock | `system_promote_module_version` |
 | `release.rollback` | Release Manager | require_approval, no trust unlock | `system_rollback_module_version` |
@@ -69,15 +69,38 @@ higher priority wins. The release rows carry no condition at all: promotion, rol
 deployment stay approval-gated whatever the tier, because a self-hosted control plane
 cannot recover itself from a bad rollout and the rollback tool is dead while it is down.
 
-**The build-dispatch floor.** An agent-scoped policy row matches only the agent it names,
-and the principals that legitimately dispatch a build over MCP carry none: an operator's
-Claude Code session (whose MCP principal is an `mcp_client` identity, not the Release
-Manager) and a dev-cell **instance** principal (mTLS node cert — no user and no agent at
-all). One `scope: "global"` auto_approve row for `release.build_dispatch` keeps that path
-flowing once the MCP verb is gated; every other release verb has no floor, so those
-callers meet the unmatched default and park. This is *not* about the automatic
-push-triggered build, which runs through the system extension's own trigger service and
-never reaches the MCP verb.
+**The account-wide floors.** An agent-scoped policy row matches only the agent it names,
+and the principals that legitimately dispatch a build or refine a skill over MCP carry
+none: an operator's Claude Code session (whose MCP principal is an `mcp_client` identity,
+not a seeded canonical) and a dev-cell **instance** principal (mTLS node cert — no user
+and no agent at all). One `scope: "global"` auto_approve row per category — for
+`release.build_dispatch`, `dev.prompt_refine` and `dev.skill_refine` (the refine pair is
+operator ruling 2026-09-04 11c) — keeps those paths flowing once the MCP verbs are gated;
+every other release verb has no floor, so those callers meet the unmatched default and
+park. The agent-scoped rows **outrank** a floor whatever its priority
+(`#specificity_key` ranks an agent row above any global row — `priority` cannot cross
+that tier), so a seeded agent's trust-conditioned verdict is unchanged: a supervised
+Platform Developer still parks a refinement, a trusted one still proceeds. This is *not*
+about the automatic push-triggered build, which runs through the system extension's own
+trigger service and never reaches the MCP verb, nor about the Skills UI, which uses the
+REST twins.
+
+**What "a row-less caller" includes — read this before adding a category.** A floor is
+written on **every** account (`ensure_all!`), while the trust-conditioned pairs above are
+seeded only on the **`Powernode Admin`** account's canonicals. `scope: "global"` rows are
+agent-**binding** (`Ai::InterventionPolicyService#resolve` admits an agent caller's own
+rows *plus* the global audience), so "row-less" is not only the MCP principals the floor
+was written for — it is **any agent in the account that owns no row for the category**,
+including a per-account clone of a canonical. Concretely, the refine floors auto-approve
+the system extension's governance-gap materialisation lane
+(`System::Governance::GapMaterializer`, which maps `skill_binding` → `dev.skill_refine`
+and `prompt_refinement` → `dev.prompt_refine`) at **every** trust tier on any account but
+`Powernode Admin`, where before the floors it met the unmatched `require_approval`
+default and parked. That widening is deliberate and pinned by
+`governance_gap_propose_executor_spec`; the extension runbook
+(`extensions/system/docs/runbooks/governance-gaps.md`) carries the per-account
+agent-scoped row that restores the park. The structural materialisation category
+`dev.governance_materialize` has no floor and parks everywhere.
 
 **Two clauses the rows cannot carry.** The ruling asks for `release.build_dispatch` to
 auto-approve *on develop*; `Ai::InterventionPolicy`'s conditions vocabulary has no
@@ -90,17 +113,20 @@ so "delegates to nobody" is spelled depth 1 plus the no-such-type sentinel `["no
 which `#allows_delegate_type?` refuses for every real agent type. Same verdict, in the
 vocabulary the model has.
 
-**Landing the floor on an install that is already up.** `db:seed` runs on **first boot
+**Landing the floors on an install that is already up.** `db:seed` runs on **first boot
 only** (the hub's `rails-start.sh` gates it behind a durable `.db-initialized` marker and
-runs `db:migrate` alone afterwards), so an install upgraded onto the release gating gets
-the *code* — the gated verbs — without the *row*. Every build dispatch would then park.
-The floor is therefore written through one seam,
-`Ai::Engineering::ReleaseDispatchFloorSeeder`, which the seed calls, which a boot-time
+runs `db:migrate` alone afterwards), so an install upgraded onto the gating gets the
+*code* — the gated verbs — without the *rows*. Every build dispatch and every refinement
+from those principals would then park. The floors are therefore written through one
+seam, `Ai::Engineering::ReleaseDispatchFloorSeeder` (its `CATEGORIES` list is the
+authority on which categories are floored), which the seed calls, which a boot-time
 governance reconcile hook calls on **every boot** where an extension wires one (the hub
 image's per-boot reconcile does, behind `defined?` so the two trees may skew), and which
-is also exposed as `rake db:seed:engineering_release_floor` — **run it once after
-upgrading** on an install with no such hook. It is absence-only: it never rewrites,
-deactivates or deletes a row an operator retuned.
+is also exposed as `rake db:seed:engineering_floors` (`engineering_release_floor` remains
+as an alias) — **run it once after upgrading** on an install with no such hook. It is
+absence-only and per category: it never rewrites, deactivates or deletes a row an
+operator retuned, and an install carrying the older single floor gains only the rows it
+lacks.
 The other engineering rows are deliberately not backfilled — the agents they hang off do
 not exist on such an install either, and `release.promote` / `release.rollback` /
 `release.deploy_platform` are *meant* to start requiring approval.
