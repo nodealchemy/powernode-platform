@@ -71,12 +71,48 @@ module Permissions
   # THE PRICE OF THAT RULE, stated plainly: once this runs per boot, the ONLY
   # durable way to revoke a grant the catalog still declares is to change the
   # CATALOG. A `Role#remove_permission` from a console, or a migration that
-  # DELETEs the row, is undone at the next boot — the reconcile logs a
-  # `created grant:` line and nothing else marks it as a reversal. That is the
-  # intended direction (the catalog is the source of truth for global roles,
-  # and the API already refuses to edit them — Api::V1::RolesController#update
-  # returns 403 when account_id is nil), but a per-permission revocation
-  # migration of the kind this class replaces will NOT hold. Change the catalog.
+  # DELETEs the row, is undone at the next boot. That is the intended direction
+  # (the catalog is the source of truth for global roles, and the API already
+  # refuses to edit them — Api::V1::RolesController#update returns 403 when
+  # account_id is nil), but a per-permission revocation migration of the kind
+  # this class replaces will NOT hold. Change the catalog.
+  #
+  # WHAT MARKS THE REVERSAL (IMP-222dd9bce564) ---------------------------
+  # A grant that never landed and a grant an operator revoked five minutes ago
+  # are both simply ABSENT, so no log wording alone can separate them. The
+  # reconciler therefore keeps a LEDGER of every declared grant it has observed
+  # PRESENT (already there, or created by it) — one json SiteSetting row,
+  # LEDGER_SETTING, keyed "role/permission" => first-seen timestamp. A creation
+  # whose key is already in the ledger is reported in Result#recreated_grants:
+  # the row was held by this deployment and removed outside the catalog, and
+  # this run has just put it back. The boot runner
+  # (extensions/system .../role-grants-reconcile.rb) prints that on its own line
+  # and emits a System::FleetEvent for it.
+  #
+  # #drift carries the same memory from the other direction as
+  # DriftReport#previously_held — missing rows this deployment once held. That
+  # member is a reporting SURFACE, not a printed signal: as of this change
+  # `permissions:role_grant_drift` still prints one undifferentiated `MISSING`
+  # line for every absent grant, and `permissions:reconcile_role_grants` one
+  # undifferentiated `+ grant` line for every creation. Wiring both printers to
+  # these members is a follow-up in lib/tasks/permissions.rake; do not describe
+  # the rake output as distinguishing them until it does.
+  #
+  # Detection changes what is REPORTED, never what is DONE: the re-creation is
+  # not suppressed. Suppressing it would give this class hidden state that can
+  # silently deny a legitimate catalog grant — trading a visible surprise for
+  # an invisible one. Additive and predictable is the contract.
+  #
+  # The ledger forgets a key only when the CATALOG withdraws that grant: the
+  # permission is still known to this process but the role no longer holds it.
+  # A key whose permission is unknown here is KEPT, because on a
+  # module-composed instance "unknown" usually means "that extension was not
+  # composed into this boot", and forgetting there would turn the very next
+  # revocation into an unflagged one. A ledger failure never stops the
+  # reconcile (Result#ledger_error carries it); it only degrades the signal —
+  # and a run that could not READ the ledger does not WRITE one either, because
+  # persisting this run's observations over memory it could not read would
+  # re-date every key to now and leave the next revocation unflagged.
   #
   # WHAT RECONCILING COSTS: IT WIDENS ACCESS ----------------------------
   # Every row this creates grants a permission a role did not previously hold.
@@ -90,13 +126,26 @@ module Permissions
   # has nothing to say about them. Role.sync_from_config! excludes them the
   # same way (it iterates find_or_initialize_by(name:, account_id: nil)).
   class RoleGrantReconciler
+    # SiteSetting key holding the ledger of declared grants this deployment has
+    # been observed to hold: { "role/permission" => first-seen ISO-8601 }.
+    # State, not configuration — read and written only by this class.
+    LEDGER_SETTING = "role_grant_reconciler_ledger"
+
+    # recreated_grants ⊆ created_grants: the keys the ledger already held, i.e.
+    # rows removed outside the catalog that this run has restored. Reported,
+    # never suppressed. ledger_error is nil unless the ledger could not be read
+    # or written; the reconcile itself is unaffected by that.
     Result = Struct.new(:created, :already_present, :created_grants,
-                        :created_roles, :failed, keyword_init: true) do
+                        :created_roles, :failed, :recreated_grants, :ledger_error,
+                        keyword_init: true) do
       def changed? = created.positive? || created_roles.any?
     end
 
+    # previously_held ⊆ missing_grants: missing rows the ledger says this
+    # deployment once held — a revocation made outside the catalog, which the
+    # next boot's reconcile will undo.
     DriftReport = Struct.new(:missing_grants, :missing_roles, :extra_grants,
-                             :orphan_grants, :present, keyword_init: true) do
+                             :orphan_grants, :present, :previously_held, keyword_init: true) do
       # A declared global role missing from the database is drift in its own
       # right: it contributes no missing GRANTS precisely because it was never
       # examined, so counting only missing_grants would report that install as
@@ -125,6 +174,9 @@ module Permissions
       created_roles = []
       already_present = 0
       failed = []
+      ledger, ledger_error = load_ledger
+      observed = []
+      desired_by_role = {}
 
       each_declared_role do |name, config|
         role = Role.find_by(name: name, account_id: nil)
@@ -135,12 +187,15 @@ module Permissions
         end
 
         desired = desired_grants(name)
+        desired_by_role[name] = desired
         current = role.role_permissions.pluck(:permission_name)
         already_present += (desired & current).size
+        (desired & current).each { |p| observed << "#{name}/#{p}" }
 
         (desired - current).each do |permission_name|
           role.role_permissions.find_or_create_by!(permission_name: permission_name)
           created_grants << "#{name}/#{permission_name}"
+          observed << "#{name}/#{permission_name}"
         rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => e
           # A concurrent boot winning the race leaves the row PRESENT, which is
           # the outcome this run wanted — nothing to report. Any other cause
@@ -156,12 +211,23 @@ module Permissions
         failed << { role: name, error: "#{e.class}: #{e.message}" }
       end
 
+      # Decide against the ledger AS LOADED, before this run's own observations
+      # are merged in — otherwise every creation would count as a re-creation.
+      recreated_grants = created_grants.select { |key| ledger.key?(key) }
+      # A run that could not READ the ledger must not WRITE one: `ledger` is the
+      # empty fallback there, so saving would replace the deployment's memory
+      # with a view in which every key is first-seen NOW — and the next
+      # revocation would come back unflagged. Carry the read error instead.
+      ledger_error = save_ledger(ledger, observed, desired_by_role) if ledger_error.nil?
+
       Result.new(
         created: created_grants.size,
         already_present: already_present,
         created_grants: created_grants,
         created_roles: created_roles,
-        failed: failed
+        failed: failed,
+        recreated_grants: recreated_grants,
+        ledger_error: ledger_error
       )
     end
 
@@ -190,12 +256,72 @@ module Permissions
         (current - desired).each { |p| extra_grants << "#{name}/#{p}" }
       end
 
+      ledger, _error = load_ledger
+
       DriftReport.new(missing_grants: missing_grants, missing_roles: missing_roles,
                       extra_grants: extra_grants, orphan_grants: orphan_grant_keys,
-                      present: present)
+                      present: present,
+                      previously_held: missing_grants.select { |key| ledger.key?(key) })
     end
 
     private
+
+    # [ledger_hash, error_or_nil]. An unreadable ledger reads as EMPTY so the
+    # reconcile proceeds; the error rides along so the caller can say the signal
+    # is degraded rather than silently reporting "no reversals".
+    #
+    # The row is read RAW rather than through SiteSetting.get. That accessor's
+    # json branch is `JSON.parse(setting.value) rescue {}`
+    # (app/models/site_setting.rb), which hands back an empty Hash for a corrupt
+    # value with nothing to say it was corrupt — and the row is operator-editable
+    # through Api::V1::SiteSettingsController#update, so corruption is reachable.
+    # Laundered through that rescue, a garbled ledger would produce exactly the
+    # state this mechanism exists to prevent: recreated_grants=0 reading as
+    # clean, every key re-dated to now, and the NEXT revocation unflagged.
+    def load_ledger
+      row = ::SiteSetting.find_by(key: LEDGER_SETTING)
+      return [ {}, nil ] if row.nil?
+
+      parsed = JSON.parse(row.value.to_s)
+      return [ parsed, nil ] if parsed.is_a?(Hash)
+
+      [ {}, "ledger malformed: expected a JSON object, got #{parsed.class}" ]
+    rescue JSON::ParserError => e
+      [ {}, "ledger malformed: #{e.class}: #{e.message}" ]
+    rescue StandardError => e
+      [ {}, "ledger read failed: #{e.class}: #{e.message}" ]
+    end
+
+    # Merges this run's observations into the ledger and persists it. Returns
+    # nil, or the error string if the write failed. Only writes when something
+    # changed, so the steady-state boot touches nothing.
+    #
+    # Pruning is deliberately NARROW. A key is dropped only when the catalog
+    # loaded here KNOWS the permission and the role no longer holds it — the
+    # catalog withdrew the grant, which is the sanctioned revocation route, and
+    # remembering "held" past that would flag a later re-declaration as a
+    # reversal. A key whose permission is unknown to this process is kept:
+    # Permissions.all_permissions is process-local, and on a module-composed
+    # instance "unknown" is usually "not composed into this boot".
+    def save_ledger(ledger, observed, desired_by_role)
+      updated = ledger.reject do |key, _first_seen|
+        role_name, permission_name = key.split("/", 2)
+        desired = desired_by_role[role_name]
+        desired && ::Permissions.permission_exists?(permission_name) && !desired.include?(permission_name)
+      end
+
+      now = Time.current.utc.iso8601
+      observed.each { |key| updated[key] ||= now }
+
+      return nil if updated == ledger
+
+      ::SiteSetting.set(LEDGER_SETTING, updated, setting_type: "json", is_public: false,
+                        description: "Declared global-role grants this deployment has been observed to hold " \
+                                     "(Permissions::RoleGrantReconciler reversal ledger; state, not configuration)")
+      nil
+    rescue StandardError => e
+      "ledger write failed: #{e.class}: #{e.message}"
+    end
 
     # all_roles = core ROLES + every LOADED extension's registered roles. A
     # disabled extension never runs its initializer and so declares nothing —
