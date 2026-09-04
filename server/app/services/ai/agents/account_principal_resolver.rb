@@ -171,7 +171,7 @@ module Ai
           return nil
         end
 
-        provider = account.ai_providers.where(is_active: true).order(:created_at).first || canonical.provider
+        provider, metadata_override = runnable_provider_for(canonical)
         unless provider
           Rails.logger.warn(
             "[#{SEAM}] cannot clone canonical #{canonical.slug.inspect} into account #{account.id}: " \
@@ -189,7 +189,9 @@ module Ai
             next follow_on_moves!(raced, canonical)
           end
 
-          clone = canonical.clone_to_account(account, { creator: owner, provider: provider }.compact)
+          clone = canonical.clone_to_account(
+            account, { creator: owner, provider: provider, mcp_metadata: metadata_override }.compact
+          )
           restore_identity!(clone, canonical)
           hierarchy.attach!(
             child: clone, parent: canonical, spawn_reason: SPAWN_REASON,
@@ -206,6 +208,45 @@ module Ai
           )
           clone
         end
+      end
+
+      # The clone must be RUNNABLE where the canonical was (deploy-4 incident,
+      # 2026-09-04: ops-hub's only active provider was OpenAI, every fleet
+      # canonical is pinned to a Claude model on the account's inactive
+      # Anthropic provider, and "first active provider + keep the pin" failed
+      # Ai::Agent's model/provider validation — so the boot reconcile failed
+      # and every declared verb fell to the require_approval default).
+      # Order: an ACTIVE provider of the pin's family in this account; else the
+      # canonical's own provider when it belongs to this account and agrees
+      # with the pin (that is exactly what the canonical ran on); else the
+      # account's active provider with the pin DROPPED — an unpinned clone
+      # resolves through the provider's default model instead of refusing to
+      # exist. Returns [provider, mcp_metadata override or nil].
+      def runnable_provider_for(canonical)
+        pin = canonical.mcp_metadata&.dig("model_config", "model").presence
+        family = pin && canonical.send(:provider_type_for_model, pin)
+        active = account.ai_providers.active.ordered_by_priority
+
+        if family && (same_family = active.by_type(family).first)
+          return [ same_family, nil ]
+        end
+
+        own = canonical.provider
+        if own && own.account_id == account.id && (family.nil? || own.provider_type == family)
+          return [ own, nil ]
+        end
+
+        fallback = active.first || own
+        return [ nil, nil ] unless fallback
+        return [ fallback, nil ] if family.nil? || fallback.provider_type == family
+
+        metadata = (canonical.mcp_metadata || {}).deep_dup
+        metadata["model_config"] = (metadata["model_config"] || {}).except("model")
+        Rails.logger.warn(
+          "[#{SEAM}] canonical #{canonical.slug.inspect} is pinned to #{pin.inspect} (#{family}) but account " \
+          "#{account.id} has no #{family} provider; minting the clone UNPINNED on #{fallback.provider_type}"
+        )
+        [ fallback, metadata ]
       end
 
       def lock_mint!(canonical)
