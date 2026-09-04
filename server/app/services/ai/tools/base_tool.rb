@@ -267,14 +267,27 @@ module Ai
         #                        source_id: }
         # @param on_proceed      [Symbol, nil] tool method (params, gate_result)
         #                        => the tool's own success payload
+        # @param ungated_when    [Symbol, nil] tool method (params) => true when
+        #                        THIS call is the action's read-shaped arm and
+        #                        must dispatch to #call as an ungated action
+        #                        would (HIER-P2B-ENG: system_deploy_platform
+        #                        with no `mode` returns the wizard card and
+        #                        provisions nothing; parking a form read as an
+        #                        approval is wrong). Decided on the tool's own
+        #                        method, never from a caller-supplied name, and
+        #                        a predicate the tool does not define never
+        #                        opens the arm — the call stays gated. The
+        #                        action still counts as gate-routed
+        #                        (#gated_action? ignores it).
         def declare_action(name, mutating:, action_category: nil, executor_class: nil,
-                           gate_context: nil, on_proceed: nil)
+                           gate_context: nil, on_proceed: nil, ungated_when: nil)
           declared_actions[name.to_s] = {
             mutating: mutating,
             action_category: action_category,
             executor_class: executor_class,
             gate_context: gate_context,
-            on_proceed: on_proceed
+            on_proceed: on_proceed,
+            ungated_when: ungated_when
           }.freeze
         end
 
@@ -387,6 +400,10 @@ module Ai
         end
 
         return call(params) unless gated_action?(declaration)
+        # The declared READ arm of a gate-routed action (see `ungated_when` on
+        # .declare_action): dispatched exactly as an ungated action, so the
+        # tool's own per-action permission check inside #call still runs.
+        return call(params) if ungated_read_arm?(declaration, params)
 
         # A gated action never reaches #call, and tools that enforce per-action
         # permissions INSIDE #call (SystemFleetTool#action_permitted?) would
@@ -613,6 +630,25 @@ module Ai
           declaration[:executor_class].present? &&
           declaration[:gate_context].present? &&
           declaration[:on_proceed].present?
+      end
+
+      # True only when the declaration names a read-arm predicate, the tool
+      # DEFINES it, and it answers true for these params. Fail closed: an
+      # undefined predicate is logged and the call stays gated rather than
+      # slipping past the gate on a typo.
+      def ungated_read_arm?(declaration, params)
+        predicate = declaration[:ungated_when]
+        return false if predicate.blank?
+
+        unless respond_to?(predicate, true)
+          Rails.logger.error(
+            "[BaseTool] ungated_when #{predicate.inspect} is not defined on #{self.class.name}; " \
+            "keeping #{declaration[:action_category]} gated"
+          )
+          return false
+        end
+
+        send(predicate, params) == true
       end
 
       # The executor — never the action body — is the actor on BOTH branches.
