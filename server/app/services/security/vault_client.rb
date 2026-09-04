@@ -41,7 +41,7 @@ module Security
     def read_secret(path, key: nil, cache: true)
       check_circuit_breaker!
 
-      cache_key = "vault:#{path}:#{key}"
+      cache_key = cache_key_for(path, key)
 
       if cache && (cached = @cache.read(cache_key))
         return normalize_secret_data(cached)
@@ -359,10 +359,20 @@ module Security
       nil
     end
 
+    # Structural invalidation (CacheVersioning), not pattern deletion — @cache
+    # is Rails.cache, whose production default store (solid_cache) does not
+    # implement #delete_matched. See CacheVersioning's header. Bumping this
+    # path's version retires every previously-built cache_key_for(path, *)
+    # entry at once, regardless of which `key:` each was read with.
     def invalidate_cache_for_path(path)
-      # Invalidate all cached entries for this path
-      @cache.delete_matched("vault:#{path}:*")
-      @cache.delete("vault:#{path}:")
+      CacheVersioning.bump!("vault:#{path}", store: @cache)
+    end
+
+    # The single cache-key builder for #read_secret and #invalidate_cache_for_path
+    # to agree on — see the file-level comment on #normalize_secret_data for why
+    # a second definition of the shape would be a hazard here too.
+    def cache_key_for(path, key)
+      CacheVersioning.key("vault:#{path}", key, store: @cache)
     end
 
     def with_retry(retries: MAX_RETRIES)

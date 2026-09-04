@@ -88,11 +88,14 @@ RSpec.describe Security::VaultClient do
     # the operator had already fixed and the probe had already blessed.
     it "invalidates the path's cached entries so the next cached read agrees" do
       allow(logical).to receive(:read).and_return(secret_double({ data: { password: "pw" } }))
-      Rails.cache.write("vault:secret/data/x:", { "password" => "stale" })
+      stale_key = vault.send(:cache_key_for, "secret/data/x", nil)
+      Rails.cache.write(stale_key, { "password" => "stale" })
 
       vault.probe_secret("secret/data/x")
 
-      expect(Rails.cache.read("vault:secret/data/x:")).to be_nil
+      current_key = vault.send(:cache_key_for, "secret/data/x", nil)
+      expect(current_key).not_to eq(stale_key) # the stale entry is now unaddressable
+      expect(Rails.cache.read(current_key)).to be_nil
     end
 
     # The ABSENT arm needs it too, and in the more alarming direction: a stale
@@ -102,12 +105,15 @@ RSpec.describe Security::VaultClient do
     # does not care which of the two is the optimistic one.
     it "invalidates the cache even when the path turns out to be absent" do
       allow(logical).to receive(:read).and_return(nil)
-      Rails.cache.write("vault:secret/data/gone:", { "password" => "stale" })
+      stale_key = vault.send(:cache_key_for, "secret/data/gone", nil)
+      Rails.cache.write(stale_key, { "password" => "stale" })
 
       expect { vault.probe_secret("secret/data/gone") }
         .to raise_error(described_class::SecretNotFoundError)
 
-      expect(Rails.cache.read("vault:secret/data/gone:")).to be_nil
+      current_key = vault.send(:cache_key_for, "secret/data/gone", nil)
+      expect(current_key).not_to eq(stale_key) # the stale entry is now unaddressable
+      expect(Rails.cache.read(current_key)).to be_nil
     end
 
     # A STATE oracle, not a message oracle. `not_to receive(:record_failure)`
@@ -154,6 +160,35 @@ RSpec.describe Security::VaultClient do
 
       expect(vault.circuit_state).to eq("closed")
       expect(vault.circuit_stats[:failure_count]).to eq(0)
+    end
+  end
+
+  # IMP-63a7d2f99c56. #invalidate_cache_for_path called @cache.delete_matched,
+  # which the production default store (solid_cache) does not implement — see
+  # CacheVersioning's header. @cache is Rails.cache here (VaultClient#initialize
+  # sets it from that, same object #probe_secret above stubs directly), so this
+  # is not a Vault-specific quirk — it's the same class of defect as the other
+  # delete_matched sites this task fixes.
+  describe "#invalidate_cache_for_path (private, exercised through #write_secret)" do
+    let(:logical) { instance_double(Vault::Logical) }
+    let(:client)  { instance_double(Vault::Client, logical: logical) }
+
+    subject(:vault) do
+      described_class.allocate.tap do |v|
+        v.instance_variable_set(:@client, client)
+        v.instance_variable_set(:@cache, NoDeleteMatchedCacheStore.new)
+        v.send(:setup_circuit_breaker,
+               resource_id: "vault-invalidate-oracle-#{SecureRandom.hex(4)}",
+               service_name: "security_vault",
+               config: { failure_threshold: 3, success_threshold: 2, timeout_duration: 30_000,
+                         monitoring_window: 300_000, reset_timeout: 300_000 })
+      end
+    end
+
+    it "does not raise invalidating the cache on a store that cannot delete_matched" do
+      allow(logical).to receive(:write)
+
+      expect { vault.write_secret("secret/data/x", { password: "pw" }) }.not_to raise_error
     end
   end
 
@@ -247,14 +282,14 @@ RSpec.describe Security::VaultClient do
        "hand a differently-keyed Hash to the second reader" do
       client.read_secret(path, cache: true)
       # Simulate the string-keyed shape a JSON/marshal-coded store round-trips to.
-      Rails.cache.write("vault:#{path}:", { "username" => "deploy-bot", "password" => "s3cret" })
+      Rails.cache.write(client.send(:cache_key_for, path, nil), { "username" => "deploy-bot", "password" => "s3cret" })
 
       result = client.read_secret(path, cache: true)
 
       expect(result[:username]).to eq("deploy-bot")
       expect(result["username"]).to eq("deploy-bot")
     ensure
-      Rails.cache.delete("vault:#{path}:")
+      Rails.cache.delete(client.send(:cache_key_for, path, nil))
     end
 
     # `symbolize_names` is deep, so a single-key value that is ITSELF a Hash
@@ -274,7 +309,7 @@ RSpec.describe Security::VaultClient do
       expect(miss["accessToken"]).to eq("tok")
       expect(hit["accessToken"]).to eq("tok")
     ensure
-      Rails.cache.delete("vault:#{nested_path}:oauth")
+      Rails.cache.delete(client.send(:cache_key_for, nested_path, "oauth"))
     end
 
     it "leaves the single-key branch returning the bare VALUE, not a Hash" do
