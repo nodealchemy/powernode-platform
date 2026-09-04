@@ -37,8 +37,15 @@ module CacheVersioning
     # The scope's current version. Never written directly — only #bump!
     # advances it — so every call with the same `scope` and no intervening
     # #bump! returns the same value.
+    # read_counter, not read: #bump! goes through the store's #increment, and
+    # a store whose increment writes a RAW integer (RedisCacheStore's INCRBY)
+    # cannot deserialize that payload on a plain #read — the coder answers nil
+    # and the version would sit at 0 forever, silently retiring nothing.
+    # ActiveSupport::Cache::Store#read_counter exists for this: it re-reads
+    # with raw: true. Absent key answers nil, and nil.to_i is 0 — a scope that
+    # has never been bumped is version 0, which is what .key expects.
     def version(scope, store: Rails.cache)
-      store.read(version_cache_key(scope)).to_i
+      store.read_counter(version_cache_key(scope)).to_i
     end
 
     # Advances `scope`'s version, retiring every cache key previously built
