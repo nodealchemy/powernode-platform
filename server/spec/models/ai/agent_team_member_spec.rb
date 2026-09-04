@@ -257,4 +257,23 @@ RSpec.describe Ai::AgentTeamMember, type: :model do
       expect(member.capabilities).to include('quality_assurance')
     end
   end
+
+  # REVIEW FIX (HIER-P4): every key of the member-role -> Ai::TeamRole#role_type
+  # map must be a real member role, or a reader takes an unreachable branch for
+  # a fact about this model.
+  describe '.role_type_for' do
+    it 'maps only roles this model actually has' do
+      expect(described_class::ROLE_TYPE_MAP.keys - described_class::ROLES).to be_empty
+    end
+
+    it 'answers a Ai::TeamRole role_type for every member role' do
+      described_class::ROLES.each do |role|
+        expect(Ai::TeamRole::ROLE_TYPES).to include(described_class.role_type_for(role))
+      end
+    end
+
+    it 'defaults an unknown role to worker' do
+      expect(described_class.role_type_for('nonesuch')).to eq('worker')
+    end
+  end
 end

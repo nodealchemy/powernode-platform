@@ -75,6 +75,27 @@ RSpec.describe Ai::Tools::TeamManagementTool do
         expect(member.role).to eq("researcher")
       end
 
+      # REVIEW FIX (HIER-P4): extracting the member-role -> Ai::TeamRole#role_type
+      # map onto Ai::AgentTeamMember.role_type_for CHANGED this verb's answer for
+      # "specialist" (the deleted inline map had no branch for it, so it fell
+      # through to "worker"). The intended value is pinned here, not left to the
+      # extraction's side effect.
+      it "backs a specialist member with a specialist TeamRole" do
+        result = tool.execute(params: { action: "add_team_member", team_id: team.id,
+                                        agent_id: agent.id, role: "specialist" })
+
+        expect(result[:success]).to be true
+        expect(Ai::AgentTeamMember.find(result[:member_id]).role).to eq("specialist")
+        expect(team.ai_team_roles.find_by(ai_agent_id: agent.id).role_type).to eq("specialist")
+      end
+
+      it "backs an unmapped role with the worker default" do
+        result = tool.execute(params: { action: "add_team_member", team_id: team.id,
+                                        agent_id: agent.id, role: "floater" })
+
+        expect(team.ai_team_roles.find_by(ai_agent_id: agent.id).role_type).to eq("worker")
+      end
+
       it "returns error for non-existent team" do
         result = tool.execute(params: { action: "add_team_member", team_id: SecureRandom.uuid, agent_id: agent.id })
         expect(result[:success]).to be false
@@ -119,6 +140,57 @@ RSpec.describe Ai::Tools::TeamManagementTool do
       it "raises ArgumentError when action is missing" do
         expect { tool.execute(params: {}) }.to raise_error(ArgumentError, /Missing required parameters: action/)
       end
+    end
+  end
+
+  # HIER-P4 — a CANONICAL team (the per-account materialisation of a global
+  # Ai::TeamTemplate) is read-only through the MCP verbs, like a canonical
+  # agent: list/get show it flagged, every mutating verb refuses with a result
+  # envelope and points at clone-to-customise.
+  describe "canonical teams" do
+    let(:template) do
+      create(:ai_team_template, :system_template, name: "Ops Crew", slug: "ops-crew", source_key: "ops-crew")
+    end
+    let!(:canonical_team) do
+      create(:ai_agent_team, account: account, name: "Ops Crew", template_id: template.id,
+                             team_config: { "canonical" => true, "source_key" => "ops-crew" })
+    end
+    let(:agent) { create(:ai_agent, account: account) }
+
+    it "lists and shows the team flagged canonical with its template" do
+      listed = tool.execute(params: { action: "list_teams" })[:teams].find { |t| t[:id] == canonical_team.id }
+      expect(listed[:canonical]).to be true
+      expect(listed[:template_id]).to eq(template.id)
+
+      shown = tool.execute(params: { action: "get_team", team_id: canonical_team.id })[:team]
+      expect(shown[:canonical]).to be true
+      expect(shown[:source_key]).to eq("ops-crew")
+    end
+
+    it "refuses every mutating verb on a canonical team, naming the clone path" do
+      [
+        { action: "update_team", team_id: canonical_team.id, name: "Renamed" },
+        { action: "delete_team", team_id: canonical_team.id },
+        { action: "add_team_member", team_id: canonical_team.id, agent_id: agent.id },
+        { action: "remove_team_member", team_id: canonical_team.id, agent_id: agent.id }
+      ].each do |params|
+        result = tool.execute(params: params)
+        expect(result[:success]).to be(false), "#{params[:action]} should refuse"
+        expect(result[:canonical]).to be true
+        expect(result[:error]).to match(/canonical/i)
+        expect(result[:error]).to match(/clone/i)
+      end
+
+      expect(canonical_team.reload.name).to eq("Ops Crew")
+      expect(canonical_team.members.count).to eq(0)
+    end
+
+    it "leaves a team cloned from the template writable" do
+      clone = template.create_team!(account: account, name: "My Ops Crew")
+
+      result = tool.execute(params: { action: "update_team", team_id: clone.id, name: "Mine" })
+      expect(result[:success]).to be true
+      expect(clone.reload.name).to eq("Mine")
     end
   end
 end
