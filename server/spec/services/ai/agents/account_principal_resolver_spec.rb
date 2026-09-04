@@ -291,4 +291,65 @@ RSpec.describe Ai::Agents::AccountPrincipalResolver do
       expect(described_class.concierge_for(account, user: user)).to be_nil
     end
   end
+
+  # DEPLOY-4 INCIDENT (2026-09-04, ops-hub): the account's only ACTIVE provider
+  # was OpenAI while every fleet canonical is pinned to a Claude model on the
+  # account's INACTIVE Anthropic provider. mint! took "first active provider"
+  # and kept the pin, Ai::Agent's model/provider validation refused the clone,
+  # the boot-time governance reconcile failed for the account, and every
+  # declared verb fell to the require_approval default. The clone must be
+  # RUNNABLE where the canonical was: same provider when the pin agrees with
+  # it, an active provider of the pin's family when the account has one, and
+  # an unpinned clone on the account's active provider only as the last resort.
+  describe "provider and model pin of the minted clone" do
+    let(:openai) { create(:ai_provider, :openai, account: account, is_active: true, created_at: 2.days.ago) }
+    let(:anthropic_inactive) { create(:ai_provider, :anthropic, account: account, is_active: false, created_at: 1.day.ago) }
+    let(:pinned_canonical) do
+      create(:ai_agent, :global, owner_account: seeding_account,
+                                name: "Fleet Autonomy", slug: "fleet-autonomy", source_key: "fleet-autonomy",
+                                agent_type: "monitor", is_system: true,
+                                provider: anthropic_inactive,
+                                mcp_metadata: { "model_config" => { "model" => "claude-opus-4-8", "effort" => "high" } })
+    end
+
+    it "keeps the canonical's own provider when the account's active providers cannot run the pinned model" do
+      openai
+      pinned_canonical
+
+      clone = described_class.for(canonical_slug: "fleet-autonomy", account: account)
+
+      expect(clone).to be_present, "mint refused: the clone must be runnable where the canonical was"
+      expect(clone.ai_provider_id).to eq(anthropic_inactive.id)
+      expect(clone.mcp_metadata.dig("model_config", "model")).to eq("claude-opus-4-8")
+    end
+
+    it "prefers the account's ACTIVE provider of the pinned model's family over the canonical's inactive one" do
+      openai
+      pinned_canonical
+      anthropic_active = create(:ai_provider, :anthropic, account: account, is_active: true, name: "Anthropic 2", slug: "anthropic-2")
+
+      clone = described_class.for(canonical_slug: "fleet-autonomy", account: account)
+
+      expect(clone).to be_present
+      expect(clone.ai_provider_id).to eq(anthropic_active.id)
+      expect(clone.mcp_metadata.dig("model_config", "model")).to eq("claude-opus-4-8")
+    end
+
+    it "drops the model pin and uses the account's active provider when no provider of the pin's family exists there" do
+      openai
+      foreign_anthropic = create(:ai_provider, :anthropic, account: seeding_account, is_active: true)
+      canonical = create(:ai_agent, :global, owner_account: seeding_account,
+                                            name: "Fleet Autonomy", slug: "fleet-autonomy", source_key: "fleet-autonomy",
+                                            agent_type: "monitor", is_system: true, provider: foreign_anthropic,
+                                            mcp_metadata: { "model_config" => { "model" => "claude-opus-4-8", "effort" => "high" } })
+
+      clone = described_class.for(canonical_slug: "fleet-autonomy", account: account)
+
+      expect(clone).to be_present
+      expect(clone.cloned_from_id).to eq(canonical.id)
+      expect(clone.ai_provider_id).to eq(openai.id)
+      expect(clone.mcp_metadata.dig("model_config", "model")).to be_nil
+      expect(clone.mcp_metadata.dig("model_config", "effort")).to eq("high")
+    end
+  end
 end
