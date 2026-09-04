@@ -302,7 +302,10 @@ Phase 2b: ~5 lanes (one per new/promoted agent, plus the engineering policy set 
 ## 6. Delivered (written by HIER-P4, the last increment, 2026-09-04)
 
 Every phase's commits on `dev-loop/dev-improve`, core first then `extensions/system` (ext). Deploy 4
-shipped phases 0–2i (core b24da2acf / ext 5e9d2c55); phases 3 and 4 ride deploy 5.
+shipped phases 0–2i (core b24da2acf / ext 5e9d2c55); deploy 5 shipped phases 3 and 4 plus the
+engineering floors (core 9d2185b9e / ext 96b9463a, 2026-09-04 16:23 UTC, after a VM 600 reboot that
+cleared the overlay scratch). Verified on ops-hub: boot hook wrote the two refine floors, reconcile
+215 present / 0 failed, both canonical teams materialised, Platform Architect 9 skill bindings.
 
 | Phase | Core commits | Extension commits |
 |-------|--------------|-------------------|
