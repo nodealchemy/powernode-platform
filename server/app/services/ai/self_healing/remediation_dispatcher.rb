@@ -106,23 +106,41 @@ module Ai
 
           # Find agents on the degraded provider and switch to a lower-tier model
           agents = Ai::Agent.where(account: account, ai_provider_id: provider_id, status: "active")
+                            .includes(:provider)
           return { status: "skipped", message: "No agents to downgrade" } if agents.empty?
+
+          provider = Ai::Provider.find_by(id: provider_id)
+          return { status: "skipped", message: "Provider not found" } unless provider
 
           downgraded = 0
           agents.each do |agent|
-            current_model = agent.model_id
+            # An agent's model is NOT a column — it is the pin at
+            # mcp_metadata.model_config.model, read through #resolved_model so an
+            # unpinned agent reports the model it would actually run.
+            current_model = agent.resolved_model
             next unless current_model
 
             # Try to find a cheaper/faster model on the same provider
-            economy_model = find_economy_model(provider_id, current_model)
+            economy_model = find_economy_model(provider, current_model)
             next unless economy_model
 
+            # Writing the pin means writing mcp_metadata, which fires
+            # Ai::Agent#auto_resolve_provider_from_model. The downgrade target
+            # always comes from THIS provider's own supported_models, so the
+            # model's family matches the agent's provider and that callback
+            # short-circuits — the row never has to find a provider elsewhere.
             agent.update!(
-              model_id: economy_model,
-              config: (agent.config || {}).merge(
-                "original_model" => current_model,
-                "downgraded_at" => Time.current.iso8601,
-                "downgrade_reason" => "predictive_self_healing"
+              mcp_metadata: (agent.mcp_metadata || {}).deep_merge(
+                "model_config" => { "model" => economy_model }
+              ),
+              metadata: (agent.metadata || {}).merge(
+                "self_healing" => {
+                  # The model in effect when this downgrade ran — what an
+                  # operator restores the pin to.
+                  "original_model" => current_model,
+                  "downgraded_at" => Time.current.iso8601,
+                  "downgrade_reason" => "predictive_self_healing"
+                }
               )
             )
             downgraded += 1
@@ -188,17 +206,30 @@ module Ai
           transient_errors.include?(error_class.to_s)
         end
 
-        def find_economy_model(provider_id, current_model)
-          # Look for a lower-tier model on the same provider
-          provider = Ai::Provider.find_by(id: provider_id)
-          return nil unless provider
+        # The cheapest model this provider supports at a STRICTLY lower capability
+        # tier than the current one. Tiering and pricing both come from
+        # Ai::ModelTiers (family floor, escalated by live Ai::ModelPricing bands) —
+        # the platform's single price ladder — so this needs no per-provider price
+        # bookkeeping of its own and no hardcoded model names. There is no
+        # Ai::ProviderModel table; a provider's models are its supported_models
+        # jsonb, whose entries may be a Hash or a bare String (ModelTiers.id_for
+        # normalizes both). nil ⇒ the provider lists nothing cheaper, which the
+        # caller treats as "leave this agent alone".
+        def find_economy_model(provider, current_model)
+          current_rank = Ai::ModelTiers::ORDER.index(Ai::ModelTiers.classify(current_model)).to_i
 
-          available_models = Ai::ProviderModel.where(ai_provider_id: provider_id, is_active: true)
-                                               .where.not(model_id: current_model)
-                                               .order(cost_per_token: :asc)
+          candidates = Array(provider.supported_models).filter_map do |entry|
+            model_id = Ai::ModelTiers.id_for(entry).presence
+            next if model_id.nil? || model_id == current_model
 
-          # Return cheapest available model that isn't the current one
-          available_models.first&.model_id
+            rank = Ai::ModelTiers::ORDER.index(Ai::ModelTiers.classify(model_id)).to_i
+            next if rank >= current_rank
+
+            [ rank, Ai::ModelTiers.price_for(model_id).to_f, model_id ]
+          end
+
+          # Lowest tier first, then cheapest, then id — deterministic.
+          candidates.min&.last
         end
 
         def capture_state(action, context)
