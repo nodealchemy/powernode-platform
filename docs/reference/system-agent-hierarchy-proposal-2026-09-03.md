@@ -317,14 +317,13 @@ shipped phases 0–2i (core b24da2acf / ext 5e9d2c55); phases 3 and 4 ride deplo
 | **2h** — one bootstrap verb set; disk-image MCP verbs approval-gated | 73b0dd2e8, 454991e6d | 56fe14c3, 2049da77 |
 | **2b-eng** — the Engineering hierarchy: canonicals, `engineering` policy set, Platform Architect lineage, release verbs gated, platform_agent loop, docs, skeletons | fe71223e3, 7ccafd87a, 4ade2ba15, 1a46dd7b1, 90c154de5, 930702941 | c15c6db7, 051563cb |
 | **2i** — canonical principals never execute: refusal at the tool seam, the account-principal clone seam, provider/model-pin rules | 2550e461b, ee88fc75a, 7e5c1564b, 5d052d4c0, d4f4f1ef6, 33e5e60fd, 216fddd97, ba7f2c6ae | 406a6ba8, 630b4ecb |
-| **3** — autonomous design / improve / implement (governance-gap sensor and lane, gap materialiser, skill refinement) | landing concurrently in lane p3 — the commits tagged `HIER-P3` on `dev-loop/dev-improve` | same |
-| **4** — canonical teams: "System Operations" and "Platform Engineering" as `Ai::TeamTemplate`s, the canonical team reconciler, manager_led execution under the delegation policies, read-only team verbs | the commits tagged `HIER-P4` on `dev-loop/dev-improve` (core: seeder + reconciler + seed + verbs + strategy + docs + catalog) | the commits tagged `HIER-P4` (ext: System Operations seed, governance rake) |
+| **3** — autonomous design / improve / implement (governance-gap sensor and lane, gap materialiser, skill refinement) | 9e8912a30, b2e1900a7, 8916106d2, c7f611f78 | de079f85, fb81c5b2, 774deb00, 32ed9a31, b3cbdaea |
+| **4** — canonical teams: "System Operations" and "Platform Engineering" as `Ai::TeamTemplate`s, the canonical team reconciler, manager_led execution under the delegation policies, read-only at every door | 0f35721c1, 9754077e1, e02f5cfa0, e62567da0, 30505ccf4, 1eea0dbde | 900726ff, 69451179 |
 
 Inclusion rule: every campaign commit on the branch, whether or not its subject carries the phase
 tag — the last two Phase 1b entries (`cde3bf9f1`, `1d7eaca19`) are the skeleton-cleanup fix and the
-regeneration that followed it, and neither subject names a phase. Phases 3 and 4 are recorded by tag
-rather than hash because this section is written inside the increment that lands them;
-`git log --oneline --grep=HIER-P3` / `--grep=HIER-P4` in each repository lists them once finalised.
+regeneration that followed it, and neither subject names a phase. Phases 3 and 4 were filled in by the driver once both lanes finalised (2026-09-04 14:35 UTC);
+`git log --oneline --grep=HIER-P3` / `--grep=HIER-P4` in each repository lists them.
 
 What Phase 4 delivered, against §2 "Phase 4 — teams and graphs": no agent-graph model — a graph is a
 `TeamTemplate` (nodes + roles) plus the manager's delegation policy and the lineage edges (edges)
