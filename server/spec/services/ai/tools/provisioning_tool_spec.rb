@@ -51,14 +51,23 @@ RSpec.describe Ai::Tools::ProvisioningTool do
     end
   end
 
-  # M1 Self-Serve Hardening — when the business extension is loaded the
-  # provisioning_tool consults Billing::ProvisioningQuotaGuard before
-  # dispatching the SkillCompositionRunner. The pre-existing tool tests
-  # don't model a subscription, so allow the guard for these specs.
+  # M1 Self-Serve Hardening — provisioning quota is enforced through core's
+  # generic Powernode::BillingBridge seam (the private billing extension
+  # registers a handler there when it is loaded).
+  #
+  # This stub is a DEFENSIVE no-op, not a gate these examples pass through: the
+  # quota check no longer sits in ProvisioningTool. It moved to
+  # app/controllers/api/v1/internal/ai/provisioning_controller.rb and
+  # extensions/system/.../system/provisioning_service.rb, and this spec stubs the
+  # service layer (SkillCompositionRunner included), so nothing here reaches the
+  # seam in either configuration. It is kept so that re-inlining the gate in this
+  # tool cannot silently start denying a spec account that models no
+  # subscription. What it must NOT be is a stub of the private class behind the
+  # seam: a core spec has to run in a clone where that class does not exist, and
+  # a `defined?`-guarded stub of it is inert there
+  # (spec/lint/extension_namespace_ratchet_spec.rb).
   before do
-    if defined?(::Billing::ProvisioningQuotaGuard)
-      allow(::Billing::ProvisioningQuotaGuard).to receive(:allow?).and_return([true, nil])
-    end
+    allow(::Powernode::BillingBridge).to receive(:check_provisioning_quota).and_return({ allowed: true })
   end
 
   def call(action, **rest)
