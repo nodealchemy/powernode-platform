@@ -29,17 +29,20 @@ module Ai
     # the MCP verb, so it is unaffected either way.
     #
     # WHO WRITES IT. This seam only — db/seeds/ai_engineering_agents_seed.rb at
-    # seed time (every account), and `rake db:seed:engineering_release_floor` on
-    # an ESTABLISHED install. That second door is not optional: `db:seed` is
-    # FIRST BOOT ONLY on a deployed hub (rails-start.sh seeds solely while its
-    # durable `.db-initialized` marker is absent and runs `db:migrate` alone
+    # seed time (every account), `rake db:seed:engineering_release_floor` on an
+    # ESTABLISHED install, and any boot-time governance reconcile an extension
+    # wires that calls `ensure_all!` (behind `defined?`, so the two trees may
+    # skew). The extra doors are not optional: `db:seed` is FIRST BOOT ONLY on a
+    # deployed hub (rails-start.sh seeds solely while its durable
+    # `.db-initialized` marker is absent and runs `db:migrate` alone
     # afterwards), so a policy row added to a seed after first boot never reaches
     # a running install — the gap that left nine seeded governance rows unlanded
     # on this platform's own control plane, measured 2026-08-24. The system
     # extension answers the same problem for its `system.*` sets with
     # System::Governance::PolicyReconciler run from boot; core has no such
     # reconciler, and this seam is deliberately the narrow analogue rather than
-    # a second one.
+    # a second one — which is why a boot hook calls THIS rather than growing
+    # a reconciler of its own.
     #
     # ABSENCE-ONLY and non-destructive: it creates the row where the shape is
     # missing and NEVER rewrites, deactivates or deletes one an operator retuned.

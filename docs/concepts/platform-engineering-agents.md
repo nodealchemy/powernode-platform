@@ -95,9 +95,12 @@ only** (the hub's `rails-start.sh` gates it behind a durable `.db-initialized` m
 runs `db:migrate` alone afterwards), so an install upgraded onto the release gating gets
 the *code* — the gated verbs — without the *row*. Every build dispatch would then park.
 The floor is therefore written through one seam,
-`Ai::Engineering::ReleaseDispatchFloorSeeder`, which the seed calls and which is also
-exposed as `rake db:seed:engineering_release_floor` — **run it once after upgrading**. It
-is absence-only: it never rewrites, deactivates or deletes a row an operator retuned.
+`Ai::Engineering::ReleaseDispatchFloorSeeder`, which the seed calls, which a boot-time
+governance reconcile hook calls on **every boot** where an extension wires one (the hub
+image's per-boot reconcile does, behind `defined?` so the two trees may skew), and which
+is also exposed as `rake db:seed:engineering_release_floor` — **run it once after
+upgrading** on an install with no such hook. It is absence-only: it never rewrites,
+deactivates or deletes a row an operator retuned.
 The other engineering rows are deliberately not backfilled — the agents they hang off do
 not exist on such an install either, and `release.promote` / `release.rollback` /
 `release.deploy_platform` are *meant* to start requiring approval.

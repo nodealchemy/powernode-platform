@@ -86,8 +86,10 @@
 # Release Manager) and a dev-cell INSTANCE principal (no User, no Agent). Not
 # the push-triggered build path, which never reaches the MCP verb.
 # BECAUSE THIS FILE IS FIRST-BOOT ONLY, the same seam is exposed as
-# `rake db:seed:engineering_release_floor` for an install that is already up;
-# without running it the release gating parks every build dispatch.
+# `rake db:seed:engineering_release_floor` for an install that is already up,
+# and a boot-time governance reconcile hook may call it on every boot; an
+# install with neither must run the rake, or the release gating parks every
+# build dispatch.
 #
 # The four canonical rows need NO account, user or provider to exist
 # (IMP-6cda93db7f31: creator and provider are optional on a global row; an

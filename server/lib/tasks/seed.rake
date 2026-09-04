@@ -54,7 +54,9 @@ namespace :db do
     # build dispatch parks behind the unmatched-category require_approval
     # default, because the principals that dispatch builds (an operator's
     # mcp_client session, a dev-cell instance principal) match no agent-scoped
-    # row. Run this once after upgrading onto the release gating.
+    # row. A boot-time governance reconcile hook calls the same seam on every
+    # boot where one is wired; run this once after upgrading onto the release
+    # gating on an install without one.
     #
     # Absence-only and non-destructive: it never rewrites, deactivates or
     # deletes a row an operator retuned. Safe to re-run.
