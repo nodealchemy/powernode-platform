@@ -49,21 +49,38 @@ namespace :db do
 
     # HIER-P2B-ENG — the same shape, and the same reason, as the backfill
     # above: `db:seed` is FIRST BOOT ONLY on a deployed install, so the
-    # `release.build_dispatch` floor that db/seeds/ai_engineering_agents_seed.rb
-    # writes never reaches an install that is already up. Without it every MCP
-    # build dispatch parks behind the unmatched-category require_approval
-    # default, because the principals that dispatch builds (an operator's
-    # mcp_client session, a dev-cell instance principal) match no agent-scoped
-    # row. A boot-time governance reconcile hook calls the same seam on every
-    # boot where one is wired; run this once after upgrading onto the release
-    # gating on an install without one.
+    # account-wide engineering floors that db/seeds/ai_engineering_agents_seed.rb
+    # writes (release.build_dispatch, dev.prompt_refine, dev.skill_refine —
+    # Ai::Engineering::ReleaseDispatchFloorSeeder::CATEGORIES) never reach an
+    # install that is already up. Without them every MCP build dispatch and
+    # every skill/prompt refinement parks behind the unmatched-category
+    # require_approval default, because the principals that make those calls
+    # (an operator's mcp_client session, a dev-cell instance principal) match
+    # no agent-scoped row. A boot-time governance reconcile hook calls the same
+    # seam on every boot where one is wired; run this once after upgrading
+    # onto the gating on an install without one.
     #
-    # Absence-only and non-destructive: it never rewrites, deactivates or
-    # deletes a row an operator retuned. Safe to re-run.
-    desc "Backfill the release.build_dispatch auto_approve floor for every account (safe to re-run)"
-    task engineering_release_floor: :environment do
+    # Absence-only and non-destructive, per category: it never rewrites,
+    # deactivates or deletes a row an operator retuned, and an install carrying
+    # the older single floor gains only the rows it lacks. Safe to re-run.
+    desc "Backfill the account-wide engineering auto_approve floors for every account (safe to re-run)"
+    task engineering_floors: :environment do
       written = Ai::Engineering::ReleaseDispatchFloorSeeder.ensure_all!
-      puts "✅ release.build_dispatch floor ensured (#{written} row(s) written)"
+      categories = Ai::Engineering::ReleaseDispatchFloorSeeder::CATEGORIES.join(", ")
+      puts "✅ engineering floors ensured for #{categories} (#{written} row(s) written)"
+    end
+
+    # The name the floor shipped under when it covered release.build_dispatch
+    # alone (IMP-99988ef54942); runbooks and operators still call it.
+    desc "Alias of db:seed:engineering_floors"
+    task engineering_release_floor: :environment do
+      # `execute`, NOT `invoke`: Rake memoises invocation, so `invoke` on a task
+      # already run in this process is a silent no-op — `rails
+      # db:seed:engineering_floors db:seed:engineering_release_floor` would
+      # print nothing for the alias and confirm nothing to the operator. This
+      # task declares :environment itself, so nothing is skipped by going
+      # straight to the body.
+      Rake::Task["db:seed:engineering_floors"].execute
     end
 
     desc "Load minimal production seeds only (no test data)"
