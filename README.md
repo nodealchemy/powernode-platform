@@ -163,6 +163,7 @@ The full documentation lives in **[docs/](docs/)** — start with [docs/README.m
 - **[Ship your first agent](docs/getting-started/02-first-agent.md)** — first deployment walkthrough
 - **[Architecture](docs/concepts/architecture.md)** — system shape, namespaces, service boundaries
 - **[Agents & autonomy](docs/concepts/agents-and-autonomy.md)** — agent orchestration, missions, model routing, autonomy tiers
+- **[Platform engineering agents](docs/concepts/platform-engineering-agents.md)** — the Engineering hierarchy that builds the platform: Platform Architect, Platform Developer, Release Manager, the `engineering` policy set
 - **[MCP & tools](docs/concepts/mcp-and-tools.md)** — MCP protocol, OAuth, tool catalog conventions
 - **[Knowledge & memory](docs/concepts/knowledge-and-memory.md)** — knowledge graph, RAG, 4-tier memory, skills
 - **[Permissions](docs/concepts/permissions.md)** — base permissions, role mapping, frontend rules

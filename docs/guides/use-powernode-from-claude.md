@@ -29,6 +29,7 @@ discovery surface, and troubleshooting.
 - [First-call smoke test](#first-call-smoke-test)
 - [A2A discovery (agent cards)](#a2a-discovery-agent-cards)
 - [Platform agents as Claude Code subagents](#platform-agents-as-claude-code-subagents)
+  - [Handing a task to the Platform Developer vs Claude Code](#handing-a-task-to-the-platform-developer-vs-claude-code)
 - [Troubleshooting](#troubleshooting)
 - [Related documentation](#related-documentation)
 
@@ -367,6 +368,36 @@ agent when one exists, else the concierge — whose payload is the would-be
 canonical spec (slug, name, agent type, description, the body as system prompt,
 `tools` → tool families, `model` → model tier). Nothing is created directly:
 official agents are seeded canonicals, so an operator reviews and approves.
+
+### Handing a task to the Platform Developer vs Claude Code
+
+dev-improve has two executors that drain the same queue under the same loop guardrails
+(operator ruling 2026-09-03: the **Platform Developer** canonical drives it as a
+`platform_agent` alongside Claude Code — see
+[Platform engineering agents](../concepts/platform-engineering-agents.md)). A campaign
+loop is drained by exactly one of them at a time; `campaign_delegate` is the switch.
+
+| Hand it to | When | How |
+|------------|------|-----|
+| **Claude Code** (this session) | you are in the checkout, the task needs your judgement, or you want to watch it land | `campaign_delegate(campaign_id:, driver_kind: "claude_code", holder: "<your session>")`, then `/dev-loop` pulls with `dev_next_task` |
+| **Platform Developer** | the increments are approved and mechanical, the session is ending, or the loop should keep draining while nobody is at a terminal | `campaign_delegate(campaign_id:, driver_kind: "platform_agent")` — no `target.agent_id` needed: it resolves to **this account's own** Platform Developer, cloning the global canonical into the account on first use, and wires that clone on as the loop's default agent with `scheduling_mode: "continuous"` and due immediately, so the platform scheduler picks it up on its next pass |
+
+Once delegated to the platform, a Claude Code pull answers `halted: true, reason:
+"delegated_to_platform"` — the delegation names one driver, and the Platform Developer
+claims under its own identity (`agent:<id>`, not its creator's). Your session is halted
+because its MCP principal is an `mcp_client` identity rather than the agent the delegation
+named — not because of anything about the user on the call. Hand it back with
+`campaign_delegate(driver_kind: "claude_code", holder: ...)`. With no Platform Developer
+seeded (a checkout whose baseline agent seeds never ran) an empty `platform_agent`
+target is refused rather than wedging the loop on a nil agent.
+
+What the Platform Developer will and will not do on its own: claim, complete and
+propose freely (`dev.task_claim` / `dev.task_complete` / `dev.campaign_propose` are
+auto-approved — proposals are the gate); refine a skill or prompt only once its trust
+tier reaches `trusted` (below that `mutate_skill` / `auto_evolve_skill` park for
+approval); never dispatch a build, promote, roll back or deploy — those are the Release
+Manager's verbs, and promotion, rollback and deployment stay approval-gated whatever the
+tier.
 
 ### Runs feed the platform's statistics
 

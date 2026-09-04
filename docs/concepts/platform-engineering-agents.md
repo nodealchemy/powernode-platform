@@ -1,0 +1,146 @@
+# Platform Engineering Agents
+
+The platform maintains a suite of canonical agents for its **own** design, development,
+build and documentation — the Engineering hierarchy. Operations (Fleet Autonomy and the
+four operations managers in the system extension) runs the fleet; Engineering builds the
+platform. Both hang under System Concierge, the root of the whole forest.
+
+## The hierarchy
+
+```
+System Concierge (system extension — root of both hierarchies)
+├── Powernode Assistant (core concierge → the fundamental core forest)
+└── Platform Architect (core, is_governance — manager of the Platform Engineering team)
+    ├── Platform Developer        code_assistant   drains dev-improve as the platform_agent driver
+    ├── Release Manager           monitor          builds, promotion ladder, disk images, deploys
+    ├── Documentation Specialist  content_generator keeps docs, catalog and reference counts truthful
+    ├── Research Analyst          research, tech-radar sweeps
+    ├── Strategic Planner         long-horizon planning
+    ├── PRD Generator             spec-driven plans from approved offers
+    ├── LLM Judge                 independent review of every drained task
+    ├── System Quality Assurance  test-gap and verification
+    └── Knowledge Graph Curator   consolidates learnings into platform knowledge
+```
+
+Every agent above is a **seeded global canonical** (`account_id NULL`, `is_system`,
+`source_key`-managed): the four new ones come from `server/db/seeds/ai_engineering_agents_seed.rb`,
+the six existing ones from the fundamental agent seeds. Lineage edges and delegation
+policies are written by `server/db/seeds/ai_agent_hierarchy_seed.rb` through
+`Ai::Agents::HierarchyWriter`, the same seam every runtime creation path uses.
+
+**Why the Platform Architect is a core root.** Core seeds never reach for an extension
+agent, so the Engineering forest is rooted at the Platform Architect in core, and the
+system extension's hierarchy seed (`extensions/system/server/db/seeds/system_agent_hierarchy.rb`)
+attaches it under System Concierge when the extension is present — exactly how Powernode
+Assistant joins the forest. An install without the system extension keeps two core roots.
+
+## Delegation
+
+| Agent | Inheritance | Max depth | May delegate to |
+|-------|-------------|-----------|-----------------|
+| Platform Architect | moderate | 3 | every Engineering agent type (derived from its children at seed time) |
+| Platform Developer | conservative | 1 | the LLM Judge's agent type only — review, nothing else |
+| Release Manager | conservative | 1 | nobody (a delegate-type list no agent carries; the model refuses depth 0) |
+| every other child | conservative | 1 | the P1 leaf policy |
+
+## The `engineering` policy set
+
+The categories are core (`Ai::InterventionPolicy::ENGINEERING_CATEGORIES`, registered
+beside `ai.delegation_policy.update`); the rows are seeded on the **owning** agent.
+
+| Category | Owner | Verdict | Gated by |
+|----------|-------|---------|----------|
+| `dev.task_claim`, `dev.task_complete` | Platform Developer | auto_approve | (rows for the loop's own bookkeeping; `dev_next_task` / `dev_complete_task` stay ungated so a Claude Code session is never parked) |
+| `dev.campaign_propose` | Platform Developer, Platform Architect | auto_approve — proposals **are** the gate | `campaign_propose` (ungated; the proposal itself awaits approval) |
+| `dev.skill_refine` | Platform Developer, Platform Architect | auto_approve from `trusted`, require_approval below | `auto_evolve_skill` |
+| `dev.prompt_refine` | Platform Developer, Platform Architect | auto_approve from `trusted`, require_approval below | `mutate_skill` |
+| `release.build_dispatch` | Release Manager + an account-wide floor | auto_approve (see the note below on "on develop") | `system_dispatch_module_build_batch` |
+| `release.promote` | Release Manager | require_approval, no trust unlock | `system_promote_module_version` |
+| `release.rollback` | Release Manager | require_approval, no trust unlock | `system_rollback_module_version` |
+| `release.deploy_platform` | Release Manager | require_approval, no trust unlock | `system_deploy_platform` (the mode-less wizard read is the verb's declared read arm and never meets the gate) |
+| `docs.update` | Documentation Specialist | auto_approve | **nothing yet** — the row is seeded and the category registered, but no verb or executor carries it. It exists so the Documentation Specialist's authority is declared where the others are; a documentation write path that gates on it is later work. |
+
+**Trust-conditioned refinements** (operator ruling 2026-09-03 #3) use the existing
+conditions mechanism, not a new one: each refine category is a row **pair** on the owning
+agent — an `auto_approve` row with `conditions: { trust_tier_minimum: "trusted" }` at
+priority 20 above an unconditioned `require_approval` row at priority 10. Below `trusted`
+the conditioned row does not match and the call parks; from `trusted` both match and the
+higher priority wins. The release rows carry no condition at all: promotion, rollback and
+deployment stay approval-gated whatever the tier, because a self-hosted control plane
+cannot recover itself from a bad rollout and the rollback tool is dead while it is down.
+
+**The build-dispatch floor.** An agent-scoped policy row matches only the agent it names,
+and the principals that legitimately dispatch a build over MCP carry none: an operator's
+Claude Code session (whose MCP principal is an `mcp_client` identity, not the Release
+Manager) and a dev-cell **instance** principal (mTLS node cert — no user and no agent at
+all). One `scope: "global"` auto_approve row for `release.build_dispatch` keeps that path
+flowing once the MCP verb is gated; every other release verb has no floor, so those
+callers meet the unmatched default and park. This is *not* about the automatic
+push-triggered build, which runs through the system extension's own trigger service and
+never reaches the MCP verb.
+
+**Two clauses the rows cannot carry.** The ruling asks for `release.build_dispatch` to
+auto-approve *on develop*; `Ai::InterventionPolicy`'s conditions vocabulary has no
+branch/ref key (a dispatch context carries `base_sha` / `head_sha`, not a branch name), so
+the seeded row is an **unconditioned** auto_approve and the develop rule lives in the
+Release Manager's prompt — a branch-conditioned verdict needs a new condition key. The
+ruling also asks for Release Manager delegation at **depth 0**; `Ai::DelegationPolicy`
+validates `max_depth > 0` and reads an *empty* `allowed_delegate_types` as unrestricted,
+so "delegates to nobody" is spelled depth 1 plus the no-such-type sentinel `["none"]`,
+which `#allows_delegate_type?` refuses for every real agent type. Same verdict, in the
+vocabulary the model has.
+
+**Landing the floor on an install that is already up.** `db:seed` runs on **first boot
+only** (the hub's `rails-start.sh` gates it behind a durable `.db-initialized` marker and
+runs `db:migrate` alone afterwards), so an install upgraded onto the release gating gets
+the *code* — the gated verbs — without the *row*. Every build dispatch would then park.
+The floor is therefore written through one seam,
+`Ai::Engineering::ReleaseDispatchFloorSeeder`, which the seed calls and which is also
+exposed as `rake db:seed:engineering_release_floor` — **run it once after upgrading**. It
+is absence-only: it never rewrites, deactivates or deletes a row an operator retuned.
+The other engineering rows are deliberately not backfilled — the agents they hang off do
+not exist on such an install either, and `release.promote` / `release.rollback` /
+`release.deploy_platform` are *meant* to start requiring approval.
+
+All six gated verbs replay through `Ai::Executors::DeferredToolCall` as the original
+principal on approval (see [Deferred tool-call replay](deferred-tool-call-replay.md)); each
+gate context resolves the target under the account and applies the verb's own admission
+rule **before** parking, and the rollback context pins the auto-selected version into the
+approval so the operator approves the version the card names.
+
+## The Platform Developer as the platform_agent driver
+
+`campaign_delegate driver_kind: platform_agent` with no `target.agent_id` resolves to the
+Platform Developer — specifically to **the account's own row** for
+`Ai::RalphLoop::PLATFORM_AGENT_DEFAULT_SLUG`, cloned from the global canonical on first
+use through the HIER-P1 canonical rule (lineage edge, `cloned_from_id`, a creator and
+provider from this account). The global canonical itself is never wired onto a loop:
+`Ai::Ralph::TaskExecutor` runs a loop's `default_agent` through
+`Ai::AgentToolBridgeService`, which resolves tools and permissions as `agent.creator`, and
+a canonical's creator is a user in the *seeding* account — so a foreign principal would
+end up executing another account's work.
+
+The loop's `default_agent` becomes that clone, and it can then claim work through
+`dev_next_task` under its own identity (`agent:<id>`) while every other caller — a Claude
+Code session, another platform agent — meets the `delegated_to_platform` halt. Note that
+"its own identity" is decided on the **agent** principal, not on the absence of a user:
+the bridge passes `agent.creator` as the calling user on every tool call, so a present
+user is the normal shape of an agent principal; what separates a human session is that the
+MCP door's agent is always an `mcp_client` identity. With no Platform Developer canonical
+present, an empty target still raises: the default is a resolution, never a wedged loop. See
+[Use Powernode from Claude Code](../guides/use-powernode-from-claude.md#handing-a-task-to-the-platform-developer-vs-claude-code)
+for when to hand a task to which executor.
+
+## Claude Code subagents
+
+Each Engineering canonical is exported as a Claude Code subagent under
+`.claude/agents/powernode/` (`rails claude:sync_agents`). The Platform Developer's
+skeleton carries `Edit`, `Write` and `Bash` (the `code_assistant` rule in
+`Ai::ClaudeExport::ToolAllowlist`); the Release Manager's does not — it reads, dispatches
+and promotes through platform verbs only.
+
+## Related
+
+- [Agents and autonomy](agents-and-autonomy.md)
+- [Deferred tool-call replay](deferred-tool-call-replay.md)
+- The ruling record: `docs/reference/system-agent-hierarchy-proposal-2026-09-03.md` §2 Phase 2b and §5
