@@ -115,9 +115,9 @@ class Api::V1::RolesController < ApplicationController
     render_success(assignable_roles.map { |role| assignable_role_data(role) })
   end
 
-  # POST /api/v1/roles/:role_id/assign_to_user/:user_id
+  # POST /api/v1/roles/:id/assign_to_user/:user_id
   def assign_to_user
-    role = visible_roles.find(params[:role_id])
+    role = visible_roles.find(params[:id])
 
     unless can_assign_role?(role)
       return render_error("You do not have permission to assign this role", status: :forbidden)
@@ -131,11 +131,17 @@ class Api::V1::RolesController < ApplicationController
     render_error("Failed to assign role: #{e.message}", status: :unprocessable_content)
   end
 
-  # DELETE /api/v1/roles/:role_id/remove_from_user/:user_id
+  # DELETE /api/v1/roles/:id/remove_from_user/:user_id
   def remove_from_user
-    role = visible_roles.find(params[:role_id])
+    role = visible_roles.find(params[:id])
 
-    @user.remove_role(role)
+    # NOT @user.remove_role(role): that method takes a role NAME and resolves
+    # it via Role.find_by(name:), which is only unique per account_id — passing
+    # this already-scoped Role object silently fails to match (find_by(name:)
+    # on an object), and even passing role.name could hit the WRONG account's
+    # same-named role. `role` here is already the correct, visible_roles-scoped
+    # record, so remove it from the association directly.
+    @user.roles.delete(role)
     render_success(user_with_roles(@user))
   rescue ActiveRecord::RecordNotFound
     render_error("Role not found", status: :not_found)

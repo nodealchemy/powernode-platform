@@ -441,22 +441,23 @@ RSpec.describe 'Api::V1::Roles', type: :request do
     end
   end
 
-  describe 'POST /api/v1/roles/:role_id/assign_to_user/:user_id' do
+  describe 'POST /api/v1/roles/:id/assign_to_user/:user_id' do
     let(:assign_user) { create(:user, account: account, permissions: [ 'admin.role.assign' ]) }
     let(:assign_headers) { auth_headers_for(assign_user) }
     let(:target_user) { create(:user, account: account) }
     let(:role) { create(:role, is_system: false) }
 
     context 'with admin.role.assign permission' do
-      it 'assigns role to user' do
+      it 'assigns the role to the user and records the grantor' do
         post "/api/v1/roles/#{role.id}/assign_to_user/#{target_user.id}",
              headers: assign_headers,
              as: :json
 
-        # The controller uses params[:role_id] but the route puts it in params[:id].
-        # Role.find(nil) raises RecordNotFound which is caught by rescue_from and returns 404.
-        # This is a controller bug (should use params[:id]) but we verify the endpoint responds.
-        expect(response.status).to eq(404)
+        expect(target_user.reload.roles).to include(role)
+
+        user_role = UserRole.find_by(user: target_user, role: role)
+        expect(user_role).to be_present
+        expect(user_role.granted_by_id).to eq(assign_user.id)
       end
     end
 
@@ -468,24 +469,25 @@ RSpec.describe 'Api::V1::Roles', type: :request do
 
         # find_user rescues RecordNotFound and renders 404 directly
         expect(response).to have_http_status(:not_found)
+        expect(target_user.reload.roles).not_to include(role)
       end
     end
 
     context 'when role does not exist' do
-      it 'returns not found error' do
+      it 'returns not found error and assigns nothing' do
+        roles_before = target_user.roles.to_a
+
         post "/api/v1/roles/nonexistent-id/assign_to_user/#{target_user.id}",
              headers: assign_headers,
              as: :json
 
-        # find_user resolves first with the target_user, but the controller's
-        # Role.find(params[:role_id]) where role_id is nil triggers RecordNotFound
-        # with nil model which crashes the error handler -> 500
-        expect(response.status).to be_between(404, 500)
+        expect_error_response('Role not found', 404)
+        expect(target_user.reload.roles).to match_array(roles_before)
       end
     end
   end
 
-  describe 'DELETE /api/v1/roles/:role_id/remove_from_user/:user_id' do
+  describe 'DELETE /api/v1/roles/:id/remove_from_user/:user_id' do
     let(:assign_user) { create(:user, account: account, permissions: [ 'admin.role.assign' ]) }
     let(:assign_headers) { auth_headers_for(assign_user) }
     let(:target_user) { create(:user, account: account) }
@@ -496,26 +498,27 @@ RSpec.describe 'Api::V1::Roles', type: :request do
     end
 
     context 'with admin.role.assign permission' do
-      it 'removes role from user' do
+      it 'removes the role from the user' do
+        expect(target_user.roles).to include(role)
+
         delete "/api/v1/roles/#{role.id}/remove_from_user/#{target_user.id}",
                headers: assign_headers,
                as: :json
 
-        # Same controller bug as assign_to_user: params[:role_id] is nil because
-        # the member route puts the ID in params[:id]. Returns 404.
-        expect(response.status).to eq(404)
+        expect(target_user.reload.roles).not_to include(role)
       end
     end
 
     context 'without permission' do
       let(:no_perm_headers) { auth_headers_for(regular_user) }
 
-      it 'returns forbidden error' do
+      it 'returns forbidden error and does not remove the role' do
         delete "/api/v1/roles/#{role.id}/remove_from_user/#{target_user.id}",
                headers: no_perm_headers,
                as: :json
 
         expect_error_response('Permission denied', 403)
+        expect(target_user.reload.roles).to include(role)
       end
     end
   end
