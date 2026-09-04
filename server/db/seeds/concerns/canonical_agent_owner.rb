@@ -31,7 +31,19 @@ module CoreSeeds
       return agent unless agent.is_a?(::Ai::Agent) && agent.persisted? && agent.global?
 
       agent.creator = creator if creator && agent.creator_id.nil?
-      agent.provider = provider if provider && agent.ai_provider_id.nil?
+      if agent.ai_provider_id.nil?
+        # A canonical pinned to a model its offered provider cannot run must
+        # not be saved on that provider (deploy-4 incident, 2026-09-04: a
+        # Claude-pinned canonical back-filled with the OpenAI provider failed
+        # validation on every later save and aborted the hierarchy seed).
+        # Same rule as the account-clone mint; an incompatible offer leaves
+        # the global row provider-less rather than invalid.
+        chosen, compatible = ::Ai::Agents::AccountPrincipalResolver.provider_for_pin(
+          pinned_model: agent.mcp_metadata&.dig("model_config", "model"),
+          providers: ::Ai::Provider.ordered_by_priority, preferred: provider
+        )
+        agent.provider = chosen if chosen && compatible
+      end
       agent.save! if agent.changed?
       agent
     end

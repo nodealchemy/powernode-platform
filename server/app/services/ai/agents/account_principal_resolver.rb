@@ -103,6 +103,29 @@ module Ai
 
       attr_reader :account, :user
 
+      # THE provider rule for anything that has to run a canonical's pinned
+      # model somewhere else (the account clone here, the seeds' owner
+      # back-fill in db/seeds/concerns/canonical_agent_owner.rb): an ACTIVE
+      # provider of the pin's family from `providers`; else `preferred` when it
+      # agrees with the pin (that is what the canonical itself runs on, active
+      # or not); else any provider of the family; else — no provider of that
+      # family at all — `preferred`, then the first active provider, flagged
+      # incompatible so the caller can drop the pin or leave the row
+      # provider-less. Returns [provider or nil, compatible?]. A pin no family
+      # claims is compatible with any provider.
+      def self.provider_for_pin(pinned_model:, providers:, preferred: nil)
+        family = ::Ai::Agent.provider_family_for(pinned_model) if pinned_model.present?
+        list = providers.respond_to?(:to_a) ? providers.to_a : Array(providers)
+        return [ list.find(&:is_active) || preferred || list.first, true ] if family.nil?
+
+        same = list.select { |p| p.provider_type == family }
+        return [ same.find(&:is_active), true ] if same.any?(&:is_active)
+        return [ preferred, true ] if preferred && preferred.provider_type == family
+        return [ same.first, true ] if same.any?
+
+        [ list.find(&:is_active) || preferred || list.first, false ]
+      end
+
       def initialize(account:, user: nil)
         raise ArgumentError, "#{SEAM} needs the account the principal acts in" unless account
 
@@ -224,29 +247,26 @@ module Ai
       # exist. Returns [provider, mcp_metadata override or nil].
       def runnable_provider_for(canonical)
         pin = canonical.mcp_metadata&.dig("model_config", "model").presence
-        family = pin && canonical.send(:provider_type_for_model, pin)
-        active = account.ai_providers.active.ordered_by_priority
-
-        if family && (same_family = active.by_type(family).first)
-          return [ same_family, nil ]
-        end
-
+        # The canonical's own provider counts when this account owns it (that is
+        # what the canonical itself runs on) — or, as the fallback of last
+        # resort, when the account has no provider of its own at all. A clone
+        # never borrows another tenant's provider while its own account has one.
         own = canonical.provider
-        if own && own.account_id == account.id && (family.nil? || own.provider_type == family)
-          return [ own, nil ]
-        end
+        own = nil if own && own.account_id != account.id && account.ai_providers.exists?
+        provider, compatible = self.class.provider_for_pin(
+          pinned_model: pin, providers: account.ai_providers.ordered_by_priority, preferred: own
+        )
+        return [ nil, nil ] unless provider
+        return [ provider, nil ] if compatible
 
-        fallback = active.first || own
-        return [ nil, nil ] unless fallback
-        return [ fallback, nil ] if family.nil? || fallback.provider_type == family
-
+        family = ::Ai::Agent.provider_family_for(pin)
         metadata = (canonical.mcp_metadata || {}).deep_dup
         metadata["model_config"] = (metadata["model_config"] || {}).except("model")
         Rails.logger.warn(
           "[#{SEAM}] canonical #{canonical.slug.inspect} is pinned to #{pin.inspect} (#{family}) but account " \
-          "#{account.id} has no #{family} provider; minting the clone UNPINNED on #{fallback.provider_type}"
+          "#{account.id} has no #{family} provider; minting the clone UNPINNED on #{provider.provider_type}"
         )
-        [ fallback, metadata ]
+        [ provider, metadata ]
       end
 
       def lock_mint!(canonical)
