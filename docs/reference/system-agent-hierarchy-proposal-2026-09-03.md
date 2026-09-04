@@ -255,3 +255,14 @@ Phase 2b: ~5 lanes (one per new/promoted agent, plus the engineering policy set 
 7. **Driver ruling 2026-09-03 23:20 (single-writer seeds).** `PolicyReconciler` is the only writer of
    declared intervention-policy rows; agent seeds write identity, prompt, chain, trust, tool access and
    skills. Legacy seeds that still upsert rows are rewritten under offer 01a0696f once approved.
+8. **Operator ruling 2026-09-04 00:10 (canonical principals never execute).** A global canonical agent
+   (`account_id NULL`) is a template, never an executing principal. `BaseTool#permitted?` today
+   enforces no permission at all for such a principal, which would make a canonical unbounded if it
+   ever ran; the rule is that a NULL-account agent principal is REFUSED at the tool seam with a
+   result envelope (never -32603), and every execution goes through an account-scoped clone whose
+   permissions derive from the account role. Tracked as HIER-P2I; ships in deploy 4.
+9. **Operator ruling 2026-09-04 00:10 (sequencing).** Offers 01a06997 and 01a0696f approved. Deploy 4
+   runs after HIER-P2B-ENG and HIER-P2I land and BEFORE Phase 3 / Phase 4, which ride deploy 5. The
+   six pending dev-improve tasks (three business-extension, IMP-222dd9bce564, IMP-31e7c3dbeb2a,
+   IMP-f2a7a729d39b) are drained now as one batch; the two with deploy-window preconditions report
+   `blocked` with the reading if the precondition is unmet.
