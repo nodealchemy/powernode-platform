@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_03_181500) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9800,7 +9800,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_181500) do
     t.text "description"
     t.boolean "enabled", default: true, null: false
     t.uuid "internal_ca_id"
-    t.string "lifecycle_class"
     t.string "name", null: false
     t.uuid "node_template_id", null: false
     t.string "public_address"
@@ -9818,12 +9817,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_181500) do
     t.index ["account_id"], name: "index_system_nodes_on_account_id"
     t.index ["config"], name: "index_system_nodes_on_config", using: :gin
     t.index ["internal_ca_id"], name: "index_system_nodes_on_internal_ca_id"
-    t.index ["lifecycle_class"], name: "index_system_nodes_on_lifecycle_class"
     t.index ["node_template_id"], name: "index_system_nodes_on_node_template_id"
     t.index ["ssh_host_key_fingerprint"], name: "index_system_nodes_on_ssh_host_key_fingerprint"
     t.index ["ssh_key_fingerprint"], name: "index_system_nodes_on_ssh_key_fingerprint"
     t.index ["worker_id"], name: "index_system_nodes_on_worker_id"
-    t.check_constraint "lifecycle_class::text = ANY (ARRAY['persistent'::character varying::text, 'ephemeral'::character varying::text, 'spot'::character varying::text])", name: "chk_system_nodes_lifecycle_class"
   end
 
   create_table "system_package_module_links", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
