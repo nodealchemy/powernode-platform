@@ -567,7 +567,18 @@ module Ai
       account_id.present? || account.present?
     end
 
-    # Auto-resolve provider when model name changes to a different provider family
+    # Auto-resolve provider when model name changes to a different provider family.
+    #
+    # Failing to find one is only an ERROR for an account-scoped row, which
+    # cannot execute without a provider (same rule as the presence validation
+    # above, keyed on the same #account_scoped_row?). A GLOBAL canonical is a
+    # TEMPLATE: it never executes, and Ai::Agents::AccountPrincipalResolver
+    # #provider_for_pin picks a runnable provider per-account at execution
+    # time — so leaving it provider-less is the sanctioned outcome when
+    # nothing on the plane can run its pin (IMP-42881dd9aed0), and the seeds
+    # now mint exactly that. Erroring here made that state UNSAVEABLE the
+    # moment anything touched the pin, which is the mid-seed save failure
+    # that aborted the deploy-4 hierarchy seed.
     def auto_resolve_provider_from_model
       model_name = mcp_metadata.dig("model_config", "model")
       return if model_name.blank?
@@ -582,8 +593,13 @@ module Ai
       if resolved
         self.provider = resolved
         Rails.logger.info("[Ai::Agent] Auto-resolved provider for model '#{model_name}': #{resolved.name} (#{target_type})")
-      else
+      elsif account_scoped_row?
         errors.add(:base, "No active #{target_type} provider found in account for model '#{model_name}'")
+      else
+        Rails.logger.info(
+          "[Ai::Agent] No active #{target_type} provider for global canonical '#{slug || name}' " \
+          "pinned to '#{model_name}'; leaving it provider-less — the account's clone resolves one at execution time."
+        )
       end
     end
 
