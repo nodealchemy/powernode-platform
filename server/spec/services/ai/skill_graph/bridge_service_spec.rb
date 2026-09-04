@@ -162,6 +162,116 @@ RSpec.describe Ai::SkillGraph::BridgeService, type: :service do
     end
   end
 
+  # IMP-b3ab46fb3999 — Ai::Agents::AccountPrincipalResolver mints the account's
+  # executing clone of a global canonical and deliberately gives it the
+  # canonical's NAME (its IDENTITY rule: every `resolve_for(name:)` site then
+  # finds the clone override-first). ai_knowledge_graph_nodes is unique on
+  # (account_id, name, node_type) WHERE status='active'
+  # (index_ai_kg_nodes_unique_active) and BOTH rows are node_type "entity" — and
+  # the canonical's own node is still sitting in the account, written back when
+  # that row was account-scoped, before the seed globalized it in place
+  # (GloballyScopable.find_or_initialize_global keeps the id and flips account_id
+  # to nil). sync_agent looked its node up ONLY by metadata.ai_agent_id, so a
+  # freshly minted clone's new id never matched: it fell through to
+  # create_node(name: agent.name) and hit the unique index. RecordNotUnique is a
+  # StandardError, so the blanket rescue logged it and returned nil — the row
+  # that now ACTS ends up with no KG entity at all, on every mint.
+  describe "#sync_agent" do
+    let!(:user) { create(:user, account: account) }
+
+    def node_for(agent)
+      Ai::KnowledgeGraphNode.where(account_id: account.id)
+        .where("metadata @> ?", { ai_agent_id: agent.id }.to_json).first
+    end
+
+    def slot_node(name)
+      Ai::KnowledgeGraphNode.find_by(
+        account_id: account.id, name: name, node_type: "entity", status: "active"
+      )
+    end
+
+    # Reproduces the live precondition the way production produced it: an
+    # account-scoped agent whose node was synced normally, then globalized in
+    # place. A global agent never syncs again (Ai::Agent#sync_to_knowledge_graph
+    # returns early on a nil account_id), so that node is stranded in the account.
+    def globalized_canonical(name:, source_key:)
+      agent = create(:ai_agent, account: account, name: name, agent_type: "monitor", creator: user)
+      node = slot_node(name)
+      raise "precondition failed: the agent's own sync did not claim the slot" if node.nil?
+
+      agent.update!(account_id: nil, source_key: source_key, is_system: true)
+      [ agent.reload, node ]
+    end
+
+    it "links a node to an ordinary account agent" do
+      agent = create(:ai_agent, account: account, name: "Ordinary Agent")
+
+      node = service.sync_agent(agent.reload)
+
+      expect(node).to be_present
+      expect(node.entity_type).to eq("agent")
+      expect(node.node_type).to eq("entity")
+      expect(node.metadata["ai_agent_id"]).to eq(agent.id)
+    end
+
+    it "inherits the canonical's stranded node for the principal minted from it" do
+      canonical, canonical_node = globalized_canonical(name: "Fleet Autonomy", source_key: "fleet-autonomy")
+
+      clone = Ai::Agents::AccountPrincipalResolver.acting(canonical, account: account, user: user)
+
+      expect(clone.id).not_to eq(canonical.id)
+      expect(clone.name).to eq("Fleet Autonomy")
+
+      node = node_for(clone)
+      expect(node).to be_present,
+                      "the clone has no KG node — sync_agent's PG::UniqueViolation on " \
+                      "index_ai_kg_nodes_unique_active was swallowed by the blanket rescue"
+      expect(node.id).to eq(canonical_node.id)
+      expect(node.entity_type).to eq("agent")
+      expect(node.description).to eq(clone.description)
+      expect(
+        Ai::KnowledgeGraphNode.where(
+          account_id: account.id, name: "Fleet Autonomy", node_type: "entity", status: "active"
+        ).count
+      ).to eq(1)
+    end
+
+    it "re-points a clone minted before this fix on its next sync" do
+      canonical, canonical_node = globalized_canonical(name: "SDWAN Manager", source_key: "sdwan-manager")
+      clone = Ai::Agents::AccountPrincipalResolver.acting(canonical, account: account, user: user)
+      # The pre-fix state: the clone exists and acts, its node insert collided,
+      # and the canonical's node is still pointed at a row that can never sync.
+      canonical_node.update!(metadata: canonical_node.metadata.merge("ai_agent_id" => canonical.id))
+
+      node = service.sync_agent(clone.reload)
+
+      expect(node&.id).to eq(canonical_node.id)
+      expect(canonical_node.reload.metadata["ai_agent_id"]).to eq(clone.id)
+    end
+
+    # The mirror of adoptable_slot_node's rule: a node whose owner can still sync
+    # into this account is NOT inheritable. Taking it would break that owner's
+    # sync forever — it finds its node by metadata.ai_agent_id, which we would
+    # have overwritten.
+    it "declines a parent node whose owner still syncs into this account" do
+      parent = create(:ai_agent, account: account, name: "Tenant Parent")
+      copy = create(:ai_agent, account: account, name: "Tenant Parent (Copy)", cloned_from_id: parent.id)
+      node_for(copy).destroy!
+      # Ai::Agent partitions name uniqueness by account, so an account parent's
+      # node can only occupy its clone's slot when the node's NAME is stale — the
+      # parent was renamed while its own sync was failing. Stage exactly that.
+      parent_node = node_for(parent)
+      parent_node.update_columns(name: "Tenant Parent (Copy)")
+
+      # Declining leaves the create_node fall-through, which still collides and is
+      # still rescued: the clone gets no node. That is the correct trade — the
+      # alternative destroys a live agent's node.
+      expect(service.sync_agent(copy.reload)).to be_nil
+      expect(parent_node.reload.metadata["ai_agent_id"]).to eq(parent.id)
+      expect(parent_node.entity_type).to eq("agent")
+    end
+  end
+
   describe "#sync_all_skills" do
     before do
       create(:ai_skill, account: account, name: "Skill A", category: "productivity", status: "active")
