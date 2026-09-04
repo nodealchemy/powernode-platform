@@ -72,6 +72,8 @@ RSpec.describe "provider-agnostic agent rename (claude_agents_seed)" do
         knowledge-system-curator skill-management productivity powernode-dev
         design-skill-from-intent design-agent-team-from-intent
         marketing legal bio-research finance sales customer-support
+        agent-autonomy ai-agent-architect api-design documentation-writer
+        extension-developer
       ].map do |slug|
         create(:ai_skill, :global, slug: slug, status: "active")
       end
