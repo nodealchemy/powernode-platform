@@ -575,7 +575,10 @@ module Ai
       target_type = provider_type_for_model(model_name)
       return if target_type.nil? || (provider.present? && provider.provider_type == target_type)
 
-      resolved = account.ai_providers.active.by_type(target_type).ordered_by_priority.first
+      # A GLOBAL canonical (account_id NULL) may run on any account's provider
+      # of the model's family; an account-scoped row only on its own.
+      candidates = account ? account.ai_providers : ::Ai::Provider.all
+      resolved = candidates.active.by_type(target_type).ordered_by_priority.first
       if resolved
         self.provider = resolved
         Rails.logger.info("[Ai::Agent] Auto-resolved provider for model '#{model_name}': #{resolved.name} (#{target_type})")
@@ -586,13 +589,21 @@ module Ai
 
     # Map model name prefix to provider_type
     def provider_type_for_model(model_name)
-      case model_name
+      self.class.provider_family_for(model_name)
+    end
+
+    # The provider_type a pinned model id belongs to, or nil for a model no
+    # family claims (ollama/custom ids stay with whatever provider they have).
+    # Public so the seeds' owner back-fill and Ai::Agents::AccountPrincipalResolver
+    # pick a provider by the SAME rule the validation below enforces.
+    def self.provider_family_for(model_name)
+      case model_name.to_s
       when /\Aclaude/   then "anthropic"
       when /\Agrok/     then "grok"
       when /\Agpt-|\Ao[134]/ then "openai"
       when /\Agemini/   then "google"
       when /\Amistral/  then "mistral"
-      else nil # Unknown models: leave provider unchanged (ollama/custom stay as-is)
+      else nil
       end
     end
 
