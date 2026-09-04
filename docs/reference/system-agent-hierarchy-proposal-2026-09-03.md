@@ -293,6 +293,11 @@ Phase 2b: ~5 lanes (one per new/promoted agent, plus the engineering policy set 
     an account-wide auto_approve floor (the `release.build_dispatch` precedent) so row-less MCP callers stop
     parking; agent-scoped rows keep the trust-conditioned verdict; the four release verbs keep parking.
     (d) Lazy minting of account principals inside the fleet/CVE ticks and the reconcile stays.
+12. **Operator ruling 2026-09-04 15:45 (floors reach the materialiser).** The account-wide refine floors
+    (ruling 11c) apply to the Phase 3 governance-gap materialiser as well: on an account whose Platform
+    Architect carries no trust-conditioned refine row, a detected-and-proposed `skill_binding` or
+    `prompt_refinement` gap materialises without parking. `dev.governance_materialize` (structural changes)
+    has no floor and still parks everywhere. Both states are pinned by spec (IMP-a51963f8717f).
 
 ## 6. Delivered (written by HIER-P4, the last increment, 2026-09-04)
 
