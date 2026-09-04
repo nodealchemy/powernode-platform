@@ -36,6 +36,33 @@ module Accounts
   # Account's own `after_create_commit :run_account_bootstrap` already fires for
   # any account however it was created.
   #
+  # SEEDED PER-ACCOUNT ROWS (IMP-e8513b30152d)
+  # -------------------------------------------
+  # Seeds run once, at first boot, so per-account baseline rows the seed
+  # creates for the accounts that exist THEN must be created here for a tenant
+  # provisioned LATER — through the seed's own seam, so the two paths cannot
+  # drift. Today that is the inactive `claude-code` Ai::Provider scope
+  # (Ai::ClaudeExport::ProviderScopeSeeder): the row Claude Code runs of
+  # platform agents are recorded under, which the report path deliberately
+  # cannot mint. This service is chosen over on-demand creation because it is
+  # where core provisions a tenant AFTER bootstrap.
+  #
+  # It is NOT the only account creator, and db:seed does not backstop the
+  # others — each covers itself through the same seam:
+  #   * Setup::FirstAdminService — the FIRST account. Its own bootstrap calls
+  #     the seam. db:seed is not a guarantee there: the wizard's seed step is
+  #     Setup::SeedService (the extension :account_seeder seam), which no-ops in
+  #     core mode and never loads db/seeds.rb, and only the hub module seeds
+  #     after bootstrapping an admin.
+  #   * accounts predating the seed on an ESTABLISHED install — db:seed is
+  #     first-boot only; `rails db:seed:claude_code_provider_scopes` backfills.
+  #   * Api::V1::Auth::RegistrationsController — SaaS-mode only (require_saas_mode),
+  #     so an extension concern; it can call the same seam (open question).
+  #   * Ai::ProviderManagementService::ProviderSpecs#setup_default_providers does
+  #     `Account.find_or_create_by`, but has no production caller — every
+  #     reference is in spec/ (verified 2026-09-03 with a grep that includes
+  #     `find_or_create_by`, which the original survey pattern missed).
+  #
   # DELIBERATELY NOT REUSED
   # -----------------------
   # Workers::EnsureSystemWorker. Setup::FirstAdminService calls it, but it
@@ -117,6 +144,8 @@ module Accounts
           password: @admin_password,
           email_verified_at: Time.current
         )
+
+        ::Ai::ClaudeExport::ProviderScopeSeeder.ensure_for!(account)
 
         Result.new(account: account, administrator: administrator)
       end

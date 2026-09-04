@@ -151,3 +151,11 @@ service_backends_update in the agent-scoped set, snapshot delete / cordon / rest
 (QEMU VNC use-after-free against qemu-guest-agent ×3; TLS renegotiation against nginx). Ruling 16:05:
 resolved by hand with a resolution note, no remediation fired; the fallback fix is IMP-7bba0413c36a
 (record match source, keyword rows non-actionable, published-age window, data migration).
+
+**Deploy 3 outcome (17:49 UTC, approved 17:25 with offers 01a06822 and 01a06846):** batch `01a06854`
+planned extension-system, hub-backend and hub-frontend. ops-hub runs core `aad89cf93` (hub-backend v90,
+hub-frontend v28) + ext `c581915c` (v81). Carried: cordon honoured by the reconciler, the CVE match-evidence
+split (its migration resolved the 565 keyword-only rows on boot), and the build identity — `/api/v1/version`
+now answers `display: "aad89cf"` on branch develop and the bundle carries the same sha, so the footer reads
+the short sha instead of `0.0.1-dev • 0.3.1`. A pre-existing `prerelease` parsing bug surfaced in that
+payload (`"1"` for 0.3.1) and is fixed on the loop branch (core 82a5a5e9f), undeployed.

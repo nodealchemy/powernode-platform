@@ -124,7 +124,10 @@ class Ai::McpAgentExecutor
       mcp_response["telemetry"] = {
         "execution_time_ms" => ((Time.current - @start_time) * 1000).round,
         "tokens_used" => result.dig("metadata", "tokens_used") || 0,
-        "provider_used" => @agent.provider.provider_type
+        # Nullable on a GLOBAL row (IMP-6cda93db7f31): a canonical seeded
+        # before any provider existed carries none, and telemetry must never
+        # be what raises on it.
+        "provider_used" => @agent.provider&.provider_type
       }
 
       mcp_response

@@ -19,6 +19,10 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
 
     before do
       allow(team).to receive(:members).and_return(members_relation)
+      # HIER-P1: the service resolves a lineage parent (team lead, else the
+      # account concierge) after the save; the doubles here model neither.
+      allow(members_relation).to receive(:find_by).with(is_lead: true).and_return(nil)
+      allow(Ai::Agent).to receive(:resolve_concierge_for).with(account.id).and_return(nil)
       allow(Ai::GuardrailConfig).to receive(:where).with(account: account).and_return(
         double('relation', active: Ai::GuardrailConfig.none)
       )
@@ -80,6 +84,43 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
         expect {
           service.create_agent_for_team(team, agent_params, user)
         }.to raise_error(ArgumentError, /maximum capacity/)
+      end
+    end
+
+    # HIER-P1 — a team-created agent is not a root: its lineage parent is the
+    # team lead (else the account's concierge), written through
+    # Ai::Agents::HierarchyWriter so the Autonomy forest sees it.
+    context 'lineage (real records)' do
+      let(:provider) { create(:ai_provider, account: account) }
+      let(:lead)     { create(:ai_agent, account: account, creator: user, provider: provider, name: "Lead") }
+      let(:real_team) { create(:ai_agent_team, account: account) }
+      let(:real_params) { { name: "Lineage Agent", description: "desc", role: "worker" } }
+
+      before do
+        allow(Ai::Agent).to receive(:resolve_concierge_for).and_call_original
+        allow(Ai::GuardrailConfig).to receive(:where).and_call_original
+        real_team.members.create!(agent: lead, role: "manager", is_lead: true)
+      end
+
+      it 'attaches the new agent under the team lead' do
+        agent = service.create_agent_for_team(real_team, real_params, user)
+
+        expect(agent).to be_persisted
+        expect(agent.reload.parent_agent_id).to eq(lead.id)
+        edges = Ai::AgentLineage.for_child(agent.id).active
+        expect(edges.pluck(:parent_agent_id)).to eq([ lead.id ])
+        expect(edges.first.spawn_reason).to eq("team_member")
+        expect(edges.first.metadata["team_id"]).to eq(real_team.id)
+      end
+
+      it 'falls back to the account concierge when the team has no lead' do
+        real_team.members.update_all(is_lead: false)
+        concierge = create(:ai_agent, account: account, creator: user, provider: provider,
+                                      name: "Concierge", is_concierge: true)
+
+        agent = service.create_agent_for_team(real_team, real_params, user)
+
+        expect(agent.reload.parent_agent_id).to eq(concierge.id)
       end
     end
 

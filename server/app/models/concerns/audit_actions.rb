@@ -242,10 +242,14 @@ module AuditActions
   # flip (IMP-439d31353f9b) is a measured decision rather than a guess. Its
   # payload is shape-only — principal KIND, tool class, action name; never
   # identity, never credentials.
+  # mcp.tools.canonical_principal_refused (HIER-P2I): Ai::Tools::BaseTool
+  # refused a GLOBAL canonical agent (account_id NULL) as the acting
+  # principal — a template never executes; the account's clone does. Carries
+  # the canonical's slug and the tool/action, never the call's params.
   MCP_ACTIONS = %w[
     mcp.servers.read mcp.servers.create mcp.servers.update mcp.servers.delete
     mcp.servers.connect mcp.servers.disconnect mcp.servers.health_check mcp.servers.discover_tools mcp.servers.workflow_builder_read
-    mcp.tools.read mcp.tools.execute mcp.tools.undeclared_action
+    mcp.tools.read mcp.tools.execute mcp.tools.undeclared_action mcp.tools.canonical_principal_refused
     mcp.executions.read mcp.executions.cancel
     mcp.oauth.authorize_initiated mcp.oauth.callback_success mcp.oauth.disconnect mcp.oauth.status_read mcp.oauth.token_refreshed
   ].freeze

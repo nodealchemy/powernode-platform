@@ -52,6 +52,22 @@ platform_skill_assignments = {
   'Strategic Planner' => %w[
     product-management business-search technical-researcher data
   ],
+  # Engineering hierarchy canonicals (HIER-P2B-ENG, ai_engineering_agents_seed).
+  # The Platform Architect designs agents/teams/skills/prompts, so it binds the
+  # four design skills; the Platform Developer binds Extension Developer (the
+  # code-intelligence surface is a tool family, not a skill); the promoted
+  # Documentation Specialist keeps the four bindings the demo dev-team seed gave
+  # it, api-design included (it wrote the API reference docs).
+  # The Release Manager's authority is its tool families alone.
+  'Platform Architect' => %w[
+    ai-agent-architect design-agent-team-from-intent skill-management agent-autonomy
+  ],
+  'Platform Developer' => %w[
+    extension-developer
+  ],
+  'Documentation Specialist' => %w[
+    documentation-writer knowledge-system-curator product-management api-design
+  ],
   'Legal & Compliance Analyst' => %w[
     legal
   ],

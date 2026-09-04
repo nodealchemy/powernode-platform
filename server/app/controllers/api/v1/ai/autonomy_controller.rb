@@ -48,49 +48,47 @@ module Api
         end
 
         # GET /api/v1/ai/autonomy/lineage
+        #
+        # Reads Ai::Agent.for_account (GloballyScopable), NOT current_account.
+        # ai_agents: the canonical platform agents are GLOBAL rows (account_id
+        # nil, is_system) and were invisible here while the picker listed them,
+        # so a selected canonical rendered nothing the forest could show
+        # (HIER-P0).
         def lineage_forest
           trust_scores_map = ::Ai::AgentTrustScore
             .where(account_id: current_account.id)
             .index_by(&:agent_id)
 
-          parent_ids = ::Ai::AgentLineage
-            .where(account_id: current_account.id)
-            .active
-            .distinct
-            .pluck(:parent_agent_id)
-
-          child_ids = ::Ai::AgentLineage
-            .where(account_id: current_account.id)
-            .active
-            .distinct
-            .pluck(:child_agent_id)
+          lineage_scope = ::Ai::AgentLineage.where(account_id: current_account.id).active
+          parent_ids = lineage_scope.distinct.pluck(:parent_agent_id)
+          child_ids = lineage_scope.distinct.pluck(:child_agent_id)
 
           # Root agents: appear as parents but never as children
           root_ids = parent_ids - child_ids
 
-          # Orphans: agents with no lineage at all
+          # Root agents with no parent AND no children: no lineage row at all.
+          # Reported under `orphans` (the key the page reads); the page labels
+          # them "Root agents (no parent)".
           all_lineage_ids = (parent_ids + child_ids).uniq
-          orphan_agents = current_account.ai_agents.active.where.not(id: all_lineage_ids)
+          visible_agents = ::Ai::Agent.for_account(current_account.id)
+          orphan_agents = visible_agents.active.where.not(id: all_lineage_ids)
 
-          roots = current_account.ai_agents.where(id: root_ids).order(:name)
+          roots = visible_agents.where(id: root_ids).order(:name)
           trees = roots.map { |agent| build_lineage_tree(agent, trust_scores_map, depth: 0) }
 
           orphan_trees = orphan_agents.order(:name).map do |agent|
-            {
-              id: agent.id,
-              name: agent.name,
-              type: agent.agent_type,
-              status: agent.status,
-              trust_level: trust_scores_map[agent.id]&.tier,
-              depth: 0,
-              children: []
-            }
+            lineage_node(agent, trust_scores_map, depth: 0, children: [])
           end
 
           render_success(data: { trees: trees, orphans: orphan_trees })
         end
 
         # GET /api/v1/ai/autonomy/lineage/:agent_id
+        #
+        # Returns an AgentLineageNode ROOTED at the agent — the exact shape
+        # AutonomyDashboardPage feeds to AgentLineageTree — plus `parents` as
+        # sibling data. The pre-HIER-P0 keys (agent_id, total_children,
+        # total_parents) live under `meta`; no frontend consumer read them.
         def lineage
           agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
 
@@ -98,23 +96,24 @@ module Api
             .where(account_id: current_account.id)
             .index_by(&:agent_id)
 
-          children_tree = build_lineage_tree(agent, trust_scores_map, depth: 0)
+          tree = build_lineage_tree(agent, trust_scores_map, depth: 0)
           parent_ids = ::Ai::AgentLineage
             .where(account_id: current_account.id, child_agent_id: agent.id)
             .active
             .pluck(:parent_agent_id)
 
-          parents = current_account.ai_agents.where(id: parent_ids).map do |p|
-            { id: p.id, name: p.name, type: p.agent_type, status: p.status }
+          parents = ::Ai::Agent.for_account(current_account.id).where(id: parent_ids).order(:name).map do |p|
+            { id: p.id, name: p.name, type: p.agent_type, status: p.status, canonical: canonical_agent?(p) }
           end
 
-          render_success(data: {
-            agent_id: agent.id,
-            children: children_tree[:children],
+          render_success(data: tree.merge(
             parents: parents,
-            total_children: count_descendants(children_tree),
-            total_parents: parents.size
-          })
+            meta: {
+              agent_id: agent.id,
+              total_children: count_descendants(tree),
+              total_parents: parents.size
+            }
+          ))
         rescue ActiveRecord::RecordNotFound
           render_not_found("Agent")
         end
@@ -292,6 +291,13 @@ module Api
             build_lineage_tree(child, trust_scores_map, depth: depth + 1, visited: visited)
           end
 
+          lineage_node(agent, trust_scores_map, depth: depth, children: children)
+        end
+
+        # ONE serializer for every node the lineage surface emits (forest
+        # roots, orphans, single-agent root, descendants), so the tree
+        # component never meets two shapes.
+        def lineage_node(agent, trust_scores_map, depth:, children:)
           {
             id: agent.id,
             name: agent.name,
@@ -299,8 +305,15 @@ module Api
             status: agent.status,
             trust_level: trust_scores_map[agent.id]&.tier,
             depth: depth,
+            canonical: canonical_agent?(agent),
             children: children
           }
+        end
+
+        # A canonical agent is a GLOBAL seeded row: account_id nil AND is_system.
+        # An account's clone of it carries account_id and is not canonical.
+        def canonical_agent?(agent)
+          agent.global? && agent.is_system == true
         end
 
         def count_descendants(tree)

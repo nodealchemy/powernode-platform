@@ -250,8 +250,8 @@ module Ai
       # agent-SCOPED, and Ai::InterventionPolicy#agent_matches? rejects a scoped
       # row against a nil agent — so only an agent-dispatched call resolves
       # against them. An operator MCP call arrives with @agent nil and matches
-      # the scope-"action_type" rows seeded by
-      # AgentSetupHelpers.upsert_operator_policies! instead.
+      # the scope-"action_type" rows the system extension's operator policy
+      # sets are written at instead.
       #
       # A scope-"global" row binds BOTH callers (IMP-cb36021d4094) — it is the
       # account-wide floor, so an operator's account-wide block refuses an agent

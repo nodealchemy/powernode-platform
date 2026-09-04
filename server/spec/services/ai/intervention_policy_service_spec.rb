@@ -16,8 +16,8 @@ require "rails_helper"
 # honour all three:
 #
 #   scope "agent"       — binds only the agent it names.
-#   scope "action_type" — the operator path (AgentSetupHelpers
-#                         .upsert_operator_policies!). Agent-less callers only.
+#   scope "action_type" — the operator path (the system extension's operator
+#                         policy sets). Agent-less callers only.
 #   scope "global"      — the account-wide floor, agent-BINDING by design.
 #
 # Keying on ai_agent_id discarded the global audience along with the operator
@@ -244,8 +244,8 @@ RSpec.describe Ai::InterventionPolicyService do
 
     # 3b. CONTROL, and the SEEDED shape of that lever. Both rows are agent-less
     #     with no user, so they share a tier, and the only thing separating them
-    #     is priority: System::Seeds::AgentSetupHelpers.upsert_operator_policies!
-    #     writes scope "action_type" at priority 5, while
+    #     is priority: the system extension's operator policy sets are written
+    #     at scope "action_type", priority 5, while
     #     db/seeds/autonomy_data_seed.rb writes scope "global" at priority 0.
     #     Nothing else in the tree relies on cross-tier priority ordering.
     #

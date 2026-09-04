@@ -40,6 +40,17 @@ RSpec.describe Ai::ModelTiers do
       expect(described_class.classify("claude-haiku-4-5")).to eq(:light)
     end
 
+    # HIER-P1C item 2: the model ids a Claude Code session reports through
+    # platform.record_agent_execution (the CC frontmatter aliases opus /
+    # sonnet / haiku / fable resolve to these families) classify onto the
+    # ladder by family prefix — no per-version literal is needed.
+    it "classifies every Claude Code model family a run can report" do
+      expect(described_class.classify("claude-opus-5")).to eq(:reasoning)
+      expect(described_class.classify("claude-sonnet-5")).to eq(:standard)
+      expect(described_class.classify("claude-haiku-4-5")).to eq(:light)
+      expect(described_class.classify("claude-fable-5-1")).to eq(:frontier)
+    end
+
     it "classifies gpt-4o as :reasoning" do
       expect(described_class.classify("gpt-4o")).to eq(:reasoning)
     end

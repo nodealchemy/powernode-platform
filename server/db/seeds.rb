@@ -13,6 +13,9 @@ puts "🌱 Seeding Powernode platform..."
 #              read-only, upserted by source_key): skills, prompt templates, KB
 #              documentation, default knowledge bases, agent/team/mission templates.
 #              Needs NO account (global content), so it seeds in core/prod too.
+#              ONE EXCEPTION (IMP-e8513b30152d): ai_claude_code_provider_seed.rb
+#              is baseline but PER-ACCOUNT — it no-ops when no account exists and
+#              is re-run for later accounts through its own seam. See its header.
 #   DEMO     — Powernode::Seeds.demo? (POWERNODE_SEED_DEMO=true / SEED_ADMIN_USERS).
 #              OFF by default in all envs — opt in explicitly.
 #              Account-scoped samples: test accounts/users, sample agents, showcase pages.
@@ -179,9 +182,18 @@ safe_load('knowledge_base_articles.rb')
 # ---------------------------------------------------------------------------
 # BASELINE: foundational GLOBAL content (account_id nil, upserted by source_key).
 # Seeds in core/prod too — no account required. Each of these files seeds its
-# content rows globally and demo-gates any instance creation internally.
+# content rows globally and demo-gates any instance creation internally, EXCEPT
+# the first member below, which is per-account by nature (IMP-e8513b30152d).
 # ---------------------------------------------------------------------------
 if Powernode::Seeds.baseline?
+  # Per-ACCOUNT (not global) but baseline: the inactive `claude-code` provider
+  # scope Claude Code runs are recorded under (IMP-e8513b30152d). Runs after
+  # the provider catalog above; no account yet ⇒ the seed no-ops (the account a
+  # wizard install creates later is covered by Setup::FirstAdminService, and an
+  # established install by `rails db:seed:claude_code_provider_scopes`).
+  puts "\n🧾 Loading the Claude Code provider scope..."
+  safe_load('ai_claude_code_provider_seed.rb')
+
   puts "\n🧩 Loading AI Skills..."
   safe_load('ai_skills_seed.rb')
 
@@ -237,11 +249,26 @@ if Powernode::Seeds.baseline?
 
   # Fundamental GLOBAL platform agents — the platform's canonical agent roster
   # (account_id nil; accounts clone to customize). BASELINE, not demo: they are
-  # core platform resources, no longer gated behind demo. Each seed skips
-  # gracefully if no platform user exists yet (fresh core/prod before setup) —
-  # re-seed after setup creates the admin user. Per-seed rescue so one failure
-  # never aborts the rest of platform seeding (the system-extension agents seed
-  # via the extension orchestrator below, also baseline).
+  # core platform resources, no longer gated behind demo. A canonical row needs
+  # NO account, user or provider (IMP-6cda93db7f31: creator and provider are
+  # optional on a global row), so every canonical seeds on a fresh core/prod DB
+  # before setup; only the account-scoped follow-on rows the seeds write (trust
+  # scores, approval chains, policy rows, budgets, lineage, the demo agents)
+  # wait for the admin account, and the canonicals' own creator/provider
+  # columns fill in on that same re-seed (db/seeds/concerns/canonical_agent_owner.rb).
+  # Per-seed rescue so one failure never aborts the rest of platform seeding
+  # (the agent seeds that ship with extensions run via the extension
+  # orchestrator below, also baseline; those still require an account, a user
+  # and a provider, which is why Ai::ClaudeExport::AgentSkeletonSync refuses to
+  # sync at all until all three exist — a partial roster is not a roster).
+  # `ai_engineering_agents_seed` (HIER-P2B-ENG) adds the Engineering
+  # hierarchy's canonicals (Platform Architect, Platform Developer, Release
+  # Manager, Documentation Specialist) with their policy rows and chains;
+  # `platform_skill_assignments_seed` then binds skills to every canonical.
+  # `ai_agent_hierarchy_seed` runs LAST: it attaches every canonical the seeds
+  # above created — the core forest under the core concierge and the
+  # Engineering agents under the Platform Architect — and writes their
+  # delegation policies (HIER-P1), so it must see all of them.
   puts "\n🤖 Loading fundamental global platform agents (baseline, canonical)..."
   %w[
     claude_agents_seed
@@ -249,7 +276,9 @@ if Powernode::Seeds.baseline?
     ai_utility_agents_seed
     ai_concierge_seed
     autonomy_data_seed
+    ai_engineering_agents_seed
     platform_skill_assignments_seed
+    ai_agent_hierarchy_seed
   ].each { |seed_file| safe_load("#{seed_file}.rb") }
 end
 

@@ -2,27 +2,19 @@
 
 puts "\n🤖 Seeding AI Concierge Agent..."
 
-# Graceful skip (not raise) when prerequisites are missing: on a fresh
-# core/prod DB no account exists until first-admin bootstrap / the setup
-# wizard runs — re-seeding afterwards creates the concierge. Matches the
-# skip idiom of the sibling baseline agent seeds (ai_utility_agents_seed).
+# The concierge is a GLOBAL canonical (account_id nil, source_key-managed) and
+# needs NO account, user or provider to exist (IMP-6cda93db7f31): on a fresh
+# core/prod DB — before first-admin bootstrap / the setup wizard — it is
+# written with no creator and no provider (both optional on a global row; an
+# account's executing clone gets THAT account's through
+# Ai::Agents::AccountPrincipalResolver). A later re-seed fills them in.
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
-
-unless admin_account && admin_user
-  puts "  ⏭️  Admin account/user not found — skipping AI Concierge (re-seed after setup)"
-  return
-end
 
 provider = Ai::Provider.find_by(provider_type: 'openai', name: 'OpenAI') ||
            Ai::Provider.find_by(provider_type: 'openai') ||
            Ai::Provider.find_by(provider_type: 'ollama') ||
            Ai::Provider.where(is_active: true).first
-
-unless provider
-  puts "  ⏭️  No AI provider found — skipping AI Concierge (re-seed after providers)"
-  return
-end
 
 ActiveRecord::Base.transaction do
   # GLOBAL platform concierge (account_id nil); an account customizes it by
@@ -35,8 +27,10 @@ ActiveRecord::Base.transaction do
     is_concierge: true,
     status: "active",
     description: "Intelligent concierge agent that helps you navigate all Powernode platform capabilities through natural language.",
-    creator: admin_user,
-    provider: provider,
+    # Never blank a creator/provider an earlier seed set: nil only on a fresh
+    # DB with none to give.
+    creator: (admin_user || agent.creator),
+    provider: (provider || agent.provider),
     # Create-only (see ai_utility_agents_seed): keep the callback-bumped version
     # on re-seed instead of downgrading it to 1.0.0 and churning an audit.
     version: (agent.version || "1.0.0"),
@@ -85,8 +79,10 @@ ActiveRecord::Base.transaction do
   # Link concierge to its workspace routing skill (find_or_initialize + assign
   # ensures re-running seeds always reactivates the link, even if previously disabled)
   # The concierge skill is global baseline content (account_id nil); for_account
-  # resolves global + this account's rows.
-  concierge_skill = Ai::Skill.for_account(admin_account.id).find_by(slug: "powernode-concierge")
+  # resolves global + this account's rows, and with no account yet only the
+  # global row can exist.
+  skill_scope = admin_account ? Ai::Skill.for_account(admin_account.id) : Ai::Skill.global
+  concierge_skill = skill_scope.find_by(slug: "powernode-concierge")
   raise "ai_concierge_seed: Powernode Concierge skill not found — run ai_skills_seed.rb first" unless concierge_skill
 
   agent_skill = Ai::AgentSkill.find_or_initialize_by(ai_agent_id: agent.id, ai_skill_id: concierge_skill.id)

@@ -15,7 +15,7 @@ module Ai
     # GET /api/v1/ai/autonomy/delegation_policies/:agent_id
     def agent_delegation_policy
       agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
-      policy = ::Ai::DelegationPolicy.find_by(agent_id: agent.id, account_id: current_account.id)
+      policy = ::Ai::DelegationPolicy.resolve_for(agent_id: agent.id, account_id: current_account.id)
 
       if policy
         render_success(data: serialize_delegation_policy(policy))
@@ -80,6 +80,9 @@ module Ai
         id: policy.id,
         agent_id: policy.agent_id,
         agent_name: policy.agent&.name,
+        # A canonical (account-less) row is seed-managed and read-only here:
+        # update/destroy resolve through where(account_id:) and will not find it.
+        canonical: policy.global?,
         max_depth: policy.max_depth,
         allowed_delegate_types: policy.allowed_delegate_types,
         delegatable_actions: policy.delegatable_actions,

@@ -63,6 +63,14 @@ module Ai
     scope :default, -> { where(priority_order: 1) }
     # ->> (not the jsonb ? operator) — ? is the AR bind placeholder
     scope :model_sync_pending, -> { where("metadata ->> 'model_sync_pending_at' IS NOT NULL") }
+    # Providers the platform may route its OWN executions to. Excludes the
+    # synthetic scope Ai::ClaudeExport::ExecutionRecorder records Claude Code
+    # runs under (metadata.execution_source = claude_code): those model
+    # statistics are real, but the platform holds no credential that could
+    # serve them, so Ai::AgentModelSelector must never pick that row.
+    scope :platform_routable, -> {
+      where("metadata ->> 'execution_source' IS DISTINCT FROM ?", ::Ai::AgentExecution::CLAUDE_CODE_SOURCE)
+    }
 
     # Callbacks
     before_validation :generate_slug, if: -> { name.present? && slug.blank? }

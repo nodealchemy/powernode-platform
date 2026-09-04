@@ -29,5 +29,15 @@ for f in "$CONV"/*.md; do
   echo "  - ${title} → conventions/${base} (tag guidance-${base%.md})"
 done
 echo "Improvement loop: /improve discover → approve → /dev-loop dev-improve (or delegate to a platform agent)."
+# Platform agents as Claude Code subagents: count the committed canonical skeletons
+# (no Rails boot — this hook has a 5 s budget). Regenerate after a seed/renderer change.
+AGENTS_DIR="$PROJECT_DIR/.claude/agents/powernode"
+agent_count=0
+if [[ -d "$AGENTS_DIR" ]]; then
+  for f in "$AGENTS_DIR"/*.md; do [[ -e "$f" ]] && agent_count=$((agent_count + 1)); done
+fi
+echo "Platform agents: ${agent_count} canonical platform agent(s) available as subagents (.claude/agents/powernode/, Agent(subagent_type: \"<slug>\"))."
+echo "  For platform work prefer these subagents over general-purpose; ask platform.route_task when unsure."
+echo "  Regenerate after a seed change: cd server && bundle exec rails claude:sync_agents (gate: scripts/check-claude-agents-fresh.sh)."
 echo "=== end guidance ==="
 exit 0

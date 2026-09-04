@@ -62,8 +62,17 @@ module Ai
     # Optional: a global (platform-provided) agent has account_id nil.
     belongs_to :account, optional: true
     audit_optional_account! reason: "system agents are shared across tenants and own no account"
-    belongs_to :creator, class_name: "User", foreign_key: "creator_id"
-    belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
+    # A GLOBAL canonical (account_id nil) is a seeded platform template, never an
+    # executing principal (proposal §5 rulings 5 and 8), and it is seeded before
+    # any user or provider exists (IMP-6cda93db7f31) — so creator and provider
+    # are optional ONLY on a global row. An account-scoped row, which is every
+    # principal that can run, still requires both; the database carries the same
+    # rule as chk_ai_agents_account_rows_need_creator_and_provider. What runs for
+    # a canonical is the account's clone, minted with THAT account's creator and
+    # provider by Ai::Agents::AccountPrincipalResolver.
+    belongs_to :creator, class_name: "User", foreign_key: "creator_id", optional: true
+    belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id", optional: true
+    validates :creator, :provider, presence: { message: "must exist" }, if: :account_scoped_row?
     has_many :executions, class_name: "Ai::AgentExecution", foreign_key: "ai_agent_id", dependent: :destroy
 
     has_many :conversations, class_name: "Ai::Conversation", foreign_key: "ai_agent_id", dependent: :destroy
@@ -548,6 +557,14 @@ module Ai
       SiteSetting.get(SKILL_PROMPT_TOKEN_BUDGET_SETTING) || DEFAULT_SKILL_PROMPT_TOKEN_BUDGET
     rescue StandardError
       DEFAULT_SKILL_PROMPT_TOKEN_BUDGET
+    end
+
+    # The creator/provider presence rule keys on the row being account-scoped.
+    # Not GloballyScopable#global? (account_id.nil?): an unsaved row built with
+    # an unsaved account has no account_id yet, and must still fail validation
+    # rather than the database CHECK once the account is autosaved.
+    def account_scoped_row?
+      account_id.present? || account.present?
     end
 
     # Auto-resolve provider when model name changes to a different provider family

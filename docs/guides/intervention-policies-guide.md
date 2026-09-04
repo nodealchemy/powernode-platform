@@ -166,11 +166,13 @@ platform.create_intervention_policy(
 )
 ```
 
-This mirrors the seed in `extensions/system/server/db/seeds/fleet_autonomy_agent.rb`:
+This mirrors the declaration in
+`extensions/system/server/app/services/system/governance/policy_declarations.rb`, which
+`PolicyReconciler` writes (the agent seeds stopped upserting rows at IMP-10e4f6c3bcd2):
 
 ```ruby
-fleet_policies = {
-  "system.cert_rotate" => "auto_approve",
+FLEET_AUTONOMY_POLICIES = {
+  "system.cert_rotate" => "require_approval",
   # ...
 }
 ```
@@ -379,10 +381,14 @@ config.after_initialize do
 end
 ```
 
-3. **Add a default policy in the relevant agent seed.** For SDWAN actions, edit `extensions/system/server/db/seeds/system_sdwan_manager_agent.rb`. For Fleet Autonomy, edit `extensions/system/server/db/seeds/fleet_autonomy_agent.rb`:
+3. **Add the default policy to the owning declaration set** — never to an agent seed, which
+   since IMP-10e4f6c3bcd2 writes no policy row. Edit
+   `extensions/system/server/app/services/system/governance/policy_declarations.rb`:
+   `SDWAN_REMEDIATION_POLICIES` for an SDWAN remediation, `FLEET_AUTONOMY_POLICIES` for the
+   node-lifecycle core, and so on:
 
 ```ruby
-sdwan_policies = {
+SDWAN_REMEDIATION_POLICIES = {
   "system.sdwan.new_peer_provisioning" => "notify_and_proceed",
   "system.sdwan.peer_revocation" => "require_approval",
   # ...
@@ -412,10 +418,15 @@ end
 
 5. **Add an executor for `require_approval`.** Deferred operations carry an `executor_class` that runs after approval. The executor exposes a class method `execute(params, deferred_operation:)` (and optionally `preview(params, deferred_operation:)`); `executor_class` is constantized and the method is called synchronously by `Ai::DeferredOperation#execute_now!`. `preview` receives the operation on the same keyword so an approval card can scope any row it names to the account the gate opened the operation in — an executor that renders a caller-supplied id must resolve it through that account, never unscoped. Place it under the extension's `app/services/<extension>/ai/skills/` directory.
 
-6. **Run the seed to install defaults:**
+6. **Declare the default row.** In the system extension, declared intervention-policy
+   rows have ONE writer — `System::Governance::PolicyReconciler` (proposal §5 ruling 7,
+   IMP-10e4f6c3bcd2). Add the category to a `PolicyDeclarations` set rather than upserting
+   it from a seed; the extension's seed orchestrator ends with a reconcile pass, so
+   `rails db:seed` still installs it, and rails-start.sh reconciles on every later boot:
 
 ```bash
-cd server && rails db:seed
+cd server && rails db:seed          # first install (runs the reconcile pass last)
+cd server && rails system:governance:reconcile   # established install, absence only
 ```
 
 Verify the category is registered:
@@ -441,7 +452,7 @@ Ai::InterventionPolicy.category_registered?("system.sdwan.peer_revocation")
 - [../operations/ralph-loops.md](../operations/ralph-loops.md) - autonomous loops that trigger policy resolution
 - [../operations/ai-operations.md](../operations/ai-operations.md) - daily AI ops runbook
 - [../concepts/agents-and-autonomy.md](../concepts/agents-and-autonomy.md) - intervention policy conceptual model
-- `extensions/system/server/db/seeds/fleet_autonomy_agent.rb` - canonical policy seed
+- `extensions/system/server/app/services/system/governance/policy_declarations.rb` - where the system extension's rows are declared (its `PolicyReconciler` is the only writer; the agent seeds write identity, prompt, chain, trust and tool access only)
 - `server/app/services/ai/intervention_policy_service.rb` - resolution algorithm
 - `server/app/models/ai/intervention_policy.rb` - schema, scopes, condition evaluation
 

@@ -5,7 +5,10 @@ require 'rails_helper'
 RSpec.describe Ai::Agent, type: :model do
   describe 'associations' do
     it { should belong_to(:account).optional } # optional: a GLOBAL agent has account_id nil
-    it { should belong_to(:provider) }
+    # optional ONLY on a global row (IMP-6cda93db7f31) — the presence rule for
+    # account-scoped rows is pinned under 'validations' below.
+    it { should belong_to(:provider).optional }
+    it { should belong_to(:creator).optional }
     it { should have_many(:executions).dependent(:destroy) }
     it { should have_many(:conversations).dependent(:destroy) }
     it { should have_many(:messages).dependent(:destroy) }
@@ -13,6 +16,28 @@ RSpec.describe Ai::Agent, type: :model do
 
   describe 'validations' do
     subject { build(:ai_agent) }
+
+    # IMP-6cda93db7f31: a GLOBAL canonical (account_id nil) is a seeded template
+    # written before any user or provider exists; every account-scoped row —
+    # every principal that can run — still carries both. Mirrors the CHECK
+    # chk_ai_agents_account_rows_need_creator_and_provider.
+    it 'requires a creator and a provider on an account-scoped row' do
+      agent = build(:ai_agent, creator: nil, provider: nil)
+
+      expect(agent).not_to be_valid
+      expect(agent.errors[:creator]).to include('must exist')
+      expect(agent.errors[:provider]).to include('must exist')
+    end
+
+    it 'allows a global canonical row without a creator or a provider' do
+      agent = build(:ai_agent, account: nil, creator: nil, provider: nil,
+                               name: 'Canonical Without Owner', slug: 'canonical-without-owner')
+
+      expect(agent).to be_valid
+      expect { agent.save! }.not_to raise_error
+      expect(agent.reload.creator_id).to be_nil
+      expect(agent.ai_provider_id).to be_nil
+    end
 
     it { should validate_presence_of(:name) }
     it { should validate_presence_of(:agent_type) }

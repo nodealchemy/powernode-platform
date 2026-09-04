@@ -290,10 +290,12 @@ dist
 # Proxmox host it runs on.
 scripts/breakglass.sh
 
-# Generated Claude Code agent skeletons (regenerate via: rails claude:sync_agents /
-# scripts/sync-claude-agents.sh) — scoped to this subdir so hand-authored agents
-# elsewhere under .claude/agents/ stay committable.
-.claude/agents/powernode/
+# Claude Code agent skeletons. The CANONICAL set (.claude/agents/powernode/,
+# generated from the global seeded agents by `rails claude:sync_agents`) IS
+# committed — it is environment-independent (slug-keyed, no per-install ids) and
+# freshness-gated by scripts/check-claude-agents-fresh.sh. Only an ACCOUNT's own
+# export (ACCOUNT_ID=... — clones and local agents) is per-checkout and ignored.
+.claude/agents/powernode-local/
 
 # MCP configuration (generated per-environment via: scripts/manage-proxy-hosts.sh generate-mcp)
 .mcp.json

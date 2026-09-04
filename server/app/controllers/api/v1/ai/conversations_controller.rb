@@ -49,6 +49,14 @@ module Api
         # POST /api/v1/ai/agents/:agent_id/conversations
         def create
           agent = @agent || ::Ai::Agent.for_account(current_user.account.id).find(params[:agent_id])
+          # HIER-P2I: `for_account` includes the GLOBAL canonicals, and every
+          # message in this conversation executes the attached agent as the
+          # principal — so the conversation attaches to the account's clone of a
+          # canonical, the same map the concierge doors below make. An
+          # account-owned agent passes through untouched.
+          agent = ::Ai::Agents::AccountPrincipalResolver.acting(
+            agent, account: current_user.account, user: current_user
+          )
           ProviderAvailabilityService.validate_agent_provider!(agent)
 
           conversation = agent.conversations.build(
@@ -371,7 +379,9 @@ module Api
 
         # POST /api/v1/ai/conversations/concierge
         def create_concierge
-          agent = ::Ai::Agent.resolve_concierge_for(current_user.account.id)
+          # HIER-P2I: the account's EXECUTING concierge — its clone of the
+          # global canonical, minted on first use — never the canonical itself.
+          agent = ::Ai::Agents::AccountPrincipalResolver.concierge_for(current_user.account, user: current_user)
           return render_error("No concierge agent configured", status: :not_found) unless agent
 
           conversation = agent.conversations.active
@@ -405,7 +415,8 @@ module Api
         # describes intent. Tagged conversation_type='provisioning' so the
         # sidebar's Provisioning group surfaces it immediately.
         def create_provisioning
-          agent = ::Ai::Agent.resolve_concierge_for(current_user.account.id)
+          # HIER-P2I: the account's executing concierge (see #create_concierge).
+          agent = ::Ai::Agents::AccountPrincipalResolver.concierge_for(current_user.account, user: current_user)
           return render_error("No concierge agent configured", status: :not_found) unless agent
 
           ProviderAvailabilityService.validate_agent_provider!(agent)

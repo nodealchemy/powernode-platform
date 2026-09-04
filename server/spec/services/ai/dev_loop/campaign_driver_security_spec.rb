@@ -32,7 +32,12 @@ RSpec.describe Ai::DevLoop::CampaignDriver, "delegation security" do
       expect(loop_record.reload.mission_id).to eq(mine.id)
     end
 
+    # platform_agent: an empty target RESOLVES to the Platform Developer
+    # canonical when one exists (HIER-P2B-ENG; pinned in
+    # spec/services/ai/tools/dev_loop_tool_platform_developer_spec.rb) and
+    # still raises when none does — the default never wedges a loop on nil.
     it "rejects platform_agent / platform_mission with an empty target (no wedged loop)" do
+      expect(Ai::Agent.for_account(account.id).exists?(slug: Ai::RalphLoop::PLATFORM_AGENT_DEFAULT_SLUG)).to be(false)
       expect { driver.delegate(campaign, driver_kind: "platform_agent", target: {}) }
         .to raise_error(ArgumentError, /requires target.agent_id/)
       expect { driver.delegate(campaign, driver_kind: "platform_mission", target: {}) }

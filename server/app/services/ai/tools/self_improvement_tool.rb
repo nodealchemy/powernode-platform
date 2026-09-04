@@ -50,16 +50,46 @@ module Ai
       # floor is a member-tier permission, so BaseTool.permitted? re-arming
       # narrows advertisement only in an account where NO user can read skills.
 
+      # HIER-P2B-ENG — the two REFINE verbs gate on the engineering policy
+      # set's trust-conditioned categories (operator ruling 2026-09-03 #3:
+      # skill and prompt refinements auto-approve on trusted agents, require
+      # approval below). mutate_skill rewrites ONE skill's prompt under a
+      # strategy — dev.prompt_refine; auto_evolve_skill sweeps every
+      # underperforming skill — dev.skill_refine. The verdict is the row pair
+      # db/seeds/ai_engineering_agents_seed.rb writes on the Platform
+      # Developer and the Platform Architect (auto_approve conditioned on
+      # trust_tier_minimum "trusted" above an unconditioned require_approval),
+      # so the SAME declaration parks a supervised agent and proceeds for a
+      # trusted one — nothing new in the gate. A caller with no matching row
+      # meets the unmatched default and parks. The generic replay executor
+      # re-invokes the action as the ORIGINAL principal on approval, so the
+      # action body stays the single author of the write, and each gate
+      # context resolves the target under the account BEFORE parking so an
+      # unknown or foreign skill keeps its inline error.
+      REFINE_PROMPT_CATEGORY = "dev.prompt_refine"
+      REFINE_SKILL_CATEGORY  = "dev.skill_refine"
+
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
-      # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
-      # BaseTool#gated_action? false, so #execute still routes to #call and
-      # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "auto_evolve_skill", mutating: true
+      # this tool advertises. The `mutating:`-only ones are NON-ENFORCING:
+      # BaseTool#gated_action? is false for them, so #execute still routes to
+      # #call and behaviour is unchanged. The two refine verbs carry the full
+      # quartet (HIER-P2B-ENG, above).
+      declare_action "auto_evolve_skill",
+                     mutating: true,
+                     action_category: REFINE_SKILL_CATEGORY,
+                     executor_class: "Ai::Executors::DeferredToolCall",
+                     gate_context: :auto_evolve_skill_gate_context,
+                     on_proceed: :deferred_tool_call_result
       declare_action "compose_skills", mutating: true
       declare_action "generate_self_challenge", mutating: true
       declare_action "get_challenge_result", mutating: false
       declare_action "list_challenges", mutating: false
-      declare_action "mutate_skill", mutating: true
+      declare_action "mutate_skill",
+                     mutating: true,
+                     action_category: REFINE_PROMPT_CATEGORY,
+                     executor_class: "Ai::Executors::DeferredToolCall",
+                     gate_context: :mutate_skill_gate_context,
+                     on_proceed: :deferred_tool_call_result
 
       def self.definition
         { name: "self_improvement", description: "Self-challenge generation, skill mutation, and skill composition", parameters: { type: "object", properties: {} } }
@@ -88,7 +118,7 @@ module Ai
             }
           },
           "mutate_skill" => {
-            description: "Mutate a skill using a specified strategy to improve it",
+            description: "Mutate a skill using a specified strategy to improve it — rewrites that ONE skill's prompt as a new version. APPROVAL-GATED (dev.prompt_refine): when policy requires approval this returns {pending: true} with a deferred_operation_id and NOTHING is mutated until an operator approves — do not retry and do not report the mutation as done on that response. The seeded Platform Developer / Platform Architect rows auto-approve only from the `trusted` trust tier and require approval below it; a caller with no matching row meets the unmatched default and parks.",
             parameters: {
               skill_id: { type: "string", required: true, description: "Skill ID to mutate" },
               strategy: { type: "string", required: true, description: "Mutation strategy: learning_driven, failure_analysis, challenge_derived, peer_comparison" }
@@ -103,7 +133,7 @@ module Ai
             }
           },
           "auto_evolve_skill" => {
-            description: "Automatically find and mutate underperforming skills",
+            description: "Automatically find and mutate underperforming skills — a sweep that rewrites EVERY skill below the effectiveness threshold. APPROVAL-GATED (dev.skill_refine): when policy requires approval this returns {pending: true} with a deferred_operation_id and NOTHING is mutated until an operator approves — do not retry and do not report the sweep as done on that response. The seeded Platform Developer / Platform Architect rows auto-approve only from the `trusted` trust tier and require approval below it; a caller with no matching row meets the unmatched default and parks.",
             parameters: {
               threshold: { type: "number", required: false, description: "Effectiveness threshold (default 0.4)" }
             }
@@ -114,12 +144,8 @@ module Ai
       def call(params)
         action = params[:action].to_s
 
-        unless action_permitted?(action)
-          Rails.logger.warn(
-            "[SelfImprovementTool] Refused action for insufficient permission: " \
-            "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
-          )
-          return error_result("permission denied: #{required_perm_for(action)} required")
+        if (refusal = authorization_error(params))
+          return refusal
         end
 
         case action
@@ -202,13 +228,55 @@ module Ai
         error_result("Get challenge failed: #{e.message}")
       end
 
+      # The tool's own pre-dispatch authorization, hoisted out of #call so a
+      # GATED refine verb — which bypasses #call — is authorized exactly as an
+      # ungated action is (BaseTool#execute reads this seam before the gate).
+      # Keyed on the action that RUNS (routed_action_name), never on the
+      # invoked name, for the reason ACTION_PERMISSIONS states.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        Rails.logger.warn(
+          "[SelfImprovementTool] Refused action for insufficient permission: " \
+          "action=#{action} requires=#{required_perm_for(action)} user=#{user&.id}"
+        )
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
+
+      # Params reach the body with STRING keys on the first hop (the MCP layer
+      # hands an indifferent hash) and with SYMBOL keys on an approved replay
+      # (Ai::Executors::DeferredToolCall#replay restores the shape
+      # validate_params! reads). Reading both keeps the replay from silently
+      # failing with "Skill not found" on the very call an operator approved.
+      def param(params, key)
+        params[key.to_sym] || params[key.to_s]
+      end
+
+      # The gated mutation's context (HIER-P2B-ENG): the same account-scoped
+      # lookup as the body, so an unknown or foreign skill keeps its inline
+      # error and parks nothing. Anchored to the skill row; the description
+      # names the skill (a row value) and not the strategy (a caller value —
+      # that belongs on the operation's params under Ai::SensitiveParams).
+      def mutate_skill_gate_context(params)
+        skill = Ai::Skill.find_by(id: param(params, :skill_id), account: account)
+        raise ArgumentError, "Skill not found" unless skill
+
+        deferred_tool_call_context(params).merge(
+          source_type: "Ai::Skill",
+          source_id: skill.id,
+          description: "Refine the prompt of skill '#{skill.name}' (#{skill.slug}) with a mutation strategy"
+        )
+      end
+
       def mutate_skill(params)
-        skill = Ai::Skill.find_by(id: params["skill_id"], account: account)
+        skill = Ai::Skill.find_by(id: param(params, :skill_id), account: account)
         return error_result("Skill not found") unless skill
+        strategy = param(params, :strategy)
         service = Ai::SelfImprovement::SkillMutationService.new(account: account)
-        version = service.mutate!(skill: skill, strategy: params["strategy"])
+        version = service.mutate!(skill: skill, strategy: strategy)
         return error_result("Mutation produced no variant") unless version
-        success_result({ version_id: version.id, strategy: params["strategy"] })
+        success_result({ version_id: version.id, strategy: strategy })
       rescue StandardError => e
         error_result("Skill mutation failed: #{e.message}")
       end
@@ -226,10 +294,38 @@ module Ai
         error_result("Skill composition failed: #{e.message}")
       end
 
+      # The sweep's admission rule, spelled once for the body and the gate
+      # context: an absent threshold takes the default, a present one must be
+      # a number — a call that could only ever be refused must not park.
+      # Returns the Float, or raises ArgumentError with the refusal.
+      def evolve_threshold(params)
+        raw = param(params, :threshold)
+        return 0.4 if raw.nil?
+        return raw.to_f if raw.is_a?(Numeric)
+        return raw.to_f if raw.is_a?(String) && raw.strip.match?(/\A-?\d+(\.\d+)?\z/)
+
+        raise ArgumentError, "threshold must be a number (got #{raw.inspect})"
+      end
+
+      # The gated sweep's context (HIER-P2B-ENG). No single source row — the
+      # sweep touches every underperforming skill in the account — so it is
+      # anchored to nothing and described by its scope.
+      def auto_evolve_skill_gate_context(params)
+        threshold = evolve_threshold(params)
+
+        deferred_tool_call_context(params).merge(
+          description: "Auto-evolve every skill below effectiveness #{threshold} in this account " \
+                       "(a new prompt version per underperforming skill)"
+        )
+      end
+
       def auto_evolve_skill(params)
+        threshold = evolve_threshold(params)
         service = Ai::SelfImprovement::SkillMutationService.new(account: account)
-        mutated = service.auto_mutate_underperforming!(threshold: (params["threshold"] || 0.4).to_f)
+        mutated = service.auto_mutate_underperforming!(threshold: threshold)
         success_result({ skills_mutated: mutated })
+      rescue ArgumentError => e
+        error_result(e.message)
       rescue StandardError => e
         error_result("Auto evolution failed: #{e.message}")
       end

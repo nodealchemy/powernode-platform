@@ -105,6 +105,12 @@ module Permissions
     "ai.agents.create" => "Create AI agents",
     "ai.agents.update" => "Update own AI agents",
     "ai.agents.delete" => "Delete own AI agents",
+    # Free-form (non-canonical) agent creation and canonical-agent infrastructure.
+    # Deliberately granted to NO default role: official agents are seeded
+    # canonicals and account agents are clones of them (operator ruling
+    # 2026-09-03, HIER-P1); an undefined permission was already admin-only by
+    # construction, this makes it grantable through RolePermission on purpose.
+    "ai.agents.manage" => "Create free-form (non-canonical) AI agents and manage canonical agent infrastructure",
     "ai.agents.execute" => "Execute AI agents",
     "ai.agents.clone" => "Clone AI agents",
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -835,12 +835,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
   create_table "ai_agents", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id"
     t.string "agent_type", limit: 50, null: false
-    t.uuid "ai_provider_id", null: false
+    t.uuid "ai_provider_id"
     t.jsonb "autonomy_config", default: {}
     t.uuid "cloned_from_id"
     t.jsonb "conversation_profile", default: {}, null: false
     t.datetime "created_at", null: false
-    t.uuid "creator_id", null: false
+    t.uuid "creator_id"
     t.text "description"
     t.jsonb "execution_stats", default: {}
     t.jsonb "governance_scope", default: {}
@@ -886,6 +886,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
     t.index ["slug"], name: "index_ai_agents_on_slug_global", unique: true, where: "(account_id IS NULL)"
     t.index ["source_key"], name: "index_ai_agents_on_source_key"
     t.index ["status"], name: "index_ai_agents_on_status"
+    t.check_constraint "account_id IS NULL OR creator_id IS NOT NULL AND ai_provider_id IS NOT NULL", name: "chk_ai_agents_account_rows_need_creator_and_provider"
   end
 
   create_table "ai_agui_events", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -2025,7 +2026,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
   end
 
   create_table "ai_delegation_policies", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
+    t.uuid "account_id"
     t.uuid "agent_id", null: false
     t.jsonb "allowed_delegate_types", default: [], null: false
     t.float "budget_delegation_pct", default: 0.5, null: false
@@ -2034,9 +2035,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
     t.string "inheritance_policy", default: "conservative", null: false
     t.integer "max_depth", default: 3, null: false
     t.datetime "updated_at", null: false
-    t.index ["account_id", "agent_id"], name: "index_ai_delegation_policies_on_account_id_and_agent_id"
     t.index ["account_id"], name: "index_ai_delegation_policies_on_account_id"
-    t.index ["agent_id"], name: "index_ai_delegation_policies_on_agent_id", unique: true
+    t.index ["agent_id", "account_id"], name: "index_ai_delegation_policies_on_agent_id_and_account_id", unique: true, where: "(account_id IS NOT NULL)"
+    t.index ["agent_id"], name: "index_ai_delegation_policies_on_agent_id_global", unique: true, where: "(account_id IS NULL)"
     t.check_constraint "inheritance_policy::text = ANY (ARRAY['conservative'::character varying::text, 'moderate'::character varying::text, 'permissive'::character varying::text])", name: "check_delegation_inheritance_policy"
   end
 
@@ -9800,7 +9801,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
     t.text "description"
     t.boolean "enabled", default: true, null: false
     t.uuid "internal_ca_id"
-    t.string "lifecycle_class"
     t.string "name", null: false
     t.uuid "node_template_id", null: false
     t.string "public_address"
@@ -9818,12 +9818,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_03_150000) do
     t.index ["account_id"], name: "index_system_nodes_on_account_id"
     t.index ["config"], name: "index_system_nodes_on_config", using: :gin
     t.index ["internal_ca_id"], name: "index_system_nodes_on_internal_ca_id"
-    t.index ["lifecycle_class"], name: "index_system_nodes_on_lifecycle_class"
     t.index ["node_template_id"], name: "index_system_nodes_on_node_template_id"
     t.index ["ssh_host_key_fingerprint"], name: "index_system_nodes_on_ssh_host_key_fingerprint"
     t.index ["ssh_key_fingerprint"], name: "index_system_nodes_on_ssh_key_fingerprint"
     t.index ["worker_id"], name: "index_system_nodes_on_worker_id"
-    t.check_constraint "lifecycle_class::text = ANY (ARRAY['persistent'::character varying::text, 'ephemeral'::character varying::text, 'spot'::character varying::text])", name: "chk_system_nodes_lifecycle_class"
   end
 
   create_table "system_package_module_links", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|

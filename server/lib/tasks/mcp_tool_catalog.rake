@@ -59,6 +59,7 @@ namespace :mcp do
       "Ai::Tools::ProjectInitTool" => "Project & CI/CD",
       "Ai::Tools::RunnerDispatchTool" => "Project & CI/CD",
       "Ai::Tools::AgentManagementTool" => "Agent Management",
+      "Ai::Tools::AgentRoutingTool" => "Agent Management",
       "Ai::Tools::ContainerDeploymentTool" => "Agent Containers",
       "Ai::Tools::ContainerStatusTool" => "Agent Containers",
       "Ai::Tools::ContainerLogsTool" => "Agent Containers",

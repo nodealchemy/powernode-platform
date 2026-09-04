@@ -13,10 +13,17 @@ module Ai
       guardrails = active_guardrails
       validate_team_capacity!(team, guardrails)
 
+      # creator/provider/agent_type are required by Ai::Agent; without them
+      # every real call raised RecordInvalid (the model-double spec never saw
+      # it). The caller's user is the creator; the account's first active
+      # provider serves until the agent is bound to one. (HIER-P1)
       agent = Ai::Agent.new(
         account: account,
         name: agent_params[:name],
         description: agent_params[:description],
+        agent_type: agent_params[:agent_type] || "assistant",
+        creator: user,
+        provider: account.ai_providers.where(is_active: true).first,
         status: "active"
       )
 
@@ -24,18 +31,33 @@ module Ai
       apply_guardrail_constraints!(agent, guardrails)
       agent.save!
 
-      # Add to team
-      team.members.create!(
-        agent: agent,
-        role: agent_params[:role] || "worker",
-        status: "active"
-      )
+      # Add to team. (Ai::AgentTeamMember has no status column — passing one
+      # raised UnknownAttributeError on every real call; the model-double spec
+      # never saw it. HIER-P1.)
+      role = agent_params[:role] || "worker"
+      team.members.create!(agent: agent, role: role)
+      attach_team_lineage!(team, agent, role)
 
       Rails.logger.info("Created agent #{agent.name} for team #{team.name}")
       agent
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.error("Failed to create agent for team: #{e.message}")
       raise
+    end
+
+    # HIER-P1 — a team-created agent is not a root: its lineage parent is the
+    # team's lead agent, else the account's concierge, written through the ONE
+    # hierarchy seam so the Autonomy forest and delegation checks see it. A
+    # root only when the account has neither (nothing to hang it from).
+    def attach_team_lineage!(team, agent, role)
+      parent = team.members.find_by(is_lead: true)&.agent
+      parent ||= ::Ai::Agent.resolve_concierge_for(account.id)
+      return if parent.nil? || parent.id == agent.id
+
+      ::Ai::Agents::HierarchyWriter.new(account: account).attach!(
+        child: agent, parent: parent, spawn_reason: "team_member",
+        metadata: { "team_id" => team.id, "role" => role }
+      )
     end
 
     # Update an agent within a team with guardrail checks

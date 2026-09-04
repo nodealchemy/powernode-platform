@@ -122,9 +122,10 @@ governance) decides what to do with the advisory; the resolver itself does not r
 
 ## CC / platform Fable decoupling
 
-`Ai::ModelTiers.classify(agent.resolved_model)` maps `:frontier` to the Claude Code
-frontmatter `model: "fable"` **unconditionally** in `Ai::ClaudeExport::AgentSkeletonSync`
-(`server/app/services/ai/claude_export/agent_skeleton_sync.rb`) — this does NOT consult
+`Ai::ClaudeExport::AgentSkeletonSync` (`server/app/services/ai/claude_export/agent_skeleton_sync.rb`)
+maps the `:frontier` tier to the Claude Code frontmatter `model: "fable"` **unconditionally**
+— the tier comes from the agent's declared `model_requirements.tier` or `Ai::ModelTiers.classify`
+over its pinned model (for an account's own export, over `agent.resolved_model`) — and this does NOT consult
 `Ai::FableRouting.enabled_for?`. The platform-side gate governs whether the platform may
 select Fable for its OWN executions; it says nothing about Claude Code, which carries its own
 separate Fable/Mythos entitlement from the CC subscription tier. **Do not** "fix" this to
@@ -141,24 +142,30 @@ discipline on the CC side.
 ## Agent-sync usage
 
 `rake claude:sync_agents` (`server/lib/tasks/claude_sync.rake`, wrapped by
-`scripts/sync-claude-agents.sh`) regenerates `.claude/agents/powernode/*.md` skeletons from
-platform `Ai::Agent` records via `Ai::ClaudeExport::AgentSkeletonSync#sync!`. Output is
-**gitignored** (`.claude/agents/powernode/` in `.gitignore`) — it's a generated, per-checkout
-bootstrap, not committed content. Each skeleton is a thin MCP bootstrap that fetches the
-agent's real system prompt and skill context at spawn time (`platform_get_agent` /
-`platform_get_skill_context`), so editing the platform agent takes effect on the next spawn
-with no regeneration needed. Idempotent: unchanged agents produce zero file writes; skeletons
-whose backing agent is no longer syncable are removed (only files carrying the generated-file
-header are touched). Run it after adding/renaming/retiering a platform agent so CC sessions
-can `Task(subagent_type: "<slug>")` it; `ACCOUNT_ID=<uuid>` overrides the default account,
-`TARGET_DIR=<path>` overrides the output directory (mainly for tests).
+`scripts/sync-claude-agents.sh`) regenerates the Claude Code subagent skeletons from platform
+`Ai::Agent` records via `Ai::ClaudeExport::AgentSkeletonSync#sync!`. By default it exports the
+**canonical** set (global, seeded agents) to `.claude/agents/powernode/*.md`, which **is
+committed**: the files are slug-keyed and carry no per-install id, so they render the same on
+every install, and `scripts/check-claude-agents-fresh.sh` (via `scripts/pattern-validation.sh`)
+fails the gate when a seed or renderer change leaves them stale. `ACCOUNT_ID=<uuid>` exports an
+account's *own* agents (clones, local agents) instead, to the gitignored
+`.claude/agents/powernode-local/`; `TARGET_DIR=<path>` overrides the output directory (mainly
+for tests). Each skeleton is a thin MCP bootstrap that fetches the agent's real system prompt
+and skill context at spawn time (`platform_get_agent` by slug / `platform_get_skill_context`),
+so editing the platform agent takes effect on the next spawn with no regeneration needed.
+Idempotent: unchanged agents produce zero file writes; skeletons whose backing agent is no
+longer syncable are removed (only files carrying the generated-file header are touched). Run
+it after adding/renaming/retiering a platform agent so CC sessions can
+`Agent(subagent_type: "<slug>")` it. The full skeleton contents, the `platform.route_task`
+router shared with the Concierge, and the reverse `claude:import_agents` proposal path are in
+[`guides/use-powernode-from-claude.md`](../../guides/use-powernode-from-claude.md#platform-agents-as-claude-code-subagents).
 
 **Naming disambiguation** — two similarly named "Claude agent" surfaces point in opposite
 directions and must not be confused. `server/db/seeds/claude_agents_seed.rb` seeds **platform**
 `Ai::Agent` records INTO the database (provider-agnostic reasoning/analysis agents; "claude" in
 the filename is legacy naming — the model is chosen at runtime by `Ai::AgentModelSelector`).
 `Ai::ClaudeExport::AgentSkeletonSync` is the inverse: it **exports** those platform agents OUT of
-the database as generated, gitignored Claude Code subagent skeletons. Seeding creates the records
+the database as generated Claude Code subagent skeletons (committed for canonicals). Seeding creates the records
 the exporter later reads; neither replaces the other, and a change to one is never a change to
 the other.
 

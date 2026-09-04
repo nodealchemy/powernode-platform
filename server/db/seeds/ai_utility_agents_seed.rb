@@ -2,23 +2,20 @@
 
 puts "\n🔧 Seeding AI Utility Agents..."
 
+# The utility agents are GLOBAL canonicals (account_id nil, source_key-managed)
+# and need NO account, user or provider to exist (IMP-6cda93db7f31): on a fresh
+# core/prod DB — before first-admin bootstrap / the setup wizard — they are
+# written with no creator and no provider (both optional on a global row; an
+# account's executing clone gets THAT account's through
+# Ai::Agents::AccountPrincipalResolver). Only the per-agent skill rows below,
+# keyed on the admin account, wait for setup.
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
-
-unless admin_account && admin_user
-  puts "  ⏭️  Admin account/user not found — skipping Utility Agents"
-  return
-end
 
 provider = Ai::Provider.find_by(provider_type: "openai", name: "OpenAI") ||
            Ai::Provider.find_by(provider_type: "openai") ||
            Ai::Provider.find_by(provider_type: "ollama") ||
            Ai::Provider.where(is_active: true).first
-
-unless provider
-  puts "  ⚠️  No AI provider found — skipping Utility Agents"
-  return
-end
 
 # Each agent has: slug, name, agent_type, description, system_prompt, temperature,
 # max_tokens, and skills (matched by slug) so agents are discoverable via the skill graph.
@@ -256,8 +253,10 @@ UTILITY_AGENTS.each do |attrs|
     agent_type: attrs[:agent_type],
     status: "active",
     description: attrs[:description],
-    creator: admin_user,
-    provider: provider,
+    # Never blank a creator/provider an earlier seed set: nil only on a fresh
+    # DB with none to give.
+    creator: (admin_user || agent.creator),
+    provider: (provider || agent.provider),
     # Create-only: Ai::Agent#update_version_if_mcp_changed bumps the patch version
     # on create (mcp set), so re-assigning "1.0.0" on re-seed would downgrade it
     # and churn an audit. Keep the existing (callback-bumped) version.
@@ -277,8 +276,11 @@ UTILITY_AGENTS.each do |attrs|
     is_new ? created += 1 : updated += 1
     puts "  #{is_new ? '✅' : '🔄'} #{attrs[:name]} (#{attrs[:slug]})"
 
-    # Link skills to the agent for discovery via skill graph
-    (attrs[:skill_definitions] || []).each do |skill_def|
+    # Link skills to the agent for discovery via skill graph. These skill rows
+    # are keyed on the admin ACCOUNT (unlike the global SPECIALIST_SKILLS
+    # below), so they wait for it — a re-seed after setup binds them.
+    skill_definitions = admin_account ? (attrs[:skill_definitions] || []) : []
+    skill_definitions.each do |skill_def|
       skill = Ai::Skill.find_or_initialize_by(
         account: admin_account,
         slug: skill_def[:slug]

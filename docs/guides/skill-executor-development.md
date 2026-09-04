@@ -2,7 +2,7 @@
 
 > Status: active
 
-How to author a system-extension skill executor — the unit of work that backs every entry in the `Ai::Skill` catalog. The post-2026-05 refactor consolidated every executor onto a shared `BaseSkillExecutor` parent class, a `binds_to` DSL, and a registry-driven binding seed; this guide reflects that pattern and is the canonical reference for new authors. The current roster is **48 executors across 7 categories** — see the auto-generated [`SKILL_EXECUTOR_CATALOG.md`](../../extensions/system/docs/SKILL_EXECUTOR_CATALOG.md) for the live inventory (do not hand-edit it).
+How to author a system-extension skill executor — the unit of work that backs every entry in the `Ai::Skill` catalog. The post-2026-05 refactor consolidated every executor onto a shared `BaseSkillExecutor` parent class, a `binds_to` DSL, and a registry-driven binding seed; this guide reflects that pattern and is the canonical reference for new authors. The current roster is **64 executors across 7 categories** (`ls extensions/system/server/app/services/system/ai/skills/*_executor.rb` minus the base class; re-verified 2026-09-03) — see the auto-generated [`SKILL_EXECUTOR_CATALOG.md`](../../extensions/system/docs/SKILL_EXECUTOR_CATALOG.md) for the live inventory (do not hand-edit it).
 
 ## Table of Contents
 
@@ -159,7 +159,7 @@ Multiple agents are supported — `binds_to "Fleet Autonomy", "System Concierge"
 
 ## Worked example: scaffolding a new executor
 
-This walks end-to-end through adding a new skill called `detect_orphan_volumes` — a fictional executor that scans `System::Volume` rows for storage volumes whose owning NodeInstance has been deleted, returning candidates for reclamation. It binds to Fleet Autonomy because storage-reclamation decisions belong on the same approval chain as drift remediation.
+This walks end-to-end through adding a new skill called `detect_orphan_volumes` — a fictional executor that scans `System::Volume` rows for storage volumes whose owning NodeInstance has been deleted, returning candidates for reclamation. It binds to the **Storage Manager** (`binds_to "storage_manager"`, the `SkillBindings::AGENT_ALIASES` slug) because storage reclamation is a volume data-plane decision and belongs on that agent's approval chain (`Storage Manager Actions`) next to restore and snapshot delete — since HIER-P2DECL split Fleet Autonomy into the four operations managers, an executor binds to the agent whose policy set owns its domain, and Fleet Autonomy keeps only the fleet-wide lanes (certs, reboots, module promotion, rolling upgrades). One executor-specific ruling worth knowing: `attach_storage` binds to the **Capacity Manager**, not the Storage Manager, because it runs *during provisioning*.
 
 ### Step 1 — scaffold the executor file
 
@@ -191,7 +191,7 @@ module System
           }
         )
 
-        binds_to "Fleet Autonomy"
+        binds_to "storage_manager"
 
         protected
 
@@ -244,7 +244,7 @@ Already done above. Note the shape: a single `perform` method using guard clause
 Already declared above. Verify two invariants before moving on:
 
 - **Slug matches**: `DetectOrphanVolumesExecutor` → `system-detect-orphan-volumes` via the slug deriver. The catalog row in step 4 must use that exact slug.
-- **Agent name matches**: `"Fleet Autonomy"` is exactly the `name` attribute on the seeded `Ai::Agent`. Typos here are caught by the binding seed (`unknown_agents` log warning + skip), but it's cheaper to fix them up front.
+- **Agent name matches**: `"storage_manager"` resolves through `SkillBindings::AGENT_ALIASES` to `"Storage Manager"`, exactly the `name` attribute on the seeded `Ai::Agent`. Typos here are caught by the binding seed (`unknown_agents` log warning + skip), but it's cheaper to fix them up front.
 
 ### Step 4 — seed the matching `Ai::Skill` row
 
@@ -285,7 +285,7 @@ Seeding System extension AI skills catalog...
 Seeding agent ↔ skill bindings from SkillBindings registry...
     Registry has N (skill, agent) binding declarations
     ✅ Upserted 1 new/changed binding(s)
-    • Fleet Autonomy             → N+1 skill(s)
+    • Storage Manager            → N+1 skill(s)
 ```
 
 If you see `SkillBindings.validate! failed`, the slug in the catalog seed doesn't match the executor class name. Fix the seed and re-run.
@@ -302,12 +302,12 @@ The new skill should appear with a high relevance score. Then:
 
 ```
 platform.execute_agent(
-  agent_id: "<fleet-autonomy-id>",
+  agent_id: "<storage-manager-id>",
   prompt: "Find me any orphaned volumes older than 48 hours"
 )
 ```
 
-Fleet Autonomy now has the skill bound, so the LLM can choose to invoke it.
+The Storage Manager now has the skill bound, so the LLM can choose to invoke it.
 
 ## `CrudFactory` pattern
 
@@ -323,7 +323,7 @@ class ArchitectureCreateExecutor < CrudFactory
     outputs: { architecture: :object },
     requires_approval: true
   )
-  binds_to "Fleet Autonomy"
+  binds_to "supply_chain_manager"
 
   protected
 
@@ -374,11 +374,11 @@ RSpec.describe System::Ai::Skills::DetectOrphanVolumesExecutor do
   end
 
   describe "SkillBindings registration" do
-    it "is bound to Fleet Autonomy" do
+    it "is bound to the Storage Manager" do
       reg = System::Ai::Skills::SkillBindings.all
         .find { |r| r[:executor] == described_class }
       expect(reg).not_to be_nil
-      expect(reg[:agents]).to include("Fleet Autonomy")
+      expect(reg[:agents]).to include("Storage Manager")
     end
   end
 
@@ -485,7 +485,7 @@ cd server && bundle exec rails runner \
 
 # Verify the binding row exists
 cd server && bundle exec rails runner \
-  "puts Ai::AgentSkill.joins(:ai_agent, :ai_skill).where(ai_agents: { name: 'Fleet Autonomy' }, ai_skills: { slug: 'system-<name>' }).count"
+  "puts Ai::AgentSkill.joins(:ai_agent, :ai_skill).where(ai_agents: { name: 'Storage Manager' }, ai_skills: { slug: 'system-<name>' }).count"
 ```
 
 If the spec passes and the verification runners report `1`, you're done.

@@ -87,7 +87,7 @@ module Ai
       end
 
       if should_delegate?(ordered)
-        specialist = ordered.first.specialist_agent
+        specialist = resolve_specialist(ordered.first, text)
         return Result.new(mode: :delegated, delegated_agent: specialist) if specialist
       end
 
@@ -98,6 +98,43 @@ module Ai
 
     def passthrough
       Result.new(mode: :passthrough)
+    end
+
+    # ONE router for both sides (HIER-P1B item 10). The matched skill still
+    # nominates the candidates — the active assistant agents bound to it, the
+    # same pool Ai::Skill#specialist_agent chooses from — but the CHOICE among
+    # them is Ai::Routing::AgentRouterService, the router behind
+    # `platform.route_task`, with the conversation's agent as the delegator so
+    # its delegation policy binds this path exactly as it binds the MCP one.
+    # A policy that allows none of the candidates yields nil (passthrough).
+    # Falls back to the binding-only resolution only if the router itself
+    # raises, and says so in the log — never silently.
+    def resolve_specialist(skill, text)
+      candidates = specialist_candidates(skill)
+      return nil if candidates.empty?
+
+      routed = ::Ai::Routing::AgentRouterService.new(account: @account)
+                                                 .route(task: text, delegator: delegator_agent, candidates: candidates, limit: 1)
+      routed[:agent_id] && candidates.find { |agent| agent.id == routed[:agent_id] }
+    rescue StandardError => e
+      Rails.logger.warn("[ConciergeRouter] AgentRouterService failed (#{e.class}: #{e.message}); falling back to skill binding")
+      # The fallback must not be WIDER than the happy path. Ai::Skill#specialist_agent
+      # filters on agent_type only, so it can nominate an INACTIVE assistant that
+      # #specialist_candidates deliberately excludes; a router exception must not
+      # be the way an inactive agent gets delegated to.
+      fallback = skill.specialist_agent
+      fallback if fallback && candidates.any? { |agent| agent.id == fallback.id }
+    end
+
+    def specialist_candidates(skill)
+      return [] if skill.domain == "platform"
+
+      skill.agent_skills.includes(:agent).map(&:agent).compact
+           .select { |agent| agent.agent_type == "assistant" && agent.status == "active" }
+    end
+
+    def delegator_agent
+      @conversation.respond_to?(:agent) ? @conversation.agent : nil
     end
 
     def resolve_user

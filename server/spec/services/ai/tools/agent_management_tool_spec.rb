@@ -36,19 +36,154 @@ RSpec.describe Ai::Tools::AgentManagementTool do
     end
   end
 
+  # HIER-P1B item 1 — Claude Code skeletons bootstrap by SLUG (stable across
+  # installs) rather than by the per-install UUID. `slug:` resolves through
+  # Ai::Agent.resolve_for so an account clone wins over the global canonical,
+  # which `agent_id: "<slug>"` (account.ai_agents only) cannot reach.
+  describe "#execute get_agent by slug" do
+    let!(:canonical) do
+      create(:ai_agent, :global, is_system: true, name: "Canonical Planner", description: "Global default.")
+    end
+
+    it "resolves a GLOBAL canonical by slug (unreachable via agent_id, which is account-scoped for slugs)" do
+      result = tool.execute(params: { action: "get_agent", slug: canonical.slug })
+
+      expect(result[:success]).to be true
+      expect(result[:agent][:id]).to eq(canonical.id)
+      expect(result[:agent][:slug]).to eq(canonical.slug)
+      expect(result[:agent][:global]).to be true
+    end
+
+    it "prefers the account's clone over the canonical when both share the slug" do
+      clone = create(:ai_agent, account: account, name: "Canonical Planner", description: "Account override.")
+      expect(clone.slug).to eq(canonical.slug)
+
+      result = tool.execute(params: { action: "get_agent", slug: canonical.slug })
+
+      expect(result[:agent][:id]).to eq(clone.id)
+      expect(result[:agent][:global]).to be false
+    end
+
+    it "reports not found for an unknown slug" do
+      result = tool.execute(params: { action: "get_agent", slug: "no-such-agent" })
+
+      expect(result).to eq(success: false, error: "Agent not found")
+    end
+
+    it "advertises the slug parameter on the get_agent action" do
+      expect(described_class.action_definitions.dig("get_agent", :parameters)).to have_key(:slug)
+    end
+  end
+
   describe "#execute" do
     context "with create_agent action" do
+      # An ai.agents.create holder creates by CLONING a seeded canonical
+      # (canonical rule, HIER-P1 — see the context below for the free-form path).
+      let!(:template) do
+        create(:ai_agent, account: nil, name: "Template Agent", agent_type: "assistant", is_system: true,
+                          source_key: "template-agent", provider: provider, creator: create(:user, account: account))
+      end
+
       it "creates an agent for the account" do
-        result = tool.execute(params: { action: "create_agent", name: "Test Agent", description: "A test" })
+        result = tool.execute(params: { action: "create_agent", canonical_slug: "template-agent",
+                                        name: "Test Agent", description: "A test" })
         expect(result[:success]).to be true
         expect(result[:agent_id]).to be_present
         expect(result[:name]).to eq("Test Agent")
+        expect(Ai::Agent.find(result[:agent_id]).description).to eq("A test")
       end
 
       it "returns error on invalid record" do
-        result = tool.execute(params: { action: "create_agent", name: nil })
+        result = tool.execute(params: { action: "create_agent", canonical_slug: "template-agent", name: "" })
         expect(result[:success]).to be false
         expect(result[:error]).to be_present
+      end
+    end
+
+    # HIER-P1 canonical rule (operator ruling 2026-09-03 §5): official agents
+    # are seeded GLOBAL canonicals; a new agent is a clone of one into the
+    # account, with lineage written at clone time. A free-form agent (no
+    # canonical) needs ai.agents.manage; ai.agents.create alone clones only.
+    context "create_agent under the canonical rule" do
+      let!(:canonical) do
+        create(:ai_agent, account: nil, name: "Research Analyst", agent_type: "data_analyst",
+                          is_system: true, source_key: "research-analyst", provider: provider,
+                          creator: create(:user, account: account))
+      end
+
+      it "refuses a free-form agent for an ai.agents.create holder and names the rule" do
+        expect {
+          result = tool.execute(params: { action: "create_agent", name: "Free Form" })
+          expect(result[:success]).to be false
+          expect(result[:error]).to match(/canonical_slug/)
+          expect(result[:error]).to match(/ai\.agents\.manage/)
+        }.not_to change(Ai::Agent, :count)
+      end
+
+      it "clones the canonical into the account with provenance and a lineage edge to it" do
+        result = tool.execute(params: { action: "create_agent", canonical_slug: "research-analyst",
+                                        name: "Team Analyst" })
+
+        expect(result[:success]).to be true
+        agent = Ai::Agent.find(result[:agent_id])
+        expect(agent.account_id).to eq(account.id)
+        expect(agent.name).to eq("Team Analyst")
+        expect(agent.cloned_from_id).to eq(canonical.id)
+        expect(agent.source_key).to eq("research-analyst")
+        expect(agent.source_version).to eq(canonical.version)
+        expect(agent.source_snapshot).to be_present
+        expect(agent.is_system).to be false
+        expect(agent.parent_agent_id).to eq(canonical.id)
+
+        edges = Ai::AgentLineage.for_child(agent.id).active
+        expect(edges.pluck(:parent_agent_id)).to eq([ canonical.id ])
+        expect(edges.first.account_id).to eq(account.id)
+        expect(result[:cloned_from_id]).to eq(canonical.id)
+      end
+
+      it "reports an unknown canonical_slug instead of falling back to a free-form create" do
+        expect {
+          result = tool.execute(params: { action: "create_agent", canonical_slug: "no-such-agent", name: "X" })
+          expect(result[:success]).to be false
+          expect(result[:error]).to match(/no-such-agent/)
+        }.not_to change(Ai::Agent, :count)
+      end
+
+      # REACHABILITY, not a stub: the escape hatch is satisfied through a real
+      # role grant. `ai.agents.manage` is not in the Permissions catalog (see
+      # config/permissions.rb — RolePermission refuses to grant an undefined
+      # name), so today the only principal that satisfies it is a system.admin
+      # holder, for whom User#has_permission? returns true for every name.
+      # Registering the permission is a follow-up owned by the catalog.
+      context "when the caller really holds the free-form permission (system.admin)" do
+        before do
+          role = create(:role, account: account)
+          role.role_permissions.create!(permission_name: "system.admin")
+          user.roles << role
+          expect(user.has_permission?("ai.agents.manage")).to be true
+        end
+
+        it "creates the free-form agent and attaches it to the invoking agent" do
+          invoking = create(:ai_agent, account: account, name: "Designer")
+          tool = described_class.new(account: account, user: user, agent: invoking)
+
+          result = tool.execute(params: { action: "create_agent", name: "Free Form" })
+
+          expect(result[:success]).to be true
+          agent = Ai::Agent.find(result[:agent_id])
+          expect(agent.cloned_from_id).to be_nil
+          expect(agent.parent_agent_id).to eq(invoking.id)
+          expect(Ai::AgentLineage.for_child(agent.id).active.pluck(:parent_agent_id)).to eq([ invoking.id ])
+        end
+
+        it "attaches a free-form agent created without an invoking agent to the account's concierge" do
+          concierge = create(:ai_agent, account: account, name: "Concierge", is_concierge: true)
+
+          result = tool.execute(params: { action: "create_agent", name: "Free Form" })
+
+          expect(result[:success]).to be true
+          expect(Ai::Agent.find(result[:agent_id]).parent_agent_id).to eq(concierge.id)
+        end
       end
     end
 

@@ -15,7 +15,7 @@ module Ai
       # @param task [Hash] Task details including :action_type, :budget_cents
       # @return [Hash] { allowed: Boolean, reason: String|nil }
       def validate_delegation(delegator:, delegate:, task: {})
-        policy = Ai::DelegationPolicy.find_by(agent_id: delegator.id)
+        policy = Ai::DelegationPolicy.resolve_for(agent_id: delegator.id, account_id: account.id)
         return { allowed: true, reason: nil } unless policy
 
         # Check depth
@@ -56,7 +56,7 @@ module Ai
       def effective_capabilities(agent:)
         capability_service = CapabilityMatrixService.new(account: account)
         caps = capability_service.agent_capabilities(agent: agent)
-        policy = Ai::DelegationPolicy.find_by(agent_id: agent.id)
+        policy = Ai::DelegationPolicy.resolve_for(agent_id: agent.id, account_id: account.id)
 
         {
           capabilities: caps[:capabilities],
@@ -65,9 +65,11 @@ module Ai
         }
       end
 
-      # List all delegation policies
+      # List the delegation policies visible to the account: its own rows plus
+      # the canonical global rows (account_id nil) that govern agents it has not
+      # customised.
       def list
-        Ai::DelegationPolicy.where(account_id: account.id).includes(:agent)
+        Ai::DelegationPolicy.for_account(account.id).includes(:agent)
       end
 
       private
@@ -95,6 +97,7 @@ module Ai
         {
           id: policy.id,
           agent_id: policy.agent_id,
+          canonical: policy.global?,
           max_depth: policy.max_depth,
           allowed_delegate_types: policy.allowed_delegate_types,
           delegatable_actions: policy.delegatable_actions,

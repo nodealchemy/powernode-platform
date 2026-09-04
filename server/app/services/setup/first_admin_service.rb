@@ -49,6 +49,18 @@ module Setup
       # on first-account bootstrap (core/prod), not just in seeded installs.
       ::Workers::EnsureSystemWorker.call(account: result.account)
 
+      # Same reason, per-account baseline row (IMP-e8513b30152d): the inactive
+      # `claude-code` Ai::Provider scope Claude Code runs of platform agents are
+      # recorded under. db/seeds/ai_claude_code_provider_seed.rb covers the
+      # accounts that exist AT SEED TIME, but a wizard install creates its first
+      # account HERE and its seed step (POST /api/v1/setup/seed) is
+      # Setup::SeedService — the extension `:account_seeder` seam, a no-op in
+      # core mode that never loads db/seeds.rb. Without this the report path
+      # (which deliberately cannot mint the row) would refuse forever on exactly
+      # the install shape docs/operations/single-node-bootstrap.md recommends.
+      # Idempotent, and outside the transaction like the Worker bootstrap.
+      ::Ai::ClaudeExport::ProviderScopeSeeder.ensure_for!(result.account)
+
       result
     end
 

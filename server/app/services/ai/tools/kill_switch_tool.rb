@@ -46,8 +46,17 @@ module Ai
         }
       end
 
-      # Override: kill_switch_status should be readable by any agent
+      # Override: kill_switch_status should be readable by any agent.
+      #
+      # HIER-P2I: "any agent" still excludes a GLOBAL canonical. This override
+      # does not call super, so BaseTool's fail-closed line never runs for it —
+      # without the check here `PlatformApiToolRegistry.advertised_class?` would
+      # keep advertising the kill switch to a canonical and
+      # `Ai::Executors::DeferredToolCall#authorized?` would answer authorized
+      # for a row it parked, both of which the ruling says must fail closed.
       def self.permitted?(agent:)
+        return false if canonical_principal?(agent)
+
         true
       end
 

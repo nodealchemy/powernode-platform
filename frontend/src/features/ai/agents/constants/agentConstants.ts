@@ -97,3 +97,18 @@ export function formatDuration(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
+
+// --- Executions by executor kind (HIER-P1C / IMP-e8513b30152d) ---
+
+/**
+ * The token-comparability convention for the platform-vs-Claude-Code execution
+ * split, stated wherever those counts are rendered. Also in
+ * docs/guides/use-powernode-from-claude.md and .claude/hooks/subagent-report.sh
+ * (which sums input_tokens + cache_read_input_tokens + cache_creation_input_tokens):
+ * a Claude Code run reports its FULL billed input footprint, so its token
+ * figures are not comparable to a platform run's.
+ */
+export const CLAUDE_CODE_TOKEN_CONVENTION =
+  'Claude Code runs are executed locally by a Claude Code session and reported back. ' +
+  'Their input tokens include cache_read + cache_creation (the full billed input footprint), ' +
+  'so they are not directly comparable to platform executions.';

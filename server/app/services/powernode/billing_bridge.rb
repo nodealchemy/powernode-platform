@@ -5,7 +5,8 @@ module Powernode
   #
   # Core never references the business `Billing::` namespace directly. The business
   # extension registers its models + handlers here at boot; when no extension is
-  # present every accessor degrades safely (nil models, quota always allowed).
+  # present every accessor degrades safely (nil models, quota always allowed,
+  # metering a visible no-op).
   #
   # This replaces the previous `defined?(Billing::X)` guards scattered through core
   # dashboards/controllers with a single clean interface.
@@ -24,6 +25,11 @@ module Powernode
     # Postures a caller may select for a handler failure.
     ON_ERROR_MODES = %i[deny allow].freeze
 
+    # Reasons a meter event was NOT recorded. Distinct so a caller (or an
+    # operator reading the return) can tell core mode from an outage.
+    NO_METER_HANDLER_REASON = "no_meter_handler"
+    METER_HANDLER_FAILED_REASON = "meter_handler_failed"
+
     class << self
       # Model classes registered by the business extension (nil in core mode).
       attr_accessor :subscription_model, :payment_model, :plan_model, :revenue_snapshot_model
@@ -35,6 +41,16 @@ module Powernode
 
       def provisioning_quota_handler
         @provisioning_quota_handler
+      end
+
+      # Handler registered by the business extension to meter provisioning
+      # lifecycle events. A callable taking (node_instance:, event:) that
+      # records ONE usage row for that event and RAISES on failure — there is
+      # no verdict to normalize, so its return value is ignored.
+      attr_writer :provisioning_meter_handler
+
+      def provisioning_meter_handler
+        @provisioning_meter_handler
       end
 
       # Build a denial payload in the canonical shape. The single definition of
@@ -89,6 +105,41 @@ module Powernode
         end
       end
 
+      # Record one provisioning lifecycle event (created / terminated / ...)
+      # via the registered meter handler.
+      #
+      # FAILURE POSTURE — fails OPEN, deliberately and unlike
+      # check_provisioning_quota. Metering is a record-keeping side effect that
+      # runs AFTER the billable state change: the instance row already exists,
+      # or the terminate transition has already fired. There is nothing left
+      # to guard — a raise here cannot un-provision the machine, it can only
+      # turn a real, successful provision into a failed Result for a machine
+      # that exists and is billing (and a terminate retry would then skip the
+      # meter event anyway, because the row is already terminated). So the
+      # loss is made VISIBLE rather than fatal: an error-level log naming the
+      # event and instance, and a `recorded: false` return that a caller can
+      # distinguish from success — never a bare nil.
+      #
+      # No handler registered is NOT a failure: it is core mode (no billing
+      # extension, therefore nothing to meter) and is reported without a log.
+      #
+      # @return [Hash] { recorded: true } or { recorded: false, reason: String }
+      def record_provisioning_event(node_instance:, event:)
+        return { recorded: false, reason: NO_METER_HANDLER_REASON } unless @provisioning_meter_handler
+
+        begin
+          @provisioning_meter_handler.call(node_instance: node_instance, event: event)
+          { recorded: true }
+        rescue StandardError => e
+          Rails.logger.error(
+            "[Powernode::BillingBridge] provisioning meter handler failed " \
+            "event=#{event} node_instance_id=#{node_instance.try(:id)} " \
+            "(#{e.class}): #{e.message}; posture=open"
+          )
+          { recorded: false, reason: METER_HANDLER_FAILED_REASON }
+        end
+      end
+
       # Test/boot helper.
       def reset!
         @subscription_model = nil
@@ -96,6 +147,7 @@ module Powernode
         @plan_model = nil
         @revenue_snapshot_model = nil
         @provisioning_quota_handler = nil
+        @provisioning_meter_handler = nil
       end
 
       private

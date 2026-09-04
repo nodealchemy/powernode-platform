@@ -23,6 +23,31 @@ RSpec.describe Ai::AgentModelSelector do
       expect(result[:model]).to be_present
     end
 
+    # HIER-P1C item 2: the synthetic scope Claude Code runs are recorded under
+    # (Ai::ClaudeExport::ExecutionRecorder) carries real model statistics but no
+    # platform credential can serve it — never a routing candidate, not even
+    # through the fallback's last-resort arm.
+    context "with the Claude Code synthetic provider present" do
+      let!(:synthetic) do
+        create(:ai_provider, account: account, slug: "claude-code", provider_type: "anthropic", is_active: false,
+                             supported_models: [], metadata: { "execution_source" => "claude_code" })
+      end
+
+      it "is excluded from the candidates and from the fallback even when it is the only provider" do
+        result = described_class.recommend(account: account, agent_type: "assistant")
+
+        expect(result[:provider]).to be_nil
+        expect(Ai::Provider.platform_routable.where(account: account)).not_to include(synthetic)
+      end
+
+      it "still routes to a real credentialed provider beside it" do
+        provider = create(:ai_provider, :openai, account: account)
+        create(:ai_provider_credential, account: account, provider: provider)
+
+        expect(described_class.recommend(account: account, agent_type: "assistant")[:provider]).to eq(provider)
+      end
+    end
+
     context "with no provider argument" do
       it "only considers providers that have an active credential" do
         # Two active providers; only the openai one is credentialed. The selector

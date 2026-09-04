@@ -18,10 +18,11 @@ RSpec.describe "db/seeds/platform_skill_assignments_seed.rb", type: :seed do
   BOUND_SLUGS = %w[
     sre-incident-response devops-engineer security-analyst
     knowledge-system-curator data skill-management business-search
-    productivity product-management powernode-dev
+    productivity product-management powernode-dev api-design
     design-skill-from-intent design-agent-team-from-intent
     marketing technical-researcher legal bio-research finance
     sales customer-support
+    ai-agent-architect agent-autonomy extension-developer documentation-writer
   ].freeze
 
   def seed_global_skills!(except: [])

@@ -69,11 +69,80 @@ RSpec.describe "ai_dev_team_seed frontend developer agent" do
       expect(File.exist?(path)).to be true
 
       content = File.read(path)
-      expect(content).to include(%(agent_id: "#{agent.id}"))
+      # The skeleton fetches its prompt BY SLUG (HIER-P1B); the id is what
+      # step 1 returns at run time, never a literal in the committed file.
+      expect(content).to include(%(slug: "#{agent.slug}"))
       expect(content).to include("mcp__powernode__platform_get_agent")
       expect(content).to include("code-review")
     ensure
       FileUtils.remove_entry(target_dir) if File.exist?(target_dir)
+    end
+  end
+  # HIER-P1 — the Knowledge Graph Curator is a GLOBAL canonical
+  # (ai_utility_agents_seed.rb). The dev-team seed used to create a second,
+  # account-scoped `data_analyst` copy; it now binds the canonical instead.
+  describe "Knowledge Graph Curator (canonical rule)" do
+    let!(:global_curator) do
+      create(:ai_agent, account: nil, name: "Knowledge Graph Curator", slug: "knowledge-graph-curator",
+                        agent_type: "assistant", is_system: true, source_key: "knowledge-graph-curator",
+                        provider: ollama, creator: user)
+    end
+
+    it "does not seed an account-scoped duplicate" do
+      load_seed!("ai_dev_team_seed.rb")
+
+      expect(Ai::Agent.owned_by_account(account.id).where(name: "Knowledge Graph Curator")).to be_empty
+      expect(Ai::Agent.where(name: "Knowledge Graph Curator").count).to eq(1)
+    end
+
+    it "binds the team's shared memory pool to the global canonical" do
+      load_seed!("ai_dev_team_seed.rb")
+
+      pool = Ai::MemoryPool.find_by(account: account, name: "Powernode Platform Conventions")
+      expect(pool).to be_present
+      expect(
+        Ai::AgentConnection.exists?(account: account, connection_type: "shared_memory",
+                                    source_type: "Ai::Agent", source_id: global_curator.id,
+                                    target_type: "Ai::MemoryPool", target_id: pool.id)
+      ).to be true
+    end
+  end
+
+  # HIER-P2B-ENG — the Documentation Specialist was promoted from this seed's
+  # account-scoped definition to a global canonical (ai_engineering_agents_seed).
+  describe "Documentation Specialist (promoted to a global canonical)" do
+    def team_role
+      team = Ai::AgentTeam.find_by(account: account, name: "Powernode Development Team")
+      Ai::TeamRole.find_by(agent_team: team, role_name: "Documentation Specialist")
+    end
+
+    it "never seeds an account-scoped 'Powernode Documentation Specialist' any more" do
+      load_seed!("ai_dev_team_seed.rb")
+
+      expect(Ai::Agent.owned_by_account(account.id).where(name: "Powernode Documentation Specialist")).to be_empty
+      expect(Ai::Agent.where("name ILIKE ?", "%Documentation Specialist%")).to be_empty
+    end
+
+    it "skips the team role (no crash) when the canonical has not been seeded yet" do
+      expect { load_seed!("ai_dev_team_seed.rb") }.not_to raise_error
+      expect(team_role).to be_nil
+      expect(frontend_developer).to be_present
+    end
+
+    it "binds the team role and membership to the global canonical when it exists" do
+      global_documenter = create(:ai_agent, account: nil, name: "Documentation Specialist",
+                                            slug: "documentation-specialist", agent_type: "content_generator",
+                                            is_system: true, source_key: "documentation-specialist",
+                                            provider: ollama, creator: user)
+
+      load_seed!("ai_dev_team_seed.rb")
+
+      expect(team_role.ai_agent_id).to eq(global_documenter.id)
+      team = Ai::AgentTeam.find_by(account: account, name: "Powernode Development Team")
+      expect(Ai::AgentTeamMember.exists?(ai_agent_team_id: team.id, ai_agent_id: global_documenter.id)).to be true
+      # An account's MCP-server connection is never written onto the global row.
+      expect(Ai::AgentConnection.where(source_type: "Ai::Agent", source_id: global_documenter.id,
+                                       connection_type: "mcp_server")).to be_empty
     end
   end
 end

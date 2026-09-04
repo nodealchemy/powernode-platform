@@ -469,6 +469,11 @@ module Ai
         "spawn_task" => "Ai::Tools::AgentManagementTool",
         "check_task_status" => "Ai::Tools::AgentManagementTool",
         "wait_for_task" => "Ai::Tools::AgentManagementTool",
+        # HIER-P1C — a Claude Code run of a platform agent reports back so the
+        # platform's execution, trust and model statistics see it.
+        "record_agent_execution" => "Ai::Tools::AgentManagementTool",
+        # Task -> agent routing (one router for MCP and the Concierge; read-only)
+        "route_task" => "Ai::Tools::AgentRoutingTool",
         # Team management
         "create_team" => "Ai::Tools::TeamManagementTool",
         "add_team_member" => "Ai::Tools::TeamManagementTool",
@@ -610,6 +615,10 @@ module Ai
         "list_deferred_operations" => "Ai::Tools::AgentAutonomyTool",
         "approve_deferred_operation" => "Ai::Tools::AgentAutonomyTool",
         "reject_deferred_operation" => "Ai::Tools::AgentAutonomyTool",
+        # Delegation authority (HIER-P0): an agent reads its own delegation policy
+        # + effective authority, and PROPOSES a policy (gated: ai.delegation_policy.update)
+        "describe_delegation" => "Ai::Tools::AgentAutonomyTool",
+        "set_delegation_policy" => "Ai::Tools::AgentAutonomyTool",
         # Self-improvement (skill mutation, challenges)
         "generate_self_challenge" => "Ai::Tools::SelfImprovementTool",
         "list_challenges" => "Ai::Tools::SelfImprovementTool",
@@ -827,9 +836,11 @@ module Ai
       # whole account reads, so filtering it by any single agent's grants would
       # be wrong even if an agent were in hand. Verified over every override on
       # the tree at the time of writing — `command grep -rnE "^ *def self\.permitted\?"
-      # <repo>/server/app <repo>/extensions` finds 14, and every one of them is
-      # either a bare `true` or a `defined?(::Const)` namespace probe followed by
-      # `super` — so nil-agent filtering removes only UNAVAILABLE tools today.
+      # <repo>/server/app <repo>/extensions` finds 14, and every one of them
+      # answers `true` for a nil agent: a bare `true`, a `defined?(::Const)`
+      # namespace probe followed by `super`, or (HIER-P2I) one of those guarded
+      # by `canonical_principal?`, which is false for nil. So nil-agent
+      # filtering removes only UNAVAILABLE tools today.
       def self.advertised_class?(klass, agent: nil)
         klass.permitted?(agent: agent)
       end

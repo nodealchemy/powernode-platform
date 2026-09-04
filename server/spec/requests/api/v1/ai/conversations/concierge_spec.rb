@@ -65,6 +65,32 @@ RSpec.describe "AI Concierge Conversations", type: :request do
       end
     end
 
+    # HIER-P2I: the seeded concierge is a GLOBAL canonical (account_id NULL)
+    # and a canonical never executes. The door attaches the conversation to the
+    # account's own clone — minted on first use — so the principal that acts
+    # in this conversation is bounded by this account's role.
+    context "with only the GLOBAL canonical concierge" do
+      # The canonical's provider is the one this account holds a credential
+      # for — the clone inherits it when the account has no provider of its
+      # own, and the door's provider check then passes for the clone.
+      let!(:global_concierge) do
+        create(:ai_agent, :global, provider: provider, is_concierge: true, status: "active", is_system: true,
+                                   name: "Powernode Assistant", slug: "powernode-assistant",
+                                   source_key: "powernode-assistant")
+      end
+
+      it "attaches the conversation to the account's clone, never to the canonical" do
+        post "/api/v1/ai/conversations/concierge", headers: headers
+
+        expect(response).to have_http_status(:ok)
+        agent = Ai::Agent.find(json_response_data["conversation"]["ai_agent"]["id"])
+        expect(agent.id).not_to eq(global_concierge.id)
+        expect(agent.account_id).to eq(account.id)
+        expect(agent.cloned_from_id).to eq(global_concierge.id)
+        expect(agent.is_concierge).to be(true)
+      end
+    end
+
     context "without permission" do
       let(:user) { user_with_permissions(account: account) }
 

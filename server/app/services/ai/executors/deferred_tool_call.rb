@@ -165,8 +165,11 @@ module Ai
           klass
         end
 
-        # Account-scoped in every arm. The gate opened this operation in ONE
-        # account, and a principal outside it is not the principal that asked.
+        # Bounded to the operation's account in every arm. The gate opened this
+        # operation in ONE account, and a principal outside it is not the
+        # principal that asked. For an agent that bound is the account's
+        # VISIBILITY (global canonicals plus its own rows), not ownership — see
+        # #agent_for.
         def rehydrate_caller(principal, account)
           descriptor = normalize(principal)
           return nil if account.nil?
@@ -213,14 +216,53 @@ module Ai
                      granted_tool_name: descriptor["granted_tool_name"].presence)
         end
 
+        # The account's VISIBILITY, not its ownership. Every official agent is a
+        # GLOBAL canonical (account_id NULL — GloballyScopable, HIER-P1), and an
+        # account customises one by cloning it; the canonical acting as the
+        # caller of a gated verb is therefore the common case, and an ownership
+        # match (`account_id: account.id`) broke BOTH arms for it, differently:
+        # the agent arm refused `principal_unresolvable`, while the user arm (an
+        # agent acting FOR a user — the shape MCP actually parks) treats a nil
+        # agent as benign and replayed agent-LESS, so the approved write failed
+        # SILENTLY in the tool body ("Agent not found") rather than refusing. A
+        # clone replayed fine either way.
+        # `for_account` is the same scope the tools' own agent resolution
+        # reads through (Ai::Agent.resolve_for), and it keeps account rows
+        # account-scoped: another account's agent, canonical-cloned or not, is
+        # not visible here and still fails closed.
+        # HIER-P2I. The row the descriptor names may BE a global canonical:
+        # before that increment the fleet's own ticks gated and parked under
+        # the canonical, so that is the shape of every approval already in the
+        # table. A canonical can no longer execute — but the approval is the
+        # OPERATOR's decision about an operation, not about which row the
+        # scheduler happened to resolve, and refusing it here would strand
+        # approved work behind a `permission_revoked` that names nothing the
+        # operator can act on. The account is in hand, so the replay resolves
+        # the same executing principal every live caller now resolves: the
+        # account's clone of the canonical, minted on first use.
+        # `acting` is a no-op for an account-scoped row (the common case), and
+        # when no clone can be minted (an account with no user to own one) it
+        # answers with the canonical itself — which then fails closed one line
+        # below in #authorized?, refusing rather than widening.
         def agent_for(descriptor, account)
           id = descriptor["agent_id"]
           return nil if id.blank?
 
-          ::Ai::Agent.find_by(id: id, account_id: account.id)
+          agent = ::Ai::Agent.for_account(account.id).find_by(id: id)
+          return nil if agent.nil?
+
+          ::Ai::Agents::AccountPrincipalResolver.acting(agent, account: account)
         end
 
-        # The SAME question each principal's own door asks, re-asked now.
+        # The SAME question each principal's own door asks, re-asked now — which
+        # also means it is no STRICTER than that door. A GLOBAL canonical never
+        # reaches here as the acting principal: #agent_for has already mapped
+        # it to the account's clone, whose permissions derive from the account
+        # role, which is the question this asks. It fails CLOSED in the one
+        # case no clone exists and none can be minted — BaseTool.permitted?
+        # answers false for an agent with no account since HIER-P2I — so the
+        # replay refuses REASON_PERMISSION_REVOKED rather than executing a
+        # principal nothing bounds.
         def authorized?(principal_ctx, tool_class, action)
           case principal_ctx.kind
           when "user"

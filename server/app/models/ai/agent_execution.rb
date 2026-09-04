@@ -13,6 +13,14 @@ module Ai
     belongs_to :parent_execution, class_name: "Ai::AgentExecution", foreign_key: "parent_execution_id", optional: true
     has_many :child_executions, class_name: "Ai::AgentExecution", foreign_key: "parent_execution_id", dependent: :nullify
 
+    # execution_context["source"] of a row reported by a Claude Code run of a
+    # platform agent (platform.record_agent_execution —
+    # Ai::ClaudeExport::ExecutionRecorder). Such a row feeds model statistics
+    # and the trust score like any other, but is a boundary for the
+    # platform-execution concepts: it never debits an Ai::AgentBudget (see
+    # propagate_cost_to_budget) and no autonomy/approval accounting keys on it.
+    CLAUDE_CODE_SOURCE = "claude_code"
+
     # Validations
     validates :execution_id, presence: true, uniqueness: true
     validates :status, inclusion: { in: %w[pending running completed failed cancelled] }
@@ -40,11 +48,17 @@ module Ai
     scope :today, -> { where(created_at: Date.current.beginning_of_day..Date.current.end_of_day) }
     scope :this_week, -> { where(created_at: 1.week.ago..Time.current) }
     scope :this_month, -> { where(created_at: 1.month.ago..Time.current) }
+    # Executor kind: runs a Claude Code session performed locally and reported
+    # back (everything else is a run the platform's own executor performed).
+    scope :claude_code_runs, -> { where("execution_context ->> 'source' = ?", CLAUDE_CODE_SOURCE) }
 
     # Callbacks
     before_validation :set_execution_id, on: :create
     after_update :trigger_webhook, if: :saved_change_to_status?
-    after_update :propagate_cost_to_budget, if: -> { saved_change_to_cost_usd? && cost_usd.present? && cost_usd > 0 }
+    # A Claude Code run is excluded by construction: autonomy budgets are a
+    # platform-execution concept (HIER-P1C boundary rule), and a retried report
+    # that revises the cost would otherwise debit the agent's budget here.
+    after_update :propagate_cost_to_budget, if: -> { !claude_code_run? && saved_change_to_cost_usd? && cost_usd.present? && cost_usd > 0 }
     after_update :trigger_trust_evaluation, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
     after_update :record_model_performance, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
     after_update :record_routing_decision_outcome, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
@@ -76,6 +90,11 @@ module Ai
 
     def successful?
       status == "completed"
+    end
+
+    # True for a row reported by a Claude Code run (see CLAUDE_CODE_SOURCE).
+    def claude_code_run?
+      execution_context.is_a?(Hash) && execution_context["source"] == CLAUDE_CODE_SOURCE
     end
 
     def start_execution!

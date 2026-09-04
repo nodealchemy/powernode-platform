@@ -11,14 +11,54 @@ module Ai
     # `Ai::InterventionPolicy.register_category!("ext.action_name")` from
     # their Engine#after_initialize. The registry is thread-safe at boot
     # (single-threaded init); reads are lock-free at request time.
-    STATIC_CATEGORIES = %w[
+    #
+    # ai.delegation_policy.update (HIER-P0): the MCP verb
+    # platform.set_delegation_policy PROPOSES an agent's own delegation
+    # authority. No seed writes a policy row for it on purpose —
+    # Ai::InterventionPolicyService#default_policy resolves an unmatched
+    # category to require_approval, which is the escalation rule
+    # (guidance-agent-escalation: an agent may propose, never grant). An
+    # operator who wants it to land unattended writes an auto_approve row.
+    #
+    # The `engineering` policy set (HIER-P2B-ENG, operator rulings 2026-09-03):
+    # the categories the Engineering hierarchy's agents own, seeded on those
+    # agents by db/seeds/ai_engineering_agents_seed.rb and gated by the MCP
+    # verbs that carry them —
+    #   dev.task_claim / dev.task_complete / dev.campaign_propose   auto_approve
+    #     (Platform Developer; proposals ARE the gate, so proposing is free)
+    #   dev.skill_refine / dev.prompt_refine                        trust-conditioned
+    #     (Platform Developer + Platform Architect; ruling #3 — auto_approve only
+    #     from the `trusted` tier, require_approval below it, expressed as a row
+    #     PAIR through the existing trust_tier_minimum condition; gated by
+    #     auto_evolve_skill / mutate_skill on Ai::Tools::SelfImprovementTool)
+    #   release.build_dispatch                                       auto_approve
+    #     (Release Manager, plus an account-wide FLOOR row — see
+    #     Ai::Engineering::ReleaseDispatchFloorSeeder — because an agent-scoped
+    #     row matches only its own agent and the principals that dispatch builds
+    #     over MCP carry none: an operator's `mcp_client` session and a dev-cell
+    #     instance principal. Gated by system_dispatch_module_build_batch.)
+    #   release.promote / release.rollback / release.deploy_platform require_approval
+    #     (Release Manager; NO trust unlock — structural changes stay gated
+    #     whatever the tier; gated by system_promote_module_version /
+    #     system_rollback_module_version / system_deploy_platform)
+    #   docs.update                                                  auto_approve
+    #     (Documentation Specialist)
+    # Listed as their own constant so the seed and its spec name one list.
+    ENGINEERING_CATEGORIES = %w[
+      dev.task_claim dev.task_complete dev.campaign_propose
+      dev.skill_refine dev.prompt_refine
+      release.build_dispatch release.promote release.rollback release.deploy_platform
+      docs.update
+    ].freeze
+
+    STATIC_CATEGORIES = (%w[
       approval proposal escalation status_update issue_alert
       feedback
       project.adapt project.cost_control project.scale_horizontal project.relocate project.schema_change project.security_change
       dev.pull_task dev.complete_task dev.commit_to_branch
       dev.multi_file_change dev.merge
-      *
-    ].freeze
+      ai.delegation_policy.update
+    ] + ENGINEERING_CATEGORIES + %w[*]).freeze
 
     @category_registry = Set.new(STATIC_CATEGORIES)
     @category_registry_mutex = Mutex.new

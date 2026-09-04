@@ -123,6 +123,29 @@ RSpec.describe "MCP action declaration completeness" do
   #   system_cordon_instance        IMP-0467eee9fc57  system.instance_cordon
   #   system_uncordon_instance      IMP-0467eee9fc57  system.instance_cordon
   #   system_gitops_register_repository SWEEP-2026-09-03 system.gitops_register_repository
+  #   system_replace_instance       IMP-4e49eb79c5e0  system.instance_replace
+  #   system_reap_instance          IMP-4e49eb79c5e0  system.instance_reap
+  #   system_set_default_disk_image_publication
+  #                                 HIER-P2H          system.disk_image_publication_promote
+  #   system_revert_disk_image      HIER-P2H          system.disk_image_publication_rollback
+  #   system_set_disk_image_retention
+  #                                 HIER-P2H          system.disk_image_retention_update
+  #   set_delegation_policy         HIER-P0           ai.delegation_policy.update
+  #                                 (core category; an agent PROPOSES its own
+  #                                 delegation authority, an operator grants it)
+  #   mutate_skill                  HIER-P2B-ENG      dev.prompt_refine
+  #   auto_evolve_skill             HIER-P2B-ENG      dev.skill_refine
+  #                                 (core categories; the trust-conditioned
+  #                                 refine pair — auto_approve from `trusted`)
+  #   system_dispatch_module_build_batch
+  #                                 HIER-P2B-ENG      release.build_dispatch
+  #   system_promote_module_version HIER-P2B-ENG      release.promote
+  #   system_rollback_module_version
+  #                                 HIER-P2B-ENG      release.rollback
+  #   system_deploy_platform        HIER-P2B-ENG      release.deploy_platform
+  #                                 (core categories on the Release Manager;
+  #                                 the mode-less wizard call is the verb's
+  #                                 declared read arm — `ungated_when`)
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -142,6 +165,16 @@ RSpec.describe "MCP action declaration completeness" do
     system_cordon_instance
     system_uncordon_instance
     system_gitops_register_repository
+    set_delegation_policy
+    system_set_default_disk_image_publication
+    system_revert_disk_image
+    system_set_disk_image_retention
+    mutate_skill
+    auto_evolve_skill
+    system_dispatch_module_build_batch
+    system_promote_module_version
+    system_rollback_module_version
+    system_deploy_platform
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

@@ -82,6 +82,16 @@ RSpec.describe Powernode::Version do
     end
   end
 
+  it "reports no prerelease for a plain X.Y.Z (it used to echo the patch digit)" do
+    allow(described_class).to receive(:current).and_return("0.3.1")
+    expect(described_class.prerelease).to be_nil
+    expect(described_class.patch).to eq(1)
+    described_class.reset!
+    allow(described_class).to receive(:current).and_return("1.2.3-beta.1")
+    expect(described_class.prerelease).to eq("beta.1")
+    expect(described_class.patch).to eq(3)
+  end
+
   it "exposes the display contract on semantic_version" do
     with_build_info(version: version, sha: "d" * 40, short_sha: "ddddddd", branch: "develop",
                     tag: nil, release: false, built_at: "2026-09-03T16:00:00Z") do

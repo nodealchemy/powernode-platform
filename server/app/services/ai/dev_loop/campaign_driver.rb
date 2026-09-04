@@ -321,7 +321,19 @@ module Ai
           # Flat-rate CLI drivers (claude_code / external_cli) pull from the queue; no platform target.
           {}
         when "platform_agent"
-          id = target["agent_id"].presence
+          # HIER-P2B-ENG (operator ruling 2026-09-03 #4): the Platform Developer
+          # is the platform_agent driver of dev-improve, so a delegation that
+          # names no agent resolves to it. A default is a RESOLUTION, not a
+          # bypass: with no Platform Developer canonical present the empty
+          # target still raises, so no loop is ever wedged on a nil agent.
+          #
+          # OWNERSHIP is still the scope. The resolution hands back an
+          # ACCOUNT-OWNED row — the account's existing clone of the canonical,
+          # or a fresh clone minted here — never the global canonical itself,
+          # because Ai::AgentToolBridgeService executes a loop's agent as
+          # `agent.creator` and a global canonical's creator belongs to the
+          # seeding account (see RalphLoop#default_agent_belongs_to_account).
+          id = target["agent_id"].presence || default_platform_agent&.id
           raise ArgumentError, "platform_agent delegation requires target.agent_id" if id.blank?
           raise ArgumentError, "agent not found in this account" unless @account.ai_agents.exists?(id: id)
 
@@ -343,6 +355,27 @@ module Ai
         else
           raise ArgumentError, "unknown driver_kind: #{driver_kind}"
         end
+      end
+
+      # The account's OWN Platform Developer: its existing row for the slug if it
+      # has one, otherwise a clone of the global canonical minted through the
+      # HIER-P1 canonical rule. Nil when no canonical is seeded, which the
+      # caller turns into the "requires target.agent_id" refusal.
+      #
+      # Why a clone and not the canonical: Ai::Ralph::TaskExecutor runs a loop's
+      # default_agent through Ai::AgentToolBridgeService, which resolves tools
+      # and permissions as `agent.creator`. The canonical's creator is a user in
+      # the SEEDING account, so driving another account's loop with the global
+      # row would execute that account's work under a foreign principal — and
+      # since HIER-P2I the tool seam refuses a global canonical outright.
+      #
+      # The rule lives in Ai::Agents::AccountPrincipalResolver (HIER-P2I
+      # extracted it from here so the fleet tick, the CVE responder and the
+      # concierge resolve through the SAME copy); this is one consumer of it.
+      def default_platform_agent
+        Ai::Agents::AccountPrincipalResolver.for(
+          canonical_slug: Ai::RalphLoop::PLATFORM_AGENT_DEFAULT_SLUG, account: @account, user: @user
+        )
       end
 
       # Apply one loop's driver routing + scheduling for #delegate (see its docs).

@@ -91,9 +91,14 @@ module Ai
 
     def initialize(conversation:, user:)
       @conversation = conversation
-      @agent = conversation.agent
       @user = user
       @account = user.account
+      # HIER-P2I: a conversation attached to the GLOBAL canonical concierge
+      # (every concierge conversation minted before the doors learned to
+      # clone) still executes — as the account's clone of that canonical, not
+      # as the canonical, which Ai::Tools::BaseTool refuses by name. The
+      # conversation row is not rewritten; only the acting principal is.
+      @agent = Ai::Agents::AccountPrincipalResolver.acting(conversation.agent, account: @account, user: user)
     end
 
     # Primary entry point — routes to tool-bridge or legacy action-grammar.
@@ -172,7 +177,9 @@ module Ai
         # interpretations from the prior agent's conversation history.
         if routing.delegated_agent.present?
           original = @agent&.name
-          @agent = routing.delegated_agent
+          # HIER-P2I: a specialist the router names may be the GLOBAL
+          # canonical; the turn runs as this account's clone of it.
+          @agent = Ai::Agents::AccountPrincipalResolver.acting(routing.delegated_agent, account: @account, user: @user)
           @router_delegated = true
           Rails.logger.info(
             "[ConciergeService] router :delegated from=#{original.inspect} to=#{routing.delegated_agent.name.inspect} conv=#{@conversation.id}"
@@ -1311,32 +1318,53 @@ module Ai
 
       base = (agent_spec["name"] || role).to_s.parameterize.truncate(40, omission: "")
       slug = unique_agent_slug(base)
-      ::Ai::Agent.create!(
-        account:       @account,
-        creator:       @user,
-        provider:      provider,
-        name:          agent_spec["name"] || role.titleize,
-        slug:          slug,
-        agent_type:    agent_type,
-        status:        "active",
-        description:   agent_spec["system_prompt_summary"],
-        system_prompt: agent_spec["system_prompt_summary"],
-        mcp_metadata:  {
-          "created_by"      => "design-agent-team-from-intent",
-          "role"            => role,
-          "model_config"    => { "model" => model },
-          "model_selection" => {
-            "provider_type" => recommendation[:provider_type],
-            "model"         => model,
-            "reason"        => recommendation[:reason],
-            "selected_at"   => Time.current.iso8601,
-            "score_details" => recommendation[:score_details]
-          }.compact
-        }
-      )
+      # Agent + lineage land together or not at all (the caller's transaction
+      # only rolls back on a raise; this method returns nil on failure).
+      ::ActiveRecord::Base.transaction(requires_new: true) do
+        created = ::Ai::Agent.create!(
+          account:       @account,
+          creator:       @user,
+          provider:      provider,
+          name:          agent_spec["name"] || role.titleize,
+          slug:          slug,
+          agent_type:    agent_type,
+          status:        "active",
+          description:   agent_spec["system_prompt_summary"],
+          system_prompt: agent_spec["system_prompt_summary"],
+          mcp_metadata:  {
+            "created_by"      => "design-agent-team-from-intent",
+            "role"            => role,
+            "model_config"    => { "model" => model },
+            "model_selection" => {
+              "provider_type" => recommendation[:provider_type],
+              "model"         => model,
+              "reason"        => recommendation[:reason],
+              "selected_at"   => Time.current.iso8601,
+              "score_details" => recommendation[:score_details]
+            }.compact
+          }
+        )
+        attach_composed_agent_lineage!(created, role)
+        created
+      end
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.error("[create_team_from_spec] agent_create failed role=#{role}: #{e.message}")
       nil
+    end
+
+    # HIER-P1 — an agent composed from a spec is not a root: its lineage
+    # parent is the concierge that designed it (this conversation's agent),
+    # else the account's resolved concierge, written through the ONE
+    # hierarchy seam so the Autonomy forest shows the composition.
+    def attach_composed_agent_lineage!(created, role)
+      parent = @agent if @agent&.persisted?
+      parent ||= ::Ai::Agent.resolve_concierge_for(@account.id)
+      return if parent.nil? || parent.id == created.id
+
+      ::Ai::Agents::HierarchyWriter.new(account: @account).attach!(
+        child: created, parent: parent, spawn_reason: "team_composition",
+        metadata: { "role" => role, "designed_by" => "design-agent-team-from-intent" }
+      )
     end
 
     def valid_agent_type(t)

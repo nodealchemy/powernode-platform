@@ -99,7 +99,8 @@ RSpec.describe Api::V1::Ai::AutonomyController, type: :controller do
       it 'resolves a global agent (does not 404)' do
         get :lineage, params: { agent_id: global_agent.id }
         expect(response).to have_http_status(:success)
-        expect(JSON.parse(response.body).dig('data', 'agent_id')).to eq(global_agent.id)
+        expect(JSON.parse(response.body).dig('data', 'id')).to eq(global_agent.id)
+        expect(JSON.parse(response.body).dig('data', 'canonical')).to be(true)
       end
     end
 
@@ -112,8 +113,11 @@ RSpec.describe Api::V1::Ai::AutonomyController, type: :controller do
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
         expect(json['success']).to be true
-        expect(json['data']).to include('agent_id', 'children', 'parents', 'total_children', 'total_parents')
-        expect(json['data']['total_children']).to eq(1)
+        # HIER-P0: the payload IS an AgentLineageNode rooted at the agent (what the
+        # tree renders), with parents as sibling data and the legacy counters under meta.
+        expect(json['data']).to include('id', 'name', 'type', 'status', 'depth', 'children', 'parents', 'meta')
+        expect(json['data']['id']).to eq(agent.id)
+        expect(json['data']['meta']).to include('agent_id' => agent.id, 'total_children' => 1, 'total_parents' => 0)
       end
 
       it 'returns not found for non-existent agent' do

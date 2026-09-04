@@ -37,13 +37,13 @@ module Powernode
       def major = version_parts[0].to_i
       def minor = version_parts[1].to_i
 
-      def patch
-        base_patch, _prerelease = version_parts[2].to_s.split("-", 2)
-        base_patch.to_i
-      end
+      def patch = version_parts[2].to_i
 
+      # "1.2.3-beta.1" -> "beta.1"; "1.2.3" -> nil. (It used to split on "."
+      # first, so a plain X.Y.Z answered its patch digit and "beta.1" lost
+      # its ".1".)
       def prerelease
-        version_parts[2]&.split("-", 2)&.last
+        current.split("-", 2)[1].presence
       end
 
       # --- build identity ------------------------------------------------
@@ -144,8 +144,9 @@ module Powernode
         nil
       end
 
+      # The X.Y.Z half only; the prerelease rides after the first "-".
       def version_parts
-        @version_parts ||= current.split(".")
+        @version_parts ||= current.split("-", 2).first.split(".")
       end
     end
   end
