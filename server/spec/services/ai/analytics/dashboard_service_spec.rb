@@ -22,7 +22,7 @@ RSpec.describe Ai::Analytics::DashboardService do
     end
 
     it "caches the result for 15 minutes" do
-      cache_key = "ai:dashboard:#{account.id}:#{30.days.to_i}"
+      cache_key = CacheVersioning.key("ai:dashboard:#{account.id}", 30.days.to_i)
 
       expect(Rails.cache).to receive(:fetch)
         .with(cache_key, expires_in: 15.minutes, force: false)
@@ -32,7 +32,7 @@ RSpec.describe Ai::Analytics::DashboardService do
     end
 
     it "force-refreshes when requested" do
-      cache_key = "ai:dashboard:#{account.id}:#{30.days.to_i}"
+      cache_key = CacheVersioning.key("ai:dashboard:#{account.id}", 30.days.to_i)
 
       expect(Rails.cache).to receive(:fetch)
         .with(cache_key, expires_in: 15.minutes, force: true)
@@ -44,13 +44,33 @@ RSpec.describe Ai::Analytics::DashboardService do
 
   # =========================================================================
   # .invalidate_cache
+  #
+  # IMP-63a7d2f99c56. Used to call Rails.cache.delete_matched, which the
+  # production default store (solid_cache) does not implement — see
+  # CacheVersioning's header. A state oracle rather than a message
+  # expectation, exercised against NoDeleteMatchedCacheStore
+  # (spec/support/no_delete_matched_cache_store.rb) so passing here means
+  # something on the store the app actually resolves in production, not on
+  # the test env's MemoryStore (which implements delete_matched and would
+  # hide the whole defect class).
   # =========================================================================
   describe ".invalidate_cache" do
-    it "deletes matched cache keys for the account" do
-      expect(Rails.cache).to receive(:delete_matched)
-        .with("ai:dashboard:#{account.id}:*")
+    it "does not raise on a cache store that cannot delete_matched" do
+      allow(Rails).to receive(:cache).and_return(NoDeleteMatchedCacheStore.new)
+
+      expect { described_class.invalidate_cache(account.id) }.not_to raise_error
+    end
+
+    it "retires a previously cached #generate result for the account" do
+      allow(Rails).to receive(:cache).and_return(NoDeleteMatchedCacheStore.new)
+      service.generate # populate the cache under the pre-invalidation key
+      stale_key = CacheVersioning.key("ai:dashboard:#{account.id}", 30.days.to_i)
+      Rails.cache.write(stale_key, { stale: true })
+      expect(service.generate).to include(stale: true) # still reading the stale entry
 
       described_class.invalidate_cache(account.id)
+
+      expect(service.generate).not_to include(stale: true) # unaddressable, recomputed
     end
   end
 

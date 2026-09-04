@@ -33,7 +33,7 @@ module Ai
       # @param force_refresh [Boolean] Skip cache and regenerate
       # @return [Hash] Dashboard data
       def generate(force_refresh: false)
-        cache_key = "ai:dashboard:#{account.id}:#{time_range.to_i}"
+        cache_key = CacheVersioning.key("ai:dashboard:#{account.id}", time_range.to_i)
 
         return Rails.cache.fetch(cache_key, expires_in: DASHBOARD_CACHE_TTL, force: force_refresh) do
           {
@@ -47,9 +47,12 @@ module Ai
         end
       end
 
-      # Invalidate dashboard cache for an account
+      # Invalidate dashboard cache for an account. Structural (CacheVersioning),
+      # not pattern deletion — the production default cache store (solid_cache)
+      # does not implement Rails.cache.delete_matched. See CacheVersioning's
+      # header.
       def self.invalidate_cache(account_id)
-        Rails.cache.delete_matched("ai:dashboard:#{account_id}:*")
+        CacheVersioning.bump!("ai:dashboard:#{account_id}")
       end
 
       # Provider health metrics for MCP introspection tool
