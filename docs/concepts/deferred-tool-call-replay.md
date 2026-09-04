@@ -79,6 +79,19 @@ ownership match would park approvals no decision could ever replay — refused o
 agent arm, silently agent-less in the user arm. Another account's agent, clone or not, is
 outside that visibility and still fails closed.
 
+Since HIER-P2I ([canonical principals never execute](platform-engineering-agents.md#canonical-principals-never-execute-hier-p2i))
+the *canonical itself* cannot park a gated call at all — `Ai::Tools::BaseTool#execute` refuses a
+NULL-account acting agent ahead of the gate. Rows it parked BEFORE that increment are the whole
+existing population, though: the fleet ticks gated and parked under the canonical, so refusing
+them here would strand operator-approved work behind a `permission_revoked` naming nothing the
+operator can act on. `#agent_for` therefore maps a resolved canonical through
+`Ai::Agents::AccountPrincipalResolver.acting` — the same seam every live caller resolves through
+— and the approved operation replays as the account's clone, whose permissions derive from the
+account role, which is exactly the question `#authorized?` re-asks one line later. The map is a
+no-op for an account-scoped row. It fails closed in the one case a clone cannot be minted (an
+account with no user to own one): `acting` hands the canonical back, `permitted?` answers
+`false`, and the replay refuses rather than executing a principal nothing bounds.
+
 `internal` is recorded **alongside** the user/agent kinds rather than as a kind of its own,
 because at depth the two are orthogonal: a skill executor builds every tool it nests with
 `internal: internal_caller?` *while still forwarding* the caller's `user:`/`agent:`, so a

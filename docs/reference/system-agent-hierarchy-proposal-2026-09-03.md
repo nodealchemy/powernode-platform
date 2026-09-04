@@ -261,6 +261,14 @@ Phase 2b: ~5 lanes (one per new/promoted agent, plus the engineering policy set 
    ever ran; the rule is that a NULL-account agent principal is REFUSED at the tool seam with a
    result envelope (never -32603), and every execution goes through an account-scoped clone whose
    permissions derive from the account role. Tracked as HIER-P2I; ships in deploy 4.
+   **Landed 2026-09-04 as HIER-P2I** (commits tagged `HIER-P2I` on `dev-loop/dev-improve`, core and
+   `extensions/system`): the refusal and the `permitted?` fail-closed in
+   `server/app/services/ai/tools/base_tool.rb`, the one clone seam
+   `Ai::Agents::AccountPrincipalResolver` (`server/app/services/ai/agents/account_principal_resolver.rb`,
+   extracted from the HIER-P2B-ENG campaign-driver helper), and every seeded canonical that acts on
+   its own routed through it — `System::Governance::AgentResolver` (fleet tick, per-owner gates,
+   reconciler, CVE responder, adaptation gate) and the concierge doors. Documented in
+   [docs/concepts/platform-engineering-agents.md](../concepts/platform-engineering-agents.md#canonical-principals-never-execute-hier-p2i).
 9. **Operator ruling 2026-09-04 00:10 (sequencing).** Offers 01a06997 and 01a0696f approved. Deploy 4
    runs after HIER-P2B-ENG and HIER-P2I land and BEFORE Phase 3 / Phase 4, which ride deploy 5. The
    six pending dev-improve tasks (three business-extension, IMP-222dd9bce564, IMP-31e7c3dbeb2a,

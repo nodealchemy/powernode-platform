@@ -131,6 +131,75 @@ present, an empty target still raises: the default is a resolution, never a wedg
 [Use Powernode from Claude Code](../guides/use-powernode-from-claude.md#handing-a-task-to-the-platform-developer-vs-claude-code)
 for when to hand a task to which executor.
 
+## Canonical principals never execute (HIER-P2I)
+
+Operator ruling 8 of the
+[hierarchy proposal](../reference/system-agent-hierarchy-proposal-2026-09-03.md#5-operator-rulings-2026-09-03-1812-utc):
+a global canonical (`account_id NULL`) is a **template**, never an executing principal.
+`Ai::Tools::BaseTool.permitted?` used to answer `true` for any agent without an account, so a
+canonical that reached a tool was **unbounded** — no permission at all — while the account-scoped
+clone it should have been running as is bounded by the account's role.
+
+What holds now:
+
+- **The tool seam refuses a canonical by name.** `Ai::Tools::BaseTool#execute` answers a
+  NULL-account acting agent with a result envelope — `success: false`,
+  `refusal: "canonical_principal"`, `canonical_slug`, and an `error` naming the slug and the
+  clone path (`agent_management create_agent canonical_slug: <slug>`) — never a `-32603`. It is
+  the first check in `#execute`, ahead of the deny overlay and parameter validation, so a
+  malformed call from a canonical is still a principal refusal. `permitted?` answers `false` for
+  the same principal, so a caller consulting it alone (the replay re-check in
+  `Ai::Executors::DeferredToolCall`, the per-agent tool list) fails closed. Each refusal is
+  logged and audited as `mcp.tools.canonical_principal_refused` (slug, tool, action — never the
+  params), deduplicated per `(account, canonical, action)` per hour like the undeclared-action
+  telemetry. The nil-agent path — a user or instance principal — is untouched. The two tools that
+  override `permitted?` without calling `super` (`Ai::Tools::KillSwitchTool`,
+  `Ai::Tools::AgentAutonomyTool`, both of which answer `true` for any agent so that escalation
+  stays visible) carry the same refusal, or `PlatformApiToolRegistry.advertised_class?` would
+  keep advertising them to a canonical.
+- **What executes is the account's clone**, resolved through **one** seam:
+  `Ai::Agents::AccountPrincipalResolver` (`for(canonical_slug:, account:)`,
+  `acting(agent, account:)`, `concierge_for(account)`). It hands back the account's own row for
+  the canonical, or mints the clone on first use through the HIER-P1 canonical rule —
+  `clone_to_account`, a creator and provider from the account, the `canonical_clone` lineage
+  edge via `Ai::Agents::HierarchyWriter` — keeping the canonical's name and slug (uniqueness is
+  per account, so every `Ai::Agent.resolve_for(name:)` site then finds the clone override-first).
+  The account's agent-scoped `Ai::InterventionPolicy` rows written against the canonical are
+  **re-homed** onto the clone (the operator's tuned verbs travel with them), and the canonical's
+  skill bindings, trust score and the delegation policy that governed it for the account are
+  copied, so the first tick through the clone acts exactly as the canonical would have. The
+  Platform Developer resolution above is one consumer of this seam.
+- **Every seeded canonical that acts on its own resolves through it.** In the system extension,
+  `System::Governance::AgentResolver` — the rule the fleet tick (`FleetAutonomyService.tick!`,
+  `#for_owner` for every `SIGNAL_BINDINGS` `owner:`), the `PolicyReconciler`, the CVE responder
+  tick and the adaptation gate all share — answers with the account's clone, so the writer of
+  policy rows and the reader of them agree on the acting id on the same tick. The concierge
+  doors (`POST /conversations/concierge` and `/provisioning`, workspaces, the system extension's
+  concierge panel) attach conversations to the account's clone, and `Ai::ConciergeService`
+  maps a conversation attached to the canonical before this increment onto the clone for
+  execution without rewriting the conversation. The doors that can hand any global row to
+  execution map the same way: workspace membership (`Ai::WorkspaceService#add_agents_to_team`
+  and `ConversationTool`'s `create_workspace` / `invite_agent`, whose members are executed by
+  `Ai::TeamStrategies::BaseStrategy`), `POST /api/v1/ai/agents/:id/execute`, and
+  `POST /api/v1/ai/agents/:agent_id/conversations` — each attaches or executes the account's
+  clone, so the serialized response names the row that actually ran. Reads are left alone:
+  `set_agent` still resolves a canonical for `show`, and `Ai::Agent.resolve_concierge_for`
+  is still a read. `platform.route_task`
+  (`Ai::Routing::AgentRouterService`) may still name a canonical — it is a read — and says so
+  (`canonical: true` on the winner and each candidate, plus an `execution_note`); the caller
+  clones before executing.
+- **An approved operation still replays.** `Ai::Executors::DeferredToolCall` parks a gated call
+  with the acting agent's id, and every approval already in the table was parked by the
+  canonical, because that is what ticked before this increment. The replay therefore resolves
+  the descriptor's agent through the same seam (`#agent_for`) and re-invokes as the account's
+  clone: the operator's decision is about the operation, not about which row the scheduler
+  resolved. It fails closed only where no clone exists and none can be minted — an account with
+  no user to own one — and then `permitted?` answers `false` and the replay refuses
+  `permission_revoked` rather than running an unbounded principal.
+- **A Claude Code skeleton is unaffected.** `.claude/agents/powernode/*.md` runs locally under
+  the *user's* principal (the MCP door's `mcp_client` identity), not the agent's, so the export
+  of a canonical is a prompt, never a NULL-account principal reaching a tool.
+
 ## Claude Code subagents
 
 Each Engineering canonical is exported as a Claude Code subagent under
