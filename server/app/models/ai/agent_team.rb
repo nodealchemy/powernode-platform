@@ -13,10 +13,19 @@ module Ai
     STATUSES = %w[active inactive archived].freeze
     PARALLEL_MODES = %w[standard worktree].freeze
 
+    # HIER-P4 — a CANONICAL team (the account's materialisation of a global
+    # Ai::TeamTemplate) is read-only through every write door, like a canonical
+    # agent. Raised by #guard_mutable!.
+    class ReadOnlyCanonical < StandardError; end
+
+    READ_ONLY_MESSAGE = "%<name>s is a canonical team (materialised from the global template " \
+                        "%<template>s) and read-only — clone the template to customise a copy"
+
     # ==========================================
     # Associations
     # ==========================================
     belongs_to :account
+    belongs_to :template, class_name: "Ai::TeamTemplate", foreign_key: "template_id", optional: true
     has_many :members, class_name: "Ai::AgentTeamMember", foreign_key: "ai_agent_team_id", dependent: :destroy
     has_many :agents, class_name: "Ai::Agent", through: :members, source: :agent
     has_many :ai_team_roles, class_name: "Ai::TeamRole", foreign_key: "agent_team_id", dependent: :destroy
@@ -50,6 +59,14 @@ module Ai
     scope :sequential, -> { where(team_type: "sequential") }
     scope :parallel, -> { where(team_type: "parallel") }
     scope :workspaces, -> { where(team_type: "workspace") }
+    # The per-account materialisation of a CANONICAL Ai::TeamTemplate (HIER-P4):
+    # flagged in team_config by Ai::Teams::CanonicalTeamReconciler, the only
+    # writer of its membership. A team merely CLONED from that template
+    # (TeamTemplate#create_team!) carries the template_id but not the flag.
+    # `@>` (not `->>'canonical' = 'true'`) so the SQL and #canonical? agree:
+    # a hand-edited JSON STRING "true" reads as 'true' through ->> but is not
+    # the Ruby `true` the predicate requires.
+    scope :canonical, -> { where.not(template_id: nil).where("team_config @> ?", { canonical: true }.to_json) }
 
     # ==========================================
     # Callbacks
@@ -60,6 +77,34 @@ module Ai
     # ==========================================
     # Public Methods
     # ==========================================
+
+    # True for the account's materialisation of a canonical template: read-only
+    # through EVERY write door (the MCP verbs, both REST controllers and
+    # Ai::Teams::CrudService — clone the template to customise), membership
+    # repaired by the reconciler on `system:governance:reconcile`.
+    def canonical?
+      template_id.present? && team_config.is_a?(Hash) && team_config["canonical"] == true
+    end
+
+    # The ONE refusal wording, so the MCP envelope and the REST 403 cannot
+    # drift apart.
+    def canonical_read_only_message
+      format(READ_ONLY_MESSAGE, name: name, template: canonical_template_label)
+    end
+
+    def canonical_template_label
+      label = team_config["template_slug"] if team_config.is_a?(Hash)
+      label.presence || template_id
+    end
+
+    # Called by every write door before it mutates. Raising (rather than
+    # rendering from an action body) is what makes the guard HALT — a render
+    # in the body would leave the write to land.
+    def guard_mutable!
+      raise ReadOnlyCanonical, canonical_read_only_message if canonical?
+
+      true
+    end
 
     # Get team lead member (if any)
     def team_lead

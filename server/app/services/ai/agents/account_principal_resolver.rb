@@ -99,6 +99,15 @@ module Ai
 
           acting(::Ai::Agent.resolve_concierge_for(account.id), account: account, user: user)
         end
+
+        # READ-ONLY twin of `acting`: the account's existing clone of a global
+        # canonical, or nil — never minting. A drift report (a health check, a
+        # CI assertion, the governance rake's read-only verb) resolves through
+        # this so that asking "which row WOULD act" materialises nothing;
+        # an account-scoped agent is returned as itself.
+        def existing(agent, account:)
+          new(account: account).existing(agent)
+        end
       end
 
       attr_reader :account, :user
@@ -144,6 +153,12 @@ module Ai
         return nil unless canonical
 
         mint!(canonical)
+      end
+
+      def existing(agent)
+        return agent if agent.nil? || !global?(agent)
+
+        existing_clone_of(agent)
       end
 
       def acting(agent)
