@@ -162,3 +162,39 @@ deliberately not reproduced here; see `CLAUDE.local.md` for the maintainer-local
 Nothing in the live half was written. The predicates behind Result 1 (`destructive_tool?`, glob
 matching) were **executed** rather than read, which is what makes the 205/213 figure a
 measurement rather than an estimate.
+
+## Addendum 2026-09-04 — two known-missing patterns, still open on a third filing
+
+The 14-pattern grant above has **not** picked up two verbs that keep getting proposed for it.
+Same instance (`019f7758-85a9-7b8a-886c-e8a142746e7c`, the dev-cell executor peer). This is not a
+re-survey of the live row — no new break-glass read was run — it is a record that the gap this
+survey already measured has now been raised three times without an operator applying the grant,
+so a future session hitting it again doesn't have to re-derive the call from scratch:
+
+- `platform.dev_update_task` — filed against this exact grant by IMP-70f737718cef (2026-09-02,
+  `docs/reference/apo-bulk-review-2026-09-02.md` ruling 4), then again as a residual of
+  IMP-f573eb10a99f (iteration 584), then again as IMP-1aecf580344d (this filing). Verb confirmed
+  correctly declared and gated at `dev_loop_tool.rb:161` (priority param) / `:524` (queue order)
+  / `:295-302` (kill-switch, in `update_task`) / `:368-376` + `:980` (credit guard, in
+  `apply_linked_recommendation!`) as of `dev-loop/dev-improve` HEAD 2026-09-04. Nothing about the
+  code needs to change — this is a pure grant gap.
+- `platform.record_agent_execution` — same instance, raised independently by three lanes in the
+  2026-09-04 session as "cannot call record_agent_execution", costing real executor-run telemetry.
+
+Exact call an operator (or the admin connector) must run — `mode: "add"` is not optional, a
+`replace` here would drop all 14 existing patterns including the ones the loop currently depends
+on to drain at all:
+
+```
+platform.system_grant_instance_mcp_tools(
+  instance_id: "019f7758-85a9-7b8a-886c-e8a142746e7c",
+  tool_patterns: ["platform.dev_update_task", "platform.record_agent_execution"],
+  mode: "add"
+)
+```
+
+Per this file's own Result 4, that verb's terminal function has no permission rung of its own and
+is reachable by the instance holding `platform.system_*` (already granted) — so, notably, the
+*mechanism* to close this gap is itself inside the blast radius this survey flagged. That does not
+change who should run it: `01a00672-242e` is about an instance being able to self-widen its own
+grant unsupervised, not about who operates the admin connector by hand.
