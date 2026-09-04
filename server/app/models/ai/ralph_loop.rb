@@ -21,6 +21,13 @@ module Ai
     # pull queue; platform_* = the metered platform executor drains it.
     # nil = legacy (scheduling-mode-driven).
     DRIVER_KINDS = %w[claude_code external_cli platform_agent platform_team platform_mission].freeze
+    # The canonical platform_agent driver of dev-improve (HIER-P2B-ENG,
+    # operator ruling 2026-09-03 #4): a platform_agent delegation that names no
+    # agent resolves to this seeded canonical — db/seeds/
+    # ai_engineering_agents_seed.rb — via the account's own CLONE of it (the
+    # HIER-P1 canonical rule; #default_agent_belongs_to_account below admits
+    # nothing else). A seed identity, not config.
+    PLATFORM_AGENT_DEFAULT_SLUG = "platform-developer"
     PLATFORM_DRIVER_KINDS = %w[platform_agent platform_team platform_mission].freeze
     # Vendor-neutral flat-rate executors: a Claude Code session OR any other
     # MCP-client CLI (Grok / Codex / Gemini …) drains the loop via the dev-loop pull
@@ -279,6 +286,15 @@ module Ai
       self.duty_cycle_config ||= {}
     end
 
+    # Ownership, strictly. A GLOBAL canonical is deliberately NOT admitted here
+    # (HIER-P2B-ENG review): the loop's default_agent is executed by
+    # Ai::Ralph::TaskExecutor through Ai::AgentToolBridgeService, which resolves
+    # tools and permissions as `agent.creator` — a user in the SEEDING account.
+    # Wiring a global canonical onto another account's loop would therefore run
+    # that account's work under a foreign principal. The canonical rule
+    # (HIER-P1) is the answer: an account gets its OWN clone of the canonical,
+    # with its own creator, and that clone drives the loop —
+    # Ai::DevLoop::CampaignDriver#default_platform_agent mints it.
     def default_agent_belongs_to_account
       return unless default_agent && default_agent.account_id != account_id
 

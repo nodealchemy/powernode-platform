@@ -233,7 +233,16 @@ module Ai
         # drivers drain one campaign. No supported path produces that row
         # (CampaignDriver#create_campaign_loop always sets driver_kind), so an unrouted
         # campaign loop falls through to the lease below and is gated like any other.
-        return "delegated_to_platform" if loop_record.platform_driven?
+        # A platform-driven loop is drained by the ONE driver the delegation
+        # named: the platform agent wired onto it as default_agent (HIER-P2B-ENG
+        # — the Platform Developer claiming through dev_next_task under its
+        # own identity). Every other caller — a Claude Code session, another
+        # platform agent — still meets the halt, so the single-driver rule holds.
+        if loop_record.platform_driven?
+          return nil if delegated_platform_agent?(loop_record)
+
+          return "delegated_to_platform"
+        end
 
         campaign = loop_record.campaign
         return nil unless campaign
@@ -1333,8 +1342,46 @@ module Ai
           account.ai_ralph_loops.where("name ILIKE ?", id_or_name).first
       end
 
+      # True when THIS tool runs AS the agent the loop's delegation named
+      # (RalphLoop#default_agent).
+      #
+      # `user` is NOT a discriminator here, and requiring it to be nil made this
+      # predicate inert: Ai::AgentToolBridgeService — the ONE path that runs a
+      # loop's agent through a platform tool (Ai::Ralph::TaskExecutor builds it)
+      # — invokes every tool with `user: agent.creator`, unconditionally
+      # (agent_tool_bridge_service.rb). A present `user` is therefore the normal
+      # shape of an agent principal, not evidence of a human session.
+      #
+      # What DOES separate the two is the agent identity itself. The interactive
+      # MCP door resolves its principal through Ai::McpClientIdentityService and
+      # so always carries an `mcp_client` agent (StreamableHttpController
+      # #mcp_client_agent), never a seeded canonical; a NON-mcp_client agent
+      # whose id is the loop's default_agent_id is the delegated driver acting
+      # as itself. Every other caller — a Claude Code session, another platform
+      # agent — still meets the "delegated_to_platform" halt.
+      def delegated_platform_agent?(loop_record)
+        return false if agent.blank? || loop_record.default_agent_id.blank?
+        return false unless loop_record.default_agent_id == agent.id
+
+        !agent.mcp_client?
+      end
+
+      # The claim scope, written at claim time and re-derived on every later call
+      # (reclaim, dev_update_task, dev_complete_task) that has to recognise the
+      # SAME principal. It must therefore be a pure function of the principal —
+      # never of the loop — because claim and complete are separate tool
+      # instances and a loop-dependent answer would strand the claim.
+      #
+      # An agent principal comes through Ai::AgentToolBridgeService carrying its
+      # creator as `user`, so "user present" does not mean "a person is
+      # calling". The interactive MCP door's agent is always an `mcp_client`
+      # identity, so a NON-mcp_client agent is the agent itself acting and the
+      # claim belongs to it (HIER-P2B-ENG: the Platform Developer claims as
+      # "agent:<id>", the identity the delegation named — not as its creator).
       def claimant_ref
-        if user
+        if agent.present? && !agent.mcp_client?
+          "agent:#{agent.id}"
+        elsif user
           "user:#{user.id}"
         elsif agent
           "agent:#{agent.id}"
