@@ -369,6 +369,23 @@ module Ai
                 "type" => "string",
                 "description" => "Failure message. Present only when success is false."
               },
+              # HIER-P2I. A refusal ABOUT THE CALLER, not about the action, is
+              # otherwise distinguishable only by reading `error` prose — the
+              # exact defect IMP-e809396f9eda records for the pending envelope.
+              "refusal" => {
+                "type" => "string",
+                "description" => "Refusal discriminator. Present only when success is false and the " \
+                                 "call was refused for WHO is calling rather than what was asked. " \
+                                 "\"canonical_principal\": the acting agent is a global canonical " \
+                                 "(a template, never an executing principal) — clone it into an " \
+                                 "account and run the clone."
+              },
+              "canonical_slug" => {
+                "type" => "string",
+                "description" => "The refused canonical's slug. Present only with " \
+                                 "refusal=\"canonical_principal\"; it is the canonical_slug to pass " \
+                                 "to agent_management create_agent."
+              },
               "data" => {
                 "description" => "Action payload on success. For an approval-gated action " \
                                  "parked by the autonomy gate it is the pending envelope below " \

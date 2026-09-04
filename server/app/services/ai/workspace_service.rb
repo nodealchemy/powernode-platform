@@ -9,7 +9,9 @@ module Ai
 
     # Creates a workspace: an AgentTeam + collaborative Conversation
     def create_workspace(name:, agent_ids: [])
-      concierge = ::Ai::Agent.resolve_concierge_for(account.id)
+      # HIER-P2I: the workspace's facilitator EXECUTES, so it is the account's
+      # clone of the canonical concierge, never the canonical.
+      concierge = ::Ai::Agents::AccountPrincipalResolver.concierge_for(account)
       raise ArgumentError, "Cannot create workspace: no active concierge agent exists for this account" unless concierge
 
       # Recover orphaned workspace team (team exists but conversation was lost)
@@ -122,7 +124,15 @@ module Ai
 
     def add_agents_to_team(team, agent_ids)
       agent_ids.each do |agent_id|
-        agent = ::Ai::Agent.for_account(account.id).find_by(id: agent_id)
+        # HIER-P2I: `for_account` includes the GLOBAL canonicals, and a team
+        # member IS executed (Ai::TeamStrategies::BaseStrategy#execute_agent
+        # builds an Ai::McpAgentExecutor for it), so a canonical is mapped to
+        # the account's clone here rather than joining the team as a principal
+        # the tool seam will refuse. An account-owned row passes through.
+        agent = ::Ai::Agents::AccountPrincipalResolver.acting(
+          ::Ai::Agent.for_account(account.id).find_by(id: agent_id),
+          account: account, user: user
+        )
         next unless agent&.active?
 
         role = agent.agent_type == "mcp_client" ? "executor" : "facilitator"
@@ -131,7 +141,7 @@ module Ai
     end
 
     def auto_add_concierge(team)
-      concierge = ::Ai::Agent.resolve_concierge_for(account.id)
+      concierge = ::Ai::Agents::AccountPrincipalResolver.concierge_for(account)
       return unless concierge
       return if team.members.exists?(ai_agent_id: concierge.id)
 

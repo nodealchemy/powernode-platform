@@ -91,9 +91,14 @@ module Ai
 
     def initialize(conversation:, user:)
       @conversation = conversation
-      @agent = conversation.agent
       @user = user
       @account = user.account
+      # HIER-P2I: a conversation attached to the GLOBAL canonical concierge
+      # (every concierge conversation minted before the doors learned to
+      # clone) still executes — as the account's clone of that canonical, not
+      # as the canonical, which Ai::Tools::BaseTool refuses by name. The
+      # conversation row is not rewritten; only the acting principal is.
+      @agent = Ai::Agents::AccountPrincipalResolver.acting(conversation.agent, account: @account, user: user)
     end
 
     # Primary entry point — routes to tool-bridge or legacy action-grammar.
@@ -172,7 +177,9 @@ module Ai
         # interpretations from the prior agent's conversation history.
         if routing.delegated_agent.present?
           original = @agent&.name
-          @agent = routing.delegated_agent
+          # HIER-P2I: a specialist the router names may be the GLOBAL
+          # canonical; the turn runs as this account's clone of it.
+          @agent = Ai::Agents::AccountPrincipalResolver.acting(routing.delegated_agent, account: @account, user: @user)
           @router_delegated = true
           Rails.logger.info(
             "[ConciergeService] router :delegated from=#{original.inspect} to=#{routing.delegated_agent.name.inspect} conv=#{@conversation.id}"

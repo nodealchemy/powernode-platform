@@ -95,18 +95,31 @@ module Ai
                      .sort_by { |entry| [ -entry[:score], entry[:slug] ] }
         best = scored.first
 
-        {
+        result = {
           agent_id: best[:agent_id],
           agent_name: best[:name],
           subagent_type: best[:slug],
           confidence: best[:score],
           reasoning: best[:breakdown],
           complexity: complexity,
+          # HIER-P2I: routing MAY name a GLOBAL canonical (the template the
+          # account has not cloned yet) — a canonical never executes, so the
+          # CALLER clones before executing (Ai::Agents::AccountPrincipalResolver
+          # .acting). Stated on the result rather than resolved here: the
+          # router is a READ, and minting a principal is not its job.
+          canonical: best[:canonical] == true,
           candidates: scored.first(limit),
           alternatives: scored[1..2]&.map { |entry| { agent_id: entry[:agent_id], score: entry[:score] } } || [],
           delegation: delegation
         }
+        result[:execution_note] = CANONICAL_EXECUTION_NOTE if result[:canonical]
+        result
       end
+
+      # The sentence a caller reads when the winner is a global canonical.
+      CANONICAL_EXECUTION_NOTE = "agent_id names a global canonical (account_id NULL), which never executes: " \
+                                 "resolve the account's clone (create_agent canonical_slug: <subagent_type>, " \
+                                 "or Ai::Agents::AccountPrincipalResolver.acting) before executing."
 
       private
 
@@ -244,6 +257,7 @@ module Ai
           subagent_type: RoutableAgents.key(agent),
           name: agent.name,
           agent_type: agent.agent_type,
+          canonical: agent.respond_to?(:global?) && agent.global? == true,
           score: total.round(3),
           breakdown: scores.transform_values { |v| v.round(3) },
           reasons: reasons
@@ -343,6 +357,7 @@ module Ai
           agent_name: nil,
           subagent_type: nil,
           confidence: 0.0,
+          canonical: false,
           reasoning: { error: reason },
           candidates: [],
           alternatives: [],

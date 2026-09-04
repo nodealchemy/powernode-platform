@@ -836,9 +836,11 @@ module Ai
       # whole account reads, so filtering it by any single agent's grants would
       # be wrong even if an agent were in hand. Verified over every override on
       # the tree at the time of writing — `command grep -rnE "^ *def self\.permitted\?"
-      # <repo>/server/app <repo>/extensions` finds 14, and every one of them is
-      # either a bare `true` or a `defined?(::Const)` namespace probe followed by
-      # `super` — so nil-agent filtering removes only UNAVAILABLE tools today.
+      # <repo>/server/app <repo>/extensions` finds 14, and every one of them
+      # answers `true` for a nil agent: a bare `true`, a `defined?(::Const)`
+      # namespace probe followed by `super`, or (HIER-P2I) one of those guarded
+      # by `canonical_principal?`, which is false for nil. So nil-agent
+      # filtering removes only UNAVAILABLE tools today.
       def self.advertised_class?(klass, agent: nil)
         klass.permitted?(agent: agent)
       end

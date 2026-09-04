@@ -358,44 +358,24 @@ module Ai
       end
 
       # The account's OWN Platform Developer: its existing row for the slug if it
-      # has one, otherwise a clone of the global canonical minted here through
-      # the HIER-P1 canonical rule — the same path
-      # Ai::Tools::AgentManagementTool#clone_canonical_agent takes, so the copy
-      # carries `cloned_from_id` / `source_version` / `source_snapshot`, a
-      # creator and provider from THIS account, and a lineage edge to the
-      # canonical. Nil when no canonical is seeded, which the caller turns into
-      # the "requires target.agent_id" refusal.
+      # has one, otherwise a clone of the global canonical minted through the
+      # HIER-P1 canonical rule. Nil when no canonical is seeded, which the
+      # caller turns into the "requires target.agent_id" refusal.
       #
       # Why a clone and not the canonical: Ai::Ralph::TaskExecutor runs a loop's
       # default_agent through Ai::AgentToolBridgeService, which resolves tools
       # and permissions as `agent.creator`. The canonical's creator is a user in
       # the SEEDING account, so driving another account's loop with the global
-      # row would execute that account's work under a foreign principal.
+      # row would execute that account's work under a foreign principal — and
+      # since HIER-P2I the tool seam refuses a global canonical outright.
+      #
+      # The rule lives in Ai::Agents::AccountPrincipalResolver (HIER-P2I
+      # extracted it from here so the fleet tick, the CVE responder and the
+      # concierge resolve through the SAME copy); this is one consumer of it.
       def default_platform_agent
-        slug = Ai::RalphLoop::PLATFORM_AGENT_DEFAULT_SLUG
-        owned = @account.ai_agents.find_by(slug: slug) ||
-                @account.ai_agents.find_by(source_key: slug)
-        return owned if owned
-
-        canonical = Ai::Agent.global.find_by(slug: slug) || Ai::Agent.global.find_by(source_key: slug)
-        return nil unless canonical
-
-        clone_platform_developer!(canonical)
-      end
-
-      def clone_platform_developer!(canonical)
-        creator  = @user || @account.users.first
-        provider = @account.ai_providers.where(is_active: true).first
-        overrides = { creator: creator, provider: provider || canonical.provider }.compact
-
-        Ai::Agent.transaction do
-          clone = canonical.clone_to_account(@account, overrides)
-          Ai::Agents::HierarchyWriter.new(account: @account).attach!(
-            child: clone, parent: canonical, spawn_reason: "canonical_clone",
-            metadata: { "canonical_slug" => canonical.slug, "source_version" => clone.source_version }
-          )
-          clone
-        end
+        Ai::Agents::AccountPrincipalResolver.for(
+          canonical_slug: Ai::RalphLoop::PLATFORM_AGENT_DEFAULT_SLUG, account: @account, user: @user
+        )
       end
 
       # Apply one loop's driver routing + scheduling for #delegate (see its docs).

@@ -108,8 +108,13 @@ module Ai
       # it can report, not a capability that was never offered. Execution stays
       # gated by the registrar's floor and by ACTION_PERMISSIONS; only
       # visibility is restored to what it was before that constant existed.
-      # Same override, and the same reason, as Ai::Tools::KillSwitchTool.
+      # Same override, and the same reason, as Ai::Tools::KillSwitchTool —
+      # including its HIER-P2I exception: a GLOBAL canonical is refused here
+      # too, because an override that does not call super would otherwise keep
+      # BaseTool's fail-closed line from ever running for this tool.
       def self.permitted?(agent:)
+        return false if canonical_principal?(agent)
+
         true
       end
 

@@ -119,6 +119,17 @@ module Api
 
         # POST /api/v1/ai/agents/:id/execute
         def execute
+          # HIER-P2I. #set_agent resolves through `for_account`, which includes
+          # the GLOBAL canonicals so a consumer can VIEW one — but executing one
+          # is what ruling 8 forbids: a NULL-account principal has no account
+          # role to bound it and its tool calls are refused at the seam. Execute
+          # the account's clone of it instead (minted on first use); an
+          # account-owned agent passes through untouched, and the response
+          # serializes the row that actually ran.
+          @agent = ::Ai::Agents::AccountPrincipalResolver.acting(
+            @agent, account: current_user.account, user: current_user
+          )
+
           # Convert ActionController::Parameters to Hash for JSON schema validation
           input_params = params[:input_parameters]&.to_unsafe_h || {}
           result = management_service.execute(

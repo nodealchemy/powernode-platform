@@ -171,14 +171,31 @@ module Ai
         def permitted?(agent:)
           return true unless self::REQUIRED_PERMISSION
           return true unless agent
+          # HIER-P2I (ruling 8): a GLOBAL canonical (account_id NULL) has no
+          # account role to bound it, and the line below used to answer `true`
+          # for exactly that shape — an unbounded principal. It fails CLOSED
+          # now, so a caller that consults this alone (DeferredToolCall's
+          # replay re-check, PlatformApiToolRegistry.tool_definitions) refuses
+          # the canonical; #execute refuses it with a named envelope.
+          #
+          # OUTSIDE the fail-open rescue below, deliberately: that rescue turns
+          # any error in the account-role lookup into `true`, and a fail-CLOSED
+          # refusal evaluated inside it would become an ALLOW the moment the
+          # predicate raised. The predicate is two `respond_to?`-guarded calls
+          # on the model, so a raise here is a real defect and surfaces as one.
+          return false if canonical_principal?(agent)
           return true unless agent.respond_to?(:account) && agent.account
 
-          # A tool is permitted for an agent when any user in its account holds the
-          # required permission. Use the canonical resolution (User#has_permission?) so
-          # CODE-DEFINED role grants count — a raw RolePermission query only sees DB
-          # grants and silently hides every code-defined-role permission (e.g.
-          # ai.campaigns.*) from all agents, including the concierge. Accounts are small
-          # (single-user in core mode), so the per-user check is cheap.
+          permitted_by_account_role?(agent)
+        end
+
+        # A tool is permitted for an agent when any user in its account holds the
+        # required permission. Use the canonical resolution (User#has_permission?) so
+        # CODE-DEFINED role grants count — a raw RolePermission query only sees DB
+        # grants and silently hides every code-defined-role permission (e.g.
+        # ai.campaigns.*) from all agents, including the concierge. Accounts are small
+        # (single-user in core mode), so the per-user check is cheap.
+        def permitted_by_account_role?(agent)
           agent.account.users.any? { |user| user.has_permission?(self::REQUIRED_PERMISSION) }
         rescue StandardError
           # If permission check fails, allow the tool — execution is already
@@ -188,6 +205,30 @@ module Ai
 
         def tool_name
           definition[:name]
+        end
+
+        # CANONICAL PRINCIPALS NEVER EXECUTE (HIER-P2I, proposal §5 ruling 8).
+        #
+        # A GLOBAL canonical agent (account_id NULL — GloballyScopable#global?,
+        # the model's own predicate) is a TEMPLATE. Execution goes through an
+        # account-scoped clone, whose permissions derive from the account's
+        # role (Ai::Agents::AccountPrincipalResolver mints it on first use).
+        # The predicate is the model's, not re-derived from account_id, so a
+        # future change to what "global" means lands in one place.
+        def canonical_principal?(agent)
+          agent.respond_to?(:global?) && agent.global? == true
+        end
+
+        # The refusal a caller can READ AND CORRECT: it names the canonical and
+        # the clone path (the create_agent `canonical_slug:` verb) rather than
+        # surfacing as a -32603 internal error. Class-level so the same words
+        # can be reused by any seam that refuses a canonical by name.
+        def canonical_principal_refusal_message(agent)
+          slug = agent.respond_to?(:slug) ? agent.slug.to_s : ""
+          label = slug.presence || (agent.respond_to?(:id) ? agent.id.to_s : "agent")
+          "Refused: agent #{label} is a global canonical (account_id NULL) — a template that never " \
+            "executes. Clone it into an account (agent_management create_agent canonical_slug: " \
+            "#{label}) and run the clone; its permissions derive from the account's role."
         end
 
         # GOVERNANCE REGISTRY (IMP-d410a587d6bf) — a tool DECLARES what each of
@@ -366,6 +407,14 @@ module Ai
       attr_writer :instance_authorized
 
       def execute(params:)
+        # FIRST, before every other check (HIER-P2I): a GLOBAL canonical agent
+        # is refused as a principal whatever it asked for. Ahead of the deny
+        # overlay and of validation for the same reason those two are ordered
+        # — the refusal is about WHO is calling, so a malformed call from a
+        # canonical must not come back as a params error instead.
+        refusal = canonical_principal_refusal(params)
+        return refusal if refusal
+
         # Ahead of validation: the refusal is unconditional, so a malformed
         # destroy-shaped call must not come back as a params error instead.
         enforce_instance_deny_overlay!(params)
@@ -1087,6 +1136,100 @@ module Ai
       # forge a log line with an embedded newline or push an unbounded blob into
       # jsonb and the cache key.
       TELEMETRY_TOKEN_MAX = 120
+
+      # === CANONICAL PRINCIPAL REFUSAL (HIER-P2I) ===
+      #
+      # The `refusal` discriminator on the envelope, so a caller can tell this
+      # refusal from a tool's own error without parsing prose.
+      CANONICAL_PRINCIPAL_REFUSAL = "canonical_principal"
+
+      # Audited like the undeclared-action sighting above and for the same
+      # reason: the OTHER refusals at this seam (the deny overlay, the
+      # registrar's permission denial) only log, and a refusal that leaves no
+      # durable trace is invisible to the operator whose fleet tick it just
+      # stopped. Same sink, same shape discipline (principal SHAPE and the
+      # canonical's slug — never the params), same per-window dedupe keyed on
+      # (account, canonical, action) so a looping caller costs one row an hour,
+      # not one per tick.
+      CANONICAL_PRINCIPAL_AUDIT_ACTION = "mcp.tools.canonical_principal_refused"
+      CANONICAL_PRINCIPAL_DEDUPE_WINDOW = 1.hour
+
+      # The envelope for a GLOBAL canonical acting agent, or nil when the
+      # acting agent is account-scoped (or there is none). The nil-agent path
+      # — a user-principal or instance-principal call — is untouched.
+      def canonical_principal_refusal(params)
+        return nil unless self.class.canonical_principal?(agent)
+
+        action = routed_action_name(params)
+        record_canonical_principal_refusal(action)
+        {
+          success: false,
+          refusal: CANONICAL_PRINCIPAL_REFUSAL,
+          canonical_slug: (agent.respond_to?(:slug) ? agent.slug : nil),
+          error: self.class.canonical_principal_refusal_message(agent)
+        }
+      end
+
+      def record_canonical_principal_refusal(action_name)
+        label = telemetry_action_label(action_name)
+        slug = telemetry_token(agent.respond_to?(:slug) ? agent.slug : agent.id)
+        Rails.logger.warn(
+          "[BaseTool] Canonical principal refused: " \
+          "agent=#{agent.id} slug=#{slug} tool=#{telemetry_token(self.class.name)} action=#{label} " \
+          "account=#{account&.id}"
+        )
+        return unless first_canonical_refusal_sighting?(label)
+
+        persist_canonical_refusal_audit(label, slug)
+      rescue StandardError => e
+        Rails.logger.error(
+          "[BaseTool] Canonical-refusal telemetry failed: tool=#{self.class.name} error=#{e.class}: #{e.message}"
+        )
+      end
+
+      # Fails OPEN (emit) like #first_undeclared_sighting?: dedupe is a volume
+      # concession, never the reason a refusal goes unrecorded.
+      def first_canonical_refusal_sighting?(label)
+        key = "ai:tools:canonical_refused:#{account&.id}:#{agent.id}:#{label}"
+        return false if Rails.cache.read(key)
+
+        Rails.cache.write(key, true, expires_in: CANONICAL_PRINCIPAL_DEDUPE_WINDOW)
+        true
+      rescue StandardError => e
+        Rails.logger.warn("[BaseTool] Canonical-refusal dedupe unavailable (#{e.class}); emitting anyway: #{e.message}")
+        true
+      end
+
+      # SAVEPOINT for the same reason #persist_undeclared_action_audit takes
+      # one. No account (a global agent reached a tool built with none) means
+      # no row — AuditLog requires one — and the warn line above still stands.
+      def persist_canonical_refusal_audit(label, slug)
+        return unless account.is_a?(Account) && account.persisted?
+
+        ::ActiveRecord::Base.transaction(requires_new: true) do
+          ::AuditLog.create!(
+            account: account,
+            user: nil,
+            action: CANONICAL_PRINCIPAL_AUDIT_ACTION,
+            resource_type: telemetry_token(self.class.name),
+            resource_id: "canonical_principal_refused",
+            source: "system",
+            severity: "medium",
+            risk_level: "medium",
+            metadata: {
+              action_name: label,
+              tool_class: telemetry_token(self.class.name),
+              agent_id: agent.id,
+              canonical_slug: slug,
+              refusal: CANONICAL_PRINCIPAL_REFUSAL
+            }
+          )
+        end
+      rescue StandardError => e
+        Rails.logger.error(
+          "[BaseTool] Canonical-refusal audit row failed: tool=#{self.class.name} error=#{e.class}: #{e.message}"
+        )
+      end
 
       # One structured sighting per (account, principal_kind, action) per window.
       #

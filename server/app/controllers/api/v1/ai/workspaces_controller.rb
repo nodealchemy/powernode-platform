@@ -121,7 +121,8 @@ module Api
 
         def resolve_agent(agent_id)
           if agent_id == "concierge"
-            ::Ai::Agent.resolve_concierge_for(current_account.id)
+            # HIER-P2I: the account's executing concierge, never the canonical.
+            ::Ai::Agents::AccountPrincipalResolver.concierge_for(current_account, user: current_user)
           else
             ::Ai::Agent.for_account(current_account.id).find_by(id: agent_id)
           end

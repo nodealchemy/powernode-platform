@@ -411,7 +411,11 @@ module Ai
 
         agent_ids = Array(params[:agent_ids])
         if params[:include_concierge]
-          concierge = ::Ai::Agent.resolve_concierge_for(account.id)
+          # HIER-P2I: the ACCOUNT's concierge principal, not the global
+          # canonical — a workspace member is executed by
+          # Ai::TeamStrategies::BaseStrategy, and a canonical is refused at the
+          # tool seam.
+          concierge = ::Ai::Agents::AccountPrincipalResolver.concierge_for(account, user: user)
           agent_ids << concierge.id if concierge && !agent_ids.include?(concierge.id)
         end
 
@@ -442,9 +446,15 @@ module Ai
         return { success: false, error: "Conversation not found" } unless conversation
 
         target_agent = if params[:agent_id] == "concierge"
-                         ::Ai::Agent.resolve_concierge_for(account.id)
+                         ::Ai::Agents::AccountPrincipalResolver.concierge_for(account, user: user)
         else
-                         ::Ai::Agent.for_account(account.id).find_by(id: params[:agent_id])
+                         # for_account includes GLOBAL canonicals; an invited
+                         # member is executed, so it is mapped to the account's
+                         # principal (HIER-P2I). An account row passes through.
+                         ::Ai::Agents::AccountPrincipalResolver.acting(
+                           ::Ai::Agent.for_account(account.id).find_by(id: params[:agent_id]),
+                           account: account, user: user
+                         )
         end
         return { success: false, error: "Agent not found" } unless target_agent
 
