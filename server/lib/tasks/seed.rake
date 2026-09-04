@@ -47,6 +47,23 @@ namespace :db do
       puts "✅ claude-code provider scope ensured for #{seeded} account(s)"
     end
 
+    # HIER-P2B-ENG — the same shape, and the same reason, as the backfill
+    # above: `db:seed` is FIRST BOOT ONLY on a deployed install, so the
+    # `release.build_dispatch` floor that db/seeds/ai_engineering_agents_seed.rb
+    # writes never reaches an install that is already up. Without it every MCP
+    # build dispatch parks behind the unmatched-category require_approval
+    # default, because the principals that dispatch builds (an operator's
+    # mcp_client session, a dev-cell instance principal) match no agent-scoped
+    # row. Run this once after upgrading onto the release gating.
+    #
+    # Absence-only and non-destructive: it never rewrites, deactivates or
+    # deletes a row an operator retuned. Safe to re-run.
+    desc "Backfill the release.build_dispatch auto_approve floor for every account (safe to re-run)"
+    task engineering_release_floor: :environment do
+      written = Ai::Engineering::ReleaseDispatchFloorSeeder.ensure_all!
+      puts "✅ release.build_dispatch floor ensured (#{written} row(s) written)"
+    end
+
     desc "Load minimal production seeds only (no test data)"
     task minimal: :environment do
       # Temporarily set environment to production to skip test data loading
