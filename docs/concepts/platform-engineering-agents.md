@@ -200,6 +200,83 @@ What holds now:
   the *user's* principal (the MCP door's `mcp_client` identity), not the agent's, so the export
   of a canonical is a prompt, never a NULL-account principal reaching a tool.
 
+## The Platform Architect's loop: sense, propose, materialise, verify (HIER-P3)
+
+Phase 3 of the hierarchy proposal gives the Platform Architect a closed loop over the
+platform's own governance, so the drift the 2026-09-03 audit found by hand is found by
+the fleet tick from then on. The four arms, and where each lives:
+
+1. **Sense.** `System::Fleet::Sensors::GovernanceGapSensor` (system extension, on the
+   Fleet Autonomy tick) compares the declarations the hierarchy is built from with the
+   running database and emits one `system.governance_gap` signal per gap — a registered
+   category no agent set owns, an agent with a policy set and no skill, a lane bound to
+   no skill that nothing declares deliberate, an executor with no catalog row, a
+   canonical with no lineage edge or delegation policy, a declared category's row parked
+   on an agent the declarations do not know, a `tool_families` entry naming nothing the
+   registry serves. Each carries a stable fingerprint and, for a gap the runtime can
+   close, the exact materialisation.
+2. **Propose.** `DecisionEngine` routes the signal to `GovernanceGapProposeExecutor`,
+   bound to the Platform Architect (the first extension executor bound to a core
+   canonical) and gated under `dev.campaign_propose` — `auto_approve`, because the offer
+   IS the human gate. It files one `Ai::ImprovementRecommendation` per fingerprint of the
+   matching type (`capability_gap`, `team_composition`, `skill_creation`;
+   `prompt_refinement` is in the vocabulary but no detector emits it yet) with the
+   concrete spec: the files a code fix touches and the fix.
+   A re-detection updates the open offer; nothing ever files a second. Offers are the
+   code path; `Ai::AgentProposal` stays the runtime-materialisation vocabulary of other
+   lanes.
+3. **Materialise.** For a runtime-closable gap the executor also hands the
+   materialisation to `System::Governance::GapMaterializer`, which applies it through
+   the platform's own seams — `Ai::Agents::HierarchyWriter` for an edge or a delegation
+   policy, `Ai::AgentSkill` for a binding, `Ai::SelfImprovement::SkillRefinementService`
+   for a prompt — under the ruling-3 gates through `Ai::AutonomyGate`:
+   - a **skill binding** or a **prompt refinement** gates on the trust-conditioned
+     `dev.skill_refine` / `dev.prompt_refine` pair this document describes above: it
+     applies at once for a `trusted` Platform Architect and parks below that tier;
+   - a **lineage edge** or a **delegation policy** is structural and gates on
+     `dev.governance_materialize` (`require_approval`, declared by the system extension
+     on the Platform Architect): it parks whatever the tier.
+   A parked materialisation is an `Ai::DeferredOperation` on the `Platform Architect
+   Actions` chain that replays on approval as the same principal; an applied one
+   closes the offer as `applied` and writes one audit row and one fleet event naming
+   it. The existing MCP verbs (`set_delegation_policy`, `attach_skill_to_agent`,
+   `mutate_skill`) are deliberately not called from here — each carries its own gate,
+   and a gated call under this gate would park twice for one decision.
+
+   `SkillRefinementService` is ruling 6's versioned path for a canonical skill: the new
+   prompt is recorded as an active `Ai::SkillVersion` (the previous prompt kept in its
+   metadata, the acting agent as its author) and then applied to the skill, so a
+   canonical is never edited in place without a record and any refinement can be
+   reverted by re-activating the prior version. It writes and does not gate; the caller
+   resolves `dev.prompt_refine` first.
+
+   The prompt-refinement arm is WIRED but has NO SENSOR PRODUCER: every
+   `materialization` hash `GovernanceGapSensor` stamps today is a skill binding, a
+   lineage edge or a delegation policy — there is no prompt-drift detector, so no
+   governance offer carries a prompt refinement yet. The seam exists so that when one
+   arrives (or the Platform Architect proposes a refinement of its own) the write is
+   gated and versioned rather than an in-place edit of `ai_skills.system_prompt`.
+4. **Verify.** The sensor clears the moment the gap closes, so nothing needs cleaning
+   up. The lane is scored, not exempt: filing the offer is its remediation, so
+   `RemediationValidator` mints an outcome for the fingerprint and a gap that stands
+   `STUCK_STREAK_THRESHOLD` settle windows escalates as a HIGH
+   `fleet.governance_gap_stuck` event with the lane forced to `require_approval` — one
+   operator decision on the Platform Architect's chain, quiet while it is open. The
+   recommendation scoreboard records the cycle like any other offer.
+
+Two declarations make the loop possible, both in the system extension's
+`PolicyDeclarations`: the Platform Architect is listed in `AGENT_IDENTITIES` under
+`CORE_CANONICAL_KEYS` (declared as an owner, seeded and delegation-governed by core — the
+extension's hierarchy reconciler attaches its edge under System Concierge and never
+writes its delegation policy), and `PLATFORM_ARCHITECT_POLICIES` declares
+`dev.campaign_propose` and `dev.governance_materialize` on it. The first is a core
+category that `ai_engineering_agents_seed.rb` writes on the admin account at the same
+verb; the extension's declaration exists so the routed lane has an owner and so every
+other account converges through `PolicyReconciler`, which finds the admin row present and
+writes nothing. The operator procedure — what each offer means, what parks and what
+applies, how to read the stuck event — is the system extension's
+`docs/runbooks/governance-gaps.md`.
+
 ## Claude Code subagents
 
 Each Engineering canonical is exported as a Claude Code subagent under
@@ -212,4 +289,4 @@ and promotes through platform verbs only.
 
 - [Agents and autonomy](agents-and-autonomy.md)
 - [Deferred tool-call replay](deferred-tool-call-replay.md)
-- The ruling record: `docs/reference/system-agent-hierarchy-proposal-2026-09-03.md` §2 Phase 2b and §5
+- The ruling record: `docs/reference/system-agent-hierarchy-proposal-2026-09-03.md` §2 Phases 2b and 3, and §5
