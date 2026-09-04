@@ -277,6 +277,40 @@ writes nothing. The operator procedure — what each offer means, what parks and
 applies, how to read the stuck event — is the system extension's
 `docs/runbooks/governance-gaps.md`.
 
+## The Platform Engineering team (HIER-P4)
+
+The hierarchy above is also a **canonical team** — `Ai::TeamTemplate` `platform-engineering`
+(global, `is_system`, `source_key`-managed; `server/db/seeds/ai_canonical_teams_seed.rb`),
+materialised for the account as a `hierarchical` / `manager_led` / `hub_spoke` `Ai::AgentTeam`
+whose manager is the Platform Architect:
+
+| Member | Team role |
+|--------|-----------|
+| Platform Architect | `manager` (lead) |
+| Platform Developer, Release Manager | `executor` |
+| Research Analyst, Strategic Planner | `researcher` |
+| PRD Generator, Documentation Specialist | `writer` |
+| LLM Judge, System Quality Assurance | `reviewer` |
+| Knowledge Graph Curator | `analyst` |
+
+**One structure, three views.** The template is the nodes and roles; the lineage edges the
+hierarchy seed writes are the tree; the Platform Architect's delegation policy is the edge set the
+manager may actually use. `Ai::Teams::CanonicalTeamReconciler` reports where they disagree
+(`drift`: a removed lineage edge, a member the Architect's policy cannot delegate to, a delegate
+type the team lacks) and repairs the team's **membership** on `rails system:governance:reconcile`
+— never the edges or policies, which keep their own writers. The seated members are the account's
+executing principals (the clones `Ai::Agents::AccountPrincipalResolver` mints), never the
+canonicals: ruling 8 applies to teams exactly as to agents.
+
+**Running it.** `platform.execute_team` on "Platform Engineering" dispatches to the worker, which
+calls back into `Ai::TeamStrategies::HierarchicalStrategy`. Before the Architect decomposes the
+objective, every worker is checked with `Ai::Autonomy::DelegationAuthorityService`; a member outside
+the Architect's `allowed_delegate_types` is refused with the policy's reason and never executed
+(pinned by `spec/services/ai/team_strategies/hierarchical_strategy_delegation_spec.rb`). Through the
+MCP verbs the team is read-only — clone the template to customise. The "System Operations" twin
+(manager System Concierge, the eleven domain agents) is the system extension's seed. See
+[Canonical teams](canonical-teams.md).
+
 ## Claude Code subagents
 
 Each Engineering canonical is exported as a Claude Code subagent under
@@ -287,6 +321,7 @@ and promotes through platform verbs only.
 
 ## Related
 
+- [Canonical teams](canonical-teams.md) — the two seeded teams, drift and repair, execution under the delegation policies
 - [Agents and autonomy](agents-and-autonomy.md)
 - [Deferred tool-call replay](deferred-tool-call-replay.md)
 - The ruling record: `docs/reference/system-agent-hierarchy-proposal-2026-09-03.md` §2 Phases 2b and 3, and §5
