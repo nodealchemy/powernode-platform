@@ -242,8 +242,9 @@ parked_gate_unavailable`). Option (c) retained as an optional presentation bridg
 
 1. **Mechanism vs policy split.** Core owns the ApprovalChain *mechanism*
    (`server/app/models/ai/approval_chain.rb`, since `c706737bd`); the **system extension
-   seeds the fleet chains** (`extensions/system/server/db/seeds/fleet_autonomy_agent.rb:249`
-   and sibling agent seeds). So "fleet chains are seeded" holds only where
+   seeds the fleet chains** (`extensions/system/server/db/seeds/fleet_autonomy_agent.rb`,
+   the `Ai::ApprovalChain` block, and sibling agent seeds — the chains stayed in the seeds
+   when IMP-10e4f6c3bcd2 moved every declared POLICY row to `PolicyReconciler`). So "fleet chains are seeded" holds only where
    `extensions/system` is present — which is every fleet-running deployment, since the
    sensors, DecisionEngine, and executors this loop rides are all extension-side too. On
    an install without the extension there is no fleet, no `project.*` signal, and no

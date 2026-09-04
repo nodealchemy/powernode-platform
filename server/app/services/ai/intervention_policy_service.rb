@@ -59,9 +59,9 @@ module Ai
       # collapses them into two.
       #
       #   scope "agent"       — binds only the agent it names.
-      #   scope "action_type" — the operator path (the shape
-      #                         System::Seeds::AgentSetupHelpers
-      #                         .upsert_operator_policies! writes). Agent-less
+      #   scope "action_type" — the operator path (the shape the system
+      #                         extension's operator policy sets are written
+      #                         at). Agent-less
       #                         callers only: admitting these is what let a
       #                         human-intent row widen agent autonomy, and that
       #                         separation is the part of IMP-bfbf8052e179 that

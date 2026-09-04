@@ -45,7 +45,8 @@
 # THE ENGINEERING POLICY SET (categories registered in core —
 # Ai::InterventionPolicy::ENGINEERING_CATEGORIES). Rows are agent-scoped on
 # the OWNING agent, keyed (account, category, scope, agent, priority), and
-# re-seeded to the declared verb like the extension's upsert_policies!:
+# re-seeded to the declared verb (the shape the system extension's seeds
+# wrote until its PolicyReconciler became their single writer):
 #   Platform Developer   dev.task_claim, dev.task_complete, dev.campaign_propose
 #                        auto_approve — proposals ARE the gate; plus the two
 #                        refine pairs
