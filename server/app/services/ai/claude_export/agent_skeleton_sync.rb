@@ -92,6 +92,8 @@ module Ai
         FileUtils.mkdir_p(@target_dir)
 
         agents = syncable_agents
+        return refuse_untrustworthy_roster(agents) if canonical_scope? && !trustworthy_roster?(agents)
+
         context = build_context(agents)
         written = []
         unchanged = []
@@ -109,22 +111,44 @@ module Ai
           end
         end
 
-        # An EMPTY canonical set is a database that never ran the agent seeds
-        # (a fresh dev cell), not a platform with no agents: cleaning up
-        # against it would delete every committed skeleton, and the Stop hook
-        # runs this after any seed edit. Refuse the cleanup, keep the files.
-        removed = if agents.empty? && canonical_scope?
-          Rails.logger.warn("[claude:sync_agents] canonical scope resolved 0 agents — " \
-                            "leaving #{@target_dir} untouched (unseeded database?)")
-          []
-        else
-          cleanup_stale(agents.map { |agent| sync_key(agent) })
-        end
+        removed = cleanup_stale(agents.map { |agent| sync_key(agent) })
 
         Result.new(written: written, unchanged: unchanged, removed: removed, total: agents.size)
       end
 
       private
+
+      # Is the resolved canonical set the WHOLE roster this database should
+      # hold? Only then does it describe the committed skeletons.
+      #
+      # An EMPTY set is a database that never ran the agent seeds (a fresh dev
+      # cell), not a platform with no agents. A PARTIAL set is the same failure
+      # one step along (IMP-6cda93db7f31): the core canonical seeds no longer
+      # need an account, but the agent seeds that ship with extensions still
+      # resolve an admin account, a user in it and a provider, and RAISE
+      # without them — so a database missing any of the three holds the core
+      # canonicals and none of theirs. Neither state is distinguishable HERE
+      # from a platform that retired the missing agents, and the Stop hook runs
+      # this after any seed edit: cleaning up would delete their committed
+      # skeletons, and even the write side would rewrite the survivors from
+      # rows that still carry no provider (Ai::ModelTiers then falls back to
+      # the default tier, so `model:` drifts off the committed value).
+      #
+      # Three indexed EXISTS, only in canonical scope. An account-scoped export
+      # is the account's own rows and is trustworthy by construction.
+      def trustworthy_roster?(agents)
+        agents.any? && ::Account.joins(:users).exists? && ::Ai::Provider.exists?
+      end
+
+      def refuse_untrustworthy_roster(agents)
+        Rails.logger.warn(
+          "[claude:sync_agents] canonical scope resolved #{agents.size} agent(s) on a database that " \
+          "cannot hold the whole canonical roster (account with a user: " \
+          "#{::Account.joins(:users).exists?}, provider: #{::Ai::Provider.exists?}) — leaving " \
+          "#{@target_dir} untouched (unseeded or partially seeded database?)"
+        )
+        Result.new(written: [], unchanged: [], removed: [], total: agents.size)
+      end
 
       def default_target_dir
         Rails.root.join("..", ".claude", "agents", canonical_scope? ? CANONICAL_DIR : LOCAL_DIR)

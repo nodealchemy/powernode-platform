@@ -152,7 +152,22 @@ module Api
           # against the global origin via update_from_source. This is how a
           # consumer customizes a platform agent — the global stays read-only.
           if @agent.global?
-            copy = @agent.clone_to_account(current_user.account, creator: current_user)
+            # A canonical seeded before any provider existed carries none
+            # (ai_provider_id is nullable on a GLOBAL row, IMP-6cda93db7f31)
+            # while an ACCOUNT row must have one, so the copy cannot simply
+            # inherit it. Same resolution as the other two clone seams —
+            # Ai::Agents::AccountPrincipalResolver#mint! and
+            # Ai::Tools::AgentManagementTool#clone_canonical_agent.
+            provider = current_user.account.ai_providers.where(is_active: true).order(:created_at).first ||
+                       @agent.provider
+            unless provider
+              render_error("This platform agent carries no provider and your account has no active " \
+                           "provider to run a copy on — add a provider first.",
+                           status: :unprocessable_content)
+              return
+            end
+
+            copy = @agent.clone_to_account(current_user.account, creator: current_user, provider: provider)
             render_success({ agent: serialize_agent_detail(copy) }, status: :created)
             log_audit_event("ai.agents.clone", copy, original_agent_id: @agent.id, from_global: true)
             return

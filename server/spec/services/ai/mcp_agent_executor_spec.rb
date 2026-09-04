@@ -423,4 +423,27 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       end
     end
   end
+
+  # IMP-6cda93db7f31: ai_agents.ai_provider_id is nullable on a GLOBAL row, so
+  # a canonical seeded before any provider existed carries none. Ruling 8 says
+  # such a principal never executes (Ai::Tools::BaseTool refuses it at the tool
+  # seam), but the refusal does not live on THIS path — Ai::Agent#execute
+  # reaches the executor directly — so the telemetry line must not be the thing
+  # that decides, with a NoMethodError, what a global principal may do.
+  describe '#format_mcp_response with a provider-less agent' do
+    let(:canonical) do
+      create(:ai_agent, :global, is_system: true).tap { |a| a.update_columns(ai_provider_id: nil) }
+    end
+    subject(:canonical_executor) do
+      described_class.new(agent: canonical.reload, execution: execution, account: account)
+    end
+
+    it 'reports no provider instead of raising' do
+      response = canonical_executor.send(:format_mcp_response, { "content" => "ok" })
+
+      expect(response.dig("telemetry", "provider_used")).to be_nil
+      expect(response["result"]).to eq({ "content" => "ok" })
+    end
+  end
+
 end

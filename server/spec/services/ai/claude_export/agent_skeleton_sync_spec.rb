@@ -714,4 +714,74 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
     end
   end
 
+
+  # IMP-6cda93db7f31. The core canonical seeds no longer need an account, but
+  # the agent seeds that ship with extensions still resolve an admin account,
+  # a user in it and a provider and RAISE without them — so a database missing
+  # any of the three holds a PARTIAL canonical set. A partial set is
+  # indistinguishable HERE from a platform that retired the missing agents, so
+  # syncing against it deletes their committed skeletons and rewrites the rest
+  # from rows whose provider is still absent (the model tier then falls back to
+  # the default). Refuse the whole pass, exactly as for the empty set.
+  describe "a partial canonical roster (the account-gated seeds could not run)" do
+    def committed_skeleton(dir, key)
+      path = File.join(dir, "#{key}.md")
+      File.write(path, "---\nname: #{key}\n---\n#{described_class::GENERATED_HEADER}\n")
+      path
+    end
+
+    it "keeps every committed skeleton when the database holds no provider" do
+      canonical = build_canonical(name: "Fleet Autonomy", slug: "fleet-autonomy")
+      Ai::Agent.global.update_all(ai_provider_id: nil)
+      Ai::Provider.delete_all
+
+      Dir.mktmpdir do |dir|
+        retired = committed_skeleton(dir, "long-gone")
+        service = described_class.new(account: nil, target_dir: dir)
+        allow(service).to receive(:syncable_agents).and_return([ canonical.reload ])
+
+        result = service.sync!
+
+        expect(result.written).to eq([])
+        expect(result.removed).to eq([])
+        expect(File.exist?(retired)).to be(true)
+        expect(File.exist?(File.join(dir, "fleet-autonomy.md"))).to be(false)
+      end
+    end
+
+    it "keeps every committed skeleton when no account has a user" do
+      canonical = build_canonical(name: "Fleet Autonomy", slug: "fleet-autonomy")
+      Ai::Agent.global.update_all(creator_id: nil)
+      UserRole.delete_all
+      User.delete_all
+
+      Dir.mktmpdir do |dir|
+        retired = committed_skeleton(dir, "long-gone")
+        service = described_class.new(account: nil, target_dir: dir)
+        allow(service).to receive(:syncable_agents).and_return([ canonical.reload ])
+
+        result = service.sync!
+
+        expect(result.removed).to eq([])
+        expect(File.exist?(retired)).to be(true)
+      end
+    end
+
+    it "syncs normally once an account, a user in it and a provider all exist" do
+      canonical = build_canonical(name: "Fleet Autonomy", slug: "fleet-autonomy")
+
+      Dir.mktmpdir do |dir|
+        retired = committed_skeleton(dir, "long-gone")
+        service = described_class.new(account: nil, target_dir: dir)
+        allow(service).to receive(:syncable_agents).and_return([ canonical ])
+
+        result = service.sync!
+
+        expect(result.written).to eq([ "fleet-autonomy" ])
+        expect(result.removed).to eq([ "long-gone" ])
+        expect(File.exist?(retired)).to be(false)
+      end
+    end
+  end
+
 end

@@ -50,6 +50,37 @@ RSpec.describe "Api::V1::Ai::Agents global governance", type: :request do
       expect(copy.global?).to be false
     end
 
+    # IMP-6cda93db7f31: a canonical seeded before any provider existed carries
+    # none (ai_provider_id is nullable on a GLOBAL row), while an ACCOUNT row
+    # must have one. The clone therefore cannot simply inherit the canonical's
+    # — this door resolves the account's own provider exactly as
+    # Ai::Agents::AccountPrincipalResolver and AgentManagementTool#clone_canonical_agent do.
+    context "when the canonical carries no provider" do
+      before { global_agent.update_columns(ai_provider_id: nil, creator_id: nil) }
+
+      it "clones onto the account's own active provider" do
+        provider # the account has one
+
+        post "/api/v1/ai/agents/#{global_agent.id}/clone", headers: headers, as: :json
+
+        expect(response).to have_http_status(:created)
+        copy = Ai::Agent.owned_by_account(account.id).order(:created_at).last
+        expect(copy.ai_provider_id).to eq(provider.id)
+        expect(copy.creator_id).to eq(user.id)
+      end
+
+      it "explains the cause instead of a bare validation failure when the account has none either" do
+        Ai::Provider.where(account_id: account.id).update_all(is_active: false)
+
+        expect {
+          post "/api/v1/ai/agents/#{global_agent.id}/clone", headers: headers, as: :json
+        }.not_to change { Ai::Agent.owned_by_account(account.id).count }
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(response.parsed_body.to_s).to match(/provider/i)
+      end
+    end
+
     it "lets the account edit its own clone (not read-only)" do
       copy = global_agent.clone_to_account(account, creator: user)
       patch "/api/v1/ai/agents/#{copy.id}",
