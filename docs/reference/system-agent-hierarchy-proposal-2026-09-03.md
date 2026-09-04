@@ -274,3 +274,15 @@ Phase 2b: ~5 lanes (one per new/promoted agent, plus the engineering policy set 
    six pending dev-improve tasks (three business-extension, IMP-222dd9bce564, IMP-31e7c3dbeb2a,
    IMP-f2a7a729d39b) are drained now as one batch; the two with deploy-window preconditions report
    `blocked` with the reading if the precondition is unmet.
+10. **Operator rulings 2026-09-04 10:00 (post-deploy-4 review).** (a) Deploy 4 shipped phases 0–2i
+    (core b24da2acf / ext 5e9d2c55, hub-backend v93, hub-frontend v29); the three incidents it exposed
+    (ext-before-core promote skew, scratch-upper budget exhaustion masking a stale node, provider/model-pin
+    mismatch on clone mint and seed back-fill) are fixed or filed. (b) The two API doors that HIER-P2I made
+    resolve a global canonical to the account clone (agents/:id/execute, agents/:id/conversations) KEEP the
+    silent mapping; the response carries the acting clone. (c) `process-automation-optimizer` stays in the
+    Claude Code export. (d) IMP-01b1e152f667's postures stand: the provisioning meter fails open and
+    visible, the quota check on the direct path fails closed; the `Billing::` purity property widens to the
+    whole extension tree with one exemption (offer 01a06b11-95ca approved). (e) The three lane-passed tasks
+    parked by protected-path globs (IMP-222dd9bce564, IMP-b54e49ddfc40, IMP-10e4f6c3bcd2 — the last a
+    `*signer*`/"designer" false positive) are disposed passed. (f) ops-hub's scratch upper is cleared by a full
+    VM 600 reboot in an operator-chosen window, not by soft-recompose.
