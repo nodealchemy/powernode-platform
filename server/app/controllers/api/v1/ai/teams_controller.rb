@@ -8,6 +8,12 @@ module Api
           render_error(e.message, status: :forbidden)
         end
 
+        # HIER-P4 — Ai::Teams::CrudService raises this on a canonical team's
+        # update/delete (read-only, like a canonical agent; clone the template).
+        rescue_from ::Ai::AgentTeam::ReadOnlyCanonical do |e|
+          render_error(e.message, status: :forbidden)
+        end
+
         before_action :authenticate_request
         before_action -> { require_any_permission("ai.teams.manage", "ai.teams.execute") },
                       only: %i[index show analytics composition_health]

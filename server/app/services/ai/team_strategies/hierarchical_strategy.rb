@@ -3,8 +3,19 @@
 module Ai
   module TeamStrategies
     class HierarchicalStrategy < BaseStrategy
+      # The action_type a manager-led delegation is checked as — the same
+      # vocabulary Ai::Tools::AgentManagementTool#spawn_task passes, so a
+      # delegation policy's `delegatable_actions` reads one word for both doors.
+      DELEGATED_ACTION_TYPE = "execute"
+
       # Lead agent decomposes the task, delegates subtasks to workers via DAG,
       # then synthesizes the final result from all worker outputs.
+      #
+      # UNDER THE DELEGATION POLICIES (HIER-P4): the lead delegates only to a
+      # worker its Ai::DelegationPolicy admits — Ai::Autonomy::DelegationAuthorityService
+      # checks depth, delegate type and action — and a worker outside the
+      # lead's allowed_delegate_types is REFUSED: recorded with the policy's
+      # reason, never executed. With no admitted worker the lead runs alone.
       def execute(input:)
         lead_member = team.members.leads.includes(:agent).first
         raise "Hierarchical team #{team.id} has no lead member" unless lead_member
@@ -14,19 +25,28 @@ module Ai
 
         lead_agent = lead_member.agent
 
-        Rails.logger.info "[HierarchicalStrategy] Lead: #{lead_agent.name}, Workers: #{worker_members.size}"
+        admitted, refusals = partition_by_delegation(lead_agent, worker_members)
+
+        Rails.logger.info "[HierarchicalStrategy] Lead: #{lead_agent.name}, Workers: #{admitted.size} admitted, " \
+                          "#{refusals.size} refused by delegation policy"
+
+        if admitted.empty?
+          Rails.logger.warn "[HierarchicalStrategy] No worker admitted by #{lead_agent.name}'s delegation policy, " \
+                            "executing input directly"
+          return execute_fallback(lead_agent, lead_member, input, refusals)
+        end
 
         # Phase 1: Lead decomposes the task
-        decomposition = decompose_task(lead_agent, input, worker_members)
+        decomposition = decompose_task(lead_agent, input, admitted)
         subtasks = decomposition[:subtasks] || []
 
         if subtasks.empty?
           Rails.logger.warn "[HierarchicalStrategy] No subtasks produced, executing input directly"
-          return execute_fallback(lead_agent, lead_member, input)
+          return execute_fallback(lead_agent, lead_member, input, refusals)
         end
 
-        # Phase 2: Delegate subtasks to workers
-        worker_results = execute_subtasks(subtasks, worker_members, input)
+        # Phase 2: Delegate subtasks to the admitted workers
+        worker_results = refusals + execute_subtasks(subtasks, admitted, input)
 
         # Phase 3: Lead synthesizes final result
         synthesis = synthesize_results(lead_agent, input, worker_results)
@@ -35,6 +55,29 @@ module Ai
       end
 
       private
+
+      # [admitted members, refusal task records] under the lead's delegation policy.
+      def partition_by_delegation(lead_agent, worker_members)
+        authority = Ai::Autonomy::DelegationAuthorityService.new(account: account)
+        admitted = []
+        refusals = []
+
+        worker_members.each do |member|
+          verdict = authority.validate_delegation(
+            delegator: lead_agent, delegate: member.agent, task: { action_type: DELEGATED_ACTION_TYPE }
+          )
+          if verdict[:allowed]
+            admitted << member
+          else
+            Rails.logger.warn "[HierarchicalStrategy] #{lead_agent.name} may not delegate to " \
+                              "#{member.agent.name}: #{verdict[:reason]}"
+            refusals << record_task(agent: member.agent, role: member.role || "worker", output: nil,
+                                    refused: verdict[:reason])
+          end
+        end
+
+        [ admitted, refusals ]
+      end
 
       def decompose_task(lead_agent, input, worker_members)
         llm_client = build_llm_client(lead_agent)
@@ -47,7 +90,7 @@ module Ai
           task: input,
           agent_capabilities: capabilities,
           llm_client: llm_client,
-          model: lead_agent.model_id
+          model: lead_agent.resolved_model
         )
       end
 
@@ -102,7 +145,7 @@ module Ai
 
         response = llm_client.complete(
           messages: messages,
-          model: lead_agent.model_id,
+          model: lead_agent.resolved_model,
           system_prompt: lead_agent.system_prompt
         )
 
@@ -112,11 +155,11 @@ module Ai
         worker_results.filter_map { |r| r[:output] }.join("\n\n")
       end
 
-      def execute_fallback(lead_agent, lead_member, input)
+      def execute_fallback(lead_agent, lead_member, input, prior_results = [])
         result = execute_agent(lead_agent, input)
         output = result.is_a?(Hash) ? (result[:output] || result["output"]) : result.to_s
 
-        finalize_results([
+        finalize_results(prior_results + [
           record_task(agent: lead_agent, role: lead_member.role || "lead", output: output)
         ])
       end

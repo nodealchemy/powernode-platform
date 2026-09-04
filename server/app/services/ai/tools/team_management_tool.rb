@@ -18,6 +18,14 @@ module Ai
       declare_action "remove_team_member", mutating: true
       declare_action "update_team", mutating: true
 
+      # HIER-P4 — a CANONICAL team (the account's materialisation of a global
+      # Ai::TeamTemplate, Ai::AgentTeam#canonical?) is read-only through these
+      # verbs, like a canonical agent: list/get show it flagged, every mutating
+      # verb answers a result envelope that names the clone path. Its
+      # membership is repaired by Ai::Teams::CanonicalTeamReconciler.
+      # The wording lives on the model (Ai::AgentTeam::READ_ONLY_MESSAGE) so the
+      # MCP envelope, the REST 403 and Ai::Teams::CrudService cannot drift.
+
       def self.definition
         {
           name: "team_management",
@@ -51,17 +59,17 @@ module Ai
             }
           },
           "list_teams" => {
-            description: "List all active AI agent teams in the current account",
+            description: "List all active AI agent teams in the current account. A team flagged canonical is the account's materialisation of a global team template (read-only; clone the template to customise)",
             parameters: {}
           },
           "get_team" => {
-            description: "Get detailed information about a specific team including its members",
+            description: "Get detailed information about a specific team including its members. A canonical team (flag `canonical`, `source_key`) is read-only through the mutating verbs",
             parameters: {
               team_id: { type: "string", required: true, description: "Team UUID or exact team name" }
             }
           },
           "update_team" => {
-            description: "Update an existing team's configuration",
+            description: "Update an existing team's configuration. Refused on a canonical team",
             parameters: {
               team_id: { type: "string", required: true, description: "Team UUID or exact team name" },
               name: { type: "string", required: false, description: "New team name" },
@@ -73,13 +81,13 @@ module Ai
             }
           },
           "delete_team" => {
-            description: "Hard-destroy a team. Cascades: members + channels + executions :destroy; conversations + learnings :nullify. Irreversible.",
+            description: "Hard-destroy a team. Cascades: members + channels + executions :destroy; conversations + learnings :nullify. Irreversible. Refused on a canonical team.",
             parameters: {
               team_id: { type: "string", required: true, description: "Team UUID or exact team name" }
             }
           },
           "add_team_member" => {
-            description: "Add an AI agent as a member of a team",
+            description: "Add an AI agent as a member of a team. Refused on a canonical team",
             parameters: {
               team_id: { type: "string", required: true, description: "Team UUID or exact team name" },
               agent_id: { type: "string", required: true, description: "Agent UUID, slug, or exact name" },
@@ -87,7 +95,7 @@ module Ai
             }
           },
           "remove_team_member" => {
-            description: "Remove an AI agent from a team. Destroys the AgentTeamMember row and the backing TeamRole if present.",
+            description: "Remove an AI agent from a team. Destroys the AgentTeamMember row and the backing TeamRole if present. Refused on a canonical team.",
             parameters: {
               team_id: { type: "string", required: true, description: "Team UUID or exact team name" },
               agent_id: { type: "string", required: true, description: "Agent UUID, slug, or exact name" }
@@ -136,8 +144,10 @@ module Ai
 
       def add_team_member(params)
         team = resolve_team(params[:team_id])
+        return canonical_refusal(team) if team.canonical?
+
         agent = resolve_agent(params[:agent_id])
-        role_type = map_member_role_to_type(params[:role] || "worker")
+        role_type = Ai::AgentTeamMember.role_type_for(params[:role] || "worker")
 
         member = team.members.create!(
           agent: agent,
@@ -197,6 +207,9 @@ module Ai
             team_type: team.team_type,
             status: team.status,
             coordination_strategy: team.coordination_strategy,
+            canonical: team.canonical?,
+            template_id: team.template_id,
+            source_key: team.canonical? ? team.team_config["source_key"] : nil,
             team_config: team.team_config,
             review_config: team.review_config,
             members: members
@@ -211,13 +224,16 @@ module Ai
         {
           success: true,
           teams: teams.map { |t|
-            { id: t.id, name: t.name, team_type: t.team_type, coordination_strategy: t.coordination_strategy, member_count: t.members.count }
+            { id: t.id, name: t.name, team_type: t.team_type, coordination_strategy: t.coordination_strategy,
+              member_count: t.members.count, canonical: t.canonical?, template_id: t.template_id }
           }
         }
       end
 
       def update_team(params)
         team = resolve_team(params[:team_id])
+        return canonical_refusal(team) if team.canonical?
+
         attrs = {}
         attrs[:name] = params[:name] if params[:name].present?
         attrs[:description] = params[:description] if params[:description].present?
@@ -239,6 +255,8 @@ module Ai
 
       def delete_team(params)
         team = resolve_team(params[:team_id])
+        return canonical_refusal(team) if team.canonical?
+
         name = team.name
         member_count = team.members.count
         team.destroy!
@@ -251,6 +269,8 @@ module Ai
 
       def remove_team_member(params)
         team = resolve_team(params[:team_id])
+        return canonical_refusal(team) if team.canonical?
+
         agent = resolve_agent(params[:agent_id])
         member = team.members.find_by(ai_agent_id: agent.id)
         return { success: false, error: "Agent #{agent.name} is not a member of team #{team.name}" } unless member
@@ -262,16 +282,14 @@ module Ai
         { success: false, error: e.message }
       end
 
-      # Map freeform member role strings to TeamRole::ROLE_TYPES
-      def map_member_role_to_type(role)
-        case role.to_s.downcase
-        when "manager"                   then "manager"
-        when "coordinator", "facilitator" then "coordinator"
-        when "reviewer"                  then "reviewer"
-        when "validator"                 then "validator"
-        when "researcher", "writer", "analyst" then "specialist"
-        else "worker"
-        end
+      def canonical_refusal(team)
+        {
+          success: false,
+          canonical: true,
+          team_id: team.id,
+          template_id: team.template_id,
+          error: team.canonical_read_only_message
+        }
       end
 
       # Resolve an agent by UUID, slug, or exact name

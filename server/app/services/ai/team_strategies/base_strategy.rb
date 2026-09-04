@@ -25,8 +25,11 @@ module Ai
       end
 
       # Record a task result for the team execution
-      def record_task(agent:, role:, output:, cost: 0.0, tokens: 0, duration_ms: 0)
-        {
+      # `refused:` records a delegation the lead was NOT allowed to make (the
+      # delegation policy's reason): output nil, so it counts as failed, and
+      # the reason travels with the result so the operator sees why.
+      def record_task(agent:, role:, output:, cost: 0.0, tokens: 0, duration_ms: 0, refused: nil)
+        task = {
           agent_id: agent.id,
           agent_name: agent.name,
           role: role,
@@ -35,6 +38,8 @@ module Ai
           tokens_used: tokens,
           duration_ms: duration_ms
         }
+        task[:refused] = refused if refused.present?
+        task
       end
 
       # Build LLM client for an agent
