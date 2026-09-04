@@ -32,6 +32,34 @@ RSpec.describe Ai::Routing::AgentRouterService do
       expect(ids.size).to eq(2)
     end
 
+    # HIER-P2I: routing MAY return a global canonical — it is the template the
+    # account has not cloned yet — but a canonical never executes (ruling 8).
+    # The result says so, per candidate and for the winner, so the CALLER
+    # clones (Ai::Agents::AccountPrincipalResolver) before executing instead
+    # of meeting the tool seam's refusal.
+    it "flags a global canonical winner and candidate so the caller clones before executing" do
+      canonical = create(:ai_agent, :global, is_system: true, name: "Canonical Drift Fixer",
+                         description: "Reconciles fleet drift and module upgrades on every node.")
+
+      result = router.route(task: "reconcile fleet drift and upgrade modules")
+
+      expect(result[:agent_id]).to eq(canonical.id)
+      expect(result[:canonical]).to be(true)
+      expect(result[:execution_note]).to match(/clone/i)
+      expect(result[:candidates].find { |c| c[:agent_id] == canonical.id }[:canonical]).to be(true)
+    end
+
+    it "does not flag an account-owned winner" do
+      own = agent(name: "Fleet Reconciler", description: "Reconciles fleet drift and module upgrades.")
+
+      result = router.route(task: "reconcile fleet drift and upgrade modules")
+
+      expect(result[:agent_id]).to eq(own.id)
+      expect(result[:canonical]).to be(false)
+      expect(result).not_to have_key(:execution_note)
+      expect(result[:candidates].first[:canonical]).to be(false)
+    end
+
     it "does not raise on an agent without a capabilities column (declared_capabilities is the live definition)" do
       agent(name: "Any", description: "Anything at all.")
 

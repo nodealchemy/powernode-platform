@@ -351,32 +351,80 @@ RSpec.describe Ai::Executors::DeferredToolCall do
   # in the account it acted for. Rehydrating it through the account's visibility
   # (global rows + this account's rows) is what makes the approval replayable;
   # an agent owned by ANOTHER account is still outside that visibility.
-  describe "a GLOBAL canonical agent as the parked principal (IMP-32b4f4fb7bbe)" do
+  #
+  # HIER-P2I (proposal §5 ruling 8) then settled the CANONICAL ITSELF: a global
+  # canonical is a template and never executes. The visibility bound above
+  # still holds for the account's CLONE — which is what acts now — while the
+  # canonical can no longer PARK a gated call at all (Ai::Tools::BaseTool
+  # refuses it ahead of the gate). Rows it parked BEFORE that increment are the
+  # entire existing population, because the fleet ticks gated under the
+  # canonical, so the replay does not strand them: #agent_for maps the
+  # canonical through Ai::Agents::AccountPrincipalResolver and the approved
+  # operation re-invokes as the account's clone. It fails closed only where no
+  # clone can be minted.
+  describe "a GLOBAL canonical agent as the parked principal (IMP-32b4f4fb7bbe, settled by HIER-P2I)" do
     let(:user) { create(:user, account: account, permissions: [ "ai.agents.manage" ]) }
     let(:canonical) { create(:ai_agent, :global, owner_account: account, name: "Canonical Ops") }
 
-    it "replays an agent-principal call parked by the canonical under that agent" do
+    it "can no longer PARK a gated call: the tool seam refuses the canonical ahead of the gate" do
       user
-      operation = park!(SpecReplayTool.new(account: account, agent: canonical))
+      result = nil
+      expect { result = SpecReplayTool.new(account: account, agent: canonical).execute(params: call_params) }
+        .not_to change(Ai::DeferredOperation, :count)
 
-      expect(operation.params["principal"]).to include("kind" => "agent", "agent_id" => canonical.id)
+      expect(result[:success]).to be(false)
+      expect(result[:refusal]).to eq(Ai::Tools::BaseTool::CANONICAL_PRINCIPAL_REFUSAL)
+      expect(sightings).to be_empty
+    end
+
+    it "replays an agent-principal row the canonical parked before HIER-P2I as the account's clone" do
+      user
+      operation = park!(SpecReplayTool.new(account: account, user: user))
+      operation.update!(params: operation.params.merge(
+        "principal" => { "kind" => "agent", "agent_id" => canonical.id, "internal" => false }
+      ))
+
       result = operation.execute_now!
 
+      clone = Ai::Agent.find_by(cloned_from_id: canonical.id, account_id: account.id)
+      expect(clone).to be_present
       expect(result[:refused]).to be_nil, result.inspect
       expect(sightings.size).to eq(1)
-      expect(sightings.first[:agent_id]).to eq(canonical.id)
+      expect(sightings.first[:agent_id]).to eq(clone.id)
       expect(operation.reload.status).to eq("completed")
     end
 
-    it "keeps the canonical on a user-principal call that it acted for" do
-      operation = park!(SpecReplayTool.new(account: account, user: user, agent: canonical))
+    it "replays a user-principal row the canonical acted for as the user plus the account's clone" do
+      user
+      operation = park!(SpecReplayTool.new(account: account, user: user))
+      operation.update!(params: operation.params.merge(
+        "principal" => { "kind" => "user", "user_id" => user.id, "agent_id" => canonical.id, "internal" => false }
+      ))
 
-      expect(operation.params["principal"]).to include("kind" => "user", "agent_id" => canonical.id)
       operation.execute_now!
 
+      clone = Ai::Agent.find_by(cloned_from_id: canonical.id, account_id: account.id)
       expect(sightings.size).to eq(1)
       expect(sightings.first[:user_id]).to eq(user.id)
-      expect(sightings.first[:agent_id]).to eq(canonical.id)
+      expect(sightings.first[:agent_id]).to eq(clone.id)
+    end
+
+    # The one case the seam cannot mint a clone (an account with no user to own
+    # one): `acting` hands the canonical back, and the replay must refuse
+    # rather than run a principal nothing bounds.
+    it "still fails closed when no clone can be minted for the account" do
+      user
+      operation = park!(SpecReplayTool.new(account: account, user: user))
+      operation.update!(params: operation.params.merge(
+        "principal" => { "kind" => "agent", "agent_id" => canonical.id, "internal" => false }
+      ))
+      allow(Ai::Agents::AccountPrincipalResolver).to receive(:acting).and_return(canonical)
+
+      result = operation.execute_now!
+
+      expect(result[:refused]).to be(true)
+      expect(result[:reason]).to eq("permission_revoked")
+      expect(sightings).to be_empty
     end
 
     it "still replays an account clone of the canonical under the clone" do
