@@ -17,7 +17,7 @@ On start, in order:
 
 ## Delegation
 
-- Reports to: `powernode-assistant` (Powernode Assistant)
+- Reports to: `platform-architect` (Platform Architect)
 
 ## Baseline guardrails (always-on)
 
