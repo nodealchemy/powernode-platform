@@ -12,10 +12,16 @@ puts "\n🔧 Seeding AI Utility Agents..."
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 
-provider = Ai::Provider.find_by(provider_type: "openai", name: "OpenAI") ||
-           Ai::Provider.find_by(provider_type: "openai") ||
-           Ai::Provider.find_by(provider_type: "ollama") ||
-           Ai::Provider.where(is_active: true).first
+require_relative "concerns/canonical_agent_owner"
+
+# The utility agents carry no model pin (see the model_config note below), so
+# the seed's OpenAI-then-Ollama preference is editorial; the seam keeps it when
+# the family rule allows, and never hands back a provider that cannot run a pin
+# the row already has.
+preferred_provider = Ai::Provider.find_by(provider_type: "openai", name: "OpenAI") ||
+                     Ai::Provider.find_by(provider_type: "openai") ||
+                     Ai::Provider.find_by(provider_type: "ollama")
+provider = CoreSeeds::CanonicalAgentOwner.provider_for(pinned_model: nil, preferred: preferred_provider)
 
 # Each agent has: slug, name, agent_type, description, system_prompt, temperature,
 # max_tokens, and skills (matched by slug) so agents are discoverable via the skill graph.

@@ -105,6 +105,8 @@
 
 puts "\n🏗️  Seeding Engineering hierarchy canonicals (Platform Architect, Platform Developer, Release Manager, Documentation Specialist)..."
 
+require_relative "concerns/canonical_agent_owner"
+
 engineering_admin_account = Account.find_by(name: "Powernode Admin")
 engineering_admin_user = engineering_admin_account&.users&.find_by(email: "admin@powernode.org")
 
@@ -470,7 +472,16 @@ ActiveRecord::Base.transaction do
     # before the admin account and a provider existed (IMP-6cda93db7f31) would
     # otherwise keep them NULL forever. Never blanks or overwrites.
     agent.creator  = engineering_admin_user if engineering_admin_user && agent.creator_id.nil?
-    agent.provider = engineering_provider if engineering_provider && agent.ai_provider_id.nil?
+    if agent.ai_provider_id.nil?
+      # The merge below PRESERVES an existing model pin, so the provider filled
+      # in here has to be able to run it: ask the seam, and leave the canonical
+      # provider-less when nothing can (valid on a global row — the invalid
+      # alternative is what aborted the hierarchy seed in the deploy-4 incident).
+      chosen = CoreSeeds::CanonicalAgentOwner.provider_for(
+        pinned_model: agent.mcp_metadata&.dig("model_config", "model"), preferred: engineering_provider
+      )
+      agent.provider = chosen if chosen
+    end
     # system_prompt= writes into mcp_metadata in place, then a clean merge so
     # both survive AR dirty-tracking. No hardcoded model id — the tier is
     # what Ai::AgentModelSelector resolves at runtime and what the Claude

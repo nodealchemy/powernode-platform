@@ -138,13 +138,18 @@ GLOBAL_AUTONOMY_AGENT_SLUGS = %w[
 ].freeze
 
 extra_agents.each do |ad|
+  # These definitions carry no model pin, so the per-agent provider above is
+  # editorial; the seam keeps it whenever the family rule allows and never
+  # offers one that could not run a pin the row ends up with.
+  chosen_provider = CoreSeeds::CanonicalAgentOwner.provider_for(pinned_model: nil, preferred: ad[:provider])
+
   if GLOBAL_AUTONOMY_AGENT_SLUGS.include?(ad[:slug])
     # Canonical: creator and provider are optional on a global row, so a
     # missing provider (or user) never skips it.
     canonical = Ai::Agent.find_or_create_global(slug: ad[:slug]) do |a|
       a.name        = ad[:name]
       a.agent_type  = ad[:agent_type]
-      a.provider    = ad[:provider]
+      a.provider    = chosen_provider
       a.creator     = admin_user
       a.status      = "active"
       a.version     = "1.0.0"
@@ -156,12 +161,12 @@ extra_agents.each do |ad|
     CoreSeeds::CanonicalAgentOwner.backfill_owner!(canonical, creator: admin_user, provider: ad[:provider])
   else
     # Account-scoped demo agent: needs the admin account, its user and a provider.
-    next unless admin_account && admin_user && ad[:provider]
+    next unless admin_account && admin_user && chosen_provider
 
     Ai::Agent.find_or_create_by!(account: admin_account, name: ad[:name]) do |a|
       a.slug        = ad[:slug]
       a.agent_type  = ad[:agent_type]
-      a.provider    = ad[:provider]
+      a.provider    = chosen_provider
       a.creator     = admin_user
       a.status      = "active"
       a.version     = "1.0.0"
@@ -208,9 +213,20 @@ provider_assignments.each do |agent_name, provider|
   next unless provider
 
   agent = Ai::Agent.resolve_for(admin_account.id, name: agent_name)
-  if agent && agent.ai_provider_id != provider.id
-    agent.update_columns(ai_provider_id: provider.id)
-  end
+  next unless agent
+
+  # The plan above is a PREFERENCE, and this write skips validation, so it was
+  # the exact door the deploy-4 incident (2026-09-04) came through: on a plane
+  # whose only active provider was OpenAI it moved the claude-pinned global
+  # `visual-design-assistant` onto OpenAI, an invalid row that then failed
+  # every later save and aborted the hierarchy seed. Ask the seam what can
+  # actually run this row's pin, and leave the provider alone when nothing can.
+  chosen = CoreSeeds::CanonicalAgentOwner.provider_for(
+    pinned_model: agent.mcp_metadata&.dig("model_config", "model"), preferred: provider
+  )
+  next unless chosen
+
+  agent.update_columns(ai_provider_id: chosen.id) if agent.ai_provider_id != chosen.id
 end
 
 # (0.4.0) The legacy "37→10" agent + orphaned-team consolidation (a destructive

@@ -59,7 +59,10 @@ ActiveRecord::Base.transaction do
     agent.agent_type = 'assistant'
     agent.name = "Strategic Planner"
     agent.description = "Advanced strategic planning and analysis agent with strong long-horizon reasoning"
-    agent.provider = claude_provider
+    # Unpinned (reasoning tier, no model id): the seam keeps the seed's
+    # Anthropic preference when it can, and never attaches a provider that
+    # could not run a pin the row carries.
+    agent.provider = CoreSeeds::CanonicalAgentOwner.provider_for(pinned_model: nil, preferred: claude_provider)
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
@@ -152,7 +155,9 @@ ActiveRecord::Base.transaction do
     agent.agent_type = 'data_analyst'
     agent.name = "Research Analyst"
     agent.description = "Comprehensive research and analysis agent with strong analytical reasoning"
-    agent.provider = ollama_provider || claude_provider
+    agent.provider = CoreSeeds::CanonicalAgentOwner.provider_for(
+      pinned_model: nil, preferred: (ollama_provider || claude_provider)
+    )
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
