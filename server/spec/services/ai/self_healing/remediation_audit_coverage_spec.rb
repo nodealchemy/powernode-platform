@@ -200,15 +200,15 @@ RSpec.describe 'self-healing remediation audit coverage' do
       )
     end
 
-    # A failing context_trim is what this fix is worth: before it, the executor
-    # raised, execute_action's rescue turned that into result: "failure", and
-    # log_remediation's create! then failed the inclusion validation and was
-    # swallowed — a remediation that can NEVER work, failing completely silently.
+    # A failing remediation is what the audit fix is worth: before it, an
+    # executor raised, execute_action's rescue turned that into result:
+    # "failure", and log_remediation's create! then failed the inclusion
+    # validation and was swallowed — a remediation failing completely silently.
     #
-    # The executor is stubbed to raise rather than allowed to raise for real: the
-    # real failure is a PG error, which aborts the surrounding test transaction
-    # and makes the subsequent audit INSERT impossible to observe. Production has
-    # no such transaction. The real raise is pinned separately below.
+    # The executor is stubbed to raise rather than allowed to raise for real:
+    # a real DB-level failure aborts the surrounding test transaction and makes
+    # the subsequent audit INSERT impossible to observe. Production has no such
+    # transaction.
     it 'records a failed attempt instead of losing it' do
       allow(Ai::SelfHealing::RemediationDispatcher)
         .to receive(:execute_context_trim).and_raise(StandardError, 'short-term memory query blew up')
@@ -224,23 +224,74 @@ RSpec.describe 'self-healing remediation audit coverage' do
       expect(log.executed_at).to be_present
     end
 
-    # KNOWN GAP, deliberately pinned and NOT fixed here (out of this task's
-    # scope; filed for its own task, the way IMP-929aadc88e19 was filed for the
-    # sibling defect in execute_model_downgrade). execute_context_trim queries
-    # Ai::AgentShortTermMemory on `ai_agent_id` and `is_active`; the table has
-    # `agent_id` and no active flag at all, so every context_trim raises before
-    # it trims anything. Nothing surfaced because the audit row it would have
-    # failed under was itself being dropped — this example is the record that the
-    # capability is inert, and it reds when someone repairs the query.
-    it 'KNOWN GAP: the executor raises on columns ai_agent_short_term_memories does not have' do
-      expect(Ai::AgentShortTermMemory.column_names).to include('agent_id')
-      expect(Ai::AgentShortTermMemory.column_names).not_to include('ai_agent_id', 'is_active')
+    # REPLACES the KNOWN GAP example that pinned the raise. The query is now
+    # repaired — and repaired by DELEGATION to Ai::Memory::MaintenanceService
+    # #cleanup_expired, the seam that already owns expired-STM deletion — so
+    # these assert the OBSERVABLE outcome the acceptance criteria asked for:
+    # the reachable short-term memory set is measurably smaller afterwards, and
+    # an audit row records it. "Did not raise" would be the same oracle that let
+    # the original defect hide.
+    it 'deletes the expired rows and keeps the unexpired ones' do
+      fresh = Ai::AgentShortTermMemory.create!(
+        account: account, agent: agent, session_id: 'ctx-trim-guard',
+        memory_key: 'fresh', memory_value: { 'v' => 1 }, ttl_seconds: 3600,
+        expires_at: 1.hour.from_now
+      )
+      stale = Ai::AgentShortTermMemory.create!(
+        account: account, agent: agent, session_id: 'ctx-trim-guard',
+        memory_key: 'stale', memory_value: { 'v' => 2 }, ttl_seconds: 3600,
+        expires_at: 1.hour.ago
+      )
 
-      expect {
-        Ai::SelfHealing::RemediationDispatcher.send(
-          :execute_context_trim, account, { execution_id: execution.id }
+      expect { dispatch }
+        .to change { Ai::AgentShortTermMemory.for_agent(agent.id).count }.from(2).to(1)
+
+      expect(Ai::AgentShortTermMemory.exists?(fresh.id)).to be(true)
+      expect(Ai::AgentShortTermMemory.exists?(stale.id)).to be(false)
+    end
+
+    it 'audits the trim with the count it actually removed' do
+      2.times do |i|
+        Ai::AgentShortTermMemory.create!(
+          account: account, agent: agent, session_id: 'ctx-trim-audit',
+          memory_key: "stale-#{i}", memory_value: { 'v' => i }, ttl_seconds: 3600,
+          expires_at: 1.hour.ago
         )
-      }.to raise_error(ActiveRecord::StatementInvalid, /ai_agent_id|is_active/)
+      end
+
+      expect { dispatch }.to change(Ai::RemediationLog, :count).by(1)
+
+      log = Ai::RemediationLog.order(:executed_at).last
+      expect(log.action_type).to eq('context_trim')
+      expect(log.result).to eq('success')
+      expect(log.result_message).to include('Trimmed 2 short-term memory rows')
+      expect(log.result_message).to include('2 -> 0 reachable')
+      expect(log.trigger_event).to eq('context_overflow')
+    end
+
+    # The trim delegates rather than carrying its own copy of the query. Pinned
+    # because a future edit that inlines the query here would silently fork from
+    # the maintenance pass and drift — which is how the original wrong-column
+    # query came to exist in the first place.
+    it 'delegates to the maintenance seam rather than querying directly' do
+      maintenance = instance_double(Ai::Memory::MaintenanceService)
+      expect(Ai::Memory::MaintenanceService)
+        .to receive(:new).with(account: account).and_return(maintenance)
+      expect(maintenance).to receive(:cleanup_expired).with(agent: agent).and_return({ deleted: 7 })
+
+      dispatch
+
+      expect(Ai::RemediationLog.order(:executed_at).last.result_message)
+        .to include('Trimmed 7 short-term memory rows')
+    end
+
+    # The column names the original defect got wrong. The KNOWN GAP example was
+    # the only assertion in the tree pinning them; the repair removed it, so the
+    # fact it rested on is re-pinned here. Add an `is_active` column later and
+    # this reds, which is the moment the executor's comment needs re-reading.
+    it 'still describes the schema the repaired query is written against' do
+      expect(Ai::AgentShortTermMemory.column_names).to include('agent_id', 'expires_at')
+      expect(Ai::AgentShortTermMemory.column_names).not_to include('ai_agent_id', 'is_active')
     end
   end
 end

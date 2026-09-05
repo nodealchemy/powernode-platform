@@ -171,23 +171,56 @@ module Ai
           { status: "success", message: "Downgraded #{downgraded} agents to economy models" }
         end
 
+        # WHAT "TRIM" MEANS HERE, stated because the previous implementation was
+        # underspecified as well as broken (IMP-ee359823f419). It filtered and
+        # wrote `ai_agent_id` and `is_active` on ai_agent_short_term_memories,
+        # which has `agent_id` and no active flag, so every invocation raised
+        # before trimming anything — and even repaired, "deactivate expired
+        # entries" would have been a no-op, since the model's `active` scope
+        # already hides expired rows from the readers that use it.
+        #
+        # So the trim is DELETION, delegated to the seam that already owns it:
+        # Ai::Memory::MaintenanceService#cleanup_expired(agent:) deletes the
+        # agent's expired rows and force-expires those past STM_MAX_AGE_DAYS.
+        # Reusing it keeps this from becoming a second writer with its own
+        # drifting copy of the query, and the measured outcome is the row count
+        # it deletes.
+        #
+        # WHERE THAT ACTUALLY REDUCES CONTEXT, precisely — this is the part the
+        # old comment got wrong. NOT via Ai::Memory::ContextInjectorService:
+        # that is the only assembler of memory into an agent's prompt, it is
+        # hard-capped at DEFAULT_TOKEN_BUDGET, and none of its injectors reads
+        # short-term memory at all. The effect is on the UNBUDGETED tool-result
+        # path: Ai::Tools::MemoryTool#search_memory selects short-term rows with
+        # no `.active` filter and hands their memory_value blobs straight back to
+        # the model, so expired rows are reachable context until something
+        # deletes them. Deleting shrinks that reachable set.
+        #
+        # Bounded honestly: search_memory takes `limit`, so when more than
+        # `limit` unexpired rows still match, the tool result stays the same size
+        # and only its CONTENT changes. The guaranteed effect is a smaller
+        # reachable set, not a smaller prompt on every call.
         def execute_context_trim(account, context)
           execution_id = context[:execution_id]
           return { status: "skipped", message: "No execution specified" } unless execution_id
 
-          # Trim context for the execution's agent
           execution = Ai::AgentExecution.find_by(id: execution_id, account_id: account.id)
           return { status: "skipped", message: "Execution not found" } unless execution
 
           agent = execution.agent
           return { status: "skipped", message: "Agent not found" } unless agent
 
-          # Clear short-term memory to reduce context size
-          cleared = Ai::AgentShortTermMemory.where(ai_agent_id: agent.id, is_active: true)
-                                             .where("expires_at < ?", Time.current)
-                                             .update_all(is_active: false)
+          before = Ai::AgentShortTermMemory.for_agent(agent.id).count
+          deleted = Ai::Memory::MaintenanceService.new(account: account)
+                                                 .cleanup_expired(agent: agent)
+                                                 .fetch(:deleted, 0)
+          after = Ai::AgentShortTermMemory.for_agent(agent.id).count
 
-          { status: "success", message: "Trimmed #{cleared} expired memory entries for agent #{agent.name}" }
+          {
+            status: "success",
+            message: "Trimmed #{deleted} short-term memory rows for agent #{agent.name} " \
+                     "(#{before} -> #{after} reachable)"
+          }
         end
 
         def execute_alert_escalation(account, context)
