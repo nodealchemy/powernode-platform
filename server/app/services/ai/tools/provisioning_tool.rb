@@ -631,16 +631,54 @@ module Ai
                 "run extensions/system/server/db/seeds/system_provisioning_mission_template.rb"
         end
 
+        name = derive_name(name_hint)
+
         account.ai_missions.create!(
-          name: derive_name(name_hint),
+          name: name,
           mission_type: "infrastructure",
           status: "draft",
           mission_template: template,
           current_phase: "capture_intent",
           objective: name_hint.to_s.truncate(2000),
           created_by: user,
+          project: create_project_for!(name),
           configuration: { "brief" => {} }
         )
+      end
+
+      # APO `app-4-project-noun` — a captured brief produces the PROJECT the
+      # mission belongs to, not just the mission.
+      #
+      # This is the head of the priority chain: a git URL becomes something
+      # running, exposed, monitored and owned by a team. The mission is the WORK
+      # of getting there and it ends; the project is what remains, and it is
+      # what a scaling window, a budget, an SLO target and an owning team hang
+      # off. Creating the mission alone left the durable half with nowhere to
+      # live, which is why the window had to be re-declared on every mission.
+      #
+      # A clarification onto an EXISTING mission never reaches here (capture_brief
+      # only calls #create_infrastructure_mission! when mission_id is absent), so
+      # refining a brief cannot mint a second project for the same work.
+      #
+      # BEST-EFFORT, deliberately. The project is ADDITIVE: every mission that
+      # already exists has none, and nothing downstream requires one. So a
+      # project that cannot be created (a slug collision with an unrelated
+      # project of the same name, say) must not fail the brief capture the
+      # operator actually asked for — the mission is created with a nil project,
+      # exactly as it was before this increment, and the failure is logged.
+      def create_project_for!(name)
+        ::Ai::Project.create!(
+          account: account,
+          name: name,
+          status: "active",
+          created_by: user
+        )
+      rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => e
+        Rails.logger.warn(
+          "[ProvisioningTool] could not create a project for brief '#{name}' " \
+          "(#{e.class}: #{e.message}); the mission is created without one"
+        )
+        nil
       end
 
       def derive_name(text)
