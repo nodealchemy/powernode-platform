@@ -17,7 +17,7 @@ On start, in order:
 
 ## Delegation
 
-- Reports to: `system-concierge` (System Concierge)
+- Reports to: `infrastructure-generalist` (Infrastructure Generalist)
 
 ## Baseline guardrails (always-on)
 
