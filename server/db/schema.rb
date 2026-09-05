@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_05_062000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_05_070000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9035,6 +9035,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_05_062000) do
     t.string "sensor", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "sensor"], name: "idx_fleet_sensor_configs_on_account_and_sensor", unique: true
+  end
+
+  create_table "system_fleet_signal_states", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "escalated_at"
+    t.integer "escalation_count", default: 0, null: false
+    t.string "fingerprint", null: false
+    t.datetime "first_seen_at", null: false
+    t.string "last_decision"
+    t.datetime "last_dedup_event_at"
+    t.datetime "last_notified_at"
+    t.datetime "last_seen_at", null: false
+    t.string "signal_kind", null: false
+    t.integer "tick_count", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "fingerprint"], name: "idx_fleet_signal_states_on_account_and_fingerprint", unique: true
+    t.index ["account_id", "last_seen_at"], name: "idx_fleet_signal_states_on_account_and_last_seen"
   end
 
   create_table "system_fulfillment_requests", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
