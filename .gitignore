@@ -66,7 +66,43 @@ encryption.key
 *secret*.yml
 *secret*.yaml
 secrets.json
-*private*
+# Private key material by SHAPE, per this block's rule above — NOT the bare
+# substring `*private*`, which this line replaces (IMP-70a6c8b3b375). That
+# pattern matched any path containing "private" anywhere, so a legitimately
+# named source file was ignored with no error and no git status entry: it ate
+# the first draft of server/spec/lint/extension_namespace_ratchet_spec.rb, and
+# it is why `!/server/Gemfile.private` below had to exist at all.
+#
+# It was NOT what protects the private extensions — the anchored
+# `/extensions/private/` + `extensions/private` pair below does that.
+#
+# MEASURED before narrowing, with `git check-ignore -v --no-index`. The
+# --no-index matters: without it a TRACKED path reports "not ignored" whatever
+# the rules say, so an attribution sweep run without it structurally cannot see
+# rules covering tracked files. Over the 2,699 tree paths containing "private",
+# exactly SEVEN were won by `*private*`:
+#   - extensions/private itself           -> now the bare `extensions/private`
+#   - 5 vendored gem files under
+#     {server,worker}/vendor/bundle/      -> server/.gitignore:94, worker/.gitignore:4
+#   - 1 spec inside the extensions/system SUBMODULE, which is tracked there and
+#     for which a submodule's own git never consults this file. Not protected by
+#     this rule before, not exposed by removing it.
+# No path in the tree loses protection.
+#
+# ACCEPTED RISK, stated because it is real and not visible in today's tree:
+# `*private*` had no slash, so it also blanket-ignored any DIRECTORY whose name
+# contained "private" — extensions/private-business/, server/vendor/private-thing/,
+# docs/private/. That accidental second net is gone. A private extension placed
+# anywhere other than extensions/private/ is now trackable, so put them there.
+#
+# The common key extensions (*.key *.pem *.p12 *.pfx *.jks) are already ignored
+# unconditionally above; `*private*key*` covers the extension-less and .txt
+# shapes those miss (privatekey.txt, private_key, private-key, privatekeys).
+*.private
+*private*key*
+*private*keys*
+*private*.gpg
+*private*.asc
 *.token
 *.tokens
 api_keys.yml
@@ -385,8 +421,25 @@ server/scripts/trigger_*.sh
 # Per-host extension enable/disable state (written by admin "Toggle Extension")
 config/extensions_state.json
 # Private/custom extensions live under extensions/private/ (added manually by
-# maintainers; the *private* security rule above already ignores it). Never committed.
+# maintainers). Never committed — this repo publishes to a PUBLIC GitHub mirror.
+#
+# THIS ANCHORED RULE IS THE PROTECTION, on its own. An older comment here said
+# "the *private* security rule above already ignores it", which was misleading
+# in both directions: that rule was a bare substring match in the SECRET-material
+# block (so it also ate ordinary source files named "private*"), and this line is
+# what actually wins for every path under the directory. `*private*` was narrowed
+# to key shapes in IMP-70a6c8b3b375; the measurement and the one risk that
+# narrowing accepts are recorded at that rule.
+# server/spec/lint/gitignore_substring_overreach_spec.rb pins both halves so
+# neither can regress.
 /extensions/private/
+# Non-directory form as well. A trailing-slash pattern matches DIRECTORIES only,
+# so if extensions/private is ever a SYMLINK (git sees a non-directory) the rule
+# above does not fire and the link entry itself becomes trackable — committing
+# the private extension's NAME, which the Gate-#9 note below treats as disclosure
+# in its own right. The old `*private*` covered this by accident; this does it on
+# purpose.
+extensions/private
 # Maintainer-local notes (never committed to the public repo)
 /CLAUDE.local.md
 # Gate-#9 grandfather entries whose PATH is inside extensions/private/. The tracked
@@ -397,7 +450,9 @@ config/extensions_state.json
 # Private-mode bundle lock (declares private-extension PATH gems — never commit; see server/Gemfile.private)
 /server/Gemfile.private.lock
 # The private-mode Gemfile itself IS committed (tiny; just flips the discovery
-# flag). Un-ignore it — the broad `*private*` rule above would otherwise drop it.
+# flag). Un-ignore it: `*.private` above matches it by extension. This negation
+# predates that narrowing — it existed because the broader `*private*` caught it
+# — and is still load-bearing, so do not drop it as leftover.
 !/server/Gemfile.private
 # Runtime-generated maintenance page: MaintenanceController writes it when
 # maintenance mode is enabled and deletes it when disabled. Not a source file.
