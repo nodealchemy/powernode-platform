@@ -4,15 +4,28 @@ module Ai
   module Tools
     # APO increment `app-4-project-noun` — the MCP read surface for Ai::Project.
     #
-    #   platform.project_list    — this account's projects
-    #   platform.project_get     — one project, by id OR slug
-    #   platform.project_status  — a project plus the rollup of the missions it
-    #                              owns and the scaling window they run under
+    #   platform.project_list             — this account's projects
+    #   platform.project_get              — one project, by id OR slug
+    #   platform.project_status           — a project plus the rollup of the
+    #                                       missions it owns and the scaling
+    #                                       window they run under
+    #   platform.project_set_slo_targets  — declare the project's SLO targets
     #
-    # ALL THREE ARE READS. Nothing here writes: creation happens on the
-    # provisioning path (Ai::Tools::ProvisioningTool#capture_brief attaches the
-    # project to the mission it creates), so a write verb on this surface would
-    # be a second door onto the same row with no plan behind it.
+    # THE READ-ONLY CLAIM THAT USED TO STAND HERE HAS EXPIRED, and it is worth
+    # recording why rather than quietly deleting it. It said a write verb would
+    # be "a second door onto the same row with no plan behind it", which was
+    # true while CREATION was the only write: creation happens on the
+    # provisioning path, and a second create door would have raced it.
+    #
+    # Declaring a target is not creation, and it had NO door at all. The
+    # creation path passes account, name, status and creator and nothing else,
+    # so every project in existence carried empty targets and a declaration
+    # could not arrive by any route — including for the two utilization
+    # ceilings that were already correctly wired into the bounds ladder. A
+    # ladder rung nothing can populate is a rung nothing reaches.
+    #
+    # Creation stays where it is. This verb only declares targets on a project
+    # that already exists.
     #
     # PERMISSION. `ai.missions.read`, an EXISTING permission that the `member`
     # role already grants. No new permission was minted: an undefined permission
@@ -31,13 +44,33 @@ module Ai
     class ProjectTool < BaseTool
       REQUIRED_PERMISSION = "ai.missions.read"
 
-      ACTIONS = %w[project_list project_get project_status].freeze
+      ACTIONS = %w[project_list project_get project_status project_set_slo_targets].freeze
+
+      # The WRITE verb takes the manage permission, not the read floor: the
+      # three reads stay at `ai.missions.read` and declaring a target is the
+      # same class of operation as managing the mission it governs.
+      WRITE_PERMISSION = "ai.missions.manage"
+      ACTION_PERMISSIONS = { "project_set_slo_targets" => WRITE_PERMISSION }.freeze
+
+      # The targets a project may declare. Keyed by the CANONICAL metric name a
+      # sample carries, valued by the coercion rule — availability is a
+      # percentage, a cost ceiling in dollars and a throughput floor in bytes
+      # per second are unbounded above, and running them through one rule would
+      # discard every realistic cost declaration.
+      DECLARABLE_TARGETS = {
+        ::Ai::Mission::AVAILABILITY_PCT_SLO_KEY => :percentage,
+        ::Ai::Mission::COST_CEILING_USD_SLO_KEY => :positive_number,
+        ::Ai::Mission::MIN_THROUGHPUT_SLO_KEY   => :positive_number,
+        ::Ai::Mission::MAX_CPU_PCT_SLO_KEY      => :percentage,
+        ::Ai::Mission::MAX_MEMORY_PCT_SLO_KEY   => :percentage
+      }.freeze
 
       # Read-shaped, so `mutating: false` and no gate wiring: BaseTool#execute
       # routes straight to #call, where #authorization_error runs first.
       declare_action "project_list", mutating: false
       declare_action "project_get", mutating: false
       declare_action "project_status", mutating: false
+      declare_action "project_set_slo_targets", mutating: true
 
       def self.definition
         {
@@ -77,6 +110,27 @@ module Ai
               project_id: { type: "string", required: true, description: "Project UUID or slug" }
             }
           },
+          "project_set_slo_targets" => {
+            description: "Declare a project's service-level targets. They resolve through the mission " \
+                         "bounds ladder, so a target declared here governs every mission the project " \
+                         "owns unless that mission declares its own. Merges: naming one target leaves " \
+                         "the others alone, and an explicit null clears one. p99_latency_ms is REFUSED " \
+                         "— nothing on this platform measures workload latency, so accepting one would " \
+                         "store a target that is compared against nothing.",
+            parameters: {
+              project_id: { type: "string", required: true, description: "Project UUID or slug" },
+              availability_pct: { type: "number", required: false,
+                                  description: "Availability target, a percentage in (0, 100]" },
+              cost_ceiling_usd: { type: "number", required: false,
+                                  description: "Monthly cost ceiling in USD. Above this the project is cost-breaching" },
+              min_throughput_bytes_per_s: { type: "number", required: false,
+                                            description: "Throughput floor in bytes per second. Declared-only: no default floor exists" },
+              max_cpu_pct: { type: "number", required: false,
+                             description: "CPU ceiling, a percentage in (0, 100]. Above this the project is utilization-bound" },
+              max_memory_pct: { type: "number", required: false,
+                                description: "Memory ceiling, a percentage in (0, 100]" }
+            }
+          },
           "project_status" => {
             description: "Operational rollup for one project: the missions it owns grouped by status, " \
                          "the ones still in flight, and the scaling window those missions resolve — " \
@@ -101,23 +155,30 @@ module Ai
         return refusal if refusal
 
         case params[:action]
-        when "project_list"   then project_list(params)
-        when "project_get"    then project_get(params)
-        when "project_status" then project_status(params)
+        when "project_list"            then project_list(params)
+        when "project_get"             then project_get(params)
+        when "project_status"          then project_status(params)
+        when "project_set_slo_targets" then project_set_slo_targets(params)
         else error_result("Unknown action: #{params[:action]}")
         end
       end
 
-      def authorization_error(_params)
+      # Per ACTION, not per tool: the write verb must not be reachable on the
+      # read floor. A name-keyed check on the tool alone would let a caller
+      # holding only `ai.missions.read` smuggle the write action in through the
+      # `action` parameter, which is how a sibling tool became an authorization
+      # bypass (IMP-6fbfeff384fa).
+      def authorization_error(params)
         return nil if internal?
         return nil if instance_authorized?
-        return nil if user.respond_to?(:has_permission?) &&
-                      user.has_permission?(REQUIRED_PERMISSION) == true
+
+        required = ACTION_PERMISSIONS.fetch(params[:action].to_s, REQUIRED_PERMISSION)
+        return nil if user.respond_to?(:has_permission?) && user.has_permission?(required) == true
 
         Rails.logger.warn(
-          "[ProjectTool] permission denied: requires=#{REQUIRED_PERMISSION} user=#{user&.id}"
+          "[ProjectTool] permission denied: action=#{params[:action]} requires=#{required} user=#{user&.id}"
         )
-        error_result("permission denied: #{REQUIRED_PERMISSION} required")
+        error_result("permission denied: #{required} required")
       end
 
       private
@@ -160,6 +221,91 @@ module Ai
           missions: mission_rows(project),
           scaling_bounds: resolved_scaling_bounds(project)
         )
+      end
+
+      # Declare targets on the project. MERGE, not replace: a caller naming one
+      # target must not silently clear the others, and an explicit null is how
+      # a target is cleared on purpose.
+      #
+      # AN UNUSABLE VALUE IS REFUSED, never stored. Stored, it would resolve to
+      # NOT DECLARED through the ladder while reading back as accepted — the
+      # write would look like it worked and the target would be observed by
+      # nothing.
+      def project_set_slo_targets(params)
+        project = resolve_project(params)
+        return project if project.is_a?(Hash)
+
+        refusal = refuse_undeclarable(params)
+        return refusal if refusal
+
+        named = DECLARABLE_TARGETS.keys.select { |key| params.key?(key.to_sym) || params.key?(key) }
+        if named.empty?
+          return error_result(
+            "name at least one target to declare: #{DECLARABLE_TARGETS.keys.join(', ')}"
+          )
+        end
+
+        updates = {}
+        named.each do |key|
+          raw = params.key?(key.to_sym) ? params[key.to_sym] : params[key]
+          if raw.nil?
+            updates[key] = nil
+            next
+          end
+
+          value = coerce_target(raw, DECLARABLE_TARGETS.fetch(key))
+          unless value
+            return error_result(
+              "#{key}=#{raw.inspect} is not a usable #{DECLARABLE_TARGETS.fetch(key)} — refused " \
+              "rather than stored, because a stored value that resolves to nothing reads back as accepted"
+            )
+          end
+
+          updates[key] = value
+        end
+
+        persist_slo_targets!(project, updates)
+
+        success_result(
+          project_id: project.id,
+          slo_targets: project.reload.slo_targets_hash,
+          undeclarable: ::Ai::Mission::UNDECLARABLE_TARGETS.keys
+        )
+      end
+
+      # The undeclarable targets are refused BY NAME at the write door, which is
+      # where "undeclarable by design" stops being a comment and becomes a
+      # control. See Ai::Mission::UNDECLARABLE_TARGETS for the reason.
+      def refuse_undeclarable(params)
+        named = ::Ai::Mission::UNDECLARABLE_TARGETS.keys.select do |key|
+          params.key?(key.to_sym) || params.key?(key)
+        end
+        return nil if named.empty?
+
+        reasons = named.map { |key| "#{key}: #{::Ai::Mission::UNDECLARABLE_TARGETS[key]}" }
+        error_result("refused, these targets are undeclarable by design — #{reasons.join(' ')}")
+      end
+
+      def coerce_target(raw, rule)
+        value = raw.is_a?(Numeric) ? raw.to_f : Float(raw.to_s.strip, exception: false)
+        return nil unless value&.positive?
+        return nil if rule == :percentage && value > 100.0
+
+        value
+      end
+
+      # Merges into `configuration["slo_targets"]`, leaving every other section
+      # (the watch_policies the scaling window reads, operator annotations) as
+      # it was. A nil clears its key rather than storing a null the ladder would
+      # then have to interpret.
+      def persist_slo_targets!(project, updates)
+        config = project.configuration.is_a?(Hash) ? project.configuration.deep_dup : {}
+        targets = config[::Ai::Project::SLO_TARGETS_KEY]
+        targets = targets.is_a?(Hash) ? targets.deep_stringify_keys : {}
+
+        updates.each { |key, value| value.nil? ? targets.delete(key) : targets[key] = value }
+        config[::Ai::Project::SLO_TARGETS_KEY] = targets
+        project.update!(configuration: config)
       end
 
       # Returns the project, or an error_result Hash the caller passes straight

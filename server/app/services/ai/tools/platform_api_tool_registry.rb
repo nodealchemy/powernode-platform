@@ -376,6 +376,10 @@ module Ai
         "project_list"   => "Ai::Tools::ProjectTool",
         "project_get"    => "Ai::Tools::ProjectTool",
         "project_status" => "Ai::Tools::ProjectTool",
+        # The one WRITE on this surface. Creation stays on the provisioning
+        # path; this only declares targets on a project that already exists,
+        # which had no channel at all before it.
+        "project_set_slo_targets" => "Ai::Tools::ProjectTool",
         # Project & CI/CD
         "create_gitea_repository" => "Ai::Tools::ProjectInitTool",
         "update_gitea_repository" => "Ai::Tools::RepoManagementTool",
