@@ -368,6 +368,14 @@ module Ai
         "platform_provisioning_approve_plan"  => "Ai::Tools::ProvisioningTool",
         "platform_provisioning_status"        => "Ai::Tools::ProvisioningTool",
         "platform_provisioning_adapt"         => "Ai::Tools::ProvisioningTool",
+
+        # === The PROJECT noun (APO app-4-project-noun) ===
+        # Read-only. A project is CREATED on the provisioning path (capture_brief
+        # attaches one to the mission it makes); a write verb here would be a
+        # second door onto the same row.
+        "project_list"   => "Ai::Tools::ProjectTool",
+        "project_get"    => "Ai::Tools::ProjectTool",
+        "project_status" => "Ai::Tools::ProjectTool",
         # Project & CI/CD
         "create_gitea_repository" => "Ai::Tools::ProjectInitTool",
         "update_gitea_repository" => "Ai::Tools::RepoManagementTool",
