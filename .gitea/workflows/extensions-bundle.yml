@@ -52,12 +52,46 @@ jobs:
       - name: Reap stale CI sidecar containers (ports 5432/6379)
         run: |
           set +e
-          for port in 6379 5432; do
-            stale=$(docker ps --format '{{.ID}} {{.Ports}}' | awk -v p=":$port->" 'index($0, p) {print $1}')
-            [ -n "$stale" ] && echo "$stale" | xargs -r docker rm -f
+          # SCOPED BY AGE — twin of the fix in
+          # extensions/system/.gitea/workflows/ci.yaml. The previous form
+          # reaped by port AND by a bare `ancestor=` image match with no age
+          # or run scoping, so a push to THIS repo destroyed a concurrent
+          # powernode-system rspec run's live postgres/redis on the shared
+          # runner pool. Both repos must carry the scoping or the unfixed one
+          # still reaps the other's sidecars.
+          #
+          # A job container is created with `/bin/sleep 10800`, so no run can
+          # outlive 3h: younger than that may be live, older is orphaned.
+          CEILING_SECS=10800
+          now=$(date +%s)
+
+          by_port=$(docker ps -a --format '{{.ID}} {{.Ports}}' \
+                    | awk '/:6379->|:5432->/ {print $1}')
+          by_image=$(docker ps -aq --filter "ancestor=redis:7" \
+                                   --filter "ancestor=pgvector/pgvector:pg16")
+          candidates=$(printf '%s\n%s\n' "$by_port" "$by_image" | sort -u | sed '/^$/d')
+
+          reap=""
+          for id in $candidates; do
+            created=$(docker inspect -f '{{.Created}}' "$id" 2>/dev/null)
+            [ -z "$created" ] && continue
+            ts=$(date -d "$created" +%s 2>/dev/null)
+            [ -z "$ts" ] && continue
+            age=$(( now - ts ))
+            if [ "$age" -gt "$CEILING_SECS" ]; then
+              echo "orphan  ($((age/60))m old): $id"
+              reap="$reap $id"
+            else
+              echo "LEAVING ($((age/60))m old, may belong to a live run): $id"
+            fi
           done
-          docker rm -f $(docker ps -aq --filter "ancestor=redis:7") 2>/dev/null
-          docker rm -f $(docker ps -aq --filter "ancestor=pgvector/pgvector:pg16") 2>/dev/null
+
+          if [ -n "$reap" ]; then
+            echo "Reaping:$reap"
+            echo "$reap" | xargs -r docker rm -f
+          else
+            echo "no orphaned sidecars older than ${CEILING_SECS}s"
+          fi
           exit 0
 
   # ---------------------------------------------------------------------------
