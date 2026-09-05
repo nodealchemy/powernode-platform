@@ -116,7 +116,10 @@ module Ai
                          "owns unless that mission declares its own. Merges: naming one target leaves " \
                          "the others alone, and an explicit null clears one. p99_latency_ms is REFUSED " \
                          "— nothing on this platform measures workload latency, so accepting one would " \
-                         "store a target that is compared against nothing.",
+                         "store a target that is compared against nothing. The result states whether " \
+                         "this project's scaling window is currently OPEN, and so whether the " \
+                         "declaration you just made can drive auto-applied scale-out that spends " \
+                         "money. That is a statement, not a gate: nothing here is blocked.",
             parameters: {
               project_id: { type: "string", required: true, description: "Project UUID or slug" },
               availability_pct: { type: "number", required: false,
@@ -269,8 +272,77 @@ module Ai
         success_result(
           project_id: project.id,
           slo_targets: project.reload.slo_targets_hash,
-          undeclarable: ::Ai::Mission::UNDECLARABLE_TARGETS.keys
+          undeclarable: ::Ai::Mission::UNDECLARABLE_TARGETS.keys,
+          scale_out_window: scale_out_window_disclosure(project, named)
         )
+      end
+
+      # THE NO-BARE-FACT RULE, APPLIED TO A WRITE. A success that does not say
+      # what it means is a bare fact.
+      #
+      # Declaring a tighter utilization ceiling on a project whose scaling
+      # window is CLOSED is harmless: a breach is proposed and waits for an
+      # operator. The identical call on a project whose window is OPEN has armed
+      # continuous spend, because a utilization breach maps to a horizontal
+      # scale change the adaptation gate seeds for auto-approval, and a lower
+      # ceiling means it fires more often. Those two calls returned identically.
+      #
+      # NARROWING IS THE DANGEROUS DIRECTION HERE, which is the opposite of what
+      # "can this widen a bound" would lead a reader to check. This verb cannot
+      # write the window at all — it touches only the slo_targets section — so
+      # the risk is not that it opens one, but that it makes an already-open one
+      # fire harder.
+      #
+      # A STATEMENT, NEVER A GATE. The window is not consulted to decide whether
+      # to proceed, no confirmation flag is required and nothing is blocked. The
+      # caller holds the manage permission and the decision is theirs; what they
+      # lacked was the fact. A magnitude brake — whether a floor for a ceiling
+      # should exist and where it sits — is a policy question about money and is
+      # an operator decision, not this verb's.
+      def scale_out_window_disclosure(project, declared_keys)
+        mission = project.missions.order(:created_at).first
+
+        # nil, NOT false. The window resolves per mission, so with no mission
+        # there is nothing to resolve; answering false would state an
+        # observation nobody made — the same distinction the project's
+        # team-provisioning state draws between not-attempted and a failure.
+        unless mission
+          return {
+            auto_scale_out_enabled: nil,
+            min: nil,
+            max: nil,
+            basis: "not_resolvable_no_missions",
+            consequence: "No mission owns this project yet, so its scaling window is not " \
+                         "resolvable. It resolves when the first mission is attached."
+          }
+        end
+
+        bounds = mission.scaling_bounds
+        {
+          auto_scale_out_enabled: bounds.auto_scale_out?,
+          min: bounds.min,
+          max: bounds.max,
+          basis: "resolved_from_mission",
+          consequence: window_consequence(bounds, declared_keys)
+        }
+      end
+
+      def window_consequence(bounds, declared_keys)
+        tightened = declared_keys.any? do |key|
+          [ ::Ai::Mission::MAX_CPU_PCT_SLO_KEY, ::Ai::Mission::MAX_MEMORY_PCT_SLO_KEY ].include?(key)
+        end
+
+        unless bounds.auto_scale_out?
+          return "This project's scaling window is CLOSED (no usable ceiling is declared), so a " \
+                 "breach on it is proposed for operator approval and never auto-applied."
+        end
+
+        base = "This project's scaling window is OPEN (#{bounds.min}..#{bounds.max}), so a breach " \
+               "on it can be auto-applied as additive scale-out within that window, which spends money."
+        return base unless tightened
+
+        "#{base} You declared a utilization ceiling, and a tighter ceiling makes that fire more often. " \
+          "Scale-IN is unaffected: removals take an operator approval regardless of this window."
       end
 
       # The undeclarable targets are refused BY NAME at the write door, which is

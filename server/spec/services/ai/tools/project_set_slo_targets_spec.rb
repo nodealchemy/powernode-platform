@@ -95,6 +95,85 @@ RSpec.describe "Ai::Tools::ProjectTool project_set_slo_targets" do
     end
   end
 
+  # THE NO-BARE-FACT RULE APPLIED TO A WRITE. A success that does not say what
+  # it means is a bare fact. Tightening a CPU ceiling on a project whose
+  # scaling window is CLOSED is harmless; the identical call on a project whose
+  # window is OPEN has armed continuous spend, because a utilization breach
+  # maps to a scale change the adaptation gate seeds for auto-approval. Those
+  # two returned identically until this.
+  #
+  # A STATEMENT, NOT A REFUSAL. The window is never consulted to decide whether
+  # to proceed. The caller holds the manage permission and the decision is
+  # theirs; what they lacked was the fact.
+  describe "what the write tells the caller it enabled" do
+    def declare_window!(min:, max:)
+      project.update!(configuration: project.configuration.merge(
+        "watch_policies" => { "auto_scale_min_replicas" => min, "auto_scale_max_replicas" => max }
+      ))
+      create(:ai_mission, account: account, created_by: user,
+                          mission_type: "infrastructure", project: project)
+    end
+
+    it "says the window is OPEN, and that a tighter ceiling can now drive auto-applied scale-out" do
+      declare_window!(min: 1, max: 5)
+
+      window = set(max_cpu_pct: 60)[:data][:scale_out_window]
+
+      expect(window[:auto_scale_out_enabled]).to be true
+      expect(window[:min]).to eq(1)
+      expect(window[:max]).to eq(5)
+      expect(window[:basis]).to eq("resolved_from_mission")
+      expect(window[:consequence]).to match(/open/i)
+      expect(window[:consequence]).to match(/scale.out/i)
+    end
+
+    it "says the window is CLOSED when no ceiling is declared anywhere" do
+      create(:ai_mission, account: account, created_by: user,
+                          mission_type: "infrastructure", project: project)
+
+      window = set(max_cpu_pct: 60)[:data][:scale_out_window]
+
+      expect(window[:auto_scale_out_enabled]).to be false
+      expect(window[:consequence]).to match(/closed/i)
+      expect(window[:consequence]).to match(/approval/i)
+    end
+
+    it "reports NOT RESOLVABLE, not false, for a project no mission owns yet" do
+      # nil rather than false: the window resolves per mission, so with no
+      # mission there is nothing to resolve. Answering false would state an
+      # observation nobody made.
+      window = set(max_cpu_pct: 60)[:data][:scale_out_window]
+
+      expect(window[:auto_scale_out_enabled]).to be_nil
+      expect(window[:basis]).to eq("not_resolvable_no_missions")
+      expect(window[:consequence]).to match(/no mission/i)
+    end
+
+    it "names the tightening consequence only when a UTILIZATION ceiling was declared" do
+      declare_window!(min: 1, max: 5)
+
+      cost_only = set(cost_ceiling_usd: 500)[:data][:scale_out_window]
+
+      expect(cost_only[:auto_scale_out_enabled]).to be true
+      expect(cost_only[:consequence]).not_to match(/cpu|memory/i)
+    end
+
+    it "reports the window on every write, including one that declares no ceiling" do
+      declare_window!(min: 1, max: 5)
+
+      expect(set(availability_pct: 99.9)[:data]).to have_key(:scale_out_window)
+    end
+
+    it "does NOT block or alter the write — the window is stated, never consulted to decide" do
+      declare_window!(min: 1, max: 5)
+
+      result = set(max_cpu_pct: 1)
+
+      expect(result[:success]).to be true
+      expect(project.reload.slo_targets_hash["max_cpu_pct"]).to eq(1.0)
+    end
+  end
+
   describe "refusals" do
     it "REFUSES a latency target by name, with the reason" do
       result = set(p99_latency_ms: 250)
