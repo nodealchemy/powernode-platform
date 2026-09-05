@@ -272,6 +272,10 @@ if Powernode::Seeds.baseline?
   # `ai_canonical_teams_seed` (HIER-P4) runs LAST: the "Platform Engineering"
   # canonical Ai::TeamTemplate is materialised for the admin account on top of
   # those lineage edges and delegation rows, so it must see them too.
+  # `ai_project_operations_team_seed` (APO app-5) follows it and writes a
+  # TEMPLATE ONLY — the "Project Operations" team is materialised once per
+  # Ai::Project by Ai::Projects::TeamProvisioner, never for the account — so it
+  # needs the canonicals above to exist but materialises nothing itself.
   puts "\n🤖 Loading fundamental global platform agents (baseline, canonical)..."
   %w[
     claude_agents_seed
@@ -283,6 +287,7 @@ if Powernode::Seeds.baseline?
     platform_skill_assignments_seed
     ai_agent_hierarchy_seed
     ai_canonical_teams_seed
+    ai_project_operations_team_seed
   ].each { |seed_file| safe_load("#{seed_file}.rb") }
 end
 
