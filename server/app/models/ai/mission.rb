@@ -193,6 +193,15 @@ module Ai
     belongs_to :ralph_loop, class_name: "Ai::RalphLoop", foreign_key: "ralph_loop_id", optional: true
     belongs_to :review_state, class_name: "Ai::CodeFactory::ReviewState", foreign_key: "review_state_id", optional: true
     belongs_to :mission_template, class_name: "Ai::MissionTemplate", foreign_key: "mission_template_id", optional: true
+
+    # APO `app-4-project-noun` — the durable owner this mission is work FOR.
+    #
+    # OPTIONAL, permanently. Every mission that existed before the project noun
+    # has none, and a nil project must not change any behaviour: the bounds and
+    # utilization ladders below simply skip the project rung, and every reader
+    # here is unchanged. See Ai::Project for why a project is a real model
+    # rather than a facade over this one.
+    belongs_to :project, class_name: "Ai::Project", foreign_key: "ai_project_id", optional: true, inverse_of: :missions
     # Self-Serve Hardening M4 Slice A — optional per-team isolation pointer.
     # Backed by an extension-provided `Account::TeamDelegation` model. Leading `::` keeps
     # the constant resolved at the top level when that extension is loaded; when the
@@ -654,6 +663,16 @@ module Ai
     def scale_bound_rungs(policy_key, setting_key)
       [
         [ "the mission's watch_policies", -> { watch_policies_hash[policy_key] } ],
+        # APO `app-4-project-noun` — the PROJECT rung. It sits BELOW the
+        # mission's own declaration (a mission is the more specific object: one
+        # project has many, and a single mission may need a narrower window) and
+        # ABOVE the mission TEMPLATE's, because the seeded system_provisioning
+        # template declares BOTH bounds. Under the template this rung could
+        # never answer for a mission created through the provisioning flow —
+        # which is every mission a project owns — and a rung that is
+        # unreachable for the priority case is not a rung. A mission with no
+        # project skips it and resolves exactly as before.
+        [ "the project's watch_policies", -> { project_watch_policies_hash[policy_key] } ],
         [ "the mission template's default_configuration", -> { template_watch_policies_hash[policy_key] } ],
         [ "the account's settings", -> { ::Ai::FableRouting.setting(account, setting_key) } ],
         [ "SiteSetting #{setting_key}", -> { ::Ai::FableRouting.global_setting(setting_key) } ]
@@ -717,6 +736,10 @@ module Ai
     def utilization_target_rungs(slo_key, setting_key, global_settings = nil)
       [
         [ "the mission's slo_targets", -> { slo_targets_hash[slo_key] } ],
+        # Same rung, same position, same reason as #scale_bound_rungs above: a
+        # project's declared ceilings must not be shadowed by the seeded
+        # template every provisioning mission inherits from.
+        [ "the project's slo_targets", -> { project_slo_targets_hash[slo_key] } ],
         [ "the mission template's default_configuration", -> { template_slo_targets_hash[slo_key] } ],
         [ "the account's settings", -> { ::Ai::FableRouting.setting(account, setting_key) } ],
         [ "SiteSetting #{setting_key}",
@@ -743,6 +766,18 @@ module Ai
     # template directly.
     def template_slo_targets_hash
       extract_slo_targets(mission_template&.default_configuration)
+    end
+
+    # The PROJECT rung's declarations. Ai::Project stores them under the same
+    # `watch_policies` / `slo_targets` keys a mission does, so the extractors
+    # above serve both rungs and cannot drift apart. Lazy like every other rung:
+    # a mission that answers on its own configuration never loads the project.
+    def project_watch_policies_hash
+      extract_watch_policies(project&.configuration)
+    end
+
+    def project_slo_targets_hash
+      extract_slo_targets(project&.configuration)
     end
 
     def extract_slo_targets(cfg)
