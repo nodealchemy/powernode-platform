@@ -34,7 +34,10 @@ module Ai
       def self.action_definitions
         {
           "get_activity_feed" => {
-            description: "Get a unified activity feed of recent missions, conversations, execution events, and errors across the platform",
+            description: "Unified AI activity feed for THIS account: recent missions, conversations, " \
+                         "agent execution events, and AI AGENT EXECUTION failures. The failures are " \
+                         "Ai::ExecutionEvent rows, not platform or fleet errors — this feed does not " \
+                         "observe node instances, and cannot tell you whether any instance is in error.",
             parameters: {
               hours: { type: "integer", required: false, description: "Lookback window in hours (default 24, max 168)" },
               limit: { type: "integer", required: false, description: "Max items per category (default 10, max 50)" }
@@ -127,8 +130,18 @@ module Ai
           .in_time_range(since)
           .recent(limit)
 
-        # Recent errors
-        errors = Ai::ExecutionEvent.where(account_id: account.id)
+        # AI AGENT EXECUTION failures, NOT platform or fleet errors. These are
+        # Ai::ExecutionEvent rows — the same `with_errors` query whose sibling
+        # in get_system_health was renamed after the concierge read it as fleet
+        # health and told the operator no node instances were in error while
+        # twelve were. This door returned the identical rows under the identical
+        # bare name, so the identical misreading was still available through it.
+        #
+        # The scope noun is the fix, and it is the rule the lint at
+        # spec/lint/no_bare_fact_result_keys_spec.rb now enforces: a count of
+        # errors has to say what it counts. For node instances in error, the
+        # fleet verbs are the answer, not this feed.
+        agent_execution_errors = Ai::ExecutionEvent.where(account_id: account.id)
           .with_errors.in_time_range(since)
           .recent(limit)
 
@@ -138,12 +151,12 @@ module Ai
           missions: missions.map { |m| serialize_mission_brief(m) },
           conversations: conversations.map { |c| serialize_conversation_brief(c) },
           events: events.map { |e| serialize_event(e) },
-          errors: errors.map { |e| serialize_error(e) },
+          agent_execution_errors: agent_execution_errors.map { |e| serialize_error(e) },
           summary: {
             mission_count: missions.size,
             conversation_count: conversations.size,
             event_count: events.size,
-            error_count: errors.size
+            agent_execution_error_count: agent_execution_errors.size
           }
         }
       end
