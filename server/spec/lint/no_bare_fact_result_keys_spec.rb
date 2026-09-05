@@ -13,6 +13,24 @@ require "yaml"
 # instances without a rule only waits for the next plausibly-named key, so this
 # file is the rule.
 #
+# SCOPE: CORE TOOL RESULT BUILDERS ONLY, and that is a decision rather than a
+# starting point. It does not scan the extensions, and widening it there would
+# be wrong on the merits, not merely inconvenient.
+#
+# The constant_status rule below forbids a status whose value is a STRING
+# LITERAL — a field that cannot vary, which is how a probe comes to report a
+# healthy word regardless of the world. The extension's composite health
+# payload carries a status on every subsystem entry and is the OPPOSITE of
+# that: each one is computed, on an explicit four-state ladder where an
+# unobserved subsystem rolls up to unknown rather than to healthy. Run this
+# scanner over it and it produces zero findings under both rules, which is the
+# right answer — that payload is the exemplar this rule was written to protect.
+# A scanner that reddened against it would teach readers that the correct
+# pattern is a violation, which is how a guard gets relaxed into uselessness.
+#
+# Do not widen the scope without telling the extension's owner first, so they
+# can fix or baseline rather than have it land red on them.
+#
 # WHAT IT CHECKS, both over the real bytes of every core tool class:
 #
 #   bare_noun       a result key that is a bare general noun (`errors`,
