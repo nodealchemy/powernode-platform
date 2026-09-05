@@ -72,7 +72,18 @@ module Ai
             parameters: {}
           },
           "get_system_health" => {
-            description: "Get a lightweight system health snapshot: active counts, approval queues, error rates, and provider status",
+            # SCOPE, stated because getting it wrong cost an operator a wrong
+            # answer (offer 01a07024-d980): on 2026-09-05 05:57Z a Concierge
+            # read this action's error block and reported "there are no node
+            # instances in error status" while 12 were. This action has never
+            # looked at node instances. Its counts are AI-side only.
+            description: "AI-side activity snapshot for THIS account: mission counts, active agents and " \
+                         "conversations, AI AGENT EXECUTION error rates, and which providers hold an active " \
+                         "credential. This is NOT platform or fleet health: it does not observe node instances, " \
+                         "Rails, Postgres, Redis, Sidekiq, the worker, the reverse proxy or certificates, and it " \
+                         "cannot tell you whether any node instance is in error. For fleet and platform health " \
+                         "use the platform_maintenance skill with action=health_check, which returns a composite " \
+                         "across every subsystem and reports anything it could not observe as not_measured.",
             parameters: {}
           }
         }
@@ -275,7 +286,11 @@ module Ai
           },
           agents: { active: active_agents },
           conversations: { active: active_conversations },
-          errors: {
+          # NOT platform errors. These are Ai::ExecutionEvent rows — AI agent
+          # execution failures. The old key name was `errors`, which read to a
+          # model choosing a tool as the platform's error count; see the action
+          # description.
+          agent_execution_errors: {
             total_events_24h: total_events_24h,
             error_events_24h: error_events_24h,
             error_rate_percent: error_rate
