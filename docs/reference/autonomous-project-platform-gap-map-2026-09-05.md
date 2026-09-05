@@ -78,6 +78,11 @@ replica, restore volume, snapshot policy, governance-gap sensor, canonical team 
 
 ## 4. Proposed campaign — "Autonomous Project Platform"
 
+> **Historical.** This is the plan as first proposed, kept for the record. What was actually
+> built, and where it diverged, is section 8. Two items here did not survive contact: the duty
+> plane was built as one real scheduled duty rather than four seeded ones, and the workload
+> sensor was deliberately NOT built because a precondition check found the gap was elsewhere.
+
 Seeded increments (consumer-first; each increment ends in an actuator or an operator, never a returned
 plan):
 
@@ -106,6 +111,10 @@ lacks a status filter; `GoalDrivenSchedulerService` has no ticker; SessionStart 
 verb; README counts drift; monitoring-agent duplication.
 
 ## 6. Questions for the operator
+
+> **Historical.** These are the questions as first asked, kept so the rulings have their context.
+> All seven were answered and acted on during the session. The decisions still open are in
+> section 9, which supersedes this list entirely.
 
 1. **Admin smoke.** How should I obtain an admin bearer token for ops-hub — paste one as
    `AI_SMOKE_TOKEN`, or arm break-glass and mint via `scripts/ai-smoke/mint_token.rb` on the hub?
@@ -156,6 +165,54 @@ written for a live agent turn, and the Concierge answered a fleet question inlin
 delegating, though `platform.route_task` ranked correctly when asked directly (Capacity Manager
 0.762 for a DR task, with per-dimension reasons).
 
+**That second observation was attributed wrongly, and the correction matters more than the
+original.** It was written up as the Concierge choosing not to delegate. A later measurement of
+the routing path suggests it may not have been a choice. The router that runs before the model
+builds its delegation candidate set from agents typed as assistants, and nearly every platform
+specialist is seeded as a monitor. If that holds, no monitor can ever be selected, system-domain
+delegation collapses onto the single assistant-typed agent in that domain, and the routing verb's
+ranking is a preview of something the router cannot act on. A ranking that cannot be acted on is
+worse than no ranking, because it looks like the feature works. The mechanism is filed as
+recommendation `01a0705e-cd38`, and the driver has since confirmed it directly rather than
+relaying it.
+
+The candidate set is built in the concierge router and applies two filters, not one. Any skill
+whose domain is platform yields an empty candidate list before agent type is considered at all,
+and what survives that is then narrowed to agents typed as assistants and currently active.
+Across the system extension's own agent seeds, ten declare a monitor type against two assistants,
+so ten of that domain's specialists cannot be delegation candidates under any circumstances,
+however well they rank. The driver first wrote three assistants, having counted a core canonical
+seeded elsewhere as one of the domain's specialists; the corrected ratio is worse than the one
+first reported. The specialist the routing verb named in the incident is among the ten, its
+monitor type declared in its own seed, so the agent-type exclusion definitely applies to it.
+
+The divergence turns out to be sharper than a filter being too narrow. The two paths share the
+same ranker: the concierge router calls the very service that sits behind the routing verb,
+passing the conversation's agent as delegator so the delegation policy binds identically. What
+differs is the candidate list handed to that ranker. Called directly, the verb ranks across a wide
+pool and names a specialist. Called through the concierge, the same ranker receives a pre-filtered
+list that may be empty. The two agree on everything except the one input that decides the outcome,
+and nothing about the difference is visible from either side.
+
+Which of the two exclusions actually fired in the smoke test is unproven. Either alone explains the
+inline answer, so the finding stands regardless, and it is recorded as unproven rather than
+resolved by picking the likelier one.
+
+**A parallel review then found a third cause, and it is probably the primary one.** The driver had
+settled on the candidate filters as the explanation. They are real, but they are not the whole
+story, and the framing was again too confident. The router's DEFAULT exit is to answer inline, and
+a fleet-status question reaches that exit for a reason that has nothing to do with either filter:
+those skills take an operation argument, which makes them neither automatically invokable nor
+delegable, so the question never becomes a delegation candidate in the first place. The agent's
+own prompt then lists status checks as the inline case explicitly. So three causes stack, and the
+correct route existed in the same file the whole time, because the router's delegated exit already
+calls the very ranker behind the routing verb. It simply never fires for this question shape.
+
+One further consequence, which is why the incident could not be reconstructed from records: a chat
+turn writes no execution row at all, since only the tool-invoked paths write one. The answer was
+therefore unauditable after the fact, and the agent never accrues the performance history that its
+own routing score partly depends on.
+
 **A provider deadlock blocked using the operator's own credential.** Activating a provider validates
 `supported_models`; the only sync path visits active providers only. Anthropic and Grok both held
 live credentials and neither could be activated, so every agent ran on the one active provider.
@@ -164,3 +221,181 @@ Broken by calling the per-provider sync directly (11 models fetched), then activ
 
 **Campaign started:** `01a07025-5780-7b34-b7e9-6d844ebe4599`, 8 increments, supervised, branch
 `campaign/01a07025-5780-7b34-b7e9-6d844ebe4599`. Increment 0 recorded passed.
+
+---
+
+## 8. Campaign progress (as of 06:45 UTC, four concurrent implementation lanes)
+
+Work is split across four lanes on disjoint file sets, each with its own test database and a
+shared commit lock. The driver reviews every diff before an increment is recorded, after the
+lane commits, because a mid-flight working-tree read cannot tell a finished change from a
+pre-review pass.
+
+| Increment | Lane | State | Landed as |
+|---|---|---|---|
+| 0 — deploy 4, grant widening, provider egress, admin smoke | driver | passed | `cd7fe58c6`, `6b809c777` |
+| 1 — one composite health producer | A | passed | `a4e48913`, `68fa275e` |
+| 1b — the fourth health surface delegates to it | A | passed | `4cecd91b` |
+| 2 — standing-signal hygiene | B | passed | `16b50d34`, `20de8ab8`, `9cd594e5`, `45fa9b1a` |
+| 3 — one real agent duty, scheduled and attributed | D | passed | `9fb06bd6`, `833bdef62`, `b6b9e007` |
+| 4 — `Ai::Project` as a first-class core noun | C | passed | `e6fee942f`, `f9a7abe31`, `b2cf87c4b`, `4d46560d2` |
+| 5 — per-project team, core half | C | passed | `abf47cb1a`, `71d38371b`, `2151a47e1`, `d66bf1607` |
+| 5b — workload sensor: NOT built, gate found the gap elsewhere | B | passed as a report | — |
+| 5c — availability absent-vs-zero, consumer side pinned | B | passed | `bf703913`, `afbce91e` |
+| 6 — one front door: resolution moved, then renamed | A | passed | `295742ba`, `0a55bcd7`, `3d9d9edee` |
+| 6b — a teamless project says WHY it has no team | C | passed | `2e2f3268c`, `3c721d80d` |
+| 7 — docs and prompts asserting false counts | D | passed | `3927ed0b`, `ecbdbab4b`, `3f12a7b62`, `fc3dd976d` |
+| 7b — duplicate seeded-name audit, zero live defects | D | passed | `0665982e2` |
+| 8 — the no-bare-fact rule as a baselined lint | C | passed | `bcddaa4b4`, `32ed1f579` |
+| 9 — metric-declared-vs-sampler-measured census | B | passed | `59e3fc14` |
+| 10 — project SLO targets resolve, and can be declared | C | passed | `f2dc2ed72`, `9c6fec7d9` |
+| 10b — the write states the consequence it enabled | C | passed | `cc87b2ca8`, `58cf62ce3` |
+| 10c — the sensor half and its end-to-end oracle | B | dispatched | — |
+| 11 — smoke count derived; allowlist claim overturned | D | passed | `5a3c1e70` |
+| 11b — close the six-row roster gap | D | dispatched | — |
+| 12 — make an undeclarable target visible, and fix the note | B | dispatched | — |
+
+Twelve defects were filed rather than fixed, each with its mechanism at a file and line: the
+unfenced boot-image rollout, the delegation candidate filter, a blank permission list meaning
+unrestricted, a project team an operator cannot edit, an account destroy that raises partway,
+promotion-advisory failures that read as a silent refusal, project targets bypassing the ladder,
+a project archive that protects nothing beside a cleanup that detaches account-wide, two agents
+both resolving from the word concierge, every unconfigured canonical exporting one allowlist, an
+absence note that misreports two metrics, and a freshness check that cannot tell a dirty tree
+from a stale artifact.
+
+Three driver errors were caught by the lanes or by re-measurement, and are recorded here because
+the pattern matters more than the individual mistakes. The driver told lane A that no platform
+health controller existed; it does, and the driver's search had used the filename from the stale
+comment rather than the real class. The driver recommended deleting a network as a zero-peer
+decoy; re-measurement found two peers and two heartbeating VMs, so the critical alarm on it is
+true and the recommendation was withdrawn. The driver attributed the SDWAN failure to a
+29-minute race; both nodes in fact report the promoted image sha, and the real cause is that no
+boot image has been built since before the fix landed. In each case the brief was the defect.
+
+The deferred integration step is done, and the thing the driver was trying to prevent happened
+anyway. The driver had told every lane not to regenerate the MCP tool catalog or the Claude Code
+agent skeletons, intending to reconcile both once at the end, precisely because a regeneration
+reads the working tree and can bake another lane's uncommitted edit into a committed artifact.
+
+Two lanes regenerated regardless, and the driver's first account of it was wrong. The driver
+initially recorded that no contamination occurred because the one concurrent description change
+had already been committed. Lane A then supplied the timestamps that settle it: lane A regenerated
+the catalog at 06:29 while lane C's tool file was still untracked, and committed that catalog at
+06:32:59; lane C committed the tool itself at 06:36:51. So the catalog commit documents code that
+was uncommitted when it was read and landed roughly four minutes before that code did. The two
+commits are ordered wrongly in history. The artifact is correct today only because the code
+followed it, which is luck about ordering rather than a property of the process.
+
+Lane C separately regenerated both artifacts again when landing its verbs, and its regeneration
+also carried lane A's health-snapshots table into `schema.rb`, which it could not render without.
+Lane C flagged this in its own report rather than leaving it to be found.
+
+The reconciliation nonetheless verifies clean. Measured after the fact: the agent-skeleton
+freshness gate passes silently, and `scripts/pattern-validation.sh` run from the repository root
+reports fifty-three checks, zero failures, zero warnings. Both of the outstanding failures are
+closed. The lesson is not that the instruction was unnecessary. It is that an instruction not to
+touch a generated artifact cannot hold when a lane's own verification requires the artifact to be
+current, so the next parallel run should either give one lane ownership of every generated file or
+accept that generation happens continuously and pin it to committed state instead.
+
+## 9. Decisions the operator still owns
+
+Nine, in the order they block work. Decision 0 is a precondition on decisions 1 and 2 and was
+found after the rest were written, which is why it carries a zero rather than renumbering them.
+
+0. **Set the self-management fence before any image is promoted.** This one is new, it reorders
+   the rest, and the driver verified all three of its legs independently rather than relaying
+   them. First, the boot-image drift rollout executor includes no fence at all; the mixin that
+   six other services include is absent from it, and the executor's own declared blast radius,
+   written into its skill registration, is that it reboots every drifted node on the platform,
+   batch by batch. Second, the fence is inert until a site setting names the self-hosted node,
+   and that is not an inference: the code's own comment says the setting is unset on every plane
+   today and that setting it is an operator action deliberately not performed. Third, the control
+   plane is drifted right now, confirmed by a live read of its instance, which reports boot-image
+   drift true with a booted revision that differs from the promoted one.
+
+   So the composition is not hypothetical. Promoting a new image makes every node drifted at
+   once, including this one, and the only thing standing between that and an automatic reboot of
+   the machine the control plane runs on is that no rollout has been triggered since. Approving
+   decision 1 without this authorises the reboot. Setting the setting and teaching the rollout
+   executor to honour it is a precondition, not a nicety.
+1. **Publish an amd64 disk image carrying `fe5c8da4` and set it default.** Nothing in SDWAN can
+   be observed until this lands. It auto-promotes fleet-wide, and decision 0 must land first.
+2. **Publish a `powernode-system-base` version carrying `28460bbb`.** This is what makes an
+   apply failure visible per subsystem instead of silent. It auto-promotes fleet-wide and
+   reaches the control plane itself, so the boot window needs watching.
+3. **Node budget on `dna`.** Four small nodes at two virtual CPUs and two gigabytes, with the
+   lightweight network profile set explicitly, rather than reusing the current sixteen-gigabyte
+   type. Memory, not disk, is the constraint on this host.
+4. **Keep flow export, OVN and federation out until phase 3**, entering only as node modules
+   plus, for cross-plane federation, a second control plane virtual machine. Each is a separate
+   approval.
+5. **Disposition of the audit-scrub task** whose migration already ran during the deploy-4
+   restart before the task was reviewed.
+6. **Reaping the dead CI builders, and the count I gave you was wrong.** I said nine. A
+   re-measurement found a messier picture: eleven instance rows in error and four stopped, two
+   virtual machines running with no platform row at all, one running behind an error row, and a
+   sixteen-gigabyte cell in a starting state that has not sent a heartbeat since 2026-08-10.
+   Those are four different conditions needing four different dispositions, not one bulk reap.
+   It is well past the five-item threshold, so it needs your explicit confirmation against a
+   list rather than a number, and I will put that list in front of you rather than act on the
+   category. Nothing in the proving ground depends on it; the memory it would free is not needed.
+
+7. **Whether to deploy today's work, and I recommend not yet.** Fourteen increments have landed
+   across core and the extension, every one spec-green, and not one line of it is running on the
+   control plane. Deploy 4 this morning predates all of it. I have not deployed and will not
+   without you, for a specific reason rather than caution in general: today's changes span BOTH
+   core and the extension, and the recorded outage in this platform's history is exactly that
+   shape. The extension builds roughly ten times faster, promotes on its own, and a new extension
+   against an old core is a crash loop, with the rollback tool unavailable because the thing that
+   would run it is the thing that is down. The commits are also still local; nothing is pushed.
+   The safe sequence is push both, build both, and promote core first, watching the boot window.
+   That is a decision with a real failure mode attached, so it is yours rather than mine.
+
+8. **Whether a project's declared ceilings need a magnitude brake, and where it sits.** This is a
+   money question rather than a defect, which is why I am not deciding it. A project can now
+   declare service-level targets, and the surprising direction is the tight one: lowering a CPU
+   ceiling makes breaches fire more often, a breach maps to a scale change the adaptation gate
+   seeds for auto-approval, so a small number raises the rate of spend-incurring proposals.
+   Three things bound the consequence today and none of them is the write itself. Auto-apply
+   requires a window declared elsewhere that this verb cannot write. The composer's auto-apply
+   verdict allows only the additive strategy, so nothing reaches the removal arm. And removals
+   need an operator approval regardless. What is missing is any rate or magnitude limit on the
+   declaration: a caller holding the manage permission can set an aggressive ceiling on a project
+   whose window is already open, and nothing in the write path objects. I declined to invent a
+   floor, because picking a threshold here would be hardcoding a budget-shaped constant on a
+   guess. Instead the write will now tell the caller whether that project's window is open, so
+   arming continuous spend and doing something harmless stop returning identically. Whether a
+   real floor should exist is yours.
+
+**One finding is not a decision but should be read before any of them.** Archiving a project is
+refused by nothing and observed by nothing: no loop reads project status, so convergence, upgrade
+and pool replenishment all continue on the nodes of a project the operator believes is finished.
+The statuses have no writer at all today, so the transition cannot even be made through the
+product. The dangerous half is what an operator would do next. Disabling the project's modules is
+the obvious cleanup, and the node-facing desired-state endpoint filters the enabled scope
+module-wide, so it removes those modules from every node in the account, and the agent reconciles
+a missing module by detaching it. That is the exact mechanism of the 2026-07-28 control-plane
+self-detach, and the comment directly above that line narrates it. The fail-closed guard added
+afterwards protects against an incomplete list, not against a module deliberately disabled, which
+is indistinguishable from an intentional unassignment. Verified at source rather than relayed.
+Filed as `01a07071-1aee`. No automated path may disable modules.
+
+Four campaign proposals now await approval, all supervised and none started: the SDWAN fabric
+`01a07051-8d33`, the wider proving ground `01a07058-12b0`, the no-bare-fact rule `01a07065-46ed`,
+and project infrastructure `01a07071-682c`. Decisions 0 through 4 are the gates on the first two. The wider proving ground, of which SDWAN is one
+part, is proposal `01a07058-12b0-7832-a80f-f5ca5903001e` and is designed in
+`docs/reference/proving-ground-design-2026-09-05.md`: seventy-two capability rows each with a
+positive oracle, of which forty-six are provable on this hardware today, sixteen need one of the
+decisions above, and ten cannot be proven here at all. Thirteen new instances at thirty-two
+gigabytes cover phases one and two, against 104 free.
+
+Three capabilities cannot be proven safely as things stand, and this is the finding I would most
+want you to read. Ingress and certificates cannot be exercised without writing into the control
+plane's own live proxy configuration, because although a reverse-proxy module exists, no writer
+targets a node. Disk-image promotion and boot-image rollout share a single platform default with
+the control plane and run through an unfenced executor, which is decision 0 above. Volume snapshot
+and restore never reaches its copy-swap path at all, because the Proxmox adapter declares no
+snapshot support, which is a separate thing from the known storage wedge on this host and would
+still be true if that wedge were cleared.
