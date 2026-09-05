@@ -667,16 +667,40 @@ module Ai
       # operator actually asked for — the mission is created with a nil project,
       # exactly as it was before this increment, and the failure is logged.
       def create_project_for!(name)
-        ::Ai::Project.create!(
+        project = ::Ai::Project.create!(
           account: account,
           name: name,
           status: "active",
           created_by: user
         )
+        provision_project_team(project)
+        project
       rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => e
         Rails.logger.warn(
           "[ProvisioningTool] could not create a project for brief '#{name}' " \
           "(#{e.class}: #{e.message}); the mission is created without one"
+        )
+        nil
+      end
+
+      # APO app-5 — the project gets its owning team here rather than in an
+      # Ai::Project callback.
+      #
+      # A model callback was rejected: materialising the team mints an account
+      # clone per seat, and hanging three agent creations off every
+      # `Ai::Project.create!` would make team instantiation a hidden cost of an
+      # unrelated write and would fire in every fixture that builds a project.
+      # Creation sites call it explicitly; this is the one that exists today.
+      #
+      # Ai::Projects::TeamProvisioner never raises (its own best-effort
+      # contract), so nothing here can fail the brief capture; the guard is a
+      # belt-and-braces second copy of that promise, not a substitute for it.
+      def provision_project_team(project)
+        ::Ai::Projects::TeamProvisioner.provision!(project: project, user: user)
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[ProvisioningTool] project #{project.id} has no team " \
+          "(#{e.class}: #{e.message}); the project stands without one"
         )
         nil
       end

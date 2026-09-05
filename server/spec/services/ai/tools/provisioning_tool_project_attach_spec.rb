@@ -109,6 +109,52 @@ RSpec.describe "ProvisioningTool — project attach on brief capture" do
     end
   end
 
+  # APO app-5 — the brief path is also where a project acquires its OWNING TEAM.
+  describe "the project's owning team" do
+    let!(:openai) { create(:ai_provider, account: account, provider_type: "anthropic", is_active: true) }
+
+    def canonical(slug, name)
+      create(:ai_agent, :global, owner_account: account, slug: slug, source_key: slug,
+                                 name: name, agent_type: "monitor", is_system: true)
+    end
+
+    before do
+      canonical("infrastructure-health-monitor", "Infrastructure Health Monitor")
+      canonical("release-manager", "Release Manager")
+      canonical("system-health-monitor", "System Health Monitor")
+      silence_warnings { load Rails.root.join("db", "seeds", "ai_project_operations_team_seed.rb") }
+    end
+
+    it "materialises a team for the project the brief created" do
+      tool.execute(params: {
+        action: "platform_provisioning_capture_brief",
+        natural_language: "Deploy the ledger API"
+      })
+
+      project = Ai::Project.order(:created_at).last
+
+      expect(project.team).to be_present
+      expect(project.team.members.count).to eq(3)
+      # Clones, never the canonicals (ruling 8).
+      expect(project.team.members.includes(:agent).map { |m| m.agent.account_id }.uniq).to eq([ account.id ])
+    end
+
+    it "still creates the project when the template is not seeded" do
+      Ai::TeamTemplate.where(slug: Ai::Projects::TeamProvisioner::TEMPLATE_SLUG).destroy_all
+
+      tool.execute(params: {
+        action: "platform_provisioning_capture_brief",
+        natural_language: "Deploy the ledger API"
+      })
+
+      project = Ai::Project.order(:created_at).last
+
+      expect(project).to be_present
+      expect(project.team).to be_nil
+      expect(Ai::Mission.order(:created_at).last.project).to eq(project)
+    end
+  end
+
   describe "THE ADDITIVE GUARANTEE — a mission with no project" do
     let(:orphan) do
       create(:ai_mission, account: account, created_by: user, mission_type: "infrastructure",
