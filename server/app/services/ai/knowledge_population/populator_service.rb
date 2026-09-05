@@ -256,9 +256,15 @@ module Ai
              "fact", %w[architecture rails], "architecture"),
 
           sk("Systemd service management",
-             "Services via systemd template units: powernode-backend@, powernode-worker@, " \
-             "powernode-frontend@, powernode.target. Install: sudo scripts/systemd/powernode-installer.sh install. " \
-             "Never use manual commands (rails server, sidekiq, npm start).",
+             "Two deployment shapes, two unit-naming schemes. A plain installer-shape host " \
+             "(sudo scripts/systemd/powernode-installer.sh install) uses template units: " \
+             "powernode-backend@, powernode-worker@, powernode-frontend@, powernode.target. A " \
+             "module-composed node (dev-cell, ops-hub) generates powernode-<moduleID>-<serviceName>.service " \
+             "(a UUID) instead — NEVER guess that name; discover it with `systemctl list-units " \
+             "'powernode-*-rails.service' --no-pager --no-legend` (swap -rails for -sidekiq or " \
+             "-worker-web), then verify with `systemctl is-active`. A guessed name fails `systemctl " \
+             "restart` silently in a `||` chain, leaving old code running. Never use manual commands " \
+             "(rails server, sidekiq, npm start).",
              "procedure", %w[infrastructure systemd], "architecture"),
 
           sk("Redis database separation",

@@ -29,19 +29,31 @@ bash scripts/reload-backend.sh
 Backend uses SIGUSR2 hot reload (~30ms). No downtime.
 
 ### worker
+This cell is module-composed: the unit is `powernode-<moduleID>-sidekiq.service` (a UUID),
+never `powernode-worker@default` — a guessed name fails `systemctl` silently. Discover it,
+then restart and verify the discovered unit (fall back to `powernode-worker@default` only if
+discovery finds nothing, for a plain installer-shape host):
 ```bash
-sudo systemctl restart powernode-worker@default
+UNIT=$(systemctl list-units 'powernode-*-sidekiq.service' --no-pager --no-legend --plain | awk '{print $1}' | head -1)
+sudo systemctl restart "${UNIT:-powernode-worker@default}"
+systemctl is-active "${UNIT:-powernode-worker@default}"
 ```
 Worker drains jobs before stopping (~28s). **Do not proceed to health check for 30 seconds.**
 
 ### worker-web (always restart with worker)
+Same discovery, `-worker-web` instead of `-sidekiq`:
 ```bash
-sudo systemctl restart powernode-worker-web@default
+UNIT=$(systemctl list-units 'powernode-*-worker-web.service' --no-pager --no-legend --plain | awk '{print $1}' | head -1)
+sudo systemctl restart "${UNIT:-powernode-worker-web@default}"
+systemctl is-active "${UNIT:-powernode-worker-web@default}"
 ```
 
 ### frontend
+Same discovery, `-frontend`:
 ```bash
-sudo systemctl restart powernode-frontend@default
+UNIT=$(systemctl list-units 'powernode-*-frontend.service' --no-pager --no-legend --plain | awk '{print $1}' | head -1)
+sudo systemctl restart "${UNIT:-powernode-frontend@default}"
+systemctl is-active "${UNIT:-powernode-frontend@default}"
 ```
 
 ### all (default)

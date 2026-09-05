@@ -99,10 +99,14 @@ The auto-generated
 
 ## Prerequisites
 
-1. **A running Powernode instance.** The backend service
-   (`powernode-backend@default`) must be up and serving on its API port
-   (`3000` in a local install). See
-   [`getting-started/01-quickstart.md`](../getting-started/01-quickstart.md).
+1. **A running Powernode instance.** The backend service must be up and
+   serving on its API port (`3000` in a local install). On a plain
+   installer-shape host the unit is `powernode-backend@default` (see
+   [`getting-started/01-quickstart.md`](../getting-started/01-quickstart.md));
+   on a module-composed node (dev-cell, ops-hub) it is a generated
+   `powernode-<moduleID>-rails.service` — discover it with `systemctl
+   list-units 'powernode-*-rails.service' --no-pager --no-legend` rather
+   than assuming the name.
 2. **An MCP-compliant client** that supports the **streamable-HTTP** transport
    and OAuth 2.1 — for example Claude Code or Claude Desktop.
 3. **A Powernode user account** on that instance. Authentication binds the MCP
