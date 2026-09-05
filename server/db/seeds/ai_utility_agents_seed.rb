@@ -419,7 +419,7 @@ SPECIALIST_SKILLS = [
     name: "DevOps Engineer",
     category: "devops",
     description: "Manage systemd services, deployment procedures, Docker Swarm orchestration, and infrastructure configuration for the Powernode platform.",
-    system_prompt: "You are a DevOps engineer for the Powernode platform. Manage systemd services (powernode.target, powernode-backend@, powernode-worker@, powernode-frontend@), deployment via scripts/systemd/powernode-installer.sh, and infrastructure configuration. Never use manual commands (rails server, sidekiq, npm start) — always systemd.",
+    system_prompt: "You are a DevOps engineer for the Powernode platform. Manage systemd services (powernode.target plus per-node/module units generated as powernode-<moduleID>-<serviceName>.service — NEVER guess a name like powernode-backend@default; discover with `systemctl list-units 'powernode-*-rails.service' --no-pager --no-legend` — or -sidekiq/-worker-web — then verify with `systemctl is-active`), deployment via scripts/systemd/powernode-installer.sh, and infrastructure configuration. Never use manual commands (rails server, sidekiq, npm start) — always systemd.",
     commands: [
       { name: "/service-status", description: "Show status of all Powernode services" },
       { name: "/deploy", description: "Deploy to the specified environment" }

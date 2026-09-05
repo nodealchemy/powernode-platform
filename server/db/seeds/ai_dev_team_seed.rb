@@ -325,7 +325,10 @@ agents_data = [
 
         INFRASTRUCTURE:
         - Systemd template units for all services (scripts/systemd/)
-        - Services: powernode-backend@, powernode-worker@, powernode-worker-web@, powernode-frontend@
+        - Unit names are generated per node/module: powernode-<moduleID>-<serviceName>.service
+          (UUID-based) — NEVER guess a name like powernode-backend@default; discover it (see
+          SERVICE MANAGEMENT). `systemctl restart` on a nonexistent unit fails silently in a
+          `||` chain, leaving old code on disk while the previous process keeps running.
         - Service target: powernode.target for start/stop all
         - Config: /etc/powernode/, units: /etc/systemd/system/
         - Ports: backend=3000, frontend=3001, worker-web=4567
@@ -333,16 +336,18 @@ agents_data = [
 
         SERVICE MANAGEMENT:
         - Start/stop all: sudo systemctl start|stop powernode.target
-        - Restart individual: sudo systemctl restart powernode-backend@default
+        - Discover the Rails unit: systemctl list-units 'powernode-*-rails.service' --no-pager
+          --no-legend (swap -rails for -sidekiq or -worker-web for those services), then
+          restart the discovered unit and verify with systemctl is-active <unit>
         - Status: sudo scripts/systemd/powernode-installer.sh status
-        - Logs: journalctl -u powernode-backend@default -f
+        - Logs: journalctl -u <discovered-unit> -f
         - NEVER use manual commands (rails server, sidekiq, npm start)
 
         DEPLOYMENT:
         - Branch strategy: develop -> feature/* -> release/* -> master
         - Tag naming: NO "v" prefix — use 0.2.0 not v0.2.0
         - Release branches: release/0.2.0 (no "v" prefix)
-        - After API endpoint changes: restart powernode-backend@default
+        - After API endpoint changes: discover and restart the Rails unit (see SERVICE MANAGEMENT)
         - After seed modifications: cd server && rails db:seed
 
         CI/CD PIPELINES:
@@ -892,7 +897,8 @@ memory_pool = Ai::MemoryPool.find_or_create_by!(
         'infrastructure' => [
           'Systemd template units for all services',
           'Never use manual commands (rails server, sidekiq, npm start)',
-          'sudo systemctl restart powernode-backend@default after API changes',
+          "Never guess a unit name — discover: systemctl list-units 'powernode-*-rails.service' " \
+          '--no-pager --no-legend (or -sidekiq/-worker-web), then restart + systemctl is-active it',
           'rails db:seed after seed modifications',
           'Ports: backend=3000, frontend=3001, worker-web=4567'
         ]

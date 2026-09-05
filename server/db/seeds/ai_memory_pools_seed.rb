@@ -143,7 +143,11 @@ seed_data = {
     },
     "systemd_services" => {
       "summary" => "Systemd service management",
-      "units" => %w[powernode-backend@ powernode-worker@ powernode-worker-web@ powernode-frontend@ powernode.target],
+      "units" => "generated per node/module as powernode-<moduleID>-<serviceName>.service " \
+                 "(UUID-based) plus powernode.target — NEVER guess a name like " \
+                 "powernode-backend@default; discover with systemctl list-units " \
+                 "'powernode-*-rails.service' --no-pager --no-legend (or -sidekiq/-worker-web), " \
+                 "then verify with systemctl is-active",
       "manage" => "sudo scripts/systemd/powernode-installer.sh install|status|add-instance",
       "ports" => { "backend" => 3000, "frontend" => 3001, "worker_web" => 4567 },
       "worker_redis" => "redis://localhost:6379/1 (DB 1 not 0)"
