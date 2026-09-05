@@ -353,6 +353,20 @@ found after the rest were written, which is why it carries a zero rather than re
    The safe sequence is push both, build both, and promote core first, watching the boot window.
    That is a decision with a real failure mode attached, so it is yours rather than mine.
 
+   Three consequences land the moment it deploys, and none is a defect. A mission that declared an
+   availability target of zero has been silently unmonitored, because zero is truthy in Ruby so it
+   survived the fallback and the arm could never fire; those missions will start reporting real
+   breaches. An unusable cost declaration no longer falls through to the provisioning brief's cap,
+   because the reader stops at the first rung that speaks. And an availability figure outside the
+   valid range now resolves to not-declared and falls back to the default instead of being honoured
+   verbatim. All three are correct behaviour arriving suddenly, which is its own kind of event and
+   is worth watching for rather than being surprised by.
+
+   Two further things travel with it. The rename's backfill has run only on lane and development
+   databases, so the live control plane still carries the old agent name until it is applied. And
+   the subagent handle has already moved, so anything holding the old one is broken now rather than
+   resolving quietly to a stale row.
+
 8. **Whether a project's declared ceilings need a magnitude brake, and where it sits.** This is a
    money question rather than a defect, which is why I am not deciding it. A project can now
    declare service-level targets, and the surprising direction is the tight one: lowering a CPU
