@@ -15,7 +15,11 @@ require_relative "concerns/canonical_agent_owner"
 
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
-provider = Ai::Provider.first
+# The four monitoring canonicals carry no model pin (tier requirements only),
+# so any provider can run them — but `Ai::Provider.first` took whatever row was
+# oldest, active or not. The seam answers with an ACTIVE provider, and would
+# answer with the pin's family if one of these ever acquires a pin.
+provider = CoreSeeds::CanonicalAgentOwner.provider_for(pinned_model: nil)
 
 puts "✅ Admin account: #{admin_account ? "#{admin_account.name} (ID: #{admin_account.id})" : 'none yet — canonicals seed without a creator'}"
 puts "✅ AI provider: #{provider ? "#{provider.name} (ID: #{provider.id})" : 'none yet — canonicals seed without a provider'}"

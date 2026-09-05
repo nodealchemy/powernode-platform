@@ -123,7 +123,7 @@ module Mcp
   def list_tools(filters = {})
     # Use cache only for unfiltered queries
     if filters.empty? || filters.keys == [:sort_by]
-      cache_key = "mcp:registry:tools:#{@account&.id || 'global'}:#{filters[:sort_by] || 'name'}"
+      cache_key = CacheVersioning.key("mcp:registry:tools:#{@account&.id || 'global'}", filters[:sort_by] || "name")
 
       return Rails.cache.fetch(cache_key, expires_in: TOOL_LIST_CACHE_TTL) do
         tools = @tools.values
@@ -151,7 +151,7 @@ module Mcp
   def find_tools_by_capability(required_capabilities)
     # Sort capabilities for consistent cache key
     sorted_caps = required_capabilities.sort.join(",")
-    cache_key = "mcp:registry:capabilities:#{@account&.id || 'global'}:#{Digest::MD5.hexdigest(sorted_caps)}"
+    cache_key = CacheVersioning.key("mcp:registry:capabilities:#{@account&.id || 'global'}", Digest::MD5.hexdigest(sorted_caps))
 
     Rails.cache.fetch(cache_key, expires_in: CAPABILITY_SEARCH_CACHE_TTL) do
       matching_tools = []
@@ -185,10 +185,12 @@ module Mcp
     end
   end
 
-  # Invalidate registry caches
+  # Invalidate registry caches. Structural (CacheVersioning), not pattern
+  # deletion — the production default cache store (solid_cache) does not
+  # implement Rails.cache.delete_matched. See CacheVersioning's header.
   def invalidate_caches
-    Rails.cache.delete_matched("mcp:registry:tools:#{@account&.id || 'global'}:*")
-    Rails.cache.delete_matched("mcp:registry:capabilities:#{@account&.id || 'global'}:*")
+    CacheVersioning.bump!("mcp:registry:tools:#{@account&.id || 'global'}")
+    CacheVersioning.bump!("mcp:registry:capabilities:#{@account&.id || 'global'}")
   end
 
   # Get tool by ID or name

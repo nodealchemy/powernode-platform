@@ -231,6 +231,11 @@ RSpec.describe Ai::SelfHealing::PredictiveMonitorService, type: :service do
         }]
       end
 
+      # This stub proves only that the monitor ASKS for a model_downgrade — the
+      # dispatcher body never runs here, and for a long time that body raised
+      # NoMethodError on the first agent it touched (IMP-929aadc88e19). What the
+      # dispatcher actually does with a real agent is covered, unstubbed, in
+      # spec/services/ai/self_healing/remediation_dispatcher_model_downgrade_spec.rb.
       before do
         allow(Ai::SelfHealing::RemediationDispatcher).to receive(:dispatch).and_return(
           { status: "success", action: "model_downgrade" }

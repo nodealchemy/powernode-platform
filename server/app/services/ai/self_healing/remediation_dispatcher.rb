@@ -12,6 +12,7 @@ module Ai
 
           action = determine_action(trigger_event, context)
           return unless action
+          return unless auditable?(action)
 
           before_state = capture_state(action, context)
 
@@ -52,6 +53,27 @@ module Ai
           when "context_overflow"
             "context_trim"
           end
+        end
+
+        # Fail CLOSED: an action Ai::RemediationLog will not accept cannot be
+        # audited, and this dispatcher mutates production agents with no operator
+        # in the loop — the audit row is the only record that it acted at all. So
+        # an unauditable remediation must not run.
+        #
+        # This is checked BEFORE execute_action because that is the only point at
+        # which refusing still means something. Once the model pin has been
+        # rewritten, raising on the audit write would surface the problem but
+        # would not undo the mutation, and would take the caller's own bookkeeping
+        # down with it. Fail-closed before acting; after acting, see the rescue in
+        # log_remediation.
+        def auditable?(action)
+          return true if Ai::RemediationLog::ACTION_TYPES.include?(action)
+
+          Rails.logger.error(
+            "[RemediationDispatcher] Refusing unauditable remediation #{action.inspect}: " \
+            "not in Ai::RemediationLog::ACTION_TYPES, no action taken"
+          )
+          false
         end
 
         def execute_action(action, account:, context:)
@@ -106,23 +128,41 @@ module Ai
 
           # Find agents on the degraded provider and switch to a lower-tier model
           agents = Ai::Agent.where(account: account, ai_provider_id: provider_id, status: "active")
+                            .includes(:provider)
           return { status: "skipped", message: "No agents to downgrade" } if agents.empty?
+
+          provider = Ai::Provider.find_by(id: provider_id)
+          return { status: "skipped", message: "Provider not found" } unless provider
 
           downgraded = 0
           agents.each do |agent|
-            current_model = agent.model_id
+            # An agent's model is NOT a column — it is the pin at
+            # mcp_metadata.model_config.model, read through #resolved_model so an
+            # unpinned agent reports the model it would actually run.
+            current_model = agent.resolved_model
             next unless current_model
 
             # Try to find a cheaper/faster model on the same provider
-            economy_model = find_economy_model(provider_id, current_model)
+            economy_model = find_economy_model(provider, current_model)
             next unless economy_model
 
+            # Writing the pin means writing mcp_metadata, which fires
+            # Ai::Agent#auto_resolve_provider_from_model. The downgrade target
+            # always comes from THIS provider's own supported_models, so the
+            # model's family matches the agent's provider and that callback
+            # short-circuits — the row never has to find a provider elsewhere.
             agent.update!(
-              model_id: economy_model,
-              config: (agent.config || {}).merge(
-                "original_model" => current_model,
-                "downgraded_at" => Time.current.iso8601,
-                "downgrade_reason" => "predictive_self_healing"
+              mcp_metadata: (agent.mcp_metadata || {}).deep_merge(
+                "model_config" => { "model" => economy_model }
+              ),
+              metadata: (agent.metadata || {}).merge(
+                "self_healing" => {
+                  # The model in effect when this downgrade ran — what an
+                  # operator restores the pin to.
+                  "original_model" => current_model,
+                  "downgraded_at" => Time.current.iso8601,
+                  "downgrade_reason" => "predictive_self_healing"
+                }
               )
             )
             downgraded += 1
@@ -131,23 +171,56 @@ module Ai
           { status: "success", message: "Downgraded #{downgraded} agents to economy models" }
         end
 
+        # WHAT "TRIM" MEANS HERE, stated because the previous implementation was
+        # underspecified as well as broken (IMP-ee359823f419). It filtered and
+        # wrote `ai_agent_id` and `is_active` on ai_agent_short_term_memories,
+        # which has `agent_id` and no active flag, so every invocation raised
+        # before trimming anything — and even repaired, "deactivate expired
+        # entries" would have been a no-op, since the model's `active` scope
+        # already hides expired rows from the readers that use it.
+        #
+        # So the trim is DELETION, delegated to the seam that already owns it:
+        # Ai::Memory::MaintenanceService#cleanup_expired(agent:) deletes the
+        # agent's expired rows and force-expires those past STM_MAX_AGE_DAYS.
+        # Reusing it keeps this from becoming a second writer with its own
+        # drifting copy of the query, and the measured outcome is the row count
+        # it deletes.
+        #
+        # WHERE THAT ACTUALLY REDUCES CONTEXT, precisely — this is the part the
+        # old comment got wrong. NOT via Ai::Memory::ContextInjectorService:
+        # that is the only assembler of memory into an agent's prompt, it is
+        # hard-capped at DEFAULT_TOKEN_BUDGET, and none of its injectors reads
+        # short-term memory at all. The effect is on the UNBUDGETED tool-result
+        # path: Ai::Tools::MemoryTool#search_memory selects short-term rows with
+        # no `.active` filter and hands their memory_value blobs straight back to
+        # the model, so expired rows are reachable context until something
+        # deletes them. Deleting shrinks that reachable set.
+        #
+        # Bounded honestly: search_memory takes `limit`, so when more than
+        # `limit` unexpired rows still match, the tool result stays the same size
+        # and only its CONTENT changes. The guaranteed effect is a smaller
+        # reachable set, not a smaller prompt on every call.
         def execute_context_trim(account, context)
           execution_id = context[:execution_id]
           return { status: "skipped", message: "No execution specified" } unless execution_id
 
-          # Trim context for the execution's agent
           execution = Ai::AgentExecution.find_by(id: execution_id, account_id: account.id)
           return { status: "skipped", message: "Execution not found" } unless execution
 
           agent = execution.agent
           return { status: "skipped", message: "Agent not found" } unless agent
 
-          # Clear short-term memory to reduce context size
-          cleared = Ai::AgentShortTermMemory.where(ai_agent_id: agent.id, is_active: true)
-                                             .where("expires_at < ?", Time.current)
-                                             .update_all(is_active: false)
+          before = Ai::AgentShortTermMemory.for_agent(agent.id).count
+          deleted = Ai::Memory::MaintenanceService.new(account: account)
+                                                 .cleanup_expired(agent: agent)
+                                                 .fetch(:deleted, 0)
+          after = Ai::AgentShortTermMemory.for_agent(agent.id).count
 
-          { status: "success", message: "Trimmed #{cleared} expired memory entries for agent #{agent.name}" }
+          {
+            status: "success",
+            message: "Trimmed #{deleted} short-term memory rows for agent #{agent.name} " \
+                     "(#{before} -> #{after} reachable)"
+          }
         end
 
         def execute_alert_escalation(account, context)
@@ -188,17 +261,30 @@ module Ai
           transient_errors.include?(error_class.to_s)
         end
 
-        def find_economy_model(provider_id, current_model)
-          # Look for a lower-tier model on the same provider
-          provider = Ai::Provider.find_by(id: provider_id)
-          return nil unless provider
+        # The cheapest model this provider supports at a STRICTLY lower capability
+        # tier than the current one. Tiering and pricing both come from
+        # Ai::ModelTiers (family floor, escalated by live Ai::ModelPricing bands) —
+        # the platform's single price ladder — so this needs no per-provider price
+        # bookkeeping of its own and no hardcoded model names. There is no
+        # Ai::ProviderModel table; a provider's models are its supported_models
+        # jsonb, whose entries may be a Hash or a bare String (ModelTiers.id_for
+        # normalizes both). nil ⇒ the provider lists nothing cheaper, which the
+        # caller treats as "leave this agent alone".
+        def find_economy_model(provider, current_model)
+          current_rank = Ai::ModelTiers::ORDER.index(Ai::ModelTiers.classify(current_model)).to_i
 
-          available_models = Ai::ProviderModel.where(ai_provider_id: provider_id, is_active: true)
-                                               .where.not(model_id: current_model)
-                                               .order(cost_per_token: :asc)
+          candidates = Array(provider.supported_models).filter_map do |entry|
+            model_id = Ai::ModelTiers.id_for(entry).presence
+            next if model_id.nil? || model_id == current_model
 
-          # Return cheapest available model that isn't the current one
-          available_models.first&.model_id
+            rank = Ai::ModelTiers::ORDER.index(Ai::ModelTiers.classify(model_id)).to_i
+            next if rank >= current_rank
+
+            [ rank, Ai::ModelTiers.price_for(model_id).to_f, model_id ]
+          end
+
+          # Lowest tier first, then cheapest, then id — deterministic.
+          candidates.min&.last
         end
 
         def capture_state(action, context)
@@ -229,8 +315,19 @@ module Ai
             result_message: result_message,
             executed_at: Time.current
           )
+        # Deliberately still swallows, and deliberately no wider than before. By
+        # the time this runs the remediation has already executed and changed
+        # state; raising cannot undo it, and would additionally lose the caller's
+        # result. The unauditable case that made this rescue dangerous is now
+        # refused up front by auditable?, so what remains here is an infrastructure
+        # failure — for which the best available outcome is that the row it could
+        # not write is reconstructable from the log line.
         rescue => e
-          Rails.logger.error "[RemediationDispatcher] Failed to log remediation: #{e.message}"
+          Rails.logger.error(
+            "[RemediationDispatcher] Failed to log remediation: #{e.class}: #{e.message} " \
+            "(account=#{account&.id} #{trigger_source}/#{trigger_event} " \
+            "action_type=#{action_type} result=#{result})"
+          )
         end
       end
     end

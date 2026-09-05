@@ -91,6 +91,34 @@ RSpec.describe Mcp::RegistryService do
     end
   end
 
+  # IMP-63a7d2f99c56. #invalidate_caches called Rails.cache.delete_matched,
+  # which the production default store (solid_cache) does not implement — see
+  # CacheVersioning's header. The test store (MemoryStore) DOES implement
+  # delete_matched, so these examples swap in NoDeleteMatchedCacheStore
+  # (spec/support/no_delete_matched_cache_store.rb) to exercise the property
+  # that actually matters: production, not the store that hides the defect.
+  describe "#invalidate_caches" do
+    subject(:registry) { described_class.new(account: account) }
+
+    it "does not raise on a cache store that cannot delete_matched" do
+      allow(Rails).to receive(:cache).and_return(NoDeleteMatchedCacheStore.new)
+
+      expect { registry.invalidate_caches }.not_to raise_error
+    end
+
+    it "retires a previously cached #list_tools result" do
+      allow(Rails).to receive(:cache).and_return(NoDeleteMatchedCacheStore.new)
+      stale = registry.list_tools # populates the cache under the pre-invalidation key
+      expect(stale).to be_empty # the account has no agents yet
+      create(:ai_agent, account: account)
+
+      registry.invalidate_caches
+      refreshed = described_class.new(account: account).list_tools
+
+      expect(refreshed.size).to eq(1) # unaddressable stale [] entry, recomputed from the DB
+    end
+  end
+
   describe "#register_tool / #unregister_tool within one instance" do
     subject(:registry) { described_class.new(account: account) }
 

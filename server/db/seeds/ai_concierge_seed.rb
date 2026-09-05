@@ -11,10 +11,16 @@ puts "\n🤖 Seeding AI Concierge Agent..."
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 
-provider = Ai::Provider.find_by(provider_type: 'openai', name: 'OpenAI') ||
-           Ai::Provider.find_by(provider_type: 'openai') ||
-           Ai::Provider.find_by(provider_type: 'ollama') ||
-           Ai::Provider.where(is_active: true).first
+require_relative "concerns/canonical_agent_owner"
+
+# The concierge carries no model pin (its model_config names a provider family
+# and generation settings only), so the OpenAI-then-Ollama preference is
+# editorial; the seam keeps it when the family rule allows, prefers an ACTIVE
+# provider, and would refuse one that cannot run a pin the row carries.
+preferred_provider = Ai::Provider.find_by(provider_type: 'openai', name: 'OpenAI') ||
+                     Ai::Provider.find_by(provider_type: 'openai') ||
+                     Ai::Provider.find_by(provider_type: 'ollama')
+provider = CoreSeeds::CanonicalAgentOwner.provider_for(pinned_model: nil, preferred: preferred_provider)
 
 ActiveRecord::Base.transaction do
   # GLOBAL platform concierge (account_id nil); an account customizes it by

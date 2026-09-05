@@ -18,10 +18,16 @@ interface RemediationTimelineProps {
   logs: RemediationLog[];
 }
 
+// One entry per Ai::RemediationLog::ACTION_TYPES. A missing entry is not an
+// error — line ~59 falls back to the raw action_type — but it surfaces
+// `model_downgrade` to an operator instead of "Model Downgrade", which is the
+// only place they see what the self-healer did.
 const ACTION_LABELS: Record<string, string> = {
   provider_failover: 'Provider Failover',
   workflow_retry: 'Workflow Retry',
   alert_escalation: 'Alert Escalation',
+  model_downgrade: 'Model Downgrade',
+  context_trim: 'Context Trim',
 };
 
 const RESULT_CONFIG: Record<string, { icon: React.ElementType; color: string; badge: string }> = {

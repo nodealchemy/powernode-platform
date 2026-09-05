@@ -293,11 +293,19 @@ Phase 2b: ~5 lanes (one per new/promoted agent, plus the engineering policy set 
     an account-wide auto_approve floor (the `release.build_dispatch` precedent) so row-less MCP callers stop
     parking; agent-scoped rows keep the trust-conditioned verdict; the four release verbs keep parking.
     (d) Lazy minting of account principals inside the fleet/CVE ticks and the reconcile stays.
+12. **Operator ruling 2026-09-04 15:45 (floors reach the materialiser).** The account-wide refine floors
+    (ruling 11c) apply to the Phase 3 governance-gap materialiser as well: on an account whose Platform
+    Architect carries no trust-conditioned refine row, a detected-and-proposed `skill_binding` or
+    `prompt_refinement` gap materialises without parking. `dev.governance_materialize` (structural changes)
+    has no floor and still parks everywhere. Both states are pinned by spec (IMP-a51963f8717f).
 
 ## 6. Delivered (written by HIER-P4, the last increment, 2026-09-04)
 
 Every phase's commits on `dev-loop/dev-improve`, core first then `extensions/system` (ext). Deploy 4
-shipped phases 0–2i (core b24da2acf / ext 5e9d2c55); phases 3 and 4 ride deploy 5.
+shipped phases 0–2i (core b24da2acf / ext 5e9d2c55); deploy 5 shipped phases 3 and 4 plus the
+engineering floors (core 9d2185b9e / ext 96b9463a, 2026-09-04 16:23 UTC, after a VM 600 reboot that
+cleared the overlay scratch). Verified on ops-hub: boot hook wrote the two refine floors, reconcile
+215 present / 0 failed, both canonical teams materialised, Platform Architect 9 skill bindings.
 
 | Phase | Core commits | Extension commits |
 |-------|--------------|-------------------|

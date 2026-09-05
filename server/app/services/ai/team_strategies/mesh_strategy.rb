@@ -110,7 +110,7 @@ module Ai
         response = llm_client.complete_structured(
           messages: messages,
           schema: CONSENSUS_SCHEMA,
-          model: evaluator_agent.model_id
+          model: evaluator_agent.resolved_model
         )
 
         response.deep_symbolize_keys

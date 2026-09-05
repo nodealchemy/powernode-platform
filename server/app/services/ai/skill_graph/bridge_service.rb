@@ -68,10 +68,7 @@ module Ai
 
       # Create/update KG node linked to an agent, generate pgvector embedding, sync edges
       def sync_agent(agent)
-        node = account.ai_knowledge_graph_nodes
-          .where(entity_type: "agent")
-          .where("metadata @> ?", { ai_agent_id: agent.id }.to_json)
-          .first
+        node = agent_node(agent) || inheritable_canonical_node(agent)
 
         text = build_agent_embedding_text(agent)
         embedding = embedding_service.generate(text)
@@ -83,7 +80,10 @@ module Ai
             properties: build_agent_properties(agent),
             confidence: 1.0,
             status: "active",
-            last_seen_at: Time.current
+            last_seen_at: Time.current,
+            # Re-points an INHERITED node at the principal that now acts; a no-op
+            # rewrite of the same value on the node this agent already owned.
+            metadata: (node.metadata.is_a?(Hash) ? node.metadata : {}).merge("ai_agent_id" => agent.id)
           )
           node.set_embedding!(embedding) if embedding
         else
@@ -258,6 +258,60 @@ module Ai
         return "entity_type=#{node.entity_type}" if OWNED_ENTITY_TYPES.include?(node.entity_type)
 
         nil
+      end
+
+      def agent_node(agent)
+        account.ai_knowledge_graph_nodes
+          .where(entity_type: "agent")
+          .where("metadata @> ?", { ai_agent_id: agent.id }.to_json)
+          .first
+      end
+
+      # The node the agent this one was CLONED FROM left behind in this account.
+      #
+      # Ai::Agents::AccountPrincipalResolver mints an account's executing clone of
+      # a global canonical and deliberately gives it the canonical's NAME (its
+      # IDENTITY rule, so every `resolve_for(name:)` site finds the clone
+      # override-first). ai_knowledge_graph_nodes is unique on
+      # (account_id, name, node_type) WHERE status='active' and both rows are
+      # node_type "entity", so the clone lands on the slot the canonical's own
+      # node already holds — written back when that row was account-scoped,
+      # before the seed globalized it in place (GloballyScopable
+      # .find_or_initialize_global keeps the id and flips account_id to nil).
+      # Keyed only on metadata.ai_agent_id, the fresh clone id matched nothing,
+      # create_node collided, and RecordNotUnique — a StandardError — was
+      # swallowed by sync_agent's blanket rescue: the row that now ACTS had no KG
+      # entity at all, on every mint (IMP-b3ab46fb3999).
+      #
+      # Inheriting is the fix rather than renaming the clone's node or widening
+      # the index: the clone IS the canonical in this account, and one logical
+      # agent must not become two entities the graph's readers see under one
+      # name. It also repairs itself — a clone minted before this rule adopts the
+      # stranded node on its next sync, which is the very event that used to
+      # raise, so nothing is left in a state this code cannot reach.
+      #
+      # ONLY when the owner can never sync into this account again. A global
+      # canonical cannot: Ai::Agent#sync_to_knowledge_graph returns early on a nil
+      # account_id, so nothing will ever update or re-point that node. An
+      # ACCOUNT-scoped parent (the "(Copy)" tenant-customisation clone shape) very
+      # much can, and taking its node would overwrite the metadata key its own
+      # sync finds it by — breaking it permanently, the same way adopting an
+      # agent's node breaks sync_agent in adoptable_slot_node above.
+      def inheritable_canonical_node(agent)
+        canonical_id = agent.try(:cloned_from_id)
+        return nil if canonical_id.blank?
+        return nil if ::Ai::Agent.exists?(id: canonical_id, account_id: account.id)
+
+        # The colliding slot itself — an index_ai_kg_nodes_unique_active probe,
+        # not a scan of the unindexed metadata column.
+        occupant = ::Ai::KnowledgeGraphNode.find_by(
+          account_id: account.id, name: agent.name, node_type: "entity", status: "active"
+        )
+        return nil if occupant.nil?
+        return nil unless occupant.entity_type == "agent"
+        return nil unless occupant.metadata.is_a?(Hash) && occupant.metadata["ai_agent_id"] == canonical_id
+
+        occupant
       end
 
       def graph_service

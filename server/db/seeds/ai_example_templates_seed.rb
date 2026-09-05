@@ -13,6 +13,8 @@ puts "\n📋 Seeding AI Example Templates & Showcase Data..."
 # admin account, user, and seeded providers — absent in baseline-only mode).
 return unless Powernode::Seeds.baseline?
 
+require_relative "concerns/canonical_agent_owner"
+
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 
@@ -404,7 +406,12 @@ agents_data.each do |ad|
   agent = Ai::Agent.find_or_create_by!(account: admin_account, name: ad[:name]) do |a|
     a.description = ad[:description]
     a.agent_type = ad[:agent_type]
-    a.provider = ad[:provider]
+    # The per-agent provider is showcase variety; the seam keeps it whenever
+    # the family rule allows and refuses one that could not run this
+    # definition's pin (nil rather than an invalid row).
+    a.provider = CoreSeeds::CanonicalAgentOwner.provider_for(
+      pinned_model: ad[:mcp_metadata]&.dig('model_config', 'model'), preferred: ad[:provider]
+    )
     a.creator = admin_user
     a.status = 'active'
     a.version = '1.0.0'
