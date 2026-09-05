@@ -263,6 +263,83 @@ RSpec.describe Ai::Projects::TeamProvisioner do
     end
   end
 
+  # APO app-6 — the outcome must be READABLE afterwards. Best-effort attach was
+  # correct and silent; three different teamless situations rendered the same.
+  describe "it records WHY there is no team" do
+    it "records NO TEMPLATE, naming the template it looked for" do
+      template.destroy!
+
+      provision
+
+      status = project.reload.team_provisioning_status
+
+      expect(status[:state]).to eq("no_template")
+      expect(status[:template_slug]).to eq(described_class::TEMPLATE_SLUG)
+      expect(status[:needs_attention]).to be true
+      expect(status[:guidance]).to match(/seed/i)
+    end
+
+    it "records FAILED with the error a reader can act on" do
+      allow(Ai::Teams::CanonicalTeamReconciler)
+        .to receive(:new).and_raise(ActiveRecord::RecordInvalid.new(Ai::AgentTeam.new))
+
+      provision
+
+      status = project.reload.team_provisioning_status
+
+      expect(status[:state]).to eq("failed")
+      expect(status[:reason]).to match(/RecordInvalid/)
+      expect(status[:needs_attention]).to be true
+    end
+
+    it "records NOTHING on success — the team itself is the answer" do
+      provision
+
+      expect(project.reload.metadata[Ai::Project::TEAM_PROVISIONING_KEY]).to be_nil
+      expect(project.team_provisioning_state).to eq("provisioned")
+    end
+
+    it "leaves a project nobody attempted reading as NOT ATTEMPTED" do
+      untouched = create(:ai_project, account: account, name: "Never Provisioned")
+
+      expect(untouched.team_provisioning_state).to eq("not_attempted")
+    end
+
+    it "clears a stale failure record when a later attempt succeeds" do
+      template.destroy!
+      provision
+      expect(project.reload.team_provisioning_state).to eq("no_template")
+
+      # Re-seed and retry: the team is now ground truth, and the stale record
+      # must not keep the project reading as broken.
+      Ai::Teams::CanonicalTeamSeeder.seed!(
+        slug: described_class::TEMPLATE_SLUG, name: "Project Operations",
+        description: "Observes, deploys and keeps a project up", category: "operations",
+        materialisation: Ai::Teams::CanonicalTeamSeeder::MATERIALISATION_PROJECT,
+        members: [
+          { slug: "proj-sre",      name: "Project SRE",      role: "manager",  lead: true },
+          { slug: "proj-deployer", name: "Project Deployer", role: "executor" },
+          { slug: "proj-observer", name: "Project Observer", role: "analyst" }
+        ]
+      )
+      provision
+
+      expect(project.reload.team_provisioning_state).to eq("provisioned")
+      expect(project.team_provisioning_status[:needs_attention]).to be false
+    end
+
+    it "still returns a result when RECORDING the reason itself fails" do
+      template.destroy!
+      allow_any_instance_of(Ai::Project).to receive(:record_team_provisioning!).and_raise(StandardError, "disk full")
+
+      result = nil
+      expect { result = provision }.not_to raise_error
+
+      expect(result.team).to be_nil
+      expect(project.reload).to be_persisted
+    end
+  end
+
   describe "attach is ADDITIVE and best-effort" do
     it "leaves the project valid and usable when the template is absent" do
       template.destroy!

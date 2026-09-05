@@ -131,7 +131,12 @@ module Ai
       # for.
       def provision!
         template = canonical_template
-        return empty_result("template #{template_slug.inspect} is not seeded") unless template
+        unless template
+          return empty_result(
+            "template #{template_slug.inspect} is not seeded",
+            state: ::Ai::Project::STATE_NO_TEMPLATE
+          )
+        end
 
         # Which principals exist BEFORE seating — anything that appears after is
         # newly minted and starts supervised. Read before the write, because
@@ -141,7 +146,12 @@ module Ai
         result = ::Ai::Teams::CanonicalTeamReconciler
                  .new(account: project.account, template: template, project: project)
                  .reconcile!
-        return empty_result(result.skipped.join(", ").presence || "team was not materialised") unless result.team
+        unless result.team
+          return empty_result(
+            result.skipped.join(", ").presence || "team was not materialised",
+            state: ::Ai::Project::STATE_FAILED
+          )
+        end
 
         team = result.team
         minted = team.members.pluck(:ai_agent_id) - pre_existing
@@ -156,14 +166,39 @@ module Ai
           "[#{SEAM}] could not provision a team for project #{project.id} (#{e.class}: #{e.message}); " \
           "the project stands without one"
         )
-        empty_result("#{e.class}: #{e.message}")
+        empty_result("#{e.class}: #{e.message}", state: ::Ai::Project::STATE_FAILED)
       end
 
       private
 
-      def empty_result(reason)
+      # Every teamless exit records WHY (APO app-6). Before this the three
+      # teamless outcomes — never attempted, no template on this install, the
+      # attempt failed — were one indistinguishable appearance, which is the
+      # same defect shape as a health probe returning a constant.
+      #
+      # SUCCESS records nothing: `provisioned` is derived from the team
+      # association, so writing it would be a second claim about a fact the row
+      # already states, free to go stale. NOT-ATTEMPTED records nothing either
+      # — it IS the absence, and writing it would make "we gave up" and "nobody
+      # ever tried" indistinguishable again.
+      #
+      # The record is itself BEST-EFFORT. This whole service exists so that a
+      # team failure cannot fail a project, and a failure to write the
+      # explanation of a failure must not be the thing that finally does.
+      def empty_result(reason, state:)
+        record_outcome(state, reason)
         Result.new(project: project, team: nil, created: false, members_seated: 0,
                    minted_principal_ids: [], policy: nil, skipped: [ reason ])
+      end
+
+      def record_outcome(state, reason)
+        project.record_team_provisioning!(state: state, reason: reason, template_slug: template_slug)
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[#{SEAM}] could not record the team-provisioning outcome for project #{project.id} " \
+          "(#{e.class}: #{e.message}); the state reads as #{::Ai::Project::STATE_NOT_ATTEMPTED}"
+        )
+        nil
       end
 
       def canonical_template
