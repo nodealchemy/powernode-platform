@@ -43,20 +43,44 @@ module Ai
         "run"      => "Ai::TeamExecution via Ai::TeamStrategies::HierarchicalStrategy"
       }.freeze
 
+      # WHERE a template is materialised (APO app-5). "account" is the original
+      # and the default: Ai::Teams::CanonicalTeamReconciler.reconcile_all! walks
+      # every canonical template and gives the account one team per template.
+      # "per_project" says the opposite — this template is materialised once per
+      # Ai::Project, by Ai::Projects::TeamProvisioner, and the account-level
+      # walk must SKIP it.
+      #
+      # Without the marker a per-project template would be swept up by the boot
+      # reconcile: every reconcilable account would silently acquire a team and
+      # a clone per seat that nothing asked for, and `drift` would report its
+      # absent account-level team as drift forever — a permanent false signal
+      # that no reconcile could ever clear.
+      MATERIALISATION_KEY     = "materialisation"
+      MATERIALISATION_ACCOUNT = "account"
+      MATERIALISATION_PROJECT = "per_project"
+      MATERIALISATIONS = [ MATERIALISATION_ACCOUNT, MATERIALISATION_PROJECT ].freeze
+
       # members: [{ slug:, name:, role:, lead: true|false, description:, capabilities: [] }, ...]
       # exactly one entry is the lead and it carries role "manager".
-      def self.seed!(slug:, name:, description:, members:, category: "platform", tags: [])
+      def self.seed!(slug:, name:, description:, members:, category: "platform", tags: [],
+                     materialisation: MATERIALISATION_ACCOUNT)
         new(slug: slug, name: name, description: description, members: members,
-            category: category, tags: tags).seed!
+            category: category, tags: tags, materialisation: materialisation).seed!
       end
 
-      def initialize(slug:, name:, description:, members:, category:, tags:)
+      def initialize(slug:, name:, description:, members:, category:, tags:,
+                     materialisation: MATERIALISATION_ACCOUNT)
         @slug = slug.to_s
         @name = name
         @description = description
         @members = Array(members).map { |m| m.to_h.symbolize_keys }
         @category = category
         @tags = Array(tags)
+        @materialisation = materialisation.to_s
+        unless MATERIALISATIONS.include?(@materialisation)
+          raise ArgumentError, "materialisation #{materialisation.inspect} is not one of #{MATERIALISATIONS.join(', ')}"
+        end
+
         validate_members!
       end
 
@@ -70,7 +94,9 @@ module Ai
           tags: @tags,
           team_topology: TOPOLOGY,
           role_definitions: role_definitions,
-          default_config: (template.default_config || {}).merge(DEFAULT_CONFIG),
+          default_config: (template.default_config || {})
+                            .merge(DEFAULT_CONFIG)
+                            .merge(MATERIALISATION_KEY => @materialisation),
           workflow_pattern: WORKFLOW_PATTERN,
           is_public: true
         )

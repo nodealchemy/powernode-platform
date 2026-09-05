@@ -82,14 +82,35 @@ module Ai
       end
 
       class << self
+        # ACCOUNT-materialised templates only, both here and in `drift_all`.
+        #
+        # A PER-PROJECT template (Ai::Teams::CanonicalTeamSeeder
+        # MATERIALISATION_PROJECT) has no account-level team by design: it is
+        # materialised once per Ai::Project by Ai::Projects::TeamProvisioner.
+        # Walking it here would give every reconcilable account a team and a
+        # clone per seat that nothing asked for, on every boot; and `drift`
+        # would report the account-level team it deliberately does not have as
+        # drift forever — a signal no reconcile could ever clear, which is
+        # worse than no signal.
+        def account_materialised_templates
+          ::Ai::TeamTemplate.canonical.order(:slug).reject { |template| per_project?(template) }
+        end
+
+        def per_project?(template)
+          config = template.default_config
+          config.is_a?(Hash) &&
+            config[::Ai::Teams::CanonicalTeamSeeder::MATERIALISATION_KEY].to_s ==
+              ::Ai::Teams::CanonicalTeamSeeder::MATERIALISATION_PROJECT
+        end
+
         def reconcile_all!(account:, logger: Rails.logger)
-          ::Ai::TeamTemplate.canonical.order(:slug).map do |template|
+          account_materialised_templates.map do |template|
             new(account: account, template: template, logger: logger).reconcile!
           end
         end
 
         def drift_all(account:)
-          ::Ai::TeamTemplate.canonical.order(:slug).map do |template|
+          account_materialised_templates.map do |template|
             new(account: account, template: template).drift
           end
         end
@@ -116,15 +137,33 @@ module Ai
         end
       end
 
-      attr_reader :account, :template
+      attr_reader :account, :template, :project
 
-      def initialize(account:, template:, logger: Rails.logger)
+      # `project` (APO app-5) scopes the materialisation to ONE Ai::Project
+      # instead of the account. Optional, and nil takes exactly the pre-existing
+      # code path: #canonical_team branches on the project and falls through to
+      # the account-level query it always ran, and the team name stays the
+      # template name.
+      #
+      # It exists because a canonical team is otherwise ONE per (account,
+      # template): #canonical_team resolves by template_id alone, so a second
+      # project asking for the same template would be handed the first
+      # project's team, and the name-conflict guard in #find_or_materialise_team!
+      # would refuse to make it its own. Scoping the lookup, the name and that
+      # guard by the project is the whole extension — the seating, the
+      # principal minting and the drift reading are unchanged and shared.
+      def initialize(account:, template:, project: nil, logger: Rails.logger)
         raise ArgumentError, "#{SEAM} needs the account the team is materialised in" unless account
         raise ArgumentError, "#{SEAM} needs a template" unless template
         raise ArgumentError, "#{SEAM}: #{template.slug.inspect} is not a canonical template" unless template.canonical?
+        if project && project.account_id != account.id
+          raise ArgumentError, "#{SEAM}: project #{project.id} belongs to account #{project.account_id}, " \
+                               "not #{account.id}"
+        end
 
         @account = account
         @template = template
+        @project = project
         @logger = logger
       end
 
@@ -266,28 +305,61 @@ module Ai
       # team merely cloned from the template (TeamTemplate#create_team!) has
       # the id but not the flag, and is the account's own.
       def canonical_team
+        return project_team if project
+
         account.ai_agent_teams.canonical.find_by(template_id: template.id)
+      end
+
+      # A project owns exactly one team, through `ai_projects.ai_agent_team_id`
+      # — the column the project noun already carries for its owning team (APO
+      # app-4). No second pointer was added: two ways to ask which team a
+      # project owns is two answers waiting to disagree. The template check
+      # keeps a team an operator assigned by hand from being reconciled against
+      # a template it was never materialised from.
+      def project_team
+        team = project.team
+        return nil unless team
+        return nil unless team.template_id == template.id && team.team_config.is_a?(Hash) &&
+                          team.team_config["canonical"] == true
+
+        team
+      end
+
+      # A project team is named for its project, so two projects in one account
+      # can both materialise the same template — Ai::AgentTeam validates name
+      # uniqueness per account, and the template name alone would collide on
+      # the second project.
+      def materialised_team_name
+        return template.name unless project
+
+        "#{project.name} — #{template.name}"
       end
 
       def find_or_materialise_team!
         team = canonical_team
         created = false
+        name = materialised_team_name
 
         if team.nil?
-          stray = account.ai_agent_teams.find_by(name: template.name)
+          # Scoped by the project when there is one: the team a DIFFERENT
+          # project already owns is not a stray, and the project-specific name
+          # means it cannot collide here anyway. Without the exclusion a second
+          # project would refuse on the first project's team.
+          stray = account.ai_agent_teams.find_by(name: name)
+          stray = nil if stray && project && stray.id == project.ai_agent_team_id
           if stray
             return [ nil, false, false,
-                     "#{template.slug}(name conflict: team #{stray.id} #{template.name.inspect} is not the " \
+                     "#{template.slug}(name conflict: team #{stray.id} #{name.inspect} is not the " \
                      "canonical materialisation — rename it, then reconcile)" ]
           end
 
-          team = account.ai_agent_teams.new(name: template.name)
+          team = account.ai_agent_teams.new(name: name)
           created = true
         end
 
         config = template.default_config || {}
         team.assign_attributes(
-          name: template.name,
+          name: name,
           description: template.description,
           goal_description: template.description,
           team_type: config["team_type"] || "hierarchical",
@@ -303,6 +375,11 @@ module Ai
         )
         team_updated = !created && team.changed?
         team.save! if team.new_record? || team.changed?
+
+        # The project's owning-team pointer IS the project-scoped lookup key
+        # (#project_team reads it), so binding it here is what makes a second
+        # pass idempotent rather than a second team.
+        project.update!(team: team) if project && project.ai_agent_team_id != team.id
 
         [ team, created, team_updated, nil ]
       end
