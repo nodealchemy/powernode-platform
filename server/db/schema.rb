@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_05_062000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2933,6 +2933,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_150000) do
 
   create_table "ai_missions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.uuid "ai_project_id"
     t.jsonb "analysis_result", default: {}
     t.string "base_branch", default: "main"
     t.string "branch_name"
@@ -2976,6 +2977,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_150000) do
     t.index ["account_id", "mission_type"], name: "index_ai_missions_on_account_id_and_mission_type"
     t.index ["account_id", "status"], name: "index_ai_missions_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_missions_on_account_id"
+    t.index ["ai_project_id"], name: "index_ai_missions_on_ai_project_id"
     t.index ["conversation_id"], name: "index_ai_missions_on_conversation_id"
     t.index ["created_by_id"], name: "index_ai_missions_on_created_by_id"
     t.index ["delegation_id"], name: "index_ai_missions_on_delegation_id"
@@ -3281,6 +3283,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_150000) do
     t.integer "total_tasks", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["campaign_id", "recorded_at"], name: "index_ai_progress_entries_on_campaign_id_and_recorded_at"
+  end
+
+  create_table "ai_projects", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_team_id"
+    t.jsonb "configuration", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.text "description"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.uuid "repository_id"
+    t.string "slug", null: false
+    t.string "status", default: "active", null: false
+    t.uuid "template_id"
+    t.string "template_type"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "slug"], name: "index_ai_projects_on_account_and_slug", unique: true
+    t.index ["account_id", "status"], name: "index_ai_projects_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_projects_on_account_id"
+    t.index ["ai_agent_team_id"], name: "index_ai_projects_on_ai_agent_team_id"
+    t.index ["repository_id"], name: "index_ai_projects_on_repository_id"
+    t.index ["template_type", "template_id"], name: "index_ai_projects_on_template_type_and_template_id"
   end
 
   create_table "ai_provider_credentials", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -9984,6 +10009,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_150000) do
     t.check_constraint "target_replicas >= 0", name: "platform_deployments_target_replicas_non_negative"
   end
 
+  create_table "system_platform_health_snapshots", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "captured_at", null: false
+    t.datetime "created_at", null: false
+    t.integer "degraded_count", default: 0, null: false
+    t.integer "down_count", default: 0, null: false
+    t.integer "not_measured_count", default: 0, null: false
+    t.string "overall", null: false
+    t.string "source"
+    t.jsonb "subsystems", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "captured_at"], name: "index_platform_health_snapshots_on_account_and_time", order: { captured_at: :desc }
+    t.index ["account_id", "overall", "captured_at"], name: "index_platform_health_snapshots_on_account_overall_time", order: { captured_at: :desc }
+    t.check_constraint "overall::text = ANY (ARRAY['ok'::character varying, 'degraded'::character varying, 'down'::character varying, 'unknown'::character varying]::text[])", name: "ck_platform_health_snapshots_overall"
+  end
+
   create_table "system_project_metrics", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.string "correlation_id"
     t.datetime "created_at", null: false
@@ -12392,6 +12433,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_150000) do
   add_foreign_key "system_platform_deployments", "accounts", on_delete: :cascade
   add_foreign_key "system_platform_deployments", "system_node_templates", column: "node_template_id", on_delete: :restrict
   add_foreign_key "system_platform_deployments", "system_sdwan_virtual_ips", column: "virtual_ip_id", on_delete: :nullify
+  add_foreign_key "system_platform_health_snapshots", "accounts"
   add_foreign_key "system_project_metrics", "ai_missions", column: "mission_id"
   add_foreign_key "system_provider_availability_zones", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_provider_connections", "accounts"
