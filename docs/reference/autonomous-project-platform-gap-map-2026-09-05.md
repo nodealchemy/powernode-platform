@@ -121,3 +121,46 @@ verb; README counts drift; monitoring-agent duplication.
    before multi-cloud SDK gems or Kubernetes depth.
 7. **Front-door name.** Present a single "Concierge" to users, with System Concierge as an internal
    specialist?
+
+---
+
+## 7. Deploy 4 and the post-deploy smoke (2026-09-05, executed)
+
+Operator approved all seven §6 recommendations and directed deploy 4 before the campaign.
+
+**Deployed.** `develop` = `cd7fe58c6` (merge of the loop branch; submodule → `f23d94d9`), pushed to
+Gitea and GitHub, extension first so the module-forge clone could not pick up a stale tree. Native
+batch `01a06ff7` planned three modules off the core range and promoted them batch-atomically:
+hub-backend v95, extension-system v86, hub-frontend v30. Verified by content on the node, not by
+version number: `/api/v1/version` → `cd7fe58`; `SnapshotPolicySensor` present in the extension
+layer; `cache_versioning.rb` present in the core layer; `index.html` rewritten at 05:21:51, so the
+v29 stale-index defect did not recur; `/up` 200; zero pending migrations. Seeds re-run: 12 domain
+agents attached under the concierge root, System Operations team seated at 12, 128 skills synced.
+Dev-cell instance grant widened 22 → 27 patterns and confirmed live. Break-glass revoked.
+
+**The deploy auto-applied the parked audit-scrub migration.** `20260905050000` was recorded as
+applied during the restart (ops-hub auto-applies pending migrations on boot), before its parked
+task was dispositioned. Effect measured: 2 rows scrubbed to `[FILTERED]`, 0 rows still holding a raw
+value under an `email` key, 304 User-type audit rows and 34,887 total rows otherwise untouched, and
+0 KubernetesCluster rows existed to scrub. The change is irreversible by design. This is a process
+finding as much as a data one: a migration parked for human review shipped and ran because parking
+gates the COMMIT, not the DEPLOY.
+
+**The smoke found the sharpest evidence for increment 1.** Asked "how many node instances are
+currently in error status, and which agent owns fixing them?", the account Concierge replied
+"Currently, there are no node instances in error status" — while 12 were. It read
+`get_system_health`'s `errors` block (AI *execution* errors over 24h, from `Ai::ExecutionEvent`) and
+presented it as fleet health. Filed as `01a07024-d980`; it is the acceptance case for the composite
+health producer. Two secondary observations from the same run: no `Ai::AgentExecution` row was
+written for a live agent turn, and the Concierge answered a fleet question inline rather than
+delegating, though `platform.route_task` ranked correctly when asked directly (Capacity Manager
+0.762 for a DR task, with per-dimension reasons).
+
+**A provider deadlock blocked using the operator's own credential.** Activating a provider validates
+`supported_models`; the only sync path visits active providers only. Anthropic and Grok both held
+live credentials and neither could be activated, so every agent ran on the one active provider.
+Broken by calling the per-provider sync directly (11 models fetched), then activating. Filed as
+`01a07025-24b6`.
+
+**Campaign started:** `01a07025-5780-7b34-b7e9-6d844ebe4599`, 8 increments, supervised, branch
+`campaign/01a07025-5780-7b34-b7e9-6d844ebe4599`. Increment 0 recorded passed.
