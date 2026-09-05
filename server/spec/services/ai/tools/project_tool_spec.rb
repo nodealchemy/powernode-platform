@@ -158,6 +158,54 @@ RSpec.describe Ai::Tools::ProjectTool do
     end
   end
 
+  # APO app-6 — the teamless reason must reach a reader without a database
+  # query, so it is surfaced wherever a project's status is already read.
+  describe "the team-provisioning state on the read surface" do
+    it "project_get explains a project that was never attempted" do
+      result = tool.execute(params: { action: "project_get", project_id: project.id })
+
+      state = result[:data][:project][:team_provisioning]
+
+      expect(state[:state]).to eq("not_attempted")
+      expect(state[:needs_attention]).to be false
+      expect(state[:guidance]).to be_present
+    end
+
+    it "project_get explains a project whose team provisioning found no template" do
+      project.record_team_provisioning!(state: "no_template", reason: "not seeded",
+                                        template_slug: "project-operations")
+
+      result = tool.execute(params: { action: "project_get", project_id: project.id })
+      state = result[:data][:project][:team_provisioning]
+
+      expect(state[:state]).to eq("no_template")
+      expect(state[:reason]).to eq("not seeded")
+      expect(state[:template_slug]).to eq("project-operations")
+      expect(state[:needs_attention]).to be true
+      expect(state[:attempted_at]).to be_present
+    end
+
+    it "project_status carries the same explanation" do
+      project.record_team_provisioning!(state: "failed", reason: "boom")
+
+      result = tool.execute(params: { action: "project_status", project_id: project.id })
+
+      expect(result[:data][:project][:team_provisioning][:state]).to eq("failed")
+      expect(result[:data][:project][:team_provisioning][:reason]).to eq("boom")
+    end
+
+    it "project_list carries the state per row so a reader can spot the ones needing attention" do
+      broken = create(:ai_project, account: account, name: "Broken")
+      broken.record_team_provisioning!(state: "failed", reason: "boom")
+
+      result = tool.execute(params: { action: "project_list" })
+      by_name = result[:data][:projects].index_by { |p| p[:name] }
+
+      expect(by_name["Broken"][:team_state]).to eq("failed")
+      expect(by_name["Ledger Service"][:team_state]).to eq("not_attempted")
+    end
+  end
+
   describe "authorization" do
     it "refuses a caller who does not hold ai.missions.read" do
       stranger = create(:user, account: account, permissions: [])

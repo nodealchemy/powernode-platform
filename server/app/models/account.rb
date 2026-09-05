@@ -97,6 +97,13 @@ class Account < ApplicationRecord
 
   # AI Missions
   has_many :ai_missions, class_name: "Ai::Mission", dependent: :destroy
+  # APO app-4/app-6. Beside the missions on purpose: a project OWNS missions
+  # (Ai::Project has_many :missions, dependent: :nullify), so the project
+  # association must not be the thing that deletes them — the account cascade
+  # is. Without this association every reader re-derived the account scope with
+  # an explicit account-scoped `where` on the model, which is exactly the shape
+  # a cross-tenant read slips through when someone forgets the scope.
+  has_many :ai_projects, class_name: "Ai::Project", foreign_key: "account_id", dependent: :destroy
   has_many :ai_mission_approvals, class_name: "Ai::MissionApproval", dependent: :destroy
 
   # AI Kill Switch

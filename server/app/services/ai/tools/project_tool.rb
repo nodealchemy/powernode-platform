@@ -123,7 +123,7 @@ module Ai
       private
 
       def project_list(params)
-        scope = ::Ai::Project.where(account_id: account.id)
+        scope = account.ai_projects
         status = params[:status].presence
         if status
           return error_result("Unknown status '#{status}' — expected one of #{::Ai::Project::STATUSES.join(', ')}") unless ::Ai::Project::STATUSES.include?(status)
