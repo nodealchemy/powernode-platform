@@ -106,6 +106,85 @@ module Ai
     DEFAULT_MAX_CPU_PCT    = nil
     DEFAULT_MAX_MEMORY_PCT = nil
 
+    # ---- The remaining SLO targets (APO) --------------------------------
+    #
+    # Availability, the cost ceiling and the throughput floor lived in
+    # `configuration["slo_targets"]` beside the utilization ceilings, but only
+    # the ceilings were resolved through the ladder — the consumer read these
+    # three straight off the mission. So a PROJECT that declared any of them
+    # was silently unobserved: the declaration landed in a row nothing on the
+    # evaluation path looked at.
+    #
+    # This is the same home and the same walk, for the same reason APO-3a gave:
+    # the thing that fires and the thing that sizes the response must read ONE
+    # declaration. The consumer asks the mission; it must never read the
+    # project itself, or there are two readers of one project's targets and
+    # they are free to disagree.
+    AVAILABILITY_PCT_SLO_KEY   = "availability_pct"
+    COST_CEILING_USD_SLO_KEY   = "cost_ceiling_usd"
+    MIN_THROUGHPUT_SLO_KEY     = "min_throughput_bytes_per_s"
+    P99_LATENCY_MS_SLO_KEY     = "p99_latency_ms"
+
+    AVAILABILITY_PCT_SETTING = "ai.provisioning.availability_pct"
+    COST_CEILING_USD_SETTING = "ai.provisioning.cost_ceiling_usd"
+    MIN_THROUGHPUT_SETTING   = "ai.provisioning.min_throughput_bytes_per_s"
+
+    # The brief field the cost ceiling falls back to. It is a REQUIRED brief
+    # field (Ai::Provisioning::IntentCaptureService::REQUIRED_FIELDS), so every
+    # completed provisioning brief carries one — which is exactly why its rung
+    # sits BELOW the project's. Above it, a project-declared ceiling could
+    # never be outranked for any provisioning mission, and the declaration this
+    # reader exists to observe would go unobserved again.
+    BRIEF_BUDGET_CAP_KEY = "budget_cap_usd_monthly"
+
+    # p99 LATENCY IS UNDECLARABLE, and that is a decision rather than a gap.
+    #
+    # Nothing on this platform measures workload latency: there is no prober,
+    # the intended transport was ruled DORMANT (IMP-6355c5adc382), the adapter
+    # says in as many words not to wire a producer to revive it, and a guard
+    # fails loudly if an emitter reappears. The one response-time measurement
+    # in the tree probes the CONTROL PLANE's own components and must not be
+    # borrowed as a workload measurement.
+    #
+    # It is reported as an explicit undeclarable entry rather than as a blank
+    # because a blank invites the next reader to treat it as something to fill
+    # in — which is how the nearest wrong thing gets reached for. A declaration
+    # somebody writes anyway resolves to nothing: honouring it would state a
+    # target the platform cannot measure, which is a claim, not an observation.
+    UNDECLARABLE_TARGETS = {
+      P99_LATENCY_MS_SLO_KEY =>
+        "No producer exists: no prober measures workload latency, the intended transport was " \
+        "ruled dormant (IMP-6355c5adc382) and a guard fails if an emitter reappears. Reviving it " \
+        "means building a prober, with an operator decision in front of it."
+    }.freeze
+
+    # The resolved targets. A nil is NOT DECLARED — never a substituted default:
+    # the consumer owns its own defaults, and folding one in here would make
+    # "nobody said" indistinguishable from "somebody said exactly the default".
+    ServiceLevelTargets = Struct.new(:availability_pct, :cost_ceiling_usd,
+                                     :min_throughput_bytes_per_s, keyword_init: true) do
+      # Always nil. Present as a reader so a consumer that asks does not get a
+      # NoMethodError and reach for something else.
+      def p99_latency_ms = nil
+
+      def undeclarable = ::Ai::Mission::UNDECLARABLE_TARGETS.keys
+
+      def undeclarable_reason(metric_name) = ::Ai::Mission::UNDECLARABLE_TARGETS[metric_name.to_s]
+
+      def declared?(metric_name) = !to_h[metric_name.to_s].nil?
+
+      # Keyed by the CANONICAL METRIC NAME a sample carries, so a consumer maps
+      # a metric to its target without a second name table.
+      def to_h
+        {
+          ::Ai::Mission::AVAILABILITY_PCT_SLO_KEY => availability_pct,
+          ::Ai::Mission::COST_CEILING_USD_SLO_KEY => cost_ceiling_usd,
+          ::Ai::Mission::MIN_THROUGHPUT_SLO_KEY   => min_throughput_bytes_per_s,
+          ::Ai::Mission::P99_LATENCY_MS_SLO_KEY   => nil
+        }
+      end
+    end
+
     # A resolved target of nil means NO CEILING for that metric: nothing usable
     # was declared, so the metric is not checked at all. See
     # #resolved_utilization_target for why an unusable declaration resolves
@@ -446,6 +525,35 @@ module Ai
       )
     end
 
+    # THE ONE ANSWER to "what availability / cost / throughput is this mission
+    # running under". Resolved on the SAME ladder as every other declaration:
+    # the mission's own slo_targets → the PROJECT's → the mission template's
+    # default_configuration → the account's settings → the SiteSetting → not
+    # declared. The cost ceiling has one extra rung below the project, the
+    # mission brief's budget cap — see BRIEF_BUDGET_CAP_KEY for why it sits
+    # there and not higher.
+    #
+    # Each target is coerced by its OWN rule, because they are not the same
+    # kind of number: availability is a percentage in (0, 100], while a cost
+    # ceiling in dollars and a throughput floor in bytes per second are
+    # unbounded above. Running them all through the percentage check would
+    # silently discard every realistic cost and throughput declaration.
+    def service_level_targets
+      ServiceLevelTargets.new(
+        availability_pct: resolved_slo_target(
+          AVAILABILITY_PCT_SLO_KEY, AVAILABILITY_PCT_SETTING, :percentage
+        ),
+        cost_ceiling_usd: resolved_slo_target(
+          COST_CEILING_USD_SLO_KEY, COST_CEILING_USD_SETTING, :positive_number,
+          extra_rungs: [ [ "the mission brief's #{BRIEF_BUDGET_CAP_KEY}",
+                           -> { brief_hash[BRIEF_BUDGET_CAP_KEY] } ] ]
+        ),
+        min_throughput_bytes_per_s: resolved_slo_target(
+          MIN_THROUGHPUT_SLO_KEY, MIN_THROUGHPUT_SETTING, :positive_number
+        )
+      )
+    end
+
     # M4 Enterprise Polish — second-signature gate.
     #
     # Returns true when the mission is sitting at the `handoff` phase AND
@@ -754,6 +862,56 @@ module Ai
             end
           end ]
       ]
+    end
+
+    # One SLO target, on the shared ladder. `extra_rungs` are appended BELOW the
+    # SiteSetting rung so an additional fallback can never outrank a real
+    # declaration.
+    #
+    # PRESENCE IS DECISIVE, as everywhere else on this ladder: the first rung
+    # that carries the key answers. An unusable value resolves to NOT DECLARED
+    # (nil) and is logged, rather than falling through to a wider rung — the one
+    # direction a target ladder must never resolve, because a target inherited
+    # from somewhere broader is a claim nobody made about this project.
+    def resolved_slo_target(slo_key, setting_key, coercion, extra_rungs: [])
+      rungs = utilization_target_rungs(slo_key, setting_key) + extra_rungs
+      rungs.each do |rung, source|
+        raw = source.call
+        next if raw.nil? || (raw.respond_to?(:to_str) && raw.to_str.strip.empty?)
+
+        value = coerce_slo_target(raw, coercion)
+        unless value
+          Rails.logger.warn("[Ai::Mission] #{slo_key}=#{raw.inspect} declared at #{rung} is not a " \
+                            "usable #{coercion}; reading it as NOT DECLARED rather than inheriting " \
+                            "a wider rung")
+          return nil
+        end
+
+        return value
+      end
+      nil
+    rescue StandardError => e
+      Rails.logger.warn("[Ai::Mission] SLO target #{slo_key} unresolved (#{e.class}); not declared")
+      nil
+    end
+
+    # A Float, or nil for anything the rule rejects. Never `"abc".to_f`'s silent
+    # 0.0 — a zero ceiling and an unparseable one mean opposite things.
+    def coerce_slo_target(raw, coercion)
+      case coercion
+      when :percentage then utilization_percent(raw)
+      when :positive_number
+        value = raw.is_a?(Numeric) ? raw.to_f : Float(raw.to_s.strip, exception: false)
+        value&.positive? ? value : nil
+      end
+    end
+
+    def brief_hash
+      cfg = configuration
+      return {} unless cfg.is_a?(Hash)
+
+      brief = cfg["brief"] || cfg[:brief]
+      brief.is_a?(Hash) ? brief.deep_stringify_keys : {}
     end
 
     def slo_targets_hash
