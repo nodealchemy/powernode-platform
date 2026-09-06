@@ -720,6 +720,50 @@ else
 fi
 fi
 
+# Deployment-identifier leak guard. Powernode is a platform OTHER people deploy: THIS
+# deployment's hostnames, internal IP ranges, VM ids and operator details are irrelevant
+# to every other deployment and a gratuitous disclosure on the public mirror. Their home
+# is the deployment's own platform knowledge (tag deployment-*), never a tracked file —
+# docs/contributing/conventions/deployment-knowledge.md. The identifier patterns live in
+# the GITIGNORED .claude/hooks/deployment-identifiers.local.txt: a guard against name
+# leakage must not itself contain the names, so no list => no-op PASS (a public clone
+# has no deployment to protect yet). Scans every git-TRACKED file in core and in each
+# PUBLIC extension submodule (each publishes on its own); private extensions and
+# gitignored files are out of scope by construction. The edit-time hook
+# .claude/hooks/deployment-identifier-check.sh runs the same script per file.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No deployment-local identifiers in tracked files (leak guard)... "
+# FAIL CLOSED on a missing/broken script, same doctrine as the core-purity mirror above.
+if [ ! -r scripts/checks/deployment-identifier-check.sh ]; then
+    echo -e "${RED}✗ FAIL${NC} (leak-guard script MISSING: scripts/checks/deployment-identifier-check.sh)"
+    failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("No deployment-local identifiers in tracked files (leak guard)")
+else
+depl_hits=$(bash scripts/checks/deployment-identifier-check.sh 2>/dev/null || true)
+case "$depl_hits" in
+    ''|*[!0-9]*)
+        echo -e "${RED}✗ FAIL${NC} (leak-guard script produced no usable result: '"'"'$depl_hits'"'"')"
+        failed_checks=$((failed_checks + 1))
+        security_critical_failed_checks+=("No deployment-local identifiers in tracked files (leak guard)")
+        depl_hits=""
+        ;;
+esac
+if [ -z "$depl_hits" ]; then
+    : # already reported above
+elif [ "$depl_hits" -eq 0 ]; then
+    if [ -r .claude/hooks/deployment-identifiers.local.txt ]; then
+        echo -e "${GREEN}✓ PASS${NC}"
+    else
+        echo -e "${GREEN}✓ PASS${NC} (no deployment identifier list on this checkout — nothing to guard)"
+    fi
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Found $depl_hits tracked file(s) naming a deployment-local identifier: $(bash scripts/checks/deployment-identifier-check.sh --list 2>/dev/null | cut -d: -f1 | sort -u | tr '\n' ' '))"
+    failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("No deployment-local identifiers in tracked files (leak guard)")
+fi
+fi
+
 echo ""
 echo -e "${BLUE}## Migration Version Uniqueness${NC}"
 # Duplicate-migration-version guard: schema_migrations is keyed by VERSION, so if two

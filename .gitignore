@@ -447,6 +447,18 @@ extensions/private
 # disclose a private extension's name and internal layout. Written by
 # scripts/generate-core-purity-baseline.sh; read by the hook and the scan mirror.
 /.claude/hooks/core-purity-baseline.local.txt
+
+# Deployment-local identifier list read by scripts/checks/deployment-identifier-check.sh
+# (and its edit-time hook). It names THIS deployment's hostnames / IP ranges / VM ids,
+# which is exactly what the guard keeps out of the public mirror — so the list itself
+# can never be tracked. One extended regex per line. Absent => the guard is a no-op.
+/.claude/hooks/deployment-identifiers.local.txt
+
+# Deployment-local operator docs. Markdown here is authored locally and pushed into
+# THIS deployment's platform knowledge (`rails ai:seed_deployment_knowledge`, tag
+# deployment-<slug>); git never sees it. Convention:
+# docs/contributing/conventions/deployment-knowledge.md
+/docs/operations/local/
 # Private-mode bundle lock (declares private-extension PATH gems — never commit; see server/Gemfile.private)
 /server/Gemfile.private.lock
 # The private-mode Gemfile itself IS committed (tiny; just flips the discovery
