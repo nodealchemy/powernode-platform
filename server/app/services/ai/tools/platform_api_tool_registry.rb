@@ -93,6 +93,9 @@ module Ai
         # F4-07 — complete the provisionable chain (provider + connection +
         # region + instance type) for agent self-serve substrate onboarding.
         "system_create_provider_connection"    => "Ai::Tools::SystemFleetTool",
+        "system_list_provider_connections"     => "Ai::Tools::SystemFleetTool",
+        "system_get_provider_connection"       => "Ai::Tools::SystemFleetTool",
+        "system_update_provider_connection"    => "Ai::Tools::SystemFleetTool",
         "system_create_provider_region"        => "Ai::Tools::SystemFleetTool",
         "system_create_provider_instance_type" => "Ai::Tools::SystemFleetTool",
         "system_recycle_pool"       => "Ai::Tools::SystemFleetTool",
