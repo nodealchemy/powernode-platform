@@ -13,8 +13,17 @@ module Ai
     #
     # Gate #9: a doc that names a private extension is refused (never globalized) —
     # such guidance belongs in the extension's own docs / CLAUDE.local.md.
+    #
+    # The same seeder ingests DEPLOYMENT-LOCAL operator docs (the gitignored
+    # docs/operations/local/*.md) as `deployment-<slug>` entries — see
+    # Ai::Guidance::GuidanceKnowledgeSeeder.for_deployment and
+    # docs/contributing/conventions/deployment-knowledge.md. Those differ in three
+    # ways, all parameters here: tag prefix, provenance path, and gate #9 is OFF
+    # (the source is gitignored and the entry account-scoped, so a private-extension
+    # name there is local operator detail, not a public leak).
     class GuidanceKnowledgeSeeder
       EXCLUDE = %w[MANIFEST.md adherence-baseline.md README.md].freeze
+      DEPLOYMENT_DIR = %w[docs operations local].freeze
 
       Result = Struct.new(:created, :updated, :unchanged, :refused, keyword_init: true) do
         def summary
@@ -22,11 +31,27 @@ module Ai
         end
       end
 
-      def initialize(account:, repository: "powernode-platform", dir: nil, private_names: nil)
+      # Deployment-local variant: reads the gitignored docs/operations/local/ tree,
+      # tags entries `deployment` / `deployment-<slug>`, never refuses on gate #9.
+      def self.for_deployment(account:, repository: "powernode-platform", dir: nil, private_names: nil)
+        new(
+          account: account, repository: repository, private_names: private_names,
+          dir: dir || Rails.root.parent.join(*DEPLOYMENT_DIR),
+          tag_prefix: "deployment", source_dir_label: DEPLOYMENT_DIR.join("/"),
+          refuse_private_references: false
+        )
+      end
+
+      def initialize(account:, repository: "powernode-platform", dir: nil, private_names: nil,
+                     tag_prefix: "guidance", source_dir_label: "docs/contributing/conventions",
+                     refuse_private_references: true)
         @account = account
         @repository = repository
         @dir = Pathname.new(dir || default_dir)
         @private_names = private_names || derive_private_names
+        @tag_prefix = tag_prefix
+        @source_dir_label = source_dir_label
+        @refuse_private_references = refuse_private_references
       end
 
       def call
@@ -40,11 +65,11 @@ module Ai
           slug = File.basename(filename, ".md")
           content = File.read(path)
           outcome = upsert_guidance(
-            key: "guidance:#{slug}",
+            key: "#{tag_prefix}:#{slug}",
             slug: slug,
             title: title_from(content, filename),
             content: content,
-            provenance: { "source_path" => "docs/contributing/conventions/#{filename}", "source_type" => "import" },
+            provenance: { "source_path" => "#{source_dir_label}/#{filename}", "source_type" => "import" },
             source_type: "import"
           )
           tally(result, outcome)
@@ -59,7 +84,7 @@ module Ai
       # :created / :updated / :unchanged / :refused. `extra_tags` are merged after
       # the canonical guidance / guidance-<slug> / repository tags.
       def upsert_guidance(key:, slug:, title:, content:, provenance: {}, extra_tags: [], source_type: "import")
-        if (ext = private_extension_in(content))
+        if refuse_private_references && (ext = private_extension_in(content))
           Rails.logger.warn("[GuidanceSeeder] Refused #{key}: names private extension '#{ext}' (gate #9)")
           return :refused
         end
@@ -81,7 +106,7 @@ module Ai
           access_level: "account",
           source_type: source_type,
           usage_count: record.usage_count || 0,
-          tags: (["guidance", "guidance-#{slug}", "repository:#{repository}"] + Array(extra_tags)).map { |t| t.to_s }.uniq,
+          tags: ([tag_prefix, "#{tag_prefix}-#{slug}", "repository:#{repository}"] + Array(extra_tags)).map { |t| t.to_s }.uniq,
           integrity_hash: hash,
           embedding: best_effort_embedding(content),
           provenance: provenance.merge("guidance_key" => key)
@@ -93,7 +118,8 @@ module Ai
 
       private
 
-      attr_reader :account, :repository, :dir, :private_names
+      attr_reader :account, :repository, :dir, :private_names, :tag_prefix, :source_dir_label,
+                  :refuse_private_references
 
       def default_dir
         Rails.root.parent.join("docs", "contributing", "conventions")

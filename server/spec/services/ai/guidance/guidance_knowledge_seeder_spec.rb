@@ -75,6 +75,54 @@ RSpec.describe Ai::Guidance::GuidanceKnowledgeSeeder do
     expect(entry_for("guidance:leaky")).to be_nil
   end
 
+  describe ".for_deployment (gitignored docs/operations/local/ → deployment-<slug>)" do
+    let(:local_dir) { Dir.mktmpdir }
+    after { FileUtils.remove_entry(local_dir) if File.exist?(local_dir) }
+
+    before do
+      File.write(File.join(local_dir, "ops-hub.md"), "# Ops hub\n\nhub.example.invalid, VM 4242, hypervisor hv1.\n")
+      # Names a private extension: legitimate in local operator notes (the source is
+      # gitignored and the entry account-scoped), so gate #9 must NOT refuse it.
+      File.write(File.join(local_dir, "audit-sinks.md"), "# Audit sinks\n\nAcme::AuditSink writes to the vault.\n")
+    end
+
+    def seed_deployment
+      described_class.for_deployment(account: account, dir: local_dir, private_names: ["acme"]).call
+    end
+
+    it "tags entries deployment / deployment-<slug>, account-scoped, keyed deployment:<slug>" do
+      result = seed_deployment
+      expect(result.created).to eq(2)
+      expect(result.refused).to eq(0)
+
+      entry = entry_for("deployment:ops-hub")
+      expect(entry.title).to eq("Ops hub")
+      expect(entry.access_level).to eq("account")
+      expect(entry.tags).to include("deployment", "deployment-ops-hub", "repository:powernode-platform")
+      expect(entry.tags).not_to include("guidance")
+      expect(entry.provenance["source_path"]).to eq("docs/operations/local/ops-hub.md")
+      expect(Ai::SharedKnowledge.with_tag("deployment-ops-hub").where(account: account).count).to eq(1)
+    end
+
+    it "does not apply gate #9 to deployment-local docs" do
+      seed_deployment
+      expect(entry_for("deployment:audit-sinks")).to be_present
+    end
+
+    it "never collides with a guidance entry of the same slug" do
+      File.write(File.join(dir, "ops-hub.md"), "# Ops hub (generic)\n\nHow any hub is run.\n")
+      seed
+      seed_deployment
+      expect(entry_for("guidance:ops-hub").content).to include("generic")
+      expect(entry_for("deployment:ops-hub").content).to include("hub.example.invalid")
+    end
+
+    it "is idempotent" do
+      seed_deployment
+      expect(seed_deployment.unchanged).to eq(2)
+    end
+  end
+
   describe "against the real docs/contributing/conventions directory" do
     it "seeds fable5-compliance.md as a recallable guidance-fable5-compliance entry" do
       result = described_class.new(account: account).call
