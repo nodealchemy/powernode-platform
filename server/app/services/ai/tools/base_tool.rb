@@ -1159,7 +1159,9 @@ module Ai
       # per window, none of which a caller can inflate. If the flip ever wants
       # per-call fidelity it needs the purpose-built table that spec describes.
       UNDECLARED_ACTION_AUDIT_ACTION = "mcp.tools.undeclared_action"
-      SENSITIVE_ACCESS_AUDIT_ACTION = "mcp.tools.sensitive_access"
+      # Owned by Ai::SensitiveAccessAudit, which is the single writer of this
+      # row. Aliased here so the name stays available at this seam.
+      SENSITIVE_ACCESS_AUDIT_ACTION = ::Ai::SensitiveAccessAudit::ACTION
 
       # Every caller-supplied action name that is not registry surface.
       UNREGISTERED_ACTION_LABEL = "<unregistered>"
@@ -1402,59 +1404,28 @@ module Ai
           return sensitive_access_refusal(action_name, "no account context to record the access against")
         end
 
-        # NO transaction wrapper. The two anomaly persisters take
+        # Unlike the two anomaly persisters above, which take
         # `requires_new: true` so a failed telemetry INSERT cannot abort a
-        # caller's open transaction — they must not break a working call. This
-        # one is the opposite: it MUST break the call when it fails, so it has
-        # nothing to protect. A savepoint would also be actively misleading
-        # here, because it is not an independent transaction — the row would
-        # still die with an outer ROLLBACK, after the credential had been
-        # returned. `create!` is already atomic on its own.
-        #
-        # Callers that wrap .execute in their own transaction are therefore a
-        # known limit of this control, not something the savepoint was hiding.
-        record = ::AuditLog.create!(
+        # caller's open transaction, this one MUST break the call when it
+        # fails. The writer takes no transaction for that reason; see
+        # Ai::SensitiveAccessAudit#record for why a savepoint would be actively
+        # misleading here.
+        record = ::Ai::SensitiveAccessAudit.record(
           account: account,
-          # Unlike the anomaly rows, which carry principal SHAPE only, this
-          # one carries IDENTITY: "who retrieved the credential" is the
-          # question it exists to answer.
           user: user,
-          action: SENSITIVE_ACCESS_AUDIT_ACTION,
-          resource_type: telemetry_token(self.class.name),
-          resource_id: "sensitive_access",
-          source: "system",
-          severity: "high",
-          risk_level: "high",
-          metadata: {
-            # Tool context FIRST, so a tool cannot overwrite the identity
-            # fields this row exists to hold by returning a colliding key.
-            # Values are clamped the same way every other field on the row is:
-            # audit_context receives caller-supplied params.
-            context: audit_context(action_name, params)
-                       .to_h { |k, v| [ k.to_s, telemetry_token(v.to_s) ] },
-            action_name: action_name,
-            tool_class: telemetry_token(self.class.name),
-            principal: caller_principal_descriptor(action_name)
-          }
+          resource_type: self.class.name,
+          action_name: action_name,
+          context: audit_context(action_name, params),
+          principal: caller_principal_descriptor(action_name)
         )
 
-        # Existence is checked, not assumed. `ActiveRecord::Rollback` is
-        # swallowed by a transaction block and would otherwise let this method
-        # fall through to nil — proceed, with no row and no error — which is
-        # the one failure mode a fail-closed control must not have.
-        unless record&.persisted?
-          return sensitive_access_refusal(action_name, "the audit record did not persist")
-        end
+        # nil is the writer's refusal signal, covering both "create! raised"
+        # and "the row did not persist". The check is here rather than assumed
+        # because a fall-through would mean proceed-with-no-row, the one
+        # failure mode a fail-closed control must not have.
+        return sensitive_access_refusal(action_name, "the audit record did not persist") unless record
 
         nil
-      rescue StandardError => e
-        # Logged, never re-raised: the caller gets a refusal envelope like any
-        # other, and the exception detail stays server-side.
-        Rails.logger.error(
-          "[BaseTool] Sensitive-access audit row failed, REFUSING the action: " \
-          "action=#{action_name} tool=#{self.class.name} error=#{e.class}: #{e.message}"
-        )
-        sensitive_access_refusal(action_name, "the audit record could not be written")
       end
 
       def sensitive_access_refusal(action_name, reason)

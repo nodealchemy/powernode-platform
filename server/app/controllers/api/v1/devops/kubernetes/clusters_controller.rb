@@ -79,19 +79,21 @@ module Api
           # GET /api/v1/devops/kubernetes/clusters/:id/kubeconfig
           # SENSITIVE: returns the cluster admin kubeconfig YAML.
           #
-          # NOT audit-logged. This comment previously read "Audit-logged." and
-          # that was never true: the only record is the Rails.logger.info line
-          # below, so there is no durable, queryable answer to who retrieved
-          # this credential. Corrected rather than quietly fixed because this
-          # is the endpoint the UI's kubeconfig button calls
-          # (frontend/src/features/devops/kubernetes/services/kubernetesApi.ts),
-          # i.e. the path most retrievals actually take.
+          # AUDITED, FAIL-CLOSED, through the same writer as the MCP twin
+          # (Ai::Tools::KubernetesProvisioningTool kubernetes_get_kubeconfig):
+          # Ai::SensitiveAccessAudit. IMP-4ef95e825a7a audited that verb but
+          # the guard sat on the VERB, not on the credential, and this endpoint
+          # is the one the UI's kubeconfig button calls
+          # (frontend/src/features/devops/kubernetes/services/kubernetesApi.ts)
+          # — i.e. the path most retrievals actually take, reaching the same
+          # material without entering the MCP layer at all.
           #
-          # The MCP twin (Ai::Tools::KubernetesProvisioningTool
-          # kubernetes_get_kubeconfig) IS audited, fail-closed, as of
-          # IMP-4ef95e825a7a — which is exactly why this asymmetry must not be
-          # left implied. Closing it here is filed separately; the seam to
-          # reuse is AuditActions "mcp.tools.sensitive_access".
+          # The row is written BEFORE the body is rendered. A post-hoc audit is
+          # theatre: the credential would already be out. If the row cannot be
+          # written the request is refused and nothing is disclosed.
+          #
+          # NEVER LOG THE MATERIAL. The row records that a retrieval happened,
+          # by whom, for which cluster — never the kubeconfig itself.
           #
           # Returns 422 if the cluster is still bootstrapping (kubeconfig not
           # yet captured from the agent).
@@ -103,10 +105,25 @@ module Api
               )
             end
 
-            Rails.logger.info(
-              "[Devops::Kubernetes::ClustersController] kubeconfig retrieved " \
-              "for cluster_id=#{@cluster.id} by user_id=#{current_user.id}"
+            audit = ::Ai::SensitiveAccessAudit.record(
+              account: current_user.account,
+              user: current_user,
+              resource_type: self.class.name,
+              action_name: "devops.kubernetes.kubeconfig",
+              context: { cluster_id: @cluster.id },
+              principal: "user"
             )
+
+            # nil is the writer's refusal signal. Fail closed: this action
+            # releases credential material and is only permitted when the
+            # access can be audited.
+            unless audit
+              return render_error(
+                "kubeconfig refused: the access could not be audited. This endpoint releases " \
+                "credential material and is only permitted when the access can be recorded.",
+                :service_unavailable
+              )
+            end
 
             render_success(
               cluster_id: @cluster.id,
