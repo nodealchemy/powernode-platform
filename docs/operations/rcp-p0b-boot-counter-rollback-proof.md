@@ -1,5 +1,10 @@
 # RCP v2 · P0-b — Boot-Counter Rollback Proof (design)
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 > ## ⚠️ SUPERSEDED BY EXECUTION — read this before anything below
 >
 > **This test has been run. Twice.** The status block below is the pre-execution
@@ -512,7 +517,7 @@ The P0-b throwaway is provisioned and staged up to (but NOT including) the injec
    claimable physical NodeInstance on a minimal-template Node (e.g. `ci-builder-amd64`,
    4 modules, platform `019e7c7e`) with `ssh_key` = the deploy pubkey; then confirm
    the VM's broadcast claim code in the operator UI, OR write a real `identity.cfg`
-   (`ID=<that instance UUID>`, `SERVER=https://dev.ipnode.us`) to the VM's ESP and
+   (`ID=<that instance UUID>`, `SERVER=https://<dev-host>`) to the VM's ESP and
    reboot (claim-by-ID auto-confirm). Post-enroll the agent fetches the deploy
    pubkey → `ssh root@<vm-ip>`. Confirm `/usr/bin/cosign` present.
 2. **Sign the broken UKI (operator mints a FRESH Vault token first — old one expired).**

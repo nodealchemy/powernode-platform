@@ -1,5 +1,10 @@
 # Runbook — Migrating ops-hub-A from VMID 104 to 600 (+ allocator fencing)
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Audience:** operator, with an agent driving. **Runtime:** ~10 min, of which the control plane is
 down for ~2–3. **Prereq:** root on `dna` (`ssh -i ~/.ssh/powernode-deploy admin@dna`, passwordless
 sudo). **Risk:** moderate — it stops the self-hosted control plane. Every step is reversible and the
@@ -38,7 +43,7 @@ operator can actually see.
 Bands: dev **500–599**, ops-hub **9000–9099**, control plane **600–609** (fenced out of both, 8 spare
 for future members).
 
-On **each** plane's Rails console, for the connection pointing at `https://dna.ipnode.net:8006`:
+On **each** plane's Rails console, for the connection pointing at `https://<pve-host>:8006`:
 
 ```ruby
 # dev plane — connection "ipnode-pve-conn"
@@ -46,7 +51,7 @@ c = System::ProviderConnection.find_by(name: "ipnode-pve-conn")
 c.update!(config: c.config.merge("vmid_min" => 500, "vmid_max" => 599))
 
 # ops-hub plane — same cluster, its own connection row (floor is 9000)
-c = System::ProviderConnection.find_by(endpoint_url: "https://dna.ipnode.net:8006")
+c = System::ProviderConnection.find_by(endpoint_url: "https://<pve-host>:8006")
 c.update!(config: c.config.merge("vmid_min" => 9000, "vmid_max" => 9099))
 ```
 
@@ -74,7 +79,7 @@ Record `qm config 104` in full before touching anything. It is the rollback refe
 
 | Item | Value today | Why it matters |
 |---|---|---|
-| `net0` MAC | `12:25:78:03:0B:56` | The DHCP lease behind **10.125.0.227**. The whole fleet reaches ops-hub there. Change this and every enrolled node loses its control plane. |
+| `net0` MAC | `12:25:78:03:0B:56` | The DHCP lease behind **<ops-hub-ip>**. The whole fleet reaches ops-hub there. Change this and every enrolled node loses its control plane. |
 | `smbios1` uuid | `4dfd44e4-…` | Guest-visible machine identity. |
 | `onboot: 1` | set | The only thing that restarts ops-hub after a host reboot, now that Proxmox HA is deliberately not used. |
 | `parent` / snapshot | `pre-agent-module-v28` | The rollback point for the agent module work. ZFS snapshots travel with `zfs rename`. |
@@ -138,8 +143,8 @@ sudo qm set 600 --protection 1
 
 ```bash
 sudo qm status 600                                   # running
-curl -sk -o /dev/null -w '%{http_code}\n' https://10.125.0.227/up      # 200
-ping -c2 10.125.0.227                                # same IP — proves the MAC/lease survived
+curl -sk -o /dev/null -w '%{http_code}\n' https://<ops-hub-ip>/up      # 200
+ping -c2 <ops-hub-ip>                                # same IP — proves the MAC/lease survived
 sudo qm listsnapshot 600                             # pre-agent-module-v28 still present
 ```
 

@@ -357,7 +357,7 @@ module Core
       # Host-agnostic (PathPrefix rules, no Host() match) so the appliance is
       # reachable at ANY name/IP it is served on — external hostname, SDWAN
       # overlay name, LAN IP, or localhost — with zero per-host config. That is
-      # what makes it work for ops-hub.ipnode.us and every future hub the same.
+      # what makes it work for ops-hub.example.test and every future hub the same.
       #
       # Idempotent: reuses an existing self-signed cert (no fingerprint churn
       # across reboots — important when `cert_dir` is durable storage) and

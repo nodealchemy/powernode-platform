@@ -1,8 +1,13 @@
 # Single-Node Bootstrap (systemd installer path)
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 > Status: active
 >
-> When to use this runbook: deploying Powernode to a fresh Linux host as the **systemd-managed installation** — backend, worker, worker-web, frontend, and reverse-proxy as native services with apt-installed PostgreSQL + Redis underneath. This is the path used by `dev.ipnode.us` and the `ops` control plane (`--production` creates a dedicated system user for production-style installs on this same path).
+> When to use this runbook: deploying Powernode to a fresh Linux host as the **systemd-managed installation** — backend, worker, worker-web, frontend, and reverse-proxy as native services with apt-installed PostgreSQL + Redis underneath. This is the path used by `<dev-host>` and the `ops` control plane (`--production` creates a dedicated system user for production-style installs on this same path).
 >
 > **Correction (2026-07-05, campaign `019f3458`):** an earlier version of this note cited "the first Vultr cutover before the modular self-host migration" as a user of this path. That cutover never happened — no Vultr credentials were ever provisioned, so no Vultr instance ever existed (consistent with the platform DB: zero Vultr provider, credential, or instance rows). Prod is planned as a greenfield deployment (campaign `019f3458` increment 22), independent of this runbook.
 >
@@ -365,7 +370,7 @@ Trigger first cert issuance. `Acme::CertificateManager#issue!` takes a single `c
 ```ruby
 cert = System::AcmeCertificate.create!(
   account: Account.first,
-  common_name: "ops.ipnode.us",
+  common_name: "<ops-host>",
   dns_credential: cred,
   challenge_type: "dns-01",            # one of AcmeCertificate::CHALLENGE_TYPES
   issuer: "letsencrypt-prod",          # one of AcmeCertificate::ISSUERS

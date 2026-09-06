@@ -1,5 +1,10 @@
 # RCP P1-a Design: ops-hub-B on rna/local-data
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 > **Status: design + prerequisite code fix landed; provisioning itself NOT executed.** Campaign
 > `019f9250-a199-7819-ace6-cee904116b3e` ("Resilient Control Plane v2"), increment **P1-a**: *"Stand up
 > ops-hub-B on rna/local-data. Acceptance: B healthy, `/up` 200, on rna's independent zpool."*
@@ -168,7 +173,7 @@ management going forward. I'd treat that as a nice-to-have refinement, not a P1-
 
 **I initially assumed ops-hub-A ran the manual systemd-installer path
 (`docs/operations/single-node-bootstrap.md` + `scripts/systemd/powernode-bootstrap.sh`)** — that doc
-explicitly says it's "the path used by `dev.ipnode.us` and the `ops` control plane," and `qm config 104`'s
+explicitly says it's "the path used by `<dev-host>` and the `ops` control plane," and `qm config 104`'s
 `cicustom:`/`ide2:...cloudinit` lines look like a plain cloud-init VM. **That assumption was wrong** — both
 `create_vm_instance` (cloud_init) and `create_uefi_disk_vm_instance` (uefi_disk) build that same
 PVE-native cloudinit drive shape (`build_qemu_vm_body`'s fixed `"ide2" => "#{storage}:cloudinit,..."`), so
@@ -312,10 +317,10 @@ peer Powernode control-plane deployment").
 
 Concretely, "just another instance, not yet a quorum member" means:
 - **Own identity, not A's.** B gets its own hostname/DNS name and its own ACME certificate — explicitly
-  **not** `ops.ipnode.us` (or whatever ops-hub-A's live hostname is) and not sharing its cert. Claiming A's
+  **not** `<ops-host>` (or whatever ops-hub-A's live hostname is) and not sharing its cert. Claiming A's
   identity is P3's job ("Floating control-plane role via SDWAN VIP... distinct from the stable per-node
   LAN identity"), not this increment's. **Flagged for operator**: what B's own hostname should actually be
-  (e.g. `ops-hub-b.ipnode.us`) — I don't have a naming convention to draw on beyond the `fleet-dns-*`
+  (e.g. `<ops-hub-b-host>`) — I don't have a naming convention to draw on beyond the `fleet-dns-*`
   pattern, and didn't want to assume.
 - **Own data, not A's.** B's Postgres seeds fresh (`SEED_ADMIN_USERS`-style first-boot admin, per
   `single-node-bootstrap.md`'s gotcha #4 — whatever the `powernode-hub-backend` module's own init

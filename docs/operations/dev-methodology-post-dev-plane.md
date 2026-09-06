@@ -1,5 +1,10 @@
 # Development & management methodology after the dev plane
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Status:** design, 2026-07-25. Feeds RCP v2 **P7** (retire the dev box).
 Grounded on live recon, not assumption — verified facts are marked ✅.
 
@@ -16,8 +21,8 @@ throws the workspace away. No pet machine. Nothing irreplaceable.
    observe in seconds. Naively routing every edit through build → publish → compose turns
    that into minutes, and you will feel it on every one-line fix.
 3. **Hidden couplings to dev.** Real example, found 2026-07-25: disk-image CI had
-   `POWERNODE_API_BASE` pinned to `10.125.0.232`, dev's *former* address. It broke silently
-   when dev's IP drifted to `10.125.0.22` and nobody noticed until a build was dispatched.
+   `POWERNODE_API_BASE` pinned to `<dev-former-ip>`, dev's *former* address. It broke silently
+   when dev's IP drifted to `<dev-ip>` and nobody noticed until a build was dispatched.
    There are almost certainly more.
 
 ---
@@ -30,12 +35,12 @@ be small, boring, and *not* participate in the system it rebuilds.
 | Anchor component | Where | Verified |
 |---|---|---|
 | Hypervisor | Proxmox cluster `ipnode` (dna/fna/lna/rna) | ✅ live |
-| Source of truth | Gitea `git.powernode.org` → **10.125.1.37**, a separately-managed docker container. Distinct subnet from dev (10.125.0.22) and from ops-hub (10.125.0.227 = VM 104); no gitea unit on dev; not a VM in the Proxmox cluster inventory | ✅ **off-dev AND off-ops-hub** (operator-confirmed) |
-| Secrets | Vault `vault.ipnode.org` (unsealed, v1.15.6) | ✅ reachable, survives dev |
+| Source of truth | Gitea `git.powernode.org` → **<gitea-ip>**, a separately-managed docker container. Distinct subnet from dev (<dev-ip>) and from ops-hub (<ops-hub-ip> = VM 104); no gitea unit on dev; not a VM in the Proxmox cluster inventory | ✅ **off-dev AND off-ops-hub** (operator-confirmed) |
+| Secrets | Vault `<vault-host>` (unsealed, v1.15.6) | ✅ reachable, survives dev |
 | Golden image | `DiskImagePublication` for `ubuntu-24.04-amd64-uefi`, content-addressed in the OCI registry | ✅ exists |
 
 **Anchor check: CLOSED.** Gitea is independent of both dev and ops-hub — verified by address
-(10.125.1.37, distinct subnet from both), by absence from the Proxmox cluster VM inventory,
+(<gitea-ip>, distinct subnet from both), by absence from the Proxmox cluster VM inventory,
 and confirmed by the operator as a separately-managed docker container. The source of truth
 therefore survives the loss of either plane, which is what makes everything below viable.
 
@@ -177,13 +182,13 @@ discovery is an outage, under time pressure, with the fallback already switched 
 
 **Standing rule that would have prevented the CI incident: name things, never pin addresses.**
 DNS names, not IPs, in every secret, manifest, config and `platform_url`. The CI break was a
-pinned IP that rotted silently; it was fixed by pointing at `https://dev.ipnode.us` instead of
+pinned IP that rotted silently; it was fixed by pointing at `https://<dev-host>` instead of
 chasing the new address.
 
 **Targets for the coupling inventory** (do this as a real increment, not ad hoc): Gitea Actions
 secrets, CI runner registration, DNS records, Vault policies and AppRole bindings,
 `platform_url` values baked into images, `POWERNODE_*` env in composed units, MCP endpoints,
-and anything resolving to `10.125.0.22`.
+and anything resolving to `<dev-ip>`.
 
 ---
 

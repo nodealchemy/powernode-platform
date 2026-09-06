@@ -1,5 +1,10 @@
 # RCP v2 — P0-c invariant enforcement + fleet audit (2026-07-23)
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Campaign:** Resilient Control Plane (RCP) v2 — `campaign_id 019f9250-a199-7819-ace6-cee904116b3e`
 **Task:** `p0c-enforce-audit-invariants`
 **Scope:** provisioning-time enforcement for INV-1 (no self-management), INV-2 (no boot-time
@@ -116,7 +121,7 @@ task #14 / the P1-a onboarding territory, not something this increment can see o
 **CONFIRMED LIVE, with the exact NFS export pinned down (corrected/sharpened after live access).**
 
 - The live Proxmox provider (`IPNode-PVE`, id `019e446f-916c-75d2-8f4d-b44bf7cb8664`, endpoint
-  `https://dna.ipnode.net:8006`) has **no `cidata_transport` key** in its `System::Provider#config`
+  `https://<pve-host>:8006`) has **no `cidata_transport` key** in its `System::Provider#config`
   (confirmed via `system_list_providers`).
 - `ProxmoxProvider#stage_cicustom`'s own doc comment states the default assumption explicitly:
   *"Defaults assume the Powernode-platform-on-ops shape: dsm-data NFS at
@@ -124,7 +129,7 @@ task #14 / the P1-a onboarding territory, not something this increment can see o
 - **Live-confirmed via `qm config 104` on dna:** ops-hub's actual VM config carries
   `cicustom: user=dsm-data:snippets/104-user.yml,meta=dsm-data:snippets/104-meta.yml` — the
   cicustom snippets specifically ride **`dsm-data`**, an NFS export from the Synology
-  (`dsm.ipnode.net:/volume1/Data`, per `/etc/pve/storage.cfg`), matching the code's documented
+  (`<nas-host>:/volume1/Data`, per `/etc/pve/storage.cfg`), matching the code's documented
   default exactly. This pins the earlier (correct but less precise) finding down to the exact host.
 - Net: **ops-hub's boot-time cloud-init / federation-payload identity delivery depends on the
   NFS-backed cicustom snippets channel (`dsm-data`) being reachable at boot** — confirmed live, not
@@ -154,7 +159,7 @@ zfspool: local-data
 nfs: dna-data
 	export /local-zfs/dna-data
 	path /mnt/pve/dna-data
-	server dna.ipnode.net
+	server <pve-host>
 	content vztmpl,iso,images,snippets,rootdir,import
 ```
 `dna-data` is a **self-hosted NFS re-export** of a dataset carved out of dna's own `local-zfs`
@@ -242,7 +247,7 @@ P1 (ops-hub-B on rna) lands:
    **third, independent** failure domain, and confirms P1-b's witness work is a real, entirely
    unstarted gap, not a paper requirement — this increment does not implement it (P1-b's job), only
    confirms it's still open.
-4. **The NFS/snippets server itself (`dsm.ipnode.net`, Synology) — a fourth domain surfaced by this
+4. **The NFS/snippets server itself (`<nas-host>`, Synology) — a fourth domain surfaced by this
    investigation, not named explicitly in the original three.** It backs BOTH the one tracked
    `ProviderVolume` (`dsm-powernode`) AND (per the INV-2 finding above) the cicustom snippets
    channel used for cloud-init/federation payload delivery. Today it is a single shared dependency

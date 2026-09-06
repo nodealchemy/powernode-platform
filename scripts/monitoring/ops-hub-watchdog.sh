@@ -50,9 +50,13 @@ TARGET_NAME="${TARGET_NAME:-ops-hub}"
 # Used ONLY in the alert text, to hand the operator the right next command. This
 # script's DETECTION is deliberately VMID-free (it probes the URL below), so a
 # wrong value here degrades an alert message and never the monitoring itself.
-TARGET_VMID="${TARGET_VMID:-600}"
-TARGET_URL="${TARGET_URL:-https://ops-hub.ipnode.us/up}"
-TARGET_PING_HOST="${TARGET_PING_HOST:-ops-hub.ipnode.us}"
+TARGET_VMID="${TARGET_VMID:-<vmid>}"
+# REQUIRED. The hub's health URL is deployment-local, so there is no default here:
+# set it in CONFIG_FILE (or the environment). The real value for this deployment is
+# recorded in platform knowledge (search_knowledge tag:deployment-ops-hub), never in git.
+TARGET_URL="${TARGET_URL:?TARGET_URL is required (e.g. https://<ops-hub-host>/up) — set it in ${CONFIG_FILE:-the config file} or the environment}"
+# Ping host defaults to the URL's hostname.
+TARGET_PING_HOST="${TARGET_PING_HOST:-$(printf '%s' "$TARGET_URL" | sed -E 's#^[a-zA-Z]+://([^/:]+).*#\1#')}"
 # 3s: tight enough that 3 consecutive failures at a 15s timer cadence (see the
 # companion .timer unit) stays comfortably under the 2-minute detection SLA even in
 # the worst case where every check times out fully -- see docs/operations/ops-hub-watchdog.md#detection-timing-budget.
@@ -177,7 +181,7 @@ else
       # 2026-07-26, and `qm status 104` now reports a VM that does not exist — which
       # reads as far worse than reality at exactly the moment nobody can afford it.
       # Parameterised so the next retarget cannot strand it again.
-      log crit "ALERT: ${TARGET_NAME} DOWN -- ${consecutive_failures} consecutive failed checks, ${reachability}. Investigate via dna's Proxmox provider (qm status ${TARGET_VMID}) before any action -- see docs/operations/ops-hub-watchdog.md."
+      log crit "ALERT: ${TARGET_NAME} DOWN -- ${consecutive_failures} consecutive failed checks, ${reachability}. Investigate from the hypervisor (qm status ${TARGET_VMID}) before any action -- see docs/operations/ops-hub-watchdog.md."
       send_webhook "ALERT: ${TARGET_NAME} DOWN (${consecutive_failures} consecutive failures) -- ${reachability}"
       already_alerted=1
     else

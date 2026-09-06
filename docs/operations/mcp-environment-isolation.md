@@ -1,5 +1,10 @@
 # MCP Environment Isolation: Production, Sandbox, and Federated Destinations
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Status**: design / recommendation — nothing here is implemented yet.
 **Date**: 2026-08-25
 **Scope**: Part I — the two-server prod/sandbox hazard as originally posed. Part II (§7–§12) —
@@ -32,7 +37,7 @@ defense that only works when permission prompts are enabled is inadequate.
 
 - `~/.claude.json` (user scope): `http://127.0.0.1:18443/mcp` — **this one wins and is the only one live**
 - `.claude/settings.json` `mcpServers`: `http://localhost:3000/api/v1/mcp/message` — i.e. **`powernode` = the sandbox**
-- `.claude/settings.local.json` `mcpServers`: `https://ops-hub.ipnode.us/api/v1/mcp/message` — production, direct, no proxy
+- `.claude/settings.local.json` `mcpServers`: `https://<ops-hub-host>/api/v1/mcp/message` — production, direct, no proxy
 
 Verified empirically that the settings-file `mcpServers` blocks are **inert**: `claude mcp list`
 connects only the two user-scope servers (plus claude.ai connectors), and the `filesystem` /
@@ -339,7 +344,7 @@ does something else. Consequences:
   closes the "`curl` through the proxy" bypass flagged in §5.
 - It does **not** replace layer 1 (server-side grant trim). The grant is authoritative at the
   destination and protects paths that never touch this proxy — other cells, direct authenticated
-  calls to `ops-hub.ipnode.us`, future clients. The proxy policy is this *cell's* enforcement;
+  calls to `<ops-hub-host>`, future clients. The proxy policy is this *cell's* enforcement;
   the grant is the *fleet's*.
 - It does **not** replace layer 3 (ask-rules): only the interactive client can put a human
   prompt on rare destructive verbs. A proxy can deny or allow; it cannot ask.

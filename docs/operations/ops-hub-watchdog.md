@@ -1,5 +1,10 @@
 # ops-hub External Watchdog + qmstart Auto-Retry
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 > Status: active (P0-a of the Resilient Control Plane v2 campaign)
 
 **When to use this runbook**: deploying or tuning the external dead-node monitor for
@@ -21,7 +26,7 @@ operator sign-off.
 
 ## Why this exists
 
-ops-hub (VM104, `ops-hub.ipnode.us`, hosted on the Proxmox hypervisor `dna`) has
+ops-hub (VM104, `<ops-hub-host>`, hosted on the Proxmox hypervisor `dna`) has
 repeatedly become its own single point of failure:
 
 - **Frozen-LKG boot trap**: once `meta.json`'s `platform_url` pointed at ops-hub
@@ -46,7 +51,7 @@ monitoring) before investing in the fuller quorum/consensus work sequenced after
 Acceptance criterion: "boot target confirmed local + pinned, no DNS/fetch dependency
 on the critical boot path." Rather than trust the incident memory's account (which is
 itself point-in-time), this was independently re-verified live via read-only SSH
-(`pnadmin@ops-hub.ipnode.us`, unprivileged, no sudo) on 2026-07-23:
+(`<operator>@<ops-hub-host>`, unprivileged, no sudo) on 2026-07-23:
 
 | Check | Result |
 |---|---|
@@ -77,7 +82,7 @@ The task specified the watchdog should run from **opn-1, edge, or dev-cell** —
 **Pass 1** (no fleet credentials yet, from the `dev` box only): none of the three
 could be identified — no DNS, no SDWAN peer (both networks showed `peer_count: 0`),
 not in the platform's `System::Node`/`NodeInstance` registries, no PTR records among
-23 live hosts found via a full `nmap -sn` sweep of `10.125.0.0/24`, and the `pnadmin`
+23 live hosts found via a full `nmap -sn` sweep of `<lan-cidr>`, and the `pnadmin`
 fleet SSH key wasn't accepted by any unidentified host. This was reported as a
 flagged decision rather than guessed.
 
@@ -91,7 +96,7 @@ flagged decision rather than guessed.
 | `opn-1` | VM **105** on `dna` (name `opn-1`, running) | **The operator's firewall — off-limits**, confirmed directly by the operator. Not a candidate. |
 | `edge` | Not found anywhere in `pvesh get /cluster/resources --type vm` across all 4 nodes | Does not exist as a VM in the current cluster. Not a candidate. |
 | `dev-cell` | VM **9000** on `dna` (`ops-hub-dev-cell-1784413717-instance-...`, running) | Exists and runs, but **on `dna`** — the same host as ops-hub itself. A watchdog there shares ops-hub's exact blind spot (total-`dna`-failure undetectable). Not a good choice for *this* probe's purpose, independent of reachability. |
-| `rna` | Real Proxmox cluster member, `10.125.0.13`, **zero running VMs at the time of check** | Confirmed independent failure domain (distinct physical host, distinct `local-data` ZFS pool from `dna-data`). **Selected** — see below. |
+| `rna` | Real Proxmox cluster member, `<pve-b-ip>`, **zero running VMs at the time of check** | Confirmed independent failure domain (distinct physical host, distinct `local-data` ZFS pool from `dna-data`). **Selected** — see below. |
 
 **Resolution: deployed to a new VM (9001) on `rna`.** Cluster-wide VMID freeness was
 verified immediately before creating it, both via `qm status 9001`/`9002` on `dna`
@@ -105,7 +110,7 @@ reference (zero hits). VMID 9002 (a concurrent throwaway from the parallel
 
 `scripts/monitoring/ops-hub-watchdog.sh` (+ `scripts/monitoring/systemd/powernode-ops-hub-watchdog.{service,timer}`).
 
-Polls `https://ops-hub.ipnode.us/up` on a short interval (falls back to ICMP ping to
+Polls `https://<ops-hub-host>/up` on a short interval (falls back to ICMP ping to
 distinguish "host fully unreachable" from "host up, app-level failure"). Requires
 `FAILURE_THRESHOLD` (default 3) consecutive failures before alerting, so a single
 transient network blip between the watchdog host and ops-hub doesn't page anyone —
@@ -164,8 +169,8 @@ script**, e.g.:
 ```bash
 # /etc/powernode/ops-hub-b-watchdog.conf
 TARGET_NAME="ops-hub-b"
-TARGET_URL="https://ops-hub-b.ipnode.us/up"   # or whatever B's real address is
-TARGET_PING_HOST="ops-hub-b.ipnode.us"
+TARGET_URL="https://<ops-hub-b-host>/up"   # or whatever B's real address is
+TARGET_PING_HOST="<ops-hub-b-host>"
 ```
 
 ```ini
@@ -204,20 +209,20 @@ need.
 ### Deployment (live, as actually run)
 
 **Deployed and running**: VM `rcp-watchdog` (VMID **9001**) on `rna`, static IP
-`10.125.0.150/24`, provisioned directly via `qm create`/`qm importdisk`/`qm set`
+`<ops-hub-b-ip>/24`, provisioned directly via `qm create`/`qm importdisk`/`qm set`
 (no template existed in cluster storage; used a freshly-downloaded generic Debian 12
 cloud image, `local-data` storage, `vmbr0` bridge — 1 vCPU / 1GB RAM / 8GB disk,
 trivial footprint against rna's ~20 idle cores / ~50GB free memory at provision time).
 Not tracked in Powernode's own `System::Node`/`NodeInstance` DB — it's a raw Proxmox
-VM, reachable directly from `dev` (same `10.125.0.0/24` LAN) via the injected
+VM, reachable directly from `dev` (same `<lan-cidr>` LAN) via the injected
 `powernode-deploy` SSH public key, user `watchdog`.
 
 **Gotcha hit and fixed**: the cloud-init `--nameserver` was initially set to
 `127.0.0.53` (copied from *this session's own* `/etc/resolv.conf`) — that address is
 `dev`'s own local `systemd-resolved` stub, meaningless on a different host. Fixed to
-the real upstream resolver (`10.125.0.1`, found via `resolvectl status` on `dev`),
+the real upstream resolver (`<upstream-dns>`, found via `resolvectl status` on `dev`),
 both live (`/etc/resolv.conf` on the VM) and persistently (`qm set 9001 --nameserver
-10.125.0.1 --searchdomain ipnode.net`, so it survives a cloud-init re-run).
+<upstream-dns> --searchdomain <fleet-domain>`, so it survives a cloud-init re-run).
 
 The `powernode-ops-hub-watchdog.timer` is enabled and active on this VM now,
 confirmed firing every ~15-16s.
@@ -249,7 +254,7 @@ in-flight knowledge-migration dumps, live rails/sidekiq/postgres/redis/traefik �
 squarely the class of "could restart/reboot/reprovision a live node" this increment's
 mandate reserves for explicit human sign-off, not a coordinating agent's say-so), the
 new watchdog VM's own outbound path to ops-hub was blocked at the network layer
-(`iptables -A OUTPUT -d 10.125.0.227 -j DROP` on VM 9001 only) — a condition
+(`iptables -A OUTPUT -d <ops-hub-ip> -j DROP` on VM 9001 only) — a condition
 indistinguishable, from the watchdog's perspective, from ops-hub actually being down,
 achieved without touching ops-hub or any other existing node.
 

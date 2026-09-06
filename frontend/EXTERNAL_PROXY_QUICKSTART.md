@@ -1,5 +1,10 @@
 # External Reverse Proxy Quick Start
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../docs/contributing/conventions/deployment-knowledge.md)).
+
 > **Scope: development only.** This covers running the Vite **dev** server behind *your own*
 > proxy (Vite HMR needs the public host/WSS to be known up front). In **production you do not
 > need an external proxy** — the bundled `powernode-reverse-proxy` (Traefik) already terminates
@@ -8,8 +13,8 @@
 > for the bundled proxy's architecture, usage, and how to point a public hostname at it.
 
 ## Your Setup
-- **Frontend URL**: https://dev.ipnode.org/
-- **Backend API**: https://dev.ipnode.org/api/v1
+- **Frontend URL**: https://dev.example.test/
+- **Backend API**: https://dev.example.test/api/v1
 - **External nginx/Apache proxy** already configured
 
 ## Quick Start (Recommended)
@@ -35,7 +40,7 @@ cd frontend
 
 # Set environment variables
 export VITE_BEHIND_PROXY=true
-export VITE_PROXY_HOST=dev.ipnode.org
+export VITE_PROXY_HOST=dev.example.test
 export VITE_PROXY_PROTOCOL=https
 
 # Use the external proxy configuration
@@ -44,8 +49,8 @@ npx vite --config vite.config.external-proxy.ts --host 0.0.0.0
 
 ## What This Solves
 
-1. **HMR WebSocket Connection**: Forces Vite's HMR to connect through `wss://dev.ipnode.org` instead of `ws://localhost:3001`
-2. **API Routing**: Frontend correctly uses `https://dev.ipnode.org/api/v1` for all API calls
+1. **HMR WebSocket Connection**: Forces Vite's HMR to connect through `wss://dev.example.test` instead of `ws://localhost:3001`
+2. **API Routing**: Frontend correctly uses `https://dev.example.test/api/v1` for all API calls
 3. **Asset Loading**: All assets load through the proxy URL
 
 ## Verify It's Working
@@ -55,13 +60,13 @@ npx vite --config vite.config.external-proxy.ts --host 0.0.0.0
    ```
    🌐 Starting Vite for External Reverse Proxy
    📍 External URLs:
-      Frontend: https://dev.ipnode.org/
-      Backend:  https://dev.ipnode.org/api/v1
+      Frontend: https://dev.example.test/
+      Backend:  https://dev.example.test/api/v1
    ```
 
 2. **Browser DevTools**:
    - Open Network tab
-   - Look for WebSocket connection to `wss://dev.ipnode.org/@vite/hmr`
+   - Look for WebSocket connection to `wss://dev.example.test/@vite/hmr`
    - Should show status 101 (Switching Protocols)
 
 3. **Test HMR**:
@@ -85,7 +90,7 @@ npx vite --config vite.config.external-proxy.ts
 - Apache must have: `RewriteCond %{HTTP:Upgrade} websocket [NC]`
 
 ### Issue: API calls failing
-**Solution**: Check that `VITE_API_BASE_URL` is set to `https://dev.ipnode.org/api/v1`
+**Solution**: Check that `VITE_API_BASE_URL` is set to `https://dev.example.test/api/v1`
 
 ## Environment Variables
 
@@ -94,12 +99,12 @@ The external proxy configuration uses these settings:
 ```env
 # Critical settings
 VITE_BEHIND_PROXY=true
-VITE_PROXY_HOST=dev.ipnode.org
+VITE_PROXY_HOST=dev.example.test
 VITE_PROXY_PROTOCOL=https
 
 # API endpoints
-VITE_API_BASE_URL=https://dev.ipnode.org/api/v1
-VITE_WS_BASE_URL=wss://dev.ipnode.org/cable
+VITE_API_BASE_URL=https://dev.example.test/api/v1
+VITE_WS_BASE_URL=wss://dev.example.test/cable
 
 # Server binding
 HOST=0.0.0.0  # Bind to all interfaces
@@ -139,4 +144,4 @@ The key difference when using an external proxy:
 - **Regular dev**: Vite serves directly, HMR connects to localhost
 - **External proxy**: Vite serves to proxy, HMR connects through proxy domain
 
-Your setup with `dev.ipnode.org` requires the external proxy configuration to ensure all WebSocket and API connections go through the proxy URL, not localhost.
+Your setup with `dev.example.test` requires the external proxy configuration to ensure all WebSocket and API connections go through the proxy URL, not localhost.

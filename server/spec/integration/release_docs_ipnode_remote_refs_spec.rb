@@ -8,9 +8,9 @@ require 'rails_helper'
 # GitHub mirror is the `github` remote. Reproduces IMP-1cbab660381e.
 #
 # The regex matches `ipnode` only as a remote NAME: word-bounded, and excluding
-# the legitimate ipnode.us / ipnode.net / ipnode.org host-taxonomy domains that
-# appear in other docs (e.g. dev.ipnode.us in single-node-bootstrap.md). A
-# sentence-final "...push to ipnode." is still caught (the `.` is not a TLD).
+# a dotted host-taxonomy domain of the same stem (those are deployment-local and
+# are placeholdered in tracked docs anyway — see conventions/deployment-knowledge.md).
+# A sentence-final "...push to ipnode." is still caught (the `.` is not a TLD).
 RSpec.describe 'release/setup docs do not reference the retired ipnode remote' do
   repo_root = File.expand_path('../../..', __dir__)
   docs = %w[

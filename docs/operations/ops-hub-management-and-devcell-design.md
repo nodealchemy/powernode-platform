@@ -1,5 +1,10 @@
 # Design: 100% management on ops-hub + disposable dev-cells
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Status:** design, 2026-07-25. Produced by a dedicated design pass (Fable), reviewed and
 selectively verified by the lead. Companion to
 [dev-methodology-post-dev-plane.md](./dev-methodology-post-dev-plane.md) and
@@ -14,7 +19,7 @@ ops-hub cannot manage the fleet because **its agent binary predates the
 `protected_egress_hosts` feature**. Verified ✅: image `a60b0a0d`, agent binary dated Jul 19;
 `grep -c protected_egress_hosts` on it returns **0**; the feature shipped 2026-07-21. The setting
 is *already correctly configured* on ops-hub's account
-(`["git.powernode.org", "dna.ipnode.net", "10.125.0.10"]`) and is simply ignored — the live nft
+(`["git.powernode.org", "<pve-host>", "<pve-ip>"]`) and is simply ignored — the live nft
 chain contains only `established,related · lo · dns · its own IP`.
 
 Fixing it requires a boot-image upgrade. That upgrade **would have bricked ops-hub** — its agent
@@ -46,7 +51,7 @@ endpoint. ops-hub down → the golden image boots to bare Ubuntu → no workbenc
 *useful* cell today requires the plane.
 
 **G4 — the anchor is one unwatched docker host.** Gitea + Vault + the OCI registry all live on
-10.125.1.37 ✅ (source + secrets + images). Its loss is total: nothing can be rebuilt. Nothing
+<gitea-ip> ✅ (source + secrets + images). Its loss is total: nothing can be rebuilt. Nothing
 watches it — the watchdog armed tonight watches ops-hub only. Deserves its own workstream: Gitea
 dump + Vault raft snapshot to a Proxmox-side location, an external probe, and a documented rebuild
 runbook for the docker host itself.
@@ -107,7 +112,7 @@ credentials must not strand ops-hub.
   self-signed, distributed only via the enrollment seed. Working; do not touch.
 - **Ingress plane (TLS):** ops-hub's server cert, which CI and browsers verify. Should be
   **publicly trusted via the existing ACME DNS-01 subsystem** — `Acme::CertificateManager` (Lego),
-  `RenewalSweepService` and the cert-expiry sensor all exist. Issue `ops-hub.ipnode.us` **fresh
+  `RenewalSweepService` and the cert-expiry sensor all exist. Issue `<ops-hub-host>` **fresh
   from ops-hub**. Do **not** migrate dev's Oct-14 cert out of dev's Vault: that copies a secret
   between planes to save one issuance.
 
@@ -197,8 +202,7 @@ precisely what happened.
   class, or chrony against the PVE host clock.
 - **F2 — DNS is the unlisted control plane.** Everything now correctly hangs on names, which makes
   whoever serves the zones load-bearing. ops-hub's initramfs-stage DNS failure (permanent LKG
-  fallback) already proves DNS is fragile at the worst boot stage. "Who serves ipnode.us /
-  ipnode.org / powernode.org, and what depends on it at boot" belongs in the coupling inventory as
+  fallback) already proves DNS is fragile at the worst boot stage. "Who serves <fleet-domains>, and what depends on it at boot" belongs in the coupling inventory as
   a first-class item.
 - **F3 — branch-protection erosion under cell fleets.** `dev_cell_branch_protection_enabled=false`
   is tolerable for one trusted dev box; a fleet of disposable autonomous cells each holding a

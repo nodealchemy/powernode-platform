@@ -1,5 +1,10 @@
 # Proving Ground — Design (2026-09-05)
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Ask (operator):** "a well rounded environment consisting of all necessary instances and SDWAN
 fabric to prove all aspects of our management capabilities."
 **Layout:** §1 and §5–§9 are the SDWAN half (the fabric that every other family rides on, and
@@ -52,9 +57,9 @@ were re-measured; where they differ, §11 says so.
 
 | Link | Mechanism | Verified state for `dryrun-fabric` |
 |---|---|---|
-| Compile | `Sdwan::TopologyCompiler.compile_for_peer` (`server/app/services/sdwan/topology_compiler.rb:72`) | Correct and continuous. `sdwan_get_topology` returns two complete views: interface `wg-sdwan-1`, VRF `sdwan-1`, hub endpoint `10.125.0.201:51820`, spoke keepalive 25, MC envelopes rev 730 re-minted hourly. |
+| Compile | `Sdwan::TopologyCompiler.compile_for_peer` (`server/app/services/sdwan/topology_compiler.rb:72`) | Correct and continuous. `sdwan_get_topology` returns two complete views: interface `wg-sdwan-1`, VRF `sdwan-1`, hub endpoint `<vm-9005-ip>:51820`, spoke keepalive 25, MC envelopes rev 730 re-minted hourly. |
 | Distribute | `GET /node_api/config/sdwan` → `show_config` (`server/app/controllers/api/v1/system/node_api/sdwan_controller.rb:52-109`), pulled by `Manager.fetchDesiredConfig` (`agent/internal/sdwan/manager.go:752`) from the heartbeat `PostSend` (`agent/internal/runtime/service.go:305-308`) | **Received.** The apply-health sensor reports `no_subsystem_observation`, reachable only when `sdwan_state.networks` is non-empty (`sdwan_apply_health_sensor.rb:252-256`), which requires a successful fetch (`manager.go:561-575`). |
-| Apply | `apply_vrfs` (`manager.go:155`; `vrf_applier.go:189`) then `apply_interface` (`manager.go:279`; `wg_applier.go:89`) | **Never applied.** Journal on VM 9005 this boot: `apply_vrfs: create vrf sdwan-1: ip link add: exit status 2; Error: Unknown device type.` then `apply_interface:wg-sdwan-1: … Unknown device type.` `ip -br link` on both VMs shows only `lo` and `enp6s18`; `wg show` prints nothing; no `wireguard` module loaded. From `dna`, UDP 51820 on 10.125.0.201 answers port-unreachable (team-lead's probe). |
+| Apply | `apply_vrfs` (`manager.go:155`; `vrf_applier.go:189`) then `apply_interface` (`manager.go:279`; `wg_applier.go:89`) | **Never applied.** Journal on VM 9005 this boot: `apply_vrfs: create vrf sdwan-1: ip link add: exit status 2; Error: Unknown device type.` then `apply_interface:wg-sdwan-1: … Unknown device type.` `ip -br link` on both VMs shows only `lo` and `enp6s18`; `wg show` prints nothing; no `wireguard` module loaded. From `dna`, UDP 51820 on <vm-9005-ip> answers port-unreachable (team-lead's probe). |
 | Observe (tunnel) | `wg show … dump` → `POST /status/sdwan` (`manager.go:492`; controller `:139-169`) → `Peer#recompute_status_from_handshake!` (`server/app/models/sdwan/peer.rb:333-347`) | Never reached; peers `pending`, `last_handshake_at` null, counters null. |
 | Observe (apply) | heartbeat `sdwan_state` → `Sdwan::AgentApplyStateWriter` (`node_api/status_controller.rb:154-160`) → `SdwanApplyHealthSensor` | Block arrives without `subsystem_states` (pre-`28460bbb` agent); the sensor can only say "unknown". |
 
@@ -486,7 +491,7 @@ Prerequisite graph: 0 → 1 → 2 → 4 → 5 → {6, 7, 8, 10}; 8 → 9 → 13;
 **Not verified (read-only limits)**
 
 - Whether `self_hosting_node_id` is set on ops-hub.
-- That `10.125.0.201` is 9005's address (team-lead's ARP read says yes).
+- That `<vm-9005-ip>` is 9005's address (team-lead's ARP read says yes).
 - Why `private_ip` stays null under `system_cloud_sync`.
 - Stored `network_profile` of the testbed instances; pool membership of builders 9002/9004/9008.
 - Internet egress from `pg-*` nodes (K3s install, package sync).

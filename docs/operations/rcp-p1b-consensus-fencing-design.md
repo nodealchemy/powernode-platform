@@ -1,5 +1,10 @@
 # RCP P1-b — Consensus Group + Fencing (Design)
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 > **Status: DRAFT — DESIGN ONLY. Not approved for execution. No live corosync/HA change.**
 > This is a boot-critical / control-plane design, **gated by INV-8** (independent adversarial
 > review by a different model/architecture) before any part executes against real hardware.
@@ -437,7 +442,7 @@ state it changes:
   `watchdog-mux`. Its host becomes self-fence-capable from that moment.
 - ops-hub-A is VM 104 on **dna**. dna also runs **opn-1 (VM 105), the production firewall.**
 - `corosync.conf` has a **single ring** (`linknumber: 0`, no redundant link). So one NIC, cable, or
-  switch-port event on dna's `10.125.0.10` path would be sufficient to hard-reset the host running
+  switch-port event on dna's `<pve-ip>` path would be sufficient to hard-reset the host running
   the firewall — where today the identical event only makes `/etc/pve` read-only while every VM
   keeps running and forwarding packets.
 

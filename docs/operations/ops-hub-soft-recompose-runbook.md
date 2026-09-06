@@ -1,8 +1,13 @@
 # Runbook — ops-hub soft-recompose (devpin dedup + system-base bump)
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Status**: attempt 1 failed 2026-08-10; **observability now fixed — ready for
 attempt 2 in an operator window**
-**Node**: ops-hub (VM 600 on dna, 10.125.0.227)
+**Node**: ops-hub (VM 600 on dna, <ops-hub-ip>)
 **Requires**: an operator present for the whole window
 
 ## Observability — done 2026-08-10 13:16, re-check before each attempt

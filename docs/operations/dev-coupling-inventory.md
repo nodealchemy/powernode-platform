@@ -1,7 +1,12 @@
 # Dev-plane coupling inventory (living)
 
-**Purpose:** enumerate everything that would break if `dev` (VM 300 on dna, `dev.ipnode.us`,
-`10.125.0.22`) were switched off. Feeds RCP **P7** and
+> **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
+**Purpose:** enumerate everything that would break if `dev` (VM 300 on dna, `<dev-host>`,
+`<dev-ip>`) were switched off. Feeds RCP **P7** and
 [dev-methodology-post-dev-plane.md](./dev-methodology-post-dev-plane.md).
 
 **Why this exists:** two of the first four couplings found had **already rotted silently** — CI
@@ -13,7 +18,7 @@ Started 2026-07-25. **Not complete** — absence from this list is not evidence 
 
 ## Good news first
 
-`dev.ipnode.us` / `10.125.0.22` / `dev.powernode*` appear **nowhere** in `.gitea/workflows/`,
+`<dev-host>` / `<dev-ip>` / `dev.powernode*` appear **nowhere** in `.gitea/workflows/`,
 `modules/`, or `initramfs/` — verified by grep. Nothing is baked into source or images. Every
 coupling found so far lives in **mutable config** (Gitea Actions secrets, platform settings),
 which means the migration surface is small and centrally changeable rather than requiring
@@ -23,11 +28,11 @@ rebuilds.
 
 | # | Coupling | Where | Impact if dev dies | Status |
 |---|---|---|---|---|
-| 1 | CI `POWERNODE_API_BASE` pinned to `10.125.0.232` — dev's **former** IP | Gitea secret | CI already broken; failed silently | ✅ **fixed** → `https://ops-hub.ipnode.us` |
-| 2 | `ops.powernode.org` resolves to a host that **doesn't serve the platform** — yet it is the workflow's hardcoded default. Re-checked 2026-08-01: now resolves `10.125.1.32` (the git HTTPS proxy), `/up` connection-refused | DNS + `build-disk-image.yaml:390,551` | CI silently falls back to a dead host whenever the secret is unset | ⚠️ **still open** — needs a DNS record or the default changed |
-| 3 | **CI builders enrol to dev**: `SiteSetting[system.ci_builder.enroll_platform_url] = https://dev.ipnode.us` | platform setting | **Build fleet cannot enrol.** You lose the ability to build the images needed to fix it — the circular dependency P7 exists to break | ✅ **fixed** — verified 2026-08-01 on ops-hub: `https://ops-hub.ipnode.us` (+ `enroll_ca_pem` present, no dev reference) |
+| 1 | CI `POWERNODE_API_BASE` pinned to `<dev-former-ip>` — dev's **former** IP | Gitea secret | CI already broken; failed silently | ✅ **fixed** → `https://<ops-hub-host>` |
+| 2 | `ops.powernode.org` resolves to a host that **doesn't serve the platform** — yet it is the workflow's hardcoded default. Re-checked 2026-08-01: now resolves `<ops-dns-ip>` (the git HTTPS proxy), `/up` connection-refused | DNS + `build-disk-image.yaml:390,551` | CI silently falls back to a dead host whenever the secret is unset | ⚠️ **still open** — needs a DNS record or the default changed |
+| 3 | **CI builders enrol to dev**: `SiteSetting[system.ci_builder.enroll_platform_url] = https://<dev-host>` | platform setting | **Build fleet cannot enrol.** You lose the ability to build the images needed to fix it — the circular dependency P7 exists to break | ✅ **fixed** — verified 2026-08-01 on ops-hub: `https://<ops-hub-host>` (+ `enroll_ca_pem` present, no dev reference) |
 | 4 | `POWERNODE_DISK_IMAGE_WEBHOOK_URL` — the call that creates the `DiskImagePublication` | Gitea secret (value masked) | New images publish to the wrong plane. Strongly implied by dev's DB holding the current publications | 🔴 open — **repoint with #1 or CI is split-brained** |
-| 5 | `reverse_proxy_url_config.trusted_hosts` includes `dev.powernode.org` / `dev.ipnode.us` | AdminSetting | Cosmetic; stale entries only | minor |
+| 5 | `reverse_proxy_url_config.trusted_hosts` includes `dev.powernode.org` / `<dev-host>` | AdminSetting | Cosmetic; stale entries only | minor |
 
 ### Note on #4 — a self-inflicted split
 
@@ -65,7 +70,7 @@ trust store or a trusted cert on ops-hub.
 
 | # | Finding | Impact |
 |---|---|---|
-| 10 | **ops-hub's boot composition is frozen to a 2026-07-19 LKG whose `source` is `https://dev.ipnode.us`**, listing DEV's module IDs. `/persist/var/lib/powernode/assignment-lkg.json`. | 🔴 **Blocks dev-off.** Worse, it can never self-correct: `ComposeForPivot` fetches the assigned-module set **pre-pivot**, and ops-hub *is* its own platform, so the fetch always fails → every boot sets `from_lkg: true` → `LKGCapturer.Run()` returns early on exactly that condition → the LKG is never re-captured. `current_version` changes cannot reach this node at all. The documented refresh path (delete the file, let the next healthy boot recapture) **bricks** it: no LKG + unreachable platform = nothing to compose. |
+| 10 | **ops-hub's boot composition is frozen to a 2026-07-19 LKG whose `source` is `https://<dev-host>`**, listing DEV's module IDs. `/persist/var/lib/powernode/assignment-lkg.json`. | 🔴 **Blocks dev-off.** Worse, it can never self-correct: `ComposeForPivot` fetches the assigned-module set **pre-pivot**, and ops-hub *is* its own platform, so the fetch always fails → every boot sets `from_lkg: true` → `LKGCapturer.Run()` returns early on exactly that condition → the LKG is never re-captured. `current_version` changes cannot reach this node at all. The documented refresh path (delete the file, let the next healthy boot recapture) **bricks** it: no LKG + unreachable platform = nothing to compose. |
 
 This one was invisible to a config audit because it lives in **on-node state**, not in a setting or
 a secret — a reminder that "find couplings by disuse" must include the nodes' own persisted state,
@@ -81,14 +86,14 @@ permanently orphaned (its identity cannot be looked up even though its cert may 
 
 | # | Coupling | Where | Impact if dev dies | Status |
 |---|---|---|---|---|
-| 11 | **Dev's traefik still serves `Host(ops-hub.ipnode.us)` routers** (`acme-…0b83….yaml`, regenerated 07-29) — dev answers as ops-hub for any client with stale DNS or a pinned keep-alive connection | dev dynamic config | Misleading: an operator browser tab on "ops-hub" can actually be dev's Vite (observed live from the workstation, ~6.9k req/hr). All API traffic through it 4xxes since the wipe | ⚠️ open — dies naturally at dev-off; meanwhile close stale tabs, check workstation `/etc/hosts` |
+| 11 | **Dev's traefik still serves `Host(<ops-hub-host>)` routers** (`acme-…0b83….yaml`, regenerated 07-29) — dev answers as ops-hub for any client with stale DNS or a pinned keep-alive connection | dev dynamic config | Misleading: an operator browser tab on "ops-hub" can actually be dev's Vite (observed live from the workstation, ~6.9k req/hr). All API traffic through it 4xxes since the wipe | ⚠️ open — dies naturally at dev-off; meanwhile close stale tabs, check workstation `/etc/hosts` |
 | 12 | **Six orphaned fleet agents poll dev every ~30 s** (403/401): `ci-native-builders-amd64-pool-*` at .194/.205/.223 and `ci-builders-amd64-pool-*` at .213 — all provisioned 2026-07-30 ~16:10–17:20 UTC, **minutes before the wipe** — plus .217 (= VMID 503, a 5th from 07-29) and stillborn VMID 505 (provisioned at the wipe-start minute) | LAN VMs (MAC OUI 12:25:78, platform-assigned) | Wasted dna capacity; after any reconnect they would have moved their 401 noise to the real ops-hub | ✅ **ALL SIX destroyed 2026-08-01** (two operator approvals; MAC-verified to dna VMIDs 500/501/502/503/504/505; freed 96 GB RAM / 960 GB disk). Only ops-hub-b (#13) still reaches dev |
 | 13 | **`ops-hub-b` (.220) is alive** = **VMID 601 on PVE cluster node `rna`** (`ops-hub-b-instance-20260727044326`, provisioned 07-27 04:43 via platform naming — by dev's platform for RCP P1a, so the wipe destroyed its registry row; the "not yet created" RCP docs were stale snapshots, not evidence of gate-jumping). `rcp-watchdog` VM 9001 is also on rna. PVE is a 4-node cluster (dna .10 + .11/.12/.13) | RCP campaign asset | Unmanaged control-plane instance, 5+ days of /persist state, no registry row anywhere | parked → RCP campaign: re-enroll to ops-hub or re-provision at P1a resume (do NOT auto-dispose) |
 
 Note on #12: the pool provisioning timestamps put **active CI-pool provisioning on dev inside the
 wipe window** — whatever session drove that activity is the best lead for the wipe's root cause.
 
-**2026-08-01 DB-side scan of ops-hub: CLEAN.** Zero `dev.ipnode`/`10.125.0.22` hits across
+**2026-08-01 DB-side scan of ops-hub: CLEAN.** Zero `<dev-host>`/`<dev-ip>` hits across
 `site_settings`, `system_gitops_repositories`, `system_package_repositories`,
 `system_federation_peers`, `system_node_platforms.disk_image_oci_ref`,
 `system_disk_image_publications.oci_ref`, and all CI workflow files (core + extensions/system +
@@ -113,7 +118,7 @@ dev — see below). Operator decision required; do not auto-dispose.
   `PLATFORM_READ_TOKEN` and `POWERNODE_CI_WORKER_TOKEN` scoping cannot be confirmed by inspection.
   They must be verified by *use* (run a build with dev off) or rotated deliberately.
 - **CI runner registration** — which platform the Gitea runners themselves are registered against.
-- **DNS** — every record pointing at `10.125.0.22`, and who serves that zone.
+- **DNS** — every record pointing at `<dev-ip>`, and who serves that zone.
 - **Vault** — AppRole bindings and policies scoped to the dev instance.
 - **The anchor's own host** — Gitea is a separately-managed docker container
   ([confirmed off both dev and ops-hub](./dev-methodology-post-dev-plane.md)), so whichever host
