@@ -15,8 +15,8 @@ require "rails_helper"
 # emits k docker steps, each wired
 #   node_instance_id => { from_step: <provision step>, path:
 #   "outputs.node_instance_ids", select: <index> }
-# and depending only on its own provision step — so a dna docker failure
-# cannot block or (post-IMP-019fe5d7) harm the rna leg.
+# and depending only on its own provision step — so a pve1 docker failure
+# cannot block or (post-IMP-019fe5d7) harm the pve2 leg.
 RSpec.describe Ai::Provisioning::PlanComposerService, "docker_provision wiring", type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
@@ -63,7 +63,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "docker_provision wiring",
   end
 
   it "fans one unwired docker step into one wired step per provisioned instance" do
-    # The 20260809b shape: provision 2×dna (step 1) + 1×rna (step 3),
+    # The 20260809b shape: provision 2×pve1 (step 1) + 1×pve2 (step 3),
     # docker step 2 depending on both, no wiring.
     provision_step!(1, 2)
     docker_step!(2, [1, 3])

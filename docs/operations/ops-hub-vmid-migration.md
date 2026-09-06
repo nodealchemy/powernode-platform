@@ -6,11 +6,11 @@
 > [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
 
 **Audience:** operator, with an agent driving. **Runtime:** ~10 min, of which the control plane is
-down for ~2–3. **Prereq:** root on `dna` (`ssh -i ~/.ssh/powernode-deploy admin@dna`, passwordless
+down for ~2–3. **Prereq:** root on `<pve-host>` (`ssh -i ~/.ssh/powernode-deploy admin@<pve-host>`, passwordless
 sudo). **Risk:** moderate — it stops the self-hosted control plane. Every step is reversible and the
 rollback is the same commands with the arguments swapped.
 
-> **This runbook is executed entirely from `dna` via `qm`/`zfs`/`mv`, never through the platform
+> **This runbook is executed entirely from `<pve-host>` via `qm`/`zfs`/`mv`, never through the platform
 > API.** ops-hub *is* the platform: the moment it stops, the API, the MCP server, and the Rails
 > console all go with it. Anything that needs the platform (step 6) happens only after it is back up.
 
@@ -31,7 +31,7 @@ Do §1 before §2. Until the bands are closed, nothing stops another plane's all
 `ProxmoxProvider#allocate_next_vmid!` supported `vmid_min` — a floor — and no ceiling. **A floor is
 not a reservation.** The search walks upward without limit, skipping ids already in use, so a band
 "reserved" by convention above a floored connection is reached as soon as that connection's own
-range fills. Live today: the dev plane's `ipnode-pve-conn` has `vmid_min: 500, vmid_max: nil`, and
+range fills. Live today: the dev plane's `<pve-connection>` has `vmid_min: 500, vmid_max: nil`, and
 the ops-hub plane floors at 9000 (which is why its builders are sitting at 9003/9004). With 500–599
 full, dev's next allocation is **600** — ops-hub-A's new id. `vmid_max` now closes the band and
 **raises on exhaustion instead of spilling upward**, because spilling is exactly the cross-plane
@@ -46,8 +46,8 @@ for future members).
 On **each** plane's Rails console, for the connection pointing at `https://<pve-host>:8006`:
 
 ```ruby
-# dev plane — connection "ipnode-pve-conn"
-c = System::ProviderConnection.find_by(name: "ipnode-pve-conn")
+# dev plane — connection "<pve-connection>"
+c = System::ProviderConnection.find_by(name: "<pve-connection>")
 c.update!(config: c.config.merge("vmid_min" => 500, "vmid_max" => 599))
 
 # ops-hub plane — same cluster, its own connection row (floor is 9000)
@@ -64,7 +64,7 @@ Verify on each: `System::ProviderConnection.find(...).config.values_at("vmid_min
 ## §2 — Pre-flight (all read-only; abort on any surprise)
 
 ```bash
-ssh -i ~/.ssh/powernode-deploy admin@dna
+ssh -i ~/.ssh/powernode-deploy admin@<pve-host>
 sudo qm status 104                      # expect: running
 sudo qm config 104 | grep -E 'protection|parent|cicustom|net0|smbios1'
 sudo qm listsnapshot 104                # expect: pre-agent-module-v28, then "current"
@@ -87,7 +87,7 @@ Record `qm config 104` in full before touching anything. It is the rollback refe
 ## §3 — Disarm the auto-restart FIRST
 
 **This step is not optional and it is not obvious.** `powernode-ops-hub-qmstart-retry` is **armed**
-on dna and hardcodes `VMID="${VMID:-104}"`. It is level-triggered and fires every 30s. The moment
+on <pve-host> and hardcodes `VMID="${VMID:-104}"`. It is level-triggered and fires every 30s. The moment
 step 4 stops VM 104, the retry sees "VM stopped, storage active" and issues `qm start 104` — mid
 rename, against a config that is being moved out from under it. Disarm it before stopping anything.
 
@@ -115,24 +115,24 @@ sudo zfs rename local-zfs/local-data/vm-104-disk-1    local-zfs/local-data/vm-60
 sudo zfs rename local-zfs/local-data/vm-104-cloudinit local-zfs/local-data/vm-600-cloudinit
 sudo zfs list -r local-zfs/local-data | grep -E 'vm-(104|600)-'   # expect: only vm-600-*
 
-# 4d. cloud-init snippets are named by VMID on dsm-data. Rename them, because
+# 4d. cloud-init snippets are named by VMID on <nas-host>-data. Rename them, because
 #     104 becomes free after this and a future VM 104 would otherwise generate
 #     its own 104-user.yml and clobber the file this VM's config points at.
-sudo mv /mnt/pve/dsm-data/snippets/104-user.yml /mnt/pve/dsm-data/snippets/600-user.yml
-sudo mv /mnt/pve/dsm-data/snippets/104-meta.yml /mnt/pve/dsm-data/snippets/600-meta.yml
+sudo mv /mnt/pve/<nas-host>-data/snippets/104-user.yml /mnt/pve/<nas-host>-data/snippets/600-user.yml
+sudo mv /mnt/pve/<nas-host>-data/snippets/104-meta.yml /mnt/pve/<nas-host>-data/snippets/600-meta.yml
 
 # 4e. move the config + per-VM firewall, then repoint every id reference.
 #     The sed covers the snapshot sections too — they carry their own disk lines.
-sudo mv /etc/pve/nodes/dna/qemu-server/104.conf /etc/pve/nodes/dna/qemu-server/600.conf
+sudo mv /etc/pve/nodes/<pve-host>/qemu-server/104.conf /etc/pve/nodes/<pve-host>/qemu-server/600.conf
 sudo mv /etc/pve/firewall/104.fw /etc/pve/firewall/600.fw
 sudo sed -i -e 's/vm-104-/vm-600-/g' -e 's#snippets/104-#snippets/600-#g' \
-            /etc/pve/nodes/dna/qemu-server/600.conf
+            /etc/pve/nodes/<pve-host>/qemu-server/600.conf
 
 # 4f. VERIFY BEFORE STARTING. No 104 references may remain, and the MAC must be
 #     unchanged. A cicustom pointing at a missing snippet fails the start.
-sudo grep -nE '104' /etc/pve/nodes/dna/qemu-server/600.conf    # expect: no output
+sudo grep -nE '104' /etc/pve/nodes/<pve-host>/qemu-server/600.conf    # expect: no output
 sudo qm config 600 | grep -E 'net0|efidisk0|scsi0|ide2|cicustom|onboot'
-sudo ls -l /mnt/pve/dsm-data/snippets/600-*.yml
+sudo ls -l /mnt/pve/<nas-host>-data/snippets/600-*.yml
 
 # 4g. start and re-protect
 sudo qm start 600
@@ -156,7 +156,7 @@ The VM is running; these are the facets that make it *managed* again. Skipping a
 silent gap — the platform managing a VM it thinks is elsewhere, or an auto-restart guarding a VM
 that no longer exists.
 
-**6a. The auto-restart guard** (on dna) — repoint, then re-arm:
+**6a. The auto-restart guard** (on <pve-host>) — repoint, then re-arm:
 
 ```bash
 sudo systemctl edit powernode-ops-hub-qmstart-retry.service   # set Environment=VMID=600
@@ -189,16 +189,16 @@ end
 
 # 2. Update ONLY the ops-hub row, by name.
 i = System::NodeInstance.find_by(name: "ops-hub-instance-20260715231350-052f")
-i.update!(config: i.config.merge("cloud_instance_id" => "dna/qemu/600"))
+i.update!(config: i.config.merge("cloud_instance_id" => "<pve-host>/qemu/600"))
 
 # 3. Confirm exactly one row claims /600.
-System::NodeInstance.where("config ->> 'cloud_instance_id' = ?", "dna/qemu/600").pluck(:name)
+System::NodeInstance.where("config ->> 'cloud_instance_id' = ?", "<pve-host>/qemu/600").pluck(:name)
 ```
 
 Run the same three steps on the **dev plane** — both planes have driven this cluster, and the dev
 plane is where the stale rows live.
 
-**6c. The external watchdog** (rna VM 9001) needs no change: it keys on `TARGET_NAME=ops-hub`, not
+**6c. The external watchdog** (<pve-b-host> VM 9001) needs no change: it keys on `TARGET_NAME=ops-hub`, not
 the VMID. Confirm it is still reporting rather than assuming.
 
 ## Rollback
@@ -211,12 +211,12 @@ sudo qm stop 600 2>/dev/null; sudo qm set 600 --protection 0
 sudo zfs rename local-zfs/local-data/vm-600-disk-0    local-zfs/local-data/vm-104-disk-0
 sudo zfs rename local-zfs/local-data/vm-600-disk-1    local-zfs/local-data/vm-104-disk-1
 sudo zfs rename local-zfs/local-data/vm-600-cloudinit local-zfs/local-data/vm-104-cloudinit
-sudo mv /mnt/pve/dsm-data/snippets/600-user.yml /mnt/pve/dsm-data/snippets/104-user.yml
-sudo mv /mnt/pve/dsm-data/snippets/600-meta.yml /mnt/pve/dsm-data/snippets/104-meta.yml
-sudo mv /etc/pve/nodes/dna/qemu-server/600.conf /etc/pve/nodes/dna/qemu-server/104.conf
+sudo mv /mnt/pve/<nas-host>-data/snippets/600-user.yml /mnt/pve/<nas-host>-data/snippets/104-user.yml
+sudo mv /mnt/pve/<nas-host>-data/snippets/600-meta.yml /mnt/pve/<nas-host>-data/snippets/104-meta.yml
+sudo mv /etc/pve/nodes/<pve-host>/qemu-server/600.conf /etc/pve/nodes/<pve-host>/qemu-server/104.conf
 sudo mv /etc/pve/firewall/600.fw /etc/pve/firewall/104.fw
 sudo sed -i -e 's/vm-600-/vm-104-/g' -e 's#snippets/600-#snippets/104-#g' \
-            /etc/pve/nodes/dna/qemu-server/104.conf
+            /etc/pve/nodes/<pve-host>/qemu-server/104.conf
 sudo qm start 104 && sudo qm set 104 --protection 1
 sudo mv /etc/powernode/qmstart-retry.armed.migrating /etc/powernode/qmstart-retry.armed
 sudo systemctl start powernode-ops-hub-qmstart-retry.timer

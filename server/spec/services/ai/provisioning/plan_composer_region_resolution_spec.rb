@@ -38,7 +38,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "region resolution", type:
   end
 
   let(:sys_provider) do
-    ::System::Provider.create!(account: account, name: "IPNode PVE", provider_type: "proxmox", enabled: true)
+    ::System::Provider.create!(account: account, name: "Lab PVE", provider_type: "proxmox", enabled: true)
   end
 
   def resolve(regions)
@@ -46,41 +46,41 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "region resolution", type:
   end
 
   describe "matching by region_code" do
-    let!(:dna) do
+    let!(:pve1) do
       ::System::ProviderRegion.create!(
-        account: account, provider: sys_provider, region_code: "dna", name: "Datacentre North A", enabled: true
+        account: account, provider: sys_provider, region_code: "pve1", name: "Datacentre North A", enabled: true
       )
     end
-    let!(:rna) do
+    let!(:pve2) do
       ::System::ProviderRegion.create!(
-        account: account, provider: sys_provider, region_code: "rna", name: "Datacentre North B", enabled: true
+        account: account, provider: sys_provider, region_code: "pve2", name: "Datacentre North B", enabled: true
       )
     end
 
     it "resolves a region named by its region_code" do
-      # The operator/brief says "rna" — the PVE node name, i.e. the region_code.
-      expect(resolve(["rna"])).to eq(rna)
+      # The operator/brief says "pve2" — the PVE node name, i.e. the region_code.
+      expect(resolve(["pve2"])).to eq(pve2)
     end
 
     it "does not silently land on an arbitrary region when the code matches" do
-      # Guards the specific failure: `scope.first` here would be dna, and the
+      # Guards the specific failure: `scope.first` here would be pve1, and the
       # instances would deploy to the wrong physical node with no signal.
-      expect(resolve(["rna"])).not_to eq(dna)
+      expect(resolve(["pve2"])).not_to eq(pve1)
     end
 
     it "still resolves a region named by its display name" do
-      expect(resolve(["Datacentre North B"])).to eq(rna)
+      expect(resolve(["Datacentre North B"])).to eq(pve2)
     end
 
     it "matches case-insensitively and ignores surrounding whitespace" do
-      expect(resolve(["  RNA  "])).to eq(rna)
+      expect(resolve(["  PVE2  "])).to eq(pve2)
     end
   end
 
   describe "when the brief names a region that does not exist" do
-    let!(:dna) do
+    let!(:pve1) do
       ::System::ProviderRegion.create!(
-        account: account, provider: sys_provider, region_code: "dna", name: "dna", enabled: true
+        account: account, provider: sys_provider, region_code: "pve1", name: "pve1", enabled: true
       )
     end
 
@@ -88,25 +88,25 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "region resolution", type:
       # The fallback itself is preserved — composition should not hard-fail on a
       # sloppy region string — but it must not be silent, because the result is
       # a real placement decision the operator never made.
-      expect(Rails.logger).to receive(:warn).with(/no region matching .*fna/i)
-      resolve(["fna"])
+      expect(Rails.logger).to receive(:warn).with(/no region matching .*pve3/i)
+      resolve(["pve3"])
     end
 
     it "still returns a usable region so composition can proceed" do
       allow(Rails.logger).to receive(:warn)
-      expect(resolve(["fna"])).to eq(dna)
+      expect(resolve(["pve3"])).to eq(pve1)
     end
   end
 
   describe "when the brief names MORE THAN ONE region" do
-    let!(:dna) do
+    let!(:pve1) do
       ::System::ProviderRegion.create!(
-        account: account, provider: sys_provider, region_code: "dna", name: "dna", enabled: true
+        account: account, provider: sys_provider, region_code: "pve1", name: "pve1", enabled: true
       )
     end
-    let!(:rna) do
+    let!(:pve2) do
       ::System::ProviderRegion.create!(
-        account: account, provider: sys_provider, region_code: "rna", name: "rna", enabled: true
+        account: account, provider: sys_provider, region_code: "pve2", name: "pve2", enabled: true
       )
     end
 
@@ -116,25 +116,25 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "region resolution", type:
     # warning was removed alongside that change: it would now be false.
     # Distribution itself is covered by plan_composer_multi_region_spec.rb.
     it "returns the first named region" do
-      expect(resolve(%w[dna rna])).to eq(dna)
+      expect(resolve(%w[pve1 pve2])).to eq(pve1)
     end
 
     it "does not warn that the other regions are dropped — they are not" do
       expect(Rails.logger).not_to receive(:warn).with(/will NOT be provisioned/)
-      resolve(%w[dna rna])
+      resolve(%w[pve1 pve2])
     end
   end
 
   describe "when the brief names no region at all" do
-    let!(:dna) do
+    let!(:pve1) do
       ::System::ProviderRegion.create!(
-        account: account, provider: sys_provider, region_code: "dna", name: "dna", enabled: true
+        account: account, provider: sys_provider, region_code: "pve1", name: "pve1", enabled: true
       )
     end
 
     it "falls back without warning — there is no operator intent to contradict" do
       expect(Rails.logger).not_to receive(:warn).with(/no region matching/i)
-      expect(resolve([])).to eq(dna)
+      expect(resolve([])).to eq(pve1)
     end
   end
 end

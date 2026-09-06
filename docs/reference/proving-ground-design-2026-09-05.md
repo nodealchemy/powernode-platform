@@ -14,7 +14,7 @@ analysis, the environment roster and the increments. The SDWAN half was accepted
 proposal `01a07051-8d33-78c9-9fc2-f42ef4d92c3e` and is not re-argued here.
 **Status:** design only. No code written, no live state changed.
 **Method:** every claim was checked today against `extensions/system` (HEAD `3927ed0b`), the
-production MCP connector, read-only shell on the Proxmox host `dna`, and two read-only
+production MCP connector, read-only shell on the Proxmox host `<pve-host>`, and two read-only
 `qm guest exec` probes (payloads under 120 bytes) against the testbed VMs. Citations are
 `file:line` inside `extensions/system` unless prefixed otherwise. Numbers the brief supplied
 were re-measured; where they differ, §11 says so.
@@ -32,7 +32,7 @@ were re-measured; where they differ, §11 says so.
 2. The platform could not see it because every node runs the pre-`28460bbb` agent
    (`powernode-system-base` v19, built 2026-08-17). Both are **rollouts, not code**, and
    both are operator decisions with fleet-wide reach.
-3. **RAM on `dna` is the binding constraint and the current instance-type catalog has no VM
+3. **RAM on `<pve-host>` is the binding constraint and the current instance-type catalog has no VM
    preset under 4 GB.** A `pve.vm.tiny` (2 vCPU / 2 GB / 20 GB) must be added; with it the
    whole proving ground fits in ~28 GB, against ~104 GB available today.
 4. **The self-management fence that keeps autonomy off ops-hub is inert until SiteSetting
@@ -46,7 +46,7 @@ were re-measured; where they differ, §11 says so.
    (every writer edits ops-hub's live Traefik; no node-side target exists), disk-image
    promotion and boot-image rollout (one `NodePlatform` default shared with ops-hub and a
    rollout executor with no fence, until `pg-amd64-uefi` and the fence land), and volume
-   snapshot/restore (the Proxmox adapter declares no snapshot support and `dna`'s zvol
+   snapshot/restore (the Proxmox adapter declares no snapshot support and `<pve-host>`'s zvol
    snapshots hang).
 
 ---
@@ -59,7 +59,7 @@ were re-measured; where they differ, §11 says so.
 |---|---|---|
 | Compile | `Sdwan::TopologyCompiler.compile_for_peer` (`server/app/services/sdwan/topology_compiler.rb:72`) | Correct and continuous. `sdwan_get_topology` returns two complete views: interface `wg-sdwan-1`, VRF `sdwan-1`, hub endpoint `<vm-9005-ip>:51820`, spoke keepalive 25, MC envelopes rev 730 re-minted hourly. |
 | Distribute | `GET /node_api/config/sdwan` → `show_config` (`server/app/controllers/api/v1/system/node_api/sdwan_controller.rb:52-109`), pulled by `Manager.fetchDesiredConfig` (`agent/internal/sdwan/manager.go:752`) from the heartbeat `PostSend` (`agent/internal/runtime/service.go:305-308`) | **Received.** The apply-health sensor reports `no_subsystem_observation`, reachable only when `sdwan_state.networks` is non-empty (`sdwan_apply_health_sensor.rb:252-256`), which requires a successful fetch (`manager.go:561-575`). |
-| Apply | `apply_vrfs` (`manager.go:155`; `vrf_applier.go:189`) then `apply_interface` (`manager.go:279`; `wg_applier.go:89`) | **Never applied.** Journal on VM 9005 this boot: `apply_vrfs: create vrf sdwan-1: ip link add: exit status 2; Error: Unknown device type.` then `apply_interface:wg-sdwan-1: … Unknown device type.` `ip -br link` on both VMs shows only `lo` and `enp6s18`; `wg show` prints nothing; no `wireguard` module loaded. From `dna`, UDP 51820 on <vm-9005-ip> answers port-unreachable (team-lead's probe). |
+| Apply | `apply_vrfs` (`manager.go:155`; `vrf_applier.go:189`) then `apply_interface` (`manager.go:279`; `wg_applier.go:89`) | **Never applied.** Journal on VM 9005 this boot: `apply_vrfs: create vrf sdwan-1: ip link add: exit status 2; Error: Unknown device type.` then `apply_interface:wg-sdwan-1: … Unknown device type.` `ip -br link` on both VMs shows only `lo` and `enp6s18`; `wg show` prints nothing; no `wireguard` module loaded. From `<pve-host>`, UDP 51820 on <vm-9005-ip> answers port-unreachable (team-lead's probe). |
 | Observe (tunnel) | `wg show … dump` → `POST /status/sdwan` (`manager.go:492`; controller `:139-169`) → `Peer#recompute_status_from_handshake!` (`server/app/models/sdwan/peer.rb:333-347`) | Never reached; peers `pending`, `last_handshake_at` null, counters null. |
 | Observe (apply) | heartbeat `sdwan_state` → `Sdwan::AgentApplyStateWriter` (`node_api/status_controller.rb:154-160`) → `SdwanApplyHealthSensor` | Block arrives without `subsystem_states` (pre-`28460bbb` agent); the sensor can only say "unknown". |
 
@@ -115,9 +115,9 @@ DB VIP for `promote_replica`, `service_discovery_composer`, and every SDWAN row.
 
 ---
 
-## 2. Capacity on `dna`, and the RAM budget
+## 2. Capacity on `<pve-host>`, and the RAM budget
 
-### 2.1 Measured 2026-09-05 06:4x UTC (read-only, from `dna`)
+### 2.1 Measured 2026-09-05 06:4x UTC (read-only, from `<pve-host>`)
 
 | Metric | Value | Note |
 |---|---|---|
@@ -125,7 +125,7 @@ DB VIP for `promote_replica`, `service_discovery_composer`, and every SDWAN row.
 | Configured RAM of *running* VMs | 228 GB | 12 running guests; overcommitted, so "available" is the real ceiling |
 | Running guests | vault 4 G, acs 16 G, **dev (300) 64 G**, ops-hub 16 G, dev-cell 16 G, ops-cell 16 G, sdwan-test-a/b 16 G each, **four ci-native-builders 16 G each (9002, 9004, 9008, 9010)** | the pool reports `ready 1`, so three running builders (48 GB) appear orphaned — verify before reclaiming |
 | Stopped guests | ops-old, windi, windo, gns, gns-1, builders 9006 and 9009 | **stopped KVM guests hold no RAM**; they hold thin disk only |
-| ZFS pool | 14.5 T, 13.1 T alloc, 1.48 T free raw; `local-zfs` **606 GB AVAIL** logical | `dna-vault` 5.84 T, `local-data` 360 G; 295 snapshots |
+| ZFS pool | 14.5 T, 13.1 T alloc, 1.48 T free raw; `local-zfs` **606 GB AVAIL** logical | `<pve-host>-vault` 5.84 T, `local-data` 360 G; 295 snapshots |
 | Instance-type presets | `pve.vm.small` 2 vCPU / **4096 MB** / 20 GB; medium 4/8192/80; large 8/16384/160; lxc tiers 2/4/8 GB (`proxmox_provider.rb:79-84`) | **no VM preset under 4 GB, and 4096 MB is exactly the heavyweight threshold** |
 
 ### 2.2 Finding: add `pve.vm.tiny`
@@ -213,7 +213,7 @@ decision · **NO** not provable here (and why). "Oracle" is always a positive ob
 | A8 | Silent instance / unrecoverable (`InstanceStatusSensor`, `InstanceUnrecoverableSensor`, `reboot_silent_instance`) | 1 pooled spoke | stop the VM's agent; sensor emits within `silent_threshold_seconds`; reboot action lands and heartbeat resumes | DEV |
 | A9 | Template closure / instance-state drift (`TemplateClosureDriftSensor`, `InstanceStateDriftSensor`) | 1 node | remove a module from the template; sensor emits; converge action reattaches | DEV |
 | A10 | Bare-metal claim (`smoke_test_bare_metal_claim`) | physical device | — | NO: DB-level only; the claim flow needs a real device and `POWERNODE_CA_PEM_URL` is unset |
-| A11 | arm64 / RPi images | arm64 hardware | — | NO: no arm64 host on `dna` |
+| A11 | arm64 / RPi images | arm64 hardware | — | NO: no arm64 host on `<pve-host>` |
 
 ### B. SDWAN fabric
 
@@ -253,7 +253,7 @@ decision · **NO** not provable here (and why). "Oracle" is always a positive ob
 | # | Capability | Needs | Positive oracle | Status |
 |---|---|---|---|---|
 | D1 | Volume create/attach/mount (`attach_storage`, `create_volume`, `attach_volume`) | 1 node | `findmnt` on the node at the requested path; a written marker file survives detach/attach on another node | DEV |
-| D2 | Volume snapshot / restore (`snapshot_volume`, `restore_volume`, `SnapshotPolicySensor`) | provider snapshot support | — | **NO on `dna`**: zvol snapshots hang (`z_zvol` taskq wedged). Provable only after a host reboot of `dna` or on another hypervisor — operator decision |
+| D2 | Volume snapshot / restore (`snapshot_volume`, `restore_volume`, `SnapshotPolicySensor`) | provider snapshot support | — | **NO on `<pve-host>`**: zvol snapshots hang (`z_zvol` taskq wedged). Provable only after a host reboot of `<pve-host>` or on another hypervisor — operator decision |
 | D3 | NFS export + storage assignment (`test_nfs_export`, `storage_assignment_*`, `StorageAssignmentDriftSensor`) | gw-1 with `storage-tools` + a consumer node over the overlay | consumer mounts the export over `wg-sdwan-1`; marker file round-trips; drift sensor emits when the assignment is deleted on-node | DEV (after inc. 1) |
 | D4 | Storage migration + revert + chown (`migrate_storage_component`, `storage_chown_*`, `smoke_test_storage_migration_revert_cleanup`) | two storage targets | data present at the new target with the assigned owner; revert restores the binding | DEV (block-level copy; no snapshot needed) |
 | D5 | Storage recommendations (`get_storage_recommendations`) | any | recommendation row cites a real assignment | DEV |
@@ -275,7 +275,7 @@ decision · **NO** not provable here (and why). "Oracle" is always a positive ob
 | F1 | `replace_instance` (warm-pool replacement, volume reattach, SDWAN re-enrol, VIP move) | pooled spoke + a victim spoke with a volume and VIP | after stopping the victim: replacement holds the volume (marker file readable), holds a peer on the same network with a handshake, and holds the VIP (`d-sdwan-*`); the victim is **not** terminated (`reap: false`) | DEV |
 | F2 | `reap_instance` (separately gated destroy) | F1 | victim VM gone from `qm list`; row `terminated`; the approval request exists before it | DEV (approval-gated; harness approves the `pg-*` scoped policy) |
 | F3 | `promote_replica` (postgres primary → replica, DB VIP cutover, fence) | db-1, db-2, DB VIP, `ReplicaLagSensor` | after stopping db-1: db-2 `pg_is_in_recovery() = f`; the VIP moved; a write through the VIP lands in db-2 | DEV (after inc. 1) |
-| F4 | `restore_volume` | D2 | — | NO on `dna` (snapshots) |
+| F4 | `restore_volume` | D2 | — | NO on `<pve-host>` (snapshots) |
 | F5 | `relocate_workload` (region to region) | second region | — | NO: one Proxmox region; provable as a same-region blue/green only |
 | F6 | `capacity_recommend`, `attribute_failure`, `runbook_generate` | any | output names real instances/promotions; runbook lists the template's real boot order | DEV |
 
@@ -284,7 +284,7 @@ decision · **NO** not provable here (and why). "Oracle" is always a positive ob
 | # | Capability | Needs | Positive oracle | Status |
 |---|---|---|---|---|
 | G1 | `sdwan_only` peer: prefix advertisement into AllowedIPs and FIB (`FederationPrefixResolver`) | a plain WireGuard endpoint on the LAN advertising a `/64` | hub's compiled `allowed_ips` carries the prefix; spoke FIB has it; a ping into the prefix is answered by the stand-in | DEV |
-| G2 | `platform` federation propose → accept → enrol → heartbeat (`federation_acceptance`, `federation_manager`, `federation_peer_remediate`, `FederationPeerLivenessSensor`, `smoke_test_k3s_federation`) | a second control plane | `FederationPeer` reaches `active` on both sides; liveness sensor emits when the peer is stopped; remediate re-handshakes | OP (16 GB second platform VM on `dna`) |
+| G2 | `platform` federation propose → accept → enrol → heartbeat (`federation_acceptance`, `federation_manager`, `federation_peer_remediate`, `FederationPeerLivenessSensor`, `smoke_test_k3s_federation`) | a second control plane | `FederationPeer` reaches `active` on both sides; liveness sensor emits when the peer is stopped; remediate re-handshakes | OP (16 GB second platform VM on `<pve-host>`) |
 | G3 | `cluster_member` spawn with PG replication (`smoke_test_cluster_member_ha`) | G2 | replication slot active on the parent | OP |
 | G4 | Cross-site SDWAN over a real WAN / NAT | second physical site | — | NO: single LAN; NAT traversal cannot be proven here |
 
@@ -314,7 +314,7 @@ decision · **NO** not provable here (and why). "Oracle" is always a positive ob
 | J3 | Kill switch (`kill_switch_status`, `abort_task`) | a running `pg-*` task | task aborted; no further actuation on the node | DEV |
 | J4 | Self-management fence (INV-1) | `self_hosting_node_id` set | an actuate path handed ops-hub's instance returns `self_managed_skip` (unit-level, via a dry-run signal) — never a live test against ops-hub | DEV (dry-run only) |
 | J5 | Governance/capability gap (`GovernanceGapSensor`, `CapabilityGapSensor`, `governance_gap_propose`, `fulfill_capability_request`) | a declared category with no owner; an NL capability request | one improvement offer; a durable `FulfillmentRequest` reaching a leased `pg-*` instance | DEV |
-| J6 | SLO sensors (`ProjectSloSensor`, `SloViolationSensor`), `scale_project`, adaptation lane | a project with replicas in the pool | replica added/removed on `dna` (VM count changes) with provenance-stamped proposal | DEV |
+| J6 | SLO sensors (`ProjectSloSensor`, `SloViolationSensor`), `scale_project`, adaptation lane | a project with replicas in the pool | replica added/removed on `<pve-host>` (VM count changes) with provenance-stamped proposal | DEV |
 | J7 | Stuck task backlog (`StuckTaskBacklogSensor`) | a task on a stopped node | signal emitted; reaper resolves it | DEV |
 | J8 | `platform_maintenance` / `platform_resilience` (cordon, stop, scale) | `pg-*` instance | cordon sets `cordon`; stop changes `qm` status; the same call against ops-hub is refused by the fence (dry-run) | DEV for `pg-*`; NO live against ops-hub (§7) |
 | J9 | `platform_deploy` (new sovereign platform) | 16 GB VM | new platform answers `/up` | OP |
@@ -352,7 +352,7 @@ B row plus C1–C3, C6, D3, E5, F1, F3 and G1 depend on increment 1 (a working o
 
 ## 6. Lifecycle and reset
 
-- **Provider:** `IPNode PVE` on `dna`. `local-qemu` (`qemu:///session` on the Rails host,
+- **Provider:** `<pve-provider>` on `<pve-host>`. `local-qemu` (`qemu:///session` on the Rails host,
   i.e. ops-hub) is unusable.
 - **Create:** `system_create_node` on a `pg-*` template + `system_provision_instance`
   (synchronous; `uefi_disk` imports the promoted image, `proxmox_provider.rb:258,1015,1400,1561`);
@@ -364,7 +364,7 @@ B row plus C1–C3, C6, D3, E5, F1, F3 and G1 depend on increment 1 (a working o
   (hubs, db, k3s-server, gw) are rebuilt with terminate + provision; the protection flag is
   cleared by the provider (`proxmox_provider.rb:461-469`). The `verify:` netdev probe (inc. 2)
   is what makes "rebuilt onto a capable image" a measured fact rather than a version number.
-- **Never**: `qm snapshot`, `snapshot_volume`, `restore_volume_snapshot` on `dna`.
+- **Never**: `qm snapshot`, `snapshot_volume`, `restore_volume_snapshot` on `<pve-host>`.
 - **Time (measured on the testbed):** instance row → composed node ≈ 85 s; parallel provision
   of 11 tiny nodes ≈ 4 min; phase-1 SDWAN pass ≈ 5–8 min when oracles read timestamps
   directly; a full matrix pass is bounded by K3s install and DR waits, estimate 30–45 min;
@@ -469,7 +469,7 @@ Prerequisite graph: 0 → 1 → 2 → 4 → 5 → {6, 7, 8, 10}; 8 → 9 → 13;
 
 - "~700 GB logical free": `zfs list` shows **606 GB AVAIL** on `local-zfs`. Snapshots: 295, not 296.
 - "Stopped/errored CI builders hold RAM reservations": stopped KVM guests hold **no RAM**, only thin disk. The real RAM lever is the **three running builders 9002/9004/9008 (48 GB)** that the pool's `ready 1` does not account for — verify they are not claimed before reclaiming.
-- "QGA reply path on dna is broken": from `dna`, `sudo qm guest exec 9005 -- /bin/sh -c …` returned captured output for me on both VMs today (payloads < 120 bytes). Keep payloads small; the channel works.
+- "QGA reply path on <pve-host> is broken": from `<pve-host>`, `sudo qm guest exec 9005 -- /bin/sh -c …` returned captured output for me on both VMs today (payloads < 120 bytes). Keep payloads small; the channel works.
 - "622 MCP actions": the auto catalog has 625 `###` headings. "28 smoke scripts": 34 seed files. "65 executors": confirmed (39+1+5+10+1+5+3+1). "36 sensors": confirmed.
 - "Two-node testbed alive": alive, and useless as booted; the template is fine.
 - "Thresholds DB-driven": only apply-health. "`verify:` reports on the heartbeat": PATH resolution only. "BGP one network only": stale since IMP-2f34679b6b73. "`sdwan_failover` remediation": planning-only.
@@ -501,7 +501,7 @@ Prerequisite graph: 0 → 1 → 2 → 4 → 5 → {6, 7, 8, 10}; 8 → 9 → 13;
 
 ## 12. Capability families: minimum infrastructure, oracle, RAM, blast radius
 
-Each family answers the same four questions. RAM is on `dna` with the `pve.vm.tiny` (2 GB)
+Each family answers the same four questions. RAM is on `<pve-host>` with the `pve.vm.tiny` (2 GB)
 and `pve.vm.small` (4 GB) types from §2.2; "104 GB available" is today's measured headroom.
 Blast radius names the three things that must never be a participant: the control plane
 (ops-hub), the production fleet (every non-`pg-*` node) and the public mirror
@@ -534,7 +534,7 @@ that platform**, behind the fence from §3. Where no such target exists the fami
 |---|---|
 | Minimum infrastructure | `pg-gw-1` with `storage-tools` as the NFS export host; one consumer node on the overlay; two Proxmox volumes for migration |
 | Positive oracle | attach: `findmnt` at the requested path on the node and a marker file that survives detach and re-attach on a second node; NFS export: the consumer mounts over `wg-sdwan-1` and the marker round-trips; migration: data present at the target with the assigned owner, the approval row exists before the copy, revert restores the binding; chown retry: the owner uid on the target changes after `storage_chown_retry`; drift: `StorageAssignmentDriftSensor` emits when the on-node assignment is removed |
-| Snapshot and restore | **not provable on Proxmox**: `ProxmoxProvider#supports_volume_snapshots?` returns `false` (`proxmox_provider.rb:676`), so `VolumeManagementService#snapshot` declines at the seam (`volume_management_service.rb:305-313`) and `restore_snapshot` never reaches its copy-swap branch (`:480`). Independently, zvol snapshots hang on `dna`. This forces either a second provider with snapshot support or a future NFS-backed copy primitive; neither exists today |
+| Snapshot and restore | **not provable on Proxmox**: `ProxmoxProvider#supports_volume_snapshots?` returns `false` (`proxmox_provider.rb:676`), so `VolumeManagementService#snapshot` declines at the seam (`volume_management_service.rb:305-313`) and `restore_snapshot` never reaches its copy-swap branch (`:480`). Independently, zvol snapshots hang on `<pve-host>`. This forces either a second provider with snapshot support or a future NFS-backed copy primitive; neither exists today |
 | RAM | gw-1 is shared; consumer is a pooled spoke: **0 GB additional** |
 | Blast radius | all volumes are `pg-*` attached; no control-plane path. The NFS export host is a `pg-*` node, never ops-hub |
 
@@ -617,14 +617,14 @@ that platform**, behind the fence from §3. Where no such target exists the fami
 ### 12.11 What needs a second control plane or a second Proxmox host (findings, not blockers)
 
 - **Platform federation** (propose/accept/enrol/heartbeat, cluster_member with PG replication,
-  `platform_deploy`): a second control plane VM, 16 GB, on `dna`. `sdwan_only` federation is
+  `platform_deploy`): a second control plane VM, 16 GB, on `<pve-host>`. `sdwan_only` federation is
   provable without it (G1).
 - **Ingress** (12.6) unless the node-side writer is built.
 - **Cross-region relocate and failover** (`relocate_workload`, region-aware scale): a second
   Proxmox host registered as a second region. `local_qemu` is not a substitute (it is ops-hub).
 - **Volume snapshot/restore** (12.2): a provider with snapshot support, i.e. not Proxmox as the
-  adapter stands, regardless of the `dna` wedge.
-- **Real WAN / NAT traversal, bare metal, arm64, real cloud adapters**: outside `dna` entirely.
+  adapter stands, regardless of the `<pve-host>` wedge.
+- **Real WAN / NAT traversal, bare metal, arm64, real cloud adapters**: outside `<pve-host>` entirely.
 
 ---
 
@@ -632,21 +632,21 @@ that platform**, behind the fence from §3. Where no such target exists the fami
 
 | # | Instance | Type / GB | Pool | Host | Purpose |
 |---|---|---|---|---|---|
-| 1 | `pg-hub-a` (rebuild of 9005) | tiny / 2 | long-lived | dna | SDWAN hub, RR, member of nets A and B |
-| 2 | `pg-hub-b` | tiny / 2 | long-lived | dna | second hub, hub failover |
-| 3 | `pg-gw-1` | tiny / 2 | long-lived | dna | gateway (`lan_subnets`), NFS export host, net B |
-| 4 | `pg-db-1` | small / 4 | long-lived | dna | postgres-primary, DB VIP |
-| 5 | `pg-db-2` | small / 4 | long-lived | dna | postgres-replica, `promote_replica` target |
-| 6 | `pg-k3s-server` | small / 4 | long-lived | dna | K3s server, flannel over SDWAN |
-| 7 | `pg-k3s-agent` | tiny / 2 | ephemeral pool | dna | agent join, drain/reprovision |
-| 8 | `pg-docker-1` | tiny / 2 | long-lived | dna | swarm manager, stacks, services |
-| 9 | `pg-docker-2` | tiny / 2 | long-lived | dna | swarm worker, node promote/drain |
-| 10 | `pg-ud-1` | tiny / 2 | long-lived | dna | user-device role, federation stand-in (`wg-fed0`) |
-| 11–12 | `pg-spoke-N` | tiny / 2 × 2 | ephemeral pool (`max_size 2`) | dna | DR victim + warm spare, honeypot, churn |
-| 13 | `pg-tenant-b-1` | tiny / 2 | long-lived, account B | dna | tenancy negative oracle |
-| — | `ci-native-builders-amd64` | large / 16 | existing pool | dna | module and image builds (unchanged) |
+| 1 | `pg-hub-a` (rebuild of 9005) | tiny / 2 | long-lived | <pve-host> | SDWAN hub, RR, member of nets A and B |
+| 2 | `pg-hub-b` | tiny / 2 | long-lived | <pve-host> | second hub, hub failover |
+| 3 | `pg-gw-1` | tiny / 2 | long-lived | <pve-host> | gateway (`lan_subnets`), NFS export host, net B |
+| 4 | `pg-db-1` | small / 4 | long-lived | <pve-host> | postgres-primary, DB VIP |
+| 5 | `pg-db-2` | small / 4 | long-lived | <pve-host> | postgres-replica, `promote_replica` target |
+| 6 | `pg-k3s-server` | small / 4 | long-lived | <pve-host> | K3s server, flannel over SDWAN |
+| 7 | `pg-k3s-agent` | tiny / 2 | ephemeral pool | <pve-host> | agent join, drain/reprovision |
+| 8 | `pg-docker-1` | tiny / 2 | long-lived | <pve-host> | swarm manager, stacks, services |
+| 9 | `pg-docker-2` | tiny / 2 | long-lived | <pve-host> | swarm worker, node promote/drain |
+| 10 | `pg-ud-1` | tiny / 2 | long-lived | <pve-host> | user-device role, federation stand-in (`wg-fed0`) |
+| 11–12 | `pg-spoke-N` | tiny / 2 × 2 | ephemeral pool (`max_size 2`) | <pve-host> | DR victim + warm spare, honeypot, churn |
+| 13 | `pg-tenant-b-1` | tiny / 2 | long-lived, account B | <pve-host> | tenancy negative oracle |
+| — | `ci-native-builders-amd64` | large / 16 | existing pool | <pve-host> | module and image builds (unchanged) |
 | **Phase 1–2 total** | **13 new instances** | | | | **32 GB new + 16 GB existing = 48 GB of the 104 GB available** |
-| Phase 3 | `pg-ovs-1` medium / 8, `pg-ovn-central` small / 4, `pg-ingress` tiny / 2, second control plane large / 16 | | | dna | OVS/IPFIX, OVN, node-side ingress, platform federation: **+30 GB** |
+| Phase 3 | `pg-ovs-1` medium / 8, `pg-ovn-central` small / 4, `pg-ingress` tiny / 2, second control plane large / 16 | | | <pve-host> | OVS/IPFIX, OVN, node-side ingress, platform federation: **+30 GB** |
 
 Not on the roster, by design: ops-hub, dev-cell (LAN-side client only), ops-cell, VM 300.
 Two `Sdwan::Network`s (A ibgp, B static), one second `NodePlatform` (`pg-amd64-uefi`), three
@@ -705,6 +705,6 @@ Prerequisite graph: W0 → W1 → W2 → W3 → {W4, W5, W6, W9, W10}; {W5, W6} 
 2. **Add `pve.vm.tiny` (2 GB) and size the proving ground at 11 nodes / 28 GB**, explicit
    lightweight profile, `pg-*` templates and pool; do not reuse 16 GB nodes; reclaim the three
    apparently orphaned running builders only after verifying pool membership.
-3. **Accept the "not provable here" list** (zvol snapshots/restore on `dna`, K3s HA, bare
+3. **Accept the "not provable here" list** (zvol snapshots/restore on `<pve-host>`, K3s HA, bare
    metal, arm64, real WAN federation, real cloud adapters, live actuation against ops-hub) and
    fund phase 3 (OVS/OVN/IPFIX modules, second control plane) as separate approvals.

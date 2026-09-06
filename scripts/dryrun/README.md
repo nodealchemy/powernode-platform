@@ -1,5 +1,10 @@
 # P2 — Headless Platform-Autonomy Dry-Run
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 One command drives the full autonomous-provisioning pipeline end-to-end and
 grades it. This is the repeatable, headless successor to the operator-in-the-loop
 runs (a–g) documented in `docs/operations/platform-autonomy-dryrun-run-*.md`;
@@ -16,7 +21,7 @@ echo "exit code = $?"   # 0 = clean pass; N = N findings
 ```
 
 `--no-cleanup` retains the provisioned VMs for forensics; `--objective` overrides
-the default 3-node dna+rna brief; `--expected-count N` overrides the
+the default 3-node <pve-host>+<pve-b-host> brief; `--expected-count N` overrides the
 brief-derived instance count for the outcome check;
 `--compose-timeout`/`--execute-timeout`/`--poll-interval` (seconds) tune how long
 the supervisor waits for the pipeline to reach each gate (defaults 120/900/2 —

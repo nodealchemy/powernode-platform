@@ -6,13 +6,13 @@
 # since ops-hub (VM600 — VM104 until 2026-07-26) was repointed to its own
 # platform_url, it heartbeats ONLY to itself. Dev's own NodeInstance table for
 # ops-hub is stale/terminated and alerts nothing. The 2026-07-21->23 incident (a
-# dna-data NFS blip failed a manual qmstart of what was then VM104,
+# pve1-data NFS blip failed a manual qmstart of what was then VM104,
 # nothing retried, node down ~2 days unnoticed) happened precisely because no
 # INDEPENDENT third party was watching. This script is that third party: it must run
 # on a host that is NOT ops-hub itself (self-monitoring is the exact anti-pattern this
-# campaign exists to eliminate) and ideally not on dna either (dna dying takes ops-hub
-# down WITH it, so a dna-local monitor can't see a whole-host failure — though it CAN
-# still catch the actual 2026-07-21 scenario, where dna/storage were fine and only the
+# campaign exists to eliminate) and ideally not on pve1 either (pve1 dying takes ops-hub
+# down WITH it, so a pve1-local monitor can't see a whole-host failure — though it CAN
+# still catch the actual 2026-07-21 scenario, where pve1/storage were fine and only the
 # VM was down; see docs/operations/ops-hub-watchdog.md for the placement discussion).
 #
 # WHAT IT DOES: polls ops-hub's /up endpoint (falls back to ICMP ping to distinguish

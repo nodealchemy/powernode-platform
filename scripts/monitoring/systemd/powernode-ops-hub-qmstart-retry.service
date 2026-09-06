@@ -2,7 +2,7 @@
 Description=Powernode: dry-run qmstart auto-retry for ops-hub/VM104 (RCP v2 P0-a, NOT ARMED)
 Documentation=https://github.com/powernode/platform
 Documentation=file:///opt/powernode/docs/operations/ops-hub-watchdog.md
-# Must run on the Proxmox hypervisor host (dna) -- needs local `qm`/`pvesm` CLI.
+# Must run on the Proxmox hypervisor host (pve1) -- needs local `qm`/`pvesm` CLI.
 ConditionPathExists=/usr/sbin/qm
 After=pve-cluster.service pvedaemon.service
 StartLimitIntervalSec=0

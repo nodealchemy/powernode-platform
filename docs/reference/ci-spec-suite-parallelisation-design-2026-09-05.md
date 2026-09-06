@@ -1,5 +1,10 @@
 # powernode-system CI: spec-suite parallelisation and schema-materialisation design
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Status:** design only — nothing here is implemented. Audit = report only.
 **Date:** 2026-09-05. Measured against run 1762 (`powernode/powernode-system` develop `eace9e55`, parent
 develop `cd7fe58c6`).
@@ -69,7 +74,7 @@ Current four suites as ci.yaml defines them: controllers 2144, services 8398, mo
 
 ### 1.3 Runner facts read from run 1762 logs
 
-- Runner reports `runner3(version:v3.2.0)`; three runners (`runner1..3`), all on the same host (`fna` per
+- Runner reports `runner3(version:v3.2.0)`; three runners (`runner1..3`), all on the same host (`<pve-c-host>` per
   memory) and therefore the same docker daemon and bridge. This is why fixed host ports collide across
   runners and why `max-parallel` on one job cannot help even if honoured.
 - Job containers: image `ghcr.io/catthehacker/ubuntu:act-24.04`, `network="bridge"`, name
@@ -234,7 +239,7 @@ Memory records that three worktrees running `db:schema:load` concurrently on one
 sub-minute prep into 15 minutes (fsync contention). Six shard jobs on one host would recreate that on
 the runner. A tmpfs data dir plus `fsync=off` removes the disk from the path entirely; the test DB is
 ~140 MB, the tmpfs cap is 2 GB, and the data is throwaway by definition. **Unverified: host RAM on
-`fna`.** If it is tight, drop `--tmpfs` and keep only the postgres flags (which already eliminate
+`<pve-c-host>`.** If it is tight, drop `--tmpfs` and keep only the postgres flags (which already eliminate
 fsync); the 2 GB figure should be confirmed against `free -g` on the host before step 2 lands.
 
 ### 3.4 Redis per job, and per process
@@ -351,7 +356,7 @@ Measured balance at N=6: **2481 / 2481 / 2481 / 2481 / 2481 / 2480**. For compar
 Once shard jobs are stable, `CI_RSPEC_PROCS=k` can run k rspec processes inside one shard job: split the
 shard's file list k ways with the same LPT, give each process `TEST_ENV_NUMBER=_pK` (postgres:
 `createdb --template=powernode_test powernode_test_pK` after the migrate — seconds) and **its own redis
-container** (§3.4). Host CPU on `fna` is unknown; three concurrent shard jobs × k processes must fit.
+container** (§3.4). Host CPU on `<pve-c-host>` is unknown; three concurrent shard jobs × k processes must fit.
 Measure a single `k=2` run before making it the default. `parallel_tests` is not in the bundle
 (`Gemfile.lock` has only `parallel`) and adding it is a core-repo change; the plain-rspec approach above
 needs no gem.
@@ -585,7 +590,7 @@ never loses its only signal.
 
 - `timeout-minutes`, `$GITHUB_ENV`, `github.run_id`, `needs.<job>.result`, matrix-job outputs — all
   unproven on this runner (§1.4); step 0 exists to close that.
-- Host `fna` CPU count and RAM: unknown; §3.3's tmpfs size and §5.5's process count depend on it.
+- Host `<pve-c-host>` CPU count and RAM: unknown; §3.3's tmpfs size and §5.5's process count depend on it.
 - Per-example timing beyond the controllers suite: unknown; every wall-time estimate assumes
   0.875 s/example, which is an upper bound for unit-heavy shards and might be exceeded only by a shard
   that is entirely request specs (impossible under LPT — 2144 request/controller examples are spread

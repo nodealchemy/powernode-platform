@@ -9,7 +9,7 @@ require "rails_helper"
 # VerificationService replaces the stub with real checks:
 #   - the mission must reference a composed plan;
 #   - every executed step must be completed, with NO recorded failures
-#     (the rna step's failure WAS recorded in last_outputs and ignored);
+#     (the pve2 step's failure WAS recorded in last_outputs and ignored);
 #   - each provisioning step must have produced exactly the instances it was
 #     asked for (count vs node_instance_ids);
 #   - each produced instance is reconciled against the LIVE provider through
@@ -92,7 +92,7 @@ RSpec.describe Ai::Provisioning::VerificationService, type: :service do
     before { stub_verifier(nil) }
 
     it "is UNHEALTHY when a step recorded failures — even though the step 'completed'" do
-      # The rna step's exact shape: completed, partial, failure recorded and
+      # The pve2 step's exact shape: completed, partial, failure recorded and
       # previously ignored by everything downstream.
       provision_step!(number: 1, count: 1, instance_ids: [],
                       failures: [{ "step" => "provision_instance", "error" => "PVE error: 500 already exists" }])

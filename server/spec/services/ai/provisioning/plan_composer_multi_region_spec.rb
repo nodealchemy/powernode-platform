@@ -6,8 +6,8 @@ require "rails_helper"
 #
 # resolve_region_for_brief returned Array(brief["regions"]).first and
 # merge_resolved_inputs! stamped that single provider_region_id onto the step
-# along with the FULL instance count. A brief asking for ['dna','rna'] with
-# scale.initial 3 produced 3 instances on dna and nothing on rna — the
+# along with the FULL instance count. A brief asking for ['pve1','pve2'] with
+# scale.initial 3 produced 3 instances on pve1 and nothing on pve2 — the
 # operator's stated multi-region intent silently dropped. Observed live
 # 2026-08-08 on plan 019fe1db-f680-7116-8e76-110166f070ed.
 #
@@ -34,15 +34,15 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "multi-region placement", 
   end
 
   let(:sys_provider) do
-    ::System::Provider.create!(account: account, name: "IPNode PVE", provider_type: "proxmox", enabled: true)
+    ::System::Provider.create!(account: account, name: "Lab PVE", provider_type: "proxmox", enabled: true)
   end
-  let!(:dna) do
+  let!(:pve1) do
     ::System::ProviderRegion.create!(account: account, provider: sys_provider,
-                                     region_code: "dna", name: "dna", enabled: true)
+                                     region_code: "pve1", name: "pve1", enabled: true)
   end
-  let!(:rna) do
+  let!(:pve2) do
     ::System::ProviderRegion.create!(account: account, provider: sys_provider,
-                                     region_code: "rna", name: "rna", enabled: true)
+                                     region_code: "pve2", name: "pve2", enabled: true)
   end
 
   def brief_for(regions, count)
@@ -51,21 +51,21 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "multi-region placement", 
 
   describe "#resolve_regions_for_brief" do
     it "resolves every named region, in brief order" do
-      expect(service.send(:resolve_regions_for_brief, brief_for(%w[dna rna], 2))).to eq([dna, rna])
+      expect(service.send(:resolve_regions_for_brief, brief_for(%w[pve1 pve2], 2))).to eq([pve1, pve2])
     end
 
     it "resolves by region_code as well as name" do
-      expect(service.send(:resolve_regions_for_brief, brief_for(%w[rna dna], 2))).to eq([rna, dna])
+      expect(service.send(:resolve_regions_for_brief, brief_for(%w[pve2 pve1], 2))).to eq([pve2, pve1])
     end
 
     it "de-duplicates when two names resolve to the same region" do
-      expect(service.send(:resolve_regions_for_brief, brief_for(%w[dna dna], 2))).to eq([dna])
+      expect(service.send(:resolve_regions_for_brief, brief_for(%w[pve1 pve1], 2))).to eq([pve1])
     end
 
     it "skips names that resolve to nothing rather than substituting" do
-      # 'fna' has no region record here; it must not silently become dna.
+      # 'pve3' has no region record here; it must not silently become pve1.
       allow(Rails.logger).to receive(:warn)
-      expect(service.send(:resolve_regions_for_brief, brief_for(%w[dna fna], 2))).to eq([dna])
+      expect(service.send(:resolve_regions_for_brief, brief_for(%w[pve1 pve3], 2))).to eq([pve1])
     end
 
     it "returns [] for a brief naming no regions" do
@@ -127,30 +127,30 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "multi-region placement", 
     end
 
     it "splits one provisioning step into one per region, preserving the total count" do
-      provision_step!(1, 3, dna.id)
-      service.send(:fan_out_regions!, plan, brief_for(%w[dna rna], 3))
+      provision_step!(1, 3, pve1.id)
+      service.send(:fan_out_regions!, plan, brief_for(%w[pve1 pve2], 3))
 
       pf = plan.steps.reload.select { |s| s.execution_config["skill"] == "provision_full_stack" }
       expect(pf.size).to eq(2)
       expect(pf.sum { |s| s.execution_config["inputs"]["count"].to_i }).to eq(3)
-      expect(pf.map { |s| s.execution_config["inputs"]["provider_region_id"] }).to match_array([dna.id, rna.id])
+      expect(pf.map { |s| s.execution_config["inputs"]["provider_region_id"] }).to match_array([pve1.id, pve2.id])
     end
 
     it "gives the remainder to the earliest region" do
-      provision_step!(1, 3, dna.id)
-      service.send(:fan_out_regions!, plan, brief_for(%w[dna rna], 3))
+      provision_step!(1, 3, pve1.id)
+      service.send(:fan_out_regions!, plan, brief_for(%w[pve1 pve2], 3))
       by_region = plan.steps.reload.each_with_object({}) do |s, h|
         next unless s.execution_config["skill"] == "provision_full_stack"
         h[s.execution_config["inputs"]["provider_region_id"]] = s.execution_config["inputs"]["count"].to_i
       end
-      expect(by_region[dna.id]).to eq(2)
-      expect(by_region[rna.id]).to eq(1)
+      expect(by_region[pve1.id]).to eq(2)
+      expect(by_region[pve2.id]).to eq(1)
     end
 
     it "carries the siblings' other inputs over unchanged" do
-      provision_step!(1, 2, dna.id)
-      service.send(:fan_out_regions!, plan, brief_for(%w[dna rna], 2))
-      sib = plan.steps.reload.find { |s| s.execution_config.dig("inputs", "provider_region_id") == rna.id }
+      provision_step!(1, 2, pve1.id)
+      service.send(:fan_out_regions!, plan, brief_for(%w[pve1 pve2], 2))
+      sib = plan.steps.reload.find { |s| s.execution_config.dig("inputs", "provider_region_id") == pve2.id }
       expect(sib.execution_config["inputs"]["template_id"]).to eq("tmpl-1")
       expect(sib.execution_config["inputs"]["provider_instance_type_id"]).to eq("it-1")
       expect(sib.execution_config["skill"]).to eq("provision_full_stack")
@@ -158,41 +158,41 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "multi-region placement", 
     end
 
     it "makes dependents wait for EVERY sibling, not just the original" do
-      provision_step!(1, 2, dna.id)
+      provision_step!(1, 2, pve1.id)
       other_step!(2, [1])
-      service.send(:fan_out_regions!, plan, brief_for(%w[dna rna], 2))
+      service.send(:fan_out_regions!, plan, brief_for(%w[pve1 pve2], 2))
 
       dependent = plan.steps.reload.find { |s| s.execution_config["skill"] == "docker_provision" }
-      sibling = plan.steps.reload.find { |s| s.execution_config.dig("inputs", "provider_region_id") == rna.id }
+      sibling = plan.steps.reload.find { |s| s.execution_config.dig("inputs", "provider_region_id") == pve2.id }
       expect(dependent.dependencies.map(&:to_i)).to include(1, sibling.step_number)
     end
 
     it "appends siblings after every existing step rather than renumbering" do
-      provision_step!(1, 2, dna.id)
+      provision_step!(1, 2, pve1.id)
       other_step!(2, [1])
-      service.send(:fan_out_regions!, plan, brief_for(%w[dna rna], 2))
+      service.send(:fan_out_regions!, plan, brief_for(%w[pve1 pve2], 2))
 
-      sibling = plan.steps.reload.find { |s| s.execution_config.dig("inputs", "provider_region_id") == rna.id }
+      sibling = plan.steps.reload.find { |s| s.execution_config.dig("inputs", "provider_region_id") == pve2.id }
       expect(sibling.step_number).to be > 2
       # untouched steps keep their original numbers
       expect(plan.steps.reload.find { |s| s.execution_config["skill"] == "docker_provision" }.step_number).to eq(2)
     end
 
     it "is a no-op for a single-region brief" do
-      provision_step!(1, 3, dna.id)
-      expect { service.send(:fan_out_regions!, plan, brief_for(%w[dna], 3)) }
+      provision_step!(1, 3, pve1.id)
+      expect { service.send(:fan_out_regions!, plan, brief_for(%w[pve1], 3)) }
         .not_to change { plan.steps.reload.count }
     end
 
     it "is a no-op when the brief names no regions" do
-      provision_step!(1, 3, dna.id)
+      provision_step!(1, 3, pve1.id)
       expect { service.send(:fan_out_regions!, plan, brief_for([], 3)) }
         .not_to change { plan.steps.reload.count }
     end
 
     it "creates fewer steps than regions when there are fewer instances" do
-      provision_step!(1, 1, dna.id)
-      service.send(:fan_out_regions!, plan, brief_for(%w[dna rna], 1))
+      provision_step!(1, 1, pve1.id)
+      service.send(:fan_out_regions!, plan, brief_for(%w[pve1 pve2], 1))
       pf = plan.steps.reload.select { |s| s.execution_config["skill"] == "provision_full_stack" }
       expect(pf.size).to eq(1)
       expect(pf.first.execution_config["inputs"]["count"].to_i).to eq(1)
@@ -200,7 +200,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "multi-region placement", 
 
     it "leaves non-provisioning steps alone" do
       other_step!(1, [])
-      expect { service.send(:fan_out_regions!, plan, brief_for(%w[dna rna], 3)) }
+      expect { service.send(:fan_out_regions!, plan, brief_for(%w[pve1 pve2], 3)) }
         .not_to change { plan.steps.reload.count }
     end
   end

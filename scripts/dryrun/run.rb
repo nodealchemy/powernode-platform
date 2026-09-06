@@ -75,13 +75,22 @@ user = if opts[:user]
        end
 abort("no user for account #{opts[:account]}") unless user
 
-objective = opts[:objective] ||
-            "dryrun-#{run_id}: Provision a 3-node Powernode stack across the dna and rna " \
-            "regions using the 'IPNode PVE' provider, cloned from the powernode-ops-cell " \
+# The default objective names THIS deployment's provider, regions and template —
+# deployment-local facts that are never defaulted in git. Pass --objective, or set
+# DRYRUN_PROVIDER / DRYRUN_REGIONS (comma-separated) / DRYRUN_TEMPLATE
+# (recall them with search_knowledge tag:deployment-*).
+objective = opts[:objective] || begin
+  provider = ENV.fetch("DRYRUN_PROVIDER") { abort("DRYRUN_PROVIDER (the provider name) is required when --objective is not given") }
+  regions  = ENV.fetch("DRYRUN_REGIONS")  { abort("DRYRUN_REGIONS (comma-separated region names) is required when --objective is not given") }
+  template = ENV.fetch("DRYRUN_TEMPLATE") { abort("DRYRUN_TEMPLATE (the template name) is required when --objective is not given") }
+  region_phrase = regions.split(",").map(&:strip).reject(&:empty?).then { |r| r.size > 1 ? "#{r[0..-2].join(', ')} and #{r[-1]}" : r.first.to_s }
+  "dryrun-#{run_id}: Provision a 3-node Powernode stack across the #{region_phrase} " \
+            "regions using the '#{provider}' provider, cloned from the #{template} " \
             "template. The use case is an end-to-end platform-validation test workload " \
             "exercising provisioning, module assignment, and the container-runtime handshake. " \
             "Initial scale 3, target 3, steady growth. Monthly budget cap 5 USD. Every " \
             "created artifact must carry the dryrun- name prefix."
+end
 
 harness_opts = {
   account: account, user: user, objective: objective, run_id: run_id,

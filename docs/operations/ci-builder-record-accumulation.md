@@ -1,5 +1,10 @@
 # CI builder record accumulation — cleanup 2026-08-02
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 Operator-approved cleanup of accumulated `ci-native-builder*` fleet records on ops-hub,
 plus the two defects the data exposed. Cleanup is done; **both defects are now fixed in
 `System::InstancePoolService`** (see the two sections below) — but the fix is only in the
@@ -16,7 +21,7 @@ repo. ops-hub runs code from 2026-07-28, so nothing changes there until a deploy
 | error | 21 | 07-18 → 08-01 | 0 |
 | running | 1 | 08-02 | 1 ✓ |
 
-Only the single `running` builder had a live VM (dna VMID 9002). The other 93 were
+Only the single `running` builder had a live VM (<pve-host> VMID 9002). The other 93 were
 records for VMs that no longer exist.
 
 ## What was removed

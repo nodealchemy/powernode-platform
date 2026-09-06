@@ -5,7 +5,7 @@ module Ai
     # Phase-4 verification for infrastructure missions (F2, IMP 019fe4c4-c7c4).
     #
     # Replaces the M2 stub that marked every mission healthy. Observed live
-    # (dryrun 20260809a): the stub blessed — in 0.23s — a plan whose rna step
+    # (dryrun 20260809a): the stub blessed — in 0.23s — a plan whose pve2 step
     # had recorded a provisioning failure and whose "running" instance was a
     # phantom the provider had never seen. Presence in the DB is never proof;
     # the protocol's infrastructure-truth oracle is live provider state.

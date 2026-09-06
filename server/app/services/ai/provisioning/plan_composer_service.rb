@@ -797,7 +797,7 @@ module Ai
       # (IMP 019fe351-7d10).
       #
       # Placement previously collapsed to Array(regions).first with the full
-      # instance count, so "dna AND rna" silently became a single-node
+      # instance count, so "pve1 AND pve2" silently became a single-node
       # deployment. Here each provision_full_stack step becomes one step per
       # resolved region, with the count split across them.
       #

@@ -37,7 +37,7 @@ doors explicitly or you declare victory at the gate.
 
 **G2 — `protected_egress_hosts` is FLEET-WIDE. ✅ verified.** It is computed once per request from
 account settings (falling back to SiteSetting) and served identically in *every* node's envelope;
-no per-node or per-template scoping exists. Putting `dna:8006` in it therefore hands **every** node
+no per-node or per-template scoping exists. Putting `<pve-host>:8006` in it therefore hands **every** node
 — including every disposable, agent-driven dev-cell — a permitted path to the hypervisor API.
 That is a least-privilege violation exactly where it matters most. The envelope is already
 per-node, so the seam exists: add a per-template / per-node-role overlay. **Vault + Gitea
@@ -145,7 +145,7 @@ forever for no gain over a public cert on a name you already own.
 - **Module gaps:** add `go` (agent builds are exactly the work that exposed all this); pin a VMID
   floor.
 - **Kill the cidata/NFS dependency:** the enrollment path already supports fw_cfg identity
-  injection. Converging cells onto it removes the `dna-data` dependency — the NFS whose blip caused
+  injection. Converging cells onto it removes the `<pve-host>-data` dependency — the NFS whose blip caused
   the founding outage — from the dev workflow entirely. Reuse, not greenfield.
 
 ## 5. Egress: from black hole to instrument
@@ -171,7 +171,7 @@ precisely what happened.
 
 | Capability | Blocked by | Unblocked by |
 |---|---|---|
-| Fleet VM provisioning | egress to dna:8006; shared VMID pool | protected-host **scoped to control-plane template** (G2) + dedicated token + VMID floor |
+| Fleet VM provisioning | egress to <pve-host>:8006; shared VMID pool | protected-host **scoped to control-plane template** (G2) + dedicated token + VMID floor |
 | Module build/publish | Gitea egress; builders enrol to dev; CI can't verify ops-hub TLS | egress + LE cert + repoint enrol URL |
 | Disk-image publication | webhook → dev; `ops.powernode.org` dead default | repoint API base + webhook atomically; fix the default; rotate masked secrets |
 | Cert lifecycle | egress to LE + DNS provider; no DNS creds on ops-hub | §3 |
@@ -231,5 +231,5 @@ precisely what happened.
 ❓ Whether ops-hub's DB already holds Proxmox ProviderConnection credentials (a dedicated token is
 wanted regardless). ❓ Whether the golden image + module blobs genuinely live in Gitea's OCI
 registry (`registry_host` *defaults* to the Gitea host but an AdminSetting can override).
-❓ `protected_egress_hosts` port semantics — confirm `dna:8006` expresses correctly.
+❓ `protected_egress_hosts` port semantics — confirm `<pve-host>:8006` expresses correctly.
 ❓ The client-side trigger wiring of `dev_cell_bootstrap` from the dev-cell module at boot.

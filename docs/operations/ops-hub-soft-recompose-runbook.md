@@ -7,7 +7,7 @@
 
 **Status**: attempt 1 failed 2026-08-10; **observability now fixed — ready for
 attempt 2 in an operator window**
-**Node**: ops-hub (VM 600 on dna, <ops-hub-ip>)
+**Node**: ops-hub (VM 600 on <pve-host>, <ops-hub-ip>)
 **Requires**: an operator present for the whole window
 
 ## Observability — done 2026-08-10 13:16, re-check before each attempt
@@ -152,7 +152,7 @@ touching anything.
 Access (QGA payloads must stay under ~500 bytes — keep each exec small):
 
 ```
-ssh admin@dna → sudo -n qm guest exec 600 -- /bin/sh -c '<small command>'
+ssh admin@<pve-host> → sudo -n qm guest exec 600 -- /bin/sh -c '<small command>'
 ```
 
 1. **Snapshot the baseline** so "healthy after" is comparable:
@@ -184,7 +184,7 @@ ssh admin@dna → sudo -n qm guest exec 600 -- /bin/sh -c '<small command>'
 - **Preflight refuses** → nothing happened. Fall back to a supervised full reboot.
 - **Compose fails** → error returned, node still running the old composition.
   Nothing happened.
-- **Post-switch userspace unhealthy** → `qm reset 600` from dna. The cold boot
+- **Post-switch userspace unhealthy** → `qm reset 600` from <pve-host>. The cold boot
   tries the pending set (`PendingMaxTries=2`, attempt counter persisted before
   composing), and on repeated failure falls back to the **frozen LKG**, i.e.
   today's working devpin composition. The devpin blobs are still cached —

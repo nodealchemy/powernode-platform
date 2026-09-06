@@ -34,7 +34,7 @@ be small, boring, and *not* participate in the system it rebuilds.
 
 | Anchor component | Where | Verified |
 |---|---|---|
-| Hypervisor | Proxmox cluster `ipnode` (dna/fna/lna/rna) | ✅ live |
+| Hypervisor | Proxmox cluster `ipnode` (<pve-host>/<pve-c-host>/<pve-d-host>/<pve-b-host>) | ✅ live |
 | Source of truth | Gitea `git.powernode.org` → **<gitea-ip>**, a separately-managed docker container. Distinct subnet from dev (<dev-ip>) and from ops-hub (<ops-hub-ip> = VM 104); no gitea unit on dev; not a VM in the Proxmox cluster inventory | ✅ **off-dev AND off-ops-hub** (operator-confirmed) |
 | Secrets | Vault `<vault-host>` (unsealed, v1.15.6) | ✅ reachable, survives dev |
 | Golden image | `DiskImagePublication` for `ubuntu-24.04-amd64-uefi`, content-addressed in the OCI registry | ✅ exists |

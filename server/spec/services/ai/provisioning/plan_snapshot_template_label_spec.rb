@@ -23,7 +23,7 @@ require "rails_helper"
 # 019fe1db-f680-7116-8e76-110166f070ed): the composer resolved template_id to
 # the account's OLDEST template ("base", boot_mode blank => cloud_init) while
 # the step prose named "powernode-ops-cell" (uefi_disk). The approver's row read
-# "Provision 3× pve.vm.large (dna)" — correct in every field it showed, and
+# "Provision 3× pve.vm.large (pve1)" — correct in every field it showed, and
 # silent on the one field that made the plan incapable of succeeding.
 RSpec.describe Ai::Provisioning::PlanSnapshotService, "template visibility", type: :service do
   let(:account) { create(:account) }

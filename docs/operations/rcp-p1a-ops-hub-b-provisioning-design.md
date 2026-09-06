@@ -1,4 +1,4 @@
-# RCP P1-a Design: ops-hub-B on rna/local-data
+# RCP P1-a Design: ops-hub-B on <pve-b-host>/local-data
 
 > **Placeholders.** Names like `<ops-hub-host>`, `<ops-hub-ip>`, `<pve-host>`, `<dev-host>` stand in for this
 > deployment's real values, which are deployment-local and never tracked in git. Recall them with
@@ -7,7 +7,7 @@
 
 > **Status: design + prerequisite code fix landed; provisioning itself NOT executed.** Campaign
 > `019f9250-a199-7819-ace6-cee904116b3e` ("Resilient Control Plane v2"), increment **P1-a**: *"Stand up
-> ops-hub-B on rna/local-data. Acceptance: B healthy, `/up` 200, on rna's independent zpool."*
+> ops-hub-B on <pve-b-host>/local-data. Acceptance: B healthy, `/up` 200, on <pve-b-host>'s independent zpool."*
 >
 > **2026-07-24 update — operator approved the §2.3 code fix and the VMID/convention in §4.** The 3-line
 > `build_provider_params` fix has been **applied and committed** (`extensions/system` commit `9edd004a`,
@@ -31,7 +31,7 @@
 | Golden image | Already exists: `NodePlatform` **ubuntu-24.04-amd64-uefi**, currently-published `DiskImagePublication` at git_sha `a60b0a0d4d…`, built 2026-07-19 | High, DB-verified |
 | Config-in-git | Already exists: the `powernode-ops-hub` **NodeTemplate**'s 11-module closure, auto-applied to any Node bound to it | High, DB-verified |
 | VMID | **9100** (new "9100s = permanent RCP consensus members" block; reserves 9101+ for the P1-b witness) | **Approved by operator 2026-07-24**; verified free in Proxmox + DB |
-| PVE node placement | `provider_region_id` → a **new** `ProviderRegion(region_code: "rna")` — this genuinely works today for `uefi_disk` boot mode, no code change needed | High, code-verified |
+| PVE node placement | `provider_region_id` → a **new** `ProviderRegion(region_code: "<pve-b-host>")` — this genuinely works today for `uefi_disk` boot mode, no code change needed | High, code-verified |
 | Storage placement (`local-data`) | Was blocked by a real code gap — **fix applied and committed** (`extensions/system` `9edd004a`), spec-covered | **Done** — see §2.3 |
 | B's role before P1-b | Provision as **standalone** (sovereign: own admin, own DB, own hostname/cert) — explicitly *not* wired into A's data, traffic, or DNS | Recommendation |
 
@@ -39,10 +39,10 @@
 
 ## 1. Ground truth used (not re-derived)
 
-Per the task brief, treated as given: 4-node PVE cluster (dna .10/fna .11/lna .12/rna .13, no QDevice yet);
-rna's `local-data` zfspool (3.62T/~2.85T free) is physically independent from dna's `local-zfs`;
-rna already hosts 7 stopped, unrelated legacy VMs (101/103/106/110/112/206/301); ops-hub (104) was just
-migrated onto dna's own `local-data`; VMIDs 9001/9002 are spoken for.
+Per the task brief, treated as given: 4-node PVE cluster (<pve-host> .10/<pve-c-host> .11/<pve-d-host> .12/<pve-b-host> .13, no QDevice yet);
+<pve-b-host>'s `local-data` zfspool (3.62T/~2.85T free) is physically independent from <pve-host>'s `local-zfs`;
+<pve-b-host> already hosts 7 stopped, unrelated legacy VMs (101/103/106/110/112/206/301); ops-hub (104) was just
+migrated onto <pve-host>'s own `local-data`; VMIDs 9001/9002 are spoken for.
 
 ## 2. Provisioning mechanism
 
@@ -90,9 +90,9 @@ storage/vmid.** `ProxmoxProvider` has *two* VM-creation code paths with differen
 
   Even with node placement fixed, storage would **still** auto-select the wrong pool:
   `first_shared_storage_with_content!` (`proxmox_provider.rb:1756`) requires `shared==1` (or "only one
-  storage on the node"). rna's `local-data` is a `zfspool` with `content images,rootdir` and no `shared`
+  storage on the node"). <pve-b-host>'s `local-data` is a `zfspool` with `content images,rootdir` and no `shared`
   flag (defaults `0`, and `pvesm status`/`storage.cfg` confirm it, per §1) — auto-selection will land on a
-  `shared==1` NFS pool (`dna-data` or `dsm-data`), never on `local-data`, independent of the node bug.
+  `shared==1` NFS pool (`<pve-host>-data` or `<nas-host>-data`), never on `local-data`, independent of the node bug.
 
 - **Checked for collateral damage**: `params[:storage]`/`params[:vmid]` are read **only** by
   `proxmox_provider.rb` (`grep` across every provider adapter file returned zero hits in
@@ -104,16 +104,16 @@ storage/vmid.** `ProxmoxProvider` has *two* VM-creation code paths with differen
 
 The single existing Proxmox `ProviderConnection` (`019f373f-27ee-...`) has `config["cidata_transport"] =
 "iso"` **today** — this is more recent than ops-hub-A's own creation (its live `cicustom:` line
-references `dsm-data:snippets/...`, the *older* NFS-snippet transport; the connection was hardened to
+references `<nas-host>-data:snippets/...`, the *older* NFS-snippet transport; the connection was hardened to
 `iso` transport at some point after). Practically: **a fresh provision through this connection today
 already avoids the NFS-at-create-time dependency** ops-hub-A originally had — good news, not a gap. But
 `stage_cidata_iso`'s destination storage (`params[:cidata_iso_storage] || connection.config[...] ||
 storage`, `proxmox_provider.rb:1041-1043`) falls back to the **same** storage as the boot disk if not set
-explicitly. rna's `local-data` storage.cfg entry lists `content images,rootdir` only — **no `iso`, no
+explicitly. <pve-b-host>'s `local-data` storage.cfg entry lists `content images,rootdir` only — **no `iso`, no
 `snippets`, no `import`.** If boot-disk storage is fixed to `local-data` but the cidata ISO isn't given its
 own target, the ISO upload will hit a pool that doesn't declare `iso` content and should fail. PVE's own
 default `local` (dir-type, `content rootdir,import,images,snippets,iso,vztmpl`, exists per-node, **not**
-shared) is available on every node including rna and is the natural target — also keeps this fully
+shared) is available on every node including <pve-b-host> and is the natural target — also keeps this fully
 node-local (no NFS dependency at all, stronger than what ops-hub-A itself has). This needs the same
 params-threading fix, extended to `options[:cidata_iso_storage]`.
 
@@ -152,9 +152,9 @@ keeps provisioning declarative/idempotent/repeatable for the *next* member too (
 future third member), which a one-off manual `qm` sequence would not.
 
 **Alternative considered and rejected as primary: manual `qm create` + DB "adopt."** Import the same
-published OCI disk-image artifact by hand on rna via `pvesm`/`qm`, build the VM config to mirror
+published OCI disk-image artifact by hand on <pve-b-host> via `pvesm`/`qm`, build the VM config to mirror
 ops-hub-A's shape, then hand-write a matching `System::Node`/`System::NodeInstance` row (`cloud_instance_id`
-= `"rna/qemu/9100"`, `provider_region_id`, `provider_instance_type_id`, `config`, `status`) so the platform
+= `"<pve-b-host>/qemu/9100"`, `provider_region_id`, `provider_instance_type_id`, `config`, `status`) so the platform
 tracks it identically thereafter. This works with zero code changes and would have been a legitimate
 fallback had the operator preferred nothing touched in `provisioning_service.rb` — moot now that the §2.3
 fix is applied, but recorded here in case a future member needs provisioning before some other prerequisite
@@ -230,9 +230,9 @@ protection, once P2/P3 land, will cover B for free since it shares the same Node
 
 ## 4. VMID and placement
 
-**Cluster-wide VMID inventory** (`pvesh get /cluster/resources --type vm` on dna, this session): 100, 101,
+**Cluster-wide VMID inventory** (`pvesh get /cluster/resources --type vm` on <pve-host>, this session): 100, 101,
 103, 104, 105, 106, 107, 108, 110, 112, 114, 200, 202, 206, 210, 220, 300, 301, 500-503, 9000, 9001 — 23
-VMIDs, all accounted for (rna's 7 stopped legacy VMs match the ground truth exactly: 101/103/106/110/112/
+VMIDs, all accounted for (<pve-b-host>'s 7 stopped legacy VMs match the ground truth exactly: 101/103/106/110/112/
 206/301). **9002 does not yet appear live** (P0-b's throwaway is apparently not yet created, or was
 torn down before this snapshot) — avoided regardless, per instructions, to not race a concurrent task.
 
@@ -257,19 +257,19 @@ approved, use going forward** (document it here as the reserved-block record of 
   104, which is off-limits).
 
 **PVE node placement**: create a new `System::ProviderRegion` — **does not exist yet** (today there is
-exactly **one** `ProviderRegion` for the Proxmox provider, `region_code: "dna"`; nothing for fna/lna/rna).
-This alone (independent of the code gap in §2) is why a naive call defaults to dna: rna isn't even a
+exactly **one** `ProviderRegion` for the Proxmox provider, `region_code: "<pve-host>"`; nothing for <pve-c-host>/<pve-d-host>/<pve-b-host>).
+This alone (independent of the code gap in §2) is why a naive call defaults to <pve-host>: <pve-b-host> isn't even a
 selectable placement target in the catalog yet.
 
 ```
-provider_id:  019e446f-916c-75d2-8f4d-b44bf7cb8664   # "IPNode-PVE", the one existing Proxmox Provider
-name:         "rna"
-region_code:  "rna"                                   # MUST equal the PVE node name exactly — this
+provider_id:  019e446f-916c-75d2-8f4d-b44bf7cb8664   # "<pve-provider>", the one existing Proxmox Provider
+name:         "<pve-b-host>"
+region_code:  "<pve-b-host>"                                   # MUST equal the PVE node name exactly — this
                                                        # string is passed directly to
                                                        # /api2/json/nodes/#{region_code}/qemu
 machine_image: nil                                    # irrelevant for uefi_disk (image resolves via
 kernel_image:  nil                                    # NodePlatform, not region) — matches the existing
-                                                       # "dna" region's own nil/nil, for consistency
+                                                       # "<pve-host>" region's own nil/nil, for consistency
 enabled:      true
 ```
 
@@ -292,7 +292,7 @@ exactly the layer that needs to tell them apart.
 ```
 System::ProvisioningService.provision_instance(
   node: <new "ops-hub-b" Node>,
-  provider_region_id: <new "rna" ProviderRegion>.id,
+  provider_region_id: <new "<pve-b-host>" ProviderRegion>.id,
   provider_instance_type_id: "019f373f-283f-7893-b7eb-cca9e46a6ca7",  # pve.vm.large
   operation_id: "rcp-p1a-ops-hub-b-<timestamp>",
   options: {
@@ -344,7 +344,7 @@ Concretely, "just another instance, not yet a quorum member" means:
 |---|---|---|
 | B healthy | `systemctl status powernode-{backend,worker,worker-web,frontend,reverse-proxy}@default --no-pager` over SSH, all `active` | Do **not** trust `System::NodeInstance.status` alone — see finding below |
 | `/up` 200 | `curl -sI http://<B's address>:3000/api/v1/health` (or whatever `/up`-equivalent route the backend exposes) from **outside** B, not just `curl localhost` on the box itself | Match P0-a's probe vantage point (external, not self-reported) — see coordination note below |
-| On rna's independent zpool | `qm config 9100` on rna (or cluster-wide via `pvesh`): confirm `scsi0`/`efidisk0` volids are prefixed `local-data:...`, and that this `local-data` is rna's own (already ground-truthed as physically independent from dna's) | Exactly the check I ran against 104 this session — same recipe, different VM |
+| On <pve-b-host>'s independent zpool | `qm config 9100` on <pve-b-host> (or cluster-wide via `pvesh`): confirm `scsi0`/`efidisk0` volids are prefixed `local-data:...`, and that this `local-data` is <pve-b-host>'s own (already ground-truthed as physically independent from <pve-host>'s) | Exactly the check I ran against 104 this session — same recipe, different VM |
 | Reproducible from golden image | Compare B's `booted_image_git_sha` (once the agent reports it, `System::NodeInstance.booted_image_git_sha`) against the `ubuntu-24.04-amd64-uefi` NodePlatform's `disk_image_git_sha` (`a60b0a0d4d...`) — should match exactly. Optionally, as a repeatability drill: re-run the same call against a throwaway VMID and diff the resulting `qm config` against B's, modulo vmid/mac/uuid | Could fold into P1-c's scrutiny (first-peer-delivery gate) rather than duplicating effort here |
 
 **Coordination point — resolved**: I asked `rcp-p0a-monitoring` (the P0-a external-probe/alerting increment)
@@ -367,13 +367,13 @@ built (only one target exists today); not needed for this increment's acceptance
 health check), worth revisiting once a third member (the P1-b witness, or beyond) makes N > 2.
 
 **Discovered, not fixed, flagged for operator**: ops-hub-A's own live `System::NodeInstance` row
-(`019f680e-d4ff-...`, `cloud_instance_id: dna/qemu/104`) currently shows **`status: "error"`** in the
+(`019f680e-d4ff-...`, `cloud_instance_id: <pve-host>/qemu/104`) currently shows **`status: "error"`** in the
 Powernode DB, despite the VM being demonstrably healthy and running live (uptime ~13h at time of check,
 per `pvesh`). This is a pre-existing drift between the platform's cached status and reality, unrelated to
 P1-a — but it directly informs the "B healthy" verification above: **don't rely solely on
 `System::NodeInstance.status`** as a health signal for either A or B, it's already proven unreliable for A.
 Recommend queuing this as its own small fix (likely a missed `sync_status`/heartbeat reconciliation after
-the dna-data→local-data migration) — separate from this campaign.
+the <pve-host>-data→local-data migration) — separate from this campaign.
 
 Also worth a small side note while investigating VMID history: the DB carries several older, `error`/
 `terminated` `NodeInstance` rows for "ops-hub" at vmid 102 (2026-07-11/12, several attempts) before 104
@@ -399,7 +399,7 @@ convention) → approved, 9100 reserved for B, `9100-9199` reserved for permanen
 
 Still open:
 
-1. Approve Node name `ops-hub-b` and region name/code `rna`?
+1. Approve Node name `ops-hub-b` and region name/code `<pve-b-host>`?
 2. What hostname/DNS name should B itself answer to (explicitly *not* A's)?
 3. Should a `System::PlatformDeployment` bookkeeping row be created for B (Scaling-panel visibility), and
    if so, via an orchestrator fix or as a separate manual step?
@@ -412,7 +412,7 @@ Still open:
 ---
 
 _Prepared as a paper design for RCP P1-a. All Proxmox/DB reads in this document were run read-only
-(`pvesh get`/`qm config` via SSH to dna; `rails runner` read-only queries from `/opt/powernode/server`) —
+(`pvesh get`/`qm config` via SSH to <pve-host>; `rails runner` read-only queries from `/opt/powernode/server`) —
 no Proxmox VM and no live DB row was ever created or modified. The one exception, done under explicit
 operator approval after the initial design pass: the §2.3 `provisioning_service.rb` fix + its spec,
 applied and committed inside the `extensions/system` submodule in this worktree only (not pushed, not on

@@ -18,7 +18,7 @@ SyslogIdentifier=powernode-ops-hub-watchdog
 EnvironmentFile=-/etc/powernode/ops-hub-watchdog.conf
 ExecStart=/opt/powernode/scripts/monitoring/ops-hub-watchdog.sh --once
 
-# This host is NOT ops-hub and (ideally) not dna either -- see the script header
+# This host is NOT ops-hub and (ideally) not pve1 either -- see the script header
 # and docs/operations/ops-hub-watchdog.md for the placement rationale. Deploy path
 # is operator-chosen (opn-1/edge/dev-cell per the RCP v2 plan, or another host with
 # LAN/SDWAN line-of-sight to ops-hub); this unit file assumes the repo (or just this

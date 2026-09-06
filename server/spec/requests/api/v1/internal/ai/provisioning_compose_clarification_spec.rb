@@ -35,7 +35,7 @@ RSpec.describe "Internal AI provisioning compose_plan clarification handling", t
       "intent" => "provision a 3-node Powernode stack",
       "use_case" => "database",
       "scale" => { "initial" => 3, "target" => 3, "growth_profile" => "steady" },
-      "regions" => %w[dna rna],
+      "regions" => %w[pve1 pve2],
       "preferred_provider" => nil
     }
   end
@@ -59,7 +59,7 @@ RSpec.describe "Internal AI provisioning compose_plan clarification handling", t
                "Which would you like to use?",
       available_providers: [
         { id: "019f6cb3-d96b-76b2-9063-992884b6edee", name: "local-qemu", type: "local_qemu" },
-        { id: "019f73b2-8bc5-7511-90f9-2d2409a85f55", name: "IPNode PVE", type: "proxmox" }
+        { id: "019f73b2-8bc5-7511-90f9-2d2409a85f55", name: "Lab PVE", type: "proxmox" }
       ]
     }
   end

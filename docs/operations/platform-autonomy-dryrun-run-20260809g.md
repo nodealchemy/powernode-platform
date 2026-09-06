@@ -1,5 +1,10 @@
 # Platform Autonomy Dry-Run — Run Report `20260809g` — **ZERO-INTERVENTION PASS**
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Run ID**: `20260809g` · **Date**: 2026-08-09 · **Campaign**: `platform-autonomy-dryrun` (`019fdffd-aeed`)
 **Runs on**: hub-backend **v64** (core `733a1ade9`: deterministic plan synthesis, IMP-019fe7f0)
 **Exit code**: **1** (one new observability finding)
@@ -13,7 +18,7 @@ else itself:
 
 - **Extraction → brief → plan, deterministically**: v64 synthesizes the plan from the
   recognized brief instead of asking the LLM to decompose. The plan was **exactly 3
-  instances** (2 dna + 1 rna = `scale.initial`), 3 docker steps one-per-instance correctly
+  instances** (2 <pve-host> + 1 <pve-b-host> = `scale.initial`), 3 docker steps one-per-instance correctly
   wired, no duplicates, no missing leg, no 18-for-3 — the run-c/d/e/f variance is gone by
   construction, not by guard.
 - **Self-drove every phase**: capture_intent → compose_plan → review_plan (auto), then
@@ -37,7 +42,7 @@ Every fix the campaign produced participated and held, at once, hands-off.
 | 19:44 | v64 delivered (restart 19:46:08 > mtime), `/up` 200, `synthesize_plan!` marker verified |
 | 19:47 | mission `019fe811-…` started; brief perfect; **plan SYNTHESIZED** (2 provision=3 total + 3 docker), self-drove to review_plan |
 | 19:5x | operator approved review_plan (only intervention #1) |
-| 19:5x | 3 instances provisioned (dna 9008/9009, rna 9004), enrolled, 3 DockerHosts, verify `healthy=true`, auto-advanced to handoff |
+| 19:5x | 3 instances provisioned (<pve-host> 9008/9009, <pve-b-host> 9004), enrolled, 3 DockerHosts, verify `healthy=true`, auto-advanced to handoff |
 | 19:54 | operator approved handoff (intervention #2) → adapting |
 | 19:55 | teardown: 3 VMs terminated, 0 peers orphaned, cluster at baseline, mission completed, gate off, `/tmp` clean |
 

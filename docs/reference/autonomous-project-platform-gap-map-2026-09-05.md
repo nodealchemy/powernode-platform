@@ -1,5 +1,10 @@
 # Autonomous Project Platform — vision, live smoke, gap map (2026-09-05)
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Operator ask (2026-09-05).** Interpret the system extension's scope and vision; design tight MCP
 integration where platform agents regularly check every component's health, perform pending and
 scheduled work, and start and then keep managing platform-deployed projects — each project with its
@@ -325,7 +330,7 @@ found after the rest were written, which is why it carries a zero rather than re
 2. **Publish a `powernode-system-base` version carrying `28460bbb`.** This is what makes an
    apply failure visible per subsystem instead of silent. It auto-promotes fleet-wide and
    reaches the control plane itself, so the boot window needs watching.
-3. **Node budget on `dna`.** Four small nodes at two virtual CPUs and two gigabytes, with the
+3. **Node budget on `<pve-host>`.** Four small nodes at two virtual CPUs and two gigabytes, with the
    lightweight network profile set explicitly, rather than reusing the current sixteen-gigabyte
    type. Memory, not disk, is the constraint on this host.
 4. **Keep flow export, OVN and federation out until phase 3**, entering only as node modules

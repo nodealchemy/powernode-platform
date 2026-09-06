@@ -17,11 +17,11 @@ require "rails_helper"
 #       provider routes the whole plan to the wrong cloud, with no error.
 #
 # Observed live on ops-hub 2026-08-08: an objective explicitly naming
-# "the 'IPNode PVE' provider (019f73b2-...)" produced preferred_provider
+# "the 'Lab PVE' provider (019f73b2-...)" produced preferred_provider
 # 'pro_cloud' — a type not configured on that account at all.
 #
 # Note the operator-ergonomics half: people write the provider's NAME
-# ("IPNode PVE"), not its type ("proxmox"). Accepting name and id, and
+# ("Lab PVE"), not its type ("proxmox"). Accepting name and id, and
 # normalizing to the type the downstream matcher expects, is what makes the
 # common case work rather than degrade to a clarification prompt.
 RSpec.describe Ai::Provisioning::IntentCaptureService, "preferred_provider validation", type: :service do
@@ -36,7 +36,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "preferred_provider valid
       "intent" => "provision a 3-node Powernode stack",
       "use_case" => "database",
       "scale" => { "initial" => 3, "target" => 3, "growth_profile" => "steady" },
-      "regions" => %w[dna rna],
+      "regions" => %w[pve1 pve2],
       "budget_cap_usd_monthly" => 5,
       "preferred_provider" => preferred
     }
@@ -55,7 +55,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "preferred_provider valid
       # 'pro_cloud' is legitimately configured here and the absent-provider case
       # silently stops testing anything.
       ::System::Provider.where(account_id: account.id).destroy_all
-      ::System::Provider.create!(account: account, name: "IPNode PVE", provider_type: "proxmox", enabled: true)
+      ::System::Provider.create!(account: account, name: "Lab PVE", provider_type: "proxmox", enabled: true)
       ::System::Provider.create!(account: account, name: "local-qemu", provider_type: "local_qemu", enabled: true)
     end
 
@@ -81,7 +81,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "preferred_provider valid
 
     it "resolves a provider referenced by DISPLAY NAME to its type" do
       # This is what an operator actually writes.
-      expect(capture_with("IPNode PVE")["preferred_provider"]).to eq("proxmox")
+      expect(capture_with("Lab PVE")["preferred_provider"]).to eq("proxmox")
     end
 
     it "resolves a provider referenced by id to its type" do
@@ -90,7 +90,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "preferred_provider valid
     end
 
     it "matches case-insensitively and ignores surrounding whitespace" do
-      expect(capture_with("  ipnode pve  ")["preferred_provider"]).to eq("proxmox")
+      expect(capture_with("  lab pve  ")["preferred_provider"]).to eq("proxmox")
     end
 
     it "leaves an absent preferred_provider as nil" do

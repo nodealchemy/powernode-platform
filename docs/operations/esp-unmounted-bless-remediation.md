@@ -1,5 +1,10 @@
 # Remediation: unblessed boot slots on composed fleet nodes ("ESP unmounted")
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Date**: 2026-07-30 · **Status**: recommendation, no changes made
 **Scope**: ops-cell (VM 9003, wedged), ops-hub (VM 600, not wedged), dev-cell (VM 9000, unreachable)
 **Author**: remediation review (Fable), from source in `/opt/powernode/extensions/system`
@@ -258,10 +263,10 @@ material, and the agent's mTLS cert all live there. A slot rollback alone would 
 change host keys (modules and /persist are slot-independent), so suspect the persist
 mount, not (only) the image. The missing serial socket despite `serial0: socket` in
 config is unexplained — a QEMU process started against a different/older config would do
-it, but after a dna reboot autostart should have applied current config. Treat as
+it, but after a <pve-host> reboot autostart should have applied current config. Treat as
 unverified; first diagnostic below resolves it. Sequence, least- to most-invasive:
 
-1. **From dna, read-only**: `qm config 9000 --current`, `qm pending 9000`,
+1. **From <pve-host>, read-only**: `qm config 9000 --current`, `qm pending 9000`,
    `ls /var/run/qemu-server/ | grep 9000` (does `.qmp` exist where `.serial0` doesn't?),
    `qm monitor 9000` → `info status`, `info chardev`. This costs nothing and settles
    whether the running QEMU matches its config.
@@ -273,10 +278,10 @@ unverified; first diagnostic below resolves it. Sequence, least- to most-invasiv
    then **set a lock** before touching storage (`qm set 9000 --lock backup`) — a
    reconciler/watchdog restarting the VM mid-surgery while the host has the volume
    mounted is the documented dual-mount truncation hazard. Mount the VM's disk zvol on
-   dna **read-only first** and read: `/persist/var/lib/powernode/boot-slot.json` (is
+   <pve-host> **read-only first** and read: `/persist/var/lib/powernode/boot-slot.json` (is
    dev-cell also pending?), ssh host keys + authorized_keys, the boot breadcrumb, PKI
    dir; and the ESP partition (which `powernode-*.efi` files exist, `loader/loader.conf`).
-   **No safety snapshot is possible right now** — dna's z_zvol taskq is wedged and any
+   **No safety snapshot is possible right now** — <pve-host>'s z_zvol taskq is wedged and any
    zvol snapshot hangs in D-state — so keep writes minimal, and verify every write after
    unmount (documented failure class: writes to a still-dual-mounted blob hash clean on
    the host and read as zeros in the guest).
@@ -295,7 +300,7 @@ unverified; first diagnostic below resolves it. Sequence, least- to most-invasiv
 
 Stranding risks to avoid: writing /persist while the VM runs (truncation); leaving the
 qm lock set afterward; `qm reset` (qemu-level changes need stop+start); any zfs snapshot
-attempt on dna (hangs unkillable until the taskq wedge is cleared).
+attempt on <pve-host> (hangs unkillable until the taskq wedge is cleared).
 
 ## 7. Q6 — Detection: never again 5 silent hours
 
@@ -316,7 +321,7 @@ signal per instance). Mirror it end to end:
   increment 1. This also gives `UpgradeReconciler` the field it needs to someday gate
   task completion on *blessed*, not merely *booted* (§2c) — worth a TODO, not this
   increment.
-- **Interim, zero-build, today**: extend the existing external watchdog on dna with a
+- **Interim, zero-build, today**: extend the existing external watchdog on <pve-host> with a
   per-node SSH check — `boot-slot.json` contains `"pending"` and its mtime is older than
   30 min → alert. One cron line per node; retire it when the sensor lands.
 
@@ -334,7 +339,7 @@ signal per instance). Mirror it end to end:
 6. **No ops-hub changes in this incident's first wave** — it is healthy, blessed, and the
    only self-observing control plane; it goes last.
 7. **No re-provision of dev-cell** except on proof of disk corruption — /persist is the
-   asset (§6). No zfs snapshots on dna until the z_zvol wedge clears.
+   asset (§6). No zfs snapshots on <pve-host> until the z_zvol wedge clears.
 8. **No landing of the agent changes without the two-critics review** and a
    re-introduced-bug test proving each guard is reachable — the ConfirmBoot caller-gate
    near-miss is the standing lesson that a fix below a short-circuit is dead code.

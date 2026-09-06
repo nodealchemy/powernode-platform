@@ -1,5 +1,10 @@
 # Provisioning decomposition redesign — deterministic synthesis (2026-08-09)
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 Status: implemented on `dev-loop/dev-improve`, staged only (operator gates deploy).
 Subsumes IMP-019fe7f0 (run-f scale explosion); makes the F-1 (IMP-019fe76e) and
 docker-dedup (IMP-019fe7e0) guards structurally unnecessary on the recognized path
@@ -25,7 +30,7 @@ same-target collapse, region fan-out, runtime-leg completeness, docker wiring + 
 ## Root cause
 
 The variance is entirely the LLM's. The platform-autonomy-dryrun campaign ran the
-**same brief** (scale.initial=3, regions dna+rna, container-runtime use case) four
+**same brief** (scale.initial=3, regions <pve-host>+<pve-b-host>, container-runtime use case) four
 times and got a differently broken plan each time:
 
 | Run | LLM decomposition defect | Patch it forced |
@@ -134,11 +139,11 @@ New spec `spec/services/ai/provisioning/plan_composer_deterministic_synthesis_sp
 
 - **No-LLM invariant**: `GoalDecompositionService#decompose` is never called for a
   recognized brief.
-- **Run-f pin**: scale.initial=3 + regions dna,rna → provision counts sum to exactly
+- **Run-f pin**: scale.initial=3 + regions <pve-host>,<pve-b-host> → provision counts sum to exactly
   3, split 2+1 — repeated compositions always produce the same shape.
 - **Run-e / run-d pin**: the same brief (container-runtime use case) → exactly 3
   docker steps, one per instance, each wired (`from_step`+`select` covering
-  [dna,0],[dna,1],[rna,0]) and depending only on its own provision step.
+  [<pve-host>,0],[<pve-host>,1],[<pve-b-host>,0]) and depending only on its own provision step.
 - **F3 provenance**: `name_prefix` (from `dryrun_run_id`) and `mission_id` stamped on
   provision inputs.
 - **F7 budget**: snapshot of a synthesized plan surfaces the cap-vs-estimate block.

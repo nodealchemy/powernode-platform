@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ops-hub-qmstart-retry.sh — auto-retry a failed `qmstart` once storage is confirmed
 # back online (RCP v2 campaign, P0-a). Companion to ops-hub-watchdog.sh, but this one
-# runs on the Proxmox HYPERVISOR host (dna) itself -- not on the third-party watchdog
+# runs on the Proxmox HYPERVISOR host (pve1) itself -- not on the third-party watchdog
 # host -- because it needs local `qm`/`pvesm` CLI access. It is the direct fix for the
-# 2026-07-21->23 incident: a transient dna-data NFS blip failed a manual `qmstart 104`
+# 2026-07-21->23 incident: a transient pve1-data NFS blip failed a manual `qmstart 104`
 # and nothing ever retried it, so ops-hub sat dead for ~2 days until a human noticed.
 #
 # THIS SCRIPT SHIPS PERMANENTLY DRY-RUN UNTIL AN OPERATOR EXPLICITLY ARMS IT.
@@ -42,15 +42,15 @@ fi
 # --- defaults (override via CONFIG_FILE) -----------------------------------------
 # 600, not 104: ops-hub-A was migrated out of the hand-made 100-114 band, whose
 # neighbour at 105 is the production firewall. See
-# docs/operations/ops-hub-vmid-migration.md. The deployed unit on dna carries
+# docs/operations/ops-hub-vmid-migration.md. The deployed unit on pve1 carries
 # Environment=VMID=600; this default only governs a fresh deploy, and getting it
 # wrong means this guard silently watches a VM that does not exist.
 VMID="${VMID:-600}"
 VM_NAME="${VM_NAME:-ops-hub}"
 # STORAGE_NAME is the storage whose "active" state gates a retry. This MUST track
-# where VM $VMID's disks actually live. It defaulted to dna-data (the NFS export
+# where VM $VMID's disks actually live. It defaulted to pve1-data (the NFS export
 # implicated in the 2026-07-21 incident) until RCP v2 P0-c migrated ops-hub off NFS
-# onto rna-local zfspool `local-data` for INV-6; verified live 2026-07-25 —
+# onto pve2-local zfspool `local-data` for INV-6; verified live 2026-07-25 —
 # `qm config 104` shows efidisk0/ide2/scsi0 all on local-data. Gating on the old
 # NFS export would check a storage the VM no longer uses.
 STORAGE_NAME="${STORAGE_NAME:-local-data}"
@@ -135,7 +135,7 @@ if command -v qm >/dev/null 2>&1; then
   qm_status_output="$(qm status "${VMID}" 2>&1 || true)"
   [[ "${qm_status_output}" == *"running"* ]] && vm_running=1
 else
-  log err "qm CLI not found -- this script must run on the Proxmox hypervisor host (dna), not a generic host. Aborting this check cycle."
+  log err "qm CLI not found -- this script must run on the Proxmox hypervisor host (pve1), not a generic host. Aborting this check cycle."
   write_metric "${armed}" 0 0 "${attempts_in_window}"
   exit 0
 fi
@@ -156,7 +156,7 @@ if command -v pvesm >/dev/null 2>&1; then
     storage_active=1
   fi
 else
-  log err "pvesm CLI not found -- this script must run on the Proxmox hypervisor host (dna). Aborting this check cycle."
+  log err "pvesm CLI not found -- this script must run on the Proxmox hypervisor host (pve1). Aborting this check cycle."
   write_metric "${armed}" 0 0 "${attempts_in_window}"
   exit 0
 fi

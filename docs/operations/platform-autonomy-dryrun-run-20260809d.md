@@ -1,5 +1,10 @@
 # Platform Autonomy Dry-Run — Run Report `20260809d` — **PASS**
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Run ID**: `20260809d` · **Date**: 2026-08-09 · **Campaign**: `platform-autonomy-dryrun` (`019fdffd-aeed`)
 **Runs on**: hub-backend **v61** + extension **v39** (core `74c7eede4`: SDWAN increment — compose-time
 prerequisites + first-enrollee hub; fabric `dryrun-fabric` live, template wired)
@@ -10,7 +15,7 @@ prerequisites + first-enrollee hub; fabric `dryrun-fabric` live, template wired)
 **The first PASS in campaign history.** Provision → boot → enroll → overlay → docker
 handshake → live-verified, end to end, through the real concierge/mission pipeline:
 
-- 3 instances across **dna AND rna**, distinct vmids, all `running`;
+- 3 instances across **<pve-host> AND <pve-b-host>**, distinct vmids, all `running`;
 - all 3 enrolled onto **`dryrun-fabric`** with `/128` overlay addresses (auto-enroll via
   the wired template — zero manual peer work);
 - **3 `DockerHost` rows** — the handshake the 2026-06-09 audit found unreachable by

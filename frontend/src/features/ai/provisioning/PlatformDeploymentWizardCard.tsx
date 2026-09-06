@@ -467,7 +467,7 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
                         setNewVolume((prev) => ({ ...prev, nfs_server: e.target.value }))
                       }
                       disabled={creatingVolume}
-                      placeholder="NFS server (e.g. dsm.local)"
+                      placeholder="NFS server (e.g. nas1.local)"
                       className="px-2 py-1 border border-theme rounded bg-theme-background-secondary text-theme-primary font-mono text-xs disabled:opacity-50"
                     />
                     <input

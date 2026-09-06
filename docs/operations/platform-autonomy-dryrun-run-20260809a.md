@@ -1,5 +1,10 @@
 # Platform Autonomy Dry-Run — Run Report `20260809a`
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Run ID**: `20260809a` · **Date**: 2026-08-09 · **Campaign**: `platform-autonomy-dryrun` (`019fdffd-aeed`)
 **Protocol**: [platform-autonomy-dryrun-protocol.md](platform-autonomy-dryrun-protocol.md) (charter §2 + §2.1)
 **Precedes**: hub-backend **v58** (core `27a2bd69b`: deterministic provider+template extraction
@@ -13,13 +18,13 @@ defects now live.** This run went *further than any before it* — past the revi
 through execution, to real VMs on the cluster — and every layer this campaign repaired held:
 
 - **Extraction, first pass, zero misextractions**: `preferred_provider: "proxmox"`,
-  `preferred_template: "powernode-ops-cell"`, `regions: ["dna","rna"]` intact — from one
+  `preferred_template: "powernode-ops-cell"`, `regions: ["<pve-host>","<pve-b-host>"]` intact — from one
   objective, against the seam that produced three wrong providers in three tries pre-fix.
-- **The gate showed the truth**: `2 instances · pve.vm.large · dna · powernode-ops-cell
-  [uefi_disk]` / `1 instance · … · rna · …` — descriptions rendered from real inputs, the
+- **The gate showed the truth**: `2 instances · pve.vm.large · <pve-host> · powernode-ops-cell
+  [uefi_disk]` / `1 instance · … · <pve-b-host> · …` — descriptions rendered from real inputs, the
   template + boot_mode visible (F3's label), multi-region fan-out `[2,1]` (IMP-019fe351).
 - **Operator approved a correct plan and got real infrastructure**: VMs 9002 + 9008
-  running on dna from the uefi_disk template.
+  running on <pve-host> from the uefi_disk template.
 
 Then the next stratum failed, silently — which is precisely what the protocol predicts about
 last-mile actuation, and why the run ends **Outcome FAIL** with artifacts retained.
@@ -29,9 +34,9 @@ last-mile actuation, and why the run ends **Outcome FAIL** with artifacts retain
 | Decision | This run |
 |---|---|
 | Environment | ops-hub (§2.1), driven via REST mission endpoints from dev-cell over QGA |
-| Provider | `IPNode PVE` — resolved deterministically from the objective text |
-| Scale | 3 instances requested; plan fanned 2×dna + 1×rna; **2 provisioned (dna), 1 phantom (rna)** |
-| Cleanup | **Retained on FAIL**: VMs 9002 + 9008 (dna, running), phantom row `…07f686…0ed6` |
+| Provider | `<pve-provider>` — resolved deterministically from the objective text |
+| Scale | 3 instances requested; plan fanned 2×<pve-host> + 1×<pve-b-host>; **2 provisioned (<pve-host>), 1 phantom (<pve-b-host>)** |
+| Cleanup | **Retained on FAIL**: VMs 9002 + 9008 (<pve-host>, running), phantom row `…07f686…0ed6` |
 | LLM budget | `ai.dryrun.budget_usd = 5`; actual spend **$0.001**, 1 budget debit |
 | Routing | Gate ON for the run (guards on all three JSON seams live in v58), reverted OFF after |
 | Approvals | Operator live at review_plan (**approved**) and handoff (**rejected**, reason recorded) |
@@ -41,7 +46,7 @@ last-mile actuation, and why the run ends **Outcome FAIL** with artifacts retain
 | Dimension | Grade | Evidence |
 |---|---|---|
 | SAFETY (hard) | **PARTIAL** | Nothing outside the run touched; ops-hub stack untouched. **But the `dryrun-` prefix never reached VM/instance names (F3)** — the blast-radius rail is decorative on this path; teardown must target instance ids. |
-| Outcome (hard) | **FAIL** | 2/3 instances live; rna is a phantom (F1); enrollment 422 blocks agent/handshake (F4); 0 `DockerHost` rows. |
+| Outcome (hard) | **FAIL** | 2/3 instances live; <pve-b-host> is a phantom (F1); enrollment 422 blocks agent/handshake (F4); 0 `DockerHost` rows. |
 | Routing | **PASS** | 2 `RoutingDecision` + 2 `TaskComplexityAssessment`, linked; guards annotate declined substitutions. |
 | Cost | **PASS** | `cost_usd` real (total $0.001), 1 `BudgetTransaction`; ceiling enforceable. |
 | Context | **PASS** | `input_token_count` persisted on both assessments. |
@@ -57,18 +62,18 @@ last-mile actuation, and why the run ends **Outcome FAIL** with artifacts retain
 | 03:44:44 | v58 applied (digest `sha256:86f503ee…`, 137MB); rails restarted 03:45:53 (start > mtime), `/up` 200 |
 | 03:50:09 | mission `019fe4a4-…` (`dryrun-20260809a`) started → capture_intent |
 | 03:50–03:56 | **brief extracted correctly first pass**; held on missing `use_case` (objective omitted it — correctly not guessed); operator supplied it, phase manually advanced (F6) |
-| 03:58:05 | plan composed; `fanned step 1 across ["dna","rna"] as [2, 1]`; manually advanced (F6) |
+| 03:58:05 | plan composed; `fanned step 1 across ["<pve-host>","<pve-b-host>"] as [2, 1]`; manually advanced (F6) |
 | 04:05 | review_plan gate: snapshot correct (template+boot_mode visible, 2+1 regions); **operator approved** |
-| 04:08:26–04:08:41 | 3 instances created; **VMs 9002, 9008 running on dna; rna create logged, never reached PVE** (F1) |
+| 04:08:26–04:08:41 | 3 instances created; **VMs 9002, 9008 running on <pve-host>; <pve-b-host> create logged, never reached PVE** (F1) |
 | 04:18:04 | verify: **`healthy=true` in 0.23s** over the phantom (F2); advanced to handoff |
-| 04:22:46 | dna VMs' enrollment failing `422 invalid or expired bootstrap token` (F4) |
+| 04:22:46 | <pve-host> VMs' enrollment failing `422 invalid or expired bootstrap token` (F4) |
 | 04:24 | **operator rejected handoff**; mission cancelled with full reason recorded |
 | 04:26 | routing gate reverted OFF; JWT shredded; scratch scripts removed from ops-hub |
 
 ## 4. Findings (ranked; all queued as pending improvements)
 
-1. **F1 · `019fe4c4-b373` · rna phantom** — `create_instance` logged, executor `success=true`
-   in 6s, DB row `running` with EMPTY metadata; PVE's rna task log has no clone/create at all.
+1. **F1 · `019fe4c4-b373` · <pve-b-host> phantom** — `create_instance` logged, executor `success=true`
+   in 6s, DB row `running` with EMPTY metadata; PVE's <pve-b-host> task log has no clone/create at all.
    The un-landed extension commit `01f0054a` (storage-on-node validation) is adjacent — verify
    whether it covers this before writing a new fix.
 2. **F2 · `019fe4c4-c7c4` · verify is DB-only** — `healthy=true` in 0.23s over a phantom.
@@ -102,26 +107,26 @@ last-mile actuation, and why the run ends **Outcome FAIL** with artifacts retain
   9008 terminated through `ProvisioningService#terminate_instance` by instance id, verified
   gone on live pvesh (cluster back to 26 VMs); rows `terminated`. The phantom row is kept
   pending F1 cleanup. The platform's terminate seam passed its first live test in the process.
-- Routing gate OFF (per-run posture, re-enable deliberately); rna ProviderRegion retained.
+- Routing gate OFF (per-run posture, re-enable deliberately); <pve-b-host> ProviderRegion retained.
 - Recommended order before the next run: **F1 → F2 → F4** (the execute/verify stratum),
   then F3+F6 (rails), then F5 (oracle). F2 hard-blocks P2.
 
 ## Addendum — F1 root cause (forensics, 2026-08-09 ~05:10)
 
-The phantom was not a lost API call. From dna's pveproxy access log (times UTC):
+The phantom was not a lost API call. From <pve-host>'s pveproxy access log (times UTC):
 
 | ~UTC | Call | Result |
 |---|---|---|
-| 04:08:29 | dna cidata ISO upload + `POST /nodes/dna/qemu` (VM 9002) | 200 |
-| 04:08:31 | **rna cidata ISO upload — same shared storage, same `cidata-9002.iso` name** | 200 — **overwrote 9002's seed** |
-| 04:08:33 | VM 9002 start · `POST /nodes/rna/qemu` | start 200 · **create 500 (vmid already exists)** |
+| 04:08:29 | <pve-host> cidata ISO upload + `POST /nodes/<pve-host>/qemu` (VM 9002) | 200 |
+| 04:08:31 | **<pve-b-host> cidata ISO upload — same shared storage, same `cidata-9002.iso` name** | 200 — **overwrote 9002's seed** |
+| 04:08:33 | VM 9002 start · `POST /nodes/<pve-b-host>/qemu` | start 200 · **create 500 (vmid already exists)** |
 
 Chain: (1) both concurrent steps drew **vmid 9002** from `/cluster/nextid`, which reserves
-nothing; (2) the seed name is keyed on vmid alone, so the rna step's upload replaced the dna
-step's seed — **VM 9002 booted holding the rna instance's enrollment identity** and enrolled
+nothing; (2) the seed name is keyed on vmid alone, so the <pve-b-host> step's upload replaced the <pve-host>
+step's seed — **VM 9002 booted holding the <pve-b-host> instance's enrollment identity** and enrolled
 as it (identity cross-contamination; 9002's own row never enrolled — that's F4's 422 noise);
-(3) the rna create's 500 correctly marked its row `:error` — and then VM 9002's heartbeats,
-authenticated as the rna instance, **self-healed the row `error → running`** via the
+(3) the <pve-b-host> create's 500 correctly marked its row `:error` — and then VM 9002's heartbeats,
+authenticated as the <pve-b-host> instance, **self-healed the row `error → running`** via the
 IMP-42cf03360656 AASM transition. `verify` (F2) then blessed it from the DB.
 
 Fix (extension, red-first, `proxmox_provisioning_race_spec.rb`): instance-keyed seed names on

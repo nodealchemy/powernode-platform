@@ -1,5 +1,10 @@
 # Ops Control-Plane Topology: Where Destructive Operations Live
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 > Status: design recommendation, 2026-07-28. Companion to
 > [ops-hub-management-and-devcell-design.md](./ops-hub-management-and-devcell-design.md)
 > (dev-cell provisioning grades) and [ops-hub-watchdog.md](./ops-hub-watchdog.md)
@@ -13,7 +18,7 @@
 >
 > | Migration step | State |
 > |---|---|
-> | 1. Provision `ops-cell` | **DONE** — VM 9003 on dna, pet (not pool-managed; `system_nodes.lifecycle_class` was retired and dropped, so no row records the class), lean 6-module `powernode-ops-cell` template, enrolled and composing |
+> | 1. Provision `ops-cell` | **DONE** — VM 9003 on <pve-host>, pet (not pool-managed; `system_nodes.lifecycle_class` was retired and dropped, so no row records the class), lean 6-module `powernode-ops-cell` template, enrolled and composing |
 > | 2. User-principal MCP + scoped tokens | **NOT STARTED** — and the "scoped tokens" half has no seam to build on: §2's claim that the registrar already enforces a token-permission intersection was FALSE (see the Correction in §2), so this step must now BUILD that control, not merely configure it. Also blocked on an operator-set Claude Code credential; the managed tmux session cannot start until then, so the principal it authenticates as is still unverified (see "Open uncertainties") |
 > | 3. Demote serial console to logged break-glass | not started |
 > | 4. Instance-grant deny-overlay **[NEW]** | **DONE and LIVE** — `Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS`, deny wins over any grant incl. exact-name; every destroy-shaped tool unreachable by any instance principal. **Correction (IMP-4d6423bf4eb3, 2026-09-03): this cell read "60 destroy-shaped tools". A count is not the invariant — it is derived from the pattern list against the registry and moves whenever either changes, and it had already drifted to 71 before ruling R5 added `*replace_instance*`; it is 72 of 615 registered actions now.** |
@@ -35,7 +40,7 @@
 > fewer layer existed than was credited.
 
 **The question.** Should Claude Code (the operator's destructive-ops driver) run on
-ops-hub itself, on a new dedicated instance, or on the hypervisor `dna`? And what is
+ops-hub itself, on a new dedicated instance, or on the hypervisor `<pve-host>`? And what is
 the long-term dev / operations / control-plane management structure — including the
 principal model for destructive MCP tools and where peer-to-peer skill invocation fits?
 
@@ -46,20 +51,20 @@ principal model for destructive MCP tools and where peer-to-peer skill invocatio
 **Winner: a three-tier structure whose center is option B — a dedicated ops
 NodeInstance ("ops-cell") running the shipped `claude-tmux` module, speaking to
 ops-hub's MCP as a *user* principal.** Option A (claude-tmux on ops-hub) is rejected.
-Option C (full agent tooling on `dna`) is rejected as a primary seat but *retained,
+Option C (full agent tooling on `<pve-host>`) is rejected as a primary seat but *retained,
 minimal and dumb, as the break-glass tier* — which it already is today.
 
 | Tier | Lives on | Authority | Exists? |
 |---|---|---|---|
-| **0 — Break-glass** | `dna` (hypervisor) | root + `qm`; no platform dependency | Yes (watchdog, qm, serial console) |
-| **1 — Management seat** | **ops-cell** (new NodeInstance on dna) | Claude Code via claude-tmux; MCP as **user principal** with scoped tokens | Module shipped; instance is new. **Scoped tokens do NOT exist** — no token narrows a user's authority (see the Correction in §2) |
+| **0 — Break-glass** | `<pve-host>` (hypervisor) | root + `qm`; no platform dependency | Yes (watchdog, qm, serial console) |
+| **1 — Management seat** | **ops-cell** (new NodeInstance on <pve-host>) | Claude Code via claude-tmux; MCP as **user principal** with scoped tokens | Module shipped; instance is new. **Scoped tokens do NOT exist** — no token narrows a user's authority (see the Correction in §2) |
 | **2 — Autonomous ops** | ops-hub (platform agents) + fleet instances | Ai::Agent intervention policies + ApprovalChain; instance principals default-deny, read/diagnostic only | Yes; needs grant hygiene **[NEW]** |
 
 The organizing rule, generalized from the 2026-07-27 self-detach incident (51 min
 down, ended only by reboot): **anything that must function while ops-hub is broken
 cannot live on ops-hub — and anything that can break ops-hub must not share its
 resources.** The in-platform watchdog (`InstanceStatusSensor`, runs in Sidekiq) was
-detached first and monitored nothing; the external watchdog on `dna` is the fix and
+detached first and monitored nothing; the external watchdog on `<pve-host>` is the fix and
 the pattern.
 
 ---
@@ -70,18 +75,18 @@ Operations that were actually needed during the incident, and where they can onl
 
 | Operation | Requires | Can only live |
 |---|---|---|
-| Reboot / stop / start VM 600 | `qm` on the hypervisor | `dna` |
-| Read ops-hub's journal when SSH is dead | serial console (`socat` → `600.serial0`) or `qm` | `dna` |
-| Repair /persist composition offline | `qm stop` + `--lock` + mount (see memory: dual-mount truncation) | `dna` |
-| Select boot entry / A-B fallback | `systemd-boot` oneshot via ESP | `dna` (or in-guest pre-boot) |
-| Detect ops-hub death at all | a prober outside the guest | `dna` (external watchdog — shipped) |
+| Reboot / stop / start VM 600 | `qm` on the hypervisor | `<pve-host>` |
+| Read ops-hub's journal when SSH is dead | serial console (`socat` → `600.serial0`) or `qm` | `<pve-host>` |
+| Repair /persist composition offline | `qm stop` + `--lock` + mount (see memory: dual-mount truncation) | `<pve-host>` |
+| Select boot entry / A-B fallback | `systemd-boot` oneshot via ESP | `<pve-host>` (or in-guest pre-boot) |
+| Detect ops-hub death at all | a prober outside the guest | `<pve-host>` (external watchdog — shipped) |
 
 None of these may depend on the platform API, Vault, or MCP — all three are served by
-the thing that is down. Hence **Tier 0 stays on `dna` and stays dumb**: scripts and
-runbooks, not agents. `dna` is deliberately *not* made a management seat: it is the
+the thing that is down. Hence **Tier 0 stays on `<pve-host>` and stays dumb**: scripts and
+runbooks, not agents. `<pve-host>` is deliberately *not* made a management seat: it is the
 hypervisor under every guest including ops-hub itself; enlarging its attack surface or
 coupling it to platform credentials converts a guest-level failure domain into a
-host-level one. (Optional, low-priority: a manually-installed Claude Code CLI on `dna`
+host-level one. (Optional, low-priority: a manually-installed Claude Code CLI on `<pve-host>`
 with a root-only local key, for assisted recovery when the platform is down. It would
 need no MCP — its tools are `qm`, ssh, journals. Deferred; the runbooks cover Tier 0.)
 
@@ -104,14 +109,14 @@ against option A:
   Postgres, Vault access, and module-signing material.
 
 **ops-cell (Tier 1)** is a sibling of dev-cell (VM 9000): a NodeInstance managed by
-ops-hub, on `dna`, running `claude-tmux`
+ops-hub, on `<pve-host>`, running `claude-tmux`
 ([extensions/system/docs/CLAUDE_TMUX_MODULE.md](../../extensions/system/docs/CLAUDE_TMUX_MODULE.md)
 — systemd-supervised tmux, Vault-injected Anthropic key, mTLS-only credential pull;
 dev-cell is its first consumer, so the pattern is proven). Because module composition
 is applied at boot, ops-cell keeps running when ops-hub is down — the session
-survives, can observe the outage, and can SSH to `dna` to drive Tier 0. It shares the
-`dna` hardware failure domain with ops-hub, which is unavoidable in a one-hypervisor
-fleet and acceptable: recovery from `dna` itself failing is physical/iLO, out of
+survives, can observe the outage, and can SSH to `<pve-host>` to drive Tier 0. It shares the
+`<pve-host>` hardware failure domain with ops-hub, which is unavoidable in a one-hypervisor
+fleet and acceptable: recovery from `<pve-host>` itself failing is physical/iLO, out of
 platform scope. (Pick its VMID mindfully — the dev/ops-hub VMID collision has
 happened before.)
 
@@ -253,12 +258,12 @@ opposite of what you want on a terminate. Concretely:
   durable "who said yes" for Tier 2.
 - **Serial console:** has no audit trail and today is the *default* destructive path.
   This design demotes it to Tier 0 break-glass only. **[NEW, small]** wrap it on
-  `dna` in a `pn-breakglass` script that `script(1)`-logs the transcript locally and
+  `<pve-host>` in a `pn-breakglass` script that `script(1)`-logs the transcript locally and
   back-syncs to the platform audit log when ops-hub returns.
 
 ## 5. Migration path (no dev-plane dependency)
 
-1. **Provision ops-cell** on `dna` from an existing template + `claude-tmux` +
+1. **Provision ops-cell** on `<pve-host>` from an existing template + `claude-tmux` +
    Vault-injected key — all shipped machinery; dev-cell is the working precedent.
    *This is the smallest useful first step and is valuable on its own:* the operator
    gets an auditable, dev-independent management seat pointed at the live plane.
@@ -269,7 +274,7 @@ opposite of what you want on a terminate. Concretely:
    nothing, so this step must first BUILD the scope→permission mapping and a
    mint-time surface. Do not tick it off by minting tokens.
 3. **Demote the serial console** to documented break-glass; add the logging wrapper
-   on `dna`.
+   on `<pve-host>`.
 4. **[NEW]** Land the instance-grant deny-overlay (small change in
    `Mcp::Principal#may_invoke?` + `grant_mcp_tools!`/`grant_peer_skills!`).
 5. **Author `require_approval` intervention policies + an ApprovalChain** for
@@ -283,7 +288,7 @@ opposite of what you want on a terminate. Concretely:
 
 - **A — claude-tmux on ops-hub:** shared fate, resource competition on the control
   plane, unaudited local-root temptation, maximal blast radius (§1).
-- **C — full agent tooling on dna:** correct for Tier 0 only; as a primary seat it
+- **C — full agent tooling on <pve-host>:** correct for Tier 0 only; as a primary seat it
   couples the hypervisor to platform credentials and grows the host attack surface.
 - **Instance-principal destructive grants:** double permission bypass once granted
   (§2); structurally fights the User-assuming stack (BUG-Q/R/S).

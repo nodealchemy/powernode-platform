@@ -40,7 +40,7 @@ RSpec.describe "Internal AI provisioning phase integrity", type: :request do
   describe "capture_intent auto-advance (F6)" do
     let(:complete_brief) do
       { "intent" => "provision a stack", "use_case" => "validation",
-        "scale" => { "initial" => 1, "target" => 1 }, "regions" => %w[dna],
+        "scale" => { "initial" => 1, "target" => 1 }, "regions" => %w[pve1],
         "budget_cap_usd_monthly" => 5 }
     end
 
@@ -75,7 +75,7 @@ RSpec.describe "Internal AI provisioning phase integrity", type: :request do
   describe "compose_plan (F-c + F6)" do
     let(:brief_config) do
       { "brief" => { "intent" => "provision", "use_case" => "validation",
-                     "scale" => { "initial" => 1, "target" => 1 }, "regions" => %w[dna],
+                     "scale" => { "initial" => 1, "target" => 1 }, "regions" => %w[pve1],
                      "budget_cap_usd_monthly" => 5 } }
     end
 

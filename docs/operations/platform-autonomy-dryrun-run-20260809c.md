@@ -1,5 +1,10 @@
 # Platform Autonomy Dry-Run — Run Report `20260809c`
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Run ID**: `20260809c` · **Date**: 2026-08-09 · **Campaign**: `platform-autonomy-dryrun` (`019fdffd-aeed`)
 **Runs on**: hub-backend **v60** (core `3ce38a1db`: F-a docker wiring + F-b rollback scoping) →
 extension **v38** mid-run (`83228db0`: executor kwarg slicing)
@@ -10,7 +15,7 @@ extension **v38** mid-run (`83228db0`: executor kwarg slicing)
 **Three strata deeper in one run, ending on a genuine missing capability.** Extraction was
 perfect for the third consecutive run; the composer produced the first fully-wired plan
 (3 per-instance docker steps via `depends_on_outputs`); all three instances provisioned
-across dna+rna, enrolled, and heartbeated; F-b's scoping kept every instance alive through
+across <pve-host>+<pve-b-host>, enrolled, and heartbeated; F-b's scoping kept every instance alive through
 **six** docker-step failures across two attempts. The docker leg then peeled two layers —
 executor kwarg strictness (fixed as v38 mid-run) — and stopped on the real floor: **the
 account has no SDWAN network, and Docker's phase-1 daemon requires an overlay address by
@@ -34,7 +39,7 @@ network layer and validating nothing at compose time.
 | 10:56 | v60 delivered (restart 10:56:47 > mtime 10:56:34), `/up` 200 |
 | 10:58 | mission `019fe62c-…` started; brief perfect first pass (3/3 runs) |
 | 10:59–11:01 | compose (job-path, worked): 2 provision + **3 wired docker steps**; gate approved by operator |
-| 11:01–11:02 | 3 instances provisioned (9009, 9010 dna; 9004 rna — distinct vmids), all enrolled |
+| 11:01–11:02 | 3 instances provisioned (9009, 9010 <pve-host>; 9004 <pve-b-host> — distinct vmids), all enrolled |
 | 11:02–11:03 | all 3 docker steps fail `unknown keyword: :brief` — **instances untouched (F-b)** |
 | 11:18–11:24 | kwarg fix built as extension v38 and delivered mid-run |
 | 11:26–11:28 | steps reset + re-executed: clean perform, now `no SDWAN peer with an assigned overlay address` ×3 — account has **zero Sdwan::Networks**, template declares none, auto-enroll silently skipped |

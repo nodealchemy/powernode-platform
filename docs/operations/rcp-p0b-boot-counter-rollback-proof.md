@@ -22,7 +22,7 @@
 > **INV-4 (health-gated bless) is a separate claim and was not proven by either run** —
 > Variant B, this design's own primary case, was never built.
 >
-> **VM 9002 (§8) is still running on rna** as of 2026-07-26 and is a reap candidate;
+> **VM 9002 (§8) is still running on <pve-b-host>** as of 2026-07-26 and is a reap candidate;
 > it is a throwaway with no dependents.
 
 > **STATUS (pre-execution snapshot, 2026-07-24 — retained for audit, not current):**
@@ -237,7 +237,7 @@ Evidence from the live fleet (374 nodes / 329 instances):
   (terminated). No live VM to reuse.
 - `ops-hub` (node `019f4ebc…`) is **explicitly off-limits** — it is the
   production control plane RCP exists to protect, and its instance rows are
-  `error`/stale (it self-repointed to standalone VM104 on `dna`).
+  `error`/stale (it self-repointed to standalone VM104 on `<pve-host>`).
 - `k3s-a-*`, `tenant-a/b-host` are running workloads; `physical-smoke-pve` is
   physical (can't cheaply A/B a borrowed box). None disposable.
 
@@ -256,15 +256,15 @@ Therefore the target is a **purpose-provisioned, single-use VM**:
 **Operator decisions to confirm before any provisioning (do not decide these
 unilaterally):**
 
-1. **Host + storage.** Recommendation: **`rna` / `local-data`** (rna's
-   independent zpool) — keeps the throwaway entirely **off `dna`**, where ops-hub
+1. **Host + storage.** Recommendation: **`<pve-b-host>` / `local-data`** (<pve-b-host>'s
+   independent zpool) — keeps the throwaway entirely **off `<pve-host>`**, where ops-hub
    (VM104) lives, honoring INV-6 failure-domain separation. Residual, honestly
-   named: even a separate-VMID/separate-disk throwaway shares `rna`'s CPU/RAM/IO
-   and PVE corosync membership; `rna` is also the intended P1 home for ops-hub-B.
-   If the operator would rather not run a deliberately-panicking VM on `rna` at
+   named: even a separate-VMID/separate-disk throwaway shares `<pve-b-host>`'s CPU/RAM/IO
+   and PVE corosync membership; `<pve-b-host>` is also the intended P1 home for ops-hub-B.
+   If the operator would rather not run a deliberately-panicking VM on `<pve-b-host>` at
    all, the alternative is a scratch host outside the quorum. **Operator picks.**
 2. **VMID.** Must avoid the shared-PVE VMID-collision hazard
-   (`[[shared-dna-vmid-collision-ops-hub-dev]]` — the shared pool has no VMID
+   (`[[shared-<pve-host>-vmid-collision-ops-hub-dev]]` — the shared pool has no VMID
    floor and previously grabbed a live VMID). Pin an explicit, reserved,
    non-colliding VMID.
 3. **Injection containment** — the broken artifact is injected via the **mandatory
@@ -482,17 +482,17 @@ needs-rework; the four required changes are folded into §3.2 / §5.1 / §5.2 / 
 failure-injection was performed for this document or its revision, and none should
 be until (b)–(c) clear.
 
-## 8. As-provisioned state (2026-07-24, VMID 9002 on rna)
+## 8. As-provisioned state (2026-07-24, VMID 9002 on <pve-b-host>)
 
 The P0-b throwaway is provisioned and staged up to (but NOT including) the injection:
 
-- **VM:** `rcp-p0b-throwaway-9002` (VMID 9002) on **rna**, disk on **local-data**
+- **VM:** `rcp-p0b-throwaway-9002` (VMID 9002) on **<pve-b-host>**, disk on **local-data**
   (zpool `local-zfs/local-data`, independent per INV-6). OVMF/q35, secure boot OFF
   (`pre-enrolled-keys=0`), serial-only console `/var/run/qemu-server/9002.serial0`.
   Running; boots **slot A** of capability image git_sha `a60b0a0d…`; enrollment
   pending (no identity injected — expected). Config matched to the fleet's
   `create_uefi_disk_vm_instance` / `build_qemu_vm_body`. Only 9002 was created;
-  rna's 9001 (another agent's watchdog) + 7 stopped VMs untouched.
+  <pve-b-host>'s 9001 (another agent's watchdog) + 7 stopped VMs untouched.
 - **Source-image provenance:** the cached `.raw` sha differs from the OCI
   publication sha by a *systematic* ~316-byte PVE-import transform (confirmed
   across 3 images) — it is the fleet's real imported capability image.
@@ -549,7 +549,7 @@ The P0-b throwaway is provisioned and staged up to (but NOT including) the injec
    health-gate/bake-window proof — §5.3 Run 2 — needs the §3.1/§3.2 patched image,
    deferred.)
 7. **Teardown:** `qm stop 9002 && qm set 9002 --protection 0 && qm destroy 9002` on
-   rna; remove the claimable NodeInstance record.
+   <pve-b-host>; remove the claimable NodeInstance record.
 
 **Scope:** this round is **Variant A only** (kernel-DOA, runnable on the current
 unpatched image). It does NOT exercise INV-4's health-gated bless / bake-window —

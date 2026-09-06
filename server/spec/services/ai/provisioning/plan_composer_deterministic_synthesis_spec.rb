@@ -7,7 +7,7 @@ require "rails_helper"
 # docker dedup IMP 019fe7e0).
 #
 # The platform-autonomy-dryrun campaign ran the SAME brief (scale.initial=3,
-# regions dna+rna, container-runtime use case) four times through the LLM
+# regions pve1+pve2, container-runtime use case) four times through the LLM
 # decomposer and got a differently broken plan each run: run c 3 docker steps
 # (ok by luck), run d 0 docker steps, run e 2→6 docker steps after fan-out,
 # run f count 9+9 = 18 instances for a 3-instance brief (est. $1008/mo). The
@@ -36,15 +36,15 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "deterministic synthesis",
   end
 
   let(:sys_provider) do
-    ::System::Provider.create!(account: account, name: "IPNode PVE", provider_type: "proxmox", enabled: true)
+    ::System::Provider.create!(account: account, name: "Lab PVE", provider_type: "proxmox", enabled: true)
   end
-  let!(:dna) do
+  let!(:pve1) do
     ::System::ProviderRegion.create!(account: account, provider: sys_provider,
-                                     region_code: "dna", name: "dna", enabled: true)
+                                     region_code: "pve1", name: "pve1", enabled: true)
   end
-  let!(:rna) do
+  let!(:pve2) do
     ::System::ProviderRegion.create!(account: account, provider: sys_provider,
-                                     region_code: "rna", name: "rna", enabled: true)
+                                     region_code: "pve2", name: "pve2", enabled: true)
   end
   let!(:instance_type) do
     ::System::ProviderInstanceType.create!(account: account, provider: sys_provider,
@@ -69,7 +69,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "deterministic synthesis",
       "use_case" => "an end-to-end platform-validation test workload exercising " \
                     "provisioning, module assignment, and the container-runtime handshake",
       "scale" => { "initial" => 3, "target" => 3 },
-      "regions" => %w[dna rna],
+      "regions" => %w[pve1 pve2],
       "preferred_template" => "powernode-ops-cell",
       "budget_cap_usd_monthly" => 5.0
     }
@@ -104,7 +104,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "deterministic synthesis",
   end
 
   describe "the run-f defect (scale explosion) is impossible" do
-    it "provision counts sum to exactly scale.initial, split 2+1 across dna/rna" do
+    it "provision counts sum to exactly scale.initial, split 2+1 across pve1/pve2" do
       plan = compose!(runtime_brief)
       pf = provision_steps(plan)
 
@@ -113,7 +113,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "deterministic synthesis",
       by_region = pf.to_h do |s|
         [s.execution_config["inputs"]["provider_region_id"], s.execution_config["inputs"]["count"].to_i]
       end
-      expect(by_region).to eq(dna.id => 2, rna.id => 1)
+      expect(by_region).to eq(pve1.id => 2, pve2.id => 1)
     end
 
     it "produces the identical shape on every composition — no run-to-run variance" do
@@ -131,8 +131,8 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "deterministic synthesis",
       plan = compose!(runtime_brief)
       dockers = docker_steps(plan)
       pf = provision_steps(plan)
-      dna_step = pf.find { |s| s.execution_config["inputs"]["provider_region_id"] == dna.id }
-      rna_step = pf.find { |s| s.execution_config["inputs"]["provider_region_id"] == rna.id }
+      dna_step = pf.find { |s| s.execution_config["inputs"]["provider_region_id"] == pve1.id }
+      rna_step = pf.find { |s| s.execution_config["inputs"]["provider_region_id"] == pve2.id }
 
       expect(dockers.size).to eq(3)
       mappings = dockers.map { |s| s.execution_config.dig("depends_on_outputs", "node_instance_id") }
@@ -221,12 +221,12 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "deterministic synthesis",
   describe "degenerate briefs" do
     it "a single-instance single-region brief yields exactly one provision step" do
       plan = compose!(runtime_brief.merge("scale" => { "initial" => 1, "target" => 1 },
-                                          "regions" => %w[dna],
+                                          "regions" => %w[pve1],
                                           "use_case" => "a plain database", "intent" => "one node"))
       expect(plan.steps.count).to eq(1)
       step = plan.steps.first
       expect(step.execution_config["inputs"]["count"]).to eq(1)
-      expect(step.execution_config["inputs"]["provider_region_id"]).to eq(dna.id)
+      expect(step.execution_config["inputs"]["provider_region_id"]).to eq(pve1.id)
     end
 
     it "a region-less brief yields one full-count step on the fallback region" do
@@ -243,7 +243,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, "deterministic synthesis",
       pf = provision_steps(plan)
       expect(pf.size).to eq(1)
       expect(pf.first.execution_config["inputs"]["count"]).to eq(1)
-      expect(pf.first.execution_config["inputs"]["provider_region_id"]).to eq(dna.id)
+      expect(pf.first.execution_config["inputs"]["provider_region_id"]).to eq(pve1.id)
     end
   end
 

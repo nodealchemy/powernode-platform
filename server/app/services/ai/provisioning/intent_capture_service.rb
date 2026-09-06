@@ -369,7 +369,7 @@ module Ai
       # exists. `preferred_provider` is a choice from an authoritative,
       # enumerable set — free-generating it from a generic cloud vocabulary is
       # what produced 'pro_cloud'/'local_qemu' from objectives naming
-      # "IPNode PVE" (three live misextractions, 2026-08-08/09; the old list
+      # "<pve-provider>" (three live misextractions, 2026-08-08/09; the old list
       # did not even contain "proxmox"). The LLM's job is reduced to selecting
       # from the closed set; #provider_evidenced_in_text then overrides it
       # deterministically whenever the operator named a provider outright.
@@ -570,9 +570,9 @@ module Ai
         # operator's own words name exactly one configured provider, that IS
         # the preferred provider — no LLM opinion can change it. This is the
         # fix for three live misextractions (2026-08-08/09) where objectives
-        # naming "the 'IPNode PVE' provider" yielded 'pro_cloud' twice and
+        # naming "the '<pve-provider>' provider" yielded 'pro_cloud' twice and
         # 'local_qemu' once; the last was configured, passed validation, and
-        # the scrub below then silently destroyed regions ["dna","rna"].
+        # the scrub below then silently destroyed regions ["pve1","pve2"].
         evidenced = provider_evidenced_in_text(evidence_text)
         if evidenced && out["preferred_provider"] != evidenced.provider_type.to_s
           Rails.logger.info(
@@ -638,7 +638,7 @@ module Ai
       # account actually has, or nil (IMP 019fe1e0-71b1).
       #
       # The extracted value was previously stringified and trusted. Observed
-      # failure: an objective naming "the 'IPNode PVE' provider" yielded
+      # failure: an objective naming "the '<pve-provider>' provider" yielded
       # 'pro_cloud' — a type absent from that account — which matched nothing in
       # PlanComposerService#resolve_provider_choice and degraded to the
       # clarification path. The more dangerous variant is a hallucinated type

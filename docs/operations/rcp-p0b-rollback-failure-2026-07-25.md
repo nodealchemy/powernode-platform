@@ -1,5 +1,10 @@
 # RCP v2 · P0-b — the rollback proof FAILED, and why that was the point
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Date:** 2026-07-25 · **Campaign:** `019f9250-a199-7819-ace6-cee904116b3e` ·
 **Increment:** `p0b-boot-counter-rollback-proof` (recorded **failed**) ·
 **Observation:** `019f9a73-ee6c-759c-a841-f8e8dd656fc3`
@@ -22,7 +27,7 @@ plane.
 ## What happened
 
 Injected the staged, validly-cosign-signed but deliberately-broken UKI on throwaway
-**VM 9002** (rna/local-data) at 17:57 UTC via the local-CLI path (§9 of the design; the
+**VM 9002** (<pve-b-host>/local-data) at 17:57 UTC via the local-CLI path (§9 of the design; the
 platform-dispatch path stayed forbidden throughout).
 
 The agent reported `boot image written + cosign-verified` and rebooted. Then:
@@ -136,7 +141,7 @@ on VM 9002 instead.
 
 ## Evidence
 
-- Serial capture (1.7 MB, all 48 boots): `rna:/root/9002-serial-p0b-FAILED.log`
+- Serial capture (1.7 MB, all 48 boots): `<pve-b-host>:/root/9002-serial-p0b-FAILED.log`
 - Broken artifact as written to the boot path: `/EFI/BOOT/BOOTX64.EFI.broken-uki` on
   VM 9002's ESP
 - Staged UKI + valid cosign bundle retained at `/persist/cache/boot-image/` for the re-run

@@ -25,7 +25,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "template selection", typ
       "intent" => "provision a 3-node Powernode stack",
       "use_case" => "database",
       "scale" => { "initial" => 3, "target" => 3, "growth_profile" => "steady" },
-      "regions" => %w[dna rna],
+      "regions" => %w[pve1 pve2],
       "budget_cap_usd_monthly" => 5
     }.merge(overrides)
   end
@@ -60,7 +60,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "template selection", typ
 
     it "fills preferred_template from text evidence when the LLM omitted it" do
       brief = capture(
-        text: "Provision a 3-node stack cloned from powernode-ops-cell across dna and rna",
+        text: "Provision a 3-node stack cloned from powernode-ops-cell across pve1 and pve2",
         llm: {}
       )
       expect(brief["preferred_template"]).to eq("powernode-ops-cell")

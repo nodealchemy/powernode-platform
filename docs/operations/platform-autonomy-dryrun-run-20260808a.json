@@ -9,9 +9,9 @@
   "charter": {
     "environment": "ops-hub",
     "environment_amended": true,
-    "amendment_reason": "dev-cell powernode_development is a db:seed fixture shell (0 agents, 0 ai_providers, no IPNode PVE provider, artifact-less modules)",
-    "provider": { "name": "IPNode PVE", "id": "019f73b2-8bc5-7511-90f9-2d2409a85f55", "type": "proxmox" },
-    "requested_scale": { "instances": 3, "placement": { "dna": 2, "rna": 1 } },
+    "amendment_reason": "dev-cell powernode_development is a db:seed fixture shell (0 agents, 0 ai_providers, no <pve-provider> provider, artifact-less modules)",
+    "provider": { "name": "<pve-provider>", "id": "019f73b2-8bc5-7511-90f9-2d2409a85f55", "type": "proxmox" },
+    "requested_scale": { "instances": 3, "placement": { "<pve-host>": 2, "<pve-b-host>": 1 } },
     "budget_setting": "ai.dryrun.budget_usd",
     "budget_usd": 5,
     "routing_posture": "report_first",
@@ -78,7 +78,7 @@
     "method": "live pvesh + database",
     "cluster_vms_total": 26,
     "dryrun_vms": 0,
-    "vms_by_node": { "dna": 16, "rna": 9, "lna": 1 },
+    "vms_by_node": { "<pve-host>": 16, "<pve-b-host>": 9, "<pve-d-host>": 1 },
     "db_dryrun_instances": 0,
     "db_dryrun_templates": 0,
     "ops_instances_unchanged": 3,
@@ -128,7 +128,7 @@
     "P0 scope narrowed to three measurement commits; submodule 01f0054a excluded"
   ],
   "state_left_behind": {
-    "retained": ["SiteSetting ai.dryrun.budget_usd=5", "ProviderRegion rna 019fe1c7-d11c-7f9e-b5f0-a218a2e620bd"],
+    "retained": ["SiteSetting ai.dryrun.budget_usd=5", "ProviderRegion <pve-b-host> 019fe1c7-d11c-7f9e-b5f0-a218a2e620bd"],
     "reverted": ["account.settings ai_task_tier_routing_enabled removed", "API JWT shredded", "ops-hub scratch scripts removed"],
     "latent_risk": "ops-hub agent refuses to live-detach postgres-primary-vm104-devpin and runtime-ruby-vm104-devpin; 11-module composition staged for next boot drops them. Pre-existing. Treat next reboot as supervised work."
   },

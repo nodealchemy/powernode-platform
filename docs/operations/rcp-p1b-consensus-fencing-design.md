@@ -13,7 +13,7 @@
 >
 > - Campaign: Resilient Control Plane (RCP) v2 — `019f9250-a199-7819-ace6-cee904116b3e`
 > - Increment: **P1-b — Consensus group + fencing** (`[Opus]`)
-> - Prerequisite: **P1-a** (ops-hub-B healthy on rna/`local-data`) — sibling task, in flight
+> - Prerequisite: **P1-a** (ops-hub-B healthy on <pve-b-host>/`local-data`) — sibling task, in flight
 > - Author: Opus design subagent, 2026-07-24
 > - Invariant source of truth: `~/.claude/plans/campaign-reciprocal-control-plane.md` (INV-6, INV-7)
 >
@@ -24,7 +24,7 @@
 > (guest Pacemaker + STONITH + `priority-fencing-delay`) was **declined** and is retained only as
 > Appendix B (the path not taken, for the INV-8 reviewer).
 >
-> **Witness decided by operator (2026-07-24): `fna`** — separate power from both dna and rna;
+> **Witness decided by operator (2026-07-24): `<pve-c-host>`** — separate power from both <pve-host> and <pve-b-host>;
 > shared network/switch **explicitly accepted** as a residual (INV-6's named "shared switch").
 
 ---
@@ -33,10 +33,10 @@
 
 1. **The tension resolves by recognizing two consensus layers, not one.** ops-hub-A and ops-hub-B
    are **guest VMs**, not corosync members of the `ipnode` Proxmox host cluster (whose members are
-   the hosts dna/fna/lna/rna). RCP's consensus group is a **purpose-built arbiter for the ops-hub
+   the hosts <pve-host>/<pve-c-host>/<pve-d-host>/<pve-b-host>). RCP's consensus group is a **purpose-built arbiter for the ops-hub
    pair, layered *above* `ipnode`** — **`ipnode`'s corosync is NOT modified** (§1).
 2. **Chosen mechanism (operator-approved):** a **2-member+witness quorum** (recommended substrate:
-   **corosync votequorum + a qnetd QDevice on `fna`, no Pacemaker**) elects exactly one **active
+   **corosync votequorum + a qnetd QDevice on `<pve-c-host>`, no Pacemaker**) elects exactly one **active
    plane**; the loser **cooperatively stands down**; enforcement rides the **existing
    `ControlPlaneFence`** via a small **active-role precondition** (§3–§4).
    **Proxmox HA is NOT used** — the operator removed it from scope on 2026-07-26 (§6.2). `ipnode`
@@ -49,7 +49,7 @@
    **no IPMI/BMC driver** (verified in code) and no Pacemaker; the deterministic-winner *intent* is
    preserved by the qnetd tie-breaker + a rank-based election rule, and the loser stands down
    instead of being power-fenced (with an optional Proxmox-API hard-stop for a wedged loser).
-4. **Witness: `fna` (confirmed).** Separate power from both dna and rna (removes the storage/power
+4. **Witness: `<pve-c-host>` (confirmed).** Separate power from both <pve-host> and <pve-b-host> (removes the storage/power
    correlation that caused the original outage class); **shares the site switch** — an
    **operator-explicitly-accepted residual**, matching INV-6's admitted "shared switch." Not a
    *fully* independent domain — recorded honestly as partial (§2, §7).
@@ -63,14 +63,14 @@
 
 | | **L1 — Proxmox host cluster `ipnode`** | **L2 — RCP control-plane pair** |
 |---|---|---|
-| Members | dna, fna, lna, rna (**physical PVE hosts**) | ops-hub-A, ops-hub-B (**guest VMs**) |
+| Members | <pve-host>, <pve-c-host>, <pve-d-host>, <pve-b-host> (**physical PVE hosts**) | ops-hub-A, ops-hub-B (**guest VMs**) |
 | Runs corosync? | Yes — on the PVE **hosts** | Not today (they are app guests) |
 | Arbitrates | Host quorum, `pmxcfs` writability, Proxmox HA VM placement/restart | *Would* arbitrate: which ops-hub is the **active** control plane |
-| Current state | 4 nodes, dna 2 votes, total 5, **quorum 3, no `device{}`** | none — ops-hub-A is the only live plane |
+| Current state | 4 nodes, <pve-host> 2 votes, total 5, **quorum 3, no `device{}`** | none — ops-hub-A is the only live plane |
 
-The correction that dissolves the tension: **ops-hub-A is VM 104 *on* dna; it is not dna.** The
+The correction that dissolves the tension: **ops-hub-A is VM 104 *on* <pve-host>; it is not <pve-host>.** The
 ops-hub VMs are **guests** on two of the four hosts; they are **not** corosync members of `ipnode`.
-The plan's shorthand ("ops-hub-A (dna)") collapses guest and host, and that collapse is the whole
+The plan's shorthand ("ops-hub-A (<pve-host>)") collapses guest and host, and that collapse is the whole
 source of the ambiguity. (If the operator ever intends the ops-hub VMs to be *added as PVE nodes* —
 converged/nested Proxmox — that is a different, unusual design and must be stated; nothing indicates
 it, and this document assumes they remain guests.)
@@ -79,16 +79,16 @@ it, and this document assumes they remain guests.)
 
 - `ipnode` is a **healthy 4-node cluster with an odd vote total (5) and quorum 3** — a QDevice is
   the fix for an **even/2-node** cluster with no tiebreaker, and solves no problem `ipnode` has.
-- It would **change quorum math for lna and every unrelated homelab workload** — conflating
+- It would **change quorum math for <pve-d-host> and every unrelated homelab workload** — conflating
   "the whole homelab's Proxmox HA" with "this campaign's A/B/witness arbitration," exactly the
-  anti-pattern to avoid. (Note: `fna` hosting the RCP *qnetd* below is unrelated to `ipnode`'s
+  anti-pattern to avoid. (Note: `<pve-c-host>` hosting the RCP *qnetd* below is unrelated to `ipnode`'s
   quorum — qnetd is a separate daemon, not an `ipnode` corosync change; see §7.)
 - The clean **2 members + 1 witness** shape (Locked Decision #1) does not map onto a 4-node cluster.
 
 ### 1.3 Resolution
 
 > **P1-b's "consensus group" is a purpose-built arbiter for the ops-hub *pair*, realized as a small
-> 2-member+witness quorum among the guests (plus a qnetd witness on `fna`), sitting logically
+> 2-member+witness quorum among the guests (plus a qnetd witness on `<pve-c-host>`), sitting logically
 > *above* the Proxmox host cluster. `ipnode`'s corosync is NOT modified.** What we reuse from
 > Proxmox is the **corosync/QDevice *technology and pattern***, not the `ipnode` cluster as the A/B
 > arbiter, and **Proxmox HA** (a per-VM setting) for VM liveness.
@@ -111,7 +111,7 @@ documented honestly. Clause by clause:
 | **STONITH (power/BMC)** | ❌ **Not literal** | **No IPMI/BMC driver exists** (verified — §5). No host power-fence. The loser **cooperatively stands down** on quorum loss (the role gate, §4); a **wedged** loser can be hard-stopped via the **Proxmox-API guest stop** (not a true power-fence — §5). **Host *death* is now handled by nothing** — with Proxmox HA removed (§6.2) no LRM ever holds a lock, so **no node self-fences**. A dead host simply takes its guest with it, which is survivable (the peer becomes active). A host that is **partitioned but alive** is the case that lost its backstop — see §4.5. |
 | **asymmetric fencing delay (`priority-fencing-delay`)** | ❌ **Not literal (mechanism)** / ✅ **intent** | No Pacemaker ⇒ no `priority-fencing-delay`. The *intent* — a deterministic, non-symmetric winner — is met by the **rank-based election rule** (active = quorate ∧ lowest-rank member, A-preferred) plus the **qnetd `ffsplit` + `tie_breaker`** deterministic quorum winner (§4, §6). |
 | **one deterministic winner, never a symmetric re-provision race** | ✅ **Intent met** | qnetd tie-breaker + election rule ⇒ exactly one active plane in every partition; the loser stands down; neither can unilaterally re-provision the other (no unilateral peer action). Proven by the §8 partition test. |
-| **witness in a third *independent* failure domain** | ⚠️ **Partial — operator-accepted** | Witness on **`fna`**: **power-independent** from both members (operator-confirmed), **shares the site switch** (operator-explicitly-accepted residual; matches INV-6's named "shared switch"). Not a *fully* independent domain — recorded honestly as partial (§7). |
+| **witness in a third *independent* failure domain** | ⚠️ **Partial — operator-accepted** | Witness on **`<pve-c-host>`**: **power-independent** from both members (operator-confirmed), **shares the site switch** (operator-explicitly-accepted residual; matches INV-6's named "shared switch"). Not a *fully* independent domain — recorded honestly as partial (§7). |
 
 **Net:** the *substantive safety properties* (structural no-act-when-isolated; a single deterministic
 winner; no mutual re-provision) are preserved. The *literal fencing machinery* (BMC STONITH,
@@ -133,15 +133,15 @@ Three cooperating pieces, from bottom to top:
 3. **Enforcement → the existing `ControlPlaneFence`,** augmented with an **active-role precondition**
    so a standby plane actuates on nothing (§4).
 
-### 3.1 Recommended quorum substrate: corosync votequorum + qnetd QDevice on `fna` (no Pacemaker)
+### 3.1 Recommended quorum substrate: corosync votequorum + qnetd QDevice on `<pve-c-host>` (no Pacemaker)
 
 The operator fixed the *shape* (2-member+witness quorum + `ControlPlaneFence`) and the *witness host*
-(`fna`), but not the *substrate*. Recommendation and rationale:
+(`<pve-c-host>`), but not the *substrate*. Recommendation and rationale:
 
 - **Members:** ops-hub-A and ops-hub-B each run `corosync` + `corosync-qdevice` over their **stable
   per-node LAN identity** (the plan distinguishes this stable membership identity from the P3 SDWAN
   VIP; corosync is latency-sensitive and must not ride the overlay).
-- **Witness:** a **qnetd** daemon on **`fna`** (§7). 2 votes + 1 qdevice vote ⇒ expected 3,
+- **Witness:** a **qnetd** daemon on **`<pve-c-host>`** (§7). 2 votes + 1 qdevice vote ⇒ expected 3,
   **quorum 2**; qnetd's `ffsplit` + `tie_breaker` hands the deciding vote to exactly one side.
 - **No Pacemaker, no STONITH, no fence agents, no `priority-fencing-delay`.** The app *reads* quorum
   state; it does not drive Pacemaker resources.
@@ -247,7 +247,7 @@ Rank is a stable per-plane priority (A ranked above B). Consequences (all determ
 | Both up, healthy | {A, B} | **A** (lowest rank); B stands by |
 | Partition, qdevice → A | {A} | **A**; B inquorate ⇒ stands down |
 | Partition, qdevice → B (A dead) | {B} | **B** (only quorate member) — correct failover |
-| Witness (`fna`) down, A+B still see each other | {A, B} (2 of 3 votes ≥ quorum 2) | **A**; witness loss alone is *not* an outage |
+| Witness (`<pve-c-host>`) down, A+B still see each other | {A, B} (2 of 3 votes ≥ quorum 2) | **A**; witness loss alone is *not* an outage |
 | Witness down **and** A\|B partition | {A} 1 vote, {B} 1 vote — neither quorate | **neither** — both stand down (safe: no split-brain, control plane unavailable until re-form) |
 
 This delivers the deterministic, A-preferred winner that INV-7's `priority-fencing-delay` was
@@ -339,7 +339,7 @@ Layered enforcement, honestly labeled:
 >   reachability, is **gone**. It was the sole non-cooperative option, and it is what the removal
 >   actually cost.
 >
-> **This is not a reason to restore Proxmox HA.** Buying this backstop meant arming dna's watchdog,
+> **This is not a reason to restore Proxmox HA.** Buying this backstop meant arming <pve-host>'s watchdog,
 > and the firewall's host hard-resetting on a single-ring corosync blip is a far more likely event
 > than a wedged-and-partitioned control plane. The correct response is to stop treating stand-down
 > as an *action the loser takes* and make it a **structural property**: the actuation path must be
@@ -356,13 +356,13 @@ Layered enforcement, honestly labeled:
 
 ### 4.6 New components P1-b introduces (all gated behind P0 + INV-8)
 
-1. The **corosync votequorum + qnetd (on `fna`)** guest quorum (config in §6) — design-only here.
+1. The **corosync votequorum + qnetd (on `<pve-c-host>`)** guest quorum (config in §6) — design-only here.
 2. **`System::Autonomy::ControlPlaneRole`** — the thin `active?` reader (quorum + election rule).
 3. The **`ControlPlaneFence` augmentation** (§4.4) — proposed code change, not applied.
 4. ~~**Proxmox HA** marking of the two ops-hub VMs~~ — **REMOVED 2026-07-26 (§6.2).** P1-b now
    introduces **no change of any kind to `ipnode`**: not its corosync, not its HA manager, not its
    watchdog state. The only thing that lands on an `ipnode` host is the `corosync-qnetd` daemon on
-   `fna` (§7), which is a standalone service and not a cluster participant.
+   `<pve-c-host>` (§7), which is a standalone service and not a cluster participant.
 5. *(Optional)* a **hard-stop actuator** for a wedged loser, gated behind the same `active?`.
 
 ---
@@ -409,7 +409,7 @@ quorum {
         votes: 1
         net {
             tls: on
-            host: fna               # qnetd witness — operator-confirmed (§7)
+            host: <pve-c-host>               # qnetd witness — operator-confirmed (§7)
             algorithm: ffsplit      # even-split -> exactly one side keeps the deciding vote
             tie_breaker: lowest      # deterministic winner on a perfect 50/50
         }
@@ -421,7 +421,7 @@ quorum {
   `device{}` block (2 + 1 qdevice vote, quorum 2). Setting both is wrong.
 - `wait_for_all: 1` is kept **with** the qdevice — it governs the cold-start case; the qdevice
   governs the running-partition case.
-- Each member runs `corosync-qdevice`; **`fna` runs `corosync-qnetd`**. TLS on.
+- Each member runs `corosync-qdevice`; **`<pve-c-host>` runs `corosync-qnetd`**. TLS on.
 - **No `crm`/`pcs`/`stonith` config** — there is no Pacemaker in this design.
 
 ### 6.2 Proxmox HA — ~~add the ops-hub VMs as HA resources~~ **REMOVED BY OPERATOR DECISION (2026-07-26)**
@@ -440,22 +440,22 @@ state it changes:
   machinery is armed and merely lacks an active LRM client.
 - Adding the **first** HA resource takes the owning node's LRM active, which connects it to
   `watchdog-mux`. Its host becomes self-fence-capable from that moment.
-- ops-hub-A is VM 104 on **dna**. dna also runs **opn-1 (VM 105), the production firewall.**
+- ops-hub-A is VM 104 on **<pve-host>**. <pve-host> also runs **opn-1 (VM 105), the production firewall.**
 - `corosync.conf` has a **single ring** (`linknumber: 0`, no redundant link). So one NIC, cable, or
-  switch-port event on dna's `<pve-ip>` path would be sufficient to hard-reset the host running
+  switch-port event on <pve-host>'s `<pve-ip>` path would be sufficient to hard-reset the host running
   the firewall — where today the identical event only makes `/etc/pve` read-only while every VM
   keeps running and forwarding packets.
 
 Trading a benign read-only-config failure mode for a hard reset of the firewall's host, in order to
 gain automatic restart of a VM whose entire purpose is to have a live peer, is a bad trade.
 
-**What this costs, honestly.** Proxmox HA was providing VM-level liveness: if dna dies, restart
-ops-hub-A elsewhere. Without it, a dead dna leaves ops-hub-A down until someone starts it — and note
-P0-a's `qmstart` auto-retry cannot help, because it runs *on dna* and dies with the host. Detection
-still works (the P0-a watchdog on rna VM 9001 is external and alerts).
+**What this costs, honestly.** Proxmox HA was providing VM-level liveness: if <pve-host> dies, restart
+ops-hub-A elsewhere. Without it, a dead <pve-host> leaves ops-hub-A down until someone starts it — and note
+P0-a's `qmstart` auto-retry cannot help, because it runs *on <pve-host>* and dies with the host. Detection
+still works (the P0-a watchdog on <pve-b-host> VM 9001 is external and alerts).
 
 That cost is acceptable **because it duplicates, at a lower layer, exactly what this campaign
-exists to build.** Continuity after a dna failure is supposed to come from ops-hub-B taking over as
+exists to build.** Continuity after a <pve-host> failure is supposed to come from ops-hub-B taking over as
 the active plane, not from Proxmox resurrecting ops-hub-A. Restoring A is then a repair at leisure
 rather than an availability event. See §2 and §4.5 for the two places this removal genuinely
 weakens the design rather than simplifying it.
@@ -464,7 +464,7 @@ weakens the design rather than simplifying it.
 
 > - Add the two ops-hub VMs as HA resources so a host failure restarts them. This uses the existing
 >   Proxmox HA/watchdog; it does **not** modify `corosync.conf`. (Exact `ha-manager`
->   group/constraints TBD with P1-a's placement so A stays on dna, B on rna.)
+>   group/constraints TBD with P1-a's placement so A stays on <pve-host>, B on <pve-b-host>.)
 
 </details>
 
@@ -482,7 +482,7 @@ gate working correctly, because it *is* the gate working correctly on a quorum t
 
 **Enable order (each step gated on the previous being observed, not assumed):**
 
-1. Stand up `corosync-qnetd` on `fna`. Verify it is serving and reachable from both members.
+1. Stand up `corosync-qnetd` on `<pve-c-host>`. Verify it is serving and reachable from both members.
 2. Deliver corosync + `corosync-qdevice` to **both** planes as a **NodeModule** — not an ad-hoc
    install (see §4.2: ad-hoc host state does not survive a re-compose, and losing it would unarm the
    gate on a plane that is supposed to be gated).
@@ -508,7 +508,7 @@ gate working correctly, because it *is* the gate working correctly on a quorum t
   no restart, which matters because the failure mode you are undoing may be "this plane will not
   act". Verify: reconcilers resume, `active?` returns true, `/up` healthy.
 - **Full rollback:** disarm both planes, then stop `corosync-qdevice` on the members and
-  `corosync-qnetd` on `fna`. The guest quorum is self-contained, so nothing on `ipnode` is touched at
+  `corosync-qnetd` on `<pve-c-host>`. The guest quorum is self-contained, so nothing on `ipnode` is touched at
   any point of the rollback.
 - **The undo must be exercised on the throwaway before the live run** (§8.4), not merely written
   down. An untested rollback is a plan, not a rollback.
@@ -522,35 +522,35 @@ gate working correctly, because it *is* the gate working correctly on a quorum t
 
 ---
 
-## 7. Witness placement — `fna` (operator-confirmed)
+## 7. Witness placement — `<pve-c-host>` (operator-confirmed)
 
-**Requirement (INV-7):** witness in a third failure domain, not co-located with a member (A on dna,
-B on rna).
+**Requirement (INV-7):** witness in a third failure domain, not co-located with a member (A on <pve-host>,
+B on <pve-b-host>).
 
-**Operator decision (2026-07-24): the witness is `fna`** — **power-independent from both dna and rna
+**Operator decision (2026-07-24): the witness is `<pve-c-host>`** — **power-independent from both <pve-host> and <pve-b-host>
 (confirmed)**, **on the same network/switch (explicitly accepted residual**, matching INV-6's
 admitted "shared switch").
 
 **Assessment, honest:**
 - **The meaningful win:** power independence from both members removes the *storage/power*
-  correlation that caused the original outage class — dna-data was dna's own ZFS, and a dna
-  power/host failure took ops-hub. `fna` shares neither dna's nor rna's power.
+  correlation that caused the original outage class — <pve-host>-data was <pve-host>'s own ZFS, and a <pve-host>
+  power/host failure took ops-hub. `<pve-c-host>` shares neither <pve-host>'s nor <pve-b-host>'s power.
 - **The accepted residual:** the **shared site switch** remains a genuine correlated domain — a
-  switch failure can partition `fna` along with a member. The operator has accepted this knowingly;
+  switch failure can partition `<pve-c-host>` along with a member. The operator has accepted this knowingly;
   it is INV-6's named "shared switch" that cannot be eliminated on one site. It **must** be recorded
   on the increment, and the §8 test **must** include a witness-side network partition so the
   accepted residual's behavior is demonstrated, not assumed.
 - **Mechanically fine:** a qnetd witness **need not be a Proxmox cluster member**, so hosting it on
-  `fna` (itself an `ipnode` host) does **not** touch `ipnode`'s quorum — qnetd is a separate daemon.
-  `fna` must **not** join the *guest* quorum; it is the qnetd arbiter only.
+  `<pve-c-host>` (itself an `ipnode` host) does **not** touch `ipnode`'s quorum — qnetd is a separate daemon.
+  `<pve-c-host>` must **not** join the *guest* quorum; it is the qnetd arbiter only.
 
-**Open (minor, non-blocking) checks against `fna` specifically, to close during implementation:**
-1. Confirm `fna`'s qnetd reaches **both** ops-hub-A and ops-hub-B over the stable LAN identity with
+**Open (minor, non-blocking) checks against `<pve-c-host>` specifically, to close during implementation:**
+1. Confirm `<pve-c-host>`'s qnetd reaches **both** ops-hub-A and ops-hub-B over the stable LAN identity with
    low, stable latency (corosync/qdevice is latency-sensitive).
-2. `fna`'s own maintenance/reboot cadence: a witness reboot alone is survivable (witness loss ≠
-   outage — §4.3), but back-to-back witness+member events are not; coordinate `fna` maintenance
+2. `<pve-c-host>`'s own maintenance/reboot cadence: a witness reboot alone is survivable (witness loss ≠
+   outage — §4.3), but back-to-back witness+member events are not; coordinate `<pve-c-host>` maintenance
    windows with the ops-hub HA windows.
-3. Ensure the qnetd TLS trust between `fna` and the two members is provisioned (design-only note;
+3. Ensure the qnetd TLS trust between `<pve-c-host>` and the two members is provisioned (design-only note;
    key handling per the crypto-material rules — no key material in configs/logs).
 
 ---
@@ -564,7 +564,7 @@ controlled window.
 ### 8.1 Throwaway lab
 
 - 3 disposable scratch VMs (local-qemu / the soon-to-be-retired dev box — fine for a throwaway):
-  `A'`, `B'` (members, corosync+qdevice) + `W'` (qnetd witness, standing in for `fna`).
+  `A'`, `B'` (members, corosync+qdevice) + `W'` (qnetd witness, standing in for `<pve-c-host>`).
 - A stub control plane on `A'`/`B'` exposing `ControlPlaneRole.active?` and a logged "actuate"
   action, wired through the augmented `ControlPlaneFence` (§4.4). No real fleet is touched.
 
@@ -584,7 +584,7 @@ controlled window.
    - `A'+W'` vs `B'` → **A' active**, `B'` stands down.
    - `B'+W'` vs `A'` (simulate A' dead) → **B' active** (failover; proves it's not "A' always wins").
    - `A'+B'` keep each other, **lose `W'`** → still quorate as a pair (2 of 3), **A' active**
-     (witness loss alone ≠ outage — the `fna`-reboot case).
+     (witness loss alone ≠ outage — the `<pve-c-host>`-reboot case).
    - `A'|B'` partition **with `W'` also unreachable** → **neither** quorate, **both** stand down
      (conservative: unavailable, not split — **the accepted shared-switch residual from §7**).
 5. **Wedged-loser probe — must wedge for real.** Suspend the loser's process with **`SIGSTOP`**, do
@@ -633,16 +633,16 @@ must be shown, not asserted.**
 ## 9. Assumptions & uncertainties (explicit — do not treat as settled)
 
 1. ~~Relied on session-provided ground truth for `ipnode`.~~ **CLOSED 2026-07-26 — read directly
-   from `/etc/pve/corosync.conf` on dna.** Confirmed: `cluster_name: ipnode`, `config_version: 16`,
-   `secauth: on`, `ip_version: ipv4`, `link_mode: passive`, nodes dna(1, **2 votes**)/fna(2)/lna(3)/
-   rna(4), and a `quorum{}` block containing **only** `provider: corosync_votequorum` — no
+   from `/etc/pve/corosync.conf` on <pve-host>.** Confirmed: `cluster_name: ipnode`, `config_version: 16`,
+   `secauth: on`, `ip_version: ipv4`, `link_mode: passive`, nodes <pve-host>(1, **2 votes**)/<pve-c-host>(2)/<pve-d-host>(3)/
+   <pve-b-host>(4), and a `quorum{}` block containing **only** `provider: corosync_votequorum` — no
    `device{}`. `pvecm status`: expected 5, quorum 3, quorate. The design's assumptions held.
    **One thing the original ground truth did not mention and which matters: there is a SINGLE ring
    (`linknumber: 0`, no redundant link).** That is what makes a lone NIC/cable/switch-port event
    sufficient to cost quorum, and it is a load-bearing part of why §6.2's watchdog arming was
    rejected. Also confirmed live: `corosync-qnetd` is **not installed anywhere** on the cluster
    today (candidate `3.0.3-2` available), so step 1 of §6.4 starts from nothing.
-2. **Assumed ops-hub-A/B are QEMU guests** (per "VM 104", "VM on rna"), **not** LXC and **not**
+2. **Assumed ops-hub-A/B are QEMU guests** (per "VM 104", "VM on <pve-b-host>"), **not** LXC and **not**
    intended to become PVE cluster members.
 3. **`wait_for_all` cold-start caveat (real, and desired here):** after a total outage where only one
    member returns, `wait_for_all` keeps it inquorate — it will *not* self-activate until the peer
@@ -650,7 +650,7 @@ must be shown, not asserted.**
    "no unilateral action at boot" (INV-1/INV-2) but it **has an availability cost**; the manual
    override procedure must be documented as part of implementation, and the §8 test must exercise it.
 4. **Corosync ring on the stable LAN identity** is assumed; its latency/reliability is **unmeasured**
-   (corosync is sensitive to it) — measure on the `fna` witness path (§7 open check 1).
+   (corosync is sensitive to it) — measure on the `<pve-c-host>` witness path (§7 open check 1).
 5. **No IPMI/BMC driver** (verified); **BMC presence on hardware unknown**.
 6. **ops-hub-B's role is unconfirmed:** true active/standby control plane vs. warm spare. If B never
    actuates concurrently, the split-brain-of-role risk shrinks further. Confirm with P1-a's owner.
@@ -666,10 +666,10 @@ must be shown, not asserted.**
 ## 10. What still needs operator / lead input before INV-8 review
 
 > The three biggest forks (mechanism; STONITH-literal-or-not; witness host) are **resolved** —
-> lighter/lease-based (§0, §2, §3); INV-7 met-in-intent; **witness = `fna`** (§7). Remaining:
+> lighter/lease-based (§0, §2, §3); INV-7 met-in-intent; **witness = `<pve-c-host>`** (§7). Remaining:
 
 1. **Re-verify `ipnode` on the PVE host** (`pvecm status`, `/etc/pve/corosync.conf`) — confirm still
-   4 nodes / dna 2 votes / quorum 3 / no `device{}` before any work.
+   4 nodes / <pve-host> 2 votes / quorum 3 / no `device{}` before any work.
 2. **ops-hub-B's role** — active/standby control plane vs warm spare (affects §4/§9.6 and coordinates
    with P1-a).
 3. **Substrate confirmation** — accept the recommended **corosync votequorum + qnetd** substrate

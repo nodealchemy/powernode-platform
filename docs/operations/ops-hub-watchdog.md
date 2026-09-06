@@ -19,14 +19,14 @@ operator sign-off.
 - [The external watchdog](#the-external-watchdog)
 - [Monitoring multiple targets (e.g. ops-hub-B)](#monitoring-multiple-targets-eg-ops-hub-b)
 - [Detection timing budget](#detection-timing-budget)
-- [The qmstart auto-retry (ships dry-run; ARMED on `dna`)](#the-qmstart-auto-retry-ships-dry-run-armed-on-dna)
+- [The qmstart auto-retry (ships dry-run; ARMED on `<pve-host>`)](#the-qmstart-auto-retry-ships-dry-run-armed-on-<pve-host>)
 - [Arming qmstart-retry](#arming-qmstart-retry)
 - [Existing infrastructure reused vs. not used](#existing-infrastructure-reused-vs-not-used)
 - [Open decisions for the operator](#open-decisions-for-the-operator)
 
 ## Why this exists
 
-ops-hub (VM104, `<ops-hub-host>`, hosted on the Proxmox hypervisor `dna`) has
+ops-hub (VM104, `<ops-hub-host>`, hosted on the Proxmox hypervisor `<pve-host>`) has
 repeatedly become its own single point of failure:
 
 - **Frozen-LKG boot trap**: once `meta.json`'s `platform_url` pointed at ops-hub
@@ -35,7 +35,7 @@ repeatedly become its own single point of failure:
   `ops-hub-lkg-self-pointed-dns-brick-risk`). This is a known, accepted steady state
   (by design, per the #39 Level-1 survival architecture) — but it means no external
   system should assume ops-hub can self-report its own health after a repoint.
-- **2-day unnoticed outage (2026-07-21 -> 2026-07-23)**: a transient `dna-data` NFS
+- **2-day unnoticed outage (2026-07-21 -> 2026-07-23)**: a transient `<pve-host>-data` NFS
   blip failed a manual `qmstart 104`. Nothing retried it. Because ops-hub had already
   been repointed to heartbeat only to itself, dev's own fleet dashboard showed it
   `stopped` "by design" and alerted nothing (see memory
@@ -87,24 +87,24 @@ fleet SSH key wasn't accepted by any unidentified host. This was reported as a
 flagged decision rather than guessed.
 
 **Pass 2** (after the coordinator provisioned real cluster access —
-`admin@dna` w/ passwordless sudo, and root-to-root SSH trust from `dna` to
-`fna`/`lna`/`rna`): the coordinator resolved all three, confirmed against the real
-4-node Proxmox cluster (`ipnode`: dna/fna/lna/rna, `pvesh get /cluster/status`):
+`admin@<pve-host>` w/ passwordless sudo, and root-to-root SSH trust from `<pve-host>` to
+`<pve-c-host>`/`<pve-d-host>`/`<pve-b-host>`): the coordinator resolved all three, confirmed against the real
+4-node Proxmox cluster (`ipnode`: <pve-host>/<pve-c-host>/<pve-d-host>/<pve-b-host>, `pvesh get /cluster/status`):
 
 | Host | Resolution | Verdict |
 |---|---|---|
-| `opn-1` | VM **105** on `dna` (name `opn-1`, running) | **The operator's firewall — off-limits**, confirmed directly by the operator. Not a candidate. |
+| `opn-1` | VM **105** on `<pve-host>` (name `opn-1`, running) | **The operator's firewall — off-limits**, confirmed directly by the operator. Not a candidate. |
 | `edge` | Not found anywhere in `pvesh get /cluster/resources --type vm` across all 4 nodes | Does not exist as a VM in the current cluster. Not a candidate. |
-| `dev-cell` | VM **9000** on `dna` (`ops-hub-dev-cell-1784413717-instance-...`, running) | Exists and runs, but **on `dna`** — the same host as ops-hub itself. A watchdog there shares ops-hub's exact blind spot (total-`dna`-failure undetectable). Not a good choice for *this* probe's purpose, independent of reachability. |
-| `rna` | Real Proxmox cluster member, `<pve-b-ip>`, **zero running VMs at the time of check** | Confirmed independent failure domain (distinct physical host, distinct `local-data` ZFS pool from `dna-data`). **Selected** — see below. |
+| `dev-cell` | VM **9000** on `<pve-host>` (`ops-hub-dev-cell-1784413717-instance-...`, running) | Exists and runs, but **on `<pve-host>`** — the same host as ops-hub itself. A watchdog there shares ops-hub's exact blind spot (total-`<pve-host>`-failure undetectable). Not a good choice for *this* probe's purpose, independent of reachability. |
+| `<pve-b-host>` | Real Proxmox cluster member, `<pve-b-ip>`, **zero running VMs at the time of check** | Confirmed independent failure domain (distinct physical host, distinct `local-data` ZFS pool from `<pve-host>-data`). **Selected** — see below. |
 
-**Resolution: deployed to a new VM (9001) on `rna`.** Cluster-wide VMID freeness was
-verified immediately before creating it, both via `qm status 9001`/`9002` on `dna`
+**Resolution: deployed to a new VM (9001) on `<pve-b-host>`.** Cluster-wide VMID freeness was
+verified immediately before creating it, both via `qm status 9001`/`9002` on `<pve-host>`
 (exit 2, "Configuration file ... does not exist" — confirmed via
 `pvesh get /cluster/resources --type vm`, the cluster-wide authoritative view) and by
 grepping the platform's own `system_list_instances` output for any `9001`/`9002`
 reference (zero hits). VMID 9002 (a concurrent throwaway from the parallel
-`rcp-p0b-rollback-design` increment, also on `rna`) was left untouched throughout.
+`rcp-p0b-rollback-design` increment, also on `<pve-b-host>`) was left untouched throughout.
 
 ## The external watchdog
 
@@ -208,11 +208,11 @@ need.
 
 ### Deployment (live, as actually run)
 
-**Deployed and running**: VM `rcp-watchdog` (VMID **9001**) on `rna`, static IP
+**Deployed and running**: VM `rcp-watchdog` (VMID **9001**) on `<pve-b-host>`, static IP
 `<ops-hub-b-ip>/24`, provisioned directly via `qm create`/`qm importdisk`/`qm set`
 (no template existed in cluster storage; used a freshly-downloaded generic Debian 12
 cloud image, `local-data` storage, `vmbr0` bridge — 1 vCPU / 1GB RAM / 8GB disk,
-trivial footprint against rna's ~20 idle cores / ~50GB free memory at provision time).
+trivial footprint against <pve-b-host>'s ~20 idle cores / ~50GB free memory at provision time).
 Not tracked in Powernode's own `System::Node`/`NodeInstance` DB — it's a raw Proxmox
 VM, reachable directly from `dev` (same `<lan-cidr>` LAN) via the injected
 `powernode-deploy` SSH public key, user `watchdog`.
@@ -288,12 +288,12 @@ Acceptance: killed/unreachable ops-hub detected + alerted in **< 2 minutes**.
   began (+21s) ≈ **~84s worst case** — comfortably under the 120s target with ~36s of
   margin for scheduling jitter.
 
-## The qmstart auto-retry (ships dry-run; ARMED on `dna`)
+## The qmstart auto-retry (ships dry-run; ARMED on `<pve-host>`)
 
 `scripts/monitoring/ops-hub-qmstart-retry.sh` (+ `scripts/monitoring/systemd/powernode-ops-hub-qmstart-retry.{service,timer}`).
 
-> **Live state (verified 2026-07-26, not inferred):** the timer is active on `dna` and
-> the arm marker `/etc/powernode/qmstart-retry.armed` is **present** — so on `dna` this
+> **Live state (verified 2026-07-26, not inferred):** the timer is active on `<pve-host>` and
+> the arm marker `/etc/powernode/qmstart-retry.armed` is **present** — so on `<pve-host>` this
 > is executing for real, not dry-running. The operator armed it 2026-07-25 after both
 > logic branches were exercised against the live Proxmox CLI. The *code* default below
 > is unchanged and still dry-run; arming is deployment state, held in a marker file on
@@ -301,7 +301,7 @@ Acceptance: killed/unreachable ops-hub detected + alerted in **< 2 minutes**.
 > `systemctl list-timers powernode-ops-hub-qmstart-retry.timer` and
 > `test -f /etc/powernode/qmstart-retry.armed` rather than trusting this note.
 
-Runs on the Proxmox hypervisor (`dna`) — needs local `qm`/`pvesm` CLI, unlike the
+Runs on the Proxmox hypervisor (`<pve-host>`) — needs local `qm`/`pvesm` CLI, unlike the
 watchdog above which runs on a third-party host. Directly targets the 2026-07-21
 incident: VM stopped + storage back online + nothing ever retried the start.
 
@@ -311,7 +311,7 @@ storage-recovery transition):
 
 1. `qm status <vmid>` — if already running, no-op.
 2. If stopped: `pvesm status` for the configured storage (default `local-data` — it
-   was `dna-data` until P0-c migrated ops-hub off NFS; the gate must name the storage
+   was `<pve-host>-data` until P0-c migrated ops-hub off NFS; the gate must name the storage
    the VM's disks actually live on, verified live 2026-07-25 via `qm config 104`) — if
    not active yet, log and wait for the next cycle.
 3. If stopped AND storage active: retry candidate, rate-limited to
@@ -328,19 +328,19 @@ of the following hold at once — the shipped systemd unit provides neither:
 Absent either one, every run only logs `DRY-RUN (not armed): would run 'qm start
 104'...`.
 
-**Validated against the real Proxmox CLI on `dna`** (read-only; no `--execute`, no
+**Validated against the real Proxmox CLI on `<pve-host>`** (read-only; no `--execute`, no
 marker file — dry-run mode makes execution structurally impossible regardless of what
 it observes, so this was safe to run directly):
 
 - `qm status 104` (real ops-hub, genuinely running) → correctly logged "already
   running -- nothing to do", exit 0.
 - `qm status 100` (`ops-old`, a genuinely-stopped real VM, used only as a safe
-  dry-run target — never started) combined with the real `dna-data` storage (genuinely
+  dry-run target — never started) combined with the real `<pve-host>-data` storage (genuinely
   active) → correctly logged `DRY-RUN (not armed): would run 'qm start 100'...`.
   Confirmed via a follow-up `qm status 100` that it remained `stopped` — zero side
   effect, exactly as designed.
 - The real `pvesm status` output differs from this script's original stub test in
-  column padding and the `dna-data` storage's `Type` (`nfs`, not the stubbed `dir`) —
+  column padding and the `<pve-host>-data` storage's `Type` (`nfs`, not the stubbed `dir`) —
   neither affects the parser, which only matches on the storage-name field (`$1`) and
   a whitespace-flanked `active` substring; both are robust to the padding difference.
   **No fix needed — stub assumptions held.**
@@ -352,7 +352,7 @@ increment performs, per its own instructions ("do NOT wire it to actually restar
 anything on live ops-hub... arming needs explicit human sign-off later"):
 
 ```bash
-# On dna, as an operator with qm/pvesm access:
+# On <pve-host>, as an operator with qm/pvesm access:
 
 # Step 1: create the marker file (first gate)
 sudo mkdir -p /etc/powernode
@@ -411,9 +411,9 @@ either one alone fully disables it again).
 ## Open decisions for the operator
 
 **Resolved during this increment** (originally flagged, since closed):
-- ~~Which host runs the watchdog~~ → `rna` VM 9001, deployed and live-tested (above).
-- ~~No credentials for `dna`/`rna`~~ → resolved by the coordinator provisioning real
-  cluster access (`admin@dna` + cross-host root SSH trust); used for provisioning,
+- ~~Which host runs the watchdog~~ → `<pve-b-host>` VM 9001, deployed and live-tested (above).
+- ~~No credentials for `<pve-host>`/`<pve-b-host>`~~ → resolved by the coordinator provisioning real
+  cluster access (`admin@<pve-host>` + cross-host root SSH trust); used for provisioning,
   read-only qmstart-retry validation, and nothing else.
 - ~~qmstart-retry unverified against the real Proxmox API~~ → validated above, no
   fixes needed.
@@ -452,4 +452,4 @@ either one alone fully disables it again).
 - `~/.claude/plans/campaign-reciprocal-control-plane.md` — the full RCP v2 design
   (P0 through P7); this document covers P0-a only.
 
-_Last verified: 2026-07-24 (live deployment + real detection/recovery test on rna VM 9001; qmstart-retry validated against real `qm`/`pvesm` on `dna`)._
+_Last verified: 2026-07-24 (live deployment + real detection/recovery test on <pve-b-host> VM 9001; qmstart-retry validated against real `qm`/`pvesm` on `<pve-host>`)._

@@ -1,5 +1,10 @@
 # Campaign Charter: platform-evolution-loop
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Status**: v5 — revised 2026-08-12. v3 folded addenda 1–3 (system-function depth: SDWAN,
 module lifecycle + template composition, storage/volume); v4 added addendum 4 (agent
 fleet + skill lifecycle) + the pass-3 §4 precision corrections; v5 records **§4 as
@@ -40,7 +45,7 @@ it (INC-6..8). It produces a working loop, not another gap report.
 | Leg | Capability | Status |
 |-----|-----------|--------|
 | 1. DESIGN | brief → deterministic plan synthesis | **PROVEN** — reused |
-| 2. DEPLOY | plan → real instances dna+rna, SDWAN enroll, DockerHost, live-PVE verify, prefix teardown | **PROVEN** — reused |
+| 2. DEPLOY | plan → real instances <pve-host>+<pve-b-host>, SDWAN enroll, DockerHost, live-PVE verify, prefix teardown | **PROVEN** — reused |
 | 3. EVOLVE | the closed bidirectional scale/drift loop above | **this campaign builds and proves it** |
 
 ### Settled decisions (operator — not open questions)
@@ -89,7 +94,7 @@ inputs*, not by new actuation machinery.
 - SLO-driven, cost-driven, vertical (module-version), and relocation evolution dimensions
   — the pre-chartered successor campaign (§11).
 - **Module builds, publishes, promotions, or build-batch dispatches of any kind** (§9 rails).
-- **Snapshots of any kind** — most critically any zvol snapshot on dna (§9 HARD RAIL).
+- **Snapshots of any kind** — most critically any zvol snapshot on <pve-host> (§9 HARD RAIL).
 - SDWAN network CRUD/topology mutation — the loop consumes *membership* of the existing
   `dryrun-fabric` (`019fe651-b757`, permanent substrate); it never mutates the network.
 - Service exposure, storage migration, K3s — see the coverage table (§7).
@@ -161,7 +166,7 @@ Unchanged from v2 in substance; restated compactly with the addenda's control-gr
 ## 3. Baseline, drift protocol, footprint
 
 **Baseline**: brief with container-runtime use case, `scale.initial: 2`, regions
-**dna + rna** (1 each), docker leg, `powernode-ops-cell` template (stamped
+**<pve-host> + <pve-b-host>** (1 each), docker leg, `powernode-ops-cell` template (stamped
 `sdwan_network_id` → auto-enroll on `dryrun-fabric`), **`with_storage_gb`: small
 per-instance volume** (config-driven size) so the full-stack path exercises storage on
 every provision, `watch_policies.auto_scale_max_replicas: 3`, config-driven budget cap.
@@ -555,7 +560,7 @@ no oracle silently reads the wrong plane.
 ## 9. Safety rails, prohibitions, stop conditions, teardown
 
 **Prohibitions (by construction — the campaign's steps cannot reach these):**
-- **HARD RAIL — no snapshots, and categorically no zvol snapshot on dna**: dna's ZFS
+- **HARD RAIL — no snapshots, and categorically no zvol snapshot on <pve-host>**: <pve-host>'s ZFS
   `z_zvol` taskq is wedged; any zvol `zfs snapshot` hangs in uninterruptible D state
   forever. No campaign step performs a snapshot of any kind; no rollback/durability
   mechanism in this charter may be designed in terms of snapshots. (If any future

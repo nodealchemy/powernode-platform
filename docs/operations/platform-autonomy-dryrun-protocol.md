@@ -1,5 +1,10 @@
 # Platform Autonomy Dry-Run Protocol
 
+> **Placeholders.** Names like `<ops-hub-host>`, `<pve-host>`, `<pve-b-host>`, `<nas-host>`, `<pve-provider>` stand in for this
+> deployment's real values, which are deployment-local and never tracked in git. Recall them with
+> `search_knowledge tag:deployment-*` on the deployment's platform (see
+> [conventions/deployment-knowledge.md](../../docs/contributing/conventions/deployment-knowledge.md)).
+
 **Status**: v1 draft — commissioned 2026-08-08. Charter decisions locked by the operator (see §2).
 **Owner surface**: `docs/operations/` (this doc) + the `dryrun` harness (§6).
 
@@ -24,8 +29,8 @@ check standardized and repeatable instead of heroic.
 | Decision | Value |
 |---|---|
 | Environment | **dev-cell** platform drives real provisioning; **ops-hub is never touched** |
-| Provider | The existing `IPNode PVE` Proxmox provider (cluster: dna, rna, lna, fna — all verified online) |
-| Scale | Composed stack ~3–4 VMs: node instance + template + module assignments + a container runtime (docker-engine), **placed across dna AND rna** |
+| Provider | The existing `<pve-provider>` Proxmox provider (cluster: <pve-host>, <pve-b-host>, <pve-d-host>, <pve-c-host> — all verified online) |
+| Scale | Composed stack ~3–4 VMs: node instance + template + module assignments + a container runtime (docker-engine), **placed across <pve-host> AND <pve-b-host>** |
 | Cleanup | Auto-terminate everything on PASS (teardown is part of the test); retain on FAIL for forensics |
 | LLM budget | Hard per-run ceiling, default **$5**, SiteSetting `ai.dryrun.budget_usd` (configurable per platform convention — never hardcoded) |
 | Routing posture | **Report-first**: record + grade every routing decision; flip to enforcement after 2–3 baselines define normal |
@@ -39,13 +44,13 @@ shell (every row stamped 2026-08-03 19:01), verified 2026-08-08:
 
 | Required by P1 | dev-cell | ops-hub |
 |---|---|---|
-| `IPNode PVE` provider + credentials | absent — only a `Pro Cloud` stub with `us-east-1`/`us-west-1` regions | present |
+| `<pve-provider>` provider + credentials | absent — only a `Pro Cloud` stub with `us-east-1`/`us-west-1` regions | present |
 | `ai_agents` | 0 | 29 (all active) |
 | `ai_providers` / credentials | 0 / 0 | 4 / 3 |
 | node instances / missions / disk-image publications | 0 / 0 / 0 | 145 / 0 / present |
 | node modules | 6 fixtures, **all artifact-less**; no `docker-engine` module | real registry |
 
-The P0 setup steps that said "create a ProviderRegion **for the IPNode PVE provider**"
+The P0 setup steps that said "create a ProviderRegion **for the <pve-provider> provider**"
 were written against ops-hub state read through `dev-cell-mcp-proxy.js`, which forwards
 to ops-hub — ops-hub's platform was mistaken for dev-cell's.
 
@@ -113,8 +118,8 @@ The run is meaningless until these land. Each is small and independently testabl
 4. **Routing gate**: `ai_task_tier_routing_enabled` defaults OFF — enable **for the
    dry-run account only** as a setup step (without it, zero `RoutingDecision` rows
    are written and §3's first oracle is empty).
-5. **Placement**: the provider pins `default_node: dna` and `default_storage:
-   dna-data`. Add per-instance node targeting (dna|rna) + an rna-visible storage
+5. **Placement**: the provider pins `default_node: <pve-host>` and `default_storage:
+   <pve-host>-data`. Add per-instance node targeting (<pve-host>|<pve-b-host>) + an <pve-b-host>-visible storage
    mapping — itself a fair test of "create infrastructure capability on demand".
 6. **Doc drift**: `extensions/system/CLAUDE.md` says "18 seeded scripts, 8 passes";
    the catalog is 28 seeds/9 passes (33 files on disk). Correct while touching.
@@ -122,7 +127,7 @@ The run is meaningless until these land. Each is small and independently testabl
 ### P1 — Baseline run (operator in the loop)
 Driver (§6) submits the dry-run brief through the real concierge/mission pipeline on
 dev-cell. Operator approves `review_plan` and `handoff` live. The run deploys the
-composed stack across dna+rna, asserts §5, tears down on pass. Outputs the first
+composed stack across <pve-host>+<pve-b-host>, asserts §5, tears down on pass. Outputs the first
 **run report** (§7) — this defines "normal" for enforcement thresholds.
 
 ### P2 — Repeatable harness (headless)
@@ -162,7 +167,7 @@ Per-operation, graded not enforced (except SAFETY, always enforced):
 - **Learning (graded)**: ≥1 `CompoundLearning` captured from the run; on repeat
   runs, injections recorded and credited (`injection_success_rate` non-degrading).
 - **Outcome (hard)**: the composed stack reaches its declared state — instances
-  running on the declared nodes (dna AND rna), runtime handshake completed
+  running on the declared nodes (<pve-host> AND <pve-b-host>), runtime handshake completed
   (`DockerHost` row appears), modules applied — within the run's time budget.
 
 ## 6. Driver design constraints (from the 2026-08-08 survey)
