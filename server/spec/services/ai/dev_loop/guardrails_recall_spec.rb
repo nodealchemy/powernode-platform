@@ -20,6 +20,11 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
         expect(guardrails).to include(match(/search_knowledge/))
       end
 
+      it "#{const_name} includes the deployment-local-facts recall guardrail (search_knowledge tag:deployment-*)" do
+        expect(guardrails).to include(match(/deployment-\*/))
+        expect(guardrails).to include(match(/never written to a git-tracked file/i))
+      end
+
       it "#{const_name} includes the never-batch-approve bulk-op guardrail" do
         expect(guardrails).to include(match(/batch-approve/i))
       end
@@ -47,6 +52,11 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
     it "includes the guidance-recall rule" do
       expect(baseline).to match(/guidance-\*/)
       expect(baseline).to match(/search_knowledge/)
+    end
+
+    it "includes the deployment-local-facts rule" do
+      expect(baseline).to match(/deployment-\*/)
+      expect(baseline).to match(/never written to a git-tracked file/i)
     end
 
     it "includes the stop-and-ask rule" do
