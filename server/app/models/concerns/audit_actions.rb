@@ -246,10 +246,22 @@ module AuditActions
   # refused a GLOBAL canonical agent (account_id NULL) as the acting
   # principal — a template never executes; the account's clone does. Carries
   # the canonical's slug and the tool/action, never the call's params.
+  # mcp.tools.sensitive_access (IMP-4ef95e825a7a) is the only MCP audit action
+  # of the three that records a SUCCESSFUL call rather than an anomaly, and the
+  # only one whose write is load-bearing: the two above fail OPEN, while an
+  # action declared `audit: true` fails CLOSED — the credential is not released
+  # if the row cannot be written. One action name covers every audited verb
+  # because `action` is allowlisted here; the verb itself is in
+  # metadata->>'action_name', so the breakage set is
+  #   AuditLog.by_action("mcp.tools.sensitive_access")
+  #           .distinct.pluck(Arel.sql("metadata->>'action_name'"))
+  # Payload is who/what/when — principal, tool, action, and the tool's own
+  # resource context. NEVER the material that was handed out.
   MCP_ACTIONS = %w[
     mcp.servers.read mcp.servers.create mcp.servers.update mcp.servers.delete
     mcp.servers.connect mcp.servers.disconnect mcp.servers.health_check mcp.servers.discover_tools mcp.servers.workflow_builder_read
     mcp.tools.read mcp.tools.execute mcp.tools.undeclared_action mcp.tools.canonical_principal_refused
+    mcp.tools.sensitive_access
     mcp.executions.read mcp.executions.cancel
     mcp.oauth.authorize_initiated mcp.oauth.callback_success mcp.oauth.disconnect mcp.oauth.status_read mcp.oauth.token_refreshed
   ].freeze

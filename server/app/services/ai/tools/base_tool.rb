@@ -320,15 +320,29 @@ module Ai
         #                        opens the arm — the call stays gated. The
         #                        action still counts as gate-routed
         #                        (#gated_action? ignores it).
+        # `audit:` opts an action into a fail-CLOSED audit row written BEFORE
+        # the action runs (see #execute). Reserve it for verbs that hand out
+        # something the platform cannot take back — a credential, a key, a
+        # kubeconfig. It is not general call telemetry: every audited action
+        # pays a synchronous AuditLog insert on the request path, and its body
+        # runs while the audit-sequence advisory lock is held (see the note at
+        # the call site), so a long-bodied action must not take it.
+        #
+        # FOOTGUN: this defaults to false and .declared_action resolves
+        # child-before-parent, so a subclass that re-declares an audited action
+        # without repeating `audit: true` silently disarms the gate, with
+        # nothing in the diff to show for it.
         def declare_action(name, mutating:, action_category: nil, executor_class: nil,
-                           gate_context: nil, on_proceed: nil, ungated_when: nil)
+                           gate_context: nil, on_proceed: nil, ungated_when: nil,
+                           audit: false)
           declared_actions[name.to_s] = {
             mutating: mutating,
             action_category: action_category,
             executor_class: executor_class,
             gate_context: gate_context,
             on_proceed: on_proceed,
-            ungated_when: ungated_when
+            ungated_when: ungated_when,
+            audit: audit
           }.freeze
         end
 
@@ -446,6 +460,30 @@ module Ai
           ensure
             record_undeclared_action(action_name)
           end
+        end
+
+        # SENSITIVE ACCESS, FAIL CLOSED. Ahead of every `return call(params)`
+        # below, because this is the one audit row on this class that is a
+        # precondition rather than a record: an action declared `audit: true`
+        # hands out something irrevocable, so if the row cannot be written the
+        # action must not run. Refusing after #call would be theatre — the
+        # credential would already be in the caller's hands.
+        #
+        # This is deliberately the opposite of the two rows further down
+        # (#persist_undeclared_action_audit, #persist_canonical_refusal_audit),
+        # which rescue-and-log so telemetry can never break a working call.
+        # Those record anomalies; losing one costs visibility. This one gates a
+        # credential; losing it costs the only evidence that it was taken.
+        #
+        # It also deliberately writes BEFORE the body, which the D4 note below
+        # explains is what the undeclared-action sighting must NOT do: inside a
+        # caller's transaction the audit-sequence advisory lock is then held
+        # across #call. That cost is accepted here and bounded by keeping the
+        # audited set to short, DB-only bodies — the alternative is releasing
+        # the credential first and recording it afterwards, which is the hole.
+        if declaration[:audit]
+          refusal = enforce_sensitive_access_audit!(action_name, params)
+          return refusal if refusal
         end
 
         return call(params) unless gated_action?(declaration)
@@ -1121,6 +1159,7 @@ module Ai
       # per window, none of which a caller can inflate. If the flip ever wants
       # per-call fidelity it needs the purpose-built table that spec describes.
       UNDECLARED_ACTION_AUDIT_ACTION = "mcp.tools.undeclared_action"
+      SENSITIVE_ACCESS_AUDIT_ACTION = "mcp.tools.sensitive_access"
 
       # Every caller-supplied action name that is not registry surface.
       UNREGISTERED_ACTION_LABEL = "<unregistered>"
@@ -1346,6 +1385,102 @@ module Ai
           "action=#{label} tool=#{self.class.name} principal=#{principal} " \
           "error=#{e.class}: #{e.message}"
         )
+      end
+
+      # SENSITIVE-ACCESS AUDIT (IMP-4ef95e825a7a)
+      #
+      # Returns nil when the retrieval may proceed, or a refusal envelope when
+      # it may not. NO rescue that returns nil: any failure to record must
+      # refuse, which is the whole point of the control.
+      #
+      # A missing account is a refusal too, not a skip. AuditLog requires one,
+      # and the two anomaly rows above return early without it because a lost
+      # sighting is acceptable; here "we cannot record this" and "we must not
+      # release this" are the same sentence.
+      def enforce_sensitive_access_audit!(action_name, params)
+        unless account.is_a?(Account) && account.persisted?
+          return sensitive_access_refusal(action_name, "no account context to record the access against")
+        end
+
+        # NO transaction wrapper. The two anomaly persisters take
+        # `requires_new: true` so a failed telemetry INSERT cannot abort a
+        # caller's open transaction — they must not break a working call. This
+        # one is the opposite: it MUST break the call when it fails, so it has
+        # nothing to protect. A savepoint would also be actively misleading
+        # here, because it is not an independent transaction — the row would
+        # still die with an outer ROLLBACK, after the credential had been
+        # returned. `create!` is already atomic on its own.
+        #
+        # Callers that wrap .execute in their own transaction are therefore a
+        # known limit of this control, not something the savepoint was hiding.
+        record = ::AuditLog.create!(
+          account: account,
+          # Unlike the anomaly rows, which carry principal SHAPE only, this
+          # one carries IDENTITY: "who retrieved the credential" is the
+          # question it exists to answer.
+          user: user,
+          action: SENSITIVE_ACCESS_AUDIT_ACTION,
+          resource_type: telemetry_token(self.class.name),
+          resource_id: "sensitive_access",
+          source: "system",
+          severity: "high",
+          risk_level: "high",
+          metadata: {
+            # Tool context FIRST, so a tool cannot overwrite the identity
+            # fields this row exists to hold by returning a colliding key.
+            # Values are clamped the same way every other field on the row is:
+            # audit_context receives caller-supplied params.
+            context: audit_context(action_name, params)
+                       .to_h { |k, v| [ k.to_s, telemetry_token(v.to_s) ] },
+            action_name: action_name,
+            tool_class: telemetry_token(self.class.name),
+            principal: caller_principal_descriptor(action_name)
+          }
+        )
+
+        # Existence is checked, not assumed. `ActiveRecord::Rollback` is
+        # swallowed by a transaction block and would otherwise let this method
+        # fall through to nil — proceed, with no row and no error — which is
+        # the one failure mode a fail-closed control must not have.
+        unless record&.persisted?
+          return sensitive_access_refusal(action_name, "the audit record did not persist")
+        end
+
+        nil
+      rescue StandardError => e
+        # Logged, never re-raised: the caller gets a refusal envelope like any
+        # other, and the exception detail stays server-side.
+        Rails.logger.error(
+          "[BaseTool] Sensitive-access audit row failed, REFUSING the action: " \
+          "action=#{action_name} tool=#{self.class.name} error=#{e.class}: #{e.message}"
+        )
+        sensitive_access_refusal(action_name, "the audit record could not be written")
+      end
+
+      def sensitive_access_refusal(action_name, reason)
+        {
+          success: false,
+          error: "#{action_name} refused: #{reason}. This action releases credential " \
+                 "material and is only permitted when the access can be audited."
+        }
+      end
+
+      # Tool-supplied forensic context for an audited action — WHICH resource
+      # was accessed. Override in a tool that declares `audit: true`.
+      #
+      # MUST NOT return the material being released. The row records that a
+      # retrieval happened, by whom, for what; never the credential itself.
+      # Nothing mechanically enforces that: values are clamped by the caller
+      # but not inspected, and AuditLog's secret redaction covers
+      # old_values/new_values, NOT metadata. Treat it as a rule for the author
+      # of an override, and keep overrides to identifiers.
+      #
+      # It runs BEFORE the action does, so it sees the identifier the caller
+      # ASKED for, not whatever the tool resolved it to. A row therefore means
+      # "this principal requested this resource", which is the honest claim —
+      # the request may still fail downstream.
+      def audit_context(_action_name, _params)
+        {}
       end
     end
   end

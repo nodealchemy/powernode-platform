@@ -78,8 +78,23 @@ module Api
 
           # GET /api/v1/devops/kubernetes/clusters/:id/kubeconfig
           # SENSITIVE: returns the cluster admin kubeconfig YAML.
-          # Audit-logged. Returns 422 if the cluster is still
-          # bootstrapping (kubeconfig not yet captured from the agent).
+          #
+          # NOT audit-logged. This comment previously read "Audit-logged." and
+          # that was never true: the only record is the Rails.logger.info line
+          # below, so there is no durable, queryable answer to who retrieved
+          # this credential. Corrected rather than quietly fixed because this
+          # is the endpoint the UI's kubeconfig button calls
+          # (frontend/src/features/devops/kubernetes/services/kubernetesApi.ts),
+          # i.e. the path most retrievals actually take.
+          #
+          # The MCP twin (Ai::Tools::KubernetesProvisioningTool
+          # kubernetes_get_kubeconfig) IS audited, fail-closed, as of
+          # IMP-4ef95e825a7a — which is exactly why this asymmetry must not be
+          # left implied. Closing it here is filed separately; the seam to
+          # reuse is AuditActions "mcp.tools.sensitive_access".
+          #
+          # Returns 422 if the cluster is still bootstrapping (kubeconfig not
+          # yet captured from the agent).
           def kubeconfig
             if @cluster.encrypted_kubeconfig.blank?
               return render_error(

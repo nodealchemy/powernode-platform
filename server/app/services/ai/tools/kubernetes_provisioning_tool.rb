@@ -41,7 +41,12 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "kubernetes_decommission_cluster", mutating: true
-      declare_action "kubernetes_get_kubeconfig", mutating: false
+      # audit: true — this verb releases the cluster-admin kubeconfig, i.e. root
+      # on every workload in the cluster. BaseTool writes a fail-closed
+      # AuditLog row BEFORE the action runs; if it cannot be written the
+      # kubeconfig is not handed out. See #audit_context for what the row
+      # carries (never the material).
+      declare_action "kubernetes_get_kubeconfig", mutating: false, audit: true
 
       def self.definition
         {
@@ -68,7 +73,7 @@ module Ai
           "kubernetes_get_kubeconfig" => {
             description: "Retrieve the kubeconfig YAML for a managed cluster. SENSITIVE: this is the cluster admin " \
                          "credential. Equivalent to root on every workload running in the cluster. Retrieval is " \
-                         "recorded in the application log only — there is NO audit_logs entry for it.",
+                         "recorded in audit_logs (mcp.tools.sensitive_access) with the retrieving principal and cluster; the kubeconfig itself is never logged.",
             parameters: {
               cluster_id: { type: "string", required: true, description: "Cluster ID, slug, or name" }
             }
@@ -126,9 +131,16 @@ module Ai
         # why Devops::KubernetesCluster declares these columns on
         # `filter_attributes`: nothing keyed on `encrypts` can see them.
         #
-        # The line below is the ONLY record of a retrieval. There is no audit
-        # row: no MCP tool-call path writes one, and this tool writes none
-        # itself. Do not describe this as forensic coverage.
+        # IMP-4ef95e825a7a: reached THROUGH BaseTool#execute, a durable
+        # AuditLog row has already been written — the action is declared
+        # `audit: true` and that write is fail-closed. The log line below is
+        # then a convenience for tailing, not the record of account.
+        #
+        # NOT an absolute: #call is protected, and two smoke seeds reach it
+        # directly with `send(:call, ...)` (extensions/system/server/db/seeds/
+        # smoke_test_k3s_runtime.rb, _smoke_k3s_helpers.rb), bypassing the
+        # gate. Those run under `rails db:seed`, not on a request path. Every
+        # production dispatcher goes through #execute.
         Rails.logger.info(
           "[KubernetesProvisioningTool] kubeconfig retrieved for cluster_id=#{cluster.id}"
         )
@@ -139,6 +151,12 @@ module Ai
           api_endpoint: cluster.api_endpoint,
           kubeconfig: cluster.encrypted_kubeconfig
         }
+      end
+
+      # WHICH cluster's credential was released. Deliberately not the
+      # kubeconfig, and not any field derived from it.
+      def audit_context(_action_name, params)
+        { cluster_id: params[:cluster_id].to_s }
       end
 
       def resolve_cluster(identifier)
