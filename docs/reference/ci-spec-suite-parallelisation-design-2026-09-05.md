@@ -98,8 +98,8 @@ Current four suites as ci.yaml defines them: controllers 2144, services 8398, mo
 | `concurrency:` group | deadlocked, run 1675 | **do not use** |
 | `strategy.max-parallel` | ignored, run 1676 | **do not use** |
 | `${{ }}` inside `services:` | never tried; ci.yaml warns it fails unsafe | **do not use** (design avoids `services:` entirely) |
-| `timeout-minutes` | only use is `build-package-module.yaml` at 180 = the container ceiling, so it has never been observably exercised | **unverified** — set it, but do not depend on it (§4) |
-| `$GITHUB_ENV`, `${{ github.run_id }}`, `needs.<job>.result` | not used anywhere in this repo | **unverified** — probe first (§6, step 0) |
+| `timeout-minutes` | probe-ci-isolation P4, run 1776: job killed 113s into a 300s sleep under `timeout-minutes: 2` | usable |
+| `$GITHUB_ENV`, `${{ github.run_id }}`, `needs.<job>.result` | probe-ci-isolation P2/P3/P6, run 1776 | usable |
 | Matrix-job outputs to a downstream job | not used | **unverified** — design does not need it (§7.1) |
 
 ### 1.5 Schema-materialisation probe (local, this session)
@@ -527,7 +527,10 @@ header already says a from-zero migrate + diff "is a CI job, not this script"; t
 
 ## 9. Migration path (one push per step, each verified by a run, each revertible)
 
-**Step 0 — probe (`probe-ci-isolation.yaml`, `workflow_dispatch`, ~5 min).** Same shape as
+**Step 0 — probe (`probe-ci-isolation.yaml`, ~5 min). DONE 2026-09-06, run 1776, all six pass.**
+Note on triggering: `workflow_dispatch` alone made it unrunnable by the platform instance principal,
+whose Gitea grant carries get/list/cancel but no dispatch, so it now also fires on a push to
+`ci-probe/**` — a prefix no other workflow in this repo reacts to. Same shape as
 `probe-matrix.yaml`. Jobs: (P1) `docker run -p $GW::5432 pgvector…`, `docker port`, connect from the
 job with `pg_isready -h $GW -p $PORT`; two matrix entries at once to prove distinct ports; (P2)
 `$GITHUB_ENV` propagation between steps; (P3) `${{ github.run_id }}` non-empty; (P4) a `sleep 300`
@@ -588,16 +591,18 @@ never loses its only signal.
 
 ## 10. Unverified items, stated plainly
 
-- `timeout-minutes`, `$GITHUB_ENV`, `github.run_id`, `needs.<job>.result`, matrix-job outputs — all
-  unproven on this runner (§1.4); step 0 exists to close that.
+- `timeout-minutes`, `$GITHUB_ENV`, `github.run_id`, `needs.<job>.result` — CLOSED by step 0, run
+  1776 (2026-09-06): all four pass, recorded in probe-ci-isolation.yaml's header. Matrix-job outputs
+  were NOT probed and remain unverified; §7.1 does not need them.
 - Host `<pve-c-host>` CPU count and RAM: unknown; §3.3's tmpfs size and §5.5's process count depend on it.
 - Per-example timing beyond the controllers suite: unknown; every wall-time estimate assumes
   0.875 s/example, which is an upper bound for unit-heavy shards and might be exceeded only by a shard
   that is entirely request specs (impossible under LPT — 2144 request/controller examples are spread
   over six shards).
-- Whether the runner's docker daemon uses the default bridge subnet: the gateway is discovered at
-  runtime with `172.17.0.1` as fallback, so a non-default value is handled, but the discovery command
-  itself (`docker network inspect bridge`) has not been run in a job here.
+- Whether the runner's docker daemon uses the default bridge subnet — CLOSED by step 0, run 1776:
+  `docker network inspect bridge` ran in a job and resolved `172.17.0.1`, the value the fallback
+  hardcodes. P1 also showed the kernel-assigned ports not colliding with a concurrent run holding
+  the fixed 5432 (run 1775 was mid-suite on develop throughout).
 - The rot exposure of the 104 migrations against future code: known zero today (probe), unknowable
   ahead of time; §6.3 is the detector.
 - `rubocop` failed on run 1762 for reasons unrelated to this design; not investigated.
