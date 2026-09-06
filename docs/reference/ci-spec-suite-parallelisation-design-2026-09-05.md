@@ -569,6 +569,34 @@ next push and the "zero port collisions" verification below would be confounded 
 log); zero "port is already allocated"; `ci-hygiene` reaps nothing on a clean host and reaps the
 deliberately-orphaned probe container from step 0.
 
+**DONE** — extension commit `b88c4052`, validated by **run 1777** on `ci-isolation/step2` (a
+`ci-isolation/**` push trigger was added to `ci.yaml` for exactly this: a workflow can only be
+tested by triggering it, and develop is the branch a broken one would break). Ports observed, each
+from its own job's log:
+
+| job | postgres | redis | result |
+|---|---|---|---|
+| `rspec` | `172.17.0.1:32772` | `172.17.0.1:32773` | sidecars up, DB prepared, suite ran |
+| `provider-specs` | `172.17.0.1:32774` | `172.17.0.1:32775` | 154 examples, 0 failures |
+| `worker-specs` | — (redis only) | `172.17.0.1:32776` | 212 examples, 0 failures |
+
+Six distinct kernel-assigned ports, zero "port is already allocated" anywhere in the run — **while
+run 1775 concurrently held the fixed `0.0.0.0:5432` on develop**. That is the precise condition
+that killed all three of run 1773's database jobs inside 23 seconds, so the negative result is
+against the real failure mode rather than an idle host.
+
+One honest caveat on the acceptance wording: the three jobs did **not** all hold ports at the same
+instant. The pool has three runners and run 1775 held one, so `provider-specs` (04:23:06-04:24:16)
+and `worker-specs` (04:24:33-04:24:54) ran back-to-back on runner2. What was observed is pairwise
+overlap — each of them concurrent with `rspec`, which held 32772/32773 across both — plus all three
+concurrent with 1775's fixed port. The mechanism's claim is per-socket atomic allocation, which
+pairwise overlap plus the 1776 P1 probe (two matrix entries taking 32768/32770 and 32769/32771
+simultaneously) already establishes; a literal 3-way instant is a scheduling coincidence, not an
+additional property. Do not restate this row as "three at once" without a run that shows it.
+
+`ci-hygiene` also behaved: it ran at 04:19:30 on a host holding run 1775's ~40-minute-old live
+sidecars and left them, confirming the age/deadline scoping does not reap a concurrent run.
+
 **Step 3 — sharding.** Add `scripts/ci-spec-shard.rb` (+ unit spec: LPT balance, shared-example
 attribution, determinism); convert `rspec` to the 6-entry matrix; add `rspec-gate`; rewrite
 `ci_matrix_spec_coverage_spec.rb`.
