@@ -230,6 +230,7 @@ module Ai
         "system_list_disk_image_webhooks" => "Ai::Tools::SystemFleetTool",
         # Campaign 019f5885 inc9 — native module-build batch orchestration
         "system_dispatch_module_build_batch" => "Ai::Tools::SystemFleetTool",
+        "system_get_module_build_batch" => "Ai::Tools::SystemFleetTool",
         "system_cancel_module_build_batch" => "Ai::Tools::SystemFleetTool",
         "system_rollback_module_version" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice 6a — GitOps reconciler MCP surface
