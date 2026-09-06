@@ -28,6 +28,8 @@ for f in "$CONV"/*.md; do
   [[ -z "$title" ]] && title="$base"
   echo "  - ${title} → conventions/${base} (tag guidance-${base%.md})"
 done
+echo "Deployment-local facts (this deployment's hosts/IPs/VM ids/remotes) are NEVER in tracked files: recall them via"
+echo "platform.search_knowledge tag:deployment-* (production connector); author via create_knowledge or docs/operations/local/ (gitignored)."
 echo "Improvement loop: /improve discover → approve → /dev-loop dev-improve (or delegate to a platform agent)."
 # Platform agents as Claude Code subagents: count the committed canonical skeletons
 # (no Rails boot — this hook has a 5 s budget). Regenerate after a seed/renderer change.

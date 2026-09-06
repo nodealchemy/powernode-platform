@@ -123,6 +123,7 @@ _These three invariants are also in the cross-executor `guidance-architecture-in
 
 ### File Organization
 **NEVER save files to project root.** Use `docs/{getting-started,concepts,guides,reference,operations,contributing}/`. `docs/reference/auto/` is auto-generated — do not edit. (also `guidance-file-organization`; enforced by `pattern-validation.sh`)
+**Deployment-local facts NEVER go in tracked files.** This deployment's hostnames, internal IPs, VM ids, remotes and operator details live in platform knowledge (tags `deployment` + `deployment-<topic>`, `access_level: account`) or the gitignored `docs/operations/local/`; tracked docs use placeholders. Recall: `search_knowledge tag:deployment-*`. Enforced by `deployment-identifier-check.sh` (hook + scan, patterns from the gitignored `.claude/hooks/deployment-identifiers.local.txt`). Convention: [conventions/deployment-knowledge.md](docs/contributing/conventions/deployment-knowledge.md).
 
 ### Terminology
 | Term | Means | Not |

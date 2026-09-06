@@ -54,6 +54,7 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | MCP tool catalog | pointer | reference/auto/mcp-tools.md | auto-generated |
 | Knowledge quality lifecycle + tool evolution | doc | knowledge-lifecycle.md | — |
 | File organization (NEVER save to root) | core+knowledge | CLAUDE.md + `guidance-file-organization` | `pattern-validation.sh` (no stray root files) |
+| **Deployment-local facts never in tracked files (hostnames, IPs, VM ids → platform knowledge `deployment-*`)** | core+doc+knowledge | CLAUDE.md + deployment-knowledge.md + `guidance-deployment-knowledge` + agent `BASE_GUARDRAILS` + loop guardrails | `deployment-identifier-check.sh` (blocking hook) + `pattern-validation.sh` scan mirror (security-critical); patterns from the gitignored `.claude/hooks/deployment-identifiers.local.txt` |
 | Key platform documentation (fallback table) | core | CLAUDE.md | — |
 
 _Verification:_ `wc -l CLAUDE.md` ≈ 150; no `conventions/*.md` references a private-extension namespace/alias/path (derive the name list from `extensions/private/*`); every row above resolves to an existing home.
