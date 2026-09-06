@@ -185,11 +185,16 @@ RSpec.configure do |config|
     begin
       redis = Powernode::Redis.client
       current_db = redis.connection[:db]
-      if current_db == Powernode::Redis::TEST_DATABASE
+      # Compared against THIS LANE's resolved database, not the constant:
+      # under TEST_ENV_NUMBER each lane owns a different one, and a comparison
+      # against the constant would silently start skipping the flush on every
+      # lane but the first.
+      expected_db = Powernode::Redis.test_database
+      if current_db == expected_db
         redis.flushdb
       else
         warn "[rails_helper] Skipping Redis flush: expected db " \
-             "#{Powernode::Redis::TEST_DATABASE}, connected to #{current_db.inspect}. " \
+             "#{expected_db}, connected to #{current_db.inspect}. " \
              "Refusing to flush a database the suite does not own."
       end
     rescue StandardError => e
