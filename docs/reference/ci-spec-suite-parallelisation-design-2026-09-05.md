@@ -585,14 +585,23 @@ run 1775 concurrently held the fixed `0.0.0.0:5432` on develop**. That is the pr
 that killed all three of run 1773's database jobs inside 23 seconds, so the negative result is
 against the real failure mode rather than an idle host.
 
-One honest caveat on the acceptance wording: the three jobs did **not** all hold ports at the same
-instant. The pool has three runners and run 1775 held one, so `provider-specs` (04:23:06-04:24:16)
-and `worker-specs` (04:24:33-04:24:54) ran back-to-back on runner2. What was observed is pairwise
-overlap — each of them concurrent with `rspec`, which held 32772/32773 across both — plus all three
-concurrent with 1775's fixed port. The mechanism's claim is per-socket atomic allocation, which
-pairwise overlap plus the 1776 P1 probe (two matrix entries taking 32768/32770 and 32769/32771
-simultaneously) already establishes; a literal 3-way instant is a scheduling coincidence, not an
-additional property. Do not restate this row as "three at once" without a run that shows it.
+On run 1777 the three jobs did **not** all hold ports at the same instant: the pool has three
+runners, run 1775 held one, and `provider-specs` (04:23:06-04:24:16) and `worker-specs`
+(04:24:33-04:24:54) ran back-to-back on runner2. That is pairwise overlap, each concurrent with
+`rspec`.
+
+**The literal 3-way case was then observed on run 1778 (develop, same sha).** Cancelling the two
+superseded runs freed two runners while 1778's `rspec` was 35 minutes into its suite, so all three
+jobs held sidecars simultaneously between **05:18:56 and 05:19:21**, on three different runners:
+
+| job | runner | postgres | redis | window |
+|---|---|---|---|---|
+| `rspec` | runner2 | `32777` | `32778` | 04:43:41 onward |
+| `provider-specs` | runner1 | `32779` | `32780` | 05:18:59-05:20:07 — 154 examples, 0 failures |
+| `worker-specs` | runner3 | — | `32781` | 05:19:02-05:19:21 — 212 examples, 0 failures |
+
+Five distinct kernel-assigned ports, three concurrent jobs, zero "port is already allocated". The
+acceptance line as originally written is met.
 
 `ci-hygiene` also behaved: it ran at 04:19:30 on a host holding run 1775's ~40-minute-old live
 sidecars and left them, confirming the age/deadline scoping does not reap a concurrent run.
