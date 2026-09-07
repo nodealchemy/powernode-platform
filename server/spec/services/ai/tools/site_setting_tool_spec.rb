@@ -101,12 +101,16 @@ RSpec.describe Ai::Tools::SiteSettingTool do
 
   describe "site_setting_get" do
     it "returns the typed value for an allow-listed key" do
-      SiteSetting.set("self_hosting_node_id", "019f7c2d-bc76-7fd0-b4d4-62734124809d")
+      # Synthetic id. An earlier version of this fixture used THIS DEPLOYMENT'S
+      # real ops-hub node UUID, which is a deployment-local fact in a tracked
+      # file published to a public mirror. The value here must never be a real
+      # node id — the tool does not validate it, so any well-formed uuid works.
+      SiteSetting.set("self_hosting_node_id", "019f7c2d-0000-7000-8000-000000000001")
 
       result = call("site_setting_get", key: "self_hosting_node_id")
 
       expect(result[:success]).to be true
-      expect(result[:data][:value]).to eq("019f7c2d-bc76-7fd0-b4d4-62734124809d")
+      expect(result[:data][:value]).to eq("019f7c2d-0000-7000-8000-000000000001")
     end
 
     it "reports an unset allow-listed key as unset rather than erroring" do
