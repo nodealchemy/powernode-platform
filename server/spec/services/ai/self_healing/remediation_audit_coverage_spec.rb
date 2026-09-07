@@ -265,7 +265,12 @@ RSpec.describe 'self-healing remediation audit coverage' do
       expect(log.action_type).to eq('context_trim')
       expect(log.result).to eq('success')
       expect(log.result_message).to include('Trimmed 2 short-term memory rows')
-      expect(log.result_message).to include('2 -> 0 reachable')
+      # "rows", not "reachable": those counts are unfiltered totals, and calling
+      # them reachable relied on MemoryTool#search_memory serving expired rows
+      # to the model. IMP-63da66a05a4f closed that, so nothing makes an expired
+      # row reachable and the honest claim is the row count.
+      expect(log.result_message).to include('2 -> 0 rows')
+      expect(log.result_message).not_to include('reachable')
       expect(log.trigger_event).to eq('context_overflow')
     end
 

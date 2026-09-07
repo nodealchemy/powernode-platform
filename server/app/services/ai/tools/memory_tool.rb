@@ -261,8 +261,21 @@ module Ai
 
         sanitized = ActiveRecord::Base.sanitize_sql_like(query)
         results = []
-        # Search short-term memory (memory_key + memory_value jsonb)
-        stm = Ai::AgentShortTermMemory.where(agent_id: target_agent.id)
+        # Search short-term memory (memory_key + memory_value jsonb).
+        #
+        # `.active` is not optional here and is not a tidy-up: these rows go
+        # straight back to the model as tool-result content, so without it a
+        # memory whose TTL has already elapsed is presented to the agent as
+        # current recall. ttl_seconds is the only expiry this table has, which
+        # makes "expired" a deliberate statement that the content must not be
+        # relied on. Use the model's scope rather than an inline predicate —
+        # it is "expires_at IS NULL OR expires_at > now", and a hand-written
+        # `expires_at > ?` would silently drop any row with no expiry set.
+        # No writer in the tree currently produces one (set_expiration fills
+        # the column on every create), so that is a guard against a future
+        # writer or a raw insert on a nullable column, not a live bug.
+        stm = Ai::AgentShortTermMemory.active
+                .where(agent_id: target_agent.id)
                 .where("memory_key ILIKE :q OR memory_value::text ILIKE :q", q: "%#{sanitized}%")
                 .limit(limit)
         results += stm.map { |m| { tier: "short_term", key: m.memory_key, value: m.memory_value, created_at: m.created_at&.iso8601 } }

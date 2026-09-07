@@ -174,6 +174,12 @@ module Devops
         limit: options[:per_page] || 30
       }
       params[:sha] = options[:sha] if options[:sha]
+      # Gitea supports `path` on this endpoint, which answers "what is the head
+      # commit that touched these files" in ONE call. The alternative — listing
+      # commits and asking get_commit for each one's file list — is a request
+      # per commit, which is why this pass-through exists rather than a caller
+      # filtering client-side (compare_commits carries no file lists either).
+      params[:path] = options[:path] if options[:path].present?
 
       get("/repos/#{owner}/#{repo}/commits", params)
     end
