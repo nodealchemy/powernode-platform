@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_05_070000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9544,9 +9544,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_05_070000) do
     t.datetime "pool_acquired_at"
     t.string "pool_state"
     t.datetime "pool_warming_started_at"
+    t.datetime "presumed_dead_at", comment: "When a reap judged this instance dead from AGENT SILENCE; cleared by a heartbeat"
     t.string "private_ip_address"
     t.boolean "private_netboot", default: false, comment: "Enable private netboot"
     t.uuid "provider_instance_type_id"
+    t.string "provider_power_state", comment: "Last provider-reported power state; an observation, not a status"
+    t.datetime "provider_power_state_at", comment: "When provider_power_state was observed"
     t.uuid "provider_region_id"
     t.string "public_ip_address"
     t.jsonb "running_module_digests", default: {}, null: false
