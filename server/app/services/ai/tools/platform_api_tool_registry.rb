@@ -415,6 +415,12 @@ module Ai
         "provision_disk_image_webhook"   => "Ai::Tools::DiskImageOperatorTool",
         "provision_ci_worker"            => "Ai::Tools::DiskImageOperatorTool",
         "bootstrap_disk_image_ci"        => "Ai::Tools::DiskImageOperatorTool",
+        # Global platform configuration (SiteSetting), allow-listed.
+        # IMP-7723206bc137: every DB-driven knob was configurable in principle
+        # and unreachable without shell access. Keys register themselves —
+        # core declares its own, extensions declare theirs.
+        "site_setting_get"               => "Ai::Tools::SiteSettingTool",
+        "site_setting_set"               => "Ai::Tools::SiteSettingTool",
         # Container deployment & management
         "deploy_container_agent" => "Ai::Tools::ContainerDeploymentTool",
         "agent_container_status" => "Ai::Tools::ContainerStatusTool",
