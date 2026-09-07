@@ -186,20 +186,31 @@ module Ai
         # drifting copy of the query, and the measured outcome is the row count
         # it deletes.
         #
-        # WHERE THAT ACTUALLY REDUCES CONTEXT, precisely — this is the part the
-        # old comment got wrong. NOT via Ai::Memory::ContextInjectorService:
-        # that is the only assembler of memory into an agent's prompt, it is
-        # hard-capped at DEFAULT_TOKEN_BUDGET, and none of its injectors reads
-        # short-term memory at all. The effect is on the UNBUDGETED tool-result
-        # path: Ai::Tools::MemoryTool#search_memory selects short-term rows with
-        # no `.active` filter and hands their memory_value blobs straight back to
-        # the model, so expired rows are reachable context until something
-        # deletes them. Deleting shrinks that reachable set.
+        # WHAT THIS DOES AND DOES NOT REDUCE, precisely. NOT context via
+        # Ai::Memory::ContextInjectorService: that is the only assembler of
+        # memory into an agent's prompt, it is hard-capped at
+        # DEFAULT_TOKEN_BUDGET, and none of its injectors reads short-term
+        # memory at all.
         #
-        # Bounded honestly: search_memory takes `limit`, so when more than
-        # `limit` unexpired rows still match, the tool result stays the same size
-        # and only its CONTENT changes. The guaranteed effect is a smaller
-        # reachable set, not a smaller prompt on every call.
+        # NOR, ANY LONGER, context via the tool-result path. This comment used
+        # to rest on Ai::Tools::MemoryTool#search_memory selecting short-term
+        # rows with no `.active` filter, which made expired rows reachable
+        # context until something deleted them. IMP-63da66a05a4f added that
+        # filter, so search_memory no longer serves an expired row at all and
+        # deleting one removes nothing the model could still have seen through
+        # it. The context-reduction claim died with the bug it depended on.
+        #
+        # What remains is real but narrower: this reclaims table rows and the
+        # storage behind them, and it is the only actuator that retires expired
+        # short-term memory on demand rather than waiting for the decay sweep.
+        # Justify it on that, not on prompt size.
+        #
+        # If a future reader is tempted to restore the context argument, the
+        # test is whether some UNFILTERED reader of ai_agent_short_term_memories
+        # still feeds a model. At the time of writing the remaining unfiltered
+        # sites are counts and deletes (MemoryTool#memory_stats,
+        # RouterService#short_term_stats / #delete_short_term, and the `before`
+        # / `after` counts below) — none of which put row CONTENT in a prompt.
         def execute_context_trim(account, context)
           execution_id = context[:execution_id]
           return { status: "skipped", message: "No execution specified" } unless execution_id
@@ -219,7 +230,7 @@ module Ai
           {
             status: "success",
             message: "Trimmed #{deleted} short-term memory rows for agent #{agent.name} " \
-                     "(#{before} -> #{after} reachable)"
+                     "(#{before} -> #{after} rows)"
           }
         end
 
