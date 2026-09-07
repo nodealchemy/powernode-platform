@@ -95,7 +95,9 @@ module Ai
       # 3. Account admins as fallback
       admin_ids = User.joins(user_roles: :role)
         .where(account_id: account.id)
-        .where(roles: { name: %w[owner account.owner admin] })
+        # "account.owner" dropped (IMP-e85001682ade): no CATALOG role carries
+        # that name, and it was masked by the live keys beside it.
+        .where(roles: { name: %w[owner admin] })
         .where.not(id: chain.map { |c| c["user_id"] })
         .distinct
         .pluck(:id)

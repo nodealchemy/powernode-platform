@@ -24,9 +24,11 @@ RSpec.describe Workers::EnsureSystemWorker do
   # `let!`, not `let`: the fixture MUST be created before any example stubs
   # Rails.env. Created lazily inside that window, `create(:account)` would run
   # with Rails.env reporting "production", which un-guards `Rails.env.test?`
-  # checks it is supposed to be protected by — Account#broadcast_customer_change
-  # and, more dangerously, the Redis test-database isolation in
-  # config/initializers/redis.rb, which would target shared db 0.
+  # checks it is supposed to be protected by — most dangerously the Redis
+  # test-database isolation in config/initializers/redis.rb, which would target
+  # shared db 0. (This also named Account#broadcast_customer_change as an
+  # example; that method was deleted in IMP-e85001682ade — its audience query
+  # matched no role, so it broadcast to nobody.)
   let!(:account) { create(:account) }
 
   # `def`, never `let`: a memoizing helper reads the column ONCE and would then

@@ -280,11 +280,26 @@ export const delegationApi = {
     });
   },
 
-  // Get available roles that can be delegated
+  // Get available roles that can be delegated.
+  //
+  // Filters on the CANONICAL role key. Role#name is the lowercase key
+  // ('owner', 'manager'); the human string lives in display_name ('Account
+  // Owner', 'Manager'). This read `role.name !== 'Manager'` — a display form —
+  // so it matched no role and filtered nothing (IMP-e85001682ade, the same
+  // defect the server carried at four sites).
+  //
+  // 'owner' is excluded because the server now REFUSES it: Accounts::
+  // DelegationService returns "Cannot delegate Owner role" on create, update
+  // and activate, so offering it here guarantees a 422.
+  //
+  // 'manager' is deliberately NOT excluded. The original comment claimed it
+  // "cannot be delegated", but the filter never ran and nothing server-side
+  // refuses it — so manager has always been delegable in practice. Whether it
+  // SHOULD be offered is a product decision, not something to change silently
+  // while fixing a string comparison.
   async getAvailableRoles(): Promise<Role[]> {
     const response = await apiRequest('/api/v1/roles');
-    // Filter out Manager role as it cannot be delegated
-    return response.filter((role: Role) => role.name !== 'Manager');
+    return response.filter((role: Role) => role.name !== 'owner');
   },
 
   // Get available permissions for delegation (optionally filtered by role)

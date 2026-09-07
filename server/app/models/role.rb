@@ -3,6 +3,23 @@
 require_relative "../../config/permissions"
 
 class Role < ApplicationRecord
+  # The canonical account-owner role KEY, as stored in `name`.
+  #
+  # It is a constant because the literal form of it was got wrong at four sites
+  # at once (IMP-e85001682ade): Accounts::DelegationService compared `name` to
+  # "Owner" in three places and Account::Delegation#can_manage_account? to
+  # "Owner"/"Admin". `name` holds the lowercase key; the display form is
+  # "Account Owner", so those literals matched NEITHER column and were false for
+  # every role that exists. One of them was a REFUSAL, so it failed open and the
+  # owner role was delegable.
+  #
+  # spec/lint/role_name_literal_spec.rb now refuses a role-name comparison
+  # against a literal that is not a key of Permissions.all_roles (ROLES plus any
+  # extension-registered roles — NOT core-only ROLES, which would fail a
+  # legitimate extension role). This constant is what the delegation sites use
+  # instead of re-typing the string.
+  OWNER = "owner"
+
   # Associations
   # account_id nil => global (code-defined, catalog-seeded) role shared across
   # all accounts; account_id set => account-scoped custom role (customizable).

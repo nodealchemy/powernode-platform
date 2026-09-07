@@ -78,8 +78,24 @@ class Account::Delegation < ApplicationRecord
     # role on a custom+role row precisely because the role cannot contribute
     # beyond the custom set. Route a new caller through #has_permission? instead,
     # or that becomes false and activation has to start checking the role.
+    # NOTE (IMP-e85001682ade): this compared Role#name to "Admin" and "Owner" —
+    # the DISPLAY forms, and not even those ("Account Owner" is the owner's
+    # display_name). Role#name holds the canonical key, so the predicate was
+    # false for every role that exists and answered `false` unconditionally.
+    #
+    # Repaired to the canonical keys rather than left inert. It changes no
+    # behaviour today — the three predicates above still have no callers — but
+    # a comparison that can never be true is not a safe default, it is a guard
+    # that has quietly stopped being a guard, and reading it as "fails closed"
+    # is how the sibling defect in Accounts::DelegationService (a REFUSAL that
+    # never refused, so the owner role was delegable) survived.
+    #
+    # The warning above stands unchanged and now matters more, not less: this
+    # answers from the ROLE alone, so wiring it to a gate still inverts
+    # DelegationService#unconferrable_reason's reasoning. Route new callers
+    # through #has_permission?.
     def can_manage_account?
-      active? && (role&.name == "Admin" || role&.name == "Owner")
+      active? && (role&.name == "admin" || role&.name == Role::OWNER)
     end
 
     def can_view_analytics?

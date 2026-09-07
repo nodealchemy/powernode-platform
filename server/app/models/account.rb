@@ -266,8 +266,25 @@ class Account < ApplicationRecord
   # Callbacks
   before_validation :normalize_subdomain
   after_initialize :set_defaults
-  after_create :broadcast_customer_created
-  after_update :broadcast_customer_updated, if: :saved_changes?
+  # REMOVED (IMP-e85001682ade): after_create :broadcast_customer_created and
+  # after_update :broadcast_customer_updated. They drove
+  # #broadcast_customer_change, whose audience query selected
+  # roles.name IN ("system.admin", "account.manager") — neither of which is a
+  # Permissions::ROLES key, so the query returned no rows and the broadcast
+  # reached nobody, ever. It was also a no-op in test by an explicit guard, so
+  # nothing observed the emptiness.
+  #
+  # Deleted rather than repaired because there is nothing to repair FOR: the
+  # audience was empty by construction in every environment, and no core
+  # consumer of the customer_updates_<id> stream exists — no core spec, no core
+  # frontend subscriber, no extension reference.
+  #
+  # A repair was technically available (core role keys owner/admin/super_admin
+  # name no extension), so the core -> extension rule is NOT what forced this.
+  # It is a supporting note: the working implementation of the idea lives in the
+  # business extension (CustomerBroadcastAudience), which resolves its audience
+  # by PERMISSION rather than by role name, shares no mechanism with this copy,
+  # and is unaffected by its removal.
   # M1 Self-Serve: every new account gets per-account provider/regions/
   # instance-types/templates wired up so the activation funnel can spin
   # up Pro Cloud nodes without operator intervention. Failures are logged
@@ -322,10 +339,17 @@ class Account < ApplicationRecord
   end
 
   def owner
-    # Find the first user with owner role in this account
-    # Check for both possible role name formats
+    # Find the first user with the owner role in this account. ONE name format:
+    # Role#name is the canonical key.
     users.joins(user_roles: :role)
-         .where(roles: { name: [ "owner", "account.owner" ] })
+         # "account.owner" was here too and matched nothing — Role#name holds
+         # the canonical key, and no CATALOG role has ever carried that name
+         # (IMP-e85001682ade). Said of the catalog deliberately: account-scoped
+         # custom roles are created through the API and are unique only per
+         # account_id, so a row literally named "account.owner" is creatable.
+         # It was inert rather than harmful because "owner" sits beside it in
+         # the union, which is precisely why it survived.
+         .where(roles: { name: [ "owner" ] })
          .first
   end
 
@@ -498,38 +522,5 @@ class Account < ApplicationRecord
     # onboarding flag, etc.). NOT NULL with default {} at the DB level,
     # but normalize new in-memory records too.
     self.metadata ||= {} if has_attribute?(:metadata)
-  end
-
-  def broadcast_customer_created
-    broadcast_customer_change("created")
-  end
-
-  def broadcast_customer_updated
-    broadcast_customer_change("updated")
-  end
-
-  def broadcast_customer_change(event_type)
-    # Skip broadcasting in test environment to avoid database query issues
-    return if Rails.env.test?
-
-    # Broadcast to all admin users
-    data = {
-      type: "customer_updated",
-      event: event_type,
-      customer_id: id,
-      timestamp: Time.current.iso8601
-    }
-
-    # Find all admin accounts that should receive this update
-    # Optimized: Only fetch IDs and broadcast directly without loading Account objects
-    admin_account_ids = User.joins(:account, user_roles: :role)
-                            .where(roles: { name: [ "system.admin", "account.manager" ] })
-                            .distinct.pluck(:account_id)
-
-    admin_account_ids.each do |admin_account_id|
-      ActionCable.server.broadcast("customer_updates_#{admin_account_id}", data)
-    end
-  rescue StandardError => e
-    Rails.logger.error "Failed to broadcast customer change: #{e.message}"
   end
 end

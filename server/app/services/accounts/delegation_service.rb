@@ -33,8 +33,17 @@ module Accounts
           return { success: false, errors: [ "Role not found" ] }
         end
 
-        # Validate role permissions (don't allow delegating Owner role)
-        if role&.name == "Owner"
+        # Refuse to confer the account-owner role. Role#name holds the
+        # canonical KEY, so this compares against Role::OWNER — it read
+        # `== "Owner"` until IMP-e85001682ade, matching neither `name`
+        # ("owner") nor `display_name` ("Account Owner"), so it never refused.
+        #
+        # Role#assignable_by? below does NOT cover this case: `owner` is
+        # role_type "user", so its system-role gate never engages, and the
+        # remaining subset test passes trivially for an account owner — the
+        # delegator best placed to hand ownership away is exactly the one it
+        # waves through.
+        if role&.name == Role::OWNER
           return { success: false, errors: [ "Cannot delegate Owner role" ] }
         end
 
@@ -155,8 +164,10 @@ module Accounts
             return { success: false, errors: [ "Role not found" ] }
           end
 
-          # Validate role permissions (don't allow delegating Owner role)
-          if role.name == "Owner"
+          # Same guard as #create_delegation, and same defect until
+          # IMP-e85001682ade — see the comment there for why assignable_by?
+          # does not cover it.
+          if role.name == Role::OWNER
             return { success: false, errors: [ "Cannot delegate Owner role" ] }
           end
 
@@ -350,7 +361,11 @@ module Accounts
 
       if role_id.present?
         role = Role.find_by(id: role_id)
-        return [] unless role && role.name != "Owner"
+        # Offer nothing for a role the create/update guards will refuse.
+        # Compared against the canonical key (Role::OWNER); this read
+        # `!= "Owner"` until IMP-e85001682ade, so the picker offered the full
+        # owner permission set for a role that was never grantable.
+        return [] unless role && role.name != Role::OWNER
 
         # Permission NAME strings granted to this role
         role.permission_names & grantable
@@ -634,6 +649,26 @@ module Accounts
     # and refusing to honour them buys nothing. Both directions are pinned in
     # spec/services/accounts/delegation_service_role_conferral_spec.rb.
     def unconferrable_reason(delegation)
+      # THE OWNER ROLE IS NEVER CONFERRABLE, whatever else the row carries.
+      #
+      # Ahead of both branches below, and deliberately not part of their
+      # reasoning. Those ask what the role CONTRIBUTES beyond the custom set —
+      # which is why a custom+role row returns before the role is examined at
+      # all. That logic is sound for every other role and wrong for this one:
+      # the objection is not to what owner adds, it is to the role being
+      # attached.
+      #
+      # This arm exists because repairing #create_delegation and
+      # #update_delegation closes MINTING only (IMP-e85001682ade). The guard
+      # they share failed open for the life of the feature, so owner-role rows
+      # may already exist; without this, one could be deactivated and
+      # reactivated straight through, and #update_delegation edits a row freely
+      # when no role_id is supplied. A forward-only fix would have left the
+      # comments claiming "closed" while the code said "grandfathered".
+      if delegation.role&.name == Role::OWNER
+        return "Cannot delegate Owner role"
+      end
+
       custom = delegation.permission_names
       if custom.any?
         escalating = ungrantable_permission_names(custom)
