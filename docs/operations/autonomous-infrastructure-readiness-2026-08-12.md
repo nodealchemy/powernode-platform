@@ -194,8 +194,10 @@ is process, not code.
 - Graduated authority: InterventionPolicy (auto / notify / require-approval / block),
   per-module consent budgets, forced escalation after proven-ineffective streaks, kill
   switch on every write path.
-- **The control plane already protects itself**: `foreign_control_plane_skip` and
-  `self_managed_skip` (RCP v2 INV-1) make remediation refuse targets it must not touch.
+- **The control plane already protects itself**: `refuse_foreign_control_plane!` and
+  `refuse_self_managed!` (RCP v2 INV-1) make remediation refuse targets it must not touch.
+  Renamed from `*_skip` by IMP-b8cab7f951c7, which also made them emit a durable
+  `fleet.dispatch_refused` row — a refusal that only lived in a return value was invisible.
 - Storage migration as a workflow-gated lifecycle (plan → approve → sync → cutover →
   revert).
 
@@ -303,7 +305,7 @@ tier, including `autonomous`:
 - **The control plane itself.** The platform must never autonomously remediate its own
   hosting stack — the CVE-storm self-detach outage is the standing precedent (a
   self-hosted control plane that damages itself cannot recover itself). The
-  `foreign_control_plane_skip` / `self_managed_skip` rails exist; treat them as
+  `refuse_foreign_control_plane!` / `refuse_self_managed!` rails exist; treat them as
   load-bearing invariants, extend them to every new lane, and test them adversarially.
 - **Module publish/promote** stays gated even with batch-cancel built: publish
   auto-promotes and fan-out has planned 21+ modules from one edit.
