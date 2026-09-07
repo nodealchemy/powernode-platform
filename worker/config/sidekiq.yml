@@ -23,7 +23,12 @@
   - [devops_high, 3]             # High priority DevOps operations (pipeline execution, deployment)
   - [system, 3]                  # System extension jobs: NodeInstance provision/sync/control,
                                  # module commit/build, image create, instance pool dispatch.
-                                 # WorkerDispatch's DEFAULT_QUEUE = "system".
+                                 # No constant defaults here any more: the
+                                 # System::WorkerDispatch whose DEFAULT_QUEUE was
+                                 # "system" was deleted with the task-dispatch
+                                 # spine (campaign 01a0790b inc 3). Producers that
+                                 # want this queue name it explicitly —
+                                 # System::WorkerJobEnqueuer defaults to "default".
   - [ai_agents, 2]               # AI agent operations (uses 600s circuit breaker)
   - [ai_conversations, 2]        # AI conversation processing
   - [ai_execution, 2]             # AI team execution (multi-agent orchestration)

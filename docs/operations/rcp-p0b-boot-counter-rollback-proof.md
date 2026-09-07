@@ -82,8 +82,10 @@ Landed, on `develop` (code lives in the `extensions/system` submodule):
   confirm the good file exists, then `bootctl set-default`. Rollback = clean the
   failed slot's counter files, leave the active slot unchanged.
 - **Operator trigger + delivery + accounting** — `system_upgrade_boot_image` MCP
-  action (`server/app/services/ai/tools/system_fleet_tool.rb`), agent-delegated
-  dispatch (`execution_dispatcher.rb` `AGENT_DELEGATED_COMMANDS`), post-reboot
+  action (`server/app/services/ai/tools/system_fleet_tool.rb`), delivery to the
+  agent via `node_api` task polling (this used to name `execution_dispatcher.rb`
+  `AGENT_DELEGATED_COMMANDS`; that file was deleted in campaign 01a0790b
+  increment 3 — every command is agent-executed now), post-reboot
   success accounting via `BootImage::UpgradeReconciler` (booted `git_sha` ==
   target, else fail after `TIMEOUT_SECONDS`, default 900). Loop-bounded by a
   `/persist` attempt marker + `SystemTaskReaperJob`.

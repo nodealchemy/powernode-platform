@@ -31,7 +31,6 @@ RSpec.describe SystemTaskReaperJob, type: :job do
     allow(job).to receive(:api_client).and_return(api_client)
     allow(api_client).to receive(:get).and_return({ "data" => { "tasks" => [] } })
     allow(api_client).to receive(:post).and_return({ "data" => { "reaped" => true, "transition" => "cancel" } })
-    allow(SystemExecuteTaskJob).to receive(:perform_async)
   end
 
   def task(id:, status: "pending", command: "ssh_command", age: 10.minutes,
@@ -76,49 +75,32 @@ RSpec.describe SystemTaskReaperJob, type: :job do
     end
   end
 
-  describe "lane 1 — re-enqueue" do
-    it "re-enqueues a stuck pending task" do
+  # LANE 1 IS RETIRED (campaign 01a0790b increment 3) and its four examples are
+  # gone with it. They asserted that a stuck pending task was re-enqueued as a
+  # SystemExecuteTaskJob unless it was agent-delegated or already past the
+  # unrunnable threshold.
+  #
+  # None of that is expressible any more: the job is deleted, the server
+  # dispatch arm it POSTed to (worker_api/tasks/:id/execute) is deleted, and the
+  # janitor listing no longer carries `agent_delegated` — because every command
+  # is agent-executed now, so the flag the skip read would be a constant true
+  # and the lane would decline every row it was handed.
+  #
+  # The behaviour those examples protected is not lost, it MOVED: a stuck
+  # pending row is closed by lane 3, which is what lane 1's own comment already
+  # named as the closer for the agent-delegated majority. The example below
+  # pins that the retired lane makes no request and fires no job, so a
+  # resurrection has to be deliberate.
+  describe "lane 1 — retired" do
+    it "issues no re-dispatch and reports zero" do
       stub_lane(status: %w[pending scheduled], tasks: [ task(id: "t-pending") ],
-                older_than: described_class::STUCK_PENDING_THRESHOLD)
+                older_than: described_class::UNRUNNABLE_THRESHOLD)
 
-      expect(job.execute[:reaped_pending]).to eq(1)
-      expect(SystemExecuteTaskJob).to have_received(:perform_async).with("t-pending")
-    end
-
-    # System::Task#schedule transitions pending -> scheduled, and a stuck
-    # :scheduled task is exactly as re-enqueueable as a stuck :pending one.
-    it "re-enqueues a stuck scheduled task, not just pending ones" do
-      stub_lane(status: %w[pending scheduled],
-                tasks: [ task(id: "t-sched", status: "scheduled") ],
-                older_than: described_class::STUCK_PENDING_THRESHOLD)
-
-      job.execute
-
-      expect(SystemExecuteTaskJob).to have_received(:perform_async).with("t-sched")
-    end
-
-    # ExecutionDispatcher deliberately leaves agent-delegated tasks :pending for
-    # the node agent to poll. Re-enqueuing one runs a job that declines and
-    # changes nothing, so counting it as "re-enqueued" reported work that never
-    # happened. Skipping keeps the count meaning "actually re-dispatched".
-    it "does NOT re-enqueue an agent-delegated task" do
-      stub_lane(status: %w[pending scheduled],
-                tasks: [ task(id: "t-agent", command: "ci.module_build", agent_delegated: true) ],
-                older_than: described_class::STUCK_PENDING_THRESHOLD)
-
+      # reaped_pending is retained in the return shape, always 0 — a caller
+      # reading the old key sees "re-dispatched nothing", not a missing key.
       expect(job.execute[:reaped_pending]).to eq(0)
-      expect(SystemExecuteTaskJob).not_to have_received(:perform_async)
-    end
-
-    # Past the unrunnable threshold, lane 3 owns the row. Re-enqueuing it as
-    # well would fire a pointless job at something already being closed.
-    it "does NOT re-enqueue a task already past the unrunnable threshold" do
-      stub_lane(status: %w[pending scheduled],
-                tasks: [ task(id: "t-ancient", age: 30.days) ],
-                older_than: described_class::STUCK_PENDING_THRESHOLD)
-
-      expect(job.execute[:reaped_pending]).to eq(0)
-      expect(SystemExecuteTaskJob).not_to have_received(:perform_async)
+      expect(defined?(SystemExecuteTaskJob)).to be_nil,
+        "SystemExecuteTaskJob still loads — the retired dispatch job was not deleted"
     end
   end
 
@@ -193,15 +175,19 @@ RSpec.describe SystemTaskReaperJob, type: :job do
   end
 
   describe "threshold constants" do
-    it "exposes all three thresholds in seconds" do
-      expect(described_class::STUCK_PENDING_THRESHOLD).to be_a(Integer).and(be > 0)
+    # TWO, not three. STUCK_PENDING_THRESHOLD was lane 1's window and was
+    # deleted with the lane in campaign 01a0790b increment 3.
+    it "exposes both surviving thresholds in seconds" do
       expect(described_class::STUCK_RUNNING_THRESHOLD).to be_a(Integer).and(be > 0)
       expect(described_class::UNRUNNABLE_THRESHOLD).to be_a(Integer).and(be > 0)
     end
 
-    it "orders them so each lane fires only after the previous has had its chance" do
-      expect(described_class::STUCK_PENDING_THRESHOLD).to be < described_class::UNRUNNABLE_THRESHOLD
+    it "orders them so the cancel lane fires only after the fail lane has had its chance" do
       expect(described_class::STUCK_RUNNING_THRESHOLD).to be < described_class::UNRUNNABLE_THRESHOLD
+    end
+
+    it "no longer defines the retired lane's threshold" do
+      expect(described_class.const_defined?(:STUCK_PENDING_THRESHOLD)).to be(false)
     end
   end
 end
