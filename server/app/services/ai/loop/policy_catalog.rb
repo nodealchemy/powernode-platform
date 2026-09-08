@@ -39,7 +39,8 @@ module Ai
       # KEEP-MANUAL — generic protected-path globs that must never be changed on the
       # autonomous path without human review. Directory matches use the `**/<dir>/**`
       # form so they match at any depth (FNM_PATHNAME-safe). This is the canonical
-      # list; ScopeGuardrail's DEFAULT_DENYLIST is derived from it.
+      # list; Ai::CodeFactory::ScopeGuardrail reads it through keep_manual_pattern
+      # rather than holding a copy, so the exemption semantics travel with it.
       #
       # NOTE: migrations and schema are deliberately EXCLUDED — they are far too common
       # in ordinary improvement work (every model/table change touches them) to gate.

@@ -19,11 +19,13 @@ module Ai
       # evidence rather than a side effect of a case-folding fix.
       FNM = File::FNM_PATHNAME | File::FNM_DOTMATCH
 
-      # The article's "keep-manual" set: generic protected-path globs that should never
-      # be changed on the autonomous path without human review. Sourced from the single
-      # policy catalog (G14) so there is ONE canonical list — see
-      # Ai::Loop::PolicyCatalog::KEEP_MANUAL_DENYLIST for the globs + rationale.
-      DEFAULT_DENYLIST = Ai::Loop::PolicyCatalog::KEEP_MANUAL_DENYLIST
+      # There is deliberately NO local copy of the keep-manual denylist here.
+      # evaluate asks Ai::Loop::PolicyCatalog.keep_manual_pattern at call time,
+      # which applies the NAME_HINT_EXEMPT refinement and the case-folding that
+      # the raw glob list does not carry. A mirrored constant used to sit here,
+      # read by nothing, and its only effect was to invite a "simplification" of
+      # evaluate onto the local matcher — which would have silently dropped both
+      # (IMP-80d9375065de).
 
       # Convenience: evaluate executor-reported changed files against a loop's
       # guardrail (its risk_contract + configuration["scope_guardrail"]) and return
