@@ -1,4 +1,4 @@
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef, useId, useState } from 'react';
 
 export interface SelectOption {
   value: string;
@@ -9,6 +9,12 @@ export interface SelectOption {
 
 export interface FormFieldProps {
   label: string;
+  /**
+   * Id for the rendered control. The label's `htmlFor` points at it, so a
+   * caller only needs this when something outside the field has to reference
+   * the control; otherwise a generated id is used.
+   */
+  id?: string;
   type?: 'text' | 'email' | 'password' | 'tel' | 'url' | 'number' | 'select' | 'textarea' | 'date' | 'time' | 'datetime-local';
   value: string | undefined;
   onChange: (value: string) => void;
@@ -29,6 +35,7 @@ export interface FormFieldProps {
 export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, FormFieldProps>(
   ({ 
     label,
+    id,
     type = 'text',
     value,
     onChange,
@@ -48,6 +55,12 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
   }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
+
+    // The label sits beside the control rather than wrapping it, so without an
+    // explicit association it names nothing: assistive tech reads the field
+    // unlabelled and `getByLabelText` cannot find it.
+    const generatedId = useId();
+    const fieldId = id ?? generatedId;
     
     // Enhanced styling with modern design
     const baseInputClasses = `
@@ -92,6 +105,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
             <div className="relative">
               <select
                 ref={ref as React.Ref<HTMLSelectElement>}
+                id={fieldId}
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
                 disabled={disabled}
@@ -122,6 +136,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
           return (
             <textarea
               ref={ref as React.Ref<HTMLTextAreaElement>}
+              id={fieldId}
               value={value || ''}
               onChange={(e) => onChange(e.target.value)}
               placeholder={placeholder}
@@ -139,6 +154,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
             <div className="relative">
               <input
                 ref={ref as React.Ref<HTMLInputElement>}
+                id={fieldId}
                 type={actualType}
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
@@ -175,6 +191,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
           return (
             <input
               ref={ref as React.Ref<HTMLInputElement>}
+              id={fieldId}
               type={actualType}
               value={value || ''}
               onChange={(e) => onChange(e.target.value)}
@@ -203,7 +220,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
     return (
       <div className={`${floatingLabel ? 'relative' : 'space-y-2'}`}>
         {!floatingLabel && (
-          <label className={labelClasses}>
+          <label className={labelClasses} htmlFor={fieldId}>
             <span className="flex items-center gap-1">
               {label}
               {required && (
@@ -230,7 +247,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
           {renderInput()}
           
           {floatingLabel && (
-            <label className={labelClasses}>
+            <label className={labelClasses} htmlFor={fieldId}>
               {label}
               {required && <span className="text-theme-error-fg ml-0.5">*</span>}
             </label>
