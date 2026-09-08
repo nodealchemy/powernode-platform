@@ -69,6 +69,14 @@ RSpec.describe "deployment-identifier leak guard" do
     git.call(File.join(root, "extensions/private/alpha"), "add", "-A")
     git.call(File.join(root, "extensions/private/alpha"), "commit", "-qm", "alpha")
 
+    # UNTRACKED but NOT ignored, in both repos, created AFTER the commits above.
+    # This is the state a file is in at the moment its author runs the gate: the
+    # leak that prompted this fixture was added, scanned green, and committed,
+    # and only the NEXT run — when it had become tracked — went red.
+    write.call("docs/operations/brand-new.md", "The new hub is hub.example.invalid.\n")
+    write.call("extensions/beta/docs/brand-new.md", "reprovision hub.example.invalid\n")
+    write.call("docs/operations/brand-new-clean.md", "The new hub is <hub-host>.\n")
+
     if with_list
       write.call(".claude/hooks/deployment-identifiers.local.txt",
                  "# fixture list\nhub\\.example\\.invalid\n\n198\\.51\\.100\\.[0-9]+   # trailing comment\n")
@@ -88,16 +96,51 @@ RSpec.describe "deployment-identifier leak guard" do
   end
 
   describe "tree mode (scripts/pattern-validation.sh mirror)" do
-    it "counts every TRACKED file in core and in each PUBLIC extension that names an identifier" do
+    it "counts every tracked AND untracked-not-ignored file in core and each PUBLIC extension" do
       out, _err, rc = run_scan(@root)
       expect(rc).to eq(0)
-      expect(out.strip).to eq("2") # docs/operations/leaky.md + extensions/beta/docs/runbook.md
+      # 2 tracked (docs/operations/leaky.md, extensions/beta/docs/runbook.md)
+      # + 2 untracked (docs/operations/brand-new.md, extensions/beta/docs/brand-new.md)
+      expect(out.strip).to eq("4")
+    end
+
+    # THE REGRESSION THIS GUARDS. Scanning `git ls-files` alone made the gate
+    # blind to the file being added right now, which is precisely when its
+    # author runs it.
+    it "flags an UNTRACKED new file in core, before it is ever committed" do
+      out, _err, _rc = run_scan(@root, "--list")
+      expect(out).to include("docs/operations/brand-new.md:1:The new hub is hub.example.invalid")
+    end
+
+    it "flags an UNTRACKED new file inside a PUBLIC extension" do
+      out, _err, _rc = run_scan(@root, "--list")
+      expect(out).to include("extensions/beta/docs/brand-new.md:1:")
+    end
+
+    it "does not flag an untracked file that names nothing" do
+      out, _err, _rc = run_scan(@root, "--list")
+      expect(out).not_to include("brand-new-clean.md")
+    end
+
+    # A nested repo appears to the parent's `ls-files -o` as one directory
+    # entry. It must be skipped there rather than grepped as a file or
+    # recursed into, or its hits would be counted twice under two paths.
+    it "attributes an extension's hits to the extension path only, never twice" do
+      out, _err, _rc = run_scan(@root, "--list")
+      beta = out.lines.select { |l| l.include?("brand-new.md") && l.include?("beta") }
+      expect(beta.size).to eq(1)
+      expect(beta.first).to start_with("extensions/beta/docs/brand-new.md:")
     end
 
     it "lists hits as <repo-relative-path>:<line>:<text>, never a gitignored or private file" do
       out, _err, _rc = run_scan(@root, "--list")
       paths = out.lines.map { |l| l.split(":", 2).first }
-      expect(paths).to contain_exactly("docs/operations/leaky.md", "extensions/beta/docs/runbook.md")
+      expect(paths).to contain_exactly(
+        "docs/operations/leaky.md",
+        "docs/operations/brand-new.md",
+        "extensions/beta/docs/runbook.md",
+        "extensions/beta/docs/brand-new.md",
+      )
       expect(out).to include("docs/operations/leaky.md:1:The hub is hub.example.invalid")
       expect(out).not_to include("docs/operations/local/")
       expect(out).not_to include("CLAUDE.local.md")
@@ -139,6 +182,16 @@ RSpec.describe "deployment-identifier leak guard" do
       expect(rc).to eq(0)
       _out, _err, rc = run_scan(@root, "--file", File.join(@root, "extensions/beta/scratch/local.md"))
       expect(rc).to eq(0)
+    end
+
+    # The class this task widened tree mode to cover. --file already handled it —
+    # check-ignore returns 1 for untracked-not-ignored exactly as for tracked —
+    # but nothing pinned that, so a later "only check tracked files" tightening
+    # of this path would have passed the whole suite.
+    it "exits 2 for an UNTRACKED, not-ignored new file" do
+      out, _err, rc = run_scan(@root, "--file", File.join(@root, "docs/operations/brand-new.md"))
+      expect(rc).to eq(2)
+      expect(out).to include("1:The new hub is hub.example.invalid")
     end
 
     it "flags a tracked file inside a public extension" do
@@ -204,7 +257,18 @@ RSpec.describe "deployment-identifier leak guard" do
     it "runs in scripts/pattern-validation.sh as a security-critical check" do
       pv = File.read(File.join(repo_root, "scripts/pattern-validation.sh"))
       expect(pv).to include("scripts/checks/deployment-identifier-check.sh")
-      expect(pv).to include('security_critical_failed_checks+=("No deployment-local identifiers in tracked files (leak guard)")')
+      expect(pv).to include('security_critical_failed_checks+=("No deployment-local identifiers in tracked or new files (leak guard)")')
+    end
+
+    # Two arms on purpose: the presence assertion alone is satisfied by a name
+    # that still promises less than the scan delivers, and the absence
+    # assertion alone is satisfied by deleting the check. A gate that advertises
+    # "tracked files" is what let an author read a green run as covering the
+    # untracked file they had just written.
+    it "does not advertise a narrower scope than it scans" do
+      pv = File.read(File.join(repo_root, "scripts/pattern-validation.sh"))
+      expect(pv).to include("No deployment-local identifiers in tracked or new files")
+      expect(pv).not_to include("No deployment-local identifiers in tracked files")
     end
 
     it "keeps the identifier list and the local docs directory gitignored" do
@@ -219,6 +283,10 @@ RSpec.describe "deployment-identifier leak guard" do
       expect(doc).to include("deployment-identifier-check.sh")
       expect(doc).to include("deployment-identifiers.local.txt")
       expect(doc).to include("search_knowledge tag:deployment-")
+      # This doc is what the guidance seeder ships to non-Claude executors, so a
+      # stale scope claim here reaches more readers than the shell comment does.
+      expect(doc).to include("untracked and not gitignored")
+      expect(doc).not_to include("greps every git-tracked")
     end
   end
 end

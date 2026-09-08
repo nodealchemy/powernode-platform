@@ -767,24 +767,26 @@ fi
 # docs/contributing/conventions/deployment-knowledge.md. The identifier patterns live in
 # the GITIGNORED .claude/hooks/deployment-identifiers.local.txt: a guard against name
 # leakage must not itself contain the names, so no list => no-op PASS (a public clone
-# has no deployment to protect yet). Scans every git-TRACKED file in core and in each
+# has no deployment to protect yet). Scans every file git would publish — tracked
+# PLUS untracked-not-ignored, so a brand-new file is checked by the author who is
+# running the gate rather than by whoever runs it next — in core and in each
 # PUBLIC extension submodule (each publishes on its own); private extensions and
 # gitignored files are out of scope by construction. The edit-time hook
 # .claude/hooks/deployment-identifier-check.sh runs the same script per file.
 total_checks=$((total_checks + 1))
-echo -n "Checking: No deployment-local identifiers in tracked files (leak guard)... "
+echo -n "Checking: No deployment-local identifiers in tracked or new files (leak guard)... "
 # FAIL CLOSED on a missing/broken script, same doctrine as the core-purity mirror above.
 if [ ! -r scripts/checks/deployment-identifier-check.sh ]; then
     echo -e "${RED}✗ FAIL${NC} (leak-guard script MISSING: scripts/checks/deployment-identifier-check.sh)"
     failed_checks=$((failed_checks + 1))
-    security_critical_failed_checks+=("No deployment-local identifiers in tracked files (leak guard)")
+    security_critical_failed_checks+=("No deployment-local identifiers in tracked or new files (leak guard)")
 else
 depl_hits=$(bash scripts/checks/deployment-identifier-check.sh 2>/dev/null || true)
 case "$depl_hits" in
     ''|*[!0-9]*)
         echo -e "${RED}✗ FAIL${NC} (leak-guard script produced no usable result: '"'"'$depl_hits'"'"')"
         failed_checks=$((failed_checks + 1))
-        security_critical_failed_checks+=("No deployment-local identifiers in tracked files (leak guard)")
+        security_critical_failed_checks+=("No deployment-local identifiers in tracked or new files (leak guard)")
         depl_hits=""
         ;;
 esac
@@ -798,9 +800,11 @@ elif [ "$depl_hits" -eq 0 ]; then
     fi
     passed_checks=$((passed_checks + 1))
 else
-    echo -e "${RED}✗ FAIL${NC} (Found $depl_hits tracked file(s) naming a deployment-local identifier: $(bash scripts/checks/deployment-identifier-check.sh --list 2>/dev/null | cut -d: -f1 | sort -u | tr '\n' ' '))"
+    echo -e "${RED}✗ FAIL${NC} (Found $depl_hits file(s) naming a deployment-local identifier: $(bash scripts/checks/deployment-identifier-check.sh --list 2>/dev/null | cut -d: -f1 | sort -u | tr '\n' ' '))"
+    echo "    Run 'bash scripts/checks/deployment-identifier-check.sh --list' for the matching lines."
+    echo "    Remedy: docs/contributing/conventions/deployment-knowledge.md (genericize the text; keep the real value in platform knowledge or docs/operations/local/)." 
     failed_checks=$((failed_checks + 1))
-    security_critical_failed_checks+=("No deployment-local identifiers in tracked files (leak guard)")
+    security_critical_failed_checks+=("No deployment-local identifiers in tracked or new files (leak guard)")
 fi
 fi
 

@@ -61,8 +61,11 @@ gate that refuses such content for public guidance does not apply.
 ## Enforcement
 
 - **Scan:** `scripts/checks/deployment-identifier-check.sh` (run by
-  `scripts/pattern-validation.sh` as a security-critical check) greps every git-tracked
-  file in core and in each public extension submodule.
+  `scripts/pattern-validation.sh` as a security-critical check) greps every file in the
+  working tree that git would publish — tracked, PLUS untracked and not gitignored — in
+  core and in each public extension submodule. Untracked files are in scope because a
+  leak is authored before it is committed: a tracked-only scan passes for the author
+  running it and fails for whoever runs it next (IMP-7bafaf99314d).
 - **Edit-time hook:** `.claude/hooks/deployment-identifier-check.sh` runs the same script
   on the file just written and blocks on a hit.
 - **Patterns** come from the gitignored `.claude/hooks/deployment-identifiers.local.txt`,
