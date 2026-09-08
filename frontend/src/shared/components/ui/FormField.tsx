@@ -160,6 +160,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
                 onChange={(e) => onChange(e.target.value)}
                 disabled={disabled}
                 required={nativeRequired}
+                autoFocus={autoFocus}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 className={`${inputClasses} appearance-none cursor-pointer pr-10`}
@@ -216,6 +217,8 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
                 placeholder={placeholder}
                 disabled={disabled}
                 required={nativeRequired}
+                maxLength={maxLength}
+                autoFocus={autoFocus}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 className={`${inputClasses} pr-10`}

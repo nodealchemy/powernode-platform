@@ -159,6 +159,30 @@ describe('FormField label association', () => {
     expect(textarea).toHaveFocus();
   });
 
+  it('takes focus on a select and caps length on a password too', () => {
+    // A prop wired into only the branches its first caller happened to use is
+    // the same silent no-op this component already had once.
+    const { unmount } = render(
+      <FormField
+        label="Kind"
+        type="select"
+        value="ovs"
+        onChange={jest.fn()}
+        autoFocus
+        options={[{ value: 'ovs', label: 'ovs' }]}
+      />,
+    );
+    expect(screen.getByLabelText('Kind')).toHaveFocus();
+    unmount();
+
+    render(
+      <FormField label="Token" type="password" value="" onChange={jest.fn()} maxLength={40} autoFocus />,
+    );
+    const token = screen.getByLabelText('Token');
+    expect(token).toHaveAttribute('maxlength', '40');
+    expect(token).toHaveFocus();
+  });
+
   it('separates the required marker from the required attribute', () => {
     // `required` has always been label decoration here. Several SDWAN forms
     // instead let the browser block an empty submit, and would lose that on
