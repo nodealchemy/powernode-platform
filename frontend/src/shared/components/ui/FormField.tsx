@@ -65,6 +65,8 @@ export interface FormFieldProps {
   maxLength?: number;
   /** Focus this control when the field mounts, for a dialog's first field. */
   autoFocus?: boolean;
+  /** Turn off spell-checking, for a field holding code rather than prose. */
+  spellCheck?: boolean;
   className?: string;
   icon?: React.ReactNode;
   showPasswordToggle?: boolean;
@@ -93,6 +95,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
     inputMode,
     maxLength,
     autoFocus,
+    spellCheck,
     className = '',
     icon,
     showPasswordToggle = true,
@@ -193,6 +196,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
               rows={rows}
               maxLength={maxLength}
               autoFocus={autoFocus}
+              spellCheck={spellCheck}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               className={`${inputClasses} resize-none`}
@@ -256,6 +260,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
               inputMode={inputMode}
               maxLength={maxLength}
               autoFocus={autoFocus}
+              spellCheck={spellCheck}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               className={inputClasses}

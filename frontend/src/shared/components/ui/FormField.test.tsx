@@ -187,6 +187,20 @@ describe('FormField label association', () => {
     expect(screen.getByLabelText('Hub peer')).toBeRequired();
   });
 
+  it('lets a code field turn off spell-checking', () => {
+    render(
+      <FormField
+        label="Statements (ordered JSON array)"
+        type="textarea"
+        value="[]"
+        onChange={jest.fn()}
+        spellCheck={false}
+      />,
+    );
+
+    expect(screen.getByLabelText(/Statements/)).toHaveAttribute('spellcheck', 'false');
+  });
+
   it('renders helpText until an error replaces it', () => {
     const { rerender } = render(
       <FormField label="CIDR" value="" onChange={jest.fn()} helpText="e.g. 10.0.0.0/16" />,
