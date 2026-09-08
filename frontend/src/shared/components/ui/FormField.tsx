@@ -32,6 +32,12 @@ export interface FormFieldProps {
   min?: number | string;
   max?: number | string;
   step?: number | string;
+  /**
+   * Virtual-keyboard hint. A field that accepts digits but is typed as text —
+   * so a partially entered value is not silently discarded by the browser —
+   * still wants the numeric keypad on a touch device.
+   */
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
   className?: string;
   icon?: React.ReactNode;
   showPasswordToggle?: boolean;
@@ -56,6 +62,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
     min,
     max,
     step,
+    inputMode,
     className = '',
     icon,
     showPasswordToggle = true,
@@ -210,6 +217,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
               min={min}
               max={max}
               step={step}
+              inputMode={inputMode}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               className={inputClasses}

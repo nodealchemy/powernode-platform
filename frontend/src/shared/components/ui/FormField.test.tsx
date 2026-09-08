@@ -92,6 +92,16 @@ describe('FormField label association', () => {
     expect(input).toHaveAttribute('max', '16384');
   });
 
+  it('passes a virtual-keyboard hint through to a text input', () => {
+    // The numeric catalog fields are typed as text so a half-typed value
+    // survives, and would otherwise lose their numeric keypad on adoption.
+    render(
+      <FormField label="vCPUs" value="4" onChange={jest.fn()} inputMode="decimal" />,
+    );
+
+    expect(screen.getByLabelText('vCPUs')).toHaveAttribute('inputmode', 'decimal');
+  });
+
   it('renders helpText until an error replaces it', () => {
     const { rerender } = render(
       <FormField label="CIDR" value="" onChange={jest.fn()} helpText="e.g. 10.0.0.0/16" />,
