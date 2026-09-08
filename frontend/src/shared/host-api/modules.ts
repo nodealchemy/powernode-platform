@@ -64,6 +64,7 @@ const HOST_APP_IDS = [
   '@/shared/components/ui/Button',
   '@/shared/components/ui/Card',
   '@/shared/components/ui/ConfirmationModal',
+  '@/shared/components/ui/ErrorAlert',
   '@/shared/components/ui/LoadingSpinner',
   '@/shared/components/ui/Modal',
   '@/shared/components/ui/MultiSelect',
