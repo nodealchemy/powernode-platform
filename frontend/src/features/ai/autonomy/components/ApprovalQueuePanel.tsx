@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { CheckCircle, XCircle, Clock, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { OneShotRevealModal } from '@/shared/components/ui/OneShotRevealModal';
 import { EntityLink } from '@/shared/components/entity';
 import { useApprovalQueue, useApproveAction, useRejectAction } from '../api/autonomyApi';
 import type { ApprovalRequest } from '../types/autonomy';
@@ -15,12 +16,16 @@ const ApprovalCard: React.FC<{
   request: ApprovalRequest;
   isExpanded: boolean;
   onToggle: () => void;
-}> = ({ request, isExpanded, onToggle }) => {
+  onRevealed: (values: Record<string, unknown>) => void;
+}> = ({ request, isExpanded, onToggle, onRevealed }) => {
   const approveMutation = useApproveAction();
   const rejectMutation = useRejectAction();
 
   const handleApprove = () => {
-    approveMutation.mutate({ id: request.id });
+    // The reveal goes straight to the panel, never into this card's state:
+    // approving drops the row out of the pending queue, so this card unmounts
+    // moments later and would take an unrecoverable secret with it.
+    approveMutation.mutate({ id: request.id, onRevealedResult: onRevealed });
   };
 
   const handleReject = () => {
@@ -172,6 +177,20 @@ const ApprovalCard: React.FC<{
 export const ApprovalQueuePanel: React.FC = () => {
   const { data: approvals, isLoading } = useApprovalQueue();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // Transient, panel-scoped, and dropped the moment the operator acknowledges:
+  // the plaintext is never persisted, logged or sent anywhere from here.
+  //
+  // A QUEUE, not a slot. Each card owns its own approve mutation, so nothing
+  // stops an operator approving a second row while the first reveal is still
+  // open — and a single slot would silently overwrite an unrecoverable value
+  // they had not saved yet. Reveals are shown one at a time, in arrival order.
+  const [revealQueue, setRevealQueue] = useState<Record<string, unknown>[]>([]);
+
+  const pushReveal = useCallback((values: Record<string, unknown>) => {
+    // A named wrapper, not setRevealQueue itself: a state setter treats a
+    // function argument as an updater.
+    setRevealQueue((queue) => [...queue, values]);
+  }, []);
 
   const toggleExpand = useCallback((id: string) => {
     setExpandedIds(prev => {
@@ -197,6 +216,7 @@ export const ApprovalQueuePanel: React.FC = () => {
                 request={request}
                 isExpanded={expandedIds.has(request.id)}
                 onToggle={() => toggleExpand(request.id)}
+                onRevealed={pushReveal}
               />
             ))}
           </div>
@@ -207,6 +227,18 @@ export const ApprovalQueuePanel: React.FC = () => {
           </div>
         )}
       </CardContent>
+
+      {/* Rendered by the panel, not the card: the approved row leaves the
+          pending queue and unmounts its card while this is still open. */}
+      {revealQueue.length > 0 && (
+        <OneShotRevealModal
+          title="Approved — shown once"
+          values={revealQueue[0]}
+          note="This approval ran an operation that minted new material. It is not stored and cannot be shown again."
+          acknowledgeLabel="I have saved this somewhere safe"
+          onDone={() => setRevealQueue((queue) => queue.slice(1))}
+        />
+      )}
     </Card>
   );
 };
