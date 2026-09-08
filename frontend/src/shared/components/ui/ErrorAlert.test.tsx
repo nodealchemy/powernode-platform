@@ -221,5 +221,26 @@ describe('ErrorAlert', () => {
       expect(firstOnClose).not.toHaveBeenCalled();
       expect(secondOnClose).toHaveBeenCalledTimes(1);
     });
+
+    it('does not submit the surrounding form when dismissed', () => {
+      // A <button> with no `type` defaults to type="submit". This alert is
+      // routinely rendered inside a <form> to report the failure of that very
+      // form's submission, so a typeless dismiss button re-fires the
+      // submission the operator is trying to acknowledge — issuing a second
+      // certificate, invite or grant from a click that reads as "close this".
+      const onSubmit = jest.fn((e: React.FormEvent) => e.preventDefault());
+      const onClose = jest.fn();
+      renderWithProviders(
+        <form onSubmit={onSubmit}>
+          <ErrorAlert message="Request failed" onClose={onClose} />
+        </form>,
+        { preloadedState: mockAuthenticatedState }
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
   });
 });

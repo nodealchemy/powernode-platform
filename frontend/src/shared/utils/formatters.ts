@@ -79,6 +79,29 @@ export function formatDateTime(dateString: string | Date | null | undefined): st
 }
 
 /**
+ * Formats an instant as a full timestamp in the VIEWER'S locale, seconds
+ * included.
+ *
+ * Distinct from formatDateTime on purpose, and the difference is the point:
+ * formatDateTime is the readable en-US display form ('Jan 15, 2024, 2:30 PM')
+ * for a date a person reads once, while this is the operational form
+ * ('1/15/2024, 2:30:07 PM') for screens where two events a few seconds apart
+ * must not print the same string. Reach for this on task, event and log
+ * surfaces; reach for formatDateTime on detail panes.
+ *
+ * Consolidated from copies in the system extension's operations screens
+ * (IMP-c11d5ad755b8), which is why it keeps toLocaleString's exact output
+ * rather than adopting the en-US shape.
+ *
+ * @param value - ISO date string or Date; null/undefined yields an em dash
+ * @returns Locale timestamp with seconds, or '—'
+ */
+export function formatTimestamp(value: string | Date | null | undefined): string {
+  if (!value) return '—';
+  return (typeof value === 'string' ? new Date(value) : value).toLocaleString();
+}
+
+/**
  * Formats a date string to relative time (e.g., '5 minutes ago')
  *
  * @param dateString - ISO date string or null
@@ -114,6 +137,46 @@ export function formatRelativeTime(dateString: string | Date | null): string {
 }
 
 /**
+ * Formats elapsed time between two instants as a compact duration.
+ *
+ * Consolidated from two component copies that differed only in whether a
+ * sub-minute run read '45s' or '45 seconds' (IMP-c11d5ad755b8). The compact
+ * form wins because the other branches were already compact — the long copy
+ * rendered '45 seconds' and then '1m 30s' from the same function.
+ *
+ * @param startedAt - when the work began; null/undefined yields an em dash
+ * @param completedAt - when it finished; omit or pass null for work still
+ *   running, which measures against now
+ * @returns '45s', '5m 30s', '2h 15m', or '—' when there is nothing to measure
+ *
+ * @example
+ * formatDuration('2024-01-15T10:00:00Z', '2024-01-15T10:05:30Z') // '5m 30s'
+ * formatDuration(null) // '—'
+ */
+export function formatDuration(
+  startedAt: string | Date | null | undefined,
+  completedAt?: string | Date | null
+): string {
+  if (!startedAt) return '—';
+
+  const start = (typeof startedAt === 'string' ? new Date(startedAt) : startedAt).getTime();
+  const end = completedAt
+    ? (typeof completedAt === 'string' ? new Date(completedAt) : completedAt).getTime()
+    : Date.now();
+
+  const seconds = Math.floor((end - start) / 1000);
+  // An unparseable timestamp gives NaN, which fails both range tests below and
+  // would fall through to the hours branch as 'NaNh NaNm'. The copies this
+  // replaced did exactly that; an em dash is what the rest of this module says
+  // for a value it cannot use.
+  if (!Number.isFinite(seconds)) return '—';
+
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
+/**
  * Formats a number with thousands separators
  *
  * @param value - Number to format
@@ -145,7 +208,11 @@ export function formatPercent(value: number, decimals = 1): string {
  * @returns Formatted size string (e.g., '1.5 MB')
  */
 export function formatFileSize(bytes: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  // PB tops the ladder because WireGuard peer counters reach it: the system
+  // extension's peer list carried its own PB-capable formatter, and adopting
+  // this one without PB would render a petabyte as '1024.0 TB'
+  // (IMP-c11d5ad755b8).
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
   let size = bytes;
   let unitIndex = 0;
 

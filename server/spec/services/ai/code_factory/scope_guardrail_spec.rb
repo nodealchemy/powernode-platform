@@ -47,6 +47,40 @@ RSpec.describe Ai::CodeFactory::ScopeGuardrail do
       expect(result[:allowed]).to be false
     end
 
+    # IMP-a25913975485 — the two pinned together, on purpose.
+    #
+    # evaluate reaches the protected-path list through
+    # PolicyCatalog.keep_manual_pattern rather than any matching this class does
+    # itself, so the catalog's case-folding and its NAME_HINT_EXEMPT refinement
+    # both reach it. This class's own FNM is deliberately case-SENSITIVE, because
+    # it governs only the operator's per-loop allow/deny globs, where folding
+    # would widen an exemption.
+    #
+    # So the delegation is load-bearing: anything that inlines the list here, or
+    # routes the default denylist through the local matcher, silently drops one
+    # or both properties while looking like a tidy-up. Three examples divide that
+    # work, and none of them subsumes another:
+    #
+    #   * THIS one catches a rewire onto the local CASE-SENSITIVE matcher.
+    #   * "does NOT block structural/test files merely named credential
+    #     (catalog refinement)" below catches a rewire onto the raw glob list
+    #     that keeps the catalog's flags but loses NAME_HINT_EXEMPT.
+    #   * "takes its default denylist from the policy catalog at CALL time
+    #     (G14)" catches a mirrored constant being reintroduced at all, which is
+    #     what made such a rewire easy before IMP-80d9375065de deleted it.
+    #
+    # One case-fold example, not two: the exempt direction is covered by the
+    # second of those, and a cased exempt path matches no glob at all under a
+    # local matcher, so it would pass a rewired evaluate rather than catch it.
+    it "blocks a PascalCase credential surface, matching the catalog" do
+      path = "extensions/system/frontend/src/features/system/components/providers/ProviderCredentialsPanel.tsx"
+
+      result = described_class.new.evaluate([path])
+
+      expect(result[:allowed]).to be false
+      expect(Ai::Loop::PolicyCatalog.keep_manual?(path)).to be true
+    end
+
     it "blocks private_key paths" do
       result = described_class.new.evaluate(["server/lib/private_key_loader.rb"])
       expect(result[:allowed]).to be false
@@ -77,10 +111,25 @@ RSpec.describe Ai::CodeFactory::ScopeGuardrail do
       expect(result[:violations]).to eq([])
     end
 
-    it "derives its default denylist from the policy catalog (G14)" do
-      expect(described_class::DEFAULT_DENYLIST).to equal(Ai::Loop::PolicyCatalog::KEEP_MANUAL_DENYLIST)
+    it "takes its default denylist from the policy catalog at CALL time (G14)" do
+      # No local copy of the list: the guardrail asks the catalog at call time,
+      # so it gets the catalog's NAME_HINT_EXEMPT refinement and case-folding
+      # rather than the raw globs. IMP-80d9375065de removed the DEFAULT_DENYLIST
+      # constant that mirrored the list; a mirror nothing read was an invitation
+      # to "simplify" evaluate onto it and drop both.
+      #
+      # This assertion is keyed on owner AND name, so it is the weakest of the
+      # three guards by design: a mirror reintroduced one namespace up, or under
+      # any other name, still resolves lexically from inside the class body and
+      # evades it. The two BEHAVIOURAL examples above and below are what actually
+      # hold the line; this one just keeps the specific trap from coming back.
+      expect(described_class.const_defined?(:DEFAULT_DENYLIST, false)).to be false
 
-      # A path the catalog marks keep-manual is blocked by the guardrail.
+      # CONTAINMENT for that absence assertion: the class is still here and still
+      # gating, so "constant gone" means removed rather than the whole surface
+      # having vanished. It deliberately proves no more than that — the wallet
+      # path matches an unconditional directory glob, which a local matcher would
+      # catch identically, so delegation itself is proved elsewhere.
       manual_path = "server/app/services/wallet/ledger.rb"
       expect(Ai::Loop::PolicyCatalog.keep_manual?(manual_path)).to be true
       expect(described_class.new.evaluate([manual_path])[:allowed]).to be false

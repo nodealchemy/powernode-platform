@@ -140,6 +140,18 @@ export interface ApprovalRequest {
   completed_at?: string;
 }
 
+/**
+ * The approve/reject response body. Identical to ApprovalRequest except on the
+ * approve path, which may carry the server's one-shot reveal slot
+ * (IMP-7b81ca22f661): when the decision ran an executor that minted secret
+ * material, `revealed_result` holds it for exactly this response. The read
+ * empties the slot server-side, so it is never in a later fetch of the same
+ * row and cannot be re-requested.
+ */
+export interface ApprovalDecision extends ApprovalRequest {
+  revealed_result?: Record<string, unknown>;
+}
+
 export interface BehavioralFingerprint {
   id: string;
   agent_id: string;

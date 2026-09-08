@@ -41,7 +41,7 @@ rc=$?
 [[ $rc -ne 2 ]] && exit 0
 
 {
-  echo "BLOCKED (deployment-identifier leak): $FILE_PATH names a DEPLOYMENT-LOCAL identifier in a file git tracks."
+  echo "BLOCKED (deployment-identifier leak): $FILE_PATH names a DEPLOYMENT-LOCAL identifier in a file git would publish."
   printf '%s\n' "$HITS" | sed 's/^/  /'
   echo "Hostnames, internal IPs, VM ids and operator details of THIS deployment are irrelevant to every"
   echo "other deployment and a gratuitous disclosure on the public mirror. Genericize the text"

@@ -130,4 +130,160 @@ RSpec.describe Ai::Loop::PolicyCatalog do
       expect(described_class.manual_paths(["", nil, "  "])).to eq([])
     end
   end
+
+  # IMP-a25913975485 — the globs are lowercase and the matcher was case-sensitive,
+  # so **/*credential* and **/*secret* only ever matched snake_case Ruby paths.
+  # Frontend files are PascalCase/camelCase, which made every TSX credential
+  # surface invisible to the guard: IMP-18832c3c6128 added a panel that lists and
+  # deletes stored cloud credentials and closed unchallenged, while a snake_case
+  # controller touching the same domain in the same session was blocked.
+  describe "case-insensitive name hints" do
+    it "treats a PascalCase credential component as keep-manual" do
+      expect(
+        described_class.keep_manual?(
+          "extensions/system/frontend/src/features/system/components/providers/ProviderCredentialsPanel.tsx"
+        )
+      ).to be true
+    end
+
+    it "treats a camelCase credential api module as keep-manual" do
+      expect(
+        described_class.keep_manual?(
+          "extensions/system/frontend/src/features/system/services/api/providerCredentialsApi.ts"
+        )
+      ).to be true
+    end
+
+  end
+
+  # IMP-0079b72da3cc — the key-material hints are the one family where a glob
+  # cannot express the rule. They need to be separator-agnostic (api_key,
+  # api-key, apiKey, ApiKey are one concept) AND word-bounded (*signer* must not
+  # claim "designer"). fnmatch can do neither, so these three moved to regexes
+  # over a normalised path while everything else stays a glob.
+  describe "key-material name hints" do
+    it "matches every separator convention for the same concept" do
+      %w[
+        frontend/src/settings/ApiKeyForm.tsx
+        frontend/src/settings/apiKeyForm.tsx
+        frontend/src/settings/api-key-form.tsx
+        frontend/src/settings/api_key_form.tsx
+        frontend/src/settings/APIKeyForm.tsx
+        frontend/src/settings/ApiKeysPage.tsx
+        frontend/src/settings/APIKEY.tsx
+        frontend/src/settings/apikey.ts
+        frontend/src/settings/privatekey.rb
+        frontend/src/components/settings/ApiKeyForm.tsx
+        frontend/src/features/settings/PrivateKeyUpload.tsx
+      ].each do |path|
+        expect(described_class.keep_manual?(path)).to be(true), "expected #{path} to be keep-manual"
+      end
+    end
+
+    it "matches the private-key and signer families the same way" do
+      %w[
+        server/lib/private_key_loader.rb
+        frontend/src/settings/PrivateKeyUpload.tsx
+        frontend/src/settings/private-key-upload.tsx
+        server/app/services/signer.rb
+        server/app/services/RequestSigner.rb
+        server/app/services/request-signer.rb
+      ].each do |path|
+        expect(described_class.keep_manual?(path)).to be(true), "expected #{path} to be keep-manual"
+      end
+    end
+
+    # The false positive this replaces. "**/*signer*" is a substring match, so it
+    # claimed every path containing "designer" — the topology-designer seed and
+    # its agent skeleton were keep-manual for a reason that has nothing to do
+    # with signing keys. Word boundaries, not an exemption list, because the
+    # problem is the matcher rather than these particular files.
+    it "does not claim a word that merely contains a key-material token" do
+      [
+        "extensions/system/server/db/seeds/system_topology_designer_agent.rb",
+        ".claude/agents/powernode/system-topology-designer.md",
+        "frontend/src/components/DesignerCanvas.tsx",
+        "frontend/src/components/SignerlessFlow.tsx",
+        # The TRAILING boundary specifically. Without it these two match, and
+        # the signer examples above would not have caught that: every one of
+        # them ends the token at a separator or end-of-string.
+        "frontend/src/features/devops/ApiKeywordFilter.tsx",
+        "server/app/services/api_keyserver.rb"
+      ].each do |path|
+        expect(described_class.keep_manual?(path)).to be(false), "expected #{path} NOT to be keep-manual"
+      end
+    end
+
+    it "normalises separators and camel boundaries before matching" do
+      # Pinned directly, because a failure here is otherwise reported as a
+      # mysterious keep_manual? result three layers up. Both camel rules are
+      # exercised: fooBar splits at the lower-to-upper transition, APIKey needs
+      # the acronym rule because there is no such transition at the K.
+      expect(described_class.normalize_for_hint("frontend/src/settings/ApiKeyForm.tsx"))
+        .to eq("frontend_src_settings_api_key_form_tsx")
+      expect(described_class.normalize_for_hint("server/lib/private-key-loader.rb"))
+        .to eq("server_lib_private_key_loader_rb")
+      expect(described_class.normalize_for_hint("a/APIKeyForm.tsx")).to eq("a_api_key_form_tsx")
+      # "designer" survives as ONE token, which is what keeps \bsigner\b off it.
+      expect(described_class.normalize_for_hint("db/seeds/system_topology_designer_agent.rb"))
+        .to eq("db_seeds_system_topology_designer_agent_rb")
+    end
+
+    it "reports a label rather than a glob, because no glob would match" do
+      # These match the whole normalised PATH, so a directory segment counts.
+      # Reporting "**/*api_key*" would hand the operator a pattern that returns
+      # false if they paste it back into fnmatch against the same path.
+      expect(
+        described_class.keep_manual_pattern("frontend/src/settings/ApiKeyForm.tsx")
+      ).to eq("key-material name: api_key")
+    end
+
+    it "gates a directory segment carrying the token, which the old glob could not" do
+      # File.fnmatch("**/*api_key*", "app/api_keys/foo.rb", FNM) is false under
+      # FNM_PATHNAME: the glob cannot see inside a directory name.
+      expect(described_class.keep_manual?("app/api_keys/foo.rb")).to be true
+    end
+
+    it "reports the glob that matched, not merely a boolean" do
+      expect(
+        described_class.keep_manual_pattern(
+          "extensions/system/frontend/src/features/system/services/api/providerCredentialsApi.ts"
+        )
+      ).to eq("**/*credential*")
+    end
+
+    # NAME_HINT_EXEMPT must keep its meaning: a test file named after a credential
+    # surface stores no key material, and case-folding must not start gating specs.
+    it "keeps a PascalCase credential spec name-hint exempt" do
+      expect(
+        described_class.keep_manual?(
+          "extensions/system/frontend/src/features/system/components/providers/ProviderCredentialsPanel.test.tsx"
+        )
+      ).to be false
+    end
+
+    it "keeps a camelCase credential api spec name-hint exempt" do
+      expect(
+        described_class.keep_manual?(
+          "extensions/system/frontend/src/features/system/services/api/providerCredentialsApi.test.ts"
+        )
+      ).to be false
+    end
+
+    # An UNCONDITIONAL directory glob is not a name hint and is never exempted,
+    # so a spec living under a gated directory stays keep-manual.
+    it "folds case on unconditional DIRECTORY globs too, not just name hints" do
+      # Cased on purpose: the all-lowercase form is already asserted above and
+      # passes with or without the fix, so it carries no information here.
+      expect(described_class.keep_manual?("server/spec/services/Vault/client_spec.rb")).to be true
+    end
+
+    # The symmetric consequence, pinned so it is a decision rather than a surprise:
+    # NAME_HINT_EXEMPT folds too, so a cased structural directory now exempts a
+    # name-hint hit exactly as its lowercase twin always did.
+    it "exempts a name-hint hit under a cased structural directory" do
+      expect(described_class.keep_manual?("server/app/models/Concerns/credential_display.rb")).to be false
+      expect(described_class.keep_manual?("server/app/models/concerns/credential_display.rb")).to be false
+    end
+  end
 end

@@ -1,7 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { KeyRound, ShieldCheck } from 'lucide-react';
-import { PathTabs, firstAccessibleTabPath, type PathTabSpec } from '../PathTabs';
+import {
+  PathTabs,
+  firstAccessibleTabPath,
+  activeTabKeyFromPath,
+  type PathTabSpec,
+} from '../PathTabs';
 
 const TABS: PathTabSpec[] = [
   { key: 'alpha', label: 'Alpha', permission: 'feature.alpha', icon: <KeyRound /> },
@@ -67,6 +72,79 @@ describe('PathTabs', () => {
 
     expect(screen.queryByTestId('tab-content')).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Active-key derivation (IMP-d725a6bad253)
+  // ---------------------------------------------------------------------------
+
+  it('keeps a tab active on a path nested under it', () => {
+    // Hubs whose tabs own sub-routes ("/app/demo/beta/detail/7") must stay on
+    // that tab; the trailing segment belongs to the tab's own inner router.
+    renderTabs(() => true, `${BASE}/beta/detail/7`);
+
+    expect(screen.getByRole('link', { name: 'Beta' }).className).toContain(
+      'border-theme-info-border',
+    );
+    expect(screen.getByRole('link', { name: 'Alpha' }).className).toContain(
+      'border-transparent',
+    );
+  });
+
+  it('falls back to the first accessible tab when the path names no tab', () => {
+    // The bare hub path, which the caller's index route is about to redirect.
+    renderTabs(() => true, BASE);
+
+    expect(screen.getByRole('link', { name: 'Alpha' }).className).toContain(
+      'border-theme-info-border',
+    );
+  });
+
+  it('highlights no tab when the path names a tab the operator cannot see', () => {
+    // Beta's body may still render (its route need not be permission-gated);
+    // accenting Alpha instead would mislabel what is on screen.
+    renderTabs((p) => p === 'feature.alpha', `${BASE}/beta`);
+
+    expect(screen.getByRole('link', { name: 'Alpha' }).className).toContain(
+      'border-transparent',
+    );
+    expect(screen.getByRole('link', { name: 'Alpha' }).className).not.toContain(
+      'border-theme-info-border',
+    );
+  });
+
+  it('ignores a path outside the basePath even when a segment matches a tab key', () => {
+    renderTabs(() => true, '/somewhere/else/beta');
+
+    // No tab is named under BASE, so the first accessible tab is accented.
+    expect(screen.getByRole('link', { name: 'Alpha' }).className).toContain(
+      'border-theme-info-border',
+    );
+    expect(screen.getByRole('link', { name: 'Beta' }).className).toContain(
+      'border-transparent',
+    );
+  });
+});
+
+describe('activeTabKeyFromPath', () => {
+  it('matches a tab on its own path', () => {
+    expect(activeTabKeyFromPath(TABS, BASE, `${BASE}/beta`)).toBe('beta');
+  });
+
+  it('matches a tab on a path nested under it', () => {
+    expect(activeTabKeyFromPath(TABS, BASE, `${BASE}/beta/detail/7`)).toBe('beta');
+  });
+
+  it('returns undefined for the bare basePath', () => {
+    expect(activeTabKeyFromPath(TABS, BASE, BASE)).toBeUndefined();
+  });
+
+  it('returns undefined for a path outside the basePath', () => {
+    expect(activeTabKeyFromPath(TABS, BASE, '/somewhere/else/beta')).toBeUndefined();
+  });
+
+  it('does not match a tab key that is only a prefix of the segment', () => {
+    expect(activeTabKeyFromPath(TABS, BASE, `${BASE}/betamax`)).toBeUndefined();
   });
 });
 

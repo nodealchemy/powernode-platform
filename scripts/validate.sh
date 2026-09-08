@@ -62,7 +62,7 @@ for arg in "$@"; do
       echo ""
       echo "Options:"
       echo "  --skip-tests             Skip ALL RSpec specs (platform and extensions)"
-      echo "  --skip-extension-specs   Run platform specs only — prints a loud warning."
+      echo "  --skip-extension-specs   Run platform specs only (plus the ~20s route-parity lint) — prints a loud warning."
       echo "                           The extension suites are long (system alone is"
       echo "                           ~8000 examples); this exists so you can choose to"
       echo "                           defer them, not so they can be forgotten."
@@ -127,6 +127,11 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
   # Same shape as the tsc phase below: enumerate extension SPEC DIRS, not
   # configs, so a missing one is a failure rather than a silent skip. An
   # extension that ships specs is either run or named in the opt-out file.
+  # Whether the pass below actually ran extensions/system's spec dir. Read by the
+  # route-parity hoist further down, which must fire on EVERY path that drops that
+  # dir — the --skip-extension-specs flag, an opt-out line, or the extension simply
+  # not being on disk — not just the flag.
+  SYSTEM_EXT_SPECS_RAN=false
   if [[ "$SKIP_EXT_SPECS" == "true" ]]; then
     echo -e "${YELLOW}  └─ SKIP all extension specs (--skip-extension-specs). Platform specs alone do NOT cover extensions.${NC}"
   else
@@ -226,6 +231,9 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
       fi
 
       echo -e "${BLUE}  └─ extensions/$ext_slug specs...${NC}"
+      # Recorded before the run, not after: the question the hoist below asks is
+      # "did this spec dir run", and a FAILING run still ran it.
+      [[ "$ext_slug" == "system" ]] && SYSTEM_EXT_SPECS_RAN=true
       # Run from the PLATFORM's server/ so rails_helper, factories and the
       # engine's autoload paths resolve exactly as they do in CI.
       if [[ -n "$VALIDATE_SELFTEST_SKIP_RSPEC" ]] || (cd "$PROJECT_ROOT/server" && BUNDLE_GEMFILE="${ext_bundle:-$PROJECT_ROOT/server/Gemfile}" \
@@ -376,6 +384,32 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
             SPECS_OK=false
           done
         fi
+      fi
+    fi
+  fi
+
+  # Frontend/backend route parity (IMP-f3e7f5d9d0cd). The extension pass above
+  # already runs this spec; it is hoisted here so it ALSO runs when that pass is
+  # skipped — by the flag, by an rspec-check-optouts.txt line, or by the extension
+  # not being on disk. --skip-extension-specs exists because extensions/system is
+  # hours long, and skipping it drops the only check that asks either half of the
+  # parity question: a frontend call to a route that no longer exists is a
+  # runtime 404 no suite sees (the frontend suite mocks apiClient), and a route
+  # with no caller at all is a capability no operator can reach. Neither is
+  # visible to server/spec, and this one spec answers both in ~20 s.
+  if [[ "$SYSTEM_EXT_SPECS_RAN" != "true" ]]; then
+    PARITY_SPEC="$PROJECT_ROOT/extensions/system/server/spec/lint/frontend_route_parity_spec.rb"
+    # Absent in a public clone with the submodule uninitialised, and absent
+    # for anyone who does not ship the system extension. Both are "nothing to
+    # check", not a failure.
+    if [[ -f "$PARITY_SPEC" ]]; then
+      echo -e "${BLUE}  └─ frontend/backend route parity (extensions/system specs did not run; this one still does)...${NC}"
+      if [[ -n "$VALIDATE_SELFTEST_SKIP_RSPEC" ]] || (cd "$PROJECT_ROOT/server" && \
+            BUNDLE_GEMFILE="$PROJECT_ROOT/server/Gemfile" bundle exec rspec "$PARITY_SPEC" --format progress 2>&1); then
+        :
+      else
+        echo -e "${RED}     frontend/backend route parity failed${NC}"
+        SPECS_OK=false
       fi
     fi
   fi

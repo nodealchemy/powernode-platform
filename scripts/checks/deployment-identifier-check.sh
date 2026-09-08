@@ -16,8 +16,17 @@
 #
 # THE RULE
 #
-#   No git-TRACKED file in core or in any PUBLIC extension submodule may match
+#   No file IN THE WORKING TREE that git would publish — tracked, OR untracked
+#   and not gitignored — in core or in any PUBLIC extension submodule may match
 #   any identifier pattern listed in the deployment's identifier list.
+#
+#   "In the working tree" is exact, not hedging: this greps the files on disk,
+#   not the index. A leak that was staged and then cleaned from the worktree is
+#   still in the index and still commits, and this scan will not see it.
+#
+#   Untracked-not-ignored counts because a leak is authored BEFORE it is
+#   committed: a tracked-only scan passes for the author who runs it and fails
+#   for whoever runs it next (IMP-7bafaf99314d).
 #
 # THE LIST — AND WHY THE GUARD DOES NOT CONTAIN IT
 #
@@ -33,16 +42,17 @@
 #
 # SCOPE
 #
-#   * core: `git ls-files` at the repo root (tracked files only — a gitignored
-#     file such as CLAUDE.local.md or docs/operations/local/ is exactly where
-#     such facts are allowed to live locally, so it is never a hit).
-#   * every PUBLIC extension: `git -C extensions/<slug> ls-files` — each
+#   * core: `git ls-files -co --exclude-standard` at the repo root — tracked
+#     plus untracked, with .gitignore authoritative. A gitignored file such as
+#     CLAUDE.local.md or docs/operations/local/ is exactly where such facts are
+#     allowed to live locally, so it is never a hit.
+#   * every PUBLIC extension: the same listing in `extensions/<slug>` — each
 #     extension is its own repo and is published on its own.
 #   * extensions/private/* is skipped: not published, not this guard's concern.
 #   * Binary files are skipped (grep -I).
 #
 # Usage: bash scripts/checks/deployment-identifier-check.sh [--list | --file <path>]
-#   (no flag) prints the COUNT of offending tracked files (0 == clean / no list)
+#   (no flag) prints the COUNT of offending files (0 == clean / no list)
 #   --list    prints "<repo-relative-path>:<line>:<matched text>" per hit
 #   --file    checks ONE file (any path); prints its "<line>:<text>" hits and
 #             exits 2 when there are any, 0 otherwise. Fails OPEN (exit 0) when
@@ -107,12 +117,19 @@ cd "$ROOT" 2>/dev/null || finish_clean
 git rev-parse --show-toplevel >/dev/null 2>&1 || finish_clean
 
 # Emits "<repo-relative-path>:<line>:<text>" for every hit in ONE repo.
+# Scans what git would publish: tracked plus untracked-not-ignored.
 # $1 = directory of the repo, $2 = prefix to prepend to paths ("" for core).
 scan_repo() {
   local dir="$1" prefix="$2"
   ( cd "$dir" 2>/dev/null || exit 0
-    git ls-files -z 2>/dev/null \
-      | xargs -0 -r grep -nIHE "$PATTERN" -- 2>/dev/null \
+    # -c AND -o: a file is only dangerous once it is COMMITTED, but the moment
+    # its author runs this gate it is still untracked, so scanning tracked
+    # files alone makes the check blind exactly when it is being consulted.
+    # --exclude-standard keeps .gitignore authoritative, so a gitignored local
+    # file (CLAUDE.local.md, docs/operations/local/) is still never a hit.
+    # `-d skip` because `-o` reports a nested git repo as one directory entry.
+    git ls-files -co --exclude-standard -z 2>/dev/null \
+      | xargs -0 -r grep -d skip -nIHE "$PATTERN" -- 2>/dev/null \
       | sed -E "s#^#${prefix}#" ) || true
 }
 

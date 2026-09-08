@@ -1,4 +1,4 @@
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef, useId, useState } from 'react';
 
 export interface SelectOption {
   value: string;
@@ -8,17 +8,65 @@ export interface SelectOption {
 }
 
 export interface FormFieldProps {
-  label: string;
+  /**
+   * The field's name. A node rather than a string because several forms
+   * annotate the name inline — "Configuration (stored as JSON in <code>)" —
+   * and that annotation belongs beside the name, not in helpText, which is
+   * suppressed whenever the field has an error.
+   */
+  label: React.ReactNode;
+  /**
+   * Id for the rendered control. The label's `htmlFor` points at it, so a
+   * caller only needs this when something outside the field has to reference
+   * the control; otherwise a generated id is used.
+   */
+  id?: string;
   type?: 'text' | 'email' | 'password' | 'tel' | 'url' | 'number' | 'select' | 'textarea' | 'date' | 'time' | 'datetime-local';
   value: string | undefined;
   onChange: (value: string) => void;
   placeholder?: string;
+  /**
+   * Marks the field as required IN THE LABEL only. It has never set the
+   * control's `required` attribute, and making it do so would hand native
+   * validation to every existing caller at once; use `nativeRequired` for the
+   * attribute.
+   */
   required?: boolean;
+  /**
+   * Sets the control's `required` attribute, for a form that relies on the
+   * browser to block an empty submit rather than validating in JS.
+   */
+  nativeRequired?: boolean;
   disabled?: boolean;
   error?: string;
   helpText?: string;
   options?: SelectOption[];
   rows?: number;
+  /**
+   * Numeric bounds for `type="number"`. Present so a caller does not have to
+   * drop a browser-enforced constraint in order to adopt this component.
+   */
+  min?: number | string;
+  max?: number | string;
+  step?: number | string;
+  /**
+   * Virtual-keyboard hint. A field that accepts digits but is typed as text —
+   * so a partially entered value is not silently discarded by the browser —
+   * still wants the numeric keypad on a touch device.
+   */
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  /**
+   * Forwarded to the control. Already reached it through the rest-props
+   * spread; declaring it means a caller with a test hook on its control does
+   * not have to choose between the hook and this component.
+   */
+  'data-testid'?: string;
+  /** Server-side length cap mirrored in the browser, for text and textarea. */
+  maxLength?: number;
+  /** Focus this control when the field mounts, for a dialog's first field. */
+  autoFocus?: boolean;
+  /** Turn off spell-checking, for a field holding code rather than prose. */
+  spellCheck?: boolean;
   className?: string;
   icon?: React.ReactNode;
   showPasswordToggle?: boolean;
@@ -29,16 +77,25 @@ export interface FormFieldProps {
 export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, FormFieldProps>(
   ({ 
     label,
+    id,
     type = 'text',
     value,
     onChange,
     placeholder,
     required = false,
+    nativeRequired,
     disabled = false,
     error,
     helpText,
     options = [],
     rows = 3,
+    min,
+    max,
+    step,
+    inputMode,
+    maxLength,
+    autoFocus,
+    spellCheck,
     className = '',
     icon,
     showPasswordToggle = true,
@@ -48,6 +105,12 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
   }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
+
+    // The label sits beside the control rather than wrapping it, so without an
+    // explicit association it names nothing: assistive tech reads the field
+    // unlabelled and `getByLabelText` cannot find it.
+    const generatedId = useId();
+    const fieldId = id ?? generatedId;
     
     // Enhanced styling with modern design
     const baseInputClasses = `
@@ -92,9 +155,12 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
             <div className="relative">
               <select
                 ref={ref as React.Ref<HTMLSelectElement>}
+                id={fieldId}
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
                 disabled={disabled}
+                required={nativeRequired}
+                autoFocus={autoFocus}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 className={`${inputClasses} appearance-none cursor-pointer pr-10`}
@@ -122,11 +188,16 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
           return (
             <textarea
               ref={ref as React.Ref<HTMLTextAreaElement>}
+              id={fieldId}
               value={value || ''}
               onChange={(e) => onChange(e.target.value)}
               placeholder={placeholder}
               disabled={disabled}
+              required={nativeRequired}
               rows={rows}
+              maxLength={maxLength}
+              autoFocus={autoFocus}
+              spellCheck={spellCheck}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               className={`${inputClasses} resize-none`}
@@ -139,11 +210,15 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
             <div className="relative">
               <input
                 ref={ref as React.Ref<HTMLInputElement>}
+                id={fieldId}
                 type={actualType}
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
                 disabled={disabled}
+                required={nativeRequired}
+                maxLength={maxLength}
+                autoFocus={autoFocus}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 className={`${inputClasses} pr-10`}
@@ -175,11 +250,20 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
           return (
             <input
               ref={ref as React.Ref<HTMLInputElement>}
+              id={fieldId}
               type={actualType}
               value={value || ''}
               onChange={(e) => onChange(e.target.value)}
               placeholder={placeholder}
               disabled={disabled}
+              required={nativeRequired}
+              min={min}
+              max={max}
+              step={step}
+              inputMode={inputMode}
+              maxLength={maxLength}
+              autoFocus={autoFocus}
+              spellCheck={spellCheck}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               className={inputClasses}
@@ -203,7 +287,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
     return (
       <div className={`${floatingLabel ? 'relative' : 'space-y-2'}`}>
         {!floatingLabel && (
-          <label className={labelClasses}>
+          <label className={labelClasses} htmlFor={fieldId}>
             <span className="flex items-center gap-1">
               {label}
               {required && (
@@ -230,7 +314,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
           {renderInput()}
           
           {floatingLabel && (
-            <label className={labelClasses}>
+            <label className={labelClasses} htmlFor={fieldId}>
               {label}
               {required && <span className="text-theme-error-fg ml-0.5">*</span>}
             </label>

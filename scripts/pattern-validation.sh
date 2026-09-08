@@ -517,9 +517,49 @@ check_pattern "Backend debug code (should be empty)" \
     "grep -rn '^[[:space:]]*\\(puts \\|puts(\\|binding\\.pry\\|byebug\\|debugger\\)' server/app/ --include='*.rb' | grep -v storage_providers | wc -l" \
     "empty"
 
-check_pattern "Frontend debug code (should be empty)" \
-    "grep -rP '^\\s*console\\.(log|debug|info)\\s*\\(' frontend/src/ --include='*.ts' --include='*.tsx' | grep -v 'logger\\.ts\\|CodeSamples\\|\\.test\\.\\|\\.spec\\.' | wc -l" \
-    "empty"
+# Frontend console output (IMP-1f4b84af602c). This check used to match only
+# console.log/debug/info, and the edit hook carried its own copy of that same
+# narrow pattern — so console.warn and console.error accumulated for the life of
+# the tree, unseen by either guard, and the scan reported a clean 0 on a tree
+# holding 36 of them. Both guards now call scripts/list-console-sites.sh, so
+# there is one definition of what counts and it cannot drift again.
+#
+# Pre-existing sites are grandfathered in two ledgers (regenerate with
+# scripts/generate-console-log-baseline.sh): the tracked
+# .claude/hooks/console-log-baseline.txt for core and public extensions, and the
+# gitignored .local.txt for private-extension paths, which must never reach the
+# public mirror. So this FAILS only on a NEW console call.
+#
+# Compared as MULTISETS via `comm`, not membership: a file legitimately holding
+# two identical console.error lines has two ledger entries, and a third copy is
+# a new site rather than a free ride on the first two.
+#
+# FAILS LOUD in two directions, because this guard exists precisely because its
+# predecessor reported a clean 0 on a dirty tree: a missing ledger means every
+# site reads as new, and a lister that returns nothing while the ledger holds
+# entries is treated as a broken matcher, not as a clean tree.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No new frontend console output (use @/shared/utils/logger)... "
+console_tmp=$(mktemp -d)
+bash scripts/list-console-sites.sh 2>/dev/null | cut -d'|' -f1,3- | sed '/^$/d' | sort > "$console_tmp/found" || true
+cat .claude/hooks/console-log-baseline.txt .claude/hooks/console-log-baseline.local.txt 2>/dev/null \
+    | grep -v '^#' | sed '/^$/d' | sort > "$console_tmp/baseline" || true
+console_found=$(wc -l < "$console_tmp/found" | tr -d ' ')
+console_baseline=$(wc -l < "$console_tmp/baseline" | tr -d ' ')
+console_new=$(comm -23 "$console_tmp/found" "$console_tmp/baseline")
+console_hits=$(printf '%s\n' "$console_new" | grep -cv '^$' || true)
+if [ "${console_found:-0}" -eq 0 ] && [ "${console_baseline:-0}" -gt 0 ]; then
+    echo -e "${RED}✗ FAIL${NC} (console site lister returned NOTHING while the baseline holds ${console_baseline} entries — broken matcher, not a clean tree; run: bash scripts/list-console-sites.sh)"
+    failed_checks=$((failed_checks + 1))
+elif [ "${console_hits:-0}" -eq 0 ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (${console_hits} new console call(s) — use @/shared/utils/logger)"
+    printf '%s\n' "$console_new" | grep -v '^$' | sed 's/^/    /'
+    failed_checks=$((failed_checks + 1))
+fi
+rm -rf "$console_tmp"
 
 check_pattern "TypeScript any types (should be minimal)" \
     "grep -r ': any' frontend/src/ | grep -v 'node_modules' | wc -l" \
@@ -727,24 +767,26 @@ fi
 # docs/contributing/conventions/deployment-knowledge.md. The identifier patterns live in
 # the GITIGNORED .claude/hooks/deployment-identifiers.local.txt: a guard against name
 # leakage must not itself contain the names, so no list => no-op PASS (a public clone
-# has no deployment to protect yet). Scans every git-TRACKED file in core and in each
+# has no deployment to protect yet). Scans every file git would publish — tracked
+# PLUS untracked-not-ignored, so a brand-new file is checked by the author who is
+# running the gate rather than by whoever runs it next — in core and in each
 # PUBLIC extension submodule (each publishes on its own); private extensions and
 # gitignored files are out of scope by construction. The edit-time hook
 # .claude/hooks/deployment-identifier-check.sh runs the same script per file.
 total_checks=$((total_checks + 1))
-echo -n "Checking: No deployment-local identifiers in tracked files (leak guard)... "
+echo -n "Checking: No deployment-local identifiers in tracked or new files (leak guard)... "
 # FAIL CLOSED on a missing/broken script, same doctrine as the core-purity mirror above.
 if [ ! -r scripts/checks/deployment-identifier-check.sh ]; then
     echo -e "${RED}✗ FAIL${NC} (leak-guard script MISSING: scripts/checks/deployment-identifier-check.sh)"
     failed_checks=$((failed_checks + 1))
-    security_critical_failed_checks+=("No deployment-local identifiers in tracked files (leak guard)")
+    security_critical_failed_checks+=("No deployment-local identifiers in tracked or new files (leak guard)")
 else
 depl_hits=$(bash scripts/checks/deployment-identifier-check.sh 2>/dev/null || true)
 case "$depl_hits" in
     ''|*[!0-9]*)
         echo -e "${RED}✗ FAIL${NC} (leak-guard script produced no usable result: '"'"'$depl_hits'"'"')"
         failed_checks=$((failed_checks + 1))
-        security_critical_failed_checks+=("No deployment-local identifiers in tracked files (leak guard)")
+        security_critical_failed_checks+=("No deployment-local identifiers in tracked or new files (leak guard)")
         depl_hits=""
         ;;
 esac
@@ -758,9 +800,11 @@ elif [ "$depl_hits" -eq 0 ]; then
     fi
     passed_checks=$((passed_checks + 1))
 else
-    echo -e "${RED}✗ FAIL${NC} (Found $depl_hits tracked file(s) naming a deployment-local identifier: $(bash scripts/checks/deployment-identifier-check.sh --list 2>/dev/null | cut -d: -f1 | sort -u | tr '\n' ' '))"
+    echo -e "${RED}✗ FAIL${NC} (Found $depl_hits file(s) naming a deployment-local identifier: $(bash scripts/checks/deployment-identifier-check.sh --list 2>/dev/null | cut -d: -f1 | sort -u | tr '\n' ' '))"
+    echo "    Run 'bash scripts/checks/deployment-identifier-check.sh --list' for the matching lines."
+    echo "    Remedy: docs/contributing/conventions/deployment-knowledge.md (genericize the text; keep the real value in platform knowledge or docs/operations/local/)." 
     failed_checks=$((failed_checks + 1))
-    security_critical_failed_checks+=("No deployment-local identifiers in tracked files (leak guard)")
+    security_critical_failed_checks+=("No deployment-local identifiers in tracked or new files (leak guard)")
 fi
 fi
 
@@ -808,6 +852,345 @@ else
     echo "$ks_out" | sed 's/^/    /'
     failed_checks=$((failed_checks + 1))
     security_critical_failed_checks+=("AI-execution worker jobs honor the kill switch (AiSuspensionCheckConcern)")
+fi
+
+echo ""
+echo -e "${BLUE}## Frontend Conventions${NC}"
+# Native browser dialogs (window.confirm / window.prompt) in frontend source. They are
+# unthemed and unstyleable, block the JS thread, are silently suppressed in sandboxed
+# iframes and by browsers that throttle repeated dialogs, render a `\n`-formatted warning
+# as flat text, and carry no loading state — so a destructive action gated on one has no
+# way to show that it is in flight. The shared ConfirmationModal / useConfirmation hook
+# (frontend/src/shared/components/ui/ConfirmationModal.tsx) is the replacement, with
+# useReasonConfirm for the reason-carrying variant. NEW call sites FAIL; sites already
+# committed when this landed are grandfathered per-file WITH A COUNT in
+# .claude/hooks/native-dialog-baseline.txt, so a baselined file cannot quietly grow more.
+# Comment lines are never counted (a convention doc quoting `window.prompt(...)` is a
+# sanctioned form, not a dependency) — same rule as the core-purity mirror above.
+#
+# FAIL CLOSED on a missing baseline. The baseline file is this check's ONLY input, so
+# "no baseline => PASS" would let deleting one tracked file turn the guard into a
+# permanently-green no-op that scans nothing — the shape a gate must never have.
+#
+# Only the `window.`-qualified forms are matched, deliberately: `confirm({ ... })` with no
+# receiver is the shared hook's OWN call, so matching the bare global would flag every
+# correct migration. A future evasion via bare `confirm(` is a known, accepted gap.
+nd_baseline=".claude/hooks/native-dialog-baseline.txt"
+total_checks=$((total_checks + 1))
+echo -n "Checking: No new native browser dialogs in frontend source (window.confirm/prompt)... "
+nd_offenders=""
+if [ ! -r "$nd_baseline" ]; then
+    echo -e "${RED}✗ FAIL${NC} (baseline ledger MISSING or unreadable: $nd_baseline)"
+    failed_checks=$((failed_checks + 1))
+else
+    # Public extensions sit at extensions/<slug>/frontend/src; private ones are one level
+    # deeper at extensions/private/<slug>/frontend/src. Both are scanned; an unmatched
+    # glob leaves the literal string, which `[ -d ]` rejects (core mode is a clean no-op).
+    nd_roots="frontend/src"
+    for ext_fe in extensions/*/frontend/src extensions/private/*/frontend/src; do
+        [ -d "$ext_fe" ] && nd_roots+=" $ext_fe"
+    done
+    while IFS= read -r ndf; do
+        [ -n "$ndf" ] || continue
+        # Code lines only — drop comment lines (`#`, `//`, ` * `), tab-indented included.
+        # `|| true` is load-bearing under `set -e`: grep -c exits 1 when it counts zero,
+        # and an assignment takes its pipeline's status, so a comment-only file would
+        # abort the WHOLE gate here and silently skip every check after it.
+        nd_count=$(grep -nE 'window\.(confirm|prompt)\(' "$ndf" 2>/dev/null \
+                     | grep -vcE '^[0-9]+:[[:space:]]*(#|//|\*)' || true)
+        [ "${nd_count:-0}" -gt 0 ] || continue
+        nd_allowed=$(grep -E "^${ndf}\|" "$nd_baseline" 2>/dev/null | head -1 | cut -d'|' -f2 || true)
+        # A non-numeric allowance (a typo, a trailing space, a CRLF line ending) must not
+        # make `[ N -gt "$nd_allowed" ]` error out INSIDE an `if` — that returns non-zero,
+        # skips the append, and silently EXEMPTS the file. Anything unparseable is 0.
+        case "$nd_allowed" in
+            ''|*[!0-9]*) nd_allowed=0 ;;
+        esac
+        if [ "$nd_count" -gt "$nd_allowed" ]; then
+            nd_offenders+="${ndf}(${nd_count}>${nd_allowed}) "
+        fi
+    done < <(grep -rlE 'window\.(confirm|prompt)\(' $nd_roots \
+                --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
+                2>/dev/null || true)
+    if [ -z "$nd_offenders" ]; then
+        echo -e "${GREEN}✓ PASS${NC}"
+        passed_checks=$((passed_checks + 1))
+    else
+        echo -e "${RED}✗ FAIL${NC} (Use useConfirmation from @/shared/components/ui/ConfirmationModal instead: $nd_offenders)"
+        failed_checks=$((failed_checks + 1))
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Deep relative imports in a public extension frontend (IMP-003653cb5634).
+#
+# An extension's own tree is reachable two ways: `@system/features/...` and a
+# stack of `../`. The alias is stable under a move; the relative form re-points
+# every climb the moment a component changes directory, and it does so silently
+# — tsc resolves the NEW path if one happens to exist there, so a file dragged
+# one level up can start importing a different module that still type-checks.
+#
+# Three climbs is the threshold, not two: `../../types` stays inside a feature
+# and reads as local, while `../../../` has already left it. That is exactly the
+# 61 sites this check was written against, all converted in the same change.
+#
+# Public AND private extension trees, like the native-dialog guard above. An
+# earlier draft of this check scanned public trees only, justified by the rule
+# that a tracked core file may not name a private extension — which is true, and
+# which the SPLIT LEDGER already solves: private paths go in the gitignored
+# .local.txt sibling, exactly as the console-log and core-purity baselines do.
+# Excluding them would have left 125 of the 128 offending files fleet-wide
+# unguarded on a reason that does not hold.
+#
+# Grandfathered per file WITH A COUNT, and it is a RATCHET in both directions: a
+# listed file that grows fails, and a listed file that shrinks, is fixed or is
+# deleted ALSO fails, so the ledger cannot outlive the debt it describes. FAIL
+# CLOSED on a missing tracked baseline — it is this check's only way to tell
+# known debt from new, so "no baseline => PASS" would turn a deleted file into a
+# permanently-green no-op.
+#
+# Single-quoted `from '...'` only. A double-quoted or dynamic `import('...')`
+# form is invisible here; none exists in any extension frontend today, and this
+# is a known, accepted gap of the same kind the native-dialog guard records.
+#
+# The convention this enforces is documented in
+# docs/contributing/conventions/frontend-patterns.md, whose Enforcement column
+# named scripts/convert-relative-imports.sh. That script is real, but it never
+# enforced anything, for three independent reasons: no hook, gate or CI step runs
+# it (its only caller is the /cleanup all skill, invoked by hand); it hardcodes
+# SRC_ROOT="frontend/src", so it cannot see an extension tree; and its output
+# alphabet is @/shared/ and @/features/ only, so it could never emit @system/
+# even if it reached these files. A rule whose only enforcement is an on-demand
+# fixer that cannot produce the required alias is not enforced, which is how 61
+# sites accumulated while the doc read as covered.
+dri_baseline=".claude/hooks/deep-relative-import-baseline.txt"
+total_checks=$((total_checks + 1))
+echo -n "Checking: Extension frontends use path aliases, not deep relative imports... "
+dri_offenders=""
+if [ ! -r "$dri_baseline" ]; then
+    echo -e "${RED}✗ FAIL${NC} (baseline ledger MISSING or unreadable: $dri_baseline)"
+    failed_checks=$((failed_checks + 1))
+else
+    dri_roots=""
+    for ext_fe in extensions/*/frontend/src extensions/private/*/frontend/src; do
+        [ -d "$ext_fe" ] && dri_roots+=" $ext_fe"
+    done
+    # Every ledger entry whose tree IS present, tracked plus the gitignored
+    # private half.
+    dri_entries=$(cat "$dri_baseline" .claude/hooks/deep-relative-import-baseline.local.txt 2>/dev/null \
+                    | grep -cE '^extensions/[^|]+\|' || true)
+    if [ -z "$dri_roots" ] && [ "${dri_entries:-0}" -gt 0 ]; then
+        # A lister that returns nothing while the ledger holds entries is a
+        # broken matcher, not a clean tree — the same reasoning the console-log
+        # check applies. Core mode with an EMPTY ledger is the clean case below.
+        echo -e "${RED}✗ FAIL${NC} (no extension frontend trees found, but the ledger holds ${dri_entries} entr(y/ies) — submodules uninitialised?)"
+        failed_checks=$((failed_checks + 1))
+    elif [ -z "$dri_roots" ]; then
+        # Core mode, or a clone with no extension checked out, and nothing
+        # claimed. A clean pass, not a silent skip of a check that had input.
+        echo -e "${GREEN}✓ PASS${NC} (no extension frontend trees present)"
+        passed_checks=$((passed_checks + 1))
+    else
+        while IFS= read -r drif; do
+            [ -n "$drif" ] || continue
+            # Comment lines are never counted: a header or a convention doc
+            # quoting the bad form is describing it, not depending on it. The
+            # `|| true` keeps a zero count from aborting the gate under `set -e`.
+            dri_count=$(grep -nE "from '(\.\./){3,}" "$drif" 2>/dev/null \
+                          | grep -vcE '^[0-9]+:[[:space:]]*(#|//|\*|/\*)' || true)
+            [ "${dri_count:-0}" -gt 0 ] || continue
+            dri_allowed=$(cat "$dri_baseline" .claude/hooks/deep-relative-import-baseline.local.txt 2>/dev/null \
+                            | grep -E "^${drif}\|" | head -1 | cut -d'|' -f2 || true)
+            case "$dri_allowed" in
+                ''|*[!0-9]*) dri_allowed=0 ;;
+            esac
+            if [ "$dri_count" -gt "$dri_allowed" ]; then
+                dri_offenders+="${drif}(${dri_count}>${dri_allowed}) "
+            fi
+        done < <(grep -rlE "from '(\.\./){3,}" $dri_roots \
+                    --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
+                    2>/dev/null || true)
+        # The other half of the ratchet: an entry that outlived its debt. Without
+        # this the ledger is only a floor, and "can only shrink" is a claim the
+        # check does not make true.
+        dri_stale=""
+        while IFS='|' read -r dri_path dri_want; do
+            case "$dri_path" in ''|\#*) continue ;; esac
+            case "$dri_want" in ''|*[!0-9]*) continue ;; esac
+            # Only judge entries whose tree is on disk; an absent submodule is
+            # not evidence its files were fixed.
+            dri_tree="${dri_path%%/frontend/*}/frontend/src"
+            [ -d "$dri_tree" ] || continue
+            if [ ! -f "$dri_path" ]; then
+                dri_stale+="${dri_path}(file gone) "
+                continue
+            fi
+            dri_now=$(grep -nE "from '(\.\./){3,}" "$dri_path" 2>/dev/null \
+                        | grep -vcE '^[0-9]+:[[:space:]]*(#|//|\*|/\*)' || true)
+            [ "${dri_now:-0}" -lt "$dri_want" ] && dri_stale+="${dri_path}(${dri_now}<${dri_want}) "
+        done < <(cat "$dri_baseline" .claude/hooks/deep-relative-import-baseline.local.txt 2>/dev/null || true)
+
+        if [ -z "$dri_offenders" ] && [ -z "$dri_stale" ]; then
+            echo -e "${GREEN}✓ PASS${NC}"
+            passed_checks=$((passed_checks + 1))
+        elif [ -n "$dri_offenders" ]; then
+            echo -e "${RED}✗ FAIL${NC} (use the extension's own path alias, e.g. @system/: $dri_offenders)"
+            failed_checks=$((failed_checks + 1))
+        else
+            echo -e "${RED}✗ FAIL${NC} (ledger entries outlived their debt — lower or delete them: $dri_stale)"
+            failed_checks=$((failed_checks + 1))
+        fi
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# ResponsiveListContainer adoption (IMP-91dab7a7dfb0) — WARNING level.
+#
+# The container absorbs the list chrome — initial-load spinner, empty state,
+# filter row with refresh, count summary, desktop/mobile split — that every
+# list component used to re-implement. A .tsx that renders a <table> without
+# IMPORTING it is re-implementing that chrome again, so the empty and error
+# copy drifts between hubs and each chrome fix has to be made once per file.
+#
+# WARNING, not FAIL, and deliberately so: some tables legitimately live inside
+# a modal, inside a composite tab, or in a presentational sub-table that takes
+# its rows as a prop. Those, plus the files still owing the conversion, are
+# listed in the baseline below and subtracted here, so this WARN fires ONLY on
+# debt that is new — a warning that can never go green is one a reader learns
+# to scroll past, which costs the warnings that do matter.
+#
+# Matches an IMPORT, not a mention: keying on containment would let a single
+# comment naming the container remove a file from this scan for good. Comment
+# lines are not counted on the <table side either, matching the guards above.
+#
+# FAIL CLOSED on a missing baseline, for the same reason as the native-dialog
+# ledger: the baseline is this check's only way to tell known debt from new, so
+# "no baseline => PASS" would turn deleting one file into a silent no-op.
+rlc_baseline=".claude/hooks/responsive-list-container-baseline.txt"
+total_checks=$((total_checks + 1))
+echo -n "Checking: Extension tables route their list chrome through ResponsiveListContainer... "
+if [ ! -r "$rlc_baseline" ]; then
+    echo -e "${RED}✗ FAIL${NC} (baseline ledger MISSING or unreadable: $rlc_baseline)"
+    failed_checks=$((failed_checks + 1))
+else
+    rlc_offenders=""
+    rlc_roots=""
+    # Scope to extension trees that actually DEFINE a ResponsiveListContainer.
+    # An extension without one has nothing to adopt. Private extensions are
+    # included, matching the other frontend guards in this script.
+    for rlc_root in extensions/*/frontend/src extensions/private/*/frontend/src; do
+        [ -d "$rlc_root" ] || continue
+        find "$rlc_root" -name 'ResponsiveListContainer.tsx' -print -quit 2>/dev/null | grep -q . \
+            && rlc_roots="$rlc_roots $rlc_root"
+    done
+    if [ -z "$rlc_roots" ]; then
+        # No extension defines the container in this checkout (core-mode clone,
+        # or public extensions only). Nothing to scan is not the same as
+        # nothing to find, so say which it is.
+        echo -e "${GREEN}✓ PASS${NC} (no extension frontend defines ResponsiveListContainer)"
+        passed_checks=$((passed_checks + 1))
+    else
+        while IFS= read -r rlcf; do
+            case "$rlcf" in *.test.tsx) continue ;; esac
+            rlc_hits=$(grep -nE '<table' "$rlcf" 2>/dev/null \
+                         | grep -vcE '^[0-9]+:[[:space:]]*(#|//|\*)' || true)
+            [ "${rlc_hits:-0}" -gt 0 ] || continue
+            grep -qE '^[[:space:]]*import[[:space:]].*ResponsiveListContainer' "$rlcf" && continue
+            # Known debt (exempt or still-owed) is listed in the baseline.
+            grep -qxF "$rlcf" "$rlc_baseline" && continue
+            rlc_offenders+="${rlcf} "
+        done < <(grep -rlE '<table' $rlc_roots --include='*.tsx' 2>/dev/null || true)
+        if [ -z "$rlc_offenders" ]; then
+            echo -e "${GREEN}✓ PASS${NC}"
+            passed_checks=$((passed_checks + 1))
+        else
+            rlc_count=$(printf '%s' "$rlc_offenders" | wc -w | tr -d ' ')
+            echo -e "${YELLOW}⚠ WARN${NC} (${rlc_count} NEW table component(s) outside the container; adopt it or add a reasoned entry to $rlc_baseline: $rlc_offenders)"
+            warnings=$((warnings + 1))
+        fi
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Shared error / loading feedback (IMP-fb105f6edaa3) — WARNING level.
+#
+# Core ships ui/ErrorAlert and ui/LoadingSpinner. A hand-rolled
+# `bg-theme-danger-bg text-theme-danger-fg` banner has no icon and no dismiss
+# affordance unless its own site adds them, and a `p-8 text-center
+# text-theme-secondary` "Loading X…" div looks different from the spinner every
+# neighbouring surface uses. Both are duplication with a visible cost.
+#
+# WARNING, not FAIL, for the same reason as the container scan above: a few
+# sites legitimately keep their own markup — a banner carrying rich JSX that
+# ErrorAlert's `message: string` would flatten, a permission-denial notice that
+# is not a failed operation, an EMPTY-state box that happens to wear the same
+# three classes as the loading block. Those live in the baseline and are
+# subtracted, so this fires only on NEW debt.
+#
+# The baseline is keyed `error:<path>` / `loading:<path>`, NOT by path alone.
+# A file excused for its empty-state box must not thereby be excused for an
+# error banner someone hand-rolls into it later.
+#
+# Matching is scoped to a double-quoted className, so a `hover:` in a sibling
+# attribute cannot suppress a real finding. Within a className, `hover:`
+# excludes only the DANGER pair: a banner has no hover state, so that token
+# marks a destructive BUTTON wearing the danger colours. The loading trio
+# carries no such exclusion — it is a layout, not a colour.
+#
+# This mirrors extensions/system's sharedFeedback.contract.test.ts, which is
+# the stricter of the two: its regex can span newlines, so a className broken
+# across lines is caught there and not here. That asymmetry is deliberate —
+# jest red / gate green is the safe direction — but it means the jest ratchet,
+# not this scan, is the authority inside extensions/system.
+#
+# FAIL CLOSED on a missing baseline, like the two ledgers above.
+sf_baseline=".claude/hooks/shared-feedback-baseline.txt"
+total_checks=$((total_checks + 1))
+echo -n "Checking: Extension error/loading states use shared ErrorAlert + LoadingSpinner... "
+if [ ! -r "$sf_baseline" ]; then
+    echo -e "${RED}✗ FAIL${NC} (baseline ledger MISSING or unreadable: $sf_baseline)"
+    failed_checks=$((failed_checks + 1))
+else
+    sf_offenders=""
+    sf_roots=""
+    # Only trees that have ALREADY adopted ui/ErrorAlert. A tree that has not
+    # migrated at all is not carrying "new" debt — every one of its banners
+    # predates the shared component there, and warning on all of them at every
+    # gate run is noise an unrelated extension cannot act on. It joins this
+    # ledger by adopting ErrorAlert once, which is the same shape as the
+    # container scan's "trees that define a container".
+    for sf_root in extensions/*/frontend/src extensions/private/*/frontend/src; do
+        [ -d "$sf_root" ] || continue
+        grep -rql "ui/ErrorAlert" "$sf_root" 2>/dev/null || continue
+        sf_roots="$sf_roots $sf_root"
+    done
+    if [ -z "$sf_roots" ]; then
+        echo -e "${GREEN}✓ PASS${NC} (no extension frontend tree has adopted ErrorAlert)"
+        passed_checks=$((passed_checks + 1))
+    else
+        while IFS= read -r sff; do
+            case "$sff" in *.test.tsx) continue ;; esac
+            sf_classes=$(grep -oE 'className="[^"]*"' "$sff" 2>/dev/null || true)
+            if printf '%s\n' "$sf_classes" \
+                 | grep -F 'bg-theme-danger-bg text-theme-danger-fg' \
+                 | grep -qv 'hover:'; then
+                grep -qxF "error:$sff" "$sf_baseline" || sf_offenders+="error:${sff} "
+            fi
+            if printf '%s\n' "$sf_classes" \
+                 | grep -qF 'p-8 text-center text-theme-secondary'; then
+                grep -qxF "loading:$sff" "$sf_baseline" || sf_offenders+="loading:${sff} "
+            fi
+        done < <(grep -rlE 'bg-theme-danger-bg text-theme-danger-fg|p-8 text-center text-theme-secondary' \
+                    $sf_roots --include='*.tsx' 2>/dev/null || true)
+        if [ -z "$sf_offenders" ]; then
+            echo -e "${GREEN}✓ PASS${NC}"
+            passed_checks=$((passed_checks + 1))
+        else
+            sf_count=$(printf '%s' "$sf_offenders" | wc -w | tr -d ' ')
+            echo -e "${YELLOW}⚠ WARN${NC} (${sf_count} NEW hand-rolled error/loading block(s); use ErrorAlert / LoadingSpinner, or add a reasoned entry to $sf_baseline: $sf_offenders)"
+            warnings=$((warnings + 1))
+        fi
+    fi
 fi
 
 echo ""

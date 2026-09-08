@@ -64,8 +64,15 @@ module Api
               source_type: "Devops::KubernetesCluster",
               source_id: cluster_id,
               description: "Decommission K3s cluster '#{cluster_name}' (#{node_count} nodes)",
+              # The executor destroys the cluster (Executors::Runtime::
+              # DecommissionK3sCluster#perform). This closure used to call
+              # `@cluster.destroy!` as well, which ran a second cascade over an
+              # already-deleted row: `@cluster` is the instance loaded BEFORE
+              # the gate, so its in-memory `persisted?` is still true and the
+              # guard did not stop it. Logging and rendering stay here, because
+              # those are exactly what must not happen on the parked or blocked
+              # branches (IMP-4de09f201a0f).
               on_proceed: ->(_r) {
-                @cluster.destroy! if @cluster.persisted?
                 Rails.logger.info(
                   "[Devops::Kubernetes::ClustersController] decommissioned " \
                   "cluster_id=#{cluster_id} freed #{node_count} member node(s)"

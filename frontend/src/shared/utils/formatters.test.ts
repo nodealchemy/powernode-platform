@@ -5,6 +5,9 @@ import {
   formatNumber,
   formatPercent,
   formatFileSize,
+  formatDateTime,
+  formatDuration,
+  formatTimestamp,
   capitalize,
   truncate,
   formatCardDisplay,
@@ -107,6 +110,93 @@ describe('formatFileSize', () => {
     expect(formatFileSize(1024 * 1024)).toBe('1.0 MB');
     expect(formatFileSize(1024 ** 3)).toBe('1.0 GB');
     expect(formatFileSize(1024 ** 4)).toBe('1.0 TB');
+  });
+
+  // PB was added when the system extension's peer list adopted this function
+  // (IMP-c11d5ad755b8). Its own formatter carried a PB unit for WireGuard
+  // lifetime counters, and without it a petabyte-scale peer renders as
+  // "1024.0 TB" — the unit ladder must not shorten when a caller moves onto it.
+  it('carries the ladder up to PB and stops there', () => {
+    expect(formatFileSize(1024 ** 5)).toBe('1.0 PB');
+    expect(formatFileSize(1024 ** 6)).toBe('1024.0 PB');
+  });
+});
+
+describe('formatTimestamp', () => {
+  it('returns an em dash for an absent value', () => {
+    expect(formatTimestamp(null)).toBe('—');
+    expect(formatTimestamp(undefined)).toBe('—');
+    expect(formatTimestamp('')).toBe('—');
+  });
+
+  // Pinned against toLocaleString itself rather than a literal, because the
+  // output is locale-dependent by design — that IS the difference from
+  // formatDateTime, and a literal here would only pin the test runner's locale.
+  it("keeps toLocaleString's exact output, seconds and all", () => {
+    const iso = '2024-01-15T14:30:07Z';
+    expect(formatTimestamp(iso)).toBe(new Date(iso).toLocaleString());
+    expect(formatTimestamp(new Date(iso))).toBe(new Date(iso).toLocaleString());
+  });
+
+  it('keeps the seconds that formatDateTime drops', () => {
+    const early = '2024-01-15T14:30:07Z';
+    const late = '2024-01-15T14:30:57Z';
+    // The whole reason this function exists: two events 50 seconds apart are
+    // one string under formatDateTime and two under formatTimestamp.
+    expect(formatDateTime(early)).toBe(formatDateTime(late));
+    expect(formatTimestamp(early)).not.toBe(formatTimestamp(late));
+  });
+});
+
+describe('formatDuration', () => {
+  const start = '2024-01-15T10:00:00Z';
+  const at = (seconds: number) => new Date(Date.parse(start) + seconds * 1000).toISOString();
+
+  it("returns an em dash when the work never started", () => {
+    expect(formatDuration(null)).toBe('—');
+    expect(formatDuration(undefined)).toBe('—');
+    expect(formatDuration('', at(30))).toBe('—');
+  });
+
+  it('renders sub-minute durations in seconds', () => {
+    expect(formatDuration(start, at(0))).toBe('0s');
+    expect(formatDuration(start, at(45))).toBe('45s');
+    expect(formatDuration(start, at(59))).toBe('59s');
+  });
+
+  it('renders minutes with the remaining seconds', () => {
+    expect(formatDuration(start, at(60))).toBe('1m 0s');
+    expect(formatDuration(start, at(330))).toBe('5m 30s');
+    expect(formatDuration(start, at(3599))).toBe('59m 59s');
+  });
+
+  it('drops seconds once the duration reaches an hour', () => {
+    expect(formatDuration(start, at(3600))).toBe('1h 0m');
+    expect(formatDuration(start, at(8100))).toBe('2h 15m');
+  });
+
+  it('measures against now while the work is still running', () => {
+    const now = Date.parse('2024-01-15T10:05:30Z');
+    const spy = jest.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      expect(formatDuration(start)).toBe('5m 30s');
+      expect(formatDuration(start, null)).toBe('5m 30s');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  // The two component copies this replaced rendered "NaNh NaNm" for an
+  // unparseable timestamp, because NaN fails both the < 60 and < 3600 branch
+  // and falls through to hours. An em dash is what the rest of this module
+  // says for "no usable value".
+  it("returns an em dash rather than NaN for an unparseable timestamp", () => {
+    expect(formatDuration('not-a-date', at(30))).toBe('—');
+    expect(formatDuration(start, 'not-a-date')).toBe('—');
+  });
+
+  it('accepts Date objects as well as ISO strings', () => {
+    expect(formatDuration(new Date(start), new Date(Date.parse(start) + 45_000))).toBe('45s');
   });
 });
 

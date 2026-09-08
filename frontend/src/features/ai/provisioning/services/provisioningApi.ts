@@ -48,6 +48,35 @@ export interface CreatedVolume {
   transport?: string;
 }
 
+/**
+ * A volume already on the account, as the list shim serialises it. Wider than
+ * CreatedVolume because listing is where an operator judges whether an
+ * existing volume is the one they want — status and attachment decide that,
+ * and they are also what decides whether it can be attached at all.
+ */
+export interface ExistingVolume {
+  id: string;
+  name: string;
+  size_gb: number;
+  status?: string;
+  transport?: string;
+  attached_to?: string | null;
+}
+
+/**
+ * One page of volumes plus the envelope that says whether it is the whole set.
+ *
+ * The shim paginates (default 100, operator-configurable lower), and a list an
+ * operator uses to decide "does this already exist?" is actively harmful when
+ * it is silently partial. `count` is the uncapped total, so the caller can say
+ * so rather than implying completeness.
+ */
+export interface VolumePage {
+  volumes: ExistingVolume[];
+  count: number;
+  hasMore: boolean;
+}
+
 /** Request body for creating a platform volume. */
 export interface CreateVolumeRequest {
   name: string;
@@ -135,6 +164,34 @@ export const provisioningApi = {
       body
     );
     return (response.data?.data?.volume ?? null) as CreatedVolume | null;
+  },
+
+  /**
+   * Volumes already registered on this account, for the wizard's storage step.
+   *
+   * The wizard's card payload carries a snapshot of the account's volumes taken
+   * when the card was rendered; this is the live read. Without it the operator
+   * cannot see a volume created after the card appeared — including one they
+   * created themselves minutes earlier in another card — which is how a
+   * duplicate gets minted.
+   */
+  listPlatformVolumes: async (): Promise<VolumePage> => {
+    const response = await apiClient.get<{
+      data?: { volumes?: ExistingVolume[]; count?: number; has_more?: boolean };
+    }>('/system/platform/volumes');
+    const payload = response.data?.data;
+    // A missing key is shape drift, not an empty account. Returning [] here
+    // would make the wizard state positively that an account full of volumes
+    // has none, which is the one answer that causes the duplicate this list
+    // exists to prevent.
+    if (!payload || !Array.isArray(payload.volumes)) {
+      throw new Error('Unexpected volumes response shape');
+    }
+    return {
+      volumes: payload.volumes,
+      count: typeof payload.count === 'number' ? payload.count : payload.volumes.length,
+      hasMore: payload.has_more === true,
+    };
   },
 
   /**

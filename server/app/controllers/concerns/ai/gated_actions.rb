@@ -24,6 +24,54 @@ module Ai
   #       on_proceed: ->(result) { render_success(deleted: true, id: @network.id) }
   #     )
   #   end
+  #
+  # THE EXECUTOR IS THE SOLE AUTHORITY; `on_proceed` ONLY RENDERS.
+  #
+  # This is the one rule a hand-written closure gets wrong, and it is worth
+  # stating here rather than only on #gate_create!/#gate_update!, because those
+  # two build their own closures and the callers who get it wrong are the ones
+  # writing a closure by hand. On the :proceed branch Ai::AutonomyGate has
+  # ALREADY run the executor (autonomy_gate.rb, `deferred.execute_now!`) before
+  # this concern calls `on_proceed`. A closure that performs the operation
+  # therefore performs it a SECOND time.
+  #
+  # The deferred branch settles the argument on its own, and is the reason the
+  # rule cannot be inverted: on :pending the closure never runs at all, so
+  # anything only the closure does simply never happens for an operator whose
+  # action needed approval. Work in the closure is work that silently applies
+  # to some callers and not others, decided by a policy row.
+  #
+  # It went unnoticed because most gated actions are idempotent: a second
+  # `update!(status: "revoked")` on an already-revoked row changes nothing.
+  # Anything that MINTS material is not idempotent, and IMP-4de09f201a0f found
+  # disk-image webhook rotation minting two secrets and emitting two fleet
+  # events per rotation.
+  #
+  # Read the executor's return instead of redoing its work. It arrives wrapped
+  # in the executor envelope, so the value the executor returned as `:foo` is:
+  #
+  #   result.result&.dig(:data, :foo)
+  #
+  # The closure's proper job is rendering, plus the narrow case of a
+  # REQUEST-CONTEXT audit row — one that records the HTTP request itself and
+  # would be wrong to write when nothing happened yet (parked) or will happen
+  # (blocked). api/v1/devops/docker/hosts_controller.rb states that case and is
+  # the only instance of it.
+  #
+  # A DOMAIN EVENT IS NOT THAT, and this is the distinction the rule turns on.
+  # An event describing what happened to the resource must fire on every branch
+  # the operation completes on, so it belongs to the executor. Emitting one
+  # from the controller means it fires for auto-approved callers and silently
+  # never fires for approved ones. Both failure modes were live in this tree
+  # and both are now fixed: disk-image webhook rotation emitted from the
+  # executor AND the closure and produced two (IMP-4de09f201a0f), while
+  # disk-image publication rollback emitted from the controller only and
+  # produced none for an approved rollback (IMP-a18da6f5e05c).
+  #
+  # The rollback case is also why this concern's documentation is not enough on
+  # its own: that controller reached the gate through a hand-rolled
+  # AutonomyGate.evaluate and a `case` on the decision, so it never read any of
+  # this. It routes through gate! now.
   module GatedActions
     extend ActiveSupport::Concern
 
@@ -31,8 +79,14 @@ module Ai
     #   :blocked. Defaults to the generic 422. #gate_update! supplies one so an
     #   executor's ActiveRecord::RecordInvalid keeps its field-level errors
     #   instead of arriving as "Gate evaluation failed" (IMP-1836bb0021b1).
+    # @param pending_message [String, nil] operator-facing text for the 202.
+    #   Defaults to "Approval required: <action_category>", which names a
+    #   registered policy category rather than the action. A caller with a
+    #   sentence a human would recognise should pass it — the alternative is
+    #   the hand-rolled decision dispatch this concern exists to remove, kept
+    #   for the sake of one string (IMP-a18da6f5e05c).
     def gate!(action_category:, executor_class:, params:, source_type: nil, source_id: nil,
-              description: nil, on_proceed: nil, on_blocked: nil)
+              description: nil, on_proceed: nil, on_blocked: nil, pending_message: nil)
       result = ::Ai::AutonomyGate.evaluate(
         action_category: action_category,
         executor_class: executor_class,
@@ -46,6 +100,8 @@ module Ai
 
       case result.decision
       when :proceed
+        # The executor has already run. `on_proceed` renders what it returned;
+        # it must not repeat the work — see the contract note above the module.
         if on_proceed
           on_proceed.call(result)
         else
@@ -53,7 +109,7 @@ module Ai
         end
       when :pending
         render_pending_approval(result.deferred_operation,
-                                message: "Approval required: #{action_category}")
+                                message: pending_message || "Approval required: #{action_category}")
       when :blocked
         if on_blocked
           on_blocked.call(result)

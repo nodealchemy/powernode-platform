@@ -448,6 +448,21 @@ extensions/private
 # scripts/generate-core-purity-baseline.sh; read by the hook and the scan mirror.
 /.claude/hooks/core-purity-baseline.local.txt
 
+# Grandfathered console.warn/console.error sites in PRIVATE extensions, read by
+# scripts/list-console-sites.sh's consumers (the console-log-check.sh hook and the
+# frontend-console check in scripts/pattern-validation.sh). Same reason as the
+# core-purity local ledger above: the entries are private-extension paths, which is
+# exactly what must not reach the public mirror. Written by
+# scripts/generate-console-log-baseline.sh. Absent => those sites read as new.
+/.claude/hooks/console-log-baseline.local.txt
+
+# Private-extension half of the deep-relative-import ledger read by
+# scripts/pattern-validation.sh. It names private extension PATHS, which a tracked
+# file may not, so the split mirrors the console-log and core-purity ledgers above.
+# Absent => a private tree's existing sites read as new, which is the correct signal
+# for a maintainer who has those extensions on disk.
+/.claude/hooks/deep-relative-import-baseline.local.txt
+
 # Deployment-local identifier list read by scripts/checks/deployment-identifier-check.sh
 # (and its edit-time hook). It names THIS deployment's hostnames / IP ranges / VM ids,
 # which is exactly what the guard keeps out of the public mirror — so the list itself
