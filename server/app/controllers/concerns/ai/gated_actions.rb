@@ -61,10 +61,17 @@ module Ai
   # A DOMAIN EVENT IS NOT THAT, and this is the distinction the rule turns on.
   # An event describing what happened to the resource must fire on every branch
   # the operation completes on, so it belongs to the executor. Emitting one
-  # from the closure means it fires for auto-approved callers and silently
-  # never fires for approved ones — the disk-image webhook rotation emitted
-  # from BOTH and produced two, while the disk-image publication rollback
-  # emits from the controller ONLY and produces none for an approved rollback.
+  # from the controller means it fires for auto-approved callers and silently
+  # never fires for approved ones. Both failure modes were live in this tree
+  # and both are now fixed: disk-image webhook rotation emitted from the
+  # executor AND the closure and produced two (IMP-4de09f201a0f), while
+  # disk-image publication rollback emitted from the controller only and
+  # produced none for an approved rollback (IMP-a18da6f5e05c).
+  #
+  # The rollback case is also why this concern's documentation is not enough on
+  # its own: that controller reached the gate through a hand-rolled
+  # AutonomyGate.evaluate and a `case` on the decision, so it never read any of
+  # this. It routes through gate! now.
   module GatedActions
     extend ActiveSupport::Concern
 
@@ -72,8 +79,14 @@ module Ai
     #   :blocked. Defaults to the generic 422. #gate_update! supplies one so an
     #   executor's ActiveRecord::RecordInvalid keeps its field-level errors
     #   instead of arriving as "Gate evaluation failed" (IMP-1836bb0021b1).
+    # @param pending_message [String, nil] operator-facing text for the 202.
+    #   Defaults to "Approval required: <action_category>", which names a
+    #   registered policy category rather than the action. A caller with a
+    #   sentence a human would recognise should pass it — the alternative is
+    #   the hand-rolled decision dispatch this concern exists to remove, kept
+    #   for the sake of one string (IMP-a18da6f5e05c).
     def gate!(action_category:, executor_class:, params:, source_type: nil, source_id: nil,
-              description: nil, on_proceed: nil, on_blocked: nil)
+              description: nil, on_proceed: nil, on_blocked: nil, pending_message: nil)
       result = ::Ai::AutonomyGate.evaluate(
         action_category: action_category,
         executor_class: executor_class,
@@ -96,7 +109,7 @@ module Ai
         end
       when :pending
         render_pending_approval(result.deferred_operation,
-                                message: "Approval required: #{action_category}")
+                                message: pending_message || "Approval required: #{action_category}")
       when :blocked
         if on_blocked
           on_blocked.call(result)
