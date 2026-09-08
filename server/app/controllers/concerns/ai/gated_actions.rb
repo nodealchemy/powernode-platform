@@ -24,6 +24,47 @@ module Ai
   #       on_proceed: ->(result) { render_success(deleted: true, id: @network.id) }
   #     )
   #   end
+  #
+  # THE EXECUTOR IS THE SOLE AUTHORITY; `on_proceed` ONLY RENDERS.
+  #
+  # This is the one rule a hand-written closure gets wrong, and it is worth
+  # stating here rather than only on #gate_create!/#gate_update!, because those
+  # two build their own closures and the callers who get it wrong are the ones
+  # writing a closure by hand. On the :proceed branch Ai::AutonomyGate has
+  # ALREADY run the executor (autonomy_gate.rb, `deferred.execute_now!`) before
+  # this concern calls `on_proceed`. A closure that performs the operation
+  # therefore performs it a SECOND time.
+  #
+  # The deferred branch settles the argument on its own, and is the reason the
+  # rule cannot be inverted: on :pending the closure never runs at all, so
+  # anything only the closure does simply never happens for an operator whose
+  # action needed approval. Work in the closure is work that silently applies
+  # to some callers and not others, decided by a policy row.
+  #
+  # It went unnoticed because most gated actions are idempotent: a second
+  # `update!(status: "revoked")` on an already-revoked row changes nothing.
+  # Anything that MINTS material is not idempotent, and IMP-4de09f201a0f found
+  # disk-image webhook rotation minting two secrets and emitting two fleet
+  # events per rotation.
+  #
+  # Read the executor's return instead of redoing its work. It arrives wrapped
+  # in the executor envelope, so the value the executor returned as `:foo` is:
+  #
+  #   result.result&.dig(:data, :foo)
+  #
+  # The closure's proper job is rendering, plus the narrow case of a
+  # REQUEST-CONTEXT audit row — one that records the HTTP request itself and
+  # would be wrong to write when nothing happened yet (parked) or will happen
+  # (blocked). api/v1/devops/docker/hosts_controller.rb states that case and is
+  # the only instance of it.
+  #
+  # A DOMAIN EVENT IS NOT THAT, and this is the distinction the rule turns on.
+  # An event describing what happened to the resource must fire on every branch
+  # the operation completes on, so it belongs to the executor. Emitting one
+  # from the closure means it fires for auto-approved callers and silently
+  # never fires for approved ones — the disk-image webhook rotation emitted
+  # from BOTH and produced two, while the disk-image publication rollback
+  # emits from the controller ONLY and produces none for an approved rollback.
   module GatedActions
     extend ActiveSupport::Concern
 
@@ -46,6 +87,8 @@ module Ai
 
       case result.decision
       when :proceed
+        # The executor has already run. `on_proceed` renders what it returned;
+        # it must not repeat the work — see the contract note above the module.
         if on_proceed
           on_proceed.call(result)
         else
