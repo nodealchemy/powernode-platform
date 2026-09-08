@@ -922,6 +922,128 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Deep relative imports in a public extension frontend (IMP-003653cb5634).
+#
+# An extension's own tree is reachable two ways: `@system/features/...` and a
+# stack of `../`. The alias is stable under a move; the relative form re-points
+# every climb the moment a component changes directory, and it does so silently
+# — tsc resolves the NEW path if one happens to exist there, so a file dragged
+# one level up can start importing a different module that still type-checks.
+#
+# Three climbs is the threshold, not two: `../../types` stays inside a feature
+# and reads as local, while `../../../` has already left it. That is exactly the
+# 61 sites this check was written against, all converted in the same change.
+#
+# Public AND private extension trees, like the native-dialog guard above. An
+# earlier draft of this check scanned public trees only, justified by the rule
+# that a tracked core file may not name a private extension — which is true, and
+# which the SPLIT LEDGER already solves: private paths go in the gitignored
+# .local.txt sibling, exactly as the console-log and core-purity baselines do.
+# Excluding them would have left 125 of the 128 offending files fleet-wide
+# unguarded on a reason that does not hold.
+#
+# Grandfathered per file WITH A COUNT, and it is a RATCHET in both directions: a
+# listed file that grows fails, and a listed file that shrinks, is fixed or is
+# deleted ALSO fails, so the ledger cannot outlive the debt it describes. FAIL
+# CLOSED on a missing tracked baseline — it is this check's only way to tell
+# known debt from new, so "no baseline => PASS" would turn a deleted file into a
+# permanently-green no-op.
+#
+# Single-quoted `from '...'` only. A double-quoted or dynamic `import('...')`
+# form is invisible here; none exists in any extension frontend today, and this
+# is a known, accepted gap of the same kind the native-dialog guard records.
+#
+# The convention this enforces is documented in
+# docs/contributing/conventions/frontend-patterns.md, whose Enforcement column
+# named scripts/convert-relative-imports.sh. That script is real, but it never
+# enforced anything, for three independent reasons: no hook, gate or CI step runs
+# it (its only caller is the /cleanup all skill, invoked by hand); it hardcodes
+# SRC_ROOT="frontend/src", so it cannot see an extension tree; and its output
+# alphabet is @/shared/ and @/features/ only, so it could never emit @system/
+# even if it reached these files. A rule whose only enforcement is an on-demand
+# fixer that cannot produce the required alias is not enforced, which is how 61
+# sites accumulated while the doc read as covered.
+dri_baseline=".claude/hooks/deep-relative-import-baseline.txt"
+total_checks=$((total_checks + 1))
+echo -n "Checking: Extension frontends use path aliases, not deep relative imports... "
+dri_offenders=""
+if [ ! -r "$dri_baseline" ]; then
+    echo -e "${RED}✗ FAIL${NC} (baseline ledger MISSING or unreadable: $dri_baseline)"
+    failed_checks=$((failed_checks + 1))
+else
+    dri_roots=""
+    for ext_fe in extensions/*/frontend/src extensions/private/*/frontend/src; do
+        [ -d "$ext_fe" ] && dri_roots+=" $ext_fe"
+    done
+    # Every ledger entry whose tree IS present, tracked plus the gitignored
+    # private half.
+    dri_entries=$(cat "$dri_baseline" .claude/hooks/deep-relative-import-baseline.local.txt 2>/dev/null \
+                    | grep -cE '^extensions/[^|]+\|' || true)
+    if [ -z "$dri_roots" ] && [ "${dri_entries:-0}" -gt 0 ]; then
+        # A lister that returns nothing while the ledger holds entries is a
+        # broken matcher, not a clean tree — the same reasoning the console-log
+        # check applies. Core mode with an EMPTY ledger is the clean case below.
+        echo -e "${RED}✗ FAIL${NC} (no extension frontend trees found, but the ledger holds ${dri_entries} entr(y/ies) — submodules uninitialised?)"
+        failed_checks=$((failed_checks + 1))
+    elif [ -z "$dri_roots" ]; then
+        # Core mode, or a clone with no extension checked out, and nothing
+        # claimed. A clean pass, not a silent skip of a check that had input.
+        echo -e "${GREEN}✓ PASS${NC} (no extension frontend trees present)"
+        passed_checks=$((passed_checks + 1))
+    else
+        while IFS= read -r drif; do
+            [ -n "$drif" ] || continue
+            # Comment lines are never counted: a header or a convention doc
+            # quoting the bad form is describing it, not depending on it. The
+            # `|| true` keeps a zero count from aborting the gate under `set -e`.
+            dri_count=$(grep -nE "from '(\.\./){3,}" "$drif" 2>/dev/null \
+                          | grep -vcE '^[0-9]+:[[:space:]]*(#|//|\*|/\*)' || true)
+            [ "${dri_count:-0}" -gt 0 ] || continue
+            dri_allowed=$(cat "$dri_baseline" .claude/hooks/deep-relative-import-baseline.local.txt 2>/dev/null \
+                            | grep -E "^${drif}\|" | head -1 | cut -d'|' -f2 || true)
+            case "$dri_allowed" in
+                ''|*[!0-9]*) dri_allowed=0 ;;
+            esac
+            if [ "$dri_count" -gt "$dri_allowed" ]; then
+                dri_offenders+="${drif}(${dri_count}>${dri_allowed}) "
+            fi
+        done < <(grep -rlE "from '(\.\./){3,}" $dri_roots \
+                    --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
+                    2>/dev/null || true)
+        # The other half of the ratchet: an entry that outlived its debt. Without
+        # this the ledger is only a floor, and "can only shrink" is a claim the
+        # check does not make true.
+        dri_stale=""
+        while IFS='|' read -r dri_path dri_want; do
+            case "$dri_path" in ''|\#*) continue ;; esac
+            case "$dri_want" in ''|*[!0-9]*) continue ;; esac
+            # Only judge entries whose tree is on disk; an absent submodule is
+            # not evidence its files were fixed.
+            dri_tree="${dri_path%%/frontend/*}/frontend/src"
+            [ -d "$dri_tree" ] || continue
+            if [ ! -f "$dri_path" ]; then
+                dri_stale+="${dri_path}(file gone) "
+                continue
+            fi
+            dri_now=$(grep -nE "from '(\.\./){3,}" "$dri_path" 2>/dev/null \
+                        | grep -vcE '^[0-9]+:[[:space:]]*(#|//|\*|/\*)' || true)
+            [ "${dri_now:-0}" -lt "$dri_want" ] && dri_stale+="${dri_path}(${dri_now}<${dri_want}) "
+        done < <(cat "$dri_baseline" .claude/hooks/deep-relative-import-baseline.local.txt 2>/dev/null || true)
+
+        if [ -z "$dri_offenders" ] && [ -z "$dri_stale" ]; then
+            echo -e "${GREEN}✓ PASS${NC}"
+            passed_checks=$((passed_checks + 1))
+        elif [ -n "$dri_offenders" ]; then
+            echo -e "${RED}✗ FAIL${NC} (use the extension's own path alias, e.g. @system/: $dri_offenders)"
+            failed_checks=$((failed_checks + 1))
+        else
+            echo -e "${RED}✗ FAIL${NC} (ledger entries outlived their debt — lower or delete them: $dri_stale)"
+            failed_checks=$((failed_checks + 1))
+        fi
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # ResponsiveListContainer adoption (IMP-91dab7a7dfb0) — WARNING level.
 #
 # The container absorbs the list chrome — initial-load spinner, empty state,

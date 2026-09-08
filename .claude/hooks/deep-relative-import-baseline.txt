@@ -1,0 +1,22 @@
+# Deep relative imports (three or more `../`) in a PUBLIC extension frontend,
+# grandfathered per file WITH A COUNT. Read by scripts/pattern-validation.sh
+# (IMP-003653cb5634) together with the gitignored .local.txt sibling, which
+# carries the same ledger for PRIVATE extension trees (a tracked file may not
+# name a private extension).
+#
+# A RATCHET IN BOTH DIRECTIONS: a listed file may not grow more, and a listed
+# file that shrinks, is fixed or is deleted also fails — lower or delete the
+# entry in the same commit. A file not listed here may have none at all.
+#
+# Format: <path>|<count>
+#
+# The system extension's 61 sites were converted to @system/ aliases in the same
+# change, which is why none appear below.
+#
+# supply-chain has its own `@supply-chain/*` alias (frontend/tsconfig.check.json)
+# and these three climb out of a __tests__/ directory to reach it. They are
+# listed rather than converted because supply-chain is a separate submodule with
+# its own review and release, not because the alias is unavailable there.
+extensions/supply-chain/frontend/src/features/supply-chain/components/attestation/__tests__/SignAttestationModal.test.tsx|1
+extensions/supply-chain/frontend/src/features/supply-chain/components/sbom/__tests__/CreateDiffModal.test.tsx|1
+extensions/supply-chain/frontend/src/features/supply-chain/components/vendor/__tests__/VendorDocumentsPanel.test.tsx|1
