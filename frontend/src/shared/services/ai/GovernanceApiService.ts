@@ -317,10 +317,17 @@ class GovernanceApiService extends BaseApiService {
     return this.get(`${this.basePath}/approval_requests/${id}`);
   }
 
+  /**
+   * The decide response is the other carrier of the server's one-shot reveal
+   * slot (IMP-7b81ca22f661): when the decision ran an executor that minted
+   * secret material, `revealed_result` holds it for exactly this response and
+   * the read empties the slot server-side. A caller that drops it destroys the
+   * material, and a caller that caches it keeps a plaintext secret alive.
+   */
   async decideApproval(
     id: string,
     data: { decision: 'approved' | 'rejected'; comments?: string; conditions?: Record<string, unknown> }
-  ): Promise<{ approval_request: ApprovalRequest }> {
+  ): Promise<{ approval_request: ApprovalRequest & { revealed_result?: Record<string, unknown> } }> {
     return this.post(`${this.basePath}/approval_requests/${id}/decide`, data);
   }
 

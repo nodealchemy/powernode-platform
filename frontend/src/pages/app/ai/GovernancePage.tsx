@@ -10,6 +10,7 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { OneShotRevealModal } from '@/shared/components/ui/OneShotRevealModal';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -28,6 +29,7 @@ import { SecurityContent } from '@/features/ai/security/pages/SecurityDashboardP
 import { AuditLogList } from '@/features/ai/audit/components/AuditLogList';
 import { EntityLink } from '@/shared/components/entity';
 import { resolveCoreEntityType } from '@/shared/entity/registerCoreEntities';
+import { takeRevealableResult } from '@/shared/utils/oneShotReveal';
 
 function getSeverityColor(severity: string): string {
   switch (severity) {
@@ -507,9 +509,29 @@ export const GovernancePage: React.FC = () => {
     },
   });
 
+  // A QUEUE, not a slot: nothing stops a second decision while a reveal is
+  // still open, and overwriting would destroy material the operator has not
+  // saved. Transient, page-scoped, dropped on acknowledgement — never stored.
+  const [revealQueue, setRevealQueue] = useState<Record<string, unknown>[]>([]);
+  const pushReveal = (values: Record<string, unknown>) => {
+    setRevealQueue((queue) => [...queue, values]);
+  };
+
   const decisionMutation = useMutation({
-    mutationFn: ({ requestId, decision }: { requestId: string; decision: 'approved' | 'rejected' }) =>
-      governanceApi.decideApproval(requestId, { decision }),
+    // The decide response carries the server's one-shot reveal slot when the
+    // decision ran an executor that minted secret material. It is taken here
+    // and STRIPPED from what this resolves to: whatever a mutationFn returns
+    // becomes react-query mutation state, which the cache keeps for gcTime
+    // after the reveal is closed.
+    mutationFn: async ({ requestId, decision }: { requestId: string; decision: 'approved' | 'rejected' }) => {
+      const response = await governanceApi.decideApproval(requestId, { decision });
+      const { revealed_result: revealed, ...approvalRequest } = response.approval_request ?? {};
+      const shown = takeRevealableResult(revealed);
+      if (shown) {
+        pushReveal(shown);
+      }
+      return { approval_request: approvalRequest as ApprovalRequest };
+    },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['governance'] });
       addNotification({ type: 'success', message: `Request ${variables.decision}` });
@@ -666,6 +688,18 @@ export const GovernancePage: React.FC = () => {
           <AuditLogList />
         </TabPanel>
       </TabContainer>
+
+      {/* Rendered by the page, not the approvals panel: the decided row leaves
+          the pending list and unmounts its row while this is still open. */}
+      {revealQueue.length > 0 && (
+        <OneShotRevealModal
+          title="Decision applied — shown once"
+          values={revealQueue[0]}
+          note="This decision ran an operation that minted new material. It is not stored and cannot be shown again."
+          acknowledgeLabel="I have saved this somewhere safe"
+          onDone={() => setRevealQueue((queue) => queue.slice(1))}
+        />
+      )}
     </PageContainer>
   );
 };
