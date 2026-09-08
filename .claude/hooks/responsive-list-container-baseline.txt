@@ -33,4 +33,5 @@ extensions/system/frontend/src/features/system/components/sdwan/routing/NetworkR
 extensions/system/frontend/src/features/system/components/platform/PeerTable.tsx
 
 # --- UNMIGRATED (delete the line as each is converted) ---
-extensions/system/frontend/src/features/system/components/federation_hub/FulfillmentTab.tsx
+# Empty: adoption is complete. Every path above is a deliberate EXEMPT with a
+# stated reason, so a new entry in this section is new debt, not a backlog.
