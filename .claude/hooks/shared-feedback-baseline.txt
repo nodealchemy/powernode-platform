@@ -46,5 +46,4 @@ loading:extensions/system/frontend/src/features/system/components/acme/DnsRecord
 # frontend drain this sweep ran under, and editing them here would have
 # collided with that lane's in-flight changes to the same regions.
 # Delete each line as it moves onto ErrorAlert; none should survive the drain.
-error:extensions/system/frontend/src/features/system/components/acme/AcmeDnsCredentialModal.tsx
 error:extensions/system/frontend/src/features/system/components/packages/CreateModuleFromPackageModal.tsx
