@@ -320,4 +320,85 @@ RSpec.describe Ai::AutonomyGate do
       end
     end
   end
+
+  # Environment campaign, increment 3 — the gate resolves the plane and lets
+  # it ESCALATE only.
+  describe 'per-environment overlay' do
+    let(:prod) { account.environments.find_by!(slug: 'prod') }
+    let(:ops)  { account.environments.find_by!(slug: 'ops') }
+    let(:dev)  { account.environments.find_by!(slug: 'dev') }
+
+    before do
+      Ai::InterventionPolicy.register_category!('test.terminate')
+      Ai::InterventionPolicy.create!(account: account, action_category: 'test.terminate',
+                                      policy: 'auto_approve', scope: 'global', priority: 5, is_active: true)
+    end
+
+    it 'proceeds in dev but parks the same destructive action in prod, recording the plane and the reason' do
+      proceeded = described_class.evaluate(**base_args, action_category: 'test.terminate', environment: dev)
+      expect(proceeded.decision).to eq(:proceed)
+      expect(proceeded.deferred_operation.reload.environment).to eq(dev)
+
+      parked = described_class.evaluate(**base_args, action_category: 'test.terminate', environment: ops)
+      expect(parked.decision).to eq(:pending)
+      expect(parked.deferred_operation.reload.environment).to eq(ops)
+      data = parked.approval_request.request_data
+      expect(data['environment']).to include('slug' => 'ops', 'is_protected' => true)
+      expect(data['environment_escalation']).to include('protected').and include('destructive')
+
+      # prod is seeded supervised: even a non-destructive category parks there.
+      Ai::InterventionPolicy.register_category!('test.reversible')
+      Ai::InterventionPolicy.create!(account: account, action_category: 'test.reversible',
+                                     policy: 'auto_approve', scope: 'global', priority: 5, is_active: true)
+      expect(described_class.evaluate(**base_args, action_category: 'test.reversible', environment: dev).decision).to eq(:proceed)
+      supervised = described_class.evaluate(**base_args, action_category: 'test.reversible', environment: prod)
+      expect(supervised.decision).to eq(:pending)
+      expect(supervised.approval_request.request_data['environment_escalation']).to include('supervised')
+    end
+
+    it 'accepts an environment slug and BLOCKS a foreign or unknown one rather than gating as if none were named' do
+      parked = described_class.evaluate(**base_args, action_category: 'test.terminate', environment: 'prod')
+      expect(parked.decision).to eq(:pending)
+
+      foreign = create(:account).environments.find_by!(slug: 'prod')
+      refused = described_class.evaluate(**base_args, action_category: 'test.terminate', environment: foreign)
+      expect(refused.decision).to eq(:blocked)
+      expect(refused.error).to include('not in this account')
+
+      unknown = described_class.evaluate(**base_args, action_category: 'test.terminate', environment: 'no-such-plane')
+      expect(unknown.decision).to eq(:blocked)
+    end
+
+    # A resolver FAILURE is not "no environment": nil is exactly the state in
+    # which no plane rule applies, so swallowing the error would switch the
+    # protected-plane rules off. The gate refuses instead.
+    it 'blocks when the registered resolver fails, instead of proceeding as if the plane were unknown' do
+      allow(Ai::EnvironmentResolution).to receive(:resolve)
+        .and_raise(Ai::EnvironmentResolution::ResolverError, 'resolver exploded')
+
+      result = described_class.evaluate(**base_args, action_category: 'test.terminate')
+
+      expect(result.decision).to eq(:blocked)
+      expect(result.error).to include('resolver exploded')
+    end
+
+    it 'applies no overlay when nothing resolves an environment' do
+      result = described_class.evaluate(**base_args, action_category: 'test.terminate')
+      expect(result.decision).to eq(:proceed)
+      expect(result.deferred_operation.reload.environment).to be_nil
+    end
+
+    it 'lets a policy row bind to environments through conditions' do
+      Ai::InterventionPolicy.register_category!('test.env_bound')
+      Ai::InterventionPolicy.create!(account: account, action_category: 'test.env_bound',
+                                      policy: 'auto_approve', scope: 'global', priority: 5, is_active: true,
+                                      conditions: { 'environments' => [ 'dev' ] })
+
+      expect(described_class.evaluate(**base_args, action_category: 'test.env_bound', environment: dev).decision).to eq(:proceed)
+      # No row matches prod, so the default (require_approval) applies.
+      expect(described_class.evaluate(**base_args, action_category: 'test.env_bound', environment: prod).decision).to eq(:pending)
+      # An environment-bound row never matches an operation with no known plane.
+      expect(described_class.evaluate(**base_args, action_category: 'test.env_bound').decision).to eq(:pending)
+    end
+  end
 end
