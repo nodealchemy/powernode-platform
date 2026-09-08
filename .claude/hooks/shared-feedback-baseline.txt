@@ -1,0 +1,51 @@
+# Shared error / loading feedback baseline (IMP-fb105f6edaa3).
+#
+# Read by scripts/pattern-validation.sh. Every line below is subtracted from
+# that scan, so the scan warns only on NEW hand-rolled feedback markup.
+#
+# FORMAT: `error:<path>` or `loading:<path>`, one per line, repo-relative.
+# The pattern prefix is load-bearing. A file excused for its empty-state box
+# must NOT thereby be excused for an error banner hand-rolled into it later,
+# so a path is only ever excused for the ONE pattern named on its line.
+#
+# Adding a line is a claim that the site is BETTER as it stands. Say why.
+# The extension-side mirror of this ledger is
+# extensions/system/frontend/src/features/system/components/shared/sharedFeedback.contract.test.ts,
+# which asserts an EXACT SET and so also catches a stale entry. This file
+# cannot: it only subtracts. Keep the two in step.
+
+# --- Rich JSX that ErrorAlert's `message: string` would flatten.
+# Both wrap an interpolated element inside the banner body — a monospaced
+# field name, a link — that would be lost as plain text.
+error:extensions/system/frontend/src/features/system/components/sdwan/vips/VirtualIpFailoverModal.tsx
+
+# --- A permission-denial notice, not a failed operation.
+# "You don't have permission to view SDWAN routing" is the page's normal
+# rendering for a reader without the grant. ErrorAlert's alert-triangle chrome
+# would present a correct, expected state as something gone wrong.
+error:extensions/system/frontend/src/pages/app/system/SdwanRoutingPage.tsx
+
+# --- A labelled detail FIELD, not a page-level alert.
+# An "Error" heading over the migration's own error_message in mono, inside a
+# drawer. ErrorAlert would drop both the label and the monospacing that makes a
+# stack trace readable.
+error:extensions/system/frontend/src/features/system/components/platform/MigrationsPanel.tsx
+
+# --- EMPTY-state boxes that happen to share the loading block's three classes.
+# These are `{!loading && items.length === 0}` branches reading "No grants
+# matching the current filter." and the like — the classes coincide, the
+# meaning does not. A spinner does not belong in any of them; these are
+# PERMANENT, not debt awaiting conversion. (DnsRecordsModal's real loading
+# block WAS converted to LoadingSpinner; only its empty state matches here.)
+loading:extensions/system/frontend/src/features/system/components/platform/GrantsManagementModal.tsx
+loading:extensions/system/frontend/src/features/system/components/platform/CapabilitiesManagementModal.tsx
+loading:extensions/system/frontend/src/features/system/components/acme/DnsRecordsModal.tsx
+
+# --- NOT design decisions: each of these still owes the conversion.
+# They are baselined only because another lane owns them in the parallel
+# frontend drain this sweep ran under, and editing them here would have
+# collided with that lane's in-flight changes to the same regions.
+# Delete each line as it moves onto ErrorAlert; none should survive the drain.
+error:extensions/system/frontend/src/features/system/components/federation_hub/FulfillmentTab.tsx
+error:extensions/system/frontend/src/features/system/components/acme/AcmeDnsCredentialModal.tsx
+error:extensions/system/frontend/src/features/system/components/packages/CreateModuleFromPackageModal.tsx

@@ -989,6 +989,88 @@ else
     fi
 fi
 
+# ---------------------------------------------------------------------------
+# Shared error / loading feedback (IMP-fb105f6edaa3) — WARNING level.
+#
+# Core ships ui/ErrorAlert and ui/LoadingSpinner. A hand-rolled
+# `bg-theme-danger-bg text-theme-danger-fg` banner has no icon and no dismiss
+# affordance unless its own site adds them, and a `p-8 text-center
+# text-theme-secondary` "Loading X…" div looks different from the spinner every
+# neighbouring surface uses. Both are duplication with a visible cost.
+#
+# WARNING, not FAIL, for the same reason as the container scan above: a few
+# sites legitimately keep their own markup — a banner carrying rich JSX that
+# ErrorAlert's `message: string` would flatten, a permission-denial notice that
+# is not a failed operation, an EMPTY-state box that happens to wear the same
+# three classes as the loading block. Those live in the baseline and are
+# subtracted, so this fires only on NEW debt.
+#
+# The baseline is keyed `error:<path>` / `loading:<path>`, NOT by path alone.
+# A file excused for its empty-state box must not thereby be excused for an
+# error banner someone hand-rolls into it later.
+#
+# Matching is scoped to a double-quoted className, so a `hover:` in a sibling
+# attribute cannot suppress a real finding. Within a className, `hover:`
+# excludes only the DANGER pair: a banner has no hover state, so that token
+# marks a destructive BUTTON wearing the danger colours. The loading trio
+# carries no such exclusion — it is a layout, not a colour.
+#
+# This mirrors extensions/system's sharedFeedback.contract.test.ts, which is
+# the stricter of the two: its regex can span newlines, so a className broken
+# across lines is caught there and not here. That asymmetry is deliberate —
+# jest red / gate green is the safe direction — but it means the jest ratchet,
+# not this scan, is the authority inside extensions/system.
+#
+# FAIL CLOSED on a missing baseline, like the two ledgers above.
+sf_baseline=".claude/hooks/shared-feedback-baseline.txt"
+total_checks=$((total_checks + 1))
+echo -n "Checking: Extension error/loading states use shared ErrorAlert + LoadingSpinner... "
+if [ ! -r "$sf_baseline" ]; then
+    echo -e "${RED}✗ FAIL${NC} (baseline ledger MISSING or unreadable: $sf_baseline)"
+    failed_checks=$((failed_checks + 1))
+else
+    sf_offenders=""
+    sf_roots=""
+    # Only trees that have ALREADY adopted ui/ErrorAlert. A tree that has not
+    # migrated at all is not carrying "new" debt — every one of its banners
+    # predates the shared component there, and warning on all of them at every
+    # gate run is noise an unrelated extension cannot act on. It joins this
+    # ledger by adopting ErrorAlert once, which is the same shape as the
+    # container scan's "trees that define a container".
+    for sf_root in extensions/*/frontend/src extensions/private/*/frontend/src; do
+        [ -d "$sf_root" ] || continue
+        grep -rql "ui/ErrorAlert" "$sf_root" 2>/dev/null || continue
+        sf_roots="$sf_roots $sf_root"
+    done
+    if [ -z "$sf_roots" ]; then
+        echo -e "${GREEN}✓ PASS${NC} (no extension frontend tree has adopted ErrorAlert)"
+        passed_checks=$((passed_checks + 1))
+    else
+        while IFS= read -r sff; do
+            case "$sff" in *.test.tsx) continue ;; esac
+            sf_classes=$(grep -oE 'className="[^"]*"' "$sff" 2>/dev/null || true)
+            if printf '%s\n' "$sf_classes" \
+                 | grep -F 'bg-theme-danger-bg text-theme-danger-fg' \
+                 | grep -qv 'hover:'; then
+                grep -qxF "error:$sff" "$sf_baseline" || sf_offenders+="error:${sff} "
+            fi
+            if printf '%s\n' "$sf_classes" \
+                 | grep -qF 'p-8 text-center text-theme-secondary'; then
+                grep -qxF "loading:$sff" "$sf_baseline" || sf_offenders+="loading:${sff} "
+            fi
+        done < <(grep -rlE 'bg-theme-danger-bg text-theme-danger-fg|p-8 text-center text-theme-secondary' \
+                    $sf_roots --include='*.tsx' 2>/dev/null || true)
+        if [ -z "$sf_offenders" ]; then
+            echo -e "${GREEN}✓ PASS${NC}"
+            passed_checks=$((passed_checks + 1))
+        else
+            sf_count=$(printf '%s' "$sf_offenders" | wc -w | tr -d ' ')
+            echo -e "${YELLOW}⚠ WARN${NC} (${sf_count} NEW hand-rolled error/loading block(s); use ErrorAlert / LoadingSpinner, or add a reasoned entry to $sf_baseline: $sf_offenders)"
+            warnings=$((warnings + 1))
+        fi
+    fi
+fi
+
 echo ""
 echo -e "${BLUE}## File Organization${NC}"
 # Model-agnostic enforcement of the "NEVER save files to project root" rule
