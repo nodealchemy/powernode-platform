@@ -1,0 +1,34 @@
+# Grandfathered native browser-dialog call sites (window.confirm / window.prompt)
+# present in committed HEAD when the pattern-validation.sh scan landed
+# (IMP-082f700a1eec). NEW sites FAIL the gate; these are debt to be migrated to
+# the shared ConfirmationModal / useConfirmation hook.
+#
+# Format: <repo-relative-path>|<hit-count>
+# A file may hold AT MOST the listed number of sites. Fewer is fine (that is
+# debt reduction); more is a new site and fails. Shrinking this list to zero is
+# the goal — regenerate the counts after any migration.
+#
+# Comment lines and doc-comment mentions are never counted, so a convention doc
+# that quotes `window.prompt(...)` does not need an entry here.
+#
+# frontend/src/shared/utils/clipboard.ts is a deliberate LAST-RESORT fallback
+# (the async clipboard API failed, so the text is offered for manual copy);
+# every other entry is a genuine migration candidate. The supply-chain entries
+# are all `window.prompt` reason capture — useReasonConfirm (in the system
+# extension) is the shape they want, so migrating them needs that hook lifted
+# to core first.
+frontend/src/features/admin/workers/components/WorkerSettings.tsx|1
+frontend/src/features/ai/autonomy/components/BudgetAllocationPanel.tsx|1
+frontend/src/features/ai/autonomy/components/GoalsPanel.tsx|1
+frontend/src/features/ai/autonomy/components/InterventionPoliciesPanel.tsx|1
+frontend/src/features/ai/autonomy/components/TrustScoreCard.tsx|3
+frontend/src/features/ai/chat/components/ConversationSidebar.tsx|1
+frontend/src/features/ai/components/AgentConversationComponent.tsx|1
+frontend/src/features/ai/data-sources/components/DataSourceEndpointsTab.tsx|1
+frontend/src/features/ai/data-sources/components/DataSourceMonitoringTab.tsx|1
+frontend/src/features/ai/memory/components/AgentMemoryContent.tsx|1
+frontend/src/features/ai/ralph-loops/pages/RalphLoopsPage.tsx|2
+frontend/src/shared/utils/clipboard.ts|1
+extensions/supply-chain/frontend/src/features/supply-chain/pages/SbomDetailPage.tsx|1
+extensions/supply-chain/frontend/src/features/supply-chain/pages/LicenseViolationDetailPage.tsx|2
+extensions/supply-chain/frontend/src/features/supply-chain/pages/LicenseViolationsPage.tsx|2

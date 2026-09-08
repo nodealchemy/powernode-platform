@@ -851,6 +851,73 @@ else
 fi
 
 echo ""
+echo -e "${BLUE}## Frontend Conventions${NC}"
+# Native browser dialogs (window.confirm / window.prompt) in frontend source. They are
+# unthemed and unstyleable, block the JS thread, are silently suppressed in sandboxed
+# iframes and by browsers that throttle repeated dialogs, render a `\n`-formatted warning
+# as flat text, and carry no loading state — so a destructive action gated on one has no
+# way to show that it is in flight. The shared ConfirmationModal / useConfirmation hook
+# (frontend/src/shared/components/ui/ConfirmationModal.tsx) is the replacement, with
+# useReasonConfirm for the reason-carrying variant. NEW call sites FAIL; sites already
+# committed when this landed are grandfathered per-file WITH A COUNT in
+# .claude/hooks/native-dialog-baseline.txt, so a baselined file cannot quietly grow more.
+# Comment lines are never counted (a convention doc quoting `window.prompt(...)` is a
+# sanctioned form, not a dependency) — same rule as the core-purity mirror above.
+#
+# FAIL CLOSED on a missing baseline. The baseline file is this check's ONLY input, so
+# "no baseline => PASS" would let deleting one tracked file turn the guard into a
+# permanently-green no-op that scans nothing — the shape a gate must never have.
+#
+# Only the `window.`-qualified forms are matched, deliberately: `confirm({ ... })` with no
+# receiver is the shared hook's OWN call, so matching the bare global would flag every
+# correct migration. A future evasion via bare `confirm(` is a known, accepted gap.
+nd_baseline=".claude/hooks/native-dialog-baseline.txt"
+total_checks=$((total_checks + 1))
+echo -n "Checking: No new native browser dialogs in frontend source (window.confirm/prompt)... "
+nd_offenders=""
+if [ ! -r "$nd_baseline" ]; then
+    echo -e "${RED}✗ FAIL${NC} (baseline ledger MISSING or unreadable: $nd_baseline)"
+    failed_checks=$((failed_checks + 1))
+else
+    # Public extensions sit at extensions/<slug>/frontend/src; private ones are one level
+    # deeper at extensions/private/<slug>/frontend/src. Both are scanned; an unmatched
+    # glob leaves the literal string, which `[ -d ]` rejects (core mode is a clean no-op).
+    nd_roots="frontend/src"
+    for ext_fe in extensions/*/frontend/src extensions/private/*/frontend/src; do
+        [ -d "$ext_fe" ] && nd_roots+=" $ext_fe"
+    done
+    while IFS= read -r ndf; do
+        [ -n "$ndf" ] || continue
+        # Code lines only — drop comment lines (`#`, `//`, ` * `), tab-indented included.
+        # `|| true` is load-bearing under `set -e`: grep -c exits 1 when it counts zero,
+        # and an assignment takes its pipeline's status, so a comment-only file would
+        # abort the WHOLE gate here and silently skip every check after it.
+        nd_count=$(grep -nE 'window\.(confirm|prompt)\(' "$ndf" 2>/dev/null \
+                     | grep -vcE '^[0-9]+:[[:space:]]*(#|//|\*)' || true)
+        [ "${nd_count:-0}" -gt 0 ] || continue
+        nd_allowed=$(grep -E "^${ndf}\|" "$nd_baseline" 2>/dev/null | head -1 | cut -d'|' -f2 || true)
+        # A non-numeric allowance (a typo, a trailing space, a CRLF line ending) must not
+        # make `[ N -gt "$nd_allowed" ]` error out INSIDE an `if` — that returns non-zero,
+        # skips the append, and silently EXEMPTS the file. Anything unparseable is 0.
+        case "$nd_allowed" in
+            ''|*[!0-9]*) nd_allowed=0 ;;
+        esac
+        if [ "$nd_count" -gt "$nd_allowed" ]; then
+            nd_offenders+="${ndf}(${nd_count}>${nd_allowed}) "
+        fi
+    done < <(grep -rlE 'window\.(confirm|prompt)\(' $nd_roots \
+                --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
+                2>/dev/null || true)
+    if [ -z "$nd_offenders" ]; then
+        echo -e "${GREEN}✓ PASS${NC}"
+        passed_checks=$((passed_checks + 1))
+    else
+        echo -e "${RED}✗ FAIL${NC} (Use useConfirmation from @/shared/components/ui/ConfirmationModal instead: $nd_offenders)"
+        failed_checks=$((failed_checks + 1))
+    fi
+fi
+
+echo ""
 echo -e "${BLUE}## File Organization${NC}"
 # Model-agnostic enforcement of the "NEVER save files to project root" rule
 # (recall knowledge guidance-file-organization). Loose docs/reports/scratch files must
