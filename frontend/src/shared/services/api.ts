@@ -117,9 +117,22 @@ class APIClient {
         // Suppress console logging for silent auth requests
         const isSilentAuth = originalRequest?.silentAuth === true;
 
-        // Only log non-silent auth errors during development
+        // Only log non-silent auth errors during development.
+        //
+        // A SUMMARY, never the AxiosError itself: that object carries
+        // `config.data`, the serialized REQUEST BODY, so logging it prints
+        // whatever the failing request was sending — including key material on
+        // a credential write (CryptoMaterialSafety forbids key material in a
+        // log in any form, and a dev console is a log). Status, URL and method
+        // are what a developer actually needs here; the full object is one
+        // network-tab click away.
         if (!isSilentAuth && process.env.NODE_ENV === 'development' && error.response?.status !== 401) {
-          console.error('[API Error]', error);
+          console.error('[API Error]', {
+            status: error.response?.status,
+            method: originalRequest?.method,
+            url: originalRequest?.url,
+            message: error.message
+          });
         }
 
         // Auth endpoints establish or terminate a session. A 401 here means

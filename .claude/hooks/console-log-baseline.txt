@@ -22,7 +22,7 @@ frontend/src/shared/components/forms/MarkdownEditor.tsx|console.error('Auto-save
 frontend/src/shared/components/forms/MarkdownEditor.tsx|console.error('Image upload failed:', error);
 frontend/src/shared/components/forms/MarkdownEditor.tsx|console.error('Image upload failed:', error);
 frontend/src/shared/components/ui/EnhancedNotification.tsx|console.error('Failed to copy notification:', error);
-frontend/src/shared/services/api.ts|console.error('[API Error]', error);
+frontend/src/shared/services/api.ts|console.error('[API Error]', {
 frontend/src/shared/services/errorHandler.ts|console.error('[API Error]', {
 frontend/src/shared/services/errorHandler.ts|console.error('[ErrorTracking] Failed to track error:', trackingError);
 frontend/src/shared/services/mcpClient.ts|console.error('[MCP_CLIENT] Error handler threw:', handlerError);
