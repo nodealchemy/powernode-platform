@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_08_211000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_08_230000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2005,6 +2005,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_211000) do
     t.uuid "approval_request_id"
     t.datetime "created_at", null: false
     t.text "description"
+    t.uuid "environment_id"
     t.text "error_message"
     t.datetime "executed_at"
     t.string "executor_class", null: false
@@ -2020,6 +2021,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_211000) do
     t.index ["action_category"], name: "index_ai_deferred_operations_on_action_category"
     t.index ["ai_agent_id"], name: "index_ai_deferred_operations_on_ai_agent_id"
     t.index ["approval_request_id"], name: "index_ai_deferred_operations_on_approval_request_id"
+    t.index ["environment_id"], name: "index_ai_deferred_operations_on_environment_id"
     t.index ["executor_class"], name: "index_ai_deferred_operations_on_executor_class"
     t.index ["requested_by_id"], name: "index_ai_deferred_operations_on_requested_by_id"
     t.index ["source_type", "source_id"], name: "index_ai_deferred_operations_on_source_type_and_source_id"
@@ -11833,6 +11835,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_211000) do
   add_foreign_key "ai_deferred_operations", "accounts"
   add_foreign_key "ai_deferred_operations", "ai_agents"
   add_foreign_key "ai_deferred_operations", "ai_approval_requests", column: "approval_request_id"
+  add_foreign_key "ai_deferred_operations", "ai_environments", column: "environment_id", on_delete: :nullify
   add_foreign_key "ai_deferred_operations", "users", column: "requested_by_id"
   add_foreign_key "ai_delegation_policies", "accounts"
   add_foreign_key "ai_delegation_policies", "ai_agents", column: "agent_id"

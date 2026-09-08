@@ -52,6 +52,8 @@ module Ai
     belongs_to :approval_request, class_name: "Ai::ApprovalRequest", optional: true
     belongs_to :requested_by, class_name: "User", optional: true
     belongs_to :ai_agent, class_name: "Ai::Agent", optional: true
+    # The plane the operation was gated against (Environment campaign, incr. 3).
+    belongs_to :environment, class_name: "Ai::Environment", optional: true
 
     validates :action_category, presence: true
     validates :executor_class,  presence: true
