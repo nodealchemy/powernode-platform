@@ -9,8 +9,31 @@ Canonical frontend conventions for `frontend/`. Most are mechanically enforced. 
 | Actions | ALL in PageContainer — none in page content | review |
 | State | Global notifications only — no local success/error | review |
 | Imports | Path aliases for cross-feature: `@/shared/`, `@/features/` | `convert-relative-imports.sh` |
-| Logging | No `console.log` in production — use `import { logger } from '@/shared/utils/logger'` | `console-log-check.sh` + `pattern-validation.sh` |
+| Logging | No `console.*` at any level — use `import { logger } from '@/shared/utils/logger'` | `console-log-check.sh` + `pattern-validation.sh` (both via `scripts/list-console-sites.sh`) |
 | Types | No `any` — proper TypeScript types required | `no-any-type-check.sh` + `pattern-validation.sh` |
+
+### Logging: the console ledger
+
+The rule is every `console` level, not just `log`. It used to be `log`/`debug`/`info`
+only, in three places that each kept their own copy of the pattern, so `console.warn`
+and `console.error` accumulated for the life of the tree while every guard reported
+clean (IMP-1f4b84af602c).
+
+`scripts/list-console-sites.sh` is now the single definition of what counts; the edit
+hook and the `pattern-validation.sh` check both call it. Sites that already existed are
+grandfathered in two ledgers — `.claude/hooks/console-log-baseline.txt` (tracked, core
+and public extensions) and `.claude/hooks/console-log-baseline.local.txt` (gitignored,
+private extensions, whose paths must not reach the public mirror).
+
+If the gate fails with "N new console call(s)", the fix is the logger, not the ledger.
+Regenerate the ledgers only when you have legitimately REMOVED sites:
+
+```bash
+bash scripts/generate-console-log-baseline.sh
+```
+
+Entries are `path|source line`, one per occurrence, so a third copy of an
+already-grandfathered line is still a new site.
 
 ## Access control (CRITICAL — kept in CLAUDE.md core)
 

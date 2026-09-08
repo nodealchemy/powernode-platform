@@ -25,7 +25,7 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | **Permission-based access control (permissions not roles)** | core+knowledge | CLAUDE.md + `guidance-permissions-not-roles` | `permission-not-roles-check.sh` (nudge) + `pattern-validation.sh` (scan) |
 | Frontend: colors / theme classes | doc+hook | frontend-patterns.md | `hardcoded-color-check.sh` + scan |
 | Frontend: no `any` | doc+hook | frontend-patterns.md | `no-any-type-check.sh` + scan |
-| Frontend: no console.log | doc+hook | frontend-patterns.md | `console-log-check.sh` + scan |
+| Frontend: no `console.*` (any level) | doc+hook | frontend-patterns.md | `console-log-check.sh` + scan |
 | Frontend: flat nav | doc+scan | frontend-patterns.md | `pattern-validation.sh` |
 | Frontend: actions/state/imports | doc | frontend-patterns.md | review |
 | Backend: namespace `::`, FK prefix, JSON lambda default, t.references index, class_name+foreign_key | doc+hook | backend-patterns.md | `ruby-convention-check.sh` |

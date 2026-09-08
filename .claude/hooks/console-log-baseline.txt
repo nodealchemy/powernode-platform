@@ -1,0 +1,33 @@
+# Grandfathered console call sites (IMP-1f4b84af602c).
+# Core + public extensions. Tracked; publishes to the public mirror.
+# Format: <path>|<trimmed source line>, one line per occurrence, sorted.
+# Regenerate: bash scripts/generate-console-log-baseline.sh
+# Do not add entries by hand — new sites must use @/shared/utils/logger.
+frontend/src/features/admin/workers/components/WorkerDetailsPanel.tsx|console.error('[WorkerDetailsPanel] Status change failed:', action, error);
+frontend/src/features/admin/workers/components/WorkerDetailsPanel.tsx|console.error('[WorkerDetailsPanel] Token regeneration failed:', error);
+frontend/src/features/admin/workers/components/WorkerDetailsPanel.tsx|console.error('[WorkerDetailsPanel] Worker deletion failed:', error);
+frontend/src/features/ai/orchestration/services/aiOrchestrationMonitor.ts|console.error('AI Orchestration monitor error:', error);
+frontend/src/features/ai/orchestration/services/aiOrchestrationMonitor.ts|console.error('Error in connection handler:', error);
+frontend/src/features/ai/orchestration/services/aiOrchestrationMonitor.ts|console.error('Error in event handler:', error);
+frontend/src/features/ai/orchestration/services/aiOrchestrationMonitor.ts|console.error('Error in metrics handler:', error);
+frontend/src/features/ai/orchestration/services/aiOrchestrationMonitor.ts|console.error('Failed to create WebSocket connection:', error);
+frontend/src/features/ai/orchestration/services/aiOrchestrationMonitor.ts|console.error('Failed to parse WebSocket message:', error);
+frontend/src/pages/app/admin/AdminSettingsOverviewPage.tsx|console.error('Admin overview load error:', error);
+frontend/src/pages/app/admin/AdminSettingsOverviewPage.tsx|console.warn('Services health check unavailable:', _healthError);
+frontend/src/pages/app/ai/McpBrowserPage.tsx|console.error('Failed to load MCP data:', error);
+frontend/src/shared/components/ai/AIPermissionsDebug.tsx|console.error('Failed to copy diagnostic info:', error);
+frontend/src/shared/components/error/AiErrorBoundary.tsx|console.error('[AiErrorBoundary] Component Error:', error);
+frontend/src/shared/components/error/AiErrorBoundary.tsx|console.error('[AiErrorBoundary] Error Info:', errorInfo);
+frontend/src/shared/components/forms/MarkdownEditor.tsx|console.error('Auto-save failed:', error);
+frontend/src/shared/components/forms/MarkdownEditor.tsx|console.error('Image upload failed:', error);
+frontend/src/shared/components/forms/MarkdownEditor.tsx|console.error('Image upload failed:', error);
+frontend/src/shared/components/ui/EnhancedNotification.tsx|console.error('Failed to copy notification:', error);
+frontend/src/shared/services/api.ts|console.error('[API Error]', error);
+frontend/src/shared/services/errorHandler.ts|console.error('[API Error]', {
+frontend/src/shared/services/errorHandler.ts|console.error('[ErrorTracking] Failed to track error:', trackingError);
+frontend/src/shared/services/mcpClient.ts|console.error('[MCP_CLIENT] Error handler threw:', handlerError);
+frontend/src/shared/services/mcpClient.ts|console.error('[MCP_CLIENT] Error:', errorEvent);
+frontend/src/shared/utils/domErrorHandler.ts|console.warn('[DOM] Browser extension DOM error suppressed:', error.message);
+frontend/src/shared/utils/domErrorHandler.ts|console.warn('[DOM] Browser extension error suppressed:', error.message);
+frontend/src/shared/utils/errorHandling.ts|console.error(message, context || {});
+frontend/src/shared/utils/errorHandling.ts|console.error(message.message, { error: message, ...context });

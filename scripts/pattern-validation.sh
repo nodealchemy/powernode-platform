@@ -517,9 +517,49 @@ check_pattern "Backend debug code (should be empty)" \
     "grep -rn '^[[:space:]]*\\(puts \\|puts(\\|binding\\.pry\\|byebug\\|debugger\\)' server/app/ --include='*.rb' | grep -v storage_providers | wc -l" \
     "empty"
 
-check_pattern "Frontend debug code (should be empty)" \
-    "grep -rP '^\\s*console\\.(log|debug|info)\\s*\\(' frontend/src/ --include='*.ts' --include='*.tsx' | grep -v 'logger\\.ts\\|CodeSamples\\|\\.test\\.\\|\\.spec\\.' | wc -l" \
-    "empty"
+# Frontend console output (IMP-1f4b84af602c). This check used to match only
+# console.log/debug/info, and the edit hook carried its own copy of that same
+# narrow pattern — so console.warn and console.error accumulated for the life of
+# the tree, unseen by either guard, and the scan reported a clean 0 on a tree
+# holding 36 of them. Both guards now call scripts/list-console-sites.sh, so
+# there is one definition of what counts and it cannot drift again.
+#
+# Pre-existing sites are grandfathered in two ledgers (regenerate with
+# scripts/generate-console-log-baseline.sh): the tracked
+# .claude/hooks/console-log-baseline.txt for core and public extensions, and the
+# gitignored .local.txt for private-extension paths, which must never reach the
+# public mirror. So this FAILS only on a NEW console call.
+#
+# Compared as MULTISETS via `comm`, not membership: a file legitimately holding
+# two identical console.error lines has two ledger entries, and a third copy is
+# a new site rather than a free ride on the first two.
+#
+# FAILS LOUD in two directions, because this guard exists precisely because its
+# predecessor reported a clean 0 on a dirty tree: a missing ledger means every
+# site reads as new, and a lister that returns nothing while the ledger holds
+# entries is treated as a broken matcher, not as a clean tree.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No new frontend console output (use @/shared/utils/logger)... "
+console_tmp=$(mktemp -d)
+bash scripts/list-console-sites.sh 2>/dev/null | cut -d'|' -f1,3- | sed '/^$/d' | sort > "$console_tmp/found" || true
+cat .claude/hooks/console-log-baseline.txt .claude/hooks/console-log-baseline.local.txt 2>/dev/null \
+    | grep -v '^#' | sed '/^$/d' | sort > "$console_tmp/baseline" || true
+console_found=$(wc -l < "$console_tmp/found" | tr -d ' ')
+console_baseline=$(wc -l < "$console_tmp/baseline" | tr -d ' ')
+console_new=$(comm -23 "$console_tmp/found" "$console_tmp/baseline")
+console_hits=$(printf '%s\n' "$console_new" | grep -cv '^$' || true)
+if [ "${console_found:-0}" -eq 0 ] && [ "${console_baseline:-0}" -gt 0 ]; then
+    echo -e "${RED}✗ FAIL${NC} (console site lister returned NOTHING while the baseline holds ${console_baseline} entries — broken matcher, not a clean tree; run: bash scripts/list-console-sites.sh)"
+    failed_checks=$((failed_checks + 1))
+elif [ "${console_hits:-0}" -eq 0 ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (${console_hits} new console call(s) — use @/shared/utils/logger)"
+    printf '%s\n' "$console_new" | grep -v '^$' | sed 's/^/    /'
+    failed_checks=$((failed_checks + 1))
+fi
+rm -rf "$console_tmp"
 
 check_pattern "TypeScript any types (should be minimal)" \
     "grep -r ': any' frontend/src/ | grep -v 'node_modules' | wc -l" \

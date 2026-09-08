@@ -106,8 +106,16 @@ export default tseslint.config(
       'no-new-func': 'error',
       'no-script-url': 'error',
 
-      // Code quality rules - allow console methods for legitimate error handling and debugging
-      'no-console': ['warn', { allow: ['error', 'warn', 'info', 'group', 'groupEnd', 'trace'] }],
+      // No console output — use `import { logger } from '@/shared/utils/logger'`.
+      // This used to allow error/warn/info, which is how console.warn/error
+      // accumulated unchecked (IMP-1f4b84af602c): the edit hook and the gate
+      // both stopped at log/debug/info while ESLint explicitly permitted the
+      // rest, so all three guards disagreed. The gate now polices every level
+      // via scripts/list-console-sites.sh, with the pre-existing sites
+      // grandfathered in .claude/hooks/console-log-baseline.txt; this allows
+      // nothing so the two guards state one policy. Severity stays `warn`,
+      // matching the surrounding rules and the grandfathered core sites.
+      'no-console': ['warn', { allow: [] }],
       'no-debugger': 'warn',
       'no-unused-vars': 'off', // Handled by TypeScript
       '@typescript-eslint/no-unused-vars': ['warn', {
