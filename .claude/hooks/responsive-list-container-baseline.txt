@@ -1,0 +1,36 @@
+# ResponsiveListContainer adoption baseline (IMP-91dab7a7dfb0).
+#
+# Repo-relative paths of .tsx files that render a <table> WITHOUT routing their
+# list chrome through ResponsiveListContainer, and are not expected to.
+#
+# Two kinds live here and they are NOT the same thing:
+#   EXEMPT     — a table inside a modal, inside a composite tab, or a
+#                presentational sub-table taking rows as a prop. Not a list
+#                surface; the container would be a redesign, not a migration.
+#   UNMIGRATED — still owes the conversion. Delete the line once converted.
+#
+# A file NOT listed here that renders a <table> without the container is new
+# debt and WARNs in scripts/pattern-validation.sh. Blank lines and #-comments
+# are ignored.
+#
+# The extension-side mirror of this ledger is the jest ratchet
+# extensions/system/frontend/src/features/system/components/shared/
+# ResponsiveListContainer.adoption.contract.test.ts, which asserts EQUALITY and
+# so also fails on a STALE entry. This file is the model-agnostic half; keep
+# the two in step.
+
+# --- EXEMPT: table inside a modal ---
+extensions/system/frontend/src/features/system/components/acme/DnsRecordsModal.tsx
+extensions/system/frontend/src/features/system/components/operations/BatchDetailModal.tsx
+
+# --- EXEMPT: table is one part of a composite tab, not the tab's list.
+#     Both still hand-roll a loading string and an empty branch of their own;
+#     exempt from the CONTAINER, not from that duplication.
+extensions/system/frontend/src/features/system/components/sdwan/AccessTab.tsx
+extensions/system/frontend/src/features/system/components/sdwan/routing/NetworkRoutingTab.tsx
+
+# --- EXEMPT: presentational sub-table, rows arrive as a prop, no chrome ---
+extensions/system/frontend/src/features/system/components/platform/PeerTable.tsx
+
+# --- UNMIGRATED (delete the line as each is converted) ---
+extensions/system/frontend/src/features/system/components/federation_hub/FulfillmentTab.tsx

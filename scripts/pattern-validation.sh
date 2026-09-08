@@ -921,6 +921,74 @@ else
     fi
 fi
 
+# ---------------------------------------------------------------------------
+# ResponsiveListContainer adoption (IMP-91dab7a7dfb0) — WARNING level.
+#
+# The container absorbs the list chrome — initial-load spinner, empty state,
+# filter row with refresh, count summary, desktop/mobile split — that every
+# list component used to re-implement. A .tsx that renders a <table> without
+# IMPORTING it is re-implementing that chrome again, so the empty and error
+# copy drifts between hubs and each chrome fix has to be made once per file.
+#
+# WARNING, not FAIL, and deliberately so: some tables legitimately live inside
+# a modal, inside a composite tab, or in a presentational sub-table that takes
+# its rows as a prop. Those, plus the files still owing the conversion, are
+# listed in the baseline below and subtracted here, so this WARN fires ONLY on
+# debt that is new — a warning that can never go green is one a reader learns
+# to scroll past, which costs the warnings that do matter.
+#
+# Matches an IMPORT, not a mention: keying on containment would let a single
+# comment naming the container remove a file from this scan for good. Comment
+# lines are not counted on the <table side either, matching the guards above.
+#
+# FAIL CLOSED on a missing baseline, for the same reason as the native-dialog
+# ledger: the baseline is this check's only way to tell known debt from new, so
+# "no baseline => PASS" would turn deleting one file into a silent no-op.
+rlc_baseline=".claude/hooks/responsive-list-container-baseline.txt"
+total_checks=$((total_checks + 1))
+echo -n "Checking: Extension tables route their list chrome through ResponsiveListContainer... "
+if [ ! -r "$rlc_baseline" ]; then
+    echo -e "${RED}✗ FAIL${NC} (baseline ledger MISSING or unreadable: $rlc_baseline)"
+    failed_checks=$((failed_checks + 1))
+else
+    rlc_offenders=""
+    rlc_roots=""
+    # Scope to extension trees that actually DEFINE a ResponsiveListContainer.
+    # An extension without one has nothing to adopt. Private extensions are
+    # included, matching the other frontend guards in this script.
+    for rlc_root in extensions/*/frontend/src extensions/private/*/frontend/src; do
+        [ -d "$rlc_root" ] || continue
+        find "$rlc_root" -name 'ResponsiveListContainer.tsx' -print -quit 2>/dev/null | grep -q . \
+            && rlc_roots="$rlc_roots $rlc_root"
+    done
+    if [ -z "$rlc_roots" ]; then
+        # No extension defines the container in this checkout (core-mode clone,
+        # or public extensions only). Nothing to scan is not the same as
+        # nothing to find, so say which it is.
+        echo -e "${GREEN}✓ PASS${NC} (no extension frontend defines ResponsiveListContainer)"
+        passed_checks=$((passed_checks + 1))
+    else
+        while IFS= read -r rlcf; do
+            case "$rlcf" in *.test.tsx) continue ;; esac
+            rlc_hits=$(grep -nE '<table' "$rlcf" 2>/dev/null \
+                         | grep -vcE '^[0-9]+:[[:space:]]*(#|//|\*)' || true)
+            [ "${rlc_hits:-0}" -gt 0 ] || continue
+            grep -qE '^[[:space:]]*import[[:space:]].*ResponsiveListContainer' "$rlcf" && continue
+            # Known debt (exempt or still-owed) is listed in the baseline.
+            grep -qxF "$rlcf" "$rlc_baseline" && continue
+            rlc_offenders+="${rlcf} "
+        done < <(grep -rlE '<table' $rlc_roots --include='*.tsx' 2>/dev/null || true)
+        if [ -z "$rlc_offenders" ]; then
+            echo -e "${GREEN}✓ PASS${NC}"
+            passed_checks=$((passed_checks + 1))
+        else
+            rlc_count=$(printf '%s' "$rlc_offenders" | wc -w | tr -d ' ')
+            echo -e "${YELLOW}⚠ WARN${NC} (${rlc_count} NEW table component(s) outside the container; adopt it or add a reasoned entry to $rlc_baseline: $rlc_offenders)"
+            warnings=$((warnings + 1))
+        fi
+    fi
+fi
+
 echo ""
 echo -e "${BLUE}## File Organization${NC}"
 # Model-agnostic enforcement of the "NEVER save files to project root" rule
