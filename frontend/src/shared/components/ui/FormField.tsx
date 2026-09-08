@@ -8,7 +8,13 @@ export interface SelectOption {
 }
 
 export interface FormFieldProps {
-  label: string;
+  /**
+   * The field's name. A node rather than a string because several forms
+   * annotate the name inline — "Configuration (stored as JSON in <code>)" —
+   * and that annotation belongs beside the name, not in helpText, which is
+   * suppressed whenever the field has an error.
+   */
+  label: React.ReactNode;
   /**
    * Id for the rendered control. The label's `htmlFor` points at it, so a
    * caller only needs this when something outside the field has to reference

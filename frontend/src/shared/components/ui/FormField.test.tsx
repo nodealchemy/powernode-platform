@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FormField } from './FormField';
 
@@ -100,6 +99,22 @@ describe('FormField label association', () => {
     );
 
     expect(screen.getByLabelText('vCPUs')).toHaveAttribute('inputmode', 'decimal');
+  });
+
+  it('keeps an inline label annotation while an error is showing', () => {
+    // helpText is suppressed by an error, so a permanent annotation on the
+    // field's name has to live in the label itself.
+    render(
+      <FormField
+        label={<>Configuration <span>(JSON)</span></>}
+        value="{"
+        onChange={jest.fn()}
+        error="Invalid JSON"
+      />,
+    );
+
+    expect(screen.getByLabelText('Configuration (JSON)')).toBeInTheDocument();
+    expect(screen.getByText('Invalid JSON')).toBeInTheDocument();
   });
 
   it('renders helpText until an error replaces it', () => {
