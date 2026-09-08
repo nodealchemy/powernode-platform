@@ -127,6 +127,23 @@ export const useConfirmation = () => {
     }
   };
 
+  /**
+   * Drop a pending confirmation unconditionally.
+   *
+   * `handleClose` is the operator's dismiss and deliberately no-ops while an
+   * action is in flight. This is for the owning component instead: a modal that
+   * renders `null` when closed rather than unmounting keeps this hook's state,
+   * so a confirmation the operator left open re-appears the next time that
+   * modal opens — still carrying the `onConfirm` captured against the PREVIOUS
+   * subject. Components that stack a confirmation inside such a modal must call
+   * this when they close.
+   */
+  const close = React.useCallback(() => {
+    setIsOpen(false);
+    setOptions(null);
+    setLoading(false);
+  }, []);
+
   const handleConfirm = async () => {
     if (!options) return;
 
@@ -154,7 +171,7 @@ export const useConfirmation = () => {
     />
   ) : null;
 
-  return { confirm, ConfirmationDialog };
+  return { confirm, close, ConfirmationDialog };
 };
 
 export default ConfirmationModal;
