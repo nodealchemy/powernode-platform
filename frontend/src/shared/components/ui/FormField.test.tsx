@@ -117,6 +117,21 @@ describe('FormField label association', () => {
     expect(screen.getByText('Invalid JSON')).toBeInTheDocument();
   });
 
+  it('forwards a test hook to the control, not the wrapper', () => {
+    render(
+      <FormField
+        label="Network Mode"
+        type="select"
+        value="bridge"
+        onChange={jest.fn()}
+        data-testid="network-mode"
+        options={[{ value: 'bridge', label: 'bridge' }]}
+      />,
+    );
+
+    expect(screen.getByTestId('network-mode')).toBe(screen.getByLabelText('Network Mode'));
+  });
+
   it('renders helpText until an error replaces it', () => {
     const { rerender } = render(
       <FormField label="CIDR" value="" onChange={jest.fn()} helpText="e.g. 10.0.0.0/16" />,

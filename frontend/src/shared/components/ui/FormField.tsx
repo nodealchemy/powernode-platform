@@ -44,6 +44,12 @@ export interface FormFieldProps {
    * still wants the numeric keypad on a touch device.
    */
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  /**
+   * Forwarded to the control. Already reached it through the rest-props
+   * spread; declaring it means a caller with a test hook on its control does
+   * not have to choose between the hook and this component.
+   */
+  'data-testid'?: string;
   className?: string;
   icon?: React.ReactNode;
   showPasswordToggle?: boolean;
