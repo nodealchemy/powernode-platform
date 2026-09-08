@@ -50,6 +50,10 @@ export interface FormFieldProps {
    * not have to choose between the hook and this component.
    */
   'data-testid'?: string;
+  /** Server-side length cap mirrored in the browser, for text and textarea. */
+  maxLength?: number;
+  /** Focus this control when the field mounts, for a dialog's first field. */
+  autoFocus?: boolean;
   className?: string;
   icon?: React.ReactNode;
   showPasswordToggle?: boolean;
@@ -75,6 +79,8 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
     max,
     step,
     inputMode,
+    maxLength,
+    autoFocus,
     className = '',
     icon,
     showPasswordToggle = true,
@@ -171,6 +177,8 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
               placeholder={placeholder}
               disabled={disabled}
               rows={rows}
+              maxLength={maxLength}
+              autoFocus={autoFocus}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               className={`${inputClasses} resize-none`}
@@ -230,6 +238,8 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
               max={max}
               step={step}
               inputMode={inputMode}
+              maxLength={maxLength}
+              autoFocus={autoFocus}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               className={inputClasses}

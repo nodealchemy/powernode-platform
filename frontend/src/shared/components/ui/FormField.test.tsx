@@ -132,6 +132,33 @@ describe('FormField label association', () => {
     expect(screen.getByTestId('network-mode')).toBe(screen.getByLabelText('Network Mode'));
   });
 
+  it('caps length and takes focus on both a text input and a textarea', () => {
+    // Both are real behaviours a caller would otherwise have to give up: the
+    // cap mirrors a server-side limit, and the focus is what makes a dialog's
+    // first field typeable without a click.
+    const { unmount } = render(
+      <FormField label="Name" value="" onChange={jest.fn()} maxLength={64} autoFocus />,
+    );
+    const input = screen.getByLabelText('Name');
+    expect(input).toHaveAttribute('maxlength', '64');
+    expect(input).toHaveFocus();
+    unmount();
+
+    render(
+      <FormField
+        label="Reason"
+        type="textarea"
+        value=""
+        onChange={jest.fn()}
+        maxLength={64}
+        autoFocus
+      />,
+    );
+    const textarea = screen.getByLabelText('Reason');
+    expect(textarea).toHaveAttribute('maxlength', '64');
+    expect(textarea).toHaveFocus();
+  });
+
   it('renders helpText until an error replaces it', () => {
     const { rerender } = render(
       <FormField label="CIDR" value="" onChange={jest.fn()} helpText="e.g. 10.0.0.0/16" />,
