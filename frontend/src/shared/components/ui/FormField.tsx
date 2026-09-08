@@ -25,7 +25,18 @@ export interface FormFieldProps {
   value: string | undefined;
   onChange: (value: string) => void;
   placeholder?: string;
+  /**
+   * Marks the field as required IN THE LABEL only. It has never set the
+   * control's `required` attribute, and making it do so would hand native
+   * validation to every existing caller at once; use `nativeRequired` for the
+   * attribute.
+   */
   required?: boolean;
+  /**
+   * Sets the control's `required` attribute, for a form that relies on the
+   * browser to block an empty submit rather than validating in JS.
+   */
+  nativeRequired?: boolean;
   disabled?: boolean;
   error?: string;
   helpText?: string;
@@ -70,6 +81,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
     onChange,
     placeholder,
     required = false,
+    nativeRequired,
     disabled = false,
     error,
     helpText,
@@ -144,6 +156,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
                 disabled={disabled}
+                required={nativeRequired}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 className={`${inputClasses} appearance-none cursor-pointer pr-10`}
@@ -176,6 +189,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
               onChange={(e) => onChange(e.target.value)}
               placeholder={placeholder}
               disabled={disabled}
+              required={nativeRequired}
               rows={rows}
               maxLength={maxLength}
               autoFocus={autoFocus}
@@ -197,6 +211,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
                 disabled={disabled}
+                required={nativeRequired}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 className={`${inputClasses} pr-10`}
@@ -234,6 +249,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
               onChange={(e) => onChange(e.target.value)}
               placeholder={placeholder}
               disabled={disabled}
+              required={nativeRequired}
               min={min}
               max={max}
               step={step}

@@ -159,6 +159,34 @@ describe('FormField label association', () => {
     expect(textarea).toHaveFocus();
   });
 
+  it('separates the required marker from the required attribute', () => {
+    // `required` has always been label decoration here. Several SDWAN forms
+    // instead let the browser block an empty submit, and would lose that on
+    // adoption if the attribute were not reachable — while making `required`
+    // itself set it would hand native validation to every existing caller.
+    const { unmount } = render(
+      <FormField label="Name" value="" onChange={jest.fn()} required />,
+    );
+    expect(screen.getByLabelText(/Name/)).not.toBeRequired();
+    unmount();
+
+    render(
+      <>
+        <FormField label="Mapping name" value="" onChange={jest.fn()} nativeRequired />
+        <FormField
+          label="Hub peer"
+          type="select"
+          value=""
+          onChange={jest.fn()}
+          nativeRequired
+          options={[{ value: 'a', label: 'a' }]}
+        />
+      </>,
+    );
+    expect(screen.getByLabelText('Mapping name')).toBeRequired();
+    expect(screen.getByLabelText('Hub peer')).toBeRequired();
+  });
+
   it('renders helpText until an error replaces it', () => {
     const { rerender } = render(
       <FormField label="CIDR" value="" onChange={jest.fn()} helpText="e.g. 10.0.0.0/16" />,
