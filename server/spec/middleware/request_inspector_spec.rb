@@ -196,6 +196,46 @@ RSpec.describe RequestInspector do
     end
   end
 
+  # IMP-4f9ee46c0f50 — 2026-09-08: an operator's browser was IP-blocked by
+  # opening the autonomy dashboard. The SPA issues more than 50 API calls in
+  # its first seconds; every request past the 50th scored as its OWN
+  # suspicious hit, ten of those arrived inside one second, and block_ip
+  # fired. Two properties pin the fix: a page-load burst is at most ONE hit
+  # per window (so no single page load can block anyone), and the default
+  # threshold is above what a browser page load produces. A sustained flood
+  # still blocks: one hit per window, ten windows.
+  describe 'rapid-request bursts' do
+    let(:ip) { '203.0.113.42' }
+
+    it 'defaults the rapid-request threshold to 200 per window and reads DDOS_RAPID_REQUEST_THRESHOLD' do
+      expect(described_class.rapid_request_threshold).to eq(200)
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with('DDOS_RAPID_REQUEST_THRESHOLD', anything).and_return('75')
+      expect(described_class.rapid_request_threshold).to eq(75)
+    end
+
+    it 'scores a single burst above the threshold as ONE suspicious hit and does not block' do
+      (described_class.rapid_request_threshold + 20).times { call(ip: ip) }
+
+      expect(middleware.send(:get_suspicious_count, ip)).to eq(1)
+      expect(middleware.send(:blocked?, ip)).to be(false)
+      status, = call(ip: ip)
+      expect(status).to eq(200)
+    end
+
+    it 'still blocks a flood that stays above the threshold across enough windows' do
+      limit = RequestInspector::THRESHOLDS[:suspicious_request_limit]
+      limit.times do
+        (described_class.rapid_request_threshold + 5).times { call(ip: ip) }
+        # next 10s window: the per-window counters expire
+        Rails.cache.delete("ddos_rapid:#{ip}")
+        Rails.cache.delete("ddos_rapid_flagged:#{ip}")
+      end
+
+      expect(middleware.send(:blocked?, ip)).to be(true)
+    end
+  end
+
   describe 'progressive blocking after repeated suspicious requests' do
     let(:ip) { '203.0.113.99' }
     let(:malicious_query) { 'id=1 UNION SELECT password FROM users' }

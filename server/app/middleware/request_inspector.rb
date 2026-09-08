@@ -87,9 +87,28 @@ class RequestInspector
     block_duration_seconds: 3600,       # Block for 1 hour
     progressive_multiplier: 2,          # Double block time for repeat offenders
     max_block_duration: 86_400,         # Max 24 hour block
-    rapid_request_threshold: 50,        # Requests per 10 seconds
+    rapid_request_threshold: 200,       # Requests per RAPID_WINDOW_SECONDS (default; see .rapid_request_threshold)
     payload_size_limit: 10.megabytes    # Max request body size
   }.freeze
+
+  # The rapid-request window. Both the per-IP request counter and the
+  # "already flagged this window" marker live for exactly this long.
+  RAPID_WINDOW_SECONDS = 10
+
+  # Requests per window above which traffic is scored as a flood. The default
+  # is deliberately above a browser page load: the platform's own SPA issues
+  # 50-100 XHRs in the first seconds of a dashboard (IMP-4f9ee46c0f50 — the
+  # old default of 50 IP-blocked an operator for opening the autonomy page).
+  # Overridable per deployment without a rebuild via
+  # DDOS_RAPID_REQUEST_THRESHOLD; an unparseable value falls back to the
+  # default rather than disabling the check.
+  def self.rapid_request_threshold
+    raw = ENV.fetch("DDOS_RAPID_REQUEST_THRESHOLD", THRESHOLDS[:rapid_request_threshold])
+    value = Integer(raw)
+    value.positive? ? value : THRESHOLDS[:rapid_request_threshold]
+  rescue ArgumentError, TypeError
+    THRESHOLDS[:rapid_request_threshold]
+  end
 
   def initialize(app)
     @app = app
@@ -219,13 +238,28 @@ class RequestInspector
     end
   end
 
+  # A flood is a per-WINDOW signal, so it is scored at most once per window
+  # per IP. Scoring every request past the threshold made one burst equal
+  # suspicious_request_limit hits inside a second, i.e. a single page load was
+  # a block. A sustained flood still accrues one hit per window and blocks
+  # after suspicious_request_limit windows (~100s at the defaults).
   def check_request_rate(request, result)
     rapid_request_count = get_rapid_request_count(request.ip)
+    return unless rapid_request_count > self.class.rapid_request_threshold
+    return unless flag_rapid_window!(request.ip)
 
-    if rapid_request_count > THRESHOLDS[:rapid_request_threshold]
-      result[:threats] << { type: :rapid_requests, count: rapid_request_count }
-      result[:score] += 5
-    end
+    result[:threats] << { type: :rapid_requests, count: rapid_request_count }
+    result[:score] += 5
+  end
+
+  # Marks the current window as flagged for the IP. Returns true only the
+  # first time in a window; the marker expires with the window.
+  def flag_rapid_window!(ip)
+    key = "ddos_rapid_flagged:#{ip}"
+    return false if Rails.cache.read(key).present?
+
+    Rails.cache.write(key, true, expires_in: RAPID_WINDOW_SECONDS.seconds)
+    true
   end
 
   def check_payload_size(request, result)
@@ -300,7 +334,7 @@ class RequestInspector
   def track_request(request)
     cache_key = "ddos_rapid:#{request.ip}"
     current = Rails.cache.read(cache_key).to_i
-    Rails.cache.write(cache_key, current + 1, expires_in: 10.seconds)
+    Rails.cache.write(cache_key, current + 1, expires_in: RAPID_WINDOW_SECONDS.seconds)
   end
 
   def get_rapid_request_count(ip)
