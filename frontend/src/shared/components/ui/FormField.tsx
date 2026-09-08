@@ -25,6 +25,13 @@ export interface FormFieldProps {
   helpText?: string;
   options?: SelectOption[];
   rows?: number;
+  /**
+   * Numeric bounds for `type="number"`. Present so a caller does not have to
+   * drop a browser-enforced constraint in order to adopt this component.
+   */
+  min?: number | string;
+  max?: number | string;
+  step?: number | string;
   className?: string;
   icon?: React.ReactNode;
   showPasswordToggle?: boolean;
@@ -46,6 +53,9 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
     helpText,
     options = [],
     rows = 3,
+    min,
+    max,
+    step,
     className = '',
     icon,
     showPasswordToggle = true,
@@ -197,6 +207,9 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
               onChange={(e) => onChange(e.target.value)}
               placeholder={placeholder}
               disabled={disabled}
+              min={min}
+              max={max}
+              step={step}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               className={inputClasses}

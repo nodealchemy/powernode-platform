@@ -80,6 +80,18 @@ describe('FormField label association', () => {
     expect(screen.getByLabelText('Region')).toHaveAttribute('id', 'region-field');
   });
 
+  it('passes numeric bounds through to a number input', () => {
+    // Without these a caller adopting FormField would have to drop a
+    // browser-enforced constraint it previously had.
+    render(
+      <FormField label="Size (GB)" type="number" value="10" onChange={jest.fn()} min={1} max={16384} />,
+    );
+
+    const input = screen.getByLabelText('Size (GB)');
+    expect(input).toHaveAttribute('min', '1');
+    expect(input).toHaveAttribute('max', '16384');
+  });
+
   it('renders helpText until an error replaces it', () => {
     const { rerender } = render(
       <FormField label="CIDR" value="" onChange={jest.fn()} helpText="e.g. 10.0.0.0/16" />,
