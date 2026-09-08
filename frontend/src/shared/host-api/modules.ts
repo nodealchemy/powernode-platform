@@ -69,6 +69,7 @@ const HOST_APP_IDS = [
   '@/shared/components/ui/LoadingSpinner',
   '@/shared/components/ui/Modal',
   '@/shared/components/ui/MultiSelect',
+  '@/shared/components/ui/Pagination',
   '@/shared/components/ui/TabContainer',
   // Shared hooks
   '@/shared/hooks/BreadcrumbContext',
