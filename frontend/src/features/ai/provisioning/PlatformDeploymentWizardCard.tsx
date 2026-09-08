@@ -1,11 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Server, AlertCircle, CheckCircle2, Copy, Check, KeyRound, Rocket, HardDrive } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { logger } from '@/shared/utils/logger';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePermissions } from '@/shared/hooks/usePermissions';
 import type { ChatCard } from '@/shared/types/ai';
-import { provisioningApi, type CreateVolumeRequest } from './services/provisioningApi';
+import {
+  provisioningApi,
+  type CreateVolumeRequest,
+  type ExistingVolume,
+} from './services/provisioningApi';
 
 /**
  * Renders the `platform_deployment_wizard` ChatCard inline in concierge
@@ -105,6 +112,18 @@ export const PlatformDeploymentWizardCard: React.FC<PlatformDeploymentWizardCard
   );
 };
 
+/**
+ * The server's own sentence when it sent one. An axios rejection's `message` is
+ * "Request failed with status code 403", which tells the operator that the read
+ * failed but never why — and why is the whole reason this arm exists.
+ */
+function volumeReadMessage(err: unknown): string {
+  const body = (err as { response?: { data?: { error?: unknown } } })?.response?.data;
+  if (typeof body?.error === 'string' && body.error.trim()) return body.error;
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return 'Failed to load volumes';
+}
+
 function isFormPayload(payload: unknown): payload is WizardFormPayload {
   return (
     typeof payload === 'object' &&
@@ -165,7 +184,30 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
   const [createVolumeError, setCreateVolumeError] = useState<string | null>(null);
   // Local list lets us inject newly-created volumes without refetching the wizard payload.
   const [extraVolumes, setExtraVolumes] = useState<AvailableVolume[]>([]);
+  // The account's volumes, read live. card.storage.available_volumes is a
+  // snapshot taken when this card was rendered, so it cannot show a volume
+  // created since — including one the operator created themselves in an
+  // earlier card, which is how the same volume gets minted twice.
+  const [accountVolumes, setAccountVolumes] = useState<ExistingVolume[]>([]);
+  const [volumeCount, setVolumeCount] = useState(0);
+  const [volumesTruncated, setVolumesTruncated] = useState(false);
+  const [volumesLoading, setVolumesLoading] = useState(false);
+  // Distinguishes "not asked yet" from "asked, and the account is empty". The
+  // effect runs after commit, so without it the panel claims an empty account
+  // for one frame while the picker beside it lists candidates.
+  //
+  // Deliberately not covered by a test: Testing Library flushes effects before
+  // any assertion runs, so the frame this guards against cannot be observed
+  // from a spec. Deleting it therefore kills no test and still reintroduces
+  // the lie in a browser.
+  const [volumesFetched, setVolumesFetched] = useState(false);
+  const [volumesError, setVolumesError] = useState<string | null>(null);
+  const [volumesReloadKey, setVolumesReloadKey] = useState(0);
   const { addNotification } = useNotifications();
+  const { hasPermission } = usePermissions();
+  // The shim requires system.volumes.read. Without it the read is a 403, and
+  // "you do not have access" is the truth rather than a failure to report.
+  const canReadVolumes = hasPermission('system.volumes.read');
 
   const isFederated = mode === 'federated';
   const storage = card.storage;
@@ -175,12 +217,59 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
   );
   const recommendedSize = storage?.recommended_size_gb_by_role?.[serviceRole];
   const mountPoint = storage?.mount_points?.[serviceRole];
+  // Only fetched for a stateful role: the storage step is the only place the
+  // answer is used, and every other role would be paying for a request whose
+  // result is never rendered.
+  useEffect(() => {
+    if (!isStatefulRole || !canReadVolumes) return;
+    let cancelled = false;
+    setVolumesLoading(true);
+    setVolumesError(null);
+    provisioningApi
+      .listPlatformVolumes()
+      .then((page) => {
+        if (cancelled) return;
+        setAccountVolumes(page.volumes);
+        setVolumeCount(page.count);
+        setVolumesTruncated(page.hasMore || page.count > page.volumes.length);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        logger.error('PlatformDeploymentWizard list volumes failed', { err });
+        setVolumesError(volumeReadMessage(err));
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setVolumesLoading(false);
+        setVolumesFetched(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isStatefulRole, canReadVolumes, volumesReloadKey]);
+
   const compatibleVolumes = useMemo(() => {
     const base = storage?.available_volumes ?? [];
-    const all = [...base, ...extraVolumes];
+    // The snapshot in the card payload is ALREADY narrowed to available +
+    // unattached; the live read is not filtered at all, so it has to be
+    // narrowed here. Offering a volume mounted on another instance as the
+    // target of a new deployment is worse than not listing it: the orchestrator
+    // auto-picks "the smallest matching unattached volume" and would never
+    // choose it either.
+    const attachable: AvailableVolume[] = accountVolumes
+      .filter((v) => (v.status ?? 'available') === 'available' && !v.attached_to)
+      .map((v) => ({ id: v.id, name: v.name, size_gb: v.size_gb }));
+    // The three sources overlap — the snapshot, the live read, and anything
+    // created in this card — so they are merged by id rather than concatenated,
+    // or the picker offers the same volume two or three times. The snapshot
+    // goes in LAST of the two reads because it carries fields the live read
+    // does not (provider_region_id, created_at).
+    const byId = new Map<string, AvailableVolume>();
+    [...attachable, ...base, ...extraVolumes].forEach((v) => byId.set(v.id, v));
+    const all = [...byId.values()];
     if (!recommendedSize) return all;
     return all.filter((v) => v.size_gb >= recommendedSize);
-  }, [storage, recommendedSize, extraVolumes]);
+  }, [storage, recommendedSize, extraVolumes, accountVolumes]);
 
   const handleCreateVolume = async () => {
     const sizeGb = parseInt(newVolume.size_gb, 10);
@@ -219,6 +308,10 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
         },
       ]);
       setVolumeChoice(created.id);
+      // The panel reads the server, so it needs a fresh read to show what was
+      // just created — otherwise the section headed "Volumes on this account"
+      // keeps saying there are none while the picker lists the new one.
+      setVolumesReloadKey((k) => k + 1);
       // Reset the create form
       setNewVolume({ name: '', size_gb: '', transport: 'nfs', nfs_server: '', nfs_export_path: '' });
     } catch (err: unknown) {
@@ -378,6 +471,64 @@ const FormCard: React.FC<{ payload: WizardFormPayload; className: string }> = ({
                 ({serviceRole} is stateful — recommended ≥{recommendedSize ?? '?'} GB
                 {mountPoint && `, mount at ${mountPoint}`})
               </span>
+            </div>
+
+            {/* Existing volumes, read live. Loading, error and empty each get a
+                state of their own: an operator who cannot tell "none yet" from
+                "the read failed" will create a duplicate either way. */}
+            <div className="rounded border border-theme bg-theme-surface">
+              <div className="px-2 py-1.5 text-xs font-medium text-theme-secondary border-b border-theme">
+                Volumes on this account
+              </div>
+              {!canReadVolumes ? (
+                <div className="px-2 py-3 text-xs text-theme-secondary">
+                  You do not have permission to list volumes (system.volumes.read).
+                </div>
+              ) : volumesLoading || !volumesFetched ? (
+                <div className="flex items-center gap-2 px-2 py-3 text-xs text-theme-secondary">
+                  <LoadingSpinner size="sm" />
+                  <span>Loading volumes…</span>
+                </div>
+              ) : volumesError ? (
+                <div className="p-2 space-y-2">
+                  <ErrorAlert message={volumesError} />
+                  {/* Without a retry the operator is stuck in the one state
+                      this panel exists to keep them out of. */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setVolumesReloadKey((k) => k + 1)}
+                  >
+                    Try again
+                  </Button>
+                </div>
+              ) : accountVolumes.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-theme-secondary">
+                  No volumes on this account yet — create one below.
+                </div>
+              ) : (
+                <ul className="divide-y divide-theme max-h-40 overflow-y-auto">
+                  {accountVolumes.map((v) => (
+                    <li
+                      key={v.id}
+                      className="flex items-center justify-between gap-2 px-2 py-1.5 text-xs"
+                    >
+                      <span className="text-theme-primary truncate">{v.name}</span>
+                      <span className="text-theme-secondary whitespace-nowrap">
+                        {v.size_gb} GB
+                        {v.status ? ` · ${v.status}` : ''}
+                        {v.attached_to ? ' · attached' : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {volumesTruncated && (
+                <div className="px-2 py-1.5 text-xs text-theme-warning-fg border-t border-theme">
+                  Showing {accountVolumes.length} of {volumeCount} — this list is partial, so
+                  it cannot tell you a name is unused.
+                </div>
+              )}
             </div>
 
             <Field label="Volume">
