@@ -130,4 +130,100 @@ RSpec.describe Ai::Loop::PolicyCatalog do
       expect(described_class.manual_paths(["", nil, "  "])).to eq([])
     end
   end
+
+  # IMP-a25913975485 — the globs are lowercase and the matcher was case-sensitive,
+  # so **/*credential* and **/*secret* only ever matched snake_case Ruby paths.
+  # Frontend files are PascalCase/camelCase, which made every TSX credential
+  # surface invisible to the guard: IMP-18832c3c6128 added a panel that lists and
+  # deletes stored cloud credentials and closed unchallenged, while a snake_case
+  # controller touching the same domain in the same session was blocked.
+  describe "case-insensitive name hints" do
+    it "treats a PascalCase credential component as keep-manual" do
+      expect(
+        described_class.keep_manual?(
+          "extensions/system/frontend/src/features/system/components/providers/ProviderCredentialsPanel.tsx"
+        )
+      ).to be true
+    end
+
+    it "treats a camelCase credential api module as keep-manual" do
+      expect(
+        described_class.keep_manual?(
+          "extensions/system/frontend/src/features/system/services/api/providerCredentialsApi.ts"
+        )
+      ).to be true
+    end
+
+    # RESIDUAL GAP, pinned deliberately rather than left to be rediscovered.
+    #
+    # Case-folding does NOT reach the key-material globs on a PascalCase path,
+    # because "**/*api_key*" and "**/*private_key*" carry an underscore that
+    # PascalCase drops: ApiKeyForm.tsx has no "api_key" substring at any casing.
+    # The offer that produced this change asked for ApiKeyForm.tsx to become
+    # keep-manual; case-folding alone cannot deliver that, and widening the globs
+    # is a different change with a different blast radius, so it is reported
+    # rather than smuggled in here.
+    #
+    # If a separator-insensitive variant lands later, flip this expectation.
+    it "gates a PascalCase api-key form" do
+      # PENDING, not a green assertion of the broken state. RSpec fails a pending
+      # example the moment it starts passing, so widening the globs trips this
+      # automatically; a comment saying "flip this later" never would.
+      pending("underscore globs cannot match PascalCase; separate gap, see IMP-a25913975485 report")
+      expect(described_class.keep_manual?("frontend/src/components/settings/ApiKeyForm.tsx")).to be true
+    end
+
+    it "gates a PascalCase private-key upload" do
+      pending("same underscore gap as **/*api_key*; **/*private_key* cannot match PascalCase")
+      expect(described_class.keep_manual?("frontend/src/features/settings/PrivateKeyUpload.tsx")).to be true
+    end
+
+    it "still gates the snake_case twins, isolating the cause to the separator" do
+      # Containment for the two pendings above: casing is fixed, separators are not.
+      expect(described_class.keep_manual?("frontend/src/components/settings/api_key_form.tsx")).to be true
+      expect(described_class.keep_manual?("frontend/src/features/settings/private_key_upload.tsx")).to be true
+    end
+
+    it "reports the glob that matched, not merely a boolean" do
+      expect(
+        described_class.keep_manual_pattern(
+          "extensions/system/frontend/src/features/system/services/api/providerCredentialsApi.ts"
+        )
+      ).to eq("**/*credential*")
+    end
+
+    # NAME_HINT_EXEMPT must keep its meaning: a test file named after a credential
+    # surface stores no key material, and case-folding must not start gating specs.
+    it "keeps a PascalCase credential spec name-hint exempt" do
+      expect(
+        described_class.keep_manual?(
+          "extensions/system/frontend/src/features/system/components/providers/ProviderCredentialsPanel.test.tsx"
+        )
+      ).to be false
+    end
+
+    it "keeps a camelCase credential api spec name-hint exempt" do
+      expect(
+        described_class.keep_manual?(
+          "extensions/system/frontend/src/features/system/services/api/providerCredentialsApi.test.ts"
+        )
+      ).to be false
+    end
+
+    # An UNCONDITIONAL directory glob is not a name hint and is never exempted,
+    # so a spec living under a gated directory stays keep-manual.
+    it "folds case on unconditional DIRECTORY globs too, not just name hints" do
+      # Cased on purpose: the all-lowercase form is already asserted above and
+      # passes with or without the fix, so it carries no information here.
+      expect(described_class.keep_manual?("server/spec/services/Vault/client_spec.rb")).to be true
+    end
+
+    # The symmetric consequence, pinned so it is a decision rather than a surprise:
+    # NAME_HINT_EXEMPT folds too, so a cased structural directory now exempts a
+    # name-hint hit exactly as its lowercase twin always did.
+    it "exempts a name-hint hit under a cased structural directory" do
+      expect(described_class.keep_manual?("server/app/models/Concerns/credential_display.rb")).to be false
+      expect(described_class.keep_manual?("server/app/models/concerns/credential_display.rb")).to be false
+    end
+  end
 end

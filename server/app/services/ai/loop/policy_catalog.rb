@@ -15,7 +15,26 @@ module Ai
     #
     # Pure / code-defined — no DB, no migration.
     class PolicyCatalog
-      FNM = File::FNM_PATHNAME | File::FNM_DOTMATCH
+      # FNM_CASEFOLD is load-bearing, not tidiness. Every glob below is lowercase,
+      # so without it the name hints (*credential*, *secret*) and the key-material
+      # globs only ever matched snake_case Ruby paths. Frontend files are
+      # PascalCase/camelCase, which made a TSX credential panel invisible to this
+      # guard: a change adding a surface that lists and deletes stored cloud
+      # credentials closed unchallenged, while a snake_case controller touching the
+      # same domain in the same session was blocked (IMP-a25913975485).
+      #
+      # It is NOT monotonically fail-closed. The same flag applies to the
+      # unconditional directory globs (so **/vault/** now also matches Vault/) AND
+      # to NAME_HINT_EXEMPT, which WIDENS exemption symmetrically: a file under
+      # Concerns/ or Factories/ that a name hint would have caught is now exempt,
+      # exactly as its lowercase twin already was. That is the intended reading —
+      # a directory named Concerns/ is a concerns directory — but it means folding
+      # case both gates more and exempts more. Tree-wide at the time of the change
+      # this moved 20 files into keep-manual and 0 out of it.
+      #
+      # FNM_CASEFOLD is ASCII-only in Ruby, so this is not case-insensitivity in
+      # general; a non-ASCII path still matches case-sensitively.
+      FNM = File::FNM_PATHNAME | File::FNM_DOTMATCH | File::FNM_CASEFOLD
 
       # KEEP-MANUAL — generic protected-path globs that must never be changed on the
       # autonomous path without human review. Directory matches use the `**/<dir>/**`

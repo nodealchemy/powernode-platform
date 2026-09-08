@@ -8,6 +8,15 @@ module Ai
     # how to act on the verdict (the dev-loop remaps a violating pass to a human-gated
     # block). Reuses Ai::CodeFactory::RiskContract tiering for the critical-tier check.
     class ScopeGuardrail
+      # DELIBERATELY case-SENSITIVE, unlike Ai::Loop::PolicyCatalog::FNM.
+      #
+      # This constant governs only the per-loop operator config globs
+      # (configuration["scope_guardrail"]["allow"] / ["deny"]). The protected-path
+      # denylist does NOT flow through it — evaluate consults
+      # PolicyCatalog.keep_manual_pattern directly, which folds case since
+      # IMP-a25913975485. Folding here would also fold "allow", which LOOSENS what
+      # an operator's exemption covers, and that is a decision to take on its own
+      # evidence rather than a side effect of a case-folding fix.
       FNM = File::FNM_PATHNAME | File::FNM_DOTMATCH
 
       # The article's "keep-manual" set: generic protected-path globs that should never

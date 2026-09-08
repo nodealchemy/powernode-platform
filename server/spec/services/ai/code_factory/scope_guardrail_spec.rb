@@ -47,6 +47,27 @@ RSpec.describe Ai::CodeFactory::ScopeGuardrail do
       expect(result[:allowed]).to be false
     end
 
+    # IMP-a25913975485 — the two pinned together, on purpose.
+    #
+    # evaluate reaches the protected-path list through
+    # PolicyCatalog.keep_manual_pattern, not through this class's own FNM, so the
+    # case-folding fix reaches it for free. That is easy to undo by accident: a
+    # future refactor that "simplifies" evaluate to match DEFAULT_DENYLIST with
+    # the local matcher would restore the original bug silently, because this
+    # class's FNM is still case-sensitive and DEFAULT_DENYLIST is otherwise dead.
+    # The example below fails if that happens. Singular: the exempt DIRECTION is
+    # already covered at "allows a concerns file whose name hints at credentials",
+    # and a cased exempt path would match no glob at all under the local matcher,
+    # so it would pass a rewired evaluate rather than catch it.
+    it "blocks a PascalCase credential surface, matching the catalog" do
+      path = "extensions/system/frontend/src/features/system/components/providers/ProviderCredentialsPanel.tsx"
+
+      result = described_class.new.evaluate([path])
+
+      expect(result[:allowed]).to be false
+      expect(Ai::Loop::PolicyCatalog.keep_manual?(path)).to be true
+    end
+
     it "blocks private_key paths" do
       result = described_class.new.evaluate(["server/lib/private_key_loader.rb"])
       expect(result[:allowed]).to be false
