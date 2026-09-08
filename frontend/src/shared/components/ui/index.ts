@@ -11,6 +11,7 @@ export * from '@/shared/components/ui/Button';
 export * from '@/shared/components/ui/Card';
 export * from '@/shared/components/ui/Modal';
 export * from '@/shared/components/ui/ConfirmationModal';
+export * from '@/shared/components/ui/OneShotRevealModal';
 export * from '@/shared/components/ui/StatusIndicator';
 export * from '@/shared/components/ui/LoadingSpinner';
 export * from '@/shared/components/ui/Pagination';
