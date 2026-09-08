@@ -16,8 +16,9 @@ module Ai
     # Pure / code-defined — no DB, no migration.
     class PolicyCatalog
       # FNM_CASEFOLD is load-bearing, not tidiness. Every glob below is lowercase,
-      # so without it the name hints (*credential*, *secret*) and the key-material
-      # globs only ever matched snake_case Ruby paths. Frontend files are
+      # so without it the name hints (*credential*, *secret*) only ever matched
+      # snake_case Ruby paths. (The key-material hints had a second problem that
+      # case-folding could not reach; they are regexes now — KEY_MATERIAL_HINTS.) Frontend files are
       # PascalCase/camelCase, which made a TSX credential panel invisible to this
       # guard: a change adding a surface that lists and deletes stored cloud
       # credentials closed unchallenged, while a snake_case controller touching the
@@ -39,8 +40,11 @@ module Ai
       # KEEP-MANUAL — generic protected-path globs that must never be changed on the
       # autonomous path without human review. Directory matches use the `**/<dir>/**`
       # form so they match at any depth (FNM_PATHNAME-safe). This is the canonical
-      # list; Ai::CodeFactory::ScopeGuardrail reads it through keep_manual_pattern
-      # rather than holding a copy, so the exemption semantics travel with it.
+      # list of GLOBS, but not the whole rule: the key-material name hints live
+      # in KEY_MATERIAL_HINTS because a glob cannot express them. The canonical
+      # entry point is keep_manual_pattern, which consults both.
+      # Ai::CodeFactory::ScopeGuardrail reads it through that method rather than
+      # holding a copy, so the exemption semantics travel with it.
       #
       # NOTE: migrations and schema are deliberately EXCLUDED — they are far too common
       # in ordinary improvement work (every model/table change touches them) to gate.
@@ -53,22 +57,63 @@ module Ai
         # credentials / secrets / vault
         "**/credentials/**", "**/*credential*", "**/secrets/**", "**/*secret*", "**/vault/**",
         # signing / wallets
-        "**/signing/**", "**/*signer*", "**/wallet/**", "**/wallets/**",
-        # key material
-        "**/*private_key*", "**/*api_key*",
+        # NOTE: the *signer* NAME hint is not here — see KEY_MATERIAL_HINTS.
+        "**/signing/**", "**/wallet/**", "**/wallets/**",
+        # key material: the NAME hints live in KEY_MATERIAL_HINTS, not here,
+        # because a glob cannot express them (see that constant).
         # Rails secret files
         "**/config/credentials*", "**/config/master.key", "**/.env*"
       ].freeze
+
+      # KEY-MATERIAL name hints. Regexes, not globs, because fnmatch can express
+      # neither property this family needs.
+      #
+      # SEPARATOR-AGNOSTIC. api_key, api-key, apiKey and ApiKey are one concept,
+      # and a frontend writes it in a case and separator style a snake_case glob
+      # can never match. Case-folding alone did not fix this: "**/*api_key*"
+      # needs the literal substring "api_key", which ApiKeyForm.tsx does not
+      # contain at any casing (IMP-a25913975485 left this open deliberately).
+      #
+      # WORD-BOUNDED. The old "**/*signer*" was a substring match, so it claimed
+      # every path containing "designer" — the topology-designer seed and agent
+      # skeleton were keep-manual for a reason unrelated to signing keys. Fixing
+      # the matcher is better than exempting those files, because the next
+      # "designer" would have needed its own exemption.
+      #
+      # Matching runs over a normalised form (see .normalize_for_hint): every
+      # separator becomes "_", camelCase and acronym boundaries become "_", and
+      # the whole thing is downcased. So the patterns below only ever need to
+      # describe underscore-delimited tokens.
+      #
+      # The keys are LABELS, deliberately not the globs these replace. Two of the
+      # replaced globs would be false if pasted back into fnmatch: these match
+      # the whole normalised PATH, so a directory segment counts, where
+      # "**/*api_key*" under FNM_PATHNAME cannot match app/api_keys/foo.rb.
+      # Gating that directory is right; reporting a glob that would not match it
+      # is not, so keep_manual_pattern reports the label instead.
+      #
+      # The separator is OPTIONAL, so apikey and APIKEY are caught alongside
+      # api_key and ApiKey. Verified over the tracked tree: making it optional
+      # gates no additional file, and the trailing boundary still rejects
+      # api_keyserver and ApiKeywordFilter.
+      KEY_MATERIAL_HINTS = {
+        "key-material name: api_key"     => /(?:\A|_)api_?keys?(?:_|\z)/,
+        "key-material name: private_key" => /(?:\A|_)private_?keys?(?:_|\z)/,
+        "key-material name: signer"      => /(?:\A|_)signers?(?:_|\z)/
+      }.freeze
 
       # NAME-HINT globs — the subset of KEEP_MANUAL_DENYLIST that matches on a bare
       # WORD in the filename. These are deliberately broad and produce recurring false
       # positives on files that merely carry the word (a spec for a credential
       # validator, a display concern, a factory) without storing or handling secret
       # material. A name-hint match is therefore subject to NAME_HINT_EXEMPT below.
-      # Everything else in the denylist — directory-form globs (**/credentials/**,
-      # **/secrets/**, **/vault/**, **/signing/**, ...), Rails secret files, and the
-      # key-material name globs (*private_key* / *api_key* / *signer*) — stays
-      # UNCONDITIONAL (fail-closed), even for specs and concerns.
+      # Everything else stays UNCONDITIONAL (fail-closed), even for specs and
+      # concerns: the directory-form globs (**/credentials/**, **/secrets/**,
+      # **/vault/**, **/signing/**, ...), the Rails secret files, and the
+      # KEY_MATERIAL_HINTS regexes. That last one is a deliberate choice rather
+      # than an oversight — a spec or fixture named after key material often
+      # contains a real sample of it, so it is gated exactly as the globs it
+      # replaced were.
       NAME_HINT_GLOBS = ["**/*credential*", "**/*secret*"].freeze
 
       # Structural/test shapes exempt from a NAME-HINT match only. These files do not
@@ -111,6 +156,13 @@ module Ai
           hit = unconditional.find { |glob| File.fnmatch(glob, file, FNM) }
           return hit if hit
 
+          # Key-material hints are unconditional too: they are not subject to
+          # NAME_HINT_EXEMPT, so a spec or factory named after key material stays
+          # gated, exactly as the globs they replace did.
+          normalized = normalize_for_hint(file)
+          key_hit = KEY_MATERIAL_HINTS.find { |_label, re| re.match?(normalized) }
+          return key_hit.first if key_hit
+
           name_hit = NAME_HINT_GLOBS.find { |glob| File.fnmatch(glob, file, FNM) }
           return nil unless name_hit
           return nil if NAME_HINT_EXEMPT.any? { |glob| File.fnmatch(glob, file, FNM) }
@@ -124,6 +176,36 @@ module Ai
           return false if category.nil?
 
           GOOD_FIRST.include?(category.to_s)
+        end
+
+        # Normalise a path so KEY_MATERIAL_HINTS can be written as plain
+        # underscore-delimited tokens.
+        #
+        #   frontend/src/settings/ApiKeyForm.tsx -> frontend_src_settings_api_key_form_tsx
+        #   server/lib/private-key-loader.rb     -> server_lib_private_key_loader_rb
+        #   .../system_topology_designer_agent.rb -> ..._system_topology_designer_agent_rb
+        #
+        # The third is the point: "designer" stays one token, so the underscore-
+        # anchored signer pattern cannot claim it, where the old "**/*signer*"
+        # substring glob did. Note the anchors are (?:\A|_) and (?:_|\z), NOT \b:
+        # "_" is a word character, so \bsigner\b would fail on api_signer_x.
+        #
+        # Both camel rules are needed. The first splits fooBar; the second splits
+        # the acronym boundary in APIKey, which the first cannot see because
+        # there is no lower-to-upper transition at the K.
+        #
+        # @api private — public only so the spec can pin the transformation
+        #   directly; it is not a general-purpose underscorize (it destroys "/"
+        #   and ".") and nothing outside this class should call it.
+        # @param path [String]
+        # @return [String]
+        def normalize_for_hint(path)
+          path
+            .to_s
+            .gsub(/([a-z\d])([A-Z])/, '\\1_\\2')
+            .gsub(/([A-Z]+)([A-Z][a-z])/, '\\1_\\2')
+            .gsub(/[^A-Za-z\d]+/, "_")
+            .downcase
         end
 
         # @param paths [Array<String>]
