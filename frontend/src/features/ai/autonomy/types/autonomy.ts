@@ -130,7 +130,11 @@ export interface ApprovalRequest {
   request_id: string;
   agent_id?: string;
   agent_name?: string;
-  action_type: string;
+  /** Falls back to action_category server-side; may still be absent for
+   *  producers that write neither (title with `approvalTitle`). */
+  action_type?: string;
+  action_category?: string;
+  source_type?: string;
   status: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
   description?: string;
   request_data: Record<string, unknown>;

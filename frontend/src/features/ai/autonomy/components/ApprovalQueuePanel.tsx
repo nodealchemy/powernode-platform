@@ -12,6 +12,13 @@ const formatDate = (dateStr?: string): string => {
   return new Date(dateStr).toLocaleString();
 };
 
+// A card must never render a blank title: action_type is only written by one
+// producer, so fall through the category, the human description, and finally
+// the source type (fleet-signal and gate-parked requests carried an empty
+// header until this).
+const approvalTitle = (request: ApprovalRequest): string =>
+  request.action_type || request.action_category || request.description || request.source_type || 'Approval request';
+
 const ApprovalCard: React.FC<{
   request: ApprovalRequest;
   isExpanded: boolean;
@@ -34,6 +41,10 @@ const ApprovalCard: React.FC<{
 
   const isPending = request.status === 'pending';
   const requestDataKeys = Object.keys(request.request_data ?? {});
+  const title = approvalTitle(request);
+  // The description is the only operator-readable text on most rows; show it
+  // collapsed unless it IS the title.
+  const summary = request.description && request.description !== title ? request.description : undefined;
 
   return (
     <div className="rounded-lg bg-theme-surface border border-theme overflow-hidden">
@@ -54,9 +65,12 @@ const ApprovalCard: React.FC<{
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle className="h-4 w-4 text-theme-warning-fg shrink-0" />
             <span className="text-sm font-medium text-theme-primary truncate">
-              {request.action_type}
+              {title}
             </span>
           </div>
+          {summary && (
+            <p className="text-xs text-theme-secondary mb-1 line-clamp-2">{summary}</p>
+          )}
           <div className="flex items-center gap-3 text-xs text-theme-tertiary">
             {request.agent_name && (
               <span className="flex items-center gap-1">
@@ -80,7 +94,7 @@ const ApprovalCard: React.FC<{
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
             <div>
               <p className="text-xs text-theme-tertiary">Action Type</p>
-              <p className="text-theme-primary font-medium">{request.action_type}</p>
+              <p className="text-theme-primary font-medium">{title}</p>
             </div>
             <div>
               <p className="text-xs text-theme-tertiary">Status</p>

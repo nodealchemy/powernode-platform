@@ -303,3 +303,57 @@ describe('ApprovalQueuePanel one-shot revealed_result', () => {
     expect(screen.getByText(SECRET)).toBeInTheDocument();
   });
 });
+
+describe('ApprovalQueuePanel card title', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Only one producer writes request_data.action_type; the gate and the fleet
+  // service do not, and every one of their cards rendered a blank header with
+  // the description hidden behind the expander.
+  it('titles a row without action_type from its category and shows the description collapsed', async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        data: [{
+          id: 'req-2',
+          request_id: 'req-2',
+          action_category: 'release.rollback',
+          source_type: 'Ai::DeferredOperation',
+          status: 'pending',
+          description: "Roll module 'powernode-hub-backend' back from v98 to v99",
+          request_data: { action_category: 'release.rollback' },
+          created_at: '2026-09-08T15:43:00Z',
+        }],
+      },
+    });
+
+    renderPanel();
+
+    expect(await screen.findByText('release.rollback')).toBeInTheDocument();
+    expect(screen.getByText("Roll module 'powernode-hub-backend' back from v98 to v99")).toBeInTheDocument();
+  });
+
+  it('falls back to the description, then the source type, when no category exists either', async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        data: [
+          {
+            id: 'req-3', request_id: 'req-3', status: 'pending', source_type: 'system_fleet',
+            description: 'Fleet signal system.instance_silent (severity=medium)',
+            request_data: {}, created_at: '2026-09-08T16:18:00Z',
+          },
+          {
+            id: 'req-4', request_id: 'req-4', status: 'pending', source_type: 'system_fleet',
+            request_data: {}, created_at: '2026-09-08T16:19:00Z',
+          },
+        ],
+      },
+    });
+
+    renderPanel();
+
+    expect(await screen.findByText('Fleet signal system.instance_silent (severity=medium)')).toBeInTheDocument();
+    expect(screen.getByText('system_fleet')).toBeInTheDocument();
+  });
+});
