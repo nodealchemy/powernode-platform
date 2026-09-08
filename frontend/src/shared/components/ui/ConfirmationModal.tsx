@@ -15,6 +15,13 @@ export interface ConfirmationModalProps {
   cancelLabel?: string;
   variant?: ConfirmationVariant;
   loading?: boolean;
+  /**
+   * Disable the confirm button while the dialog stays open — for a body that
+   * collects something the action REQUIRES (a typed reason, an acknowledgement)
+   * and is not yet valid. `loading` already disables both buttons during the
+   * action itself; this is about the state before it can start.
+   */
+  confirmDisabled?: boolean;
 }
 
 const variantConfig = {
@@ -53,7 +60,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   variant = 'default',
-  loading = false
+  loading = false,
+  confirmDisabled = false
 }) => {
   const config = variantConfig[variant];
   const IconComponent = config.icon;
@@ -86,7 +94,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           <Button
             variant={config.confirmVariant}
             onClick={handleConfirm}
-            disabled={loading}
+            disabled={loading || confirmDisabled}
           >
             {loading ? 'Processing...' : confirmLabel}
           </Button>
@@ -107,6 +115,16 @@ export interface UseConfirmationOptions {
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: ConfirmationVariant;
+  /**
+   * Disable the confirm button until the dialog's body is valid.
+   *
+   * Pass a FUNCTION when the answer depends on something the body collects.
+   * `options` is snapshotted state, so a plain boolean captured at `confirm()`
+   * time can never change; the predicate is re-evaluated on every render of
+   * the owning component, which is what a body that reports its value upward
+   * (see the reason-carrying wrappers) triggers as the operator types.
+   */
+  confirmDisabled?: boolean | (() => boolean);
   onConfirm: () => void | Promise<void>;
 }
 
@@ -168,6 +186,11 @@ export const useConfirmation = () => {
       cancelLabel={options.cancelLabel}
       variant={options.variant}
       loading={loading}
+      confirmDisabled={
+        typeof options.confirmDisabled === 'function'
+          ? options.confirmDisabled()
+          : options.confirmDisabled
+      }
     />
   ) : null;
 
