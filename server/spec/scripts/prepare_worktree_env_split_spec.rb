@@ -60,8 +60,34 @@ RSpec.describe "prepare-worktree.sh dotenv writes vs Gemfile-time env reads (IMP
   env_upsert_call_re = /env_upsert\s+"\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"\s+([A-Z_][A-Z0-9_]*)/
   printf_arg_re = /(?:^\s*|echo\s+|printf\s+)['"]([A-Z_][A-Z0-9_]*)=/
   env_upsert_body_re = /printf\s+'%s=%s\\n'\s+"\$key"\s+"\$val"/
+  # A payload beginning with `#` is a dotenv COMMENT — it defines no key. The
+  # script's redirection lands on whichever printf argument comes last, and in
+  # the no-free-redis-lane branch that argument is a comment line.
+  #
+  # This is the exact MIRROR of printf_arg_re, differing only in the payload,
+  # and the anchoring is load-bearing rather than tidiness. A bare /['"]\s*#/
+  # also matches a trailing shell comment, because the closing quote of
+  # `> "$dst"` sits immediately before it — which would have exempted
+  # `cat "$src" >> "$dst"  # append` and every other unrecognised shape that
+  # happens to carry a comment, in a densely commented script.
+  comment_arg_re = /(?:^\s*|echo\s+|printf\s+)['"]\s*#/
+  # Any KEY= payload anywhere on the line, QUOTED OR NOT. Deliberately looser
+  # than printf_arg_re: it exists only to REFUSE the comment exemption, so
+  # looser is safer. Requiring a preceding quote would miss `echo FOO=bar`, and
+  # a line combining an unquoted key with a comment would then be skipped.
+  key_payload_anywhere_re = /(?:^|['"\s])[A-Z_][A-Z0-9_]*=/
 
   let(:script) { File.read(script_path) }
+
+  # Run the REAL extraction over an arbitrary snippet. The examples below must
+  # exercise the same code the containment anchor uses, not a copy of it.
+  def unrecognised_writes_in(line)
+    unrecognised_env_writes_from(line)
+  end
+
+  def keys_in(line)
+    dotenv_keys_from(line)
+  end
 
   # Transitive closure of the Gemfile-evaluation-time source files.
   let(:gemfile_time_sources) do
@@ -96,23 +122,33 @@ RSpec.describe "prepare-worktree.sh dotenv writes vs Gemfile-time env reads (IMP
   # Env vars prepare-worktree.sh writes into a dotenv file. Two write shapes:
   # `env_upsert "$dst" KEY value` (server/.env) and a quoted `"KEY=..."` printf
   # argument redirected into an env file (server/.env.test.local).
-  let(:dotenv_written_keys) do
-    (script.scan(env_upsert_call_re).flatten + script.scan(printf_arg_re).flatten).uniq
+  # define_method, NOT def: these bodies close over the regex locals declared
+  # above, and `def` would open a new scope that cannot see them.
+  define_method(:dotenv_keys_from) do |source|
+    (source.scan(env_upsert_call_re).flatten + source.scan(printf_arg_re).flatten).uniq
   end
+
+  let(:dotenv_written_keys) { dotenv_keys_from(script) }
 
   # CONTAINMENT anchor: every redirection in the script that targets a dotenv
   # destination must be one of the two shapes parsed above. A THIRD write shape
   # (e.g. a heredoc, or `cat >> "$dst"`) then fails HERE rather than slipping past
   # the disjointness check silently with its keys unseen.
-  let(:unrecognised_env_writes) do
-    script.lines.each_with_index.filter_map do |line, idx|
+  define_method(:unrecognised_env_writes_from) do |source|
+    source.lines.each_with_index.filter_map do |line, idx|
       target = line[/>>?\s*"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"/, 1]
       next if target.nil? || !env_file_target_vars.include?(target)
       next if line.match?(env_upsert_body_re) || line.match?(printf_arg_re)
+      # Key-less by construction: a comment payload and NO key payload anywhere
+      # on the line. The second half is what keeps this a narrowing of the
+      # guard rather than a hole in it — a line carrying both still fails.
+      next if line.match?(comment_arg_re) && !line.match?(key_payload_anywhere_re)
 
       "#{idx + 1}: #{line.strip}"
     end
   end
+
+  let(:unrecognised_env_writes) { unrecognised_env_writes_from(script) }
 
   it "still finds the script and parses both of its dotenv write shapes" do
     expect(File.exist?(script_path)).to be(true), "missing #{script_path}"
@@ -124,6 +160,51 @@ RSpec.describe "prepare-worktree.sh dotenv writes vs Gemfile-time env reads (IMP
       "unrecognised dotenv write shape(s) in scripts/prepare-worktree.sh — the key " \
       "extraction in this spec cannot see them, so they are unguarded:\n" \
       "#{unrecognised_env_writes.join("\n")}"
+  end
+
+  # A dotenv COMMENT payload defines no key, so it cannot be a Gemfile-read leak.
+  # The script's redirection lands on whichever printf argument is last, and in
+  # the no-free-redis-lane branch that argument is a comment — which the shape
+  # check read as an unrecognised third write shape (IMP-c478aaebe10e).
+  it "classifies a comment-only dotenv write as key-less rather than unrecognised" do
+    comment_write = '    "# Specs here will refuse to run until one is freed." > "$ENV_TEST_LOCAL"'
+    expect(unrecognised_writes_in(comment_write)).to be_empty
+    expect(keys_in(comment_write)).to be_empty
+  end
+
+  # The containment anchor must keep failing on a shape it genuinely cannot
+  # parse, or the fix above would turn the guard off rather than teach it.
+  it "still fails on a genuinely unparsed write shape" do
+    heredoc_write = '    cat > "$ENV_TEST_LOCAL" <<EOF'
+    expect(unrecognised_writes_in(heredoc_write)).not_to be_empty
+  end
+
+  # The exemption must key on the ABSENCE OF A KEY, not on a `#` appearing
+  # somewhere. prepare-worktree.sh is densely commented, so a trailing comment
+  # on a new write is a plausible shape rather than a contrived one.
+  it "does not exempt an unrecognised write shape merely because it carries a trailing comment" do
+    expect(unrecognised_writes_in('    cat "$src" >> "$dst"   # append the extras')).not_to be_empty
+  end
+
+  it "does not treat a line as key-less when an UNQUOTED KEY= sits beside a comment" do
+    expect(unrecognised_writes_in('    echo FOO=bar > "$dst"  # set the flag')).not_to be_empty
+  end
+
+  # The dangerous middle case: a line carrying BOTH a comment and a real key.
+  # Skipping it on the strength of the comment alone would hide the key.
+  it "does not treat a line as key-less when a KEY= payload sits beside a comment" do
+    mixed_write = '    "# note" "POWERNODE_DEPLOYED=1" > "$ENV_TEST_LOCAL"'
+    expect(unrecognised_writes_in(mixed_write)).not_to be_empty
+  end
+
+  # PRESENCE anchor on the exemption itself: if the script is reordered so the
+  # redirect no longer lands on a comment, this exemption stops being exercised
+  # by the real file and persists as an untested weakening of the guard.
+  it "still has a comment-payload dotenv write for the exemption to cover" do
+    comment_writes = script.lines.select do |line|
+      line.match?(/>>?\s*"\$\{?ENV_TEST_LOCAL\}?"/) && line.match?(comment_arg_re)
+    end
+    expect(comment_writes).not_to be_empty
   end
 
   it "still parses the env vars read at Gemfile-evaluation time" do
