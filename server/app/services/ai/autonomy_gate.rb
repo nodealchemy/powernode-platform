@@ -71,16 +71,27 @@ module Ai
     # @param source_type     [String, nil]    polymorphic source for cross-ref
     # @param source_id       [String, nil]
     # @param description     [String, nil]    human-readable summary for the UI
+    # @param environment     [Ai::Environment, String, nil] the plane the
+    #                        operation acts on; resolved from `params` through
+    #                        Ai::EnvironmentResolution when not given. The
+    #                        resolved environment can only ESCALATE the verdict
+    #                        (Ai::EnvironmentPolicyOverlay), never relax it.
     def evaluate(action_category:, executor_class:, params: {}, agent: nil,
-                 requested_by: nil, source_type: nil, source_id: nil, description: nil)
+                 requested_by: nil, source_type: nil, source_id: nil, description: nil,
+                 environment: nil)
+      resolved_environment = ::Ai::EnvironmentResolution.resolve(
+        account: @account, params: params, environment: environment
+      )
       policy_match = @policy_service.resolve(
-        action_category: action_category, agent: agent, user: requested_by
+        action_category: action_category, agent: agent, user: requested_by,
+        environment: resolved_environment
       )
 
       deferred = create_deferred_operation!(
         action_category: action_category, executor_class: executor_class,
         params: params, agent: agent, requested_by: requested_by,
-        source_type: source_type, source_id: source_id, description: description
+        source_type: source_type, source_id: source_id, description: description,
+        environment: resolved_environment
       )
 
       case policy_match[:policy]
@@ -88,7 +99,8 @@ module Ai
         result_data = deferred.execute_now!
         Result.new(decision: :proceed, deferred_operation: deferred, result: result_data)
       when "require_approval"
-        require_approval_or_proceed(deferred, policy_match[:record], action_category)
+        require_approval_or_proceed(deferred, policy_match[:record], action_category,
+                                    escalation: policy_match[:environment_escalation])
       when "block", "silent"
         deferred.update!(status: "rejected", error_message: "Blocked by policy")
         Result.new(decision: :blocked, deferred_operation: deferred,
@@ -96,7 +108,8 @@ module Ai
       else
         # Unknown policy — fail safe to require_approval
         Rails.logger.warn("[AutonomyGate] Unknown policy '#{policy_match[:policy]}' for #{action_category}, defaulting to require_approval")
-        require_approval_or_proceed(deferred, policy_match[:record], action_category)
+        require_approval_or_proceed(deferred, policy_match[:record], action_category,
+                                    escalation: policy_match[:environment_escalation])
       end
     rescue StandardError => e
       Rails.logger.error("[AutonomyGate] evaluate(#{action_category}) failed: #{e.class}: #{e.message}")
@@ -106,7 +119,8 @@ module Ai
     private
 
     def create_deferred_operation!(action_category:, executor_class:, params:, agent:,
-                                   requested_by:, source_type:, source_id:, description:)
+                                   requested_by:, source_type:, source_id:, description:,
+                                   environment: nil)
       ::Ai::DeferredOperation.create!(
         account: @account,
         action_category: action_category,
@@ -116,7 +130,8 @@ module Ai
         requested_by: requested_by,
         source_type: source_type,
         source_id: source_id,
-        description: description
+        description: description,
+        environment: environment
       )
     end
 
@@ -134,9 +149,9 @@ module Ai
     # :blocked + 422 — which broke `tasks_controller create`,
     # `sdwan/networks destroy`, and every other AutonomyGate-protected
     # request spec running without business loaded.
-    def require_approval_or_proceed(deferred, policy_record, action_category)
+    def require_approval_or_proceed(deferred, policy_record, action_category, escalation: nil)
       if defined?(::Ai::ApprovalChain)
-        request = create_approval_request!(deferred, policy_record)
+        request = create_approval_request!(deferred, policy_record, escalation: escalation)
         deferred.update!(approval_request: request)
         Result.new(decision: :pending, deferred_operation: deferred)
       else
@@ -149,8 +164,9 @@ module Ai
       end
     end
 
-    def create_approval_request!(deferred, policy_record)
+    def create_approval_request!(deferred, policy_record, escalation: nil)
       chain = resolve_chain(deferred, policy_record)
+      environment = deferred.environment
       chain.create_request!(
         source_type: "Ai::DeferredOperation",
         source_id: deferred.id,
@@ -158,6 +174,12 @@ module Ai
         request_data: {
           action_category: deferred.action_category,
           executor_class: deferred.executor_class,
+          # The plane and, when the overlay parked this, WHY — so the card says
+          # "parked because prod is protected" rather than just "parked".
+          environment: environment && {
+            id: environment.id, slug: environment.slug, is_protected: environment.protected?
+          },
+          environment_escalation: escalation,
           # Redacted copy, not the stored one. The operation keeps plaintext in
           # its own params because the executor replays them after approval;
           # request_data exists only to be READ, by an approval audience wider

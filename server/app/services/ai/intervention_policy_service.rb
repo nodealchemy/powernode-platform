@@ -37,14 +37,28 @@ module Ai
     # `record` is the matched InterventionPolicy row (or nil if the default
     # policy was applied). Callers that need to read `record.approval_chain`
     # for chain assignment use this; everyone else can ignore it.
-    def resolve(action_category:, agent: nil, user: nil, severity: nil)
+    #
+    # `environment` (Environment campaign, incr. 3): the plane the operation
+    # acts on. Rows whose conditions name environments only match that plane,
+    # and Ai::EnvironmentPolicyOverlay may then ESCALATE the verdict to
+    # require_approval — never relax it. nil ⇒ no environment rule applies.
+    def resolve(action_category:, agent: nil, user: nil, severity: nil, environment: nil)
+      match = resolve_without_environment(
+        action_category: action_category, agent: agent, user: user, severity: severity, environment: environment
+      )
+      ::Ai::EnvironmentPolicyOverlay.apply(match, environment: environment, action_category: action_category)
+    end
+
+    def resolve_without_environment(action_category:, agent: nil, user: nil, severity: nil, environment: nil)
       policies = Ai::InterventionPolicy
         .active
         .for_account(account.id)
         .for_category(action_category)
         .by_specificity
 
-      matching = policies.select { |p| p.matches?(action_category: action_category, agent: agent, user: user) }
+      matching = policies.select do |p|
+        p.matches?(action_category: action_category, agent: agent, user: user, environment: environment)
+      end
 
       return default_policy if matching.empty?
 

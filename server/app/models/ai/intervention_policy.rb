@@ -116,11 +116,12 @@ module Ai
     scope :by_specificity, -> { order(priority: :desc) }
 
     # Instance methods
-    def matches?(action_category:, agent: nil, user: nil)
+    def matches?(action_category:, agent: nil, user: nil, environment: nil)
       return false unless is_active?
       return false unless action_category_matches?(action_category)
       return false unless agent_matches?(agent)
       return false unless user_matches?(user)
+      return false unless environment_matches?(environment)
       return false unless conditions_met?(agent)
       true
     end
@@ -184,6 +185,18 @@ module Ai
     def user_matches?(user_record)
       return true if user_id.nil?
       user_record && user_id == user_record.id
+    end
+
+    # conditions["environments"] — an array of environment slugs the row
+    # applies to (Environment campaign, incr. 3). A row that names
+    # environments never matches an operation whose environment is unknown:
+    # the conservative reading, since the row was written for a plane.
+    def environment_matches?(environment)
+      wanted = conditions.is_a?(Hash) ? Array(conditions["environments"]).map(&:to_s) : []
+      return true if wanted.empty?
+      return false if environment.nil?
+
+      wanted.include?(environment.slug.to_s)
     end
 
     def conditions_met?(agent_record)
