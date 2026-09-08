@@ -8,9 +8,50 @@ Canonical frontend conventions for `frontend/`. Most are mechanically enforced. 
 | Navigation | Flat structure — no submenus | `pattern-validation.sh` |
 | Actions | ALL in PageContainer — none in page content | review |
 | State | Global notifications only — no local success/error | review |
-| Imports | Path aliases for cross-feature: `@/shared/`, `@/features/` | `convert-relative-imports.sh` |
+| Imports | Path aliases for cross-feature: `@/shared/`, `@/features/`; an extension's own tree via its alias (`@system/`) | `pattern-validation.sh` (extension trees, public and private; three or more `../` fails) + `convert-relative-imports.sh` (on-demand fixer, core only) |
 | Logging | No `console.*` at any level — use `import { logger } from '@/shared/utils/logger'` | `console-log-check.sh` + `pattern-validation.sh` (both via `scripts/list-console-sites.sh`) |
 | Types | No `any` — proper TypeScript types required | `no-any-type-check.sh` + `pattern-validation.sh` |
+
+### Imports: why the alias, and what actually enforces it
+
+This row used to cite `scripts/convert-relative-imports.sh` as the enforcement.
+That script is real and useful, but it never enforced anything, for three
+separate reasons — and each one alone is enough:
+
+1. **Nothing fails on it.** No hook, gate or CI step runs it. The only caller is
+   the `/cleanup all` skill (`.claude/skills/cleanup/SKILL.md:38`), which a
+   person invokes on demand and which rewrites files rather than failing.
+2. **It cannot see an extension.** It hardcodes `SRC_ROOT="frontend/src"`, so it
+   never descends into `extensions/*/frontend/src`.
+3. **It cannot emit the alias this row is about.** Its output alphabet is
+   `@/shared/` and `@/features/` only (`scripts/convert-relative-imports.sh:68-83`);
+   there is no branch that can ever produce `@system/`.
+
+It stays the right tool for converting core by hand. The row now also cites the
+scan that actually fails a build.
+
+With no gate reaching them, the system extension had drifted to 61 imports
+climbing three or more directories, across 30 files (IMP-003653cb5634).
+
+Three climbs is the threshold. `../../types` stays inside a feature and reads as
+local; `../../../` has already left it, and that is the form that breaks on a
+move — silently, because TypeScript resolves whatever the new path lands on and
+a file moved one level can start importing a different module that still
+type-checks.
+
+The scan covers PUBLIC **and** private extension frontends. An earlier draft
+covered public trees only, justified by the rule that a tracked core file may not
+name a private extension — true, and already solved by the SPLIT LEDGER the
+console-log and core-purity guards use: known debt is grandfathered per file with
+a count in `.claude/hooks/deep-relative-import-baseline.txt`, and private paths go
+in the gitignored `.local.txt` sibling beside it. Excluding them would have left
+125 of the 128 offending files fleet-wide unguarded.
+
+The ledger is a ratchet in BOTH directions. A listed file that grows fails; a
+listed file that shrinks, is fixed or is deleted fails too, so an entry cannot
+outlive the debt it describes. A missing tracked baseline fails closed. Only
+single-quoted `from '...'` is matched; a double-quoted or dynamic `import()`
+form is a known, accepted gap.
 
 ### Logging: the console ledger
 

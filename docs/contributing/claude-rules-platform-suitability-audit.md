@@ -113,7 +113,7 @@ homes are:
 | 35 | No `console.log` in production | frontend CLAUDE.md; frontend-patterns.md | mechanical | **Yes** — `console-log-check.sh` + scan | Already correct | Nested nudge | Caught by hook+scan |
 | 36 | No `any` types | frontend CLAUDE.md; frontend-patterns.md | mechanical | **Yes** — `no-any-type-check.sh` + scan | Already correct | Nested nudge | Caught (advisory; 347 baseline backlog) |
 | 37 | Flat navigation — no submenus | frontend CLAUDE.md; frontend-patterns.md | mechanical | **Yes** — `pattern-validation.sh` | Already correct | Doc | Caught by scan |
-| 38 | Imports: `@/shared/`, `@/features/` cross-feature aliases | frontend CLAUDE.md; frontend-patterns.md | mechanical | **Yes** — `convert-relative-imports.sh` | Already correct | Doc | Caught/auto-fixed |
+| 38 | Imports: `@/shared/`, `@/features/` cross-feature aliases | frontend CLAUDE.md; frontend-patterns.md | mechanical | **Yes** — `convert-relative-imports.sh` [^r38] | Already correct | Doc | Caught/auto-fixed |
 | 39 | Eager loading — `.includes()` when iterating associations | CLAUDE.md §Backend; backend-patterns.md | high-stakes | Partial — `n-plus-one-check.sh` is **advisory nudge** only | core (stays) + strengthen scan if feasible | Yes (core) | No full mechanical catch — deliberately kept in core |
 | 40 | Webhook receivers return 200/202, never 500 | CLAUDE.md §Backend; backend-patterns.md | high-stakes | Partial — `webhook-500-check.sh` is **advisory nudge** only | core (stays) + scan backstop | Yes (core) | Provider retry-storm risk; kept in core |
 | 41 | Worker invariants — no job classes in `server/app/jobs/`; no Sidekiq gems in `server/Gemfile` | CLAUDE.md §Worker; server/CLAUDE.md | mechanical | **Yes** — `pattern-validation.sh` (per MANIFEST) | Already correct | Yes (core) | Caught by scan; boundary is high-stakes so core ref stays |
@@ -161,3 +161,10 @@ homes are:
 - **SessionStart digest is Claude-only.** `session-guidance-inject.sh` injects the `guidance-*` pointer list at the start of *Claude* sessions. Non-Claude loop executors must be made to query `search_knowledge tag:guidance-*` (e.g. via the task payload or agent prompt) to receive the same conventions — otherwise migrating a rule to a `guidance-*` tag still doesn't reach them.
 - **The nested `server//frontend//worker/ CLAUDE.md` files are ~80% MCP-tool catalogs and MCP-first query tables**, which duplicate `mcp-first-workflow.md` + the auto-generated `reference/auto/mcp-tools.md`. Their only *unique, binding* rule not already covered model-agnostically is the **kill-switch concern (#24)**. The catalogs themselves are Claude-navigation aids and can stay.
 - This document is **report-only**. No `guidance-*` entries were created, no `CLAUDE.md` edited, nothing committed.
+
+[^r38]: Dated evaluation, corrected 2026-09-08 (IMP-003653cb5634): `convert-relative-imports.sh`
+    is NOT enforcement. No hook, gate or CI step runs it; it hardcodes `SRC_ROOT="frontend/src"`
+    so it never sees an extension; and its output alphabet cannot emit `@system/`. Row 38's
+    verdict is left as written because this file is a point-in-time report, not a live reference.
+    The enforcing check is the deep-relative-import scan in `scripts/pattern-validation.sh` — see
+    `docs/contributing/conventions/frontend-patterns.md`.
