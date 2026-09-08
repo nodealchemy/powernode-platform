@@ -104,6 +104,7 @@ class Account < ApplicationRecord
   # an explicit account-scoped `where` on the model, which is exactly the shape
   # a cross-tenant read slips through when someone forgets the scope.
   has_many :ai_projects, class_name: "Ai::Project", foreign_key: "account_id", dependent: :destroy
+  has_many :environments, class_name: "Ai::Environment", foreign_key: "account_id", dependent: :destroy
   has_many :ai_mission_approvals, class_name: "Ai::MissionApproval", dependent: :destroy
 
   # AI Kill Switch
@@ -285,6 +286,12 @@ class Account < ApplicationRecord
   # business extension (CustomerBroadcastAudience), which resolves its audience
   # by PERMISSION rather than by role name, shares no mechanism with this copy,
   # and is unaffected by its removal.
+  # Environment campaign, increment 1: the default environments (dev, ci,
+  # staging, ops, prod) exist BEFORE any extension bootstrap runs, because the
+  # templates that bootstrap creates inherit the account's default one.
+  # Declared first so it runs first.
+  after_create_commit :ensure_default_environments
+
   # M1 Self-Serve: every new account gets per-account provider/regions/
   # instance-types/templates wired up so the activation funnel can spin
   # up Pro Cloud nodes without operator intervention. Failures are logged
@@ -506,6 +513,14 @@ class Account < ApplicationRecord
   # M1 Self-Serve: bootstrap System extension state per-account. Wrapped
   # in rescue so a transient failure (e.g., system extension disabled)
   # doesn't roll back account creation — surface via monitoring instead.
+  def ensure_default_environments
+    Ai::Environment.ensure_defaults_for!(self)
+  rescue StandardError => e
+    Rails.logger.error(
+      "[Account.after_create_commit] default environments failed for account #{id}: #{e.class}: #{e.message}"
+    )
+  end
+
   def run_account_bootstrap
     return unless defined?(::System::AccountBootstrapService)
 

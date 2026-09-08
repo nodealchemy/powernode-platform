@@ -108,6 +108,11 @@ module Ai
     # See the header: generic on purpose, never an extension class name in core.
     belongs_to :template, polymorphic: true, optional: true
 
+    # The plane the project runs in (Environment campaign, incr. 1). Optional
+    # for now: every project that predates the noun has none, and the front
+    # door is what asks. Must be the project's own account's.
+    belongs_to :environment, class_name: "Ai::Environment", optional: true, inverse_of: :projects
+
     # `:nullify`, not `:destroy`. A mission is a historical record of work that
     # actually ran; retiring the project it was done for must not erase it.
     has_many :missions, class_name: "Ai::Mission", foreign_key: "ai_project_id",
@@ -120,6 +125,7 @@ module Ai
                                message: "must be lowercase alphanumeric with hyphens" },
                      uniqueness: { scope: :account_id, case_sensitive: false }
     validates :status, presence: true, inclusion: { in: STATUSES }
+    validate  :environment_belongs_to_account
 
     # ==================== Scopes ====================
     scope :active, -> { where(status: "active") }
@@ -129,6 +135,13 @@ module Ai
 
     # ==================== Callbacks ====================
     before_validation :set_defaults, on: :create
+
+    def environment_belongs_to_account
+      return if environment.nil? || environment.account_id == account_id
+
+      errors.add(:environment, "must belong to the project's account")
+    end
+    private :environment_belongs_to_account
 
     # ==================== Lookup ====================
 

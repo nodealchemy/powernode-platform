@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_08_211000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2309,6 +2309,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.index ["to_agent_id"], name: "index_ai_encrypted_messages_on_to_agent_id"
   end
 
+  create_table "ai_environments", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "approval_required_categories", default: [], null: false
+    t.datetime "created_at", null: false
+    t.string "default_decision_authority", default: "trusted", null: false
+    t.text "description"
+    t.boolean "is_default", default: false, null: false
+    t.boolean "is_protected", default: false, null: false
+    t.integer "max_blast_radius"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.string "slug", null: false
+    t.integer "tier", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "slug"], name: "index_ai_environments_on_account_and_slug", unique: true
+    t.index ["account_id", "tier"], name: "index_ai_environments_on_account_id_and_tier"
+    t.index ["account_id"], name: "index_ai_environments_on_account_id"
+    t.index ["account_id"], name: "index_ai_environments_one_default_per_account", unique: true, where: "is_default"
+  end
+
   create_table "ai_evaluation_results", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "agent_id", null: false
@@ -3292,6 +3313,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.text "description"
+    t.uuid "environment_id"
     t.jsonb "metadata", default: {}, null: false
     t.string "name", null: false
     t.uuid "repository_id"
@@ -3304,6 +3326,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.index ["account_id", "status"], name: "index_ai_projects_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_projects_on_account_id"
     t.index ["ai_agent_team_id"], name: "index_ai_projects_on_ai_agent_team_id"
+    t.index ["environment_id"], name: "index_ai_projects_on_environment_id"
     t.index ["repository_id"], name: "index_ai_projects_on_repository_id"
     t.index ["template_type", "template_id"], name: "index_ai_projects_on_template_type_and_template_id"
   end
@@ -8875,6 +8898,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.string "data_residency", limit: 64
     t.text "encrypted_credentials"
     t.jsonb "endpoints", default: [], null: false
+    t.uuid "environment_id"
     t.datetime "expires_at"
     t.jsonb "extension_slugs", default: [], null: false
     t.string "inbound_subject", limit: 255
@@ -8903,6 +8927,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.index ["account_id", "remote_instance_id"], name: "idx_on_account_id_remote_instance_id_98e822b5a5", unique: true
     t.index ["account_id"], name: "index_system_federation_peers_on_account_id"
     t.index ["data_residency"], name: "index_system_federation_peers_on_data_residency"
+    t.index ["environment_id"], name: "index_system_federation_peers_on_environment_id"
     t.index ["inbound_subject"], name: "index_federation_peers_on_inbound_subject", unique: true, where: "(inbound_subject IS NOT NULL)"
     t.index ["last_heartbeat_at"], name: "idx_federation_peers_platform_heartbeat", where: "((peer_kind)::text = 'platform'::text)"
     t.index ["outbound_certificate_id"], name: "index_system_federation_peers_on_outbound_certificate_id"
@@ -9141,6 +9166,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
     t.text "description"
+    t.uuid "environment_id"
     t.datetime "last_replenished_at"
     t.string "lifecycle_class", default: "ephemeral", null: false
     t.integer "max_size", default: 10, null: false
@@ -9156,6 +9182,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "name"], name: "index_system_instance_pools_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_system_instance_pools_on_account_id"
+    t.index ["environment_id"], name: "index_system_instance_pools_on_environment_id"
     t.index ["node_template_id"], name: "index_system_instance_pools_on_node_template_id"
     t.index ["provider_instance_type_id"], name: "index_system_instance_pools_on_provider_instance_type_id"
     t.index ["provider_region_id"], name: "index_system_instance_pools_on_provider_region_id"
@@ -9521,6 +9548,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.string "discovered_hostname"
     t.string "discovered_mac"
     t.uuid "enrollment_token_id"
+    t.uuid "environment_id"
     t.uuid "instance_pool_id"
     t.text "key"
     t.datetime "last_heartbeat_at"
@@ -9564,6 +9592,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.index ["config"], name: "index_system_node_instances_on_config", using: :gin
     t.index ["discovered_mac"], name: "index_system_node_instances_on_discovered_mac"
     t.index ["enrollment_token_id"], name: "index_system_node_instances_on_enrollment_token_id"
+    t.index ["environment_id"], name: "index_system_node_instances_on_environment_id"
     t.index ["instance_pool_id", "pool_state", "pool_warming_started_at"], name: "idx_node_instances_pool_acquire", where: "(instance_pool_id IS NOT NULL)"
     t.index ["instance_pool_id"], name: "index_system_node_instances_on_instance_pool_id"
     t.index ["last_heartbeat_at"], name: "index_system_node_instances_on_last_heartbeat_at"
@@ -9826,6 +9855,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.vector "embedding", limit: 1536
     t.datetime "embedding_generated_at"
     t.boolean "enabled", default: true, null: false
+    t.uuid "environment_id"
     t.string "name", null: false
     t.uuid "node_platform_id", null: false
     t.boolean "public", default: false, null: false
@@ -9836,6 +9866,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.index ["account_id"], name: "index_system_node_templates_on_account_id"
     t.index ["config"], name: "index_system_node_templates_on_config", using: :gin
     t.index ["embedding"], name: "idx_system_node_templates_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
+    t.index ["environment_id"], name: "index_system_node_templates_on_environment_id"
     t.index ["node_platform_id"], name: "index_system_node_templates_on_node_platform_id"
   end
 
@@ -9846,6 +9877,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.datetime "created_at", null: false
     t.text "description"
     t.boolean "enabled", default: true, null: false
+    t.uuid "environment_id"
     t.uuid "internal_ca_id"
     t.string "name", null: false
     t.uuid "node_template_id", null: false
@@ -9863,6 +9895,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
     t.index ["account_id", "name"], name: "index_system_nodes_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_system_nodes_on_account_id"
     t.index ["config"], name: "index_system_nodes_on_config", using: :gin
+    t.index ["environment_id"], name: "index_system_nodes_on_environment_id"
     t.index ["internal_ca_id"], name: "index_system_nodes_on_internal_ca_id"
     t.index ["node_template_id"], name: "index_system_nodes_on_node_template_id"
     t.index ["ssh_host_key_fingerprint"], name: "index_system_nodes_on_ssh_host_key_fingerprint"
@@ -11903,6 +11936,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
   add_foreign_key "ai_policy_violations", "users", column: "detected_by_id"
   add_foreign_key "ai_policy_violations", "users", column: "resolved_by_id"
   add_foreign_key "ai_pressure_fields", "accounts"
+  add_foreign_key "ai_projects", "ai_environments", column: "environment_id"
   add_foreign_key "ai_provider_credentials", "accounts", on_delete: :cascade
   add_foreign_key "ai_provider_credentials", "ai_providers", on_delete: :cascade
   add_foreign_key "ai_provider_metrics", "accounts"
@@ -12362,6 +12396,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
   add_foreign_key "system_federation_network_bridges", "system_federation_peers", column: "federation_peer_id", on_delete: :cascade
   add_foreign_key "system_federation_network_bridges", "system_sdwan_networks", column: "sdwan_network_id", on_delete: :restrict
   add_foreign_key "system_federation_peers", "accounts"
+  add_foreign_key "system_federation_peers", "ai_environments", column: "environment_id"
   add_foreign_key "system_federation_peers", "system_federation_peers", column: "parent_peer_id", on_delete: :nullify
   add_foreign_key "system_federation_peers", "system_node_certificates", column: "outbound_certificate_id"
   add_foreign_key "system_federation_schema_compatibility", "accounts"
@@ -12376,6 +12411,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
   add_foreign_key "system_gitops_repositories", "accounts"
   add_foreign_key "system_gitops_sync_runs", "system_gitops_repositories", column: "gitops_repository_id"
   add_foreign_key "system_instance_pools", "accounts", on_delete: :cascade
+  add_foreign_key "system_instance_pools", "ai_environments", column: "environment_id"
   add_foreign_key "system_instance_pools", "system_node_templates", column: "node_template_id", on_delete: :restrict
   add_foreign_key "system_instance_pools", "system_provider_instance_types", column: "provider_instance_type_id", on_delete: :nullify
   add_foreign_key "system_instance_pools", "system_provider_regions", column: "provider_region_id", on_delete: :nullify
@@ -12409,6 +12445,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
   add_foreign_key "system_node_instance_peers", "accounts"
   add_foreign_key "system_node_instance_peers", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_node_instances", "accounts"
+  add_foreign_key "system_node_instances", "ai_environments", column: "environment_id"
   add_foreign_key "system_node_instances", "system_bootstrap_tokens", column: "enrollment_token_id"
   add_foreign_key "system_node_instances", "system_instance_pools", column: "instance_pool_id", on_delete: :nullify
   add_foreign_key "system_node_instances", "system_nodes", column: "node_id"
@@ -12437,8 +12474,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_220000) do
   add_foreign_key "system_node_platforms", "system_node_architectures", column: "node_architecture_id"
   add_foreign_key "system_node_scripts", "accounts"
   add_foreign_key "system_node_templates", "accounts"
+  add_foreign_key "system_node_templates", "ai_environments", column: "environment_id"
   add_foreign_key "system_node_templates", "system_node_platforms", column: "node_platform_id"
   add_foreign_key "system_nodes", "accounts"
+  add_foreign_key "system_nodes", "ai_environments", column: "environment_id"
   add_foreign_key "system_nodes", "system_node_templates", column: "node_template_id"
   add_foreign_key "system_nodes", "workers"
   add_foreign_key "system_package_module_links", "system_node_modules", column: "node_module_id", on_delete: :cascade
