@@ -267,9 +267,10 @@ RSpec.describe Ai::Missions::OrchestratorService do
   # that the legacy path is untouched when routing is disabled.
   describe "gateway routing (flag on + governance)" do
     before do
-      # Gateway#request! gates on Gateway.governance_enabled?, but Gateway#resolve!
-      # delegates to ApprovalWorkflowService, which checks its OWN
-      # governance_enabled? — stub both so the full request→resolve→cascade runs.
+      # Gateway#request! gates on Gateway.governance_enabled?; Gateway#resolve!
+      # delegates to ApprovalWorkflowService, whose decision side is no longer
+      # capability-gated (IMP-27e2f8e59ce0). Both stubs model one governance
+      # deployment end to end.
       allow(Ai::Approvals::Gateway).to receive(:governance_enabled?).and_return(true)
       allow(Ai::Autonomy::ApprovalWorkflowService).to receive(:governance_enabled?).and_return(true)
       mission.update!(configuration: { "approvals_via_gateway" => true })

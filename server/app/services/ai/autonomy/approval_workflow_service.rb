@@ -3,14 +3,22 @@
 module Ai
   module Autonomy
     # Wraps the multi-step approval chain workflow (Ai::ApprovalChain /
-    # Ai::ApprovalRequest). Approval chains are a governance capability: a
-    # single-operator core-mode deployment (no governance-providing extension) has
-    # no approver-vs-actor separation, so each public method short-circuits when
-    # governance is absent:
-    #   - mutating methods return nil (or false where the caller expects Boolean)
-    #   - listing methods return an empty array
-    # The AutonomyGate's require_approval policy auto-proceeds via its own core-mode
-    # branch (see ai/autonomy_gate.rb#require_approval_or_proceed), so nothing is lost.
+    # Ai::ApprovalRequest).
+    #
+    # Two sides, gated differently (IMP-27e2f8e59ce0):
+    #   - CREATION (#request_approval) is a governance capability: it short-
+    #     circuits to nil when no governance-providing extension is loaded, and
+    #     Ai::Approvals::Gateway proceeds instead of parking.
+    #   - DECISION (#pending_approvals, #approve, #reject, #expire_overdue!) works
+    #     on any request that EXISTS, capability or not. Ai::ApprovalChain and
+    #     Ai::ApprovalRequest are core models; Ai::AutonomyGate parks every
+    #     require_approval action behind one on every deployment, and the
+    #     governance decide endpoint (Ai::GovernanceService#process_approval_decision)
+    #     already decides them with no capability check. Gating the decision on
+    #     the capability produced the 2026-09-08 core-mode hub incident: the
+    #     operator saw the card, POST .../approvals/:id/approve answered 422
+    #     "Cannot approve this request", and the deferred operation was stranded
+    #     until its timeout. A request nobody can decide is worse than no request.
     class ApprovalWorkflowService
       attr_reader :account
 
@@ -18,8 +26,9 @@ module Ai
         @account = account
       end
 
-      # Whether a governance-providing extension is loaded. Single source of truth
-      # for the core-mode short-circuit (approval chains are a governance capability).
+      # Whether a governance-providing extension is loaded. Gates request CREATION
+      # here and in Ai::Approvals::Gateway; it does NOT gate deciding a request
+      # that already exists (see the class comment).
       def self.governance_enabled?
         Shared::FeatureGateService.capability_present?(:governance)
       end
@@ -49,11 +58,10 @@ module Ai
         )
       end
 
-      # List pending approval requests
-      # @return [ActiveRecord::Relation, Array<nil>] empty array in core mode
+      # List pending approval requests — every request that exists, whichever
+      # path created it (the gate creates them in core mode too).
+      # @return [ActiveRecord::Relation]
       def pending_approvals
-        return [] unless self.class.governance_enabled?
-
         Ai::ApprovalRequest
           .where(account_id: account.id)
           .pending
@@ -68,9 +76,9 @@ module Ai
       # @param request [Ai::ApprovalRequest] The request to approve
       # @param approver [User] The user approving
       # @param comments [String] Optional comments
-      # @return [Boolean] false in core mode (no chain to approve against)
+      # @return [Boolean] false when the request is not this account's, not
+      #   pending, or the approver does not match the current step
       def approve(request:, approver:, comments: nil)
-        return false unless self.class.governance_enabled?
         return false unless request.account_id == account.id
         return false unless request.pending?
         return false unless request.can_approve?(approver)
@@ -83,9 +91,9 @@ module Ai
       # @param request [Ai::ApprovalRequest] The request to reject
       # @param approver [User] The user rejecting
       # @param comments [String] Optional comments
-      # @return [Boolean] false in core mode
+      # @return [Boolean] false when the request is not this account's, not
+      #   pending, or the approver does not match the current step
       def reject(request:, approver:, comments: nil)
-        return false unless self.class.governance_enabled?
         return false unless request.account_id == account.id
         return false unless request.pending?
         return false unless request.can_approve?(approver)
@@ -98,16 +106,28 @@ module Ai
       # (approve/reject/escalate/expire) via check_expiration! — which also
       # cascades on_approval_decision to the source (e.g. expiring a CampaignLand
       # approval rejects the land) — instead of a bare status flip.
-      # No-op in core mode (no requests to expire). Returns the count processed.
-      def expire_overdue!
-        return 0 unless self.class.governance_enabled?
+      # Runs on every deployment: a request the gate parked in core mode must
+      # still time out. Returns the count processed.
+      #
+      # Bounded per call: check_expiration! cascades each chain's timeout_action
+      # (reject by default, but an operator can set a chain to "approve", which
+      # EXECUTES the parked operation). Before this method ran in core mode a
+      # deployment could accumulate an unbounded pending backlog; settling it in
+      # one hourly tick would fire every cascade at once. The hourly sweep
+      # (AiApprovalExpiryJob → internal autonomy#expire_overdue_approval_requests)
+      # drains the rest on later ticks. Oldest first, so a request is never
+      # starved by newer ones.
+      EXPIRY_SWEEP_LIMIT = 100
 
+      def expire_overdue!(limit: EXPIRY_SWEEP_LIMIT)
         count = 0
         Ai::ApprovalRequest
           .where(account_id: account.id)
           .pending
           .where("expires_at <= ?", Time.current)
-          .find_each do |request|
+          .order(:expires_at)
+          .limit(limit)
+          .each do |request|
             request.check_expiration!
             count += 1
           end

@@ -86,8 +86,9 @@ RSpec.describe 'Approval decisions reveal a minted secret exactly once', type: :
   let(:deferred) { gate_result.deferred_operation }
   let(:approval_request) { deferred.approval_request }
 
-  # Governance capability gates Ai::Autonomy::ApprovalWorkflowService — without
-  # it approve/reject return false and every assertion below would be vacuous.
+  # Models a governance deployment. approve/reject no longer depend on the
+  # capability (IMP-27e2f8e59ce0 — autonomy_approvals_core_mode_spec pins the
+  # core-mode half); creation-side callers still do, so keep both states honest.
   let(:enable_governance) do
     lambda do
       allow(Shared::FeatureGateService).to receive(:capability_present?).and_call_original

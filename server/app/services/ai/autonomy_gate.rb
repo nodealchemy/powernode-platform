@@ -120,11 +120,14 @@ module Ai
       )
     end
 
-    # Bridges the require_approval policy decision to either the approval-chain
-    # workflow (when Ai::ApprovalChain is loaded — the business extension owns
-    # the chain model) or a fall-through auto-proceed in core mode (single-
-    # operator self-hosted: the requester IS the approver, no separate
-    # approval infrastructure to defer to).
+    # Bridges the require_approval policy decision to the approval-chain
+    # workflow. The `else` arm is a historical fall-through from when
+    # Ai::ApprovalChain lived in the business extension; the chain models are
+    # CORE now, so `defined?` is always true and every deployment parks here.
+    # The parked request is decidable on every deployment too — the decision
+    # side of Ai::Autonomy::ApprovalWorkflowService is not capability-gated
+    # (IMP-27e2f8e59ce0). Left in place rather than deleted so the branch's
+    # spec history stays legible; do not read it as a live core-mode mode.
     #
     # Without this fork the require_approval path raised NameError on every
     # core-mode evaluation, the rescue caught it, and the gate returned

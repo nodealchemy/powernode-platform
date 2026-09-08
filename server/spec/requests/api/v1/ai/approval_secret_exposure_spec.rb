@@ -72,11 +72,11 @@ RSpec.describe 'Approval read surfaces do not disclose secret params', type: :re
   end
 
   describe 'GET /api/v1/ai/autonomy/approvals' do
-    # This one endpoint routes through Ai::Autonomy::ApprovalWorkflowService,
-    # which short-circuits to [] unless a governance-providing extension is
-    # loaded. Without the stub the response is an empty list and every
-    # "does not disclose" assertion here passes vacuously — the sibling
-    # positive control is what makes that visible.
+    # This one endpoint routes through Ai::Autonomy::ApprovalWorkflowService.
+    # Its list side no longer depends on the governance capability
+    # (IMP-27e2f8e59ce0); the stub is kept so this spec reads the same on a
+    # governance deployment, and the sibling positive control is what proves
+    # the "does not disclose" assertions are not vacuous.
     before do
       allow(Shared::FeatureGateService).to receive(:capability_present?).and_call_original
       allow(Shared::FeatureGateService).to receive(:capability_present?).with(:governance).and_return(true)

@@ -106,11 +106,10 @@ RSpec.describe "agent_autonomy MCP per-action authorization" do
   let(:deferred) { gate_result.deferred_operation }
   let(:approval_request) { deferred.approval_request }
 
-  # Ai::Autonomy::ApprovalWorkflowService is capability-gated: without this,
-  # approve/reject return false and EVERY assertion below — including the
-  # positive control that a permitted caller still succeeds — would be vacuous.
-  # Declared after the let! above so the gate itself is evaluated exactly as it
-  # is on the ungoverned path (mirrors approval_reveal_once_spec.rb).
+  # Models a governance deployment for the decision surface under test.
+  # approve/reject themselves no longer depend on the capability
+  # (IMP-27e2f8e59ce0); declared after the let! above so the gate is evaluated
+  # exactly as it is on the ungoverned path (mirrors approval_reveal_once_spec.rb).
   before do
     allow(Shared::FeatureGateService).to receive(:capability_present?).and_call_original
     allow(Shared::FeatureGateService).to receive(:capability_present?).with(:governance).and_return(true)

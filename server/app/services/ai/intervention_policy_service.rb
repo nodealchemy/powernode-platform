@@ -165,11 +165,10 @@ module Ai
       # budget governs outreach; approvals are the product of the verb the
       # budget degrades to, not chatter.
       #
-      # Core-mode fork worth knowing: when Ai::ApprovalChain is absent,
-      # require_approval falls through to execute_now!, so an over-cap write
-      # EXECUTES there instead of parking. Intent-consistent, since the matched
-      # row said notify_and_proceed, but it is the one place this verb is less
-      # restrictive than "silent" was.
+      # Note: Ai::ApprovalChain is a CORE model, so AutonomyGate's "core-mode
+      # fall-through to execute_now!" arm never fires — an over-cap write PARKS
+      # on every deployment and is decided through the ordinary approval
+      # surfaces (IMP-27e2f8e59ce0).
       #
       # CRITICALITY OUTRANKS QUIETNESS (IMP-34beef811fdf). A volume budget may
       # reduce routine chatter; it may never withhold a CRITICAL notification.
