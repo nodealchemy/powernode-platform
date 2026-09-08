@@ -16,6 +16,10 @@ const ErrorAlert: React.FC<ErrorAlertProps> = ({ message, onClose }) => {
         </div>
         {onClose && (
           <button
+            // Explicit: a typeless <button> defaults to type="submit", and this
+            // alert is routinely rendered inside the very <form> whose failure
+            // it reports, so dismissing it would re-submit that form.
+            type="button"
             onClick={onClose}
             className="text-theme-error-fg hover:text-theme-error-hover transition-colors duration-200 flex-shrink-0"
             aria-label="Dismiss"
