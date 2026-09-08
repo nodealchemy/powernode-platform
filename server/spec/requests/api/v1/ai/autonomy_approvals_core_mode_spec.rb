@@ -66,6 +66,19 @@ RSpec.describe 'Autonomy approvals are decidable without a governance extension'
     expect(CoreModeSpecExecutor.ran).to eq(1)
   end
 
+  # The approvals UI titles every card with action_type, which only
+  # Ai::Approvals::Gateway writes; a gate-parked row carried a blank title.
+  it 'lists the parked request with action_type derived from its category' do
+    get '/api/v1/ai/autonomy/approvals', headers: headers
+
+    expect(response).to have_http_status(:ok)
+    row = response.parsed_body['data'].find { |r| r['id'] == approval_request.id }
+    expect(row).to be_present
+    expect(row['action_type']).to eq('test.core_mode_action')
+    expect(row['action_category']).to eq('test.core_mode_action')
+    expect(row['description']).to be_present
+  end
+
   it 'rejects the request and leaves the operation unexecuted' do
     post "/api/v1/ai/autonomy/approvals/#{approval_request.id}/reject", headers: headers, as: :json
 

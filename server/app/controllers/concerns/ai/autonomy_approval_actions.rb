@@ -95,7 +95,12 @@ module Ai
       base = approval_request_core(request).merge(
         agent_id: request.request_data&.dig("agent_id"),
         agent_name: request.request_data&.dig("agent_name"),
-        action_type: request.request_data&.dig("action_type"),
+        # action_type is what the approvals UI titles a card with, but only
+        # Ai::Approvals::Gateway writes that key. Ai::AutonomyGate and the
+        # fleet autonomy service write action_category, so without this
+        # fallback every gate-parked and fleet-signal card rendered a blank
+        # title (IMP: blank approval cards, 2026-09-08).
+        action_type: request.request_data&.dig("action_type") || request.request_data&.dig("action_category"),
         action_category: request.request_data&.dig("action_category"),
         requested_by_id: request.requested_by_id,
         total_steps: request.step_statuses&.size
