@@ -219,26 +219,60 @@ module Ai
         campaign_source? ? "campaign_land" : "mission_land"
       end
 
+      # Whether a governance extension is present. Delegated to the SAME
+      # predicate Ai::Approvals::Gateway consults, so the two cannot disagree
+      # about whether a chain is available.
       def governance_available?
-        return false unless defined?(::Ai::ApprovalChain) && defined?(::Ai::Autonomy::ApprovalWorkflowService)
-
-        ::Ai::Autonomy::ApprovalWorkflowService.governance_enabled?
+        ::Ai::Approvals::Gateway.governance_enabled?
       rescue StandardError
         false
       end
 
-      # Best-effort: bind a formal ApprovalRequest to the land via a chain. The
-      # request's after_update calls land.on_approval_decision, which enqueues/rejects.
-      # source_type stays "Ai::CampaignLand" (the durable land row) for both kinds.
+      # Bind a formal ApprovalRequest to the land. The request's after_update
+      # calls land.on_approval_decision, which enqueues or rejects.
+      #
+      # WAS BROKEN AND SILENT (IMP-01a081f2). This method called
+      # `Ai::ApprovalChain.find_or_create_default_for(account, kind)` — a method
+      # defined nowhere in the tree. The NoMethodError was caught by this
+      # method's own `rescue StandardError`, logged at warn, and swallowed into
+      # nil, so with a governance extension present NO request was ever minted:
+      # the land fell through to the proposal card and the chain that makes
+      # #on_approval_decision fire did not exist. Self-sealing — the rescue that
+      # hid the error sat in the same method as the error, and the fallback path
+      # looked like a working feature.
+      #
+      # ROUTED THROUGH Ai::Approvals::Gateway rather than given a replacement
+      # class method, because the Gateway IS the canonical facade for exactly
+      # this ("the single entry/exit point for human-approval gates") and
+      # already does, correctly, every piece this method was doing by hand:
+      #   - source_type/source_id from the approvable — `Ai::CampaignLand` is
+      #     one of the two models its class comment names as implementing the
+      #     #on_approval_decision contract, so the binding is the one it was
+      #     designed for;
+      #   - chain find-or-STRENGTHEN (ApprovalChain.find_or_strengthen!), which
+      #     is the reconciling primitive; the name this method invented never
+      #     existed, and reaching for find_or_create_by! instead would have
+      #     reintroduced the silently-reused-weak-chain defect that method
+      #     documents;
+      #   - the core-mode short-circuit, in one place instead of two.
+      #
+      # A :proceed verdict (core mode) DELIBERATELY does not enqueue. Gateway
+      # reads :proceed as "no gate — the requester is the approver", which is
+      # right for a mission checkpoint and wrong here: a land that reached this
+      # branch is one #auto_land_approved? already declined, so proceeding would
+      # auto-merge exactly the change that needs a human. The land stays
+      # pending_approval and #request_land_approval delivers the proposal card,
+      # which is the core-mode approval surface. Unchanged from the behaviour
+      # before this fix, and pinned by a spec.
       def create_governance_request(land, description:, requested_by:)
-        chain = ::Ai::ApprovalChain.find_or_create_default_for(@source.account, chain_kind)
-        return nil unless chain.respond_to?(:create_request!)
-
-        chain.create_request!(
-          source_type: "Ai::CampaignLand", source_id: land.id,
+        result = ::Ai::Approvals::Gateway.new(account: @source.account).request!(
+          approvable: land,
+          kind: chain_kind,
           description: description || "Land #{land.source_branch} → #{land.target_branch}",
           requested_by: requested_by
         )
+
+        result.approval_request
       rescue StandardError => e
         Rails.logger.warn("[ApprovalBinding] governance request failed (land #{land.id}): #{e.message}")
         nil

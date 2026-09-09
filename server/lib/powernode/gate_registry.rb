@@ -99,6 +99,14 @@ module Powernode
       {
         mechanism: "Ai::Land::ApprovalBinding", species: :workflow, owner: "core",
         entry_points: %w[request_land_approval],
+        # It no longer mints directly. #create_governance_request used to call
+        # Ai::ApprovalChain.find_or_create_default_for — a method defined
+        # nowhere, whose NoMethodError its own rescue swallowed, so with
+        # governance present NO request was ever created (IMP-01a081f2). The
+        # repair routes it through the canonical facade instead of inventing a
+        # replacement, which is why this entry now declares a delegation rather
+        # than touching a minting primitive itself.
+        delegates_to: "Ai::Approvals::Gateway",
         description: "Land checkpoint for a completed change-set: security gate + scope " \
                      "guardrail, then auto-approve or park the CampaignLand pending a human."
       },
