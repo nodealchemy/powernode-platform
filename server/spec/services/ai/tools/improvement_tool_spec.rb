@@ -440,6 +440,87 @@ RSpec.describe Ai::Tools::ImprovementTool do
     end
   end
 
+  # The verb accepted only recommendation_id, so a dismissal recorded THAT an
+  # offer was closed and never WHY. "the work landed in <sha>", "this is noise",
+  # and "the finding is wrong" were indistinguishable afterwards — and the
+  # scoreboard's funnel counts all three identically as `dismissed`, which is
+  # the one bucket where the distinction decides whether the discovery pass is
+  # working. revert_improvement already took a `reason`; dismissal did not.
+  describe "dismiss_improvement reason" do
+    it "persists the reason and echoes it back" do
+      rec_id = create_offer[:data][:recommendation][:id]
+
+      result = tool.execute(params: {
+        action: "dismiss_improvement", recommendation_id: rec_id,
+        reason: "implemented in e6bf95700"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:dismiss_reason]).to eq("implemented in e6bf95700")
+      expect(Ai::ImprovementRecommendation.find(rec_id).dismiss_reason).to eq("implemented in e6bf95700")
+    end
+
+    # WRITE-ONLY IS THE DEFECT CLASS THIS FIX BELONGS TO. A reason that persists
+    # but never comes back out is the same shape as the gap it closes: the
+    # record exists and no consumer can read it. list_improvements is the only
+    # way an operator reads offers through this tool.
+    it "surfaces the reason when listing dismissed offers" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      tool.execute(params: {
+        action: "dismiss_improvement", recommendation_id: rec_id, reason: "superseded by the census"
+      })
+
+      listed = tool.execute(params: { action: "list_improvements", status: "dismissed" })
+      row = listed[:data][:improvements].find { |i| i[:id] == rec_id }
+
+      expect(row).to be_present
+      expect(row[:dismiss_reason]).to eq("superseded by the census")
+    end
+
+    it "stays optional — an unexplained dismissal still works and reads as nil" do
+      rec_id = create_offer[:data][:recommendation][:id]
+
+      result = tool.execute(params: { action: "dismiss_improvement", recommendation_id: rec_id })
+
+      expect(result[:success]).to be true
+      expect(Ai::ImprovementRecommendation.find(rec_id).dismiss_reason).to be_nil
+    end
+
+    # The operator's words reach the promoted task too. Without this the task is
+    # skipped with a generic "Recommendation <uuid> dismissed" and whoever finds
+    # it later has to go back to the recommendation to learn anything.
+    it "carries the reason into the skipped promoted task" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      task_key = tool.execute(
+        params: { action: "approve_improvement", recommendation_id: rec_id }
+      )[:data][:task_key]
+
+      tool.execute(params: {
+        action: "dismiss_improvement", recommendation_id: rec_id, reason: "already fixed upstream"
+      })
+
+      task = account.ai_ralph_loops.find_by(name: "dev-improve").ralph_tasks.find_by(task_key: task_key)
+      expect(task.error_message).to include("already fixed upstream")
+    end
+
+    # The governance cascade is the OTHER way a recommendation gets dismissed
+    # (Ai::ApprovalRequest#notify_source_of_decision on a rejected or expired
+    # gate). It reached #dismiss! with no reason at all, so a rejection was
+    # recorded as an anonymous dismissal.
+    it "records why a rejected approval request dismissed the offer" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      rec = Ai::ImprovementRecommendation.find(rec_id)
+      request = instance_double(
+        Ai::ApprovalRequest, status: "rejected", decisions: Ai::ApprovalDecision.none
+      )
+
+      rec.on_approval_decision(request)
+
+      expect(rec.reload.status).to eq("dismissed")
+      expect(rec.dismiss_reason).to match(/approval request rejected/i)
+    end
+  end
+
   # ==========================================================================
   # IMP-bf2265feec4e: dismiss_improvement must cascade onto an already-promoted
   # dev-improve task. Dismissing the RECOMMENDATION alone left the promoted

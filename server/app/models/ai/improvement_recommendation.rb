@@ -42,8 +42,18 @@ module Ai
       update!(status: "applied", approved_by: user, applied_at: Time.current)
     end
 
-    def dismiss!
-      update!(status: "dismissed")
+    # `reason` is OPTIONAL and mirrors Ai::RalphTask#revert!(reason:), the same
+    # disposition-with-a-reason shape one table over. Without it a dismissal
+    # recorded THAT an offer was closed and never WHY, so "the work landed",
+    # "this is noise" and "the finding is wrong" were indistinguishable — and
+    # the scoreboard funnel counts all three as `dismissed`, which is the one
+    # bucket where that distinction says whether discovery is earning its keep.
+    #
+    # Optional rather than required: three call sites reach this, and forcing a
+    # reason on all of them would have meant inventing one at the sites that
+    # genuinely have nothing to say. nil reads as "not recorded", which is true.
+    def dismiss!(reason: nil)
+      update!(status: "dismissed", dismiss_reason: reason.presence)
     end
 
     def target
@@ -64,7 +74,11 @@ module Ai
       when "approved"
         approve!(resolver)
       when "rejected", "expired"
-        dismiss!
+        # The governance cascade is the second way an offer gets dismissed, and
+        # it always knows why: a human rejected the gate, or it timed out. It
+        # used to reach #dismiss! with nothing, recording an operator's explicit
+        # rejection as an anonymous dismissal.
+        dismiss!(reason: "approval request #{request.status}#{" by #{resolver.email}" if resolver.respond_to?(:email) && resolver&.email.present?}")
       else
         return Ai::ApprovalRequest::DISPATCH_NOOP
       end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_09_210000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2606,6 +2606,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.decimal "confidence_score", precision: 5, scale: 4, null: false
     t.datetime "created_at", null: false
     t.jsonb "current_config", default: {}
+    t.text "dismiss_reason"
     t.jsonb "evidence", default: {}
     t.string "recommendation_type", null: false
     t.jsonb "recommended_config", default: {}
