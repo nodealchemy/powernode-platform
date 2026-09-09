@@ -296,35 +296,36 @@ module AuditLogging
     )
   end
 
+  # Snapshots a resource's attributes for an audit row.
+  #
+  # This USED TO filter by a hand-written denylist of eight column names, which
+  # named no encrypted column and no filter_attributes entry (IMP-01a08809). Since
+  # `encrypts` installs an attribute TYPE, `.attributes` yields DECRYPTED
+  # plaintext, so 2FA secrets, API keys and reset_token_digest went straight
+  # through a method whose own comment called its output "safe". A second,
+  # hand-maintained list is the failure mode the model-side rule was made
+  # self-maintaining to avoid.
+  #
+  # Now delegated to that same rule — the resource's own encrypted set plus its
+  # filter_attributes — so this cannot drift from it. The authoritative pass is
+  # AuditLog#redact_secret_values, which runs as the row is written and therefore
+  # covers every writer; this call is the pre-redaction that keeps the plaintext
+  # out of the in-memory options hash on the way there.
   def resource_attributes_for_logging(resource)
     return {} unless resource.respond_to?(:attributes)
 
-    # Get safe attributes for logging (exclude sensitive data)
-    safe_attributes = resource.attributes.except(
-      "password_digest",
-      "password",
-      "encrypted_password",
-      "reset_password_token",
-      "confirmation_token",
-      "api_secret",
-      "access_token",
-      "refresh_token"
-    )
+    snapshot = resource.attributes.dup
 
-    # Include some computed attributes if available
-    if resource.respond_to?(:status)
-      safe_attributes["status"] = resource.status
-    end
+    # Computed readers, for a resource whose reader does not match its column.
+    # Merged BEFORE the redaction pass, never after: `name` and `email` are
+    # `encrypts` columns on User, so writing them back over a filtered hash
+    # would put the plaintext straight back — which is what this block did to
+    # the denylist it replaced.
+    snapshot["status"] = resource.status if resource.respond_to?(:status)
+    snapshot["name"] = resource.name if resource.respond_to?(:name)
+    snapshot["email"] = resource.email if resource.respond_to?(:email)
 
-    if resource.respond_to?(:name)
-      safe_attributes["name"] = resource.name
-    end
-
-    if resource.respond_to?(:email)
-      safe_attributes["email"] = resource.email
-    end
-
-    safe_attributes.compact
+    Auditable.redact_values(snapshot, resource.class).compact
   end
 
   def current_account

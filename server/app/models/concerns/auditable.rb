@@ -59,6 +59,45 @@ module Auditable
   # changed — which is the part an auditor needs — without disclosing it.
   REDACTED_PLACEHOLDER = "[FILTERED]"
 
+  # The redaction rule, expressed WITHOUT an instance so a writer that never
+  # goes through this concern can apply the same one. AuditLog itself calls
+  # these from a before_validation, which is what makes the rule cover every
+  # writer of audit_logs rather than only the models that include Auditable
+  # (IMP-01a08809). The instance methods below delegate here, so there is one
+  # definition and the two cannot drift.
+  #
+  # `klass` is the resource's CLASS, or nil when it cannot be resolved —
+  # Audit::LoggingService and AuditLogging both synthesize OpenStruct dummy
+  # resources whose class name ("API", "Webhook") constantizes to nothing. A
+  # nil klass still gets ALWAYS_REDACTED_ATTRIBUTES, which is the floor; it
+  # must never raise, because a redaction pass that blows up takes the audit
+  # write down with it.
+  def self.redact_values(values, klass)
+    return values unless values.is_a?(Hash)
+    return values if values.blank?
+
+    redacted = redacted_attribute_names_for(klass)
+    filter = attribute_filter_for(klass)
+    values.each_with_object({}) do |(name, value), filtered|
+      filtered[name] = if redacted.include?(name.to_s)
+        REDACTED_PLACEHOLDER
+      else
+        filter.filter_param(name.to_s, value)
+      end
+    end
+  end
+
+  def self.redacted_attribute_names_for(klass)
+    encrypted = klass.try(:encrypted_attributes) || []
+    Set.new(ALWAYS_REDACTED_ATTRIBUTES).merge(encrypted.map(&:to_s))
+  end
+
+  def self.attribute_filter_for(klass)
+    ActiveSupport::ParameterFilter.new(
+      Array(klass.try(:filter_attributes)), mask: REDACTED_PLACEHOLDER
+    )
+  end
+
   def self.with_logging
     previous = logging_enabled
     self.logging_enabled = true
@@ -214,18 +253,13 @@ module Auditable
   # value for create/delete, and to the old- or new-half of a saved_changes
   # pair for update. Redaction is by attribute NAME, so both halves of a change
   # are covered and the key survives to show the attribute changed.
+  # Pre-redaction, kept even though AuditLog now redacts on the way in. It is
+  # not redundant: it keeps secret material out of the values this concern
+  # hands to log_action in the first place, so a value never exists in an
+  # in-memory audit payload it does not need to reach. The seam applies the
+  # same rule, and re-running it over an already-masked value is a no-op.
   def redact_audit_values(values)
-    return values if values.blank?
-
-    redacted = audit_redacted_attribute_names
-    filter = audit_attribute_filter
-    values.each_with_object({}) do |(name, value), filtered|
-      filtered[name] = if redacted.include?(name.to_s)
-        REDACTED_PLACEHOLDER
-      else
-        filter.filter_param(name.to_s, value)
-      end
-    end
+    Auditable.redact_values(values, self.class)
   end
 
   # Which attribute names must never have their VALUE written to an audit row.
@@ -239,8 +273,7 @@ module Auditable
   # with no second place to remember to update. `encrypted_attributes` is
   # defined on every ActiveRecord class and is nil until `encrypts` is called.
   def audit_redacted_attribute_names
-    encrypted = self.class.try(:encrypted_attributes) || []
-    Set.new(ALWAYS_REDACTED_ATTRIBUTES).merge(encrypted.map(&:to_s))
+    Auditable.redacted_attribute_names_for(self.class)
   end
 
   # The model's own filtered-attribute list, applied with the semantics Rails
@@ -256,10 +289,11 @@ module Auditable
   # `filter_attributes` gives those models one declaration that keeps the value
   # out of the console, the logs and the audit trail alike, so a row written
   # THROUGH THIS CONCERN can never disclose what `inspect` already refuses to
-  # print. Scope matters: Auditable is not the only writer of audit_logs —
-  # app/controllers/concerns/audit_logging.rb snapshots attributes into
-  # Audit::LoggingService with no redaction of any kind, and is tracked
-  # separately. Do not read this seam as covering that one.
+  # print. Auditable is not the only writer of audit_logs — Audit::LoggingService,
+  # AuditLogging#resource_attributes_for_logging and 58 direct AuditLog.create!
+  # sites all reach the table too. Those are covered as of IMP-01a08809, but NOT
+  # by this method: AuditLog#redact_secret_values applies the same rule as the
+  # row is written. Read this one as the pre-redaction on Auditable's own path.
   #
   # Source of the list: `self.class.filter_attributes`, which inherits from
   # ActiveRecord::Base.filter_attributes. That base list is EMPTY in this app
@@ -271,7 +305,7 @@ module Auditable
   # the spec is the tripwire, and the answer then is to narrow this to the
   # class's OWN declaration rather than to accept the widened masking.
   def audit_attribute_filter
-    ActiveSupport::ParameterFilter.new(self.class.filter_attributes, mask: REDACTED_PLACEHOLDER)
+    Auditable.attribute_filter_for(self.class)
   end
 
   # Override this method in models to specify WHICH attributes are audited.
