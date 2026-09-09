@@ -6,6 +6,21 @@ module A2a
     class MemorySkills
       DEFAULT_LIMIT = 10
       MAX_LIMIT = 100
+      DEFAULT_TOKEN_BUDGET = 2000
+      MAX_TOKEN_BUDGET = 8000
+
+      # The memory tiers Ai::Memory::StorageService actually implements. The
+      # registry descriptor advertises exactly this list; #store refuses
+      # anything else rather than absorbing it into the factual branch.
+      MEMORY_TYPES = %w[factual experiential].freeze
+
+      # The WRITE floor, taken from the same map Ai::Tools::MemoryTool resolves
+      # its mutating actions against (ACTION_PERMISSIONS: write_shared_memory /
+      # delete_shared_memory / consolidate_memory all sit on "ai.memory.write"),
+      # so a peer that may READ memory cannot also WRITE it by reaching for a
+      # different skill. Spelled as a constant here because the tool exposes the
+      # map but no accessor for a single entry.
+      WRITE_PERMISSION = "ai.memory.write"
 
       def initialize(account:, user: nil)
         @account = account
@@ -13,25 +28,45 @@ module A2a
       end
 
       # Store memory
+      #
+      # Same defect as #retrieve carried (IMP-8bc3342afd14), left behind when
+      # that one was repaired: `Memory::StorageService` does not resolve from
+      # this namespace. Constant lookup walks MemorySkills -> Skills -> A2a ->
+      # Object and finds no `Memory` at any step, because the services are all
+      # `Ai::Memory::*` and there is no top-level Memory module. Every call
+      # raised NameError before touching a database.
+      #
+      # `memory_type` is now CLOSED rather than open-with-a-fallthrough. The
+      # advertised enum offered "procedural", which this branch silently stored
+      # as a FACT — an option a peer can select that quietly does something
+      # else is the same defect class as a dead skill, so the registry
+      # descriptor was narrowed to the two types that exist and anything else
+      # is refused here rather than absorbed. Refusing is safe: the federation
+      # population is empty, so no peer has ever sent the third value.
       def store(input, task = nil)
         agent = find_agent(input["agent_id"])
-        memory_type = input["memory_type"] || "factual"
+        memory_type = (input["memory_type"].presence || "factual").to_s
+        authorize!(WRITE_PERMISSION)
 
-        storage = Memory::StorageService.new(account: @account, agent: agent)
-
-        memory = case memory_type
-        when "experiential"
-                   storage.store_experiential(
-                     content: input["content"],
-                     context: input["context"] || {}
-                   )
-        else
-                   storage.store_fact(
-                     key: input["key"] || "fact_#{Time.current.to_i}",
-                     value: input["content"],
-                     metadata: input["context"] || {}
-                   )
+        unless MEMORY_TYPES.include?(memory_type)
+          raise ArgumentError, "memory_type must be one of #{MEMORY_TYPES.join(', ')}, got #{memory_type.inspect}"
         end
+
+        storage = ::Ai::Memory::StorageService.new(account: @account, agent: agent)
+
+        memory =
+          if memory_type == "experiential"
+            storage.store_experiential(
+              content: input["content"],
+              context: input["context"] || {}
+            )
+          else
+            storage.store_fact(
+              key: input["key"] || "fact_#{Time.current.to_i}",
+              value: input["content"],
+              metadata: input["context"] || {}
+            )
+          end
 
         {
           output: {
@@ -84,14 +119,53 @@ module A2a
       end
 
       # Inject memory context
+      #
+      # Third instance of the unresolvable-constant defect above:
+      # `Memory::ContextInjectorService` never resolved, so a peer asking for
+      # injected context got a NameError. The service exists as
+      # `Ai::Memory::ContextInjectorService`.
+      #
+      # FIXING THE CONSTANT EXPOSED A SECOND DEFECT UNDERNEATH, which is why
+      # this method does more than swap a namespace. The old body passed
+      # `input["task"]` — the peer's JSON object — as `task:`. Every consumer of
+      # that argument inside the injector treats it as an A2A TASK RECORD:
+      # #inject_working_memory hands it to WorkingMemoryService, which calls
+      # `@task.id` (working_memory_service.rb:255); #extract_task_query reads
+      # `task.message["parts"]`; #task_relevance_boost reads `task.metadata`.
+      # A Hash answers none of those, so the repaired skill would have traded
+      # NameError for `NoMethodError: undefined method 'id' for {}:Hash` — a
+      # dead skill that now fails one layer deeper, which is worse, because it
+      # looks fixed.
+      #
+      # The record was already in hand and was being thrown away: A2a::
+      # MessageHandler#execute_skill passes the Ai::A2aTask as the SECOND
+      # POSITIONAL ARGUMENT (message_handler.rb:245), the `task` parameter this
+      # method has always declared and never used.
+      #
+      # So BOTH inputs are now used, each as what it actually is:
+      #   task:  the Ai::A2aTask record (nil when invoked outside the handler —
+      #          every `.id` / `.message` / `.metadata` reader inside the
+      #          injector is already nil-guarded).
+      #   query: text derived from the peer's `input["task"]` object, so the
+      #          payload the descriptor advertises is HONOURED rather than
+      #          silently dropped. Without this the peer's task description
+      #          would stop influencing the result at all, which is a quieter
+      #          way of staying broken.
+      #
+      # The returned value is build_context's whole hash
+      # ({context:, token_estimate:, breakdown:}) — the descriptor advertises
+      # `context` as an object, and the token accounting is what tells a caller
+      # whether the budget it asked for was actually spent.
       def inject(input, task = nil)
         agent = find_agent(input["agent_id"])
+        authorize!(::Ai::Tools::MemoryTool::REQUIRED_PERMISSION)
 
-        injector = Memory::ContextInjectorService.new(agent: agent, account: @account)
+        injector = ::Ai::Memory::ContextInjectorService.new(agent: agent, account: @account)
 
         context = injector.build_context(
-          task: input["task"],
-          token_budget: input["token_budget"] || 2000
+          task: task,
+          query: query_from_peer_task(input),
+          token_budget: clamped_token_budget(input["token_budget"])
         )
 
         {
@@ -132,11 +206,54 @@ module A2a
       # meantime — the account scoping in #find_agent is the boundary that
       # actually applies, and it is the same posture as every other skill in
       # this directory, none of which check a permission at all.
-      def authorize_memory_read!
+      # PARAMETERISED so the three skills do not share a single floor: reading
+      # memory and WRITING it are different authorities, and #store taking the
+      # read permission would have let any peer that may look also mutate.
+      def authorize!(permission)
         return if @user.nil?
-        return if @user.has_permission?(::Ai::Tools::MemoryTool::REQUIRED_PERMISSION) == true
+        return if @user.has_permission?(permission) == true
 
-        raise "permission denied: #{::Ai::Tools::MemoryTool::REQUIRED_PERMISSION} required"
+        raise "permission denied: #{permission} required"
+      end
+
+      def authorize_memory_read!
+        authorize!(::Ai::Tools::MemoryTool::REQUIRED_PERMISSION)
+      end
+
+      # The same clamping discipline #clamped_limit applies, for the same
+      # reason: token_budget is peer-supplied and is multiplied into a
+      # CHARACTER budget inside build_context, so an unclamped value is a
+      # memory-pressure lever on a federation-facing path. A non-numeric string
+      # becomes 0 through #to_i, which would silently build an EMPTY context
+      # that reads like "this agent knows nothing" — so 0 falls back to the
+      # default rather than being honoured.
+      # Searchable text out of the peer's `task` object, mirroring
+      # Ai::Memory::ContextInjectorService#extract_task_query's reading of the
+      # A2A message shape ({"parts" => [{"type" => "text", "text" => ...}]}) and
+      # falling back to the plain description/text keys a peer is as likely to
+      # send. Truncated to the same 200 chars that method uses. Returns nil when
+      # there is nothing to search on, so build_context's `query.present?`
+      # section gates behave exactly as they do for a record-only call.
+      def query_from_peer_task(input)
+        explicit = input["query"]
+        return explicit.to_s.truncate(200) if explicit.present?
+
+        payload = input["task"]
+        return nil unless payload.is_a?(Hash)
+
+        parts = Array(payload.dig("message", "parts") || payload["parts"])
+        text = parts.select { |part| part.is_a?(Hash) && part["type"] == "text" }
+                    .map { |part| part["text"] }.compact.join(" ")
+        text = [ payload["description"], payload["text"] ].compact.join(" ") if text.blank?
+
+        text.presence&.truncate(200)
+      end
+
+      def clamped_token_budget(raw)
+        value = raw.to_i
+        return DEFAULT_TOKEN_BUDGET unless value.positive?
+
+        [ value, MAX_TOKEN_BUDGET ].min
       end
 
       # A peer-supplied bound, clamped. Unclamped, "limit" is whatever a
