@@ -55,12 +55,23 @@ module Ai
       docs.update
     ].freeze
 
+    # dev.multi_file_change is the ONE live static dev.* category:
+    # Ai::Tools::DevLoopTool annotates a >5-file completion with it
+    # (dev_loop_tool.rb:806). Four siblings were removed as dead vocabulary
+    # (IMP-01a06aef): dev.pull_task and dev.complete_task were SUPERSEDED by
+    # dev.task_claim / dev.task_complete in ENGINEERING_CATEGORIES above, which
+    # are the names the engineering seed actually writes rows for;
+    # dev.commit_to_branch and dev.merge had no seed, no gate and no reference
+    # anywhere in the tree. A registry entry is a DISCOVERY surface
+    # (category_registered?, the autonomy domain pivot), so a name nothing
+    # mints and nothing resolves is a category an operator can select and get
+    # no behaviour from. Removing one cannot invalidate a persisted row —
+    # action_category is validated for presence only, never against this list.
     STATIC_CATEGORIES = (%w[
       approval proposal escalation status_update issue_alert
       feedback
       project.adapt project.cost_control project.scale_horizontal project.relocate project.schema_change project.security_change
-      dev.pull_task dev.complete_task dev.commit_to_branch
-      dev.multi_file_change dev.merge
+      dev.multi_file_change
       ai.delegation_policy.update
     ] + ENGINEERING_CATEGORIES + %w[*]).freeze
 

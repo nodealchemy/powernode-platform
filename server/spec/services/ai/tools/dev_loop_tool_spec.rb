@@ -886,9 +886,21 @@ RSpec.describe Ai::Tools::DevLoopTool do
   end
 
   describe "governance" do
-    it "registers the dev.* intervention categories" do
-      %w[dev.pull_task dev.complete_task dev.commit_to_branch dev.multi_file_change dev.merge].each do |cat|
+    # A CENSUS, not a presence check (IMP-01a06aef). The previous version
+    # asserted five dev.* categories were registered; four of them were dead
+    # vocabulary — dev.pull_task / dev.complete_task superseded by the seeded
+    # dev.task_claim / dev.task_complete, and dev.commit_to_branch / dev.merge
+    # with no seed, no gate and no reference in the tree. Asserting only
+    # PRESENCE is what let them accumulate, so the absent half is asserted too:
+    # re-adding a name nothing mints reds this example.
+    it "registers the live dev.* intervention categories and no dead ones" do
+      %w[dev.multi_file_change dev.task_claim dev.task_complete].each do |cat|
         expect(Ai::InterventionPolicy.category_registered?(cat)).to be(true), "expected #{cat} registered"
+      end
+
+      %w[dev.pull_task dev.complete_task dev.commit_to_branch dev.merge].each do |cat|
+        expect(Ai::InterventionPolicy.category_registered?(cat)).to be(false),
+               "#{cat} is registered but nothing seeds or resolves it"
       end
     end
 
