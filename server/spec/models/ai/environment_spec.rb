@@ -74,6 +74,46 @@ RSpec.describe Ai::Environment do
     end
   end
 
+  describe "the promotion ladder (increment 4)" do
+    it "seeds dev, ci and ops as following publishes and staging, prod as pinned" do
+      follows = account.environments.ordered.map { |e| [ e.slug, e.follows_publish? ] }.to_h
+      expect(follows).to eq("dev" => true, "ci" => true, "staging" => false, "ops" => true, "prod" => false)
+    end
+
+    it "orders the ladder by tier then position and names each rung's predecessor" do
+      expect(described_class.ladder_for(account).map(&:slug)).to eq(%w[dev ci staging ops prod])
+      env = ->(slug) { account.environments.find_by!(slug: slug) }
+      expect(env.("dev").ladder_predecessor).to be_nil
+      # ci is a sibling of dev (same tier), not its successor
+      expect(env.("ci").ladder_predecessor).to be_nil
+      # only PINNED environments are rungs: ops follows publishes and is skipped over
+      expect(env.("staging").ladder_predecessor).to be_nil
+      expect(env.("ops").ladder_predecessor.slug).to eq("staging")
+      expect(env.("prod").ladder_predecessor.slug).to eq("staging")
+      env.("ops").update!(auto_promote_on_publish: false)
+      expect(env.("prod").ladder_predecessor.slug).to eq("ops")
+    end
+
+    it "tells the promotion-mode listener seam when a plane flips between following and pinned, and only then" do
+      listener = double("listener")
+      allow(Powernode::ExtensionRegistry).to receive(:provider).and_call_original
+      allow(Powernode::ExtensionRegistry).to receive(:provider).with(:environment_promotion_mode_listener).and_return(listener)
+      ops = account.environments.find_by!(slug: "ops")
+
+      expect(listener).to receive(:call).with(environment: ops).twice
+      ops.update!(auto_promote_on_publish: false)
+      ops.update!(name: "Operations (renamed)")
+      ops.update!(auto_promote_on_publish: true)
+    end
+
+    it "validates max_blast_radius as a positive integer or nil" do
+      env = account.environments.find_by!(slug: "ops")
+      expect(env.update(max_blast_radius: 0)).to be false
+      expect(env.update(max_blast_radius: nil)).to be true
+      expect(env.update(max_blast_radius: 3)).to be true
+    end
+  end
+
   describe "projects" do
     it "attach to an environment of their own account only" do
       env = account.environments.find_by(slug: "staging")

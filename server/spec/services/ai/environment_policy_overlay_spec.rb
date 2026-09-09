@@ -66,6 +66,23 @@ RSpec.describe Ai::EnvironmentPolicyOverlay do
     expect(described_class.apply(silent, environment: prod, action_category: "system.task.terminate")[:policy]).to eq("silent")
   end
 
+  it "parks an action whose blast radius exceeds the environment's ceiling, and only then" do
+    dev.update!(max_blast_radius: 3)
+    within = described_class.apply(relaxed, environment: dev, action_category: "system.instance.provision", blast_radius: 3)
+    expect(within[:policy]).to eq("auto_approve")
+    expect(within[:blast_radius]).to eq(3)
+
+    over = described_class.apply(relaxed, environment: dev, action_category: "system.instance.provision", blast_radius: 4)
+    expect(over[:policy]).to eq("require_approval")
+    expect(over[:environment_escalation]).to include("blast radius 4").and include("ceiling of 3")
+
+    # no ceiling, or no estimate: nothing to compare
+    unknown = described_class.apply(relaxed, environment: dev, action_category: "system.instance.provision", blast_radius: nil)
+    expect(unknown[:policy]).to eq("auto_approve")
+    dev.update!(max_blast_radius: nil)
+    expect(described_class.apply(relaxed, environment: dev, action_category: "x.y", blast_radius: 500)[:policy]).to eq("auto_approve")
+  end
+
   it "reads the destructive family list from the SiteSetting when set" do
     SiteSetting.set(described_class::DESTRUCTIVE_SETTING_KEY, "custom.*", setting_type: "string")
     expect(described_class.apply(relaxed, environment: ops, action_category: "custom.thing")[:policy]).to eq("require_approval")

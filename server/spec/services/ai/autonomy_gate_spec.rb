@@ -382,6 +382,26 @@ RSpec.describe Ai::AutonomyGate do
       expect(result.error).to include('resolver exploded')
     end
 
+    it 'parks an action wider than the plane allows and records the blast radius on the request' do
+      dev.update!(max_blast_radius: 2)
+      allow(Ai::EnvironmentResolution).to receive(:blast_radius).and_return(5)
+
+      parked = described_class.evaluate(**base_args, action_category: 'test.terminate', environment: dev)
+      expect(parked.decision).to eq(:pending)
+      expect(parked.approval_request.request_data['blast_radius']).to eq(5)
+      expect(parked.approval_request.request_data['environment_escalation']).to include('blast radius 5')
+    end
+
+    it 'blocks when the blast-radius estimator fails, instead of proceeding with no ceiling' do
+      dev.update!(max_blast_radius: 2)
+      allow(Ai::EnvironmentResolution).to receive(:blast_radius)
+        .and_raise(Ai::EnvironmentResolution::ResolverError, 'estimator exploded')
+
+      result = described_class.evaluate(**base_args, action_category: 'test.terminate', environment: dev)
+      expect(result.decision).to eq(:blocked)
+      expect(result.error).to include('estimator exploded')
+    end
+
     it 'applies no overlay when nothing resolves an environment' do
       result = described_class.evaluate(**base_args, action_category: 'test.terminate')
       expect(result.decision).to eq(:proceed)
