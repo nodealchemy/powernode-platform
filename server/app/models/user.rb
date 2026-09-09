@@ -11,6 +11,49 @@ class User < ApplicationRecord
   encrypts :backup_codes
   encrypts :last_login_ip
 
+  # Credential material that carries no `encrypts`, so
+  # Auditable#audit_redacted_attribute_names — which asks the model for its
+  # ENCRYPTED set — cannot see it (IMP-01a07dd5).
+  #
+  # reset_token_digest is the bcrypt digest of a password-RESET token: the same
+  # class of material as password_digest, which Auditable already redacts
+  # globally. Measured before fixing, the digest was written to audit_logs
+  # verbatim on every update that touched it. A digest is not directly
+  # replayable, but a reset token carries far less entropy than a password, so
+  # an offline attack on its digest is correspondingly cheaper — and being
+  # treated differently from password_digest, one field away, is not defensible
+  # either way.
+  #
+  # DECLARED HERE rather than appended to Auditable::ALWAYS_REDACTED_ATTRIBUTES
+  # for two reasons. That constant's own comment keeps it deliberately short
+  # because "a hand-maintained list of column names is exactly what failed
+  # here". And `filter_attributes` is the seam the concern documents for this
+  # case: it is model-local, and it keeps the value out of `inspect` and the
+  # logs as well as the audit trail, rather than the audit trail alone.
+  #
+  # NOT LISTED, deliberately: authorized_keys. Those are OpenSSH PUBLIC keys —
+  # #authorized_keys_format rejects anything that is not a valid authorized_keys
+  # line — published to every node in the account by design, so there is no
+  # secret to disclose. Adding one grants SSH access to the whole fleet, which
+  # makes it exactly the event an audit trail should record in full; redacting
+  # it would degrade the trail while looking like a security improvement.
+  # Pinned by an example in spec/models/concerns/auditable_secret_redaction_spec.rb.
+  #
+  # Substring semantics are safe here: `filter_attributes` matches attribute
+  # names as case-insensitive substrings, and "reset_token_digest" is a
+  # substring of no other column on this model.
+  #
+  # `+=`, NEVER `=`. Rails' `encrypts` APPENDS each attribute to
+  # filter_attributes itself, so this list already carries email / name /
+  # two_factor_secret / backup_codes / last_login_ip before this line runs.
+  # Assigning would drop them — and because the list matches by SUBSTRING, that
+  # silently un-masks the six columns "email" and "backup_codes" cover by
+  # prefix (email_verification_token, email_verified, ...). Caught by
+  # "also masks the verification columns that User's email filter matches by
+  # substring" in spec/models/concerns/auditable_secret_redaction_spec.rb, which
+  # is the example that exists to make this trap visible.
+  self.filter_attributes += [ :reset_token_digest ]
+
   # Authentication
   has_secure_password
 
