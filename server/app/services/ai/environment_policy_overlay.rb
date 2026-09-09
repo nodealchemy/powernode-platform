@@ -19,7 +19,12 @@ module Ai
   #      a DESTRUCTIVE family — terminate, delete, destroy, reap, rollback,
   #      reboot, stop, drain, recycle, boot-image drift, migration apply — per
   #      the `autonomy.destructive_categories` SiteSetting (comma-separated
-  #      globs), falling back to DEFAULT_DESTRUCTIVE_GLOBS when unset.
+  #      globs), falling back to DEFAULT_DESTRUCTIVE_GLOBS when unset;
+  #   4. the environment declares `max_blast_radius` and the operation's blast
+  #      radius (the number of instances its params touch, from the extension's
+  #      estimator through Ai::EnvironmentResolution.blast_radius) exceeds it —
+  #      a fan-out wider than the plane allows needs a person whatever the
+  #      category (increment 4).
   #
   # The default globs are ANCHORED ON THE VERB (`*[._]delete`, not `*delete*`):
   # a category is "<noun>.<verb>" or "<noun>_<verb>", and an unanchored
@@ -51,18 +56,18 @@ module Ai
     # @param action_category [String]
     # @return [Hash] the same hash, escalated when a rule fires, with
     #   :environment and :environment_escalation keys added
-    def apply(policy_match, environment:, action_category:)
+    def apply(policy_match, environment:, action_category:, blast_radius: nil)
       return policy_match if environment.nil?
 
-      reason = escalation_reason(environment, action_category)
-      annotated = policy_match.merge(environment: environment, environment_escalation: reason)
+      reason = escalation_reason(environment, action_category, blast_radius)
+      annotated = policy_match.merge(environment: environment, environment_escalation: reason, blast_radius: blast_radius)
       return annotated if reason.nil? || !RELAXED_POLICIES.include?(policy_match[:policy].to_s)
 
       annotated.merge(policy: ESCALATED_POLICY, notifications_suppressed: false)
     end
 
     # nil when no rule fires; otherwise a short machine-readable reason.
-    def escalation_reason(environment, action_category)
+    def escalation_reason(environment, action_category, blast_radius = nil)
       category = action_category.to_s
       if glob_match?(Array(environment.approval_required_categories), category)
         "environment #{environment.slug} requires approval for #{category}"
@@ -70,7 +75,14 @@ module Ai
         "environment #{environment.slug} is supervised: every gated operation needs a person"
       elsif environment.protected? && glob_match?(destructive_globs, category)
         "environment #{environment.slug} is protected and #{category} is destructive"
+      elsif exceeds_blast_radius?(environment, blast_radius)
+        "blast radius #{blast_radius} exceeds environment #{environment.slug}'s ceiling of #{environment.max_blast_radius}"
       end
+    end
+
+    def exceeds_blast_radius?(environment, blast_radius)
+      ceiling = environment.max_blast_radius
+      ceiling.present? && blast_radius.is_a?(Integer) && blast_radius > ceiling
     end
 
     def destructive_globs

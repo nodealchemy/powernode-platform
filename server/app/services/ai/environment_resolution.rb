@@ -22,6 +22,10 @@ module Ai
   # named none.
   module EnvironmentResolution
     PROVIDER_KEY = :environment_resolver
+    # How many instances a params set touches, answered by the extension
+    # that owns the fleet rows (same core-purity shape as PROVIDER_KEY).
+    # Contract: `.call(account:, params:)` returning an Integer or nil.
+    BLAST_RADIUS_PROVIDER_KEY = :blast_radius_estimator
 
     # Raised when the registered resolver itself fails. Deliberately NOT
     # swallowed into nil: "no environment" is exactly the state in which no
@@ -61,6 +65,24 @@ module Ai
       value.is_a?(::Ai::Environment) ? value.slug.inspect : value.to_s.inspect
     end
     private_class_method :describe
+
+    # The blast radius of an operation: the number of instances its params
+    # touch, or nil when nothing registered can tell. A failing estimator is a
+    # ResolverError for the same reason a failing resolver is: nil is the
+    # state in which no ceiling applies, so a bug that returned nil would
+    # switch the per-environment ceiling off.
+    def blast_radius(account:, params: nil)
+      estimator = ::Powernode::ExtensionRegistry.provider(BLAST_RADIUS_PROVIDER_KEY)
+      return nil if estimator.nil? || account.nil?
+
+      value = estimator.call(account: account, params: (params || {}).to_h.with_indifferent_access)
+      value.nil? ? nil : Integer(value)
+    rescue ResolverError
+      raise
+    rescue StandardError => e
+      Rails.logger.error("[Ai::EnvironmentResolution] blast-radius estimator failed: #{e.class}: #{e.message}")
+      raise ResolverError, "blast-radius estimator failed: #{e.class}: #{e.message}"
+    end
 
     def coerce(account, value)
       case value

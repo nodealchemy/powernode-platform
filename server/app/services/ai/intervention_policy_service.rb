@@ -42,11 +42,14 @@ module Ai
     # acts on. Rows whose conditions name environments only match that plane,
     # and Ai::EnvironmentPolicyOverlay may then ESCALATE the verdict to
     # require_approval — never relax it. nil ⇒ no environment rule applies.
-    def resolve(action_category:, agent: nil, user: nil, severity: nil, environment: nil)
+    # `blast_radius` (increment 4): how many instances the operation touches,
+    # checked against the environment's max_blast_radius by the overlay.
+    def resolve(action_category:, agent: nil, user: nil, severity: nil, environment: nil, blast_radius: nil)
       match = resolve_without_environment(
         action_category: action_category, agent: agent, user: user, severity: severity, environment: environment
       )
-      ::Ai::EnvironmentPolicyOverlay.apply(match, environment: environment, action_category: action_category)
+      ::Ai::EnvironmentPolicyOverlay.apply(match, environment: environment, action_category: action_category,
+                                                  blast_radius: blast_radius)
     end
 
     def resolve_without_environment(action_category:, agent: nil, user: nil, severity: nil, environment: nil)

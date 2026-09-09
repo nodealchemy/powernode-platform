@@ -82,9 +82,11 @@ module Ai
       resolved_environment = ::Ai::EnvironmentResolution.resolve(
         account: @account, params: params, environment: environment
       )
+      # Only worth estimating when a plane (and so a ceiling) applies.
+      blast_radius = resolved_environment && ::Ai::EnvironmentResolution.blast_radius(account: @account, params: params)
       policy_match = @policy_service.resolve(
         action_category: action_category, agent: agent, user: requested_by,
-        environment: resolved_environment
+        environment: resolved_environment, blast_radius: blast_radius
       )
 
       deferred = create_deferred_operation!(
@@ -100,7 +102,8 @@ module Ai
         Result.new(decision: :proceed, deferred_operation: deferred, result: result_data)
       when "require_approval"
         require_approval_or_proceed(deferred, policy_match[:record], action_category,
-                                    escalation: policy_match[:environment_escalation])
+                                    escalation: policy_match[:environment_escalation],
+                                    blast_radius: policy_match[:blast_radius])
       when "block", "silent"
         deferred.update!(status: "rejected", error_message: "Blocked by policy")
         Result.new(decision: :blocked, deferred_operation: deferred,
@@ -109,7 +112,8 @@ module Ai
         # Unknown policy — fail safe to require_approval
         Rails.logger.warn("[AutonomyGate] Unknown policy '#{policy_match[:policy]}' for #{action_category}, defaulting to require_approval")
         require_approval_or_proceed(deferred, policy_match[:record], action_category,
-                                    escalation: policy_match[:environment_escalation])
+                                    escalation: policy_match[:environment_escalation],
+                                    blast_radius: policy_match[:blast_radius])
       end
     rescue StandardError => e
       Rails.logger.error("[AutonomyGate] evaluate(#{action_category}) failed: #{e.class}: #{e.message}")
@@ -149,9 +153,9 @@ module Ai
     # :blocked + 422 — which broke `tasks_controller create`,
     # `sdwan/networks destroy`, and every other AutonomyGate-protected
     # request spec running without business loaded.
-    def require_approval_or_proceed(deferred, policy_record, action_category, escalation: nil)
+    def require_approval_or_proceed(deferred, policy_record, action_category, escalation: nil, blast_radius: nil)
       if defined?(::Ai::ApprovalChain)
-        request = create_approval_request!(deferred, policy_record, escalation: escalation)
+        request = create_approval_request!(deferred, policy_record, escalation: escalation, blast_radius: blast_radius)
         deferred.update!(approval_request: request)
         Result.new(decision: :pending, deferred_operation: deferred)
       else
@@ -164,7 +168,7 @@ module Ai
       end
     end
 
-    def create_approval_request!(deferred, policy_record, escalation: nil)
+    def create_approval_request!(deferred, policy_record, escalation: nil, blast_radius: nil)
       chain = resolve_chain(deferred, policy_record)
       environment = deferred.environment
       chain.create_request!(
@@ -180,6 +184,7 @@ module Ai
             id: environment.id, slug: environment.slug, is_protected: environment.protected?
           },
           environment_escalation: escalation,
+          blast_radius: blast_radius,
           # Redacted copy, not the stored one. The operation keeps plaintext in
           # its own params because the executor replays them after approval;
           # request_data exists only to be READ, by an approval audience wider
