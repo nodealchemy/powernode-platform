@@ -466,6 +466,9 @@ module Ai
         "deliver" => "Ai::Tools::DeliveryTool",
         "delivery_status" => "Ai::Tools::DeliveryTool",
         "delivery_list" => "Ai::Tools::DeliveryTool",
+        # Environments (Environment campaign, increment 4): the operator's knobs
+        "environment_list" => "Ai::Tools::EnvironmentTool",
+        "environment_update" => "Ai::Tools::EnvironmentTool",
         # Improvement-discovery loop (Tier-1): offer -> approve -> dev-improve task
         "discover_improvements" => "Ai::Tools::ImprovementTool",
         "create_improvement" => "Ai::Tools::ImprovementTool",
