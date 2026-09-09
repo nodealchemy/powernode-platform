@@ -88,6 +88,29 @@ module Ai
         }
       }.freeze
 
+      # The fragment a list action splats in to accept `environment` as a
+      # FILTER: narrow the answer to one plane of the fleet.
+      #
+      # Distinct from the `environment` key System::EnvironmentResolver reads,
+      # which is a gating FLOOR — the two coexist deliberately. Asking for one
+      # plane's rows also gates the read at that plane's strictness, which is
+      # the conservative direction: naming `prod` can only tighten the policy
+      # the call is measured against, never loosen it.
+      #
+      # No `enum:`. The plane set is per-account and extensible (an operator may
+      # add planes), so the accepted values are a QUERY, not a constant — which
+      # is why the prose points at environment_list instead of spelling a list
+      # the platform would then have to keep true.
+      ENVIRONMENT_FILTER_PARAMETER = {
+        environment: {
+          type: "string", required: false,
+          description: "Environment slug or Ai::Environment id: return only rows on that plane of the fleet. " \
+                       "The plane set is per-account and extensible, so it is NOT a closed enum — call " \
+                       "environment_list for this account's planes (seeded: dev, ci, staging, ops, prod). " \
+                       "A plane this account does not have is refused, never ignored."
+        }
+      }.freeze
+
       # One page plus the numbers a caller needs to know what it is holding.
       ListPage = Struct.new(:records, :total, :limit, :next_cursor) do
         def envelope
@@ -966,6 +989,34 @@ module Ai
       # @param direction [:asc, :desc]
       # @param extra     [Hash] additional payload keys for this action
       # @yield [record] serializer for one row
+      # === ENVIRONMENT FILTER — the call side of ENVIRONMENT_FILTER_PARAMETER ===
+
+      # Resolve the `environment` filter, or nil when the caller did not name a
+      # plane. An unknown plane RAISES, and every tool that splats the parameter
+      # converts ArgumentError to a refusal envelope.
+      #
+      # Fail closed is the whole point. The alternative — drop a filter that
+      # cannot be resolved — answers "what is running in prod" with rows from
+      # every plane, which is the most dangerous possible misreading of the
+      # question. It is the same refusal Ai::EnvironmentResolution makes when an
+      # ACTION names a plane the account does not have.
+      def environment_filter(params)
+        value = params[:environment]
+        return nil if value.blank?
+
+        ::Ai::Environment.find_for_account(@account.id, value.to_s) ||
+          raise(ArgumentError, "environment '#{value}' not found in this account")
+      end
+
+      # Narrow a relation to the named plane. The `in_environment` scope is
+      # declared by whichever model carries an environment_id, so a model that
+      # is not plane-bearing fails loudly here rather than silently returning
+      # every row.
+      def narrow_to_environment(relation, params)
+        environment = environment_filter(params)
+        environment ? relation.in_environment(environment) : relation
+      end
+
       def paginated_result(key, relation, params, sort: :id, direction: :desc, **extra, &serializer)
         page = paginate_list(relation, params, sort: sort, direction: direction)
         success_result(
