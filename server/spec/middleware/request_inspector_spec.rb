@@ -7,11 +7,15 @@ RSpec.describe RequestInspector do
   let(:app) { ->(env) { downstream_called << env; [200, { 'Content-Type' => 'text/plain' }, ['OK']] } }
   let(:middleware) { described_class.new(app) }
 
+  # DDoS state lives in Redis now (Security::IpBlockStore), NOT Rails.cache —
+  # the hub pins CACHE_STORE=memory_store, which made blocks per puma worker and
+  # lost them on restart. Clear only this store's own keys: the redis test
+  # database is shared by every rspec process on the box, so a FLUSHDB here
+  # would take out a concurrent run.
   before do
-    Rails.cache.clear # MemoryStore in test env — isolate per example
-    # remaining_block_time reads the block TTL from Redis; stub so the block
-    # response path is exercised without touching shared Redis.
-    allow(Powernode::CacheRedis).to receive(:ttl).and_return(1800)
+    Security::IpBlockStore.with do |redis|
+      redis.scan_each(match: "#{Security::IpBlockStore::PREFIX}:*") { |key| redis.del(key) }
+    end
   end
 
   def build_env(path: '/api/v1/widgets', method: 'GET', query: nil, ip: '203.0.113.7',
@@ -46,8 +50,39 @@ RSpec.describe RequestInspector do
       status, headers, _body = call(ip: ip)
       expect(status).to eq(403)
       expect(headers['X-Request-Blocked']).to eq('true')
-      expect(headers['Retry-After']).to eq('1800')
       expect(downstream_called).to be_empty
+    end
+
+    # Retry-After used to be the hardcoded 3600 on every deployment whose
+    # Rails.cache was not a Redis store — the TTL read resolved Redis OFF
+    # Rails.cache and got nil. It is now the block's real remaining time.
+    it 'reports the block’s ACTUAL remaining time in Retry-After' do
+      _status, headers, _body = call(ip: ip)
+
+      expect(headers['Retry-After'].to_i)
+        .to be_between(described_class.threshold(:block_duration_seconds) - 60,
+                       described_class.threshold(:block_duration_seconds))
+    end
+
+    # THE CROSS-PROCESS PROPERTY. A block written by one puma worker used to be
+    # invisible to every other worker, so a blocked attacker still reached the
+    # app on all but one — with Rails.cache as MemoryStore the blocklist was
+    # per PROCESS. A second middleware instance stands in for the sibling
+    # worker: it shares no Ruby state with the one that issued the block.
+    it 'is enforced by a middleware instance that never saw the block written' do
+      sibling = described_class.new(app)
+
+      status, headers, _body = sibling.call(build_env(ip: ip))
+
+      expect(status).to eq(403)
+      expect(headers['X-Request-Blocked']).to eq('true')
+    end
+
+    it 'survives a Rails.cache wipe — the block does not live there any more' do
+      Rails.cache.clear
+
+      status, = call(ip: ip)
+      expect(status).to eq(403)
     end
 
     it 'still serves trusted/health paths even for a blocked IP (bypass precedes block check)' do
@@ -209,8 +244,8 @@ RSpec.describe RequestInspector do
 
     it 'defaults the rapid-request threshold to 200 per window and reads DDOS_RAPID_REQUEST_THRESHOLD' do
       expect(described_class.rapid_request_threshold).to eq(200)
-      allow(ENV).to receive(:fetch).and_call_original
-      allow(ENV).to receive(:fetch).with('DDOS_RAPID_REQUEST_THRESHOLD', anything).and_return('75')
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with('DDOS_RAPID_REQUEST_THRESHOLD').and_return('75')
       expect(described_class.rapid_request_threshold).to eq(75)
     end
 
@@ -228,8 +263,10 @@ RSpec.describe RequestInspector do
       limit.times do
         (described_class.rapid_request_threshold + 5).times { call(ip: ip) }
         # next 10s window: the per-window counters expire
-        Rails.cache.delete("ddos_rapid:#{ip}")
-        Rails.cache.delete("ddos_rapid_flagged:#{ip}")
+        Security::IpBlockStore.with do |redis|
+          redis.del("#{Security::IpBlockStore::RAPID_PREFIX}#{ip}",
+                    "#{Security::IpBlockStore::RAPID_FLAG_PREFIX}#{ip}")
+        end
       end
 
       expect(middleware.send(:blocked?, ip)).to be(true)
@@ -261,6 +298,68 @@ RSpec.describe RequestInspector do
       expect(second).to be > first
       expect(middleware.send(:calculate_block_duration, 99))
         .to eq(RequestInspector::THRESHOLDS[:max_block_duration])
+    end
+  end
+
+  # IMP-01a0823e — the thresholds were a frozen constant while Rack::Attack,
+  # the sibling control in the same request path, read its limits from
+  # AdminSetting. Tuning one half of the defence meant a settings change; the
+  # other half meant a redeploy.
+  describe 'operator-tunable thresholds' do
+    it 'reads a threshold from AdminSetting when one is set' do
+      expect(described_class.threshold(:suspicious_request_limit)).to eq(10)
+
+      AdminSetting.create!(key: 'ddos_suspicious_request_limit', value: '3', category: 'security')
+
+      expect(described_class.threshold(:suspicious_request_limit)).to eq(3)
+    end
+
+    it 'blocks at the ADMIN-SET limit, not the compiled-in one' do
+      AdminSetting.create!(key: 'ddos_suspicious_request_limit', value: '2', category: 'security')
+      ip = '203.0.113.201'
+
+      2.times { call(ip: ip, query: 'id=1 UNION SELECT password FROM users') }
+
+      expect(middleware.send(:blocked?, ip)).to be(true)
+    end
+
+    # A typo in a settings row must not disable a security control or mint a
+    # zero-second block, so a non-positive or unparseable value falls back
+    # rather than being honoured.
+    it 'ignores a blank, zero, negative or unparseable override' do
+      %w[0 -5 abc].each do |bad|
+        AdminSetting.find_or_initialize_by(key: 'ddos_suspicious_request_limit')
+                    .update!(value: bad, category: 'security')
+        expect(described_class.threshold(:suspicious_request_limit)).to eq(10)
+      end
+    end
+
+    it 'keeps DDOS_RAPID_REQUEST_THRESHOLD ahead of the AdminSetting' do
+      AdminSetting.create!(key: 'ddos_rapid_request_threshold', value: '90', category: 'security')
+      expect(described_class.rapid_request_threshold).to eq(90)
+
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with('DDOS_RAPID_REQUEST_THRESHOLD').and_return('75')
+      expect(described_class.rapid_request_threshold).to eq(75)
+    end
+  end
+
+  # This middleware runs ahead of routing, so an exception is a blank 500 with
+  # nothing in the controller log, and a store that answered "blocked" on a
+  # backend error would 403 the whole fleet. Both directions fail OPEN.
+  describe 'when the block store is unreachable' do
+    before do
+      allow(Security::IpBlockStore).to receive(:pool).and_raise(Redis::CannotConnectError, 'down')
+    end
+
+    it 'serves traffic normally instead of raising or blocking' do
+      status, _headers, body = call
+      expect(status).to eq(200)
+      expect(body).to eq(['OK'])
+    end
+
+    it 'reports no IP as blocked' do
+      expect(middleware.send(:blocked?, '198.51.100.42')).to be(false)
     end
   end
 end
