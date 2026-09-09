@@ -3,8 +3,12 @@
 module Ai
   # An ENVIRONMENT: which plane a piece of infrastructure belongs to — dev, ci,
   # staging, ops (the control plane itself), prod — and therefore how much an
-  # agent may decide there on its own, how far one action may reach, and what
-  # gate a version crosses to get in.
+  # agent may decide there on its own, how far one action may reach
+  # (`max_blast_radius`, read by Ai::EnvironmentPolicyOverlay), and what gate a
+  # version crosses to get in (`auto_promote_on_publish`: a FOLLOWING plane
+  # serves a module's current version as soon as it is published; a PINNED
+  # plane serves only what was promoted into it, one ladder rung at a time —
+  # increment 4).
   #
   # Operator ruling 2026-09-08 (Environment campaign): infrastructure agents
   # are TRUSTED for reversible actions and need APPROVAL for destructive ones
@@ -31,14 +35,18 @@ module Ai
     # slug => attributes. The single source of truth for what a fresh account
     # gets; the backfill migration mirrors it as SQL.
     DEFAULTS = {
-      "dev"     => { name: "Development", tier: 0, default_decision_authority: "trusted",    is_protected: false, is_default: true,  position: 10 },
-      "ci"      => { name: "CI",          tier: 0, default_decision_authority: "trusted",    is_protected: false, is_default: false, position: 20 },
-      "staging" => { name: "Staging",     tier: 1, default_decision_authority: "trusted",    is_protected: false, is_default: false, position: 30 },
-      "ops"     => { name: "Operations",  tier: 2, default_decision_authority: "monitored",  is_protected: true,  is_default: false, position: 40 },
-      "prod"    => { name: "Production",  tier: 3, default_decision_authority: "supervised", is_protected: true,  is_default: false, position: 50 }
+      "dev"     => { name: "Development", tier: 0, default_decision_authority: "trusted",    is_protected: false, is_default: true,  position: 10, auto_promote_on_publish: true },
+      "ci"      => { name: "CI",          tier: 0, default_decision_authority: "trusted",    is_protected: false, is_default: false, position: 20, auto_promote_on_publish: true },
+      "staging" => { name: "Staging",     tier: 1, default_decision_authority: "trusted",    is_protected: false, is_default: false, position: 30, auto_promote_on_publish: false },
+      # Operator ruling 2026-09-08: the control plane keeps following
+      # publishes for now (flippable per environment through environment_update).
+      "ops"     => { name: "Operations",  tier: 2, default_decision_authority: "monitored",  is_protected: true,  is_default: false, position: 40, auto_promote_on_publish: true },
+      "prod"    => { name: "Production",  tier: 3, default_decision_authority: "supervised", is_protected: true,  is_default: false, position: 50, auto_promote_on_publish: false }
     }.freeze
 
     belongs_to :account
+
+    after_update_commit :notify_promotion_mode_listener, if: :saved_change_to_auto_promote_on_publish?
     has_many :projects, class_name: "Ai::Project", foreign_key: :environment_id,
                         dependent: :restrict_with_error, inverse_of: :environment
 
@@ -96,6 +104,38 @@ module Ai
 
     def protected?
       is_protected == true
+    end
+
+    # A FOLLOWING plane: its nodes serve a module's current version the moment
+    # it is published. A pinned plane (false) serves only what was promoted
+    # into it.
+    def follows_publish?
+      auto_promote_on_publish == true
+    end
+
+    # The promotion ladder for an account: environments by tier, then
+    # position. A version climbs it one rung at a time.
+    def self.ladder_for(account)
+      where(account: account).order(:tier, :position, :slug).to_a
+    end
+
+    # The rung a version must already be on before it may be promoted into
+    # THIS environment: the highest-tier PINNED environment strictly below
+    # this one's tier (ties on tier are siblings, not predecessors; following
+    # environments are not rungs — they run whatever is published). nil when
+    # no pinned environment sits below: the version then enters the ladder
+    # from the current version, i.e. by being published.
+    def ladder_predecessor
+      self.class.where(account_id: account_id, auto_promote_on_publish: false).where("tier < ?", tier)
+          .order(tier: :desc, position: :desc, slug: :desc).first
+    end
+
+    # Flipping between following and pinned changes what every module serves
+    # here; the fleet extension (seam :environment_promotion_mode_listener)
+    # freezes or drops the environment's pins accordingly. Core mode has no
+    # listener and nothing to freeze.
+    def notify_promotion_mode_listener
+      Powernode::ExtensionRegistry.provider(:environment_promotion_mode_listener)&.call(environment: self)
     end
 
     def to_s

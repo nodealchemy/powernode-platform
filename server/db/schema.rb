@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_08_233000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_09_001000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2314,6 +2314,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_233000) do
   create_table "ai_environments", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.jsonb "approval_required_categories", default: [], null: false
+    t.boolean "auto_promote_on_publish", default: true, null: false
     t.datetime "created_at", null: false
     t.string "default_decision_authority", default: "trusted", null: false
     t.text "description"
@@ -9347,6 +9348,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_233000) do
     t.check_constraint "dependency_type::text = ANY (ARRAY['requires'::character varying::text, 'recommends'::character varying::text, 'conflicts'::character varying::text, 'provides'::character varying::text])", name: "system_module_dependencies_type_check"
   end
 
+  create_table "system_module_environment_pins", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "environment_id", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "node_module_id", null: false
+    t.uuid "node_module_version_id", null: false
+    t.datetime "promoted_at"
+    t.uuid "promoted_by_id"
+    t.string "promoted_by_type"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_system_module_environment_pins_on_account_id"
+    t.index ["environment_id"], name: "index_system_module_environment_pins_on_environment_id"
+    t.index ["node_module_id", "environment_id"], name: "index_module_environment_pins_on_module_and_environment", unique: true
+    t.index ["node_module_id"], name: "index_system_module_environment_pins_on_node_module_id"
+    t.index ["node_module_version_id"], name: "index_system_module_environment_pins_on_node_module_version_id"
+  end
+
   create_table "system_module_puppet_assignments", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
@@ -12428,6 +12447,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_233000) do
   add_foreign_key "system_module_artifacts", "system_node_module_versions", column: "node_module_version_id"
   add_foreign_key "system_module_dependencies", "system_node_modules", column: "dependency_id"
   add_foreign_key "system_module_dependencies", "system_node_modules", column: "node_module_id"
+  add_foreign_key "system_module_environment_pins", "accounts"
+  add_foreign_key "system_module_environment_pins", "ai_environments", column: "environment_id", on_delete: :cascade
+  add_foreign_key "system_module_environment_pins", "system_node_module_versions", column: "node_module_version_id", on_delete: :cascade
+  add_foreign_key "system_module_environment_pins", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_module_puppet_assignments", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_module_puppet_assignments", "system_puppet_modules", column: "puppet_module_id"
   add_foreign_key "system_module_service_dependencies", "system_module_services", column: "depends_on_module_service_id", on_delete: :cascade
