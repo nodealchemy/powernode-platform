@@ -118,7 +118,7 @@ const ModuleMembersTable: React.FC<{ modules: ModuleBuildMember[] }> = ({ module
         m.artifact ? (
           <div className="text-xs">
             <p className="text-theme-primary">v{m.artifact.version_number} · {formatBytes(m.artifact.size_bytes)}</p>
-            <p className="text-theme-tertiary">{m.artifact.signed ? 'signed' : 'unsigned'} · {m.artifact.promotion_state}</p>
+            <p className="text-theme-tertiary">{m.artifact.signed ? 'signed' : 'unsigned'}</p>
           </div>
         ) : (
           <span className="text-theme-tertiary">—</span>

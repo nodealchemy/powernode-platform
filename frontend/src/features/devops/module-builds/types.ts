@@ -68,7 +68,6 @@ export interface ModuleBuildLeaseInfo {
 
 export interface ModuleBuildArtifactInfo {
   version_number: number;
-  promotion_state: string;
   oci_ref: string | null;
   oci_digest: string | null;
   size_bytes: number | null;
