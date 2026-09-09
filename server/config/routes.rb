@@ -1111,6 +1111,14 @@ Rails.application.routes.draw do
           post :disable, to: "rate_limiting#disable_temporarily"
           post :enable, to: "rate_limiting#enable"
 
+          # RequestInspector IP blocks (the DDoS middleware's own blocklist,
+          # separate from the rate_limit:* counters above). An IP contains dots,
+          # which Rails would otherwise parse as a :format, so the segment takes
+          # an explicit constraint — an IPv6 address contains colons for the
+          # same reason.
+          get "ip_blocks", to: "rate_limiting#ip_blocks"
+          delete "ip_blocks/:ip", to: "rate_limiting#clear_ip_block", constraints: { ip: %r{[^/]+} }
+
           # Account tier management
           scope "accounts/:account_id" do
             get :statistics, to: "rate_limiting#account_statistics", as: :account_statistics

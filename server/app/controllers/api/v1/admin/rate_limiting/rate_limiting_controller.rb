@@ -32,6 +32,50 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
     end
   end
 
+  # GET /api/v1/admin/rate_limiting/ip_blocks
+  #
+  # The RequestInspector blocklist. Distinct from the rate_limit:* counters the
+  # rest of this controller reports: those are throttles, these are 403s served
+  # by middleware ahead of routing. Until this existed a wrongly-blocked
+  # operator (or the platform's own worker — it has happened twice, see
+  # RequestInspector#trusted_path?) could only be freed by waiting out a block
+  # of up to 24 hours or restarting the process.
+  def ip_blocks
+    result = ::Security::IpBlockStore.blocked_ips
+
+    render_success({
+      blocks: result[:blocks],
+      total_count: result[:blocks].size,
+      truncated: result[:truncated]
+    })
+  rescue StandardError => e
+    Rails.logger.error "Failed to list IP blocks: #{e.message}"
+    render_error("Failed to retrieve IP blocks", status: :internal_server_error)
+  end
+
+  # DELETE /api/v1/admin/rate_limiting/ip_blocks/:ip
+  #
+  # Lifts a block immediately. The offense COUNT is deliberately left standing:
+  # it is the progressive-penalty memory, and clearing it on every unblock would
+  # let an attacker reset their own escalation by getting one block lifted.
+  def clear_ip_block
+    ip = params[:ip].to_s
+
+    return render_error("IP is required", status: :bad_request) if ip.blank?
+
+    removed = ::Security::IpBlockStore.unblock!(ip)
+    Rails.logger.warn("[DDoS] IP block lifted by admin: IP=#{ip} user=#{current_user&.id} found=#{removed}")
+
+    render_success({
+      ip: ip,
+      unblocked: removed,
+      message: removed ? "IP block lifted" : "IP was not blocked"
+    })
+  rescue StandardError => e
+    Rails.logger.error "Failed to clear IP block: #{e.message}"
+    render_error("Failed to clear IP block", status: :internal_server_error)
+  end
+
   # GET /api/v1/admin/rate_limiting/limits/:identifier
   def user_limits
     identifier = params[:identifier]
