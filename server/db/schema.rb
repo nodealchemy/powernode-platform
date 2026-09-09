@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_09_001000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9705,7 +9705,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_001000) do
 
   create_table "system_node_module_versions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.jsonb "artifacts", default: {}, null: false
-    t.datetime "blessed_at"
     t.text "changelog"
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
@@ -9716,17 +9715,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_001000) do
     t.uuid "deferred_promotion_batch_id"
     t.jsonb "file_spec", default: {}, null: false
     t.string "fsverity_root_hash"
-    t.datetime "live_at"
     t.jsonb "mask", default: {}, null: false
     t.uuid "node_module_id", null: false
     t.string "oci_digest"
     t.jsonb "package_spec", default: {}, null: false
-    t.string "promotion_state", default: "built", null: false
     t.jsonb "protected_spec", default: [], null: false
     t.string "provenance_uri"
-    t.datetime "retired_at"
     t.string "sbom_uri"
-    t.datetime "staging_baked_at"
     t.datetime "updated_at", null: false
     t.integer "version_number", null: false
     t.string "vex_uri"
@@ -9737,10 +9732,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_001000) do
     t.index ["node_module_id", "version_number"], name: "idx_on_node_module_id_version_number_56c400291d", unique: true
     t.index ["node_module_id"], name: "index_system_node_module_versions_on_node_module_id"
     t.index ["oci_digest"], name: "index_system_node_module_versions_on_oci_digest"
-    t.index ["promotion_state"], name: "index_system_node_module_versions_on_promotion_state"
     t.index ["protected_spec"], name: "index_system_node_module_versions_on_protected_spec", using: :gin
     t.index ["version_number"], name: "index_system_node_module_versions_on_version_number"
-    t.check_constraint "promotion_state::text = ANY (ARRAY['built'::character varying::text, 'staging'::character varying::text, 'blessed'::character varying::text, 'live'::character varying::text, 'retired'::character varying::text])", name: "system_node_module_versions_promotion_state_check"
   end
 
   create_table "system_node_modules", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
