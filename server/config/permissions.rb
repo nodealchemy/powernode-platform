@@ -708,6 +708,29 @@ module Permissions
     permission "analytics.global", "Cross-account analytics scope (admin-only)", grant: { admin: true }
   end
 
+  # Component status plane (campaign 01a08c9b, increment A4). The read door on
+  # Platform::ComponentStatus — the one operator screen that replaces five
+  # pages across two codebases.
+  #
+  # GRANTED TO MEMBER ON PURPOSE (design §6). The surfaces this page absorbs
+  # (the Compute health panel, the fleet tiles, the self-healing dashboard)
+  # were reachable by a member; a status page only an admin can open would be
+  # a privilege REGRESSION dressed up as consolidation. It is a pure read:
+  # every action the page renders carries its OWN permission in the row's
+  # `actions` array, checked by the door that action names — this permission
+  # buys nobody a write.
+  #
+  # There is no `platform.status.manage` twin, because nothing writes these
+  # rows through a user door: Platform::Status::SweepService is the one
+  # producer and reaches the database through the mTLS worker route.
+  define(namespace: "platform") do
+    resource :status, actions: %i[read],
+             grant: { owner: :all, admin: :all, manager: :all, member: :all },
+             descriptions: {
+               read: "View the component status plane (verdicts, conditions, dependencies, rollup, impact)"
+             }
+  end
+
   define(tier: :admin) do
     resource :user, actions: %i[manage], grant: { admin: :all }   # admin.user.manage (suspend/reset/unlock)
     resource :oauth, actions: %i[manage], grant: { admin: :all }  # admin.oauth.manage (cross-account OAuth admin)
