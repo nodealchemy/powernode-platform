@@ -200,6 +200,42 @@ RSpec.describe Platform::Status::Escalation do
     end
   end
 
+  # E8 — Escalation fans out through Monitoring::AlertingService under the
+  # SAME last_notified_at claim. The arms that CONFIGURE a channel wait on the
+  # storage ruling for the channel credentials; these two need no channel at
+  # all, which is also the fresh-install default.
+  describe "external channel fan-out (E8)" do
+    def degraded_past_dwell
+      row_for(Platform::ComponentStatus::DEGRADED,
+              conditions: [ condition(reason: "Disconnected", severity: "degraded",
+                                      transition_at: (described_class.degraded_after_minutes + 5).minutes.ago) ])
+    end
+
+    # Asserted through WebMock's request registry, which records every request
+    # whether or not it was stubbed — so "no POST" is a fact about the wire,
+    # not about a double someone forgot to set up.
+    it "with no channel configured, writes only the Notification and POSTs nothing" do
+      degraded_past_dwell
+
+      described_class.sweep!(account)
+
+      expect(notifications_for(operator).count).to eq(1)
+      expect(a_request(:post, /.*/)).not_to have_been_made
+    end
+
+    it "a deliverer that raises costs neither the Notification nor the claim" do
+      row = degraded_past_dwell
+      allow_any_instance_of(Monitoring::AlertingService).to receive(:send_alert).and_raise("channel exploded")
+
+      created = described_class.sweep!(account)
+
+      expect(created.size).to eq(1)
+      expect(notifications_for(operator).count).to eq(1)
+      # Without the claim, a broken channel becomes a retry on every sweep.
+      expect(row.reload.last_notified_at).to be_present
+    end
+  end
+
   describe ".sweep! — degraded dwell" do
     let(:threshold) { described_class.degraded_after_minutes }
 

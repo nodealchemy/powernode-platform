@@ -213,11 +213,46 @@ module Platform
           create_notification(user, row, severity: severity, title: title, message: message)
         end
 
+        # E8 — external channels ride the SAME claim as the in-app rows: one
+        # notifiable pass means one delivery per configured channel, and a pass
+        # the interval suppresses delivers to none of them. Called before the
+        # claim is staked but rescued, so a channel that raises cannot leave the
+        # row unclaimed and turn into a retry on every sweep.
+        deliver_to_channels(row, severity: severity, title: title, message: message)
+
         # The claim is staked even if every create failed: a notification
         # subsystem that is broken must not turn into a loop that retries on
         # every sweep forever.
         row.update_column(:last_notified_at, @now)
         notifications
+      end
+
+      # Fan-out through the core delivery seam (design E8). AlertingService
+      # decides which channels are configured and delivers to each; with none
+      # configured it delivers nowhere, which is the default on a fresh install.
+      #
+      # The context carries the row's coordinates and nothing else: no
+      # credential, no condition evidence, nothing a Slack channel or an
+      # outbound webhook should not see.
+      #
+      # Fully qualified: an unqualified `Monitoring` inside Platform::Status
+      # would resolve lexically before reaching the top level.
+      def deliver_to_channels(row, severity:, title:, message:)
+        ::Monitoring::AlertingService.new.send_alert(
+          title: title,
+          message: message,
+          severity: severity.to_sym,
+          context: {
+            component_kind: row.component_kind,
+            component_ref: row.component_ref,
+            verdict: row.verdict,
+            account_id: row.account_id
+          }
+        )
+      rescue StandardError => e
+        Rails.logger.error("[Platform::Status::Escalation] channel delivery failed: " \
+                           "#{e.class}: #{e.message}")
+        nil
       end
 
       # Design §5.4 — fleet kinds keep their own lane's escalation. The
