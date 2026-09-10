@@ -46,10 +46,23 @@ module Ai
       recalculate_effectiveness! if usage_count >= 5
     end
 
+    # D5 — activation must change WHAT IS SERVED, not just a label.
+    #
+    # Ai::Agent#build_skill_system_prompts plucks ai_skills.system_prompt, so a
+    # version flagged active whose text was never copied there is inert: the
+    # skill goes on serving whatever prompt it already had, and every outcome
+    # recorded "against the active version" is really an outcome of the old
+    # text. That falsifies the entire evolution loop — propose, activate,
+    # measure — because only the first two steps ever touched anything.
+    #
+    # A version carrying no prompt leaves the served text alone rather than
+    # blanking it: rows predating this column exist, and activating one must
+    # not silently empty the skill it serves.
     def activate!
       transaction do
         self.class.where(ai_skill_id: ai_skill_id).update_all(is_active: false)
         update!(is_active: true)
+        ai_skill.update!(system_prompt: system_prompt) if system_prompt.present?
       end
     end
 

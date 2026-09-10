@@ -53,7 +53,11 @@ RSpec.describe Ai::SelfImprovement::SkillMutationService do
         expect(version).to be_persisted
         expect(version.version).to eq("1")
         expect(version.change_type).to eq("ab_test")
-        expect(version.ab_traffic_pct).to eq(20.0)
+        # A FRACTION, not a percent. EvolutionService#record_outcome routes
+        # `rand < ab_traffic_pct`, so the 20.0 this used to pin sent 100% of
+        # recorded outcomes to the variant — start_ab_test's clamp is the
+        # guard, and D5 routes the variant through it.
+        expect(version.ab_traffic_pct).to eq(0.2)
         expect(version.is_active).to be(false)
       }.not_to change(Ai::AbTest, :count)
     end
@@ -70,6 +74,20 @@ RSpec.describe Ai::SelfImprovement::SkillMutationService do
       variants = skill.versions.reload.where(is_ab_variant: true)
       expect(variants.count).to eq(1)
       expect(variants.first.version).to eq("2")
+    end
+
+    it "starts the A/B through EvolutionService#start_ab_test, and leaves no orphan when it refuses" do
+      # Two claims in one arm. If create_variant wrote the flag itself (the
+      # clamp bypass D5 removes), this stub would never fire and the version
+      # would persist. And a variant row whose A/B never started is an inert
+      # orphan that still bumps the version count — so a refusal rolls back.
+      allow_any_instance_of(Ai::SkillGraph::EvolutionService)
+        .to receive(:start_ab_test).and_return({ error: "refused" })
+      record_usages(skill, "failure", 3)
+
+      expect {
+        expect(service.mutate!(skill: skill, strategy: "failure_analysis")).to be_nil
+      }.not_to change(Ai::SkillVersion, :count)
     end
 
     it "returns nil when the skill has no failures" do

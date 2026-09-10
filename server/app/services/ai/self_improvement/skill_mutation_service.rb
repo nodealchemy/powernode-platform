@@ -152,23 +152,39 @@ module Ai
         # method used to attempt was structurally invalid and rescue-nil'd on
         # every run. Version string convention follows
         # SkillGraph::EvolutionService (count + 1, unique per skill).
-        # One active A/B variant per skill: record_outcome!/end_ab_test resolve
-        # THE variant via .ab_variants.first, so retire any prior variant's
-        # flag + traffic slice first (mirrors EvolutionService#start_ab_test).
-        skill.versions.ab_variants.update_all(is_ab_variant: false, ab_traffic_pct: nil)
+        #
+        # D5: the A/B is STARTED by EvolutionService#start_ab_test, not by
+        # writing the flag here. This method used to set `ab_traffic_pct: 20.0`
+        # directly — a percent, where every reader treats the column as a
+        # fraction (`rand < ab_traffic_pct`), so the variant absorbed 100% of
+        # recorded outcomes. start_ab_test owns the default share, the clamp
+        # and the one-variant-per-skill retirement, so routing through it is
+        # the whole fix rather than a second copy of the rule.
+        #
+        # A refusal rolls the version back: a variant row whose A/B never
+        # started is an inert orphan that still consumes a version number.
+        Ai::SkillVersion.transaction do
+          version = Ai::SkillVersion.create!(
+            account: @account,
+            ai_skill: skill,
+            version: (skill.versions.count + 1).to_s,
+            change_type: "ab_test",
+            change_reason: "Auto-mutation (#{strategy})",
+            system_prompt: new_prompt.truncate(4000),
+            is_active: false,
+            is_ab_variant: false,
+            metadata: { mutation_strategy: strategy }
+          )
 
-        Ai::SkillVersion.create!(
-          account: @account,
-          ai_skill: skill,
-          version: (skill.versions.count + 1).to_s,
-          change_type: "ab_test",
-          change_reason: "Auto-mutation (#{strategy})",
-          system_prompt: new_prompt.truncate(4000),
-          is_active: false,
-          is_ab_variant: true,
-          ab_traffic_pct: 20.0,
-          metadata: { mutation_strategy: strategy }
-        )
+          started = Ai::SkillGraph::EvolutionService.new(@account)
+            .start_ab_test(skill_id: skill.id, variant_version_id: version.id)
+          if started[:error]
+            Rails.logger.error("[SkillMutation] A/B start refused for skill #{skill.id}: #{started[:error]}")
+            raise ActiveRecord::Rollback
+          end
+
+          version.reload
+        end
       end
 
       def build_composite_prompt(components, strategy)
