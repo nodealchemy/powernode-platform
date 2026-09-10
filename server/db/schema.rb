@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_10_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_10_220000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -7596,7 +7596,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_210000) do
     t.index ["account_id", "component_kind", "component_ref"], name: "index_platform_component_statuses_on_account_kind_ref", unique: true, nulls_not_distinct: true
     t.index ["account_id", "verdict"], name: "index_platform_component_statuses_on_account_and_verdict"
     t.index ["account_id"], name: "index_platform_component_statuses_on_account_id"
-    t.index ["component_kind", "last_seen_sweep_at"], name: "index_platform_component_statuses_on_kind_and_last_seen"
     t.index ["environment_id"], name: "index_platform_component_statuses_on_environment_id"
   end
 
@@ -7610,7 +7609,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_210000) do
     t.string "kind", null: false
     t.datetime "occurred_at", null: false
     t.jsonb "payload"
-    t.string "to_verdict", null: false
+    t.string "to_verdict"
     t.datetime "updated_at", null: false
     t.index ["account_id", "occurred_at"], name: "index_platform_status_events_on_account_and_occurred_at"
     t.index ["account_id"], name: "index_platform_status_events_on_account_id"
@@ -12335,7 +12334,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_210000) do
   add_foreign_key "pages", "accounts"
   add_foreign_key "pages", "users", column: "author_id"
   add_foreign_key "password_histories", "users"
+  add_foreign_key "platform_component_statuses", "accounts", on_delete: :cascade
   add_foreign_key "platform_component_statuses", "ai_environments", column: "environment_id", on_delete: :nullify
+  add_foreign_key "platform_status_events", "accounts", on_delete: :cascade
   add_foreign_key "platform_status_events", "platform_component_statuses", column: "component_status_id", on_delete: :nullify
   add_foreign_key "report_requests", "accounts"
   add_foreign_key "report_requests", "users", column: "requested_by_id"
