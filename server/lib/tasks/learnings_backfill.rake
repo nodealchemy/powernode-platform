@@ -10,14 +10,21 @@
 # those rows. This task is the manual repair; the compound maintenance endpoint
 # calls the same service method on a schedule.
 #
+# Scope: Ai::CompoundLearning::SURFACING_STATUSES (active + verified), the same
+# constant both recall branches read. Rows outside it are excluded from every
+# recall path, so embedding them would spend worker calls for nothing.
+#
 # Reuses the existing embedding path (the service's EmbeddingService ->
 # WorkerEmbeddingClient) — no second HTTP client, no host anywhere in here.
 namespace :ai do
-  desc "Backfill vector embeddings for active compound learnings stored without one (idempotent; LIMIT rows per account, default 200)"
-  task :backfill_learning_embeddings, [ :limit ] => :environment do |_t, args|
-    limit = (args[:limit].presence || 200).to_i
-    unless limit.positive?
-      abort("Usage: rails ai:backfill_learning_embeddings[<limit>] — limit must be a positive integer")
+  desc "Backfill vector embeddings for surfacing (active + verified) compound learnings stored without one (idempotent; LIMIT_PER_ACCOUNT rows for EACH account, default 200)"
+  task :backfill_learning_embeddings, [ :limit_per_account ] => :environment do |_t, args|
+    # Named for what it is: the budget is spent again for EVERY account, not
+    # shared across the fleet — it caps one service call batch so the worker's
+    # HTTP timeout cannot kill a run mid-batch.
+    limit_per_account = (args[:limit_per_account].presence || 200).to_i
+    unless limit_per_account.positive?
+      abort("Usage: rails ai:backfill_learning_embeddings[<limit_per_account>] — limit must be a positive integer")
     end
 
     totals = { accounts: 0, embedded: 0, failed: 0, remaining: 0 }
@@ -26,7 +33,7 @@ namespace :ai do
     Account.find_each do |account|
       result = Ai::Learning::CompoundLearningService
         .new(account: account)
-        .backfill_embeddings(max_per_run: limit)
+        .backfill_embeddings(max_per_run: limit_per_account)
 
       embedded = result[:embedded].to_i
       failed = result[:failed].to_i

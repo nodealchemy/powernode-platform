@@ -49,6 +49,28 @@ RSpec.describe "ai:backfill_learning_embeddings" do
       expect(learning.reload.embedding).to be_present
     end
 
+    it "embeds a VERIFIED learning that has none — the most trusted tier is not skipped" do
+      verified = create(:ai_compound_learning, account: account, status: "verified", embedding: nil)
+
+      run_task
+
+      expect(verified.reload.embedding).to be_present
+    end
+
+    it "leaves a learning outside the surfacing set alone" do
+      # retired/superseded/deprecated/disproven rows are excluded from every
+      # recall branch, so embedding them buys nothing and would spend worker
+      # calls. Both arms of the status oracle: the surfacing pair is repaired
+      # (above), everything else is not.
+      retired = create(:ai_compound_learning, account: account, status: "retired", embedding: nil)
+      superseded = create(:ai_compound_learning, account: account, status: "superseded", embedding: nil)
+
+      run_task
+
+      expect(retired.reload.embedding).to be_nil
+      expect(superseded.reload.embedding).to be_nil
+    end
+
     it "leaves a learning that already has an embedding untouched" do
       existing = Array.new(1536, 0.42)
       learning = create(:ai_compound_learning, account: account, status: "active", embedding: existing)
@@ -78,6 +100,21 @@ RSpec.describe "ai:backfill_learning_embeddings" do
 
       embedded = Ai::CompoundLearning.where(account: account).where.not(embedding: nil).count
       expect(embedded).to eq(1)
+    end
+
+    # F5 (review) — the limit is a PER-ACCOUNT budget, and the single-account
+    # example above cannot tell that apart from a global one: both leave 1
+    # embedded row. With two accounts a global limit embeds 1 in total, a
+    # per-account limit embeds 1 in EACH. Hence the argument name.
+    it "applies the limit per account, not across the fleet" do
+      other_account = create(:account)
+      2.times { create(:ai_compound_learning, account: account, status: "active", embedding: nil) }
+      2.times { create(:ai_compound_learning, account: other_account, status: "active", embedding: nil) }
+
+      run_task("1")
+
+      expect(Ai::CompoundLearning.where(account: account).where.not(embedding: nil).count).to eq(1)
+      expect(Ai::CompoundLearning.where(account: other_account).where.not(embedding: nil).count).to eq(1)
     end
 
     it "rejects a non-positive limit" do
