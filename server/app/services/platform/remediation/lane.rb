@@ -47,6 +47,30 @@ module Platform
     #                         and an unknown state would fail the model's
     #                         validation at the far end of the pipe, where
     #                         nothing can say which lane produced it.
+    #
+    #                         THE GATE'S DECISION WORDS ARE A DIFFERENT AXIS.
+    #                         A gate answers `proceed` / `pending` / `denied`;
+    #                         `state` answers what the component's row should
+    #                         SAY. They are not the same vocabulary, and design
+    #                         §5.1's own oracle sentence ("a lane whose consent
+    #                         budget is exhausted returns `pending`") is about
+    #                         the gate, not about this field — `pending` is not
+    #                         in REMEDIATION_STATES and reporting it here earns
+    #                         a `LaneReportedUnknownState` refusal, after which
+    #                         the screen says `not_actuatable` and the operator
+    #                         never learns the budget was the reason.
+    #
+    #                         Map it instead:
+    #                           gate pending, a person must decide
+    #                             → state: "awaiting_operator"
+    #                           gate denied / nothing can act right now
+    #                             → state: "not_actuatable"
+    #                           gate proceed, the lane is acting
+    #                             → state: "auto_in_progress"
+    #                         and put the gate's own answer in `can_proceed`
+    #                         with its message in `reason`. The budget text
+    #                         belongs in `reason`, which reaches the screen
+    #                         verbatim; `state` only ever picks a rung.
     #   lane_key              the lane's own identifier, for the drawer and the
     #                         report. Falls back to #key.
     #   policy                the resolved intervention policy, as the lane

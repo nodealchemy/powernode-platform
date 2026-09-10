@@ -95,7 +95,22 @@ module Platform
           Rails.logger.error(
             "[Platform::RemediationRouter] lane #{lane.class} reported unknown state #{state.inspect}"
           )
-          return not_actuatable(runbook, UNKNOWN_STATE, lane_key: lane_key_of(lane))
+          # THE LANE'S OWN reason SURVIVES THE REFUSAL, in `lane_reason`.
+          #
+          # `reason` stays the constant, because a caller matching on
+          # UNKNOWN_STATE must keep matching and because the operator has to
+          # learn the lane is misbehaving. But discarding what the lane said
+          # loses the only sentence that explains the component's situation —
+          # a lane that reports the gate's `pending` instead of a state rung
+          # (the mistake Lane's contract now warns about) also reports
+          # "consent budget exhausted", and dropping it leaves the screen
+          # saying `not_actuatable` for no visible cause.
+          #
+          # Reported SEPARATELY rather than merged into `reason`: it came from
+          # a lane that just produced a garbage state, so it is evidence, not
+          # an authority. nil when the lane offered none.
+          return not_actuatable(runbook, UNKNOWN_STATE, lane_key: lane_key_of(lane),
+                                lane_reason: normalized[:reason].presence)
         end
 
         # The lane's report, then the two things core is entitled to fill in:
@@ -108,10 +123,11 @@ module Platform
         )
       end
 
-      def not_actuatable(runbook, reason, lane_key: nil)
+      def not_actuatable(runbook, reason, lane_key: nil, lane_reason: nil)
         {
           state: ::Platform::ComponentStatus::REMEDIATION_NOT_ACTUATABLE,
           lane_key: lane_key,
+          lane_reason: lane_reason,
           policy: nil,
           consent: { remaining: nil, budget: nil },
           disruption: {},

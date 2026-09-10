@@ -246,6 +246,37 @@ RSpec.describe Platform::RemediationRouter do
       expect(result[:lane_key]).to eq("exploding_lane")
     end
 
+    # L1 (A5 review): the refusal must not discard what the lane said. A lane
+    # that reports the GATE's `pending` instead of a state rung also reports
+    # "consent budget exhausted", and dropping that leaves the screen saying
+    # not_actuatable for no visible cause.
+    it "carries the lane's own reason through the unknown-state refusal" do
+      Platform::Remediation::Registry.register_lane(
+        "instance.silent",
+        fake_lane(state: "pending", can_proceed: false, reason: "ConsentBudgetExhausted")
+      )
+
+      result = described_class.route(component, signal_kind: "instance.silent")
+
+      # `reason` stays the constant, so a caller matching UNKNOWN_STATE keeps
+      # matching; the lane's sentence rides alongside as evidence.
+      expect(result[:reason]).to eq(described_class::UNKNOWN_STATE)
+      expect(result[:lane_reason]).to eq("ConsentBudgetExhausted")
+    end
+
+    # The other arm: nothing is invented when the lane offered no reason.
+    it "leaves lane_reason nil when the lane reported none" do
+      Platform::Remediation::Registry.register_lane(
+        "instance.silent", fake_lane(state: "pending", can_proceed: false)
+      )
+
+      expect(described_class.route(component, signal_kind: "instance.silent")[:lane_reason]).to be_nil
+    end
+
+    it "leaves lane_reason nil on the no-lane branch" do
+      expect(described_class.route(component, signal_kind: "unclaimed.kind")[:lane_reason]).to be_nil
+    end
+
     it "treats a non-Hash report as an unknown state" do
       Platform::Remediation::Registry.register_lane("instance.silent", fake_lane("not a hash"))
 

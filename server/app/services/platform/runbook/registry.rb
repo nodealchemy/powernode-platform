@@ -111,6 +111,9 @@ module Platform
           registered_entries[key]
         end
 
+        # `key?` rather than `.present?`, matching the extension catalog's own
+        # `documented?`. The two are equivalent here because #normalize_entry
+        # drops a blank `doc` before it can be stored — see the note there.
         def documented?(signal_kind)
           self.for(signal_kind)&.key?(DOC) || false
         end
@@ -162,12 +165,26 @@ module Platform
         # (string-keyed) and half from Ruby call sites (symbol-keyed), and a
         # registry that answers differently depending on which is a registry
         # with two behaviours.
+        # ONE RULE FOR A BLANK `doc`: it is not a doc entry, so the key does
+        # not survive normalization.
+        #
+        # Without that rule the two readers disagreed. `documented?` asks
+        # `key?("doc")` — mirroring the extension catalog's own predicate — and
+        # `render` asks `entry["doc"].present?`, so an entry of
+        # `{"doc" => nil}` reported documented while rendering as `none`. Worse,
+        # such an entry is `.presence`-truthy, so `for` accepted it and STOPPED
+        # WALKING, shadowing a later source that had a real path. Dropping the
+        # key at the door makes both readers agree by construction and lets the
+        # walk continue, rather than teaching each reader the same exception.
         def normalize_entry(entry)
           return nil unless entry.is_a?(Hash)
 
           entry.each_with_object({}) do |(k, v), out|
             key = k.to_s
-            out[key] = v if ENTRY_KEYS.include?(key)
+            next unless ENTRY_KEYS.include?(key)
+            next if key == DOC && v.blank?
+
+            out[key] = v
           end.presence
         end
 

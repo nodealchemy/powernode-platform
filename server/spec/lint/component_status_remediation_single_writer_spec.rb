@@ -24,7 +24,15 @@ require "rails_helper"
 RSpec.describe "Platform::ComponentStatus#remediation has one writer", type: :lint do
   # THE writer. Relative to the repo root so the failure message names
   # something a person can open.
-  SOLE_WRITER = "server/app/services/platform/status/remediation_state.rb"
+  #
+  # A METHOD, not a constant. A constant assigned inside an RSpec.describe
+  # block lands on Object, where a same-named constant in any other spec file
+  # in the same process clobbers it — and `SOLE_WRITER` / `WRITE_CALL_RX` /
+  # `ATTR_WRITE_RX` are exactly the generic names that collide. This suite has
+  # been bitten by duplicate-constant clobber before.
+  def sole_writer
+    "server/app/services/platform/status/remediation_state.rb"
+  end
 
   let(:repo_root) { File.expand_path("../../..", __dir__) }
   let(:core_app) { File.join(repo_root, "server", "app") }
@@ -52,21 +60,25 @@ RSpec.describe "Platform::ComponentStatus#remediation has one writer", type: :li
   # Deliberately NOT a bare /remediation:/ — the column is READ all over the
   # serializers and the drawer payloads, and a lint that fires on every read
   # is a lint that gets deleted.
-  WRITE_CALL_RX = /
-    \b(?:update!?|update_columns?|update_attribute|assign_attributes|upsert|insert!?|create!?|new)
-    \s*\(?[^)]{0,400}?\bremediation:\s
-  /xm
+  def write_call_rx
+    /
+      \b(?:update!?|update_columns?|update_attribute|assign_attributes|upsert|insert!?|create!?|new)
+      \s*\(?[^)]{0,400}?\bremediation:\s
+    /xm
+  end
 
   # ATTRIBUTE WRITER. `[^=~]` after the `=` keeps `==`, `=~` and `=>` out.
-  ATTR_WRITE_RX = /\.remediation\s*=[^=~]/
+  def attr_write_rx
+    /\.remediation\s*=[^=~]/
+  end
 
   def violations_in(source)
-    source.scan(WRITE_CALL_RX).size + source.scan(ATTR_WRITE_RX).size
+    source.scan(write_call_rx).size + source.scan(attr_write_rx).size
   end
 
   it "finds no writer outside Platform::Status::RemediationState" do
     offenders = scanned_files.filter_map do |file|
-      next if file.end_with?(SOLE_WRITER)
+      next if file.end_with?(sole_writer)
 
       count = violations_in(File.read(file))
       next if count.zero?
@@ -80,7 +92,7 @@ RSpec.describe "Platform::ComponentStatus#remediation has one writer", type: :li
         #{offenders.join("\n  ")}
 
       That column is DERIVED (design §4.3) and has exactly one writer,
-      #{SOLE_WRITER}. Supply the facts through
+      #{sole_writer}. Supply the facts through
       Platform::Status::SignalSources instead and let the derivation run — a
       second writer gives the operator screen two answers with no way to tell
       which is current.
@@ -92,11 +104,11 @@ RSpec.describe "Platform::ComponentStatus#remediation has one writer", type: :li
   # codebase — the likeliest way it fails is by quietly matching zero things.
   describe "the detector is live" do
     it "matches the sole writer's own assignment" do
-      source = File.read(File.join(repo_root, SOLE_WRITER))
+      source = File.read(File.join(repo_root, sole_writer))
 
       expect(violations_in(source)).to be >= 1,
-        "#{SOLE_WRITER} no longer matches the detector — either the writer moved " \
-        "(update SOLE_WRITER) or the regexes have gone dead and this lint now " \
+        "#{sole_writer} no longer matches the detector — either the writer moved " \
+        "(update #{sole_writer.inspect} above) or the regexes have gone dead and this lint now " \
         "passes over everything."
     end
 

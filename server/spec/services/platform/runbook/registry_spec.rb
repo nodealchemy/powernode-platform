@@ -168,6 +168,43 @@ RSpec.describe Platform::Runbook::Registry do
     end
   end
 
+  # L3 (A5 review): documented? asked `key?("doc")` while render asked
+  # `.present?`, so a `{"doc" => nil}` entry reported documented and rendered
+  # as none — and, being .presence-truthy, stopped `for` from walking on to a
+  # source that had a real path.
+  describe "an entry whose doc is blank" do
+    it "is not treated as a doc entry by either reader" do
+      described_class.register_source(source("a.kind" => { "doc" => nil }))
+
+      expect(described_class.documented?("a.kind")).to be false
+      expect(described_class.render("a.kind")[:kind]).to eq("none")
+    end
+
+    it "does not shadow a later source that has a real doc" do
+      described_class.register_source(source("a.kind" => { "doc" => "   " }))
+      described_class.register_source(source("a.kind" => { "doc" => "docs/runbooks/real.md#x" }))
+
+      expect(described_class.for("a.kind")).to eq("doc" => "docs/runbooks/real.md#x")
+      expect(described_class.documented?("a.kind")).to be true
+    end
+
+    # The other arm: a NON-blank doc is still stored and still stops the walk.
+    it "keeps a real doc and still shadows a later source" do
+      described_class.register_source(source("a.kind" => { "doc" => "first.md#x" }))
+      described_class.register_source(source("a.kind" => { "doc" => "second.md#x" }))
+
+      expect(described_class.for("a.kind")).to eq("doc" => "first.md#x")
+    end
+
+    it "keeps the rest of an entry whose doc is blank" do
+      described_class.register_source(
+        source("a.kind" => { "doc" => nil, "not_documented" => true, "reason" => "nothing to point at" })
+      )
+
+      expect(described_class.render("a.kind")).to eq(kind: "none", known: true, reason: "nothing to point at")
+    end
+  end
+
   describe "a raising source" do
     it "is logged and skipped rather than taking down the lookup" do
       exploding = Object.new

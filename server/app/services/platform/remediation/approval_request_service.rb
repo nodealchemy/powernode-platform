@@ -107,7 +107,13 @@ module Platform
       # would swallow a fresh request for as long as the stale one lingers.
       def find_active(component_status, kind, key)
         ::Ai::ApprovalRequest
-          .where(account_id: account.id)
+          # account&.id, matching this increment's own call site in
+          # PlatformRemediationTool#find_component. A bare account.id raises
+          # NoMethodError for an `internal: true` caller constructed with no
+          # account, and #request_approval rescues only RecordInvalid — so the
+          # safe navigation moves that failure onto the path the tool already
+          # reports, where the chain build refuses an accountless chain.
+          .where(account_id: account&.id)
           .for_source(SOURCE_TYPE, component_status.id)
           .active
           .where("request_data ->> 'signal_kind' = ?", kind)
