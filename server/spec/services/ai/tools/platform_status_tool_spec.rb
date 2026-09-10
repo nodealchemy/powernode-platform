@@ -28,7 +28,7 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
   # A METHOD, not a constant: a constant assigned inside an RSpec block lands
   # on Object and can be clobbered by a same-named constant in another spec
   # file — an order-dependent flake waiting to happen.
-  def advertised_actions = %w[list_component_status get_component_status component_impact]
+  def advertised_actions = %w[list_component_status get_component_status get_component_impact]
 
   describe "declarations and annotations" do
     it "declares every action it advertises, all read-only" do
@@ -58,21 +58,30 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       expect(entries["platform.get_component_status"]["annotations"]).to eq({ "readOnlyHint" => true })
     end
 
-    # KNOWN GAP, asserted rather than hidden. Mcp::ToolCatalog derives
-    # readOnlyHint from the action name's FIRST SEGMENT
-    # (READ_ONLY_ACTION_PREFIXES), and `component_impact` starts with
-    # "component". The verb IS declared `mutating: false`; the wire hint is
-    # missing because the export reads the name, not the declaration — which is
-    # exactly what design §8 E2 replaces. Pinned both ways so this example
-    # fails the day E2 lands (delete it then) AND the day someone renames the
-    # verb into the prefix list.
-    it "does NOT yet carry the hint for component_impact (the name-prefix heuristic; E2 owns the fix)" do
+    # The verb is named `get_component_impact`, not `component_impact`, so it
+    # carries the hint too. Mcp::ToolCatalog derives readOnlyHint from the
+    # action name's FIRST underscore segment (READ_ONLY_ACTION_PREFIXES); a
+    # name outside that vocabulary ships a read verb with no hint however it
+    # is declared. Asserted here so a rename out of the prefix set fails loudly
+    # rather than silently dropping the annotation.
+    it "carries the read-only annotation on the impact verb too, because of its name" do
       catalog = ::Mcp::ToolCatalog.new(protocol_version: ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS.max)
-      entry = catalog.list_entries.find { |t| t["name"] == "platform.component_impact" }
+      entry = catalog.list_entries.find { |t| t["name"] == "platform.get_component_impact" }
+
+      expect(entry).not_to be_nil
+      expect(entry["annotations"]).to eq({ "readOnlyHint" => true })
+      expect(described_class.declared_action("get_component_impact")[:mutating]).to be(false)
+    end
+
+    # The other arm of the annotation rule: the hint is NOT handed out to
+    # everything. A mutating verb elsewhere carries none, so "it has the hint"
+    # above is a real observation and not a property of the catalog.
+    it "does not hand the read-only hint to a mutating verb" do
+      catalog = ::Mcp::ToolCatalog.new(protocol_version: ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS.max)
+      entry = catalog.list_entries.find { |t| t["name"] == "platform.environment_update" }
 
       expect(entry).not_to be_nil
       expect(entry["annotations"]).to be_nil
-      expect(described_class.declared_action("component_impact")[:mutating]).to be(false)
     end
 
     it "names a permission the catalog recognizes on every action" do
@@ -93,7 +102,7 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       [
         { action: "list_component_status" },
         { action: "get_component_status", id: row.id },
-        { action: "component_impact", id: row.id }
+        { action: "get_component_impact", id: row.id }
       ].each do |params|
         result = stranger.execute(params: params)
         expect(result[:success]).to be(false), "#{params[:action]} was allowed without the permission"
@@ -106,7 +115,7 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       [
         { action: "list_component_status" },
         { action: "get_component_status", id: row.id },
-        { action: "component_impact", id: row.id }
+        { action: "get_component_impact", id: row.id }
       ].each do |params|
         expect(tool.execute(params: params)[:success]).to be(true), "#{params[:action]} was refused for a holder"
       end
@@ -120,6 +129,31 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       create(:platform_component_status, account: create(:account), component_ref: "theirs")
 
       expect(refs(call("list_component_status"))).to contain_exactly("mine", "shared-thing")
+    end
+
+    # The shared-row ruling (2026-09-10), both arms, from a SECOND account:
+    # a NULL-account row reaches every holder of platform.status.read labelled
+    # `scope: "shared"`, and account A's own rows never reach B.
+    it "labels shared rows scope=shared for another account, and hides that account's own rows" do
+      create(:platform_component_status, :shared, component_ref: "shared-breaker")
+      component(component_ref: "account-a-only")
+
+      account_b = create(:account)
+      tool_b = described_class.new(
+        account: account_b,
+        user: create(:user, account: account_b, permissions: [ "platform.status.read" ])
+      )
+      rows = tool_b.execute(params: { action: "list_component_status" }).dig(:data, :component_statuses)
+
+      expect(rows.map { |r| r[:component_ref] }).to eq([ "shared-breaker" ])
+      expect(rows.first[:scope]).to eq("shared")
+      expect(rows.map { |r| r[:component_ref] }).not_to include("account-a-only")
+    end
+
+    it "labels an account row scope=account" do
+      component(component_ref: "mine")
+
+      expect(call("list_component_status").dig(:data, :component_statuses).first[:scope]).to eq("account")
     end
 
     it "filters by kind, both arms" do
@@ -241,7 +275,7 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
     end
   end
 
-  describe "component_impact" do
+  describe "get_component_impact" do
     let!(:root) do
       component(component_kind: "node", component_ref: "node-1", verdict: "down",
                 conditions: [ { "type" => "Reachable", "status" => false, "reason" => "Unreachable",
@@ -259,7 +293,7 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
     end
 
     it "returns dependents and ranked candidates, LABELLED a heuristic" do
-      result = call("component_impact", id: middle.id)
+      result = call("get_component_impact", id: middle.id)
 
       expect(result.dig(:data, :heuristic)).to be true
       expect(result.dig(:data, :heuristic_basis)).to include("upstream-most")
@@ -268,16 +302,16 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
     end
 
     it "clamps depth to the cycle-safe ceiling and defaults when unusable" do
-      expect(call("component_impact", id: leaf.id, depth: 99).dig(:data, :depth))
+      expect(call("get_component_impact", id: leaf.id, depth: 99).dig(:data, :depth))
         .to eq(::Platform::Status::Rollup::DEFAULT_DEPTH)
-      expect(call("component_impact", id: leaf.id, depth: 0).dig(:data, :depth))
+      expect(call("get_component_impact", id: leaf.id, depth: 0).dig(:data, :depth))
         .to eq(::Platform::Status::Rollup::DEFAULT_DEPTH)
-      expect(call("component_impact", id: leaf.id, depth: 1).dig(:data, :depth)).to eq(1)
+      expect(call("get_component_impact", id: leaf.id, depth: 1).dig(:data, :depth)).to eq(1)
     end
 
     it "a depth of 1 sees only the first hop upstream" do
-      shallow = call("component_impact", id: leaf.id, depth: 1)
-      deep    = call("component_impact", id: leaf.id, depth: 4)
+      shallow = call("get_component_impact", id: leaf.id, depth: 1)
+      deep    = call("get_component_impact", id: leaf.id, depth: 4)
 
       expect(shallow.dig(:data, :root_cause_candidates).map { |c| c[:component_ref] }).to eq([ "vm-1" ])
       expect(deep.dig(:data, :root_cause_candidates).map { |c| c[:component_ref] }).to eq([ "node-1" ])

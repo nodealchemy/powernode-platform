@@ -474,7 +474,7 @@ module Ai
         # producer, so nothing here writes.
         "list_component_status" => "Ai::Tools::PlatformStatusTool",
         "get_component_status" => "Ai::Tools::PlatformStatusTool",
-        "component_impact" => "Ai::Tools::PlatformStatusTool",
+        "get_component_impact" => "Ai::Tools::PlatformStatusTool",
         # Improvement-discovery loop (Tier-1): offer -> approve -> dev-improve task
         "discover_improvements" => "Ai::Tools::ImprovementTool",
         "create_improvement" => "Ai::Tools::ImprovementTool",

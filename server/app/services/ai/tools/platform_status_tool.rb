@@ -20,6 +20,14 @@ module Ai
     # Platform::RemediationRouter (A5) and behind each row's own `actions`
     # entries, every one of which names its own permission.
     #
+    # The impact verb is `get_component_impact`, not `component_impact`, and
+    # the `get_` is load-bearing rather than stylistic: Mcp::ToolCatalog
+    # derives the wire `readOnlyHint` from the action name's FIRST underscore
+    # segment (READ_ONLY_ACTION_PREFIXES), so a name outside that vocabulary
+    # ships a read verb with NO read-only hint however it is declared. Design
+    # §8 E2 moves annotations onto `declared_actions`; until then the name is
+    # the only thing the annotation reads, so the name has to be right.
+    #
     # ── WIRE NAME: `not_measured`, NEVER `unknown` ──────────────────────────
     #
     # The absent-measurement verdict travels under one name end to end (design
@@ -35,12 +43,12 @@ module Ai
       ACTION_PERMISSIONS = {
         "list_component_status" => "platform.status.read",
         "get_component_status" => "platform.status.read",
-        "component_impact" => "platform.status.read"
+        "get_component_impact" => "platform.status.read"
       }.freeze
 
       declare_action "list_component_status", mutating: false
       declare_action "get_component_status", mutating: false
-      declare_action "component_impact", mutating: false
+      declare_action "get_component_impact", mutating: false
 
       VERDICT_DESCRIPTION = "One of ok | held | progressing | not_measured | degraded | down. " \
                             "`held` is operator intent (cordoned, paused, drained), not a failure. " \
@@ -94,7 +102,7 @@ module Ai
               component_ref: { type: "string", required: false, description: "With component_kind, an alternative to id" }
             }
           },
-          "component_impact" => {
+          "get_component_impact" => {
             description: "Who breaks if this component stays broken, and what most likely broke it. " \
                          "Returns the dependents reached over the dependency graph with their worst " \
                          "verdict, plus ranked root-cause candidates. The ranking is a HEURISTIC over " \
@@ -118,7 +126,7 @@ module Ai
         case action
         when "list_component_status" then list_component_status(params)
         when "get_component_status"  then get_component_status(params)
-        when "component_impact"      then component_impact(params)
+        when "get_component_impact" then get_component_impact(params)
         else error_result("Unknown action: #{action}")
         end
       end
@@ -170,7 +178,7 @@ module Ai
         )
       end
 
-      def component_impact(params)
+      def get_component_impact(params)
         row = find_component(params)
         return not_found_result(params) unless row
 
