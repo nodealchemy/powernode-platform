@@ -95,8 +95,10 @@ module Platform
       # The verdict one condition argues for (design §4.1). `Held` and
       # `Progressing` are the ONLY way a component reaches those two verdicts:
       # see Platform::Status::Contributor for why there is no second channel.
-      HELD_TYPE        = "Held"
-      PROGRESSING_TYPE = "Progressing"
+      # One source for the tokens: the model owns them, because the rollup's
+      # held bucket keys on the same string (see ComponentStatus.intent_held?).
+      HELD_TYPE        = ComponentStatus::HELD_CONDITION_TYPE
+      PROGRESSING_TYPE = ComponentStatus::PROGRESSING_CONDITION_TYPE
 
       def self.verdict_for(condition)
         return ComponentStatus::NOT_MEASURED unless condition.is_a?(Hash)

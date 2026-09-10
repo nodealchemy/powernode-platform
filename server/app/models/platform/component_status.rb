@@ -54,6 +54,14 @@ module Platform
     # here on purpose: blindness is actionable.
     UNHEALTHY_VERDICTS = [ NOT_MEASURED, DEGRADED, DOWN ].freeze
 
+    # The two condition types that carry OPERATOR INTENT rather than an
+    # observation. Defined here, and referenced by Platform::Status::Condition,
+    # so the token has one source: a rollup that looked for "Held" while a
+    # contributor emitted "held" would silently count nothing and the bug
+    # would look like "nobody cordoned anything".
+    HELD_CONDITION_TYPE        = "Held"
+    PROGRESSING_CONDITION_TYPE = "Progressing"
+
     # ── Remediation states (design §4.3) ────────────────────────────────────
     # Derived from SignalState / RemediationOutcome / ApprovalRequest and the
     # lane binding by A5 — NEVER hand-written by a contributor.
@@ -138,13 +146,50 @@ module Platform
       end
 
       # The worst verdict EXCLUDING operator intent — the "operational"
-      # verdict of design §4.1. All-held reads `ok`, because a fully drained
-      # scope has nothing failing in it.
-      def worst_operational(verdicts)
-        list = Array(verdicts).compact.map(&:to_s).reject { |v| v == HELD }
-        return OK if list.empty? && Array(verdicts).any?
+      # verdict of design §4.1. Takes COMPONENTS, not verdicts, and that is the
+      # A1 review's L2 ruling rather than an accident.
+      #
+      # This used to reject rows whose derived VERDICT was `held`. But `held`
+      # ranks just above `ok`, so a cordoned node that is also (correctly)
+      # `down` reports `down` — it raised the operational verdict AND was
+      # excluded from the held count. The header went red for a planned drain
+      # and the "N held" caption that was supposed to explain it said zero,
+      # which is the exact outcome the dual rule exists to prevent.
+      #
+      # So intent is read from the CONDITION, not from the derived verdict: a
+      # component carrying a true `Held` condition is in the held bucket
+      # whatever else is wrong with it. Its own verdict still tells the truth
+      # (`down`), so the drawer is honest; it simply does not set the headline.
+      #
+      # An EMPTY scope is `not_measured` — nothing observed. A scope where
+      # everything is held is `ok`: a fully drained scope has nothing failing.
+      def worst_operational(components)
+        list = Array(components)
+        return NOT_MEASURED if list.empty?
 
-        worst(list)
+        operational = list.reject { |component| held_by_intent?(component) }
+        return OK if operational.empty?
+
+        worst(operational.map(&:verdict))
+      end
+
+      # True when the component carries a `Held` condition with status true.
+      # Accepts anything answering `#conditions`.
+      def held_by_intent?(component)
+        return component.held_by_intent? if component.respond_to?(:held_by_intent?)
+
+        intent_held?(component.try(:conditions))
+      end
+
+      # The shared predicate, over a raw conditions array.
+      def intent_held?(conditions)
+        Array(conditions).any? do |condition|
+          next false unless condition.is_a?(Hash)
+
+          type = condition["type"] || condition[:type]
+          status = condition.key?("status") ? condition["status"] : condition[:status]
+          type.to_s == HELD_CONDITION_TYPE && status == true
+        end
       end
     end
 
@@ -156,8 +201,17 @@ module Platform
       UNHEALTHY_VERDICTS.include?(verdict)
     end
 
+    # The DERIVED verdict is exactly `held` — nothing else is wrong with it.
     def held?
       verdict == HELD
+    end
+
+    # OPERATOR INTENT is present, whatever the derived verdict is. This is what
+    # the rollup counts and excludes (L2 ruling); `held?` is not, because a
+    # cordoned node that is also down has verdict `down` and must still be in
+    # the held bucket.
+    def held_by_intent?
+      self.class.intent_held?(conditions)
     end
 
     # The identity a dependency edge points at.

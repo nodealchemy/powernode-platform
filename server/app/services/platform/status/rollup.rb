@@ -7,11 +7,20 @@ module Platform
     #
     # ── THE DUAL RULE ───────────────────────────────────────────────────────
     # A rollup is computed TWICE: the OPERATIONAL verdict is the worst rank
-    # over children EXCLUDING `held`, and the held count travels beside it. A
-    # planned drain must never turn a header amber — if it did, operators
-    # would learn to ignore amber, which costs more than the drain ever saves.
-    # Held components are not hidden; they are counted and rendered, just not
-    # summed into "something is wrong".
+    # over children excluding those held by operator intent, and the held count
+    # travels beside it. A planned drain must never turn a header amber — if it
+    # did, operators would learn to ignore amber, which costs more than the
+    # drain ever saves. Held components are not hidden; they are counted and
+    # rendered, just not summed into "something is wrong".
+    #
+    # INTENT IS READ FROM THE CONDITION, NOT THE DERIVED VERDICT (A1 review
+    # L2). Both halves used to key on the verdict being `held`, and `held`
+    # ranks just above `ok` — so a cordoned node that was also `down` reported
+    # `down`, raised the headline AND was excluded from the held count. The
+    # header went red for a planned drain and the caption explaining it said
+    # zero. `held_count` and `counts_by_verdict` therefore DISAGREE on purpose:
+    # a held-and-down component is one of the held, and also one of the `down`
+    # in the per-verdict breakdown, because its own verdict is still `down`.
     #
     # ── EVERYTHING HERE IS PURE OVER IN-MEMORY ROWS ─────────────────────────
     # `impact` and `root_cause_candidates` walk a PRELOADED edge set. Walking
@@ -32,8 +41,8 @@ module Platform
         rows.each { |row| counts[row.verdict] = counts.fetch(row.verdict, 0) + 1 }
 
         {
-          verdict: ComponentStatus.worst_operational(rows.map(&:verdict)),
-          held_count: counts[ComponentStatus::HELD],
+          verdict: ComponentStatus.worst_operational(rows),
+          held_count: rows.count(&:held_by_intent?),
           counts_by_verdict: counts,
           total: rows.size
         }
@@ -103,9 +112,15 @@ module Platform
         # the whole cycle beats returning nothing.
         roots = unhealthy if roots.empty?
 
+        # Ranked by how many unhealthy components depend on it, then by which
+        # broke FIRST. A row with no transition timestamp at all — the
+        # not_measured case, "we have no idea when this broke" — sorts LAST
+        # rather than first (A1 review L3): falling back to the epoch ranked
+        # total ignorance ahead of a demonstrated four-hour-old failure.
         roots.sort_by do |row|
           unhealthy_dependents = (dependents_by_key[key_of(row)] || []).count(&:unhealthy?)
-          [ -unhealthy_dependents, row.last_transition_at || Time.zone.at(0) ]
+          transitioned_at = row.last_transition_at
+          [ -unhealthy_dependents, transitioned_at.nil? ? 1 : 0, transitioned_at || Time.zone.at(0) ]
         end
       end
 
