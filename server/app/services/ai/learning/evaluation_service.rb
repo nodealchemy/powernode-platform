@@ -3,37 +3,84 @@
 module Ai
   module Learning
     class EvaluationService
+      # Quality (0..1) at or above which the served skill version is credited
+      # with a success. The judge scores 1-5, so 0.6 here is an average of 3.4 —
+      # deliberately ABOVE the neutral 3, because "no worse than average" is not
+      # evidence a version worked. Account#settings override, matching the
+      # ai_learning_* thresholds in Ai::Learning::LearningClusterService.
+      DEFAULT_SUCCESS_QUALITY_THRESHOLD = 0.6
+      SUCCESS_QUALITY_THRESHOLD_SETTING = "ai_evaluation_success_quality_threshold"
+
+      # Where an execution records which skill version served it. NOTHING WRITES
+      # THIS KEY TODAY — attribution is D5's increment. Reading it from one named
+      # place means D5 has exactly one producer to add, and the consumer below is
+      # already exercised by specs that write the key on a fixture.
+      SKILL_VERSION_CONTEXT_KEY = "skill_version_id"
+
       def initialize(account:)
         @account = account
       end
 
-      def evaluate_execution(execution:, output:, context: {})
-        return unless Shared::FeatureFlagService.enabled?(:agent_evaluation)
-        return unless execution.respond_to?(:agent) && execution.agent
-
-        Thread.new do
-          judge = Ai::Learning::LlmJudgeService.new(account: @account)
-          scores = judge.evaluate(
-            agent_output: output,
-            task_description: context[:task_description] || execution.input_parameters&.dig("prompt"),
-            expected_output: context[:expected_output]
-          )
-
-          Ai::EvaluationResult.create!(
-            account: @account,
-            agent: execution.agent,
-            execution_id: execution.id,
-            # evaluator_model is derived from the evaluator agent at call time
-            # (no hardcoded default); it stays nil when no evaluator agent could
-            # be resolved — record a sentinel so the presence validation does
-            # not silently drop the (default-scored) result.
-            evaluator_model: judge.evaluator_model || "unresolved",
-            scores: scores[:scores],
-            feedback: scores[:feedback]
-          )
-        rescue => e
-          Rails.logger.error "[EvaluationService] Async evaluation failed: #{e.message}"
+      # Runs the judge SYNCHRONOUSLY in the caller's thread. The caller is the
+      # worker's request (AgentEvaluationJob -> POST
+      # /api/v1/internal/ai/evaluations/run), which is what a background job is
+      # for. The previous implementation did the work in a bare Thread.new
+      # inside a Puma request: nothing awaited it, an exception only reached a
+      # log line, and a request that finished first took the thread's database
+      # connection with it. It also had zero production callers, so the whole
+      # judge subsystem was unreachable.
+      #
+      # Three statuses, always explicit — this method never returns nil:
+      #   not_measured + reason  — nothing was judged, and the reason says why
+      #   evaluated              — a row exists and carries the scores
+      # An UNAVAILABLE judge is not_measured, never evaluated: LlmJudgeService
+      # returns neutral 3/3/3/5 defaults flagged `degraded` when it cannot get a
+      # verdict, and persisting those would be indistinguishable from a real
+      # mediocre evaluation in trust, in skill effectiveness and in the trend
+      # charts.
+      def evaluate_execution(execution:, output: nil, context: {}, task_id: nil)
+        unless Shared::FeatureFlagService.enabled?(:agent_evaluation)
+          return not_measured("EvaluationDisabled")
         end
+
+        # The kill switch reaches the judge too. Evaluating spends an LLM call
+        # against this account, so an emergency_halt that stopped every other
+        # AI cadence but left the judge running would be a hole in it — the
+        # closure driver refuses on the same check.
+        return not_measured("AiSuspended") if @account.respond_to?(:ai_suspended?) && @account.ai_suspended?
+
+        agent = execution.respond_to?(:agent) ? execution.agent : nil
+        return not_measured("NoEvaluableExecution") unless execution && agent
+
+        transcript = output.presence || default_transcript(execution)
+        return not_measured("NoEvaluableExecution") if transcript.blank?
+
+        # Idempotency, before the judge runs: a retried worker job must not pay
+        # for a second LLM call, and must not move trust or a skill version a
+        # second time.
+        if (existing = find_existing(execution, task_id))
+          return evaluated(existing, idempotent: true)
+        end
+
+        judge = Ai::Learning::LlmJudgeService.new(account: @account)
+        verdict = judge.evaluate(
+          agent_output: transcript,
+          task_description: context[:task_description] || execution.input_parameters&.dig("prompt"),
+          expected_output: context[:expected_output]
+        )
+        return not_measured("JudgeUnavailable") if verdict[:degraded]
+
+        result = persist_evaluation(execution, agent, task_id, judge, verdict)
+        return evaluated(result, idempotent: true) if result[:already_existed]
+
+        record = result[:record]
+        quality = quality_from(record)
+        record_trust_quality(execution, agent, quality)
+
+        evaluated(record).merge(skill_outcome: record_skill_outcome(execution, quality))
+      rescue StandardError => e
+        Rails.logger.error("[EvaluationService] evaluation failed: #{e.class}: #{e.message}")
+        not_measured("EvaluationError", detail: e.message)
       end
 
       def agent_score_trends(agent_id, period: 30.days)
@@ -102,6 +149,136 @@ module Ai
       end
 
       private
+
+      # ==================================================
+      # D4 — evaluation arms, idempotency, trust, skill credit
+      # ==================================================
+
+      def not_measured(reason, detail: nil)
+        { status: "not_measured", reason: reason }.tap { |h| h[:detail] = detail if detail.present? }
+      end
+
+      def evaluated(record, idempotent: false)
+        {
+          status: "evaluated",
+          evaluation_id: record.id,
+          execution_id: record.execution_id,
+          task_id: record.task_id,
+          scores: record.scores,
+          quality: quality_from(record),
+          idempotent: idempotent
+        }
+      end
+
+      def find_existing(execution, task_id)
+        Ai::EvaluationResult.find_by(execution_id: execution.id, task_id: task_id)
+      end
+
+      # The unique index (execution_id, task_id) NULLS NOT DISTINCT is the real
+      # guard; the find_by above only avoids paying an LLM call in the common
+      # case. Two workers racing the same completion both reach here, and the
+      # loser must return the winner's row rather than raise.
+      def persist_evaluation(execution, agent, task_id, judge, verdict)
+        record = Ai::EvaluationResult.create!(
+          account: @account,
+          agent: agent,
+          execution_id: execution.id,
+          task_id: task_id,
+          # Derived from the evaluator agent at call time — no hardcoded model
+          # id. A sentinel rather than nil so the presence validation cannot
+          # silently drop a result whose evaluator could not be resolved.
+          evaluator_model: judge.evaluator_model || "unresolved",
+          scores: verdict[:scores],
+          feedback: verdict[:feedback]
+        )
+        { record: record, already_existed: false }
+      rescue ActiveRecord::RecordNotUnique
+        existing = find_existing(execution, task_id)
+        raise if existing.nil?
+
+        Rails.logger.info(
+          "[EvaluationService] concurrent evaluation for execution #{execution.id} " \
+          "task #{task_id.inspect}; keeping #{existing.id}"
+        )
+        { record: existing, already_existed: true }
+      end
+
+      # 1-5 average onto the 0..1 scale the trust dimension uses.
+      def quality_from(record)
+        average = record.average_score
+        return nil unless average
+
+        ((average.to_f - 1.0) / 4.0).clamp(0.0, 1.0).round(4)
+      end
+
+      # There is no record_quality! on Ai::AgentTrustScore — the quality column
+      # is written by Ai::Autonomy::TrustEngineService, which reads
+      # performance_metrics["quality_score"] (0..1) as the highest-precedence
+      # signal in #calculate_quality. So the judge's verdict is written there
+      # and the engine is invoked directly: the model's own after_update hook
+      # only fires on a STATUS change, and an execution being evaluated is
+      # already terminal.
+      def record_trust_quality(execution, agent, quality)
+        return if quality.nil?
+        return unless execution.respond_to?(:performance_metrics)
+
+        metrics = (execution.performance_metrics || {}).merge("quality_score" => quality)
+        execution.update_columns(performance_metrics: metrics)
+        Ai::Autonomy::TrustEngineService.new(account: @account).evaluate(agent: agent, execution: execution)
+      rescue StandardError => e
+        Rails.logger.error("[EvaluationService] trust quality write failed: #{e.class}: #{e.message}")
+      end
+
+      # Credits the skill VERSION that served the execution.
+      #
+      # Attribution does not exist yet: no column, no join table and no metadata
+      # key anywhere links an Ai::AgentExecution to an Ai::SkillVersion, and
+      # Ai::SkillGraph::EvolutionService#record_outcome re-derives a version by
+      # `skill.versions.active.first` (or an A/B coin flip), which credits
+      # whatever is active NOW rather than what served. This reads one named
+      # key so D5 has exactly one producer to add; until it does, every call
+      # takes the NoServedVersion arm. Both arms are spec'd by writing the key
+      # on a fixture, so the consumer is proven rather than merely written.
+      def record_skill_outcome(execution, quality)
+        return not_measured("NoServedVersion") if quality.nil?
+
+        version_id = execution.try(:execution_context)&.dig(SKILL_VERSION_CONTEXT_KEY)
+        return not_measured("NoServedVersion") if version_id.blank?
+
+        version = Ai::SkillVersion.find_by(id: version_id, account_id: @account.id)
+        return not_measured("NoServedVersion") if version.nil?
+
+        successful = quality >= success_quality_threshold
+        version.record_outcome!(successful: successful)
+        { status: "recorded", skill_version_id: version.id, successful: successful }
+      rescue StandardError => e
+        Rails.logger.error("[EvaluationService] skill outcome failed: #{e.class}: #{e.message}")
+        not_measured("SkillOutcomeError", detail: e.message)
+      end
+
+      def success_quality_threshold
+        configured = setting(SUCCESS_QUALITY_THRESHOLD_SETTING)
+        (configured.presence || DEFAULT_SUCCESS_QUALITY_THRESHOLD).to_f.clamp(0.0, 1.0)
+      end
+
+      # Account#settings -> constant, the convention this service family uses
+      # (Ai::Learning::LearningClusterService, Ai::Learning::CompoundLearningService).
+      def setting(key)
+        s = @account&.settings
+        return nil unless s.is_a?(Hash)
+
+        s[key] || s[key.to_sym]
+      end
+
+      # What the judge reads when the caller passed no explicit output. The
+      # worker sends ids only, so the transcript is resolved here rather than
+      # round-tripping an execution's output through the job payload.
+      def default_transcript(execution)
+        output = execution.try(:output_data)
+        return nil if output.blank?
+
+        output.is_a?(String) ? output : output.to_json
+      end
 
       def skill_node_ids_by_execution(execution_ids)
         return {} if execution_ids.blank?

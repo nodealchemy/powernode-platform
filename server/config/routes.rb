@@ -634,6 +634,10 @@ Rails.application.routes.draw do
           # Autonomy intervention policy tuning (worker → server)
           post "intervention_policies/analyze_patterns", to: "autonomy#analyze_policy_patterns"
 
+          # LLM-judge evaluation (worker → server) — D4. Event-driven, not cron:
+          # dev_complete_task enqueues AgentEvaluationJob, which posts here.
+          post "evaluations/run", to: "evaluations#run"
+
           # Phase 1: Experience replay + reflexion (worker → server)
           post "experience_replays/capture", to: "experience_replays#capture"
           post "reflexions/reflect", to: "reflexions#reflect"

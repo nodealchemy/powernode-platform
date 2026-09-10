@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_10_250000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_11_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2341,10 +2341,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_250000) do
     t.uuid "execution_id", null: false
     t.text "feedback"
     t.jsonb "scores", default: {}
+    t.uuid "task_id"
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_ai_evaluation_results_on_account_id"
     t.index ["agent_id", "created_at"], name: "index_ai_evaluation_results_on_agent_id_and_created_at"
     t.index ["agent_id"], name: "index_ai_evaluation_results_on_agent_id"
+    t.index ["execution_id", "task_id"], name: "index_ai_evaluation_results_on_execution_and_task", unique: true, nulls_not_distinct: true
     t.index ["execution_id"], name: "index_ai_evaluation_results_on_execution_id"
   end
 
