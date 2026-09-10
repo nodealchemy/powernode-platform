@@ -222,6 +222,78 @@ RSpec.describe "Api::V1::Platform::ComponentStatuses", type: :request do
     end
   end
 
+  # A4b — what the C2 page found missing on the wire.
+  describe "reason_message and the environment's names" do
+    it "carries the MESSAGE of the same condition the reason token came from" do
+      component(component_ref: "vm-1", verdict: "down",
+                conditions: [
+                  { "type" => "Fresh", "status" => false, "reason" => "SnapshotStale",
+                    "message" => "snapshot is 42m old", "severity" => "degraded" },
+                  { "type" => "Reachable", "status" => false, "reason" => "HeartbeatStale",
+                    "message" => "no heartbeat for 7m 12s", "severity" => "down" }
+                ])
+
+      get "/api/v1/platform/component_statuses", headers: headers, as: :json
+
+      row = json_response_data["component_statuses"].first
+      # The WORST failing condition is the `down` one, and both fields must
+      # describe THAT condition — not one each from a different one.
+      expect(row["reason"]).to eq("HeartbeatStale")
+      expect(row["reason_message"]).to eq("no heartbeat for 7m 12s")
+      expect(row["reason_message"]).not_to eq("snapshot is 42m old")
+    end
+
+    it "leaves both nil when nothing is failing" do
+      component(component_ref: "fine", verdict: "ok",
+                conditions: [ { "type" => "Reachable", "status" => true, "reason" => "Healthy" } ])
+
+      get "/api/v1/platform/component_statuses", headers: headers, as: :json
+
+      row = json_response_data["component_statuses"].first
+      expect(row["reason"]).to be_nil
+      expect(row["reason_message"]).to be_nil
+    end
+
+    it "names the plane on an in-plane row and leaves it nil on a plane-less one" do
+      component(component_ref: "in-a", environment: plane_a)
+      component(component_ref: "planeless", environment: nil)
+
+      get "/api/v1/platform/component_statuses", headers: headers, as: :json
+
+      rows = json_response_data["component_statuses"].index_by { |r| r["component_ref"] }
+      expect(rows["in-a"]).to include("environment_id" => plane_a.id,
+                                      "environment_slug" => plane_a.slug,
+                                      "environment_name" => plane_a.name)
+      expect(rows["planeless"]).to include("environment_id" => nil,
+                                           "environment_slug" => nil,
+                                           "environment_name" => nil)
+    end
+
+    it "carries the names on the detail shape too" do
+      row = component(component_ref: "vm-1", environment: plane_b)
+
+      get "/api/v1/platform/component_statuses/#{row.id}", headers: headers, as: :json
+
+      expect(json_response_data["component_status"])
+        .to include("environment_slug" => plane_b.slug, "environment_name" => plane_b.name)
+    end
+
+    it "loads the plane once per page, not once per row" do
+      3.times { |i| component(component_ref: "c#{i}", environment: plane_a) }
+
+      # An N+1 here would be invisible in the payload and only show up as a
+      # slow page, so it is asserted as a query count.
+      queries = 0
+      counter = ->(_n, _s, _f, _i, payload) { queries += 1 if payload[:sql]&.include?("ai_environments") }
+      ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
+        get "/api/v1/platform/component_statuses", headers: headers, as: :json
+      end
+
+      expect(json_response_data["component_statuses"].size).to eq(3)
+      expect(queries).to be <= 1
+    end
+  end
+
   describe "the wire name for an absent measurement" do
     it "renders `not_measured` literally and never `unknown`" do
       component(component_ref: "blind", verdict: "not_measured",

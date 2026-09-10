@@ -310,6 +310,15 @@ export interface ComponentStatusSummary {
   shared: boolean;
   scope: ComponentScope;
   environment_id: string | null;
+  /**
+   * The plane's NAMES beside its id (A4b), so a card can label itself without a
+   * second fetch. Both null for a plane-less row, which is the ordinary case
+   * for most core kinds — render the absence, do not fall back to the id.
+   *
+   * Optional because a client may be talking to a server that predates A4b.
+   */
+  environment_slug?: string | null;
+  environment_name?: string | null;
   plane: PlaneLabel;
   presentation: ComponentPresentation;
   condition_count: number;
@@ -319,6 +328,15 @@ export interface ComponentStatusSummary {
    * never feed it to a status-variant lookup.
    */
   reason: string | null;
+  /**
+   * The human sentence from the SAME condition the token came from — "no
+   * heartbeat for 7m 12s" beside `HeartbeatStale` (A4b). Null when nothing is
+   * failing, or when that condition carried no message. Render this to a
+   * person; key alerts and runbooks on `reason`.
+   *
+   * Optional because a client may be talking to a server that predates A4b.
+   */
+  reason_message?: string | null;
   remediation_state: RemediationState;
   observed_at: string | null;
   last_seen_sweep_at: string | null;

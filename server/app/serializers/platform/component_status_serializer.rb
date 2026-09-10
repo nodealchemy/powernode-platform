@@ -73,12 +73,20 @@ module Platform
         # than inferring tenancy from a null.
         scope: @row.account_id.nil? ? SCOPE_SHARED : SCOPE_ACCOUNT,
         environment_id: @row.environment_id,
+        # The plane's NAME, not just its id (A4b). Nil for a plane-less row,
+        # which is the ordinary case for most core kinds. Read through the
+        # association, so `index` eager-loads it — that is also the answer to
+        # the A4 review's F6: the `.includes(:environment)` it flagged as dead
+        # is now read, rather than dropped.
+        environment_slug: @row.environment&.slug,
+        environment_name: @row.environment&.name,
         plane: plane_label,
         presentation: @row.presentation,
         condition_count: Array(@row.conditions).size,
         # The reason of the worst false condition, so a list row can say WHY
         # without carrying every condition. Nil when nothing is false.
         reason: failing_reason,
+        reason_message: failing_reason_message,
         remediation_state: remediation_state,
         observed_at: iso(@row.observed_at),
         last_seen_sweep_at: iso(@row.last_seen_sweep_at),
@@ -118,17 +126,38 @@ module Platform
     # The reason token of the worst-ranked failing condition. Reasons are
     # CamelCase tokens (design §4.2) and are never passed to a status-variant
     # lookup, which lowercases.
-    def failing_reason
+    # ONE pass returning BOTH halves of the worst failing condition (A4b).
+    #
+    # `reason` and `reason_message` must describe the SAME condition. Computing
+    # them in two passes would let them drift apart the moment two conditions
+    # tie on rank and `max_by` picks differently — the page would then show one
+    # condition's token beside another's sentence, which is worse than showing
+    # the token alone.
+    def worst_failing_condition
+      return @worst_failing_condition if defined?(@worst_failing_condition)
+
       failing = Array(@row.conditions).select do |condition|
         next false unless condition.is_a?(Hash)
 
         status = condition["status"].nil? ? condition[:status] : condition["status"]
         status == false || status == "unknown"
       end
-      return nil if failing.empty?
 
-      worst = failing.max_by { |c| ::Platform::ComponentStatus.rank_of(::Platform::Status::Condition.verdict_for(c)) }
-      worst["reason"] || worst[:reason]
+      @worst_failing_condition =
+        failing.max_by { |c| ::Platform::ComponentStatus.rank_of(::Platform::Status::Condition.verdict_for(c)) }
+    end
+
+    def failing_reason
+      condition = worst_failing_condition
+      condition && (condition["reason"] || condition[:reason])
+    end
+
+    # The human sentence beside the CamelCase token — "no heartbeat for 7m 12s"
+    # next to `HeartbeatStale`. The page needs both: the token is stable and
+    # greppable, the message is what an operator reads.
+    def failing_reason_message
+      condition = worst_failing_condition
+      condition && (condition["message"] || condition[:message])
     end
 
     def iso(value)

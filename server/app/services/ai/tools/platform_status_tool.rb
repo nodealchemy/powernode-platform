@@ -151,7 +151,10 @@ module Ai
         return error_result("Unknown verdict '#{query.verdict}'") unless query.known_verdict?
         return environment_refusal(query) if query.unknown_environment?
 
-        relation = query.rows
+        # `.includes(:environment)` because the serializer reads the plane's
+        # slug and name off the association (A4b); without it a 100-row page is
+        # 100 extra queries.
+        relation = query.rows.includes(:environment)
         relation = relation.unhealthy if unhealthy_only?(params) && !query.verdict?
 
         paginated_result(
@@ -247,7 +250,7 @@ module Ai
       # collapsed the set to the shared rows alone and understated every shared
       # component's impact.
       def neighbourhood_rows(_row)
-        ::Platform::ComponentStatus.where(account_id: [ account.id, nil ]).to_a
+        ::Platform::ComponentStatus.where(account_id: [ account.id, nil ]).includes(:environment).to_a
       end
 
       def resolve_depth(raw)

@@ -23,10 +23,10 @@ module Api
           query = build_query
           return render_error("Unknown verdict filter: #{query.verdict}", status: :bad_request) unless query.known_verdict?
 
-          # No `.includes(:environment)`: the serializer emits `environment_id`, which
-          # is a column on this row. Eager-loading the association loaded a plane
-          # nothing read.
-          rows = paginate(query.rows)
+          # `.includes(:environment)` is READ, not decorative: the serializer
+          # emits environment_slug/environment_name off the association (A4b).
+          # Without it a 100-row page issues 100 plane lookups.
+          rows = paginate(query.rows.includes(:environment))
 
           render_success(
             component_statuses: ::Platform::ComponentStatusSerializer.summary_collection(rows),
@@ -136,7 +136,8 @@ module Api
         # same set as before; for a shared one it is the set that actually
         # contains its dependents.
         def neighbourhood_rows(_component)
-          ::Platform::ComponentStatus.where(account_id: [ current_user.account.id, nil ]).to_a
+          ::Platform::ComponentStatus.where(account_id: [ current_user.account.id, nil ])
+                                     .includes(:environment).to_a
         end
 
         def serialize_impact(result)
