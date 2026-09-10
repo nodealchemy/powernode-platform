@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'AI Provider Integration', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
-  let(:admin_user) { create(:user, :system_admin, account: account) }
+  let(:admin_user) { create(:user, :admin, account: account) }
   let!(:ai_provider) { create(:ai_provider, slug: 'openai') }
 
   before do
@@ -23,8 +23,11 @@ RSpec.describe 'AI Provider Integration', type: :request do
       # Step 1: Setup default providers (as admin)
       allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(admin_user)
 
+      # Not 403: until IMP-01a08b8e this step ran as a :system_admin trait user
+      # that held ZERO roles (no such role exists), so a refusal was accepted
+      # here and the step could not tell a working admin path from a broken one.
       post '/api/v1/ai/providers/setup_defaults'
-      expect(response.status).to be_in([ 200, 201, 403, 412, 422 ])
+      expect(response.status).to be_in([ 200, 201, 412, 422 ])
 
       # Step 2: List providers
       get '/api/v1/ai/providers'
