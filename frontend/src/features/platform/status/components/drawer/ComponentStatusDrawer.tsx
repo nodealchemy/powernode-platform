@@ -11,6 +11,10 @@ import { ConditionsTab } from '@/features/platform/status/components/drawer/Cond
 import { DependenciesTab } from '@/features/platform/status/components/drawer/DependenciesTab';
 import { RemediationTab } from '@/features/platform/status/components/drawer/RemediationTab';
 import { ActionsTab } from '@/features/platform/status/components/drawer/ActionsTab';
+import { RunbookTab } from '@/features/platform/status/components/drawer/RunbookTab';
+import { InvestigationsTab } from '@/features/platform/status/components/drawer/InvestigationsTab';
+import { EventsTab } from '@/features/platform/status/components/drawer/EventsTab';
+import { useComponentDrawerExtras } from '@/features/platform/status/hooks/useComponentDrawerExtras';
 import type { ComponentStatusSummary } from '@/shared/types/platformStatus';
 
 // The component drawer (design §6). One panel answering, for one component,
@@ -30,11 +34,15 @@ import type { ComponentStatusSummary } from '@/shared/types/platformStatus';
 // loading after the drawer opened would have registered a panel nobody looks
 // for again.
 //
-// ── WHAT IS DELIBERATELY NOT HERE YET ──────────────────────────────────────
+// ── EIGHT TABS, FROM TWO SETS OF READS ─────────────────────────────────────
 //
-// Runbook, Investigations and Events are C3 part 2, waiting on A9's REST
-// surface. They are absent rather than stubbed: a tab that opens on "coming
-// soon" teaches an operator to stop clicking tabs.
+// Conditions, Dependencies, Remediation and Actions come from the detail +
+// impact reads. Runbook, Investigations and Events (C3 part 2) come from A9's
+// four doors, loaded independently so the least important panel failing never
+// blanks the rest. The remediation route — including the lane's own
+// `lane_reason` — is folded into the Remediation tab rather than given a tab of
+// its own, because "what is the platform doing" and "which lane, under which
+// budget" are one question.
 
 /** The slot id a kind's rich panel registers under. Derived, never enumerated. */
 export const drawerSlotId = (componentKind: string) =>
@@ -59,6 +67,7 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
   onSelect,
 }) => {
   const { detail, impact, loading, error, refresh } = useComponentStatusDetail(row?.id ?? null);
+  const extras = useComponentDrawerExtras(row?.id ?? null);
   const [tab, setTab] = useState('conditions');
 
   // Back to the first tab when the component changes. Keeping the previous tab
@@ -131,6 +140,9 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
               <TabsTrigger value="dependencies">Dependencies</TabsTrigger>
               <TabsTrigger value="remediation">Remediation</TabsTrigger>
               <TabsTrigger value="actions">Actions</TabsTrigger>
+              <TabsTrigger value="runbook">Runbook</TabsTrigger>
+              <TabsTrigger value="investigations">Investigations</TabsTrigger>
+              <TabsTrigger value="events">Events</TabsTrigger>
               {RichPanel && <TabsTrigger value="details">Details</TabsTrigger>}
             </TabsList>
 
@@ -150,6 +162,7 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
               <RemediationTab
                 remediation={detail.remediation}
                 state={detail.remediation_state}
+                route={extras.route}
               />
             </TabsContent>
 
@@ -158,6 +171,27 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
                 actions={detail.actions}
                 componentName={name}
                 onCompleted={refresh}
+              />
+            </TabsContent>
+
+            <TabsContent value="runbook" className="pt-3">
+              <RunbookTab data={extras.runbook} loading={extras.loading} />
+            </TabsContent>
+
+            <TabsContent value="investigations" className="pt-3">
+              <InvestigationsTab
+                data={extras.investigations}
+                loading={extras.loading}
+                componentStatusId={row.id}
+                onOpened={extras.refreshInvestigations}
+              />
+            </TabsContent>
+
+            <TabsContent value="events" className="pt-3">
+              <EventsTab
+                events={extras.events}
+                loading={extras.loading}
+                totalCount={extras.eventsTotal}
               />
             </TabsContent>
 

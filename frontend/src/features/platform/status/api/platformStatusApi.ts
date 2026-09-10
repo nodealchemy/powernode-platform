@@ -1,6 +1,12 @@
 import { apiClient } from '@/shared/services/apiClient';
 import type {
   ComponentAction,
+  ComponentEventsData,
+  ComponentRunbookData,
+  Investigation,
+  InvestigationRefusal,
+  InvestigationsData,
+  RemediationRouteData,
   ComponentStatusIndexData,
   ComponentStatusShowData,
   ComponentStatusRollupData,
@@ -173,5 +179,117 @@ export const runComponentAction = async (
       const unreachable: never = action.method;
       throw new Error(`Unsupported action method: ${String(unreachable)}`);
     }
+  }
+};
+
+// ── A9 drawer reads (C3 part 2) ─────────────────────────────────────────────
+
+/** `GET :id/runbook`. */
+export const fetchComponentRunbook = async (id: string): Promise<ComponentRunbookData> => {
+  const response = await apiClient.get(`${BASE}/${id}/runbook`);
+  return response.data?.data;
+};
+
+/**
+ * `GET :id/remediation_route`.
+ *
+ * The response omits `route` ENTIRELY when nothing routed the component, so
+ * every consumer branches on `routed`. Defaulted here to `false` rather than
+ * left undefined: a truthiness check on a missing key would read "not routed"
+ * by accident rather than by contract.
+ */
+export const fetchRemediationRoute = async (id: string): Promise<RemediationRouteData> => {
+  const response = await apiClient.get(`${BASE}/${id}/remediation_route`);
+  const data = response.data?.data ?? {};
+  return { ...data, routed: data.routed === true };
+};
+
+export interface ComponentEventsResult extends ComponentEventsData {
+  pagination: {
+    current_page: number;
+    per_page: number;
+    total_count: number;
+    total_pages: number;
+  };
+}
+
+/** `GET :id/events`. Newest first; pagination rides in the envelope's `meta`. */
+export const fetchComponentEvents = async (
+  id: string,
+  params: { page?: number; per_page?: number } = {}
+): Promise<ComponentEventsResult> => {
+  const response = await apiClient.get(`${BASE}/${id}/events`, {
+    params: { per_page: 20, ...params },
+  });
+  const data = response.data?.data ?? {};
+  const pagination = response.data?.meta?.pagination ?? {};
+  return {
+    component_status_id: data.component_status_id,
+    events: data.events ?? [],
+    pagination: {
+      current_page: pagination.current_page ?? 1,
+      per_page: pagination.per_page ?? 20,
+      total_count: pagination.total_count ?? (data.events?.length ?? 0),
+      total_pages: pagination.total_pages ?? 1,
+    },
+  };
+};
+
+/** `GET :id/investigations`. `open` holds at most one; `recent` up to ten. */
+export const fetchInvestigations = async (id: string): Promise<InvestigationsData> => {
+  const response = await apiClient.get(`${BASE}/${id}/investigations`);
+  const data = response.data?.data ?? {};
+  return {
+    component_status_id: data.component_status_id,
+    open: data.open ?? [],
+    recent: data.recent ?? [],
+    daily_cap: data.daily_cap ?? 0,
+  };
+};
+
+/**
+ * A refused `POST :id/investigations` — 409, which is a BOUND being enforced
+ * rather than an error. `refused` is the token to switch on; the message is
+ * prose and may change.
+ */
+export class InvestigationRefusedError extends Error {
+  readonly refused: InvestigationRefusal;
+  readonly dailyCap: number | null;
+
+  constructor(message: string, refused: InvestigationRefusal, dailyCap: number | null) {
+    super(message);
+    this.name = 'InvestigationRefusedError';
+    this.refused = refused;
+    this.dailyCap = dailyCap;
+  }
+}
+
+/**
+ * `POST :id/investigations` — the one write in the drawer that is not a
+ * contributor-declared action.
+ *
+ * Requires `ai.autonomy.manage` server-side, ON TOP of `platform.status.read`.
+ * The caller hides the button without it; the door checks it again.
+ *
+ * A 409 is turned into a typed refusal rather than a generic failure, because
+ * the two refusals need different sentences: "one is already open" is a state
+ * the operator can act on by opening the existing one, and "daily cap reached"
+ * is a bound that names its own number.
+ */
+export const openInvestigation = async (id: string): Promise<Investigation> => {
+  try {
+    const response = await apiClient.post(`${BASE}/${id}/investigations`);
+    return response.data?.data?.investigation;
+  } catch (e) {
+    const err = e as { response?: { status?: number; data?: { error?: string; details?: { refused?: string; daily_cap?: number } } } };
+    if (err.response?.status === 409) {
+      const details = err.response.data?.details ?? {};
+      throw new InvestigationRefusedError(
+        err.response.data?.error ?? 'The investigation was refused.',
+        details.refused ?? 'Unknown',
+        details.daily_cap ?? null
+      );
+    }
+    throw e;
   }
 };

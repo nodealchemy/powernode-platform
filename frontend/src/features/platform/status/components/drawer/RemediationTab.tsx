@@ -1,7 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { RemediationChip } from '@/features/platform/status/components/RemediationChip';
-import type { ComponentRemediation, RemediationState } from '@/shared/types/platformStatus';
+import type {
+  ComponentRemediation,
+  RemediationRouteData,
+  RemediationState,
+} from '@/shared/types/platformStatus';
 
 // What the platform is doing about this component, and what it is waiting on.
 //
@@ -44,18 +48,128 @@ const Field: React.FC<{ label: string; title: string; children: React.ReactNode 
   </>
 );
 
+// The core tokens a route's `reason` can carry. Anything else is a lane's own
+// sentence and is rendered as prose — a switch over lane sentences would be a
+// switch over strings nobody promised to keep stable.
+const CORE_REASON_TEXT: Record<string, string> = {
+  NoLaneForSignal: 'No lane is registered for this signal kind.',
+  LaneError: "The lane raised while describing itself, so its report can't be trusted.",
+  LaneReportedUnknownState:
+    'The lane reported a state the platform does not recognise, so it was rejected.',
+};
+
+/**
+ * What the owning lane reported (A9 §4.2).
+ *
+ * BRANCHES ON `routed`, never on `route.state`: the response omits `route`
+ * entirely when nothing routed the component.
+ *
+ * `lane_reason` is the one field here that most needs rendering and had no
+ * consumer until now (E2 review L3). Verified against the producer rather than
+ * either brief: `Platform::RemediationRouter` (remediation_router.rb:98-113) sets
+ * it ONLY on the refusal path, when a lane reported a state core rejected, and
+ * it carries that lane's own `reason` sentence. The route's `reason` then holds
+ * core's token for the refusal; `lane_reason` holds what the lane itself said —
+ * which may well be "consent budget exhausted", but that is the lane's content,
+ * not the field's meaning. When present it is still the ONLY explanation of the
+ * component's situation, so it is shown beside the lane, verbatim, and ONLY when
+ * present: no placeholder, no "none", nothing fabricated when the lane said
+ * nothing.
+ */
+const RoutePanel: React.FC<{ route: RemediationRouteData }> = ({ route }) => {
+  if (!route.routed || !route.route) {
+    return (
+      <section data-route-section="unrouted" className="rounded-md border border-theme p-3">
+        <h4 className="text-xs uppercase tracking-wide text-theme-tertiary">Route</h4>
+        <p className="mt-1 text-sm text-theme-secondary">
+          Nothing routes this component to a lane
+          {route.reason === 'NoRoutedSignal' ? ' — no signal is open for it.' : '.'}
+        </p>
+      </section>
+    );
+  }
+
+  const lane = route.route;
+  const reasonText = lane.reason ? (CORE_REASON_TEXT[lane.reason] ?? lane.reason) : null;
+
+  return (
+    <section data-route-section="routed" className="rounded-md border border-theme p-3">
+      <h4 className="text-xs uppercase tracking-wide text-theme-tertiary">Route</h4>
+      <div className="mt-1 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-theme-tertiary">Lane</span>
+        <code className="text-sm text-theme-primary">{lane.lane_key}</code>
+        {lane.lane_reason && (
+          // Beside the lane, so the reason is read as the lane's own account of
+          // itself — typically "consent budget exhausted" — not as a caption.
+          <span data-lane-reason className="text-xs text-theme-warning-fg">
+            {lane.lane_reason}
+          </span>
+        )}
+      </div>
+
+      {reasonText && <p className="mt-1 text-sm text-theme-secondary">{reasonText}</p>}
+
+      <dl className="mt-2 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+        {lane.policy && (
+          <>
+            <dt className="text-theme-tertiary">Policy</dt>
+            <dd className="text-theme-secondary">{lane.policy}</dd>
+          </>
+        )}
+        {lane.consent && (
+          <>
+            <dt className="text-theme-tertiary">Consent</dt>
+            <dd className="text-theme-secondary">{lane.consent}</dd>
+          </>
+        )}
+        {lane.disruption && (
+          <>
+            <dt className="text-theme-tertiary">Disruption</dt>
+            <dd className="text-theme-secondary">{lane.disruption}</dd>
+          </>
+        )}
+        {lane.environment_ceiling && (
+          <>
+            <dt className="text-theme-tertiary">Environment ceiling</dt>
+            <dd className="text-theme-secondary">{lane.environment_ceiling}</dd>
+          </>
+        )}
+        {lane.blast_radius !== null && lane.blast_radius !== undefined && (
+          <>
+            <dt className="text-theme-tertiary" title="How many instances one action from this lane may touch.">
+              Blast radius
+            </dt>
+            <dd className="text-theme-secondary">{lane.blast_radius}</dd>
+          </>
+        )}
+        <dt className="text-theme-tertiary">Can proceed</dt>
+        <dd className="text-theme-secondary">
+          {lane.can_proceed ? 'yes' : 'no'}
+          {/* `false` while awaiting an operator is the normal combination, and is
+              said so rather than left reading like an error. */}
+          {!lane.can_proceed && lane.state === 'awaiting_operator' && ' — waiting on a decision, as expected'}
+        </dd>
+      </dl>
+    </section>
+  );
+};
+
 export interface RemediationTabProps {
   remediation: ComponentRemediation;
   state: RemediationState;
+  /** The owning lane's report. Null while loading or when the read failed. */
+  route?: RemediationRouteData | null;
 }
 
-export const RemediationTab: React.FC<RemediationTabProps> = ({ remediation, state }) => (
+export const RemediationTab: React.FC<RemediationTabProps> = ({ remediation, state, route }) => (
   <div className="flex flex-col gap-4" data-remediation-state={state}>
     <div className="flex items-center gap-2">
       <RemediationChip state={state} size="sm" />
     </div>
 
     <StateExplanation state={state} />
+
+    {route && <RoutePanel route={route} />}
 
     <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-2">
       {remediation.signal_kind && (

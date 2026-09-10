@@ -445,3 +445,205 @@ export interface ComponentStatusImpactData {
   heuristic: boolean;
   heuristic_basis: string;
 }
+
+// ── A9: runbook, remediation route, events, investigations ──────────────────
+//
+// Five endpoints hang off one component (`:id/runbook`, `:id/remediation_route`,
+// `:id/events`, `GET`+`POST :id/investigations`). Every shape below is taken
+// from lane 6's A9 report §4, which took them from passing examples rather than
+// from intent.
+
+/**
+ * How a runbook is provided, and what else the object carries.
+ *
+ * `none` is not an error: it is the answer when nothing routed the component, or
+ * when a kind routed and no runbook is registered for it. Those are DIFFERENT
+ * situations and `reason` distinguishes them — see `RunbookReason`.
+ */
+export type RunbookKind = 'doc' | 'generator' | 'none';
+
+/**
+ * Why there is no runbook.
+ *
+ * - `NoRoutedSignal` — nothing routed this component at all. `signal_kind` is
+ *   also null. There is no document because there is no lane.
+ * - `NotRegistered` / `NotDocumented` — a kind WAS routed and no runbook exists
+ *   for it. There is a lane, and its document is missing.
+ *
+ * Collapsing the two sends an operator looking for a document that was never
+ * supposed to exist.
+ */
+export type RunbookReason = 'NoRoutedSignal' | 'NotRegistered' | 'NotDocumented' | (string & {});
+
+export interface ComponentRunbook {
+  kind: RunbookKind;
+  /** `doc` only: the display string, e.g. "docs/runbooks/silent.md#triage". */
+  doc?: string;
+  /**
+   * `doc` only. EXTENSION-RELATIVE and deliberately not absolute — core does not
+   * know which checkout it belongs to. Never render it as a filesystem link.
+   */
+  path?: string;
+  /** `doc` only; may be null. */
+  anchor?: string | null;
+  /** `generator` only. */
+  generator?: string;
+  args?: Record<string, unknown>;
+  /** `none` only: whether the signal kind itself is known. */
+  known?: boolean;
+  /** `none` only. */
+  reason?: RunbookReason;
+}
+
+/** `GET :id/runbook` — the `data` object. */
+export interface ComponentRunbookData {
+  component_status_id: string;
+  /** Null when nothing routed this component. */
+  signal_kind: string | null;
+  runbook: ComponentRunbook;
+}
+
+/** The lane's report, present only when `routed` is true. */
+export interface RemediationRoute {
+  state: RemediationState;
+  lane_key: string;
+  policy: string | null;
+  consent: string | null;
+  disruption: string | null;
+  environment_ceiling: string | null;
+  blast_radius: number | null;
+  /**
+   * `false` with `state: "awaiting_operator"` is the NORMAL combination — a
+   * remediation parked at an approval is not an error.
+   */
+  can_proceed: boolean;
+  /**
+   * A core token (`NoLaneForSignal`, `LaneError`, `LaneReportedUnknownState`) OR
+   * a lane's own sentence. Render as prose; switch only on those three tokens.
+   */
+  reason: string | null;
+  /**
+   * Non-null ONLY when a lane returned a state core rejected. When it is present
+   * the lane is misbehaving AND its sentence is still the only explanation of
+   * the component's situation, so both must be shown. Optional and never
+   * defaulted: a fabricated placeholder here would invent a reason.
+   */
+  lane_reason?: string | null;
+  runbook?: ComponentRunbook;
+}
+
+/**
+ * `GET :id/remediation_route` — the `data` object.
+ *
+ * BRANCH ON `routed`, never on `route.state`: the `route` key is absent
+ * entirely when nothing routed the component.
+ */
+export interface RemediationRouteData {
+  component_status_id: string;
+  signal_kind: string | null;
+  routed: boolean;
+  route?: RemediationRoute;
+  reason?: string;
+  runbook?: ComponentRunbook;
+}
+
+/**
+ * One status transition. BOTH nulls are meaningful: a null `from_verdict` is a
+ * first sighting, a null `to_verdict` is a removal (the component was reaped).
+ * Neither is a missing field.
+ */
+export interface ComponentStatusEvent {
+  id: string;
+  kind: 'platform.component_status_changed' | 'platform.component_down' | (string & {});
+  from_verdict: Verdict | null;
+  to_verdict: Verdict | null;
+  occurred_at: string;
+  payload: Record<string, unknown>;
+}
+
+/** `GET :id/events` — the `data` object. Pagination rides in `meta`, not here. */
+export interface ComponentEventsData {
+  component_status_id: string;
+  events: ComponentStatusEvent[];
+}
+
+/**
+ * Whether a confidence was MEASURED at all.
+ *
+ * `not_measured` means the evidence set was empty — a different answer from a
+ * confidence of 0. `confidence ?? 0` reports certainty about nothing, which is
+ * the exact defect this distinction exists to prevent.
+ */
+export type ConfidenceState = 'measured' | 'not_measured';
+
+export interface HypothesisConfidenceDetail {
+  state: ConfidenceState;
+  value: number | null;
+  share?: number | null;
+  candidates?: number | null;
+  evidence_classes?: number | null;
+  ceiling?: number | null;
+}
+
+export interface InvestigationHypothesis {
+  cause: string;
+  evidence_refs: string[];
+  /** NULL whenever `confidence_state` is `not_measured`. Never coalesce it to 0. */
+  confidence: number | null;
+  confidence_state: ConfidenceState;
+  confidence_detail?: HypothesisConfidenceDetail;
+  recommended_action_category?: string | null;
+  runbook?: ComponentRunbook | null;
+}
+
+export type InvestigationStatus = 'open' | 'completed' | 'failed' | 'abandoned';
+export type InvestigationTrigger = 'operator' | 'stuck' | 'down' | (string & {});
+
+/**
+ * The evidence an open investigation assembled. One key per evidence class, and
+ * EXTENSIONS ADD THEIR OWN — render unknown keys generically rather than
+ * allow-listing, or an extension's evidence is invisible.
+ *
+ * A class present but empty was checked and found nothing. A class named under
+ * `errors` could NOT be checked at all, which is a gap rather than an absence
+ * and must be shown as one.
+ */
+export interface InvestigationEvidence {
+  assembled_at?: string;
+  window_seconds?: number;
+  errors?: Record<string, string>;
+  [evidenceClass: string]: unknown;
+}
+
+export interface Investigation {
+  id: string;
+  component_kind: string;
+  component_ref: string;
+  trigger: InvestigationTrigger;
+  status: InvestigationStatus;
+  open: boolean;
+  /**
+   * STORED ALREADY RANKED. Render in order and never re-sort, or the list will
+   * disagree with `conclusion`. An open investigation normally has `[]` here:
+   * ranking runs in the worker, so "open with evidence and no hypotheses" is the
+   * correct state, not a half-loaded one.
+   */
+  hypotheses: InvestigationHypothesis[];
+  conclusion: string | null;
+  agent_id: string | null;
+  started_at: string;
+  completed_at: string | null;
+  /** Present on the OPEN row only; concluded rows ship without it, by design. */
+  evidence?: InvestigationEvidence;
+}
+
+/** `GET :id/investigations` — the `data` object. `open` holds at most one. */
+export interface InvestigationsData {
+  component_status_id: string;
+  open: Investigation[];
+  recent: Investigation[];
+  daily_cap: number;
+}
+
+/** Why a `POST :id/investigations` was refused. Switch on the token, not the message. */
+export type InvestigationRefusal = 'AlreadyOpen' | 'DailyCapReached' | (string & {});
