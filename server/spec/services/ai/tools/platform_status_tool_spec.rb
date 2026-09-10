@@ -1,0 +1,290 @@
+# frozen_string_literal: true
+
+require "rails_helper"
+
+# Campaign 01a08c9b, increment A4 — the agent's view of the status plane.
+#
+# Three reads, and the oracles that matter are the ones a wrong answer would
+# pass: every action refused WITHOUT the permission and allowed WITH it, every
+# public action DECLARED (an undeclared action is invisible to the annotation
+# export in E2), and the three-valued environment filter answering the same way
+# the REST door does.
+RSpec.describe Ai::Tools::PlatformStatusTool do
+  let(:account) { create(:account) }
+  let(:reader)  { create(:user, account: account, permissions: [ "platform.status.read" ]) }
+  let(:tool)    { described_class.new(account: account, user: reader) }
+
+  let(:plane_a) { account.environments.find_by!(slug: "dev") }
+  let(:plane_b) { account.environments.find_by!(slug: "prod") }
+
+  def component(*traits, **attrs)
+    create(:platform_component_status, *traits, **{ account: account }.merge(attrs))
+  end
+
+  def call(action, **rest) = tool.execute(params: { action: action }.merge(rest))
+
+  def refs(result) = result.dig(:data, :component_statuses).map { |r| r[:component_ref] }
+
+  # A METHOD, not a constant: a constant assigned inside an RSpec block lands
+  # on Object and can be clobbered by a same-named constant in another spec
+  # file — an order-dependent flake waiting to happen.
+  def advertised_actions = %w[list_component_status get_component_status component_impact]
+
+  describe "declarations and annotations" do
+    it "declares every action it advertises, all read-only" do
+      advertised = ::Ai::Tools::PlatformApiToolRegistry.all_tools
+                                                       .select { |_, klass| klass == described_class.name }
+                                                       .keys.map(&:to_s)
+      expect(advertised).to match_array(advertised_actions)
+
+      advertised.each do |action|
+        declaration = described_class.declared_action(action)
+        expect(declaration).not_to be_nil, "#{action} is advertised but not declared"
+        expect(declaration[:mutating]).to be(false), "#{action} is declared mutating"
+      end
+    end
+
+    # The other arm: `mutating: false` is a real value here, not something
+    # every declaration happens to carry. A mutating verb elsewhere reads true.
+    it "is not asserting a property every declared action has" do
+      expect(::Ai::Tools::EnvironmentTool.declared_action("environment_update")[:mutating]).to be(true)
+    end
+
+    it "advertises the tools/list read-only annotation for the list and get verbs" do
+      catalog = ::Mcp::ToolCatalog.new(protocol_version: ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS.max)
+      entries = catalog.list_entries.index_by { |t| t["name"] }
+
+      expect(entries["platform.list_component_status"]["annotations"]).to eq({ "readOnlyHint" => true })
+      expect(entries["platform.get_component_status"]["annotations"]).to eq({ "readOnlyHint" => true })
+    end
+
+    # KNOWN GAP, asserted rather than hidden. Mcp::ToolCatalog derives
+    # readOnlyHint from the action name's FIRST SEGMENT
+    # (READ_ONLY_ACTION_PREFIXES), and `component_impact` starts with
+    # "component". The verb IS declared `mutating: false`; the wire hint is
+    # missing because the export reads the name, not the declaration — which is
+    # exactly what design §8 E2 replaces. Pinned both ways so this example
+    # fails the day E2 lands (delete it then) AND the day someone renames the
+    # verb into the prefix list.
+    it "does NOT yet carry the hint for component_impact (the name-prefix heuristic; E2 owns the fix)" do
+      catalog = ::Mcp::ToolCatalog.new(protocol_version: ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS.max)
+      entry = catalog.list_entries.find { |t| t["name"] == "platform.component_impact" }
+
+      expect(entry).not_to be_nil
+      expect(entry["annotations"]).to be_nil
+      expect(described_class.declared_action("component_impact")[:mutating]).to be(false)
+    end
+
+    it "names a permission the catalog recognizes on every action" do
+      expect(::Permissions.permission_exists?(described_class::REQUIRED_PERMISSION)).to be true
+      described_class::ACTION_PERMISSIONS.each_value do |permission|
+        expect(::Permissions.permission_exists?(permission)).to be true
+      end
+      expect(described_class::ACTION_PERMISSIONS.keys).to match_array(advertised_actions)
+    end
+  end
+
+  describe "permission enforcement" do
+    let(:row) { component }
+
+    it "refuses every action without platform.status.read" do
+      stranger = described_class.new(account: account, user: create(:user, account: account, permissions: []))
+
+      [
+        { action: "list_component_status" },
+        { action: "get_component_status", id: row.id },
+        { action: "component_impact", id: row.id }
+      ].each do |params|
+        result = stranger.execute(params: params)
+        expect(result[:success]).to be(false), "#{params[:action]} was allowed without the permission"
+        expect(result[:error]).to include("platform.status.read")
+        expect(result[:data]).to be_nil
+      end
+    end
+
+    it "allows every action with it" do
+      [
+        { action: "list_component_status" },
+        { action: "get_component_status", id: row.id },
+        { action: "component_impact", id: row.id }
+      ].each do |params|
+        expect(tool.execute(params: params)[:success]).to be(true), "#{params[:action]} was refused for a holder"
+      end
+    end
+  end
+
+  describe "list_component_status" do
+    it "returns this account's rows plus the shared ones, never another tenant's" do
+      component(component_ref: "mine")
+      create(:platform_component_status, :shared, component_ref: "shared-thing")
+      create(:platform_component_status, account: create(:account), component_ref: "theirs")
+
+      expect(refs(call("list_component_status"))).to contain_exactly("mine", "shared-thing")
+    end
+
+    it "filters by kind, both arms" do
+      component(component_kind: "ai_provider", component_ref: "openai")
+      component(component_kind: "docker_host", component_ref: "host-1")
+
+      result = refs(call("list_component_status", kind: "ai_provider"))
+      expect(result).to include("openai")
+      expect(result).not_to include("host-1")
+    end
+
+    it "filters by verdict, both arms, and refuses one outside the ladder" do
+      component(component_ref: "broken", verdict: "down")
+      component(component_ref: "fine", verdict: "ok")
+
+      result = refs(call("list_component_status", verdict: "down"))
+      expect(result).to eq([ "broken" ])
+      expect(result).not_to include("fine")
+
+      refused = call("list_component_status", verdict: "on_fire")
+      expect(refused[:success]).to be false
+      expect(refused[:error]).to include("on_fire")
+    end
+
+    it "unhealthy_only keeps not_measured, degraded and down and drops ok and held" do
+      component(component_ref: "blind", verdict: "not_measured")
+      component(component_ref: "sick", verdict: "degraded")
+      component(component_ref: "dead", verdict: "down")
+      component(component_ref: "fine", verdict: "ok")
+      component(:held, component_ref: "drained")
+
+      expect(refs(call("list_component_status", unhealthy_only: true)))
+        .to contain_exactly("blind", "sick", "dead")
+      expect(refs(call("list_component_status")))
+        .to contain_exactly("blind", "sick", "dead", "fine", "drained")
+    end
+
+    describe "the three-valued environment filter" do
+      before do
+        component(component_ref: "in-a", environment: plane_a)
+        component(component_ref: "in-b", environment: plane_b)
+        component(component_ref: "planeless", environment: nil)
+      end
+
+      it "absent → every row" do
+        expect(refs(call("list_component_status"))).to contain_exactly("in-a", "in-b", "planeless")
+      end
+
+      it "a plane → that plane PLUS the plane-less rows, labelled, and never another plane's" do
+        result = call("list_component_status", environment: plane_a.slug)
+        rows = result.dig(:data, :component_statuses)
+
+        expect(rows.map { |r| r[:component_ref] }).to contain_exactly("in-a", "planeless")
+        expect(rows.map { |r| r[:component_ref] }).not_to include("in-b")
+        expect(rows.to_h { |r| [ r[:component_ref], r[:plane] ] }).to eq("in-a" => "in", "planeless" => "none")
+      end
+
+      it "environment=none → the plane-less rows alone" do
+        expect(refs(call("list_component_status", environment: "none"))).to eq([ "planeless" ])
+      end
+
+      it "REFUSES a plane this account does not have rather than answering from every plane" do
+        result = call("list_component_status", environment: "moon")
+        expect(result[:success]).to be false
+        expect(result[:error]).to include("moon")
+      end
+    end
+
+    it "pages with the shared keyset envelope" do
+      3.times { |i| component(component_ref: "c#{i}") }
+
+      first = call("list_component_status", limit: 2)
+      expect(first.dig(:data, :component_statuses).size).to eq(2)
+      expect(first.dig(:data, :count)).to eq(3)
+      expect(first.dig(:data, :has_more)).to be true
+
+      second = call("list_component_status", limit: 2, cursor: first.dig(:data, :next_cursor))
+      expect(second.dig(:data, :component_statuses).size).to eq(1)
+      expect(second.dig(:data, :has_more)).to be false
+    end
+
+    it "uses `not_measured` on the wire and never `unknown`" do
+      component(component_ref: "blind", verdict: "not_measured")
+
+      row = call("list_component_status").dig(:data, :component_statuses).first
+      expect(row[:verdict]).to eq("not_measured")
+      expect(::Platform::ComponentStatus::VERDICTS).not_to include("unknown")
+    end
+  end
+
+  describe "get_component_status" do
+    it "returns the full row and an impact summary, found by id or by kind+ref" do
+      row = component(
+        component_kind: "node_instance", component_ref: "vm-1", verdict: "down",
+        conditions: [ { "type" => "Reachable", "status" => false, "reason" => "HeartbeatStale", "severity" => "down" } ],
+        actions: [ { "key" => "cordon", "permission" => "system.instances.manage" } ]
+      )
+      component(component_kind: "service", component_ref: "svc-1", verdict: "degraded",
+                dependencies: [ { "kind" => "node_instance", "ref" => "vm-1" } ])
+
+      by_id = call("get_component_status", id: row.id)
+      expect(by_id.dig(:data, :component_status, :reason)).to eq("HeartbeatStale")
+      expect(by_id.dig(:data, :component_status, :actions).first["permission"]).to eq("system.instances.manage")
+      expect(by_id.dig(:data, :impact, :count)).to eq(1)
+      expect(by_id.dig(:data, :impact, :worst_verdict)).to eq("degraded")
+
+      by_key = call("get_component_status", component_kind: "node_instance", component_ref: "vm-1")
+      expect(by_key.dig(:data, :component_status, :id)).to eq(row.id)
+    end
+
+    it "reports another tenant's component as absent, and says what it needs when given nothing" do
+      foreign = create(:platform_component_status, account: create(:account))
+
+      absent = call("get_component_status", id: foreign.id)
+      expect(absent[:success]).to be false
+      expect(absent[:error]).to include("not found")
+
+      expect(call("get_component_status")[:error]).to include("component_kind")
+    end
+  end
+
+  describe "component_impact" do
+    let!(:root) do
+      component(component_kind: "node", component_ref: "node-1", verdict: "down",
+                conditions: [ { "type" => "Reachable", "status" => false, "reason" => "Unreachable",
+                                "severity" => "down", "last_transition_at" => 2.hours.ago.iso8601 } ])
+    end
+    let!(:middle) do
+      component(component_kind: "node_instance", component_ref: "vm-1", verdict: "down",
+                dependencies: [ { "kind" => "node", "ref" => "node-1" } ],
+                conditions: [ { "type" => "Reachable", "status" => false, "reason" => "HeartbeatStale",
+                                "severity" => "down", "last_transition_at" => 10.minutes.ago.iso8601 } ])
+    end
+    let!(:leaf) do
+      component(component_kind: "service", component_ref: "svc-1", verdict: "degraded",
+                dependencies: [ { "kind" => "node_instance", "ref" => "vm-1" } ])
+    end
+
+    it "returns dependents and ranked candidates, LABELLED a heuristic" do
+      result = call("component_impact", id: middle.id)
+
+      expect(result.dig(:data, :heuristic)).to be true
+      expect(result.dig(:data, :heuristic_basis)).to include("upstream-most")
+      expect(result.dig(:data, :impact, :components).map { |c| c[:component_ref] }).to eq([ "svc-1" ])
+      expect(result.dig(:data, :root_cause_candidates).map { |c| c[:component_ref] }).to eq([ root.component_ref ])
+    end
+
+    it "clamps depth to the cycle-safe ceiling and defaults when unusable" do
+      expect(call("component_impact", id: leaf.id, depth: 99).dig(:data, :depth))
+        .to eq(::Platform::Status::Rollup::DEFAULT_DEPTH)
+      expect(call("component_impact", id: leaf.id, depth: 0).dig(:data, :depth))
+        .to eq(::Platform::Status::Rollup::DEFAULT_DEPTH)
+      expect(call("component_impact", id: leaf.id, depth: 1).dig(:data, :depth)).to eq(1)
+    end
+
+    it "a depth of 1 sees only the first hop upstream" do
+      shallow = call("component_impact", id: leaf.id, depth: 1)
+      deep    = call("component_impact", id: leaf.id, depth: 4)
+
+      expect(shallow.dig(:data, :root_cause_candidates).map { |c| c[:component_ref] }).to eq([ "vm-1" ])
+      expect(deep.dig(:data, :root_cause_candidates).map { |c| c[:component_ref] }).to eq([ "node-1" ])
+    end
+  end
+
+  it "refuses an action it does not advertise" do
+    expect(call("delete_everything")[:success]).to be false
+  end
+end
