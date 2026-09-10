@@ -791,13 +791,20 @@ module Ai
       # — the same slug → executor lookup that dispatch uses — so core never
       # names an executor and a newly added skill is covered automatically.
       #
-      # An UNRESOLVABLE skill (nil requirements) is allowed through rather than
-      # dropped: core mode legitimately has no executors loaded, and silently
-      # composing nothing there would be worse than letting dispatch report a
-      # missing skill.
+      # An UNRESOLVABLE skill (nil requirements) is DECLINED, naming the skill
+      # (IMP-01a04cd4-94c2). It used to be admitted, on the grounds that
+      # composing nothing in core mode (no executors loaded) was worse than
+      # letting dispatch report the missing skill. That trade-off was made when
+      # "nothing composed" was silent; an empty result now says why (see
+      # #empty_result), so admitting a step certain to die at dispatch buys
+      # nothing and costs a plan an operator may approve.
       def bindable?(skill, inputs)
         required = ::Ai::Provisioning::SkillCompositionRunner.required_inputs_for(skill)
-        return true if required.nil? || required.empty?
+        if required.nil?
+          record_decline("executor_unresolvable", "no executor resolves for #{skill} (core mode, or its executor is gone)")
+          return false
+        end
+        return true if required.empty?
 
         missing = required.reject { |key| inputs[key].present? }
         return true if missing.empty?

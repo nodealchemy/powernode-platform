@@ -705,6 +705,21 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       expect(decline[:detail]).to include("relocate_workload")
     end
 
+    # IMP-01a04cd4-94c2: an unresolvable executor (nil input contract — core
+    # mode, or a skill whose executor is gone) used to be ADMITTED, composing a
+    # step certain to die at dispatch. It now declines at compose time, naming
+    # the skill.
+    it "declines a step whose skill no executor resolves, naming the skill" do
+      allow(Ai::Provisioning::SkillCompositionRunner).to receive(:required_inputs_for).and_call_original
+      allow(Ai::Provisioning::SkillCompositionRunner).to receive(:required_inputs_for)
+        .with("scale_project").and_return(nil)
+
+      decline = decline_for("scale_horizontal", details: { "breach_pct" => 100.0, "replica_count" => 3 })
+
+      expect(decline[:reason]).to eq("executor_unresolvable")
+      expect(decline[:detail]).to include("scale_project")
+    end
+
     it "reports no decline beside a plan that did compose" do
       result = service.propose_change(change_type: "scale_horizontal",
                                       details: { "breach_pct" => 100.0, "replica_count" => 3 })
