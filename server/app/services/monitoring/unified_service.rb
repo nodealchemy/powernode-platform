@@ -47,11 +47,17 @@ module Monitoring
   # @return [Hash] Complete dashboard data
   def get_dashboard(time_range: 1.hour, components: COMPONENTS)
     with_monitoring("get_dashboard", { time_range: time_range }) do
+      # NO `health_score` KEY. This service used to compute one of its own
+      # (E7, design section 4.4): a 4x25% blend of provider health, success rate,
+      # response time and resource checks, over AI executions only. The status
+      # plane's rollup is the one health score, it is computed from
+      # Platform::ComponentStatus rows, and a second number on the same screen
+      # disagreeing with it is the defect E7 removes. The door composes the
+      # rollup in; this service produces metrics, not verdicts.
       dashboard = {
         timestamp: Time.current.iso8601,
         time_range_seconds: time_range.to_i,
         overview: get_system_overview,
-        health_score: calculate_health_score,
         components: {}
       }
 
@@ -76,29 +82,6 @@ module Monitoring
       avg_response_time: get_avg_response_time,
       success_rate: get_success_rate
     }
-  end
-
-  # Calculate overall health score (0-100)
-  #
-  # @return [Integer] Health score
-  def calculate_health_score
-    scores = []
-
-    # Provider health (25%)
-    scores << (get_provider_health_percentage * 0.25)
-
-    # Success rate (25%)
-    scores << (get_success_rate * 0.25)
-
-    # Performance (25%)
-    perf_score = calculate_performance_score
-    scores << (perf_score * 0.25)
-
-    # Resource utilization (25%)
-    resource_score = calculate_resource_score
-    scores << (resource_score * 0.25)
-
-    scores.sum.round
   end
 
   # =============================================================================
@@ -344,56 +327,6 @@ module Monitoring
       executions.where(status: "completed").count,
       executions.count
     )
-  end
-
-  def get_provider_health_percentage
-    providers = get_account_providers.where(is_active: true)
-    return 100 if providers.empty?
-
-    healthy_count = providers.count { |p| provider_is_healthy?(p) }
-    (healthy_count.to_f / providers.count * 100).round
-  end
-
-  def provider_is_healthy?(provider)
-    # Check recent execution success rate
-    recent_executions = Ai::AgentExecution.where(provider: provider)
-                                       .where("created_at >= ?", 5.minutes.ago)
-
-    return true if recent_executions.empty?
-
-    success_rate = calculate_success_rate(
-      recent_executions.where(status: "completed").count,
-      recent_executions.count
-    )
-
-    success_rate >= 95.0
-  end
-
-  def calculate_performance_score
-    avg_time = get_avg_response_time
-    return 100 if avg_time.zero?
-
-    # Score based on response time (lower is better)
-    # 0-1000ms = 100, 1000-5000ms = 75, 5000+ = 50
-    if avg_time < 1000
-      100
-    elsif avg_time < 5000
-      75
-    else
-      50
-    end
-  end
-
-  def calculate_resource_score
-    # Simple resource health check
-    db_health = check_database_health
-    redis_health = check_redis_health
-
-    scores = []
-    scores << (db_health[:status] == "healthy" ? 100 : 0)
-    scores << (redis_health[:status] == "healthy" ? 100 : 0)
-
-    scores.sum / scores.count
   end
 
   def group_by_severity(alerts)

@@ -37,7 +37,11 @@ module Api
           service = Monitoring::UnifiedService.new(account: account)
           dashboard_data = service.get_dashboard(time_range: @time_range, components: @components)
 
-          render_success(dashboard: dashboard_data, generated_at: Time.current.iso8601)
+          render_success(
+            dashboard: dashboard_data,
+            **platform_rollup(account),
+            generated_at: Time.current.iso8601
+          )
           log_audit_event("ai.monitoring.dashboard", account) if account
         end
 
@@ -55,12 +59,17 @@ module Api
         def overview
           service = Monitoring::UnifiedService.new(account: current_user.account)
           overview_data = service.get_system_overview
-          health_score = service.calculate_health_score
 
+          # `health_score` and `health_status` are GONE (E7). They came from a
+          # rival producer on Monitoring::UnifiedService that scored AI
+          # executions only, rendered beside fleet health derived from
+          # something else entirely. The rollup replaces both: its `verdict` is
+          # the status and its counts are the basis. The method's own name is
+          # kept out of this comment on purpose — spec/lint/rival_health_producer_spec.rb
+          # greps the literal, and prose is not exempt from a guard like that.
           render_success(
             overview: overview_data,
-            health_score: health_score,
-            health_status: health_service.determine_health_status(health_score),
+            **platform_rollup(current_user.account),
             timestamp: Time.current.iso8601
           )
         end
@@ -207,7 +216,8 @@ module Api
 
           ActionCable.server.broadcast(
             "ai_orchestration_#{account.id}",
-            { type: "system_metrics_update", metrics: metrics, timestamp: Time.current.iso8601 }
+            { type: "system_metrics_update", metrics: metrics, **platform_rollup(account),
+              timestamp: Time.current.iso8601 }
           )
 
           render_success(message: "Metrics broadcasted successfully", account_id: account.id, timestamp: Time.current.iso8601)
@@ -240,6 +250,27 @@ module Api
         end
 
         private
+
+        # THE one health score, from the status plane (design section 4.4).
+        #
+        # Shared rows are split out rather than summed in, matching the ruling
+        # already carried by Api::V1::Platform::ComponentStatusesController#rollup:
+        # a NULL-account row describes process-wide infrastructure belonging to
+        # no tenant, so folding it into the per-account verdict would turn one
+        # shared circuit breaker into every tenant's outage. ::Platform::Status::Rollup
+        # does no tenancy filtering of its own, so the split happens here.
+        # Fully qualified because Api::V1::Platform exists and would win.
+        def platform_rollup(account)
+          return { rollup: nil, shared: nil } if account.blank?
+
+          rows = ::Platform::Status::Query.new(account: account).rows.to_a
+          account_rows, shared_rows = rows.partition { |row| row.account_id.present? }
+
+          {
+            rollup: ::Platform::Status::Rollup.rollup(account_rows),
+            shared: ::Platform::Status::Rollup.rollup(shared_rows)
+          }
+        end
 
         def health_service
           @health_service ||= ::Ai::MonitoringHealthService.new(account: current_user.account)
