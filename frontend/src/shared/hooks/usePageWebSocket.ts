@@ -303,6 +303,18 @@ export const usePageWebSocket = ({
     }
   }, []);
 
+  // `subscribeTo`/`unsubscribeFrom` are caller-supplied arrays. A caller that
+  // passes an inline literal (`subscribeTo: ['x']`) hands this hook a fresh
+  // array identity on every render, which — if that identity sat directly in
+  // a dependency array — would recreate `getChannelsToSubscribe` every
+  // render, re-run the auto-subscribe effect below every render, and loop
+  // forever (each run's `setActiveChannels` triggers the next render). That
+  // is the hook's sharp edge, not the caller's: fix it here, once, so every
+  // future caller — however it constructs the array — is safe. Depend on the
+  // CONTENT (a joined string) instead of the array reference.
+  const subscribeToKey = subscribeTo?.join(',') ?? '';
+  const unsubscribeFromKey = unsubscribeFrom?.join(',') ?? '';
+
   // Determine which channels to subscribe to
   const getChannelsToSubscribe = useCallback((): ChannelType[] => {
     const defaults = defaultSubscriptions[pageType] || ['notifications'];
@@ -330,6 +342,10 @@ export const usePageWebSocket = ({
     unsubscribeFrom?.forEach(channel => channels.delete(channel));
 
     return Array.from(channels);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscribeTo/
+    // unsubscribeFrom are intentionally represented by their content keys
+    // below, not the array references, so an inline literal caller doesn't
+    // recreate this callback (and the effect that depends on it) every render.
   }, [
     pageType,
     defaultSubscriptions,
@@ -338,8 +354,8 @@ export const usePageWebSocket = ({
     subscribeToAiOrchestration,
     subscribeToAiMonitoring,
     subscribeToDevops,
-    subscribeTo,
-    unsubscribeFrom
+    subscribeToKey,
+    unsubscribeFromKey
   ]);
 
   // Auto-subscribe when connected
