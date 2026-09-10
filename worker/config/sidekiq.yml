@@ -528,6 +528,23 @@
       queue: ai_orchestration
       description: 'Drive OODA closure cycles for autonomous agents (server-gated, default off)'
 
+    # Component status plane — sweeps every registered contributor and records
+    # verdict transitions (campaign 01a08c9b, A2). Every gate lives on the
+    # server, so this ticks unconditionally.
+    #
+    # THIS CADENCE AND THE SERVER'S REAP MATH MUST AGREE. The server reaps a
+    # component row not seen for 3 sweeps, where a "sweep" is the
+    # `platform.status.sweep_interval_seconds` SiteSetting (default 60) — NOT
+    # this cron line, which the server cannot read. Change one and change the
+    # other: a cron slower than the setting reaps live components (they miss
+    # three "sweeps" without three ticks having passed), and a cron faster
+    # than it just does redundant work.
+    platform_status_sweep:
+      every: '60s'
+      class: PlatformStatusSweepJob
+      queue: default
+      description: 'Sweep component status contributors and record verdict transitions'
+
     # Goal maintenance - auto-abandon stale goals
     ai_goal_maintenance:
       cron: '30 4 * * *'  # Daily at 4:30 AM UTC
