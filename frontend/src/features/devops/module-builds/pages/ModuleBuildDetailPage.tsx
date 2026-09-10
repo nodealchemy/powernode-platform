@@ -7,7 +7,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useModuleBuildBatch } from '../hooks';
 import { BatchStatusBadge } from '../components/BatchStatusBadge';
 import { CancelBatchButton } from '../components/CancelBatchButton';
-import { formatFileSize } from '@/shared/utils/formatters';
+import { formatFileSizeOrEmpty } from '@/shared/utils/formatters';
 import type { ModuleBuildMember } from '../types';
 
 const formatTimestamp = (value: string | null): string => (value ? new Date(value).toLocaleString() : '—');
@@ -106,7 +106,7 @@ const ModuleMembersTable: React.FC<{ modules: ModuleBuildMember[] }> = ({ module
       render: (m) =>
         m.artifact ? (
           <div className="text-xs">
-            <p className="text-theme-primary">v{m.artifact.version_number} · {formatFileSize(m.artifact.size_bytes, { emptyValue: '—', capAtGB: true, decimals: 1 })}</p>
+            <p className="text-theme-primary">v{m.artifact.version_number} · {formatFileSizeOrEmpty(m.artifact.size_bytes, '—', { capAtGB: true, decimals: 1 })}</p>
             <p className="text-theme-tertiary">{m.artifact.signed ? 'signed' : 'unsigned'}</p>
           </div>
         ) : (

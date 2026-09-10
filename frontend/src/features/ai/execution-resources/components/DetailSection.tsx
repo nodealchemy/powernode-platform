@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { formatDurationMs, formatFileSize } from '@/shared/utils/formatters';
+import { formatDurationMs, formatFileSizeOrEmpty } from '@/shared/utils/formatters';
 
 interface DetailSectionProps {
   title: string;
@@ -64,7 +64,7 @@ export function StatCard({ label, value, icon, variant = 'default' }: StatCardPr
 const detailSectionFormatDuration = (ms: number | null | undefined): string =>
   formatDurationMs(ms, { emptyValue: 'N/A', subSecond: 'raw', tiering: 'decimal-minutes' });
 const detailSectionFormatBytes = (bytes: number | null | undefined): string =>
-  formatFileSize(bytes, { emptyValue: 'N/A', capAtMB: true, decimals: 1 });
+  formatFileSizeOrEmpty(bytes, 'N/A', { capAtMB: true, decimals: 1 });
 export { detailSectionFormatDuration as formatDuration, detailSectionFormatBytes as formatBytes };
 
 export function formatTimestamp(ts: string | null | undefined): string {
