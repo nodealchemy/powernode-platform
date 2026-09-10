@@ -23,7 +23,10 @@ module Api
           query = build_query
           return render_error("Unknown verdict filter: #{query.verdict}", status: :bad_request) unless query.known_verdict?
 
-          rows = paginate(query.rows.includes(:environment))
+          # No `.includes(:environment)`: the serializer emits `environment_id`, which
+          # is a column on this row. Eager-loading the association loaded a plane
+          # nothing read.
+          rows = paginate(query.rows)
 
           render_success(
             component_statuses: ::Platform::ComponentStatusSerializer.summary_collection(rows),
@@ -118,8 +121,22 @@ module Api
           render_error("Component status not found", status: :not_found) unless @component
         end
 
-        def neighbourhood_rows(component)
-          ::Platform::ComponentStatus.where(account_id: [ component.account_id, nil ].uniq).to_a
+        # THE NEIGHBOURHOOD IS THE READER'S, NOT THE COMPONENT'S.
+        #
+        # Keying this on `component.account_id` looked right and was wrong for
+        # SHARED rows: a shared component's account_id is nil, so
+        # `[component.account_id, nil].uniq` collapsed to `[nil]` and the walk
+        # saw only other shared rows. Every dependent living in a real account
+        # was invisible, so a shared circuit breaker's impact was always
+        # understated — silently, with no error and a plausible-looking count.
+        #
+        # The right set is the one this reader can legally see, which is
+        # exactly what Platform::Status::Query scopes to: this account's rows
+        # plus the shared ones. For an account-scoped component that is the
+        # same set as before; for a shared one it is the set that actually
+        # contains its dependents.
+        def neighbourhood_rows(_component)
+          ::Platform::ComponentStatus.where(account_id: [ current_user.account.id, nil ]).to_a
         end
 
         def serialize_impact(result)

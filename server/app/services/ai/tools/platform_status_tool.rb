@@ -20,13 +20,14 @@ module Ai
     # Platform::RemediationRouter (A5) and behind each row's own `actions`
     # entries, every one of which names its own permission.
     #
-    # The impact verb is `get_component_impact`, not `component_impact`, and
-    # the `get_` is load-bearing rather than stylistic: Mcp::ToolCatalog
-    # derives the wire `readOnlyHint` from the action name's FIRST underscore
-    # segment (READ_ONLY_ACTION_PREFIXES), so a name outside that vocabulary
-    # ships a read verb with NO read-only hint however it is declared. Design
-    # §8 E2 moves annotations onto `declared_actions`; until then the name is
-    # the only thing the annotation reads, so the name has to be right.
+    # The impact verb is `get_component_impact`, not `component_impact`. When
+    # it was renamed the prefix was load-bearing — Mcp::ToolCatalog derived the
+    # wire `readOnlyHint` from the action name's first underscore segment, so a
+    # name outside that vocabulary shipped a read verb with no hint however it
+    # was declared. Increment E2 has since moved the export onto
+    # `declared_actions`, so the hint now comes from the DECLARATION and the
+    # prefix is kept for catalog consistency with the other list_/get_ verbs
+    # rather than to earn the annotation.
     #
     # ── WIRE NAME: `not_measured`, NEVER `unknown` ──────────────────────────
     #
@@ -240,8 +241,13 @@ module Ai
         error_result("component status not found in this account")
       end
 
-      def neighbourhood_rows(row)
-        ::Platform::ComponentStatus.where(account_id: [ row.account_id, nil ].uniq).to_a
+      # Same rule and same reason as the REST door: scope the walk to the
+      # READER's visible set (this account plus the shared rows), never to
+      # `row.account_id`. A shared row's account_id is nil, so keying on it
+      # collapsed the set to the shared rows alone and understated every shared
+      # component's impact.
+      def neighbourhood_rows(_row)
+        ::Platform::ComponentStatus.where(account_id: [ account.id, nil ]).to_a
       end
 
       def resolve_depth(raw)

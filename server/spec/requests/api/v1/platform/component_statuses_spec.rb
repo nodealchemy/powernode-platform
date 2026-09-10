@@ -386,6 +386,50 @@ RSpec.describe "Api::V1::Platform::ComponentStatuses", type: :request do
       expect(data["root_cause_candidates"].map { |c| c["component_ref"] }).to eq([ root.component_ref ])
     end
 
+    # F4 (A4 review). A SHARED component's dependents live in real accounts, so
+    # a neighbourhood keyed on `component.account_id` (nil) saw only other
+    # shared rows and understated the impact to zero — quietly, with a
+    # plausible count. Both arms, because the account-scoped case must be
+    # unaffected by the fix.
+    it "reports a SHARED component's dependents that live in this account" do
+      shared = create(:platform_component_status, :shared, component_kind: "agent_circuit_breaker",
+                                                           component_ref: "breaker", verdict: "down")
+      dependent = component(component_kind: "ai_provider", component_ref: "openai", verdict: "degraded",
+                            dependencies: [ { "kind" => "agent_circuit_breaker", "ref" => "breaker" } ])
+
+      get "/api/v1/platform/component_statuses/#{shared.id}/impact", headers: headers, as: :json
+
+      expect_success_response
+      impact = json_response_data["impact"]
+      expect(impact["count"]).to eq(1)
+      expect(impact["components"].map { |c| c["component_ref"] }).to eq([ dependent.component_ref ])
+      expect(impact["worst_verdict"]).to eq("degraded")
+    end
+
+    it "still reports an ACCOUNT component's dependents (the fix changed nothing here)" do
+      upstream = component(component_kind: "node", component_ref: "node-1", verdict: "down")
+      component(component_kind: "node_instance", component_ref: "vm-1", verdict: "degraded",
+                dependencies: [ { "kind" => "node", "ref" => "node-1" } ])
+
+      get "/api/v1/platform/component_statuses/#{upstream.id}/impact", headers: headers, as: :json
+
+      expect(json_response_data["impact"]["components"].map { |c| c["component_ref"] }).to eq([ "vm-1" ])
+    end
+
+    it "does not reach ANOTHER account's dependents of a shared component" do
+      shared = create(:platform_component_status, :shared, component_kind: "agent_circuit_breaker",
+                                                           component_ref: "breaker", verdict: "down")
+      other = create(:account)
+      create(:platform_component_status, account: other, component_kind: "ai_provider",
+                                         component_ref: "their-openai", verdict: "down",
+                                         dependencies: [ { "kind" => "agent_circuit_breaker", "ref" => "breaker" } ])
+
+      get "/api/v1/platform/component_statuses/#{shared.id}/impact", headers: headers, as: :json
+
+      expect(json_response_data["impact"]["count"]).to eq(0)
+      expect(response.body).not_to include("their-openai")
+    end
+
     it "404s an id this account cannot see" do
       foreign = create(:platform_component_status, account: create(:account))
 

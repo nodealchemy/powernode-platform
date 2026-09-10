@@ -54,8 +54,14 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       catalog = ::Mcp::ToolCatalog.new(protocol_version: ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS.max)
       entries = catalog.list_entries.index_by { |t| t["name"] }
 
-      expect(entries["platform.list_component_status"]["annotations"]).to eq({ "readOnlyHint" => true })
-      expect(entries["platform.get_component_status"]["annotations"]).to eq({ "readOnlyHint" => true })
+      # `include`, not `eq`. Increment E2 rewrote this export mid-campaign and
+      # its shape moved TWICE inside one session: first gaining an
+      # `annotationSource` key valued "declared", then "inferred". Pinning the
+      # whole hash with `eq` made this spec a tripwire for every future
+      # addition to a wire object another lane owns. The substance A4 pins is
+      # the HINT — a later key is not a regression; a missing readOnlyHint is.
+      expect(entries["platform.list_component_status"]["annotations"]).to include("readOnlyHint" => true)
+      expect(entries["platform.get_component_status"]["annotations"]).to include("readOnlyHint" => true)
     end
 
     # The verb is named `get_component_impact`, not `component_impact`, so it
@@ -69,19 +75,33 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       entry = catalog.list_entries.find { |t| t["name"] == "platform.get_component_impact" }
 
       expect(entry).not_to be_nil
-      expect(entry["annotations"]).to eq({ "readOnlyHint" => true })
+      expect(entry["annotations"]).to include("readOnlyHint" => true)
       expect(described_class.declared_action("get_component_impact")[:mutating]).to be(false)
     end
 
-    # The other arm of the annotation rule: the hint is NOT handed out to
-    # everything. A mutating verb elsewhere carries none, so "it has the hint"
-    # above is a real observation and not a property of the catalog.
+    # The other arm: the hint is NOT handed out to everything, so "it has the
+    # hint" above is a real observation and not a property of the catalog.
+    #
+    # Written as a COMPARISON inside one example rather than as an assertion
+    # about the mutating verb alone. E2 is still in flight and has already
+    # emitted three different shapes for a mutating verb (`nil`, then
+    # `{readOnlyHint: false, destructiveHint: false, annotationSource:
+    # "declared"}`, then `{annotationSource: "inferred"}`). Pinning any one of
+    # them asserts a moment rather than a rule. What must hold in every shape
+    # is that a read verb's hint is true and a mutating verb's is not — and
+    # comparing the two in one example means the day annotations vanish
+    # entirely, this fails instead of passing quietly.
     it "does not hand the read-only hint to a mutating verb" do
       catalog = ::Mcp::ToolCatalog.new(protocol_version: ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS.max)
-      entry = catalog.list_entries.find { |t| t["name"] == "platform.environment_update" }
+      entries = catalog.list_entries.index_by { |t| t["name"] }
 
-      expect(entry).not_to be_nil
-      expect(entry["annotations"]).to be_nil
+      mutating = entries["platform.environment_update"]
+      reading  = entries["platform.list_component_status"]
+      expect(mutating).not_to be_nil
+      expect(reading).not_to be_nil
+
+      expect(reading["annotations"].to_h["readOnlyHint"]).to be(true)
+      expect(mutating["annotations"].to_h["readOnlyHint"]).not_to be(true)
     end
 
     it "names a permission the catalog recognizes on every action" do
@@ -299,6 +319,24 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       expect(result.dig(:data, :heuristic_basis)).to include("upstream-most")
       expect(result.dig(:data, :impact, :components).map { |c| c[:component_ref] }).to eq([ "svc-1" ])
       expect(result.dig(:data, :root_cause_candidates).map { |c| c[:component_ref] }).to eq([ root.component_ref ])
+    end
+
+    # F4 (A4 review), the MCP half of the same defect.
+    it "reports a SHARED component's dependents that live in this account, and not another account's" do
+      shared = create(:platform_component_status, :shared, component_kind: "agent_circuit_breaker",
+                                                           component_ref: "breaker", verdict: "down")
+      mine = component(component_kind: "ai_provider", component_ref: "openai", verdict: "degraded",
+                       dependencies: [ { "kind" => "agent_circuit_breaker", "ref" => "breaker" } ])
+      other = create(:account)
+      create(:platform_component_status, account: other, component_kind: "ai_provider",
+                                         component_ref: "their-openai", verdict: "down",
+                                         dependencies: [ { "kind" => "agent_circuit_breaker", "ref" => "breaker" } ])
+
+      result = call("get_component_impact", id: shared.id)
+
+      expect(result.dig(:data, :impact, :count)).to eq(1)
+      expect(result.dig(:data, :impact, :components).map { |c| c[:component_ref] }).to eq([ mine.component_ref ])
+      expect(result.to_json).not_to include("their-openai")
     end
 
     it "clamps depth to the cycle-safe ceiling and defaults when unusable" do
