@@ -1,5 +1,6 @@
 import { apiClient } from '@/shared/services/apiClient';
 import type {
+  ComponentAction,
   ComponentStatusIndexData,
   ComponentStatusShowData,
   ComponentStatusRollupData,
@@ -11,10 +12,12 @@ import type {
 // `platform.status.read` server-side; this module never assumes the caller
 // holds it, and the page hides itself when they do not.
 //
-// THERE ARE NO WRITES HERE, deliberately. Every button the page renders comes
-// out of a row's `actions` array carrying its OWN permission and its own door
-// (C3). `platform.status.read` buys the picture, never the actuation, and an
-// action helper living in this module would blur that.
+// THE FOUR READS ARE THE ONLY THINGS THIS MODULE KNOWS THE SHAPE OF. There is
+// one write helper below — `runComponentAction` (C3) — and the distinction it
+// preserves is the one that matters: it issues whatever method and path a ROW
+// declared, to a door this module has never heard of, under a permission the
+// row named. It is a courier, not an endpoint client. `platform.status.read`
+// buys the picture; every actuation is gated somewhere else, twice.
 
 /** Server route prefix. The api client already carries `/api/v1`. */
 const BASE = '/platform/component_statuses';
@@ -118,4 +121,57 @@ export const fetchComponentStatus = async (id: string): Promise<ComponentStatusS
 export const fetchComponentImpact = async (id: string): Promise<ComponentStatusImpactData> => {
   const response = await apiClient.get(`${BASE}/${id}/impact`);
   return response.data?.data;
+};
+
+/**
+ * Issue one of a component's declared actions.
+ *
+ * ── THIS FUNCTION KNOWS NOTHING ABOUT THE ACTION ───────────────────────────
+ *
+ * The method, the path and the permission all come from the row. Core learns
+ * nothing kind-specific: a contributor declares `{key, label, method, path,
+ * permission, destructive, confirm}` and the page renders a button that sends
+ * exactly that. Adding "cordon a node" to the drawer is a contributor change in
+ * an extension and no edit here.
+ *
+ * ── THE PERMISSION IS CHECKED TWICE, AND NEITHER CHECK IS THIS ONE ─────────
+ *
+ * The caller hides the button when the viewer lacks `action.permission`, and
+ * the door the action names checks it again server-side. The first is a
+ * courtesy — it stops an operator clicking something that will refuse — and the
+ * second is the actual gate. Holding `platform.status.read` authorizes neither.
+ * This function deliberately does NOT check anything: a client-side check
+ * placed here would look like the enforcement point and it is not one.
+ *
+ * @param reason Sent as `reason` when the action declared `confirm.requires_reason`.
+ *   It travels with the request so the far side can audit WHY, not just what.
+ */
+export const runComponentAction = async (
+  action: Pick<ComponentAction, 'method' | 'path'>,
+  options: { reason?: string } = {}
+): Promise<unknown> => {
+  const body = options.reason ? { reason: options.reason } : undefined;
+
+  switch (action.method) {
+    case 'POST':
+      return (await apiClient.post(action.path, body)).data;
+    case 'PUT':
+      return (await apiClient.put(action.path, body)).data;
+    case 'PATCH':
+      return (await apiClient.patch(action.path, body)).data;
+    case 'DELETE':
+      // axios `delete` carries no body argument here, so a reason rides as a
+      // query param rather than being silently dropped. A destructive action
+      // whose reason vanished on the way to the audit log is worse than one
+      // that refuses.
+      return (
+        await apiClient.delete(action.path, options.reason ? { params: { reason: options.reason } } : undefined)
+      ).data;
+    default: {
+      // Exhaustive over ComponentAction['method']: a method added to the type
+      // without a case here is a compile error, not a silently dropped click.
+      const unreachable: never = action.method;
+      throw new Error(`Unsupported action method: ${String(unreachable)}`);
+    }
+  }
 };

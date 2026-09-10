@@ -10,6 +10,7 @@ import {
 } from '@/features/platform/status/components/StatusFilterBar';
 import { ComponentStatusCard } from '@/features/platform/status/components/ComponentStatusCard';
 import { RemediationRail } from '@/features/platform/status/components/RemediationRail';
+import { ComponentStatusDrawer } from '@/features/platform/status/components/drawer/ComponentStatusDrawer';
 import type { ComponentStatusSummary } from '@/shared/types/platformStatus';
 
 // THE OPERATOR SCREEN (design §6). One page answering what is unhealthy, why,
@@ -21,9 +22,9 @@ import type { ComponentStatusSummary } from '@/shared/types/platformStatus';
 // extension that loads after first render appears without a code change here —
 // see the registry subscription in `usePlatformStatus`.
 //
-// C3 adds the drawer. This file already carries the plumbing for it — a
-// `selectedId` and an `onSelect` threaded through both the grid and the rail —
-// so C3 opens a drawer without touching the page's layout or its data flow.
+// The drawer (C3) hangs off `selectedId`, which both the grid and the rail set
+// through one `onSelect`. The page holds only the id: the drawer reads its own
+// detail, so opening one does not put a drawer's worth of payload on every card.
 
 /** Rows grouped by `presentation.group_order`, then by label, both stably. */
 const groupRows = (rows: ComponentStatusSummary[]) => {
@@ -53,8 +54,6 @@ export const StatusPage: React.FC = () => {
     verdict: '',
     environment: ALL_PLANES,
   });
-  // C3 reads this. C2 sets it and renders nothing from it beyond the card's
-  // pressed state — a drawer that does not exist yet must not be faked.
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const query = useMemo(
@@ -94,6 +93,15 @@ export const StatusPage: React.FC = () => {
   const handleSelect = (row: ComponentStatusSummary) => {
     setSelectedId((current) => (current === row.id ? null : row.id));
   };
+
+  // Resolved from the loaded rows rather than held as a second copy of the row.
+  // A selection that survives a refetch which no longer contains it closes the
+  // drawer, which is right: the component was reaped, and a drawer describing a
+  // component that no longer exists is the same lie as a stale card.
+  const selectedRow = useMemo(
+    () => rows.find((candidate) => candidate.id === selectedId) ?? null,
+    [rows, selectedId]
+  );
 
   return (
     <PageContainer
@@ -168,6 +176,16 @@ export const StatusPage: React.FC = () => {
             <RemediationRail rows={rows} selectedId={selectedId} onSelect={handleSelect} />
           </aside>
         </div>
+
+        <ComponentStatusDrawer
+          row={selectedRow}
+          onClose={() => setSelectedId(null)}
+          // Following an edge from inside the drawer re-points it at the
+          // neighbour rather than opening a second panel. `handleSelect` toggles
+          // on the same id, so this is deliberately a plain set: clicking the
+          // component you are already looking at should not close the drawer.
+          onSelect={(next) => setSelectedId(next.id)}
+        />
       </div>
     </PageContainer>
   );
