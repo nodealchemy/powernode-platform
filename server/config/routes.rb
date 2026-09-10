@@ -315,6 +315,14 @@ Rails.application.routes.draw do
           post "cleanup_old", to: "reports#cleanup_old"
         end
 
+        # Component status plane (worker → server) — the server runs no
+        # Sidekiq, so PlatformStatusSweepJob owns the 60s cadence and calls
+        # in. Every gate (kill switch, dual-plane standby fence) is server
+        # side, so the cron ticks unconditionally.
+        scope :platform do
+          post "status_sweep", to: "platform_status#status_sweep"
+        end
+
         # Git provider internal endpoints (for worker service)
         namespace :git do
           resources :webhook_events, only: [ :show, :update ] do
