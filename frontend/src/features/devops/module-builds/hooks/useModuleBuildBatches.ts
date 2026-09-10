@@ -39,7 +39,7 @@ export function useModuleBuildBatches(params: ModuleBuildBatchListParams = {}, e
   }, [enabled, fetchBatches]);
 
   // Poll while any batch on the current page is still active — mirrors the
-  // "auto-refresh while running" pattern used by ralph-loops' RalphLoopList.
+  // "auto-refresh while running" pattern used by ralph-loops' RalphLoopListPanel.
   const hasActive = batches.some((b) => b.active);
 
   usePolling(fetchBatches, POLL_INTERVAL_MS, { enabled: hasActive });
