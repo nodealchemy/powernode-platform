@@ -1,86 +1,35 @@
 # frozen_string_literal: true
 
-# Fix Claude AI Provider Model Configuration
-# Updates provider to use only VALID Anthropic model IDs
+# Re-sync EVERY Anthropic provider's supported_models from Anthropic's own
+# models endpoint, never from a list written into this file.
+#
+#   bin/rails runner scripts/migrations/fix_claude_provider_models.rb
+#
+# This script used to overwrite one provider's `supported_models` with four
+# hand-picked model ids and announce the first as the new default. All four
+# are retired, so running it would have pinned the provider to models the API
+# 404s — and it could not run anyway: it looked the provider up through a
+# model class that no longer exists. (E3 review, campaign 01a08c9b.)
+#
+# Same seam as scripts/migrations/fix_provider_models.rb, scoped to one
+# provider type: Ai::ProviderManagementService.sync_provider_models, which
+# reads the models endpoint with the provider's active credential and falls
+# back to the per-type catalog in Ai::Providers::DefaultConfig. This script
+# never sees the credential and prints no part of it.
 
-puts '🔧 Fixing Claude AI Provider Model Configuration'
-puts '=' * 80
-puts ''
+providers = Ai::Provider.where(provider_type: "anthropic").order(:name).to_a
+abort "no Anthropic providers found" if providers.empty?
 
-provider = AiProvider.find_by(name: 'Claude AI (Anthropic)')
+puts "This will re-sync #{providers.size} Anthropic provider(s) from the provider's own catalog."
 
-unless provider
-  puts '❌ Claude AI provider not found'
-  exit 1
+failures = providers.reject do |provider|
+  synced = Ai::ProviderManagementService.sync_provider_models(provider, force_refresh: true)
+  provider.reload
+  puts format("  %-40s %s", provider.name,
+              synced ? "#{Array(provider.supported_models).size} models, default #{provider.default_model.inspect}" : "NOT synced")
+  synced
 end
 
-puts "Provider: #{provider.name}"
-puts "Type: #{provider.provider_type}"
-puts ''
-
-puts '📋 Current Supported Models:'
-provider.supported_models.each_with_index do |model, i|
-  marker = (i == 0) ? ' ← DEFAULT (used when agent has no model specified)' : ''
-  puts "   #{i+1}. #{model['id']}#{marker}"
-end
-puts ''
-
-puts '⚠️  ISSUE IDENTIFIED:'
-puts '   Model "claude-sonnet-4-5-20250514" is INVALID'
-puts '   Anthropic API returns 404: model not found'
-puts ''
-
-puts '💡 Valid Anthropic Model IDs (as of January 2025):'
-puts '   According to Anthropic documentation, valid models are:'
-puts '   - claude-3-5-sonnet-20241022      (Claude 3.5 Sonnet, latest)'
-puts '   - claude-3-5-sonnet-20240620      (Claude 3.5 Sonnet, June 2024)'
-puts '   - claude-3-opus-20240229          (Claude 3 Opus)'
-puts '   - claude-3-haiku-20240307         (Claude 3 Haiku)'
-puts ''
-
-puts '🔧 Updating provider configuration...'
-puts ''
-
-# Update to known-valid models only
-# Using claude-3-5-sonnet-20241022 as default (most recent stable model)
-updated_models = [
-  { 'id' => 'claude-3-5-sonnet-20241022', 'name' => 'Claude 3.5 Sonnet (Latest)' },
-  { 'id' => 'claude-3-5-sonnet-20240620', 'name' => 'Claude 3.5 Sonnet (June 2024)' },
-  { 'id' => 'claude-3-opus-20240229', 'name' => 'Claude 3 Opus' },
-  { 'id' => 'claude-3-haiku-20240307', 'name' => 'Claude 3 Haiku' }
-]
-
-provider.update!(supported_models: updated_models)
-
-puts '✅ Provider configuration updated!'
-puts ''
-puts '📋 New Supported Models:'
-provider.reload.supported_models.each_with_index do |model, i|
-  marker = (i == 0) ? ' ← DEFAULT' : ''
-  puts "   #{i+1}. #{model['id']}#{marker}"
-  puts "      Name: #{model['name']}"
-end
-
-puts ''
-puts '🎯 Impact:'
-puts '   - AI agents without explicit model will now use: claude-3-5-sonnet-20241022'
-puts '   - This is a VALID model that Anthropic API will accept'
-puts '   - Workflows should now execute successfully (if credentials are valid)'
-puts ''
-
-puts '🔑 Credentials Status:'
-cred = provider.provider_credentials.active.first
-if cred
-  puts '   ✅ Active credentials found'
-  puts "   Created: #{cred.created_at}"
-  puts ''
-  puts '✅ System is ready for workflow execution!'
-else
-  puts '   ⚠️  No active credentials found'
-  puts '   Add Anthropic API key to enable workflow execution'
-  puts '   Navigate to: Settings → AI Providers → Claude AI → Add Credentials'
-end
-
-puts ''
-puts '=' * 80
-puts 'Fix complete!'
+# A deferred sync (no active credential) returns false without raising; say so
+# rather than report success for a provider whose catalog did not change.
+abort "#{failures.size} provider(s) did not sync — check their credentials and retry." if failures.any?

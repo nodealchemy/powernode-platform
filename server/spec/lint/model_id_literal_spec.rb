@@ -37,8 +37,12 @@ require "find"
 # ── SCOPE, AND WHAT IS HONESTLY NOT COVERED ──────────────────────────────────
 #
 # Production code only: `app/`, `lib/`, `config/`, `db/` under `server/`,
-# `worker/` and every extension including the private ones. Specs are NOT
-# scanned. That is a real gap, not an oversight — 113 spec files carry a model
+# `worker/` and every extension including the private ones — plus two roots
+# the E3 review found outside that walk: `server/scripts/` (operator scripts,
+# two of which WROTE a retired `supported_models` catalog onto providers) and
+# `frontend/src/` (shipped form defaults). Specs are NOT scanned, on either
+# side: `spec/` by construction, and frontend `*.test.ts(x)`, `__tests__/`,
+# `test/` and mocks by the same rule. That is a real gap, not an oversight — 113 spec files carry a model
 # literal today, and fixing them means routing each through a factory's
 # `supported_models`, which is its own increment. A green run here does NOT
 # mean "no hardcoded ids anywhere"; it means none in code that ships.
@@ -62,21 +66,43 @@ module ModelIdLintRules
   # model, and flagging them would train people to add exemptions.
   FAMILIES = %w[claude gpt gemini grok llama mistral deepseek qwen].freeze
   MODEL_ID = /
-    ['"]                                   # opening quote
+    ['"`]                                  # opening quote (backtick: a TS
+                                           #  template literal is a string too)
     (?:#{Regexp.union(FAMILIES)})          # a known family
     -[a-z0-9-]*\d[a-z0-9._-]*              # a suffix carrying at least one digit
                                            # (hyphens allowed BEFORE the digit, or
                                            #  "claude-opus-4-8" would not match)
-    ['"]                                   # closing quote
+    ['"`]                                  # closing quote
   /xi
 
   # The Class-A shape: an `||` (or `.presence ||`) whose right-hand side is a
   # model-id literal. Matched on the same line, which is how every instance the
   # audit found is written.
-  FALLBACK = /\|\|\s*#{MODEL_ID}/
+  #
+  # The OPERATOR is `||` / `||=` in Ruby and `??` / `??=` in TypeScript. The
+  # E3 review planted `model ||= 'gpt-4o-mini'` in a baselined file and the
+  # suite stayed green: the old pattern wanted whitespace right after `||`, and
+  # `||=` puts an `=` there. That is the shape most likely to hide in exactly
+  # the catalog and seed files the ratchet already tolerates literals in.
+  FALLBACK = /(?:\|\||\?\?)=?\s*#{MODEL_ID}/
 
   # Directories that ship. `spec/` is excluded by construction — see the header.
   SCANNED_SUBDIRS = %w[app lib config db].freeze
+
+  # Roots OUTSIDE the server/worker/extension app layout, each with the file
+  # types it holds. Added by the E3 review, which found 22 literals the walk
+  # could not see (18 in server/scripts, 4 in frontend/src).
+  EXTRA_ROOTS = {
+    "server/scripts" => %w[.rb .rake],
+    "frontend/src" => %w[.ts .tsx]
+  }.freeze
+
+  # Frontend test files are specs by another name; the rule that keeps
+  # `spec/` out keeps these out too.
+  FRONTEND_TEST_FILE = %r{(?:\.(?:test|spec)\.tsx?\z|/__tests__/|/__mocks__/|/mocks/|/test/|/test-utils(?:/|\.tsx?\z)|/setupTests\.tsx?\z)}
+
+  RUBY_COMMENT = /\A\s*#/
+  TS_COMMENT = %r{\A\s*(?://|/\*|\*)}
 
   def scan_roots(repo_root = REPO_ROOT)
     roots = []
@@ -92,25 +118,38 @@ module ModelIdLintRules
     roots.select { |path| File.directory?(path) }
   end
 
-  def ruby_files(repo_root = REPO_ROOT)
+  def source_files(repo_root = REPO_ROOT)
     files = []
     scan_roots(repo_root).each do |root|
       SCANNED_SUBDIRS.each do |sub|
-        dir = File.join(root, sub)
-        next unless File.directory?(dir)
-
-        Find.find(dir) do |path|
-          next unless File.file?(path)
-          next unless path.end_with?(".rb", ".rake")
-
-          rel = path.delete_prefix("#{repo_root}/")
-          next if rel == SELF_REL
-
-          files << [ rel, path ]
-        end
+        collect(File.join(root, sub), %w[.rb .rake], repo_root, files)
       end
     end
+    EXTRA_ROOTS.each do |rel_root, extensions|
+      collect(File.join(repo_root, rel_root), extensions, repo_root, files)
+    end
     files.uniq.sort
+  end
+
+  def collect(dir, extensions, repo_root, files)
+    return unless File.directory?(dir)
+
+    Find.find(dir) do |path|
+      Find.prune if File.basename(path) == "node_modules"
+      next unless File.file?(path)
+      next unless path.end_with?(*extensions)
+
+      rel = path.delete_prefix("#{repo_root}/")
+      next if rel == SELF_REL
+      next if rel.start_with?("frontend/") && rel.match?(FRONTEND_TEST_FILE)
+
+      files << [ rel, path ]
+    end
+  end
+
+  # A full-line comment cannot choose a model. The marker differs by language.
+  def comment_line?(rel, line)
+    line.match?(rel.end_with?(".ts", ".tsx") ? TS_COMMENT : RUBY_COMMENT)
   end
 
   # Catalog files: a model id here is DATA about models, which is the one place
@@ -156,7 +195,16 @@ module ModelIdLintRules
     "server/db/seeds/kb/ai_orchestration_articles.rb" => [ 1, "prose in a seeded KB article, not an executable choice" ],
     "extensions/marketing/server/db/seeds/marketing_demo_data_seed.rb" => [ 1, "seeded demo data" ],
     # — analytics that reads an id back out of recorded usage —
-    "server/app/services/ai/analytics/cost_analysis_service/breakdown.rb" => [ 1, "cost-advice heuristic over ALREADY-RECORDED usage rows" ]
+    "server/app/services/ai/analytics/cost_analysis_service/breakdown.rb" => [ 1, "cost-advice heuristic over ALREADY-RECORDED usage rows" ],
+    # — server/scripts (root added by the E3 review). The two scripts that
+    #   WROTE a retired catalog onto providers now re-sync from the provider's
+    #   own API instead and carry no literal, so they are absent here. These two
+    #   still choose models by name and are recorded, not blessed: —
+    "server/scripts/diagnostics/check_and_update_agent_models.rb" => [ 6, "one-off diagnostic that REWRITES agent pins from a task-name heuristic; the ids are retired — capped here, owed a resolver rewrite (E3 review report)" ],
+    "server/scripts/setup/create_image_generation_agent.rb" => [ 2, "setup script picks a per-provider-type default for the agent it creates; owed Provider#default_model (E3 review report)" ],
+    # — frontend/src (root added by the E3 review) —
+    "frontend/src/features/onboarding/ProviderCredentialForm.tsx" => [ 3, "onboarding form PRE-FILLS a default_model field per provider type; the operator can edit it, but a shipped default rots — owed a read of the provider catalog" ],
+    "frontend/src/features/ai/devops/components/WorkflowTab.tsx" => [ 1, "an example model id inside a textarea PLACEHOLDER showing the JSON shape — illustrative, never submitted" ]
     # (cost_calculation_service.rb was here at 1; its only hit is a full-line
     #  @param comment, which the scan correctly ignores — entry deleted at zero.)
   }.freeze
@@ -181,14 +229,14 @@ module ModelIdLintRules
 
   def scan(pattern, skip_private: false)
     counts = Hash.new(0)
-    ruby_files.each do |rel, path|
+    source_files.each do |rel, path|
       next if skip_private && private_extension_path?(rel)
 
       File.foreach(path) do |line|
         # A full-line comment cannot choose a model. A trailing comment is not
         # stripped: telling one from a `#` inside a string needs a lexer, and
         # the conservative direction is to flag.
-        next if line.match?(/\A\s*#/)
+        next if comment_line?(rel, line)
 
         counts[rel] += 1 if line.match?(pattern)
       end
@@ -196,9 +244,10 @@ module ModelIdLintRules
     counts
   end
 
-  # One line's worth of the same rule, for the matcher examples.
-  def flags?(pattern, source)
-    source.each_line.any? { |line| !line.match?(/\A\s*#/) && line.match?(pattern) }
+  # One line's worth of the same rule, for the matcher examples. `as:` names
+  # the file the source would live in, so the comment rule is the real one.
+  def flags?(pattern, source, as: "example.rb")
+    source.each_line.any? { |line| !comment_line?(as, line) && line.match?(pattern) }
   end
 end
 
@@ -207,11 +256,24 @@ RSpec.describe "model-id literals in production code" do
 
   describe "the matchers themselves" do
     def matches?(pattern, source) = R.flags?(pattern, source)
+    def ts_matches?(pattern, source) = R.flags?(pattern, source, as: "example.tsx")
 
     it "flags a fallback in either quote style" do
       expect(matches?(R::FALLBACK, 'model = provider&.default_model || "gpt-4o-mini"')).to be true
       expect(matches?(R::FALLBACK, "model = agent['model'] || 'gpt-4'")).to be true
       expect(matches?(R::FALLBACK, 'x = cred&.provider&.default_model.presence || "claude-haiku-4-5"')).to be true
+    end
+
+    # E3 review F4, planted: before this the operator had to be `||` followed
+    # by whitespace, so `||=` walked straight past the zero-tolerance rule.
+    it "flags the ||= and TypeScript ?? / ??= forms, and not their literal-free twins" do
+      expect(matches?(R::FALLBACK, "model ||= 'gpt-4o-mini'")).to be true
+      expect(matches?(R::FALLBACK, 'config["model"] ||= "claude-haiku-4-5"')).to be true
+      expect(matches?(R::FALLBACK, "model ||= provider.default_model")).to be false
+
+      expect(ts_matches?(R::FALLBACK, "const model = cfg.model ?? 'gpt-4o'")).to be true
+      expect(ts_matches?(R::FALLBACK, "model ??= `claude-sonnet-5`")).to be true
+      expect(ts_matches?(R::FALLBACK, "const model = cfg.model ?? provider.defaultModel")).to be false
     end
 
     it "accepts a resolution with no literal on the right" do
@@ -231,13 +293,34 @@ RSpec.describe "model-id literals in production code" do
       expect(matches?(R::MODEL_ID, '  # the old chain hardcoded "claude-3-sonnet-20240229"')).to be false
       expect(matches?(R::MODEL_ID, '  model = "claude-3-sonnet-20240229"')).to be true
     end
+
+    it "applies the TypeScript comment rule to a .tsx line, and not the Ruby one" do
+      expect(ts_matches?(R::MODEL_ID, "  // defaults used to be 'claude-sonnet-4-6'")).to be false
+      expect(ts_matches?(R::MODEL_ID, "   * e.g. 'gpt-4o'")).to be false
+      expect(ts_matches?(R::MODEL_ID, "  defaultValue: 'claude-sonnet-4-6',")).to be true
+      # A `#` line in TS is code (a private field), not a comment.
+      expect(ts_matches?(R::MODEL_ID, "  #model = 'gpt-4o';")).to be true
+    end
   end
 
   it "walks a non-trivial tree, including the extensions (an empty sweep is not a pass)" do
-    files = R.ruby_files
+    files = R.source_files
     expect(files.size).to be > 500
     expect(files.map(&:first)).to include(a_string_starting_with("worker/app/"))
     expect(files.map(&:first)).to include(a_string_starting_with("extensions/"))
+  end
+
+  it "reaches server/scripts and frontend/src, and leaves the frontend's tests out" do
+    rels = R.source_files.map(&:first)
+    scripts = rels.grep(%r{\Aserver/scripts/})
+    frontend = rels.grep(%r{\Afrontend/src/})
+
+    expect(scripts.size).to be > 10
+    expect(frontend.size).to be > 500
+    expect(frontend).to all(match(/\.tsx?\z/))
+    expect(frontend.grep(R::FRONTEND_TEST_FILE)).to be_empty
+    # The exclusion must bite on something real, or it is asserting nothing.
+    expect(Dir.glob(File.join(R::REPO_ROOT, "frontend/src/**/*.test.{ts,tsx}"))).not_to be_empty
   end
 
   it "has NO `|| \"model-id\"` fallback anywhere in production code" do
