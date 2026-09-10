@@ -64,7 +64,7 @@ module Api
               )
             end
 
-            render_success(status: "ok")
+            render_success({ status: "ok" }) # hash literal: braceless, status: binds the HTTP-status keyword and raises
             log_internal_audit("swarm.cluster.sync", "SwarmCluster", cluster.id, account_id: cluster.account_id)
           rescue ActiveRecord::RecordNotFound
             render_error("Cluster not found", status: :not_found)
@@ -98,7 +98,7 @@ module Api
               end
             end
 
-            render_success(status: "ok")
+            render_success({ status: "ok" }) # hash literal: braceless, status: binds the HTTP-status keyword and raises
           rescue ActiveRecord::RecordNotFound
             render_error("Cluster not found", status: :not_found)
           rescue StandardError => e
@@ -119,7 +119,7 @@ module Api
               deployment.fail!(params[:result]&.to_unsafe_h || {})
             end
 
-            render_success(status: "ok")
+            render_success({ status: "ok" }) # hash literal: braceless, status: binds the HTTP-status keyword and raises
           rescue ActiveRecord::RecordNotFound
             render_error("Deployment not found", status: :not_found)
           end
