@@ -18,7 +18,6 @@ jest.mock('@/shared/services/ai', () => ({
   intelligenceApi: {
     getIntelligenceSummary: jest.fn(),
     getExperienceReplays: jest.fn(),
-    getSelfChallenges: jest.fn(),
   },
 }));
 

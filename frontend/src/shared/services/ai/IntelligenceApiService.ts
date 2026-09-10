@@ -4,7 +4,6 @@
  *
  * Covers:
  * - Experience Replays (agent learning from past executions)
- * - Self-Challenges (agent self-improvement through adversarial tasks)
  * - Stigmergic Signals (ant-colony-inspired team coordination)
  * - Pressure Fields (gradient-based team coordination)
  * - Team Restructure Events (dynamic team evolution)
@@ -30,40 +29,12 @@ export interface ExperienceReplay {
   created_at: string;
 }
 
-// ==========================================
-// Self-Challenge Types
-// ==========================================
-export type ChallengeStatus = 'pending' | 'generating' | 'executing' | 'validating' | 'completed' | 'failed' | 'abandoned';
-export type ChallengeDifficulty = 'easy' | 'medium' | 'hard' | 'expert';
-
-export interface SelfChallenge {
-  id: string;
-  challenge_id: string;
-  status: ChallengeStatus;
-  difficulty: ChallengeDifficulty;
-  challenge_prompt: string | null;
-  expected_criteria: Record<string, unknown>;
-  response: string | null;
-  quality_score: number | null;
-  validation_result: Record<string, unknown>;
-  skill: { id: string; name: string } | null;
-  executor_agent: { id: string; name: string } | null;
-  validator_agent: { id: string; name: string } | null;
-  created_at: string;
-}
-
 export interface IntelligenceSummary {
   experience_replays: {
     total: number;
     active: number;
     avg_quality: number;
     avg_effectiveness: number;
-  };
-  self_challenges: {
-    total: number;
-    active: number;
-    completed: number;
-    pass_rate: number;
   };
 }
 
@@ -198,14 +169,6 @@ class IntelligenceApiService extends BaseApiService {
   } = {}): Promise<PaginatedResponse<ExperienceReplay>> {
     const queryString = this.buildQueryString(filters);
     return this.get<PaginatedResponse<ExperienceReplay>>(`/ai/agents/${agentId}/intelligence/experience_replays${queryString}`);
-  }
-
-  async getSelfChallenges(agentId: string, filters: QueryFilters & {
-    status?: string;
-    difficulty?: string;
-  } = {}): Promise<PaginatedResponse<SelfChallenge>> {
-    const queryString = this.buildQueryString(filters);
-    return this.get<PaginatedResponse<SelfChallenge>>(`/ai/agents/${agentId}/intelligence/self_challenges${queryString}`);
   }
 
   // ---- Coordination Dashboard ----

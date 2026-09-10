@@ -458,7 +458,6 @@ export { ralphLoopsApi };
 export { intelligenceApi };
 export type {
   ExperienceReplay,
-  SelfChallenge,
   IntelligenceSummary,
   StigmergicSignal,
   PressureField,
