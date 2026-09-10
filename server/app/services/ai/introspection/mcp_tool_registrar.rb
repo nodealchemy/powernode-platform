@@ -197,9 +197,14 @@ module Ai
           when "platform.alerts"
             metrics_service(account).active_alerts
           when "platform.infrastructure"
+            # E7b: the health service reports measurements and no longer stamps
+            # a verdict on them. Composed here rather than there, the same way
+            # the REST door does it, so an agent asking this verb whether the
+            # platform is healthy gets the status plane's answer instead of
+            # silently getting no answer at all.
             health_service(account).comprehensive_health_check(
               skip_cache: params[:skip_cache] || false
-            )
+            ).merge(platform_rollup(account))
           when "platform.cost_analysis"
             time_range = (params[:time_range_minutes] || 60).minutes
             metrics_service(account).cost_analysis(time_range)
@@ -254,6 +259,23 @@ module Ai
 
         def health_service(account)
           Ai::MonitoringHealthService.new(account: account)
+        end
+
+        # THE one health score (design section 4.4). Shared rows are split out
+        # rather than summed in: a NULL-account row describes process-wide
+        # infrastructure belonging to no tenant, so folding it into the
+        # per-account verdict would turn one shared breaker into every tenant's
+        # outage. Mirrors Api::V1::Ai::MonitoringController#platform_rollup.
+        def platform_rollup(account)
+          return { rollup: nil, shared: nil } if account.blank?
+
+          rows = ::Platform::Status::Query.new(account: account).rows.to_a
+          account_rows, shared_rows = rows.partition { |row| row.account_id.present? }
+
+          {
+            rollup: ::Platform::Status::Rollup.rollup(account_rows),
+            shared: ::Platform::Status::Rollup.rollup(shared_rows)
+          }
         end
 
         def introspection_service(account)

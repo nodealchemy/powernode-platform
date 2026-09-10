@@ -166,10 +166,16 @@ module AiMonitoringConcern
 
   # Check system health
   #
-  # @return [Hash] Health status
+  # NO `status` KEY (E7b). This used to fold the four component checks into one
+  # of "healthy"/"degraded"/"unhealthy" — a rival verdict, and the weakest of
+  # the three the campaign found, because it reduced four independent
+  # measurements to a single word with no basis attached and no way to see
+  # which component caused it. The components are still here, each with its own
+  # status; the status-plane rollup is the one verdict over them.
+  #
+  # @return [Hash] Health measurements
   def check_system_health
     {
-      status: determine_health_status,
       components: check_component_health,
       timestamp: Time.current.iso8601,
       uptime_seconds: calculate_uptime
@@ -186,24 +192,6 @@ module AiMonitoringConcern
       providers: check_providers_health,
       workers: check_workers_health
     }
-  end
-
-  # Determine overall health status
-  #
-  # @return [String] Health status (healthy, degraded, unhealthy)
-  def determine_health_status
-    components = check_component_health
-
-    unhealthy = components.values.count { |v| v[:status] == "unhealthy" }
-    degraded = components.values.count { |v| v[:status] == "degraded" }
-
-    if unhealthy > 0
-      "unhealthy"
-    elsif degraded > 0
-      "degraded"
-    else
-      "healthy"
-    end
   end
 
   # =============================================================================

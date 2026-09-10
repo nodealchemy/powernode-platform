@@ -73,9 +73,11 @@ module Monitoring
   # Get system overview metrics
   #
   # @return [Hash] System overview
+  # NO `status` KEY (E7b) — see AiMonitoringConcern#check_system_health for why.
+  # The door adds the rollup, whose verdict IS the status and whose counts say
+  # what it is based on.
   def get_system_overview
     {
-      status: determine_health_status,
       active_agents: count_active_agents,
       total_executions_today: count_executions_today,
       total_cost_today: calculate_cost_today,

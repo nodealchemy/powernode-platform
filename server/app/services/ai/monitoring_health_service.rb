@@ -10,6 +10,11 @@ module Ai
   # - Performance metrics
   # - Activity summaries
   #
+  # It reports MEASUREMENTS ONLY. It deliberately returns no health score and no
+  # overall status: the status-plane rollup is the one health score (E7, E7b,
+  # design section 4.4). Callers that need a verdict compose it themselves from
+  # Platform::Status::Rollup.
+  #
   # Usage:
   #   service = Ai::MonitoringHealthService.new(account: current_user.account)
   #   health_data = service.comprehensive_health_check
@@ -20,13 +25,6 @@ module Ai
     include ActivityMetrics
 
     attr_reader :account
-
-    HEALTH_WEIGHTS = {
-      database: 0.25,
-      redis: 0.25,
-      providers: 0.25,
-      workers: 0.25
-    }.freeze
 
     # Cache TTLs
     PROVIDER_HEALTH_CACHE_TTL = 5.minutes
@@ -50,39 +48,6 @@ module Ai
       end
     end
 
-    def calculate_overall_health_score(health_data)
-      scores = []
-
-      # Database health (25%)
-      scores << (health_data[:database][:status] == "healthy" ? 100 : 0) * HEALTH_WEIGHTS[:database]
-
-      # Redis health (25%)
-      scores << (health_data[:redis][:status] == "healthy" ? 100 : 0) * HEALTH_WEIGHTS[:redis]
-
-      # Provider health (25%)
-      provider_score = if health_data[:providers][:total_providers] > 0
-                        (health_data[:providers][:healthy_providers].to_f / health_data[:providers][:total_providers] * 100)
-      else
-                        100
-      end
-      scores << (provider_score * HEALTH_WEIGHTS[:providers])
-
-      # Worker health (25%)
-      worker_score = health_data[:workers][:status] == "healthy" ? 100 : 50
-      scores << (worker_score * HEALTH_WEIGHTS[:workers])
-
-      scores.sum.round
-    end
-
-    def determine_health_status(health_score)
-      case health_score
-      when 80..100 then "healthy"
-      when 50..79 then "degraded"
-      when 20..49 then "unhealthy"
-      else "critical"
-      end
-    end
-
     private
 
     def fetch_comprehensive_health(time_range)
@@ -97,10 +62,15 @@ module Ai
         circuit_breakers: circuit_breaker_summary
       }
 
-      health_score = calculate_overall_health_score(health_data)
-      health_data[:health_score] = health_score
-      health_data[:status] = determine_health_status(health_score)
-
+      # NO `health_score` AND NO `status` (E7b). This service used to blend the
+      # four checks above into a 0-100 number and then bucket that number into
+      # healthy/degraded/unhealthy/critical — a third derivation of "is this
+      # healthy?", disagreeing with both the status-plane rollup and the
+      # component-check string that AiMonitoringConcern used to produce.
+      #
+      # The checks themselves stay: they are real measurements, and the A3
+      # contributors are what turn measurements of this kind into conditions.
+      # What is gone is this service's opinion about what they add up to.
       health_data
     end
   end

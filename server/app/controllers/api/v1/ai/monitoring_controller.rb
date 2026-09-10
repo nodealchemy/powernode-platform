@@ -81,11 +81,15 @@ module Api
         # GET /api/v1/ai/monitoring/health
         def health
           health_data = health_service.comprehensive_health_check(time_range: @time_range)
+          rollup = platform_rollup(current_user.account)
 
-          render_success(health_data)
+          # E7b: the service reports measurements and stamps no verdict on them,
+          # so the audit line records the rollup's verdict — the one the operator
+          # actually saw — rather than a number this endpoint no longer has.
+          render_success(health_data.merge(rollup))
           log_audit_event("ai.monitoring.health_check", current_user.account,
-            health_score: health_data[:health_score],
-            status: health_data[:status]
+            verdict: rollup[:rollup]&.dig(:verdict),
+            unhealthy_components: rollup[:rollup]&.dig(:counts_by_verdict)
           )
         end
 
