@@ -2,138 +2,99 @@
 
 require "rails_helper"
 
-# Operator rule (2026-06-11): AI model names are never hardcoded. The
-# Anthropic and xAI connection testers used to POST a paid test completion
-# with a hardcoded model id ("claude-haiku-4-5-20251001" / "grok-3") — a
-# model deprecation would break credential testing platform-wide. Both now
-# validate credentials via the providers' free models-list endpoint, the
-# same pattern the OpenAI tester already used: no model name, no token spend.
+# Campaign 01a08c9b, E3 + E3 review F2/F3.
+#
+# WHAT THIS FILE USED TO TEST IS GONE. It exercised the `test_*_connection`
+# family, reachable only through `#perform_test`, which had zero callers in
+# app/, spec/ or extensions/ (E3 review F3). The live entry point is
+# `#perform_connection_test` (ConnectionTesting#test_connection), and it is
+# the family E3 actually changed — so the old green tallies were green on
+# code E3 never touched.
+#
+# What is tested now is the one behaviour E3 changed on the LIVE family: the
+# model a connection test sends comes from the credential or the provider,
+# never a literal, and nothing configured is a configuration_error with NO
+# request sent. Four resolving arms, because four are distinguishable:
+#
+#   1. the credential's own `model` override;
+#   2. the provider's configured default (configuration_schema["default_model"]);
+#   3. no configured default: Ai::Provider#default_model falls back to the
+#      first catalog id ITSELF (model_management.rb:66);
+#   4. a BLANK-but-present configured default: #default_model returns "" (a
+#      truthy String), `.presence` makes it nil, and only then does
+#      #resolved_test_model's own `|| available_models&.first` fire. This is
+#      the only arm that proves that clause is live rather than decorative.
 RSpec.describe ProviderTesting::ProviderAdapters do
   let(:account) { create(:account) }
 
-  def service_for(provider, api_key: "sk-test-key")
+  def service_for(provider, credentials: { "api_key" => "sk-test-key" })
     credential = create(:ai_provider_credential, provider: provider, account: account,
-                        is_active: true, credentials: { "api_key" => api_key })
+                                                 is_active: true, credentials: credentials)
     Ai::ProviderManagementService.new(credential)
   end
 
-  describe "#test_anthropic_connection" do
-    let(:provider) do
-      create(:ai_provider, :anthropic, account: account).tap do |p|
-        p.update_column(:api_base_url, "https://api.anthropic.com/v1")
+  # Runs the live tester with the HTTP layer stubbed, and returns the result
+  # plus the model the tester PUT ON THE WIRE (nil when no request was made).
+  def run(service, method)
+    sent = :no_request
+    allow(service).to receive(:make_http_request) do |_url, **opts|
+      sent = JSON.parse(opts[:body])["model"]
+      double("response", success?: false, code: 401, message: "Unauthorized",
+                         body: { error: { message: "bad key" } }.to_json)
+    end
+    [ service.send(method, service.credential.credentials), sent ]
+  end
+
+  # A `custom` provider, deliberately. For "openai" and "anthropic",
+  # Ai::Provider::Configurable#set_default_configuration_from_type (a
+  # before_validation) OVERWRITES configuration_schema with a hardcoded
+  # default_model on create, so for those two types Provider#default_model
+  # ALWAYS resolves and the refusal cannot be reached at all. That is a real
+  # property of the model, recorded in the E3 review report — not something a
+  # spec should paper over by picking the one type where it happens to hold.
+  # The testers never read provider_type, so one custom provider serves both.
+  %i[perform_openai_connection_test perform_anthropic_connection_test].each do |tester|
+    describe "##{tester}" do
+      let(:provider) { create(:ai_provider, account: account) }
+
+      it "sends the credential's own model override first" do
+        _, sent = run(service_for(provider, credentials: { "api_key" => "sk-test-key-0123456789", "model" => "override-model-1" }), tester)
+        expect(sent).to eq("override-model-1")
+      end
+
+      it "sends the provider's configured default_model" do
+        provider.update_columns(configuration_schema: provider.configuration_schema.merge("default_model" => "configured-model-1"))
+        _, sent = run(service_for(provider), tester)
+        expect(sent).to eq("configured-model-1")
+      end
+
+      it "sends the first catalog id when nothing is configured (through Provider#default_model)" do
+        _, sent = run(service_for(provider), tester)
+        expect(sent).to eq("test-model-1")
+      end
+
+      it "reaches its own available_models.first arm for a blank-but-present configured default" do
+        provider.update_columns(configuration_schema: provider.configuration_schema.merge("default_model" => ""))
+        expect(provider.reload.default_model).to eq(""), "precondition: default_model must return a blank String here"
+
+        _, sent = run(service_for(provider), tester)
+        expect(sent).to eq("test-model-1")
+      end
+
+      it "returns a configuration_error and sends NOTHING when no model resolves" do
+        provider.update_columns(supported_models: [])
+        result, sent = run(service_for(provider), tester)
+
+        expect(result).to include(success: false, error_type: "configuration_error")
+        expect(result[:error_details]).to match(/no model configured/i)
+        expect(sent).to eq(:no_request), "a request went out with no model on it"
       end
     end
-
-    it "validates the credential against the free models endpoint — no hardcoded model, no completion" do
-      stub_request(:get, "https://api.anthropic.com/v1/models")
-        .with(headers: { "x-api-key" => "sk-test-key", "anthropic-version" => "2023-06-01" })
-        .to_return(status: 200, body: { data: [ { id: "some-model" }, { id: "another" } ] }.to_json,
-                   headers: { "Content-Type" => "application/json" })
-
-      result = service_for(provider).send(:test_anthropic_connection, provider, { "api_key" => "sk-test-key" })
-
-      expect(result[:success]).to be true
-      expect(result[:model_info][:available_models]).to eq(2)
-      expect(a_request(:post, %r{api\.anthropic\.com})).not_to have_been_made
-    end
-
-    it "reports authentication failure from the models endpoint" do
-      stub_request(:get, "https://api.anthropic.com/v1/models")
-        .to_return(status: 401, body: { error: { message: "invalid x-api-key" } }.to_json)
-
-      result = service_for(provider).send(:test_anthropic_connection, provider, { "api_key" => "sk-test-key" })
-
-      expect(result[:success]).to be false
-      expect(result[:error_code]).to eq("AUTHENTICATION_FAILED")
-      expect(result[:error]).to match(/invalid x-api-key/)
-    end
   end
 
-  describe "#test_huggingface_connection" do
-    let(:provider) do
-      create(:ai_provider, account: account, provider_type: "huggingface",
-             api_base_url: "https://api-inference.huggingface.co")
-    end
-
-    it "validates the token against the free whoami endpoint instead of stub-succeeding" do
-      stub_request(:get, "https://huggingface.co/api/whoami-v2")
-        .with(headers: { "Authorization" => "Bearer sk-test-key" })
-        .to_return(status: 200, body: { name: "powernode-ci" }.to_json,
-                   headers: { "Content-Type" => "application/json" })
-
-      result = service_for(provider).send(:test_huggingface_connection, provider, { "api_key" => "sk-test-key" })
-
-      expect(result[:success]).to be true
-      expect(result[:provider_info][:username]).to eq("powernode-ci")
-    end
-
-    it "reports authentication failure honestly" do
-      stub_request(:get, "https://huggingface.co/api/whoami-v2")
-        .to_return(status: 401, body: { error: "Invalid token" }.to_json)
-
-      result = service_for(provider).send(:test_huggingface_connection, provider, { "api_key" => "sk-test-key" })
-
-      expect(result[:success]).to be false
-      expect(result[:error_code]).to eq("AUTHENTICATION_FAILED")
-    end
-  end
-
-  describe "#test_cohere_connection" do
-    let(:provider) do
-      create(:ai_provider, account: account, provider_type: "cohere",
-             api_base_url: "https://api.cohere.com/v1")
-    end
-
-    it "validates the credential against the free models endpoint instead of stub-succeeding" do
-      stub_request(:get, "https://api.cohere.com/v1/models")
-        .with(headers: { "Authorization" => "Bearer sk-test-key" })
-        .to_return(status: 200, body: { models: [ { name: "a" }, { name: "b" }, { name: "c" } ] }.to_json,
-                   headers: { "Content-Type" => "application/json" })
-
-      result = service_for(provider).send(:test_cohere_connection, provider, { "api_key" => "sk-test-key" })
-
-      expect(result[:success]).to be true
-      expect(result[:model_info][:available_models]).to eq(3)
-    end
-
-    it "reports authentication failure honestly" do
-      stub_request(:get, "https://api.cohere.com/v1/models")
-        .to_return(status: 401, body: { message: "invalid api token" }.to_json)
-
-      result = service_for(provider).send(:test_cohere_connection, provider, { "api_key" => "sk-test-key" })
-
-      expect(result[:success]).to be false
-      expect(result[:error_code]).to eq("AUTHENTICATION_FAILED")
-    end
-  end
-
-  describe "#test_xai_connection" do
-    let(:provider) do
-      create(:ai_provider, account: account, provider_type: "grok",
-             api_base_url: "https://api.x.ai/v1")
-    end
-
-    it "validates the credential against the free models endpoint — no hardcoded model, no completion" do
-      stub_request(:get, "https://api.x.ai/v1/models")
-        .with(headers: { "Authorization" => "Bearer sk-test-key" })
-        .to_return(status: 200, body: { data: [ { id: "a-model" } ] }.to_json,
-                   headers: { "Content-Type" => "application/json" })
-
-      result = service_for(provider).send(:test_xai_connection, provider, { "api_key" => "sk-test-key" })
-
-      expect(result[:success]).to be true
-      expect(result[:model_info][:available_models]).to eq(1)
-      expect(a_request(:post, %r{api\.x\.ai})).not_to have_been_made
-    end
-
-    it "reports authentication failure from the models endpoint" do
-      stub_request(:get, "https://api.x.ai/v1/models")
-        .to_return(status: 401, body: { error: "bad key" }.to_json)
-
-      result = service_for(provider).send(:test_xai_connection, provider, { "api_key" => "sk-test-key" })
-
-      expect(result[:success]).to be false
-      expect(result[:error_code]).to eq("AUTHENTICATION_FAILED")
-    end
+  it "no longer defines the dead perform_test family (E3 review F3)" do
+    methods = described_class.private_instance_methods(false)
+    expect(methods).to include(:perform_connection_test)
+    expect(methods.grep(/\A(?:perform_test|test_[a-z]+_connection)\z/)).to be_empty
   end
 end
