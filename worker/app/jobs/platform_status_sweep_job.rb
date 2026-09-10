@@ -77,13 +77,15 @@ class PlatformStatusSweepJob < BaseJob
     end
 
     log_info "[PlatformStatusSweepJob] #{data['accounts_swept'].to_i} account(s), " \
-             "#{skipped} skipped, #{transitions} transition(s), #{events} event(s)"
+             "#{skipped} skipped, #{transitions} transition(s), #{events} event(s), " \
+             "#{data['events_pruned'].to_i} pruned"
 
     {
       accounts_swept: data['accounts_swept'].to_i,
       accounts_skipped: skipped,
       transitions: transitions,
       events_written: events,
+      events_pruned: data['events_pruned'].to_i,
       truncated: data['truncated'] == true
     }
   end

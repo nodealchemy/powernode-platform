@@ -25,6 +25,7 @@ RSpec.describe PlatformStatusSweepJob, type: :job do
         "accounts_swept" => 2,
         "truncated" => false,
         "duration_seconds" => 0.4,
+        "events_pruned" => 7,
         "summaries" => [
           { "account_id" => "a1", "skipped" => false, "transitions" => 3, "events_written" => 4 },
           { "account_id" => "a2", "skipped" => true, "reason" => "kill_switch",
@@ -57,6 +58,7 @@ RSpec.describe PlatformStatusSweepJob, type: :job do
       accounts_skipped: 1,
       transitions: 3,
       events_written: 4,
+      events_pruned: 7,
       truncated: false
     )
   end
