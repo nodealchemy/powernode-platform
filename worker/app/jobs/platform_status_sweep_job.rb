@@ -36,9 +36,21 @@ class PlatformStatusSweepJob < BaseJob
 
   sidekiq_options queue: :default, retry: 1
 
-  # DistributedLock namespaces this as "lock:<key>" in Redis, so the live key
-  # is "lock:platform:status:sweep:lock".
+  # A2 review L6 — THE LIVE REDIS KEY IS NOT THIS STRING, and an operator
+  # following design §4.5 into `redis-cli` would look for a key that does not
+  # exist. Reconciled by documenting the code rather than changing it, because
+  # the CONCERN imposes the namespace: DistributedLock#with_lock prefixes every
+  # key with "lock:" for every caller, and stripping that for one job would
+  # either fork the concern or put this job outside the namespace its siblings
+  # share. So:
+  #
+  #     design name:    platform:status:sweep:lock
+  #     live redis key: lock:platform:status:sweep:lock
+  #
+  # LIVE_REDIS_KEY exists so the spec asserts the real key rather than the
+  # constant, and so anyone grepping for either string finds both.
   LOCK_KEY = 'platform:status:sweep:lock'
+  LIVE_REDIS_KEY = "lock:#{LOCK_KEY}"
   LOCK_TTL_SECONDS = 240
 
   SWEEP_PATH = '/api/v1/internal/platform/status_sweep'

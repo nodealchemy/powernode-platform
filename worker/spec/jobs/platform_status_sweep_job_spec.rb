@@ -17,7 +17,7 @@ require "rails_helper"
 RSpec.describe PlatformStatusSweepJob, type: :job do
   let(:api_client) { instance_double(BackendApiClient) }
   let(:job) { described_class.new }
-  let(:redis_key) { "lock:#{described_class::LOCK_KEY}" }
+  let(:redis_key) { described_class::LIVE_REDIS_KEY }
 
   let(:server_response) do
     {
@@ -118,6 +118,13 @@ RSpec.describe PlatformStatusSweepJob, type: :job do
     # 60s cron, 240s TTL. A TTL at or near the period would expire under a
     # running holder and re-admit the pile-up the lock exists to prevent.
     expect(described_class::LOCK_TTL_SECONDS).to eq(240)
+  end
+
+  it "names the design's lock, and knows the concern namespaces it (A2 review L6)" do
+    # The design calls the lock platform:status:sweep:lock; DistributedLock
+    # prefixes every caller's key with "lock:". Both strings are pinned so an
+    # operator reading either one finds the other.
     expect(described_class::LOCK_KEY).to eq("platform:status:sweep:lock")
+    expect(described_class::LIVE_REDIS_KEY).to eq("lock:platform:status:sweep:lock")
   end
 end
