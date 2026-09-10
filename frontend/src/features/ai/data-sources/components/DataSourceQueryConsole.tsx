@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { dataSourcesApi } from '@/shared/services/ai/DataSourcesApiService';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { logger } from '@/shared/utils/logger';
+import { formatFileSize } from '@/shared/utils/formatters';
 import type {
   AiDataSourceEndpoint,
   DataSourceFetchEnvelope,
@@ -18,14 +19,6 @@ import type {
 interface DataSourceQueryConsoleProps {
   dataSourceId: string;
   canQuery: boolean;
-}
-
-// Format a byte count into a human-readable string.
-function formatBytes(bytes: number): string {
-  if (bytes <= 0) return '0 B';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 function statusBadgeVariant(status: DataSourceQueryStatus): 'success' | 'warning' | 'danger' | 'info' {
@@ -147,7 +140,7 @@ export const DataSourceQueryConsole: React.FC<DataSourceQueryConsoleProps> = ({
             : 'Fresh'}
         </Badge>
         <Badge variant="outline" size="sm">{envelope.duration_ms}ms</Badge>
-        <Badge variant="outline" size="sm">{formatBytes(envelope.bytes)}</Badge>
+        <Badge variant="outline" size="sm">{formatFileSize(envelope.bytes, { nonPositiveValue: '0 B', capAtMB: true, decimals: { MB: 2 } })}</Badge>
         <Badge variant="outline" size="sm">{provenance.record_count ?? envelope.data.length} records</Badge>
         {cost && cost.amount != null && (
           <Badge variant="outline" size="sm">

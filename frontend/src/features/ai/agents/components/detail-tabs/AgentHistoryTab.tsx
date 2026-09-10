@@ -5,6 +5,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { agentsApi } from '@/shared/services/ai';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { usePermissions } from '@/shared/hooks/usePermissions';
+import { formatDurationMs, formatRelativeTimeCompact } from '@/shared/utils/formatters';
 import type { AiAgentExecution } from '@/shared/types/ai';
 
 type ExecutionStatus = AiAgentExecution['status'];
@@ -18,22 +19,6 @@ const STATUS_BADGE: Record<ExecutionStatus, { variant: 'success' | 'warning' | '
   cancelled: { variant: 'outline', label: 'Cancelled' },
 };
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-function formatDuration(seconds: number | undefined): string {
-  if (!seconds) return '—';
-  if (seconds < 1) return `${Math.round(seconds * 1000)}ms`;
-  return `${seconds.toFixed(1)}s`;
-}
 
 interface AgentHistoryTabProps {
   agentId: string;
@@ -109,8 +94,11 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
               }
               <Badge variant={badge.variant} size="xs">{badge.label}</Badge>
               <span className="text-xs text-theme-secondary truncate flex-1">{inputPreview || 'No input'}</span>
-              <span className="text-[10px] text-theme-tertiary whitespace-nowrap">{timeAgo(exec.created_at)}</span>
-              <span className="text-[10px] text-theme-tertiary whitespace-nowrap">{formatDuration(exec.duration_seconds)}</span>
+              <span className="text-[10px] text-theme-tertiary whitespace-nowrap">{formatRelativeTimeCompact(exec.created_at)}</span>
+              <span className="text-[10px] text-theme-tertiary whitespace-nowrap">{formatDurationMs(
+                exec.duration_seconds != null ? exec.duration_seconds * 1000 : exec.duration_seconds,
+                { emptyCheck: 'falsy' }
+              )}</span>
             </button>
 
             {isExpanded && (

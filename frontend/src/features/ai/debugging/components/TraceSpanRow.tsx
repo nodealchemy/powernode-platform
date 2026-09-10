@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { cn } from '@/shared/utils/cn';
+import { formatDurationMs } from '@/shared/utils/formatters';
 
 export interface TraceSpan {
   id: string;
@@ -63,11 +64,12 @@ export const statusConfig: Record<string, { icon: React.FC<{ className?: string 
   cancelled: { icon: AlertCircle, color: 'text-theme-warning-fg', bgColor: 'bg-theme-warning-fg/10' },
 };
 
-export const formatDuration = (ms: number | null) => {
-  if (ms === null) return '-';
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-};
+// Kept as an alias (not a reimplementation) so TraceViewer.tsx, SpanDetailPanel.tsx
+// and TraceTimeline.tsx keep importing `formatDuration` from here unchanged; the
+// actual formatting logic now lives only in shared/utils/formatters.ts (IMP-01a082a3).
+const traceSpanFormatDuration = (ms: number | null) =>
+  formatDurationMs(ms, { emptyValue: '-', subSecond: 'raw', decimals: 2 });
+export { traceSpanFormatDuration as formatDuration };
 
 export const formatCost = (cost: number) => {
   return `$${cost.toFixed(6)}`;
@@ -144,7 +146,7 @@ export const TraceSpanRow: React.FC<TraceSpanRowProps> = ({
         </Badge>
 
         <span className="text-xs text-theme-tertiary w-16 text-right">
-          {formatDuration(span.duration_ms)}
+          {traceSpanFormatDuration(span.duration_ms)}
         </span>
 
         {span.tokens.total > 0 && (

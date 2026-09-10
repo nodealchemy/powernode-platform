@@ -9,6 +9,7 @@ import { Progress } from '@/shared/components/ui/Progress';
 import { missionsApi } from '@/features/missions/api/missionsApi';
 import { phaseLabel, isApprovalGate } from '@/features/missions/types/mission';
 import type { Mission, MissionStatus } from '@/features/missions/types/mission';
+import { formatDurationMs, formatRelativeTimeCompact } from '@/shared/utils/formatters';
 
 const STATUS_CONFIG: Record<MissionStatus, { icon: React.ElementType; color: string; variant: 'success' | 'warning' | 'danger' | 'info' | 'secondary' }> = {
   active: { icon: Loader2, color: 'text-theme-info-fg', variant: 'info' },
@@ -24,28 +25,6 @@ const TYPE_EMOJI: Record<string, string> = {
   research: '\u{1F52C}',
   operations: '\u{2699}',
 };
-
-function formatDuration(ms: number | null): string {
-  if (!ms) return '-';
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
-}
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 export const MissionsDashboardPanel: React.FC = () => {
   const navigate = useNavigate();
@@ -233,7 +212,7 @@ export const MissionsDashboardPanel: React.FC = () => {
                   <span>{TYPE_EMOJI[m.mission_type]}</span>
                   {m.name}
                 </span>
-                <span className="text-xs text-theme-tertiary">{timeAgo(m.created_at)}</span>
+                <span className="text-xs text-theme-tertiary">{formatRelativeTimeCompact(m.created_at, { justNowLabel: 'Just now' })}</span>
               </button>
             ))}
           </div>
@@ -255,7 +234,12 @@ export const MissionsDashboardPanel: React.FC = () => {
                   <CheckCircle className="h-3.5 w-3.5 text-theme-success-fg flex-shrink-0" />
                   {m.name}
                 </span>
-                <span className="text-xs text-theme-tertiary">{formatDuration(m.duration_ms)}</span>
+                <span className="text-xs text-theme-tertiary">{formatDurationMs(m.duration_ms, {
+                  emptyValue: '-',
+                  emptyCheck: 'falsy',
+                  tiering: 'floor-integer',
+                  minuteTier: 'minutes-only',
+                })}</span>
               </button>
             ))}
           </div>

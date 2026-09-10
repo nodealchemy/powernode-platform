@@ -3,6 +3,7 @@ import {
   FileText, GitBranch, GitMerge, Terminal,
   Database, Map, CheckSquare, Play
 } from 'lucide-react';
+import { formatRelativeTimeCompact } from '@/shared/utils/formatters';
 import type { ExecutionResource, ResourceType } from '../types';
 
 interface ResourceListItemProps {
@@ -38,21 +39,6 @@ const STATUS_COLORS: Record<string, string> = {
   archived: 'bg-theme-background-secondary/10 text-theme-tertiary',
 };
 
-function timeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const seconds = Math.floor((now - then) / 1000);
-
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
-}
 
 export function ResourceListItem({ resource, isSelected, onClick }: ResourceListItemProps) {
   const config = TYPE_CONFIG[resource.resource_type];
@@ -76,7 +62,7 @@ export function ResourceListItem({ resource, isSelected, onClick }: ResourceList
               {resource.name}
             </span>
             <span className="text-[10px] text-theme-tertiary whitespace-nowrap flex-shrink-0">
-              {timeAgo(resource.created_at)}
+              {formatRelativeTimeCompact(resource.created_at, { monthTier: true })}
             </span>
           </div>
           {resource.description && (

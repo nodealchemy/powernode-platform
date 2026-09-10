@@ -5,6 +5,7 @@ import {
   ExternalLink, Calendar, Timer,
 } from 'lucide-react';
 import { EntityLink } from '@/shared/components/entity';
+import { formatDurationMs } from '@/shared/utils/formatters';
 import type { Mission } from '../../types/mission';
 import { phaseLabel } from '../../types/mission';
 
@@ -15,16 +16,6 @@ interface MissionSidebarProps {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-';
   return new Date(dateStr).toLocaleString();
-}
-
-function formatDuration(ms: number | null): string {
-  if (!ms) return '-';
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m`;
 }
 
 export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
@@ -123,7 +114,12 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
           {mission.duration_ms && (
             <div className="flex justify-between">
               <span className="text-theme-tertiary flex items-center gap-1"><Timer className="w-3 h-3" /> Duration</span>
-              <span className="text-theme-primary font-medium">{formatDuration(mission.duration_ms)}</span>
+              <span className="text-theme-primary font-medium">{formatDurationMs(mission.duration_ms, {
+                emptyValue: '-',
+                emptyCheck: 'falsy',
+                tiering: 'floor-integer',
+                minuteTier: 'minutes-seconds',
+              })}</span>
             </div>
           )}
         </div>

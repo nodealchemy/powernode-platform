@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
 import { EntityLink } from '@/shared/components/entity';
+import { formatRelativeTimeCompact } from '@/shared/utils/formatters';
 import type { A2aTask } from '@/shared/services/ai/types/a2a-types';
 
 interface A2aTaskListItemProps {
@@ -34,14 +35,6 @@ const statusColorMap: Record<string, string> = {
   cancelled: 'text-theme-warning-fg',
   input_required: 'text-theme-warning-fg',
 };
-
-function timeAgo(timestamp: string): string {
-  const diff = Date.now() - new Date(timestamp).getTime();
-  if (diff < 60000) return 'Just now';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return new Date(timestamp).toLocaleDateString();
-}
 
 export const A2aTaskListItem: React.FC<A2aTaskListItemProps> = ({ task, isSelected, onClick }) => {
   const StatusIcon = statusIconMap[task.status] || Clock;
@@ -77,7 +70,7 @@ export const A2aTaskListItem: React.FC<A2aTaskListItemProps> = ({ task, isSelect
           {task.task_id.substring(0, 8)}
         </span>
         <span className="ml-auto text-xs text-theme-tertiary whitespace-nowrap">
-          {timeAgo(task.created_at)}
+          {formatRelativeTimeCompact(task.created_at, { justNowLabel: 'Just now', absoluteFallbackAfterMs: 86400000 })}
         </span>
       </div>
       <div className="flex items-center gap-1 mt-1 ml-6 text-xs text-theme-secondary">

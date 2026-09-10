@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { formatDurationMs, formatFileSize } from '@/shared/utils/formatters';
 
 interface DetailSectionProps {
   title: string;
@@ -56,19 +57,15 @@ export function StatCard({ label, value, icon, variant = 'default' }: StatCardPr
   );
 }
 
-export function formatDuration(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined) return 'N/A';
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${(ms / 60000).toFixed(1)}m`;
-}
-
-export function formatBytes(bytes: number | null | undefined): string {
-  if (bytes === null || bytes === undefined) return 'N/A';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+// Both kept as aliases (not reimplementations) — GitResourceDetail, RunnerJobDetail,
+// ExecutionOutputDetail, ArtifactContentViewer, ReviewDetail, TrajectoryDetail
+// (formatDuration) and SharedMemoryDetail (formatBytes) import these from here; the
+// actual formatting logic now lives only in shared/utils/formatters.ts (IMP-01a082a3).
+const detailSectionFormatDuration = (ms: number | null | undefined): string =>
+  formatDurationMs(ms, { emptyValue: 'N/A', subSecond: 'raw', tiering: 'decimal-minutes' });
+const detailSectionFormatBytes = (bytes: number | null | undefined): string =>
+  formatFileSize(bytes, { emptyValue: 'N/A', capAtMB: true, decimals: 1 });
+export { detailSectionFormatDuration as formatDuration, detailSectionFormatBytes as formatBytes };
 
 export function formatTimestamp(ts: string | null | undefined): string {
   if (!ts) return 'N/A';

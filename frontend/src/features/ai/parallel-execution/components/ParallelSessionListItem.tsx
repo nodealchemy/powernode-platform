@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatRelativeTimeCompact } from '@/shared/utils/formatters';
 import type { ParallelSession, ParallelSessionStatus, MergeStrategy } from '../types';
 
 const STATUS_STYLES: Record<ParallelSessionStatus, { dot: string; pulse?: boolean }> = {
@@ -16,17 +17,6 @@ const STRATEGY_LABELS: Record<MergeStrategy, string> = {
   integration_branch: 'Integration',
   manual: 'Manual',
 };
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 interface ParallelSessionListItemProps {
   session: ParallelSession;
@@ -65,7 +55,7 @@ export const ParallelSessionListItem: React.FC<ParallelSessionListItemProps> = (
           </span>
         </div>
         <span className="text-[10px] text-theme-tertiary whitespace-nowrap flex-shrink-0">
-          {timeAgo(timestamp)}
+          {formatRelativeTimeCompact(timestamp)}
         </span>
       </div>
 

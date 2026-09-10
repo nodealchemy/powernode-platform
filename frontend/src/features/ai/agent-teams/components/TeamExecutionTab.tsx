@@ -11,6 +11,7 @@ import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 import api from '@/shared/services/api';
 import type { Team, TeamExecution, TeamTask, TeamMessage } from '@/shared/services/ai/TeamsApiService';
 import { teamsApi } from '@/shared/services/ai/TeamsApiService';
+import { formatDurationMs } from '@/shared/utils/formatters';
 
 interface TeamExecutionTabProps {
   team: Team;
@@ -65,16 +66,6 @@ function getStatusColor(status: string): string {
     case 'failed': case 'cancelled': case 'timeout': return 'text-theme-danger-fg bg-theme-danger-fg/10';
     default: return 'text-theme-secondary bg-theme-surface';
   }
-}
-
-function formatDuration(ms: number | null | undefined): string {
-  if (!ms) return '-';
-  if (ms < 1000) return `${ms}ms`;
-  const secs = ms / 1000;
-  if (secs < 60) return `${secs.toFixed(1)}s`;
-  const mins = Math.floor(secs / 60);
-  const remainingSecs = Math.floor(secs % 60);
-  return `${mins}m ${remainingSecs}s`;
 }
 
 function formatCost(cost: number | string | null | undefined): string {
@@ -242,7 +233,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                 {execution.tasks_failed > 0 && <span className="flex items-center gap-1 text-theme-danger-fg"><AlertTriangle size={12} />{execution.tasks_failed} failed</span>}
                 <span className="flex items-center gap-1"><Zap size={12} />{(execution.total_tokens_used || 0).toLocaleString()} tokens</span>
                 {Number(execution.total_cost_usd) > 0 && <span className="flex items-center gap-1"><DollarSign size={12} />{formatCost(execution.total_cost_usd)}</span>}
-                <span className="flex items-center gap-1"><Clock size={12} />{formatDuration(execution.duration_ms)}</span>
+                <span className="flex items-center gap-1"><Clock size={12} />{formatDurationMs(execution.duration_ms, { emptyValue: '-', subSecond: 'raw', tiering: 'decimal-seconds-then-floor-minutes' })}</span>
                 {execution.started_at && <span className="ml-auto">{new Date(execution.started_at).toLocaleString()}</span>}
               </div>
             </div>
@@ -271,7 +262,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                               <div className="flex items-center gap-3 text-xs text-theme-secondary shrink-0">
                                 <span>{(member.tokens_used || 0).toLocaleString()} tok</span>
                                 <span>{formatCost(member.cost_usd)}</span>
-                                <span>{formatDuration(member.duration_ms)}</span>
+                                <span>{formatDurationMs(member.duration_ms, { emptyValue: '-', subSecond: 'raw', tiering: 'decimal-seconds-then-floor-minutes' })}</span>
                                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getStatusColor(member.status)}`}>{member.status}</span>
                               </div>
                             </div>
@@ -346,7 +337,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                           </div>
                           <div className="bg-theme-surface rounded p-2 border border-theme/50">
                             <span className="text-theme-secondary block">Duration</span>
-                            <span className="text-theme-primary">{formatDuration(execution.duration_ms)}</span>
+                            <span className="text-theme-primary">{formatDurationMs(execution.duration_ms, { emptyValue: '-', subSecond: 'raw', tiering: 'decimal-seconds-then-floor-minutes' })}</span>
                           </div>
                           <div className="bg-theme-surface rounded p-2 border border-theme/50">
                             <span className="text-theme-secondary block">Total Tokens</span>
@@ -388,7 +379,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                               <div className="flex items-center gap-3 text-[11px] text-theme-secondary shrink-0">
                                 {task.assigned_role_name && <span>{task.assigned_role_name}</span>}
                                 {task.tokens_used > 0 && <span>{task.tokens_used.toLocaleString()} tok</span>}
-                                {task.duration_ms && <span>{formatDuration(task.duration_ms)}</span>}
+                                {task.duration_ms && <span>{formatDurationMs(task.duration_ms, { emptyValue: '-', subSecond: 'raw', tiering: 'decimal-seconds-then-floor-minutes' })}</span>}
                                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getStatusColor(task.status)}`}>{task.status}</span>
                               </div>
                             </div>

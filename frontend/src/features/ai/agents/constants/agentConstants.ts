@@ -1,4 +1,5 @@
 import type { AiAgent } from '@/shared/types/ai';
+import { formatDurationMs, formatRelativeTimeCompact } from '@/shared/utils/formatters';
 
 // --- Status ---
 
@@ -62,17 +63,12 @@ export const SORT_OPTIONS = [
 
 // --- Utilities ---
 
-export function timeAgo(dateStr: string | undefined): string {
-  if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
+// Both kept as aliases (not reimplementations) — AgentExpandedRow.tsx imports both,
+// AgentsIndexTable.tsx imports `timeAgo`; the actual formatting logic now lives
+// only in shared/utils/formatters.ts (IMP-01a082a3).
+const agentConstantsTimeAgo = (dateStr: string | undefined): string => formatRelativeTimeCompact(dateStr);
+const agentConstantsFormatDuration = (ms: number): string => formatDurationMs(ms, { emptyCheck: 'falsy' });
+export { agentConstantsTimeAgo as timeAgo, agentConstantsFormatDuration as formatDuration };
 
 export function formatTokens(tokens: number): string {
   if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
@@ -92,11 +88,6 @@ export function successRateColor(rate: number): string {
   return 'text-theme-error-fg';
 }
 
-export function formatDuration(ms: number): string {
-  if (!ms || isNaN(ms)) return '—';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
 
 // --- Executions by executor kind (HIER-P1C / IMP-e8513b30152d) ---
 

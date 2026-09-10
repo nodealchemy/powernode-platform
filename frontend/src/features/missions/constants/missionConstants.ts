@@ -1,4 +1,5 @@
 import type { MissionStatus, MissionType } from '../types/mission';
+import { formatDurationMs, formatRelativeTimeCompact } from '@/shared/utils/formatters';
 
 // --- Status ---
 
@@ -51,22 +52,11 @@ export const SORT_OPTIONS = [
 
 // --- Utilities ---
 
-export function timeAgo(dateStr: string | null | undefined): string {
-  if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-export function formatDuration(ms: number | null | undefined): string {
-  if (!ms) return '—';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  if (ms < 3600000) return `${Math.floor(ms / 60000)}m`;
-  return `${(ms / 3600000).toFixed(1)}h`;
-}
+// Both kept as aliases (not reimplementations) — MissionExpandedRow.tsx imports
+// `timeAgo` and `formatDuration` from here; the actual formatting logic now lives
+// only in shared/utils/formatters.ts (IMP-01a082a3).
+const missionConstantsTimeAgo = (dateStr: string | null | undefined): string =>
+  formatRelativeTimeCompact(dateStr);
+const missionConstantsFormatDuration = (ms: number | null | undefined): string =>
+  formatDurationMs(ms, { emptyCheck: 'falsy', tiering: 'decimal-minutes', integerMinutes: true, decimalHourTier: true });
+export { missionConstantsTimeAgo as timeAgo, missionConstantsFormatDuration as formatDuration };
