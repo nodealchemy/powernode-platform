@@ -12,8 +12,16 @@ module Api
       # gate, so the cron can tick unconditionally and a halted platform
       # simply reports that it skipped.
       #
-      # Logic lives in Platform::Status::SweepRunner. This controller decides
+      # Logic lives in ::Platform::Status::SweepRunner. This controller decides
       # only WHICH accounts to sweep and how long it may take.
+      #
+      # THE LEADING :: IS LOAD-BEARING. This class is lexically inside
+      # Api::V1::Internal, and Api::V1::Platform exists (the component-status
+      # REST surface), so a bare `Platform::Status::...` resolves to
+      # `Api::V1::Platform::Status` and raises NameError. Worse, the
+      # per-account rescue below would have caught it and reported a 200 with
+      # an error string per account — a sweep that silently did nothing while
+      # every response looked successful.
       class PlatformStatusController < InternalBaseController
         # Wall-clock ceiling for one request, borrowed from
         # ReportsController::MAX_SWEEP_SECONDS and for the same reason: the
@@ -47,7 +55,7 @@ module Api
               break
             end
 
-            summaries << summarize(account, Platform::Status::SweepRunner.run!(account))
+            summaries << summarize(account, ::Platform::Status::SweepRunner.run!(account))
           rescue StandardError => e
             # One account's failure must not cost every other account its
             # sweep — the same discipline SweepService applies to a raising

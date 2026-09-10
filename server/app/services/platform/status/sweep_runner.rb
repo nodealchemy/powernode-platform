@@ -105,6 +105,13 @@ module Platform
         events
       end
 
+      # A REMOVAL is a transition with `to: nil` — the component's record is
+      # gone (reaped, or a wildcard error row cleared on recovery). It gets a
+      # status_changed event like any other transition, and never a
+      # component_down one: a component that ceased to exist did not go down.
+      # Emitting it at all is the point — without it, a component that went
+      # `down` and then vanished leaves every consumer holding an open
+      # incident forever (A1 review M4).
       def write_events(transition)
         kinds = [ StatusEvent::KIND_STATUS_CHANGED ]
         kinds << StatusEvent::KIND_COMPONENT_DOWN if transition[:to].to_s == ComponentStatus::DOWN
@@ -124,8 +131,9 @@ module Platform
           occurred_at: transition[:at] || @now,
           payload: {
             "swept_account_id" => @account&.id,
-            "shared" => transition[:account_id].nil?
-          }
+            "shared" => transition[:account_id].nil?,
+            "reason" => transition[:reason]
+          }.compact
         }
       end
 
@@ -143,7 +151,11 @@ module Platform
           component_kind: transition[:component_kind],
           component_ref: transition[:component_ref],
           from_verdict: transition[:from],
+          # nil when the component was removed; the client drops the row
+          # rather than rendering a verdict it no longer has.
           to_verdict: transition[:to],
+          removed: transition[:to].nil?,
+          reason: transition[:reason],
           shared: transition[:account_id].nil?,
           event_ids: events.map(&:id),
           occurred_at: (transition[:at] || @now).iso8601

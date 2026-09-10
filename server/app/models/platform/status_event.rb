@@ -38,7 +38,11 @@ module Platform
     validates :component_kind, presence: true, length: { maximum: 255 }
     validates :component_ref, presence: true, length: { maximum: 255 }
     validates :kind, inclusion: { in: KINDS }
-    validates :to_verdict, inclusion: { in: ComponentStatus::VERDICTS }
+    # NOT `presence`, and nil is not an accident: a REMOVAL (the component's
+    # record was reaped, or a wildcard error row cleared on recovery) is a
+    # transition to nothing. Inventing a destination verdict for it — "ok",
+    # say — would claim an observation the platform never made.
+    validates :to_verdict, inclusion: { in: ComponentStatus::VERDICTS }, allow_nil: true
     # NOT `presence` — nil is the meaningful value for a first sighting, and a
     # presence validation would force the producer to invent a prior verdict.
     validates :from_verdict, inclusion: { in: ComponentStatus::VERDICTS }, allow_nil: true
@@ -59,6 +63,13 @@ module Platform
     # First sighting: there was no previous verdict to move away from.
     def first_sighting?
       from_verdict.nil?
+    end
+
+    # The component stopped existing. `payload["reason"]` says which way —
+    # "Reaped" (its record is gone) or "Recovered" (a wildcard error row
+    # cleared when its contributor started working again).
+    def removal?
+      to_verdict.nil?
     end
   end
 end
