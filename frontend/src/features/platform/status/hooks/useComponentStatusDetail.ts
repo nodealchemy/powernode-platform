@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { logger } from '@/shared/utils/logger';
 import {
   fetchComponentStatus,
@@ -18,13 +18,28 @@ import type {
 // TWO CALLS, NOT ONE, and the reason is not laziness. `show` already returns an
 // impact SUMMARY, but only `:id/impact` returns the ranked root-cause
 // candidates and the `heuristic` / `heuristic_basis` labels the design requires
-// the page to render beside them. Asking for both is what lets the Dependencies
-// tab show downstream impact and the ranking together; taking only `show` would
-// have meant rendering a ranking with no label, which reads as an answer.
+// the page to render beside them.
 //
-// Errors are surfaced, never swallowed into an empty drawer. A drawer that
-// opens on nothing is indistinguishable from a component with no conditions,
-// which is the one reading it must never produce.
+// ── A DRAWER SHOWING ONE COMPONENT'S ACTIONS UNDER ANOTHER'S NAME ──────────
+//
+// This file used to allow exactly that, twice over (C3 review F1, F2 — both
+// HIGH, both proven by execution through the drawer's own "follow an edge"
+// affordance):
+//
+//   F1  The clear ran only when `id` became null. Re-pointing the drawer from A
+//       to B left A's detail in place until B's read landed, so the body showed
+//       A's conditions — and A's ACTIONS, each carrying A's `path` — under B's
+//       name and verdict. A click in that window would have actuated A while the
+//       header said B.
+//   F2  No request sequencing. A slow response for A, arriving after B's, won
+//       and was never corrected: A's body and A's action buttons under B's
+//       header, permanently.
+//
+// Both are fixed the way the page's own loader was fixed in the C2 review:
+// clear on EVERY id change, and drop any response whose sequence number is not
+// the current one. The Actions tab rendering `detail.actions` is what made this
+// a safety defect rather than a cosmetic one, and it is why the clear happens
+// synchronously in the effect rather than being left to the next response.
 
 export interface UseComponentStatusDetailReturn {
   detail: ComponentStatusDetail | null;
@@ -41,32 +56,46 @@ export function useComponentStatusDetail(id: string | null): UseComponentStatusD
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Monotonic: every read takes the next number, and only the holder of the
+  // latest number may write. Bumped on close too, so a response for a component
+  // the operator has already dismissed cannot re-populate a closed drawer.
+  const seq = useRef(0);
+
   const load = useCallback(async (componentId: string) => {
+    const current = ++seq.current;
+    const isStale = () => current !== seq.current;
     setLoading(true);
+
     try {
       const [show, impactData] = await Promise.all([
         fetchComponentStatus(componentId),
         fetchComponentImpact(componentId),
       ]);
+      if (isStale()) return;
       setDetail(show?.component_status ?? null);
       setImpact(impactData ?? null);
       setError(null);
     } catch (e) {
+      if (isStale()) return;
       const message = e instanceof Error ? e.message : 'Failed to load component detail';
       setError(message);
       logger.error('[PlatformStatus] detail load failed', e);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    // Cleared on EVERY change of id, not only on null (F1). Synchronous, so the
+    // frame after a re-point shows "loading" under B's header rather than A's
+    // body and A's action buttons.
+    setDetail(null);
+    setImpact(null);
+    setError(null);
+
     if (!id) {
-      // Cleared rather than left behind: a stale drawer body flashing under a
-      // new component's title is a misattribution, not a loading state.
-      setDetail(null);
-      setImpact(null);
-      setError(null);
+      seq.current += 1; // invalidate anything still in flight for the old id
+      setLoading(false);
       return;
     }
     void load(id);
