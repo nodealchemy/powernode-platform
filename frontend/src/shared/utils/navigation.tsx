@@ -22,6 +22,19 @@ export const defaultNavigationConfig: NavigationConfig = {
       permissions: [],
       order: 1
     },
+    {
+      // Top-level rather than inside a section: the component status plane spans
+      // core AND fleet, so filing it under AI or DevOps would say it belongs to
+      // one of them. Granted to admin, owner, manager and member — a status page
+      // only admins can open does not replace five pages a member could reach.
+      id: 'platform-status',
+      name: 'Status',
+      href: '/app/status',
+      icon: Activity,
+      description: 'Every component, its verdict, and what is being done about it',
+      permissions: ['platform.status.read'],
+      order: 2
+    },
   ],
 
   sections: [

@@ -26,7 +26,6 @@ import { EscalationsPanel } from '../components/EscalationsPanel';
 import { FeedbackPanel } from '../components/FeedbackPanel';
 import { InterventionPoliciesPanel } from '../components/InterventionPoliciesPanel';
 import { ShadowModeResultsPanel } from '../components/ShadowModeResultsPanel';
-import { KillSwitchStatusBar } from '../components/KillSwitchStatusBar';
 import type { TrustScore, AgentBudget, AutonomyStats, BudgetRegime, AgentLineageNode } from '../types/autonomy';
 
 const breadcrumbs = [
@@ -292,7 +291,10 @@ export const AutonomyContent: React.FC = () => {
 
   return (
     <>
-      <KillSwitchStatusBar />
+      {/* The kill-switch banner is mounted app-wide by DashboardLayout, which
+          wraps every /app route including this one. A second mount here rendered
+          the same halted-autonomy banner twice on the one page an operator is
+          most likely to be reading during a halt (design §6). */}
 
       {/* Mobile section selector */}
       <select

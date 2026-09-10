@@ -112,6 +112,9 @@ const SwarmHubPage = React.lazy(() => import('@/pages/app/devops/SwarmHubPage').
 const DockerHubPage = React.lazy(() => import('@/pages/app/devops/DockerHubPage').then(m => ({ default: m.DockerHubPage })));
 const KubernetesHubPage = React.lazy(() => import('@/pages/app/devops/KubernetesHubPage').then(m => ({ default: m.KubernetesHubPage })));
 
+// Component status plane (campaign 01a08c9b, design §6)
+const StatusPage = React.lazy(() => import('@/features/platform/status/pages/StatusPage').then(m => ({ default: m.StatusPage })));
+
 // Marketing routes handled by featureRegistry (marketing extension)
 
 const DashboardPage: React.FC = () => {
@@ -130,6 +133,12 @@ const DashboardPage: React.FC = () => {
 
         {/* Notifications Page */}
         <Route path="/notifications" element={<NotificationsPage />} />
+
+        {/* Component status plane — one screen for what is unhealthy, why, and
+            what is being done about it. Gated on platform.status.read
+            (defense-in-depth; Api::V1::Platform::ComponentStatusesController
+            enforces the same permission, and each row's actions carry their own). */}
+        <Route path="/status" element={<ProtectedRoute requiredPermissions={['platform.status.read']}><StatusPage /></ProtectedRoute>} />
 
         {/* Individual Pages - No More Management Page Groupings */}
 
