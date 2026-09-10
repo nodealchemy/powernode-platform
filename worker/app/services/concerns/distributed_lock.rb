@@ -8,6 +8,16 @@ module DistributedLock
   class LockNotAcquiredError < StandardError; end
   class LockError < StandardError; end
 
+  # Token-checked delete. Hoisted to a constant so the script is identical on
+  # every release (and so a spec can assert against the same text).
+  RELEASE_SCRIPT = <<~LUA
+    if redis.call("get", KEYS[1]) == ARGV[1] then
+      return redis.call("del", KEYS[1])
+    else
+      return 0
+    end
+  LUA
+
   included do
     attr_reader :lock_key, :lock_token
   end
@@ -95,19 +105,30 @@ module DistributedLock
     raise LockError, "Failed to acquire lock: #{e.message}"
   end
 
+  # Only release if we still own the lock: compare the token, then delete,
+  # atomically. A plain DEL would let a holder whose TTL expired mid-run delete
+  # a lock a DIFFERENT process has since taken, releasing someone else's lock
+  # and re-admitting the overlap the lock exists to prevent.
+  #
+  # THE CALL FORM IS LOAD-BEARING, and this is a fixed bug rather than a style
+  # preference. This previously read:
+  #
+  #     conn.eval(lua_script, keys: [@lock_key], argv: [@lock_token])
+  #
+  # which is redis-rb's signature. Sidekiq 8 hands out a
+  # `Sidekiq::RedisClientAdapter::CompatClient`, where that raises
+  # `TypeError: Unsupported command argument type: Array` — and the rescue
+  # below swallowed it, so the failure was invisible and THE LOCK WAS NEVER
+  # RELEASED. It expired by TTL alone, which on a short-period cron silently
+  # skipped most ticks while every run reported success.
+  #
+  # Measured on the live client, not inferred: with the old form the key was
+  # still present after a clean run; with `call("EVAL", script, numkeys, ...)`
+  # the owner's release returns 1 and the key is gone, and a non-owner's
+  # returns 0 and the key stays.
   def release_lock
-    # Only release if we still own the lock (compare token)
-    # Use Lua script for atomic check-and-delete
-    lua_script = <<-LUA
-      if redis.call("get", KEYS[1]) == ARGV[1] then
-        return redis.call("del", KEYS[1])
-      else
-        return 0
-      end
-    LUA
-
     result = Sidekiq.redis do |conn|
-      conn.eval(lua_script, keys: [@lock_key], argv: [@lock_token])
+      conn.call("EVAL", RELEASE_SCRIPT, 1, @lock_key, @lock_token)
     end
 
     if result == 1
