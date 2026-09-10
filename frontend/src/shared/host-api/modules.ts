@@ -80,6 +80,7 @@ const HOST_APP_IDS = [
   '@/shared/hooks/usePermissions',
   '@/shared/hooks/useQueryParamFilter',
   '@/shared/hooks/useWebSocket',
+  '@/shared/hooks/useWsSubscription',
   // Shared services (stateful singletons — MUST be core's single instance)
   '@/shared/services',
   '@/shared/services/apiClient',
