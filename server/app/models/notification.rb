@@ -123,14 +123,10 @@ class Notification < ApplicationRecord
 
   private
 
+  # Delivered to the OWNING user's stream only (IMP-01a04dac-1083) — the payload
+  # is built in one place, NotificationChannel.broadcast_new_notification.
   def broadcast_notification
-    NotificationChannel.broadcast_to_account(account, {
-      type: "new_notification",
-      notification: as_json(
-        only: [ :id, :notification_type, :title, :message, :severity, :action_url, :action_label, :icon, :category, :metadata, :created_at ],
-        methods: [ :read? ]
-      )
-    })
+    NotificationChannel.broadcast_new_notification(self)
   rescue StandardError => e
     Rails.logger.error "Failed to broadcast notification: #{e.message}"
   end

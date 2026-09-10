@@ -226,11 +226,13 @@ class Api::V1::SettingsController < ApplicationController
     current_user.update(attribute_key.to_sym => updated_preferences)
   end
 
+  # Syncs a preferences save to the SAVING user's other open sessions — and only
+  # theirs (IMP-01a04dac-1083). It used to publish to the account stream, so
+  # every coworker's ProfilePage merged these preferences into its own form
+  # state and, on a theme change, called setTheme.
   def broadcast_settings_update(message_type, data)
-    # Broadcast to all sessions for the current user's account, using the same
-    # per-account stream NotificationChannel subscribers listen on.
-    NotificationChannel.broadcast_to_account(
-      current_account,
+    NotificationChannel.broadcast_to_user(
+      current_user,
       {
         type: message_type,
         data: data,

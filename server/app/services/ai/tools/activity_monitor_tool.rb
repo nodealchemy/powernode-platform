@@ -237,7 +237,7 @@ module Ai
         scope = user.notifications.active
         count = scope.count
         scope.update_all(dismissed_at: Time.current)
-        NotificationChannel.broadcast_all_dismissed(account, count: count)
+        NotificationChannel.broadcast_all_dismissed(user, count: count)
 
         { success: true, dismissed_count: count }
       rescue StandardError => e
@@ -250,7 +250,7 @@ module Ai
         scope = user.notifications.active.unread
         count = scope.count
         scope.update_all(read_at: Time.current)
-        NotificationChannel.broadcast_all_read(account, count: count)
+        NotificationChannel.broadcast_all_read(user, count: count)
 
         { success: true, marked_read_count: count }
       rescue StandardError => e

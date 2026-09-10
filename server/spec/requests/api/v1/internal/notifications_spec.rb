@@ -6,11 +6,6 @@ RSpec.describe 'Api::V1::Internal::Notifications', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
 
-  before do
-    # Stub broadcast to avoid ActionCable/channel errors
-    allow(NotificationChannel).to receive(:broadcast_to_account).and_return(true)
-  end
-
   # Worker JWT authentication via InternalBaseController
   let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
