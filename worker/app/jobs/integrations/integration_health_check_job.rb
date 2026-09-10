@@ -1,204 +1,109 @@
 # frozen_string_literal: true
 
 module Integrations
+  # Schedules integration health probes. The SERVER owns the probe itself, the
+  # health derivation and the auto-pause — see
+  # Api::V1::Internal::Devops::IntegrationHealthController.
+  #
+  # This job used to call the operator-auth /api/v1/devops/integration_instances
+  # surface (gated on devops.integrations.read). A worker principal is not a
+  # user and carries no permissions, so every sweep 4xx'd, logged "endpoint
+  # unreachable" and returned `{ skipped: true }`: the health columns were never
+  # written, the `integration_health` verb was permanently `{unknown: N}`, and
+  # the auto-pause this schedule advertises never ran (audit 2026-09-10, §4.2).
   class IntegrationHealthCheckJob < BaseJob
     sidekiq_options queue: 'integrations',
                     retry: 3,
                     dead: false
 
-    # Execute health checks for integration instances
-    # Can be called for a single instance or all active instances
+    PER_PAGE = 50
+
+    # Probe one integration instance, or sweep every instance the internal
+    # endpoint offers (already scoped to ACTIVE instances on this worker's
+    # account, so there is no client-side filter to keep in step with it).
     def execute(instance_id = nil)
-      if instance_id
-        check_single_instance(instance_id)
-      else
-        check_all_active_instances
-      end
+      instance_id ? probe_instance(instance_id) : sweep
     end
 
     private
 
-    def check_single_instance(instance_id)
-      log_info("Checking health for integration instance", instance_id: instance_id)
+    def probe_instance(instance_id)
+      log_info("Probing integration health", instance_id: instance_id)
 
-      # Fetch instance from backend
-      response = api_client.get("/api/v1/devops/integration_instances/#{instance_id}")
+      response = api_client.post("/api/v1/internal/devops/integration_health/#{instance_id}/probe")
+      data = response[:data] || {}
 
-      unless response[:success]
-        log_error("Failed to fetch instance", instance_id: instance_id, error: response[:error])
-        return
+      unless data[:applied]
+        log_info("Integration health probe not applied",
+                 instance_id: instance_id, reason: data[:reason] || data[:error])
+        return { applied: false, reason: data[:reason] || data[:error] }
       end
 
-      instance = response[:data][:instance]
-
-      # Skip if not active
-      unless instance[:status] == "active"
-        log_info("Skipping inactive instance", instance_id: instance_id, status: instance[:status])
-        return
+      if data[:paused]
+        log_warn("Integration auto-paused after consecutive failures",
+                 instance_id: instance_id,
+                 consecutive_failures: data[:consecutive_failures])
       end
 
-      # Perform health check
-      health_result = perform_health_check(instance)
-
-      # Update instance health metrics
-      update_instance_health(instance_id, health_result)
-
-      # Handle unhealthy instances
-      handle_unhealthy_instance(instance_id, health_result) unless health_result[:healthy]
-
-      health_result
+      {
+        applied: true,
+        health_status: data[:health_status],
+        consecutive_failures: data[:consecutive_failures],
+        paused: data[:paused]
+      }
     end
 
-    def check_all_active_instances
-      log_info("Starting health check for all active integration instances")
+    def sweep
+      log_info("Starting integration health sweep")
 
-      # Fetch all active instances
       page = 1
-      total_checked = 0
-      total_healthy = 0
-      total_unhealthy = 0
+      checked = healthy = unhealthy = skipped = paused = 0
 
       loop do
-        begin
-          response = api_client.get("/api/v1/devops/integration_instances", {
-            status: "active",
-            page: page,
-            per_page: 50
-          })
-        rescue BackendApiClient::ApiError => e
-          # The integration_instances endpoint is operator-auth (requires
-          # devops.integrations.read permission); worker JWTs aren't
-          # users + don't carry permissions, so 4xx is expected when no
-          # operator-side bridge exists. Log + skip silently rather than
-          # retry-storm every 15 minutes. The job retries with `dead:
-          # false` anyway, so failures don't accumulate, but they DO
-          # spam logs. A future P-2.5.x.next slice would add a
-          # worker_api/integrations/list endpoint that accepts X-Worker-Token.
-          log_info("integration health check: endpoint unreachable (#{e.message}); skipping sweep")
-          return { skipped: true, reason: e.message }
-        end
-
+        response = api_client.get("/api/v1/internal/devops/integration_health",
+                                  { page: page, per_page: PER_PAGE })
         break unless response[:success]
 
-        instances = response[:data][:instances] || []
+        instances = response.dig(:data, :instances) || []
         break if instances.empty?
 
         instances.each do |instance|
-          result = check_single_instance(instance[:id])
-          total_checked += 1
+          result = probe_instance(instance[:id])
+          checked += 1
 
-          if result && result[:healthy]
-            total_healthy += 1
+          if !result[:applied]
+            skipped += 1
+          elsif result[:health_status] == 'healthy'
+            healthy += 1
           else
-            total_unhealthy += 1
+            unhealthy += 1
           end
+
+          paused += 1 if result[:paused]
         rescue StandardError => e
-          log_error("Failed to check instance health", exception: e, instance_id: instance[:id])
-          total_unhealthy += 1
+          log_error("Failed to probe integration health", exception: e, instance_id: instance[:id])
+          checked += 1
+          skipped += 1
         end
 
-        # Check for more pages
-        pagination = response[:data][:pagination]
-        break if page >= (pagination[:total_pages] || 1)
+        total_pages = response.dig(:data, :pagination, :total_pages) || 1
+        break if page >= total_pages
 
         page += 1
       end
 
-      log_info("Health check completed",
-               total_checked: total_checked,
-               healthy: total_healthy,
-               unhealthy: total_unhealthy)
+      log_info("Integration health sweep completed",
+               checked: checked, healthy: healthy, unhealthy: unhealthy,
+               skipped: skipped, paused: paused)
 
       track_cleanup_metrics(
-        integration_health_checked: total_checked,
-        integration_healthy: total_healthy,
-        integration_unhealthy: total_unhealthy
+        integration_health_checked: checked,
+        integration_healthy: healthy,
+        integration_unhealthy: unhealthy,
+        integration_auto_paused: paused
       )
 
-      { checked: total_checked, healthy: total_healthy, unhealthy: total_unhealthy }
-    end
-
-    def perform_health_check(instance)
-      template_type = instance.dig(:integration_template, :integration_type)
-
-      # Call the test endpoint which performs connection test
-      response = api_client.post("/api/v1/devops/integration_instances/#{instance[:id]}/test")
-
-      if response[:success] && response[:data][:result][:success]
-        {
-          healthy: true,
-          status: "healthy",
-          message: response[:data][:result][:message],
-          checked_at: Time.current.iso8601,
-          response_time_ms: calculate_response_time(response)
-        }
-      else
-        {
-          healthy: false,
-          status: "unhealthy",
-          error: response[:data]&.dig(:result, :error) || response[:error] || "Health check failed",
-          checked_at: Time.current.iso8601
-        }
-      end
-    rescue StandardError => e
-      {
-        healthy: false,
-        status: "error",
-        error: e.message,
-        checked_at: Time.current.iso8601
-      }
-    end
-
-    def update_instance_health(instance_id, health_result)
-      api_client.patch("/api/v1/devops/integration_instances/#{instance_id}", {
-        instance: {
-          health_metrics: {
-            last_health_check: health_result[:checked_at],
-            health_status: health_result[:status],
-            last_error: health_result[:error],
-            response_time_ms: health_result[:response_time_ms]
-          }
-        }
-      })
-    rescue StandardError => e
-      log_error("Failed to update instance health metrics", exception: e, instance_id: instance_id)
-    end
-
-    def handle_unhealthy_instance(instance_id, health_result)
-      # Get instance details to check consecutive failures
-      response = api_client.get("/api/v1/devops/integration_instances/#{instance_id}")
-      return unless response[:success]
-
-      instance = response[:data][:instance]
-      health_metrics = instance[:health_metrics] || {}
-      consecutive_failures = (health_metrics[:consecutive_failures] || 0) + 1
-
-      # Update consecutive failure count
-      api_client.patch("/api/v1/devops/integration_instances/#{instance_id}", {
-        instance: {
-          health_metrics: health_metrics.merge(
-            consecutive_failures: consecutive_failures,
-            last_failure_at: Time.current.iso8601
-          )
-        }
-      })
-
-      # Auto-pause after 3 consecutive failures
-      if consecutive_failures >= 3
-        log_warn("Auto-pausing integration after consecutive failures",
-                 instance_id: instance_id,
-                 consecutive_failures: consecutive_failures)
-
-        api_client.post("/api/v1/devops/integration_instances/#{instance_id}/deactivate")
-
-        # Track metric
-        increment_counter("integration_auto_paused", instance_id: instance_id)
-      end
-    end
-
-    def calculate_response_time(response)
-      # If response includes timing, use it; otherwise estimate
-      response.dig(:data, :result, :response_time_ms) || 0
+      { checked: checked, healthy: healthy, unhealthy: unhealthy, skipped: skipped, paused: paused }
     end
   end
 end
