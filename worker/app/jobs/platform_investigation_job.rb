@@ -17,13 +17,19 @@
 # implementation that drifts. So the job does exactly what every sibling skill
 # job does — POSTs to an internal endpoint and reports what came back.
 #
-# ── THE ENDPOINT DOES NOT EXIST YET, AND THIS JOB SAYS SO ───────────────────
+# ── WHO ENQUEUES IT ─────────────────────────────────────────────────────────
+# `Platform::InvestigationService#open!`, once, after the row is saved — so
+# every door that opens an investigation (the MCP verb, the REST button, the
+# automatic status emitter) reaches the ranker through one enqueue rather than
+# three that can each forget.
+#
+# ── IT FAILS LOUDLY, ON PURPOSE ─────────────────────────────────────────────
 # `POST /api/v1/internal/platform/investigations/:id/conclude` is the route
-# this job calls. It is NOT in increment A6's partition (it needs a controller
-# and a line in `config/routes.rb`, both owned elsewhere), so until it lands
-# this job will get a 404 and FAIL LOUDLY rather than log a shrug and return.
-# That is deliberate: a ranking job that quietly no-ops would leave every
-# investigation open forever with nobody able to tell why.
+# this job calls; it exists. Any answer that is not a success raises here
+# rather than logging a shrug and returning, because the open-fingerprint index
+# releases only when a row LEAVES `open`: an investigation that never concludes
+# both shows the operator a spinner with no explanation AND blocks every future
+# investigation of that component.
 class PlatformInvestigationJob < BaseJob
   sidekiq_options queue: "ai_orchestration", retry: 2
 

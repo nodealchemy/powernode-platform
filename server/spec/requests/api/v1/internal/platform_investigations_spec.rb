@@ -31,15 +31,38 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
 
   def body = JSON.parse(response.body)
 
-  # The agent half is an LLM call. Every example below decides what the ranker
-  # said; none of them make a provider call.
+  # THE STUB IS AT THE PROVIDER BOUNDARY, NOT AT THE EXECUTOR.
+  #
+  # This used to replace `Ai::McpAgentExecutor` with an `instance_double`
+  # returning `{output: text}` — a shape the executor never returns. A total
+  # double of a collaborator cannot catch a contract mismatch WITH that
+  # collaborator, and `instance_double` verifies only the signature of
+  # `execute`, never the shape of what it returns. So the spec enforced the bug
+  # rather than catching it, and every real ranking failed while all 17
+  # examples stayed green.
+  #
+  # Stubbing `execute_with_provider` leaves the real executor running,
+  # including `format_mcp_response`, which is what nests the provider's text
+  # under "result". The gates are stubbed because they are not what these
+  # examples are about; F3's example covers the principal, and the security
+  # gate is flagged separately in the report.
   def stub_ranker(text)
     agent = create(:ai_agent, account: account)
     allow(Platform::Investigation::Ranking).to receive(:agent_for).and_return(agent)
-    executor = instance_double(Ai::McpAgentExecutor)
-    allow(Ai::McpAgentExecutor).to receive(:new).and_return(executor)
-    allow(executor).to receive(:execute).and_return(output: text)
+    stub_provider(text)
     agent
+  end
+
+  def stub_provider(text)
+    allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider)
+      .and_return("output" => text, "metadata" => { "tokens_used" => 10 })
+    allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_pre_execution_security_gate).and_return(nil)
+    allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_input_guardrails).and_return(blocked: false)
+    allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_post_execution_security_gate).and_return(nil)
+    allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_output_guardrails).and_return(blocked: false)
+    allow_any_instance_of(Ai::McpAgentExecutor).to receive(:validate_output!).and_return(true)
+    allow_any_instance_of(Ai::McpAgentExecutor).to receive(:write_back_to_memory).and_return(nil)
+    allow_any_instance_of(Ai::McpAgentExecutor).to receive(:record_security_telemetry).and_return(nil)
   end
 
   before { system_worker }

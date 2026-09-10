@@ -10,7 +10,9 @@ module Ai
     #
     # ── WHY `platform_investigate` IS A WRITE ───────────────────────────────
     # It creates a durable row, assembles evidence (which reads across several
-    # subsystems), and enqueues an LLM call. `Mcp::ToolCatalog` derives
+    # subsystems), and — through `InvestigationService#open!`, not through this
+    # tool — enqueues `PlatformInvestigationJob`, which spends an LLM call.
+    # `Mcp::ToolCatalog` derives
     # `annotations.readOnlyHint` from the first underscore-segment of the
     # action name, so the two read verbs are named `get_*` to make that
     # annotation TRUE rather than annotated after the fact, and the write verb

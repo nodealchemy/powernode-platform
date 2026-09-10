@@ -92,6 +92,8 @@ module Platform
       investigation.evidence = assemble_evidence(component_status, now: now)
       investigation.save!
 
+      enqueue_ranking(investigation)
+
       { investigation: investigation, opened: true }
     rescue ActiveRecord::RecordNotUnique
       # The index won the race. That is the index doing its job, not an error:
@@ -285,6 +287,43 @@ module Platform
       ::Platform::RemediationRouter.route(component, signal_kind: signal_kind)
     rescue StandardError => e
       Rails.logger.error("[Platform::Investigation] remediation offer failed: #{e.class}: #{e.message}")
+      nil
+    end
+
+    # THE SECOND HALF OF AN INVESTIGATION, and it belongs HERE rather than in
+    # each door.
+    #
+    # `open!` records the evidence; ranking is an LLM call and runs in the
+    # worker. Nothing enqueued that job for an entire increment, so all three
+    # doors -- the MCP verb, the REST button and the automatic emitter --
+    # opened investigations that nothing ever concluded. Because the
+    # open-fingerprint index only releases when a row LEAVES `open`, "one open
+    # investigation per component" silently became one investigation per
+    # component, ever.
+    #
+    # One enqueue for all three doors, for the same reason the bounds live
+    # here: a door that has to remember to enqueue is a door that can forget,
+    # and the one that forgets is invisible until somebody opens the drawer.
+    #
+    # AFTER `save!`, never before: the job carries only the id, so a job that
+    # raced its own row would look up nothing and fail for a reason naming
+    # none of this.
+    #
+    # A FAILED ENQUEUE DOES NOT UNDO THE INVESTIGATION. The evidence is the
+    # part that decays -- it describes the failure at the moment it happened --
+    # so an investigation with evidence and no ranking is worth strictly more
+    # than no investigation at all. It is logged loudly instead.
+    def enqueue_ranking(investigation)
+      ::WorkerJobService.enqueue_job(
+        "PlatformInvestigationJob",
+        args: [ { "investigation_id" => investigation.id } ],
+        queue: "ai_orchestration"
+      )
+    rescue StandardError => e
+      Rails.logger.error(
+        "[Platform::Investigation] ranking enqueue failed for " \
+        "#{investigation.id}: #{e.class}: #{e.message}"
+      )
       nil
     end
 

@@ -99,19 +99,44 @@ module Platform
           { ranked: ranked, agent: agent }
         end
 
-        # The contributor's own `owner_agent_slug`, defaulting to the
-        # Infrastructure Generalist — resolved through
-        # `InvestigationService#owner_agent_slug_for` so there is ONE answer to
-        # "who owns this kind", not a second copy here.
+        # WHICH `Ai::Agent` ROW ACTUALLY ACTS (HIER-P2I).
         #
-        # `resolve_for` honours the override model: an account with its own
-        # agent of that slug gets it, otherwise the global canonical.
+        # Two steps, and the second is the one that was missing. The
+        # contributor's own `owner_agent_slug` names the canonical — resolved
+        # through `InvestigationService#owner_agent_slug_for` so there is ONE
+        # answer to "who owns this kind". `Ai::Agent.resolve_for` then returns
+        # the account's own row for that slug IF it has one, and otherwise the
+        # GLOBAL canonical (account_id NULL), which is the normal case because
+        # canonicals are seeded global.
+        #
+        # A global canonical is a TEMPLATE, not a principal. `Ai::Tools::BaseTool`
+        # refuses one by name, so a ranker whose prompt needs a lookup gets
+        # nothing back and answers from the prompt alone; and the executor does
+        # not refuse it, so the call would proceed with a principal that has no
+        # account and therefore no account role bounding it.
+        #
+        # `Ai::Agents::AccountPrincipalResolver` is THE resolver of "which row
+        # acts for canonical X in account Y", and its own header says not to
+        # write a second copy. `acting` passes an account-scoped row through
+        # untouched and swaps a canonical for the account's clone, minting it
+        # on first use.
+        #
+        # A SHARED investigation (NULL account) has no tenant, so there is no
+        # account principal to mint and none is invented: it returns nil and
+        # the investigation concludes on core's deterministic candidates. That
+        # is the honest answer — falling back to the global canonical here
+        # would be the exact bypass this method exists to close.
         def agent_for(investigation, account)
+          return nil if account.nil?
+
           slug = ::Platform::InvestigationService
                    .new(account: account)
                    .owner_agent_slug_for(investigation.component_kind)
 
-          ::Ai::Agent.resolve_for(investigation.account_id, slug: slug)
+          resolved = ::Ai::Agent.resolve_for(investigation.account_id, slug: slug)
+          return nil if resolved.nil?
+
+          ::Ai::Agents::AccountPrincipalResolver.acting(resolved, account: account)
         rescue StandardError => e
           Rails.logger.error("[Platform::Investigation] agent resolution failed: #{e.class}: #{e.message}")
           nil
@@ -123,14 +148,116 @@ module Platform
           prompt = build_prompt(investigation, account)
           return { error: "no ranking prompt could be resolved" } if prompt.blank?
 
-          result = ::Ai::McpAgentExecutor.new(agent: agent, account: account).execute("input" => prompt)
-          text = result.is_a?(Hash) ? (result[:output] || result[:response] || result["output"]) : nil
-          return { error: "ranker returned no output" } if text.blank?
+          # An `Ai::AgentExecution` FIRST, and handed to the executor, so the
+          # provider spend lands in the ledger. Without it the executor's own
+          # `record_security_telemetry` books `@execution&.cost_usd || 0.0` —
+          # money spent against no budget and no row, which sits badly beside
+          # this verb's own justification for gating at `ai.autonomy.manage`
+          # ("it spends money").
+          execution = create_execution(agent, investigation, account)
 
-          { text: text.to_s }
+          result = ::Ai::McpAgentExecutor
+                     .new(agent: agent, execution: execution, account: account)
+                     .execute("input" => prompt)
+
+          text = extract_text(result)
+          if text.blank?
+            reason = executor_error(result)
+            finish_execution(execution, investigation, status: "failed", error_message: reason)
+            return { error: reason }
+          end
+
+          finish_execution(execution, investigation, status: "completed")
+          { text: text }
         rescue StandardError => e
           Rails.logger.error("[Platform::Investigation] ranking invocation failed: #{e.class}: #{e.message}")
           { error: "#{e.class}: #{e.message}" }
+        end
+
+        # THE EXECUTOR'S REAL RETURN SHAPE, verified by running it rather than
+        # by reading its name.
+        #
+        # `McpAgentExecutor#execute` ends at `format_mcp_response`, which NESTS
+        # the provider result: `{"result" => {"output" => …, "metadata" => …},
+        # "tool_id" => …, "execution_id" => …, "telemetry" => …}`. The text is
+        # at `["result"]["output"]`.
+        #
+        # This previously read `result[:output] || result[:response] ||
+        # result["output"]` — three keys the executor never returns, so every
+        # successful LLM call was reported as "ranker returned no output" and
+        # every investigation stayed open forever. The same wrong read exists at
+        # `Ai::DevopsBridge::CodeReviewAgent#execute_agent`, which is where the
+        # pattern was copied from; that is a second instance of the bug, not a
+        # precedent for it, and it is filed as an offer.
+        def extract_text(result)
+          return nil unless result.is_a?(Hash)
+
+          result.dig("result", "output").presence&.to_s
+        end
+
+        # A BLOCK IS NOT AN EMPTY ANSWER. The executor returns `{"error" => {…}}`
+        # rather than raising when a security gate or a guardrail refuses, and
+        # reporting that as "no output" would send an operator looking at the
+        # provider for a refusal the platform itself issued.
+        def executor_error(result)
+          message = result.is_a?(Hash) ? result.dig("error", "message") : nil
+          message.presence || "ranker returned no output"
+        end
+
+        # `Ai::AgentExecution` requires a user and a provider, and an
+        # investigation is started by a system trigger as often as by a person.
+        # The agent's creator is the honest owner of the spend — it is who the
+        # account made responsible for that agent — with the account's first
+        # user as the fallback, the same resolution `Ai::Tools::AgentAsToolAdapter`
+        # already uses for a tool-initiated run. No user and no provider means
+        # no ledger row rather than a fabricated one.
+        def create_execution(agent, investigation, account)
+          user = agent.try(:creator) || account.users.first
+          provider = agent.try(:resolved_provider) || agent.try(:provider)
+          return nil if user.nil? || provider.nil?
+
+          ::Ai::AgentExecution.create!(
+            agent: agent,
+            account: account,
+            provider: provider,
+            user: user,
+            execution_id: UUID7.generate,
+            status: "pending",
+            input_parameters: {
+              invocation_type: "platform_investigation",
+              investigation_id: investigation.id,
+              component_kind: investigation.component_kind,
+              component_ref: investigation.component_ref
+            },
+            execution_context: { source: "platform_investigation", priority: "normal" }
+          )
+        rescue StandardError => e
+          # A ledger that cannot be written must not stop the diagnosis. The
+          # executor tolerates a nil execution; the cost simply goes unrecorded,
+          # and it is logged rather than silently dropped.
+          Rails.logger.error("[Platform::Investigation] execution record failed: #{e.class}: #{e.message}")
+          nil
+        end
+
+        # Close the ledger row and copy the spend onto the investigation, which
+        # is where design §5.3 puts it and where an operator reading one
+        # investigation can see what it cost.
+        # `Ai::AgentExecution` validates that a FAILED row carries an
+        # `error_message`, which is the right rule: a failed execution with no
+        # reason is a ledger entry nobody can act on. The reason passed here is
+        # the executor's own — a gate's refusal in the gate's words, or the
+        # ranker's unusable answer — so the ledger and the investigation's
+        # recorded error say the same thing.
+        def finish_execution(execution, investigation, status:, error_message: nil)
+          return if execution.nil?
+
+          attrs = { status: status, completed_at: Time.current }
+          attrs[:error_message] = error_message.to_s.truncate(1000) if status == "failed"
+          execution.update!(attrs)
+          cost = execution.reload.cost_usd
+          investigation.update_columns(cost_usd: cost, updated_at: Time.current) if cost.present?
+        rescue StandardError => e
+          Rails.logger.error("[Platform::Investigation] execution close failed: #{e.class}: #{e.message}")
         end
 
         def build_prompt(investigation, account)

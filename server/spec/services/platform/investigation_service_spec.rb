@@ -145,6 +145,65 @@ RSpec.describe Platform::InvestigationService do
     end
   end
 
+  # A6 review F2. For an entire increment nothing enqueued the ranking job, so
+  # all three doors opened investigations that nothing ever concluded — and
+  # because the open-fingerprint index releases only when a row leaves `open`,
+  # "one open investigation per component" became one investigation per
+  # component, ever. The enqueue lives here rather than in each door, so this
+  # is the one place it can be asserted for all three.
+  describe "the ranking enqueue" do
+    it "enqueues the ranking job with the investigation's own id" do
+      expect(WorkerJobService).to receive(:enqueue_job)
+        .with("PlatformInvestigationJob", hash_including(args: [ { "investigation_id" => instance_of(String) } ]))
+
+      service.open!(component, trigger: "operator")
+    end
+
+    it "names the job the worker actually defines" do
+      captured = nil
+      allow(WorkerJobService).to receive(:enqueue_job) { |name, opts| captured = [ name, opts ] }
+
+      investigation = service.open!(component, trigger: "operator")[:investigation]
+
+      expect(captured.first).to eq("PlatformInvestigationJob")
+      expect(captured.last[:args].first["investigation_id"]).to eq(investigation.id)
+    end
+
+    # AFTER the save, never before: the job carries only an id, so one that
+    # raced its own row would look up nothing.
+    it "enqueues only a persisted investigation" do
+      allow(WorkerJobService).to receive(:enqueue_job) do |_name, opts|
+        id = opts[:args].first["investigation_id"]
+        expect(Platform::Investigation.where(id: id)).to exist
+      end
+
+      service.open!(component, trigger: "operator")
+    end
+
+    # The other arm on both bounds: a refusal opened nothing, so it must
+    # enqueue nothing either — otherwise a capped account still spends.
+    it "enqueues nothing when the open is refused" do
+      service.open!(component, trigger: "operator")
+      allow(WorkerJobService).to receive(:enqueue_job)
+
+      expect(service.open!(component, trigger: "down")[:refused]).to be_present
+      expect(WorkerJobService).not_to have_received(:enqueue_job)
+    end
+
+    # The evidence is the part that decays: it describes the failure at the
+    # moment it happened. An investigation with evidence and no ranking is
+    # worth strictly more than no investigation, so a dead queue must not
+    # discard one.
+    it "still opens the investigation when the enqueue fails" do
+      allow(WorkerJobService).to receive(:enqueue_job).and_raise(StandardError, "redis is down")
+
+      result = service.open!(component, trigger: "operator")
+
+      expect(result[:opened]).to be(true)
+      expect(result[:investigation]).to be_persisted
+    end
+  end
+
   describe "#assemble_evidence" do
     it "carries every core class, present even when empty" do
       evidence = service.assemble_evidence(component)
