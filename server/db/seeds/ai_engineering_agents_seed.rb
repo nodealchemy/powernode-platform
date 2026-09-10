@@ -157,7 +157,7 @@ ENGINEERING_AGENTS = [
       list_agents get_agent create_agent update_agent propose_feature record_agent_execution
       list_teams create_team
       list_skills get_skill create_skill discover_skills get_skill_context skill_health skill_metrics
-      mutate_skill auto_evolve_skill compose_skills generate_self_challenge list_challenges get_challenge_result
+      mutate_skill auto_evolve_skill compose_skills
       list_improvements create_improvement discover_improvements dismiss_improvement
       campaign
       describe_delegation set_delegation_policy route_task
