@@ -100,11 +100,22 @@ RSpec.describe Platform::Status::Contributors do
                                                      last_health_check_at: 1.minute.ago)
     end
 
-    let!(:healthy_host) { create(:devops_docker_host, :connected, account: account) }
-    let!(:unhealthy_host) { create(:devops_docker_host, :error, account: account) }
+    # `last_synced_at` is set explicitly on the runtime rows: with auto-sync on
+    # and no sync ever recorded, the A3b freshness condition correctly reports
+    # NeverSynced, and this example is about the STATUS column's verdict.
+    let!(:healthy_host) do
+      create(:devops_docker_host, :connected, account: account, last_synced_at: Time.current)
+    end
+    let!(:unhealthy_host) do
+      create(:devops_docker_host, :error, account: account, last_synced_at: Time.current)
+    end
 
-    let!(:healthy_cluster) { create(:devops_kubernetes_cluster, :active, account: account) }
-    let!(:unhealthy_cluster) { create(:devops_kubernetes_cluster, :degraded, account: account) }
+    let!(:healthy_cluster) do
+      create(:devops_kubernetes_cluster, :active, account: account, last_synced_at: Time.current)
+    end
+    let!(:unhealthy_cluster) do
+      create(:devops_kubernetes_cluster, :degraded, account: account, last_synced_at: Time.current)
+    end
 
     let(:agent) { create(:ai_agent, account: account) }
     let!(:healthy_breaker) do
@@ -178,7 +189,7 @@ RSpec.describe Platform::Status::Contributors do
 
     it "scopes account-scoped kinds to the swept account and leaves the shared kind null" do
       other = create(:account)
-      create(:devops_docker_host, :connected, account: other)
+      create(:devops_docker_host, :connected, account: other, last_synced_at: Time.current)
 
       Platform::Status::SweepService.run_once!(account)
 

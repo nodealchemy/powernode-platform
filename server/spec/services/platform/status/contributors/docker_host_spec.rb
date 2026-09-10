@@ -76,7 +76,9 @@ RSpec.describe Platform::Status::Contributors::DockerHost do
     end
 
     it "derives the whole ladder from the status column" do
-      host = build(:devops_docker_host, account: account)
+      # Freshly synced, so the freshness condition is `ok` and the status
+      # column is the only thing moving the verdict.
+      host = build(:devops_docker_host, account: account, last_synced_at: Time.current)
 
       {
         "connected" => Platform::ComponentStatus::OK,
@@ -105,6 +107,69 @@ RSpec.describe Platform::Status::Contributors::DockerHost do
         "container_count" => 12,
         "environment" => "production"
       )
+    end
+  end
+
+  describe "freshness" do
+    let(:interval) { 60 }
+
+    def fresh_condition(host)
+      contributor.conditions_for(host).find { |c| c["type"] == "Fresh" }
+    end
+
+    it "is ok inside twice the host's own sync interval and stale past it" do
+      host = build(:devops_docker_host, account: account, status: "connected",
+                                        auto_sync: true, sync_interval_seconds: interval,
+                                        last_synced_at: (interval * 2 - 5).seconds.ago)
+
+      expect(fresh_condition(host)["status"]).to be(true)
+      expect(fresh_condition(host)["reason"]).to eq("SyncFresh")
+
+      host.last_synced_at = (interval * 2 + 5).seconds.ago
+
+      expect(fresh_condition(host)["status"]).to be(false)
+      expect(fresh_condition(host)["reason"]).to eq("SyncStale")
+      expect(fresh_condition(host)["evidence"]).to include(
+        "sync_interval_seconds" => interval, "stale_after_seconds" => interval * 2
+      )
+    end
+
+    it "derives the window from THIS host's interval, not a constant" do
+      slow = build(:devops_docker_host, account: account, status: "connected",
+                                        auto_sync: true, sync_interval_seconds: 600,
+                                        last_synced_at: 5.minutes.ago)
+      quick = build(:devops_docker_host, account: account, status: "connected",
+                                         auto_sync: true, sync_interval_seconds: 60,
+                                         last_synced_at: 5.minutes.ago)
+
+      expect(fresh_condition(slow)["reason"]).to eq("SyncFresh")
+      expect(fresh_condition(quick)["reason"]).to eq("SyncStale")
+    end
+
+    it "turns a connected-but-unheard-from host amber, which the status column cannot" do
+      host = build(:devops_docker_host, account: account, status: "connected",
+                                        auto_sync: true, sync_interval_seconds: interval,
+                                        last_synced_at: 1.hour.ago)
+
+      expect(Platform::Status::Condition.verdict_for_set(contributor.conditions_for(host)))
+        .to eq(Platform::ComponentStatus::DEGRADED)
+    end
+
+    it "reports NeverSynced when auto-sync is on and nothing has ever synced" do
+      host = build(:devops_docker_host, account: account, status: "connected",
+                                        auto_sync: true, last_synced_at: nil)
+
+      expect(fresh_condition(host)["status"]).to eq(Platform::Status::Condition::UNKNOWN)
+      expect(fresh_condition(host)["reason"]).to eq("NeverSynced")
+    end
+
+    it "makes no freshness claim at all when auto-sync is off" do
+      host = build(:devops_docker_host, account: account, status: "connected",
+                                        auto_sync: false, last_synced_at: 1.hour.ago)
+
+      expect(fresh_condition(host)).to be_nil
+      expect(Platform::Status::Condition.verdict_for_set(contributor.conditions_for(host)))
+        .to eq(Platform::ComponentStatus::OK)
     end
   end
 

@@ -22,6 +22,7 @@ module Platform
       # never came up — the second is total loss, the first is not.
       class KubernetesCluster < Contributor
         include EnumConditions
+        include SyncFreshness
 
         KIND = "kubernetes_cluster"
 
@@ -80,6 +81,9 @@ module Platform
           { "icon" => "Boxes", "label" => "Kubernetes Cluster", "group_order" => 31 }
         end
 
+        # Two claims: what the status column says, and whether we have heard
+        # from the cluster recently enough to believe it. See SyncFreshness for
+        # why an auto-sync-off cluster gets no freshness claim at all.
         def conditions_for(cluster)
           [
             enum_condition(
@@ -96,8 +100,9 @@ module Platform
                 "consecutive_failures" => cluster.consecutive_failures,
                 "last_synced_at" => cluster.last_synced_at&.iso8601
               }.compact
-            )
-          ]
+            ),
+            sync_freshness_condition(cluster)
+          ].compact
         end
 
         # Every member node is a NodeInstance the cluster runs on: lose them and

@@ -75,7 +75,9 @@ RSpec.describe Platform::Status::Contributors::KubernetesCluster do
     end
 
     it "derives the ladder from the status column" do
-      cluster = build(:devops_kubernetes_cluster, account: account)
+      # Freshly synced, so the freshness condition is `ok` and the status
+      # column is the only thing moving the verdict.
+      cluster = build(:devops_kubernetes_cluster, account: account, last_synced_at: Time.current)
 
       {
         "active" => Platform::ComponentStatus::OK,
@@ -103,6 +105,54 @@ RSpec.describe Platform::Status::Contributors::KubernetesCluster do
         "pod_count" => 17,
         "flavor" => "k3s"
       )
+    end
+  end
+
+  describe "freshness" do
+    def fresh_condition(cluster)
+      contributor.conditions_for(cluster).find { |c| c["type"] == "Fresh" }
+    end
+
+    it "is ok inside twice the cluster's own sync interval and stale past it" do
+      cluster = build(:devops_kubernetes_cluster, account: account, status: "active",
+                                                  auto_sync: true, sync_interval_seconds: 60,
+                                                  last_synced_at: 115.seconds.ago)
+
+      expect(fresh_condition(cluster)["reason"]).to eq("SyncFresh")
+
+      cluster.last_synced_at = 125.seconds.ago
+
+      expect(fresh_condition(cluster)["status"]).to be(false)
+      expect(fresh_condition(cluster)["reason"]).to eq("SyncStale")
+      expect(fresh_condition(cluster)["evidence"]).to include(
+        "sync_interval_seconds" => 60, "stale_after_seconds" => 120
+      )
+    end
+
+    it "turns an active-but-unheard-from cluster amber, which the status column cannot" do
+      cluster = build(:devops_kubernetes_cluster, account: account, status: "active",
+                                                  auto_sync: true, sync_interval_seconds: 60,
+                                                  last_synced_at: 1.hour.ago)
+
+      expect(Platform::Status::Condition.verdict_for_set(contributor.conditions_for(cluster)))
+        .to eq(Platform::ComponentStatus::DEGRADED)
+    end
+
+    it "reports NeverSynced when auto-sync is on and nothing has ever synced" do
+      cluster = build(:devops_kubernetes_cluster, account: account, status: "active",
+                                                  auto_sync: true, last_synced_at: nil)
+
+      expect(fresh_condition(cluster)["status"]).to eq(Platform::Status::Condition::UNKNOWN)
+      expect(fresh_condition(cluster)["reason"]).to eq("NeverSynced")
+    end
+
+    it "makes no freshness claim at all when auto-sync is off" do
+      cluster = build(:devops_kubernetes_cluster, account: account, status: "active",
+                                                  auto_sync: false, last_synced_at: 1.hour.ago)
+
+      expect(fresh_condition(cluster)).to be_nil
+      expect(Platform::Status::Condition.verdict_for_set(contributor.conditions_for(cluster)))
+        .to eq(Platform::ComponentStatus::OK)
     end
   end
 

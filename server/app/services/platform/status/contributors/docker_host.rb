@@ -22,6 +22,7 @@ module Platform
       # dockerd at all. `down` is reserved for total loss, and this is it.
       class DockerHost < Contributor
         include EnumConditions
+        include SyncFreshness
 
         KIND = "docker_host"
 
@@ -74,6 +75,9 @@ module Platform
           { "icon" => "Container", "label" => "Docker Host", "group_order" => 30 }
         end
 
+        # Two claims: what the status column says, and whether we have heard
+        # from the host recently enough to believe it. See SyncFreshness for
+        # why an auto-sync-off host gets no freshness claim at all.
         def conditions_for(host)
           [
             enum_condition(
@@ -89,8 +93,9 @@ module Platform
                 "environment" => host.environment,
                 "last_synced_at" => host.last_synced_at&.iso8601
               }.compact
-            )
-          ]
+            ),
+            sync_freshness_condition(host)
+          ].compact
         end
 
         # A `managed` host runs on exactly one NodeInstance (the 1:1 is enforced
