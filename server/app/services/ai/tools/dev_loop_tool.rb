@@ -518,10 +518,12 @@ module Ai
         loop_record.ralph_tasks.in_progress.to_a.count { |t| t.metadata&.dig("claimed_by") == claimant_ref }
       end
 
+      # The serve order is RalphTask.by_priority — the same scope the Ralph
+      # execution service serves from — not a copy of it (IMP-01a05525).
       def eligible_pending_tasks(loop_record)
         loop_record.ralph_tasks.pending
                    .where.not(execution_type: "human")
-                   .order(priority: :desc, position: :asc)
+                   .by_priority
                    .select(&:dependencies_satisfied?)
       end
 
