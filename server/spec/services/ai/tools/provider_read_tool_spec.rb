@@ -31,7 +31,7 @@ RSpec.describe Ai::Tools::ProviderReadTool do
   # required fields and fails for a reason unrelated to what is being tested.
   def provider(**attrs)
     create(:ai_provider, **{ account: account, provider_type: "anthropic", is_active: true,
-                             supported_models: [ "claude-opus-5" ] }.merge(attrs))
+                             supported_models: [ "catalog-model-9" ] }.merge(attrs))
   end
 
   describe "declarations" do
@@ -182,13 +182,13 @@ RSpec.describe Ai::Tools::ProviderReadTool do
 
   describe "list_models" do
     it "returns each active provider's models joined with pricing where the catalog has it" do
-      row = provider(supported_models: [ "claude-opus-5", "claude-haiku-4-5" ])
-      ::Ai::ModelPricing.create!(model_id: "claude-opus-5", provider_type: "anthropic",
+      row = provider(supported_models: [ "catalog-model-9", "catalog-model-8" ])
+      ::Ai::ModelPricing.create!(model_id: "catalog-model-9", provider_type: "anthropic",
                                  input_per_1k: 0.015, output_per_1k: 0.075, source: "manual")
 
       models = tool.execute(params: { action: "list_models" }).dig(:data, :models)
-      priced = models.find { |m| m[:model_id] == "claude-opus-5" }
-      unpriced = models.find { |m| m[:model_id] == "claude-haiku-4-5" }
+      priced = models.find { |m| m[:model_id] == "catalog-model-9" }
+      unpriced = models.find { |m| m[:model_id] == "catalog-model-8" }
 
       expect(priced[:provider_id]).to eq(row.id)
       expect(priced.dig(:pricing, :input_per_1k)).to eq(0.015)
@@ -246,6 +246,39 @@ RSpec.describe Ai::Tools::ProviderReadTool do
       expect(cursor).to be_nil, "the walk did not end after the last provider"
     end
 
+    # E1 residual R3. The pricing filter used to run AFTER the provider page
+    # was cut, so a page of unpriced providers came back empty with has_more
+    # true. Priced and unpriced providers ALTERNATE here so every page
+    # boundary falls on an unpriced one — string AND hash catalog entries, the
+    # two shapes #models_for reads.
+    it "with_pricing_only filters providers before the page is cut — no empty page, count is the priced set" do
+      %w[priced-a priced-b].each do |model_id|
+        ::Ai::ModelPricing.create!(model_id: model_id, provider_type: "anthropic",
+                                   input_per_1k: 0.001, output_per_1k: 0.002, source: "manual")
+      end
+      provider(name: "P1", supported_models: [ "priced-a" ])
+      provider(name: "P2", supported_models: [ "unpriced-x" ])
+      provider(name: "P3", supported_models: [ { "id" => "priced-b", "name" => "B" } ])
+      provider(name: "P4", supported_models: [ "unpriced-y" ])
+
+      pages = []
+      cursor = nil
+      loop do
+        data = tool.execute(params: { action: "list_models", with_pricing_only: true, limit: 1, cursor: cursor }.compact)[:data]
+        pages << data
+        cursor = data[:next_cursor]
+        break unless cursor
+        raise "the walk did not terminate" if pages.size > 10
+      end
+
+      expect(pages.first[:count]).to eq(2), "count must be the priced providers, not all four"
+      expect(pages).to all(satisfy { |page| page[:models].any? }), "a page came back with no models"
+      expect(pages.flat_map { |page| page[:models].map { |m| m[:model_id] } }).to match_array(%w[priced-a priced-b])
+
+      # The other arm: without the filter the same walk counts all four.
+      expect(tool.execute(params: { action: "list_models", limit: 1 })[:data][:count]).to eq(4)
+    end
+
     it "refuses a cursor the platform did not issue rather than answering from page one" do
       provider
       result = tool.execute(params: { action: "list_models", cursor: "not-a-cursor" })
@@ -298,13 +331,25 @@ RSpec.describe Ai::Tools::ProviderReadTool do
         default_parameters: { "api_key" => planted, "temperature" => 0.4 },
         rate_limits: { "rpm" => 60, "client_secret" => planted },
         pricing_info: { "currency" => "USD", "nested" => { "bearer" => planted, "tier" => "standard" } }
-      )
+      ).tap do |p|
+        # All FIVE scrubbed columns carry a plant (E1 residual R1). These two
+        # are validated on write (a known-capability list; a non-empty
+        # catalog), so they go in with update_columns: the oracle is about what
+        # the SERIALIZER screens, and a jsonb column has writers other than
+        # that validator. Both stay arrays, the shape the columns really hold.
+        p.update_columns(
+          capabilities: [ "chat", { "api_key" => planted, "note" => "beta" } ],
+          supported_models: [ { "id" => "catalog-model-1", "name" => "Catalog One", "api_key" => planted } ]
+        )
+      end
     end
 
     it "stores the planted key in a form the tool COULD reach (so this oracle is not vacuous)" do
       expect(row.reload.default_parameters["api_key"]).to eq(planted)
       expect(row.rate_limits["client_secret"]).to eq(planted)
       expect(row.pricing_info.dig("nested", "bearer")).to eq(planted)
+      expect(row.capabilities.last["api_key"]).to eq(planted)
+      expect(row.supported_models.first["api_key"]).to eq(planted)
     end
 
     it "drops the secret-keyed entries and keeps the benign ones — both arms" do
@@ -321,6 +366,8 @@ RSpec.describe Ai::Tools::ProviderReadTool do
       expect(detail[:default_parameters]).to eq("temperature" => 0.4)
       expect(detail[:rate_limits]).to eq("rpm" => 60)
       expect(detail[:pricing_info]).to eq("currency" => "USD", "nested" => { "tier" => "standard" })
+      expect(detail[:capabilities]).to eq([ "chat", { "note" => "beta" } ])
+      expect(detail[:supported_models]).to eq([ { "id" => "catalog-model-1", "name" => "Catalog One" } ])
     end
 
     it "never emits the planted key from any verb" do

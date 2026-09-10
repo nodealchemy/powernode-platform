@@ -45,6 +45,27 @@ module Ai
       declare_action "get_llm_provider", mutating: false
       declare_action "list_models", mutating: false
 
+      # A provider is "priced" when at least one supported_models entry has a
+      # row in ai_model_pricings, where the entry's id is read EXACTLY as
+      # #models_for reads it: a bare string, or a hash's "id" falling back to
+      # "name". The array guard keeps a malformed (non-array) catalog from
+      # raising inside jsonb_array_elements; such a provider is simply unpriced.
+      PRICED_PROVIDER_SQL = <<~SQL.squish.freeze
+        EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(
+                 CASE WHEN jsonb_typeof(ai_providers.supported_models) = 'array'
+                      THEN ai_providers.supported_models ELSE '[]'::jsonb END
+               ) AS entry
+          JOIN ai_model_pricings pricing
+            ON pricing.model_id = COALESCE(
+                 entry ->> 'id',
+                 entry ->> 'name',
+                 CASE WHEN jsonb_typeof(entry) = 'string' THEN entry #>> '{}' END
+               )
+        )
+      SQL
+
       def self.definition
         {
           name: "provider_read",
@@ -74,7 +95,11 @@ module Ai
           "get_llm_provider" => {
             description: "One provider in full: endpoints, capability flags, supported models, rate limits, " \
                          "default parameters and credential STATUS (configured / active count / expiry / " \
-                         "last test outcome — never the credential itself). Requires ai.providers.read.",
+                         "last test outcome — never the credential itself). The five free-form jsonb " \
+                         "columns (capabilities, supported_models, rate_limits, default_parameters, " \
+                         "pricing_info) are SCREENED: any key whose name marks it as credential-bearing " \
+                         "(api_key, token, secret, password, ...) is DROPPED, so a key you expected may " \
+                         "be absent for that reason. Requires ai.providers.read.",
             parameters: {
               id: { type: "string", required: false, description: "Provider id" },
               slug: { type: "string", required: false, description: "Provider slug, an alternative to id" }
@@ -171,6 +196,12 @@ module Ai
       def list_models(params)
         scope = providers.active
         scope = scope.where(provider_type: params[:provider_type].to_s) if params[:provider_type].present?
+        # BEFORE the page is cut (E1 residual R3). Filtering only the fanned-out
+        # models let a page of unpriced providers come back with zero models
+        # and `has_more: true`, and made `count` a number of providers the
+        # caller had filtered away. The per-model select below still runs: a
+        # priced provider may also list unpriced models.
+        scope = scope.where(PRICED_PROVIDER_SQL) if truthy?(params[:with_pricing_only])
 
         page = paginate_list(scope, params, sort: :id, direction: :asc)
         pricing = ::Ai::ModelPricing.all.index_by { |row| row.model_id.to_s }
