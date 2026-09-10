@@ -69,7 +69,13 @@ class CreatePlatformComponentStatuses < ActiveRecord::Migration[8.0]
     add_index :platform_component_statuses, %i[account_id verdict],
               name: "index_platform_component_statuses_on_account_and_verdict"
 
-    # The reap arm scans by kind + freshness.
+    # NOTE (A1 review L1): this index was justified by a comment claiming "the
+    # reap arm scans by kind + freshness". It does not — the reap predicate is
+    # account + freshness. The index is dropped by
+    # 20260910220000_tighten_platform_status_tables. It is left here rather
+    # than edited away because this migration has already run everywhere;
+    # editing an applied migration is how a schema and its schema_migrations
+    # row stop agreeing.
     add_index :platform_component_statuses, %i[component_kind last_seen_sweep_at],
               name: "index_platform_component_statuses_on_kind_and_last_seen"
   end
