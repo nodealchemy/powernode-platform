@@ -171,6 +171,69 @@ RSpec.describe Platform::Status::Contributors::DockerHost do
       expect(Platform::Status::Condition.verdict_for_set(contributor.conditions_for(host)))
         .to eq(Platform::ComponentStatus::OK)
     end
+
+    # A7 review F7. `devops_docker_hosts.auto_sync` is `default: true` and
+    # NULLABLE with no model validation, and `auto_sync?` answers false for
+    # NULL — which would skip the check on a host nobody is syncing. That
+    # failure is BLIND: the host just looks fine.
+    describe "auto_sync IS NULL" do
+      it "is read as the column default, not as a deliberate opt-out" do
+        expect(Devops::DockerHost.column_defaults["auto_sync"]).to be(true),
+                                                                  "the column default moved; this rule follows it"
+
+        host = build(:devops_docker_host, account: account, status: "connected",
+                                          auto_sync: nil, sync_interval_seconds: interval,
+                                          last_synced_at: 1.hour.ago)
+
+        expect(fresh_condition(host)).not_to be_nil
+        expect(fresh_condition(host)["reason"]).to eq("SyncStale")
+      end
+
+      # The other arm, and the distinction the whole rule turns on: an explicit
+      # false is still an operator's choice and still produces no claim.
+      it "does not swallow an explicit false" do
+        host = build(:devops_docker_host, account: account, status: "connected",
+                                          auto_sync: false, sync_interval_seconds: interval,
+                                          last_synced_at: 1.hour.ago)
+
+        expect(fresh_condition(host)).to be_nil
+      end
+    end
+
+    # A7 review F6. `nil.to_i` is 0, so a missing interval made `stale_after`
+    # zero and `age <= 0` false for any positive age: permanently SyncStale,
+    # i.e. permanently degraded, for a reason no operator can act on.
+    describe "a missing or non-positive sync interval" do
+      it "is unknown/NoSyncInterval, never permanently stale" do
+        host = build(:devops_docker_host, account: account, status: "connected",
+                                          auto_sync: true, sync_interval_seconds: nil,
+                                          last_synced_at: 1.minute.ago)
+
+        expect(fresh_condition(host)["status"]).to eq(Platform::Status::Condition::UNKNOWN)
+        expect(fresh_condition(host)["reason"]).to eq("NoSyncInterval")
+        expect(Platform::Status::Condition.verdict_for_set(contributor.conditions_for(host)))
+          .to eq(Platform::ComponentStatus::NOT_MEASURED)
+      end
+
+      it "treats an explicit zero the same way" do
+        host = build(:devops_docker_host, account: account, status: "connected",
+                                          auto_sync: true, sync_interval_seconds: 0,
+                                          last_synced_at: 1.minute.ago)
+
+        expect(fresh_condition(host)["reason"]).to eq("NoSyncInterval")
+      end
+
+      # The other arm: a real interval still measures, and a stale host is
+      # still stale. Without this the rule above could be satisfied by never
+      # reporting SyncStale at all.
+      it "still reports SyncStale when the interval is real" do
+        host = build(:devops_docker_host, account: account, status: "connected",
+                                          auto_sync: true, sync_interval_seconds: interval,
+                                          last_synced_at: 1.hour.ago)
+
+        expect(fresh_condition(host)["reason"]).to eq("SyncStale")
+      end
+    end
   end
 
   describe "#dependencies_for" do

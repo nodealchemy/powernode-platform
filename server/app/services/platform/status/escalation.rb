@@ -199,6 +199,11 @@ module Platform
       end
 
       def notify(row, severity:, title:, message:)
+        # BEFORE the rate-limit check, and therefore before any claim: a kind
+        # that does not escalate here must leave `last_notified_at` untouched,
+        # or A7 would silently suppress the owning lane's own notification the
+        # next time it looked at the row.
+        return [] unless escalates?(row.component_kind)
         return [] unless notifiable?(row)
 
         recipients = recipients_for(row)
@@ -213,6 +218,27 @@ module Platform
         # every sweep forever.
         row.update_column(:last_notified_at, @now)
         notifications
+      end
+
+      # Design §5.4 — fleet kinds keep their own lane's escalation. The
+      # decision belongs to the contributor that owns the kind, never to a list
+      # of kind names in core: see Platform::Status::Contributor#escalates?.
+      #
+      # FAILS OPEN, deliberately. An unregistered kind, a contributor that
+      # predates the predicate, and a contributor whose predicate raises all
+      # escalate. The opposite default turns any of those three into a
+      # component that breaks and pages nobody, which nothing else in the
+      # system would reveal.
+      def escalates?(component_kind)
+        contributor = Registry.fetch(component_kind)
+        return true if contributor.nil?
+        return true unless contributor.respond_to?(:escalates?)
+
+        contributor.escalates? != false
+      rescue StandardError => e
+        Rails.logger.error("[Platform::Status::Escalation] escalates? failed for " \
+                           "#{component_kind}: #{e.class}: #{e.message}")
+        true
       end
 
       def notifiable?(row)
@@ -257,24 +283,56 @@ module Platform
 
       # WHEN did this component enter its current verdict.
       #
-      # Read off the row's own conditions rather than the event table.
-      # `Condition.build` inherits `last_transition_at` verbatim whenever a
-      # condition's status is unchanged, so the earliest transition among the
-      # conditions that ARGUE FOR the current verdict is exactly when the
-      # component entered it — no query, and no dependence on how long
-      # `Platform::StatusEvent` rows are retained.
+      # Two sources, and the LATER of the two wins.
       #
-      # Nil when no condition matches the verdict, which should not happen;
-      # the caller then does NOT notify. A dwell we cannot establish is not a
-      # dwell we may assume has elapsed.
+      # 1. The row's own conditions: the earliest transition among the
+      #    conditions that ARGUE FOR the current verdict. No query, and no
+      #    dependence on how long `Platform::StatusEvent` rows are retained.
+      #
+      # 2. The most recent status event that recorded entry INTO this verdict.
+      #
+      # Source 1 alone OVERSTATES after an improvement. `Condition.build`
+      # inherits `last_transition_at` whenever a condition's STATUS is
+      # unchanged, and it does not look at severity — so a condition that was
+      # `false` at severity `down` for three hours and softened to severity
+      # `degraded` a minute ago keeps its three-hour-old timestamp. The
+      # component has genuinely been unhealthy that long, but it has been
+      # DEGRADED for one minute, and a message reading "has been degraded for
+      # 180 minutes" is simply false. Taking the later of the two corrects it
+      # whenever the event exists.
+      #
+      # Source 2 alone is not usable on its own: events are pruned on a
+      # retention window, so an outage older than the window would report no
+      # entry at all and a long-degraded component would go unnoticed. Hence
+      # `max` over whichever of the two are available, and the condition-derived
+      # time as the fallback when the event has aged out — the documented,
+      # slightly pessimistic answer rather than silence.
+      #
+      # Nil when neither source can say, which should not happen; the caller
+      # then does NOT notify. A dwell we cannot establish is not a dwell we may
+      # assume has elapsed.
       def degraded_since(row)
-        times = Array(row.conditions).filter_map do |condition|
+        [ condition_derived_since(row), entered_verdict_at(row) ].compact.max
+      end
+
+      def condition_derived_since(row)
+        Array(row.conditions).filter_map do |condition|
           next unless Condition.verdict_for(condition) == row.verdict
 
           parse_time(condition["last_transition_at"] || condition[:last_transition_at])
-        end
+        end.min
+      end
 
-        times.min
+      # The last time an event recorded this row ARRIVING at its current
+      # verdict. Nil when no such event survives retention.
+      def entered_verdict_at(row)
+        StatusEvent.where(component_status_id: row.id, to_verdict: row.verdict)
+                   .order(occurred_at: :desc)
+                   .limit(1)
+                   .pick(:occurred_at)
+      rescue StandardError => e
+        Rails.logger.error("[Platform::Status::Escalation] verdict-entry lookup failed: #{e.class}: #{e.message}")
+        nil
       end
 
       def down_message(row)

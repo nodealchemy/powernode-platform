@@ -144,6 +144,28 @@ module Platform
       def owner_agent_slug
         nil
       end
+
+      # DOES CORE ESCALATION (A7) PAGE A PERSON ABOUT THIS KIND?
+      #
+      # Design §5.4: "Fleet kinds keep their lane's escalation; A7 covers core
+      # kinds and `platform_subsystem`." A fleet kind already has an escalation
+      # path of its own with its own claim, so leaving A7 switched on for it
+      # produces TWO notifications for one outage, claimed in two places,
+      # neither aware of the other.
+      #
+      # The filter is a predicate HERE rather than a list of kinds in
+      # `Escalation`, because a list in core would be core naming fleet kinds —
+      # the dependency direction the architecture forbids. The lane that owns a
+      # kind owns the decision, which is the same inversion `Emitters` and
+      # `Registry` already use.
+      #
+      # Defaults to TRUE, and an unregistered kind is also treated as true:
+      # the failure mode of defaulting the other way is a component that breaks
+      # and pages nobody, which is silent. Over-paging is loud, and loud is
+      # recoverable.
+      def escalates?
+        true
+      end
     end
   end
 end

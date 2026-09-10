@@ -280,6 +280,177 @@ RSpec.describe Platform::Status::Escalation do
     it "does nothing without an account" do
       expect(described_class.sweep!(nil)).to eq([])
     end
+
+    # A7 review F2. The load-bearing line is the verdict filter in
+    # `degraded_since`: without it an OLD, healthy condition drags the dwell
+    # backwards and pages about an outage that started two minutes ago. Every
+    # other example here carries exactly one condition, so none of them can
+    # tell the filtered implementation from the unfiltered one.
+    describe "the dwell counts only conditions that argue for the CURRENT verdict" do
+      let(:threshold) { described_class.degraded_after_minutes }
+
+      it "stays silent when the degrading condition is recent and an old one is healthy" do
+        row_for(Platform::ComponentStatus::DEGRADED, conditions: [
+          condition(reason: "Reachable", status: true, severity: nil,
+                    transition_at: (threshold + 60).minutes.ago),
+          condition(reason: "SyncStale", severity: "degraded",
+                    transition_at: (threshold - 2).minutes.ago)
+        ])
+
+        expect(described_class.sweep!(account)).to eq([])
+      end
+
+      # Swap the two timestamps and nothing else. If the filter were removed
+      # both examples would notify, so the pair is what makes either mean
+      # anything.
+      it "notifies when the degrading condition is the old one" do
+        row_for(Platform::ComponentStatus::DEGRADED, conditions: [
+          condition(reason: "Reachable", status: true, severity: nil,
+                    transition_at: (threshold - 2).minutes.ago),
+          condition(reason: "SyncStale", severity: "degraded",
+                    transition_at: (threshold + 60).minutes.ago)
+        ])
+
+        expect(described_class.sweep!(account).size).to eq(1)
+        expect(notifications_for(operator).sole.message).to include("SyncStale")
+      end
+    end
+
+    # A7 review F5. `Condition.build` inherits `last_transition_at` while a
+    # condition's STATUS is unchanged and never looks at severity, so a
+    # condition that was `false` at severity `down` and softened to `degraded`
+    # keeps its original timestamp. Reading dwell off that alone reports a
+    # component that has been degraded for one minute as degraded for hours.
+    describe "dwell after an improvement from down to degraded" do
+      let(:threshold) { described_class.degraded_after_minutes }
+
+      def softened_row
+        row_for(Platform::ComponentStatus::DEGRADED, conditions: [
+          condition(reason: "Disconnected", severity: "degraded",
+                    transition_at: (threshold + 180).minutes.ago)
+        ])
+      end
+
+      it "counts from the entry INTO degraded, not from the older down" do
+        row = softened_row
+        create(:platform_status_event, account: account,
+                                       component_kind: row.component_kind,
+                                       component_ref: row.component_ref,
+                                       component_status: row,
+                                       from_verdict: Platform::ComponentStatus::DOWN,
+                                       to_verdict: Platform::ComponentStatus::DEGRADED,
+                                       occurred_at: 1.minute.ago)
+
+        expect(described_class.sweep!(account)).to eq([])
+      end
+
+      # The other arm: the same row with the entry event far enough back still
+      # notifies, and the message states the shorter, true dwell rather than
+      # the inherited one.
+      it "still notifies once the entry itself is past the dwell" do
+        row = softened_row
+        create(:platform_status_event, account: account,
+                                       component_kind: row.component_kind,
+                                       component_ref: row.component_ref,
+                                       component_status: row,
+                                       from_verdict: Platform::ComponentStatus::DOWN,
+                                       to_verdict: Platform::ComponentStatus::DEGRADED,
+                                       occurred_at: (threshold + 5).minutes.ago)
+
+        expect(described_class.sweep!(account).size).to eq(1)
+        expect(notifications_for(operator).sole.message)
+          .to include("for #{threshold + 5} minutes")
+      end
+
+      # And the fallback: events are pruned on a retention window, so with no
+      # entry event the conditions are all there is. That answer is
+      # pessimistic, not silent — a long-degraded component must not go
+      # unnoticed because its entry event aged out.
+      it "falls back to the conditions when no entry event survives" do
+        softened_row
+
+        expect(described_class.sweep!(account).size).to eq(1)
+      end
+    end
+  end
+
+  # A7 review F4. Design §5.4: fleet kinds keep their own lane's escalation, so
+  # A7 must not page a second time about an outage that lane already claimed.
+  describe "kinds that decline core escalation" do
+    let(:kind) { "fleet_thing" }
+
+    def register(escalates:)
+      contributor = Class.new(Platform::Status::Contributor) do
+        define_method(:kind) { "fleet_thing" }
+        define_method(:escalates?) { escalates }
+      end.new
+      Platform::Status::Registry.register(kind, contributor)
+    end
+
+    after { Platform::Status::Registry.unregister(kind) }
+
+    def fleet_row(verdict, conditions:)
+      create(:platform_component_status, account: account, component_kind: kind,
+                                         verdict: verdict, display_name: "node-7",
+                                         conditions: conditions)
+    end
+
+    it "notifies nobody and stakes NO claim when the contributor says false" do
+      register(escalates: false)
+      row = fleet_row(Platform::ComponentStatus::DOWN, conditions: [ condition(reason: "ConnectionError") ])
+
+      expect(described_class.run!(transition: transition_to("down", row: row), events: [])).to eq([])
+      expect(notifications_for(operator).count).to eq(0)
+      # The claim matters as much as the notification: staking one here would
+      # silently suppress the owning lane's own escalation.
+      expect(row.reload.last_notified_at).to be_nil
+    end
+
+    it "skips the same kind in the degraded sweep too" do
+      register(escalates: false)
+      fleet_row(Platform::ComponentStatus::DEGRADED, conditions: [
+        condition(reason: "Disconnected", severity: "degraded", transition_at: 1.day.ago)
+      ])
+
+      expect(described_class.sweep!(account)).to eq([])
+    end
+
+    # The other arm, twice over: a contributor answering true escalates, and so
+    # does a kind with no contributor registered at all. The default has to
+    # fail OPEN — the opposite is a component that breaks and pages nobody.
+    it "escalates when the contributor says true" do
+      register(escalates: true)
+      row = fleet_row(Platform::ComponentStatus::DOWN, conditions: [ condition(reason: "ConnectionError") ])
+
+      expect(described_class.run!(transition: transition_to("down", row: row), events: []).size).to eq(1)
+    end
+
+    it "escalates an unregistered kind" do
+      expect(Platform::Status::Registry.registered?(kind)).to be(false)
+      row = fleet_row(Platform::ComponentStatus::DOWN, conditions: [ condition(reason: "ConnectionError") ])
+
+      expect(described_class.run!(transition: transition_to("down", row: row), events: []).size).to eq(1)
+    end
+
+    it "escalates when the predicate itself raises" do
+      contributor = Class.new(Platform::Status::Contributor) do
+        define_method(:kind) { "fleet_thing" }
+        define_method(:escalates?) { raise "contributor exploded" }
+      end.new
+      Platform::Status::Registry.register(kind, contributor)
+      row = fleet_row(Platform::ComponentStatus::DOWN, conditions: [ condition(reason: "ConnectionError") ])
+
+      expect(described_class.run!(transition: transition_to("down", row: row), events: []).size).to eq(1)
+    end
+
+    it "escalates a contributor that predates the predicate" do
+      legacy = Object.new
+      def legacy.each_component(_account) = nil
+      Platform::Status::Registry.register(kind, legacy)
+      row = fleet_row(Platform::ComponentStatus::DOWN, conditions: [ condition(reason: "ConnectionError") ])
+
+      expect(described_class.run!(transition: transition_to("down", row: row), events: []).size).to eq(1)
+    end
   end
 
   describe "the emitter wiring" do
