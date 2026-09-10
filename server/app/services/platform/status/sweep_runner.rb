@@ -79,9 +79,27 @@ module Platform
         return { account_id: @account&.id, skipped: true, reason: halted } if halted
 
         summary = SweepService.run_once!(@account, now: @now)
-        events = Array(summary[:transitions]).flat_map { |transition| publish(transition) }
 
-        summary.merge(skipped: false, events_written: events.size)
+        # AFTER the sweep, BEFORE the transitions are published (A5, lane 10
+        # §2.4). After, because the sweep creates rows for newly-appeared
+        # components and refreshing first would leave every new row with no
+        # remediation state until the next tick. Before publishing, so a
+        # consumer reading a row off the back of an event sees the state that
+        # goes with the verdict it was just told about.
+        remediation = refresh_remediation
+
+        written = 0
+        failed = 0
+
+        Array(summary[:transitions]).each do |transition|
+          events = publish(transition)
+          events.nil? ? failed += 1 : written += events.size
+        end
+
+        escalate_dwell
+
+        summary.merge(skipped: false, events_written: written, event_failures: failed,
+                      remediation: remediation)
       end
 
       private
@@ -98,11 +116,67 @@ module Platform
       # record is written FIRST, then the broadcast, then the mirrors. A
       # dropped WebSocket frame costs a client a refresh; a lost event row
       # costs the platform its history of an outage.
+      #
+      # RESCUED PER TRANSITION (A2 review M4). `write_events` was the only
+      # unrescued layer in the whole plane — the sweep rescues a raising
+      # enumeration, a raising record and its own error path; the door rescues
+      # per account; the broadcast rescues; emitters rescue individually — and
+      # it sat inside a flat_map, so ONE unwritable event aborted every
+      # remaining transition for that account, AFTER the status rows had
+      # already been committed. The plane would then show new verdicts with no
+      # events, no broadcasts and nothing saying so.
+      #
+      # Not hypothetical: A1's removal transitions (`to: nil`) would have
+      # raised RecordInvalid straight through here against the model's original
+      # inclusion validation. The same shape recurs for any database-level
+      # failure — deadlock, connection blip, unique violation.
+      #
+      # Returns nil on failure so the caller can count it; the count travels
+      # in the summary as `event_failures` rather than being swallowed.
       def publish(transition)
         events = write_events(transition)
         broadcast(transition, events)
         Emitters.notify(transition: transition, events: events)
         events
+      rescue StandardError => e
+        Rails.logger.error(
+          "[Platform::Status] could not publish #{transition[:component_kind]}/" \
+          "#{transition[:component_ref]}: #{e.class}: #{e.message}"
+        )
+        nil
+      end
+
+      # A5's remediation state, derived from signals rather than hand-written.
+      #
+      # A SEPARATE CALL RATHER THAN A HOOK INSIDE THE SWEEP, and rescued like
+      # everything else at this layer: a signal source that is down must not
+      # stop verdicts from being written. Until an extension registers a source
+      # this answers `skipped: "NoSignalSources"` on every account, which is the
+      # honest core-mode answer and not an error.
+      def refresh_remediation
+        RemediationRefresh.run!(@account)
+      rescue StandardError => e
+        Rails.logger.error("[Platform::Status] remediation refresh failed: #{e.class}: #{e.message}")
+        { skipped: true, reason: "RefreshError", error: "#{e.class}: #{e.message}" }
+      end
+
+      # THE DWELL PASS (A7). `Escalation`'s emitter half sees transitions and
+      # can only answer "did something just break"; nothing transitions when a
+      # component STAYS degraded, so an emitter-only design notifies about a
+      # five-second blip and stays silent through an hour-long one. This is the
+      # periodic half that answers "has anything been broken for too long".
+      #
+      # AFTER the transitions have been published, not before: a component that
+      # just went degraded must have its row written before dwell is measured
+      # against it.
+      #
+      # Rescued for the same reason `publish` is. Escalation is a downstream
+      # consumer of a sweep that has already committed its rows and events; a
+      # failure to notify must not retroactively fail the sweep that succeeded.
+      def escalate_dwell
+        Escalation.sweep!(@account, now: @now)
+      rescue StandardError => e
+        Rails.logger.error("[Platform::Status] dwell escalation failed: #{e.class}: #{e.message}")
       end
 
       # A REMOVAL is a transition with `to: nil` — the component's record is
