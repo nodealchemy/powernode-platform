@@ -411,6 +411,15 @@ Rails.application.routes.draw do
             end
           end
 
+          # Integration health sweep (worker: Integrations::IntegrationHealthCheckJob).
+          # The worker cannot reach the operator-auth /api/v1/devops/integration_instances
+          # surface, so the probe + persistence live here (A8).
+          resources :integration_health, only: [ :index ] do
+            member do
+              post :probe
+            end
+          end
+
           # Approval token management for worker service
           resources :approval_tokens, only: [] do
             collection do
@@ -1543,6 +1552,24 @@ Rails.application.routes.draw do
             post :approve
             post :reject
             post :cancel
+          end
+        end
+      end
+
+      # ===================================================================
+      # COMPONENT STATUS PLANE (campaign 01a08c9b, increment A4)
+      # ===================================================================
+      # The operator screen's read door. Four reads, no writes: the sweep is
+      # the one producer and reaches the rows through the mTLS worker route
+      # under api/v1/internal/platform above. Gated on platform.status.read.
+      # ===================================================================
+      namespace :platform do
+        resources :component_statuses, only: [ :index, :show ] do
+          collection do
+            get :rollup
+          end
+          member do
+            get :impact
           end
         end
       end

@@ -46,4 +46,86 @@ RSpec.describe Devops::IntegrationInstance, type: :model do
       end
     end
   end
+
+  # A8: the three health columns had exactly one writer (`#update_health!`) and
+  # zero call sites. `#record_health_probe!` is that call site — it derives the
+  # verdict from the probe outcome plus the failure streak and writes THROUGH
+  # `#update_health!`, which stays the single writer of the columns.
+  describe "#record_health_probe!" do
+    let(:instance) { create(:devops_integration_instance, status: "active", health_status: nil, last_health_check_at: nil) }
+
+    it "records a passing probe as healthy and clears the streak" do
+      instance.update!(consecutive_failures: 2, last_error: "stale")
+
+      expect(instance.record_health_probe!(success: true)).to be false
+
+      instance.reload
+      expect(instance.health_status).to eq("healthy")
+      expect(instance.consecutive_failures).to eq(0)
+      expect(instance.last_error).to be_nil
+      expect(instance.last_health_check_at).to be_present
+      expect(instance.status).to eq("active")
+    end
+
+    it "records a failing probe below the threshold as degraded" do
+      expect(instance.record_health_probe!(success: false, error: "refused")).to be false
+
+      instance.reload
+      expect(instance.health_status).to eq("degraded")
+      expect(instance.consecutive_failures).to eq(1)
+      expect(instance.last_error).to eq("refused")
+      expect(instance.status).to eq("active")
+    end
+
+    it "reaches unhealthy and pauses at the threshold" do
+      threshold = described_class.health_failure_threshold
+      paused = (1..threshold).map { instance.record_health_probe!(success: false, error: "refused") }
+
+      expect(paused).to eq([ *Array.new(threshold - 1, false), true ])
+      instance.reload
+      expect(instance.health_status).to eq("unhealthy")
+      expect(instance.status).to eq("paused")
+    end
+
+    it "merges probe metrics into health_metrics without dropping prior keys" do
+      instance.update!(health_metrics: { "keep" => "me" })
+
+      instance.record_health_probe!(success: true, metrics: { "response_time_ms" => 12 })
+
+      expect(instance.reload.health_metrics).to include("keep" => "me", "response_time_ms" => 12)
+    end
+
+    # GUARD THE DECISION, not the mechanism. `#pause!` is a bare `update!`, so the
+    # guard has to sit where the auto-pause is DECIDED, or a sweep would drag a
+    # disabled integration back to `paused` and undo an operator's retirement.
+    it "does not auto-pause an integration that is not active" do
+      instance.update!(status: "disabled")
+
+      described_class.health_failure_threshold.times do
+        expect(instance.record_health_probe!(success: false, error: "refused")).to be false
+      end
+
+      expect(instance.reload.status).to eq("disabled")
+    end
+  end
+
+  describe ".health_failure_threshold" do
+    it "falls back to the built-in default when no SiteSetting row exists" do
+      expect(described_class.health_failure_threshold)
+        .to eq(described_class::DEFAULT_HEALTH_FAILURE_THRESHOLD)
+    end
+
+    it "reads the SiteSetting when one is present" do
+      SiteSetting.set(described_class::HEALTH_FAILURE_THRESHOLD_SETTING, 7, setting_type: "integer")
+
+      expect(described_class.health_failure_threshold).to eq(7)
+    end
+
+    it "ignores a non-positive setting rather than pausing on every probe" do
+      SiteSetting.set(described_class::HEALTH_FAILURE_THRESHOLD_SETTING, 0, setting_type: "integer")
+
+      expect(described_class.health_failure_threshold)
+        .to eq(described_class::DEFAULT_HEALTH_FAILURE_THRESHOLD)
+    end
+  end
 end

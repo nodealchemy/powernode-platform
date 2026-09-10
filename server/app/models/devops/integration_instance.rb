@@ -12,6 +12,15 @@ module Devops
     STATUSES = %w[pending active paused error disabled].freeze
     HEALTH_STATUSES = %w[healthy degraded unhealthy unknown].freeze
 
+    # Consecutive FAILED health probes after which an active integration is
+    # auto-paused. DB-driven per the no-hardcoded-thresholds convention; the
+    # literal is the fallback because seeds never re-run on a deployment that
+    # already booted, so an existing install has no row and must still pause.
+    # The value used to be a literal `3` in the worker job, where the server
+    # could neither read it nor enforce it.
+    HEALTH_FAILURE_THRESHOLD_SETTING = "devops_integration_health_failure_threshold"
+    DEFAULT_HEALTH_FAILURE_THRESHOLD = 3
+
     # ==================== Associations ====================
     belongs_to :account
     belongs_to :template, class_name: "Devops::IntegrationTemplate", foreign_key: "integration_template_id"
@@ -57,6 +66,16 @@ module Devops
     before_validation :generate_slug, on: :create
     before_save :sanitize_jsonb_fields
     after_create :increment_template_install_count
+
+    # ==================== Class Methods ====================
+
+    # A non-positive or absent setting means "unconfigured", not "pause on the
+    # first failure" — a 0 threshold would auto-pause every integration on its
+    # first failed probe, so it falls back rather than being honoured.
+    def self.health_failure_threshold
+      configured = SiteSetting.get(HEALTH_FAILURE_THRESHOLD_SETTING).to_i
+      configured.positive? ? configured : DEFAULT_HEALTH_FAILURE_THRESHOLD
+    end
 
     # ==================== Instance Methods ====================
 
@@ -165,6 +184,52 @@ module Devops
         health_metrics: health_metrics.merge(metrics),
         last_health_check_at: Time.current
       )
+    end
+
+    # Record the outcome of a health PROBE (a connection test), deriving the
+    # health verdict from the outcome plus the consecutive-failure streak and
+    # persisting it through `#update_health!` — which stays the single writer of
+    # `health_status` / `health_metrics` / `last_health_check_at`.
+    #
+    # Until A8 this method did not exist, `#update_health!` had zero call sites,
+    # and the worker sweep instead PATCHed a `health_metrics` jsonb blob whose
+    # nested keys nothing reads. The `integration_health` verb buckets the
+    # COLUMN, so it could only ever answer `unknown`.
+    #
+    # Returns true when this probe auto-paused the integration.
+    def record_health_probe!(success:, error: nil, metrics: {})
+      threshold = self.class.health_failure_threshold
+      failures = success ? 0 : consecutive_failures.to_i + 1
+
+      # `unhealthy`, not `degraded`, at the threshold: `#can_execute?` returns
+      # false on unhealthy, which is the truth once the connection test has
+      # failed enough times to pause the integration.
+      derived = if success
+        "healthy"
+      elsif failures >= threshold
+        "unhealthy"
+      else
+        "degraded"
+      end
+
+      self.consecutive_failures = failures
+      self.last_error = success ? nil : error&.to_s&.truncate(1000)
+      update_health!(derived, metrics)
+
+      auto_pause_for_health!(failures: failures, threshold: threshold)
+    end
+
+    # The auto-pause DECISION, guarded here rather than at the mechanism:
+    # `#pause!` is a bare `update!` that would happily drag a `disabled`
+    # integration back to `paused`, undoing an operator's retirement, or
+    # re-pause one already paused. Only an ACTIVE integration whose failure
+    # streak has reached the threshold is paused.
+    def auto_pause_for_health!(failures: consecutive_failures.to_i, threshold: self.class.health_failure_threshold)
+      return false unless status == "active"
+      return false if failures < threshold
+
+      pause!
+      true
     end
 
     def can_execute?

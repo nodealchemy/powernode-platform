@@ -426,6 +426,14 @@ begin
   # Footer caching
   SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for footer data to improve performance', setting_type: 'boolean', is_public: false)
 
+  # DevOps integration health sweep. Absence is handled: the model falls back to
+  # Devops::IntegrationInstance::DEFAULT_HEALTH_FAILURE_THRESHOLD, so a
+  # deployment that seeded before this line still auto-pauses.
+  SiteSetting.set(Devops::IntegrationInstance::HEALTH_FAILURE_THRESHOLD_SETTING,
+                  Devops::IntegrationInstance::DEFAULT_HEALTH_FAILURE_THRESHOLD,
+                  description: 'Consecutive failed integration health probes before an active integration is auto-paused',
+                  setting_type: 'integer', is_public: false)
+
   puts "✅ Created #{SiteSetting.count} site settings"
 rescue StandardError => e
   Rails.logger.error("[seeds] site settings failed: #{e.class}: #{e.message}")
