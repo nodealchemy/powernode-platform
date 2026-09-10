@@ -141,8 +141,11 @@ module Ai
 
         {
           campaign_id: campaign.id, driver_kind: driver_kind, target: normalized_target, lease: lease,
-          loops: campaign.ralph_loops.reload.map do |l|
-            { id: l.id, driver_kind: l.driver_kind, scheduling_mode: l.scheduling_mode, status: l.status }
+          # git_tools says whether the delegated loop can commit (D2): a platform
+          # driver with no mission repository plans, it does not change code.
+          loops: campaign.ralph_loops.includes(mission: :repository).map do |l|
+            { id: l.id, driver_kind: l.driver_kind, scheduling_mode: l.scheduling_mode, status: l.status,
+              git_tools: Ai::Ralph::GitToolExecutor.available?(l) }
           end
         }
       end
@@ -337,7 +340,7 @@ module Ai
           raise ArgumentError, "platform_agent delegation requires target.agent_id" if id.blank?
           raise ArgumentError, "agent not found in this account" unless @account.ai_agents.exists?(id: id)
 
-          { "agent_id" => id }
+          { "agent_id" => id }.merge(resolve_repository_mission!(target["mission_id"]))
         when "platform_mission"
           id = target["mission_id"].presence
           raise ArgumentError, "platform_mission delegation requires target.mission_id" if id.blank?
@@ -355,6 +358,28 @@ module Ai
         else
           raise ArgumentError, "unknown driver_kind: #{driver_kind}"
         end
+      end
+
+      # D2: a platform_agent loop may carry a mission for its REPOSITORY — the
+      # tool-bridge git tools read ralph_loop.mission.repository, and a campaign
+      # loop has no mission otherwise. Account-scoped like every other ref, and a
+      # mission with no repository is refused: attaching it would promise an
+      # actuator that cannot commit.
+      def resolve_repository_mission!(mission_id)
+        return {} if mission_id.blank?
+
+        mission = @account.ai_missions.find_by(id: mission_id)
+        raise ArgumentError, "mission not found in this account" unless mission
+        raise ArgumentError, "mission #{mission.id} has no repository to attach" unless mission.repository
+
+        { "mission_id" => mission.id }
+      end
+
+      # The clone URL of the mission's repository, for the loop's repository_url.
+      def mission_repository_url(mission_id)
+        return nil if mission_id.blank?
+
+        @account.ai_missions.find_by(id: mission_id)&.repository&.clone_url_for_devops
       end
 
       # The account's OWN Platform Developer: its existing row for the slug if it
@@ -389,6 +414,12 @@ module Ai
         else # platform_agent | platform_team | platform_mission
           attrs[:default_agent_id] = target["agent_id"] if target["agent_id"].present?
           attrs[:mission_id] = target["mission_id"] if target["mission_id"].present?
+          # D2: the loop names the repository its git tools commit to, so the
+          # prompt, the worker's test run (repository_full_name) and an operator
+          # all read the same one.
+          if (repository_url = mission_repository_url(target["mission_id"]))
+            attrs[:repository_url] = repository_url
+          end
           attrs[:scheduling_mode] = "continuous"
           attrs[:schedule_config] = (loop_record.schedule_config || {}).merge("iteration_interval_seconds" => 60)
           attrs[:schedule_paused] = false
