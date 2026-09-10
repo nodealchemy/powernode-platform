@@ -321,6 +321,12 @@ Rails.application.routes.draw do
         # side, so the cron ticks unconditionally.
         scope :platform do
           post "status_sweep", to: "platform_status#status_sweep"
+
+          # Investigation ranking (A6). The evidence is assembled synchronously
+          # wherever the investigation was opened; ranking is an LLM call
+          # against a canonical agent, so PlatformInvestigationJob owns the
+          # retry and calls in here for the work.
+          post "investigations/:id/conclude", to: "platform_investigations#conclude"
         end
 
         # Git provider internal endpoints (for worker service)

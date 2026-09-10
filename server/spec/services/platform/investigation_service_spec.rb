@@ -241,6 +241,21 @@ RSpec.describe Platform::InvestigationService do
       expect(concluded.top_hypothesis["cause"]).to include("ConnectionError")
     end
 
+    # `nil` is "nobody looked"; `[]` is "somebody looked and found nothing".
+    # Collapsing them would let core overrule the only thing that actually read
+    # the evidence, and would make an agent's empty answer look identical to no
+    # agent having run.
+    it "respects an EMPTY ranking rather than deriving over the top of it" do
+      concluded = service.conclude!(investigation, ranked: [])
+
+      expect(concluded.hypotheses).to eq([])
+      expect(concluded).to be_concluded
+    end
+
+    it "still derives when the ranking is nil — the other arm" do
+      expect(service.conclude!(investigation, ranked: nil).hypotheses).not_to be_empty
+    end
+
     it "reports not_measured, never a number, when there is nothing to go on" do
       investigation.update!(evidence: {})
 

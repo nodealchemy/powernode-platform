@@ -19,19 +19,55 @@ RSpec.describe PlatformInvestigationJob, type: :job do
     allow(job).to receive(:log_error)
   end
 
-  it "POSTs the conclude endpoint for the investigation it was given" do
-    allow(api_client).to receive(:post).with(path, {}).and_return(
+  # BackendApiClient#handle_response returns the PARSED BODY, string-keyed, so
+  # this is the literal shape the server's `render_success` produces — not an
+  # invented one. The server side pins the same keys from its own end
+  # (spec/requests/api/v1/internal/platform_investigations_spec.rb, "the
+  # response shape the worker job reads"), so a rename fails on both sides
+  # rather than passing here against a stub nobody keeps in step.
+  def conclude_body(status: "completed", hypotheses: [ { "cause" => "disk full" } ])
+    {
       "success" => true,
-      "data" => { "investigation" => { "status" => "completed", "hypotheses" => [ {}, {} ] } }
-    )
+      "data" => {
+        "investigation" => {
+          "id" => investigation_id,
+          "component_kind" => "docker_host",
+          "component_ref" => "host-1",
+          "status" => status,
+          "trigger" => "operator",
+          "hypotheses" => hypotheses,
+          "conclusion" => "Most likely: disk full (confidence 0.35).",
+          "agent_id" => nil,
+          "completed_at" => Time.current.iso8601
+        },
+        "ranked" => true,
+        "agent_id" => nil
+      }
+    }
+  end
+
+  it "POSTs the conclude endpoint for the investigation it was given" do
+    allow(api_client).to receive(:post).with(path, {}).and_return(conclude_body)
 
     job.execute("investigation_id" => investigation_id)
 
     expect(api_client).to have_received(:post).with(path, {})
   end
 
+  it "reports the status and hypothesis count it read out of the response" do
+    allow(job).to receive(:log_info).and_call_original
+    allow(api_client).to receive(:post).and_return(
+      conclude_body(hypotheses: [ { "cause" => "a" }, { "cause" => "b" } ])
+    )
+
+    expect(job).to receive(:log_info).with("Investigation concluded",
+                                           hash_including(status: "completed", hypotheses: 2))
+
+    job.execute("investigation_id" => investigation_id)
+  end
+
   it "accepts a symbol-keyed payload, as a direct enqueue produces" do
-    allow(api_client).to receive(:post).and_return("success" => true, "data" => {})
+    allow(api_client).to receive(:post).and_return(conclude_body)
 
     job.execute(investigation_id: investigation_id)
 
@@ -49,8 +85,13 @@ RSpec.describe PlatformInvestigationJob, type: :job do
   # forever, blocks the open-fingerprint rule for that component, and shows the
   # operator a spinner with no explanation. A quiet no-op here would be
   # indistinguishable from "still thinking", so the failure has to raise.
+  # The server's real refusal shape: `render_error` sets success false, and a
+  # ranking that could not produce hypotheses answers exactly this. Left
+  # unraised, the investigation would stay open forever with nobody able to
+  # tell why.
   it "raises when the backend answers without success, so Sidekiq retries" do
-    allow(api_client).to receive(:post).and_return("success" => false, "error" => "not found")
+    allow(api_client).to receive(:post)
+      .and_return("success" => false, "error" => "Ranking failed: ranker returned no usable hypotheses")
 
     expect { job.execute("investigation_id" => investigation_id) }
       .to raise_error(StandardError, /did not conclude/)
@@ -70,7 +111,7 @@ RSpec.describe PlatformInvestigationJob, type: :job do
       calls += 1
       raise BackendApiClient::ApiError.new("Server Error", 500) if calls == 1
 
-      { "success" => true, "data" => {} }
+      conclude_body
     end
 
     job.execute("investigation_id" => investigation_id)

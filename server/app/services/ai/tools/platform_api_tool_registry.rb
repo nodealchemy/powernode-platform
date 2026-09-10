@@ -475,6 +475,14 @@ module Ai
         "list_component_status" => "Ai::Tools::PlatformStatusTool",
         "get_component_status" => "Ai::Tools::PlatformStatusTool",
         "get_component_impact" => "Ai::Tools::PlatformStatusTool",
+        # Component status plane (campaign 01a08c9b, increment A6) — the
+        # investigation. `platform_investigate` is the one WRITE: it records the
+        # evidence around a failure and enqueues the ranking. The two `get_*`
+        # verbs are reads, and the naming is what makes their readOnlyHint true
+        # rather than annotated after the fact.
+        "platform_investigate" => "Ai::Tools::PlatformInvestigationTool",
+        "get_investigation" => "Ai::Tools::PlatformInvestigationTool",
+        "get_investigations" => "Ai::Tools::PlatformInvestigationTool",
         # === Read-only reach (campaign 01a08c9b, increment E1) ===
         # Four families REST exposed in full and MCP could not reach at all
         # (audit remedies 16 and 18). Every action is a READ; identity, provider,

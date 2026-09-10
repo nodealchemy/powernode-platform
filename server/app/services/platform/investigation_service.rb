@@ -149,7 +149,15 @@ module Platform
     def conclude!(investigation, ranked: nil, conclusion: nil, agent: nil, now: Time.current)
       return investigation if investigation.blank? || investigation.concluded?
 
-      candidates = Array(ranked).presence || deterministic_candidates(investigation)
+      # `nil` and `[]` ARE DIFFERENT ANSWERS, and `.presence` cannot tell them
+      # apart. `nil` means no ranking was supplied — nobody looked — so core
+      # derives its own candidates. `[]` means a ranker DID look and found
+      # none, which is a finding: deriving candidates over the top of it would
+      # overrule the only thing that actually read the evidence, and would make
+      # "the agent found nothing" indistinguishable from "no agent ran". Same
+      # distinction the confidence rule draws between a measured zero and
+      # `not_measured`, one level up.
+      candidates = ranked.nil? ? deterministic_candidates(investigation) : Array(ranked)
       scores = ::Platform::Investigation::Confidence.for_each(candidates)
 
       investigation.hypotheses = candidates.each_with_index.map do |candidate, index|

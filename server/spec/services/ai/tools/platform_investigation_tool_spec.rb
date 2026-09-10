@@ -21,6 +21,26 @@ RSpec.describe Ai::Tools::PlatformInvestigationTool do
     tool.execute(params: params.with_indifferent_access)
   end
 
+  # The verb existing, declared and gated is not the verb being CALLABLE. A tool
+  # class with no registry entry passes every declaration lint in this suite and
+  # is still unreachable over MCP — the "exists, passes review, never executed"
+  # shape. Resolved by execution through the registry, not by reading it.
+  describe "advertisement" do
+    it "resolves every declared action through the registry to this class" do
+      described_class.declared_actions.each_key do |action|
+        expect(Ai::Tools::PlatformApiToolRegistry.find_tool(action)).to eq(described_class),
+                                                                       "#{action} does not resolve to this tool"
+      end
+    end
+
+    # The other arm: `find_tool` returns nil rather than a default, so the
+    # assertion above cannot pass by the registry answering something for
+    # everything.
+    it "resolves nothing for a name nobody registered" do
+      expect(Ai::Tools::PlatformApiToolRegistry.find_tool("platform_uninvestigate")).to be_nil
+    end
+  end
+
   describe "declaration" do
     it "declares exactly one mutating verb and two reads" do
       declared = described_class.declared_actions
