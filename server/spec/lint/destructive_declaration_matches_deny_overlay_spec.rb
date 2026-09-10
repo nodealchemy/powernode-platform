@@ -16,7 +16,7 @@ require "rails_helper"
 #     irreversible update".
 #
 # They are different questions with the same subject, and two rival
-# classifications of the same 640 verbs is how one of them silently rots. This
+# classifications of the same verbs is how one of them silently rots. This
 # holds them in SET EQUALITY over core, in both directions:
 #
 #   overlay - declared   a destroy-shaped core action nobody declared. It would
@@ -29,6 +29,35 @@ require "rails_helper"
 #                        the overlay should be refusing it for instance
 #                        principals and does not. The fix is a pattern, not an
 #                        exemption.
+#
+# WHAT THIS MEANS FOR THE DECLARATIONS (E2 review M3). Over core, the
+# `destructive: true` set is DERIVED from the overlay and held there by this
+# file — it was not judged verb by verb, and it cannot be corrected verb by
+# verb without changing the overlay. That matters because the overlay is a
+# principal-class deny list, which is a broader question than MCP's. MCP
+# defines destructiveHint by whether an update is ADDITIVE; the overlay also
+# denies verbs because of who may call them. Five core verbs sit in the gap:
+#
+#   create_intervention_policy   purely additive at the row level — but a new
+#                                policy at a higher priority can shadow an
+#                                existing one's protection
+#   update_intervention_policy   overwrites prior values: non-additive
+#   emergency_resume             overwrites the suspended state
+#   approve_deferred_operation   RUNS the parked operation (DeferredOperation
+#                                #on_approval_decision -> #execute_now!), which
+#                                can itself be anything the gate parked
+#   reject_deferred_operation    a terminal transition that abandons it
+#
+# By MCP's own definition four of the five are correctly `true`; only the
+# first is additive, and it stays `true` for the effect above. More to the
+# point, undeclaring any of them would change nothing on the wire: the
+# catalog's floor publishes destructiveHint true for every overlay match
+# whatever the declaration says, so an undeclared entry would only make the
+# declaration contradict the published hint. The one way to publish `false`
+# is to take them off the overlay, which would let an instance principal
+# write its own autonomy policy, lift the kill switch, or approve operations
+# parked against it. The control wins; the over-statement is the safe
+# direction and is recorded here rather than rediscovered.
 #
 # SCOPE IS CORE ONLY, and that is a live gap rather than a design choice. The
 # 40 destroy-shaped actions in extensions/system carry no `destructive:`
@@ -61,8 +90,20 @@ RSpec.describe "declare_action(destructive:) agrees with the instance deny overl
     end
   end
 
+  # RESOLVED FIRST, then located (E2 review M1). On a constant Zeitwerk has
+  # not loaded yet, Object.const_source_location does not return nil — it
+  # returns the autoloader's own stub, a path inside the zeitwerk gem. That
+  # path is non-empty and contains no `/extensions/`, so #core? read EVERY
+  # not-yet-loaded extension class as core: measured, overlay_core came out 72
+  # cold and 32 warm. The file was green on a full run only because the first
+  # example constantizes everything through #rows before the others look, and
+  # red on any targeted run of the two examples that walk the registry raw.
+  # CI eager-loads, which hid it there too.
   def source_path(class_name)
-    Object.const_source_location(class_name)&.first.to_s
+    klass = class_name.to_s.safe_constantize
+    return "" if klass.nil? || klass.name.nil?
+
+    Object.const_source_location(klass.name)&.first.to_s
   end
 
   # Core = the class is NOT defined under an extension checkout. Keyed on
@@ -96,6 +137,33 @@ RSpec.describe "declare_action(destructive:) agrees with the instance deny overl
 
       row[:registry_key]
     end.to_set
+  end
+
+  # THE M1 GUARD, as an assertion rather than a comment. Every class this file
+  # classifies must resolve to the file its own NAME implies — the one property
+  # the autoloader's stub cannot have, because the stub is a single file inside
+  # zeitwerk that stands in for every constant it has not loaded yet. A
+  # regression to an unresolved lookup fails here instead of silently
+  # reclassifying 40 extension verbs as core.
+  #
+  # A first cut asserted "the path is inside this checkout". It PASSED with
+  # the raw lookup restored, run in isolation, because the bundle is vendored
+  # INSIDE the checkout: the stub resolved to
+  # server/vendor/bundle/ruby/3.2.0/gems/zeitwerk-2.8.2/lib/zeitwerk/cref.rb.
+  # A location test says nothing about a stub when the gem lives in the repo,
+  # so that cut was replaced rather than kept beside this one.
+  #
+  # Walks the registry RAW, the same way overlay_core does, so it measures the
+  # path the two set-equality examples actually take.
+  it "locates every registered tool class in the file its name implies" do
+    wrong = Ai::Tools::PlatformApiToolRegistry.all_tools.values.uniq.filter_map do |class_name|
+      path = source_path(class_name)
+      next nil if path.empty?
+
+      "#{class_name} -> #{path}" unless path.end_with?("/#{class_name.underscore}.rb")
+    end
+
+    expect(wrong).to be_empty, "resolved to a file its name does not imply:\n  #{wrong.join("\n  ")}"
   end
 
   it "scans a real corpus" do
