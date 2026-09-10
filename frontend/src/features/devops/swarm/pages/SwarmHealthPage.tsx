@@ -6,6 +6,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { useSwarmClusters } from '../hooks/useSwarmClusters';
 import { swarmApi } from '../services/swarmApi';
 import { HealthStatusGrid } from '../components/HealthStatusGrid';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { ClusterHealthSummary } from '../types';
 
 export const SwarmHealthPage: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
@@ -47,12 +48,10 @@ export const SwarmHealthPage: React.FC<{ onActionsReady?: (actions: PageAction[]
     }
   }, [clusters, fetchAllHealth]);
 
-  useEffect(() => {
-    if (!autoRefresh || clusters.length === 0) return;
-
-    const interval = setInterval(fetchAllHealth, 30000);
-    return () => clearInterval(interval);
-  }, [autoRefresh, clusters.length, fetchAllHealth]);
+  usePolling(fetchAllHealth, 30000, {
+    enabled: autoRefresh && clusters.length > 0,
+    deps: [autoRefresh, clusters.length, fetchAllHealth],
+  });
 
   const pageActions: PageAction[] = [
     { label: 'Refresh', onClick: fetchAllHealth, variant: 'secondary', icon: RefreshCw },

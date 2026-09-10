@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { moduleBuildBatchesApi } from '../services/moduleBuildBatchesApi';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { ModuleBuildBatchDetail } from '../types';
 
 const POLL_INTERVAL_MS = 10000;
@@ -30,11 +31,7 @@ export function useModuleBuildBatch(id: string | null) {
   // Poll while this batch is still active.
   const active = batch?.active ?? false;
 
-  useEffect(() => {
-    if (!active) return;
-    const interval = setInterval(fetchBatch, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [active, fetchBatch]);
+  usePolling(fetchBatch, POLL_INTERVAL_MS, { enabled: active });
 
   return {
     batch,

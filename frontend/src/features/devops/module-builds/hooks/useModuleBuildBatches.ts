@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { moduleBuildBatchesApi } from '../services/moduleBuildBatchesApi';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type {
   ModuleBuildBatch,
   ModuleBuildBatchListMeta,
@@ -41,11 +42,7 @@ export function useModuleBuildBatches(params: ModuleBuildBatchListParams = {}, e
   // "auto-refresh while running" pattern used by ralph-loops' RalphLoopList.
   const hasActive = batches.some((b) => b.active);
 
-  useEffect(() => {
-    if (!hasActive) return;
-    const interval = setInterval(fetchBatches, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [hasActive, fetchBatches]);
+  usePolling(fetchBatches, POLL_INTERVAL_MS, { enabled: hasActive });
 
   return {
     batches,

@@ -5,6 +5,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { devopsPipelineRunsApi } from '@/services/devopsPipelinesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useJobLogsWebSocket } from '../hooks/useJobLogsWebSocket';
+import { usePolling as usePollingHook } from '@/shared/hooks/usePolling';
 
 interface JobLogViewerProps {
   repositoryId: string;
@@ -136,21 +137,14 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
 
   useEffect(() => {
     if (!usePolling) return;
-
     setPollingLoading(true);
     fetchLogs();
-
-    let pollInterval: NodeJS.Timeout | null = null;
-    if (isJobRunning) {
-      pollInterval = setInterval(fetchLogs, 5000);
-    }
-
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-    };
   }, [fetchLogs, isJobRunning, usePolling]);
+
+  usePollingHook(fetchLogs, 5000, {
+    enabled: usePolling && isJobRunning,
+    deps: [fetchLogs, isJobRunning, usePolling],
+  });
 
   // Auto-scroll effect
   useEffect(() => {

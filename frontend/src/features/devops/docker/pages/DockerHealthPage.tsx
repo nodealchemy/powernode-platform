@@ -7,6 +7,7 @@ import { useHostContext } from '../hooks/useHostContext';
 import { useDockerHealth } from '../hooks/useDockerHealth';
 import { useDockerEvents } from '../hooks/useDockerEvents';
 import { dockerApi } from '../services/dockerApi';
+import { usePolling } from '@/shared/hooks/usePolling';
 
 const HostSelector: React.FC = () => {
   const { hosts, selectedHostId, selectHost, isLoading } = useHostContext();
@@ -43,11 +44,10 @@ export const DockerHealthPage: React.FC<DockerHealthPageProps> = ({ onActionsRea
     await Promise.all([refresh(), refreshEvents()]);
   }, [refresh, refreshEvents]);
 
-  useEffect(() => {
-    if (!autoRefresh || !selectedHostId) return;
-    const interval = setInterval(handleRefresh, 30000);
-    return () => clearInterval(interval);
-  }, [autoRefresh, selectedHostId, handleRefresh]);
+  usePolling(handleRefresh, 30000, {
+    enabled: autoRefresh && !!selectedHostId,
+    deps: [autoRefresh, selectedHostId, handleRefresh],
+  });
 
   const pageActions: PageAction[] = [
     { label: 'Refresh', onClick: handleRefresh, variant: 'secondary', icon: RefreshCw },

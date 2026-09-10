@@ -11,6 +11,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { containerExecutionApi } from '@/shared/services/ai';
 import { ContainerCard } from './ContainerCard';
 import { cn } from '@/shared/utils/cn';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { ContainerInstanceSummary, ContainerFilters, ContainerStatus } from '@/shared/services/ai';
 
 interface ContainerListProps {
@@ -76,16 +77,10 @@ export const ContainerList: React.FC<ContainerListProps> = ({
   }, [loadContainers]);
 
   // Auto-refresh for active containers
-  useEffect(() => {
-    const hasActive = containers.some(
-      c => c.status === 'running' || c.status === 'provisioning' || c.status === 'pending'
-    );
-
-    if (hasActive) {
-      const interval = setInterval(loadContainers, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [containers, loadContainers]);
+  const hasActiveContainer = containers.some(
+    c => c.status === 'running' || c.status === 'provisioning' || c.status === 'pending'
+  );
+  usePolling(loadContainers, 5000, { enabled: hasActiveContainer, deps: [containers, loadContainers] });
 
   const handleCancel = async (container: ContainerInstanceSummary) => {
     try {
