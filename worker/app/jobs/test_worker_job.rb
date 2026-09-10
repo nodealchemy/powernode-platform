@@ -13,9 +13,8 @@
 # Reports through Api::V1::WorkersController#test_results, which already
 # expected this exact shape (test_type/status/duration_seconds/redis_check/
 # backend_check/timestamp) and records it via Worker#record_activity! +
-# touches last_seen_at — the same completion idiom OllamaConnectivityTestJob
-# uses (run checks, then backend_api_post the results) rather than a new
-# channel.
+# touches last_seen_at: run the checks, then backend_api_post the results,
+# rather than opening a new channel.
 class TestWorkerJob < BaseJob
   sidekiq_options queue: 'services', retry: 1
 
