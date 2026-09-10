@@ -122,11 +122,15 @@ module ProviderTesting
         }
       end
 
-      # Fall back to chat test if tags endpoint not available
-      test_model = config["model"].presence ||
-                   @provider&.supported_models&.first&.dig("id").presence ||
-                   @provider&.supported_models&.first&.dig("name").presence ||
-                   "llama2"
+      # Fall back to a chat test when the tags endpoint is not available. The
+      # model comes from the credential or the provider (#resolved_test_model),
+      # never a literal (E3b): "llama2" was the wrong id for any server that
+      # had not pulled it, so the test reported a bad connection for a reason
+      # that had nothing to do with the connection. Nothing configured is a
+      # configuration_error, exactly as for the openai and anthropic testers,
+      # and the tags check above still passes without any model at all.
+      test_model = resolved_test_model(config)
+      return error_result("configuration_error", "No model configured for this provider") if test_model.blank?
 
       payload = {
         model: test_model,

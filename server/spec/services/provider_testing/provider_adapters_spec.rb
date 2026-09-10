@@ -92,6 +92,51 @@ RSpec.describe ProviderTesting::ProviderAdapters do
     end
   end
 
+  # E3b (c): the Ollama chat fallback used to end in `|| "llama2"`. It now
+  # resolves like the other testers. Three arms, because the tags check must
+  # stay model-free: an Ollama server that answers /api/tags is reachable
+  # whether or not the platform knows a model name for it.
+  describe "#perform_ollama_connection_test" do
+    let(:provider) { create(:ai_provider, account: account, provider_type: "ollama") }
+    let(:ollama_creds) { { "base_url" => "http://ollama.example.test:11434" } }
+
+    # Every request the tester makes, and the model on each (nil for a GET).
+    def run_ollama(service, tags_ok:)
+      calls = []
+      allow(service).to receive(:make_http_request) do |url, **opts|
+        calls << { url: url, model: opts[:body] && JSON.parse(opts[:body])["model"] }
+        if url.end_with?("/api/tags")
+          double("tags", success?: tags_ok, code: tags_ok ? 200 : 404, message: "tags",
+                         body: { models: [] }.to_json)
+        else
+          double("chat", success?: false, code: 500, message: "chat failed", body: {}.to_json)
+        end
+      end
+      [ service.send(:perform_ollama_connection_test, service.credential.credentials), calls ]
+    end
+
+    it "sends the provider's catalog model on the chat fallback, never a literal" do
+      _, calls = run_ollama(service_for(provider, credentials: ollama_creds), tags_ok: false)
+      expect(calls.filter_map { |c| c[:model] }).to eq([ "test-model-1" ])
+    end
+
+    it "returns a configuration_error and makes NO chat request when no model resolves" do
+      provider.update_columns(supported_models: [])
+      result, calls = run_ollama(service_for(provider, credentials: ollama_creds), tags_ok: false)
+
+      expect(result).to include(success: false, error_type: "configuration_error")
+      expect(calls.map { |c| c[:url] }).to all(end_with("/api/tags")), "a chat request went out with no model"
+    end
+
+    it "still passes on /api/tags alone, which needs no model" do
+      provider.update_columns(supported_models: [])
+      result, calls = run_ollama(service_for(provider, credentials: ollama_creds), tags_ok: true)
+
+      expect(result[:success]).to be true
+      expect(calls.size).to eq(1)
+    end
+  end
+
   it "no longer defines the dead perform_test family (E3 review F3)" do
     methods = described_class.private_instance_methods(false)
     expect(methods).to include(:perform_connection_test)
