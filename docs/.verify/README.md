@@ -125,6 +125,28 @@ It stays **advisory** in CI deliberately: a static grep against a Ruby registry
 has known blind spots, and blocking doc PRs on it would trade a quiet
 false-negative for a loud false-positive.
 
+**`check-links.sh`** is the ONE hard gate in `.gitea/workflows/docs.yml` —
+every sibling check sets `continue-on-error: true`. It therefore has to be
+green when nothing is wrong, and it was not (IMP-01a08a0f): four correct
+references to `docs/reference/auto/todo.md` and `.../learnings.md` failed it on
+every run. Those files are DB-backed artifacts the repo deliberately does not
+track (`.gitignore`, commit `0bbe16e63` — "split auto-gen tracking policy —
+mcp-tools tracked, DB-backed not"), and the workflow runs this gate straight
+after checkout with no generation step, so they can never exist in CI. The only
+two outcomes were permanent failure or the `[docs-skip-verify]` marker, which
+disables *all* doc verification.
+
+A missing target that `git check-ignore` matches is now reported as
+`GENERATED` and does not fail the run. The exemption is DERIVED from the repo's
+own tracking policy rather than a second hand-kept list, so another generated
+doc needs no edit here; it is reported rather than hidden, so a doc that stops
+being generated is visible before it becomes a failure; and it is fail-closed —
+without git, or outside a work tree, the target counts as broken exactly as
+before. Guarded by `server/spec/integration/docs_verify_links_spec.rb`, which
+asserts the real-tree baseline AND drives the script over a throwaway repo to
+prove a genuinely dead link still reds it, including when it sits beside an
+exempt one.
+
 **`check-counts.sh`** is intentionally advisory. Counts in
 `docs/reference/auto/` are canonical (they auto-regenerate); inline
 counts elsewhere should be either accurate or, ideally, replaced with a
