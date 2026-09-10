@@ -215,6 +215,26 @@ RSpec.describe Ai::Routing::AgentRouterService do
       expect(result[:agent_id]).to be_nil
       expect(result[:reasoning][:error]).to include("delegation policy")
     end
+
+    # HIER-P0 (E4): this filter is the reachable half of the fail-open. The
+    # authority gate happened to refuse the seeded leaves on max_depth, but the
+    # router enforces no depth at all — it reports max_depth in the envelope and
+    # filters on allows_delegate_type? alone, so an empty allowlist used to pass
+    # the ENTIRE pool through. Both arms: nobody routable, and the refusal says
+    # "none" rather than the "any" the empty case used to print.
+    it "routes to nobody when the delegator's allowed_delegate_types is empty" do
+      leaf = agent(name: "Leaf", description: "chat")
+      agent(name: "Assistant Only", description: "chat")
+      agent(name: "Monitor One", description: "chat", agent_type: "monitor")
+      create(:ai_delegation_policy, account: account, agent: leaf, allowed_delegate_types: [])
+
+      result = router.route(task: "chat", delegator: leaf)
+
+      expect(result[:agent_id]).to be_nil
+      expect(result[:candidates]).to be_blank
+      expect(result[:reasoning][:error]).to include("allowed types: none")
+      expect(result[:reasoning][:error]).not_to include("allowed types: any")
+    end
   end
 
   # The same task description yields the same winner via the MCP verb and via

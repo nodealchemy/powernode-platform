@@ -81,8 +81,12 @@ module Ai
 
         if pool.empty?
           reason = if policy && delegation[:excluded_by_policy].to_i.positive?
+            # HIER-P0: an empty allowed_delegate_types is now NONE, not ANY
+            # (Ai::DelegationPolicy#allows_delegate_type?), so the empty case
+            # must read "none" here — saying "any" while refusing every
+            # candidate describes the opposite of what just happened.
             "No routable agent allowed by #{delegator.name}'s delegation policy " \
-              "(allowed types: #{Array(policy.allowed_delegate_types).presence&.join(', ') || 'any'})"
+              "(allowed types: #{Array(policy.allowed_delegate_types).presence&.join(', ') || 'none'})"
           else
             "No active agents available"
           end
