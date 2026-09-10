@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_10_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_10_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9958,7 +9958,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_000000) do
     t.text "sync_fingerprint"
     t.string "sync_status", default: "idle", null: false
     t.datetime "updated_at", null: false
-    t.string "vault_credential_path"
     t.string "visibility", default: "account", null: false
     t.index ["account_id", "name"], name: "idx_pkgrepo_account_name_unique", unique: true, where: "(account_id IS NOT NULL)"
     t.index ["account_id"], name: "index_system_package_repositories_on_account_id"
