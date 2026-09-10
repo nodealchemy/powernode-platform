@@ -21,14 +21,15 @@ import type { ComponentStatusSummary } from '@/shared/types/platformStatus';
 // with no icon reads as a rendering bug, which sends the operator looking in
 // the wrong place.
 //
-// ── WHAT THIS CARD CANNOT SHOW ─────────────────────────────────────────────
+// ── THE REASON TOKEN AND THE SENTENCE BESIDE IT ────────────────────────────
 //
-// The list serializer carries the worst failing condition's `reason` TOKEN and
-// a `condition_count`, but not the condition's human `message` — that lives in
-// the detail payload the drawer fetches (C3). So the card shows the token,
-// labelled as a token, and says how many conditions there are. It does not
-// paraphrase: a reason is a stable, greppable string that a runbook and an
-// alert key on, and prettifying it here would break the one property it has.
+// C2's list serializer carried only the worst failing condition's `reason`
+// TOKEN. A4b added `reason_message` — the human sentence from the SAME
+// condition, computed in one pass server-side so the two cannot describe
+// different conditions when two tie on rank. The card now shows both: the
+// token verbatim (a runbook and an alert key on it, so it is never
+// paraphrased) and the sentence beside it (which is what a person reads).
+// Absent message → the token alone; nothing is invented to fill the gap.
 
 const resolveIcon = (name?: string): React.ComponentType<{ className?: string }> => {
   if (!name) return icons.Puzzle;
@@ -80,10 +81,15 @@ export const ComponentStatusCard: React.FC<ComponentStatusCardProps> = ({
         {row.reason && (
           <code
             className="text-xs text-theme-secondary"
-            title="Reason token of the worst failing condition. Stable and greppable — open the component for the human message."
+            title="Reason token of the worst failing condition. Stable and greppable — alerts and runbooks key on this; the sentence beside it is for people."
           >
             {row.reason}
           </code>
+        )}
+        {row.reason_message && (
+          <span data-reason-message className="text-xs text-theme-secondary">
+            {row.reason_message}
+          </span>
         )}
         <RemediationChip state={row.remediation_state} />
       </div>
@@ -116,6 +122,17 @@ export const ComponentStatusCard: React.FC<ComponentStatusCardProps> = ({
         {row.plane === 'none' && (
           <span title="This component belongs to no environment. It rides along in every plane-filtered view rather than being hidden by one.">
             plane-less
+          </span>
+        )}
+        {/* In-plane: the plane's NAME from A4b. Shown only when the wire carries
+            one — an unnamed in-plane row shows no plane label rather than a raw
+            id, which would read as a fleet identifier on every card. */}
+        {row.plane === 'in' && (row.environment_name || row.environment_slug) && (
+          <span
+            data-plane-name
+            title={`In the ${row.environment_name || row.environment_slug} plane.`}
+          >
+            {row.environment_name || row.environment_slug}
           </span>
         )}
         {row.scope === 'shared' && (

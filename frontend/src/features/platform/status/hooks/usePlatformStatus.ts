@@ -137,6 +137,13 @@ export interface UsePlatformStatusReturn {
   knownEnvironmentIds: string[];
   /** Every component kind seen this session, sorted. A union, for the same reason. */
   knownKinds: string[];
+  /**
+   * environment id → the plane's human name (A4b `environment_name`, else
+   * `environment_slug`), accumulated over the session like the id union, so a
+   * filtered response that no longer carries a plane's rows does not lose its
+   * name. An id with no entry here has no name on the wire.
+   */
+  environmentLabels: Record<string, string>;
   refresh: () => void;
 }
 
@@ -179,6 +186,7 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
   const [knownEnvironmentIds, setKnownEnvironmentIds] = useState<string[]>([]);
   const [knownKinds, setKnownKinds] = useState<string[]>([]);
+  const [environmentLabels, setEnvironmentLabels] = useState<Record<string, string>>({});
   // Whether PlatformStatusChannel has ACCEPTED our subscription — see the poll
   // gate at the bottom of this hook.
   const [channelEstablished, setChannelEstablished] = useState(false);
@@ -222,6 +230,19 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
       setKnownEnvironmentIds((previous) =>
         unionWith(previous, index.component_statuses.map((row) => row.environment_id))
       );
+      // Plane names from A4b. Name first, slug second, and NEVER the id: a
+      // missing name is recorded as a missing entry, so the selector can decide
+      // what an unnamed plane looks like instead of this map inventing a label.
+      setEnvironmentLabels((previous) => {
+        let next = previous;
+        for (const row of index.component_statuses) {
+          const label = row.environment_name || row.environment_slug;
+          if (!row.environment_id || !label || previous[row.environment_id] === label) continue;
+          if (next === previous) next = { ...previous };
+          next[row.environment_id] = label;
+        }
+        return next;
+      });
       // The SAME union, for the same reason (C2 review M2). `rows` is the
       // FILTERED response, so choosing `kind=docker_host` makes the next
       // response contain only docker hosts — and a Kind selector derived from it
@@ -386,6 +407,7 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
       lastLoadedAt,
       knownEnvironmentIds,
       knownKinds,
+      environmentLabels,
       refresh,
     }),
     [
@@ -401,6 +423,7 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
       lastLoadedAt,
       knownEnvironmentIds,
       knownKinds,
+      environmentLabels,
       refresh,
     ]
   );

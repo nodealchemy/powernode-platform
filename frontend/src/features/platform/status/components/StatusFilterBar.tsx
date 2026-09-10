@@ -18,16 +18,18 @@ import { VERDICT_LADDER, type Verdict } from '@/shared/types/platformStatus';
 // another plane's. The server owns that logic; this control's only job is to
 // send the right one of the three, and to never send a fourth thing.
 //
-// ── WHY THE PLANE OPTIONS ARE RAW IDS ──────────────────────────────────────
+// ── PLANE OPTIONS ARE LABELLED BY NAME, WHERE THE WIRE CARRIES ONE ─────────
 //
-// Core exposes no REST index of `Ai::Environment`, and the component-status
-// serializer carries `environment_id` but no slug or name. So the only labels
-// available to this control are the ids observed on rows. They are shortened
-// for display and carried in full in the title attribute. This is a genuine
-// gap, not a style choice: it is fixed by the serializer carrying
-// `environment_slug`, or by core exposing an environments read. Recorded in the
-// C2 report rather than papered over with a hardcoded slug list, which would
-// go stale the moment an account adds a plane.
+// C2 had only `environment_id` on the wire and shipped raw (shortened) ids here,
+// recorded as a gap rather than papered over with a hardcoded slug list. A4b
+// closed it: rows now carry `environment_name` / `environment_slug`, which the
+// hook accumulates into `environmentLabels`. An option shows its plane's NAME.
+//
+// The shortened id survives in exactly one case — an in-plane id the server
+// sent no name for, which only an A4b-predating server can produce — because an
+// option must render SOMETHING and the id is the only true thing available.
+// The full id always stays in the title attribute. The value sent to the server
+// is always the id: names are for people, and the door resolves ids.
 
 export const ALL_PLANES = '';
 export const PLANE_LESS = 'none';
@@ -46,6 +48,8 @@ export interface StatusFilterBarProps {
   kinds: string[];
   /** Every environment id seen this session — a union, never the current response's set. */
   environmentIds: string[];
+  /** id → plane name, from A4b. Absent entries fall back to the shortened id. */
+  environmentLabels?: Record<string, string>;
   /** True when the named plane does not exist for this account. */
   unknownEnvironment: boolean;
 }
@@ -61,6 +65,7 @@ export const StatusFilterBar: React.FC<StatusFilterBarProps> = ({
   onChange,
   kinds,
   environmentIds,
+  environmentLabels = {},
   unknownEnvironment,
 }) => (
   <div className="flex flex-wrap items-end gap-3">
@@ -110,7 +115,7 @@ export const StatusFilterBar: React.FC<StatusFilterBarProps> = ({
         <option value={PLANE_LESS}>Plane-less only</option>
         {environmentIds.map((id) => (
           <option key={id} value={id} title={id}>
-            {shortenId(id)}
+            {environmentLabels[id] ?? shortenId(id)}
           </option>
         ))}
       </select>

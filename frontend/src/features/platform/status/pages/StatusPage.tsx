@@ -80,6 +80,7 @@ export const StatusPage: React.FC = () => {
     lastLoadedAt,
     knownEnvironmentIds,
     knownKinds,
+    environmentLabels,
     refresh,
   } = usePlatformStatus(query);
 
@@ -126,6 +127,7 @@ export const StatusPage: React.FC = () => {
           onChange={setFilters}
           kinds={knownKinds}
           environmentIds={knownEnvironmentIds}
+          environmentLabels={environmentLabels}
           unknownEnvironment={unknownEnvironment}
         />
 

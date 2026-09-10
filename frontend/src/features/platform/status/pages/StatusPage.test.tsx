@@ -323,6 +323,79 @@ describe('StatusPage', () => {
     });
   });
 
+  describe('A4b fields', () => {
+    it('renders reason_message beside the reason token when the wire carries it', async () => {
+      mockedApi.fetchComponentStatuses.mockResolvedValue(
+        indexResult([
+          row({
+            id: 'a',
+            verdict: 'down',
+            reason: 'HeartbeatStale',
+            reason_message: 'no heartbeat for 7m 12s',
+          }),
+        ])
+      );
+      renderPage();
+
+      expect(await screen.findByText('HeartbeatStale')).toBeInTheDocument();
+      expect(screen.getByText('no heartbeat for 7m 12s')).toBeInTheDocument();
+    });
+
+    it('shows the token alone — nothing invented — when reason_message is absent', async () => {
+      // Both absent shapes: an older server omitting the key, and a null.
+      for (const message of [undefined, null]) {
+        mockedApi.fetchComponentStatuses.mockResolvedValue(
+          indexResult([row({ id: 'a', verdict: 'down', reason: 'HeartbeatStale', reason_message: message })])
+        );
+        const { unmount } = renderPage();
+        await screen.findByText('HeartbeatStale');
+        expect(document.querySelector('[data-reason-message]')).toBeNull();
+        unmount();
+      }
+    });
+
+    it('labels plane options by NAME, keeping the id as the value and in the title', async () => {
+      mockedApi.fetchComponentStatuses.mockResolvedValue(
+        indexResult([
+          row({ id: 'a', environment_id: 'env-dev-0123456789', plane: 'in', environment_name: 'Development', environment_slug: 'dev' }),
+          // A plane the server sent no name for (an A4b-predating server).
+          row({ id: 'b', component_ref: 'p2', environment_id: 'env-ci-0123456789', plane: 'in' }),
+        ])
+      );
+      renderPage();
+      await screen.findAllByText('Anthropic');
+
+      const options = Array.from(
+        (screen.getByLabelText('Filter by environment plane') as HTMLSelectElement).options
+      );
+      const named = options.find((o) => o.value === 'env-dev-0123456789');
+      const unnamed = options.find((o) => o.value === 'env-ci-0123456789');
+
+      expect(named?.textContent).toBe('Development');
+      expect(named?.title).toBe('env-dev-0123456789');
+      // Unnamed: the shortened id, the ONLY true label available — never a
+      // fabricated name.
+      expect(unnamed?.textContent).toBe('env-ci-0…');
+    });
+
+    it('names the plane on an in-plane card, and never shows an id there', async () => {
+      mockedApi.fetchComponentStatuses.mockResolvedValue(
+        indexResult([
+          row({ id: 'a', display_name: 'named', environment_id: 'env-dev-0123456789', plane: 'in', environment_name: 'Development' }),
+          row({ id: 'b', component_ref: 'p2', display_name: 'unnamed', environment_id: 'env-ci-0123456789', plane: 'in' }),
+        ])
+      );
+      renderPage();
+      await screen.findByText('named');
+
+      const planeLabels = Array.from(document.querySelectorAll('[data-plane-name]')).map(
+        (node) => node.textContent
+      );
+      expect(planeLabels).toEqual(['Development']);
+      expect(screen.queryByText(/env-ci-0123456789/)).not.toBeInTheDocument();
+    });
+  });
+
   it('separates the shared-infrastructure rollup from the account one', async () => {
     mockedApi.fetchStatusRollup.mockResolvedValue({
       ...rollupResult('ok'),
