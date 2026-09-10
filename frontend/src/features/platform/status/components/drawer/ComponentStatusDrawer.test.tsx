@@ -3,6 +3,7 @@ import { renderWithProviders } from '@/test-utils';
 import { ComponentStatusDrawer } from './ComponentStatusDrawer';
 import * as api from '@/features/platform/status/api/platformStatusApi';
 import { featureRegistry } from '@/shared/services/featureRegistry';
+import { useNotification } from '@/shared/hooks/useNotification';
 import type {
   ComponentAction,
   ComponentStatusDetail,
@@ -11,8 +12,15 @@ import type {
 } from '@/shared/types/platformStatus';
 
 jest.mock('@/features/platform/status/api/platformStatusApi');
+// Mocked so the notification can be ASSERTED, not inferred (C3 review F3). The
+// failed-action test used to check only that the button was still there — true
+// whether or not the failure was surfaced — and survived deleting the error
+// notification entirely.
+jest.mock('@/shared/hooks/useNotification');
 
 const mockedApi = api as jest.Mocked<typeof api>;
+const mockedUseNotification = useNotification as jest.MockedFunction<typeof useNotification>;
+const showNotification = jest.fn();
 
 // ComponentStatusDrawer (C3 part 1).
 //
@@ -125,6 +133,7 @@ describe('ComponentStatusDrawer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     featureRegistry.clear();
+    mockedUseNotification.mockReturnValue({ showNotification });
     mockedApi.fetchComponentStatus.mockResolvedValue({
       component_status: detail(),
       impact: { count: 0, worst_verdict: 'ok', components: [] },
@@ -445,9 +454,16 @@ describe('ComponentStatusDrawer', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Cordon' }));
       });
 
-      // The button is still there and the drawer did not close — nothing about
-      // the UI claims success.
-      expect(screen.getByRole('button', { name: 'Cordon' })).toBeInTheDocument();
+      // THE ASSERTION THAT CAN FAIL: the failure reaches the global notification
+      // channel as an error, naming the action and carrying the server's reason.
+      expect(showNotification).toHaveBeenCalledWith(
+        expect.stringMatching(/Cordon failed: 403 Forbidden/),
+        'error'
+      );
+      // And the negative arm: nothing announced success.
+      expect(showNotification).not.toHaveBeenCalledWith(expect.anything(), 'success');
+      // The button is back and usable, so the operator can retry.
+      expect(screen.getByRole('button', { name: 'Cordon' })).not.toBeDisabled();
     });
   });
 
