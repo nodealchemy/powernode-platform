@@ -354,11 +354,6 @@ const AppContent: React.FC = () => {
             }
           />
 
-          {/* Legacy onboarding path — unified into the registry-driven /setup
-              wizard (which now drives the provider steps too). Redirect any stale
-              links/redirects there. */}
-          <Route path="/app/onboarding" element={<Navigate to="/setup" replace />} />
-
           {/* AI provisioning chat (System extension). Registered before
               /app/* so it renders standalone with its own layout. */}
           <Route
