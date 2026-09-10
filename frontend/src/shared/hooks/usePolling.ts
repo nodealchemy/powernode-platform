@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export interface UsePollingOptions {
   /**
@@ -56,12 +56,22 @@ export interface UsePollingOptions {
 export function usePolling(fn: () => void, intervalMs: number, options: UsePollingOptions = {}): void {
   const { enabled = true, immediate = false, deps } = options;
 
+  // Held in a ref and refreshed every render so the timer always invokes the
+  // latest `fn`, independent of whether `fn`'s identity is part of the
+  // effect's dependency array. Without this, a caller that passes explicit
+  // `deps` omitting `fn` (while `fn` is recreated each render) would keep
+  // calling the first render's closure for the lifetime of that dep
+  // generation — a stale-closure hazard review F4 flagged. This does not
+  // change restart cadence for any existing call site: the effect below
+  // still re-runs on exactly the same dependency array it did before.
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
+
   useEffect(() => {
     if (!enabled || intervalMs <= 0) return;
-    if (immediate) fn();
-    const interval = setInterval(fn, intervalMs);
+    if (immediate) fnRef.current();
+    const interval = setInterval(() => fnRef.current(), intervalMs);
     return () => clearInterval(interval);
     // Dependency array is intentionally caller-controlled — see `deps` doc above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps ?? [fn, intervalMs, enabled]);
 }

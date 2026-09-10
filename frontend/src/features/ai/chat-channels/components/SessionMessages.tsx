@@ -75,24 +75,29 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
   // Auto-refresh for active sessions
   usePolling(loadMessages, 5000, { enabled: sessionStatus === 'active' });
 
-  // Poll typing indicator for active sessions. `typingCancelledRef` mirrors the
-  // effect-scoped `cancelled` flag the raw setInterval version used: reset
-  // whenever session identity/status changes, set once that generation is torn
-  // down, so an in-flight request from a stale session can never call setTyping.
-  const typingCancelledRef = useRef(false);
+  // Poll typing indicator for active sessions. `typingGenRef` mirrors the
+  // effect-scoped `cancelled` flag the raw setInterval version used, but
+  // per-generation rather than as a single shared boolean: a boolean reset to
+  // false by the *next* generation's setup effect would let an in-flight
+  // request from a stale session write into the new session's UI (the setup
+  // for N+1 runs immediately after the cleanup for N). Each generation
+  // instead captures its own counter value and only applies its response if
+  // the counter still matches when it resolves.
+  const typingGenRef = useRef(0);
   useEffect(() => {
-    typingCancelledRef.current = false;
+    typingGenRef.current += 1;
     return () => {
-      typingCancelledRef.current = true;
+      typingGenRef.current += 1;
     };
   }, [sessionId, sessionStatus]);
 
   const pollTyping = useCallback(async () => {
+    const gen = typingGenRef.current;
     try {
       const res = await chatChannelsApi.getTypingStatus(sessionId);
-      if (!typingCancelledRef.current) setTyping(res.typing ?? null);
+      if (typingGenRef.current === gen) setTyping(res.typing ?? null);
     } catch {
-      if (!typingCancelledRef.current) setTyping(null);
+      if (typingGenRef.current === gen) setTyping(null);
     }
   }, [sessionId]);
 
