@@ -60,7 +60,7 @@ const LiveTicker: React.FC<{ realTime: RealTimeMetrics }> = ({ realTime }) => {
  * lives only here (distributed sections show inline error+retry, no toast, since
  * they share one query and per-section toasts would spam).
  *
- * Mounted at `AIMonitoringPage` (Operations tab); keep it exported + prop-less.
+ * Mounted at `OperationsPage` (Operations tab); keep it exported + prop-less.
  */
 export const AiOpsContent: React.FC = () => {
   const [timeRange, setTimeRange] = useState<AiOpsTimeRange>('1h');

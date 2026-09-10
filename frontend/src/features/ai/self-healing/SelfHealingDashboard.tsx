@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Shield, Activity, AlertTriangle, Clock, RefreshCw } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { Shield, Activity, AlertTriangle, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -164,26 +163,5 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
         </Card>
       </div>
     </div>
-  );
-};
-
-export const SelfHealingDashboard: React.FC = () => {
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  return (
-    <PageContainer
-      title="Self-Healing"
-      description="Automated remediation and health monitoring"
-      actions={[
-        {
-          label: 'Refresh',
-          onClick: () => setRefreshKey((k) => k + 1),
-          variant: 'outline',
-          icon: RefreshCw,
-        },
-      ]}
-    >
-      <SelfHealingContent refreshKey={refreshKey} />
-    </PageContainer>
   );
 };
