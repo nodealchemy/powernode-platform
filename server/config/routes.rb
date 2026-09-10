@@ -571,6 +571,11 @@ Rails.application.routes.draw do
           # improvement signals into deduped campaign proposals across active accounts.
           post "campaign_discovery/scan", to: "campaign_discovery#scan"
 
+          # Weekly improvement-discovery clock (worker cron → server): run the
+          # mechanical analyzers and file code-quality offers through the same
+          # fingerprint-deduped path create_improvement uses (D1).
+          post "improvement_discovery/run", to: "improvement_discovery#run"
+
           # Worktree session management (worker → server)
           resources :worktree_sessions, only: [:show] do
             member do

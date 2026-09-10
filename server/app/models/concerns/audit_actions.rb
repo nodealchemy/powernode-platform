@@ -209,6 +209,17 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # AI IMPROVEMENT ACTIONS
+  # =============================================================================
+  # The weekly discovery clock's per-account run record (D1). Registered here
+  # because `AuditLog` validates `action` against this allowlist, and
+  # `log_internal_audit` rescues its own failure — an unregistered action is
+  # dropped silently, leaving a run history that reads as "never ran".
+  AI_IMPROVEMENT_ACTIONS = %w[
+    ai.improvement_discovery.run
+  ].freeze
+
+  # =============================================================================
   # AI AGENT TEAM ACTIONS
   # =============================================================================
   AI_AGENT_TEAM_ACTIONS = %w[
@@ -343,6 +354,7 @@ module AuditActions
     AI_PROMPT_TEMPLATE_ACTIONS,
     AI_MONITORING_ACTIONS,
     AI_ROI_ACTIONS,
+    AI_IMPROVEMENT_ACTIONS,
     AI_AGENT_TEAM_ACTIONS,
     DEVOPS_ACTIONS,
     DEPLOY_ACTIONS,
@@ -463,6 +475,7 @@ module AuditActions
         AI_PROMPT_TEMPLATE_ACTIONS,
         AI_MONITORING_ACTIONS,
         AI_ROI_ACTIONS,
+        AI_IMPROVEMENT_ACTIONS,
         AI_AGENT_TEAM_ACTIONS
       ].flatten.uniq
     end
