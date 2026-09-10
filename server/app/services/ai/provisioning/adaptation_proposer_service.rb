@@ -583,7 +583,14 @@ module Ai
 
         credential = account&.ai_provider_credentials&.active
                             &.includes(:provider)&.first
-        credential&.provider&.default_model.presence || "gpt-4.1-mini"
+        provider = credential&.provider
+        # NO LITERAL FALLBACK (E3). The comment above spells out why one is
+        # actively harmful here: the model has to match the provider this
+        # client will call, so a hardcoded id is wrong for every provider but
+        # one and 404s against the rest. When nothing resolves, return nil and
+        # let the caller report "no model configured" — an honest refusal beats
+        # a confusing upstream error.
+        provider&.default_model.presence || provider&.available_models&.first
       end
 
       # ----- signal selection / classification ----------------------------
