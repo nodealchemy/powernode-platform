@@ -136,6 +136,65 @@ export function formatRelativeTime(dateString: string | Date | null): string {
   return formatDate(date);
 }
 
+/** Options for {@link formatRelativeTimeCompact}. */
+export interface FormatRelativeTimeCompactOptions {
+  /** String returned when `dateStr` is falsy. Default ''. */
+  emptyValue?: string;
+  /** Label for "less than a minute ago". Default 'just now' (lowercase —
+   *  distinct from {@link formatRelativeTime}'s capitalized 'Just now'). */
+  justNowLabel?: string;
+  /** Once the day count reaches 30, switch to a `Xmo ago` month label
+   *  instead of continuing to count unbounded days. Default false. */
+  monthTier?: boolean;
+  /** Once elapsed time reaches this many milliseconds, fall back to
+   *  `new Date(dateStr).toLocaleDateString()` instead of day-counting.
+   *  Unset (default) means never fall back — days grow unbounded. */
+  absoluteFallbackAfterMs?: number;
+}
+
+/**
+ * Formats a timestamp as a compact "list item" relative-time label —
+ * distinct from {@link formatRelativeTime}, which additionally handles
+ * future dates, a 'Never' empty state, and a >7-day fallback to an absolute
+ * date. Consolidates ~10 near-identical local copies (IMP-01a082a3) used on
+ * list rows (agent history, missions, ralph loops, etc.) where those extra
+ * behaviors were never implemented and the lowercase 'just now' label is the
+ * house style. Options reproduce each site's exact prior output — see
+ * {@link FormatRelativeTimeCompactOptions}.
+ *
+ * @example
+ * formatRelativeTimeCompact('2024-01-15T10:00:00Z') // '2h ago'
+ * formatRelativeTimeCompact(null) // ''
+ */
+export function formatRelativeTimeCompact(
+  dateStr: string | Date | null | undefined,
+  options: FormatRelativeTimeCompactOptions = {}
+): string {
+  const { emptyValue = '', justNowLabel = 'just now', monthTier = false, absoluteFallbackAfterMs } = options;
+  if (!dateStr) return emptyValue;
+
+  const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+  const diff = Date.now() - date.getTime();
+
+  if (absoluteFallbackAfterMs !== undefined) {
+    if (diff < 60000) return justNowLabel;
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < absoluteFallbackAfterMs) return `${Math.floor(diff / 3600000)}h ago`;
+    return date.toLocaleDateString();
+  }
+
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return justNowLabel;
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (monthTier && days >= 30) {
+    return `${Math.floor(days / 30)}mo ago`;
+  }
+  return `${days}d ago`;
+}
+
 /**
  * Formats elapsed time between two instants as a compact duration.
  *
@@ -177,6 +236,163 @@ export function formatDuration(
 }
 
 /**
+ * Options for {@link formatDurationMs}. Each axis maps to a real difference
+ * found across the ~12 local copies this consolidates (IMP-01a082a3) — none
+ * are hypothetical, and every default reproduces the most common shape
+ * (agentConstants.ts / AgentDetailStatsCards.tsx) so `formatDurationMs(ms)`
+ * with no options matches those two call sites exactly.
+ */
+export interface FormatDurationMsOptions {
+  /** String returned when the value is considered empty. Default '—'. */
+  emptyValue?: string;
+  /**
+   * How emptiness is detected: 'falsy' treats 0 (and NaN) as empty — matches
+   * sites that guarded with `!ms`; 'nullish' only null/undefined are empty (0
+   * still renders as '0ms'); 'none' skips the guard entirely. Default
+   * 'nullish'.
+   */
+  emptyCheck?: 'falsy' | 'nullish' | 'none';
+  /** Sub-1000ms rendering: 'round' applies Math.round, 'raw' prints the
+   *  millisecond value unrounded. Default 'round'. */
+  subSecond?: 'round' | 'raw';
+  /** Decimal places for a decimal seconds/minutes/hours display. Default 1. */
+  decimals?: number;
+  /**
+   * What happens once the value reaches 1000ms:
+   * - 'decimal-seconds-only' (default): keep rendering decimal seconds
+   *   forever, no minute tier.
+   * - 'decimal-minutes': switch to seconds below 60s, then minutes (decimal
+   *   or integer per `minuteDisplay`) — optionally escalating to decimal
+   *   hours past 60 minutes when `decimalHourTier` is set.
+   * - 'floor-integer': floor (or round, per `roundSeconds`) straight to
+   *   whole seconds with no decimal display at any tier, then integer
+   *   minute/hour tiering per `minuteTier`/`hourTier`.
+   * - 'decimal-seconds-then-floor-minutes': decimal seconds below 60s (like
+   *   'decimal-minutes'), then integer `Xm Ys` minutes above it with no
+   *   hour tier — minutes grow unbounded (e.g. '90m 0s').
+   */
+  tiering?:
+    | 'decimal-seconds-only'
+    | 'decimal-minutes'
+    | 'floor-integer'
+    | 'decimal-seconds-then-floor-minutes';
+  /** tiering: 'decimal-minutes' only — render the minute tier as a whole
+   *  number instead of one decimal place. Default false. */
+  integerMinutes?: boolean;
+  /** tiering: 'decimal-minutes' only — escalate to a decimal-hours display
+   *  past 60 minutes instead of showing minutes indefinitely. Default false. */
+  decimalHourTier?: boolean;
+  /** tiering: 'floor-integer' only — 'minutes-seconds' renders `Xm Ys`,
+   *  'minutes-only' renders `Xm` with no seconds remainder. Default
+   *  'minutes-seconds'. */
+  minuteTier?: 'minutes-only' | 'minutes-seconds';
+  /** tiering: 'floor-integer' only — round (vs. floor) the initial
+   *  seconds-from-ms conversion before tiering. Default false (floor). */
+  roundSeconds?: boolean;
+  /** tiering: 'floor-integer' only — whether minutes escalate to an `Xh Ym`
+   *  tier past 60 minutes. false leaves minutes unbounded (e.g. '90m 0s').
+   *  Default true. */
+  hourTier?: boolean;
+  /**
+   * Whether a value under 1000ms gets the raw/rounded `Xms` sub-second
+   * shortcut before any tiering runs. Every mode defaults this to true
+   * EXCEPT 'floor-integer', which defaults to false — most floor-integer
+   * sites floor straight to whole seconds with no millisecond display (a
+   * sub-second value renders '0s'), but at least one still wants the
+   * shortcut, so it's a real, independent axis rather than being implied by
+   * `tiering`.
+   */
+  subSecondTier?: boolean;
+}
+
+/**
+ * Formats an already-known millisecond duration (e.g. `execution.duration_ms`,
+ * `span.duration_ms`) directly — as opposed to {@link formatDuration}, which
+ * takes two instants and computes the elapsed time between them. These are
+ * genuinely different contracts (a scalar duration vs. a pair of timestamps),
+ * which is why this is a separate function rather than an overload.
+ *
+ * Consolidates ~12 near-identical local copies (IMP-01a082a3) that differed
+ * in real, load-bearing ways — see {@link FormatDurationMsOptions}. Pass
+ * options to reproduce a specific site's exact prior output; the no-options
+ * default matches the most common shape.
+ *
+ * @example
+ * formatDurationMs(450) // '450ms'
+ * formatDurationMs(45000) // '45.0s'
+ * formatDurationMs(null) // '—'
+ */
+export function formatDurationMs(
+  ms: number | null | undefined,
+  options: FormatDurationMsOptions = {}
+): string {
+  const {
+    emptyValue = '—',
+    emptyCheck = 'nullish',
+    subSecond = 'round',
+    decimals = 1,
+    tiering = 'decimal-seconds-only',
+    integerMinutes = false,
+    decimalHourTier = false,
+    minuteTier = 'minutes-seconds',
+    roundSeconds = false,
+    hourTier = true,
+    subSecondTier = tiering !== 'floor-integer',
+  } = options;
+
+  const isEmpty =
+    emptyCheck === 'none'
+      ? false
+      : emptyCheck === 'falsy'
+        ? !ms || (typeof ms === 'number' && isNaN(ms))
+        : ms === null || ms === undefined;
+  if (isEmpty) return emptyValue;
+
+  const value = ms as number;
+
+  if (subSecondTier && value < 1000) {
+    const shown = subSecond === 'round' ? Math.round(value) : value;
+    return `${shown}ms`;
+  }
+
+  if (tiering === 'floor-integer') {
+    const seconds = roundSeconds ? Math.round(value / 1000) : Math.floor(value / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    if (minuteTier === 'minutes-only') {
+      if (!hourTier || minutes < 60) return `${minutes}m`;
+      const hours = Math.floor(minutes / 60);
+      return `${hours}h ${minutes % 60}m`;
+    }
+    if (!hourTier || minutes < 60) return `${minutes}m ${seconds % 60}s`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ${minutes % 60}m`;
+  }
+
+  if (tiering === 'decimal-seconds-only') {
+    return `${(value / 1000).toFixed(decimals)}s`;
+  }
+
+  if (tiering === 'decimal-seconds-then-floor-minutes') {
+    if (value < 60000) return `${(value / 1000).toFixed(decimals)}s`;
+    const seconds = Math.floor(value / 1000);
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}m ${seconds % 60}s`;
+  }
+
+  // tiering === 'decimal-minutes'
+  if (value < 60000) {
+    return `${(value / 1000).toFixed(decimals)}s`;
+  }
+  if (decimalHourTier && value >= 3600000) {
+    return `${(value / 3600000).toFixed(decimals)}h`;
+  }
+  return integerMinutes
+    ? `${Math.floor(value / 60000)}m`
+    : `${(value / 60000).toFixed(decimals)}m`;
+}
+
+/**
  * Formats a number with thousands separators
  *
  * @param value - Number to format
@@ -201,18 +417,54 @@ export function formatPercent(value: number, decimals = 1): string {
   }).format(value);
 }
 
+/** Options for {@link formatFileSize}. */
+export interface FormatFileSizeOptions {
+  /** String returned when `bytes` is null/undefined. Unset (default): a
+   *  nullish value is treated as 0 (matches every pre-existing caller, which
+   *  never passed null). */
+  emptyValue?: string;
+  /** String returned when `bytes` is <= 0. Unset (default): 0/negative
+   *  values fall through the normal ladder ('0 B', or a raw negative
+   *  number for a negative input, matching every pre-existing caller). */
+  nonPositiveValue?: string;
+  /** Cap the unit ladder at MB instead of continuing to GB/TB/PB — matches
+   *  sites that never expected multi-gigabyte values. Unset (default): the
+   *  full 'B'..'PB' ladder, matching every pre-existing caller. */
+  capAtMB?: boolean;
+  /** Decimal places for the non-'B' units. Either one number applied to
+   *  every unit, or a per-unit override (e.g. `{ MB: 2 }` leaves KB at the
+   *  default of 1). Default 1 for every unit — matches every pre-existing
+   *  caller. */
+  decimals?: number | Partial<Record<'KB' | 'MB' | 'GB' | 'TB' | 'PB', number>>;
+}
+
 /**
  * Formats bytes to human-readable size
  *
  * @param bytes - Size in bytes
+ * @param options - see {@link FormatFileSizeOptions}; the no-options default
+ *   reproduces this function's original behavior exactly (all pre-existing
+ *   callers pass no options and are unaffected).
  * @returns Formatted size string (e.g., '1.5 MB')
  */
-export function formatFileSize(bytes: number): string {
+export function formatFileSize(
+  bytes: number | null | undefined,
+  options: FormatFileSizeOptions = {}
+): string {
+  const { emptyValue, nonPositiveValue, capAtMB = false, decimals = 1 } = options;
+
+  if (bytes === null || bytes === undefined) {
+    if (emptyValue !== undefined) return emptyValue;
+    bytes = 0;
+  }
+  if (nonPositiveValue !== undefined && bytes <= 0) return nonPositiveValue;
+
   // PB tops the ladder because WireGuard peer counters reach it: the system
   // extension's peer list carried its own PB-capable formatter, and adopting
   // this one without PB would render a petabyte as '1024.0 TB'
-  // (IMP-c11d5ad755b8).
-  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  // (IMP-c11d5ad755b8). `capAtMB` opts specific sites back out when they
+  // never expected — or rendered — anything past megabytes (IMP-01a082a3).
+  const units = capAtMB ? (['B', 'KB', 'MB'] as const) : (['B', 'KB', 'MB', 'GB', 'TB', 'PB'] as const);
   let size = bytes;
   let unitIndex = 0;
 
@@ -221,7 +473,15 @@ export function formatFileSize(bytes: number): string {
     unitIndex++;
   }
 
-  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  const unit = units[unitIndex];
+  const unitDecimals =
+    unitIndex === 0
+      ? 0
+      : typeof decimals === 'number'
+        ? decimals
+        : (decimals[unit as 'KB' | 'MB' | 'GB' | 'TB' | 'PB'] ?? 1);
+
+  return `${size.toFixed(unitDecimals)} ${unit}`;
 }
 
 /**
