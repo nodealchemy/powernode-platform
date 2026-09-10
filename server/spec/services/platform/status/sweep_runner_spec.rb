@@ -200,6 +200,150 @@ RSpec.describe Platform::Status::SweepRunner, :platform_status do
     end
   end
 
+  # A2 review L3 — the arm a component_down consumer depends on.
+  describe "a component that stays down" do
+    it "emits component_down ONCE, not on every sweep it remains down" do
+      register_kind(up: :down)
+
+      described_class.run!(account)
+      expect(Platform::StatusEvent.of_kind(Platform::StatusEvent::KIND_COMPONENT_DOWN).count).to eq(1)
+
+      # Still down on the next pass: no transition, so no second event and no
+      # second broadcast. A consumer that pages on component_down must not be
+      # paged once a minute for the same outage.
+      expect { described_class.run!(account) }.not_to have_broadcasted_to(
+        PlatformStatusChannel.account_stream(account.id)
+      )
+      expect(Platform::StatusEvent.of_kind(Platform::StatusEvent::KIND_COMPONENT_DOWN).count).to eq(1)
+      expect(Platform::StatusEvent.count).to eq(2)
+    end
+  end
+
+  # A2 review M4 — the producer was the only unrescued layer.
+  describe "an event that cannot be written" do
+    it "does not abort the remaining transitions, and reports the failure count" do
+      register_fake_kind(records: [ fake_record("a"), fake_record("b"), fake_record("c") ])
+      failed_once = false
+      allow(Platform::StatusEvent).to receive(:create!).and_wrap_original do |original, **attrs|
+        if attrs[:component_ref] == "a" && !failed_once
+          failed_once = true
+          raise ActiveRecord::RecordInvalid.new(Platform::StatusEvent.new)
+        end
+        original.call(**attrs)
+      end
+
+      result = described_class.run!(account)
+
+      # b and c still got their events, which is the whole point.
+      expect(Platform::StatusEvent.pluck(:component_ref)).to contain_exactly("b", "c")
+      expect(result[:event_failures]).to eq(1)
+      expect(result[:events_written]).to eq(2)
+    end
+
+    it "reports zero failures on a clean run — the other arm" do
+      register_kind(up: true)
+
+      expect(described_class.run!(account)[:event_failures]).to eq(0)
+    end
+  end
+
+  # A5's remediation refresh; the call site lane 10 asked for.
+  describe "remediation refresh" do
+    around do |example|
+      saved = Platform::Status::SignalSources.sources
+      Platform::Status::SignalSources.reset!
+      example.run
+    ensure
+      Platform::Status::SignalSources.reset!
+      saved.each { |source| Platform::Status::SignalSources.register(source) }
+    end
+
+    it "reports skipped/NoSignalSources on every account until a source is registered" do
+      register_kind(up: true)
+
+      result = described_class.run!(account)
+
+      expect(result[:remediation]).to include(
+        skipped: true,
+        reason: Platform::Status::RemediationRefresh::NO_SOURCES
+      )
+    end
+
+    it "gives a row a remediation state through the runner path once a source is registered" do
+      register_kind(up: :down)
+      Platform::Status::SignalSources.register(
+        ->(component_status) {
+          [ { "signal_kind" => "component_down", "component_kind" => component_status.component_kind,
+              "fingerprint" => "fp-#{component_status.component_ref}" } ]
+        }
+      )
+
+      result = described_class.run!(account)
+
+      expect(result[:remediation][:skipped]).to be_falsey
+      expect(result[:remediation][:refreshed]).to eq(1)
+
+      row = Platform::ComponentStatus.find_by!(component_ref: "a")
+      expect(row.remediation["state"]).to be_present
+      expect(Platform::ComponentStatus::REMEDIATION_STATES).to include(row.remediation["state"])
+    end
+
+    it "does not let a raising refresh cost the sweep its verdicts or its events" do
+      register_kind(up: :down)
+      allow(Platform::Status::RemediationRefresh).to receive(:run!).and_raise("refresh exploded")
+
+      result = nil
+      expect { result = described_class.run!(account) }.not_to raise_error
+
+      # The verdict and both events are still there, which is the point.
+      expect(Platform::ComponentStatus.find_by!(component_ref: "a").verdict).to eq("down")
+      expect(Platform::StatusEvent.count).to eq(2)
+      expect(result[:remediation]).to include(skipped: true, reason: "RefreshError")
+    end
+  end
+
+  # A7's dwell pass; the call site lane 6 asked for.
+  describe "dwell escalation" do
+    it "runs the dwell pass on every sweep, after the transitions" do
+      register_kind(up: true)
+      allow(Platform::Status::Escalation).to receive(:sweep!).and_call_original
+
+      described_class.run!(account)
+
+      expect(Platform::Status::Escalation).to have_received(:sweep!)
+        .with(account, now: kind_of(Time)).once
+    end
+
+    it "notifies a person about a row that has been degraded past the dwell threshold" do
+      user = create(:user, account: account, permissions: [ "system.admin" ])
+      degraded_for = (Platform::Status::Escalation.degraded_after_minutes + 5).minutes
+      create(:platform_component_status, account: account, component_kind: "fake_kind",
+                                         component_ref: "slow", verdict: "degraded",
+                                         last_seen_sweep_at: Time.current,
+                                         conditions: [ { "type" => "Reachable", "status" => false,
+                                                         "reason" => "Timeout",
+                                                         "last_transition_at" => degraded_for.ago } ])
+      register_kind(up: true)
+
+      expect { described_class.run!(account) }.to change { user.notifications.count }.by(1)
+
+      notification = user.notifications.order(:created_at).last
+      expect(notification.severity).to eq("warning")
+      expect(notification.title).to match(/degraded/i)
+    end
+
+    it "does not let a failing dwell pass fail a sweep that already succeeded" do
+      register_kind(up: true)
+      allow(Platform::Status::Escalation).to receive(:sweep!).and_raise("escalation exploded")
+
+      result = nil
+      expect { result = described_class.run!(account) }.not_to raise_error
+
+      expect(result[:skipped]).to be(false)
+      expect(Platform::StatusEvent.count).to eq(1)
+    end
+  end
+
   describe "the mirror seam" do
     it "hands each transition to every registered emitter, after the events are written" do
       register_kind(up: true)
