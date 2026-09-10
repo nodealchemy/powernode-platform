@@ -55,10 +55,21 @@ module Api
           return render_error("Unknown verdict filter: #{query.verdict}", status: :bad_request) unless query.known_verdict?
 
           rows = query.rows.to_a
+          # SHARED ROWS ARE SPLIT OUT, not summed in (design §4.4, ruling
+          # 2026-09-10). A NULL-account row describes process-wide
+          # infrastructure that belongs to no tenant, so folding it into the
+          # per-account operational verdict would turn one shared breaker into
+          # every tenant's outage. ::Platform::Status::Rollup computes over
+          # whatever rows it is handed — it does no tenancy filtering of its
+          # own — so the split has to happen here, at the one call site that
+          # knows whose plane this is.
+          account_rows, shared_rows = rows.partition { |row| row.account_id.present? }
 
           render_success(
-            rollup: ::Platform::Status::Rollup.rollup(rows),
-            by_kind: rollup_by_kind(rows),
+            rollup: ::Platform::Status::Rollup.rollup(account_rows),
+            shared: ::Platform::Status::Rollup.rollup(shared_rows),
+            by_kind: rollup_by_kind(account_rows),
+            shared_by_kind: rollup_by_kind(shared_rows),
             filters: query.applied_filters,
             unknown_environment: query.unknown_environment?,
             observed_at: Time.current.utc.iso8601

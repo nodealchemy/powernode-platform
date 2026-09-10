@@ -48,6 +48,46 @@ RSpec.describe "Api::V1::Platform::ComponentStatuses", type: :request do
       end
     end
 
+    # The CUSTOM actions get their own arms. check-authz-coverage.sh is a
+    # per-CONTROLLER guard (it passes as soon as the file carries any authz
+    # token), so it cannot see a custom action that slipped past the
+    # before_action. These examples can.
+    it "refuses an UNAUTHENTICATED caller on rollup and impact" do
+      row = component
+
+      get "/api/v1/platform/component_statuses/rollup", as: :json
+      expect(response).to have_http_status(:unauthorized)
+      expect(json_response["data"]).to be_nil
+
+      get "/api/v1/platform/component_statuses/#{row.id}/impact", as: :json
+      expect(response).to have_http_status(:unauthorized)
+      expect(json_response["data"]).to be_nil
+    end
+
+    it "refuses an AUTHENTICATED but unauthorised caller on rollup and impact" do
+      row = component(component_ref: "secret-ish")
+      stranger = auth_headers_for(create(:user, account: account, permissions: []))
+
+      get "/api/v1/platform/component_statuses/rollup", headers: stranger, as: :json
+      expect(response).to have_http_status(:forbidden)
+      expect(response.body).not_to include("secret-ish")
+
+      get "/api/v1/platform/component_statuses/#{row.id}/impact", headers: stranger, as: :json
+      expect(response).to have_http_status(:forbidden)
+      expect(response.body).not_to include("secret-ish")
+    end
+
+    it "gates all four actions declaratively, so none can be added ungated by accident" do
+      # The guard the authz script wants: ONE before_action covering every
+      # action, with no `only:`/`except:` narrowing that a new action could
+      # fall outside of.
+      filters = Api::V1::Platform::ComponentStatusesController._process_action_callbacks
+                                                              .select { |c| c.kind == :before && c.filter == :validate_permissions }
+      expect(filters.size).to eq(1)
+      expect(filters.first.instance_variable_get(:@if)).to be_empty
+      expect(filters.first.instance_variable_get(:@unless)).to be_empty
+    end
+
     it "refuses show and impact for a user without the permission" do
       row = component
       stranger = create(:user, account: account, permissions: [])
@@ -73,7 +113,29 @@ RSpec.describe "Api::V1::Platform::ComponentStatuses", type: :request do
       expect_success_response
       rows = json_response_data["component_statuses"]
       expect(rows.map { |r| r["component_ref"] }).to contain_exactly("mine", "shared-thing")
-      expect(rows.find { |r| r["component_ref"] == "shared-thing" }["shared"]).to be true
+      expect(rows.find { |r| r["component_ref"] == "shared-thing" })
+        .to include("shared" => true, "scope" => "shared")
+      expect(rows.find { |r| r["component_ref"] == "mine" }["scope"]).to eq("account")
+    end
+
+    # The shared-row ruling (2026-09-10), both arms, from a SECOND account:
+    # a NULL-account row is readable by any holder of platform.status.read and
+    # is labelled `scope: "shared"`; account A's own rows never reach B.
+    it "shows a shared row to another account as scope=shared and never account A's own rows" do
+      create(:platform_component_status, :shared, component_ref: "shared-breaker")
+      component(component_ref: "account-a-only")
+
+      account_b = create(:account)
+      create(:user, account: account_b)
+      member_b = create(:user, :member, account: account_b)
+
+      get "/api/v1/platform/component_statuses", headers: auth_headers_for(member_b), as: :json
+
+      expect_success_response
+      rows = json_response_data["component_statuses"]
+      expect(rows.map { |r| r["component_ref"] }).to eq([ "shared-breaker" ])
+      expect(rows.first["scope"]).to eq("shared")
+      expect(response.body).not_to include("account-a-only")
     end
 
     it "filters by kind — including and excluding arms" do
@@ -262,6 +324,21 @@ RSpec.describe "Api::V1::Platform::ComponentStatuses", type: :request do
       get "/api/v1/platform/component_statuses/rollup", headers: headers, as: :json
 
       expect(json_response_data["rollup"]).to include("verdict" => "ok", "held_count" => 2)
+    end
+
+    it "keeps shared infrastructure OUT of the per-account verdict and in its own bucket" do
+      component(component_kind: "ai_provider", component_ref: "mine", verdict: "ok")
+      create(:platform_component_status, :shared, component_kind: "agent_circuit_breaker",
+                                                  component_ref: "breaker", verdict: "down")
+
+      get "/api/v1/platform/component_statuses/rollup", headers: headers, as: :json
+
+      expect_success_response
+      # One shared breaker going down must not read as this tenant's outage.
+      expect(json_response_data["rollup"]).to include("verdict" => "ok", "total" => 1)
+      expect(json_response_data["shared"]).to include("verdict" => "down", "total" => 1)
+      expect(json_response_data["by_kind"].keys).to eq([ "ai_provider" ])
+      expect(json_response_data["shared_by_kind"].keys).to eq([ "agent_circuit_breaker" ])
     end
 
     it "counts a cordoned-AND-down component as held while its own verdict still says down" do

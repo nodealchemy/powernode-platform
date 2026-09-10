@@ -22,6 +22,11 @@ module Platform
   # adds the payloads a drawer needs — the conditions themselves, dependency
   # edges, remediation, links and actions.
   class ComponentStatusSerializer
+    # The two buckets a row can render in. `shared` rows carry a NULL account
+    # and belong to no tenant's operational verdict (design §4.4).
+    SCOPE_SHARED  = "shared"
+    SCOPE_ACCOUNT = "account"
+
     def initialize(row, plane: nil)
       @row = row
       @plane = plane
@@ -59,6 +64,14 @@ module Platform
         held_by_intent: @row.held_by_intent?,
         unhealthy: @row.unhealthy?,
         shared: @row.account_id.nil?,
+        # "shared" | "account" — the bucket this row renders in (ruling
+        # 2026-09-10, from the A3 review). A NULL-account row is written by a
+        # process-wide contributor, is readable by any holder of
+        # platform.status.read, and NEVER enters a per-account operational
+        # verdict. The contributor is the one responsible for sanitizing it;
+        # this label is what lets the page put it in the right section rather
+        # than inferring tenancy from a null.
+        scope: @row.account_id.nil? ? SCOPE_SHARED : SCOPE_ACCOUNT,
         environment_id: @row.environment_id,
         plane: plane_label,
         presentation: @row.presentation,
