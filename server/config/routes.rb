@@ -1577,6 +1577,21 @@ Rails.application.routes.draw do
           member do
             get :impact
           end
+
+          # THE DRAWER (design §6, increment A9). Nested rather than member
+          # routes so `:component_status_id` is the param everywhere — a drawer
+          # endpoint that took `:id` for the component and another that took it
+          # for the investigation would be two meanings for one name.
+          #
+          # The three reads are gated on platform.status.read; POST
+          # investigations is gated on ai.autonomy.manage as well, matching the
+          # MCP verb exactly, so the button and the tool cannot disagree about
+          # who may spend an LLM call.
+          get :runbook, to: "component_status_actions#runbook"
+          get :remediation_route, to: "component_status_actions#remediation_route"
+          get :events, to: "component_status_actions#events"
+          resources :investigations, only: [ :index, :create ],
+                                     controller: "component_status_investigations"
         end
       end
 
