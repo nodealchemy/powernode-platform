@@ -351,7 +351,7 @@ module Ai
             parameters: {
               agent_id: { type: "string", required: false, description: "Target agent ID (omit for self; another agent's ID requires ai.autonomy.manage)" },
               max_depth: { type: "integer", required: false, description: "Maximum delegation depth, 1..10" },
-              allowed_delegate_types: { type: "array", required: false, description: "Agent types this agent may delegate to (empty = any)" },
+              allowed_delegate_types: { type: "array", required: false, description: "Agent types this agent may delegate to (empty = none; delegate to any type by enumerating them, or by holding no policy row)" },
               delegatable_actions: { type: "array", required: false, description: "Action types this agent may delegate (empty = any)" },
               budget_delegation_pct: { type: "number", required: false, description: "Fraction 0..1 of remaining budget delegatable per task" },
               inheritance_policy: { type: "string", required: false, description: "conservative | moderate | permissive" }
