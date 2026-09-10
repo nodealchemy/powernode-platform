@@ -196,7 +196,12 @@ RSpec.describe Ai::Tools::PlatformRemediationTool do
 
       request = Ai::ApprovalRequest.find(@result[:data][:approval_request_id])
       expect(@result[:success]).to be true
-      expect(@result[:data][:status]).to eq("pending")
+      # The key carries its scope: a bare `status` on a remediation front door
+      # would read as the component's remediation state, not the approval row's
+      # lifecycle. Asserted by NAME so a rename back is a failing example and
+      # not merely a lint finding.
+      expect(@result[:data]).not_to have_key(:status)
+      expect(@result[:data][:approval_request_status]).to eq("pending")
       expect(@result[:data][:deduplicated]).to be false
       expect(request.source_type).to eq("Platform::ComponentStatus")
       expect(request.source_id).to eq(component.id)

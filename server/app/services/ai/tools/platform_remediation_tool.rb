@@ -202,7 +202,12 @@ module Ai
         success_result(
           approval_request_id: request.id,
           request_id: request.request_id,
-          status: request.status,
+          # SCOPED, not `status`. The bare noun is the incident shape this
+          # tool's own subject makes worst: a caller asking a remediation front
+          # door for "the status" means the component's remediation state — the
+          # rung under `route[:state]` — and would read the approval row's
+          # lifecycle as the answer. Two different questions, one plausible key.
+          approval_request_status: request.status,
           expires_at: request.expires_at,
           deduplicated: result.deduplicated?,
           component: component_descriptor(component),
