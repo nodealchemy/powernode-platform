@@ -20,6 +20,14 @@ FactoryBot.define do
       from_verdict { nil }
     end
 
+    # The component's record is gone: reaped, or a wildcard error row cleared
+    # when its contributor recovered. No destination verdict.
+    trait :removal do
+      to_verdict { nil }
+      from_verdict { Platform::ComponentStatus::DOWN }
+      payload { { "reason" => "Reaped" } }
+    end
+
     trait :down do
       kind { Platform::StatusEvent::KIND_COMPONENT_DOWN }
       to_verdict { Platform::ComponentStatus::DOWN }

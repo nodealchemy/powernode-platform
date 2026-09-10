@@ -6,22 +6,28 @@ require "rails_helper"
 RSpec.describe Platform::Status::Rollup do
   let(:account) { create(:account) }
 
-  def component(ref, verdict: "ok", kind: "fake_kind", depends_on: [], transitioned_at: nil)
+  def component(ref, verdict: "ok", kind: "fake_kind", depends_on: [], transitioned_at: nil, held: false)
+    conditions = []
+    if transitioned_at
+      conditions << { "type" => "Reachable", "status" => false, "reason" => "Down",
+                      "last_transition_at" => transitioned_at }
+    end
+    conditions << { "type" => "Held", "status" => true, "reason" => "Cordoned" } if held
+
     create(:platform_component_status,
            account: account,
            component_kind: kind,
            component_ref: ref,
            verdict: verdict,
            dependencies: depends_on.map { |k, r| { "kind" => k, "ref" => r, "relation" => "requires" } },
-           conditions: transitioned_at ? [ { "type" => "Reachable", "status" => false, "reason" => "Down",
-                                             "last_transition_at" => transitioned_at } ] : [])
+           conditions: conditions)
   end
 
   describe ".rollup" do
     it "carries the held count BESIDE the operational verdict — a drain never turns the header amber" do
       component("a")
-      component("b", verdict: "held")
-      component("c", verdict: "held")
+      component("b", verdict: "held", held: true)
+      component("c", verdict: "held", held: true)
 
       result = described_class.rollup(Platform::ComponentStatus.for_account(account))
 
@@ -30,14 +36,39 @@ RSpec.describe Platform::Status::Rollup do
       expect(result[:total]).to eq(3)
     end
 
-    it "does let a real failure raise it, with the held count still carried" do
-      component("a", verdict: "held")
+    it "does let an UNHELD failure raise it, with the held count still carried" do
+      component("a", verdict: "held", held: true)
       component("b", verdict: "down")
 
       result = described_class.rollup(Platform::ComponentStatus.for_account(account))
 
       expect(result[:verdict]).to eq("down")
       expect(result[:held_count]).to eq(1)
+    end
+
+    # A1 review L2 — the case the ruling exists for.
+    it "keeps a held-AND-down component out of the headline and IN the held count" do
+      component("drained", verdict: "down", held: true)
+      component("healthy", verdict: "ok")
+
+      result = described_class.rollup(Platform::ComponentStatus.for_account(account))
+
+      # A planned drain of a node that is (correctly) down does not go red...
+      expect(result[:verdict]).to eq("ok")
+      # ...it is counted as held, so the caption explains the drain...
+      expect(result[:held_count]).to eq(1)
+      # ...and the per-verdict breakdown still tells the truth about it, which
+      # is why held_count and counts_by_verdict deliberately disagree.
+      expect(result[:counts_by_verdict]["down"]).to eq(1)
+      expect(result[:counts_by_verdict]["held"]).to eq(0)
+    end
+
+    it "does NOT count a component whose verdict is held but which carries no Held condition" do
+      component("ladder_only", verdict: "held")
+
+      result = described_class.rollup(Platform::ComponentStatus.for_account(account))
+
+      expect(result[:held_count]).to eq(0)
     end
 
     it "counts every rung of the ladder, including the ones at zero" do
@@ -134,6 +165,31 @@ RSpec.describe Platform::Status::Rollup do
                              depends_on: [ %w[fake_kind shared], %w[fake_kind narrow] ])
 
       expect(described_class.root_cause_candidates(web).map(&:component_ref)).to eq(%w[shared narrow])
+    end
+
+    # A1 review L5.
+    it "falls back to the whole unhealthy cycle when no member is upstream-most" do
+      # a and b depend on each other and are both unhealthy, so neither is
+      # "upstream-most". Returning nothing would be a worse answer than
+      # returning the cycle.
+      component("a", verdict: "down", depends_on: [ %w[fake_kind b] ], transitioned_at: 2.hours.ago)
+      b = component("b", verdict: "down", depends_on: [ %w[fake_kind a] ], transitioned_at: 1.hour.ago)
+
+      candidates = described_class.root_cause_candidates(b)
+
+      expect(candidates.map(&:component_ref)).to contain_exactly("a", "b")
+    end
+
+    # A1 review L3.
+    it "sorts a component with NO transition timestamp LAST, not as the oldest" do
+      # "we have no idea when this broke" must not outrank "this demonstrably
+      # broke four hours ago".
+      component("timed", verdict: "down", transitioned_at: 4.hours.ago)
+      component("untimed", verdict: "not_measured")
+      web = component("web", verdict: "degraded",
+                             depends_on: [ %w[fake_kind untimed], %w[fake_kind timed] ])
+
+      expect(described_class.root_cause_candidates(web).map(&:component_ref)).to eq(%w[timed untimed])
     end
 
     it "ranks by the earliest transition when the out-degrees tie" do

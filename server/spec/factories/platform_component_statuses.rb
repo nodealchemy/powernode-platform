@@ -16,8 +16,16 @@ FactoryBot.define do
       account { nil }
     end
 
+    # The DERIVED verdict is `held` and nothing else is wrong.
     trait :held do
       verdict { Platform::ComponentStatus::HELD }
+      conditions { [ { "type" => "Held", "status" => true, "reason" => "Cordoned" } ] }
+    end
+
+    # OPERATOR INTENT is present, whatever the verdict is. Combine with :down
+    # for the case the L2 ruling exists for: a cordoned node that is also down.
+    trait :held_by_intent do
+      conditions { [ { "type" => "Held", "status" => true, "reason" => "Cordoned" } ] }
     end
 
     trait :down do

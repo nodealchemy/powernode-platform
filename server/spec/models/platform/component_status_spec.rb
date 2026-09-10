@@ -80,13 +80,45 @@ RSpec.describe Platform::ComponentStatus do
       expect(described_class.worst([])).to eq(described_class::NOT_MEASURED)
     end
 
-    it "excludes held from the operational verdict but not a real failure" do
-      # Both arms: a held child never raises it, a down child always does.
-      expect(described_class.worst_operational(%w[ok held held])).to eq("ok")
-      expect(described_class.worst_operational(%w[held down])).to eq("down")
+    it "excludes components held BY INTENT from the operational verdict, but not a real failure" do
+      # Intent is read from the condition, not the derived verdict (A1 review
+      # L2). Both arms: a held child never raises it, an unheld failure does.
+      ok = build(:platform_component_status, verdict: "ok")
+      held = build(:platform_component_status, :held_by_intent, verdict: "ok")
+      down = build(:platform_component_status, verdict: "down")
+
+      expect(described_class.worst_operational([ ok, held, held ])).to eq("ok")
+      expect(described_class.worst_operational([ held, down ])).to eq("down")
       # All-held is operationally fine; nothing observed is not.
-      expect(described_class.worst_operational(%w[held])).to eq("ok")
+      expect(described_class.worst_operational([ held ])).to eq("ok")
       expect(described_class.worst_operational([])).to eq(described_class::NOT_MEASURED)
+    end
+
+    it "keeps a held-AND-down component out of the headline while its own verdict still says down" do
+      # The case the ruling exists for: a cordoned node that is also down. Its
+      # verdict is the truth (`down`, for the drawer), but it must not turn the
+      # header red for a planned drain.
+      held_and_down = build(:platform_component_status, :held_by_intent, verdict: "down")
+      sibling = build(:platform_component_status, verdict: "ok")
+
+      expect(held_and_down.held_by_intent?).to be(true)
+      expect(held_and_down.verdict).to eq("down")
+      expect(described_class.worst_operational([ held_and_down, sibling ])).to eq("ok")
+    end
+
+    it "reads intent from a TRUE Held condition only" do
+      expect(build(:platform_component_status, :held_by_intent).held_by_intent?).to be(true)
+
+      # A Held condition that is false is an absent intent, not a held node.
+      not_held = build(:platform_component_status, conditions: [
+                         { "type" => "Held", "status" => false, "reason" => "NotCordoned" }
+                       ])
+      expect(not_held.held_by_intent?).to be(false)
+
+      # ...and a component whose derived verdict happens to be `held` but which
+      # carries no Held condition is not counted either — the count keys on
+      # evidence, not on the ladder.
+      expect(build(:platform_component_status, verdict: "held", conditions: []).held_by_intent?).to be(false)
     end
   end
 

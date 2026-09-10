@@ -3,62 +3,10 @@
 require "rails_helper"
 
 # Component status plane, increment A1 — the sweep and the reap arm.
-RSpec.describe Platform::Status::SweepService do
+# Fakes come from PlatformStatusSpecSupport; the `:platform_status` tag also
+# snapshots and restores the process-global registry and emitter seam.
+RSpec.describe Platform::Status::SweepService, :platform_status do
   let(:account) { create(:account) }
-  let(:registry) { Platform::Status::Registry }
-  let(:condition) { Platform::Status::Condition }
-
-  # A contributor over plain structs: this increment must be provable with no
-  # real fleet, no extension and no sensor.
-  # rubocop:disable RSpec/LeakyConstantDeclaration
-  FakeRecord = Struct.new(:id, :name, :up, keyword_init: true)
-
-  class FakeContributor < Platform::Status::Contributor
-    attr_accessor :records, :raise_on_enumerate, :raise_on_record, :scoped, :edges
-
-    def initialize(records: [], scoped: true)
-      super()
-      @records = records
-      @scoped = scoped
-      @edges = {}
-      @raise_on_enumerate = false
-      @raise_on_record = nil
-    end
-
-    def kind = "fake_kind"
-    def account_scoped? = @scoped
-    def ref_for(record) = record.id
-    def display_name_for(record) = record.name
-
-    def each_component(_account)
-      raise "enumeration exploded" if @raise_on_enumerate
-
-      @records.each { |record| yield record }
-    end
-
-    def conditions_for(record)
-      raise "conditions exploded" if @raise_on_record == record.id
-
-      [ Platform::Status::Condition.build(type: "Reachable", status: record.up,
-                                          reason: record.up ? "Responding" : "Timeout") ]
-    end
-
-    def dependencies_for(record) = Array(@edges[record.id])
-  end
-  # rubocop:enable RSpec/LeakyConstantDeclaration
-
-  around do |example|
-    saved = registry.contributors
-    registry.reset!
-    example.run
-  ensure
-    registry.reset!
-    saved.each { |kind, contributor| registry.register(kind, contributor) }
-  end
-
-  def record(id, up: true)
-    FakeRecord.new(id: id, name: "Component #{id}", up: up)
-  end
 
   describe "the sweep interval" do
     it "reads the SiteSetting and falls back to the documented default, both arms" do
@@ -78,7 +26,7 @@ RSpec.describe Platform::Status::SweepService do
 
   describe "a registered kind" do
     it "writes one row per component, with the derived verdict and the contributor's presentation" do
-      registry.register("fake_kind", FakeContributor.new(records: [ record("a"), record("b", up: false) ]))
+      register_fake_kind(records: [ fake_record("a"), fake_record("b", up: false) ])
 
       summary = described_class.run_once!(account)
 
@@ -92,8 +40,7 @@ RSpec.describe Platform::Status::SweepService do
     end
 
     it "upserts rather than duplicating, and preserves an unchanged condition's transition time" do
-      contributor = FakeContributor.new(records: [ record("a", up: false) ])
-      registry.register("fake_kind", contributor)
+      contributor = register_fake_kind(records: [ fake_record("a", up: false) ])
 
       described_class.run_once!(account, now: 2.hours.ago)
       first = Platform::ComponentStatus.find_by!(component_ref: "a")
@@ -102,18 +49,16 @@ RSpec.describe Platform::Status::SweepService do
       described_class.run_once!(account)
       expect(Platform::ComponentStatus.where(component_ref: "a").count).to eq(1)
 
-      unchanged = first.reload.conditions.first
-      expect(unchanged["last_transition_at"]).to eq(original_transition)
+      expect(first.reload.conditions.first["last_transition_at"]).to eq(original_transition)
 
       # And the other arm: flipping the underlying fact moves the timestamp.
-      contributor.records = [ record("a", up: true) ]
+      contributor.records = [ fake_record("a", up: true) ]
       described_class.run_once!(account)
       expect(first.reload.conditions.first["last_transition_at"]).not_to eq(original_transition)
     end
 
     it "returns the transitions and emits NO events itself — A2 is the single producer" do
-      contributor = FakeContributor.new(records: [ record("a") ])
-      registry.register("fake_kind", contributor)
+      contributor = register_fake_kind(records: [ fake_record("a") ])
 
       first_run = described_class.run_once!(account)
       expect(first_run[:transitions].map { |t| t.values_at(:component_ref, :from, :to) }).to eq([ [ "a", nil, "ok" ] ])
@@ -121,7 +66,7 @@ RSpec.describe Platform::Status::SweepService do
       # A second pass with nothing changed reports NO transition.
       expect(described_class.run_once!(account)[:transitions]).to be_empty
 
-      contributor.records = [ record("a", up: false) ]
+      contributor.records = [ fake_record("a", up: false) ]
       changed = described_class.run_once!(account)
       expect(changed[:transitions].map { |t| t.values_at(:from, :to) }).to eq([ %w[ok degraded] ])
       expect(changed[:kinds]["fake_kind"][:transitions]).to eq(1)
@@ -130,9 +75,8 @@ RSpec.describe Platform::Status::SweepService do
 
   describe "a contributor that raises" do
     it "marks a single failing component not_measured/ContributorError and keeps its siblings" do
-      contributor = FakeContributor.new(records: [ record("a"), record("boom") ])
+      contributor = register_fake_kind(records: [ fake_record("a"), fake_record("boom") ])
       contributor.raise_on_record = "boom"
-      registry.register("fake_kind", contributor)
 
       described_class.run_once!(account)
 
@@ -143,14 +87,44 @@ RSpec.describe Platform::Status::SweepService do
       expect(failed.conditions.first["evidence"]["exception_class"]).to eq("RuntimeError")
     end
 
-    it "lands a failing ENUMERATION on one wildcard row and never aborts the other kinds" do
-      broken = FakeContributor.new
-      broken.raise_on_enumerate = true
-      registry.register("fake_kind", broken)
+    # A1 review H1.
+    it "marks EVERY EXISTING ROW of the kind not_measured when the ENUMERATION raises" do
+      contributor = register_fake_kind(records: [ fake_record("a"), fake_record("b") ])
+      described_class.run_once!(account)
+      expect(Platform::ComponentStatus.for_kind("fake_kind").pluck(:verdict)).to eq(%w[ok ok])
 
-      healthy = FakeContributor.new(records: [ record("h") ])
-      allow(healthy).to receive(:kind).and_return("healthy_kind")
-      registry.register("healthy_kind", healthy)
+      contributor.raise_on_enumerate = true
+      summary = described_class.run_once!(account)
+
+      rows = Platform::ComponentStatus.for_kind("fake_kind").order(:component_ref)
+      expect(rows.pluck(:component_ref, :verdict)).to eq([ %w[a not_measured], %w[b not_measured] ])
+      expect(rows.map { |r| r.conditions.first["reason"] }).to all(eq("ContributorError"))
+      # No wildcard row: there were refs to key the failure on.
+      expect(Platform::ComponentStatus.exists?(component_ref: "*")).to be(false)
+      expect(summary[:transitions].map { |t| t.values_at(:component_ref, :to) })
+        .to contain_exactly([ "a", "not_measured" ], [ "b", "not_measured" ])
+    end
+
+    # A1 review H1, the other arm and the reason the wildcard row still exists.
+    it "SURVIVES the reap it used to trigger — the rows are refreshed, not abandoned" do
+      contributor = register_fake_kind(records: [ fake_record("a") ])
+      described_class.run_once!(account)
+
+      contributor.raise_on_enumerate = true
+      # Three sweeps' worth of failure: before H1 the rows kept a stale `ok`
+      # and were then deleted outright.
+      3.times { described_class.run_once!(account) }
+      described_class.run_once!(account, now: Time.current + 10.minutes)
+
+      row = Platform::ComponentStatus.find_by(component_ref: "a")
+      expect(row).to be_present
+      expect(row.verdict).to eq("not_measured")
+    end
+
+    it "lands a failing ENUMERATION on one wildcard row only when the kind has no rows yet" do
+      broken = register_fake_kind
+      broken.raise_on_enumerate = true
+      register_fake_kind(kind: "healthy_kind", records: [ fake_record("h") ])
 
       summary = described_class.run_once!(account)
 
@@ -166,8 +140,7 @@ RSpec.describe Platform::Status::SweepService do
     end
 
     it "does not preserve a stale ok when it fails to look" do
-      contributor = FakeContributor.new(records: [ record("a") ])
-      registry.register("fake_kind", contributor)
+      contributor = register_fake_kind(records: [ fake_record("a") ])
       described_class.run_once!(account)
       expect(Platform::ComponentStatus.find_by!(component_ref: "a").verdict).to eq("ok")
 
@@ -178,9 +151,41 @@ RSpec.describe Platform::Status::SweepService do
     end
   end
 
+  # A1 review M3.
+  describe "the wildcard row on recovery" do
+    it "is deleted as soon as the contributor works again, not left to age out" do
+      contributor = register_fake_kind
+      contributor.raise_on_enumerate = true
+      described_class.run_once!(account)
+      expect(Platform::ComponentStatus.exists?(component_ref: "*")).to be(true)
+
+      contributor.raise_on_enumerate = false
+      contributor.records = [ fake_record("a") ]
+      summary = described_class.run_once!(account)
+
+      expect(Platform::ComponentStatus.exists?(component_ref: "*")).to be(false)
+      # ...and the rollup recovers immediately rather than after a reap window.
+      expect(Platform::Status::Rollup.rollup(Platform::ComponentStatus.for_account(account))[:verdict]).to eq("ok")
+      # The removal is reported, so a consumer can close what it opened.
+      expect(summary[:transitions].map { |t| t.values_at(:component_ref, :to, :reason) })
+        .to include([ "*", nil, "Recovered" ])
+    end
+
+    it "keeps a row whose ref is legitimately '*' when the contributor enumerates it" do
+      register_fake_kind(records: [ fake_record("*") ])
+
+      described_class.run_once!(account)
+      described_class.run_once!(account)
+
+      row = Platform::ComponentStatus.find_by(component_kind: "fake_kind", component_ref: "*")
+      expect(row).to be_present
+      expect(row.verdict).to eq("ok")
+    end
+  end
+
   describe "a non-account-scoped kind" do
     it "writes a NULL-account row that no per-account rollup sees" do
-      registry.register("shared_kind", FakeContributor.new(records: [ record("primary") ], scoped: false))
+      register_fake_kind(kind: "shared_kind", records: [ fake_record("primary") ], scoped: false)
 
       described_class.run_once!(account)
 
@@ -197,7 +202,7 @@ RSpec.describe Platform::Status::SweepService do
 
   describe "the reap arm" do
     it "deletes a row not seen for three sweeps and spares one seen two sweeps ago" do
-      registry.register("fake_kind", FakeContributor.new(records: [ record("a") ]))
+      register_fake_kind(records: [ fake_record("a") ])
       interval = described_class.sweep_interval_seconds
 
       gone = create(:platform_component_status, account: account, component_kind: "fake_kind",
@@ -214,6 +219,21 @@ RSpec.describe Platform::Status::SweepService do
       expect(summary[:reaped]).to eq(1)
     end
 
+    # A1 review M4.
+    it "REPORTS a reap as a transition to nil, so a consumer can close what it opened" do
+      register_fake_kind(records: [ fake_record("a") ])
+      create(:platform_component_status, account: account, component_kind: "fake_kind",
+                                         component_ref: "gone", verdict: "down",
+                                         last_seen_sweep_at: 1.day.ago)
+
+      summary = described_class.run_once!(account)
+
+      removal = summary[:transitions].find { |t| t[:component_ref] == "gone" }
+      expect(removal).to include(from: "down", to: nil, reason: "Reaped")
+      # The row is gone, so the transition must NOT point at its id.
+      expect(removal[:component_status_id]).to be_nil
+    end
+
     it "reaps a kind that is no longer registered, by the same age rule" do
       stale = create(:platform_component_status, account: account, component_kind: "retired_kind",
                                                  last_seen_sweep_at: 1.day.ago)
@@ -222,10 +242,7 @@ RSpec.describe Platform::Status::SweepService do
 
       described_class.run_once!(account)
 
-      # Aged out because nothing refreshes it...
       expect(Platform::ComponentStatus.exists?(stale.id)).to be(false)
-      # ...but a freshly written row of an unregistered kind survives, so a
-      # late-registering extension is not raced to death on boot.
       expect(Platform::ComponentStatus.exists?(young.id)).to be(true)
     end
 
@@ -236,6 +253,31 @@ RSpec.describe Platform::Status::SweepService do
       described_class.run_once!(account)
 
       expect(Platform::ComponentStatus.exists?(theirs.id)).to be(true)
+    end
+
+    # A1 review M1.
+    it "does NOT reap a shared row whose kind this run never swept" do
+      shared = create(:platform_component_status, :shared, component_kind: "shared_kind",
+                                                           component_ref: "primary",
+                                                           last_seen_sweep_at: 1.day.ago)
+      # A process that does not have the shared contributor registered — a
+      # core-mode node, a mid-deploy skew, a to_prepare that has not run.
+      register_fake_kind(records: [ fake_record("a") ])
+
+      described_class.run_once!(account)
+
+      expect(Platform::ComponentStatus.exists?(shared.id)).to be(true)
+    end
+
+    it "DOES reap a shared row whose kind this run swept — the other arm" do
+      shared = create(:platform_component_status, :shared, component_kind: "shared_kind",
+                                                           component_ref: "vanished",
+                                                           last_seen_sweep_at: 1.day.ago)
+      register_fake_kind(kind: "shared_kind", records: [ fake_record("primary") ], scoped: false)
+
+      described_class.run_once!(account)
+
+      expect(Platform::ComponentStatus.exists?(shared.id)).to be(false)
     end
   end
 end

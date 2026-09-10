@@ -3,63 +3,15 @@
 require "rails_helper"
 
 # Component status plane, increment A2 — the single producer.
-RSpec.describe Platform::Status::SweepRunner do
+RSpec.describe Platform::Status::SweepRunner, :platform_status do
   let(:account) { create(:account) }
-  let(:registry) { Platform::Status::Registry }
   let(:emitters) { Platform::Status::Emitters }
 
-  # rubocop:disable RSpec/LeakyConstantDeclaration
-  FakeStatusRecord = Struct.new(:id, :up, :shared, keyword_init: true)
-
-  class FakeStatusContributor < Platform::Status::Contributor
-    attr_accessor :records, :scoped
-
-    def initialize(records: [], scoped: true)
-      super()
-      @records = records
-      @scoped = scoped
-    end
-
-    def kind = "fake_kind"
-    def account_scoped? = @scoped
-    def ref_for(record) = record.id
-
-    def each_component(_account)
-      @records.each { |record| yield record }
-    end
-
-    def conditions_for(record)
-      severity = record.up == :down ? "down" : nil
-      Platform::Status::Condition.build(
-        type: "Reachable",
-        status: record.up == true,
-        reason: record.up == true ? "Responding" : "Timeout",
-        severity: severity
-      ).then { |condition| [ condition ] }
-    end
-  end
-  # rubocop:enable RSpec/LeakyConstantDeclaration
-
-  # Both global registries are process-wide. Snapshot and restore rather than
-  # leaving them empty, so a later spec cannot end up measuring a registry this
-  # one silently cleared.
-  around do |example|
-    saved_contributors = registry.contributors
-    saved_emitters = emitters.handlers.dup
-    registry.reset!
-    emitters.reset!
-    example.run
-  ensure
-    registry.reset!
-    emitters.reset!
-    saved_contributors.each { |kind, contributor| registry.register(kind, contributor) }
-    saved_emitters.each { |name, handler| emitters.register(name, handler) }
-  end
-
+  # Fakes and the registry/emitter snapshot come from PlatformStatusSpecSupport
+  # via the :platform_status tag (A1 review L4 — these used to be top-level
+  # FakeStatusRecord/FakeStatusContributor constants on Object).
   def register_kind(up: true, scoped: true, ref: "a")
-    contributor = FakeStatusContributor.new(records: [ FakeStatusRecord.new(id: ref, up: up) ], scoped: scoped)
-    registry.register("fake_kind", contributor)
-    contributor
+    register_fake_kind(records: [ fake_record(ref, up: up) ], scoped: scoped)
   end
 
   describe "events" do
@@ -86,7 +38,7 @@ RSpec.describe Platform::Status::SweepRunner do
       described_class.run!(account)
       expect(Platform::StatusEvent.of_kind(Platform::StatusEvent::KIND_COMPONENT_DOWN)).to be_empty
 
-      contributor.records = [ FakeStatusRecord.new(id: "a", up: :down) ]
+      contributor.records = [ fake_record("a", up: :down) ]
       described_class.run!(account)
 
       down = Platform::StatusEvent.of_kind(Platform::StatusEvent::KIND_COMPONENT_DOWN)
@@ -130,6 +82,49 @@ RSpec.describe Platform::Status::SweepRunner do
       expect { described_class.run!(account) }.not_to have_broadcasted_to(
         PlatformStatusChannel.account_stream(account.id)
       )
+    end
+  end
+
+  # A1 review M4 — the event stream has to CLOSE.
+  describe "a removal" do
+    it "emits a status_changed event with a NIL to_verdict when a component is reaped" do
+      register_kind(up: true)
+      create(:platform_component_status, account: account, component_kind: "fake_kind",
+                                         component_ref: "gone", verdict: "down",
+                                         last_seen_sweep_at: 1.day.ago)
+
+      described_class.run!(account)
+
+      removal = Platform::StatusEvent.find_by!(component_ref: "gone")
+      expect(removal.kind).to eq(Platform::StatusEvent::KIND_STATUS_CHANGED)
+      expect(removal.from_verdict).to eq("down")
+      expect(removal.to_verdict).to be_nil
+      expect(removal.removal?).to be(true)
+      expect(removal.payload["reason"]).to eq("Reaped")
+      # The status row is gone, so the event must not point at its id.
+      expect(removal.component_status_id).to be_nil
+    end
+
+    it "does NOT emit a component_down event for a removal — a vanished component did not go down" do
+      register_kind(up: true)
+      create(:platform_component_status, account: account, component_kind: "fake_kind",
+                                         component_ref: "gone", verdict: "down",
+                                         last_seen_sweep_at: 1.day.ago)
+
+      described_class.run!(account)
+
+      expect(Platform::StatusEvent.of_kind(Platform::StatusEvent::KIND_COMPONENT_DOWN)).to be_empty
+    end
+
+    it "broadcasts the removal with removed: true so a client can drop the row" do
+      register_kind(up: true)
+      create(:platform_component_status, account: account, component_kind: "fake_kind",
+                                         component_ref: "gone", verdict: "down",
+                                         last_seen_sweep_at: 1.day.ago)
+
+      expect { described_class.run!(account) }
+        .to have_broadcasted_to(PlatformStatusChannel.account_stream(account.id))
+        .with(hash_including(removed: true, to_verdict: nil, reason: "Reaped"))
     end
   end
 

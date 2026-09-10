@@ -17,10 +17,16 @@ RSpec.describe Platform::StatusEvent do
       expect(invented.errors[:kind]).to be_present
     end
 
-    it "requires a known to_verdict and allows a NIL from_verdict for a first sighting" do
+    it "allows a NIL from_verdict for a first sighting and a NIL to_verdict for a removal" do
+      # Neither nil is an accident. A first sighting has no prior verdict; a
+      # removal (reap, or a recovered wildcard row) has no destination one.
+      # A presence validation on either would force the producer to invent an
+      # observation the platform never made.
       expect(build(:platform_status_event, :first_sighting, account: account)).to be_valid
+      expect(build(:platform_status_event, :removal, account: account)).to be_valid
+    end
 
-      expect(build(:platform_status_event, account: account, to_verdict: nil)).not_to be_valid
+    it "still rejects a verdict token that is not on the ladder, on both ends" do
       expect(build(:platform_status_event, account: account, to_verdict: "amber")).not_to be_valid
       expect(build(:platform_status_event, account: account, from_verdict: "amber")).not_to be_valid
     end
@@ -62,6 +68,11 @@ RSpec.describe Platform::StatusEvent do
     it "reports a first sighting only when there was no previous verdict" do
       expect(build(:platform_status_event, :first_sighting).first_sighting?).to be(true)
       expect(build(:platform_status_event).first_sighting?).to be(false)
+    end
+
+    it "reports a removal only when there is no destination verdict" do
+      expect(build(:platform_status_event, :removal).removal?).to be(true)
+      expect(build(:platform_status_event).removal?).to be(false)
     end
 
     it "separates one account's events from another's and from the shared ones" do
