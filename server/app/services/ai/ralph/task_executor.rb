@@ -126,16 +126,19 @@ module Ai
         messages = build_agent_messages(agent)
         options = build_agent_options(agent, provider, messages)
 
+        # The loop's git actuator (D2), built BEFORE the path split so both paths
+        # carry it. The tool bridge used to early-return ahead of this, leaving
+        # every tool-enabled agent — the Platform Developer among them — unable to
+        # change the repository it was asked to change.
+        git_executor = GitToolExecutor.new(ralph_loop: ralph_loop) if GitToolExecutor.available?(ralph_loop)
+
         # Use AgentToolBridgeService when agent has platform tool access configured
         tool_bridge = Ai::AgentToolBridgeService.new(agent: agent, account: account)
         if tool_bridge.tools_enabled? && tool_bridge.tool_definitions_for_llm.any?
-          return execute_via_agent_bridge(agent, client, messages, options, tool_bridge)
+          return execute_via_agent_bridge(agent, client, messages, options, tool_bridge, git_executor)
         end
 
-        # Initialize git tool executor if repository is available
-        git_executor = nil
-        if GitToolExecutor.available?(ralph_loop)
-          git_executor = GitToolExecutor.new(ralph_loop: ralph_loop)
+        if git_executor
           git_tools = GitToolDefinitions.for_provider(provider_type)
           options[:tools] = (options[:tools] || []) + git_tools
         end
@@ -168,8 +171,10 @@ module Ai
       end
 
       # Execute via AgentToolBridgeService — used when agent has platform tool access configured.
-      # This routes through the same path as execute_agent MCP tool and concierge.
-      def execute_via_agent_bridge(agent, client, messages, options, tool_bridge)
+      # This routes through the same path as execute_agent MCP tool and concierge,
+      # with the loop's git tools (when its mission has a repository) carried as
+      # bridge-local tools.
+      def execute_via_agent_bridge(agent, client, messages, options, tool_bridge, git_executor = nil)
         model = options[:model]
         system_prompt = messages.find { |m| m[:role] == "system" }&.dig(:content)
         user_messages = messages.reject { |m| m[:role] == "system" }
@@ -181,6 +186,8 @@ module Ai
           max_tokens: options[:max_tokens] || 4096,
           temperature: options[:temperature] || 0.7,
           system_prompt: system_prompt,
+          local_tool_definitions: git_executor ? git_tool_bridge_definitions : [],
+          local_tool_executor: git_executor,
           # Carry the resolved reasoning-effort onto the tool-bridge path too
           # (otherwise this path would silently drop it). Omitted when unset so
           # non-effort models / inert framework are unchanged.
@@ -193,7 +200,14 @@ module Ai
         {
           success: true,
           output: result[:content] || "",
-          checks_passed: true,
+          # D2: the bridge ran no checks, so it claims none. A commit is judged by
+          # the real suite (IterationExecution hands result[:commit_sha] to the
+          # sandboxed TestVerificationService run); no commit is nothing to verify,
+          # never a pass.
+          checks_passed: false,
+          commit_sha: git_executor&.last_commit_sha,
+          file_changes: git_executor&.file_changes || [],
+          diff: git_executor&.unified_diff,
           tokens: { input: result.dig(:usage, :prompt_tokens) || 0, output: result.dig(:usage, :completion_tokens) || 0 },
           cost: nil,
           executor_type: "agent",
@@ -660,6 +674,13 @@ module Ai
           # inc6: carry the governed routing decision id (nil when gate OFF / unresolved).
           routing_decision_id: @routing_decision_id
         }
+      end
+
+      # The git tools in the bridge's neutral shape ({ name, description,
+      # parameters }) — the same shape the bridge sends for platform tools, which
+      # the worker renders per provider.
+      def git_tool_bridge_definitions
+        GitToolDefinitions::TOOLS.map { |t| t.slice(:name, :description, :parameters) }
       end
 
       def mcp_tool_definition_for_provider(tool, provider_type)
