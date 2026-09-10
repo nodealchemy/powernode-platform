@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { adminSettingsApi } from '@/features/admin/services/adminSettingsApi';
+import { usePolling } from '@/shared/hooks/usePolling';
 import { Button } from '@/shared/components/ui/Button';
 
 interface RateLimitConfig {
@@ -155,19 +156,8 @@ export const RateLimitingSettings: React.FC = () => {
      
   }, []); // Only run once on mount
 
-  useEffect(() => {
-    // Auto-refresh stats every 30 seconds when advanced monitoring is open
-    let interval: NodeJS.Timeout;
-    if (showAdvancedMonitoring) {
-      interval = setInterval(() => {
-        loadRateLimitingStats();
-      }, 30000);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [showAdvancedMonitoring, loadRateLimitingStats]);
+  // Auto-refresh stats every 30 seconds when advanced monitoring is open
+  usePolling(loadRateLimitingStats, 30000, { enabled: showAdvancedMonitoring });
 
 
   const handleConfigChange = (key: keyof RateLimitConfig, value: number | boolean) => {

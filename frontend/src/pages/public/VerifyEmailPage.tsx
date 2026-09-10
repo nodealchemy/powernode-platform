@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { resendVerificationEmail, clearResendVerificationSuccess, decrementResendCooldown } from '@/shared/services';
+import { usePolling } from '@/shared/hooks/usePolling';
 
 export const VerifyEmailPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -14,22 +15,10 @@ export const VerifyEmailPage: React.FC = () => {
   } = useSelector((state: RootState) => state.auth);
 
   // Countdown timer for resend cooldown
-  useEffect(() => {
-
-    let interval: NodeJS.Timeout;
-    
-    if (resendCooldown > 0) {
-      interval = setInterval(() => {
-        dispatch(decrementResendCooldown());
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [resendCooldown, dispatch]);
+  usePolling(() => dispatch(decrementResendCooldown()), 1000, {
+    enabled: resendCooldown > 0,
+    deps: [resendCooldown, dispatch],
+  });
 
   // Clear success message after 5 seconds
   useEffect(() => {
