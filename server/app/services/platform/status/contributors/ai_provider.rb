@@ -141,15 +141,22 @@ module Platform
           end
         end
 
+        # `#health_status` is resolved ONCE. It is not a column read: for an
+        # active provider whose metadata carries no health flag it falls
+        # through to two `agent_executions` aggregates, so calling it twice
+        # doubled the query cost of every such provider on a 60-second cron.
+        # Neither aggregate is preloadable (both are time-filtered), so a local
+        # is the whole fix.
         def health_condition(provider)
+          status  = provider.health_status
           metrics = provider.health_metrics
 
           enum_condition(
-            provider.health_status,
+            status,
             table: HEALTH_CONDITIONS,
             unknown_type: HEALTH_TYPE,
             evidence: {
-              "health_status" => provider.health_status.to_s,
+              "health_status" => status.to_s,
               "provider_type" => provider.provider_type,
               "consecutive_failures" => metrics["consecutive_failures"],
               "last_check_timestamp" => metrics["last_check_timestamp"],

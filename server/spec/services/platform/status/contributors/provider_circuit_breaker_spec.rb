@@ -58,24 +58,25 @@ RSpec.describe Platform::Status::Contributors::ProviderCircuitBreaker do
       )
     end
 
-    it "identifies a breaker by its provider id and names it for the operator" do
-      expect(contributor.ref_for(stats)).to eq(provider_id)
-      expect(contributor.display_name_for(stats)).to eq("Test Provider circuit")
-      expect(contributor.links_for(stats))
-        .to eq([ { "label" => "Provider settings", "path" => "/app/ai/infrastructure/providers/#{provider_id}" } ])
+    it "names a breaker by its provider TYPE and a short id suffix, never the operator's name" do
+      named = stats(provider_type: "anthropic")
+
+      expect(contributor.ref_for(named)).to eq(provider_id)
+      expect(contributor.display_name_for(named))
+        .to eq("anthropic circuit ##{provider_id.delete('-').last(6)}")
+      expect(contributor.display_name_for(named)).not_to include("Test Provider")
+    end
+
+    it "falls back to a generic noun when the provider type is unresolvable" do
+      expect(contributor.display_name_for(stats(provider_type: nil))).to start_with("provider circuit #")
+    end
+
+    # A link to an account-scoped page would render for a cross-tenant reader
+    # and then 403 — the contract's own rule about buttons, applied to links.
+    it "links nowhere, and declares no dependency on an account-scoped component" do
+      expect(contributor.links_for(stats)).to eq([])
+      expect(contributor.dependencies_for(stats)).to eq([])
       expect(contributor.actions_for(stats)).to eq([])
-    end
-
-    it "declares the provider it guards as a dependency" do
-      expect(contributor.dependencies_for(stats))
-        .to eq([ { "kind" => "ai_provider", "ref" => provider_id, "relation" => "requires" } ])
-    end
-
-    it "declares nothing and links nowhere when the source gives no provider id" do
-      orphan = stats(provider_id: nil)
-
-      expect(contributor.dependencies_for(orphan)).to eq([])
-      expect(contributor.links_for(orphan)).to eq([])
     end
   end
 
@@ -123,6 +124,8 @@ RSpec.describe Platform::Status::Contributors::ProviderCircuitBreaker do
       expect(evidence["state"]).to eq("open")
       expect(evidence["consecutive_failures"]).to eq(5)
       expect(evidence["can_attempt"]).to be(false)
+      # State and counters only — no tenant-identifying field.
+      expect(evidence).not_to have_key("provider_id")
       expect(Time.zone.parse(evidence["state_changed_at"])).to be_within(1.second).of(opened_at)
       expect(evidence["next_retry_at"]).to be_present
     end
@@ -151,6 +154,25 @@ RSpec.describe Platform::Status::Contributors::ProviderCircuitBreaker do
       expect(enumerate(create(:account)).map { |s| s[:provider_id] }).to eq([ provider_id ])
       expect(enumerate(nil).map { |s| s[:provider_id] }).to eq([ provider_id ])
     end
+
+    it "resolves the provider TYPE in one query for the whole set, not one per row" do
+      provider = create(:ai_provider, account: account, provider_type: "anthropic")
+      allow(::Ai::ProviderCircuitBreakerService).to receive(:all_provider_stats)
+        .and_return([ stats(provider_id: provider.id), stats(provider_id: provider.id) ])
+
+      expect(::Ai::Provider).to receive(:where).once.and_call_original
+
+      expect(enumerate(account).map { |s| s[:provider_type] }).to eq(%w[anthropic anthropic])
+    end
+
+    it "still yields when the type lookup fails, with no type rather than no row" do
+      allow(::Ai::Provider).to receive(:where).and_raise(StandardError, "db gone")
+
+      yielded = enumerate(account)
+
+      expect(yielded.size).to eq(1)
+      expect(yielded.first[:provider_type]).to be_nil
+    end
   end
 
   describe "through the sweep" do
@@ -176,6 +198,35 @@ RSpec.describe Platform::Status::Contributors::ProviderCircuitBreaker do
       expect(row).not_to be_nil
       expect(row.account_id).to be_nil
       expect(row.verdict).to eq(Platform::ComponentStatus::DEGRADED)
+    end
+
+    # THE SANITIZATION ORACLE. A shared row is broadcast on a shared stream and
+    # read by any holder of `platform.status.read` in EVERY account, so it must
+    # carry nothing that identifies a tenant.
+    it "writes a row carrying no provider name and no link" do
+      Platform::Status::SweepService.run_once!(account)
+
+      row = Platform::ComponentStatus.find_by(component_kind: described_class::KIND,
+                                              component_ref: provider_id)
+
+      expect(row.attributes.to_json).not_to include("Test Provider")
+      expect(row.display_name).not_to include("Test Provider")
+      expect(row.links).to eq([])
+      expect(row.dependencies).to eq([])
+      expect(row.conditions.first["evidence"]).not_to have_key("provider_id")
+    end
+
+    # The other arm: the assertion above can actually see a leak. Without this
+    # example a serialization that stopped containing the name for any reason
+    # (an empty row, a renamed column) would pass it vacuously.
+    it "and that assertion would catch a name if one were carried" do
+      Platform::Status::SweepService.run_once!(account)
+
+      row = Platform::ComponentStatus.find_by(component_kind: described_class::KIND,
+                                              component_ref: provider_id)
+      row.update!(display_name: "Test Provider circuit")
+
+      expect(row.reload.attributes.to_json).to include("Test Provider")
     end
 
     it "does not duplicate the shared row when a second account is swept" do

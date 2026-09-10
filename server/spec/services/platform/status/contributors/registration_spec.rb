@@ -65,12 +65,28 @@ RSpec.describe Platform::Status::Contributors do
     end
   end
 
-  describe "the boot hook" do
-    it "is wired from an initializer that runs on every reload" do
-      initializer = Rails.root.join("config/initializers/platform_status_contributors.rb").read
+  # F4. A grep for the initializer's TEXT proves nothing ran. This EXECUTES the
+  # file: loading it appends its `to_prepare` block to the application config,
+  # and calling that block is the boot path itself. Both arms — the registry is
+  # empty before the block runs and holds exactly the core kinds after — so the
+  # example cannot pass on a block that does nothing.
+  describe "the boot hook, executed" do
+    it "registers the core kinds when its to_prepare block runs" do
+      blocks = Rails.application.config.to_prepare_blocks
+      before_count = blocks.size
 
-      expect(initializer).to include("Rails.application.config.to_prepare")
-      expect(initializer).to include("Platform::Status::Contributors.register_all!")
+      load Rails.root.join("config/initializers/platform_status_contributors.rb").to_s
+      expect(blocks.size).to eq(before_count + 1), "the initializer registered no to_prepare block"
+
+      registry.reset!
+      expect(registry.kinds).to be_empty
+
+      blocks.last.call
+
+      expect(registry.kinds.sort).to eq(core_kinds)
+    ensure
+      # Do not leave the re-loaded block on the application config.
+      blocks.pop while blocks.size > before_count
     end
   end
 

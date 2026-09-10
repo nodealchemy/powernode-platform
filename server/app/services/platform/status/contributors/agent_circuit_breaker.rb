@@ -12,7 +12,27 @@ module Platform
       # that failed to close on resume, which the kill switch only logs.
       #
       # ── SCOPE ───────────────────────────────────────────────────────────────
-      # `Ai::CircuitBreaker.where(account:)` joined to a non-archived agent.
+      # Breakers whose AGENT belongs to this account, joined to a non-archived
+      # agent.
+      #
+      # THE AGENT'S ACCOUNT, NOT THE BREAKER'S, AND THE DIFFERENCE IS THE WHOLE
+      # POINT OF THE KIND. `Ai::Autonomy::CircuitBreakerService#find_or_create`
+      # stamps a breaker with the CALLING SERVICE's account, while kill-switch
+      # layer 5 opens and closes breakers by `ai_agents.account_id`. For a
+      # GLOBAL agent (`ai_agents.account_id IS NULL`) executing under account X
+      # the two disagree: the breaker carries X, the agent carries NULL, so a
+      # halt of X never reaches it. Scoping this kind on the breaker's own
+      # column would then have shown that breaker in X's plane as
+      # `Closed / BreakerClosed / ok` — a green row asserting a halt reached a
+      # breaker it never touched, which is the exact false green this kind
+      # exists to expose. Matching layer 5's scope means the kind shows exactly
+      # the breakers a halt reaches, and no others.
+      #
+      # The underlying defect is NOT fixed here and is not A3's to fix:
+      # `find_or_create_by!(agent_id:, action_type:)` carries no account and the
+      # unique index is on that same pair, so a global agent has ONE breaker row
+      # platform-wide, owned by whichever account touched it first. Filed as its
+      # own offer.
       # `Ai::Agent` uses `archived` as its retirement state and a breaker
       # outlives the agent's retirement, so an archived agent's breakers are
       # excluded: they are permanently un-actionable, and a tripped breaker on a
@@ -65,8 +85,8 @@ module Platform
           return if account.blank?
 
           ::Ai::CircuitBreaker
-            .where(account_id: account.id)
             .joins(:agent)
+            .where(ai_agents: { account_id: account.id })
             .where.not(ai_agents: { status: EXCLUDED_AGENT_STATUSES })
             .includes(:agent)
             .find_each { |breaker| yield breaker }

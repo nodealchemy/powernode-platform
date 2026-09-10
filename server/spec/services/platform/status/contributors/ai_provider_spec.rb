@@ -157,8 +157,24 @@ RSpec.describe Platform::Status::Contributors::AiProvider do
       expect(credentialed["status"]).to be(true)
       expect(credentialed["reason"]).to eq("CredentialPresent")
       expect(credentialed["evidence"]).to eq("active_credential_count" => 1)
-      # The condition must not contain key material in any field.
-      expect(credentialed.to_json).not_to include(credential.credentials["api_key"])
+      # The WHOLE condition set, not just this one condition: the health
+      # condition carries provider-supplied `last_error` text, which is the
+      # field a key could actually travel in.
+      expect(conditions_for(provider).to_json).not_to include(credential.credentials["api_key"])
+    end
+
+    it "would catch key material anywhere in the set, including the error text" do
+      # The negative arm of the assertion above: prove the matcher can see a
+      # leak in the health condition's evidence, which is where a provider that
+      # echoes a key in an error body would put it.
+      provider = create(:ai_provider, account: account, requires_auth: true)
+      secret = "test-api-key-#{SecureRandom.hex(16)}"
+      provider.update_column(:metadata, { "health_metrics" => {
+        "last_check_timestamp" => 1.minute.ago.iso8601, "last_check_success" => false,
+        "last_error" => "401 from upstream: #{secret}"
+      } })
+
+      expect(conditions_for(provider.reload).to_json).to include(secret)
     end
 
     it "is ok with no credential when the provider requires no auth" do

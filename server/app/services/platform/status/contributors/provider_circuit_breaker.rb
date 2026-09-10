@@ -25,11 +25,33 @@ module Platform
       # the one thing the increment's brief forbids outright, and this is the
       # kind where the temptation lives.
       #
-      # The consequence, stated plainly: a `provider_id` in `component_ref`
-      # belongs to some account, but the ROW is shared, so any operator who can
-      # read the shared section sees that provider's breaker state and name.
-      # That is the same exposure `Ai::ProviderCircuitBreakerService` already
-      # has by construction, not a new one this contributor creates.
+      # ── THE ROW IS SANITIZED, AND THAT IS WHAT MAKES IT SHAREABLE ───────────
+      # A shared row is broadcast on a shared stream and read by anyone holding
+      # `platform.status.read`, in EVERY account. So it carries nothing that
+      # identifies a tenant:
+      #
+      #   - `display_name` is the provider TYPE (`anthropic`, `openai`, …) and a
+      #     short id suffix, NEVER the operator-chosen provider name;
+      #   - `links_for` is empty. The provider settings page is account-scoped,
+      #     so a link would render for a cross-tenant reader and then 403 —
+      #     and the contributor contract's own rule about `actions_for` ("a
+      #     button that renders and then 403s is worse than no button") applies
+      #     word for word to a link;
+      #   - `evidence` is the breaker state and its counters, nothing else;
+      #   - `dependencies_for` is empty. The `ai_provider` component it would
+      #     point at is ACCOUNT-SCOPED, so the edge is unresolvable for the very
+      #     readers this row is shared with — an edge to a component the reader
+      #     cannot see is a dangling arrow, not information.
+      #
+      # `component_ref` remains the bare provider UUID: it is the stable key the
+      # sweep needs, and an opaque id discloses nothing on its own.
+      #
+      # AN EARLIER VERSION OF THIS COMMENT CLAIMED the disclosure was "the same
+      # exposure Ai::ProviderCircuitBreakerService already has by construction".
+      # That was FALSE and the review caught it: the only other caller
+      # (`Api::V1::Ai::SelfHealingController`) discloses a cross-account integer
+      # COUNT, not names, ids, per-provider state or links. The sanitization
+      # above is what closes the gap the false claim papered over.
       #
       # ── SCOPE ───────────────────────────────────────────────────────────────
       # Whatever `.all_provider_stats` returns, which is `Ai::Provider.active` —
@@ -76,23 +98,33 @@ module Platform
 
         # The account is ignored on purpose — the source has none. Named `_`
         # so nobody reads a scoping that is not there.
+        #
+        # The provider TYPE is resolved here, in ONE batched query for the whole
+        # set rather than one per row, and merged into the stats hash so every
+        # other method stays a pure function of that hash. A type is a vendor
+        # name (`anthropic`, `openai`); it identifies no tenant, which is why it
+        # is the half of the provider we may carry.
         def each_component(_account)
-          ::Ai::ProviderCircuitBreakerService.all_provider_stats.each { |stats| yield stats }
+          stats = ::Ai::ProviderCircuitBreakerService.all_provider_stats
+          types = provider_types_for(stats)
+
+          stats.each { |row| yield row.merge(provider_type: types[row[:provider_id].to_s]) }
         end
 
         def ref_for(stats) = stats[:provider_id].to_s
 
+        # Type plus a short id suffix — enough for an operator to tell two
+        # breakers apart, and never the operator-chosen name. See the class
+        # comment.
         def display_name_for(stats)
-          name = stats[:provider_name].presence || stats[:service_name].presence
-          "#{name || stats[:provider_id]} circuit"
+          type = stats[:provider_type].presence || "provider"
+          suffix = ref_for(stats).delete("-").last(6)
+
+          suffix.present? ? "#{type} circuit ##{suffix}" : "#{type} circuit"
         end
 
-        def links_for(stats)
-          return [] if stats[:provider_id].blank?
-
-          [ { "label" => "Provider settings",
-              "path" => "/app/ai/infrastructure/providers/#{stats[:provider_id]}" } ]
-        end
+        # Deliberately empty. See "THE ROW IS SANITIZED" above.
+        def links_for(_stats) = []
 
         def presentation
           { "icon" => "CircuitBoard", "label" => "Provider Circuit Breaker", "group_order" => 41 }
@@ -104,9 +136,9 @@ module Platform
               stats[:state],
               table: STATE_CONDITIONS,
               unknown_type: CLOSED_TYPE,
+              # State and counters ONLY. No provider id, no provider name.
               evidence: {
                 "state" => stats[:state].to_s,
-                "provider_id" => stats[:provider_id].to_s.presence,
                 "failure_count" => stats[:failure_count],
                 "success_count" => stats[:success_count],
                 "consecutive_failures" => stats[:consecutive_failures],
@@ -120,15 +152,18 @@ module Platform
           ]
         end
 
-        # The provider this breaker guards is an `ai_provider` component, and
-        # the breaker's state is entirely a function of that provider failing —
-        # a real edge, and the one that makes root-cause ranking put the
-        # provider above the breaker rather than beside it.
-        def dependencies_for(stats)
-          return [] if stats[:provider_id].blank?
-
-          [ { "kind" => "ai_provider", "ref" => stats[:provider_id].to_s, "relation" => "requires" } ]
-        end
+        # Deliberately empty, though a real edge exists.
+        #
+        # The breaker's state IS a function of its `ai_provider` failing, so on
+        # the graph alone the edge belongs. But `ai_provider` rows are
+        # ACCOUNT-SCOPED and this row is shared: for every reader outside the
+        # provider's own account the edge points at a component they cannot
+        # see, and `Rollup` silently skips it. An edge that resolves for one
+        # reader in a thousand is a dangling arrow that also happens to name
+        # another tenant's provider id — the disclosure the sanitization rule
+        # exists to prevent. Dropped until there is a shared component the
+        # breaker can honestly depend on.
+        def dependencies_for(_stats) = []
 
         def actions_for(_stats) = []
 
@@ -140,6 +175,19 @@ module Platform
         end
 
         private
+
+        # One query for the whole sweep. Only `provider_type` is read — never
+        # the name, and never the account.
+        def provider_types_for(stats)
+          ids = stats.filter_map { |row| row[:provider_id].presence }.map(&:to_s).uniq
+          return {} if ids.empty?
+
+          ::Ai::Provider.where(id: ids).pluck(:id, :provider_type)
+                        .to_h { |id, type| [ id.to_s, type.to_s ] }
+        rescue StandardError => e
+          Rails.logger.error("[Platform::Status] provider type lookup failed: #{e.class}: #{e.message}")
+          {}
+        end
 
         def timestamp(value) = parse_time(value)&.iso8601
 

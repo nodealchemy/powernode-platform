@@ -123,6 +123,36 @@ RSpec.describe Platform::Status::Contributors::AgentCircuitBreaker do
       expect(ids).not_to include(theirs.id)
     end
 
+    # F2. The scope is the AGENT's account, matching kill-switch layer 5, so
+    # the kind shows exactly the breakers a halt reaches.
+    #
+    # A GLOBAL agent's breaker is stamped with the calling service's account
+    # (`Ai::Autonomy::CircuitBreakerService#find_or_create` sets
+    # `cb.account = account`), so this row carries X while its agent carries
+    # NULL. Layer 5 (`where(ai_agents: {account_id: X})`) never opens it, so
+    # showing it in X's plane would be a green row claiming a halt reached a
+    # breaker it never touched.
+    #
+    # The underlying defect — `find_or_create_by!(agent_id:, action_type:)`
+    # carries no account and the unique index is on that pair, so a global
+    # agent has one breaker platform-wide — is filed as its own offer and is
+    # not fixed here.
+    it "does not enumerate a global agent's breaker, because a halt never reaches it" do
+      global_agent = create(:ai_agent, :global)
+      stamped_with_our_account = create(:ai_circuit_breaker, account: account, agent: global_agent)
+
+      expect(enumerate(account).map(&:id)).not_to include(stamped_with_our_account.id)
+    end
+
+    it "does enumerate a breaker whose AGENT is ours even when the breaker row is not" do
+      # The other arm: the agent's account is what decides, both ways.
+      elsewhere = create(:account)
+      ours_by_agent = create(:ai_circuit_breaker, account: elsewhere, agent: agent,
+                                                  action_type: "spawn_task")
+
+      expect(enumerate(account).map(&:id)).to include(ours_by_agent.id)
+    end
+
     it "excludes breakers belonging to an archived agent and keeps merely inactive ones" do
       archived_agent = create(:ai_agent, account: account, status: "archived")
       inactive_agent = create(:ai_agent, account: account, status: "inactive")

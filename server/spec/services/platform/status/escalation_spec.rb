@@ -292,12 +292,23 @@ RSpec.describe Platform::Status::Escalation do
       saved.each { |name, handler| Platform::Status::Emitters.register(name, handler) }
     end
 
-    it "is registered from an initializer that runs on every reload" do
-      initializer = Rails.root.join("config/initializers/platform_status_escalation.rb").read
+    # Executed, not grepped: loading the initializer appends its `to_prepare`
+    # block, and calling that block is the boot path. Both arms — no emitter
+    # before, the `:escalation` emitter after.
+    it "registers the escalation emitter when its to_prepare block runs" do
+      blocks = Rails.application.config.to_prepare_blocks
+      before_count = blocks.size
 
-      expect(initializer).to include("Rails.application.config.to_prepare")
-      expect(initializer).to include("Platform::Status::Emitters.register(:escalation)")
-      expect(initializer).to include("Platform::Status::Escalation.run!")
+      load Rails.root.join("config/initializers/platform_status_escalation.rb").to_s
+      expect(blocks.size).to eq(before_count + 1), "the initializer registered no to_prepare block"
+
+      expect(Platform::Status::Emitters.registered?(:escalation)).to be(false)
+
+      blocks.last.call
+
+      expect(Platform::Status::Emitters.registered?(:escalation)).to be(true)
+    ensure
+      blocks.pop while blocks.size > before_count
     end
 
     it "reaches escalation through the seam the runner actually calls" do
