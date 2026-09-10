@@ -183,6 +183,55 @@ RSpec.describe ApiKey, type: :model do
     end
   end
 
+  # IMP-01a07d5a. record_usage! could never complete: ApiKeyUsage validated
+  # http_method / status_code and defaulted `metadata`, none of which are
+  # columns on api_key_usages, so set_defaults raised NoMethodError before
+  # validation. Its only caller — the A2A endpoint's API-key authenticator —
+  # rescued StandardError into nil, so the failure presented as "authentication
+  # required" and the usage table stayed permanently empty.
+  describe '#record_usage!' do
+    let(:api_key) { create(:api_key) }
+
+    let(:request_context) do
+      { endpoint: '/api/v1/a2a', method: 'POST', status: 200,
+        ip_address: '198.51.100.7', user_agent: 'rspec' }
+    end
+
+    it 'writes a usage row against the columns the table actually has' do
+      usage = api_key.record_usage!(request_context)
+
+      expect(usage).to be_persisted
+      expect(usage.endpoint).to eq('/api/v1/a2a')
+      expect(usage.method).to eq('POST')
+      expect(usage.response_status).to eq(200)
+    end
+
+    it 'keeps the http_method / status_code vocabulary its readers already use' do
+      usage = api_key.record_usage!(request_context)
+
+      expect(usage.http_method).to eq('POST')
+      expect(usage.status_code).to eq(200)
+    end
+
+    it 'moves the counters every time' do
+      expect { api_key.record_usage!(request_context) }
+        .to change { api_key.reload.usage_count }.by(1)
+      expect(api_key.last_used_at).to be_present
+    end
+
+    # An authenticator runs BEFORE the action, so it cannot know the response
+    # status — and endpoint/method/response_status are all NOT NULL. Passing
+    # nils into them is what the single caller used to do.
+    it 'records no detail row when the caller cannot supply what NOT NULL needs' do
+      expect { api_key.record_usage! }.not_to change(ApiKeyUsage, :count)
+    end
+
+    it 'still moves the counters on that path' do
+      expect { api_key.record_usage! }
+        .to change { api_key.reload.usage_count }.by(1)
+    end
+  end
+
   describe 'callbacks' do
     describe 'generate_key on create' do
       it 'generates key_value and key_digest' do
