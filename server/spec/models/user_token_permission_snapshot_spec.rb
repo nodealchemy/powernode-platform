@@ -125,54 +125,33 @@ RSpec.describe "UserToken#has_permission? resolves live, not from a mint-time sn
   # a mutant that merely repopulates the column does not change any authorization
   # answer above. These examples pin the WRITE removal directly, so the two halves
   # cannot silently drift back in one at a time.
-  describe "the permissions column is no longer written" do
-    it "is not populated at mint" do
-      token = UserToken.create_token_for_user(user, type: "access")[:user_token]
-
-      expect(token.reload.permissions).to be_nil
+  # THE COLUMN IS GONE (IMP-01a05fea, migration 20260910000000). These examples
+  # used to prove the write removal by writing a snapshot and showing it was
+  # ignored — a property that is now unrepresentable, which is a stronger
+  # guarantee than the one they gave. What replaces them asserts the absence
+  # directly, in both the schema and the model, so a re-added column cannot slip
+  # back with its reader following later.
+  describe "the permissions column" do
+    it "does not exist on user_tokens" do
+      expect(UserToken.column_names).not_to include("permissions")
     end
 
-    it "is not copied into a refresh successor" do
-      refresh_token = UserToken.create_token_for_user(user, type: "refresh")[:user_token]
-      # Simulate a legacy row that still carries a stamp.
-      refresh_token.update!(permissions: [ "ai.agents.read", "system.admin" ])
-
-      successor = refresh_token.reload.refresh![:user_token]
-
-      expect(successor.reload.permissions).to be_nil
+    it "is not an attribute the model still declares a coder for" do
+      expect(UserToken.attribute_types).not_to have_key("permissions")
     end
 
     it "rejects a permissions: argument rather than silently ignoring one" do
       expect { UserToken.create_token_for_user(user, type: "access", permissions: [ "ai.agents.read" ]) }
         .to raise_error(ArgumentError, /permissions/)
     end
-  end
 
-  # The column is not dropped, so rows minted before this fix — and any row a
-  # future writer populates — still carry a list. It must be inert.
-  #
-  # These write through `update!`, NOT `update_column`. `serialize` casts on
-  # assignment but `update_column` writes the cast value straight through, so a
-  # pre-dumped JSON String survives and is dumped AGAIN: `reload.permissions` then
-  # returns the String `'["ai.agents.read"]'` rather than an Array, and
-  # `String#include?("system.admin")` substring-matches. That would make the WIDER
-  # example fail against the original code for an accidental reason instead of the
-  # designed one.
-  describe "a legacy row that already carries a snapshot" do
-    it "ignores a snapshot NARROWER than the live grant" do
+    # The reason the column could be dropped without a staged deploy: nothing
+    # reads or writes it, so a mint is unaffected by its absence.
+    it "does not stop a token being minted or read back" do
       token = UserToken.create_token_for_user(user, type: "access")[:user_token]
-      token.update!(permissions: [ "ai.agents.read" ])
 
-      expect(token.reload.has_permission?("ai.agents.update")).to be(true)
-    end
-
-    it "ignores a snapshot WIDER than the live grant" do
-      token = UserToken.create_token_for_user(user, type: "access")[:user_token]
-      token.update!(permissions: [ "ai.agents.read", "ai.agents.update", "system.admin" ])
-
-      revoke!("ai.agents.update")
-
-      expect(token.reload.has_permission?("ai.agents.update")).to be(false)
+      expect(token.reload).to be_present
+      expect(token.active?).to be(true)
     end
   end
 end

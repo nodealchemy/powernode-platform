@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_09_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_10_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -11428,7 +11428,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_210000) do
     t.inet "last_used_ip"
     t.jsonb "metadata", default: {}
     t.string "name", limit: 100
-    t.text "permissions"
     t.boolean "revoked", default: false
     t.datetime "revoked_at"
     t.string "revoked_reason", limit: 100
