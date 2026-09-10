@@ -460,6 +460,21 @@ begin
                     setting_type: "boolean", is_public: false)
   end
 
+  # Weekly skill auto-evolution flag (D6). Same shape as the closure-driver
+  # line above and for the same reason: `unless exists?`, because a plain `set`
+  # would revert an operator's decision to ENABLE it back to OFF on the next
+  # `rails db:seed`. Absence already means OFF
+  # (SkillMutationService.auto_evolution_enabled? casts a missing row to false),
+  # so the row exists only to give the operator surface something to render.
+  auto_evolution_flag = Ai::SelfImprovement::SkillMutationService::AUTO_EVOLUTION_SETTING
+  unless SiteSetting.exists?(key: auto_evolution_flag)
+    SiteSetting.set(auto_evolution_flag, "false",
+                    description: "Run the weekly skill auto-evolution cron. OFF means the " \
+                                 "scheduled sweep never mutates a skill; the auto_evolve_skill " \
+                                 "MCP verb keeps its own dev.skill_refine approval gate either way.",
+                    setting_type: "boolean", is_public: false)
+  end
+
   puts "✅ Created #{SiteSetting.count} site settings"
 rescue StandardError => e
   Rails.logger.error("[seeds] site settings failed: #{e.class}: #{e.message}")
