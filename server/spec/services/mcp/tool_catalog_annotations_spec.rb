@@ -158,7 +158,7 @@ RSpec.describe Mcp::ToolCatalog, "safety annotations" do
     # lane's partition. Publishing the bare declaration for those would
     # advertise `destructiveHint: false` on system_terminate_instance — a
     # FALSE hint, worse than the silence it replaced.
-    it "reports destructiveHint true for a destroy-shaped action with nothing declared" do
+    it "reports destructiveHint true for a destroy-shaped write that declares nothing about destructiveness" do
       with_registry("fake_terminate_instance" => undeclared_destroy_tool)
 
       expect(::Mcp::Principal.destructive_tool?("fake_terminate_instance")).to be(true)
@@ -181,6 +181,26 @@ RSpec.describe Mcp::ToolCatalog, "safety annotations" do
 
       expect(::Mcp::Principal.destructive_tool?("fake_noun_obliterate")).to be(false)
       expect(annotations_for("fake_noun_obliterate")["destructiveHint"]).to be(true)
+    end
+
+    # THE GENUINELY UNDECLARED ARM (E2 review L4). The first example in this
+    # group names a class that DOES declare — mutating, just not destructive —
+    # so it drives #destructive? and never reaches #inferred_annotations. An
+    # action with no declaration at all takes the inferred path, which did not
+    # consult the overlay. Its other arm is "still reports its source when the
+    # prefix rule says nothing" above: a non-destroy-shaped inferred action
+    # still carries annotationSource alone.
+    it "reports destructiveHint true for a destroy-shaped action with no declaration at all" do
+      stub_const("Ai::Introspection::McpToolRegistrar::INTROSPECTION_TOOLS",
+                 [ { id: "platform.purge_fake_cache", description: "Purges.", input_schema: { "type" => "object" } } ])
+      allow(::Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return([])
+
+      entry = catalog.list_entries.find { |t| t["name"] == "platform.purge_fake_cache" }
+
+      expect(::Mcp::Principal.destructive_tool?("purge_fake_cache")).to be(true)
+      expect(entry["annotations"]).to eq(
+        "readOnlyHint" => false, "destructiveHint" => true, "annotationSource" => "inferred"
+      )
     end
   end
 

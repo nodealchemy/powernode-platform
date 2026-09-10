@@ -339,6 +339,8 @@ module Mcp
     #   declared, read-only   {readOnlyHint: true,  annotationSource: "declared"}
     #   declared, write       {readOnlyHint: false, destructiveHint: <bool>,
     #                          annotationSource: "declared"}
+    #   inferred, destroy-shaped {readOnlyHint: false, destructiveHint: true,
+    #                             annotationSource: "inferred"}
     #   inferred, read-shaped {readOnlyHint: true,  annotationSource: "inferred"}
     #   inferred, otherwise   {annotationSource: "inferred"}
     #
@@ -358,7 +360,7 @@ module Mcp
     # `idempotentHint` is NOT emitted. The declaration vocabulary has no
     # idempotency record and inventing one from a description's prose would be
     # a second name-shaped guess of exactly the kind E2 removes. Adding it is a
-    # declaration-vocabulary change plus a pass over 640 call sites, and an
+    # declaration-vocabulary change plus a pass over every declare_action call site, and an
     # option nothing sets is worse than no option.
     #
     # ANNOTATION_SOURCE_KEY reports where the READ/WRITE classification came
@@ -401,9 +403,23 @@ module Mcp
       ::Mcp::Principal.destructive_tool?(action)
     end
 
+    # THE FLOOR HOLDS HERE TOO (E2 review L4). Before this, the inferred path
+    # never consulted the overlay: #destructive? is reached only from a
+    # declared write, so an action with NO declaration — its class would not
+    # load, #declaration_for rescued, or it is an introspection tool, which
+    # never has one — published no destructiveHint even when destroy-shaped.
+    # MCP reads an absent destructiveHint as true, so that was safe by
+    # accident. It is safe by construction now, and a destroy-shaped name is
+    # never advertised read-only on the strength of a prefix match: the overlay
+    # is checked FIRST.
     def inferred_annotations(action)
       hints = {}
-      hints["readOnlyHint"] = true if read_only_action?(action)
+      if ::Mcp::Principal.destructive_tool?(action)
+        hints["readOnlyHint"] = false
+        hints["destructiveHint"] = true
+      elsif read_only_action?(action)
+        hints["readOnlyHint"] = true
+      end
       hints[ANNOTATION_SOURCE_KEY] = ANNOTATION_SOURCE_INFERRED
       hints
     end
@@ -447,7 +463,7 @@ module Mcp
     # deliberately does not memoize .all_tools — a class-level memo would
     # freeze the extension half at whatever was registered on first use — and
     # that reasoning does not apply to a per-request object, which would
-    # otherwise re-merge a 640-entry frozen hash once per entry.
+    # otherwise re-merge the whole registry hash once per entry.
     def registry_map
       @registry_map ||= ::Ai::Tools::PlatformApiToolRegistry.all_tools
     end
@@ -461,7 +477,7 @@ module Mcp
     end
 
     # Memoized per class: .action_definitions builds a fresh hash on every
-    # call, and a full listing asks this 640 times across ~70 classes.
+    # call, and a full listing asks it once per entry.
     def action_dispatched?(klass)
       @action_dispatched ||= {}
       name = klass.name
