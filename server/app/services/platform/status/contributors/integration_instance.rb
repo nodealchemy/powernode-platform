@@ -16,17 +16,28 @@ module Platform
       # sweeps after somebody disables one. `paused` is NOT excluded: pausing is
       # reversible operator intent, which the ladder spells `held`.
       #
-      # ── THE HEALTH FIELDS ARE NOT WRITTEN TODAY, AND WE SAY SO ──────────────
-      # `health_status`, `consecutive_failures` and `last_health_check_at` exist
-      # on the table and `#update_health!` writes them, but nothing calls it:
-      # the integration_health probe never persists its derivation (the audit's
-      # finding; A8 fixes it). This contributor does not paper over that. When
+      # ── THE HEALTH FIELDS ARE WRITTEN NOW; THE NIL RULE STILL STANDS ────────
+      # `health_status`, `consecutive_failures` and `last_health_check_at` are
+      # persisted by `Devops::IntegrationInstance#record_health_probe!`, which
+      # derives the verdict from a probe outcome and writes it through
+      # `#update_health!`. The chain is real end to end: the worker's
+      # `Integrations::IntegrationHealthCheckJob` POSTs the internal probe door,
+      # and its controller calls `record_health_probe!`.
+      #
+      # When A3 was written none of that existed — `#update_health!` had zero
+      # call sites and the sweep PATCHed a jsonb blob nothing read, so the
+      # column could only ever answer `unknown`. A8 closed it, and this
+      # contributor needed no edit to start telling the truth, which was the
+      # point of writing it this way.
+      #
+      # The rule below is UNCHANGED and is not a workaround for that gap: when
       # `last_health_check_at` is nil the health condition is
       # `unknown / NeverChecked` — which the ladder renders `not_measured` —
-      # regardless of whatever default sits in the `health_status` column. A
-      # green row derived from a column nobody writes would be the exact lie
-      # this plane exists to prevent, and once A8 lands the same code starts
-      # telling the truth with no edit here.
+      # regardless of whatever default sits in the `health_status` column. An
+      # integration that has never been probed is one we have not measured,
+      # whether the reason is a defect or simply that its first probe has not
+      # run yet, and a green row derived from an unwritten column is the exact
+      # lie this plane exists to prevent.
       #
       # This contributor does not touch `Devops::RegistryService`.
       class IntegrationInstance < Contributor
