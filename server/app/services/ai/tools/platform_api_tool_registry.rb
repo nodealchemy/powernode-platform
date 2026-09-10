@@ -677,9 +677,6 @@ module Ai
         "describe_delegation" => "Ai::Tools::AgentAutonomyTool",
         "set_delegation_policy" => "Ai::Tools::AgentAutonomyTool",
         # Self-improvement (skill mutation, challenges)
-        "generate_self_challenge" => "Ai::Tools::SelfImprovementTool",
-        "list_challenges" => "Ai::Tools::SelfImprovementTool",
-        "get_challenge_result" => "Ai::Tools::SelfImprovementTool",
         "mutate_skill" => "Ai::Tools::SelfImprovementTool",
         "compose_skills" => "Ai::Tools::SelfImprovementTool",
         "auto_evolve_skill" => "Ai::Tools::SelfImprovementTool",

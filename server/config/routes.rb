@@ -672,12 +672,6 @@ Rails.application.routes.draw do
             end
           end
 
-          # Phase 4: Self-challenges (worker → server)
-          scope "self_challenges", controller: "self_challenges" do
-            post :process, action: :process_challenge
-            post :schedule_daily
-          end
-
           # Phase 4: Governance (worker → server)
           scope "governance", controller: "governance" do
             post :scan_all
@@ -1713,10 +1707,10 @@ Rails.application.routes.draw do
             get :statistics
           end
 
-          # Agent intelligence (experience replays, self-challenges)
+          # Agent intelligence (experience replays). The self_challenges route
+          # was removed with the subsystem it served (D6).
           get "intelligence/summary", to: "agent_intelligence#summary", as: :intelligence_summary
           get "intelligence/experience_replays", to: "agent_intelligence#experience_replays", as: :intelligence_experience_replays
-          get "intelligence/self_challenges", to: "agent_intelligence#self_challenges", as: :intelligence_self_challenges
 
           # Nested executions (replaces ai_agent_executions)
           # Explicitly map REST actions to prefixed controller methods

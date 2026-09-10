@@ -3,7 +3,39 @@
 module Ai
   module SelfImprovement
     class SkillMutationService
-      MUTATION_STRATEGIES = %w[learning_driven failure_analysis challenge_derived peer_comparison].freeze
+      # SCHEDULED auto-evolution is OFF unless an operator turns it on (D6).
+      #
+      # `AiSkillAutoEvolutionJob` runs WEEKLY, for EVERY active account, and
+      # until now carried no feature flag and no approval gate — the
+      # `dev.skill_refine` gate lives on the MCP verb, not on the internal
+      # endpoint the cron posts to. It creates A/B prompt variants at 20%
+      # traffic that Ai::SkillGraph::EvolutionService genuinely serves. The
+      # audit's reading: harmless only by accident, because what it writes is
+      # currently inert — and it stops being harmless the moment increment D5
+      # makes an activated version's prompt actually reach a runtime reader.
+      #
+      # THE GATE IS ON THE ENDPOINT, NOT HERE, and the distinction is
+      # load-bearing: `#auto_mutate_underperforming!` is shared by the cron and
+      # by the `auto_evolve_skill` MCP verb, which carries its own approval gate
+      # (`dev.skill_refine`) and must keep working. Gating the service would
+      # silently disarm that verb too. The constant lives on this class because
+      # the key belongs next to the behaviour it names — the same convention
+      # Devops::IntegrationInstance and Ai::Autonomy::ClosureDriverService
+      # follow — and the endpoint reads it.
+      AUTO_EVOLUTION_SETTING = "ai.skill_auto_evolution_enabled"
+
+      # A missing row casts to false, so absence already means OFF and a
+      # deployment that never seeded the row is gated correctly.
+      def self.auto_evolution_enabled?
+        ActiveModel::Type::Boolean.new.cast(::SiteSetting.get(AUTO_EVOLUTION_SETTING)) || false
+      end
+
+      # `challenge_derived` was removed with the self-challenge subsystem (D6):
+      # it read Ai::SelfChallenge rows, and that table is gone. A caller passing
+      # it now falls through #mutate!'s membership guard and gets nil, which is
+      # the same answer the strategy itself returned whenever no completed
+      # challenge existed — i.e. always, since nothing ever completed one.
+      MUTATION_STRATEGIES = %w[learning_driven failure_analysis peer_comparison].freeze
 
       def initialize(account:)
         @account = account
@@ -17,8 +49,6 @@ module Ai
           mutate_from_learnings(skill)
         when "failure_analysis"
           mutate_from_failures(skill)
-        when "challenge_derived"
-          mutate_from_challenges(skill)
         when "peer_comparison"
           mutate_from_peers(skill)
         end
@@ -96,18 +126,6 @@ module Ai
         }.tally
         failure_context = failure_patterns.map { |err, count| "- #{err} (#{count}x)" }.join("\n")
         create_variant(skill, "failure_analysis", failure_context)
-      end
-
-      def mutate_from_challenges(skill)
-        challenges = Ai::SelfChallenge.completed.for_skill(skill.id)
-          .where("quality_score >= ?", 0.7)
-          .order(quality_score: :desc)
-          .limit(5)
-
-        return nil if challenges.empty?
-
-        challenge_context = challenges.map { |c| "- #{c.challenge_prompt&.truncate(100)}: score=#{c.quality_score}" }.join("\n")
-        create_variant(skill, "challenge_derived", challenge_context)
       end
 
       def mutate_from_peers(skill)

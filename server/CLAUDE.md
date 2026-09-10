@@ -93,7 +93,6 @@ All MCP actions grouped by subsystem. Full parameter docs: [reference/auto/mcp-t
 | Quality | `verify_learning`, `dispute_learning`, `resolve_contradiction`, `rate_knowledge`, `knowledge_health` |
 | Skills | `list_skills`, `get_skill`, `discover_skills`, `get_skill_context`, `skill_health`, `skill_metrics`, `create_skill`, `update_skill`, `delete_skill`, `toggle_skill` |
 | Skill Evolution | `auto_evolve_skill`, `compose_skills`, `mutate_skill` |
-| Challenges | `generate_self_challenge`, `get_challenge_result`, `list_challenges` |
 | Graph | `search_knowledge_graph`, `reason_knowledge_graph`, `get_graph_node`, `list_graph_nodes`, `get_graph_neighbors`, `graph_statistics`, `get_subgraph`, `extract_to_knowledge_graph` |
 | Codebase Discovery | `code_context_tree`, `code_file_skeleton`, `code_semantic_search`, `code_identifier_search`, `code_semantic_navigate`, `code_feature_hub` |
 | Codebase Analysis | `code_blast_radius`, `code_static_analysis`, `code_index_status`, `code_analyze_section`, `code_dead_code`, `code_find_duplicates` |

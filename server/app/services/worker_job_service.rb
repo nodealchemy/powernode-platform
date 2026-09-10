@@ -425,19 +425,6 @@ class WorkerJobService
       })
     end
 
-    # Enqueue self-challenge pipeline (generate → execute → validate → complete).
-    # Resolve the owning account_id from the challenge record and thread it into
-    # the payload so the worker can honor the per-account kill switch. Falls back
-    # to nil when unresolvable (the worker bail no-ops on nil — fail-open).
-    def enqueue_ai_self_challenge(challenge_id)
-      account_id = Ai::SelfChallenge.find_by(id: challenge_id)&.account_id
-      new.make_worker_request("POST", "/api/v1/jobs", {
-        "job_class" => "AiSelfChallengeJob",
-        "args" => [ challenge_id, account_id ],
-        "queue" => "ai_orchestration"
-      })
-    end
-
     # Enqueue governance scan for an agent or account
     def enqueue_ai_governance_scan(account_id, agent_id = nil)
       new.make_worker_request("POST", "/api/v1/jobs", {

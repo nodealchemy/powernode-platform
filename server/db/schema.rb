@@ -3944,32 +3944,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_000000) do
     t.index ["severity"], name: "index_ai_security_audit_trails_on_severity"
   end
 
-  create_table "ai_self_challenges", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "ai_skill_id"
-    t.string "challenge_id", null: false
-    t.text "challenge_prompt"
-    t.uuid "challenger_agent_id", null: false
-    t.datetime "created_at", null: false
-    t.string "difficulty", default: "medium", null: false
-    t.text "execution_result"
-    t.uuid "executor_agent_id"
-    t.jsonb "expected_criteria", default: {}
-    t.decimal "quality_score", precision: 5, scale: 4
-    t.string "status", default: "pending", null: false
-    t.datetime "updated_at", null: false
-    t.jsonb "validation_result", default: {}
-    t.uuid "validator_agent_id"
-    t.index ["account_id", "status"], name: "index_ai_self_challenges_on_account_id_and_status"
-    t.index ["account_id"], name: "index_ai_self_challenges_on_account_id"
-    t.index ["ai_skill_id"], name: "index_ai_self_challenges_on_ai_skill_id"
-    t.index ["challenge_id"], name: "index_ai_self_challenges_on_challenge_id", unique: true
-    t.index ["challenger_agent_id", "status"], name: "index_ai_self_challenges_on_challenger_agent_id_and_status"
-    t.index ["challenger_agent_id"], name: "index_ai_self_challenges_on_challenger_agent_id"
-    t.index ["executor_agent_id"], name: "index_ai_self_challenges_on_executor_agent_id"
-    t.index ["validator_agent_id"], name: "index_ai_self_challenges_on_validator_agent_id"
-  end
-
   create_table "ai_shadow_executions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "action_type", null: false
@@ -12059,11 +12033,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_000000) do
   add_foreign_key "ai_scheduled_messages", "ai_conversations", column: "conversation_id"
   add_foreign_key "ai_scheduled_messages", "users"
   add_foreign_key "ai_security_audit_trails", "accounts"
-  add_foreign_key "ai_self_challenges", "accounts"
-  add_foreign_key "ai_self_challenges", "ai_agents", column: "challenger_agent_id"
-  add_foreign_key "ai_self_challenges", "ai_agents", column: "executor_agent_id"
-  add_foreign_key "ai_self_challenges", "ai_agents", column: "validator_agent_id"
-  add_foreign_key "ai_self_challenges", "ai_skills"
   add_foreign_key "ai_shadow_executions", "accounts"
   add_foreign_key "ai_shadow_executions", "ai_agents", column: "agent_id"
   add_foreign_key "ai_shared_knowledges", "accounts"

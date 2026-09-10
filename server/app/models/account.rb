@@ -134,7 +134,6 @@ class Account < ApplicationRecord
 
   # AI Self-Learning & Coordination (Phase 1-4 AGI)
   has_many :ai_experience_replays, class_name: "Ai::ExperienceReplay", dependent: :destroy
-  has_many :ai_self_challenges, class_name: "Ai::SelfChallenge", dependent: :destroy
   has_many :ai_goal_plans, class_name: "Ai::GoalPlan", dependent: :destroy
   has_many :ai_stigmergic_signals, class_name: "Ai::StigmergicSignal", dependent: :destroy
   has_many :ai_pressure_fields, class_name: "Ai::PressureField", dependent: :destroy
