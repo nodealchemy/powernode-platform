@@ -249,6 +249,60 @@ describe('StatusPage', () => {
       );
     });
 
+    it('keeps every kind in the Kind selector after a kind is chosen', async () => {
+      // C2 review M2, at the surface an operator actually touches. Choosing a
+      // kind narrows the response to that kind; a selector derived from the
+      // response would then offer only "All kinds" and the one already chosen.
+      mockedApi.fetchComponentStatuses.mockResolvedValueOnce(
+        indexResult([
+          row({ id: 'a', component_kind: 'ai_provider', display_name: 'Anthropic' }),
+          row({
+            id: 'b',
+            component_ref: 'h1',
+            component_kind: 'docker_host',
+            display_name: 'build-01',
+            presentation: { icon: 'Container', label: 'Docker Host', group_order: 30 },
+          }),
+        ])
+      );
+      renderPage();
+      await screen.findByText('build-01');
+
+      const selector = screen.getByLabelText('Filter by component kind') as HTMLSelectElement;
+      expect(Array.from(selector.options).map((o) => o.value)).toEqual([
+        '',
+        'ai_provider',
+        'docker_host',
+      ]);
+
+      mockedApi.fetchComponentStatuses.mockResolvedValue(
+        indexResult([
+          row({
+            id: 'b',
+            component_ref: 'h1',
+            component_kind: 'docker_host',
+            display_name: 'build-01',
+            presentation: { icon: 'Container', label: 'Docker Host', group_order: 30 },
+          }),
+        ])
+      );
+      fireEvent.change(selector, { target: { value: 'docker_host' } });
+
+      await waitFor(() =>
+        expect(mockedApi.fetchComponentStatuses).toHaveBeenLastCalledWith(
+          expect.objectContaining({ kind: 'docker_host' })
+        )
+      );
+      await waitFor(() => expect(screen.queryByText('Anthropic')).not.toBeInTheDocument());
+
+      // Still three options: the operator can get back without clearing first.
+      expect(Array.from(selector.options).map((o) => o.value)).toEqual([
+        '',
+        'ai_provider',
+        'docker_host',
+      ]);
+    });
+
     it('labels a plane-less row rather than mixing it in silently', async () => {
       mockedApi.fetchComponentStatuses.mockResolvedValue(
         indexResult([row({ id: 'b', display_name: 'Plane-less', environment_id: null, plane: 'none' })])

@@ -76,18 +76,17 @@ export const StatusPage: React.FC = () => {
     totalCount,
     loading,
     error,
-    isConnected,
+    isLive,
     lastLoadedAt,
     knownEnvironmentIds,
+    knownKinds,
     refresh,
   } = usePlatformStatus(query);
 
-  // Offered kinds come from what the server has actually reported, so a kind
-  // nobody contributes never appears as a filter that returns nothing.
-  const kinds = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.component_kind))).sort(),
-    [rows]
-  );
+  // Offered kinds come from what the server has actually reported — but as a
+  // SESSION UNION (`knownKinds`), not from the current response. `rows` is the
+  // filtered set, so deriving options from it collapses the selector to the kind
+  // already chosen (C2 review M2). Same defect, same fix, as the plane selector.
   const groups = useMemo(() => groupRows(rows), [rows]);
 
   const handleSelect = (row: ComponentStatusSummary) => {
@@ -115,7 +114,7 @@ export const StatusPage: React.FC = () => {
         <StatusRollupHeader
           rollup={rollup}
           loading={loading}
-          isConnected={isConnected}
+          isLive={isLive}
           lastLoadedAt={lastLoadedAt}
           loadedCount={rows.length}
           totalCount={totalCount}
@@ -125,7 +124,7 @@ export const StatusPage: React.FC = () => {
         <StatusFilterBar
           value={filters}
           onChange={setFilters}
-          kinds={kinds}
+          kinds={knownKinds}
           environmentIds={knownEnvironmentIds}
           unknownEnvironment={unknownEnvironment}
         />

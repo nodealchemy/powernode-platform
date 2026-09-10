@@ -58,7 +58,8 @@ const RollupFigure: React.FC<{
 export interface StatusRollupHeaderProps {
   rollup: ComponentStatusRollupData | null;
   loading: boolean;
-  isConnected: boolean;
+  /** The CHANNEL is live, not merely the cable. See usePlatformStatus. */
+  isLive: boolean;
   lastLoadedAt: Date | null;
   /** Rows currently rendered, and the server's total for the same filters. */
   loadedCount: number;
@@ -69,7 +70,7 @@ export interface StatusRollupHeaderProps {
 export const StatusRollupHeader: React.FC<StatusRollupHeaderProps> = ({
   rollup,
   loading,
-  isConnected,
+  isLive,
   lastLoadedAt,
   loadedCount,
   totalCount,
@@ -105,12 +106,12 @@ export const StatusRollupHeader: React.FC<StatusRollupHeaderProps> = ({
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-theme-tertiary">
         <span
           title={
-            isConnected
-              ? 'Live: transitions arrive over PlatformStatusChannel. The fallback poll is stopped while this holds.'
-              : `Not live: the fallback poll is re-reading every ${Math.round(pollMs / 1000)} seconds.`
+            isLive
+              ? 'Live: PlatformStatusChannel accepted the subscription and transitions arrive over it. The fallback poll is stopped while this holds.'
+              : `Not live: either the cable is down or the channel did not accept the subscription. The fallback poll is re-reading every ${Math.round(pollMs / 1000)} seconds.`
           }
         >
-          {isConnected ? 'live' : `polling every ${Math.round(pollMs / 1000)}s`}
+          {isLive ? 'live' : `polling every ${Math.round(pollMs / 1000)}s`}
         </span>
         {lastLoadedAt && (
           <span title={`Last full read at ${lastLoadedAt.toISOString()}.`}>

@@ -20,14 +20,18 @@ import {
 // The status page's data layer: one list read, one rollup read, a live channel,
 // and a poll that is a genuine fallback rather than a second clock.
 //
-// ── THE POLL IS OFF WHILE THE SOCKET IS UP ─────────────────────────────────
+// ── THE POLL IS OFF WHILE THE CHANNEL IS LIVE ──────────────────────────────
 //
 // design §6 asks for "a 30 s poll as a genuine fallback". Genuine means it does
 // not run alongside the channel: two live sources means every transition is
 // fetched twice, and it also means a broken channel is invisible — the page
 // still updates, so nobody notices the socket died until something that has no
-// poll behind it stops working. `enabled: !isConnected` is the whole mechanism,
-// and its two arms are asserted in the spec.
+// poll behind it stops working.
+//
+// "Live" here means the CHANNEL accepted us, not merely that the cable is up.
+// The two come apart, and gating on the cable is a real hole rather than a
+// nicety — see the gate near the bottom of this file. Both arms of both
+// conditions are asserted in the spec.
 //
 // ── WHAT THE BROADCAST ACTUALLY CARRIES ────────────────────────────────────
 //
@@ -51,8 +55,37 @@ import {
 // message and fires once, and there is no recurring interval anywhere in this
 // file (`usePolling` owns the only one).
 
+/**
+ * The channels this page subscribes to, at MODULE scope so the array identity is
+ * stable across renders (C2 review H1).
+ *
+ * This is not a style preference. `usePageWebSocket` puts `subscribeTo` in the
+ * dependency list of `getChannelsToSubscribe`, which is in the dependency list
+ * of the auto-subscribe effect, whose cleanup and body both call
+ * `setActiveChannels`. A fresh array literal each render therefore means:
+ * effect re-runs → cleanup sets state → subscribe sets state → re-render → new
+ * array → effect re-runs, forever. The review proved both arms by execution
+ * against the real hook: a stable array settles at two `subscribe` calls, the
+ * inline literal hits "Maximum update depth exceeded" and then exhausts the
+ * heap. In production each iteration would tear down and re-create the
+ * ActionCable subscription — on the one page an operator opens during an outage.
+ *
+ * `subscribeTo` had no other caller in the tree, so this hook was the option's
+ * first user and the sharpness had never been exercised. Memoizing inside
+ * `usePageWebSocket` would make every future caller safe; that file is not this
+ * lane's, and is filed as a follow-up.
+ */
+const STATUS_CHANNELS = ['platformStatus'];
+
+/**
+ * The message `PlatformStatusChannel` transmits once it has ACCEPTED a
+ * subscription. Receipt of this is the only client-visible proof that the
+ * channel took us — see the poll gate below.
+ */
+const CHANNEL_ESTABLISHED = 'connection_established';
+
 /** How long to wait for a burst of transitions to finish before reconciling. */
-const RECONCILE_DEBOUNCE_MS = 750;
+export const RECONCILE_DEBOUNCE_MS = 750;
 
 /** The fallback poll interval named by design §6. */
 export const STATUS_POLL_MS = 30000;
@@ -81,8 +114,17 @@ export interface UsePlatformStatusReturn {
   totalCount: number;
   loading: boolean;
   error: string | null;
-  /** Live channel state. Drives the poll's `enabled` and the header's basis line. */
+  /**
+   * The CABLE is up. Not the same question as `isLive`: the cable can be up
+   * while `PlatformStatusChannel` has rejected the subscription.
+   */
   isConnected: boolean;
+  /**
+   * The cable is up AND the channel accepted us. This is what "live" means on
+   * this page, what gates the poll, and what the header reports — reporting the
+   * cable instead would say "live" through a channel reject.
+   */
+  isLive: boolean;
   /** When the currently displayed data was fetched. Every number carries its basis. */
   lastLoadedAt: Date | null;
   /**
@@ -93,8 +135,31 @@ export interface UsePlatformStatusReturn {
    * the operator there.
    */
   knownEnvironmentIds: string[];
+  /** Every component kind seen this session, sorted. A union, for the same reason. */
+  knownKinds: string[];
   refresh: () => void;
 }
+
+/**
+ * Adds any new values to a session-long option set, preserving first-seen order
+ * and returning the SAME array when nothing was added (so a `useMemo` keyed on it
+ * does not churn).
+ *
+ * Every filter selector's options are built this way, because each of them is
+ * derived from a FILTERED response: once a filter is applied the response only
+ * contains what matches it, so options derived from the current response alone
+ * collapse to the option already chosen.
+ */
+const unionWith = (previous: string[], incoming: (string | null | undefined)[]): string[] => {
+  const seen = new Set(previous);
+  const additions: string[] = [];
+  for (const value of incoming) {
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    additions.push(value);
+  }
+  return additions.length === 0 ? previous : [...previous, ...additions];
+};
 
 /** Verdicts a row derives from its own verdict. `held_by_intent` is NOT one of them. */
 const deriveFlags = (verdict: Verdict) => ({
@@ -113,6 +178,10 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
   const [error, setError] = useState<string | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
   const [knownEnvironmentIds, setKnownEnvironmentIds] = useState<string[]>([]);
+  const [knownKinds, setKnownKinds] = useState<string[]>([]);
+  // Whether PlatformStatusChannel has ACCEPTED our subscription — see the poll
+  // gate at the bottom of this hook.
+  const [channelEstablished, setChannelEstablished] = useState(false);
 
   // The query is an object literal at the call site, so it is a new identity
   // every render. Serializing it gives the effects a primitive to depend on —
@@ -121,12 +190,26 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
   const queryRef = useRef(query);
   queryRef.current = query;
 
+  // Monotonic request counter (C2 review L2). FIVE things call `load`: the
+  // filter effect, the poll, the coalesced reconcile, the registry-bump effect
+  // and the Refresh button. Without a sequence number a slow older response
+  // applied after a newer one silently wins, and `lastLoadedAt` — the header's
+  // "read Ns ago" basis — would name the wrong instant. A stale response is
+  // dropped rather than merged: it is not a partial answer, it is an answer to a
+  // question that has been superseded.
+  const requestSeq = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++requestSeq.current;
+    const isStale = () => seq !== requestSeq.current;
+
     try {
       const [index, rollupData] = await Promise.all([
         fetchComponentStatuses(queryRef.current),
         fetchStatusRollup(queryRef.current),
       ]);
+
+      if (isStale()) return;
 
       setRows(index.component_statuses);
       setRollup(rollupData ?? null);
@@ -136,15 +219,23 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
       setLastLoadedAt(new Date());
       setError(null);
 
-      setKnownEnvironmentIds((previous) => {
-        const seen = new Set(previous);
-        const additions = index.component_statuses
-          .map((row) => row.environment_id)
-          .filter((id): id is string => Boolean(id) && !seen.has(id as string));
-        if (additions.length === 0) return previous;
-        return [...previous, ...Array.from(new Set(additions))];
-      });
+      setKnownEnvironmentIds((previous) =>
+        unionWith(previous, index.component_statuses.map((row) => row.environment_id))
+      );
+      // The SAME union, for the same reason (C2 review M2). `rows` is the
+      // FILTERED response, so choosing `kind=docker_host` makes the next
+      // response contain only docker hosts — and a Kind selector derived from it
+      // would collapse to the option already chosen. Milder than the plane case
+      // because "All kinds" always remains, so the operator escapes in two steps
+      // rather than being stranded; wrong for the same reason all the same.
+      setKnownKinds((previous) =>
+        unionWith(
+          previous,
+          index.component_statuses.map((row) => row.component_kind)
+        ).sort()
+      );
     } catch (e) {
+      if (isStale()) return;
       // Kept as a message rather than swallowed: a status page that renders an
       // empty grid when the read FAILED is indistinguishable from a healthy
       // platform, which is the worst thing this page could do.
@@ -152,7 +243,7 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
       setError(message);
       logger.error('[PlatformStatus] load failed', e);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, []);
 
@@ -226,17 +317,43 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
 
   const { isConnected } = usePageWebSocket({
     pageType: 'dashboard',
-    subscribeTo: ['platformStatus'],
+    subscribeTo: STATUS_CHANNELS,
     onDataUpdate: (update) => {
       if (update.channel !== 'platformStatus') return;
+      if (update.type === CHANNEL_ESTABLISHED) {
+        setChannelEstablished(true);
+        return;
+      }
       if (update.type !== 'component_status_changed') return;
       applyTransition(update.data as ComponentStatusChangedPayload);
       scheduleReconcile();
     },
   });
 
-  // The fallback. Off entirely while the channel is up — see the header.
-  usePolling(refresh, STATUS_POLL_MS, { enabled: !isConnected, deps: [refresh, isConnected] });
+  // A dropped cable invalidates any subscription that was established over it.
+  // Without this reset a reconnect that the channel REJECTS would keep the poll
+  // off on the strength of a subscription that no longer exists.
+  useEffect(() => {
+    if (!isConnected) setChannelEstablished(false);
+  }, [isConnected]);
+
+  // THE FALLBACK, gated on the CHANNEL rather than on the cable (C2 review M1).
+  //
+  // `isConnected` mirrors wsManager's connection-level state. It says nothing
+  // about whether `PlatformStatusChannel` accepted us — and that channel rejects
+  // a subscription with no `current_user` and one naming an account the viewer
+  // may not read. On either path the cable stays up, `isConnected` stays true,
+  // and a poll gated on it would stay off forever while the page silently
+  // stopped updating. That is the same defect this design set out to avoid, from
+  // the other side: not "the poll hides a dead channel" but "the cable hides a
+  // dead channel".
+  //
+  // So the gate is receipt of the channel's own `connection_established`
+  // message, which is the only client-visible proof of acceptance.
+  // `activeChannels` would not do: `usePageWebSocket` sets it client-side
+  // without waiting for the server, so it reads true through a reject too.
+  const live = isConnected && channelEstablished;
+  usePolling(refresh, STATUS_POLL_MS, { enabled: !live, deps: [refresh, live] });
 
   // A runtime extension that registers after first render brings its own
   // surfaces with it, and typically its backend contributors too, so the set of
@@ -265,8 +382,10 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
       loading,
       error,
       isConnected,
+      isLive: live,
       lastLoadedAt,
       knownEnvironmentIds,
+      knownKinds,
       refresh,
     }),
     [
@@ -278,8 +397,10 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
       loading,
       error,
       isConnected,
+      live,
       lastLoadedAt,
       knownEnvironmentIds,
+      knownKinds,
       refresh,
     ]
   );

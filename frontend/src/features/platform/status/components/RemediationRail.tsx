@@ -65,11 +65,20 @@ export const RemediationRail: React.FC<RemediationRailProps> = ({ rows, selected
       <section
         key={bucket.id}
         data-rail-bucket={bucket.id}
+        // Named region (C2 review L3): without `aria-labelledby` a <section> is
+        // not exposed as a landmark at all, so a screen-reader user gets three
+        // unlabelled lists and no way to tell which is "Needs a decision".
+        aria-labelledby={`rail-${bucket.id}-title`}
         className="rounded-lg border border-theme bg-theme-surface p-3"
       >
         <header className="flex items-baseline justify-between gap-2">
-          <h3 className="text-sm font-medium text-theme-primary">{bucket.title}</h3>
+          <h3 id={`rail-${bucket.id}-title`} className="text-sm font-medium text-theme-primary">
+            {bucket.title}
+          </h3>
           <span className="text-xs text-theme-tertiary" title={bucket.basis}>
+            {/* The count's basis is repeated as visible text below rather than
+                living only in a title attribute, which screen readers surface
+                inconsistently. */}
             {bucket.rows.length}
           </span>
         </header>
@@ -78,7 +87,7 @@ export const RemediationRail: React.FC<RemediationRailProps> = ({ rows, selected
         {bucket.rows.length === 0 ? (
           <p className="mt-2 text-xs text-theme-secondary">{bucket.emptyLabel}</p>
         ) : (
-          <ul className="mt-2 flex flex-col gap-1">
+          <ul aria-label={bucket.title} className="mt-2 flex flex-col gap-1">
             {bucket.rows.map((row) => (
               <li key={row.id}>
                 <button
