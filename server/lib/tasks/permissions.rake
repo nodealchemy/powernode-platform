@@ -210,7 +210,27 @@ namespace :permissions do
     result = Permissions::RoleGrantReconciler.new.reconcile!
 
     result.created_roles.each { |name| puts "  + role #{name}" }
-    result.created_grants.each { |grant| puts "  + grant #{grant}" }
+
+    # A re-created grant is different IN KIND from a first-time creation: this
+    # deployment held the row and it was removed outside the catalog, so this
+    # run has just undone a revocation. Printed on its own line, and never
+    # ALSO as a `+ grant` — one row, one line. The boot runner
+    # (extensions/system .../role-grants-reconcile.rb) has said this since
+    # IMP-222dd9bce564; this door said nothing until IMP-01a06af0, which is the
+    # door an operator is actually watching.
+    recreated = Array(result.recreated_grants)
+    (result.created_grants - recreated).each { |grant| puts "  + grant #{grant}" }
+    recreated.each do |grant|
+      warn "  RE-CREATED grant (reversal): #{grant} — this deployment held it and the row was removed " \
+           "outside the catalog; this run has restored it. To revoke durably, remove the grant from the catalog."
+    end
+
+    # A ledger fault means the reversal signal is DEGRADED, not that there were
+    # no reversals — an empty recreated list must not read as clean.
+    if result.ledger_error
+      warn "  ledger unavailable (reversal detection degraded): #{result.ledger_error}"
+    end
+
     result.failed.each { |f| warn "  ! role #{f[:role]} failed: #{f[:error]}" }
 
     # A partially-failed run must not print a green banner above the fold —
@@ -236,7 +256,24 @@ namespace :permissions do
     report = Permissions::RoleGrantReconciler.new.drift
 
     report.missing_roles.each { |name| warn "  MISSING ROLE #{name}" }
-    report.missing_grants.each { |grant| warn "  MISSING #{grant}" }
+
+    # Split for the same reason the reconcile door splits its creations: a
+    # grant that never landed and a grant this deployment HELD until someone
+    # revoked it outside the catalog are both simply absent, and only the
+    # ledger can tell them apart (IMP-222dd9bce564 / IMP-01a06af0).
+    previously_held = Array(report.previously_held)
+    (report.missing_grants - previously_held).each { |grant| warn "  MISSING #{grant}" }
+    previously_held.each do |grant|
+      warn "  MISSING #{grant} — previously held by this deployment: a revocation made outside the catalog, " \
+           "which the next boot's reconcile will UNDO. To revoke durably, remove the grant from the catalog."
+    end
+
+    # Same degradation caveat as the reconcile door. An unreadable ledger reads
+    # as empty, so without this an absent previously_held list would be
+    # indistinguishable from working detection that found nothing.
+    if report.ledger_error
+      warn "  ledger unavailable (reversal detection degraded): #{report.ledger_error}"
+    end
 
     # Reported, never acted on: these are the rows a destructive
     # Role.sync_from_config! WOULD DELETE. Printed unconditionally so an
