@@ -457,6 +457,12 @@ module Ai
         end
 
         parse_diff_json(response.content)
+      rescue ::Ai::Provisioning::NoModelConfiguredError => e
+        # A distinct reason from "llm_unavailable" (no client could be built at
+        # all) and "llm_failed" (the call was made and did not succeed): here a
+        # client exists and no call was made, because nothing names a model.
+        record_decline(::Ai::Provisioning::NoModelConfiguredError::REASON, e.message)
+        nil
       end
 
       def llm_client
@@ -565,6 +571,13 @@ module Ai
 
       def safe_complete(client, **opts)
         client.complete(model: resolve_model, **opts)
+      rescue ::Ai::Provisioning::NoModelConfiguredError
+        # DELIBERATELY ahead of the bare rescue below, which would otherwise
+        # swallow it into a log line — the failure mode E3's review found. This
+        # is the platform refusing for a reason an operator can fix, not a
+        # provider call that failed; #diff_from_llm records it as a decline the
+        # mission carries.
+        raise
       rescue StandardError => e
         Rails.logger.warn("[AdaptationProposerService] LLM call failed: #{e.message}")
         nil
@@ -587,10 +600,19 @@ module Ai
         # NO LITERAL FALLBACK (E3). The comment above spells out why one is
         # actively harmful here: the model has to match the provider this
         # client will call, so a hardcoded id is wrong for every provider but
-        # one and 404s against the rest. When nothing resolves, return nil and
-        # let the caller report "no model configured" — an honest refusal beats
-        # a confusing upstream error.
-        provider&.default_model.presence || provider&.available_models&.first
+        # one and 404s against the rest.
+        #
+        # RAISES rather than returning nil (E3 review F1). Nil was not a
+        # refusal: WorkerLlmClient#build_payload ends in `params.compact`, so a
+        # nil model is dropped from the request and the worker guesses one or
+        # posts `model: null`. #diff_from_llm turns this into a recorded
+        # decline, which is what the old comment claimed already happened.
+        resolved = provider&.default_model.presence || provider&.available_models&.first
+        return resolved if resolved.present?
+
+        raise ::Ai::Provisioning::NoModelConfiguredError.new(
+          account_id: account&.id, service: "AdaptationProposerService"
+        )
       end
 
       # ----- signal selection / classification ----------------------------

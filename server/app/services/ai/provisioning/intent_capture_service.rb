@@ -102,6 +102,7 @@ module Ai
       def capture(natural_language:, prior_brief: nil)
         base = normalize_brief(prior_brief)
         @cap_exceeded_payload = nil
+        @no_model_payload = nil
         extracted = extract_brief_from_llm(
           natural_language: natural_language,
           prior_brief: base,
@@ -113,6 +114,7 @@ module Ai
 
         result = { brief: coerced, missing_fields: missing_fields_for(coerced) }
         result.merge!(cap_exceeded_attributes) if @cap_exceeded_payload
+        result.merge!(no_model_attributes) if @no_model_payload
         result
       end
 
@@ -121,6 +123,7 @@ module Ai
       def refine(brief:, clarification:)
         base = normalize_brief(brief)
         @cap_exceeded_payload = nil
+        @no_model_payload = nil
         extracted = extract_brief_from_llm(
           natural_language: clarification,
           prior_brief: base,
@@ -132,6 +135,7 @@ module Ai
 
         result = { brief: coerced, missing_fields: missing_fields_for(coerced) }
         result.merge!(cap_exceeded_attributes) if @cap_exceeded_payload
+        result.merge!(no_model_attributes) if @no_model_payload
         result
       end
 
@@ -285,6 +289,14 @@ module Ai
         call_opts[:routing_decision_id] = routing_decision_id if routing_decision_id
 
         client.complete(**call_opts)
+      rescue ::Ai::Provisioning::NoModelConfiguredError => e
+        # REPORTED, not dropped. Same shape as the cost-cap refusal above: the
+        # payload rides out on the capture/refine result as
+        # `reason: "no_model_configured"`, so the caller learns the one thing it
+        # can act on instead of reading a provider 404 second-hand.
+        @no_model_payload = { message: e.message, account_id: e.account_id }
+        Rails.logger.warn("[IntentCaptureService] #{e.message}")
+        nil
       rescue WorkerLlmClient::WorkerLlmError => e
         Rails.logger.warn("[IntentCaptureService] LLM call failed: #{e.message}")
         nil
@@ -308,10 +320,20 @@ module Ai
         # NO LITERAL FALLBACK (E3). The comment above spells out why one is
         # actively harmful here: the model has to match the provider this
         # client will call, so a hardcoded id is wrong for every provider but
-        # one and 404s against the rest. When nothing resolves, return nil and
-        # let the caller report "no model configured" — an honest refusal beats
-        # a confusing upstream error.
-        provider&.default_model.presence || provider&.available_models&.first
+        # one and 404s against the rest.
+        #
+        # RAISES rather than returning nil (E3 review F1). Nil was not a
+        # refusal: WorkerLlmClient#build_payload ends in `params.compact`, so a
+        # nil model is dropped from the request and the worker guesses one or
+        # posts `model: null`. #safe_complete turns this into the
+        # `no_model_configured` reason on the capture/refine result, which is
+        # what the old comment claimed already happened and did not.
+        resolved = provider&.default_model.presence || provider&.available_models&.first
+        return resolved if resolved.present?
+
+        raise ::Ai::Provisioning::NoModelConfiguredError.new(
+          account_id: account&.id, service: "IntentCaptureService"
+        )
       end
 
       # ----- Prompts ---------------------------------------------------------
@@ -873,6 +895,19 @@ module Ai
       # Surface the cost-cap state to capture/refine callers so the chat layer
       # can render UpgradeRequiredCard instead of pretending the LLM round-trip
       # succeeded.
+      # The refusal a caller can act on: no model is configured for this
+      # account, and no LLM call was made. Distinct from cap_exceeded (there IS
+      # a model, the account has spent its allowance) and from a nil brief with
+      # no reason at all, which is what this used to be.
+      def no_model_attributes
+        payload = @no_model_payload || {}
+        {
+          no_model_configured: true,
+          reason: ::Ai::Provisioning::NoModelConfiguredError::REASON,
+          detail: payload[:message]
+        }
+      end
+
       def cap_exceeded_attributes
         payload = @cap_exceeded_payload || {}
         {

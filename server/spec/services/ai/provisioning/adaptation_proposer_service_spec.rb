@@ -399,6 +399,16 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       end.new
     end
 
+    # E3 review F1: #resolve_model now RAISES when nothing names a model
+    # instead of returning nil. These examples reach the real #safe_complete,
+    # so the account needs what production needs — an active credential whose
+    # provider has a catalog. Before this the fixture had none, the model
+    # resolved to nil, and the stubbed client accepted `model: nil` silently:
+    # exactly the call production would have sent with no model on it.
+    let!(:model_credential) do
+      create(:ai_provider_credential, account: account, provider: provider, is_active: true)
+    end
+
     before do
       # Override the file-wide nil stub so the real diff_from_llm runs and
       # exercises parse_diff_json + sanitize_steps end-to-end. Inject the
@@ -635,6 +645,16 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
       Class.new do
         define_method(:complete) { |**_opts| response }
       end.new
+    end
+
+    # E3 review F1: #resolve_model now RAISES when nothing names a model
+    # instead of returning nil. These examples reach the real #safe_complete,
+    # so the account needs what production needs — an active credential whose
+    # provider has a catalog. Before this the fixture had none, the model
+    # resolved to nil, and the stubbed client accepted `model: nil` silently:
+    # exactly the call production would have sent with no model on it.
+    let!(:model_credential) do
+      create(:ai_provider_credential, account: account, provider: provider, is_active: true)
     end
 
     def use_real_llm_seam(client)
