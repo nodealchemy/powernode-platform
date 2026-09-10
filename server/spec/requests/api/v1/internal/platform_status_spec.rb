@@ -83,6 +83,43 @@ RSpec.describe "Api::V1::Internal platform status sweep", type: :request do
       expect(summaries[other.id]["skipped"]).to be(false)
     end
 
+    it "prunes expired events ONCE per request and reports how many went" do
+      system_worker
+      old_event = create(:platform_status_event, account: account, occurred_at: 60.days.ago)
+      kept = create(:platform_status_event, account: account, occurred_at: 1.hour.ago)
+      # Two accounts, so a per-account prune would show up as a double count.
+      create(:account)
+
+      post_sweep
+
+      expect(JSON.parse(response.body)["data"]["events_pruned"]).to eq(1)
+      expect(Platform::StatusEvent.exists?(old_event.id)).to be(false)
+      expect(Platform::StatusEvent.exists?(kept.id)).to be(true)
+    end
+
+    it "does NOT prune on a standby plane" do
+      system_worker
+      old_event = create(:platform_status_event, account: account, occurred_at: 60.days.ago)
+      allow(::Platform::Status::SweepRunner).to receive(:control_plane_active?).and_return(false)
+
+      post_sweep
+
+      expect(JSON.parse(response.body)["data"]["events_pruned"]).to eq(0)
+      expect(Platform::StatusEvent.exists?(old_event.id)).to be(true)
+    end
+
+    it "still reports a successful sweep when retention itself fails" do
+      system_worker
+      allow(::Platform::Status::EventRetention).to receive(:prune!).and_raise("retention exploded")
+
+      post_sweep
+
+      # Housekeeping that fails must not turn a successful sweep into a failed
+      # request; the next tick tries again.
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["data"]["events_pruned"]).to eq(0)
+    end
+
     it "reports truncated: false on a sweep that finished inside its ceiling" do
       system_worker
 

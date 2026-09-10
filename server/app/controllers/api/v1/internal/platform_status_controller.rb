@@ -68,11 +68,33 @@ module Api
             accounts_swept: summaries.size,
             truncated: truncated,
             duration_seconds: (Time.current - started).round(3),
+            events_pruned: prune_events,
             summaries: summaries
           )
         end
 
         private
+
+        # ONCE PER REQUEST, not once per account: retention is global and
+        # account-independent (see ::Platform::Status::EventRetention).
+        #
+        # Gated on the STANDBY fence only. The fence's promise is that a
+        # standby plane does nothing at all, and two planes sharing a database
+        # should not both be deleting from it. The per-account kill switch is
+        # deliberately NOT consulted: it suspends one tenant's AI activity, and
+        # letting one suspended account freeze retention for every other
+        # account would be an unrelated side effect of an unrelated switch.
+        #
+        # Never raises. Housekeeping that fails must not turn a successful
+        # sweep into a failed request, and the next tick tries again.
+        def prune_events
+          return 0 unless ::Platform::Status::SweepRunner.control_plane_active?
+
+          ::Platform::Status::EventRetention.prune!
+        rescue StandardError => e
+          Rails.logger.error("[PlatformStatusSweep] event retention failed: #{e.class}: #{e.message}")
+          0
+        end
 
         def accounts_scope
           return ::Account.where(id: params[:account_id]) if params[:account_id].present?
