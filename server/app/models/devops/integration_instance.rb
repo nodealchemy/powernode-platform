@@ -10,6 +10,9 @@ module Devops
 
     # ==================== Constants ====================
     STATUSES = %w[pending active paused error disabled].freeze
+    # Statuses in which the instance cannot run, so its credential requirement
+    # does not apply (see #credential_matches_template_requirements).
+    RESTING_STATUSES = %w[paused disabled].freeze
     HEALTH_STATUSES = %w[healthy degraded unhealthy unknown].freeze
 
     # Consecutive FAILED health probes after which an active integration is
@@ -298,6 +301,11 @@ module Devops
 
     def credential_matches_template_requirements
       return unless template&.requires_credentials?
+      # A paused or disabled instance cannot run, so it does not need a valid
+      # credential. An operator must be able to pause an instance whose
+      # credential is broken or gone; activating re-runs this check
+      # (IMP-01a04d08-ea13).
+      return if RESTING_STATUSES.include?(status)
 
       if credential.blank?
         errors.add(:credential, "is required for this integration type")

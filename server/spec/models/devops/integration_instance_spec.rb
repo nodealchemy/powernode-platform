@@ -160,4 +160,49 @@ RSpec.describe Devops::IntegrationInstance, type: :model do
         .to eq(described_class::DEFAULT_HEALTH_FAILURE_THRESHOLD)
     end
   end
+
+  # IMP-01a04d08-ea13: IntegrationCredential used `has_many :instances,
+  # dependent: :nullify`, so destroying a credential by any path other than
+  # RegistryService#delete_credential's in-use guard left an instance with no
+  # credential. Its template still required one, so every later update! failed
+  # validation. That included pausing it: the operator could not pause a broken
+  # instance, which stayed active. The credential now refuses that destroy
+  # (restrict_with_error). An instance already orphaned (legacy data) can be
+  # paused or disabled, since it cannot run in either state. Activating it still
+  # requires the credential.
+  describe "the credential requirement and resting statuses (IMP-01a04d08-ea13)" do
+    let(:account)    { create(:account) }
+    let(:template)   { create(:devops_integration_template, credential_requirements: { "type" => "api_key" }) }
+    let(:credential) { create(:devops_integration_credential, account: account) }
+    let(:instance) do
+      create(:devops_integration_instance, account: account, template: template, credential: credential, status: "active")
+    end
+
+    def orphaned
+      instance.update_column(:integration_credential_id, nil)
+      instance.reload
+    end
+
+    it "lets an operator pause an instance whose required credential is gone" do
+      row = orphaned
+
+      expect(row.update(status: "paused")).to be(true), row.errors.full_messages.inspect
+      expect(row.reload.status).to eq("paused")
+    end
+
+    it "lets it be disabled as well" do
+      row = orphaned
+
+      expect(row.update(status: "disabled")).to be(true), row.errors.full_messages.inspect
+    end
+
+    it "still refuses to activate it without the credential" do
+      row = orphaned
+      row.update!(status: "paused")
+
+      expect(row.update(status: "active")).to be(false)
+      expect(row.errors[:credential]).to include("is required for this integration type")
+      expect(row.reload.status).to eq("paused")
+    end
+  end
 end

@@ -249,6 +249,23 @@ RSpec.describe 'Api::V1::Devops::IntegrationInstances', type: :request do
       expect_success_response
       expect(instance.reload.status).to eq('paused')
     end
+
+    # IMP-01a04d08-ea13: an instance whose required credential is gone (legacy
+    # rows the old dependent: :nullify orphaned) used to refuse the pause with
+    # 422 "Credential is required" and stay ACTIVE. Pausing is the safe
+    # direction and must always be possible.
+    it 'pauses an instance whose required credential is gone' do
+      requiring = create(:devops_integration_template, credential_requirements: { 'type' => 'api_key' })
+      credential = create(:devops_integration_credential, account: account)
+      orphan = create(:devops_integration_instance, account: account, template: requiring,
+                                                    credential: credential, status: 'active')
+      orphan.update_column(:integration_credential_id, nil)
+
+      post "/api/v1/devops/integration_instances/#{orphan.id}/deactivate", headers: headers, as: :json
+
+      expect_success_response
+      expect(orphan.reload.status).to eq('paused')
+    end
   end
 
   describe 'POST /api/v1/devops/integration_instances/:id/test' do
