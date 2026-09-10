@@ -246,7 +246,7 @@ describe('usePlatformStatus', () => {
 
     await act(async () => {
       featureRegistry.registerComponentSlots({
-        'platform.status.drawer.node_instance': { component: () => null },
+        'platform.status.drawer.node_instance': () => null,
       });
     });
 
