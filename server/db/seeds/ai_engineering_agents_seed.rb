@@ -67,9 +67,9 @@
 #     Manager's prompt. Making it enforceable needs a new condition key, which
 #     the brief said not to invent.
 #   * Release Manager "delegation depth 0" — Ai::DelegationPolicy validates
-#     max_depth > 0 and reads an EMPTY allowed_delegate_types as unrestricted,
-#     so "delegates to nobody" is spelled depth 1 plus the no-such-type sentinel
-#     %w[none] (ai_agent_hierarchy_seed.rb); #allows_delegate_type? is then false
+#     max_depth > 0, so "delegates to nobody" is spelled depth 1 plus the
+#     no-such-type sentinel %w[none] (ai_agent_hierarchy_seed.rb). Since HIER-P0
+#     an empty list would say the same; #allows_delegate_type? is false either way
 #     for every real agent_type. Same verdict, expressible vocabulary.
 #   Documentation Spec.  docs.update auto_approve
 # A REFINE PAIR (ruling #3, through the EXISTING conditions mechanism): an

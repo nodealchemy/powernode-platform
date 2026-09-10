@@ -18,6 +18,18 @@ RSpec.describe AgentEvaluationJob, type: :job do
     allow(job).to receive(:api_client).and_return(api_client)
     allow(job).to receive(:log_info)
     allow(job).to receive(:log_warn)
+    # Default: not suspended. The kill-switch arm below flips it.
+    allow(job).to receive(:bail_if_ai_suspended!).and_return(false)
+  end
+
+  # The kill switch reaches the judge: evaluating spends an LLM call. The server
+  # refuses too, but this stops the round trip. Both arms — the default above is
+  # the other one, and every example that reaches the server proves it.
+  it "bails before calling the server while the account's AI is suspended" do
+    allow(job).to receive(:bail_if_ai_suspended!).with(account_id).and_return(true)
+
+    # No :post stub exists, so a call would raise.
+    expect(job.execute(args)).to eq(status: "not_measured", reason: "AiSuspended")
   end
 
   # Sidekiq serialises args to JSON, so however the server wrote the payload it

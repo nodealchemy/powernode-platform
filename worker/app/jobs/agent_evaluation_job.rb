@@ -12,6 +12,13 @@
 # idempotency key — lives server-side in Ai::Learning::EvaluationService, so a
 # retry of this job cannot produce a second evaluation.
 class AgentEvaluationJob < BaseJob
+  # Evaluating spends an LLM call against the account, so this is AI execution
+  # and the kill switch reaches it. The server refuses too (EvaluationService
+  # returns not_measured/AiSuspended), which is the authoritative gate — this
+  # one stops the round trip before it starts. Listed in
+  # scripts/checks/kill-switch-compliance-check.sh REQUIRED_JOBS.
+  include AiSuspensionCheckConcern
+
   sidekiq_options queue: :ai_orchestration, retry: 2
 
   # args arrives from Sidekiq as JSON, so its keys are STRINGS however the
@@ -27,6 +34,8 @@ class AgentEvaluationJob < BaseJob
       log_warn "[AgentEvaluationJob] missing account_id or execution_id; nothing to evaluate"
       return { status: "not_measured", reason: "MissingArguments" }
     end
+
+    return { status: "not_measured", reason: "AiSuspended" } if bail_if_ai_suspended!(account_id)
 
     body = { account_id: account_id, execution_id: execution_id }
     body[:task_id] = payload["task_id"] if payload["task_id"].to_s != ""

@@ -41,10 +41,11 @@ module Ai
     class CanonicalTeamReconciler
       SEAM = name.freeze
 
-      # The delegate-type list "nobody" is spelled with (Ai::DelegationPolicy
-      # reads an EMPTY list as unrestricted): db/seeds/ai_agent_hierarchy_seed.rb
-      # RELEASE_MANAGER_NO_DELEGATES. Never a type a member could carry, so
-      # never "unrepresented".
+      # The delegate-type list "nobody" is spelled with:
+      # db/seeds/ai_agent_hierarchy_seed.rb RELEASE_MANAGER_NO_DELEGATES. Never
+      # a type a member could carry, so never "unrepresented". Since HIER-P0 an
+      # EMPTY list means the same thing — the sentinel predates that fix and is
+      # kept because it says "nobody" out loud.
       NO_SUCH_TYPE_SENTINEL = "none"
 
       # The account the canonical team seeds materialise in, by name. The seeds
