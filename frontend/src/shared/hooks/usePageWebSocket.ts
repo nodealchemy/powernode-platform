@@ -96,7 +96,11 @@ const CORE_CHANNEL_NAMES: Record<string, string> = {
   settings: 'NotificationChannel', // Settings use NotificationChannel
   aiOrchestration: 'AiOrchestrationChannel',
   aiMonitoring: 'AiOrchestrationChannel',
-  devops: 'DevopsPipelineChannel'
+  devops: 'DevopsPipelineChannel',
+  // Component status plane (campaign 01a08c9b). One channel serves both the
+  // account stream and the shared-infrastructure stream, so a subscriber gets
+  // the whole picture from one subscription.
+  platformStatus: 'PlatformStatusChannel'
 };
 
 /**
