@@ -206,6 +206,38 @@ See [`concepts/chat-and-realtime.md`](./chat-and-realtime.md) for the channel la
 2. Create a learning via `platform.create_learning` category `best_practice` documenting the replacement
 3. Remove from concept docs after the migration period
 
+### The identity boundary
+
+**Identity over MCP is read-only. This is a decision, not an omission.**
+
+Agents may READ users, roles, the permission catalog and the audit log. Every identity
+WRITE — creating or suspending a user, assigning a role, granting a permission, cleaning
+up the audit log — stays operator-only, through REST and the console. There is no MCP verb
+for any of them and adding one needs a deliberate decision, not a pull request.
+
+The asymmetry is the point. An agent that can read the audit log can explain what happened.
+An agent that can assign itself a role has closed the loop on its own authority, and that is
+the one loop the platform must not close. The same reasoning keeps `respond_to_approval` off
+the surface: the gate mints approvals to reach a person, so an agent that could answer them
+would be approving its own work.
+
+Three rules follow for anyone adding a verb in this area:
+
+1. **Floor each verb on the permission its REST twin already checks.** A tool must never be
+   a way around a gate a person has to pass. Where a REST controller accepts several
+   permissions, pick the tightest — narrower than REST is a safe difference, wider never is.
+2. **Serialize with an ALLOW-LIST, never `.attributes` and never a denylist.** A column added
+   to `users` or `webhook_endpoints` tomorrow must not appear in a payload by default. A
+   denylist has to be remembered; an allow-list cannot be forgotten.
+3. **Assert the absence of secrets by planting one and grepping the response.** Checking that
+   a key is missing passes a serializer that renamed it. `Ai::Provider#credentials` returns a
+   DECRYPTED hash, `webhook_endpoints.secret_key` and `.signature_secret` are PLAINTEXT
+   columns, and `audit_logs.metadata` carries no redaction filter of its own — the read tools
+   withhold all four, and their specs prove it with real values.
+
+The read surface for these families is `IdentityReadTool`, `ProviderReadTool`,
+`ScheduleReadTool` and `WebhookReadTool` (all core, all declared `mutating: false`).
+
 ### Best practices for tool implementation
 
 ```ruby

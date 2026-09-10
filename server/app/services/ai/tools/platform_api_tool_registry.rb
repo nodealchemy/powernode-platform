@@ -475,6 +475,24 @@ module Ai
         "list_component_status" => "Ai::Tools::PlatformStatusTool",
         "get_component_status" => "Ai::Tools::PlatformStatusTool",
         "get_component_impact" => "Ai::Tools::PlatformStatusTool",
+        # === Read-only reach (campaign 01a08c9b, increment E1) ===
+        # Four families REST exposed in full and MCP could not reach at all
+        # (audit remedies 16 and 18). Every action is a READ; identity, provider,
+        # schedule and webhook WRITES stay operator-only — see each tool's
+        # header and docs/concepts/mcp-and-tools.md#the-identity-boundary.
+        "list_users" => "Ai::Tools::IdentityReadTool",
+        "get_user" => "Ai::Tools::IdentityReadTool",
+        "list_roles" => "Ai::Tools::IdentityReadTool",
+        "list_permissions" => "Ai::Tools::IdentityReadTool",
+        "list_audit_logs" => "Ai::Tools::IdentityReadTool",
+        "list_llm_providers" => "Ai::Tools::ProviderReadTool",
+        "get_llm_provider" => "Ai::Tools::ProviderReadTool",
+        "list_models" => "Ai::Tools::ProviderReadTool",
+        "list_schedules" => "Ai::Tools::ScheduleReadTool",
+        "get_schedule" => "Ai::Tools::ScheduleReadTool",
+        "list_webhooks" => "Ai::Tools::WebhookReadTool",
+        "get_webhook" => "Ai::Tools::WebhookReadTool",
+        "list_webhook_deliveries" => "Ai::Tools::WebhookReadTool",
         # Improvement-discovery loop (Tier-1): offer -> approve -> dev-improve task
         "discover_improvements" => "Ai::Tools::ImprovementTool",
         "create_improvement" => "Ai::Tools::ImprovementTool",
