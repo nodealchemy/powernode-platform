@@ -126,24 +126,31 @@ module Ai
         # returned nothing while each single word matched plenty. The no-query
         # form stays a plain filtered listing.
         if params[:query].present?
-          learnings = ::Ai::Learning::CompoundLearningService.new(account: account).search_learnings(
+          result = ::Ai::Learning::CompoundLearningService.new(account: account).search_learnings(
             query: params[:query],
             category: params[:category],
             learning_scope: params[:scope],
             status: params[:status],
             limit: limit
           )
+          learnings = result[:learnings]
+          # D7: name the branch that produced the rows so a caller reading zero
+          # results can tell an empty corpus ("none") from a degraded embedding
+          # path ("keyword") without server-side log access.
+          match_mode = result[:match_mode]
         else
           scope = Ai::CompoundLearning.where(account: account)
           scope = scope.where(category: params[:category]) if params[:category].present?
           scope = scope.where(scope: params[:scope]) if params[:scope].present?
           scope = scope.where(status: params[:status] || "active")
           learnings = scope.order(importance_score: :desc, created_at: :desc).limit(limit)
+          match_mode = "filter"
         end
 
         {
           success: true,
           count: learnings.size,
+          match_mode: match_mode,
           learnings: learnings.map { |l| serialize_learning(l) }
         }
       end

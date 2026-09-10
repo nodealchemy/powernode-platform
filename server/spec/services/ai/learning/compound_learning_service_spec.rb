@@ -13,6 +13,10 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
     allow(Rails.logger).to receive(:error)
     allow(Ai::Memory::EmbeddingService).to receive(:new).and_return(embedding_service)
     allow(embedding_service).to receive(:generate).and_return(nil)
+    # Read/search paths call #generate_or_nil (the wrapper that swallows an
+    # embedding-service outage so the keyword fallback can run); write paths
+    # still call #generate. Both are stubbed to the keyword-fallback condition.
+    allow(embedding_service).to receive(:generate_or_nil).and_return(nil)
   end
 
   describe "constants" do
@@ -220,7 +224,8 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       end
 
       it "handles exceptions gracefully" do
-        allow(embedding_service).to receive(:generate).and_raise(StandardError, "embedding error")
+        # The read path calls #generate_or_nil; #generate is no longer on it.
+        allow(embedding_service).to receive(:generate_or_nil).and_raise(StandardError, "embedding error")
 
         result = service.build_compound_context(
           agent: agent,
@@ -321,7 +326,8 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       end
 
       it "handles exceptions gracefully" do
-        allow(embedding_service).to receive(:generate).and_raise(StandardError, "embedding error")
+        # The read path calls #generate_or_nil; #generate is no longer on it.
+        allow(embedding_service).to receive(:generate_or_nil).and_raise(StandardError, "embedding error")
 
         expect(service.top_relevant_learnings(task_description: "test")).to eq([])
       end
@@ -1068,9 +1074,10 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       verified = create(:ai_compound_learning, account: account, status: "verified",
                         content: "Widget reconciliation must be idempotent")
 
-      results = service.search_learnings(query: "widget reconciliation")
+      result = service.search_learnings(query: "widget reconciliation")
 
-      expect(results.map(&:id)).to include(verified.id)
+      expect(result[:learnings].map(&:id)).to include(verified.id)
+      expect(result[:match_mode]).to eq("keyword")
     end
 
     it "routes through semantic_search when an embedding is available" do
@@ -1079,17 +1086,18 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       embedding = Array.new(1536, 0.1)
       # The file-level before replaces EmbeddingService.new with a shared
       # double — stub THAT double, not any_instance (which can never reach it).
-      allow(embedding_service).to receive(:generate).and_return(embedding)
+      allow(embedding_service).to receive(:generate_or_nil).and_return(embedding)
       allow(Ai::CompoundLearning).to receive(:semantic_search).and_return([ learning ])
 
-      results = service.search_learnings(query: "completely different wording")
+      result = service.search_learnings(query: "completely different wording")
 
       # No .with on the kwargs: RSpec's recorded-kwargs comparison false-negatives
       # here (identical args print as "received 0 times"). Branch selection is
       # the load-bearing pin; the call's own args belong to semantic_search's
       # unit specs.
       expect(Ai::CompoundLearning).to have_received(:semantic_search)
-      expect(results.map(&:id)).to eq([ learning.id ])
+      expect(result[:learnings].map(&:id)).to eq([ learning.id ])
+      expect(result[:match_mode]).to eq("semantic")
     end
   end
 end
