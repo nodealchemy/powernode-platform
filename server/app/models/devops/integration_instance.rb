@@ -21,6 +21,26 @@ module Devops
     HEALTH_FAILURE_THRESHOLD_SETTING = "devops_integration_health_failure_threshold"
     DEFAULT_HEALTH_FAILURE_THRESHOLD = 3
 
+    # WHERE THE PROBE STREAK LIVES, AND WHY NOT IN `consecutive_failures`.
+    #
+    # The `consecutive_failures` COLUMN is execution telemetry. Its two writers
+    # are `#record_execution!` and `#mark_error!`, and its one consumer is the
+    # `>= 5` auto-error rung inside `#record_execution!`. A health PROBE is a
+    # connection test, which is a different question: an integration can connect
+    # perfectly while 30% of its executions fail, and vice versa.
+    #
+    # Letting probes share that column broke it in both directions — a
+    # successful probe reset an execution streak of 4 to zero, delaying or
+    # erasing the auto-error rung, and a failed probe inflated the execution
+    # counter so the next real execution failure tripped it early. Reviewers
+    # call this "grep the COLUMN, not the method"; it was a real defect in the
+    # first cut of A8, caught in review.
+    #
+    # So the probe streak is a NAMESPACED key inside `health_metrics`, the jsonb
+    # `#update_health!` already merges, and the column is left to the meaning it
+    # already had.
+    PROBE_FAILURE_KEY = "consecutive_probe_failures"
+
     # ==================== Associations ====================
     belongs_to :account
     belongs_to :template, class_name: "Devops::IntegrationTemplate", foreign_key: "integration_template_id"
@@ -196,10 +216,24 @@ module Devops
     # nested keys nothing reads. The `integration_health` verb buckets the
     # COLUMN, so it could only ever answer `unknown`.
     #
+    # The consecutive FAILED PROBE count. Distinct from `consecutive_failures`,
+    # which counts failed EXECUTIONS — see PROBE_FAILURE_KEY.
+    def probe_failure_streak
+      (health_metrics || {})[PROBE_FAILURE_KEY].to_i
+    end
+
+    # AUTO-PAUSE IS A ONE-WAY DOOR. The sweep lists only `active` integrations
+    # and the probe endpoint refuses a non-active row, so once this pauses an
+    # integration nothing probes it again and no later success un-pauses it. An
+    # operator resumes it explicitly (`#activate!`, or Activate in the UI),
+    # which is the point: the platform stops a failing integration, a human
+    # decides it is fixed. Documented for operators in
+    # docs/operations/integration-health.md.
+    #
     # Returns true when this probe auto-paused the integration.
     def record_health_probe!(success:, error: nil, metrics: {})
       threshold = self.class.health_failure_threshold
-      failures = success ? 0 : consecutive_failures.to_i + 1
+      failures = success ? 0 : probe_failure_streak + 1
 
       # `unhealthy`, not `degraded`, at the threshold: `#can_execute?` returns
       # false on unhealthy, which is the truth once the connection test has
@@ -212,9 +246,10 @@ module Devops
         "degraded"
       end
 
-      self.consecutive_failures = failures
+      # `consecutive_failures` is NOT touched here: the probe streak rides in
+      # health_metrics, which #update_health! merges in the same save.
       self.last_error = success ? nil : error&.to_s&.truncate(1000)
-      update_health!(derived, metrics)
+      update_health!(derived, metrics.merge(PROBE_FAILURE_KEY => failures))
 
       auto_pause_for_health!(failures: failures, threshold: threshold)
     end
@@ -224,7 +259,7 @@ module Devops
     # integration back to `paused`, undoing an operator's retirement, or
     # re-pause one already paused. Only an ACTIVE integration whose failure
     # streak has reached the threshold is paused.
-    def auto_pause_for_health!(failures: consecutive_failures.to_i, threshold: self.class.health_failure_threshold)
+    def auto_pause_for_health!(failures: probe_failure_streak, threshold: self.class.health_failure_threshold)
       return false unless status == "active"
       return false if failures < threshold
 

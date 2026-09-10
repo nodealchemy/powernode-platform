@@ -37,22 +37,25 @@ module Api
           # The instances this worker may probe: ACTIVE ones on its own account.
           # Filtering here rather than in the job keeps the tenancy anchor and
           # the "what is probeable" rule on the server, where they are enforced.
+          #
+          # CURSOR, NOT OFFSET (review F5). Probing MUTATES the listed scope —
+          # an auto-paused instance leaves `status: "active"` — so an
+          # offset-paginated page 2 shifts left and silently skips as many rows
+          # as page 1 paused. An `after` cursor over the UUIDv7 primary key is
+          # stable under deletion from the scope, and UUIDv7 is time-ordered, so
+          # `id` alone is a total order with no tiebreak needed.
           def index
             scope = ::Devops::IntegrationInstance
               .where(account_id: worker_account_id, status: "active")
-              .order(:created_at)
+              .order(:id)
+            scope = scope.where("id > ?", params[:after]) if params[:after].present?
 
-            total = scope.count
-            instances = scope.limit(per_page).offset((page - 1) * per_page)
+            instances = scope.limit(per_page).to_a
 
             render_success({
               instances: instances.map { |i| { id: i.id, slug: i.slug } },
-              pagination: {
-                page: page,
-                per_page: per_page,
-                total_count: total,
-                total_pages: [ (total.to_f / per_page).ceil, 1 ].max
-              }
+              # nil ends the sweep: a short page is the last page.
+              next_cursor: (instances.size == per_page ? instances.last&.id : nil)
             })
           end
 
@@ -61,12 +64,27 @@ module Api
             instance = find_instance
 
             # Deleted between listing and probe, or another account's row — the
-            # two are deliberately indistinguishable in the response: saying
-            # "exists, but not yours" would itself disclose the row.
-            return render_success(applied: false, reason: "instance_not_found") unless instance
+            # two are deliberately INDISTINGUISHABLE: a 200 for one and a 404
+            # for the other would itself confirm the row exists on another
+            # account. 404 for both, which is what the seam's tenancy
+            # convention requires (worker_tenancy.rb:55-58: a cross-account
+            # lookup must 404, never 403 and never a distinguishable success).
+            #
+            # This is the one path here that is NOT 2xx, and deliberately so:
+            # the worker-receiver rule exists to stop retry storms on
+            # PROCESSING errors, not to paper over an authorization outcome.
+            # The sweep rescues it per instance and counts it skipped.
+            return render_error("Integration instance not found", status: :not_found) unless instance
 
+            # NOT `status:` — `render_success(status:)` is the HTTP status
+            # keyword (api_response.rb:16). Passing the row's status there
+            # raised "Invalid HTTP status", the rescue below turned it into
+            # `applied: false, error: ...`, and the worker — which reads
+            # `data["applied"]` — saw every probe as not-applied. Caught by the
+            # tenancy sweep's positive control, which asserts on the BODY;
+            # every other example asserted the ROW and could not see it.
             unless instance.status == "active"
-              return render_success(applied: false, reason: "not_active", status: instance.status)
+              return render_success(applied: false, reason: "not_active", instance_status: instance.status)
             end
 
             result = ::Devops::ExecutionService.test_connection(instance: instance)
@@ -78,9 +96,16 @@ module Api
 
             render_success(
               applied: true,
+              # Echoed so a worker log line names the integration rather than a
+              # bare UUID. Only ever this worker's own account's row: a
+              # foreign id 404s above before reaching here.
+              name: instance.name,
+              slug: instance.slug,
               health_status: instance.health_status,
-              consecutive_failures: instance.consecutive_failures,
-              status: instance.status,
+              # The PROBE streak, not the execution streak — they are different
+              # questions and, since the review, different storage.
+              consecutive_probe_failures: instance.probe_failure_streak,
+              instance_status: instance.status,
               paused: paused
             )
           rescue StandardError => e
@@ -96,10 +121,6 @@ module Api
             ::Devops::IntegrationInstance
               .where(account_id: worker_account_id)
               .find_by(id: params[:id])
-          end
-
-          def page
-            @page ||= [ params[:page].to_i, 1 ].max
           end
 
           def per_page

@@ -55,13 +55,13 @@ RSpec.describe Devops::IntegrationInstance, type: :model do
     let(:instance) { create(:devops_integration_instance, status: "active", health_status: nil, last_health_check_at: nil) }
 
     it "records a passing probe as healthy and clears the streak" do
-      instance.update!(consecutive_failures: 2, last_error: "stale")
+      instance.update!(health_metrics: { described_class::PROBE_FAILURE_KEY => 2 }, last_error: "stale")
 
       expect(instance.record_health_probe!(success: true)).to be false
 
       instance.reload
       expect(instance.health_status).to eq("healthy")
-      expect(instance.consecutive_failures).to eq(0)
+      expect(instance.probe_failure_streak).to eq(0)
       expect(instance.last_error).to be_nil
       expect(instance.last_health_check_at).to be_present
       expect(instance.status).to eq("active")
@@ -72,7 +72,7 @@ RSpec.describe Devops::IntegrationInstance, type: :model do
 
       instance.reload
       expect(instance.health_status).to eq("degraded")
-      expect(instance.consecutive_failures).to eq(1)
+      expect(instance.probe_failure_streak).to eq(1)
       expect(instance.last_error).to eq("refused")
       expect(instance.status).to eq("active")
     end
@@ -106,6 +106,38 @@ RSpec.describe Devops::IntegrationInstance, type: :model do
       end
 
       expect(instance.reload.status).to eq("disabled")
+    end
+  end
+
+  # Review F3. Before the review, probes and executions shared the
+  # `consecutive_failures` COLUMN, and the coupling broke both directions: a
+  # passing probe wiped an execution streak of 4 (delaying the `>= 5` auto-error
+  # rung), and a failing probe inflated it (tripping that rung early). Both arms
+  # of the separation are asserted here — neither counter moves the other.
+  describe "the probe streak and the execution streak are separate" do
+    let(:instance) { create(:devops_integration_instance, status: "active") }
+
+    it "does not touch consecutive_failures when a probe fails or succeeds" do
+      instance.update!(consecutive_failures: 4)
+
+      expect { instance.record_health_probe!(success: false, error: "refused") }
+        .not_to change { instance.reload.consecutive_failures }
+      expect { instance.record_health_probe!(success: true) }
+        .not_to change { instance.reload.consecutive_failures }
+
+      expect(instance.consecutive_failures).to eq(4)
+    end
+
+    it "does not touch the probe streak when an execution fails or succeeds" do
+      instance.record_health_probe!(success: false, error: "refused")
+      expect(instance.reload.probe_failure_streak).to eq(1)
+
+      expect { instance.record_execution!(success: false, error: "boom") }
+        .not_to change { instance.reload.probe_failure_streak }
+      expect { instance.record_execution!(success: true) }
+        .not_to change { instance.reload.probe_failure_streak }
+
+      expect(instance.probe_failure_streak).to eq(1)
     end
   end
 

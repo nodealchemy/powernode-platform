@@ -44,8 +44,14 @@ RSpec.describe Ai::Tools::IntegrationHealthTool, type: :service do
 
     row = tool.execute(params: {})[:integrations].first
     expect(row[:health_status]).to eq("degraded")
-    expect(row[:consecutive_failures]).to eq(1)
     expect(row[:last_health_check_at]).to be_present
     expect(row[:last_error]).to eq("connection refused")
+
+    # `consecutive_failures` on this row is the EXECUTION streak, and a probe
+    # must not move it (review F3). The probe streak is its own value. The verb
+    # reporting the execution counter under a health heading is a pre-existing
+    # naming mismatch, recorded as an offer rather than changed here.
+    expect(row[:consecutive_failures]).to eq(0)
+    expect(instance.reload.probe_failure_streak).to eq(1)
   end
 end

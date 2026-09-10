@@ -45,6 +45,14 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
     response.body.scan(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i).map(&:downcase)
   end
 
+  # The integration_health#probe case runs a connection test on the POSITIVE
+  # control. Stubbed at that one external boundary so the sweep never opens a
+  # socket; no other case calls it.
+  before do
+    allow(Devops::ExecutionService).to receive(:test_connection)
+      .and_return({ success: true, message: "ok", tested_at: Time.current })
+  end
+
   # ==========================================================================
   # DECLARATIVE ENUMERATION of the seam's secret-bearing lookups.
   #
@@ -119,6 +127,20 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
       }
     },
     {
+      # A8 (component status plane). The probe endpoint MUTATES the row it
+      # resolves — it writes the health columns and can auto-pause — so an
+      # unanchored lookup here would be a cross-account WRITE, not just a read.
+      name: "internal/devops/integration_health#probe (mutates the resolved row)",
+      build: ->(account, sentinel) {
+        FactoryBot.create(:devops_integration_instance, account: account,
+               name: sentinel, slug: sentinel.downcase, status: "active")
+      },
+      request: ->(ctx, worker, rec) {
+        ctx.post "/api/v1/internal/devops/integration_health/#{rec.id}/probe",
+          headers: ctx.headers_for(worker)
+      }
+    },
+    {
       name: "internal/approval_tokens#show (foreign pipeline step details)",
       build: ->(account, sentinel) {
         pipeline = FactoryBot.create(:devops_pipeline, account: account)
@@ -142,6 +164,7 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
     internal/mcp_tool_executions#show
     internal/devops/docker#connection
     internal/devops/swarm#connection
+    internal/devops/integration_health#probe
     internal/approval_tokens#show
   ].freeze
 

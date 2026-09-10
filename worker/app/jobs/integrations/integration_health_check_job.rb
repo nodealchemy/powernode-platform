@@ -11,6 +11,25 @@ module Integrations
   # unreachable" and returned `{ skipped: true }`: the health columns were never
   # written, the `integration_health` verb was permanently `{unknown: N}`, and
   # the auto-pause this schedule advertises never ran (audit 2026-09-10, §4.2).
+  #
+  # ── STRING KEYS, DELIBERATELY (review F1) ──────────────────────────────────
+  # BackendApiClient#get/#post return `response.body` raw
+  # (backend_api_client.rb:385-391,483-486) from a connection built with
+  # `conn.response :json` and NO `parser_options`, so bodies are parsed with
+  # STRING keys. The first cut of this job read them with symbols: every
+  # `response[:success]` was nil, the sweep broke out of its loop on the first
+  # iteration, issued ZERO probes, and logged "completed" — the very
+  # silently-does-nothing shape this increment exists to remove. Only
+  # #unwrap_internal symbolizes (`:316,:323`), and #get/#post do not use it.
+  #
+  # ── THE PROBE IS NOT RETRY-SAFE (review F2) ────────────────────────────────
+  # The default connection retries POST up to 5 times on timeout/5xx
+  # (`backend_api_client.rb:359-366`). `POST …/probe` has a side effect PER
+  # CALL: it increments the failure streak and can auto-pause the row. A
+  # completed request whose response was lost would be re-sent, so one real
+  # failed probe could post a streak of five and pause an integration well
+  # before the operator-configured threshold. It goes through #post_no_retry,
+  # which exists for exactly this rule.
   class IntegrationHealthCheckJob < BaseJob
     sidekiq_options queue: 'integrations',
                     retry: 3,
@@ -28,47 +47,56 @@ module Integrations
     private
 
     def probe_instance(instance_id)
-      log_info("Probing integration health", instance_id: instance_id)
+      log_info('Probing integration health', instance_id: instance_id)
 
-      response = api_client.post("/api/v1/internal/devops/integration_health/#{instance_id}/probe")
-      data = response[:data] || {}
+      # post_no_retry, not post: see the class comment (side effect per call).
+      response = api_client.post_no_retry("/api/v1/internal/devops/integration_health/#{instance_id}/probe")
+      data = response['data'] || {}
 
-      unless data[:applied]
-        log_info("Integration health probe not applied",
-                 instance_id: instance_id, reason: data[:reason] || data[:error])
-        return { applied: false, reason: data[:reason] || data[:error] }
+      unless data['applied']
+        log_info('Integration health probe not applied',
+                 instance_id: instance_id, reason: data['reason'] || data['error'])
+        return { applied: false, reason: data['reason'] || data['error'] }
       end
 
-      if data[:paused]
-        log_warn("Integration auto-paused after consecutive failures",
+      if data['paused']
+        log_warn('Integration auto-paused after consecutive failed probes',
                  instance_id: instance_id,
-                 consecutive_failures: data[:consecutive_failures])
+                 consecutive_probe_failures: data['consecutive_probe_failures'])
       end
 
       {
         applied: true,
-        health_status: data[:health_status],
-        consecutive_failures: data[:consecutive_failures],
-        paused: data[:paused]
+        health_status: data['health_status'],
+        consecutive_probe_failures: data['consecutive_probe_failures'],
+        paused: data['paused']
       }
     end
 
+    # ── CURSOR, NOT OFFSET (review F5) ─────────────────────────────────────
+    # The listed scope is `status: "active"`, and probing MUTATES it: an
+    # auto-paused instance leaves the scope, so an offset-paginated page 2
+    # shifts left and skips as many rows as page 1 paused. Paginating by an
+    # `after` id cursor over a stable `created_at, id` order means a row that
+    # leaves the scope takes nothing with it.
     def sweep
-      log_info("Starting integration health sweep")
+      log_info('Starting integration health sweep')
 
-      page = 1
+      cursor = nil
       checked = healthy = unhealthy = skipped = paused = 0
 
       loop do
-        response = api_client.get("/api/v1/internal/devops/integration_health",
-                                  { page: page, per_page: PER_PAGE })
-        break unless response[:success]
+        params = { per_page: PER_PAGE }
+        params[:after] = cursor if cursor
 
-        instances = response.dig(:data, :instances) || []
+        response = api_client.get('/api/v1/internal/devops/integration_health', params)
+        break unless response['success']
+
+        instances = response.dig('data', 'instances') || []
         break if instances.empty?
 
         instances.each do |instance|
-          result = probe_instance(instance[:id])
+          result = probe_instance(instance['id'])
           checked += 1
 
           if !result[:applied]
@@ -81,18 +109,16 @@ module Integrations
 
           paused += 1 if result[:paused]
         rescue StandardError => e
-          log_error("Failed to probe integration health", exception: e, instance_id: instance[:id])
+          log_error('Failed to probe integration health', exception: e, instance_id: instance['id'])
           checked += 1
           skipped += 1
         end
 
-        total_pages = response.dig(:data, :pagination, :total_pages) || 1
-        break if page >= total_pages
-
-        page += 1
+        cursor = response.dig('data', 'next_cursor')
+        break if cursor.blank?
       end
 
-      log_info("Integration health sweep completed",
+      log_info('Integration health sweep completed',
                checked: checked, healthy: healthy, unhealthy: unhealthy,
                skipped: skipped, paused: paused)
 
