@@ -754,6 +754,13 @@ module Ai
         # injections unresolved — that depression is the intended signal.
         credit_injected_learnings!(task) if outcome == "passed" && verification == :verified
 
+        # D4: hand the completed work to the LLM judge. Enqueued for EVERY
+        # terminal outcome, not just passes — scoring only successes would bias
+        # the trust quality dimension and skill effectiveness upward by
+        # construction. Best-effort and rescued: a judge that cannot be reached
+        # must never fail a completion that has already been recorded.
+        enqueue_evaluation!(task)
+
         loop_record.reload
         all_tasks_completed = loop_record.all_tasks_completed?
         # IMP-af21b11d476c: this was the ONLY place manual/claude_code loops ever
@@ -1222,6 +1229,36 @@ module Ai
       # positively via the learning service, then clear the marker so an
       # operator resolution or replayed report cannot double-credit. Best-effort
       # — a crediting hiccup must never fail the completion itself.
+      # D4 — event-driven enqueue of the judge for this completion.
+      #
+      # ATTRIBUTION IS THE OPEN HALF, and it is why this mostly no-ops today.
+      # Nothing links a RalphTask to an Ai::AgentExecution: the task carries
+      # executor_id/executor_type (the polymorphic AGENT, not a run), the
+      # iteration carries no execution id, and a Claude Code executor's row is
+      # minted by a separate MCP verb (record_agent_execution, keyed
+      # "cc-"+digest(account, run_key)) with no correlation key back to the
+      # loop. So this reads ONE named metadata key and takes the miss quietly
+      # when it is absent, rather than guessing from a time window — an
+      # inferred discriminator here would credit trust and skill effectiveness
+      # to whichever run happened to be nearby.
+      #
+      # The producer for that key does not exist yet; naming it in one place
+      # means the increment that adds attribution has exactly one line to write.
+      EVALUABLE_EXECUTION_METADATA_KEY = "agent_execution_id"
+
+      def enqueue_evaluation!(task)
+        execution_id = task.metadata.is_a?(Hash) ? task.metadata[EVALUABLE_EXECUTION_METADATA_KEY].presence : nil
+        return if execution_id.blank?
+
+        ::WorkerJobService.enqueue_job(
+          "AgentEvaluationJob",
+          args: [ { "account_id" => account.id, "execution_id" => execution_id, "task_id" => task.id } ],
+          queue: "ai_orchestration"
+        )
+      rescue StandardError => e
+        Rails.logger.warn("[DevLoopTool] evaluation enqueue failed for #{task.task_key}: #{e.message}")
+      end
+
       def credit_injected_learnings!(task)
         ids = Array(task.metadata["injected_learning_ids"])
         return if ids.empty?
