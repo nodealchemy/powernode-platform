@@ -69,39 +69,106 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
         expect(data['metrics']).to be_present
         expect(data).to have_key('timestamp')
       end
+
+      # E7b, the SECOND call site of the deleted concern method. The lead's
+      # brief named `get_system_overview`; `check_system_health` called it too,
+      # and that one reaches the wire through collect_component_metrics("system")
+      # on THIS endpoint. Deliberately unstubbed, so the real concern runs.
+      it 'returns the system component checks with no rival status string' do
+        get '/api/v1/ai/monitoring/metrics?components=system', headers: headers, as: :json
+
+        expect_success_response
+        system_metrics = json_response_data['metrics']['system']
+        expect(system_metrics['health']).to be_present
+        expect(system_metrics['health']).to have_key('components')
+        expect(system_metrics['health']).not_to have_key('status')
+      end
     end
   end
 
   describe 'GET /api/v1/ai/monitoring/overview' do
     context 'with proper permissions' do
-      it 'returns system overview' do
+      before do
         allow_any_instance_of(Monitoring::UnifiedService).to receive(:get_system_overview)
           .and_return({ total_requests: 1000 })
-        allow_any_instance_of(Monitoring::UnifiedService).to receive(:calculate_health_score)
-          .and_return(95.5)
-        allow_any_instance_of(Ai::MonitoringHealthService).to receive(:determine_health_status)
-          .and_return('healthy')
+      end
+
+      # E7: the rollup is not stubbed. The whole point of deleting the rival
+      # producer is that this number now comes from Platform::ComponentStatus
+      # rows, so the oracle reads real rows through the real Query and Rollup.
+      it 'answers with the status-plane rollup, computed from the account rows' do
+        create(:platform_component_status, account: account, verdict: 'ok')
+        create(:platform_component_status, :degraded, account: account)
 
         get '/api/v1/ai/monitoring/overview', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
         expect(data['overview']).to be_present
-        expect(data).to have_key('health_score')
-        expect(data).to have_key('health_status')
+        expect(data['rollup']['verdict']).to eq('degraded')
+        expect(data['rollup']['total']).to eq(2)
+        expect(data['rollup']['counts_by_verdict']).to include('ok' => 1, 'degraded' => 1)
+      end
+
+      # The OTHER arm of the same oracle. A rollup that appears while the old
+      # keys also survive is the two-rival-producers defect E7 exists to remove,
+      # and it would pass every assertion above.
+      it 'no longer answers with the deleted health score or its derived status' do
+        create(:platform_component_status, :down, account: account)
+
+        get '/api/v1/ai/monitoring/overview', headers: headers, as: :json
+
+        expect_success_response
+        data = json_response_data
+        expect(data).not_to have_key('health_score')
+        expect(data).not_to have_key('health_status')
+        expect(data['rollup']['verdict']).to eq('down')
+      end
+
+      # Shared rows are split out, never summed in: one process-wide breaker
+      # must not read as this tenant's outage.
+      it 'keeps a shared row out of the account verdict' do
+        create(:platform_component_status, account: account, verdict: 'ok')
+        create(:platform_component_status, :shared, :down)
+
+        get '/api/v1/ai/monitoring/overview', headers: headers, as: :json
+
+        data = json_response_data
+        expect(data['rollup']['verdict']).to eq('ok')
+        expect(data['shared']['verdict']).to eq('down')
       end
     end
   end
 
   describe 'GET /api/v1/ai/monitoring/health' do
     context 'with proper permissions' do
-      it 'returns comprehensive health check' do
+      # E7b: the service is stubbed with MEASUREMENTS ONLY, which is the whole
+      # claim — after this increment it has no verdict of its own to return.
+      before do
         allow_any_instance_of(Ai::MonitoringHealthService).to receive(:comprehensive_health_check)
-          .and_return({ health_score: 95, status: 'healthy', checks: [] })
+          .and_return({ database: { status: 'healthy' }, redis: { status: 'healthy' } })
+      end
+
+      it 'answers with the status-plane rollup beside the measurements' do
+        create(:platform_component_status, :degraded, account: account)
 
         get '/api/v1/ai/monitoring/health', headers: headers, as: :json
 
         expect_success_response
+        data = json_response_data
+        expect(data['database']['status']).to eq('healthy')
+        expect(data['rollup']['verdict']).to eq('degraded')
+      end
+
+      it 'no longer answers with a health score or a service-derived status' do
+        create(:platform_component_status, account: account, verdict: 'ok')
+
+        get '/api/v1/ai/monitoring/health', headers: headers, as: :json
+
+        data = json_response_data
+        expect(data).not_to have_key('health_score')
+        expect(data).not_to have_key('status')
+        expect(data['rollup']['verdict']).to eq('ok')
       end
     end
   end

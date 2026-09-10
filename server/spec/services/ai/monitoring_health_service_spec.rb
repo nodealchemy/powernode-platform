@@ -34,20 +34,6 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
       expect(health[:providers]).to be_a(Hash)
       expect(health[:workers]).to be_a(Hash)
       expect(health[:circuit_breakers]).to be_a(Hash)
-      expect(health[:health_score]).to be_a(Numeric)
-      expect(health[:status]).to be_present
-    end
-
-    it "calculates a health score between 0 and 100" do
-      health = service.comprehensive_health_check(skip_cache: true)
-
-      expect(health[:health_score]).to be_between(0, 100)
-    end
-
-    it "returns healthy status when all systems are up" do
-      health = service.comprehensive_health_check(skip_cache: true)
-
-      expect(health[:status]).to eq("healthy")
     end
 
     it "uses cache by default" do
@@ -241,69 +227,30 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
   end
 
   # ===========================================================================
-  # #calculate_overall_health_score / #determine_health_status
+  # E7b: #calculate_overall_health_score and #determine_health_status are GONE
   # ===========================================================================
+  #
+  # This service reports measurements and stamps no verdict on them. The
+  # status-plane rollup is the one health score (design section 4.4). The
+  # examples that used to live here asserted the 4x25% blend and its
+  # healthy/degraded/unhealthy/critical buckets; both are deleted, and
+  # spec/lint/rival_health_producer_spec.rb keeps them deleted.
 
-  describe "#calculate_overall_health_score" do
-    it "returns 100 when all systems are healthy with no providers" do
-      health_data = {
-        database: { status: "healthy" },
-        redis: { status: "healthy" },
-        providers: { total_providers: 0, healthy_providers: 0 },
-        workers: { status: "healthy" }
-      }
+  describe "the deleted verdict" do
+    it "does not stamp a score or a status onto the health payload" do
+      health = service.comprehensive_health_check(skip_cache: true)
 
-      score = service.calculate_overall_health_score(health_data)
-
-      expect(score).to eq(100)
+      expect(health).not_to have_key(:health_score)
+      expect(health).not_to have_key(:status)
     end
 
-    it "reduces score when database is unhealthy" do
-      healthy_data = {
-        database: { status: "healthy" },
-        redis: { status: "healthy" },
-        providers: { total_providers: 0, healthy_providers: 0 },
-        workers: { status: "healthy" }
-      }
-      unhealthy_data = healthy_data.merge(database: { status: "unhealthy" })
+    it "still returns the measurements the checks produce" do
+      health = service.comprehensive_health_check(skip_cache: true)
 
-      healthy_score = service.calculate_overall_health_score(healthy_data)
-      unhealthy_score = service.calculate_overall_health_score(unhealthy_data)
-
-      expect(unhealthy_score).to be < healthy_score
-    end
-
-    it "reduces score when some providers are unhealthy" do
-      data = {
-        database: { status: "healthy" },
-        redis: { status: "healthy" },
-        providers: { total_providers: 4, healthy_providers: 2 },
-        workers: { status: "healthy" }
-      }
-
-      score = service.calculate_overall_health_score(data)
-
-      expect(score).to be < 100
-    end
-  end
-
-  describe "#determine_health_status" do
-    it "returns healthy for scores 80-100" do
-      expect(service.determine_health_status(95)).to eq("healthy")
-      expect(service.determine_health_status(80)).to eq("healthy")
-    end
-
-    it "returns degraded for scores 50-79" do
-      expect(service.determine_health_status(75)).to eq("degraded")
-      expect(service.determine_health_status(50)).to eq("degraded")
-    end
-
-    it "returns unhealthy for scores 20-49" do
-      expect(service.determine_health_status(30)).to eq("unhealthy")
-    end
-
-    it "returns critical for scores below 20" do
-      expect(service.determine_health_status(10)).to eq("critical")
+      expect(health).to have_key(:database)
+      expect(health).to have_key(:redis)
+      expect(health).to have_key(:providers)
+      expect(health).to have_key(:workers)
     end
   end
 

@@ -187,8 +187,22 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
 
         result = described_class.execute_tool("platform.infrastructure", params: {}, account: account, instance_authorized: true)
 
-        expect(result).to eq({ db: "ok" })
+        expect(result).to include(db: "ok")
         expect(health_service).to have_received(:comprehensive_health_check).with(skip_cache: false)
+      end
+
+      # E7b: the health service stamps no verdict, so this verb composes the
+      # status-plane rollup. Without it an agent asking "is the platform
+      # healthy?" over MCP gets measurements and no answer.
+      it 'carries the status-plane rollup verdict and no health score' do
+        allow(health_service).to receive(:comprehensive_health_check).and_return({ db: "ok" })
+        create(:platform_component_status, :degraded, account: account)
+
+        result = described_class.execute_tool("platform.infrastructure", params: {}, account: account, instance_authorized: true)
+
+        expect(result[:rollup][:verdict]).to eq("degraded")
+        expect(result).not_to have_key(:health_score)
+        expect(result).not_to have_key(:status)
       end
 
       it 'passes skip_cache parameter' do
