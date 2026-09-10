@@ -189,6 +189,18 @@ module Mcp
       # `*replace*` so a future replace-shaped read or config verb is not
       # swept in; verified against the whole registry to match exactly this
       # one action (principal_deny_overlay_spec pins that).
+      #
+      # remove_team_member, detach_skill_from_agent and data_source_unsubscribe
+      # are LITERAL names, not globs (E2 review M2). Each destroys rows — a
+      # team member plus its role assignments, an Ai::AgentSkill binding, data
+      # source subscriptions — and until the review each published
+      # destructiveHint: false, MCP's affirmative claim that a tool performs
+      # only additive updates. Declaring them destructive without an entry here
+      # would leave a verb the platform calls irreversible grantable to an
+      # instance, which the destructive-declaration lint refuses. Literal on
+      # purpose: no glob of their shape (*remove_*, *detach_*, *unsubscribe*)
+      # is narrow enough to stay off a future reversible verb, and
+      # principal_deny_overlay_spec pins the collateral to exactly these three.
       DESTRUCTIVE_TOOL_PATTERNS = %w[
         *_deferred_operation
         *intervention_policy
@@ -209,6 +221,9 @@ module Mcp
         *upgrade_boot_image*
         *_hold
         *replace_instance*
+        remove_team_member
+        detach_skill_from_agent
+        data_source_unsubscribe
       ].freeze
 
       # True when the tool is destroy-shaped and therefore off-limits to every

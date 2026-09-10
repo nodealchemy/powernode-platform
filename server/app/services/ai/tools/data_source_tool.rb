@@ -135,7 +135,7 @@ module Ai
       declare_action "data_source_rollback_config", mutating: true
       declare_action "data_source_schema_history", mutating: false
       declare_action "data_source_subscribe", mutating: true
-      declare_action "data_source_unsubscribe", mutating: true
+      declare_action "data_source_unsubscribe", mutating: true, destructive: true
       declare_action "data_source_update", mutating: true
       declare_action "data_source_validate_config", mutating: false
 

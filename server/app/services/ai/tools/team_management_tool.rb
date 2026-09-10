@@ -15,7 +15,7 @@ module Ai
       declare_action "execute_team", mutating: true
       declare_action "get_team", mutating: false
       declare_action "list_teams", mutating: false
-      declare_action "remove_team_member", mutating: true
+      declare_action "remove_team_member", mutating: true, destructive: true
       declare_action "update_team", mutating: true
 
       # HIER-P4 — a CANONICAL team (the account's materialisation of a global
