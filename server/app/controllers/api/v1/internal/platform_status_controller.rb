@@ -102,8 +102,8 @@ module Api
         # See ::Platform::Status::AccountLock for why the lock is a Postgres
         # advisory one rather than the worker's Redis key.
         #
-        # THE TRANSACTION IS THE LOCK'''S SCOPE, and it has a cost worth naming:
-        # an account'''s status rows and its events now commit together, which is
+        # THE TRANSACTION IS THE LOCK'S SCOPE, and it has a cost worth naming:
+        # an account's status rows and its events now commit together, which is
         # better for consistency, but a rollback after a broadcast has gone out
         # would leave a client told about an event that no longer exists. That
         # needs an exception to escape run!, which rescues per transition and
@@ -232,6 +232,17 @@ module Api
         # needs; the worker only logs totals. Sending the whole thing would put
         # every transition on the platform through a JSON round trip once a
         # minute for no reader.
+        #
+        # `event_failures` IS CARRIED EVEN WHEN ZERO, and deliberately so. The
+        # runner rescues per transition so one bad emission cannot discard the
+        # rest of the account's tick; that rescue is only defensible if the
+        # count it produces reaches a reader. Dropped here, a sweep that failed
+        # to emit every single event would report the same shape as a clean one
+        # — the silent-PASS this campaign exists to remove.
+        #
+        # It is NOT run through `.compact`'s reach by being left nil: `.to_i`
+        # makes it a real 0, so "no failures" and "the door forgot to report
+        # failures" are different values rather than the same absent key.
         def summarize(account, result)
           {
             account_id: account.id,
@@ -239,6 +250,7 @@ module Api
             reason: result[:reason],
             transitions: Array(result[:transitions]).size,
             events_written: result[:events_written].to_i,
+            event_failures: result[:event_failures].to_i,
             reaped: result[:reaped].to_i,
             kinds: Array(result[:kinds]&.keys).size
           }.compact

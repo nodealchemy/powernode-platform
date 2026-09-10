@@ -90,6 +90,43 @@ RSpec.describe "Api::V1::Internal platform status sweep", type: :request do
       expect(summaries[other.id]["skipped"]).to be(false)
     end
 
+    # A2 review low — `event_failures` was counted by the runner and then
+    # DROPPED by summarize, so no reader ever saw it. Deliberately NOT stubbing
+    # the runner: stubbing its return would prove only that summarize copies a
+    # key, and the defect was that the door never asked for it. This drives a
+    # real transition through the real runner with a real emission failure.
+    it "carries an event-emission failure through to the worker", :platform_status do
+      system_worker
+      register_fake_kind(records: [ fake_record("a"), fake_record("b") ])
+      failed_once = false
+      allow(Platform::StatusEvent).to receive(:create!).and_wrap_original do |original, **attrs|
+        if attrs[:component_ref] == "a" && !failed_once
+          failed_once = true
+          raise ActiveRecord::RecordInvalid.new(Platform::StatusEvent.new)
+        end
+        original.call(**attrs)
+      end
+
+      post_sweep
+
+      summary = JSON.parse(response.body)["data"]["summaries"].find { |s| s["account_id"] == account.id }
+      expect(summary["event_failures"]).to eq(1)
+      expect(summary["events_written"]).to eq(1)
+    end
+
+    # The other arm: a clean sweep says 0 rather than omitting the key, so
+    # "nothing failed" and "the door stopped reporting failures" differ.
+    it "reports zero event failures on a clean sweep", :platform_status do
+      system_worker
+      register_fake_kind(records: [ fake_record("a") ])
+
+      post_sweep
+
+      summary = JSON.parse(response.body)["data"]["summaries"].find { |s| s["account_id"] == account.id }
+      expect(summary["event_failures"]).to eq(0)
+      expect(summary["events_written"]).to eq(1)
+    end
+
     it "prunes expired events ONCE per request and reports how many went" do
       system_worker
       old_event = create(:platform_status_event, account: account, occurred_at: 60.days.ago)
