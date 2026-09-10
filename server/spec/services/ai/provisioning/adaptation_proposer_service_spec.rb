@@ -616,6 +616,104 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, type: :service do
     end
   end
 
+  # IMP-01a04cd4-46c5: an empty result used to carry no reason, so an
+  # unreachable LLM, a converged fleet, an unobservable fleet and a dropped
+  # input all reached the operator as the same "No adaptation steps could be
+  # composed". Each cause now names itself — the FIRST one hit during
+  # composition, which is the root: a schema_change whose LLM is down also
+  # fails its heuristic fallback, but the actionable fact is the LLM.
+  describe "decline reasons on the operator path" do
+    let(:llm_response_class) do
+      Struct.new(:status, :content, keyword_init: true) do
+        def success?
+          status
+        end
+      end
+    end
+
+    def fake_llm_returning(response)
+      Class.new do
+        define_method(:complete) { |**_opts| response }
+      end.new
+    end
+
+    def use_real_llm_seam(client)
+      allow_any_instance_of(described_class).to receive(:diff_from_llm).and_call_original
+      allow_any_instance_of(described_class).to receive(:llm_client).and_return(client)
+    end
+
+    def decline_for(change_type, details: nil)
+      result = service.propose_change(change_type: change_type, details: details)
+      expect(result[:plan]).to be_nil
+      result[:decline]
+    end
+
+    it "names an unobservable fleet (no replica count on an SLO breach)" do
+      expect(decline_for("scale_horizontal", details: { "breach_pct" => 100.0 })[:reason])
+        .to eq("no_observation")
+    end
+
+    it "names a converged fleet (observed replicas already at target)" do
+      decline = decline_for("scale_horizontal",
+                            details: { "drift_type" => "replica_count", "observed" => 3, "target" => 3 })
+
+      expect(decline[:reason]).to eq("converged")
+      expect(decline[:detail]).to include("observed=3", "desired=3")
+    end
+
+    it "names the missing compute footprint a scale-out would replicate" do
+      mission.update!(configuration: mission.configuration.except("plan"))
+
+      decline = decline_for("scale_horizontal", details: { "breach_pct" => 100.0, "replica_count" => 3 })
+
+      expect(decline[:reason]).to eq("missing_footprint")
+      expect(decline[:detail]).to include("template_id")
+    end
+
+    it "names an unavailable LLM for a change type only the LLM composes" do
+      use_real_llm_seam(nil)
+
+      expect(decline_for("schema_change")[:reason]).to eq("llm_unavailable")
+    end
+
+    it "names a failed LLM call" do
+      use_real_llm_seam(fake_llm_returning(llm_response_class.new(status: false, content: nil)))
+
+      expect(decline_for("schema_change")[:reason]).to eq("llm_failed")
+    end
+
+    it "names an LLM reply that carried no parseable proposal" do
+      use_real_llm_seam(fake_llm_returning(llm_response_class.new(status: true, content: "no json here")))
+
+      expect(decline_for("schema_change")[:reason]).to eq("llm_no_proposal")
+    end
+
+    it "names an LLM proposal whose every step was outside the allowlist" do
+      allow_any_instance_of(described_class).to receive(:diff_from_llm)
+        .and_return([ { "skill" => "drop_database", "inputs" => {} } ])
+
+      expect(decline_for("schema_change")[:reason]).to eq("llm_unusable")
+    end
+
+    it "names the skill whose step was dropped as unbindable" do
+      allow_any_instance_of(described_class).to receive(:diff_from_llm)
+        .and_return([ { "skill" => "relocate_workload", "inputs" => {} } ])
+
+      decline = decline_for("schema_change")
+
+      expect(decline[:reason]).to eq("unbindable")
+      expect(decline[:detail]).to include("relocate_workload")
+    end
+
+    it "reports no decline beside a plan that did compose" do
+      result = service.propose_change(change_type: "scale_horizontal",
+                                      details: { "breach_pct" => 100.0, "replica_count" => 3 })
+
+      expect(result[:plan]).to be_present
+      expect(result[:decline]).to be_nil
+    end
+  end
+
   # IMP-8c37b9e5ccd5 (INC-2), ratified §4: this is now a DOWNGRADE-ONLY bounds
   # check. It is core's input to the `adaptation_gate` seam, never a decision
   # to apply: false parks the plan behind the gate, true merely permits the

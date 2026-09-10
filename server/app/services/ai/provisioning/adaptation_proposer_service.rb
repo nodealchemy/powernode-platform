@@ -439,7 +439,10 @@ module Ai
       # which case the heuristic fallback in #build_steps_for kicks in.
       def diff_from_llm(signal:, change_type:)
         client = llm_client
-        return nil unless client
+        unless client
+          record_decline("llm_unavailable", "no LLM client could be built for this account")
+          return nil
+        end
 
         prompt = build_diff_prompt(signal, change_type)
         response = safe_complete(
@@ -448,7 +451,10 @@ module Ai
           max_tokens: DEFAULT_MAX_TOKENS,
           temperature: DEFAULT_TEMPERATURE
         )
-        return nil unless response&.success?
+        unless response&.success?
+          record_decline("llm_failed", "the LLM call returned no successful response")
+          return nil
+        end
 
         parse_diff_json(response.content)
       end
@@ -465,11 +471,15 @@ module Ai
       # here, so every plan reaching the gate has the same shape and carries
       # the same provenance.
       def compose_and_route!(signal:, change_type:)
+        @decline = nil
         diff_steps = build_steps_for(signal, change_type)
         return empty_result(signal, change_type) if diff_steps.blank?
 
         plan = persist_diff_plan!(change_type, diff_steps, signal)
-        return empty_result(signal, change_type) unless plan
+        unless plan
+          record_decline("not_persisted", "the composed diff plan could not be saved")
+          return empty_result(signal, change_type)
+        end
 
         # Composition ONLY. Gating belongs to
         # Ai::Provisioning::AdaptationDispatchService via the `adaptation_gate`
@@ -484,8 +494,19 @@ module Ai
         }
       end
 
+      # `decline` names WHY nothing composed (IMP-01a04cd4-46c5): the FIRST
+      # cause recorded during this composition, which is the root one — a
+      # schema_change whose LLM is down also fails its heuristic fallback, but
+      # the actionable fact is the LLM. Without it an unreachable LLM, a
+      # converged fleet and a dropped input all rendered identically.
       def empty_result(signal, change_type)
-        { plan: nil, change_type: change_type, signal: signal, auto_apply: false }
+        { plan: nil, change_type: change_type, signal: signal, auto_apply: false,
+          decline: @decline || { reason: "nothing_composed", detail: nil } }
+      end
+
+      # First cause wins; see #empty_result. Reset per composition.
+      def record_decline(reason, detail = nil)
+        @decline ||= { reason: reason, detail: detail }
       end
 
       # One step of a diff plan is eligible for auto-apply only if it is the
@@ -649,6 +670,11 @@ module Ai
           else
             from_llm = safe_call { diff_from_llm(signal: signal, change_type: change_type) }
             sanitized = sanitize_steps(from_llm)
+            if from_llm.blank?
+              record_decline("llm_no_proposal", "the LLM returned no parseable proposal")
+            elsif sanitized.empty?
+              record_decline("llm_unusable", "no proposed step named an allowlisted skill")
+            end
             if sanitized.any?
               decorate_with_signal_metadata!(sanitized, signal)
               stamp_composition_source!(sanitized, "llm")
@@ -665,10 +691,15 @@ module Ai
       end
 
       def reject_unbindable(steps)
-        Array(steps).select do |step|
+        dropped = []
+        kept = Array(steps).select do |step|
           inputs = step["inputs"].is_a?(Hash) ? step["inputs"] : {}
-          bindable?(step["skill"].to_s, inputs)
+          bindable?(step["skill"].to_s, inputs).tap { |ok| dropped << step["skill"].to_s unless ok }
         end
+        if kept.empty? && dropped.any?
+          record_decline("unbindable", "dropped #{dropped.uniq.join(', ')}: missing required executor inputs")
+        end
+        kept
       end
 
       # Provenance stamp so an operator reading a persisted plan can tell
@@ -797,10 +828,16 @@ module Ai
         # landing between them makes the delta non-positive (the proposal
         # silently vanishes) or overshoots the target.
         observed = observed_replica_count(payload)
-        return nil if observed.nil?
+        if observed.nil?
+          record_decline("no_observation", "the signal carries no replica count, so the fleet cannot be seen")
+          return nil
+        end
 
         desired = recommended_replica_count(payload, observed: observed)
-        return nil if desired.nil?
+        if desired.nil?
+          record_decline("no_target", "no desired replica count could be derived from the signal")
+          return nil
+        end
 
         delta = desired - observed
         if delta <= 0
@@ -814,6 +851,7 @@ module Ai
           # arm stays additive by DECISION, not by impossibility; widening it
           # means giving drift the same never-auto-apply treatment removals get
           # and is its own piece of work.
+          record_decline("converged", "observed=#{observed} desired=#{desired} (delta=#{delta})")
           log_decline_throttled(
             "no_scale_out",
             "[AdaptationProposerService] no scale-out composed mission=#{mission.id} " \
@@ -832,6 +870,7 @@ module Ai
         footprint = existing_footprint
         missing = COMPUTE_FOOTPRINT_KEYS.reject { |key| footprint[key].present? }
         if missing.any?
+          record_decline("missing_footprint", "unresolved #{missing.join(', ')}")
           log_decline_throttled(
             "missing_footprint",
             "[AdaptationProposerService] no scale-out composed mission=#{mission.id}: " \

@@ -554,6 +554,22 @@ RSpec.describe Ai::Tools::ProvisioningTool do
       expect(::Ai::GoalPlan.find(r[:data][:plan_id]).status).to eq("draft")
     end
 
+    # IMP-01a04cd4-46c5: the empty-plan error used to be one generic sentence
+    # for every cause. It now carries the proposer's decline reason, so an
+    # operator can tell "fix the mission's footprint" from "the fleet is
+    # already converged" from "the LLM is down".
+    it "names the proposer's decline reason when nothing could be composed" do
+      adapt_mission.update!(configuration: adapt_mission.configuration.except("plan"))
+
+      r = call("platform_provisioning_adapt",
+               mission_id: adapt_mission.id,
+               change_type: "scale_horizontal",
+               details: { "breach_pct" => 100.0, "replica_count" => 3 })
+
+      expect(r[:success]).to be false
+      expect(r[:error]).to include("No adaptation steps could be composed", "missing_footprint")
+    end
+
     it "dispatches onto the live plan when the gate grants auto-apply within bounds" do
       allow(WorkerJobService).to receive(:enqueue_job).and_return(true)
       stub_gate("auto_apply_within_bounds")
