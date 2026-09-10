@@ -24,7 +24,6 @@ export const transformDashboardData = (dashboard: MonitoringDashboard): Monitori
       success_rate: dashboard.overview?.success_rate || 0,
     },
     timestamp: new Date().toISOString(),
-    health_score: dashboard.system_health?.uptime_percentage || 100,
     components: {}
   };
 };

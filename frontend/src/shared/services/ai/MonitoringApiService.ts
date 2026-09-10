@@ -1,4 +1,5 @@
 import { BaseApiService } from '@/shared/services/ai/BaseApiService';
+import { type StatusRollup, UNHEALTHY_VERDICTS } from '@/shared/types/platformStatus';
 
 /**
  * MonitoringApiService - Monitoring Controller API Client
@@ -213,7 +214,6 @@ class MonitoringApiService extends BaseApiService {
         avg_response_time?: number;
         success_rate?: number;
       };
-      health_score?: number;
       components?: {
         providers?: {
           total_providers?: number;
@@ -257,6 +257,8 @@ class MonitoringApiService extends BaseApiService {
 
     const response = await this.get<{
       dashboard: BackendDashboard;
+      rollup?: StatusRollup | null;
+      shared?: StatusRollup | null;
       generated_at: string;
     }>(`${this.basePath}/dashboard`);
 
@@ -285,11 +287,30 @@ class MonitoringApiService extends BaseApiService {
     // Use native overview data from backend
     const nativeOverview = dashboard?.overview;
 
+    // `dashboard.health_score` is GONE (E7) — the endpoint never carried it at
+    // this nesting level in the first place (the pre-E7 field, when it
+    // existed, was a SIBLING of `dashboard`, not nested inside it), so the
+    // `|| 100` here was silently reporting "100% uptime" on every single call.
+    // The authoritative replacement is the `rollup` sibling `platform_rollup`
+    // now returns: derive a genuine percentage from its counts rather than
+    // defaulting to a number that means "nothing is wrong" when the truth is
+    // "we don't have an opinion". `rollup.total === 0` (nothing tracked yet)
+    // is the one case where 100 is a real computed answer, not a fabricated
+    // one — zero unhealthy components out of zero is vacuously true, not a
+    // guess standing in for a missing signal.
+    const rollup = response?.rollup;
+    const unhealthyCount = rollup
+      ? UNHEALTHY_VERDICTS.reduce((sum, verdict) => sum + (rollup.counts_by_verdict[verdict] ?? 0), 0)
+      : 0;
+    const uptimePercentage = rollup && rollup.total > 0
+      ? Math.round(((rollup.total - unhealthyCount) / rollup.total) * 100)
+      : 100;
+
     return {
       system_health: {
         status: nativeOverview?.status === 'healthy' ? 'healthy' :
                 nativeOverview?.status === 'degraded' ? 'degraded' : 'healthy',
-        uptime_percentage: dashboard?.health_score || 100
+        uptime_percentage: uptimePercentage
       },
       // Pass native overview for direct use
       overview: {

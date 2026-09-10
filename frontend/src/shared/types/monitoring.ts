@@ -288,7 +288,6 @@ export interface CostProjection {
 export interface MonitoringDashboardData {
   timestamp: string;
   overview: SystemOverview;
-  health_score: number;
   components: {
     system?: SystemMetrics;
     providers?: ProvidersSummary;

@@ -41,9 +41,14 @@ describe('transformDashboardData', () => {
     expect(transformDashboardData(dashboard({})).overview.success_rate).toBe(0);
   });
 
-  it('uses system_health.uptime_percentage for health_score, defaulting to 100', () => {
-    expect(transformDashboardData(dashboard({ system_health: { uptime_percentage: 87 } })).health_score).toBe(87);
-    expect(transformDashboardData(dashboard({})).health_score).toBe(100);
+  it('no longer carries a dashboard-level health_score (E7 removed the rival producer)', () => {
+    // The rollup verdict is now the authoritative status; this dashboard-level
+    // field had zero real consumers even before removal (it was populated
+    // from an already-broken `|| 100` fallback reading a field the endpoint
+    // never actually nested here). Asserting its absence pins the removal —
+    // resurrecting the old `health_score: ... || 100` line would fail this.
+    expect(transformDashboardData(dashboard({ system_health: { uptime_percentage: 87 } })))
+      .not.toHaveProperty('health_score');
   });
 });
 
