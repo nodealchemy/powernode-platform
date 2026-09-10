@@ -2,37 +2,48 @@
 
 require 'rails_helper'
 
+# IMP-01a04d08-9288. The write paths here used to stub Devops::RegistryService
+# wholesale, so they asserted only the status the controller renders around a
+# double. That is how RegistryService#create_credential could fail on EVERY
+# call — it saved before assigning the credentials, tripping the
+# encrypted_credentials presence validation — while "creates a new credential"
+# stayed green (it also posted credential_type 'oauth', which is not a valid
+# type: the real API would 422 it).
+#
+# The examples now drive the REAL service and assert the ROW. Stubs remain
+# only on Security::CredentialEncryptionService for rotate/verify, the crypto
+# boundary those two endpoints exist to exercise.
 RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
   let(:account) { create(:account) }
+  let(:other_account) { create(:account) }
   let(:user_with_read_permission) { create(:user, account: account, permissions: [ 'devops.integrations.credentials.read' ]) }
   let(:user_with_create_permission) { create(:user, account: account, permissions: [ 'devops.integrations.credentials.read', 'devops.integrations.credentials.create' ]) }
   let(:user_with_update_permission) { create(:user, account: account, permissions: [ 'devops.integrations.credentials.read', 'devops.integrations.credentials.update' ]) }
   let(:user_with_delete_permission) { create(:user, account: account, permissions: [ 'devops.integrations.credentials.read', 'devops.integrations.credentials.delete' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
+  def account_credentials = Devops::IntegrationCredential.where(account: account)
+
   describe 'GET /api/v1/devops/integration_credentials' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
 
     before do
       create_list(:devops_integration_credential, 3, account: account)
+      create(:devops_integration_credential, account: other_account)
     end
 
     context 'with devops.integrations.credentials.read permission' do
-      it 'returns list of credentials' do
+      it "returns this account's credentials only" do
         get '/api/v1/devops/integration_credentials', headers: headers, as: :json
 
         expect_success_response
-        response_data = json_response
-
-        expect(response_data['data']['credentials']).to be_an(Array)
-        expect(response_data['data']['credentials'].length).to eq(3)
+        expect(json_response['data']['credentials'].length).to eq(3)
       end
 
       it 'includes pagination meta' do
         get '/api/v1/devops/integration_credentials', headers: headers, as: :json
 
-        response_data = json_response
-        expect(response_data['data']['pagination']).to include('current_page', 'total_pages', 'total_count')
+        expect(json_response['data']['pagination']).to include('current_page', 'total_pages', 'total_count')
       end
     end
 
@@ -59,69 +70,74 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
     let(:credential) { create(:devops_integration_credential, account: account) }
 
-    context 'with devops.integrations.credentials.read permission' do
-      it 'returns credential details' do
-        get "/api/v1/devops/integration_credentials/#{credential.id}", headers: headers, as: :json
+    it 'returns credential details' do
+      get "/api/v1/devops/integration_credentials/#{credential.id}", headers: headers, as: :json
 
-        expect_success_response
-        response_data = json_response
-
-        expect(response_data['data']['credential']).to be_present
-      end
+      expect_success_response
+      expect(json_response['data']['credential']['id']).to eq(credential.id)
     end
 
-    context 'when credential does not exist' do
-      it 'returns not found error' do
-        get '/api/v1/devops/integration_credentials/nonexistent-id', headers: headers, as: :json
+    it 'returns not found for an unknown id' do
+      get '/api/v1/devops/integration_credentials/nonexistent-id', headers: headers, as: :json
 
-        expect_error_response('Credential', 404)
-      end
+      expect_error_response('Credential', 404)
     end
 
-    context 'when accessing other account credential' do
-      let(:other_account) { create(:account) }
-      let(:other_credential) { create(:devops_integration_credential, account: other_account) }
+    it "returns not found for another account's credential" do
+      other_credential = create(:devops_integration_credential, account: other_account)
 
-      it 'returns not found error' do
-        get "/api/v1/devops/integration_credentials/#{other_credential.id}", headers: headers, as: :json
+      get "/api/v1/devops/integration_credentials/#{other_credential.id}", headers: headers, as: :json
 
-        expect_error_response('Credential', 404)
-      end
+      expect_error_response('Credential', 404)
     end
   end
 
   describe 'POST /api/v1/devops/integration_credentials' do
     let(:headers) { auth_headers_for(user_with_create_permission) }
+    let(:secret) { "sk_probe_#{SecureRandom.hex(12)}" }
+    let(:valid_params) do
+      {
+        credential: {
+          name: 'Test Credential',
+          credential_type: 'api_key',
+          scopes: [ 'read', 'write' ],
+          credentials: { api_key: secret },
+          metadata: { provider: 'github' }
+        }
+      }
+    end
 
     context 'with devops.integrations.credentials.create permission' do
-      let(:valid_params) do
-        {
-          credential: {
-            name: 'Test Credential',
-            credential_type: 'oauth',
-            scopes: [ 'read', 'write' ],
-            credentials: { token: 'test_token' },
-            metadata: { provider: 'github' }
-          }
-        }
-      end
-
-      it 'creates a new credential' do
-        allow(Devops::RegistryService).to receive(:create_credential).and_return(
-          double(credential_summary: { id: 'test-id', name: 'Test Credential' })
-        )
-
-        post '/api/v1/devops/integration_credentials', params: valid_params, headers: headers, as: :json
+      it 'creates the credential in this account, encrypted, and never echoes the secret' do
+        expect {
+          post '/api/v1/devops/integration_credentials', params: valid_params, headers: headers, as: :json
+        }.to change { account_credentials.count }.by(1)
 
         expect(response).to have_http_status(:created)
+        row = account_credentials.find_by!(name: 'Test Credential')
+        expect(row).to have_attributes(credential_type: 'api_key', scopes: [ 'read', 'write' ])
+        expect(row.encrypted_credentials).to be_present
+        expect(row.encrypted_credentials).not_to include(secret)
+        expect(row.reload.decrypt).to include('api_key' => secret)
+        expect(response.body).not_to include(secret)
       end
 
-      it 'handles validation errors' do
-        allow(Devops::RegistryService).to receive(:create_credential).and_raise(
-          Devops::RegistryService::ValidationError.new('Invalid credentials')
-        )
+      it 'answers 422 and creates nothing for an unknown credential type' do
+        expect {
+          post '/api/v1/devops/integration_credentials',
+               params: { credential: valid_params[:credential].merge(credential_type: 'oauth') },
+               headers: headers, as: :json
+        }.not_to change(Devops::IntegrationCredential, :count)
 
-        post '/api/v1/devops/integration_credentials', params: valid_params, headers: headers, as: :json
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      it 'answers 422 and creates nothing when no secret material is supplied' do
+        expect {
+          post '/api/v1/devops/integration_credentials',
+               params: { credential: valid_params[:credential].except(:credentials) },
+               headers: headers, as: :json
+        }.not_to change(Devops::IntegrationCredential, :count)
 
         expect(response).to have_http_status(:unprocessable_content)
       end
@@ -130,11 +146,10 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
     context 'without permission' do
       let(:headers) { auth_headers_for(user_with_read_permission) }
 
-      it 'returns forbidden error' do
-        post '/api/v1/devops/integration_credentials',
-             params: { credential: { name: 'Test' } },
-             headers: headers,
-             as: :json
+      it 'returns forbidden and creates nothing' do
+        expect {
+          post '/api/v1/devops/integration_credentials', params: valid_params, headers: headers, as: :json
+        }.not_to change(Devops::IntegrationCredential, :count)
 
         expect_error_response("You don't have permission to perform this action", 403)
       end
@@ -143,59 +158,47 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
 
   describe 'PATCH /api/v1/devops/integration_credentials/:id' do
     let(:headers) { auth_headers_for(user_with_update_permission) }
-    let(:credential) { create(:devops_integration_credential, account: account) }
+    let(:credential) { create(:devops_integration_credential, account: account, name: 'Before') }
 
-    context 'with devops.integrations.credentials.update permission' do
-      it 'updates credential successfully' do
-        allow(Devops::RegistryService).to receive(:update_credential).and_return(
-          double(credential_summary: { id: credential.id, name: 'Updated Credential' })
-        )
+    it 'persists the new name' do
+      patch "/api/v1/devops/integration_credentials/#{credential.id}",
+            params: { credential: { name: 'Updated Credential' } }, headers: headers, as: :json
 
-        patch "/api/v1/devops/integration_credentials/#{credential.id}",
-              params: { credential: { name: 'Updated Credential' } },
-              headers: headers,
-              as: :json
+      expect_success_response
+      expect(credential.reload.name).to eq('Updated Credential')
+    end
 
-        expect_success_response
-      end
+    it 'answers 422 and leaves the row alone when the update is invalid' do
+      patch "/api/v1/devops/integration_credentials/#{credential.id}",
+            params: { credential: { name: '' } }, headers: headers, as: :json
 
-      it 'handles validation errors' do
-        allow(Devops::RegistryService).to receive(:update_credential).and_raise(
-          Devops::RegistryService::ValidationError.new('Invalid update')
-        )
-
-        patch "/api/v1/devops/integration_credentials/#{credential.id}",
-              params: { credential: { name: '' } },
-              headers: headers,
-              as: :json
-
-        expect(response).to have_http_status(:unprocessable_content)
-      end
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(credential.reload.name).to eq('Before')
     end
   end
 
   describe 'DELETE /api/v1/devops/integration_credentials/:id' do
     let(:headers) { auth_headers_for(user_with_delete_permission) }
-    let(:credential) { create(:devops_integration_credential, account: account) }
+    let!(:credential) { create(:devops_integration_credential, account: account) }
 
-    context 'with devops.integrations.credentials.delete permission' do
-      it 'deletes credential successfully' do
-        allow(Devops::RegistryService).to receive(:delete_credential).and_return(true)
-
+    it 'removes the row' do
+      expect {
         delete "/api/v1/devops/integration_credentials/#{credential.id}", headers: headers, as: :json
+      }.to change { account_credentials.count }.by(-1)
 
-        expect_success_response
-      end
+      expect_success_response
+      expect(Devops::IntegrationCredential.exists?(credential.id)).to be(false)
+    end
 
-      it 'handles deletion errors' do
-        allow(Devops::RegistryService).to receive(:delete_credential).and_raise(
-          Devops::RegistryService::ValidationError.new('Cannot delete in-use credential')
-        )
+    it 'refuses to delete a credential an integration is using, and keeps it' do
+      create(:devops_integration_instance, account: account,
+                                           template: create(:devops_integration_template),
+                                           credential: credential)
 
-        delete "/api/v1/devops/integration_credentials/#{credential.id}", headers: headers, as: :json
+      delete "/api/v1/devops/integration_credentials/#{credential.id}", headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_content)
-      end
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(Devops::IntegrationCredential.exists?(credential.id)).to be(true)
     end
   end
 
@@ -203,24 +206,22 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
     let(:headers) { auth_headers_for(user_with_update_permission) }
     let(:credential) { create(:devops_integration_credential, account: account) }
 
-    context 'with devops.integrations.credentials.update permission' do
-      it 'rotates credential successfully' do
-        allow(Security::CredentialEncryptionService).to receive(:rotate_encryption).and_return('rotated_encrypted_data')
+    it 'rotates credential successfully' do
+      allow(Security::CredentialEncryptionService).to receive(:rotate_encryption).and_return('rotated_encrypted_data')
 
-        post "/api/v1/devops/integration_credentials/#{credential.id}/rotate", headers: headers, as: :json
+      post "/api/v1/devops/integration_credentials/#{credential.id}/rotate", headers: headers, as: :json
 
-        expect_success_response
-      end
+      expect_success_response
+    end
 
-      it 'handles rotation errors' do
-        allow(Security::CredentialEncryptionService).to receive(:rotate_encryption).and_raise(
-          Security::CredentialEncryptionService::DecryptionError.new('Rotation failed')
-        )
+    it 'handles rotation errors' do
+      allow(Security::CredentialEncryptionService).to receive(:rotate_encryption).and_raise(
+        Security::CredentialEncryptionService::DecryptionError.new('Rotation failed')
+      )
 
-        post "/api/v1/devops/integration_credentials/#{credential.id}/rotate", headers: headers, as: :json
+      post "/api/v1/devops/integration_credentials/#{credential.id}/rotate", headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_content)
-      end
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
@@ -228,17 +229,13 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
     let(:headers) { auth_headers_for(user_with_read_permission) }
     let(:credential) { create(:devops_integration_credential, account: account) }
 
-    context 'with devops.integrations.credentials.read permission' do
-      it 'verifies credential successfully' do
-        allow(Security::CredentialEncryptionService).to receive(:valid_encrypted_credentials?).and_return(true)
+    it 'verifies credential successfully' do
+      allow(Security::CredentialEncryptionService).to receive(:valid_encrypted_credentials?).and_return(true)
 
-        post "/api/v1/devops/integration_credentials/#{credential.id}/verify", headers: headers, as: :json
+      post "/api/v1/devops/integration_credentials/#{credential.id}/verify", headers: headers, as: :json
 
-        expect_success_response
-        response_data = json_response
-
-        expect(response_data['data']['valid']).to be true
-      end
+      expect_success_response
+      expect(json_response['data']['valid']).to be true
     end
   end
 end

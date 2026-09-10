@@ -188,14 +188,13 @@ module Devops
           metadata: attributes[:metadata] || {}
         )
 
-        ActiveRecord::Base.transaction do
-          credential.save!
-
-          if attributes[:credentials].present?
-            credential.credentials = attributes[:credentials]
-            credential.save!
-          end
-        end
+        # The secret material is assigned BEFORE the one save: the model
+        # validates encrypted_credentials / encryption_key_id presence, so
+        # saving first (then assigning) failed every create (IMP-01a04d08-9288).
+        # `.to_h`: the controller hands over permitted ActionController::Parameters,
+        # which is not a Hash, and the model's credentials_format rejects it.
+        credential.credentials = attributes[:credentials].to_h if attributes[:credentials].present?
+        credential.save!
 
         credential
       rescue ActiveRecord::RecordInvalid => e
