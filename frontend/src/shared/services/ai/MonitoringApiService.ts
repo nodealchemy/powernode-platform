@@ -91,9 +91,12 @@ export interface MonitoringDashboard {
  * Matches Rails Ai::MonitoringHealthService#comprehensive_health_check output
  */
 export interface HealthStatus {
-  // Overall status
-  status: 'healthy' | 'degraded' | 'unhealthy' | 'critical';
-  health_score: number;
+  // E7b: the health service reports component measurements only and stamps
+  // no verdict of its own. The overall verdict comes from the status-plane
+  // rollup the health action merges in beside the measurements (account-owned
+  // rows only; shared/NULL-account rows are split out separately).
+  rollup: StatusRollup | null;
+  shared: StatusRollup | null;
   timestamp: string;
   time_range_seconds?: number;
 
