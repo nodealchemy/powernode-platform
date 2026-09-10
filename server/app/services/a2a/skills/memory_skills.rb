@@ -195,17 +195,21 @@ module A2a
       # here, so the two cannot drift; search_memory is absent from that
       # tool's ACTION_PERMISSIONS map, so its floor is the class constant.
       #
-      # STATED PLAINLY BECAUSE IT WOULD OTHERWISE READ AS PROTECTION IT DOES
-      # NOT YET PROVIDE: @user is nil on every production path today, so this
-      # check is currently INERT. Api::V1::A2aController builds
-      # A2a::MessageHandler.new(account: account) with no user (a2a_controller.rb
-      # :70 and :104), and authenticate_jwt_token resolves a real User only to
-      # return user&.account, discarding the identity it just proved. Filed
-      # separately; when the user is threaded through, this starts refusing
-      # without further change. A nil user is let through on purpose in the
-      # meantime — the account scoping in #find_agent is the boundary that
-      # actually applies, and it is the same posture as every other skill in
-      # this directory, none of which check a permission at all.
+      # LIVE since IMP-01a07d5a, and it was INERT before. This comment used to
+      # read "@user is nil on every production path today, so this check is
+      # currently INERT ... when the user is threaded through, this starts
+      # refusing without further change" — which is exactly what happened.
+      # Api::V1::A2aController now resolves the JWT's User and passes it to
+      # A2a::MessageHandler, instead of resolving one only to return
+      # `user&.account` and discard the identity it had just proved.
+      #
+      # A nil user is STILL let through, and still on purpose, but the set of
+      # principals that produce one has narrowed to those that genuinely have
+      # no user: an API-key caller (an ApiKey belongs to an account and carries
+      # scopes, with no owning user) and a federated peer. For those the
+      # account scoping in #find_agent remains the boundary that applies —
+      # the same posture as every other skill in this directory, none of which
+      # check a permission at all.
       # PARAMETERISED so the three skills do not share a single floor: reading
       # memory and WRITING it are different authorities, and #store taking the
       # read permission would have let any peer that may look also mutate.
