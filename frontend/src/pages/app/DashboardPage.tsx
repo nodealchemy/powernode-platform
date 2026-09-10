@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
@@ -152,13 +152,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
         <Route path="/ai/agents/*" element={<AIAgentsPage />} />
         <Route path="/ai/teams" element={<TeamsPage />} />
-        <Route path="/ai/communication/conversations" element={<Navigate to="/app/ai/observability/conversations" replace />} />
-        <Route path="/ai/communication/*" element={<Navigate to="/app/ai/teams" replace />} />
         <Route path="/ai/governance/*" element={<GovernancePage />} />
         {/* Approval chains — gated on ai.approval_chains.manage (defense-in-depth;
             Api::V1::Ai::ApprovalChainsController enforces the same permission). */}
         <Route path="/ai/approval-chains" element={<ProtectedRoute requiredPermissions={['ai.approval_chains.manage']}><ApprovalChainsPage /></ProtectedRoute>} />
-        <Route path="/ai/sandbox" element={<Navigate to="/app/ai/execution/testing" replace />} />
 
         {/* AI Pages - Tabbed wrappers */}
         <Route path="/ai/execution/*" element={<ExecutionPage />} />
@@ -167,22 +164,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/infrastructure/providers/new" element={<AIProvidersPage />} />
         <Route path="/ai/infrastructure/providers/:id" element={<AIProvidersPage />} />
         <Route path="/ai/infrastructure/*" element={<InfrastructurePage />} />
-        {/* Observability = monitoring only; Operations = AiOps/alerts/traces; Cost = billing/finops/roi.
-            More-specific redirects win over the /ai/observability/* splat via router ranking. */}
-        <Route path="/ai/observability/credits/*" element={<Navigate to="/app/ai/cost/credits" replace />} />
-        <Route path="/ai/observability/operations" element={<Navigate to="/app/ai/operations" replace />} />
-        <Route path="/ai/observability/alerts" element={<Navigate to="/app/ai/operations/alerts" replace />} />
+        {/* Observability = monitoring only; Operations = AiOps/alerts/traces; Cost = billing/finops/roi. */}
         <Route path="/ai/observability/*" element={<ObservabilityPage />} />
         <Route path="/ai/operations/*" element={<OperationsPage />} />
-        <Route path="/ai/billing/*" element={<Navigate to="/app/ai/cost/credits" replace />} />
-        <Route path="/ai/monitoring/*" element={<Navigate to="/app/ai/observability" replace />} />
-
-        {/* AI Pages - Agent Orchestration */}
-        <Route path="/ai/sandboxes" element={<Navigate to="/app/ai/execution/containers" replace />} />
-        <Route path="/ai/autonomy" element={<Navigate to="/app/ai/agents/autonomy" replace />} />
-        <Route path="/ai/learning" element={<Navigate to="/app/ai/knowledge/learning" replace />} />
-        <Route path="/ai/audit" element={<Navigate to="/app/ai/governance/audit" replace />} />
-        <Route path="/ai/security" element={<Navigate to="/app/ai/governance/security" replace />} />
 
         {/* AI Missions - code-factory before :missionId, static tabs before dynamic */}
         <Route path="/ai/missions/code-factory/*" element={<MissionsPageWrapper />} />
@@ -194,10 +178,7 @@ const DashboardPage: React.FC = () => {
         {/* AI Improvement Campaigns */}
         <Route path="/ai/campaigns" element={<ProtectedRoute requiredPermissions={['ai.campaigns.read']}><CampaignsPageWrapper /></ProtectedRoute>} />
 
-        {/* AI Redirects - Absorbed pages */}
-        <Route path="/ai/code-factory/*" element={<Navigate to="/app/ai/missions/code-factory" replace />} />
-        <Route path="/ai/evaluation" element={<Navigate to="/app/ai/observability/evaluation" replace />} />
-        <Route path="/ai/self-healing" element={<Navigate to="/app/ai/observability" replace />} />
+        {/* AI Pages - Additional standalone routes */}
         <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
         <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
@@ -207,8 +188,7 @@ const DashboardPage: React.FC = () => {
         {/* Cost hub — Overview / Credits / FinOps / ROI / Outcome Billing (sub-sidebar) */}
         <Route path="/ai/cost/*" element={<CostPage />} />
 
-        {/* Developer Portal (now under DevOps nav); Execution Traces moved to Operations */}
-        <Route path="/developer/traces" element={<Navigate to="/app/ai/operations/traces" replace />} />
+        {/* Developer Portal (now under DevOps nav) */}
         <Route path="/developer" element={<DeveloperPortal />} />
 
         {/* Core Pages */}

@@ -112,7 +112,7 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
       {/* Conversations Card */}
       <div className={`card-theme p-6 hover:shadow-lg transition-all cursor-pointer ${
         recentUpdates.includes('conversations') ? 'ring-2 ring-theme-success-fg/50 bg-theme-success-fg/5' : ''
-      }`} onClick={() => navigate('/app/ai/communication')}>
+      }`} onClick={() => navigate('/app/ai/observability/conversations')}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-theme-accent/10 rounded-lg">
