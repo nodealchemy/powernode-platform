@@ -20,6 +20,10 @@ RSpec.describe Ai::Tools::ProviderReadTool do
 
   let(:tool) { actor("ai.providers.read") }
 
+  # The REST index shows a disabled provider only to this permission; the verb
+  # mirrors that, so half of the list oracles need a holder of it.
+  let(:admin) { actor("ai.providers.read", "admin.ai.providers.read") }
+
   def advertised_actions = %w[list_llm_providers get_llm_provider list_models]
 
   # The factory, not a hand-rolled create!: Ai::Provider validates
@@ -107,10 +111,37 @@ RSpec.describe Ai::Tools::ProviderReadTool do
       expect(only_active).to include(active.id)
       expect(only_active).not_to include(inactive.id)
 
-      by_type = tool.execute(params: { action: "list_llm_providers", provider_type: "openai" })
-                    .dig(:data, :providers).map { |p| p[:id] }
+      # The provider_type arm is asserted on a caller who can see the inactive
+      # row AT ALL — the default below hides it from a plain ai.providers.read
+      # holder, which would make an empty list look like a working filter.
+      by_type = admin.execute(params: { action: "list_llm_providers", provider_type: "openai" })
+                     .dig(:data, :providers).map { |p| p[:id] }
       expect(by_type).to eq([ inactive.id ])
       expect(by_type).not_to include(active.id)
+    end
+
+    # REST PARITY (E1 review F2). Api::V1::Ai::ProvidersController#index narrows
+    # to `.active` unless the caller holds admin.ai.providers.read; a verb that
+    # listed disabled providers to anyone with ai.providers.read would be a way
+    # around that door rather than a floor on it.
+    it "hides inactive providers by default, and shows them to admin.ai.providers.read — both arms" do
+      active = provider(is_active: true)
+      inactive = provider(is_active: false)
+
+      default_ids = tool.execute(params: { action: "list_llm_providers" })
+                        .dig(:data, :providers).map { |p| p[:id] }
+      expect(default_ids).to include(active.id)
+      expect(default_ids).not_to include(inactive.id)
+
+      # active_only: false does NOT widen it for a caller without the admin read.
+      asked_for_all = tool.execute(params: { action: "list_llm_providers", active_only: false })
+                          .dig(:data, :providers).map { |p| p[:id] }
+      expect(asked_for_all).not_to include(inactive.id)
+
+      admin_ids = admin.execute(params: { action: "list_llm_providers" })
+                       .dig(:data, :providers).map { |p| p[:id] }
+      expect(admin_ids).to include(inactive.id), "admin.ai.providers.read did not widen the list"
+      expect(admin_ids).to include(active.id)
     end
 
     it "reports credential status as booleans and counts, not values" do
@@ -185,6 +216,43 @@ RSpec.describe Ai::Tools::ProviderReadTool do
       models = tool.execute(params: { action: "list_models" }).dig(:data, :models).map { |m| m[:model_id] }
       expect(models).not_to include("hidden-model")
     end
+
+    # E1 review F3. Before this the verb fanned out EVERY active provider with
+    # no envelope, so a truncated catalog and a complete one looked identical.
+    # The page unit is the provider (a model has no row and so no cursor), which
+    # is why count/has_more are asserted against provider counts and the model
+    # tally is read from models_returned.
+    it "pages through providers with a cursor, and the walk reaches every model" do
+      %w[alpha-model-1 beta-model-1 gamma-model-1].each_with_index do |model_id, i|
+        provider(name: "P#{i}", supported_models: [ model_id ])
+      end
+
+      first = tool.execute(params: { action: "list_models", limit: 1 })[:data]
+      expect(first[:count]).to eq(3), "count must be the providers matching the filters, not the page"
+      expect(first[:returned]).to eq(1)
+      expect(first[:models_returned]).to eq(1)
+      expect(first[:has_more]).to be true
+      expect(first[:next_cursor]).to be_present
+
+      seen = first[:models].map { |m| m[:model_id] }
+      cursor = first[:next_cursor]
+      2.times do
+        page = tool.execute(params: { action: "list_models", limit: 1, cursor: cursor })[:data]
+        seen.concat(page[:models].map { |m| m[:model_id] })
+        cursor = page[:next_cursor]
+      end
+
+      expect(seen).to match_array(%w[alpha-model-1 beta-model-1 gamma-model-1])
+      expect(cursor).to be_nil, "the walk did not end after the last provider"
+    end
+
+    it "refuses a cursor the platform did not issue rather than answering from page one" do
+      provider
+      result = tool.execute(params: { action: "list_models", cursor: "not-a-cursor" })
+
+      expect(result[:success]).to be false
+      expect(result[:data]).to be_nil
+    end
   end
 
   # THE ONE THAT MATTERS. Plant a real key, then grep every response.
@@ -215,6 +283,58 @@ RSpec.describe Ai::Tools::ProviderReadTool do
           expect(body).not_to include(forbidden), "#{forbidden} appears in a provider response"
         end
       end
+    end
+  end
+
+  # E1 review F1. The credential oracle above covers the credentials
+  # ASSOCIATION. This covers the other way a key gets into a provider: an
+  # operator pasting one into a free-form jsonb column through the REST update
+  # endpoint. An allow-list of COLUMNS does not screen what is inside a column,
+  # and get_llm_provider serializes five of them verbatim.
+  describe "secrets planted in free-form jsonb" do
+    let(:planted) { "sk-live-#{SecureRandom.hex(24)}" }
+    let!(:row) do
+      provider(
+        default_parameters: { "api_key" => planted, "temperature" => 0.4 },
+        rate_limits: { "rpm" => 60, "client_secret" => planted },
+        pricing_info: { "currency" => "USD", "nested" => { "bearer" => planted, "tier" => "standard" } }
+      )
+    end
+
+    it "stores the planted key in a form the tool COULD reach (so this oracle is not vacuous)" do
+      expect(row.reload.default_parameters["api_key"]).to eq(planted)
+      expect(row.rate_limits["client_secret"]).to eq(planted)
+      expect(row.pricing_info.dig("nested", "bearer")).to eq(planted)
+    end
+
+    it "drops the secret-keyed entries and keeps the benign ones — both arms" do
+      detail = tool.execute(params: { action: "get_llm_provider", id: row.id }).dig(:data, :provider)
+
+      # DROPPED, key and value: a surviving "api_key": "[FILTERED]" would still
+      # say which providers carry an inline key.
+      expect(detail[:default_parameters]).not_to have_key("api_key")
+      expect(detail[:rate_limits]).not_to have_key("client_secret")
+      expect(detail[:pricing_info]["nested"]).not_to have_key("bearer")
+
+      # SURVIVING: the scrub is keyed on the NAME, so a config value that is not
+      # secret-bearing must come through untouched, nesting included.
+      expect(detail[:default_parameters]).to eq("temperature" => 0.4)
+      expect(detail[:rate_limits]).to eq("rpm" => 60)
+      expect(detail[:pricing_info]).to eq("currency" => "USD", "nested" => { "tier" => "standard" })
+    end
+
+    it "never emits the planted key from any verb" do
+      [
+        tool.execute(params: { action: "list_llm_providers" }).to_json,
+        tool.execute(params: { action: "get_llm_provider", id: row.id }).to_json,
+        tool.execute(params: { action: "list_models" }).to_json
+      ].each { |body| expect(body).not_to include(planted) }
+    end
+
+    it "uses the same seam the export manifest does, not a second copy of the rule" do
+      expect(::Ai::DataSources::ConfigPortabilityService.ancestors).to include(::Ai::SecretKeyScrubber)
+      expect(::Ai::SecretKeyScrubber.scrub_value("api_key" => planted, "temperature" => 0.4))
+        .to eq("temperature" => 0.4)
     end
   end
 

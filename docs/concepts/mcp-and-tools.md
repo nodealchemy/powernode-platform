@@ -238,6 +238,12 @@ Three rules follow for anyone adding a verb in this area:
 The read surface for these families is `IdentityReadTool`, `ProviderReadTool`,
 `ScheduleReadTool` and `WebhookReadTool` (all core, all declared `mutating: false`).
 
+One thing these verbs do NOT give you: an audit row. `audit: true` on a tool action is
+reserved for irrevocable handouts, so an MCP read of identity, providers, schedules or
+webhooks leaves no trace of who read what. The "a leak is at least attributable afterwards"
+argument therefore holds for the REST doors these verbs mirror, and not for the verbs
+themselves — which is why rules 1-3 above are the whole of the protection here.
+
 ### Best practices for tool implementation
 
 ```ruby

@@ -26,6 +26,12 @@ module Ai
     # but "safer" is not the bar for a surface an agent can call — neither is
     # here. The serializers below are ALLOW-LISTS, so a column added to
     # `ai_providers` tomorrow does not appear by default.
+    #
+    # An allow-list of COLUMNS is not a screen on what is INSIDE one, so the
+    # five free-form jsonb columns the detail payload carries are additionally
+    # run through Ai::SecretKeyScrubber — the seam
+    # Ai::DataSources::ConfigPortabilityService screens its export manifest
+    # with. See #scrub.
     class ProviderReadTool < BaseTool
       REQUIRED_PERMISSION = "ai.providers.read"
 
@@ -54,9 +60,13 @@ module Ai
           "list_llm_providers" => {
             description: "List this account's LLM providers with their type, capabilities and whether " \
                          "a working credential is configured. Credential VALUES are never returned. " \
-                         "Requires ai.providers.read.",
+                         "DEFAULTS TO ACTIVE PROVIDERS ONLY — the same default the REST index applies — " \
+                         "unless the caller also holds admin.ai.providers.read, which is the permission " \
+                         "that surface checks before it will show a disabled provider. Requires ai.providers.read.",
             parameters: {
-              active_only: { type: "boolean", required: false, description: "Only providers with is_active true" },
+              active_only: { type: "boolean", required: false, description: "Only providers with is_active true. " \
+                                                                            "Already the default; passing false widens the " \
+                                                                            "answer only for a holder of admin.ai.providers.read" },
               provider_type: { type: "string", required: false, description: "Filter by provider_type (anthropic, openai, ...)" },
               **PAGINATION_PARAMETERS
             }
@@ -76,7 +86,8 @@ module Ai
                          "before choosing a model id rather than hardcoding one. Requires ai.providers.read.",
             parameters: {
               provider_type: { type: "string", required: false, description: "Filter to one provider type" },
-              with_pricing_only: { type: "boolean", required: false, description: "Only models the pricing catalog covers" }
+              with_pricing_only: { type: "boolean", required: false, description: "Only models the pricing catalog covers" },
+              **PAGINATION_PARAMETERS
             }
           }
         }
@@ -112,12 +123,29 @@ module Ai
         account.ai_providers.includes(:provider_credentials)
       end
 
+      # ACTIVE-ONLY BY DEFAULT, mirroring Api::V1::Ai::ProvidersController#index,
+      # which narrows to `.active` unless the caller holds
+      # admin.ai.providers.read. A disabled provider is a decision an operator
+      # made; who may see that it exists is settled on the REST door, and this
+      # verb is a floor on that door, not a way around it. `active_only: false`
+      # therefore widens the answer only for a holder of that permission —
+      # otherwise it is ignored and the default stands.
       def list_llm_providers(params)
         scope = providers
-        scope = scope.where(is_active: true) if truthy?(params[:active_only])
+        scope = scope.active if truthy?(params[:active_only]) || !inactive_visible?
         scope = scope.where(provider_type: params[:provider_type].to_s) if params[:provider_type].present?
 
         paginated_result(:providers, scope, params, sort: :id, direction: :asc) { |row| serialize_provider(row) }
+      end
+
+      # The REST index's `current_worker || has_permission?("admin.ai.providers.read")`,
+      # written against this tool's principals: an internal/instance caller is
+      # the worker arm, a user is the permission arm.
+      def inactive_visible?
+        return true if internal? || instance_authorized?
+        return false unless user.respond_to?(:has_permission?)
+
+        user.has_permission?("admin.ai.providers.read") == true
       end
 
       def get_llm_provider(params)
@@ -132,19 +160,34 @@ module Ai
         success_result(provider: serialize_provider(row, detail: true))
       end
 
+      # PAGINATED, but the page unit is the PROVIDER, not the model: a model is
+      # a fan-out of one provider's `supported_models` jsonb and has no row, no
+      # id and therefore no keyset cursor of its own. Walking providers through
+      # the same #paginate_list every other list verb uses keeps one cursor
+      # format across the tool; `count`/`returned`/`has_more` describe that walk
+      # and `models_returned` describes the fan-out, so neither number has to
+      # stand in for the other. An account with more providers than one page
+      # used to get a silently truncated catalog with nothing saying so.
       def list_models(params)
-        scope = providers.where(is_active: true)
+        scope = providers.active
         scope = scope.where(provider_type: params[:provider_type].to_s) if params[:provider_type].present?
 
+        page = paginate_list(scope, params, sort: :id, direction: :asc)
         pricing = ::Ai::ModelPricing.all.index_by { |row| row.model_id.to_s }
-        rows = scope.flat_map { |provider| models_for(provider, pricing) }.uniq { |m| [ m[:provider_id], m[:model_id] ] }
+        rows = page.records.flat_map { |provider| models_for(provider, pricing) }
+                   .uniq { |m| [ m[:provider_id], m[:model_id] ] }
         rows = rows.select { |m| m[:pricing].present? } if truthy?(params[:with_pricing_only])
 
         success_result(
-          models: rows,
-          count: rows.size,
-          pricing_source: "ai_model_pricings (per 1k tokens); nil means the catalog has no row for that model"
+          {
+            models: rows,
+            models_returned: rows.size,
+            page_unit: "providers — models fan out of each provider's supported_models, so count/has_more walk providers",
+            pricing_source: "ai_model_pricings (per 1k tokens); nil means the catalog has no row for that model"
+          }.merge(page.envelope)
         )
+      rescue InvalidPageRequest => e
+        error_result(e.message)
       end
 
       def models_for(provider, pricing)
@@ -193,11 +236,11 @@ module Ai
           api_endpoint: row.api_endpoint,
           documentation_url: row.documentation_url,
           status_url: row.status_url,
-          capabilities: row.capabilities,
-          supported_models: row.supported_models,
-          rate_limits: row.rate_limits,
-          default_parameters: row.default_parameters,
-          pricing_info: row.pricing_info,
+          capabilities: scrub(row.capabilities),
+          supported_models: scrub(row.supported_models),
+          rate_limits: scrub(row.rate_limits),
+          default_parameters: scrub(row.default_parameters),
+          pricing_info: scrub(row.pricing_info),
           created_at: iso(row.created_at),
           updated_at: iso(row.updated_at)
         )
@@ -220,6 +263,20 @@ module Ai
           last_test_at: iso(active.filter_map(&:last_test_at).max),
           last_used_at: iso(active.filter_map(&:last_used_at).max)
         }
+      end
+
+      # THE FIVE FREE-FORM JSONB COLUMNS above are operator-editable and untyped:
+      # nothing stops a `default_parameters["api_key"]` from being set through
+      # the REST update endpoint, and an allow-list of COLUMNS does not screen
+      # what is inside one of them. Routed through the same seam
+      # Ai::DataSources::ConfigPortabilityService screens its export manifest
+      # with — extracted to Ai::SecretKeyScrubber so there is one answer to
+      # "which key names are secret-bearing", not two that drift.
+      #
+      # DROPS the entry rather than masking it: "api_key": "[FILTERED]" would
+      # still tell the caller which providers carry an inline key.
+      def scrub(value)
+        ::Ai::SecretKeyScrubber.scrub_value(value)
       end
 
       def truthy?(value)
