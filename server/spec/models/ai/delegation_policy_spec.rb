@@ -86,4 +86,66 @@ RSpec.describe Ai::DelegationPolicy, type: :model do
       expect(described_class.resolve_for(agent_id: canonical_agent.id, account_id: account_a.id)).to be_nil
     end
   end
+
+  # HIER-P0 (E4) — an EMPTY allowed_delegate_types means NONE, not ANY.
+  #
+  # #allows_delegate_type? was `allowed_delegate_types.blank? || include?`, so a
+  # leaf whose list was deliberately left empty read as UNRESTRICTED. Nine
+  # canonical leaves under Powernode Assistant are seeded exactly that way
+  # (CORE_HIERARCHY_CHILD_DELEGATION in ai_agent_hierarchy_seed.rb), and the
+  # seeds had already grown a "none" sentinel to work around the fail-open
+  # (RELEASE_MANAGER_NO_DELEGATES, CanonicalTeamReconciler::NO_SUCH_TYPE_SENTINEL).
+  #
+  # The governance opt-in is the POLICY ROW, not the list: no policy at all
+  # still means unrestricted (Ai::Autonomy::DelegationAuthorityService returns
+  # allowed: true when .resolve_for finds nothing). Once a row exists, its
+  # allowlist is read literally.
+  describe "#allows_delegate_type?" do
+    let(:policy) { build(:ai_delegation_policy, account: account_a, agent: canonical_agent) }
+
+    it "admits a type on the list" do
+      policy.allowed_delegate_types = %w[monitor assistant]
+
+      expect(policy.allows_delegate_type?("monitor")).to be(true)
+      expect(policy.allows_delegate_type?(:assistant)).to be(true)
+    end
+
+    it "refuses a type that is not on the list" do
+      policy.allowed_delegate_types = %w[monitor]
+
+      expect(policy.allows_delegate_type?("data_analyst")).to be(false)
+    end
+
+    it "refuses EVERY type when the list is empty" do
+      policy.allowed_delegate_types = []
+
+      expect(policy.allows_delegate_type?("monitor")).to be(false)
+      expect(policy.allows_delegate_type?("assistant")).to be(false)
+      expect(policy.allows_delegate_type?("")).to be(false)
+    end
+
+    it "refuses every type when the list is nil" do
+      # Not persistable — the column is jsonb NOT NULL DEFAULT '[]' — but an
+      # in-memory nil must not reopen the fail-open the empty list just closed.
+      policy.allowed_delegate_types = nil
+
+      expect(policy.allows_delegate_type?("monitor")).to be(false)
+    end
+
+    it "reads the seeded no-delegates sentinel as delegating to nobody real" do
+      policy.allowed_delegate_types = [ Ai::Teams::CanonicalTeamReconciler::NO_SUCH_TYPE_SENTINEL ]
+
+      expect(policy.allows_delegate_type?("monitor")).to be(false)
+      expect(policy.allows_delegate_type?("assistant")).to be(false)
+    end
+
+    it "leaves #allows_action? alone — delegatable_actions keeps blank-means-any" do
+      # Deliberately NOT changed by E4: the audit's HIER-P0 finding is about
+      # delegate types. Pinned so the asymmetry is a recorded decision rather
+      # than an oversight, and so a later change to it is deliberate.
+      policy.delegatable_actions = []
+
+      expect(policy.allows_action?("anything")).to be(true)
+    end
+  end
 end

@@ -49,8 +49,27 @@ module Ai
       delegatable_actions.blank? || delegatable_actions.include?(action_type.to_s)
     end
 
+    # HIER-P0: an EMPTY allowed_delegate_types means NONE, not ANY.
+    #
+    # This was `blank? || include?`, which read a deliberately empty allowlist
+    # as unrestricted — so the nine canonical leaves seeded with
+    # `allowed_delegate_types: []` (CORE_HIERARCHY_CHILD_DELEGATION in
+    # db/seeds/ai_agent_hierarchy_seed.rb) could delegate to anything. The
+    # seeds had already grown a "no such type" sentinel to express "nobody"
+    # around that fail-open, and both seed files carry comments warning that an
+    # empty list would hand out unrestricted delegation. The allowlist is now
+    # read literally, so the sentinel and an empty list mean the same thing.
+    #
+    # Governance is opted into by the POLICY ROW, not by the list: with no row
+    # at all Ai::Autonomy::DelegationAuthorityService#validate_delegation still
+    # returns allowed: true, so this does not turn ungoverned agents into
+    # leaves. Note the asymmetry with #allows_action? above, which keeps
+    # blank-means-any — deliberately out of HIER-P0's scope.
+    #
+    # There is no wildcard token: "may delegate to any type" is now expressed
+    # by enumerating the types (or by holding no policy row).
     def allows_delegate_type?(agent_type)
-      allowed_delegate_types.blank? || allowed_delegate_types.include?(agent_type.to_s)
+      Array(allowed_delegate_types).map(&:to_s).include?(agent_type.to_s)
     end
   end
 end
