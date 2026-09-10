@@ -355,9 +355,39 @@ module Ai
         # child-before-parent, so a subclass that re-declares an audited action
         # without repeating `audit: true` silently disarms the gate, with
         # nothing in the diff to show for it.
+        #
+        # `destructive:` (E2) marks an action that may perform an IRREVERSIBLE
+        # update — the MCP `destructiveHint` sense. Mcp::ToolCatalog publishes
+        # it, and it is the ground truth that replaces the name-shaped guess
+        # the catalog used to make.
+        #
+        # WHY A DECLARATION AND NOT A NAME GLOB. Mcp::Principal
+        # ::DESTRUCTIVE_TOOL_PATTERNS already classifies destroy-shaped tools,
+        # and the obvious shortcut is to publish `destructiveHint` from it.
+        # That would repeat, one field over, exactly the defect E2 exists to
+        # fix: the old `readOnlyHint` was a name-prefix guess and it was
+        # ACTIVELY WRONG for three declared-mutating verbs whose names begin
+        # `perceive`/`measure`. A glob cannot know what a verb does; the author
+        # can. The overlay keeps its patterns — it answers a different
+        # question, "may an instance principal invoke this at all" — and a lint
+        # holds the two in agreement over the core surface so they cannot drift
+        # into two rival classifications.
+        #
+        # `destructive: true` IMPLIES `mutating: true`, enforced here rather
+        # than left to convention: per the MCP spec `destructiveHint` is only
+        # meaningful when `readOnlyHint` is false, so a read-only destructive
+        # declaration is not a stricter statement, it is an incoherent one that
+        # would publish a hint no client can act on. Raised at declaration
+        # time, i.e. at class load, so it cannot reach a running catalog.
         def declare_action(name, mutating:, action_category: nil, executor_class: nil,
                            gate_context: nil, on_proceed: nil, ungated_when: nil,
-                           audit: false)
+                           audit: false, destructive: false)
+          if destructive && !mutating
+            raise ArgumentError,
+                  "#{self}.declare_action(#{name.inspect}): destructive: true implies mutating: true " \
+                  "(destructiveHint is only meaningful when readOnlyHint is false)"
+          end
+
           declared_actions[name.to_s] = {
             mutating: mutating,
             action_category: action_category,
@@ -365,7 +395,8 @@ module Ai
             gate_context: gate_context,
             on_proceed: on_proceed,
             ungated_when: ungated_when,
-            audit: audit
+            audit: audit,
+            destructive: destructive
           }.freeze
         end
 
