@@ -189,7 +189,14 @@ terraform.tfstate*
 
 # HashiCorp Vault
 .vault-token
-vault-*
+# Same narrowing as the payment block below, and found by the same probe
+# (IMP-01a06fa1). `vault-*` was a bare prefix glob: it ignored vault-helper.rb,
+# vault-client.rb, vault-setup.md — any file whose name merely starts with
+# "vault-". The token itself is named explicitly above; what remains to catch by
+# shape is unseal/key material.
+vault-*token*
+vault-*key*
+vault-*unseal*
 
 # SSH keys and certificates
 id_rsa*
@@ -200,11 +207,32 @@ id_ed25519*
 known_hosts
 authorized_keys
 
-# Payment gateway specific
-stripe_*
-paypal_*
-*_stripe_*
-*_paypal_*
+# Payment gateway credential material — by file SHAPE, per this file's rule at
+# :54-58, NOT by the vendor name alone (IMP-01a06fa1). This block used to read
+# `stripe_*` / `paypal_*` / `*_stripe_*` / `*_paypal_*`, which is the same
+# substring overreach `*private*` was narrowed out of in IMP-70a6c8b3b375: a
+# leading-segment glob matches any path segment starting with the vendor name,
+# so stripe_service.rb, stripe_webhooks_controller.rb, stripe_client_spec.rb,
+# docs/guides/stripe_integration.md and handle_stripe_webhook.rb were all
+# silently unaddable — no error, no git status entry, the file simply never
+# became trackable.
+#
+# LATENT, never triggered: the billing code lives under extensions/private/,
+# which its own anchored rule ignores, so nothing was ever eaten. It would have
+# fired the moment any payment-adjacent file landed in core — which is exactly
+# how the `*private*` case presented (it ate a spec file's first draft).
+#
+# Two tokens, no extension gate, mirroring `*private*key*` above: a credential
+# file names the vendor AND what it holds. A source file naming the vendor
+# alone does not.
+*stripe*key*
+*stripe*secret*
+*stripe*credential*
+*stripe*.env
+*paypal*key*
+*paypal*secret*
+*paypal*credential*
+*paypal*.env
 
 # Ignore node_modules
 node_modules/

@@ -115,6 +115,38 @@ RSpec.describe "repo-root .gitignore substring overreach" do
       end
     end
 
+    # IMP-01a06fa1. The payment block repeated this file's original defect
+    # verbatim: `stripe_*` / `paypal_*` / `*_stripe_*` / `*_paypal_*`, a bare
+    # vendor-name glob rather than a shape. Narrowed to the two-token form
+    # `*private*key*` already uses — a credential file names the vendor AND
+    # what it holds.
+    it "still ignores payment-gateway credential material by shape" do
+      {
+        "config/stripe_secret_key" => "the classic secret key file",
+        "config/stripe_api_key.txt" => "key material, .txt dump",
+        "config/paypal_credentials.yml" => "vendor credentials file",
+        ".stripe.env" => "vendor env file",
+        "config/paypal_secret" => "extension-less secret",
+        "tmp/stripe_keys.json" => "plural, .json"
+      }.each do |path, why|
+        expect(ignoring_rule(path)).to be_present, "#{path} (#{why}) is NOT ignored"
+      end
+    end
+
+    # Found by the same probe, same shape: `vault-*` was a bare prefix glob.
+    # The token itself is named explicitly (.vault-token), so what remains to
+    # catch is unseal/key material.
+    it "still ignores vault token, key and unseal material" do
+      {
+        ".vault-token" => "named explicitly, pinned so both cannot be lost at once",
+        "vault-unseal-keys.json" => "unseal keys",
+        "tmp/vault-root-token" => "root token",
+        "vault-recovery-key" => "recovery key"
+      }.each do |path, why|
+        expect(ignoring_rule(path)).to be_present, "#{path} (#{why}) is NOT ignored"
+      end
+    end
+
     it "still ignores the private-mode bundle lock but not the Gemfile itself" do
       expect(ignoring_rule("server/Gemfile.private.lock")).to be_present
       expect(ignoring_rule("server/Gemfile.private")).to be_nil,
@@ -138,6 +170,39 @@ RSpec.describe "repo-root .gitignore substring overreach" do
         expect(rule).to be_nil,
           "#{path} (#{what}) is ignored by `#{rule}` — it would never appear in git status, " \
           "and `git add` of a directory containing it stays silent"
+      end
+    end
+
+    # IMP-01a06fa1. None of these existed to be eaten — the billing code lives
+    # under extensions/private/, which its own anchored rule ignores — so the
+    # defect was latent and would have fired the first time anything
+    # payment-adjacent landed in core. That is how the `*private*` case
+    # presented too: it ate a spec file's first draft, and nobody noticed until
+    # the file would not add.
+    it "does not ignore source, spec or doc files merely for naming a payment vendor" do
+      {
+        "server/app/services/billing/stripe_service.rb" => "a service",
+        "server/app/controllers/api/v1/stripe_webhooks_controller.rb" => "a controller",
+        "server/spec/services/stripe_client_spec.rb" => "a spec",
+        "docs/guides/stripe_integration.md" => "a doc",
+        "frontend/src/lib/stripe_client.ts" => "a frontend module",
+        "server/app/services/handle_stripe_webhook.rb" => "the *_stripe_* arm",
+        "server/app/models/paypal_order.rb" => "a model",
+        "server/spec/fixtures/stripe_webhook.json" => "a fixture"
+      }.each do |path, what|
+        rule = ignoring_rule(path)
+        expect(rule).to be_nil, "#{path} (#{what}) is ignored by `#{rule}`"
+      end
+    end
+
+    it "does not ignore source or doc files merely for starting with 'vault-'" do
+      {
+        "server/lib/vault-helper.rb" => "a lib",
+        "server/app/services/vault-client.rb" => "a service",
+        "docs/operations/vault-setup.md" => "a runbook"
+      }.each do |path, what|
+        rule = ignoring_rule(path)
+        expect(rule).to be_nil, "#{path} (#{what}) is ignored by `#{rule}`"
       end
     end
   end
