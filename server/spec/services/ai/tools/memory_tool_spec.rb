@@ -85,6 +85,59 @@ RSpec.describe Ai::Tools::MemoryTool do
     end
   end
 
+  # IMP-01a07d5a — the long-term tier of search_memory.
+  #
+  # It is ACCOUNT-shared by design, and the first examples pin that so a later
+  # "fix" cannot quietly narrow it: CompoundLearning visibility is its `scope`
+  # (team | global), source_agent_id only records which agent WROTE a
+  # learning, and Ai::Memory::RouterService's own long-term reads are
+  # account-wide too. Filtering by the asking agent would hide shared ones.
+  #
+  # What WAS wrong: the long-term ILIKE interpolated the raw query while the
+  # short-term one used the sanitized form, so `%` and `_` in a query were
+  # wildcards there — "%" alone returned every active learning in the account.
+  # Oracles are content sets with both arms, never counts.
+  describe "search_memory long-term tier" do
+    let(:other_agent) { create(:ai_agent, account: account) }
+
+    def long_term_contents(query)
+      result = tool.execute(params: { action: "search_memory", query: query })
+      expect(result[:success]).to be(true), result[:error].to_s
+      result[:results].select { |r| r[:tier] == "long_term" }.map { |r| r[:content] }
+    end
+
+    def learning!(content, **attrs)
+      create(:ai_compound_learning, account: account, content: content, **attrs)
+    end
+
+    it "returns another agent's global learning from the same account, and nothing from another account" do
+      learning!("shared rollout checklist", scope: "global", source_agent_id: other_agent.id)
+      create(:ai_compound_learning, account: create(:account), content: "foreign rollout checklist", scope: "global")
+
+      contents = long_term_contents("rollout checklist")
+      expect(contents).to include("shared rollout checklist")
+      expect(contents).not_to include("foreign rollout checklist")
+    end
+
+    it "treats % in the query as a literal percent sign" do
+      learning!("uptime held at 99.9% this week")
+      learning!("no percent sign in this one")
+
+      contents = long_term_contents("%")
+      expect(contents).to include("uptime held at 99.9% this week")
+      expect(contents).not_to include("no percent sign in this one")
+    end
+
+    it "treats _ in the query as a literal underscore" do
+      learning!("config key a_b was rotated")
+      learning!("config key axb was rotated")
+
+      contents = long_term_contents("a_b")
+      expect(contents).to include("config key a_b was rotated")
+      expect(contents).not_to include("config key axb was rotated")
+    end
+  end
+
   # IMP-63da66a05a4f — search_memory was the ONLY reader of
   # Ai::AgentShortTermMemory in the tree that did not apply the model's
   # `active` scope, so rows whose TTL had already elapsed were returned as

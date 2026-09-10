@@ -282,11 +282,13 @@ module A2a
       #     Its `.active` is a STATUS filter, not an expiry one — that model
       #     has no expiry concept — so "inherits the expiry filter" is true of
       #     the short-term half only.
-      #   - the long-term half is scoped by ACCOUNT, not by agent
-      #     (memory_tool.rb filters on account: and does not use the resolved
-      #     agent for that query), so a query-branch answer is wider than the
-      #     agent-scoped listing branch. Pre-existing in the tool; filed
-      #     separately rather than forked around here.
+      #   - the long-term half is scoped by ACCOUNT, not by agent, so a
+      #     query-branch answer is wider than the agent-scoped listing branch.
+      #     That is BY DESIGN, not a gap (IMP-01a07d5a): CompoundLearning
+      #     visibility is its `scope` (team | global); source_agent_id records
+      #     which agent WROTE a learning, not who may read it, and
+      #     Ai::Memory::RouterService's own long-term reads are account-wide
+      #     too. Scoping this to the asking agent would hide shared learnings.
       #
       # `internal: true` is passed EXPLICITLY and unconditionally, never
       # inferred from `@user.nil?`. An earlier draft of this method wrote
