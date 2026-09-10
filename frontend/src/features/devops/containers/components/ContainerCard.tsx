@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { cn } from '@/shared/utils/cn';
+import { formatDurationMs } from '@/shared/utils/formatters';
 import type { ContainerInstanceSummary, ContainerStatus } from '@/shared/services/ai';
 
 interface ContainerCardProps {
@@ -48,13 +49,6 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
 }) => {
   const status = statusConfig[container.status] || statusConfig.pending;
   const StatusIcon = status.icon;
-
-  const formatDuration = (ms?: number) => {
-    if (!ms) return '--';
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
-  };
 
   const formatTime = (dateStr?: string) => {
     if (!dateStr) return '--';
@@ -117,7 +111,7 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
           {container.duration_ms && (
             <div className="flex items-center gap-1">
               <Timer className="w-4 h-4" />
-              <span>{formatDuration(container.duration_ms)}</span>
+              <span>{formatDurationMs(container.duration_ms, { emptyValue: '--', emptyCheck: 'falsy', subSecond: 'raw', tiering: 'decimal-seconds-then-floor-minutes', roundRemainderSeconds: true })}</span>
             </div>
           )}
         </div>

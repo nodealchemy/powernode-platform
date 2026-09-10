@@ -18,6 +18,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { mcpApi } from '@/shared/services/ai/McpApiService';
 import type { McpToolExecution, McpExecutionHistoryResponse } from '@/shared/services/ai/types/mcp-api-types';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { formatDurationMs } from '@/shared/utils/formatters';
 
 interface McpToolExecutionHistoryProps {
   serverId: string;
@@ -131,13 +132,6 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
     );
   };
 
-  const formatDuration = (ms?: number) => {
-    if (!ms) return '-';
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${(ms / 60000).toFixed(1)}m`;
-  };
-
   const formatTime = (timestamp?: string) => {
     if (!timestamp) return '-';
     const date = new Date(timestamp);
@@ -239,7 +233,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
                   {execution.duration_ms && (
                     <div className="flex items-center gap-1">
                       <Timer className="h-3 w-3" />
-                      <span>{formatDuration(execution.duration_ms)}</span>
+                      <span>{formatDurationMs(execution.duration_ms, { emptyValue: '-', emptyCheck: 'falsy', subSecond: 'raw', tiering: 'decimal-minutes' })}</span>
                     </div>
                   )}
                   {execution.user_name && (

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, CheckCircle, XCircle, Loader, User, BookOpen, Shield, GitFork } from 'lucide-react';
 import { useTeamExecutionWebSocket, TeamExecutionUpdate } from '../hooks/useTeamExecutionWebSocket';
+import { formatDurationMs } from '@/shared/utils/formatters';
 
 interface TeamExecutionMonitorProps {
   teamId: string;
@@ -202,12 +203,6 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const formatDuration = (ms: number) => {
-    if (ms < 1000) return `${ms}ms`;
-    const seconds = (ms / 1000).toFixed(1);
-    return `${seconds}s`;
-  };
-
   const getMemberStatusIcon = (status: MemberResult['status']) => {
     switch (status) {
       case 'running':
@@ -305,7 +300,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   {member.duration_ms !== undefined && (
-                    <span className="text-xs text-theme-secondary">{formatDuration(member.duration_ms)}</span>
+                    <span className="text-xs text-theme-secondary">{formatDurationMs(member.duration_ms, { emptyCheck: 'none', subSecond: 'raw' })}</span>
                   )}
                   <span className={`text-xs font-medium ${
                     member.status === 'completed' ? 'text-theme-success-fg' :

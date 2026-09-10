@@ -21,6 +21,7 @@ import {
   DataConnector,
   RagAnalytics
 } from '@/shared/services/ai/RagApiService';
+import { formatFileSize } from '@/shared/utils/formatters';
 
 // Type guard for API errors
 interface ApiErrorResponse {
@@ -320,14 +321,6 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
     }
   };
 
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-  };
-
   const ragTabs = [
     { id: 'knowledge-bases' as TabType, label: 'Knowledge Bases', icon: Database },
     { id: 'documents' as TabType, label: 'Documents', icon: FileText },
@@ -359,7 +352,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
           {selectedKb && (
             <div className="flex gap-4 text-sm text-theme-secondary">
               <span>{selectedKb.document_count} documents</span>
-              <span>{formatBytes(selectedKb.storage_bytes)}</span>
+              <span>{formatFileSize(selectedKb.storage_bytes, { capAtGB: true, autoTrimDecimals: 1 })}</span>
             </div>
           )}
         </div>
@@ -440,7 +433,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                         <span>{kb.document_count} docs</span>
                         <span>{kb.chunk_count} chunks</span>
                         <span>{kb.total_tokens.toLocaleString()} tokens</span>
-                        <span>{formatBytes(kb.storage_bytes)}</span>
+                        <span>{formatFileSize(kb.storage_bytes, { capAtGB: true, autoTrimDecimals: 1 })}</span>
                       </div>
                       <div className="flex gap-2 text-xs text-theme-secondary mt-2">
                         <span>{kb.embedding_model}</span>
@@ -505,7 +498,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
                       <div className="flex gap-4 text-xs text-theme-secondary">
                         <span>{doc.chunk_count} chunks</span>
                         <span>{doc.token_count.toLocaleString()} tokens</span>
-                        <span>{formatBytes(doc.content_size_bytes)}</span>
+                        <span>{formatFileSize(doc.content_size_bytes, { capAtGB: true, autoTrimDecimals: 1 })}</span>
                         {doc.processed_at && <span>Processed: {new Date(doc.processed_at).toLocaleDateString()}</span>}
                       </div>
                     </div>

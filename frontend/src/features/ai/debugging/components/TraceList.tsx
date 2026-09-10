@@ -18,6 +18,7 @@ import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import { formatDurationMs } from '@/shared/utils/formatters';
 import { cn } from '@/shared/utils/cn';
 import { EntityLink } from '@/shared/components/entity';
 import { executionTracesApi, type ExecutionTraceSummary as TraceSummary } from '../services/executionTracesApi';
@@ -87,13 +88,6 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
   useEffect(() => {
     loadTraces();
   }, [typeFilter, statusFilter]);
-
-  const formatDuration = (ms: number | null) => {
-    if (ms === null) return '-';
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${(ms / 60000).toFixed(1)}m`;
-  };
 
   const formatCost = (cost: number) => {
     return `$${cost.toFixed(4)}`;
@@ -224,7 +218,7 @@ export const TraceList: React.FC<TraceListProps> = ({ onSelectTrace, className }
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {formatDuration(trace.duration_ms)}
+                    {formatDurationMs(trace.duration_ms, { emptyValue: '-', subSecond: 'raw', tiering: 'decimal-minutes' })}
                   </div>
                   <div className="flex items-center gap-1">
                     <Hash className="h-3 w-3" />

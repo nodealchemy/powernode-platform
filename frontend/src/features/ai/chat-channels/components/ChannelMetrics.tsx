@@ -12,6 +12,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Loading } from '@/shared/components/ui/Loading';
 import { chatChannelsApi } from '@/shared/services/ai';
 import { cn } from '@/shared/utils/cn';
+import { formatDurationMs } from '@/shared/utils/formatters';
 import type { ChannelMetrics as ChannelMetricsType } from '@/shared/services/ai';
 
 interface ChannelMetricsProps {
@@ -93,13 +94,6 @@ export const ChannelMetrics: React.FC<ChannelMetricsProps> = ({
     loadMetrics();
   }, [channelId]);
 
-  const formatDuration = (ms?: number) => {
-    if (!ms) return '--';
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${Math.floor(ms / 60000)}m`;
-  };
-
   if (loading) {
     return (
       <Card className={className}>
@@ -149,7 +143,7 @@ export const ChannelMetrics: React.FC<ChannelMetricsProps> = ({
           />
           <MetricCard
             label="Avg Response Time"
-            value={formatDuration(metrics.avg_response_time_ms)}
+            value={formatDurationMs(metrics.avg_response_time_ms, { emptyValue: '--', emptyCheck: 'falsy', subSecond: 'raw', tiering: 'decimal-minutes', integerMinutes: true })}
             icon={Clock}
           />
           <MetricCard
@@ -171,7 +165,7 @@ export const ChannelMetrics: React.FC<ChannelMetricsProps> = ({
             <div>
               <span className="text-theme-secondary">Avg Session Duration:</span>
               <span className="ml-2 font-medium text-theme-primary">
-                {formatDuration(metrics.avg_session_duration_ms)}
+                {formatDurationMs(metrics.avg_session_duration_ms, { emptyValue: '--', emptyCheck: 'falsy', subSecond: 'raw', tiering: 'decimal-minutes', integerMinutes: true })}
               </span>
             </div>
             <div>

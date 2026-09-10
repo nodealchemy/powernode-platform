@@ -21,7 +21,7 @@ import { a2aTasksApiService } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { logger } from '@/shared/utils/logger';
 import { cn } from '@/shared/utils/cn';
-import { formatDateTime } from '@/shared/utils/formatters';
+import { formatDateTime, formatDurationMs } from '@/shared/utils/formatters';
 import type { A2aTaskJson, A2aArtifact } from '@/shared/services/ai/types/a2a-types';
 
 interface TaskDetailProps {
@@ -139,18 +139,14 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
     }
   };
 
-  const formatDuration = (startedAt?: string, completedAt?: string, submittedAt?: string) => {
+  const taskDurationLabel = (startedAt?: string, completedAt?: string, submittedAt?: string) => {
     // Use startedAt if available, otherwise fall back to submittedAt
     const startTime = startedAt || submittedAt;
     if (!startTime) return 'N/A';
 
     const start = new Date(startTime).getTime();
     const end = completedAt ? new Date(completedAt).getTime() : Date.now();
-    const duration = end - start;
-
-    if (duration < 1000) return `${duration}ms`;
-    if (duration < 60000) return `${(duration / 1000).toFixed(1)}s`;
-    return `${(duration / 60000).toFixed(1)}m`;
+    return formatDurationMs(end - start, { subSecond: 'raw', tiering: 'decimal-minutes' });
   };
 
   if (loading) {
@@ -431,7 +427,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
               <div className="flex justify-between pt-2 border-t border-theme">
                 <span className="text-theme-secondary">Duration</span>
                 <span className="text-theme-primary font-medium">
-                  {formatDuration(getTimestamp('started_at'), getTimestamp('completed_at'), getTimestamp('submitted_at'))}
+                  {taskDurationLabel(getTimestamp('started_at'), getTimestamp('completed_at'), getTimestamp('submitted_at'))}
                 </span>
               </div>
             </CardContent>

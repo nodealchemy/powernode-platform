@@ -5,6 +5,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { Progress } from '@/shared/components/ui/Progress';
 import { EntityLink } from '@/shared/components/entity';
+import { formatFileSize } from '@/shared/utils/formatters';
 import type { SandboxInstance, SandboxStatus, TrustLevel } from '../types/sandbox';
 
 interface SandboxCardProps {
@@ -29,13 +30,6 @@ const TRUST_BADGE_VARIANT: Record<TrustLevel, 'warning' | 'info' | 'success' | '
   monitored: 'info',
   trusted: 'success',
   autonomous: 'primary',
-};
-
-const formatBytes = (bytes: number): string => {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 };
 
 export const SandboxCard: React.FC<SandboxCardProps> = ({
@@ -127,7 +121,7 @@ export const SandboxCard: React.FC<SandboxCardProps> = ({
           <div className="flex items-center justify-between text-sm">
             <span className="text-theme-tertiary">Storage</span>
             <span className="text-theme-primary text-xs">
-              {formatBytes(sandbox.storage_used_bytes)}
+              {formatFileSize(sandbox.storage_used_bytes, { capAtGB: true, decimals: 1 })}
             </span>
           </div>
         )}

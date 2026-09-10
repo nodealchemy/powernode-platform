@@ -22,6 +22,7 @@ import { a2aTasksApiService } from '@/shared/services/ai';
 import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
+import { formatDurationMs } from '@/shared/utils/formatters';
 import type { A2aTask, A2aTaskFilters } from '@/shared/services/ai/types/a2a-types';
 
 interface TaskListProps {
@@ -84,15 +85,11 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
       )
     : tasks;
 
-  const formatDuration = (startedAt?: string, completedAt?: string) => {
+  const taskDurationLabel = (startedAt?: string, completedAt?: string) => {
     if (!startedAt) return '-';
     const start = new Date(startedAt).getTime();
     const end = completedAt ? new Date(completedAt).getTime() : Date.now();
-    const duration = end - start;
-
-    if (duration < 1000) return `${duration}ms`;
-    if (duration < 60000) return `${(duration / 1000).toFixed(1)}s`;
-    return `${(duration / 60000).toFixed(1)}m`;
+    return formatDurationMs(end - start, { subSecond: 'raw', tiering: 'decimal-minutes' });
   };
 
   const formatTime = (timestamp?: string) => {
@@ -242,7 +239,7 @@ export const TaskList: React.FC<TaskListProps> = ({ onSelectTask, className }) =
                         {formatTime(task.created_at)}
                       </span>
                       {task.started_at && (
-                        <span>Duration: {formatDuration(task.started_at, task.completed_at)}</span>
+                        <span>Duration: {taskDurationLabel(task.started_at, task.completed_at)}</span>
                       )}
                       {task.sequence_number !== undefined && (
                         <span>Seq #{task.sequence_number}</span>

@@ -7,6 +7,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useModuleBuildBatch } from '../hooks';
 import { BatchStatusBadge } from '../components/BatchStatusBadge';
 import { CancelBatchButton } from '../components/CancelBatchButton';
+import { formatFileSize } from '@/shared/utils/formatters';
 import type { ModuleBuildMember } from '../types';
 
 const formatTimestamp = (value: string | null): string => (value ? new Date(value).toLocaleString() : '—');
@@ -68,18 +69,6 @@ const TimestampLadder: React.FC<{
   );
 };
 
-const formatBytes = (bytes: number | null): string => {
-  if (!bytes && bytes !== 0) return '—';
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ['KB', 'MB', 'GB'];
-  let value = bytes / 1024;
-  let unitIdx = 0;
-  while (value >= 1024 && unitIdx < units.length - 1) {
-    value /= 1024;
-    unitIdx += 1;
-  }
-  return `${value.toFixed(1)} ${units[unitIdx]}`;
-};
 
 const ModuleMembersTable: React.FC<{ modules: ModuleBuildMember[] }> = ({ modules }) => {
   const columns: DataTableColumn<ModuleBuildMember>[] = [
@@ -117,7 +106,7 @@ const ModuleMembersTable: React.FC<{ modules: ModuleBuildMember[] }> = ({ module
       render: (m) =>
         m.artifact ? (
           <div className="text-xs">
-            <p className="text-theme-primary">v{m.artifact.version_number} · {formatBytes(m.artifact.size_bytes)}</p>
+            <p className="text-theme-primary">v{m.artifact.version_number} · {formatFileSize(m.artifact.size_bytes, { emptyValue: '—', capAtGB: true, decimals: 1 })}</p>
             <p className="text-theme-tertiary">{m.artifact.signed ? 'signed' : 'unsigned'}</p>
           </div>
         ) : (
