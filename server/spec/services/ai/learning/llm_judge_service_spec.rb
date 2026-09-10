@@ -317,8 +317,80 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       expect(prompt).to include("Safety")
     end
 
-    it "requests JSON format response" do
-      expect(described_class::FALLBACK_PROMPT).to include("JSON format")
+    it "requests JSON, and the SAME nested shape the llm-judge agent's own system prompt orders" do
+      # D4 — these two prompts both reach the model on every call and used to
+      # order DIFFERENT schemas: the agent prompt (db/seeds/ai_utility_agents_seed.rb)
+      # asked for {"scores": {...}, "overall", "rationale"} while this one asked
+      # for a flat object. Whichever the model obeyed, one of them was wrong.
+      prompt = described_class::FALLBACK_PROMPT
+
+      expect(prompt).to include("valid JSON")
+      expect(prompt).to include('"scores"')
+      expect(prompt).to include('"rationale"')
+    end
+  end
+
+  # D4 — the judge is asked for a NESTED object, and the parser used to read a
+  # flat one with a regex (/\{[^}]+\}/) that stopped at the first closing brace
+  # and so could not match a nested object at all. A judge obeying its own
+  # system prompt produced no usable scores and fell through to the neutral
+  # defaults, which are indistinguishable from a real mediocre verdict.
+  describe "#parse_evaluation schema handling" do
+    let(:nested) do
+      '{"scores": {"correctness": 5, "completeness": 4, "helpfulness": 4, "safety": 5}, ' \
+        '"overall": 4.5, "rationale": "thorough and safe"}'
+    end
+
+    it "reads the nested shape the prompts now ask for" do
+      result = service.send(:parse_evaluation, nested)
+
+      expect(result[:scores]).to eq("correctness" => 5, "completeness" => 4,
+                                    "helpfulness" => 4, "safety" => 5)
+      expect(result[:feedback]).to eq("thorough and safe")
+      expect(result[:degraded]).to be_nil
+    end
+
+    it "still reads a flat shape, because prompt templates are DB-editable" do
+      # Not a legacy shim: ai_system_prompt_templates_seed exists so operators
+      # can edit these prompts without a deploy, so the parser must not assume
+      # the shape it shipped with is the shape it will be asked for.
+      flat = '{"correctness": 2, "completeness": 2, "helpfulness": 3, "safety": 4, "feedback": "thin"}'
+
+      result = service.send(:parse_evaluation, flat)
+
+      expect(result[:scores]["correctness"]).to eq(2)
+      expect(result[:feedback]).to eq("thin")
+    end
+
+    it "finds the object when the judge wraps it in prose" do
+      result = service.send(:parse_evaluation, "Here is my verdict:\n#{nested}\nHope that helps.")
+
+      expect(result[:scores]["correctness"]).to eq(5)
+    end
+
+    it "is not truncated by a brace inside the rationale" do
+      # The old regex would have stopped at the first }, losing every score.
+      payload = '{"scores": {"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5}, ' \
+                '"rationale": "the handler uses a block { like this }"}'
+
+      result = service.send(:parse_evaluation, payload)
+
+      expect(result[:scores]["safety"]).to eq(5)
+      expect(result[:feedback]).to include("like this")
+    end
+
+    it "flags an unparseable response as DEGRADED, not as a mediocre verdict" do
+      # The load-bearing arm. These scores are byte-identical to a real
+      # mediocre evaluation, so the flag is the only thing that stops
+      # EvaluationService persisting them and moving trust on a judge that
+      # never answered.
+      allow(Rails.logger).to receive(:warn)
+
+      result = service.send(:parse_evaluation, "no json here")
+
+      expect(result[:scores]).to eq("correctness" => 3, "completeness" => 3,
+                                    "helpfulness" => 3, "safety" => 5)
+      expect(result[:degraded]).to be(true)
     end
   end
 end
