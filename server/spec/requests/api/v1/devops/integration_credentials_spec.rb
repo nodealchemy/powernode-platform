@@ -175,6 +175,31 @@ RSpec.describe 'Api::V1::Devops::IntegrationCredentials', type: :request do
       expect(response).to have_http_status(:unprocessable_content)
       expect(credential.reload.name).to eq('Before')
     end
+
+    # IMP-01a08cd2: rotating the secret through update used to fail on every
+    # call — the controller hands over permitted ActionController::Parameters,
+    # which is not a Hash, and the model's credentials_format rejected it.
+    it 'rotates the secret material, encrypted, and never echoes it' do
+      new_secret = "sk_rotated_#{SecureRandom.hex(12)}"
+
+      patch "/api/v1/devops/integration_credentials/#{credential.id}",
+            params: { credential: { credentials: { api_key: new_secret } } }, headers: headers, as: :json
+
+      expect_success_response
+      expect(credential.reload.decrypt).to include('api_key' => new_secret)
+      expect(credential.encrypted_credentials).not_to include(new_secret)
+      expect(response.body).not_to include(new_secret)
+    end
+
+    it 'rejects secret material missing its required key and rolls the whole update back' do
+      patch "/api/v1/devops/integration_credentials/#{credential.id}",
+            params: { credential: { name: 'Renamed', credentials: { token: 'wrong-shape' } } },
+            headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(credential.reload.name).to eq('Before')
+      expect(credential.decrypt).not_to include('token')
+    end
   end
 
   describe 'DELETE /api/v1/devops/integration_credentials/:id' do

@@ -206,14 +206,14 @@ module Devops
         credential = Devops::IntegrationCredential.find_by(id: credential_id, account: account)
         raise InstanceNotFoundError, "Credential not found: #{credential_id}" unless credential
 
-        ActiveRecord::Base.transaction do
-          credential.update!(attributes.slice(:name, :scopes, :metadata))
-
-          if attributes[:credentials].present?
-            credential.credentials = attributes[:credentials]
-            credential.save!
-          end
-        end
+        # One save: name/scopes/metadata and the secret land together or not at
+        # all. `.to_h` for the same reason as #create_credential — the controller
+        # hands over permitted ActionController::Parameters, which is not a Hash,
+        # and the model's credentials_format rejected every rotation
+        # (IMP-01a08cd2).
+        credential.assign_attributes(attributes.slice(:name, :scopes, :metadata))
+        credential.credentials = attributes[:credentials].to_h if attributes[:credentials].present?
+        credential.save!
 
         credential
       rescue ActiveRecord::RecordInvalid => e
