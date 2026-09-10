@@ -123,25 +123,25 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "agent_introspect", mutating: false
-      declare_action "approve_deferred_operation", mutating: true
+      declare_action "approve_deferred_operation", mutating: true, destructive: true
       declare_action "create_agent_goal", mutating: true
-      declare_action "create_intervention_policy", mutating: true
+      declare_action "create_intervention_policy", mutating: true, destructive: true
       declare_action "create_proposal", mutating: true
       declare_action "decompose_goal", mutating: true
-      declare_action "delete_intervention_policy", mutating: true
+      declare_action "delete_intervention_policy", mutating: true, destructive: true
       declare_action "discover_claude_sessions", mutating: false
       declare_action "escalate", mutating: true
       declare_action "list_agent_goals", mutating: false
       declare_action "list_deferred_operations", mutating: false
       declare_action "list_intervention_policies", mutating: false
       declare_action "propose_feature", mutating: true
-      declare_action "reject_deferred_operation", mutating: true
+      declare_action "reject_deferred_operation", mutating: true, destructive: true
       declare_action "report_issue", mutating: true
       declare_action "request_code_change", mutating: true
       declare_action "request_feedback", mutating: true
       declare_action "send_proactive_notification", mutating: true
       declare_action "update_agent_goal", mutating: true
-      declare_action "update_intervention_policy", mutating: true
+      declare_action "update_intervention_policy", mutating: true, destructive: true
 
       # HIER-P0 — delegation authority. The read is plain; the write is the
       # first action on this tool wired to the gate through the generic

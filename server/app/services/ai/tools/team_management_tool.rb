@@ -11,7 +11,7 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "add_team_member", mutating: true
       declare_action "create_team", mutating: true
-      declare_action "delete_team", mutating: true
+      declare_action "delete_team", mutating: true, destructive: true
       declare_action "execute_team", mutating: true
       declare_action "get_team", mutating: false
       declare_action "list_teams", mutating: false

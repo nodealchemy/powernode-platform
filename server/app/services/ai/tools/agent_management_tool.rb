@@ -36,7 +36,7 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "check_task_status", mutating: false
       declare_action "create_agent", mutating: true
-      declare_action "delete_agent", mutating: true
+      declare_action "delete_agent", mutating: true, destructive: true
       declare_action "execute_agent", mutating: true
       declare_action "get_agent", mutating: false
       declare_action "list_agents", mutating: false

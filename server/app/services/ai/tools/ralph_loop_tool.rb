@@ -44,7 +44,7 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "delete_ralph_loop", mutating: true
+      declare_action "delete_ralph_loop", mutating: true, destructive: true
       declare_action "get_ralph_loop", mutating: false
       declare_action "get_ralph_loop_statistics", mutating: false
       declare_action "list_ralph_loops", mutating: false

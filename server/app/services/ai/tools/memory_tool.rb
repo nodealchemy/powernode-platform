@@ -37,8 +37,8 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "consolidate_memory", mutating: true
       declare_action "create_memory_pool", mutating: true
-      declare_action "delete_memory_pool", mutating: true
-      declare_action "delete_shared_memory", mutating: true
+      declare_action "delete_memory_pool", mutating: true, destructive: true
+      declare_action "delete_shared_memory", mutating: true, destructive: true
       declare_action "list_pools", mutating: false
       declare_action "memory_stats", mutating: false
       declare_action "read_shared_memory", mutating: false

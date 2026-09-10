@@ -67,9 +67,9 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "cancel_gitea_workflow_run", mutating: true
       declare_action "create_gitea_user_token", mutating: true
-      declare_action "delete_gitea_action_secret", mutating: true
-      declare_action "delete_gitea_user_token", mutating: true
-      declare_action "delete_gitea_workflow_run", mutating: true
+      declare_action "delete_gitea_action_secret", mutating: true, destructive: true
+      declare_action "delete_gitea_user_token", mutating: true, destructive: true
+      declare_action "delete_gitea_workflow_run", mutating: true, destructive: true
       declare_action "dispatch_gitea_workflow", mutating: true
       declare_action "get_gitea_job_logs", mutating: false
       declare_action "get_gitea_workflow_run", mutating: false

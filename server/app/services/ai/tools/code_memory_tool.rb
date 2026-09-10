@@ -40,7 +40,7 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "bulk_index", mutating: true
       declare_action "create_relation", mutating: true
-      declare_action "prune_stale", mutating: true
+      declare_action "prune_stale", mutating: true, destructive: true
       declare_action "search_graph", mutating: false
       declare_action "upsert_node", mutating: true
 

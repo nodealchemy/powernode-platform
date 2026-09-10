@@ -47,7 +47,7 @@ module Ai
       declare_action "docker_container_logs", mutating: false
       declare_action "docker_container_stats", mutating: false
       declare_action "docker_create_container", mutating: true
-      declare_action "docker_delete_container", mutating: true
+      declare_action "docker_delete_container", mutating: true, destructive: true
       declare_action "docker_get_container", mutating: false
       declare_action "docker_list_containers", mutating: false
       declare_action "docker_restart_container", mutating: true

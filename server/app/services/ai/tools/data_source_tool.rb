@@ -112,7 +112,7 @@ module Ai
       declare_action "data_source_config_versions", mutating: false
       declare_action "data_source_contract", mutating: false
       declare_action "data_source_create", mutating: true
-      declare_action "data_source_delete", mutating: true
+      declare_action "data_source_delete", mutating: true, destructive: true
       declare_action "data_source_describe", mutating: false
       declare_action "data_source_discover", mutating: false
       declare_action "data_source_export", mutating: false

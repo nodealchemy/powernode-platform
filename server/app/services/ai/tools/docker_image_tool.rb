@@ -38,7 +38,7 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "docker_delete_image", mutating: true
+      declare_action "docker_delete_image", mutating: true, destructive: true
       declare_action "docker_list_images", mutating: false
       declare_action "docker_pull_image", mutating: true
       declare_action "docker_tag_image", mutating: true

@@ -11,7 +11,7 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "add_document", mutating: true
       declare_action "create_knowledge_base", mutating: true
-      declare_action "delete_document", mutating: true
+      declare_action "delete_document", mutating: true, destructive: true
       declare_action "list_knowledge_bases", mutating: false
       declare_action "process_document", mutating: true
       declare_action "search_documents", mutating: false
