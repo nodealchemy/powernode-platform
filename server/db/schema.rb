@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_10_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_10_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -7574,6 +7574,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_180000) do
     t.index ["user_id"], name: "index_password_histories_on_user_id"
   end
 
+  create_table "platform_component_statuses", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.jsonb "actions"
+    t.string "component_kind", null: false
+    t.string "component_ref", null: false
+    t.jsonb "conditions"
+    t.datetime "created_at", null: false
+    t.jsonb "dependencies"
+    t.string "display_name"
+    t.uuid "environment_id"
+    t.datetime "last_notified_at"
+    t.datetime "last_seen_sweep_at"
+    t.jsonb "links"
+    t.datetime "observed_at"
+    t.string "observed_generation"
+    t.jsonb "presentation"
+    t.jsonb "remediation"
+    t.datetime "updated_at", null: false
+    t.string "verdict", default: "not_measured", null: false
+    t.index ["account_id", "component_kind", "component_ref"], name: "index_platform_component_statuses_on_account_kind_ref", unique: true, nulls_not_distinct: true
+    t.index ["account_id", "verdict"], name: "index_platform_component_statuses_on_account_and_verdict"
+    t.index ["account_id"], name: "index_platform_component_statuses_on_account_id"
+    t.index ["component_kind", "last_seen_sweep_at"], name: "index_platform_component_statuses_on_kind_and_last_seen"
+    t.index ["environment_id"], name: "index_platform_component_statuses_on_environment_id"
+  end
+
   create_table "report_requests", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "completed_at"
@@ -12291,6 +12317,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_180000) do
   add_foreign_key "pages", "accounts"
   add_foreign_key "pages", "users", column: "author_id"
   add_foreign_key "password_histories", "users"
+  add_foreign_key "platform_component_statuses", "ai_environments", column: "environment_id", on_delete: :nullify
   add_foreign_key "report_requests", "accounts"
   add_foreign_key "report_requests", "users", column: "requested_by_id"
   add_foreign_key "role_permissions", "roles"
