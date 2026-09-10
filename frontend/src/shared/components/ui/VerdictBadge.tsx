@@ -23,11 +23,9 @@ import type { Verdict } from '@/shared/types/platformStatus';
 //
 // `verdictCoverage.ts` states the same requirement once more as a named
 // `satisfies`, so the failure has a readable diagnostic rather than only an
-// index-signature complaint. That file is a plain `.ts`, never a `.test.ts`:
-// jest strips types without checking them, so a type-level assertion written
-// in a spec is inert. See the sibling `StatusBadge.coverage.ts` in the system
-// extension, which exists for the same reason and was inert for exactly that
-// reason until a review caught it.
+// index-signature complaint. Its header explains why it is a plain `.ts` and
+// not a spec — the short version is jest, not tsconfig; read it there rather
+// than repeating a half-true summary here.
 //
 // ── WHY `not_measured` IS NOT GREY ─────────────────────────────────────────
 //
@@ -37,12 +35,32 @@ import type { Verdict } from '@/shared/types/platformStatus';
 // and it sorts ABOVE `progressing` in the ladder for that reason. Rendering it
 // grey would file blindness alongside the things nobody needs to look at. It
 // gets a dashed outline instead — visibly unlike every filled verdict, and
-// visibly unlike the inert palette.
+// visibly unlike the inert palette. `VerdictVariant` below makes that a
+// compile error rather than a convention.
+
+/**
+ * The Badge variants a verdict may use — every one EXCEPT the inert greys.
+ *
+ * Expressed as a type rather than only as a rule in the header and a sweep in
+ * the spec (C1 review F2). The whole argument for this component is that a rule
+ * the compiler enforces beats a rule a test enforces, and "no verdict is grey"
+ * was the one rule left to the test. Now a grey verdict fails at the table,
+ * where the fix goes, and the spec keeps its own job: saying WHICH variant each
+ * verdict gets, which no type can express.
+ *
+ * Derived from `Badge`'s own union by subtraction, so a variant added to Badge
+ * becomes available here automatically and one removed from Badge stops
+ * compiling here.
+ */
+export type VerdictVariant = Exclude<
+  NonNullable<React.ComponentProps<typeof Badge>['variant']>,
+  'secondary' | 'default'
+>;
 
 /** How one verdict draws itself. */
 export interface VerdictPresentation {
-  /** Core Badge variant. Never `secondary` or `default` — see the header. */
-  variant: NonNullable<React.ComponentProps<typeof Badge>['variant']>;
+  /** Never `secondary` or `default`: those are the inert greys — see the header. */
+  variant: VerdictVariant;
   /** Operator-facing text. Also the accessible name. */
   label: string;
   /** Leading dot. Always drawn in the compact (`withLabel={false}`) form. */

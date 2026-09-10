@@ -3,15 +3,26 @@ import { VERDICT_PRESENTATION, type VerdictPresentation } from '@/shared/compone
 
 // Compile-time coverage for the closed six-verdict union (design §8 row C1).
 //
-// THIS FILE IS DELIBERATELY NOT A `.test.ts`. Jest strips types without
-// checking them, and `tsconfig` excludes spec files from the type check, so a
-// type-level assertion written in a spec is checked by NOTHING — it passes
-// whether or not it is true, and it passes even when the module it imports
-// does not exist. The system extension's `StatusBadge.coverage.ts` was written
-// as a plain `.ts` for exactly this reason after a review found the spec-shaped
-// version of it inert while importing three module paths that did not exist. A
-// plain `.ts` under `src` is compiled whether or not anything imports it, which
-// is what makes these fail.
+// THIS FILE IS DELIBERATELY NOT A `.test.ts`. Stated precisely, because the
+// usual one-line version of this rule is half wrong here (C1 review F1):
+//
+//   - Jest never checks it. Jest strips types without checking them, so a
+//     type-level assertion in a spec contributes NOTHING to the spec run: it
+//     "passes" whether or not it is true, and it passes even when the module it
+//     imports does not exist. That is what happened to the system extension's
+//     `StatusBadge.coverage.ts` before a review moved it to a plain `.ts`.
+//   - Whether TSC checks it depends on the config, and the two configs in this
+//     repo disagree. Core's `frontend/tsconfig.json` is `include: ["src"]` with
+//     no `exclude`, so core specs ARE in the tsc program and an assertion left
+//     in one would in fact be caught here. The extension's
+//     `tsconfig.check.json` excludes `**/*.test.ts(x)`, so the same file there
+//     is checked by nothing at all.
+//
+// So the plain `.ts` is the PORTABLE placement, not the only working one in
+// core. It behaves the same on both sides of the seam, and a reader does not
+// have to know which tsconfig governs the file they are looking at to know
+// whether the guard is live. Do not read "specs are unchecked" as a general
+// rule of this repo — it is not true of core.
 //
 // WHAT THIS ADDS OVER `VerdictBadge.tsx` ITSELF. The component already fails to
 // compile on an unmapped verdict: it indexes an `as const` table with a

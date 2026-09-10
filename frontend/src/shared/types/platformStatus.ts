@@ -131,8 +131,49 @@ export interface StatusCondition {
 
 // ── Edges, links, actions, presentation ─────────────────────────────────────
 
-/** How a component depends on its neighbour (design §4.3). */
-export type DependencyRelation = 'requires' | 'serves' | 'hosts' | 'backs' | 'routes';
+/**
+ * The five relations design §4.3 names. Use this where you mean "one of the
+ * documented five" — a lookup table of labels or icons, say.
+ */
+export const KNOWN_DEPENDENCY_RELATIONS = [
+  'requires',
+  'serves',
+  'hosts',
+  'backs',
+  'routes',
+] as const;
+
+export type KnownDependencyRelation = (typeof KNOWN_DEPENDENCY_RELATIONS)[number];
+
+/**
+ * How a component depends on its neighbour, AS IT ARRIVES ON THE WIRE.
+ *
+ * Deliberately open, unlike `Verdict` (C1 review F3). The difference is which
+ * side of the wire owns the closure. `verdict` is a validated column: the model
+ * rejects a value outside `VERDICTS`, so a closed union here is a true
+ * statement about what can arrive. `relation` is not validated anywhere —
+ * `ComponentStatus` checks only that `dependencies` is an array, `Contributor`
+ * documents the five in a comment, and `Rollup.edge_key` reads `kind`/`ref` and
+ * never looks at `relation` at all. A contributor emitting `relation: "peers"`
+ * is accepted today and arrives here.
+ *
+ * A closed union would therefore have been a claim the server does not back,
+ * and its cost lands on the drawer (C3): TypeScript would believe a `switch`
+ * over the five is exhaustive, so an unknown relation would fall through a
+ * `default` branch that narrowing said could not happen — or, with no default,
+ * render nothing at all. `(string & {})` keeps the five as autocomplete
+ * suggestions while letting an unknown one through as a string.
+ *
+ * C3: render an unrecognized relation as its own text rather than dropping the
+ * edge. An edge whose label you do not know is still an edge.
+ *
+ * The real fix is server-side and is NOT this file's to make: validate
+ * `relation` at construction the way `Platform::Status::Condition` already
+ * validates its type and reason tokens. Until that lands, this type tells the
+ * truth about the wire and the closed union above tells the truth about the
+ * design.
+ */
+export type DependencyRelation = KnownDependencyRelation | (string & {});
 
 /**
  * One dependency edge. The `{kind, ref}` pair is the neighbour's registry key,
