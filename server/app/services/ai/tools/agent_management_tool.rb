@@ -305,12 +305,19 @@ module Ai
         provider = account.ai_providers.where(is_active: true).first
         creator = user || account.users.first
 
+        # No model-id literal fallback (E3 lint; lane 5's E3 report §6). The old
+        # `|| "claude-sonnet-4"` stamped a RETIRED id as the new agent's model
+        # PIN — persisted on the row, not used once. Resolve through the
+        # provider's own catalog, and refuse rather than guess when it has none.
+        model = params[:model].presence || provider&.default_model.presence || provider&.available_models&.first
+        return { success: false, error: "No model configured for this provider" } if model.blank?
+
         parent = nil
         agent = ActiveRecord::Base.transaction do
           created = account.ai_agents.create!(
             name: params[:name],
             description: params[:description],
-            model: params[:model] || provider&.default_model || "claude-sonnet-4",
+            model: model,
             status: "active",
             agent_type: params[:agent_type] || "assistant",
             creator: creator,

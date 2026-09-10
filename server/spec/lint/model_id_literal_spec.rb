@@ -157,19 +157,16 @@ module ModelIdLintRules
   #
   # Lower a count when you remove a line; delete the entry at zero. Never raise
   # one without saying why in the same change.
-  # The ONE fallback this rule cannot enforce yet, named exactly so the debt is
-  # visible and self-expiring. Lane 10 (increment E2) holds
-  # agent_management_tool.rb in the working tree for the annotations work, so
-  # E3 could not edit it without taking their change. Its fallback stamps a
-  # RETIRED id as an agent's model pin, which is the worst of the twelve.
+  # Fallbacks this rule cannot enforce yet, each named so the debt is visible
+  # and self-expiring. EMPTY: its one entry — agent_management_tool.rb, whose
+  # fallback stamped a retired id as an agent's model pin — was paid by
+  # resolving through the provider's own catalog and refusing when that has
+  # nothing.
   #
   # A two-way oracle, the shape the tool-permission guard already uses: a NEW
-  # offender fails, and so does a stale entry here once lane 10 folds the fix
-  # in. Removing the line is how this debt is closed, and the spec insists on it.
-  FALLBACK_EXEMPTIONS = {
-    "server/app/services/ai/tools/agent_management_tool.rb" =>
-      "held by lane 10 for E2; `|| provider&.default_model || \"claude-sonnet-4\"` pins a retired id"
-  }.freeze
+  # offender fails, and so does a stale entry here. An entry needs a reason,
+  # and the spec fails the moment that reason stops being true.
+  FALLBACK_EXEMPTIONS = {}.freeze
 
   BASELINE = {
     # — the model catalog proper —

@@ -184,6 +184,33 @@ RSpec.describe Ai::Tools::AgentManagementTool do
           expect(result[:success]).to be true
           expect(Ai::Agent.find(result[:agent_id]).parent_agent_id).to eq(concierge.id)
         end
+
+        # THE MODEL PIN, both arms (E3 lint; lane 5's E3 report §6). This path
+        # used to fall back to a `"claude-sonnet-4"` literal, stamping a RETIRED
+        # id onto the new agent's row. It now resolves through the provider's
+        # own catalog, and refuses when there is nothing to resolve.
+        it "pins the provider's own default model, not a literal" do
+          expect(provider.default_model).to be_present
+
+          result = tool.execute(params: { action: "create_agent", name: "Free Form" })
+
+          expect(result[:success]).to be true
+          expect(Ai::Agent.find(result[:agent_id]).model).to eq(provider.default_model)
+        end
+
+        # The other arm: with no active provider there is nothing to resolve,
+        # and the old code would have pinned the retired literal here. Asserted
+        # on the ROW as well as the reply — a refusal that still wrote an agent
+        # would be the worst of both.
+        it "refuses, and creates no agent, when no model can be resolved" do
+          provider.update_column(:is_active, false)
+
+          expect {
+            result = tool.execute(params: { action: "create_agent", name: "Free Form" })
+            expect(result[:success]).to be false
+            expect(result[:error]).to eq("No model configured for this provider")
+          }.not_to change(Ai::Agent, :count)
+        end
       end
     end
 
