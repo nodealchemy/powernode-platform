@@ -594,6 +594,15 @@
       queue: maintenance
       description: 'Analyze approval patterns and suggest intervention policy adjustments'
 
+    # Improvement discovery clock (D1) - run the mechanical code analyzers and
+    # file deduped code-quality offers. Gated per account by the kill switch and
+    # by an environment tier ceiling (dev/ci only by default).
+    ai_improvement_discovery:
+      cron: '0 4 * * 0'  # Weekly at 4:00 AM UTC on Sunday
+      class: AiImprovementDiscoveryJob
+      queue: maintenance
+      description: 'Run code analyzers per account and file deduped improvement offers'
+
     # Container instance reconciliation - detect stale/crashed containers
     container_instance_reconciliation:
       cron: '*/10 * * * *'
