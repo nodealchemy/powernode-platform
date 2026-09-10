@@ -293,6 +293,12 @@ export interface FormatDurationMsOptions {
    *  tier past 60 minutes. false leaves minutes unbounded (e.g. '90m 0s').
    *  Default true. */
   hourTier?: boolean;
+  /** tiering: 'decimal-seconds-then-floor-minutes' only — the seconds
+   *  remainder in the `Xm Ys` minute tier is `Math.round((ms % 60000) / 1000)`
+   *  instead of `Math.floor(ms / 1000) % 60`. These genuinely differ (e.g.
+   *  125678ms: floored remainder is 5s, rounded remainder is 6s) — real sites
+   *  used the rounded form. Default false (floor). */
+  roundRemainderSeconds?: boolean;
   /**
    * Whether a value under 1000ms gets the raw/rounded `Xms` sub-second
    * shortcut before any tiering runs. Every mode defaults this to true
@@ -337,6 +343,7 @@ export function formatDurationMs(
     minuteTier = 'minutes-seconds',
     roundSeconds = false,
     hourTier = true,
+    roundRemainderSeconds = false,
     subSecondTier = tiering !== 'floor-integer',
   } = options;
 
@@ -375,9 +382,11 @@ export function formatDurationMs(
 
   if (tiering === 'decimal-seconds-then-floor-minutes') {
     if (value < 60000) return `${(value / 1000).toFixed(decimals)}s`;
-    const seconds = Math.floor(value / 1000);
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes}m ${seconds % 60}s`;
+    const minutes = Math.floor(value / 60000);
+    const remainderSeconds = roundRemainderSeconds
+      ? Math.round((value % 60000) / 1000)
+      : Math.floor(value / 1000) % 60;
+    return `${minutes}m ${remainderSeconds}s`;
   }
 
   // tiering === 'decimal-minutes'
@@ -431,11 +440,25 @@ export interface FormatFileSizeOptions {
    *  sites that never expected multi-gigabyte values. Unset (default): the
    *  full 'B'..'PB' ladder, matching every pre-existing caller. */
   capAtMB?: boolean;
+  /** Cap the unit ladder at GB instead of continuing to TB/PB (IMP-01a082a3).
+   *  Mutually exclusive with `capAtMB` — pass at most one. */
+  capAtGB?: boolean;
   /** Decimal places for the non-'B' units. Either one number applied to
    *  every unit, or a per-unit override (e.g. `{ MB: 2 }` leaves KB at the
    *  default of 1). Default 1 for every unit — matches every pre-existing
-   *  caller. */
+   *  caller. Ignored when `autoTrimDecimals` is set. */
   decimals?: number | Partial<Record<'KB' | 'MB' | 'GB' | 'TB' | 'PB', number>>;
+  /**
+   * When set, non-'B' units render as `parseFloat(size.toFixed(n))` (trailing
+   * zeros stripped — `2048 bytes` becomes `'2 KB'`, not `'2.0 KB'`) instead of
+   * the fixed-decimal `size.toFixed(n)` `decimals` normally produces. Two
+   * real sites used `parseFloat(x.toFixed(n))` this way (IMP-01a082a3); unset
+   * (default) keeps the fixed-decimal behavior every other caller expects.
+   */
+  autoTrimDecimals?: number;
+  /** Label for the smallest unit (< 1024 bytes). Default 'B'. One real site
+   *  used the word 'Bytes' instead (IMP-01a082a3). */
+  byteUnitLabel?: string;
 }
 
 /**
@@ -451,7 +474,15 @@ export function formatFileSize(
   bytes: number | null | undefined,
   options: FormatFileSizeOptions = {}
 ): string {
-  const { emptyValue, nonPositiveValue, capAtMB = false, decimals = 1 } = options;
+  const {
+    emptyValue,
+    nonPositiveValue,
+    capAtMB = false,
+    capAtGB = false,
+    decimals = 1,
+    autoTrimDecimals,
+    byteUnitLabel = 'B',
+  } = options;
 
   if (bytes === null || bytes === undefined) {
     if (emptyValue !== undefined) return emptyValue;
@@ -462,9 +493,13 @@ export function formatFileSize(
   // PB tops the ladder because WireGuard peer counters reach it: the system
   // extension's peer list carried its own PB-capable formatter, and adopting
   // this one without PB would render a petabyte as '1024.0 TB'
-  // (IMP-c11d5ad755b8). `capAtMB` opts specific sites back out when they
-  // never expected — or rendered — anything past megabytes (IMP-01a082a3).
-  const units = capAtMB ? (['B', 'KB', 'MB'] as const) : (['B', 'KB', 'MB', 'GB', 'TB', 'PB'] as const);
+  // (IMP-c11d5ad755b8). `capAtMB`/`capAtGB` opt specific sites back out when
+  // they never expected — or rendered — anything past that unit (IMP-01a082a3).
+  const units = capAtMB
+    ? ([byteUnitLabel, 'KB', 'MB'] as const)
+    : capAtGB
+      ? ([byteUnitLabel, 'KB', 'MB', 'GB'] as const)
+      : ([byteUnitLabel, 'KB', 'MB', 'GB', 'TB', 'PB'] as const);
   let size = bytes;
   let unitIndex = 0;
 
@@ -474,12 +509,17 @@ export function formatFileSize(
   }
 
   const unit = units[unitIndex];
+
+  if (unitIndex === 0) {
+    return `${size.toFixed(0)} ${unit}`;
+  }
+
+  if (autoTrimDecimals !== undefined) {
+    return `${parseFloat(size.toFixed(autoTrimDecimals))} ${unit}`;
+  }
+
   const unitDecimals =
-    unitIndex === 0
-      ? 0
-      : typeof decimals === 'number'
-        ? decimals
-        : (decimals[unit as 'KB' | 'MB' | 'GB' | 'TB' | 'PB'] ?? 1);
+    typeof decimals === 'number' ? decimals : (decimals[unit as 'KB' | 'MB' | 'GB' | 'TB' | 'PB'] ?? 1);
 
   return `${size.toFixed(unitDecimals)} ${unit}`;
 }
