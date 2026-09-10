@@ -164,6 +164,30 @@ RSpec.describe "agent_autonomy MCP delegation verbs" do
       expect(deferred.ai_agent_id).to eq(agent.id)
     end
 
+    # An approval a GLOBAL canonical parked before HIER-P2I (the shape MCP
+    # parks: an agent acting FOR a user) replays as the account's CLONE of that
+    # canonical, so the approved policy lands on the clone's row — never on the
+    # canonical's id, and never agent-less. deferred_tool_call_spec pins the
+    # seam generically; this pins it for the verb whose row is keyed by the
+    # acting agent (IMP-01a08cdb).
+    it "replays a pre-HIER-P2I approval the canonical parked onto the account's clone" do
+      canonical = create(:ai_agent, :global, owner_account: account, name: "Canonical Ops",
+                                             agent_type: "assistant", creator: reader, provider: provider)
+      parked = run("set_delegation_policy", proposal, user: updater)
+      operation = ::Ai::DeferredOperation.find(parked[:data][:deferred_operation_id])
+      operation.update!(params: operation.params.merge(
+        "principal" => { "kind" => "user", "user_id" => updater.id, "agent_id" => canonical.id, "internal" => false }
+      ))
+
+      operation.execute_now!
+
+      clone = ::Ai::Agent.find_by(cloned_from_id: canonical.id, account_id: account.id)
+      expect(clone).to be_present
+      expect(::Ai::DelegationPolicy.find_by(account_id: account.id, agent_id: clone.id)&.max_depth).to eq(2)
+      expect(::Ai::DelegationPolicy.where(agent_id: canonical.id)).to be_empty
+      expect(operation.reload.status).to eq("completed")
+    end
+
     context "when an operator has set the category to auto_approve" do
       before do
         ::Ai::InterventionPolicy.create!(
@@ -187,22 +211,23 @@ RSpec.describe "agent_autonomy MCP delegation verbs" do
         expect(result[:data]).to include(policy: a_hash_including(id: row.id, max_depth: 2))
       end
 
-      # HIER-P1: official agents are GLOBAL canonicals (account_id NULL). The
-      # replay seam rehydrates the parked agent through the account's visibility
-      # (global rows + its own), so a canonical caller's approved write lands on
-      # the account's row for that canonical rather than replaying agent-less
-      # (IMP-32b4f4fb7bbe).
-      it "writes the policy for a GLOBAL canonical calling agent through the replay seam" do
+      # HIER-P2I settled what IMP-32b4f4fb7bbe left open: a GLOBAL canonical is
+      # a template and never executes, so the tool seam refuses it ahead of the
+      # gate — auto_approve included. This example used to expect the write to
+      # land on the canonical's id, and went red with HIER-P2I (IMP-01a08cdb).
+      # The replay half — an approval a canonical parked BEFORE HIER-P2I — is
+      # pinned outside this context, where the gate still parks.
+      it "refuses a GLOBAL canonical caller at the tool seam and writes nothing" do
         canonical = create(:ai_agent, :global, owner_account: account, name: "Canonical Ops",
                                                agent_type: "assistant", creator: reader, provider: provider)
 
         result = nil
         expect {
           result = run("set_delegation_policy", proposal, user: updater, mcp_agent: canonical)
-        }.to change { ::Ai::DelegationPolicy.where(account_id: account.id, agent_id: canonical.id).count }.from(0).to(1)
+        }.not_to change(::Ai::DelegationPolicy, :count)
 
-        expect(result[:success]).to be(true), result.inspect
-        expect(result[:data]).to include(agent_id: canonical.id)
+        expect(result[:success]).to be(false)
+        expect(result[:refusal]).to eq(::Ai::Tools::BaseTool::CANONICAL_PRINCIPAL_REFUSAL)
       end
 
       it "updates the existing row rather than creating a second one" do
