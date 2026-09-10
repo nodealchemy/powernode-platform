@@ -40,12 +40,13 @@ module Ai
     # bounds it instead, and it is enforced on the ungated path where the call
     # actually runs.
     class PlatformRemediationTool < BaseTool
-      # FLOOR — the bar for reaching the class at all. An existing permission
-      # (Permissions "ai_monitoring.read"), granted to owner/admin/manager/
-      # ai_specialist. Increment A4 introduces `platform.status.read` for the
-      # status plane's REST door; when it lands this floor should move to it,
-      # which is a one-line change here and nowhere else.
-      REQUIRED_PERMISSION = "ai_monitoring.read"
+      # FLOOR — the bar for reaching the class at all. The same permission
+      # increment A4's REST door checks for the status plane, so an operator
+      # who can see a component on the page can also ask what would be done
+      # about it. A different floor here would produce the worst kind of
+      # surface: a component visible on the screen whose remediation front
+      # door answers "permission denied" for no reason the operator can see.
+      REQUIRED_PERMISSION = "platform.status.read"
 
       # Per-action bar above the floor. Parking a decision in front of a
       # person is an autonomy WRITE — it consumes an operator's attention and

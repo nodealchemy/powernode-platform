@@ -10,8 +10,8 @@ RSpec.describe Ai::Tools::PlatformRemediationTool do
   # The first user in an account is given the OWNER role, so every actor here
   # declares its permissions explicitly (spec/factories/users.rb).
   let(:owner) { create(:user, account: account) }
-  let(:reader) { create(:user, account: account, permissions: %w[ai_monitoring.read]) }
-  let(:requester) { create(:user, account: account, permissions: %w[ai_monitoring.read ai.autonomy.manage]) }
+  let(:reader) { create(:user, account: account, permissions: %w[platform.status.read]) }
+  let(:requester) { create(:user, account: account, permissions: %w[platform.status.read ai.autonomy.manage]) }
   let(:nobody) { create(:user, account: account, permissions: []) }
 
   let(:component) do
@@ -152,7 +152,7 @@ RSpec.describe Ai::Tools::PlatformRemediationTool do
       })
 
       expect(result[:success]).to be false
-      expect(result[:error]).to match(/permission denied: ai_monitoring.read/)
+      expect(result[:error]).to match(/permission denied: platform.status.read/)
     end
   end
 
@@ -274,7 +274,7 @@ RSpec.describe Ai::Tools::PlatformRemediationTool do
       # one this verb charges, or holding it would imply the other.
       it "does not accept ai.autonomy.approve in place of the write permission" do
         approver = create(:user, account: account,
-                                 permissions: %w[ai_monitoring.read ai.autonomy.approve])
+                                 permissions: %w[platform.status.read ai.autonomy.approve])
 
         expect(tool(user: approver).execute(params: params)[:success]).to be false
       end
