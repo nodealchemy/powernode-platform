@@ -3,6 +3,7 @@ import { Plus, RotateCcw, Search } from 'lucide-react';
 import { ResizableListPanel } from '@/shared/components/layout/ResizableListPanel';
 import { RalphLoopListItem } from './RalphLoopListItem';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { RalphLoopSummary, RalphLoopStatus } from '@/shared/services/ai/types/ralph-types';
 
 type TabId = 'all' | 'running' | 'pending' | 'completed' | 'failed';
@@ -76,13 +77,8 @@ export const RalphLoopListPanel: React.FC<RalphLoopListPanelProps> = ({
   }, [refreshKey, loadLoops]);
 
   // Auto-refresh every 5s when running loops exist
-  useEffect(() => {
-    const hasRunning = loops.some(l => l.status === 'running');
-    if (hasRunning) {
-      const interval = setInterval(loadLoops, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [loops, loadLoops]);
+  const hasRunningLoops = loops.some(l => l.status === 'running');
+  usePolling(loadLoops, 5000, { enabled: hasRunningLoops, deps: [loops, loadLoops] });
 
   // Filter by tab + search
   const filteredLoops = useMemo(() => {

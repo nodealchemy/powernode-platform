@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Users, Activity, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { agentTeamsApi } from '@/features/ai/agent-teams/services/agentTeamsApi';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { AgentTeam } from '@/features/ai/agent-teams/services/agentTeamsApi';
 
 export const TeamActivityCard: React.FC = () => {
@@ -20,11 +21,7 @@ export const TeamActivityCard: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    loadTeams();
-    const interval = setInterval(loadTeams, 30000);
-    return () => clearInterval(interval);
-  }, [loadTeams]);
+  usePolling(loadTeams, 30000, { immediate: true });
 
   const activeTeams = teams.filter(t => t.status === 'active');
   const totalMembers = teams.reduce((acc, t) => acc + (t.member_count || 0), 0);

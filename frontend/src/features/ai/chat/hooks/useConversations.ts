@@ -4,6 +4,7 @@ import { agentsApi } from '@/shared/services/ai';
 import type { ConversationBase, ConversationDetail, GlobalConversationFilters } from '@/shared/services/ai/ConversationsApiService';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { usePolling } from '@/shared/hooks/usePolling';
 import { logger } from '@/shared/utils/logger';
 
 interface ConversationsListChannelMessage {
@@ -68,7 +69,6 @@ export function useConversations(options: UseConversationsOptions = {}): UseConv
   });
 
   const { addNotification } = useNotifications();
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
 
   const loadConversations = useCallback(async (overrideFilters?: GlobalConversationFilters) => {
@@ -424,19 +424,7 @@ export function useConversations(options: UseConversationsOptions = {}): UseConv
   }, []);
 
   // Polling (fallback, low frequency)
-  useEffect(() => {
-    if (pollInterval > 0) {
-      pollTimerRef.current = setInterval(() => {
-        loadConversations();
-      }, pollInterval);
-    }
-
-    return () => {
-      if (pollTimerRef.current) {
-        clearInterval(pollTimerRef.current);
-      }
-    };
-  }, [pollInterval, loadConversations]);
+  usePolling(loadConversations, pollInterval);
 
   // Cleanup
   useEffect(() => {

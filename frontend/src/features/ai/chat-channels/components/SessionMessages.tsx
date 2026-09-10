@@ -6,6 +6,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { chatChannelsApi } from '@/shared/services/ai';
 import { cn } from '@/shared/utils/cn';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { ChatMessageSummary, TypingIndicator } from '@/shared/services/ai';
 
 interface SessionMessagesProps {
@@ -72,35 +73,34 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
   }, [loadMessages]);
 
   // Auto-refresh for active sessions
+  usePolling(loadMessages, 5000, { enabled: sessionStatus === 'active' });
+
+  // Poll typing indicator for active sessions. `typingCancelledRef` mirrors the
+  // effect-scoped `cancelled` flag the raw setInterval version used: reset
+  // whenever session identity/status changes, set once that generation is torn
+  // down, so an in-flight request from a stale session can never call setTyping.
+  const typingCancelledRef = useRef(false);
   useEffect(() => {
-    if (sessionStatus === 'active') {
-      const interval = setInterval(loadMessages, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [sessionStatus, loadMessages]);
-
-  // Poll typing indicator for active sessions
-  useEffect(() => {
-    if (sessionStatus !== 'active') return;
-
-    let cancelled = false;
-    const pollTyping = async () => {
-      try {
-        const res = await chatChannelsApi.getTypingStatus(sessionId);
-        if (!cancelled) setTyping(res.typing ?? null);
-      } catch {
-        if (!cancelled) setTyping(null);
-      }
-    };
-
-    const interval = setInterval(pollTyping, 2000);
-    pollTyping();
-
+    typingCancelledRef.current = false;
     return () => {
-      cancelled = true;
-      clearInterval(interval);
+      typingCancelledRef.current = true;
     };
   }, [sessionId, sessionStatus]);
+
+  const pollTyping = useCallback(async () => {
+    try {
+      const res = await chatChannelsApi.getTypingStatus(sessionId);
+      if (!typingCancelledRef.current) setTyping(res.typing ?? null);
+    } catch {
+      if (!typingCancelledRef.current) setTyping(null);
+    }
+  }, [sessionId]);
+
+  usePolling(pollTyping, 2000, {
+    enabled: sessionStatus === 'active',
+    immediate: true,
+    deps: [sessionId, sessionStatus, pollTyping],
+  });
 
   // Scroll to bottom on new messages
   useEffect(() => {

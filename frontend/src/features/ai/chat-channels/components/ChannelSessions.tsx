@@ -18,6 +18,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { chatChannelsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { ChatSessionSummary, SessionFilters, SessionStatus } from '@/shared/services/ai';
 
 interface ChannelSessionsProps {
@@ -98,13 +99,8 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
   }, [loadSessions]);
 
   // Auto-refresh for active sessions
-  useEffect(() => {
-    const hasActive = sessions.some(s => s.status === 'active');
-    if (hasActive) {
-      const interval = setInterval(loadSessions, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [sessions, loadSessions]);
+  const hasActiveSession = sessions.some(s => s.status === 'active');
+  usePolling(loadSessions, 10000, { enabled: hasActiveSession, deps: [sessions, loadSessions] });
 
   const handleClose = async (session: ChatSessionSummary) => {
     try {

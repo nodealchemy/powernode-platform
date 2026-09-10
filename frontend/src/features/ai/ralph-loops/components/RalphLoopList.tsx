@@ -13,6 +13,7 @@ import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { RalphLoopCard } from './RalphLoopCard';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { RalphLoopSummary, RalphLoopFilters, RalphLoopStatus } from '@/shared/services/ai/types/ralph-types';
 
 interface RalphLoopListProps {
@@ -83,13 +84,8 @@ export const RalphLoopList: React.FC<RalphLoopListProps> = ({
   }, [loadLoops]);
 
   // Auto-refresh for running loops
-  useEffect(() => {
-    const hasRunning = loops.some(l => l.status === 'running');
-    if (hasRunning) {
-      const interval = setInterval(loadLoops, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [loops, loadLoops]);
+  const hasRunningLoops = loops.some(l => l.status === 'running');
+  usePolling(loadLoops, 5000, { enabled: hasRunningLoops, deps: [loops, loadLoops] });
 
   const handleStart = async (loop: RalphLoopSummary) => {
     try {

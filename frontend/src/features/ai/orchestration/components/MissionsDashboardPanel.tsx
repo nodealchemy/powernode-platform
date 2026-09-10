@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Rocket, Plus, ArrowRight, Clock, AlertCircle,
@@ -10,6 +10,7 @@ import { missionsApi } from '@/features/missions/api/missionsApi';
 import { phaseLabel, isApprovalGate } from '@/features/missions/types/mission';
 import type { Mission, MissionStatus } from '@/features/missions/types/mission';
 import { formatDurationMs, formatRelativeTimeCompact } from '@/shared/utils/formatters';
+import { usePolling } from '@/shared/hooks/usePolling';
 
 const STATUS_CONFIG: Record<MissionStatus, { icon: React.ElementType; color: string; variant: 'success' | 'warning' | 'danger' | 'info' | 'secondary' }> = {
   active: { icon: Loader2, color: 'text-theme-info-fg', variant: 'info' },
@@ -42,11 +43,7 @@ export const MissionsDashboardPanel: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    loadMissions();
-    const interval = setInterval(loadMissions, 15000);
-    return () => clearInterval(interval);
-  }, [loadMissions]);
+  usePolling(loadMissions, 15000, { immediate: true });
 
   const activeMissions = missions.filter(m => m.status === 'active' || m.status === 'paused');
   const awaitingApproval = activeMissions.filter(m => isApprovalGate(m.current_phase));

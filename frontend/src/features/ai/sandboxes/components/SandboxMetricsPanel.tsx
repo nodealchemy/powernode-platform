@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Activity, HardDrive, Wifi, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Progress } from '@/shared/components/ui/Progress';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { fetchSandboxMetrics } from '../api/sandboxApi';
 import { formatFileSize } from '@/shared/utils/formatters';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { SandboxMetrics } from '../types/sandbox';
 
 interface SandboxMetricsPanelProps {
@@ -23,7 +24,6 @@ const formatUptime = (seconds: number): string => {
 export const SandboxMetricsPanel: React.FC<SandboxMetricsPanelProps> = ({ sandboxId }) => {
   const [metrics, setMetrics] = useState<SandboxMetrics | null>(null);
   const [loading, setLoading] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadMetrics = useCallback(async () => {
     try {
@@ -36,13 +36,7 @@ export const SandboxMetricsPanel: React.FC<SandboxMetricsPanelProps> = ({ sandbo
     }
   }, [sandboxId]);
 
-  useEffect(() => {
-    loadMetrics();
-    intervalRef.current = setInterval(loadMetrics, 5000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [loadMetrics]);
+  usePolling(loadMetrics, 5000, { immediate: true });
 
   if (loading) return <LoadingSpinner />;
   if (!metrics) return null;
