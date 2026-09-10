@@ -16,7 +16,7 @@ four are tools reviewers run on demand.
 |--------|----------------|------------|------------|
 | `check-links.sh` | Every `[text](path)` in every `.md` resolves on disk | YES (pre-push) | 0=clean, 1=broken, 2=invocation error |
 | `check-code-refs.sh` | Every backtick-quoted path-shaped string (`server/app/...`, `frontend/src/...`, etc.) exists | no | 0=clean, 1=missing, 2=invocation error |
-| `check-mcp-actions.sh` | Every `platform.<action>(` call site exists in `server/app/services/ai/tools/platform_api_tool_registry.rb` | no | 0=clean (or registry unreachable), 1=unknown, 2=invocation error |
+| `check-mcp-actions.sh` | Every `platform.<action>(` call site exists in `server/app/services/ai/tools/platform_api_tool_registry.rb` or is catalogued in `ASPIRATIONAL_MCP.md` | no | 0=clean (or registry unreachable), 1=uncatalogued unknown, 2=invocation error |
 | `check-counts.sh` | Advisory regex scan for drift-prone hardcoded counts | no (non-failing) | always 0 |
 | `check-auto-gen-headers.sh` | Every `docs/reference/auto/*.md` has `<!-- AUTO-GENERATED` in first 5 lines | no | 0=clean, 1=missing |
 
@@ -104,8 +104,26 @@ descriptions). This errs on the side of accepting more than necessary,
 keeping false-positive unknowns low.
 
 Aspirational MCP actions documented in
-[`ASPIRATIONAL_MCP.md`](./ASPIRATIONAL_MCP.md) are expected unknowns;
-add new aspirational uses there.
+[`ASPIRATIONAL_MCP.md`](./ASPIRATIONAL_MCP.md) are expected unknowns. That
+catalog is **machine-read** (IMP-01a05ec2): the script subtracts its rows from
+the unknowns, so an unknown fails ONLY when it is not catalogued, and the check
+has a green baseline. It also names a catalogued action nothing references any
+more, so the allowlist does not quietly outlive its docs.
+
+Until that change the script merely told the reader to cross-check by hand, so
+it exited 1 on every run — two of the reported unknowns (`cost_analysis`,
+`recent_events`) are real verbs the running server exposes that a static grep
+of the registry cannot see. The step is advisory, so this never failed a
+workflow; it did something quieter. A step that is red every time is one nobody
+reads, and a genuinely new unknown moved the count from 2 to 3 inside an
+already-failing step. Its baseline is asserted by
+`server/spec/integration/docs_verify_mcp_actions_spec.rb`, which also drives
+the real script in a sandbox to prove an uncatalogued unknown still reds it —
+"exits 0 today" alone would pass against a script that can never fail.
+
+It stays **advisory** in CI deliberately: a static grep against a Ruby registry
+has known blind spots, and blocking doc PRs on it would trade a quiet
+false-negative for a loud false-positive.
 
 **`check-counts.sh`** is intentionally advisory. Counts in
 `docs/reference/auto/` are canonical (they auto-regenerate); inline
