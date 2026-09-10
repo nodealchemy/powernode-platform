@@ -7,7 +7,26 @@ RSpec.describe Ai::Provider, type: :model do
 
   describe 'associations' do
     it { is_expected.to belong_to(:account) }
-    it { is_expected.to have_many(:credentials).class_name('Ai::ProviderCredential').dependent(:destroy) }
+    it { is_expected.to have_many(:provider_credentials).class_name('Ai::ProviderCredential').dependent(:destroy) }
+
+    # IMP-01a08cd0: a `has_many :credentials` (active scope) sat beside
+    # Provider::Configurable#credentials, which shadowed its reader — so
+    # `provider.credentials` never returned the relation, while the reflection
+    # still drove includes/joins and a second dependent: :destroy. The shoulda
+    # matcher here asserted that association and passed, because it reads the
+    # reflection, not the reader. The name belongs to the decrypted-secrets
+    # method; the relation is provider_credentials.
+    it 'has no :credentials association (the name is Configurable#credentials)' do
+      expect(described_class.reflect_on_association(:credentials)).to be_nil
+    end
+
+    it '#credentials returns the active credential decrypted, not a relation' do
+      saved = create(:ai_provider)
+      active = create(:ai_provider_credential, provider: saved, account: saved.account)
+
+      expect(saved.credentials).to be_a(Hash)
+      expect(saved.credentials).to eq(active.reload.credentials)
+    end
     it { is_expected.to have_many(:agents).dependent(:restrict_with_error) }
   end
 
@@ -739,7 +758,7 @@ RSpec.describe Ai::Provider, type: :model do
       it 'efficiently filters and orders large result sets' do
         # Verify query executes successfully with includes and filters
         result = described_class.active
-                               .includes(:credentials)
+                               .includes(:provider_credentials)
                                .order(:name)
                                .limit(20)
                                .to_a
