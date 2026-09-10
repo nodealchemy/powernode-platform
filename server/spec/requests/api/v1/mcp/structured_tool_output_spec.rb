@@ -92,7 +92,9 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
       tool = json_response["result"]["tools"].first
       expect(tool["title"]).to eq("List Agents")
       expect(tool["outputSchema"]["type"]).to eq("object")
-      expect(tool["annotations"]).to eq({ "readOnlyHint" => true })
+      # E2: readOnlyHint is read from declare_action, not guessed from the
+      # name, and says so via annotationSource.
+      expect(tool["annotations"]).to eq({ "readOnlyHint" => true, "annotationSource" => "declared" })
     end
 
     it "returns the legacy shape (no title/outputSchema/annotations) for a 2024-11-05 client" do
@@ -141,7 +143,12 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
       expect(tool["outputSchema"]).to eq({ "type" => "object" })
     end
 
-    it "does not mark non-read-only tools with readOnlyHint" do
+    # Before E2 this asserted the ABSENCE of an annotations object, which was
+    # the only way a write could be distinguished from a read: the catalog
+    # emitted `readOnlyHint: true` or nothing at all, so "not a read" and "no
+    # ground truth" looked identical on the wire. E2 makes a write say so, and
+    # this example now asserts the statement rather than the silence.
+    it "marks a declared-mutating tool as not read-only, explicitly" do
       allow(::Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return(
         [{ name: "create_agent", description: "Create agent", parameters: {} }]
       )
@@ -149,7 +156,12 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
       post mcp_endpoint, params: jsonrpc_request(method: "tools/list"), headers: modern_headers
 
       tool = json_response["result"]["tools"].first
-      expect(tool).not_to have_key("annotations")
+      expect(tool["annotations"]["readOnlyHint"]).to be(false)
+      # create_agent is a write but not a destroy, and the MCP default for
+      # destructiveHint is TRUE — so publishing `false` is the correction that
+      # actually changes what a client does with it.
+      expect(tool["annotations"]["destructiveHint"]).to be(false)
+      expect(tool["annotations"]["annotationSource"]).to eq("declared")
     end
   end
 
@@ -315,7 +327,7 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
     it "advertises platform.describe_tool in the listing, read-only" do
       entry = tools.find { |t| t["name"] == "platform.describe_tool" }
       expect(entry).not_to be_nil
-      expect(entry["annotations"]).to eq({ "readOnlyHint" => true })
+      expect(entry["annotations"]).to eq({ "readOnlyHint" => true, "annotationSource" => "declared" })
       expect(entry["inputSchema"]["required"]).to eq(["name"])
     end
 

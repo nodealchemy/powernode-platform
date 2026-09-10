@@ -96,7 +96,10 @@ RSpec.describe Mcp::ToolCatalog do
 
       listed = catalog.list_entries.find { |t| t["name"] == "platform.list_agents" }
       expect(listed["description"]).to eq("List agents.")
-      expect(listed["annotations"]).to eq({ "readOnlyHint" => true })
+      # E2: annotations now come from the declare_action record, and carry
+      # their provenance. `list_agents` is a real registry key declared
+      # mutating: false, so this is the DECLARED path.
+      expect(listed["annotations"]).to eq({ "readOnlyHint" => true, "annotationSource" => "declared" })
       expect(listed["title"]).to eq("List Agents")
       expect(listed["outputSchema"]["required"]).to eq(["success"])
     end

@@ -104,6 +104,58 @@ namespace :mcp do
     tool_classes_seen = Set.new
     action_count = 0
 
+    # ADVERTISEMENT FILTER (increment E2). The walk above is the raw registry
+    # map; what MCP actually offers is the map minus whatever
+    # PlatformApiToolRegistry.advertised_action? refuses — the same predicate
+    # tools/list, Mcp::ToolCatalog and McpPlatformToolRegistrar's
+    # unadvertised_refusal all apply. Without it this document listed actions
+    # that answer "Tool not available" when called, in the one place an
+    # operator sizes an MCP grant from: a privilege OVERSTATEMENT of the
+    # surface, and an operator granting a pattern for a verb that does not
+    # exist here.
+    #
+    # `agent: nil` is the right principal: this is the catalog of what the
+    # control plane offers, not what one agent may reach. With a nil agent
+    # `.permitted?` short-circuits true, so the class gate never narrows the
+    # document — the only thing that filters is a class's own
+    # `.action_advertised?` hook, which today is Ai::Tools::DiskImageOperatorTool
+    # gating two extension-backed actions on the extension being loaded.
+    #
+    # IN THE PUBLIC BUNDLE THIS DROPS ZERO ROWS TODAY (measured: the system
+    # extension is loaded, so both actions advertise). It is a drift guard, and
+    # a guard that removes nothing is untestable by observation — both arms are
+    # driven with a stubbed predicate in
+    # spec/lib/tasks/mcp_tool_catalog_advertisement_spec.rb rather than left to
+    # be believed.
+    # THE FILTER ONLY EVER REMOVES A ROW IT CAN JUDGE. Two shapes are kept
+    # rather than dropped, both because a silent absence is the worse error:
+    #
+    #   * an UNLOADABLE class — the loop below renders it as "(class not
+    #     found)", which is what an operator needs to see. Dropping it would
+    #     turn a broken registry entry into no entry at all;
+    #   * a class that does not answer `.permitted?`. `advertised_action?`
+    #     calls it unconditionally, and `register_extension_tools` accepts any
+    #     class name, so a duck-typed registration that is not an
+    #     Ai::Tools::BaseTool subclass raises NoMethodError there. Unguarded,
+    #     ONE such registration aborts the rake task and the catalog is not
+    #     written at all — which is how the first cut of this filter took down
+    #     spec/lib/tasks/mcp_tool_catalog_extension_tools_spec.rb's fixture,
+    #     a class deliberately implementing only the surface the generator
+    #     used to touch.
+    unadvertised = []
+    registry = registry.select do |action_name, class_name|
+      klass = class_name.safe_constantize
+      next true if klass.nil? || !klass.respond_to?(:permitted?)
+
+      advertised = Ai::Tools::PlatformApiToolRegistry.advertised_action?(action_name, klass, agent: nil)
+      unadvertised << action_name unless advertised
+      advertised
+    end
+
+    if unadvertised.any?
+      puts "  Filtered #{unadvertised.size} unadvertised action(s): #{unadvertised.sort.join(', ')}"
+    end
+
     registry.each do |action_name, class_name|
       category = class_to_category[class_name] || "Uncategorized"
       categories[category] ||= []
