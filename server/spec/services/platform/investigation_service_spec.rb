@@ -1,0 +1,300 @@
+# frozen_string_literal: true
+
+require "rails_helper"
+
+# Component status plane, increment A6 — the investigation (design §5.3).
+RSpec.describe Platform::InvestigationService do
+  let(:account) { create(:account) }
+  let(:service) { described_class.new(account: account) }
+
+  let(:component) do
+    create(:platform_component_status, account: account, component_kind: "docker_host",
+                                       component_ref: "host-1", display_name: "web-1",
+                                       verdict: Platform::ComponentStatus::DOWN,
+                                       conditions: [ failing_condition ])
+  end
+
+  let(:failing_condition) do
+    { "type" => "Connected", "status" => false, "reason" => "ConnectionError",
+      "severity" => "down", "message" => "unreachable", "evidence" => {},
+      "last_transition_at" => 10.minutes.ago }
+  end
+
+  around do |example|
+    saved_sources = Platform::Investigation::EvidenceSources.handlers.dup
+    saved_triggers = Platform::Investigation::Triggers.kinds
+    Platform::Investigation::EvidenceSources.reset!
+    Platform::Investigation::Triggers.reset!
+    example.run
+  ensure
+    Platform::Investigation::EvidenceSources.reset!
+    Platform::Investigation::Triggers.reset!
+    saved_sources.each { |name, handler| Platform::Investigation::EvidenceSources.register(name, handler) }
+    saved_triggers.each { |kind| Platform::Investigation::Triggers.register(kind) }
+  end
+
+  describe "extending the correlator" do
+    # The design says EXTENDS, not forks. If this ever became a standalone
+    # class the platform would carry two definitions of "these two things are
+    # related", and they would drift.
+    it "is a CrossSystemCorrelator and inherits its correlation machinery" do
+      expect(described_class.superclass).to eq(Ai::SelfHealing::CrossSystemCorrelator)
+      expect(service).to respond_to(:correlate_failures)
+      expect(described_class.instance_method(:correlate_failures).owner)
+        .to eq(Ai::SelfHealing::CrossSystemCorrelator)
+    end
+  end
+
+  describe "#open!" do
+    it "records evidence and returns an open investigation" do
+      result = service.open!(component, trigger: Platform::Investigation::TRIGGER_OPERATOR)
+
+      investigation = result[:investigation]
+      expect(result[:opened]).to be(true)
+      expect(investigation).to be_open
+      expect(investigation.trigger).to eq("operator")
+      expect(investigation.evidence["conditions"]).to be_present
+      # Ranking is the worker's. An open investigation with evidence and no
+      # hypotheses is the correct product of opening one.
+      expect(investigation.hypotheses).to eq([])
+    end
+
+    it "derives the fingerprint rather than taking one" do
+      result = service.open!(component, trigger: "operator")
+
+      expect(result[:investigation].fingerprint).to eq("docker_host:host-1")
+    end
+
+    it "refuses when the component does not exist" do
+      expect(service.open!(nil, trigger: "operator"))
+        .to eq(refused: described_class::REFUSED_NO_COMPONENT)
+    end
+
+    describe "the open-fingerprint rule" do
+      it "refuses a second open investigation of the same component" do
+        service.open!(component, trigger: "operator")
+
+        expect(service.open!(component, trigger: "down"))
+          .to eq(refused: described_class::REFUSED_ALREADY_OPEN)
+        expect(Platform::Investigation.count).to eq(1)
+      end
+
+      # The other arm, and the reason the index is PARTIAL: a component
+      # investigated last month must be investigable again.
+      it "allows another once the first has concluded" do
+        first = service.open!(component, trigger: "operator")[:investigation]
+        first.update!(status: Platform::Investigation::STATUS_COMPLETED)
+
+        expect(service.open!(component, trigger: "down")[:opened]).to be(true)
+        expect(Platform::Investigation.count).to eq(2)
+      end
+
+      # The rule is the DATABASE's, not the service's: a check in Ruby loses to
+      # two triggers firing in the same second.
+      it "is enforced by the database, not only by the pre-check" do
+        service.open!(component, trigger: "operator")
+        duplicate = Platform::Investigation.new(
+          account_id: account.id, component_kind: "docker_host", component_ref: "host-1",
+          fingerprint: "docker_host:host-1",
+          trigger: "down", status: Platform::Investigation::STATUS_OPEN
+        )
+
+        # Straight past the service and its pre-check, so what refuses this is
+        # the index and nothing else.
+        expect { duplicate.save!(validate: false) }.to raise_error(ActiveRecord::RecordNotUnique)
+      end
+
+      it "does not confuse two different components" do
+        other = create(:platform_component_status, account: account, component_kind: "docker_host",
+                                                   component_ref: "host-2")
+        service.open!(component, trigger: "operator")
+
+        expect(service.open!(other, trigger: "operator")[:opened]).to be(true)
+      end
+    end
+
+    describe "the daily cap" do
+      it "refuses past the cap and allows below it" do
+        SiteSetting.set(described_class::DAILY_CAP_SETTING, 2, setting_type: "integer")
+        expect(described_class.daily_cap).to eq(2)
+
+        2.times do |n|
+          row = create(:platform_component_status, account: account, component_kind: "docker_host",
+                                                   component_ref: "capped-#{n}")
+          expect(service.open!(row, trigger: "operator")[:opened]).to be(true)
+        end
+
+        expect(service.open!(component, trigger: "operator"))
+          .to eq(refused: described_class::REFUSED_DAILY_CAP)
+      end
+
+      it "counts only the last day" do
+        SiteSetting.set(described_class::DAILY_CAP_SETTING, 1, setting_type: "integer")
+        old = service.open!(component, trigger: "operator")[:investigation]
+        old.update!(status: Platform::Investigation::STATUS_COMPLETED,
+                    created_at: 2.days.ago)
+
+        expect(service.open!(component, trigger: "operator")[:opened]).to be(true)
+      end
+
+      it "falls back to the default for a blank or non-positive setting" do
+        SiteSetting.set(described_class::DAILY_CAP_SETTING, 0, setting_type: "integer")
+
+        expect(described_class.daily_cap).to eq(described_class::DEFAULT_DAILY_CAP)
+      end
+    end
+  end
+
+  describe "#assemble_evidence" do
+    it "carries every core class, present even when empty" do
+      evidence = service.assemble_evidence(component)
+
+      described_class::CORE_EVIDENCE_CLASSES.each do |name|
+        expect(evidence).to have_key(name), "no #{name} class in the assembled evidence"
+      end
+      expect(evidence["assembled_at"]).to be_present
+    end
+
+    it "resolves the dependency chain to VERDICTS, not bare references" do
+      create(:platform_component_status, account: account, component_kind: "node_instance",
+                                         component_ref: "node-9", verdict: Platform::ComponentStatus::DOWN)
+      component.update!(dependencies: [ { "kind" => "node_instance", "ref" => "node-9", "relation" => "hosts" } ])
+
+      chain = service.assemble_evidence(component.reload)["dependency_chain"]
+
+      expect(chain.first["verdict"]).to eq(Platform::ComponentStatus::DOWN)
+      expect(chain.first["resolved"]).to be(true)
+    end
+
+    it "marks a dependency it cannot see as unresolved rather than dropping it" do
+      component.update!(dependencies: [ { "kind" => "node_instance", "ref" => "ghost" } ])
+
+      chain = service.assemble_evidence(component.reload)["dependency_chain"]
+
+      expect(chain.first["resolved"]).to be(false)
+      expect(chain.first["verdict"]).to be_nil
+    end
+
+    it "includes this component's status events inside the window and not outside it" do
+      create(:platform_status_event, account: account, component_kind: "docker_host",
+                                     component_ref: "host-1", occurred_at: 5.minutes.ago)
+      create(:platform_status_event, account: account, component_kind: "docker_host",
+                                     component_ref: "host-1", occurred_at: 3.hours.ago)
+
+      events = service.assemble_evidence(component)["status_events"]
+
+      expect(events.size).to eq(1)
+    end
+
+    it "merges whatever an extension registers, without naming one" do
+      Platform::Investigation::EvidenceSources.register(:module_changes) do |component_kind:, **|
+        [ { "summary" => "promoted #{component_kind} module", "occurred_at" => 1.minute.ago.iso8601 } ]
+      end
+
+      evidence = service.assemble_evidence(component)
+
+      expect(evidence["module_changes"].first["summary"]).to include("docker_host")
+      expect(evidence["errors"]).to eq({})
+    end
+
+    # A class that silently vanished would RAISE confidence in whatever
+    # survived, because the rule discounts by the number of classes.
+    it "records a source that raises, and still assembles the rest" do
+      Platform::Investigation::EvidenceSources.register(:remediation_history) { raise "extension is down" }
+
+      evidence = service.assemble_evidence(component)
+
+      expect(evidence["errors"]["remediation_history"]).to include("extension is down")
+      expect(evidence["conditions"]).to be_present
+    end
+
+    it "counts only classes that carry something" do
+      evidence = { "conditions" => [ failing_condition ], "status_events" => [],
+                   "assembled_at" => Time.current.iso8601, "errors" => {} }
+
+      expect(described_class.evidence_classes(evidence)).to eq([ "conditions" ])
+    end
+  end
+
+  describe "#conclude!" do
+    let(:investigation) { service.open!(component, trigger: "operator")[:investigation] }
+
+    it "scores hypotheses with the confidence rule rather than accepting a number" do
+      concluded = service.conclude!(investigation, ranked: [
+        { cause: "upstream node lost", score: 6.0, evidence_classes: %w[conditions status_events],
+          confidence: 0.99 },
+        { cause: "credential expired", score: 4.0, evidence_classes: %w[conditions] }
+      ])
+
+      top = concluded.top_hypothesis
+      expect(top["cause"]).to eq("upstream node lost")
+      # NOT the 0.99 the ranker asserted.
+      expect(top["confidence"]).to eq(0.45)
+      expect(top["confidence_state"]).to eq(Platform::Investigation::Confidence::MEASURED)
+      expect(concluded).to be_concluded
+      expect(concluded.completed_at).to be_present
+    end
+
+    it "derives candidates itself when no ranking is supplied" do
+      concluded = service.conclude!(investigation)
+
+      expect(concluded.top_hypothesis["cause"]).to include("ConnectionError")
+    end
+
+    it "reports not_measured, never a number, when there is nothing to go on" do
+      investigation.update!(evidence: {})
+
+      concluded = service.conclude!(investigation)
+
+      expect(concluded.hypotheses).to eq([])
+      expect(concluded.conclusion).to include("No candidate cause")
+    end
+
+    it "does not re-conclude an investigation that already concluded" do
+      service.conclude!(investigation, conclusion: "first")
+
+      expect(service.conclude!(investigation, conclusion: "second").conclusion).to eq("first")
+    end
+
+    it "records a learning through the existing extractor seam" do
+      expect_any_instance_of(Ai::Learning::CompoundLearningService).to receive(:store_learning).once
+
+      service.conclude!(investigation)
+    end
+
+    it "offers a routed lane when the top hypothesis names an action category" do
+      expect(Platform::RemediationRouter).to receive(:route)
+        .with(instance_of(Platform::ComponentStatus), signal_kind: "instance.silent")
+
+      service.conclude!(investigation, ranked: [
+        { cause: "node silent", score: 1.0, evidence_classes: %w[conditions],
+          recommended_action_category: "instance.silent" }
+      ])
+    end
+
+    it "offers nothing when it names none" do
+      expect(Platform::RemediationRouter).not_to receive(:route)
+
+      service.conclude!(investigation, ranked: [ { cause: "unclear", score: 1.0, evidence_classes: %w[conditions] } ])
+    end
+  end
+
+  describe "#owner_agent_slug_for" do
+    it "defaults to the Infrastructure Generalist when the contributor names none" do
+      expect(service.owner_agent_slug_for("docker_host"))
+        .to eq(described_class::DEFAULT_OWNER_AGENT_SLUG)
+    end
+
+    it "uses the contributor's own slug when it declares one" do
+      contributor = Class.new(Platform::Status::Contributor) do
+        def kind = "owned_kind"
+        def owner_agent_slug = "storage-manager"
+      end.new
+      Platform::Status::Registry.register("owned_kind", contributor)
+
+      expect(service.owner_agent_slug_for("owned_kind")).to eq("storage-manager")
+    ensure
+      Platform::Status::Registry.unregister("owned_kind")
+    end
+  end
+end

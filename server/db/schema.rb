@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_10_230000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_10_250000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -7599,6 +7599,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_230000) do
     t.index ["environment_id"], name: "index_platform_component_statuses_on_environment_id"
   end
 
+  create_table "platform_investigations", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.uuid "agent_id"
+    t.datetime "completed_at"
+    t.string "component_kind", null: false
+    t.string "component_ref", null: false
+    t.text "conclusion"
+    t.decimal "cost_usd", precision: 12, scale: 6
+    t.datetime "created_at", null: false
+    t.jsonb "evidence", default: {}, null: false
+    t.string "fingerprint", null: false
+    t.jsonb "hypotheses", default: [], null: false
+    t.datetime "started_at"
+    t.string "status", default: "open", null: false
+    t.string "trigger", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_platform_investigations_on_account_and_created_at"
+    t.index ["account_id", "fingerprint"], name: "index_platform_investigations_open_fingerprint", unique: true, where: "((status)::text = 'open'::text)", nulls_not_distinct: true
+    t.index ["agent_id"], name: "index_platform_investigations_on_agent_id"
+    t.index ["component_kind", "component_ref"], name: "index_platform_investigations_on_component"
+  end
+
   create_table "platform_status_events", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id"
     t.string "component_kind", null: false
@@ -7612,7 +7634,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_230000) do
     t.string "to_verdict"
     t.datetime "updated_at", null: false
     t.index ["account_id", "occurred_at"], name: "index_platform_status_events_on_account_and_occurred_at"
-    t.index ["account_id"], name: "index_platform_status_events_on_account_id"
     t.index ["component_kind", "component_ref", "occurred_at"], name: "index_platform_status_events_on_component_and_occurred_at"
     t.index ["component_status_id"], name: "index_platform_status_events_on_component_status_id"
     t.index ["occurred_at"], name: "index_platform_status_events_on_occurred_at"
@@ -12337,6 +12358,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_10_230000) do
   add_foreign_key "password_histories", "users"
   add_foreign_key "platform_component_statuses", "accounts", on_delete: :cascade
   add_foreign_key "platform_component_statuses", "ai_environments", column: "environment_id", on_delete: :nullify
+  add_foreign_key "platform_investigations", "accounts", on_delete: :cascade
+  add_foreign_key "platform_investigations", "ai_agents", column: "agent_id", on_delete: :nullify
   add_foreign_key "platform_status_events", "accounts", on_delete: :cascade
   add_foreign_key "platform_status_events", "platform_component_statuses", column: "component_status_id", on_delete: :nullify
   add_foreign_key "report_requests", "accounts"
