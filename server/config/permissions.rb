@@ -1141,8 +1141,7 @@ module Permissions
     #
     # Example (extensions/system/server/lib/powernode_system/engine.rb):
     #   ::Permissions.register_permissions(
-    #     "system.packages.embed"   => "Worker can write package embeddings",
-    #     "system.packages.reembed" => "Operator can manually trigger re-embedding"
+    #     "system.packages.embed" => "Worker can write package embeddings"
     #   )
     #   ::Permissions.register_role_permissions("system_worker", %w[system.packages.embed])
     def register_permissions(definitions)
