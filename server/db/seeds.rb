@@ -434,6 +434,32 @@ begin
                   description: 'Consecutive failed integration health probes before an active integration is auto-paused',
                   setting_type: 'integer', is_public: false)
 
+  # Autonomy closure-driver cadence flag (D3). The FIRST ai.* SiteSetting in
+  # this file — there was no existing ai.* convention to follow, so it follows
+  # the operational-setting convention the DevOps threshold above established:
+  # the KEY comes from the owning class's constant, never a string literal, so
+  # the seed and the reader cannot drift.
+  #
+  # WRITTEN ONLY WHEN ABSENT, unlike every other line in this block.
+  # SiteSetting.set overwrites unconditionally and this block is not guarded
+  # against a re-run, so a plain `set` here would silently revert an operator's
+  # decision to enable autonomy back to OFF on the next `rails db:seed`. That
+  # is not a default being restored, it is a control being flipped.
+  #
+  # The row is not load-bearing: Ai::Autonomy::ClosureDriverService.enabled?
+  # casts a missing row to false, so absence already means OFF. The row exists
+  # to give the operator toggle something to render, and the toggle creates it
+  # on first write when it is missing (this deployment seeded long before this
+  # line, and seeds do not re-run after first boot).
+  closure_flag = Ai::Autonomy::ClosureDriverService::ENABLED_SETTING
+  unless SiteSetting.exists?(key: closure_flag)
+    SiteSetting.set(closure_flag, "false",
+                    description: "Run the AI autonomy closure driver on its cron cadence. " \
+                                 "OFF means the scheduled OODA cycle never runs; every other " \
+                                 "autonomy gate still applies when it is ON.",
+                    setting_type: "boolean", is_public: false)
+  end
+
   puts "✅ Created #{SiteSetting.count} site settings"
 rescue StandardError => e
   Rails.logger.error("[seeds] site settings failed: #{e.class}: #{e.message}")

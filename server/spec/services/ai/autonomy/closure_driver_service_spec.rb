@@ -136,4 +136,66 @@ RSpec.describe Ai::Autonomy::ClosureDriverService do
     expect(result[:cycles_run]).to eq(1)
     expect(result[:cycles_failed]).to eq(1)
   end
+
+  # D3 — the flag now has a seeded row and an operator toggle, so the three
+  # states it can be in are pinned here rather than only the two the rest of
+  # this file happens to exercise. An EXPLICIT "false" is the state the seed
+  # writes and the toggle writes when an operator turns it back off, and it
+  # was previously untested: only "absent" and "true" were.
+  describe ".enabled?" do
+    it "is false when the row is absent" do
+      expect(SiteSetting.find_by(key: described_class::ENABLED_SETTING)).to be_nil
+
+      expect(described_class.enabled?).to be(false)
+    end
+
+    it "is false when the row says false" do
+      SiteSetting.set(described_class::ENABLED_SETTING, "false", setting_type: "boolean")
+
+      expect(described_class.enabled?).to be(false)
+    end
+
+    it "is true only when the row says true" do
+      SiteSetting.set(described_class::ENABLED_SETTING, "true", setting_type: "boolean")
+
+      expect(described_class.enabled?).to be(true)
+    end
+
+    it "refuses the tick in each false state, and runs in the true one" do
+      agent_with_active_goal("gated")
+      cycles = stub_cycles!
+
+      SiteSetting.set(described_class::ENABLED_SETTING, "false", setting_type: "boolean")
+      expect(described_class.new(account: account).run[:enabled]).to be(false)
+      expect(cycles).to be_empty
+
+      SiteSetting.set(described_class::ENABLED_SETTING, "true", setting_type: "boolean")
+      expect(described_class.new(account: account).run[:enabled]).to be(true)
+      expect(cycles).not_to be_empty
+    end
+  end
+
+  # The seed that gives the operator toggle a row to render. Asserted against
+  # the seed TEXT, following spec/db/seeds/ai_claude_code_provider_seed_spec.rb,
+  # because db/seeds.rb is the root orchestrator and nothing loads it under
+  # test. Two properties, both of which a careless edit would break:
+  #   - the key comes from THIS constant, so the seed cannot drift from the reader;
+  #   - the write is guarded by an existence check, so re-running db/seeds.rb
+  #     cannot revert an operator's decision to enable autonomy back to off.
+  #     SiteSetting.set overwrites unconditionally and this block is not
+  #     guarded, so the guard is the only thing standing between a routine
+  #     seed run and a silent control flip.
+  describe "the seeded default in db/seeds.rb" do
+    let(:seeds) { File.read(Rails.root.join("db", "seeds.rb")) }
+
+    it "names the key through the constant, not a string literal" do
+      expect(seeds).to include("Ai::Autonomy::ClosureDriverService::ENABLED_SETTING")
+      expect(seeds).not_to include(%("#{described_class::ENABLED_SETTING}"))
+      expect(seeds).not_to include(%('#{described_class::ENABLED_SETTING}'))
+    end
+
+    it "writes it only when absent, so a re-run cannot flip it off" do
+      expect(seeds).to match(/unless SiteSetting\.exists\?\(key: closure_flag\)/)
+    end
+  end
 end
