@@ -144,9 +144,15 @@ module Ai
 
         messages = build_design_messages(intent, existing_agents, suggested_name, max_members, preferred_strategy)
 
+        # E3: resolve from the provider this client is bound to, never a
+        # literal — `llm` may be the openai client OR the account fallback, and
+        # a pinned id is wrong for one of them.
+        model = llm.provider&.default_model.presence || llm.provider&.available_models&.first
+        return { error: "No model configured for the account's LLM provider" } if model.blank?
+
         result = llm.complete(
           messages: messages,
-          model:    llm.provider&.default_model || "gpt-4o-mini",
+          model:    model,
           temperature: 0.2,
           max_tokens: 2048
         )

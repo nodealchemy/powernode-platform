@@ -4,6 +4,26 @@ module ProviderTesting
   module ProviderAdapters
     private
 
+    # THE MODEL A CONNECTION TEST SENDS COMES FROM THE PROVIDER (E3).
+    #
+    # Each arm used to carry its own `config["model"] || "<a literal>"`. That
+    # made a green connection test a statement about a model the operator may
+    # never use — and on a provider whose catalog does not include the literal,
+    # the test failed for a reason that had nothing to do with the credential
+    # it was testing.
+    #
+    # Resolution order: an explicit per-credential override, then the
+    # provider's configured default, then the first model its own catalog
+    # advertises. Blank means "nothing is configured", which each caller
+    # reports as a configuration error rather than guessing.
+    def resolved_test_model(config)
+      explicit = config["model"].presence
+      return explicit if explicit
+
+      provider = credential&.provider
+      provider&.default_model.presence || provider&.available_models&.first
+    end
+
     def perform_test
       provider = credential.provider
       decrypted_config = credential.credentials
@@ -61,8 +81,11 @@ module ProviderTesting
         "Content-Type" => "application/json"
       }
 
+      model = resolved_test_model(config)
+      return error_result("configuration_error", "No model configured for this provider") if model.blank?
+
       payload = {
-        model: config["model"] || "gpt-4.1-mini",
+        model: model,
         messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }
@@ -87,8 +110,11 @@ module ProviderTesting
         "Content-Type" => "application/json"
       }
 
+      model = resolved_test_model(config)
+      return error_result("configuration_error", "No model configured for this provider") if model.blank?
+
       payload = {
-        model: config["model"] || "claude-haiku-4-5",
+        model: model,
         messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }
