@@ -50,7 +50,6 @@ RSpec.describe "render_success status: keyword misuse on the internal seam" do
   # ArgumentError today, so the endpoint either 500s a worker callback or, where
   # a rescue catches it, answers 200 with an error string and no real payload.
   KNOWN_OFFENDERS = {
-    "emails_controller.rb" => [ "delivery.status" ],
     "ai/goal_plans_controller.rb" => [ '"failed"', '"completed"' ],
     "devops/swarm_controller.rb" => [ '"ok"', '"ok"', '"ok"' ]
   }.freeze

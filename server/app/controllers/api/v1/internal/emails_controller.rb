@@ -87,7 +87,13 @@ class Api::V1::Internal::EmailsController < Api::V1::Internal::InternalBaseContr
       )
     end
 
-    render_success(applied: true, status: delivery.status, email_delivery_id: delivery.id)
+    # A HASH LITERAL, deliberately. Written braceless, `status:` bound to
+    # render_success's HTTP-status keyword (api_response.rb:16): "sent" raised
+    # "Invalid HTTP status", the rescue below answered `applied: false`, and
+    # every SUCCESSFUL delivery callback reported failure while the row was in
+    # fact updated. `status` is meant as a body key, as in #review_notification
+    # above. Guarded by spec/lint/render_success_status_keyword_spec.rb.
+    render_success({ applied: true, status: delivery.status, email_delivery_id: delivery.id })
   rescue StandardError => e
     # Worker-receiver discipline: never 5xx on a callback (retry-storm guard).
     Rails.logger.error "[Internal::Emails#delivered] #{params[:id]}: #{e.message}"
