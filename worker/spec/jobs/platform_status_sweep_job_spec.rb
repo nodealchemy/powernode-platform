@@ -9,11 +9,11 @@ require "rails_helper"
 # report totals.
 #
 # THE LOCK IS EXERCISED FOR REAL, against Redis, following
-# system_cve_feed_job_spec. That is what caught the defect this job exists
-# around: the shared DistributedLock concern never releases its lock under
-# Sidekiq 8 (see the job for the measurement). Stubbing the lock would have
-# tested the call site and left the mechanism unexecuted — which is exactly
-# how a lock that never unlocks ships green.
+# system_cve_feed_job_spec. That is what caught the DistributedLock defect
+# this job was the first ever caller to hit (never-released lock under the
+# Sidekiq 8 client; fixed in the concern, with its own spec). Stubbing
+# `with_lock` would have tested the call site and left the mechanism
+# unexecuted — which is exactly how a lock that never unlocks ships green.
 RSpec.describe PlatformStatusSweepJob, type: :job do
   let(:api_client) { instance_double(BackendApiClient) }
   let(:job) { described_class.new }

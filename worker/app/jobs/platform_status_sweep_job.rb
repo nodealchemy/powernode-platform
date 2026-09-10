@@ -8,21 +8,13 @@
 # so this cron ticks unconditionally and a halted platform simply reports
 # `skipped` with a reason. Same split as AiClosureDriverJob.
 #
-# ── WHY THIS DOES NOT USE THE SHARED DistributedLock CONCERN ────────────────
-# app/services/concerns/distributed_lock.rb looks like exactly the right
-# thing to reuse, and it is not: its `release_lock` calls
-# `conn.eval(script, keys:, argv:)`, which is redis-rb's signature. Sidekiq 8
-# hands out a `Sidekiq::RedisClientAdapter::CompatClient`, where that call
-# raises `TypeError: Unsupported command argument type: Array` — and
-# `release_lock` rescues StandardError and logs, so the failure is invisible
-# and THE LOCK IS NEVER RELEASED. It expires only by TTL.
-#
-# Measured, not inferred: driving the concern from this job left the key
-# present after a clean run (`exists` == 1). With a 240s TTL on a 60s cron
-# that would have silently skipped three ticks out of every four while
-# reporting success. The concern has no other callers, so this was code that
-# had never been executed. Fixing it belongs to whoever owns that file;
-# this job holds its own lock rather than depending on a broken one.
+# ── THE LOCK ────────────────────────────────────────────────────────────────
+# Held through the shared DistributedLock concern, which this job was the
+# first ever caller of. Using it surfaced a real defect — its release used
+# redis-rb's `eval(script, keys:, argv:)` signature, which raises on the
+# client Sidekiq 8 hands out, inside a rescue that swallowed it, so the lock
+# was never released. That is fixed in the concern (with its own both-arms
+# spec against real Redis); this job holds no private copy.
 #
 # ── WHY A LOCK, AND WHY THE TTL IS FOUR TIMES THE PERIOD ────────────────────
 # The sweep is idempotent (it upserts by (account, kind, ref) and only emits
@@ -40,59 +32,33 @@
 # grace is three sweeps and a missed sweep leaves rows with the verdicts they
 # already had.
 class PlatformStatusSweepJob < BaseJob
+  include DistributedLock
+
   sidekiq_options queue: :default, retry: 1
 
+  # DistributedLock namespaces this as "lock:<key>" in Redis, so the live key
+  # is "lock:platform:status:sweep:lock".
   LOCK_KEY = 'platform:status:sweep:lock'
   LOCK_TTL_SECONDS = 240
 
   SWEEP_PATH = '/api/v1/internal/platform/status_sweep'
 
-  # Delete the key only if we still own it. A plain DEL would let a slow
-  # holder, whose TTL expired mid-run, delete the lock a DIFFERENT process has
-  # since taken — releasing someone else's lock and re-admitting the overlap.
-  RELEASE_SCRIPT = <<~LUA
-    if redis.call("get", KEYS[1]) == ARGV[1] then
-      return redis.call("del", KEYS[1])
-    else
-      return 0
-    end
-  LUA
-
   def execute(_args = {})
-    token = "#{Process.pid}-#{SecureRandom.hex(8)}"
+    result = with_lock(LOCK_KEY, ttl: LOCK_TTL_SECONDS) { sweep! }
 
-    unless acquire_lock(token)
-      # Not an error: the previous tick is still running and this one is
-      # correctly skipped. BaseJob#perform also treats a { skipped: true }
-      # result as "did not run" for its execution accounting.
+    if result.nil?
+      # `with_lock` returns nil when the lock was not acquired. Not an error:
+      # the previous tick is still running and this one is correctly skipped.
+      # BaseJob#perform also treats a { skipped: true } result as "did not
+      # run" for its execution accounting.
       log_info '[PlatformStatusSweepJob] previous sweep still running, skipping this tick'
       return { skipped: true, reason: 'lock_held' }
     end
 
-    begin
-      sweep!
-    ensure
-      release_lock(token)
-    end
+    result
   end
 
   private
-
-  def redis_lock_key
-    "lock:#{LOCK_KEY}"
-  end
-
-  def acquire_lock(token)
-    Sidekiq.redis { |conn| conn.set(redis_lock_key, token, nx: true, ex: LOCK_TTL_SECONDS) }
-  end
-
-  # Never raises: a failure to release costs at most one TTL of skipped ticks,
-  # whereas raising here would mask the sweep's own result (or its exception).
-  def release_lock(token)
-    Sidekiq.redis { |conn| conn.call('EVAL', RELEASE_SCRIPT, 1, redis_lock_key, token) }
-  rescue StandardError => e
-    log_warn "[PlatformStatusSweepJob] could not release lock: #{e.class}: #{e.message}"
-  end
 
   def sweep!
     response = api_client.post(SWEEP_PATH, {})
