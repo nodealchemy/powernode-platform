@@ -790,7 +790,16 @@ module Ai
         "code_create_relation" => "Ai::Tools::CodeMemoryTool",
         "code_search_graph" => "Ai::Tools::CodeMemoryTool",
         "code_prune_stale" => "Ai::Tools::CodeMemoryTool",
-        "code_bulk_index" => "Ai::Tools::CodeMemoryTool"
+        "code_bulk_index" => "Ai::Tools::CodeMemoryTool",
+        # Component status plane — remediation front door (campaign 01a08c9b,
+        # increment A5; design §5.1). The two reads are named `get_*` so
+        # Mcp::ToolCatalog's readOnlyHint heuristic is TRUE for them rather
+        # than merely claimed; `request_approval` is the design's own name for
+        # core's one write on this surface, and there is deliberately no
+        # respond_to_approval sibling.
+        "get_remediation_route" => "Ai::Tools::PlatformRemediationTool",
+        "get_runbook" => "Ai::Tools::PlatformRemediationTool",
+        "request_approval" => "Ai::Tools::PlatformRemediationTool"
       }.freeze
 
       # Tool maps contributed by extensions at boot. Extensions call
