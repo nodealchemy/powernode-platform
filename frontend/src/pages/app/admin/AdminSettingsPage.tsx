@@ -18,6 +18,7 @@ import { AdminSettingsInfrastructureTabPage } from './AdminSettingsInfrastructur
 import { AdminSettingsVaultTabPage } from './AdminSettingsVaultTabPage';
 import { AdminSettingsProxyTabPage } from './AdminSettingsProxyTabPage';
 import { AdminSettingsDevelopmentTabPage } from './AdminSettingsDevelopmentTabPage';
+import { AdminSettingsAutonomyTabPage } from './AdminSettingsAutonomyTabPage';
 import { AdminSettingsExtensionsTabPage } from './AdminSettingsExtensionsTabPage';
 
 const SETTINGS_BASE = '/app/admin/settings';
@@ -123,6 +124,9 @@ export const AdminSettingsPage: React.FC = () => {
           <Route path="/vault" element={<AdminSettingsVaultTabPage />} />
           <Route path="/performance" element={<Navigate to="/app/admin/settings/infrastructure" replace />} />
           <Route path="/development" element={<AdminSettingsDevelopmentTabPage />} />
+          {/* D3: the autonomy closure-driver switch. Routed deliberately —
+              a settings control that no route reaches is not a control. */}
+          <Route path="/autonomy" element={<AdminSettingsAutonomyTabPage />} />
 
           {/* Extension-registered tabs (e.g. business Payment Gateways),
               rendered inside this tabbed shell. Path is full; strip the base

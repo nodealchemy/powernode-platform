@@ -3,6 +3,7 @@ export { AdminSettingsPage } from './AdminSettingsPage';
 export { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
 export { AdminSettingsOverviewTabPage } from './AdminSettingsOverviewTabPage';
 export { AdminSettingsPlatformTabPage } from './AdminSettingsPlatformTabPage';
+export { AdminSettingsAutonomyTabPage } from './AdminSettingsAutonomyTabPage';
 export { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 // export { AdminSettingsMaintenanceTabPage } from './AdminSettingsMaintenanceTabPage'; // File doesn't exist
 export { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';

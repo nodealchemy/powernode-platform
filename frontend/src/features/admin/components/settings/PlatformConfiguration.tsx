@@ -3,21 +3,6 @@ import { Save, Settings, RefreshCw, Info } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { adminSettingsApi } from '@/features/admin/services/adminSettingsApi';
-import { siteSettingsApi, SiteSetting } from '@/features/admin/settings/services/siteSettingsApi';
-
-// D3 — the AI autonomy closure driver's cadence flag.
-//
-// This one field is NOT an AdminSetting like everything else on this page. The
-// gate that reads it, Ai::Autonomy::ClosureDriverService.enabled?, reads a
-// SiteSetting, and the two are different tables — writing it through
-// adminSettingsApi would store a row the driver never looks at, which would
-// render as a working switch that actuates nothing. So it loads and saves
-// through siteSettingsApi, on its own, and is not part of this page's
-// Save Changes batch.
-export const CLOSURE_DRIVER_SETTING_KEY = 'ai.autonomy.closure_driver_enabled';
-const CLOSURE_DRIVER_DESCRIPTION =
-  'Run the AI autonomy closure driver on its cron cadence. OFF means the scheduled OODA cycle ' +
-  'never runs; every other autonomy gate still applies when it is ON.';
 
 interface PlatformSettings {
   system_name: string;
@@ -49,16 +34,7 @@ export const PlatformConfiguration: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [originalSettings, setOriginalSettings] = useState<PlatformSettings | null>(null);
-
-  // The closure-driver flag: its own row, its own save. `null` row means the
-  // setting has never been written on this deployment — seeds do not re-run
-  // after first boot, so an install older than the seed line simply has no
-  // row. Absence reads as OFF (which is what the server-side gate does too),
-  // and the first enable CREATES the row rather than failing to find one.
-  const [closureDriverEnabled, setClosureDriverEnabled] = useState(false);
-  const [closureDriverRow, setClosureDriverRow] = useState<SiteSetting | null>(null);
-  const [closureDriverSaving, setClosureDriverSaving] = useState(false);
-
+  
   const { showNotification } = useNotifications();
 
   const loadSettings = useCallback(async () => {
@@ -90,54 +66,9 @@ export const PlatformConfiguration: React.FC = () => {
     }
   }, [showNotification]);
 
-  const loadClosureDriverSetting = useCallback(async () => {
-    try {
-      const response = await siteSettingsApi.getSiteSettings();
-      const row = response.data?.settings?.find(s => s.key === CLOSURE_DRIVER_SETTING_KEY) ?? null;
-      setClosureDriverRow(row);
-      setClosureDriverEnabled(row?.value === 'true');
-    } catch (_error) {
-      // A failure here must not read as "off" — that would be a lie about a
-      // control's state. Leave the toggle at its default and say so.
-      showNotification('Failed to load the autonomy closure driver setting', 'error');
-    }
-  }, [showNotification]);
-
-  const handleClosureDriverToggle = async (next: boolean) => {
-    setClosureDriverSaving(true);
-    try {
-      if (closureDriverRow) {
-        const response = await siteSettingsApi.updateSiteSetting(closureDriverRow.id, {
-          value: next ? 'true' : 'false'
-        });
-        setClosureDriverRow(response.data.setting);
-      } else {
-        const response = await siteSettingsApi.createSiteSetting({
-          key: CLOSURE_DRIVER_SETTING_KEY,
-          value: next ? 'true' : 'false',
-          description: CLOSURE_DRIVER_DESCRIPTION,
-          setting_type: 'boolean',
-          is_public: false
-        });
-        setClosureDriverRow(response.data.setting);
-      }
-      setClosureDriverEnabled(next);
-      showNotification(
-        next ? 'Autonomy closure driver enabled' : 'Autonomy closure driver disabled',
-        'success'
-      );
-    } catch (_error) {
-      // Do NOT move the switch on failure: the stored value did not change.
-      showNotification('Failed to update the autonomy closure driver setting', 'error');
-    } finally {
-      setClosureDriverSaving(false);
-    }
-  };
-
   useEffect(() => {
     loadSettings();
-    loadClosureDriverSetting();
-  }, [loadSettings, loadClosureDriverSetting]);
+  }, [loadSettings]);
 
   const handleChange = (field: keyof PlatformSettings, value: string | boolean | number) => {
     setSettings(prev => ({
@@ -369,32 +300,6 @@ export const PlatformConfiguration: React.FC = () => {
                 checked={settings.require_email_verification}
                 onChange={(e) => handleChange('require_email_verification', e.target.checked)}
                 className="h-4 w-4 text-theme-interactive-primary border-theme rounded focus:ring-theme-interactive-primary"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Autonomy — SiteSetting-backed, saved on toggle, not by Save Changes */}
-        <div className="border-t border-theme pt-6">
-          <h3 className="text-lg font-medium text-theme-primary mb-4">Autonomy</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <label htmlFor="closure_driver_enabled" className="text-sm font-medium text-theme-primary">
-                  Closure Driver
-                </label>
-                <p className="text-xs text-theme-secondary">
-                  Run the scheduled autonomy closure cycle. Off by default; saved immediately, not with Save Changes.
-                </p>
-              </div>
-              <input
-                id="closure_driver_enabled"
-                type="checkbox"
-                role="switch"
-                checked={closureDriverEnabled}
-                disabled={closureDriverSaving}
-                onChange={(e) => handleClosureDriverToggle(e.target.checked)}
-                className="h-4 w-4 text-theme-interactive-primary border-theme rounded focus:ring-theme-interactive-primary disabled:opacity-50"
               />
             </div>
           </div>
