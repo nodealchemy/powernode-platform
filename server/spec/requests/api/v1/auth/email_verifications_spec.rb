@@ -99,6 +99,79 @@ RSpec.describe 'Api::V1::Auth::EmailVerifications', type: :request do
       end
     end
 
+    # secreview §22: the setting is TRUSTED AS STORED (e.g. written by an
+    # earlier version of the write door, before this campaign's validation
+    # landed, or by any other path that bypasses it). A garbage value must
+    # never turn a token-age check into an instant-expiry, a 500, or an
+    # effectively-infinite window.
+    context 'with an invalid configured expiry (trusted-as-stored)' do
+      after { AdminSetting.where(key: 'email_verification_expiry_hours').delete_all }
+
+      {
+        'zero' => '0', 'negative' => '-5', 'non-numeric' => 'abc', 'blank' => '',
+      }.each do |label, raw|
+        context "when the setting is #{label} (#{raw.inspect})" do
+          before { AdminSetting.set('email_verification_expiry_hours', raw) }
+
+          it 'falls back to the 24h default rather than expiring every token instantly' do
+            unverified_user.update!(email_verification_sent_at: 2.hours.ago)
+
+            post '/api/v1/auth/verify-email',
+                 params: { token: unverified_user.email_verification_token },
+                 as: :json
+
+            expect_success_response
+            expect(unverified_user.reload.verified?).to be true
+          end
+        end
+      end
+
+      context 'when no AdminSetting row exists at all' do
+        it 'falls back to the 24h default' do
+          unverified_user.update!(email_verification_sent_at: 2.hours.ago)
+
+          post '/api/v1/auth/verify-email',
+               params: { token: unverified_user.email_verification_token },
+               as: :json
+
+          expect_success_response
+        end
+      end
+
+      { 'a JSON boolean' => 'true', 'a JSON array' => '[1,2,3]', 'a JSON object' => '{"a":1}' }.each do |label, raw|
+        context "when the setting is #{label}" do
+          before { AdminSetting.set('email_verification_expiry_hours', raw) }
+
+          it 'does not 500, and falls back to the 24h default' do
+            unverified_user.update!(email_verification_sent_at: 2.hours.ago)
+
+            post '/api/v1/auth/verify-email',
+                 params: { token: unverified_user.email_verification_token },
+                 as: :json
+
+            expect(response).not_to have_http_status(:internal_server_error)
+            expect_success_response
+          end
+        end
+      end
+
+      { 'absurdly large ("1000000")' => '1000000', 'scientific notation ("1e20")' => '1e20' }.each do |label, raw|
+        context "when the setting is #{label}" do
+          before { AdminSetting.set('email_verification_expiry_hours', raw) }
+
+          it 'caps at 720 hours rather than never expiring' do
+            unverified_user.update!(email_verification_sent_at: 721.hours.ago)
+
+            post '/api/v1/auth/verify-email',
+                 params: { token: unverified_user.email_verification_token },
+                 as: :json
+
+            expect(response).to have_http_status(:unprocessable_content)
+          end
+        end
+      end
+    end
+
     context 'when email already verified' do
       it 'returns already verified message' do
         verified_user.update!(email_verification_token: 'another-token')

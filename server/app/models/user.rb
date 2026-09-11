@@ -474,8 +474,7 @@ class User < ApplicationRecord
 
   def email_verification_expired?
     return true unless email_verification_sent_at
-    expiry_hours = AdminSetting.get("email_verification_expiry_hours", 24).to_i
-    email_verification_sent_at < expiry_hours.hours.ago
+    email_verification_sent_at < AdminSetting.email_verification_expiry_hours.hours.ago
   end
 
   # Password reset

@@ -325,6 +325,60 @@ RSpec.describe 'Api::V1::EmailSettings', type: :request do
         expect(response).to have_http_status(:forbidden)
       end
     end
+
+    # secreview §22: the reader (AdminSetting.email_verification_expiry_hours)
+    # falls back safely for a garbage stored value, but this door is where a
+    # garbage value gets stored in the first place -- refuse it here instead.
+    describe 'email_verification_expiry_hours validation' do
+      before { allow(WorkerJobService).to receive(:enqueue_refresh_email_settings).and_return(true) }
+
+      [ 0, -5, 'abc', '', nil, true, [ 1 ], { 'a' => 1 }, 1_000_000, '1e20' ].each do |bad|
+        it "refuses #{bad.inspect} with 422 naming the field" do
+          put '/api/v1/email_settings',
+              params: { email_settings: { email_verification_expiry_hours: bad } },
+              headers: admin_headers, as: :json
+
+          expect(response).to have_http_status(:unprocessable_content)
+          expect(json_response['error']).to include('email_verification_expiry_hours')
+        end
+
+        it "does not persist #{bad.inspect}" do
+          AdminSetting.set('email_verification_expiry_hours', 24) # a known-good baseline
+
+          put '/api/v1/email_settings',
+              params: { email_settings: { email_verification_expiry_hours: bad } },
+              headers: admin_headers, as: :json
+
+          expect(AdminSetting.email_verification_expiry_hours).to eq(24)
+        end
+      end
+
+      it 'accepts a valid integer in range' do
+        put '/api/v1/email_settings',
+            params: { email_settings: { email_verification_expiry_hours: 12 } },
+            headers: admin_headers, as: :json
+
+        expect_success_response
+        expect(AdminSetting.email_verification_expiry_hours).to eq(12)
+      end
+
+      it 'accepts the upper bound (720)' do
+        put '/api/v1/email_settings',
+            params: { email_settings: { email_verification_expiry_hours: 720 } },
+            headers: admin_headers, as: :json
+
+        expect_success_response
+        expect(AdminSetting.email_verification_expiry_hours).to eq(720)
+      end
+
+      it 'refuses one past the upper bound (721)' do
+        put '/api/v1/email_settings',
+            params: { email_settings: { email_verification_expiry_hours: 721 } },
+            headers: admin_headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+    end
   end
 
   describe 'POST /api/v1/email_settings/test' do

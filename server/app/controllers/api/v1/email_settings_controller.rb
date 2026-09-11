@@ -23,6 +23,21 @@ class Api::V1::EmailSettingsController < ApplicationController
       # Handle nested parameter structure from frontend
       email_data = params[:email_settings] || params[:email_setting]&.fetch(:email_settings, nil) || {}
 
+      # secreview §22: validate against the RAW value, before .permit strips it.
+      # permit() silently drops a key whose value isn't a permitted scalar
+      # (e.g. a JSON array/object for email_verification_expiry_hours), so
+      # checking permitted_params afterward would miss exactly the malformed
+      # inputs this guard exists to catch.
+      raw_params = email_data.is_a?(ActionController::Parameters) ? email_data : ActionController::Parameters.new(email_data)
+      if raw_params.key?(:email_verification_expiry_hours) &&
+         !AdminSetting.valid_email_verification_expiry_hours?(raw_params[:email_verification_expiry_hours])
+        render_error(
+          "email_verification_expiry_hours must be an integer between 1 and #{AdminSetting::EMAIL_VERIFICATION_EXPIRY_HOURS_MAX}",
+          status: :unprocessable_content
+        )
+        return
+      end
+
       # Convert to hash and then permit parameters
       permitted_params = if email_data.is_a?(ActionController::Parameters)
         email_data.permit(
@@ -148,7 +163,7 @@ class Api::V1::EmailSettingsController < ApplicationController
       mailgun_domain: AdminSetting.get("mailgun_domain", ""),
 
       # Email behavior settings
-      email_verification_expiry_hours: AdminSetting.get("email_verification_expiry_hours", 24),
+      email_verification_expiry_hours: AdminSetting.email_verification_expiry_hours,
       password_reset_expiry_hours: AdminSetting.get("password_reset_expiry_hours", 2),
       max_email_retries: AdminSetting.get("max_email_retries", 3),
       email_retry_delay_seconds: AdminSetting.get("email_retry_delay_seconds", 60)

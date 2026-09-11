@@ -73,6 +73,32 @@ RSpec.describe AdminSetting, type: :model do
     end
   end
 
+  # secreview §22: the stored value for this key is TRUSTED AS-IS everywhere
+  # it's read. A garbage value must never turn into an instant-expiry (0/negative),
+  # a 500 (a JSON boolean/object/array), or an effectively-infinite window
+  # (an absurdly large number). This is the single reader both User#email_verification_expired?
+  # and the email settings API (what notification_mailer.rb promises) call through,
+  # so the two can't drift.
+  describe '.email_verification_expiry_hours' do
+    after { AdminSetting.where(key: 'email_verification_expiry_hours').delete_all }
+
+    it 'defaults to 24 when no row exists' do
+      expect(AdminSetting.email_verification_expiry_hours).to eq(24)
+    end
+
+    {
+      '0' => 24, '-5' => 24, 'abc' => 24, '' => 24,
+      'true' => 24, '[1,2,3]' => 24, '{"a":1}' => 24,
+      '1000000' => 720, '1e20' => 720,
+      '12' => 12, '720' => 720, '721' => 720,
+    }.each do |raw, expected|
+      it "reads #{raw.inspect} as #{expected}" do
+        AdminSetting.set('email_verification_expiry_hours', raw)
+        expect(AdminSetting.email_verification_expiry_hours).to eq(expected)
+      end
+    end
+  end
+
   describe 'audit trail' do
     it 'has timestamps' do
       setting = AdminSetting.create!(key: 'timestamped', value: 'test')
