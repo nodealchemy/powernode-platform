@@ -112,7 +112,11 @@ export const ObservabilityPage: React.FC = () => {
 
       // Set resource utilization data from dashboard
       if (dashboardResponse.resources) {
-        const dbConnections = dashboardResponse.resources.database.connection_count || 5;
+        // The server reports the pool SIZE as connection_count, and nothing about
+        // use or storage. Report that and no more (M1 tail): the old `|| 5`, a
+        // pool `used` equal to its size, and a 1000/100/900 storage split were
+        // all invented.
+        const poolSize = dashboardResponse.resources.database.connection_count;
         setResources({
           system: {
             cpu_usage: dashboardResponse.resources.cpu.usage_percent,
@@ -122,20 +126,16 @@ export const ObservabilityPage: React.FC = () => {
           },
           database: {
             connection_pool: {
-              size: dbConnections,
-              used: dbConnections,
-              available: 0
+              size: poolSize,
+              used: null,
+              available: null
             },
             query_performance: {
               avg_query_time: 0,
               slow_queries: 0,
               deadlocks: 0
             },
-            storage_usage: {
-              total_size: 1000,
-              used_size: 100,
-              free_size: 900
-            }
+            storage_usage: null
           },
           redis: {
             memory_usage: {
@@ -190,10 +190,10 @@ export const ObservabilityPage: React.FC = () => {
             utilization: 0
           },
           performance: {
-            success_rate: 100 - (p.error_rate || 0),
+            success_rate: p.error_rate === undefined ? null : 100 - p.error_rate,
             avg_response_time: p.latency_ms || 0,
             throughput: 0,
-            error_rate: p.error_rate || 0
+            error_rate: p.error_rate ?? null
           },
           usage: {
             executions_count: 0,
@@ -286,11 +286,11 @@ export const ObservabilityPage: React.FC = () => {
           id: c.id,
           title: c.title || 'Untitled',
           status: c.status === 'active' ? 'active' as const : c.status === 'archived' ? 'archived' as const : 'inactive' as const,
-          health_score: 100,
+          health_score: null,
           performance: {
             avg_response_time: 0,
             message_throughput: c.message_count > 0 ? c.message_count : 0,
-            success_rate: 100
+            success_rate: null
           },
           usage: {
             messages_count: c.message_count,

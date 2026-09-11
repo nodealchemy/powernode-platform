@@ -85,7 +85,7 @@ export interface MonitoringDashboard {
   resources?: {
     cpu: { usage_percent: number; idle_percent: number; load_average: string };
     memory: { total_mb: number; used_mb: number; free_mb: number; usage_percent: number };
-    database: { status: string; connection_count: number };
+    database: { status: string; connection_count: number | null };
     redis: { status: string; used_memory: string; connected_clients: number };
   };
 }
@@ -380,7 +380,7 @@ class MonitoringApiService extends BaseApiService {
         },
         database: {
           status: dashboard.components.resources.database?.status || 'unknown',
-          connection_count: dashboard.components.resources.database?.connection_count || 0
+          connection_count: dashboard.components.resources.database?.connection_count ?? null
         },
         redis: {
           status: dashboard.components.resources.redis?.status || 'unknown',

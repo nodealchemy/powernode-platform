@@ -48,7 +48,7 @@ export interface ProviderMetrics {
   health_score: number;
   circuit_breaker: CircuitBreakerData;
   load_balancing: LoadBalancingData;
-  performance: PerformanceMetrics;
+  performance: MeasuredPerformanceMetrics;
   usage: UsageMetrics;
   alerts: Alert[];
   credentials: CredentialStatus[];
@@ -97,11 +97,11 @@ export interface CredentialStatus {
 }
 
 /**
- * An agent's rates may be absent (M1 review F3): an agent with no executions
- * has no measured rate, and an absent rate must render as absent, never as a
- * made-up 100.
+ * Rates that may be absent (M1 review F3 and its tail). An agent or provider
+ * with no executions has no measured rate, and an absent rate must render as
+ * absent, never as a made-up 100 or a 0 standing in for "no data".
  */
-export interface AgentPerformanceMetrics extends Omit<PerformanceMetrics, 'success_rate' | 'error_rate'> {
+export interface MeasuredPerformanceMetrics extends Omit<PerformanceMetrics, 'success_rate' | 'error_rate'> {
   success_rate: number | null;
   error_rate: number | null;
 }
@@ -111,7 +111,7 @@ export interface AgentMetrics {
   name: string;
   status: 'active' | 'inactive' | 'error';
   health_score: number | null;
-  performance: AgentPerformanceMetrics;
+  performance: MeasuredPerformanceMetrics;
   usage: UsageMetrics;
   executions: ExecutionSummary;
   provider_distribution: ProviderDistribution[];
@@ -140,7 +140,8 @@ export interface ConversationMetrics {
   id: string;
   title: string;
   status: 'active' | 'inactive' | 'archived';
-  health_score: number;
+  // Nothing measures a conversation's health today: null, never a literal 100.
+  health_score: number | null;
   performance: ConversationPerformanceMetrics;
   usage: ConversationUsageMetrics;
   participants: ConversationParticipants;
@@ -154,7 +155,7 @@ export interface ConversationMetrics {
 export interface ConversationPerformanceMetrics {
   avg_response_time: number;
   message_throughput: number;
-  success_rate: number;
+  success_rate: number | null;
 }
 
 export interface ConversationUsageMetrics {
@@ -226,21 +227,24 @@ export interface SystemResources {
 }
 
 export interface DatabaseResources {
+  // The server reports the pool's SIZE only. Used and available are not
+  // measured, so they are null rather than the size repeated or a 0.
   connection_pool: {
-    size: number;
-    used: number;
-    available: number;
+    size: number | null;
+    used: number | null;
+    available: number | null;
   };
   query_performance: {
     avg_query_time: number;
     slow_queries: number;
     deadlocks: number;
   };
+  // Not reported by the dashboard endpoint: null, never a fabricated figure.
   storage_usage: {
     total_size: number;
     used_size: number;
     free_size: number;
-  };
+  } | null;
 }
 
 export interface RedisResources {

@@ -194,3 +194,32 @@ describe('MonitoringApiService#getDashboard — per-agent and per-provider rates
     expect(result.providers[0].error_rate).toBeUndefined();
   });
 });
+
+describe('MonitoringApiService#getDashboard — database pool size (M1 tail)', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  const withDatabase = (database: unknown) => ({
+    dashboard: { components: { agents: { total_agents: 0, agents: [] }, providers: { providers: [] }, resources: { database } } },
+    rollup: rollup(),
+  });
+
+  it('passes the pool size through', async () => {
+    jest.spyOn(target, 'get').mockResolvedValue(withDatabase({ status: 'ok', connection_count: 10 }));
+    const result = await monitoringApi.getDashboard();
+    expect(result.resources?.database.connection_count).toBe(10);
+  });
+
+  it('reads null when the server sends no pool size — not 0', async () => {
+    jest.spyOn(target, 'get').mockResolvedValue(withDatabase({ status: 'ok' }));
+    const result = await monitoringApi.getDashboard();
+    expect(result.resources?.database.connection_count).toBeNull();
+  });
+
+  it('passes a real 0 through rather than blanking it', async () => {
+    jest.spyOn(target, 'get').mockResolvedValue(withDatabase({ status: 'ok', connection_count: 0 }));
+    const result = await monitoringApi.getDashboard();
+    expect(result.resources?.database.connection_count).toBe(0);
+  });
+});

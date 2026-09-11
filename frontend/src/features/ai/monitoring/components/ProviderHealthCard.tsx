@@ -106,11 +106,11 @@ export const ProviderHealthCard: React.FC<ProviderHealthCardProps> = ({
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <span className="text-theme-tertiary">Success Rate</span>
-          <span className={provider.performance.success_rate >= 95 ? 'text-theme-success-fg' : provider.performance.success_rate >= 90 ? 'text-theme-warning-fg' : 'text-theme-danger-fg'}>
-            {provider.performance.success_rate.toFixed(1)}%
+          <span className={provider.performance.success_rate === null ? 'text-theme-tertiary' : provider.performance.success_rate >= 95 ? 'text-theme-success-fg' : provider.performance.success_rate >= 90 ? 'text-theme-warning-fg' : 'text-theme-danger-fg'}>
+            {provider.performance.success_rate === null ? '—' : `${provider.performance.success_rate.toFixed(1)}%`}
           </span>
         </div>
-        <Progress value={provider.performance.success_rate} className="h-2" />
+        {provider.performance.success_rate !== null && <Progress value={provider.performance.success_rate} className="h-2" />}
       </div>
 
       <div className="grid grid-cols-2 gap-4 text-sm">
@@ -129,7 +129,7 @@ export const ProviderHealthCard: React.FC<ProviderHealthCardProps> = ({
         <span className="font-medium">{formatCurrency(provider.usage.cost)}</span>
       </div>
 
-      {provider.performance.error_rate > 0 && (
+      {provider.performance.error_rate !== null && provider.performance.error_rate > 0 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-theme-tertiary">Error Rate</span>
           <span className="text-theme-danger-fg font-medium">{provider.performance.error_rate.toFixed(2)}%</span>

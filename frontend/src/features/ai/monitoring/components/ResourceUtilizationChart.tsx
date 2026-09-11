@@ -33,6 +33,10 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
     return 'text-theme-success-fg';
   };
 
+  // A share of a total, or null when either side was not measured (M1 tail).
+  const percentOf = (used: number | null | undefined, total: number | null | undefined): number | null =>
+    typeof used === 'number' && typeof total === 'number' && total > 0 ? (used / total) * 100 : null;
+
   if (isLoading && !resourceData) {
     return (
       <Card>
@@ -66,6 +70,12 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
     );
   }
 
+
+  const poolPercent = percentOf(resourceData.database.connection_pool.used, resourceData.database.connection_pool.size);
+  const storagePercent = percentOf(
+    resourceData.database.storage_usage?.used_size,
+    resourceData.database.storage_usage?.total_size
+  );
   return (
     <Card>
       <CardHeader
@@ -151,13 +161,10 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-theme-tertiary">Used</span>
                   <span className="font-medium">
-                    {resourceData.database.connection_pool.used} / {resourceData.database.connection_pool.size}
+                    {resourceData.database.connection_pool.used ?? '—'} / {resourceData.database.connection_pool.size ?? '—'}
                   </span>
                 </div>
-                <Progress 
-                  value={(resourceData.database.connection_pool.used / resourceData.database.connection_pool.size) * 100} 
-                  className="h-1.5" 
-                />
+                {poolPercent !== null && <Progress value={poolPercent} className="h-1.5" />}
               </div>
             </div>
 
@@ -167,13 +174,10 @@ export const ResourceUtilizationChart: React.FC<ResourceUtilizationChartProps> =
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-theme-tertiary">Used</span>
                   <span className="font-medium">
-                    {((resourceData.database.storage_usage.used_size / resourceData.database.storage_usage.total_size) * 100).toFixed(1)}%
+                    {storagePercent === null ? '—' : `${storagePercent.toFixed(1)}%`}
                   </span>
                 </div>
-                <Progress 
-                  value={(resourceData.database.storage_usage.used_size / resourceData.database.storage_usage.total_size) * 100} 
-                  className="h-1.5" 
-                />
+                {storagePercent !== null && <Progress value={storagePercent} className="h-1.5" />}
               </div>
             </div>
           </div>

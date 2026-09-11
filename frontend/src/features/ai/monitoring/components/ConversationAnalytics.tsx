@@ -53,9 +53,14 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
   const avgResponseTime = conversations.length > 0 
     ? conversations.reduce((sum, conv) => sum + conv.performance.avg_response_time, 0) / conversations.length
     : 0;
-  const avgSuccessRate = conversations.length > 0
-    ? conversations.reduce((sum, conv) => sum + conv.performance.success_rate, 0) / conversations.length
-    : 0;
+  // Averaged over MEASURED conversations only; none measured is null, never a
+  // 0% or a 100% (M1 tail).
+  const measuredRates = conversations
+    .map((conv) => conv.performance.success_rate)
+    .filter((rate): rate is number => rate !== null);
+  const avgSuccessRate = measuredRates.length > 0
+    ? measuredRates.reduce((sum, rate) => sum + rate, 0) / measuredRates.length
+    : null;
 
   return (
     <div className="space-y-4">
@@ -108,7 +113,7 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
               <div>
                 <p className="text-sm text-theme-tertiary">Success Rate</p>
                 <p className="text-2xl font-bold text-theme-primary">
-                  {avgSuccessRate.toFixed(1)}%
+                  {avgSuccessRate === null ? '—' : `${avgSuccessRate.toFixed(1)}%`}
                 </p>
               </div>
               <TrendingUp className="h-8 w-8 text-theme-success-fg" />
@@ -155,11 +160,11 @@ export const ConversationAnalytics: React.FC<ConversationAnalyticsProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-theme-tertiary">Health Score</span>
-                  <span className={`font-medium ${conversation.health_score >= 90 ? 'text-theme-success-fg' : conversation.health_score >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
-                    {conversation.health_score.toFixed(1)}%
+                  <span className={`font-medium ${conversation.health_score === null ? 'text-theme-tertiary' : conversation.health_score >= 90 ? 'text-theme-success-fg' : conversation.health_score >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
+                    {conversation.health_score === null ? '—' : `${conversation.health_score.toFixed(1)}%`}
                   </span>
                 </div>
-                <Progress value={conversation.health_score} className="h-2" />
+                {conversation.health_score !== null && <Progress value={conversation.health_score} className="h-2" />}
               </div>
 
               {/* Message Distribution */}
