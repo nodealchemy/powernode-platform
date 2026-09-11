@@ -311,8 +311,8 @@ is green). Rev 3 re-scope after the checklist found 25 gaps:
 - Honeypot, dispatch-latency and remediation-effectiveness tiles: deleted after **B5** gives each a
   contributor; the honeypot severity ratchet becomes contributor semantics (`not_measured` with
   `unavailable_since` evidence while the feed is down, never a count of 0).
-- `SelfHealingDashboard` (Observability): deleted after B5 and rows 25-26 (flag-off maps to an honest
-  `not_actuatable`; a per-action result timeline in the Remediation tab).
+- `SelfHealingDashboard` (Observability): deleted after B5, B5b and rows 25-26 (flag-off maps to an honest
+  `not_actuatable` through the B5b lane; a per-action result timeline in the Remediation tab).
 - **Kept, not duplicates:** `ApprovalQueuePanel` is the one approvals surface (decision workflow and
   the only one-shot reveal path; C3b mounts chain display and live updates there), and
   `KillSwitchPanel` is the one kill-switch control surface (resume mode, preview, halt reason,
@@ -363,6 +363,7 @@ per increment. Sequencing constraints are stated where they exist.
 | B3 | `node_module`, `sdwan_peer`, `sdwan_service`, `storage_assignment`, `acme_certificate`, `federation_peer` contributors | each enum value maps to a condition |
 | B4 | Fleet lanes registered into the remediation registry (proceed via `gate_action!`); mirror emitter into `FleetEvent`; `runbooks.yml` for all 53 kinds + the extension-side both-arms spec; `get_sensor_config` lists every ladder-tunable sensor (derived; eight today). Sequenced after A5 | a lane proceed consumes one consent unit; every bound kind has a runbook entry or a reasoned `not_documented` |
 | B5 | `honeypot`, `dispatch_latency`, `remediation_effectiveness` contributors (system extension), from the three fleet tiles' data; honeypot ratchet as `not_measured` + `unavailable_since` while the feed is down; flag-off self-healing maps to `not_actuatable` with a reason | feed-down arm reads `not_measured`, never ok or 0; both arms per contributor |
+| B5b | Core remediation lane for `provider_circuit_breaker` and `ai_provider` wrapping `Ai::SelfHealing::RemediationDispatcher` (today the only actuator gated by `self_healing_remediation`, unreachable from the router because core registers no lanes); one `RemediationDispatcher.enabled?` predicate read by the dispatcher and the lane's describe; apply via `gate_action!` into the same dispatcher entry | flag-off reads `not_actuatable` naming the flag; an automatic dispatch plus a lane apply in one window yields one action |
 
 ### Track C — operator screen and frontend consolidation (frontend)
 
