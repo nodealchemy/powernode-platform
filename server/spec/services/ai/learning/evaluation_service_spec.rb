@@ -43,9 +43,10 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
       judge
     end
 
+    # D5: the switch is the SiteSetting ai.evaluation.enabled, not a Flipper flag.
     def enable_flag!(enabled)
-      allow(Shared::FeatureFlagService).to receive(:enabled?)
-        .with(:agent_evaluation).and_return(enabled)
+      allow(SiteSetting).to receive(:get).and_call_original
+      allow(SiteSetting).to receive(:get).with(described_class::ENABLED_SETTING).and_return(enabled ? "true" : "false")
     end
 
     # ---- arm 1 ----
@@ -266,22 +267,22 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
       end
 
       it "credits a SUCCESS to the served version when quality clears the threshold" do
-        # The other arm: the consumer works the moment attribution exists, so
-        # the key is written on the fixture here. Nothing in production writes
-        # it yet — that is D5's producer.
-        execution.update!(execution_context: { described_class::SKILL_VERSION_CONTEXT_KEY => version.id })
+        # The other arm. D5's producers (Ai::SkillVersion.record_served!, called
+        # from the serving paths) write this key; here it is written on the
+        # fixture so the consumer is pinned independently of them.
+        execution.update!(execution_context: { Ai::SkillVersion::SERVED_CONTEXT_KEY => [ version.id ] })
         stub_judge!
 
         result = service.evaluate_execution(execution: execution)
 
-        expect(result[:skill_outcome]).to include(status: "recorded", skill_version_id: version.id,
+        expect(result[:skill_outcome]).to include(status: "recorded", skill_version_ids: [ version.id ],
                                                   successful: true)
         expect(version.reload.success_count).to eq(1)
         expect(version.usage_count).to eq(1)
       end
 
       it "credits a FAILURE when quality is below the threshold" do
-        execution.update!(execution_context: { described_class::SKILL_VERSION_CONTEXT_KEY => version.id })
+        execution.update!(execution_context: { Ai::SkillVersion::SERVED_CONTEXT_KEY => [ version.id ] })
         stub_judge!(scores: { "correctness" => 1, "completeness" => 1, "helpfulness" => 1, "safety" => 2 })
 
         result = service.evaluate_execution(execution: execution)
@@ -292,7 +293,7 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
       end
 
       it "honors the account-level success threshold override" do
-        execution.update!(execution_context: { described_class::SKILL_VERSION_CONTEXT_KEY => version.id })
+        execution.update!(execution_context: { Ai::SkillVersion::SERVED_CONTEXT_KEY => [ version.id ] })
         account.update!(settings: (account.settings || {}).merge(
           described_class::SUCCESS_QUALITY_THRESHOLD_SETTING => 0.95
         ))
@@ -304,6 +305,145 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
         # 0.8125 clears the 0.6 default but not 0.95 — both arms of the same
         # verdict, separated only by the setting.
         expect(result[:skill_outcome]).to include(successful: false)
+      end
+
+      it "credits EVERY version that served — an agent serves several skills at once" do
+        other_version = create(:ai_skill_version, account: account,
+                                                  ai_skill: create(:ai_skill, account: account))
+        execution.update!(execution_context: {
+          Ai::SkillVersion::SERVED_CONTEXT_KEY => [ version.id, other_version.id ]
+        })
+        stub_judge!
+
+        service.evaluate_execution(execution: execution)
+
+        expect(version.reload.success_count).to eq(1)
+        expect(other_version.reload.success_count).to eq(1)
+      end
+
+      it "records NoServedVersion for an execution stamped as having served none" do
+        execution.update!(execution_context: { Ai::SkillVersion::SERVED_CONTEXT_KEY => [] })
+        stub_judge!
+
+        result = service.evaluate_execution(execution: execution)
+
+        expect(result[:skill_outcome]).to eq(status: "not_measured", reason: "NoServedVersion")
+      end
+
+      it "never credits another account's version, even when its id is stamped" do
+        other_account = create(:account)
+        foreign = create(:ai_skill_version, account: other_account,
+                                            ai_skill: create(:ai_skill, account: other_account))
+        execution.update!(execution_context: { Ai::SkillVersion::SERVED_CONTEXT_KEY => [ foreign.id ] })
+        stub_judge!
+
+        result = service.evaluate_execution(execution: execution)
+
+        expect(result[:skill_outcome]).to eq(status: "not_measured", reason: "NoServedVersion")
+        expect(foreign.reload.usage_count).to eq(0)
+      end
+    end
+
+    # ---- D5: the switch — ai.evaluation.enabled ----
+    # Replaces the :agent_evaluation Flipper flag. ON by default: absence is
+    # ON. Only an explicit true/false is a value; anything else fails CLOSED.
+    describe ".enabled?" do
+      before { allow(SiteSetting).to receive(:get).and_call_original }
+
+      def switch!(value)
+        allow(SiteSetting).to receive(:get).with(described_class::ENABLED_SETTING).and_return(value)
+      end
+
+      it "is ON when the setting has never been written" do
+        switch!(nil)
+        expect(described_class.enabled?).to be(true)
+      end
+
+      it "honors an explicit true and an explicit false" do
+        switch!("true")
+        expect(described_class.enabled?).to be(true)
+        switch!("false")
+        expect(described_class.enabled?).to be(false)
+      end
+
+      it "fails closed on a value that is neither, and says so" do
+        allow(Rails.logger).to receive(:warn)
+        %w[yes 1 maybe].each do |raw|
+          switch!(raw)
+          expect(described_class.enabled?).to be(false)
+        end
+        expect(Rails.logger).to have_received(:warn).with(a_string_including("ai.evaluation.enabled")).at_least(:once)
+      end
+
+      it "reads a REAL row, not only a stub: a stored false turns the judge off" do
+        SiteSetting.set(described_class::ENABLED_SETTING, "false", setting_type: "boolean")
+        expect(Ai::Learning::LlmJudgeService).not_to receive(:new)
+
+        expect(service.evaluate_execution(execution: execution))
+          .to eq(status: "not_measured", reason: "EvaluationDisabled")
+      end
+    end
+
+    # ---- D5: daily cap ----
+    context "daily cap" do
+      before do
+        enable_flag!(true)
+        allow(Ai::Autonomy::TrustEngineService).to receive(:new)
+          .and_return(instance_double(Ai::Autonomy::TrustEngineService, evaluate: true))
+      end
+
+      def cap!(value)
+        allow(SiteSetting).to receive(:get).with(described_class::DAILY_CAP_SETTING).and_return(value)
+      end
+
+      def prior_evaluation!(for_account: account)
+        Ai::EvaluationResult.create!(
+          account: for_account, agent: create(:ai_agent, account: for_account),
+          execution_id: SecureRandom.uuid, evaluator_model: "m",
+          scores: { "correctness" => 4, "completeness" => 4, "helpfulness" => 4, "safety" => 5 }
+        )
+      end
+
+      it "refuses DailyCapReached once today's evaluations reach the cap, before the judge is paid" do
+        cap!("1")
+        prior_evaluation!
+        expect(Ai::Learning::LlmJudgeService).not_to receive(:new)
+
+        expect(service.evaluate_execution(execution: execution))
+          .to eq(status: "not_measured", reason: "DailyCapReached")
+      end
+
+      it "evaluates below the cap" do
+        cap!("2")
+        prior_evaluation!
+        stub_judge!
+
+        expect(service.evaluate_execution(execution: execution)[:status]).to eq("evaluated")
+      end
+
+      it "counts only this account's evaluations" do
+        cap!("1")
+        prior_evaluation!(for_account: create(:account))
+        stub_judge!
+
+        expect(service.evaluate_execution(execution: execution)[:status]).to eq("evaluated")
+      end
+
+      it "still answers an idempotent retry at the cap" do
+        cap!("1")
+        stub_judge!
+        task_id = SecureRandom.uuid
+        service.evaluate_execution(execution: execution, task_id: task_id)
+
+        expect(service.evaluate_execution(execution: execution, task_id: task_id))
+          .to include(status: "evaluated", idempotent: true)
+      end
+
+      it "falls back to the default for a zero, negative, garbage or missing setting" do
+        [ "0", "-3", "abc", nil ].each do |raw|
+          cap!(raw)
+          expect(described_class.daily_cap).to eq(described_class::DEFAULT_DAILY_CAP)
+        end
       end
     end
 
@@ -325,7 +465,7 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
           Ai::Llm::Response.new(content: '{"scores": {}, "rationale": "empty"}',
                                 usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 })
         )
-        execution.update!(execution_context: { described_class::SKILL_VERSION_CONTEXT_KEY => version.id })
+        execution.update!(execution_context: { Ai::SkillVersion::SERVED_CONTEXT_KEY => [ version.id ] })
       end
 
       it "records not_measured naming the missing dimensions, and moves neither trust nor the version" do

@@ -31,17 +31,14 @@ RSpec.describe "Api::V1::Internal::Ai::Evaluations", type: :request do
   before do
     allow(Ai::Autonomy::TrustEngineService).to receive(:new)
       .and_return(instance_double(Ai::Autonomy::TrustEngineService, evaluate: true))
-    # :agent_evaluation is registered OFF, so D4 ships inert until an operator
-    # enables it — same activation posture as the closure driver. The arm that
-    # pins the off state lives in the service spec; here the flag is on so the
-    # ROUTE's own behaviour is what is under test.
-    allow(Shared::FeatureFlagService).to receive(:enabled?).and_call_original
-    allow(Shared::FeatureFlagService).to receive(:enabled?).with(:agent_evaluation).and_return(true)
+    # D5: the judge's switch is the SiteSetting ai.evaluation.enabled, and an
+    # absent row means ON — so no switch is set here, and every example below
+    # runs against the ruled default rather than against a stub.
   end
 
   describe "POST /api/v1/internal/ai/evaluations/run" do
-    it "reports EvaluationDisabled while the flag is off, without touching the judge" do
-      allow(Shared::FeatureFlagService).to receive(:enabled?).with(:agent_evaluation).and_return(false)
+    it "reports EvaluationDisabled while ai.evaluation.enabled is false, without touching the judge" do
+      SiteSetting.set(Ai::Learning::EvaluationService::ENABLED_SETTING, "false", setting_type: "boolean")
       expect(Ai::Learning::LlmJudgeService).not_to receive(:new)
 
       post "/api/v1/internal/ai/evaluations/run",

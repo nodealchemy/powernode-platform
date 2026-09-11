@@ -22,7 +22,6 @@ Rails.application.config.after_initialize do
     trajectory_analysis
     prompt_caching
     agent_introspection
-    agent_evaluation
     cross_system_triggers
     skill_lifecycle_research
     skill_lifecycle_auto_create

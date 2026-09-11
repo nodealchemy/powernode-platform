@@ -7,8 +7,8 @@
 # -> WorkerJobService.enqueue_job). It therefore has no entry in
 # config/sidekiq.yml, unlike the scheduled jobs around it.
 #
-# The job carries IDS ONLY and no policy. Every gate — the :agent_evaluation
-# flag, whether the execution is evaluable, whether the judge answered, the
+# The job carries IDS ONLY and no policy. Every gate — the ai.evaluation.enabled
+# switch and daily cap, whether the execution is evaluable, whether the judge answered, the
 # idempotency key — lives server-side in Ai::Learning::EvaluationService, so a
 # retry of this job cannot produce a second evaluation.
 class AgentEvaluationJob < BaseJob

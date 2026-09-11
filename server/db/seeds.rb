@@ -478,6 +478,22 @@ settings.set_unless_exists(auto_evolution_flag, "false",
                                         "MCP verb keeps its own dev.skill_refine approval gate either way.",
                            setting_type: "boolean", is_public: false)
 
+# LLM judge (D5): its on/off switch and its daily spend ceiling, both rendered
+# on the admin Autonomy tab. unless-exists, like the two flags above, so a
+# re-seed never reverts an operator's choice. Absence is ALSO handled at the
+# reader — an absent enabled row means ON and an absent cap means the default
+# (Ai::Learning::EvaluationService) — because seeds do not re-run on an
+# established deployment.
+settings.set_unless_exists(Ai::Learning::EvaluationService::ENABLED_SETTING, "true",
+                           description: "Run the LLM judge on completed agent work. OFF means no " \
+                                        "evaluation is judged, persisted, or credited to trust or skill versions.",
+                           setting_type: "boolean", is_public: false)
+settings.set_unless_exists(Ai::Learning::EvaluationService::DAILY_CAP_SETTING,
+                           Ai::Learning::EvaluationService::DEFAULT_DAILY_CAP,
+                           description: "Maximum LLM-judge evaluations per account per rolling day. " \
+                                        "A missing, zero or non-numeric value falls back to the default.",
+                           setting_type: "integer", is_public: false)
+
 settings.finish
 
 

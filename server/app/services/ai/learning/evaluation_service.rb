@@ -11,11 +11,42 @@ module Ai
       DEFAULT_SUCCESS_QUALITY_THRESHOLD = 0.6
       SUCCESS_QUALITY_THRESHOLD_SETTING = "ai_evaluation_success_quality_threshold"
 
-      # Where an execution records which skill version served it. NOTHING WRITES
-      # THIS KEY TODAY — attribution is D5's increment. Reading it from one named
-      # place means D5 has exactly one producer to add, and the consumer below is
-      # already exercised by specs that write the key on a fixture.
-      SKILL_VERSION_CONTEXT_KEY = "skill_version_id"
+      # D5 — the judge's on/off switch and its spend ceiling: two SiteSettings,
+      # both rendered on the admin Autonomy tab. They replace the
+      # :agent_evaluation Flipper flag, which no UI and no API could flip.
+      #
+      # ai.evaluation.enabled DEFAULTS TO ON. An absent row means ON: seeds do
+      # not re-run after first boot, so an established deployment has no row
+      # until an operator writes one (the seed guards with unless-exists). Only
+      # an explicit "true"/"false" is a value; anything else fails CLOSED and is
+      # logged, so a typo can never silently turn the spending on.
+      #
+      # ai.evaluation.daily_cap is the same shape as platform.investigation.
+      # daily_cap: per account, rolling day, positive?-guarded so a zero or
+      # unparseable value falls back to the default instead of meaning
+      # "unlimited" or "never". Turning the judge OFF is the switch's job.
+      ENABLED_SETTING = "ai.evaluation.enabled"
+      DAILY_CAP_SETTING = "ai.evaluation.daily_cap"
+      DEFAULT_DAILY_CAP = 20
+      REFUSED_DAILY_CAP = "DailyCapReached"
+
+      def self.enabled?
+        raw = ::SiteSetting.get(ENABLED_SETTING)
+        return true if raw.nil?
+
+        case raw.to_s.strip.downcase
+        when "true" then true
+        when "false" then false
+        else
+          Rails.logger.warn("[EvaluationService] #{ENABLED_SETTING}=#{raw.inspect} is not true/false; treating it as OFF")
+          false
+        end
+      end
+
+      def self.daily_cap
+        configured = ::SiteSetting.get(DAILY_CAP_SETTING)
+        configured.present? && configured.to_i.positive? ? configured.to_i : DEFAULT_DAILY_CAP
+      end
 
       def initialize(account:)
         @account = account
@@ -39,9 +70,7 @@ module Ai
       # mediocre evaluation in trust, in skill effectiveness and in the trend
       # charts.
       def evaluate_execution(execution:, output: nil, context: {}, task_id: nil)
-        unless Shared::FeatureFlagService.enabled?(:agent_evaluation)
-          return not_measured("EvaluationDisabled")
-        end
+        return not_measured("EvaluationDisabled") unless self.class.enabled?
 
         # The kill switch reaches the judge too. Evaluating spends an LLM call
         # against this account, so an emergency_halt that stopped every other
@@ -65,6 +94,11 @@ module Ai
         if (existing = find_existing(execution, task_id))
           return evaluated(existing, idempotent: true)
         end
+
+        # After idempotency, so a retry of a completion already judged still
+        # gets its answer at the cap; before the judge, so the cap is a ceiling
+        # on spend and not a report of it.
+        return not_measured(REFUSED_DAILY_CAP) if daily_cap_reached?
 
         judge = Ai::Learning::LlmJudgeService.new(account: @account)
         verdict = judge.evaluate(
@@ -241,33 +275,33 @@ module Ai
         Rails.logger.error("[EvaluationService] trust quality write failed: #{e.class}: #{e.message}")
       end
 
-      # Credits the skill VERSION that served the execution.
-      #
-      # Attribution does not exist yet: no column, no join table and no metadata
-      # key anywhere links an Ai::AgentExecution to an Ai::SkillVersion, and
-      # Ai::SkillGraph::EvolutionService#record_outcome re-derives a version by
-      # `skill.versions.active.first` (or an A/B coin flip), which credits
-      # whatever is active NOW rather than what served. This reads one named
-      # key so D5 has exactly one producer to add; until it does, every call
-      # takes the NoServedVersion arm. Both arms are spec'd by writing the key
-      # on a fixture, so the consumer is proven rather than merely written.
+      # Credits every skill VERSION that served the execution. The serving
+      # paths stamp them (Ai::SkillVersion.record_served!, D5). An agent serves
+      # several skills in one prompt, and one verdict on the run is the only
+      # evidence about each of them, so each is credited. The ids are re-scoped
+      # to this account before anything is written — the key is data on a row,
+      # not authority.
       def record_skill_outcome(execution, quality)
         # D4 review F6 — one code per cause: a nil quality means the row carried
         # no scores, which is not the same fact as "no version served".
         return not_measured("UnscoredEvaluation") if quality.nil?
 
-        version_id = execution.try(:execution_context)&.dig(SKILL_VERSION_CONTEXT_KEY)
-        return not_measured("NoServedVersion") if version_id.blank?
-
-        version = Ai::SkillVersion.find_by(id: version_id, account_id: @account.id)
-        return not_measured("NoServedVersion") if version.nil?
+        stamped = Array(execution.try(:execution_context)&.dig(Ai::SkillVersion::SERVED_CONTEXT_KEY))
+        versions = stamped.empty? ? [] : Ai::SkillVersion.where(id: stamped, account_id: @account.id).to_a
+        return not_measured("NoServedVersion") if versions.empty?
 
         successful = quality >= success_quality_threshold
-        version.record_outcome!(successful: successful)
-        { status: "recorded", skill_version_id: version.id, successful: successful }
+        versions.each { |version| version.record_outcome!(successful: successful) }
+        { status: "recorded", skill_version_ids: versions.map(&:id), successful: successful }
       rescue StandardError => e
         Rails.logger.error("[EvaluationService] skill outcome failed: #{e.class}: #{e.message}")
         not_measured("SkillOutcomeError", detail: e.message)
+      end
+
+      def daily_cap_reached?
+        Ai::EvaluationResult.where(account_id: @account.id)
+                            .where("created_at >= ?", 1.day.ago)
+                            .count >= self.class.daily_cap
       end
 
       def success_quality_threshold
