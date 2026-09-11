@@ -110,6 +110,14 @@ For compliance regimes that require longer retention (PCI: 1 year minimum), incr
 
 Promtail's relabel rules surface these labels for every Powernode journal line:
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 | Label | Source | Example |
 |-------|--------|---------|
 | `unit` | systemd unit (`__journal__systemd_unit`) | `powernode-backend@default.service` |

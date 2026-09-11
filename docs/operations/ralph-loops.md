@@ -23,6 +23,14 @@ When to use this runbook: monitoring, pausing, recovering, and decommissioning R
 
 ## Prerequisites
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 - `ai.workflows.read` permission (read), `ai.workflows.create` (create), `ai.workflows.execute` (start/pause/resume/cancel), `ai.workflows.delete` (destroy)
 - `ai.agents.update` permission (required by the `platform.*_ralph_loop` MCP tools - see `Ai::Tools::RalphLoopTool::REQUIRED_PERMISSION`)
 - A configured default agent for the loop (Ralph loops fail to start without one)

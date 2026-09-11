@@ -142,6 +142,14 @@ sudo scripts/systemd/powernode-installer.sh install
 # (add --production to create a dedicated system user named `powernode`)
 ```
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 The installer:
 - Detects `RVM_PATH`, `POWERNODE_RUBY_VERSION`, `NVM_DIR`, `NODE_VERSION`, `POWERNODE_BASE` from the current shell environment + cwd.
 - Copies config templates from `scripts/systemd/configs/` to `/etc/powernode/`. **Skips files that already exist** (idempotent re-runs are safe).

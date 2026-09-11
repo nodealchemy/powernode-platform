@@ -106,6 +106,14 @@ sudo scripts/systemd/powernode-installer.sh install
 sudo systemctl start powernode.target
 ```
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 Then `journalctl -u powernode-backend@default -f` to tail logs.
 
 **Never** use manual commands (`rails server`, `sidekiq`, `npm start`) for production workflows — they bypass the health-check infrastructure.

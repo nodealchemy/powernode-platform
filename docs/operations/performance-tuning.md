@@ -444,6 +444,14 @@ If a tuning change degrades performance:
 2. Confirm the previous baseline restores within one peak window.
 3. If the change was a config flag (env var / sidekiq.yml weighting), restore via systemd unit edit:
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
    ```bash
    sudo nano /etc/powernode/worker-default.conf
    sudo systemctl restart powernode-worker@default

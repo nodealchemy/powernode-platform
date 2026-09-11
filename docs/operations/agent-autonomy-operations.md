@@ -21,6 +21,14 @@ When to use this runbook: daily trust score sweeps, post-incident demotions, pro
 
 ## Prerequisites
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 - `ai.autonomy.manage` permission (kill switch, intervention policies, duty cycles, and override paths)
 - `ai.monitoring.read` permission (trust score dashboard, telemetry endpoints)
 - `ai.agents.execute` permission (required by the MCP tools that mutate agent state)

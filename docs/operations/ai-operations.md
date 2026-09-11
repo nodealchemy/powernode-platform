@@ -22,6 +22,14 @@
 
 ## Prerequisites
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 - Backend (`powernode-backend@default`), worker (`powernode-worker@default`), and frontend (`powernode-frontend@default`) services running — verify with `sudo scripts/systemd/powernode-installer.sh status`
 - `ai.monitoring.read`, `ai.autonomy.manage` permissions for operators
 - Sidekiq dashboard accessible (default `http://localhost:4567`)

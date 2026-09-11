@@ -64,6 +64,14 @@ sudo systemctl start powernode.target
 sudo scripts/systemd/powernode-installer.sh status
 ```
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 The installer creates four service units (`powernode-backend@default`, `powernode-worker@default`, `powernode-worker-web@default`, `powernode-frontend@default`) plus the `powernode.target` group.
 
 ## 3. Access the application
