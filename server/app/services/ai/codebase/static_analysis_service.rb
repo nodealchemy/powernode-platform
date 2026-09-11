@@ -85,6 +85,35 @@ module Ai
         }
       end
 
+      # PARSING, SEPARATE FROM RUNNING (D1b). A linter's raw output becomes the
+      # same diagnostics whether it ran in this process (the MCP verb) or on a
+      # leased runner that handed it back (improvement discovery). `base_path`
+      # is the directory the linter ran in, so reported paths come back
+      # relative to the repository root either way.
+      #
+      # Never raises: output that cannot be read is a `parse_error`, which is
+      # a did-not-measure status, never a clean one.
+      #
+      # @param linter_key [Symbol, String] :ruby | :typescript | :javascript_lint
+      # @param output [String] the linter's stdout (tsc: stdout and stderr)
+      # @param exitstatus [Integer, nil]
+      # @return [Hash] {diagnostics:, summary:}
+      def self.parse_output(linter_key, output:, exitstatus:, base_path:)
+        new(base_path: base_path).parse_output(linter_key, output, exitstatus)
+      end
+
+      def parse_output(linter_key, output, exitstatus)
+        output = output.to_s.byteslice(0, OUTPUT_LIMIT)
+        case linter_key.to_s
+        when "ruby" then parse_rubocop(output)
+        when "typescript" then parse_tsc(output, exitstatus)
+        when "javascript_lint" then parse_eslint(output)
+        else { diagnostics: [], summary: { status: "unknown_linter" } }
+        end
+      rescue StandardError
+        { diagnostics: [], summary: { status: "parse_error" } }
+      end
+
       private
 
       def detect_linters(target)
@@ -122,11 +151,14 @@ module Ai
         run = execute_command(config[:argv] + [ target ], chdir: project_root, env: { "BUNDLE_GEMFILE" => gemfile })
         return not_run(run) unless run[:status] == :ran
 
-        output = run[:output]
+        parse_rubocop(run[:output])
+      end
+
+      def parse_rubocop(output)
         return { diagnostics: [], summary: { status: "no_output" } } if output.blank?
 
         parsed = JSON.parse(output) rescue nil
-        return { diagnostics: [], summary: { status: "parse_error" } } unless parsed
+        return { diagnostics: [], summary: { status: "parse_error" } } unless parsed.is_a?(Hash)
 
         diagnostics = []
         (parsed["files"] || []).each do |file_entry|
@@ -162,11 +194,15 @@ module Ai
         run = execute_command(config[:argv], chdir: project_root, merge_stderr: true)
         return not_run(run) unless run[:status] == :ran
 
-        output = run[:output]
+        parse_tsc(run[:output], run[:exitstatus])
+      end
+
+      def parse_tsc(output, exitstatus)
         if output.blank?
           # Clean only on a zero exit. A tsc that failed without printing
-          # anything is not a project with no type errors.
-          return { diagnostics: [], summary: { status: "clean", errors: 0 } } if run[:exitstatus].to_i.zero?
+          # anything, or whose exit status never arrived, is not a project with
+          # no type errors.
+          return { diagnostics: [], summary: { status: "clean", errors: 0 } } if exitstatus == 0
 
           return { diagnostics: [], summary: { status: "no_output" } }
         end
@@ -198,7 +234,10 @@ module Ai
         run = execute_command(config[:argv] + [ target ], chdir: project_root)
         return not_run(run) unless run[:status] == :ran
 
-        output = run[:output]
+        parse_eslint(run[:output])
+      end
+
+      def parse_eslint(output)
         return { diagnostics: [], summary: { status: "no_output" } } if output.blank?
 
         parsed = JSON.parse(output) rescue nil
@@ -308,8 +347,12 @@ module Ai
         @base_path
       end
 
+      # A linter reports paths relative to the directory it ran in (rubocop,
+      # tsc) or absolute (eslint). Both resolve against @base_path, never
+      # against this process's working directory, which is not where the
+      # linter ran.
       def relative_path(path)
-        Pathname.new(File.expand_path(path)).relative_path_from(Pathname.new(@base_path)).to_s
+        Pathname.new(File.expand_path(path.to_s, @base_path)).relative_path_from(Pathname.new(@base_path)).to_s
       rescue ArgumentError
         path
       end

@@ -14,8 +14,10 @@ module Api
         # therefore filed by a human-driven session.
         #
         # Server-side because the worker is Sidekiq-only and reaches the server
-        # over the internal mTLS API, and because the analyzer needs a working
-        # copy on the node that holds the repository row.
+        # over the internal mTLS API. The server does not run the linters
+        # either (D1b): each unit hands one account's repositories to the
+        # registered discovery executor, and the results come back later
+        # through `DiscoveryRunService#ingest!`.
         #
         # `::Ai::…` throughout: this class is lexically inside `Api::V1::…::Ai`,
         # so an unqualified `Ai::Improvement` would resolve to
@@ -27,8 +29,9 @@ module Api
           # swept every account, called through the RETRYING connection inside
           # a job-level retry: one slow tick became up to eighteen concurrent
           # sweeps. Now the worker walks `DiscoveryRunService.units` by
-          # position, one non-retrying POST per unit, so a call does one
-          # repository's work and nothing re-sends it.
+          # position, one non-retrying POST per unit, and nothing re-sends it.
+          # A unit is one account (D1b: one lease per account per tick), and
+          # it dispatches rather than analyses.
           #
           # AGGREGATE COUNTS ONLY (D1 review M1). The caller is an
           # account-bound worker and this door runs every account's units, so
@@ -43,9 +46,8 @@ module Api
             units = ::Ai::Improvement::DiscoveryRunService.units
             return render_success(unit_result(nil, position: position, total: units.size)) if position >= units.size
 
-            account_id, repository_id = units[position]
-            account = ::Account.find_by(id: account_id)
-            summary = account && run_unit(account, repository_id)
+            account = ::Account.find_by(id: units[position])
+            summary = account && run_unit(account)
             record_run(account, summary) if summary
 
             render_success(unit_result(summary, position: position, total: units.size))
@@ -53,12 +55,12 @@ module Api
 
           private
 
-          def run_unit(account, repository_id)
-            ::Ai::Improvement::DiscoveryRunService.new(account: account).run!(repository_id: repository_id)
+          def run_unit(account)
+            ::Ai::Improvement::DiscoveryRunService.new(account: account).run!
           rescue StandardError => e
             Rails.logger.error("[ImprovementDiscovery] run failed for account #{account.id}: #{e.class}: #{e.message}")
             # The class only (D1 review L4): this is written to an audit row.
-            { status: "failed", account_id: account.id, failure: e.class.name,
+            { phase: "dispatch", status: "failed", account_id: account.id, failure: e.class.name,
               offers_created: 0, offers_deduped: 0, offers_parked: 0, findings: 0, analyzers_degraded: [] }
           end
 
@@ -80,8 +82,8 @@ module Api
             }
           end
 
-          # The run record, one per UNIT (a repository, or an account with none)
-          # per tick — including a skipped one,
+          # The run record, one per UNIT (an account) per tick — including a
+          # skipped one,
           # so "discovery last ran for this account at T, and declined because
           # X" is answerable. An aggregate row is not possible here and should
           # not be faked: AuditLog requires a non-null `account_id` and a

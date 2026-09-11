@@ -2,27 +2,45 @@
 
 module Ai
   module Improvement
-    # D1 — THE DISCOVERY CLOCK.
+    # D1 — THE DISCOVERY CLOCK. D1b — WHERE ITS LINTERS RUN.
     #
     # The audit's finding (2026-09-10, §6.2): "Improvement discovery — Scheduled:
     # No". `platform.discover_improvements` returns GUIDANCE TEXT telling a caller
     # which analyzers to run (`improvement_tool.rb:163-183`); no cron references it
     # or the code-analysis verbs. So every code-quality offer on this platform was
-    # filed by a human-driven session, and the platform could not improve itself
-    # without one. This service is the analyzer that verb only describes.
+    # filed by a human-driven session. This service is the analyzer that verb
+    # only describes.
     #
-    # ── WHAT IT ACTUALLY RUNS, AND WHAT IT DELIBERATELY DOES NOT ────────────────
-    # `Ai::Codebase::StaticAnalysisService` is the ONLY analyzer in the tree that
-    # produces findings mechanically and synchronously: it shells out to
-    # rubocop/tsc/eslint and returns `{file, line, severity, message, rule}` rows.
-    # The other three the audit's remedy names are NOT wired here, on purpose:
+    # ── THIS PROCESS NEVER RUNS A REPOSITORY'S CODE (D1b) ───────────────────────
+    # A linter executes code from the directory it runs in: a Gemfile, a
+    # .rubocop.yml `require:`, an eslint config. D1 ran the linters here, in the
+    # Rails process, against a working copy fenced by an operator root. D1b
+    # deleted that path. The linters run where the repository's own bundle is
+    # installed, through the behaviour provider registered under EXECUTOR_KEY:
+    #
+    #   dispatch!(account:, repositories:) -> {
+    #     status: "dispatched" | "skipped" | "failed", reason:, run_ref:,
+    #     repositories: [{ id:, status: "dispatched" | "skipped", reason: }] }
+    #
+    # The provider hands each repository's RAW linter output back through
+    # #ingest!, which parses it here with the parser the MCP verb uses
+    # (`StaticAnalysisService.parse_output`). So core decides what a finding is,
+    # and files it. Core names no extension.
+    #
+    # With no provider registered (core mode) nothing runs, and every unit says
+    # so: `no_discovery_executor`. Core cannot run a repository's code safely,
+    # so it does not claim to have looked.
+    #
+    # ── WHAT IT ANALYSES, AND WHAT IT DELIBERATELY DOES NOT ─────────────────────
+    # The linters (rubocop/tsc/eslint) are the only analyzers in the tree that
+    # produce `{file, line, severity, message, rule}` rows mechanically. The
+    # other three the audit's remedy names are NOT wired here, on purpose:
     #
     #   * `code_dead_code` (`code_analysis_tool.rb:186`) and `code_find_duplicates`
     #     (`:217`) do not analyse anything — they dispatch to the worker and return
     #     a fixed `{success: true, status: "enqueued"}`. That IS the audit's own
     #     §4.2 defect for those two verbs. Calling them from here would add two
-    #     analyzer names to a run summary and zero findings to the offer queue —
-    #     a deferral to an unbuilt component wearing the costume of a closed loop.
+    #     analyzer names to a run summary and zero findings to the offer queue.
     #   * `scripts/pattern-validation.sh` emits human-formatted PASS/FAIL lines
     #     with no file:line, so it cannot be turned into fingerprinted offers
     #     without a parser that would be the least reliable part of this seam.
@@ -31,35 +49,27 @@ module Ai
     # finding with a file, a line and a rule. The gap is named, not hidden.
     #
     # ── A LINTER THAT DID NOT RUN IS NOT A CLEAN SWEEP ──────────────────────────
-    # `StaticAnalysisService` reports a per-linter `summary.status` of
-    # `no_gemfile` / `no_output` / `parse_error` / `error`, and its caller in
-    # `code_analysis_tool.rb` throws that away behind a headline `errors: 0` —
-    # the audit's §4.2 finding for `code_static_analysis`. This service keeps the
-    # per-linter status in the run summary and reports `analyzers_degraded`, so
-    # "no findings" and "nothing ran" can never read the same.
+    # A linter summary carries a status. Only `completed` and `clean` mean the
+    # code was inspected; `unavailable`, `timeout`, `no_gemfile`, `no_output`,
+    # `parse_error` and the rest did not, and must never read as zero findings.
+    # The per-linter status stays in the run summary, and `analyzers_degraded`
+    # lists every one that did not measure.
     #
-    # ── GATES, IN ORDER ─────────────────────────────────────────────────────────
+    # ── GATES ───────────────────────────────────────────────────────────────────
     #   1. Account kill switch (`ai_suspended?`) — same predicate the other
     #      internal crons use.
     #   2. Environment ceiling. The account's DEFAULT environment
     #      (`Ai::Environment.default_for`) must sit at or below a SiteSetting tier
-    #      ceiling, default 0 — dev and ci only. NOTE: `ai_ralph_loops` carries no
-    #      `environment_id`, so there is no dev-improve loop environment to
-    #      inherit; the account's default plane is the anchor, and one rule
-    #      decides, not a second rival threshold.
-    #   3. A repository must have a working copy ON THIS NODE
-    #      (`metadata["local_path"]`, the same key `CodebaseContextResolvable`
-    #      resolves), and that copy must resolve, symlinks followed, inside the
-    #      operator's discovery root (SiteSetting ALLOWED_ROOT_SETTING; D1
-    #      review M3). The linters execute code from the directory they run in
-    #      (a Gemfile, a .rubocop.yml `require:`, an eslint config), so a tenant
-    #      must not be able to point this at an arbitrary path, or at another
-    #      tenant's copy. The root may carry `%{account_id}`, and a multi-tenant
-    #      deployment must use it; absent, discovery is off for every
-    #      repository and says so. Repositories that fail this are counted as
-    #      skipped WITH a reason, never silently dropped.
-    #   4. A per-run offer cap, so a first run against a repo with thousands of
-    #      offences files a bounded number of the most severe.
+    #      ceiling, default 0 — dev and ci only. `ai_ralph_loops` carries no
+    #      `environment_id`, so the account's default plane is the anchor.
+    #   3. A registered executor. Its own gates (the account's own runner pool,
+    #      one run per account at a time) are its business, and it answers each
+    #      refusal with a reason.
+    #   4. A per-repository offer cap, so a first run against a repo with
+    #      thousands of offences files a bounded number of the most severe.
+    #
+    # #ingest! re-checks 1 and 2: a result arrives after its dispatch, and a kill
+    # switch thrown in between must stop the filing.
     #
     # Filing goes through `Ai::Tools::ImprovementTool` `create_improvement`
     # ITSELF, invoked as the tool. A re-implementation here would share none of
@@ -72,13 +82,21 @@ module Ai
       MAX_OFFERS_SETTING = "ai.improvement_discovery_max_offers_per_run"
       DEFAULT_MAX_OFFERS = 25
 
-      ALLOWED_ROOT_SETTING = "ai.improvement_discovery_allowed_root"
-      ACCOUNT_PLACEHOLDER = "%{account_id}"
+      # The behaviour-provider key an extension registers its executor under.
+      EXECUTOR_KEY = :lint_discovery_executor
+
+      # What an executor may answer for a whole dispatch, and per repository.
+      DISPATCH_STATUSES = %w[dispatched skipped failed].freeze
+      REPOSITORY_DISPATCH_STATUSES = %w[dispatched skipped].freeze
 
       # A linter summary in one of these states actually inspected the code.
       # Anything else (timeout, unavailable, no_output, parse_error, ...) did
       # not, and must never read as clean.
       MEASURED_STATUSES = %w[completed clean].freeze
+
+      # The one report status that carries output to parse. Every other status
+      # an executor reports is recorded verbatim as a did-not-measure status.
+      RAN_STATUS = "ran"
 
       # The analyzers that can hand back a finding with a file, a line and a
       # rule. See the class comment for the three that cannot, yet.
@@ -90,10 +108,9 @@ module Ai
       LINT_CONFIDENCE = 0.9
 
       # Worst first, so the per-run cap keeps what matters. `info` is where
-      # rubocop's `convention` and `refactor` offences land
-      # (`static_analysis_service.rb:207-213`) — under this repo's omakase
-      # config that is most of them, so excluding it would leave a discovery
-      # loop that mechanically cannot find anything in Ruby.
+      # rubocop's `convention` and `refactor` offences land — under this repo's
+      # omakase config that is most of them, so excluding it would leave a
+      # discovery loop that mechanically cannot find anything in Ruby.
       SEVERITY_RANK = { "error" => 0, "warning" => 1, "info" => 2 }.freeze
 
       def self.max_environment_tier
@@ -106,177 +123,270 @@ module Ai
         configured.positive? ? configured : DEFAULT_MAX_OFFERS
       end
 
-      # The discovery root for one account, or nil when none is configured.
-      def self.allowed_root_for(account)
-        raw = ::SiteSetting.get(ALLOWED_ROOT_SETTING).to_s.strip
-        return nil if raw.empty?
-
-        raw.gsub(ACCOUNT_PLACEHOLDER, account.id.to_s)
+      # The registered executor, or nil in core mode.
+      def self.executor
+        ::Powernode::ExtensionRegistry.provider(EXECUTOR_KEY)
       end
 
-      # ONE TICK AS UNITS (D1 review H2). The worker walks these one POST at a
-      # time, so each call does one repository's work and no call can fan out
-      # into a whole-fleet sweep. A unit is [account_id, repository_id], or
-      # [account_id, nil] for an active account with no repositories, so the
-      # account still gets a run record saying why nothing was analysed.
+      # ONE TICK AS UNITS: one per ACTIVE ACCOUNT (D1b ruling: one lease per
+      # account per tick). A unit dispatches; it does not run the linters. So it
+      # no longer has to be one repository to keep a call bounded, which was D1
+      # review H2's concern about a POST that ran the linters itself.
       #
-      # Stable order (account id, then repository name and id). Two queries plus
-      # the account batches, not one per account.
+      # Stable order: `find_each` walks accounts by id.
       def self.units
-        repos = ::Devops::GitRepository.order(:name, :id).pluck(:account_id, :id).group_by(&:first)
-        units = []
-        ::Account.find_each do |account|
-          next unless account.active?
-
-          ids = Array(repos[account.id]).map(&:last)
-          ids.empty? ? units << [ account.id, nil ] : ids.each { |id| units << [ account.id, id ] }
-        end
-        units
+        ids = []
+        ::Account.find_each { |account| ids << account.id if account.active? }
+        ids
       end
 
       def initialize(account:)
         @account = account
       end
 
-      # @return [Hash] the run summary. Always a summary, never nil: a skipped
-      #   run says why it was skipped.
-      # @param repository_id [String, nil] one repository (a door unit), or
-      #   nil for every repository of the account
-      def run!(repository_id: nil)
+      # Dispatch this account's repositories to the executor.
+      #
+      # @return [Hash] the run summary (phase "dispatch"). Always a summary,
+      #   never nil: a skipped run says why it was skipped.
+      def run!
         @started_at = Time.current
 
-        return skipped("ai_suspended") if @account.ai_suspended?
+        refusal = gate("dispatch")
+        return refusal if refusal
 
-        environment = ::Ai::Environment.default_for(@account)
-        return skipped("no_environment") if environment.blank?
+        repositories = candidate_repositories.to_a
+        return skipped("no_repositories", phase: "dispatch", **environment_details) if repositories.empty?
 
-        ceiling = self.class.max_environment_tier
-        if environment.tier.to_i > ceiling
-          return skipped("environment_tier_above_ceiling",
-                         environment: environment.slug, environment_tier: environment.tier,
-                         environment_tier_ceiling: ceiling)
+        executor = self.class.executor
+        if executor.nil?
+          return skipped("no_discovery_executor", phase: "dispatch", **environment_details,
+                         repositories: repositories.map { |repo| repository_row(repo, "skipped", "no_discovery_executor") })
         end
 
-        repositories = candidate_repositories
-        repositories = repositories.where(id: repository_id) if repository_id
-        return skipped("no_repositories") unless repositories.exists?
+        dispatch(executor, repositories)
+      end
 
-        sweep(environment, ceiling, repositories)
+      # ONE REPOSITORY'S RESULT, handed back by the executor.
+      #
+      # @param repository [Devops::GitRepository] must belong to this account
+      # @param linters [Hash] keyed by linter (`ruby`, `typescript`,
+      #   `javascript_lint`), each `{ "status" => "ran", "exitstatus" => 0,
+      #   "output" => "..." }` or a did-not-run status such as
+      #   `{ "status" => "unavailable" }`
+      # @param base_path [String] the directory the linters ran in, on the
+      #   runner, so reported paths come back relative to the repository root
+      # @param run_ref [String, nil] the executor's reference for the dispatch
+      # @param must_not_contain [Array<String>] values that must appear nowhere
+      #   in the handed-back output, such as the credential the executor gave
+      #   the runner. A hit files nothing and is recorded as the FACT only.
+      # @return [Hash] the run summary (phase "ingest"), also written as the
+      #   account's audit row
+      def ingest!(repository:, linters:, base_path:, run_ref: nil, must_not_contain: [])
+        @started_at = Time.current
+        unless repository.account_id == account.id
+          raise ArgumentError, "repository #{repository.id} does not belong to account #{account.id}"
+        end
+
+        summary = gate("ingest", run_ref: run_ref) ||
+                  (credential_refusal(repository, linters, base_path, must_not_contain, run_ref) ||
+                   file_result(repository, linters, base_path, run_ref))
+        ::Ai::Improvement::DiscoveryRun.record!(account: account, summary: summary)
+        summary
       end
 
       private
 
       attr_reader :account
 
-      def sweep(environment, ceiling, candidates)
-        offers_created = 0
-        offers_deduped = 0
-        offers_parked = 0
-        findings = 0
-        repositories = []
-        degraded = []
+      # Gates 1 and 2. nil when both pass; otherwise the skipped summary.
+      def gate(phase, **details)
+        return skipped("ai_suspended", phase: phase, **details) if account.ai_suspended?
 
-        budget = self.class.max_offers_per_run
+        @environment = ::Ai::Environment.default_for(account)
+        return skipped("no_environment", phase: phase, **details) if @environment.blank?
 
-        candidates.each do |repo|
-          row = { repository: repo.name, id: repo.id }
-          path, reason = working_copy_for(repo)
+        @ceiling = self.class.max_environment_tier
+        return nil if @environment.tier.to_i <= @ceiling
 
-          if reason
-            repositories << row.merge(status: "skipped", reason: reason)
-            next
-          end
+        skipped("environment_tier_above_ceiling", phase: phase, **details, **environment_details)
+      end
 
-          result = analyze(path)
-          if result[:error]
-            repositories << row.merge(status: "failed", reason: result[:error])
-            degraded << { repository: repo.name, analyzer: "lint", status: "error" }
-            next
-          end
+      def environment_details
+        { environment: @environment.slug, environment_tier: @environment.tier,
+          environment_tier_ceiling: @ceiling }
+      end
 
-          # NOT MEASURED IS NOT CLEAN (D1 review H3). No linter detected for
-          # the project root, or none of the detected ones actually inspected
-          # the code: either way this repository was not analysed, and a zero
-          # finding count from it would be a lie.
-          linters = result[:linters] || {}
-          if linters.empty?
-            repositories << row.merge(status: "not_measured", reason: "no_linter_detected", linters: {})
-            degraded << { repository: repo.name, analyzer: "lint", status: "no_linter_detected" }
-            next
-          end
+      def dispatch(executor, repositories)
+        outcome = executor.dispatch!(account: account, repositories: repositories)
+        outcome = outcome.is_a?(Hash) ? outcome.symbolize_keys : {}
+        status = outcome[:status].to_s
+        reason = outcome[:reason].presence&.to_s
 
-          degraded.concat(degraded_linters(repo, linters))
-          unless linters.values.any? { |summary| measured?(summary) }
-            repositories << row.merge(status: "not_measured", reason: "no_linter_ran", linters: linters)
-            next
-          end
-
-          repo_findings = group_findings(result[:diagnostics])
-          findings += repo_findings.size
-
-          repo_findings.first(budget).each do |finding|
-            outcome = file_offer(repo, finding)
-            case outcome
-            when :created then offers_created += 1; budget -= 1
-            when :deduped then offers_deduped += 1; budget -= 1
-            when :parked  then offers_parked += 1
-            end
-          end
-
-          repositories << row.merge(status: "analyzed", findings: repo_findings.size,
-                                    linters: result[:linters])
+        unless DISPATCH_STATUSES.include?(status)
+          status = "failed"
+          reason = "unrecognised_executor_answer"
         end
 
-        {
-          status: run_status(repositories),
-          account_id: account.id,
-          environment: environment.slug,
-          environment_tier: environment.tier,
-          environment_tier_ceiling: ceiling,
-          analyzers: ANALYZERS,
-          repositories: repositories,
-          # Every repository this run actually analysed, so a reader can tell
-          # WHICH working copy a finding came from without re-deriving it.
-          repository_ids: repositories.filter_map { |r| r[:id] if r[:status] == "analyzed" },
-          findings: findings,
-          offers_created: offers_created,
-          offers_deduped: offers_deduped,
-          offers_parked: offers_parked,
-          # NOT the same as "found nothing": a linter that never ran is listed
-          # here so a caller can tell an empty queue from an empty sweep.
+        rows = dispatch_rows(repositories, outcome[:repositories], status, reason)
+        summary_spine.merge(
+          phase: "dispatch",
+          status: status,
+          run_ref: outcome[:run_ref].presence&.to_s,
+          repositories: rows,
+          repository_ids: rows.filter_map { |row| row[:id] if row[:status] == "dispatched" }
+        ).merge(reason_key(status, reason)).merge(environment_details).merge(timing)
+      rescue StandardError => e
+        Rails.logger.error("[ImprovementDiscovery] dispatch failed for account #{account.id}: #{e.class}: #{e.message}")
+        # The class only: this lands in an audit row, and a message can carry
+        # paths or output (D1 review L4).
+        summary_spine.merge(phase: "dispatch", status: "failed", failure: e.class.name,
+                            repositories: repositories.map { |repo| repository_row(repo, "failed", "executor_raised") })
+                     .merge(environment_details).merge(timing)
+      end
+
+      # One row per candidate repository. A repository the executor did not
+      # answer for is not silently counted as dispatched.
+      def dispatch_rows(repositories, reported, status, reason)
+        by_id = Array(reported).each_with_object({}) do |row, acc|
+          next unless row.is_a?(Hash)
+
+          row = row.symbolize_keys
+          acc[row[:id].to_s] = row
+        end
+
+        repositories.map do |repo|
+          row = by_id[repo.id.to_s]
+          if status != "dispatched"
+            repository_row(repo, status == "failed" ? "failed" : "skipped", reason)
+          elsif row.nil?
+            repository_row(repo, "skipped", "not_reported_by_executor")
+          elsif REPOSITORY_DISPATCH_STATUSES.include?(row[:status].to_s)
+            repository_row(repo, row[:status].to_s, row[:reason].presence&.to_s)
+          else
+            repository_row(repo, "skipped", "unrecognised_executor_answer")
+          end
+        end
+      end
+
+      def repository_row(repo, status, reason)
+        { repository: repo.name, id: repo.id, status: status, reason: reason }.compact
+      end
+
+      def reason_key(status, reason)
+        case status
+        when "skipped" then { skipped_reason: reason || "unspecified" }
+        when "failed" then { failure: reason || "unspecified" }
+        else {}
+        end
+      end
+
+      # The executor gave the runner a credential. If any of it came back in
+      # the output, something on the runner printed it: file nothing, and
+      # record that it happened — never the value.
+      def credential_refusal(repository, linters, base_path, must_not_contain, run_ref)
+        needles = Array(must_not_contain).map(&:to_s).reject { |value| value.length < 8 }
+        return nil if needles.empty?
+
+        haystack = [ base_path.to_s, linters.to_json ].join("\n")
+        return nil unless needles.any? { |needle| haystack.include?(needle) }
+
+        Rails.logger.error("[ImprovementDiscovery] credential found in handed-back output for repository #{repository.id}; nothing filed")
+        summary_spine.merge(phase: "ingest", status: "failed", failure: "credential_in_payload", run_ref: run_ref,
+                            repositories: [ repository_row(repository, "failed", "credential_in_payload") ])
+                     .merge(environment_details).merge(timing)
+      end
+
+      def file_result(repo, linters, base_path, run_ref)
+        summaries, diagnostics = parse_reports(linters, base_path)
+        row = { repository: repo.name, id: repo.id }
+        degraded = []
+        findings = []
+
+        if summaries.empty?
+          # NOT MEASURED IS NOT CLEAN (D1 review H3): no linter reported at all.
+          row.merge!(status: "not_measured", reason: "no_linter_detected", linters: {})
+          degraded << { repository: repo.name, analyzer: "lint", status: "no_linter_detected" }
+        else
+          degraded.concat(degraded_linters(repo, summaries))
+          if summaries.values.none? { |summary| measured?(summary) }
+            row.merge!(status: "not_measured", reason: "no_linter_ran", linters: summaries)
+          else
+            findings = group_findings(diagnostics)
+            row.merge!(status: "analyzed", findings: findings.size, linters: summaries)
+          end
+        end
+
+        counts = file_offers(repo, findings)
+        summary_spine.merge(
+          phase: "ingest",
+          status: run_status(row[:status]),
+          run_ref: run_ref,
+          repositories: [ row ],
+          repository_ids: row[:status] == "analyzed" ? [ repo.id ] : [],
+          findings: findings.size,
           analyzers_degraded: degraded,
-          # Per-linter status per repository, verbatim from the analyzer —
-          # `completed` / `clean` / `no_gemfile` / `no_output` / `parse_error`.
-          linter_statuses: linter_statuses(repositories)
-        }.merge(skip_reason_for(repositories)).merge(timing)
+          linter_statuses: linter_statuses(row)
+        ).merge(counts).merge(environment_details).merge(timing)
       end
 
-      # completed: at least one repository was analysed. not_measured: some
-      # working copy was reachable but no linter inspected it. skipped: nothing
-      # was reachable at all.
-      def run_status(repositories)
-        statuses = repositories.map { |r| r[:status] }
-        return "completed" if statuses.include?("analyzed")
-        return "not_measured" if statuses.include?("not_measured")
-        return "failed" if statuses.include?("failed")
+      # @return [Array(Hash, Array)] per-linter summaries keyed by the linter's
+      #   display name, and every diagnostic parsed from the ones that ran
+      def parse_reports(linters, base_path)
+        summaries = {}
+        diagnostics = []
+        (linters.is_a?(Hash) ? linters : {}).each do |key, report|
+          report = report.is_a?(Hash) ? report.stringify_keys : {}
+          name = linter_name(key)
+          status = report["status"].to_s
 
-        "skipped"
+          if status == RAN_STATUS
+            parsed = ::Ai::Codebase::StaticAnalysisService.parse_output(
+              key, output: report["output"], exitstatus: report["exitstatus"], base_path: base_path.to_s
+            )
+            summaries[name] = parsed[:summary]
+            diagnostics.concat(Array(parsed[:diagnostics]))
+          else
+            summaries[name] = { status: status.presence || "unknown" }
+          end
+        end
+        [ summaries, diagnostics ]
       end
 
-      def skip_reason_for(repositories)
-        return {} if repositories.any? { |r| %w[analyzed not_measured failed].include?(r[:status]) }
+      def linter_name(key)
+        config = ::Ai::Codebase::StaticAnalysisService::LINTER_CONFIGS[key.to_s.to_sym]
+        config ? config[:name] : key.to_s
+      end
 
-        reasons = repositories.map { |r| r[:reason] }.uniq
-        { skipped_reason: reasons.one? ? reasons.first : "no_repository_analyzable" }
+      def file_offers(repo, findings)
+        counts = { offers_created: 0, offers_deduped: 0, offers_parked: 0 }
+        budget = self.class.max_offers_per_run
+
+        findings.first(budget).each do |finding|
+          case file_offer(repo, finding)
+          when :created then counts[:offers_created] += 1
+          when :deduped then counts[:offers_deduped] += 1
+          when :parked  then counts[:offers_parked] += 1
+          end
+        end
+        counts
+      end
+
+      # analyzed: the linters inspected the code. not_measured: they reported,
+      # but none inspected it.
+      def run_status(row_status)
+        row_status == "analyzed" ? "completed" : "not_measured"
       end
 
       # Every run summary carries the same spine, so a skipped run is queryable
       # alongside a completed one instead of being a differently-shaped hash.
-      def skipped(reason, **details)
-        { status: "skipped", skipped_reason: reason, account_id: account.id,
-          analyzers: ANALYZERS, repositories: [], repository_ids: [],
+      def summary_spine
+        { account_id: account.id, analyzers: ANALYZERS, repositories: [], repository_ids: [],
           offers_created: 0, offers_deduped: 0, offers_parked: 0, findings: 0,
-          analyzers_degraded: [], linter_statuses: {} }.merge(details).merge(timing)
+          analyzers_degraded: [], linter_statuses: {} }
+      end
+
+      def skipped(reason, **details)
+        summary_spine.merge(status: "skipped", skipped_reason: reason).merge(details).merge(timing)
       end
 
       def timing
@@ -288,76 +398,32 @@ module Ai
         }
       end
 
-      def linter_statuses(repositories)
-        repositories.each_with_object({}) do |row, acc|
-          next if row[:linters].blank?
+      def linter_statuses(row)
+        return {} if row[:linters].blank?
 
-          acc[row[:repository]] = row[:linters].transform_values do |summary|
-            summary.is_a?(Hash) ? (summary[:status] || summary["status"]).to_s : summary.to_s
-          end
-        end
+        { row[:repository] => row[:linters].transform_values { |summary| status_of(summary) } }
       end
 
-      # Repositories belonging to this account. `find_each` rather than `.all`
-      # so a large fleet does not load every row at once.
+      def status_of(summary)
+        summary.is_a?(Hash) ? (summary[:status] || summary["status"]).to_s : summary.to_s
+      end
+
+      # Repositories belonging to this account.
       def candidate_repositories
-        ::Devops::GitRepository.where(account_id: account.id).order(:name)
-      end
-
-      # @return [Array(String, nil)] [real_path, nil] or [nil, reason]
-      def working_copy_for(repo)
-        raw = repo.metadata&.dig("local_path").to_s
-        return [ nil, "no_local_path" ] if raw.blank?
-
-        root = self.class.allowed_root_for(account)
-        return [ nil, "discovery_root_not_configured" ] if root.nil?
-
-        real_root = real_directory(root)
-        return [ nil, "discovery_root_missing" ] if real_root.nil?
-
-        # realpath, not the raw string: a symlink or `..` inside the root must
-        # not reach outside it.
-        real = real_directory(raw)
-        return [ nil, "no_local_path" ] if real.nil?
-        return [ nil, "local_path_outside_discovery_root" ] unless real == real_root || real.start_with?("#{real_root}/")
-
-        [ real, nil ]
-      end
-
-      def real_directory(path)
-        real = File.realpath(path)
-        File.directory?(real) ? real : nil
-      rescue SystemCallError
-        nil
+        ::Devops::GitRepository.where(account_id: account.id).order(:name, :id)
       end
 
       def measured?(summary)
-        status = summary.is_a?(Hash) ? (summary[:status] || summary["status"]).to_s : ""
-        MEASURED_STATUSES.include?(status)
-      end
-
-      def analyze(path)
-        result = ::Ai::Codebase::StaticAnalysisService.new(base_path: path).analyze
-        {
-          diagnostics: Array(result[:diagnostics]),
-          linters: result.dig(:summary, :linters) || {}
-        }
-      rescue StandardError => e
-        Rails.logger.error("[ImprovementDiscovery] analysis failed for #{path}: #{e.class}: #{e.message}")
-        # The class only: this lands in an audit row, and a message can carry
-        # paths or output from the working copy (D1 review L4).
-        { error: e.class.name }
+        MEASURED_STATUSES.include?(status_of(summary))
       end
 
       # A linter whose status is anything but `completed`/`clean` did not
-      # actually inspect the code. `no_gemfile`, `no_output`, `parse_error` and
-      # `error` all read as "0 findings" downstream unless they are surfaced.
-      def degraded_linters(repo, linters)
-        Array(linters).filter_map do |name, summary|
-          status = summary.is_a?(Hash) ? (summary[:status] || summary["status"]).to_s : ""
-          next if MEASURED_STATUSES.include?(status)
+      # actually inspect the code.
+      def degraded_linters(repo, summaries)
+        summaries.filter_map do |name, summary|
+          next if measured?(summary)
 
-          { repository: repo.name, analyzer: name.to_s, status: status.presence || "unknown" }
+          { repository: repo.name, analyzer: name.to_s, status: status_of(summary).presence || "unknown" }
         end
       end
 

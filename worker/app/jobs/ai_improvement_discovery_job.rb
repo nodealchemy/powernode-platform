@@ -8,10 +8,11 @@
 # platform could not surface a code-quality offer without a human-driven
 # session.
 #
-# The worker only holds the clock. The server owns the analyzers, the per-account
-# kill switch, the environment ceiling and the filing, because the worker is
-# API-only and the analyzer needs a working copy on the node that holds the
-# repository row.
+# The worker only holds the clock. The server owns the per-account kill switch,
+# the environment ceiling and the filing, because the worker is API-only. The
+# server does not run the linters either (D1b): each unit hands one account's
+# repositories to the registered discovery executor, and the results come back
+# to the server later.
 class AiImprovementDiscoveryJob < BaseJob
   # No Sidekiq retry (D1 review H2): a retried tick re-runs every unit's
   # sweep. Discovery is weekly and dedupes by fingerprint, so a failed tick
@@ -20,8 +21,8 @@ class AiImprovementDiscoveryJob < BaseJob
 
   PATH = "/api/v1/internal/ai/improvement_discovery/run"
 
-  # Per-call HTTP timeout, seconds. One unit is one repository, and the server
-  # caps each linter at 120s (three linters at most), so this covers the work.
+  # Per-call HTTP timeout, seconds. One unit is one account's dispatch: a
+  # runner lease and a dispatch call, not the linters themselves.
   UNIT_TIMEOUT = 600
 
   # A backstop on a runaway walk, far above any real fleet.

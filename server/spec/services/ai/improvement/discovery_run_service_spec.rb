@@ -1,369 +1,400 @@
 # frozen_string_literal: true
 
 require "rails_helper"
-require "tmpdir"
+require "open3"
 
-# D1 — the discovery clock. Audit 2026-09-10 §6.2: improvement discovery had no
-# scheduled driver and `discover_improvements` is guidance text, not an analyzer.
+# D1 — the discovery clock. D1b — where its linters run.
+#
+# The Rails process no longer runs a repository's linters. A registered
+# executor dispatches them to a runner and hands each repository's RAW output
+# back through #ingest!. The executor is the one external boundary, so it is
+# the one thing faked here; the parser, the gates, the grouping and the filing
+# all run for real. One example feeds #ingest! the output of a REAL rubocop.
 #
 # BOTH ARMS everywhere: a gate that only ever refuses and a gate that only ever
-# allows are the same defect. Each gate below is asserted refusing AND passing.
+# allows are the same defect.
 RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
   let(:account) { create(:account) }
-  let(:local_path) { Dir.mktmpdir("d1-repo") }
-  let!(:repository) do
-    create(:git_repository, account: account, name: "core", metadata: { "local_path" => local_path })
+  let!(:repository) { create(:git_repository, account: account, name: "core") }
+  let(:base_path) { "/runner/work/core" }
+
+  # A stand-in with the provider contract, recording each call.
+  let(:executor_class) do
+    Class.new do
+      attr_reader :calls
+      attr_accessor :answer
+
+      def initialize
+        @calls = []
+      end
+
+      def dispatch!(account:, repositories:)
+        @calls << { account: account, repositories: repositories }
+        answer.respond_to?(:call) ? answer.call(account, repositories) : answer
+      end
+    end
   end
 
-  after { FileUtils.remove_entry(local_path) if Dir.exist?(local_path) }
-
-  def allow_root(path)
-    SiteSetting.set(described_class::ALLOWED_ROOT_SETTING, path, setting_type: "string", is_public: false)
+  let(:executor) do
+    executor_class.new.tap do |stand_in|
+      stand_in.answer = lambda do |_account, repos|
+        { status: "dispatched", run_ref: "lease-1",
+          repositories: repos.map { |repo| { id: repo.id, status: "dispatched" } } }
+      end
+    end
   end
 
-  def sweep_now = described_class.new(account: account).run!
-
-  # D1 review M3 added the discovery root. Most examples are not about it, so
-  # the working copy's own directory is the root unless an example says so.
-  before { allow_root(local_path) }
-
-  # The one external boundary: a subprocess (rubocop/tsc/eslint). Everything
-  # inside the service runs for real. One example below runs the REAL analyzer.
-  def stub_analysis(diagnostics, linters: { "RuboCop" => { status: "completed" } })
-    allow_any_instance_of(Ai::Codebase::StaticAnalysisService).to receive(:analyze).and_return(
-      success: true,
-      diagnostics: diagnostics,
-      summary: { total: diagnostics.size, errors: 0, warnings: 0, linters: linters }
-    )
+  def register(executor)
+    allow(Powernode::ExtensionRegistry).to receive(:provider).and_call_original
+    allow(Powernode::ExtensionRegistry).to receive(:provider)
+      .with(described_class::EXECUTOR_KEY).and_return(executor)
   end
 
-  def diagnostic(file: "app/models/thing.rb", rule: "Style/StringLiterals", severity: "info", line: 3)
-    { file: file, line: line, column: 1, severity: severity,
-      message: "Prefer double-quoted strings", rule: rule, linter: "RuboCop" }
+  def service = described_class.new(account: account)
+
+  def rubocop_json(offenses, path: "app/models/thing.rb")
+    {
+      "files" => [ { "path" => path, "offenses" => offenses } ],
+      "summary" => { "inspected_file_count" => 1, "offense_count" => offenses.size }
+    }.to_json
+  end
+
+  def offense(cop: "Style/StringLiterals", severity: "convention", line: 3)
+    { "severity" => severity, "message" => "Prefer double-quoted strings", "cop_name" => cop,
+      "location" => { "start_line" => line, "start_column" => 1 } }
+  end
+
+  def ran(output, exitstatus: 0) = { "status" => "ran", "exitstatus" => exitstatus, "output" => output }
+
+  def ingest(linters = { "ruby" => ran(rubocop_json([ offense ])) }, repo: repository, **options)
+    service.ingest!(repository: repo, linters: linters, base_path: base_path, **options)
   end
 
   def offers
     Ai::ImprovementRecommendation.where(account: account, recommendation_type: "code_lint")
   end
 
-  describe "the D1 oracle: one tick files one offer, a second tick files none" do
-    before { stub_analysis([ diagnostic ]) }
+  def audit_rows
+    AuditLog.where(action: Ai::Improvement::DiscoveryRun::ACTION, account_id: account.id)
+  end
 
-    it "files exactly one offer for a seeded lint violation" do
-      result = described_class.new(account: account).run!
+  describe "core mode: no executor registered" do
+    before { register(nil) }
 
-      expect(result[:status]).to eq("completed")
-      expect(result[:offers_created]).to eq(1)
-      expect(offers.count).to eq(1)
-      expect(offers.first.evidence["fingerprint"]).to eq("code_lint|app/models/thing.rb|Style/StringLiterals")
+    it "runs nothing, and skips the unit and every repository as no_discovery_executor" do
+      result = service.run!
+
+      expect(result).to include(phase: "dispatch", status: "skipped", skipped_reason: "no_discovery_executor")
+      expect(result[:repositories]).to contain_exactly(
+        hash_including(repository: "core", status: "skipped", reason: "no_discovery_executor")
+      )
+      expect(result[:repository_ids]).to be_empty
+    end
+  end
+
+  describe "dispatch" do
+    before { register(executor) }
+
+    it "hands the account's repositories, and no other account's, to the executor once" do
+      second = create(:git_repository, account: account, name: "docs")
+      create(:git_repository, account: create(:account), name: "theirs")
+
+      result = service.run!
+
+      expect(executor.calls.size).to eq(1)
+      expect(executor.calls.first[:account]).to eq(account)
+      expect(executor.calls.first[:repositories]).to contain_exactly(repository, second)
+      expect(result).to include(phase: "dispatch", status: "dispatched", run_ref: "lease-1")
+      expect(result[:repository_ids]).to contain_exactly(repository.id, second.id)
+      expect(result).not_to have_key(:skipped_reason)
     end
 
-    it "files zero NEW offers on a second tick and reports the dedupe" do
-      described_class.new(account: account).run!
-      second = described_class.new(account: account).run!
+    it "does not count a repository the executor never answered for as dispatched" do
+      create(:git_repository, account: account, name: "docs")
+      executor.answer = { status: "dispatched", run_ref: "lease-1",
+                          repositories: [ { id: repository.id, status: "dispatched" } ] }
 
-      expect(offers.count).to eq(1)
-      expect(second[:offers_created]).to eq(0)
-      expect(second[:offers_deduped]).to eq(1)
+      result = service.run!
+
+      expect(result[:repositories]).to contain_exactly(
+        hash_including(repository: "core", status: "dispatched"),
+        hash_including(repository: "docs", status: "skipped", reason: "not_reported_by_executor")
+      )
+      expect(result[:repository_ids]).to eq([ repository.id ])
+    end
+
+    it "records an executor's refusal, with its reason, on every repository" do
+      executor.answer = { status: "skipped", reason: "no_ci_runner_pool" }
+
+      result = service.run!
+
+      expect(result).to include(status: "skipped", skipped_reason: "no_ci_runner_pool")
+      expect(result[:repositories]).to contain_exactly(
+        hash_including(repository: "core", status: "skipped", reason: "no_ci_runner_pool")
+      )
+      expect(result[:repository_ids]).to be_empty
+    end
+
+    it "calls an answer outside the contract a failure, never a dispatch" do
+      executor.answer = { status: "queued" }
+
+      result = service.run!
+
+      expect(result).to include(status: "failed", failure: "unrecognised_executor_answer")
+      expect(result[:repository_ids]).to be_empty
+    end
+
+    it "records an executor that raises by exception class only" do
+      executor.answer = ->(*) { raise "planted /srv/secret path" }
+
+      result = service.run!
+
+      expect(result).to include(status: "failed", failure: "RuntimeError")
+      expect(result.to_json).not_to include("planted")
     end
   end
 
   describe "kill switch" do
-    before { stub_analysis([ diagnostic ]) }
+    before { register(executor) }
 
-    it "files nothing and says why when the account is suspended" do
+    it "dispatches nothing, and says why, when the account is suspended" do
       account.update!(ai_suspended: true)
 
-      result = described_class.new(account: account).run!
-
-      expect(result).to include(status: "skipped", skipped_reason: "ai_suspended")
-      expect(offers.count).to eq(0)
+      expect(service.run!).to include(status: "skipped", skipped_reason: "ai_suspended")
+      expect(executor.calls).to be_empty
     end
 
-    it "files when the account is NOT suspended" do
-      expect(described_class.new(account: account).run!).to include(status: "completed")
-      expect(offers.count).to eq(1)
+    it "dispatches when the account is not suspended" do
+      expect(service.run!).to include(status: "dispatched")
+      expect(executor.calls.size).to eq(1)
+    end
+
+    it "files nothing from a result that arrives after the switch was thrown" do
+      account.update!(ai_suspended: true)
+
+      expect(ingest).to include(phase: "ingest", status: "skipped", skipped_reason: "ai_suspended")
+      expect(offers.count).to eq(0)
     end
   end
 
   describe "environment ceiling" do
-    before { stub_analysis([ diagnostic ]) }
+    before { register(executor) }
+
+    def make_prod_default!
+      Ai::Environment.where(account: account).update_all(is_default: false)
+      Ai::Environment.find_by!(account: account, slug: "prod").update!(is_default: true)
+    end
 
     # Accounts are seeded with the DEFAULTS ladder, `dev` (tier 0) default.
-    it "runs in the default dev plane (tier 0, at the default ceiling)" do
-      result = described_class.new(account: account).run!
-
-      expect(result).to include(status: "completed", environment: "dev", environment_tier: 0)
-      expect(offers.count).to eq(1)
+    it "dispatches in the default dev plane (tier 0, at the default ceiling)" do
+      expect(service.run!).to include(status: "dispatched", environment: "dev", environment_tier: 0)
     end
 
-    it "refuses when the account's default plane sits above the ceiling" do
-      Ai::Environment.where(account: account).update_all(is_default: false)
-      Ai::Environment.find_by!(account: account, slug: "prod").update!(is_default: true)
+    it "refuses, before calling the executor, when the default plane sits above the ceiling" do
+      make_prod_default!
 
-      result = described_class.new(account: account).run!
-
-      expect(result).to include(status: "skipped", skipped_reason: "environment_tier_above_ceiling",
-                                environment: "prod", environment_tier: 3,
-                                environment_tier_ceiling: 0)
-      expect(offers.count).to eq(0)
+      expect(service.run!).to include(status: "skipped", skipped_reason: "environment_tier_above_ceiling",
+                                      environment: "prod", environment_tier: 3, environment_tier_ceiling: 0)
+      expect(executor.calls).to be_empty
     end
 
-    it "runs in a higher plane once the SiteSetting ceiling is raised" do
-      Ai::Environment.where(account: account).update_all(is_default: false)
-      Ai::Environment.find_by!(account: account, slug: "prod").update!(is_default: true)
+    it "dispatches in a higher plane once the SiteSetting ceiling is raised" do
+      make_prod_default!
       SiteSetting.set(described_class::MAX_TIER_SETTING, 3, setting_type: "integer")
 
-      expect(described_class.new(account: account).run!).to include(status: "completed", environment: "prod")
+      expect(service.run!).to include(status: "dispatched", environment: "prod")
+    end
+
+    it "files nothing from a result for an account now above the ceiling" do
+      make_prod_default!
+
+      expect(ingest).to include(status: "skipped", skipped_reason: "environment_tier_above_ceiling")
+      expect(offers.count).to eq(0)
+    end
+  end
+
+  # D1b ruling (c): one lease per account per tick, so one unit per account.
+  describe ".units" do
+    it "lists each active account once, and no inactive one" do
+      create(:git_repository, account: account, name: "docs")
+      empty = create(:account)
+      gone = create(:account)
+      gone.update!(status: "cancelled")
+
+      units = described_class.units
+
+      expect(units.count(account.id)).to eq(1)
+      expect(units).to include(empty.id)
+      expect(units).not_to include(gone.id)
+    end
+
+    it "says why, without calling the executor, when an account has no repository" do
+      register(executor)
+
+      expect(described_class.new(account: create(:account)).run!)
+        .to include(status: "skipped", skipped_reason: "no_repositories")
+      expect(executor.calls).to be_empty
+    end
+  end
+
+  describe "the D1 oracle through #ingest!: one result files one offer, a second files none" do
+    it "files exactly one offer for a seeded lint violation" do
+      result = ingest
+
+      expect(result).to include(phase: "ingest", status: "completed", offers_created: 1)
       expect(offers.count).to eq(1)
+      expect(offers.first.evidence["fingerprint"]).to eq("code_lint|app/models/thing.rb|Style/StringLiterals")
     end
-  end
 
-  describe "repository availability" do
-    before { stub_analysis([ diagnostic ]) }
+    it "files zero NEW offers from a second result and reports the dedupe" do
+      ingest
+      second = ingest
 
-    it "skips a repository with no local working copy WITH a reason, not silently" do
-      repository.update!(metadata: {})
+      expect(offers.count).to eq(1)
+      expect(second).to include(offers_created: 0, offers_deduped: 1)
+    end
 
-      result = described_class.new(account: account).run!
+    it "writes one audit row per result, carrying the whole summary" do
+      expect { ingest(run_ref: "lease-9") }.to change { audit_rows.count }.by(1)
 
-      expect(result).to include(status: "skipped", skipped_reason: "no_local_path")
-      expect(result[:repositories]).to contain_exactly(
-        hash_including(repository: "core", status: "skipped", reason: "no_local_path")
+      expect(audit_rows.last.metadata).to include(
+        "phase" => "ingest", "status" => "completed", "run_ref" => "lease-9", "findings" => 1,
+        "offers_created" => 1, "repository_ids" => [ repository.id ],
+        "linter_statuses" => { "core" => { "RuboCop" => "completed" } }
       )
-      expect(offers.count).to eq(0)
-    end
-
-    it "skips a local_path that does not exist on this node" do
-      repository.update!(metadata: { "local_path" => "/nonexistent/#{SecureRandom.hex(6)}" })
-
-      result = described_class.new(account: account).run!
-
-      expect(result[:repositories].first).to include(status: "skipped", reason: "no_local_path")
-      expect(offers.count).to eq(0)
-    end
-  end
-
-  # D1 review M3: the linters execute code from the directory they run in (a
-  # Gemfile, a .rubocop.yml `require:`, an eslint config), so the working copy
-  # must resolve inside the operator's root, symlinks followed.
-  describe "the discovery root" do
-    before { stub_analysis([ diagnostic ]) }
-
-    # The root is a filesystem path on the node. SiteSetting's is_public
-    # column defaults to TRUE in the database, so a writer that forgets the
-    # flag would publish it; the discovery prefix is forced private.
-    it "keeps the root setting private even when its writer forgets the flag" do
-      # The shared setup already wrote this key; start from no row so the
-      # write below is a fresh create with the flag left at its default.
-      SiteSetting.where(key: described_class::ALLOWED_ROOT_SETTING).delete_all
-      row = SiteSetting.create!(key: described_class::ALLOWED_ROOT_SETTING, value: "/srv/discovery",
-                                setting_type: "string")
-
-      expect(row.reload.is_public).to be(false)
-    end
-
-    it "analyses nothing, and says why, when no root is configured" do
-      SiteSetting.find_by(key: described_class::ALLOWED_ROOT_SETTING)&.destroy!
-
-      result = sweep_now
-
-      expect(result[:repositories].first).to include(status: "skipped", reason: "discovery_root_not_configured")
-      expect(offers.count).to eq(0)
-    end
-
-    it "refuses a working copy outside the root" do
-      other_root = Dir.mktmpdir("d1-other-root")
-      allow_root(other_root)
-
-      expect(sweep_now[:repositories].first)
-        .to include(status: "skipped", reason: "local_path_outside_discovery_root")
-      expect(offers.count).to eq(0)
-    ensure
-      FileUtils.remove_entry(other_root) if other_root && Dir.exist?(other_root)
-    end
-
-    it "refuses a symlink inside the root that points outside it" do
-      root = Dir.mktmpdir("d1-root")
-      outside = Dir.mktmpdir("d1-outside")
-      link = File.join(root, "escape")
-      File.symlink(outside, link)
-      allow_root(root)
-      repository.update!(metadata: { "local_path" => link })
-
-      expect(sweep_now[:repositories].first)
-        .to include(status: "skipped", reason: "local_path_outside_discovery_root")
-    ensure
-      [ root, outside ].each { |dir| FileUtils.remove_entry(dir) if dir && Dir.exist?(dir) }
-    end
-
-    it "keeps each account inside its own directory when the root names %{account_id}" do
-      base = Dir.mktmpdir("d1-tenants")
-      mine = FileUtils.mkdir_p(File.join(base, account.id, "core")).first
-      theirs = FileUtils.mkdir_p(File.join(base, create(:account).id, "core")).first
-      allow_root(File.join(base, "%{account_id}"))
-
-      repository.update!(metadata: { "local_path" => theirs })
-      refused = sweep_now
-      repository.update!(metadata: { "local_path" => mine })
-      allowed = sweep_now
-
-      expect(refused[:repositories].first).to include(status: "skipped", reason: "local_path_outside_discovery_root")
-      expect(allowed[:repositories].first).to include(status: "analyzed")
-    ensure
-      FileUtils.remove_entry(base) if base && Dir.exist?(base)
     end
   end
 
   # The audit's §4.2 finding for code_static_analysis: the headline `errors: 0`
-  # discards a `no_gemfile | no_output` status, so "nothing ran" reads exactly
-  # like "nothing found". This service must not repeat that.
+  # discards a did-not-run status, so "nothing ran" reads like "nothing found".
   describe "a linter that did not run is not a clean sweep" do
-    it "reports a degraded analyzer and a not-measured run rather than an empty, healthy-looking one" do
-      stub_analysis([], linters: { "RuboCop" => { status: "no_gemfile" } })
+    it "reads a linter the runner could not run as not measured, and lists it degraded" do
+      result = ingest({ "ruby" => { "status" => "unavailable" } })
 
-      result = described_class.new(account: account).run!
-
-      expect(result[:status]).to eq("not_measured")
-      expect(result[:findings]).to eq(0)
+      expect(result).to include(status: "not_measured", findings: 0)
       expect(result[:repositories].first).to include(status: "not_measured", reason: "no_linter_ran")
       expect(result[:analyzers_degraded]).to contain_exactly(
-        hash_including(repository: "core", analyzer: "RuboCop", status: "no_gemfile")
+        hash_including(repository: "core", analyzer: "RuboCop", status: "unavailable")
       )
+      expect(offers.count).to eq(0)
     end
 
-    it "reads a linter that timed out as not measured" do
-      stub_analysis([], linters: { "RuboCop" => { status: "timeout" } })
+    it "reads output that is not rubocop's JSON as a parse error, not as zero findings" do
+      result = ingest({ "ruby" => ran("Could not find gem 'rubocop'") })
 
-      expect(sweep_now[:status]).to eq("not_measured")
+      expect(result[:status]).to eq("not_measured")
+      expect(result[:linter_statuses]).to eq({ "core" => { "RuboCop" => "parse_error" } })
     end
 
-    it "reports NO degraded analyzer when the linter genuinely completed clean" do
-      stub_analysis([], linters: { "RuboCop" => { status: "completed" } })
-
-      result = described_class.new(account: account).run!
-
-      expect(result[:status]).to eq("completed")
-      expect(result[:findings]).to eq(0)
-      expect(result[:analyzers_degraded]).to be_empty
-    end
-
-    # D1 review H3 and L3. With no linter detected the analyzer returns an EMPTY
-    # linter map, and that used to read as a clean sweep. This runs the REAL
-    # analyzer through the service's own no-argument call, on a working copy
-    # with nothing to lint.
-    it "calls a working copy with no linter at all not measured, through the real analyzer" do
-      result = sweep_now
+    it "calls a result that reports no linter at all not measured" do
+      result = ingest({})
 
       expect(result[:status]).to eq("not_measured")
       expect(result[:repositories].first).to include(status: "not_measured", reason: "no_linter_detected")
       expect(result[:analyzers_degraded]).to contain_exactly(
         hash_including(repository: "core", analyzer: "lint", status: "no_linter_detected")
       )
-      expect(offers.count).to eq(0)
+    end
+
+    it "reports a genuinely clean run as completed with nothing degraded" do
+      result = ingest({ "ruby" => ran(rubocop_json([])) })
+
+      expect(result).to include(status: "completed", findings: 0)
+      expect(result[:analyzers_degraded]).to be_empty
     end
   end
 
-  # D1 review H2: the door runs one unit per call.
-  describe ".units and one repository per run" do
-    it "lists one unit per repository and one for an active account with none, skipping inactive accounts" do
-      second = create(:git_repository, account: account, name: "docs", metadata: {})
-      empty = create(:account)
-      gone = create(:account)
-      gone.update!(status: "cancelled")
-      create(:git_repository, account: gone, name: "left-behind")
+  describe "paths" do
+    it "reports an eslint finding relative to the directory the linters ran in" do
+      eslint = [ { "filePath" => "#{base_path}/src/app.js",
+                   "messages" => [ { "line" => 2, "column" => 1, "severity" => 2,
+                                     "message" => "x is unused", "ruleId" => "no-unused-vars" } ] } ].to_json
 
-      units = described_class.units
+      ingest({ "javascript_lint" => ran(eslint) })
 
-      expect(units.select { |account_id, _| account_id == account.id })
-        .to eq([ [ account.id, repository.id ], [ account.id, second.id ] ])
-      expect(units).to include([ empty.id, nil ])
-      expect(units.map(&:first)).not_to include(gone.id)
+      expect(offers.first.evidence["fingerprint"]).to eq("code_lint|src/app.js|no-unused-vars")
+    end
+  end
+
+  describe "tenancy" do
+    it "refuses a repository of another account, and files nothing" do
+      theirs = create(:git_repository, account: create(:account), name: "theirs")
+
+      expect { ingest(repo: theirs) }.to raise_error(ArgumentError, /does not belong/)
+      expect(Ai::ImprovementRecommendation.where(recommendation_type: "code_lint").count).to eq(0)
     end
 
-    it "runs only the named repository" do
-      stub_analysis([ diagnostic ])
-      other = create(:git_repository, account: account, name: "docs", metadata: { "local_path" => local_path })
+    it "files for the account's own repository" do
+      expect(ingest).to include(status: "completed", offers_created: 1)
+    end
+  end
 
-      result = described_class.new(account: account).run!(repository_id: other.id)
+  # D1b ruling (a): the callback payload must carry no credential.
+  describe "the credential the runner was given" do
+    let(:credential) { "gta_#{SecureRandom.hex(20)}" }
 
-      expect(result[:repositories].map { |row| row[:repository] }).to eq([ "docs" ])
+    it "files nothing when the handed-back output carries it, and records only the fact" do
+      output = rubocop_json([ offense ]).sub("Prefer double-quoted strings", "token=#{credential}")
+
+      result = ingest({ "ruby" => ran(output) }, must_not_contain: [ credential ])
+
+      expect(result).to include(status: "failed", failure: "credential_in_payload")
+      expect(offers.count).to eq(0)
+      expect(audit_rows.last.metadata.to_json).not_to include(credential)
     end
 
-    it "says why when an account has no repository" do
-      result = described_class.new(account: create(:account)).run!
-
-      expect(result).to include(status: "skipped", skipped_reason: "no_repositories")
+    it "files normally when the output does not carry it" do
+      expect(ingest(must_not_contain: [ credential ])).to include(status: "completed", offers_created: 1)
     end
   end
 
   describe "grouping and bounding" do
     it "files one offer per (file, rule), carrying the occurrence count" do
-      stub_analysis([
-        diagnostic(line: 3), diagnostic(line: 9), diagnostic(line: 14),
-        diagnostic(rule: "Layout/LineLength", line: 20)
-      ])
+      ingest({ "ruby" => ran(rubocop_json([ offense(line: 3), offense(line: 9), offense(line: 14),
+                                            offense(cop: "Layout/LineLength", line: 20) ])) })
 
-      result = described_class.new(account: account).run!
-
-      expect(result[:offers_created]).to eq(2)
-      offer = offers.find { |o| o.evidence["fingerprint"].end_with?("Style/StringLiterals") }
-      expect(offer.evidence["verifier_evidence"]["occurrences"]).to eq(3)
-      expect(offer.evidence["verifier_evidence"]["lines"]).to eq([ 3, 9, 14 ])
+      expect(offers.count).to eq(2)
+      grouped = offers.find { |o| o.evidence["fingerprint"].end_with?("Style/StringLiterals") }
+      expect(grouped.evidence["verifier_evidence"]).to include("occurrences" => 3, "lines" => [ 3, 9, 14 ])
     end
 
-    it "caps offers per run at the SiteSetting bound, keeping the most severe" do
+    it "caps offers per result at the SiteSetting bound, keeping the most severe" do
       SiteSetting.set(described_class::MAX_OFFERS_SETTING, 2, setting_type: "integer")
-      stub_analysis([
-        diagnostic(rule: "Info/One", severity: "info"),
-        diagnostic(rule: "Err/One", severity: "error"),
-        diagnostic(rule: "Warn/One", severity: "warning")
-      ])
 
-      result = described_class.new(account: account).run!
+      result = ingest({ "ruby" => ran(rubocop_json([ offense(cop: "Info/One", severity: "convention"),
+                                                     offense(cop: "Err/One", severity: "error"),
+                                                     offense(cop: "Warn/One", severity: "warning") ])) })
 
-      expect(result[:findings]).to eq(3)
-      expect(result[:offers_created]).to eq(2)
-      expect(offers.map { |o| o.evidence["fingerprint"].split("|").last })
-        .to contain_exactly("Err/One", "Warn/One")
+      expect(result).to include(findings: 3, offers_created: 2)
+      expect(offers.map { |o| o.evidence["fingerprint"].split("|").last }).to contain_exactly("Err/One", "Warn/One")
     end
   end
 
-  # VERIFY BY EXECUTION, not by name: the examples above stub the subprocess, so
-  # on their own they prove the wiring is "plumbed" and nothing more. This one
-  # runs the REAL StaticAnalysisService against a real file with a real,
-  # named violation and asserts on THAT rule reaching the offer queue.
-  describe "end to end against the real analyzer", :slow do
-    # The offending file lives under the repo's own tmp/ and the analyzer is
-    # pointed at the FILE, not its directory: rubocop's default AllCops/Exclude
-    # drops tmp/**/* when a directory is expanded, but honours an explicitly
-    # named file. Verified by running both forms before writing this.
-    #
-    # The cops asserted below are the ones this repo's omakase config actually
-    # enables, established by running rubocop rather than assumed — most of its
-    # enabled cops emit `convention`, which StaticAnalysisService maps to
-    # `info`. That is precisely why the service files findings at every
-    # severity: an error/warning-only floor would leave a discovery loop that
-    # mechanically cannot find anything in this codebase.
+  # VERIFY BY EXECUTION: the examples above hand #ingest! synthetic JSON. This
+  # one hands it the output of a REAL rubocop run on a real file with named
+  # violations, as a runner would, and asserts on those cops reaching the queue.
+  describe "end to end with a real rubocop's output", :slow do
+    # The offending file lives under the repo's own tmp/ and rubocop is pointed
+    # at the FILE: its default AllCops/Exclude drops tmp/**/* when a directory
+    # is expanded, but honours an explicitly named file. The asserted cops are
+    # the ones this repo's omakase config enables.
     it "turns actual rubocop offences into offers naming those cops" do
-      probe_dir = Rails.root.join("tmp", "d1-analyzer-#{SecureRandom.hex(4)}")
+      probe_dir = Rails.root.join("tmp", "d1b-analyzer-#{SecureRandom.hex(4)}")
       FileUtils.mkdir_p(probe_dir)
       offender = probe_dir.join("offender.rb")
       File.write(offender, "x = [1,2]\nputs x\n")
-      repository.update!(metadata: { "local_path" => Rails.root.to_s })
-      allow_root(Rails.root.to_s)
+      relative = offender.relative_path_from(Rails.root).to_s
 
       begin
-        relative = offender.relative_path_from(Rails.root).to_s
-        allow_any_instance_of(Ai::Codebase::StaticAnalysisService)
-          .to receive(:analyze).and_wrap_original { |m, **| m.call(path: relative, linters: [ "ruby" ]) }
-
-        result = described_class.new(account: account).run!
+        output, status = Open3.capture2("bundle", "exec", "rubocop", "--format", "json", relative,
+                                        chdir: Rails.root.to_s)
+        result = service.ingest!(repository: repository, base_path: Rails.root.to_s,
+                                 linters: { "ruby" => ran(output, exitstatus: status.exitstatus) })
 
         expect(result[:status]).to eq("completed")
         rules = offers.map { |o| o.evidence["verifier_evidence"]["rule"] }
         expect(rules).to contain_exactly("Layout/SpaceInsideArrayLiteralBrackets", "Layout/SpaceAfterComma")
-        expect(offers.first.evidence["files"].first).to include("offender.rb")
+        expect(offers.first.evidence["files"]).to eq([ relative ])
 
         # Two offences of the same cop in one file are ONE offer, counted.
         grouped = offers.find { |o| o.evidence["verifier_evidence"]["rule"] == "Layout/SpaceInsideArrayLiteralBrackets" }

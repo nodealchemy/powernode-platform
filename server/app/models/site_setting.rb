@@ -30,9 +30,8 @@ class SiteSetting < ApplicationRecord
   # than rejected: rejecting would raise inside the seed file's shared rescue
   # and silently skip every setting seeded after it.
   #
-  # `ai.improvement_discovery` joined with D1's review fixes: its allowed-root
-  # setting is a filesystem path on the node, and its tier and offer caps are
-  # operator configuration, not anything a public page needs.
+  # `ai.improvement_discovery` joined with D1's review fixes: its tier and
+  # offer caps are operator configuration, not anything a public page needs.
   PRIVATE_KEY_PREFIXES = %w[platform.status. ai.improvement_discovery].freeze
   before_validation :keep_private_namespace_private
 

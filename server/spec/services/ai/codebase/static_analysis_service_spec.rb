@@ -94,4 +94,61 @@ RSpec.describe Ai::Codebase::StaticAnalysisService do
       expect(service.analyze[:summary][:linters]).to eq({})
     end
   end
+
+  # D1b: the parser, apart from the runner. Output a leased runner hands back is
+  # parsed exactly like output from a local run, with paths relative to the
+  # directory the linter ran in.
+  describe ".parse_output" do
+    let(:base) { "/runner/work/core" }
+
+    def parse(key, output, exitstatus: 0)
+      described_class.parse_output(key, output: output, exitstatus: exitstatus, base_path: base)
+    end
+
+    it "turns rubocop's JSON into diagnostics with paths relative to where it ran" do
+      json = { "files" => [ { "path" => "app/models/thing.rb", "offenses" => [
+                 { "severity" => "convention", "message" => "m", "cop_name" => "Style/StringLiterals",
+                   "location" => { "start_line" => 3, "start_column" => 5 } }
+               ] } ],
+               "summary" => { "inspected_file_count" => 1, "offense_count" => 1 } }.to_json
+
+      result = parse(:ruby, json)
+
+      expect(result[:summary]).to include(status: "completed", offenses: 1)
+      expect(result[:diagnostics]).to contain_exactly(
+        hash_including(file: "app/models/thing.rb", line: 3, severity: "info", rule: "Style/StringLiterals")
+      )
+    end
+
+    it "makes an absolute eslint path relative to where it ran" do
+      json = [ { "filePath" => "#{base}/src/a.js",
+                 "messages" => [ { "line" => 1, "column" => 1, "severity" => 1, "message" => "m", "ruleId" => "semi" } ] } ].to_json
+
+      expect(parse(:javascript_lint, json)[:diagnostics].first).to include(file: "src/a.js", severity: "warning")
+    end
+
+    it "reads output that is not the linter's JSON as a parse error, never as clean" do
+      expect(parse(:ruby, "Could not find gem 'rubocop'")[:summary][:status]).to eq("parse_error")
+      expect(parse(:ruby, "[1, 2]")[:summary][:status]).to eq("parse_error")
+      expect(parse(:javascript_lint, "{}")[:summary][:status]).to eq("parse_error")
+    end
+
+    it "calls a silent tsc clean only on a zero exit, and not when no exit status arrived" do
+      expect(parse(:typescript, "", exitstatus: 0)[:summary][:status]).to eq("clean")
+      expect(parse(:typescript, "", exitstatus: 2)[:summary][:status]).to eq("no_output")
+      expect(parse(:typescript, "", exitstatus: nil)[:summary][:status]).to eq("no_output")
+    end
+
+    it "parses tsc's error lines" do
+      output = "src/a.ts(4,7): error TS2322: Type 'x' is not assignable.\n"
+
+      expect(parse(:typescript, output, exitstatus: 2)[:diagnostics]).to contain_exactly(
+        hash_including(file: "src/a.ts", line: 4, rule: "TS2322", severity: "error")
+      )
+    end
+
+    it "names an unknown linter rather than guessing" do
+      expect(parse(:cobol, "anything")[:summary][:status]).to eq("unknown_linter")
+    end
+  end
 end
