@@ -27,6 +27,7 @@ export type StepState =
   | 'approved'
   | 'rejected'
   | 'delegated'
+  | 'delegated_current'
   | 'current'
   | 'not_reached'
   | 'undecided'
@@ -36,6 +37,7 @@ const STEP_PRESENTATION: Record<StepState, { label: string; variant: BadgeVarian
   approved: { label: 'approved', variant: 'success' },
   rejected: { label: 'rejected', variant: 'danger' },
   delegated: { label: 'delegated', variant: 'info' },
+  delegated_current: { label: 'delegated — awaiting decision', variant: 'info' },
   current: { label: 'awaiting decision', variant: 'warning' },
   not_reached: { label: 'not reached', variant: 'outline' },
   undecided: { label: 'not decided', variant: 'outline' },
@@ -57,7 +59,12 @@ export const deriveStepState = (
     case 'rejected':
       return 'rejected';
     case 'delegated':
-      return 'delegated';
+      // `process_decision` marks the step delegated but leaves the request
+      // pending AT THIS STEP, and `can_approve?` still admits the step's
+      // approvers (approval_request.rb:332-334). So on a pending request the
+      // current delegated step is still the one awaiting a decision, and reads
+      // as such — badge, aria-current and header agree (C3b1 review F6).
+      return requestStatus === 'pending' && index === currentStep ? 'delegated_current' : 'delegated';
     case 'pending':
       if (requestStatus !== 'pending') return 'undecided';
       if (index === currentStep) return 'current';
@@ -132,7 +139,7 @@ export const ApprovalChainSteps: React.FC<ApprovalChainStepsProps> = ({
               key={index}
               data-step={index}
               data-step-state={state}
-              aria-current={state === 'current' ? 'step' : undefined}
+              aria-current={state === 'current' || state === 'delegated_current' ? 'step' : undefined}
               className="rounded-md border border-theme p-3"
             >
               <div className="flex items-center justify-between gap-2">

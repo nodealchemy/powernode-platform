@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useLiveApprovalQueue, isApprovalNotification, APPROVAL_POLL_MS } from './useLiveApprovalQueue';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { usePolling } from '@/shared/hooks/usePolling';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 
 // C3b oracle: "a new approval appears without reload".
 //
@@ -99,6 +100,64 @@ describe('useLiveApprovalQueue', () => {
 
     await waitFor(() => expect(ids(result.current.data)).toEqual(['req-1', 'req-2']));
     expect(result.current.lastPushAt).not.toBeNull();
+  });
+
+  it('ignores an approval-shaped message on ANOTHER channel of the same page type (C3b1 review F4)', async () => {
+    // An extension channel registered for the 'dashboard' page type rides the
+    // same onDataUpdate. Without the channel check, its approval-shaped message
+    // would refetch the queue and claim a push.
+    featureRegistry.registerChannels('probe', [
+      { key: 'probeExt', channelName: 'ProbeExtChannel', defaultPageTypes: ['dashboard'] } as never,
+    ]);
+    try {
+      mockGet.mockResolvedValue({ data: { data: [row('req-1')] } });
+      const { result } = renderHook(() => useLiveApprovalQueue(), { wrapper: makeWrapper() });
+      await waitFor(() => expect(ids(result.current.data)).toEqual(['req-1']));
+
+      const extension = subscriptions.filter((sub) => sub.channel === 'ProbeExtChannel').pop();
+      expect(extension).toBeDefined();
+      const readsBefore = mockGet.mock.calls.length;
+
+      act(() => extension!.onMessage(approvalNotification('req-x')));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockGet.mock.calls.length).toBe(readsBefore);
+      expect(result.current.lastPushAt).toBeNull();
+    } finally {
+      featureRegistry.clear();
+    }
+  });
+
+  it('reads once on reconnect, so a push lost while the cable was down does not wait for the poll (C3b1 review F5)', async () => {
+    let connected = true;
+    const subscribe = jest.fn((sub: CapturedSubscription) => {
+      subscriptions.push(sub);
+      return jest.fn();
+    });
+    mockedWebSocket.mockImplementation(
+      () => ({ isConnected: connected, error: null, subscribe }) as unknown as ReturnType<typeof useWebSocket>
+    );
+    mockGet.mockResolvedValue({ data: { data: [row('req-1')] } });
+    const { result, rerender } = renderHook(() => useLiveApprovalQueue(), { wrapper: makeWrapper() });
+    await waitFor(() => expect(ids(result.current.data)).toEqual(['req-1']));
+
+    connected = false;
+    rerender();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const readsWhileDown = mockGet.mock.calls.length;
+
+    mockGet.mockResolvedValue({ data: { data: [row('req-1'), row('req-raised-during-outage')] } });
+    connected = true;
+    rerender();
+
+    await waitFor(() => expect(mockGet.mock.calls.length).toBeGreaterThan(readsWhileDown));
+    await waitFor(() =>
+      expect(ids(result.current.data)).toEqual(['req-1', 'req-raised-during-outage'])
+    );
   });
 
   it('ignores notifications that are not about an approval', async () => {

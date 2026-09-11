@@ -118,6 +118,34 @@ describe('ApprovalChainSteps', () => {
     expect(screen.getByText('escalated')).toBeInTheDocument();
   });
 
+  it('reads a delegated CURRENT step as still awaiting a decision, consistently (C3b1 review F6)', () => {
+    render(
+      <ApprovalChainSteps
+        currentStep={1}
+        requestStatus="pending"
+        stepStatuses={[step({ step_number: 0, status: 'approved' }), step({ step_number: 1, status: 'delegated' })]}
+      />
+    );
+
+    expect(states()).toEqual(['approved', 'delegated_current']);
+    expect(screen.getByText('delegated — awaiting decision')).toBeInTheDocument();
+    expect(document.querySelector('[aria-current="step"]')?.getAttribute('data-step')).toBe('1');
+    expect(screen.getByText('Step 2 of 2 is awaiting a decision.')).toBeInTheDocument();
+  });
+
+  it('reads a delegated step on a request that is over as plainly delegated, not current', () => {
+    render(
+      <ApprovalChainSteps
+        currentStep={0}
+        requestStatus="expired"
+        stepStatuses={[step({ step_number: 0, status: 'delegated' })]}
+      />
+    );
+
+    expect(states()).toEqual(['delegated']);
+    expect(document.querySelector('[aria-current="step"]')).toBeNull();
+  });
+
   it('says so when a request reported no steps, instead of inventing one', () => {
     render(<ApprovalChainSteps currentStep={0} requestStatus="pending" stepStatuses={[]} />);
 

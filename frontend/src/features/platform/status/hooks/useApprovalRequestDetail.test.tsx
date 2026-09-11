@@ -62,4 +62,58 @@ describe('useApprovalRequestDetail', () => {
     });
     expect(result.current.detail?.id).toBe('req-2');
   });
+
+  it('clears the previous request while the next one loads (C3b1 review F2)', async () => {
+    const second = deferred<ApprovalRequestDetail>();
+    mockedApi.fetchApprovalRequestDetail.mockImplementation((id: string) =>
+      id === 'req-A' ? Promise.resolve(detail('req-A', 0)) : second.promise
+    );
+    const { result, rerender } = renderHook(({ id }) => useApprovalRequestDetail(id), {
+      initialProps: { id: 'req-A' },
+    });
+    await waitFor(() => expect(result.current.detail?.id).toBe('req-A'));
+
+    rerender({ id: 'req-B' });
+    // req-A's chain must be GONE while req-B loads, not merely about to be replaced.
+    expect(result.current.detail).toBeNull();
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      second.resolve(detail('req-B', 0));
+    });
+    expect(result.current.detail?.id).toBe('req-B');
+  });
+
+  it('clears the previous STEP while the new step loads (C3b1 review F2)', async () => {
+    const next = deferred<ApprovalRequestDetail>();
+    mockedApi.fetchApprovalRequestDetail
+      .mockImplementationOnce(async (id: string) => detail(id, 0))
+      .mockImplementationOnce(() => next.promise);
+    const { result, rerender } = renderHook(
+      ({ step }) => useApprovalRequestDetail('req-1', { currentStep: step, status: 'pending' }),
+      { initialProps: { step: 0 } }
+    );
+    await waitFor(() => expect(result.current.detail?.current_step).toBe(0));
+
+    rerender({ step: 1 });
+    expect(result.current.detail).toBeNull();
+
+    await act(async () => {
+      next.resolve(detail('req-1', 1));
+    });
+    expect(result.current.detail?.current_step).toBe(1);
+  });
+
+  it('re-reads when only the STATUS moves — a final approval leaves current_step in place (C3b1 review F3)', async () => {
+    mockedApi.fetchApprovalRequestDetail.mockImplementation(async (id: string) => detail(id, 2));
+    const { rerender } = renderHook(
+      ({ status }) => useApprovalRequestDetail('req-1', { currentStep: 2, status }),
+      { initialProps: { status: 'pending' } }
+    );
+    await waitFor(() => expect(mockedApi.fetchApprovalRequestDetail).toHaveBeenCalledTimes(1));
+
+    rerender({ status: 'approved' });
+
+    await waitFor(() => expect(mockedApi.fetchApprovalRequestDetail).toHaveBeenCalledTimes(2));
+  });
 });

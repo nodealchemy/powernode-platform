@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApprovalQueue } from '@/features/ai/autonomy/api/autonomyApi';
 import { usePageWebSocket, type WebSocketDataUpdate } from '@/shared/hooks/usePageWebSocket';
 import { usePolling } from '@/shared/hooks/usePolling';
@@ -68,6 +68,15 @@ export function useLiveApprovalQueue() {
     subscribeToNotifications: true,
     onDataUpdate,
   });
+
+  // A push sent while the cable was down is LOST, not queued: ActionCable does
+  // not replay a stream. One read on reconnect, so a request raised during the
+  // outage does not wait for the next poll tick (C3b1 review F5).
+  const wasConnected = useRef(isConnected);
+  useEffect(() => {
+    if (isConnected && !wasConnected.current) refresh();
+    wasConnected.current = isConnected;
+  }, [isConnected, refresh]);
 
   usePolling(refresh, APPROVAL_POLL_MS, { deps: [refresh] });
 
