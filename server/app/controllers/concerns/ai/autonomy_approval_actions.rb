@@ -41,6 +41,9 @@ module Ai
         payload = ::Ai::SensitiveParams.batch { serialize_approval_request(request.reload, detailed: true) }
         render_success(data: with_revealed_result(request, payload))
       else
+        # L9: a refusal the decider can act on is named; any other stays generic.
+        return render_error(request.decision_refusal, status: :forbidden) if request.decision_refusal
+
         render_error("Cannot approve this request", status: :unprocessable_content)
       end
     rescue ActiveRecord::RecordNotFound

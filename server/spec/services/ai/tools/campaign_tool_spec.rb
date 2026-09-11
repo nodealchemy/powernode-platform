@@ -540,13 +540,22 @@ RSpec.describe Ai::Tools::CampaignTool do
         expect(resume_decisions.sole.user_id).to eq(user.id)
       end
 
-      it "runs nothing when the confirming person does not hold ai.campaigns.manage" do
+      # L9: the replay runs AS the confirming person, so a person without
+      # ai.campaigns.manage cannot complete the request. The approval is refused
+      # before it is recorded, by that person's name, and the request stays
+      # pending for someone who holds it.
+      it "refuses the confirming approval of a person without ai.campaigns.manage, by name, and runs nothing" do
         parked = resume_as(described_class.new(account: account, user: user))
-        reader = create(:user, account: account, permissions: %w[ai.campaigns.read])
+        reader = create(:user, account: account, name: "Rae Reader", permissions: %w[ai.campaigns.read])
+        request = Ai::ApprovalRequest.find(parked[:data][:approval_request_id])
 
-        result = confirm!(parked, as: reader)
+        approved = Ai::Autonomy::ApprovalWorkflowService.new(account: account)
+                                                       .approve(request: request, approver: reader,
+                                                                origin: Ai::ApprovalDecision::REST_SESSION)
 
-        expect(result).to include(refused: true, reason: "permission_revoked")
+        expect(approved).to be(false)
+        expect(request.decision_refusal).to include("Rae Reader", "ai.campaigns.manage")
+        expect(request.reload.status).to eq("pending")
         expect(campaign.reload.status).to eq("completed")
         expect(resume_decisions).to be_empty
       end

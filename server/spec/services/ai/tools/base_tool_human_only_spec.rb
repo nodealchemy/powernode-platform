@@ -199,6 +199,48 @@ RSpec.describe "BaseTool human_only actions (MCP identity plan R2)" do
       expect(@result[:success]).to be(false)
       expect(sightings).to be_empty
     end
+
+    # L9. The person whose approval completes a human-only request is who the
+    # action replays AS, so a person without the permission it runs under must
+    # not spend it: the decision is refused by that person's name, nothing is
+    # recorded, and the request stays pending for someone who holds it.
+    it "refuses a completing approval from a person without the action's permission, by name, and leaves it pending" do
+      bystander = create(:user, account: account, name: "Pat Bystander", permissions: [ "ai.autonomy.approve" ])
+      operation = park!(tool_for(origin: "mcp_oauth", user: requester))
+      request = operation.approval_request
+
+      expect(workflow.approve(request: request, approver: bystander,
+                              origin: Ai::ApprovalDecision::REST_SESSION)).to be(false)
+
+      expect(request.decision_refusal).to include("Pat Bystander", "ai.agents.manage")
+      expect(request.reload.status).to eq("pending")
+      expect(request.decisions.count).to eq(0)
+      expect(operation.reload.status).to eq("pending")
+      expect(sightings).to be_empty
+
+      # The other arm, on the same request: a person who holds it completes it.
+      expect(workflow.approve(request: request, approver: confirmer,
+                              origin: Ai::ApprovalDecision::REST_SESSION)).to be(true)
+      expect(sightings).to eq([ { action: "spec_human_write", user_id: confirmer.id, agent_id: nil } ])
+    end
+
+    # An approval that reached "approved" another way (a row written before the
+    # check above, or a permission revoked in between) is still refused at replay,
+    # and the refusal names the person who approved, not the principal that asked.
+    it "names the approving person, not the requester, when the replay refuses them for the permission" do
+      bystander = create(:user, account: account, name: "Pat Bystander", permissions: [ "ai.autonomy.approve" ])
+      operation = park!(tool_for(origin: "mcp_oauth", user: requester))
+      request = operation.approval_request
+      request.decisions.create!(approver: bystander, step_number: 0, decision: "approved",
+                                origin: Ai::ApprovalDecision::REST_SESSION)
+
+      request.approve!
+
+      expect(operation.reload.result).to include("refused" => true, "reason" => "permission_revoked")
+      expect(operation.result["error"]).to include("Pat Bystander")
+      expect(operation.result["error"]).not_to include("requested")
+      expect(sightings).to be_empty
+    end
   end
 
   describe ".declare_action" do

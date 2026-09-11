@@ -154,13 +154,23 @@ module Ai
       approvers.any? { |spec| approver_matches?(spec, user) }
     end
 
+    # Why this instance's last #record_decision! refused, when the person
+    # deciding can act on the reason: an approval that would complete the
+    # request, from someone its source says may not complete it (L9). nil
+    # otherwise. In memory only: the caller that decided holds this instance.
+    attr_reader :decision_refusal
+
     # `origin` names the door the decision came through (Ai::ApprovalDecision
     # ORIGINS), and the decision row records it. A requires_human_session
     # request accepts a decision only from a person's own session. Every other
     # door, and a caller that names none, is refused (fail closed). `agent` is
     # the agent a tool door carries: the principal that asked for a tool-door
-    # request does not decide it (#requester_excluded?).
+    # request does not decide it (#requester_excluded?). An approval that would
+    # complete the request is refused, by the decider's name, when the source
+    # says that person may not complete it (L9): a human-only tool call
+    # replays AS them.
     def record_decision!(approver:, decision:, comments: nil, conditions: {}, origin: nil, agent: nil)
+      @decision_refusal = nil
       return false unless human_session_satisfied?(origin)
       return false if requester_excluded?(approver: approver, origin: origin, agent: agent)
       return false unless can_approve?(approver)
@@ -173,6 +183,12 @@ module Ai
       announce = false
       result = with_lock do
         next false unless can_approve?(approver)
+
+        # Before the row is written, so a refused decision spends nothing.
+        if decision == "approved" && completes_on_approval?
+          @decision_refusal = completing_decider_refusal(approver)
+          next false if @decision_refusal
+        end
 
         step_before = current_step
         next false unless insert_decision(approver, decision, comments, conditions, origin)
@@ -249,6 +265,29 @@ module Ai
 
     def human_session_satisfied?(origin)
       !requires_human_session? || ::Ai::ApprovalDecision.human_session_origin?(origin)
+    end
+
+    # One more approval on the current step resolves the request: it is the
+    # last step, one approval short of its tally (#process_decision's rule).
+    def completes_on_approval?
+      step = step_statuses.to_a[current_step]
+      return false unless step.is_a?(Hash) && current_step >= step_statuses.length - 1
+
+      approvals = decisions.where(step_number: current_step, decision: "approved").count
+      approvals + 1 >= step["required_approvals"].to_i
+    end
+
+    # The source's answer to "may this person's approval complete you", asked
+    # the way #notify_source_of_decision asks it to act. A source that does not
+    # answer has no objection.
+    def completing_decider_refusal(approver)
+      return nil if source_type.blank? || source_id.blank?
+
+      klass = source_type.safe_constantize
+      return nil unless klass.respond_to?(:find_by)
+
+      source = klass.find_by(id: source_id)
+      source.respond_to?(:approval_decider_refusal) ? source.approval_decider_refusal(approver) : nil
     end
 
     def approver_matches?(spec, user)

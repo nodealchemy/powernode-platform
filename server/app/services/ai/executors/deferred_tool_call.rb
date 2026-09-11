@@ -118,9 +118,7 @@ module Ai
           end
 
           unless authorized?(principal_ctx, tool_class, call["action"])
-            return refuse(REASON_PERMISSION_REVOKED,
-                          "the principal that requested this action no longer holds the " \
-                          "permission it was authorised under")
+            return refuse(REASON_PERMISSION_REVOKED, permission_refusal_message(call, principal_ctx))
           end
 
           replay(tool_class, principal_ctx, account, call, deferred_operation)
@@ -156,7 +154,49 @@ module Ai
           }
         end
 
+        # L9: a human-only call replays AS the person whose approval completes
+        # its request (#confirming_caller), so that person must hold the
+        # permission the action runs under, resolved the way the MCP door
+        # resolves it (the action's own, then the tool's floor). A floor check
+        # would let someone who cannot run the action spend the request, and the
+        # tool's own check would refuse it only at replay.
+        # Ai::ApprovalRequest#record_decision! asks before it records a
+        # completing approval, so the refusal names the person deciding and the
+        # request stays pending for someone who holds the permission. nil for a
+        # call that replays as its requester, and for a decider who may complete it.
+        def approval_decider_refusal(params, approver:, deferred_operation: nil)
+          call = normalize(params)
+          return nil unless call["human_only"] == true && approver
+
+          tool_class = replayable_tool_class(call["tool_class"])
+          # The replay refuses an unreplayable tool whoever decides it.
+          return nil if tool_class.nil?
+
+          required = ::Ai::Tools::McpPlatformToolRegistrar.resolved_permission_for(tool_class, call["action"])
+          return nil if required.nil? || approver.has_permission?(required)
+
+          "#{person_name(approver)} does not hold #{required}, which this action runs under as the person " \
+            "whose approval completes it. The request stays pending for someone who does."
+        end
+
         private
+
+        # Who a permission refusal is about: for a human-only call, the person
+        # whose approval completed it, never the principal that asked (L9).
+        def permission_refusal_message(call, principal_ctx)
+          unless call["human_only"] == true
+            return "the principal that requested this action no longer holds the permission it was " \
+                   "authorised under"
+          end
+
+          "#{person_name(principal_ctx.user)}, whose approval completed this action, does not hold the " \
+            "permission it runs under"
+        end
+
+        def person_name(user)
+          name = user.respond_to?(:full_name) ? user.full_name.presence : nil
+          name ? "#{name} (#{user.email})" : user.email.to_s
+        end
 
         def replay(tool_class, principal_ctx, account, call, deferred_operation)
           tool = build_tool(tool_class, principal_ctx, account)
