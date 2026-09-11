@@ -6,11 +6,14 @@ module Api
       # REST API for Autonomous Improvement Campaigns — backs the Campaigns dashboard panel.
       # (Agents drive campaigns via the platform.campaign_* MCP tools; this is the human surface.)
       class CampaignsController < ApplicationController
+        # First for resume: a worker token holding the permission would otherwise pass
+        # require_manage and reach set_campaign with no user.
+        before_action :require_human_session, only: %i[resume]
         before_action :require_read, only: %i[index show]
-        before_action :require_manage, only: %i[create answer_question stop delegate]
-        before_action :set_campaign, only: %i[show answer_question stop delegate]
-        # Kill-switch: create/delegate arm autonomous loops — refuse while AI is suspended.
-        before_action :reject_if_ai_suspended, only: %i[create delegate]
+        before_action :require_manage, only: %i[create answer_question stop delegate resume]
+        before_action :set_campaign, only: %i[show answer_question stop delegate resume]
+        # Kill-switch: create/delegate/resume arm autonomous loops — refuse while AI is suspended.
+        before_action :reject_if_ai_suspended, only: %i[create delegate resume]
 
         # GET /api/v1/ai/campaigns
         def index
@@ -62,7 +65,32 @@ module Api
           render_error(e.message, status: :unprocessable_content)
         end
 
+        # POST /api/v1/ai/campaigns/:id/resume
+        # Reopen a completed or paused campaign and adjust its stop conditions: the human
+        # door onto CampaignDriver#resume, the same service the MCP verb calls. Every
+        # refusal the service names comes back as a 422 carrying that reason.
+        def resume
+          raw = params[:stop_conditions]
+          unless raw.nil? || raw.is_a?(ActionController::Parameters) || raw.is_a?(Hash)
+            return render_error("stop_conditions must be an object", status: :unprocessable_content)
+          end
+
+          render_success(driver.resume(@campaign, reason: params[:reason], stop_conditions: permitted_hash(:stop_conditions)))
+        rescue ArgumentError, ActiveRecord::RecordInvalid => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         private
+
+        # A resume re-arms a campaign past a stop that fired, so it is a human decision
+        # (security review §9): only a user's own JWT session may make it. A worker token
+        # has no user, and an impersonation session is an administrator acting as the user
+        # it names, so the decision row would name the wrong person.
+        def require_human_session
+          return if current_user && current_worker.nil? && !impersonating? && current_jwt_payload&.dig(:type) == "access"
+
+          render_error("Resuming a campaign requires a user's own session", status: :forbidden)
+        end
 
         def require_read
           require_permission("ai.campaigns.read")

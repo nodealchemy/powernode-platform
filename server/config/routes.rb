@@ -2926,6 +2926,7 @@ Rails.application.routes.draw do
             post :answer_question
             post :stop
             post :delegate
+            post :resume
           end
         end
 
