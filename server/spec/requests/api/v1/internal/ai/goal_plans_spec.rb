@@ -26,9 +26,9 @@ RSpec.describe "Api::V1::Internal::Ai::GoalPlans", type: :request do
   end
   let(:plan) { Ai::GoalPlan.create!(account: account, goal: goal, agent: agent, status: "executing", version: 1) }
 
-  def step_of(type, number: 1, status: "executing", dependencies: [])
+  def step_of(type, number: 1, status: "executing", dependencies: [], started_at: nil)
     Ai::GoalPlanStep.create!(plan: plan, step_number: number, status: status, step_type: type,
-                             dependencies: dependencies)
+                             dependencies: dependencies, started_at: started_at)
   end
 
   def execute!(step)
@@ -99,6 +99,40 @@ RSpec.describe "Api::V1::Internal::Ai::GoalPlans", type: :request do
     expect(foreign.result_summary).to be_nil
   end
 
+  # review2 A8 (probe :71): the anchor is the principal's account, never a
+  # param. Naming the other account and its plan in the body changes nothing.
+  it "ignores an account_id and plan_id the caller names in the body" do
+    other = create(:account)
+    other_agent = create(:ai_agent, account: other)
+    other_goal = Ai::AgentGoal.create!(account: other, agent: other_agent, title: "Theirs",
+                                       goal_type: "improvement", status: "active", priority: 3, progress: 0)
+    other_plan = Ai::GoalPlan.create!(account: other, goal: other_goal, agent: other_agent,
+                                      status: "executing", version: 1)
+    foreign = Ai::GoalPlanStep.create!(plan: other_plan, step_number: 1, status: "executing",
+                                       step_type: "agent_execution")
+    before = foreign.reload.attributes
+
+    post "/api/v1/internal/ai/goal_plans/execute_step",
+         params: { step_id: foreign.id, account_id: other.id, plan_id: other_plan.id },
+         headers: headers, as: :json
+
+    expect(response).to have_http_status(:not_found)
+    expect(foreign.reload.attributes).to eq(before)
+  end
+
+  # review2 A8 (probe :94): a worker with no account fails CLOSED. Its anchor
+  # matches no plan, so even a step of the account it used to belong to 404s.
+  it "answers 404 to a worker whose account_id is NULL, and leaves the step untouched" do
+    step = step_of("agent_execution")
+    before = step.reload.attributes
+    worker.update_column(:account_id, nil)
+
+    execute!(step)
+
+    expect(response).to have_http_status(:not_found)
+    expect(step.reload.attributes).to eq(before)
+  end
+
   # Review S-1: only an EXECUTING step is acted on. Any other state answers 200
   # with applied: false, names the state under step_status (never status, which
   # the worker logs as the outcome) and changes nothing.
@@ -125,6 +159,19 @@ RSpec.describe "Api::V1::Internal::Ai::GoalPlans", type: :request do
 
       expect(data).to include("applied" => true, "status" => "failed")
       expect(step.reload.status).to eq("failed")
+    end
+
+    # review2 A8 (probe :107): failing an executing step does not re-start it
+    # first, so the time it really started survives.
+    it "keeps an executing step's real started_at when it fails it" do
+      started = 1.hour.ago.change(usec: 0)
+      step = step_of("agent_execution", status: "executing", started_at: started)
+
+      execute!(step)
+
+      expect(step.reload.started_at.to_i).to eq(started.to_i)
+      expect(step.status).to eq("failed")
+      expect(data).to include("applied" => true, "status" => "failed")
     end
   end
 
