@@ -221,6 +221,7 @@ module Ai
           agent_id: investigation.agent_id,
           opened_by_user_id: investigation.opened_by_user_id,
           ranking: investigation.ranking_record,
+          cost_usd: investigation.cost_usd,
           started_at: investigation.started_at,
           completed_at: investigation.completed_at
         }

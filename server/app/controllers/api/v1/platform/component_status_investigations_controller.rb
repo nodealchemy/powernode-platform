@@ -153,6 +153,9 @@ module Api
             # rows too, which carry no evidence: that is where an operator
             # reads "ranking was not run".
             ranking: investigation.ranking_record,
+            # nil until a positive cost is booked (F7), which the drawer shows as
+            # "not recorded", never $0. The total of every attempt.
+            cost_usd: investigation.cost_usd,
             started_at: investigation.started_at&.utc&.iso8601,
             completed_at: investigation.completed_at&.utc&.iso8601
           }

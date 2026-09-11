@@ -55,10 +55,17 @@ module Platform
     # having initiated the call, which waives the capability matrix's
     # `requires_approval`. So the only user this ever attaches is the person
     # who opened the investigation (`opened_by_user`). An investigation that an
-    # automatic trigger opened has none. It reaches the REAL gate as
-    # machine-initiated spend and is refused unless the agent's tier allows
-    # that outright. The refusal is recorded as `AutomaticSpendNeedsGrant`. An
-    # agent-scoped grant for that spend is A6b, not this file.
+    # automatic trigger opened has none, and `run!` refuses it BEFORE the gate,
+    # at every tier, as `AutomaticSpendNeedsGrant`. The gate alone was not
+    # enough: the A6 re-review found that at the seeded `monitored` tier the
+    # matrix allows `execute`, and the automatic call went out with no ledger
+    # row. Until A6b gives machine spend an agent-attributed ledger row, no
+    # automatic investigation spends at all.
+    #
+    # ── NO LEDGER ROW, NO CALL ────────────────────────────────────────────────
+    # The provider is called only with a persisted `Ai::AgentExecution` in
+    # hand (`create_execution`). If the row cannot be written, the attempt
+    # fails as `LedgerUnavailable` and the provider is never called.
     module Ranking
       PROMPT_SLUG = "platform-investigation-ranking"
 
@@ -87,6 +94,7 @@ module Platform
       REASON_RANKER_UNUSABLE             = "RankerUnusable"
       REASON_PROVIDER_ERROR              = "ProviderError"
       REASON_NO_PRINCIPAL                = "NoPrincipal"
+      REASON_LEDGER_UNAVAILABLE          = "LedgerUnavailable"
 
       # The executor's refusal types. It returns these instead of raising, and
       # both are decisions the platform made about THIS input with THIS agent,
@@ -129,6 +137,11 @@ module Platform
         #   `{ranked: nil, agent: nil, ranking: {..}}`  terminal: conclude on core's candidates
         #   `{error: "..", reason: ".."}`                retryable: see `record_outcome!`
         def run!(investigation, account: nil)
+          return no_principal(account) if account.nil?
+          # Before any clone is minted or any gate consulted: automatic spend
+          # is refused at every tier (see the header), whatever the matrix says.
+          return automatic_spend_refused if investigation.opened_by_user_id.nil?
+
           agent = agent_for(investigation, account)
           return no_principal(account) if agent.nil?
 
@@ -241,11 +254,14 @@ module Platform
         end
 
         def exhausted_message(reason, attempts, error)
-          what = if reason == REASON_RANKER_UNUSABLE
+          last = "last error: #{error.to_s.truncate(300)}"
+          what = case reason
+                 when REASON_RANKER_UNUSABLE
                    "the ranker returned no usable hypotheses in #{attempts} attempts"
+                 when REASON_LEDGER_UNAVAILABLE
+                   "the spend ledger could not be written on any of the #{attempts} attempts the worker makes (#{last})"
                  else
-                   "the provider failed on all #{attempts} attempts the worker makes " \
-                     "(last error: #{error.to_s.truncate(300)})"
+                   "the provider failed on all #{attempts} attempts the worker makes (#{last})"
                  end
           "Ranking failed: #{what}, so the investigation concluded on the platform's own candidates."
         end
@@ -257,6 +273,13 @@ module Platform
                      "no agent can act for this component in this account"
                    end
           terminal(STATE_NOT_RUN, REASON_NO_PRINCIPAL, "Ranking was not run: #{detail}.")
+        end
+
+        def automatic_spend_refused
+          terminal(STATE_NOT_RUN, REASON_AUTOMATIC_SPEND_NEEDS_GRANT,
+                   "Ranking was not run because automatic spend needs an agent-scoped grant. An automatic " \
+                     "trigger opened this investigation, and no automatic spend is allowed at any trust tier " \
+                     "until that spend can be attributed to an agent on the ledger.")
         end
 
         def terminal(state, reason, message)
@@ -275,7 +298,8 @@ module Platform
           # money spent against no budget and no row, which sits badly beside
           # this verb's own justification for gating at `ai.autonomy.manage`
           # ("it spends money").
-          execution = create_execution(agent, investigation, account)
+          execution, refused = create_execution(agent, investigation, account)
+          return refused if refused
 
           result = ::Ai::McpAgentExecutor
                      .new(agent: agent, execution: execution, account: account)
@@ -295,7 +319,10 @@ module Platform
           { text: text }
         rescue StandardError => e
           Rails.logger.error("[Platform::Investigation] ranking invocation failed: #{e.class}: #{e.message}")
-          { error: "#{e.class}: #{e.message}", reason: REASON_PROVIDER_ERROR }
+          message = "#{e.class}: #{e.message}"
+          # A row opened for this call is closed as failed, never left pending.
+          finish_execution(execution, investigation, status: "failed", error_message: message) if execution
+          { error: message, reason: REASON_PROVIDER_ERROR }
         end
 
         # THE EXECUTOR'S REAL RETURN SHAPE, verified by running it rather than
@@ -356,17 +383,24 @@ module Platform
         # the identical call without it.
         #
         # So the user is `investigation.opened_by_user` and nothing else. An
-        # automatic investigation gets no ledger row, because
-        # `Ai::AgentExecution` requires a user, and it reaches the gate as what
-        # it is. If an agent's tier lets it spend without approval, that spend
-        # has no ledger row. Attributing machine spend belongs to the
-        # agent-scoped grant (A6b) and is not faked here.
+        # automatic investigation, which has none, is refused by `run!` before
+        # it gets here; the nil check below is the same rule held a second time.
+        #
+        # @return [Array] `[row, nil]` when the call may go ahead, or
+        #   `[nil, outcome]` when it may not. NO ROW, NO CALL: a row that cannot
+        #   be written stops the call instead of letting it run unrecorded, which
+        #   is what this used to do.
         def create_execution(agent, investigation, account)
           user = investigation.opened_by_user
-          provider = agent.try(:resolved_provider) || agent.try(:provider)
-          return nil if user.nil? || provider.nil?
+          return [ nil, automatic_spend_refused ] if user.nil?
 
-          ::Ai::AgentExecution.create!(
+          provider = agent.try(:resolved_provider) || agent.try(:provider)
+          if provider.nil?
+            return [ nil, terminal(STATE_NOT_RUN, REASON_NO_PRINCIPAL,
+                                   "Ranking was not run: the agent has no provider in this account to run on.") ]
+          end
+
+          row = ::Ai::AgentExecution.create!(
             agent: agent,
             account: account,
             provider: provider,
@@ -381,12 +415,11 @@ module Platform
             },
             execution_context: { source: "platform_investigation", priority: "normal" }
           )
+          [ row, nil ]
         rescue StandardError => e
-          # A ledger that cannot be written must not stop the diagnosis. The
-          # executor tolerates a nil execution; the cost simply goes unrecorded,
-          # and it is logged rather than silently dropped.
           Rails.logger.error("[Platform::Investigation] execution record failed: #{e.class}: #{e.message}")
-          nil
+          [ nil, { error: "the spend ledger could not be written (#{e.class}: #{e.message})",
+                   reason: REASON_LEDGER_UNAVAILABLE } ]
         end
 
         # Close the ledger row and copy the spend onto the investigation, which
@@ -411,7 +444,14 @@ module Platform
           attrs[:error_message] = error_message.to_s.truncate(1000) if status == "failed"
           execution.update!(attrs)
           cost = execution.reload.cost_usd
-          investigation.update_columns(cost_usd: cost, updated_at: Time.current) if booked && cost.to_f.positive?
+          return unless booked && cost.to_f.positive?
+
+          # ACCUMULATED ACROSS ATTEMPTS (A6 re-review). This used to overwrite,
+          # so an investigation that paid for three attempts showed the cost of
+          # the last one. The total is read fresh, because each attempt is a
+          # separate request holding its own copy of the row.
+          total = (investigation.class.where(id: investigation.id).pick(:cost_usd) || 0) + cost
+          investigation.update_columns(cost_usd: total, updated_at: Time.current)
         rescue StandardError => e
           Rails.logger.error("[Platform::Investigation] execution close failed: #{e.class}: #{e.message}")
         end

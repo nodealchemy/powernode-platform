@@ -19,8 +19,13 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
                                                        "reason" => "ConnectionError", "severity" => "down" } ])
   end
 
+  # Opened by a person, as the drawer and the MCP verb open one. Ranking
+  # spends only as the opener, and an investigation with no opener is refused
+  # before the gate (A6 re-review), so every ranking example here needs one.
+  let(:operator) { create(:user, account: account) }
   let(:investigation) do
-    Platform::InvestigationService.new(account: account).open!(component, trigger: "operator")[:investigation]
+    Platform::InvestigationService.new(account: account)
+                                  .open!(component, trigger: "operator", opened_by: operator)[:investigation]
   end
 
   def post_conclude(id, headers: worker_headers)
@@ -383,6 +388,29 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
       expect(Ai::AgentExecution.where(account_id: account.id).count).to eq(0)
       expect(Platform::InvestigationService.new(account: account)
                .open!(component, trigger: "down")[:opened]).to be(true)
+    end
+
+    # A6 re-review: refused before the gate at every tier, so the highest
+    # tier is refused through the door too.
+    it "refuses automatic spend at the highest tier, through the door" do
+      canonical = create(:ai_agent, :global, slug: "infrastructure-generalist", name: "Infrastructure Generalist")
+      create(:ai_agent_trust_score, :autonomous, account: account, agent: canonical)
+      create(:ai_provider, account: account)
+      provider_calls = 0
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider) do |*_args|
+        provider_calls += 1
+        { "output" => '{"hypotheses":[]}', "metadata" => {} }
+      end
+      automatic = Platform::InvestigationService.new(account: account)
+                                                .open!(component, trigger: "down")[:investigation]
+
+      post_conclude(automatic.id)
+
+      expect(response).to have_http_status(:ok)
+      expect(automatic.reload).to be_concluded
+      expect(automatic.ranking_record).to include("reason" => "AutomaticSpendNeedsGrant", "retryable" => false)
+      expect(provider_calls).to eq(0)
+      expect(Ai::AgentExecution.where(account_id: account.id).count).to eq(0)
     end
 
     it "concludes on a gate refusal of an operator-opened investigation too" do

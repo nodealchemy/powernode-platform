@@ -255,6 +255,20 @@ RSpec.describe "Api::V1::Platform component status investigations", type: :reque
         .to eq(operator.id)
     end
 
+    # F7 on the wire: null means "not recorded", never $0.
+    it "carries cost_usd as null until a cost is booked, and the total once it is" do
+      concluded = ::Platform::InvestigationService.new(account: account)
+                                                  .open!(component, trigger: "down")[:investigation]
+      ::Platform::InvestigationService.new(account: account).conclude!(concluded)
+
+      list
+      expect(body["data"]["recent"].first).to include("cost_usd" => nil)
+
+      concluded.update_columns(cost_usd: BigDecimal("0.048"))
+      list
+      expect(BigDecimal(body["data"]["recent"].first["cost_usd"].to_s)).to eq(BigDecimal("0.048"))
+    end
+
     # Concluded rows carry no evidence on this list, so the ranking record has
     # its own field: this is where the drawer reads "ranking was not run".
     it "says why no agent ranked a concluded investigation, on the list the drawer reads" do

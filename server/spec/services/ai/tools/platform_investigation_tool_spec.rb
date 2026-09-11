@@ -84,6 +84,7 @@ RSpec.describe Ai::Tools::PlatformInvestigationTool do
 
       expect(Platform::Investigation.first.opened_by_user_id).to eq(user.id)
       expect(result[:data][:investigation][:opened_by_user_id]).to eq(user.id)
+      expect(result[:data][:investigation]).to include(cost_usd: nil)
     end
 
     # It opens; it does not conclude. Ranking is an LLM call and belongs in the

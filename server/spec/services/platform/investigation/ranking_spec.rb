@@ -195,6 +195,33 @@ RSpec.describe Platform::Investigation::Ranking do
       expect(Ai::AgentExecution.where(account_id: account.id).count).to eq(0)
     end
 
+    # A6 re-review: the gate alone was not enough. At the seeded monitored
+    # tier the capability matrix ALLOWS execute, and the automatic call went
+    # out with no ledger row. Automatic spend is now refused before the gate,
+    # whatever the matrix answers, up to the highest tier.
+    %i[monitored autonomous].each do |tier|
+      it "refuses automatic spend at the #{tier} tier, where the matrix itself would allow it" do
+        stub_non_gate_rails
+        create(:ai_agent_trust_score, tier, account: account, agent: canonical)
+        expect(Ai::Autonomy::CapabilityMatrixService.new(account: account)
+                 .check(agent: canonical, action_type: "execute")).to eq(:allowed)
+        provider_calls = 0
+        allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider) do |*_args|
+          provider_calls += 1
+          { "output" => valid_json, "metadata" => { "tokens_used" => 10 } }
+        end
+        automatic = Platform::InvestigationService.new(account: account)
+                                                  .open!(component, trigger: "down")[:investigation]
+
+        outcome = described_class.run!(automatic, account: account)
+
+        expect(outcome[:ranking]).to include("reason" => "AutomaticSpendNeedsGrant", "retryable" => false)
+        expect(provider_calls).to eq(0)
+        expect(Ai::AgentExecution.where(account_id: account.id).count).to eq(0)
+        expect(Ai::Agent.where(cloned_from_id: canonical.id)).to be_empty
+      end
+    end
+
     it "lets an OPERATOR-opened investigation spend, as that operator — the other arm" do
       stub_non_gate_rails
       allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider)
@@ -211,6 +238,39 @@ RSpec.describe Platform::Investigation::Ranking do
       execution = Ai::AgentExecution.where(account_id: account.id).sole
       expect(execution.user_id).to eq(operator.id)
       expect(execution.ai_agent_id).to eq(outcome[:agent].id)
+    end
+  end
+
+  # A6 re-review: NO PROVIDER CALL WITHOUT A LEDGER ROW, on every path
+  # through ranking. Each provider call records whether the executor held a
+  # persisted execution row at that moment.
+  describe "the ledger invariant" do
+    def component_named(ref)
+      create(:platform_component_status, account: account, component_kind: "docker_host", component_ref: ref,
+                                         verdict: Platform::ComponentStatus::DOWN,
+                                         conditions: [ { "type" => "Connected", "status" => false,
+                                                         "reason" => "ConnectionError", "severity" => "down" } ])
+    end
+
+    it "never lets a provider call go out without a persisted ledger row" do
+      stub_provider(valid_json)
+      rows_at_call = []
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider) do |executor, *_args|
+        row = executor.instance_variable_get(:@execution)
+        rows_at_call << (row.is_a?(Ai::AgentExecution) && row.persisted?)
+        { "output" => valid_json, "metadata" => { "tokens_used" => 10 } }
+      end
+      allow(described_class).to receive(:agent_for).and_return(create(:ai_agent, account: account))
+      service = Platform::InvestigationService.new(account: account)
+      automatic = service.open!(component_named("host-2"), trigger: "down")[:investigation]
+      ledger_down = service.open!(component_named("host-3"), trigger: "operator", opened_by: owner)[:investigation]
+
+      described_class.run!(investigation, account: account)
+      described_class.run!(automatic, account: account)
+      allow(Ai::AgentExecution).to receive(:create!).and_raise(StandardError, "ledger is down")
+      described_class.run!(ledger_down, account: account)
+
+      expect(rows_at_call).to eq([ true ])
     end
   end
 
@@ -365,11 +425,39 @@ RSpec.describe Platform::Investigation::Ranking do
       expect(investigation.reload.cost_usd).to be_nil
     end
 
-    # A ledger that cannot be written must not stop the diagnosis.
-    it "still ranks when the execution record cannot be created" do
+    # NO LEDGER ROW, NO CALL (A6 re-review). A ledger that could not be
+    # written used to let the call go ahead unrecorded. Now the provider is
+    # never called, and the attempt is retryable like any transient failure.
+    it "makes no provider call when the ledger row cannot be written" do
       allow(Ai::AgentExecution).to receive(:create!).and_raise(StandardError, "ledger is down")
+      calls = 0
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider) do |*_args|
+        calls += 1
+        { "output" => valid_json, "metadata" => {} }
+      end
 
-      expect(described_class.run!(investigation, account: account)[:ranked]).to be_present
+      outcome = described_class.run!(investigation, account: account)
+
+      expect(calls).to eq(0)
+      expect(outcome).to include(reason: described_class::REASON_LEDGER_UNAVAILABLE)
+      expect(outcome[:error]).to include("ledger is down")
+    end
+
+    # The re-review found cost_usd kept only the LAST attempt. It accumulates.
+    it "adds up the cost of every attempt, not just the last one" do
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider)
+        .and_return("output" => "I'm sorry, I can't help with that.",
+                    "metadata" => { "tokens_used" => 5000, "prompt_tokens" => 4000,
+                                    "completion_tokens" => 1000, "model_used" => "gpt-4o" })
+      per_attempt = Ai::CostCalculationService.calculate(model_id: "gpt-4o", prompt_tokens: 4000,
+                                                         completion_tokens: 1000)
+
+      3.times { described_class.run!(investigation, account: account) }
+
+      expect(per_attempt).to be > 0
+      expect(investigation.reload.cost_usd.to_f).to be_within(0.000001).of(per_attempt * 3)
+      expect(Ai::AgentExecution.where(account_id: account.id).sum(:cost_usd).to_f)
+        .to be_within(0.000001).of(per_attempt * 3)
     end
   end
 
