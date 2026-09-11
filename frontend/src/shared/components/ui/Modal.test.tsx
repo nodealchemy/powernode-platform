@@ -339,5 +339,88 @@ describe('Modal', () => {
       expect(document.body.style.overflow).toBe('hidden');
       expect(screen.getByText('Outer content')).toBeInTheDocument();
     });
+
+    // C14 review C14-1: "topmost" cannot mean "last pushed". React runs a
+    // CHILD's effects before its PARENT's, so a truly nested Modal that
+    // mounts in the SAME commit as its parent (e.g. a form Modal whose
+    // ConfirmationModal is already open from restored state) gets pushed
+    // BEFORE the parent — making the outer read as "last pushed" and
+    // wrongly topmost, even though it is the outer dialog. Ordering by
+    // nesting depth (not push order) fixes this. Lifted from the reviewer's
+    // probe O1.
+    it('routes Escape to the INNER dialog when both mount in the same commit, not just when the inner opens later (C14-1)', () => {
+      const outerClose = jest.fn();
+      const innerClose = jest.fn();
+
+      render(
+        <Modal isOpen onClose={outerClose} title="Outer">
+          <Modal isOpen onClose={innerClose} title="Inner">
+            inner body
+          </Modal>
+        </Modal>
+      );
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(innerClose).toHaveBeenCalledTimes(1);
+      expect(outerClose).not.toHaveBeenCalled();
+    });
+
+    // C14 review C14-2: nothing guarded the scroll-lock refcount itself — an
+    // unbalanced pop (popping an instance that was never pushed) passed every
+    // other test in this file. Lifted from the reviewer's probes E6/E6b.
+    it('does not release the scroll lock when a CLOSED sibling instance unmounts beside an open one (C14-2)', () => {
+      function Beside() {
+        const [bMounted, setBMounted] = useState(true);
+        return (
+          <>
+            <Modal isOpen onClose={jest.fn()} title="Outer">
+              <button onClick={() => setBMounted(false)}>drop b</button>
+            </Modal>
+            {bMounted && (
+              <Modal isOpen={false} onClose={jest.fn()} title="B">
+                b body
+              </Modal>
+            )}
+          </>
+        );
+      }
+
+      render(<Beside />);
+      expect(document.body.style.overflow).toBe('hidden');
+
+      fireEvent.click(screen.getByRole('button', { name: 'drop b' }));
+
+      // B was never open, so it never joined the stack — dropping it must
+      // not touch the refcount the still-open Outer dialog is holding.
+      expect(document.body.style.overflow).toBe('hidden');
+    });
+
+    it('does not release the scroll lock when a sibling instance opens then closes beside an open one (C14-2)', () => {
+      function Beside() {
+        const [bOpen, setBOpen] = useState(false);
+        return (
+          <>
+            <Modal isOpen onClose={jest.fn()} title="Outer">
+              <button onClick={() => setBOpen(true)}>open b</button>
+              <button onClick={() => setBOpen(false)}>close b</button>
+            </Modal>
+            <Modal isOpen={bOpen} onClose={() => setBOpen(false)} title="B">
+              b body
+            </Modal>
+          </>
+        );
+      }
+
+      render(<Beside />);
+      fireEvent.click(screen.getByRole('button', { name: 'open b' }));
+      expect(document.body.style.overflow).toBe('hidden');
+
+      fireEvent.click(screen.getByRole('button', { name: 'close b' }));
+
+      // B's pop must decrement the count it incremented, and no further —
+      // the still-open Outer dialog's lock must survive.
+      expect(document.body.style.overflow).toBe('hidden');
+    });
   });
 });
