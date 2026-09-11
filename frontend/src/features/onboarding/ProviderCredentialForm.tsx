@@ -115,7 +115,9 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         key: 'default_model',
         label: 'Default Model',
         type: 'text',
-        defaultValue: 'llama3',
+        // No prefilled model (E3b): a local server serves only what it has
+        // pulled, and a shipped default names a model it may not have.
+        placeholder: 'A model this server has pulled',
         required: false,
       },
     ],
