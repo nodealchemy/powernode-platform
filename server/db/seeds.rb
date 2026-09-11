@@ -394,92 +394,91 @@ end
 # 🔧 Create default site settings — resilient like safe_load: one invalid
 # setting must never abort the whole seed run (a blank contact_email
 # previously raised RecordInvalid here and crash-looped fresh hub installs).
+#
+# ONE RESCUE PER SETTING (Powernode::Seeds::SiteSettingSeeder). This block
+# used to share a single begin/rescue, so the first setting to fail silently
+# skipped every setting after it. Now a failure is logged with its key and
+# error class, the rest still seed, and the summary line names every failed
+# key. Nothing is re-raised, so the crash-loop fix above still holds.
+require_relative "seeds/support/site_setting_seeder"
 puts "\n🔧 Creating default site settings..."
 
-begin
-  # Site information
-  SiteSetting.set('site_name', 'Powernode', description: 'Name of the site', setting_type: 'string', is_public: true)
-  SiteSetting.set('footer_description', 'Powerful AI management platform for orchestrating production agent fleets. Built for teams shipping with AI.', description: 'Footer description text', setting_type: 'text', is_public: true)
+settings = Powernode::Seeds::SiteSettingSeeder.new
+# Site information
+settings.set('site_name', 'Powernode', description: 'Name of the site', setting_type: 'string', is_public: true)
+settings.set('footer_description', 'Powerful AI management platform for orchestrating production agent fleets. Built for teams shipping with AI.', description: 'Footer description text', setting_type: 'text', is_public: true)
 
-  # Copyright information
-  SiteSetting.set('copyright_text', 'Everett C. Haimes III', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
-  SiteSetting.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
+# Copyright information
+settings.set('copyright_text', 'Everett C. Haimes III', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
+settings.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
 
-  # Contact information
-  SiteSetting.set('contact_email', '', description: 'Main contact email (empty — community contact is via GitHub: see footer Contact page)', setting_type: 'string', is_public: true)
-  SiteSetting.set('contact_phone', '+1 (555) 123-4567', description: 'Contact phone number', setting_type: 'string', is_public: true)
-  SiteSetting.set('company_address', '123 Innovation Drive, Tech City, TC 12345', description: 'Company address', setting_type: 'string', is_public: true)
+# Contact information
+settings.set('contact_email', '', description: 'Main contact email (empty — community contact is via GitHub: see footer Contact page)', setting_type: 'string', is_public: true)
+settings.set('contact_phone', '+1 (555) 123-4567', description: 'Contact phone number', setting_type: 'string', is_public: true)
+settings.set('company_address', '123 Innovation Drive, Tech City, TC 12345', description: 'Company address', setting_type: 'string', is_public: true)
 
-  # Social media links
-  SiteSetting.set('social_twitter', '', description: 'Twitter/X profile URL', setting_type: 'string', is_public: true)
-  SiteSetting.set('social_linkedin', '', description: 'LinkedIn profile URL', setting_type: 'string', is_public: true)
-  SiteSetting.set('social_facebook', '', description: 'Facebook page URL', setting_type: 'string', is_public: true)
-  SiteSetting.set('social_instagram', '', description: 'Instagram profile URL', setting_type: 'string', is_public: true)
-  SiteSetting.set('social_youtube', '', description: 'YouTube channel URL', setting_type: 'string', is_public: true)
+# Social media links
+settings.set('social_twitter', '', description: 'Twitter/X profile URL', setting_type: 'string', is_public: true)
+settings.set('social_linkedin', '', description: 'LinkedIn profile URL', setting_type: 'string', is_public: true)
+settings.set('social_facebook', '', description: 'Facebook page URL', setting_type: 'string', is_public: true)
+settings.set('social_instagram', '', description: 'Instagram profile URL', setting_type: 'string', is_public: true)
+settings.set('social_youtube', '', description: 'YouTube channel URL', setting_type: 'string', is_public: true)
 
-  # Admin-only settings
-  SiteSetting.set('maintenance_mode', 'false', description: 'Enable maintenance mode', setting_type: 'boolean', is_public: false)
-  SiteSetting.set('analytics_tracking_id', '', description: 'Google Analytics tracking ID', setting_type: 'string', is_public: false)
-  SiteSetting.set('seo_default_title', 'Powernode - AI Management Platform', description: 'Default SEO title', setting_type: 'string', is_public: false)
-  SiteSetting.set('seo_default_description', 'Manage production AI agent fleets — knowledge graph, governance, swarm coordination, and an MCP-native runtime.', description: 'Default SEO description', setting_type: 'text', is_public: false)
+# Admin-only settings
+settings.set('maintenance_mode', 'false', description: 'Enable maintenance mode', setting_type: 'boolean', is_public: false)
+settings.set('analytics_tracking_id', '', description: 'Google Analytics tracking ID', setting_type: 'string', is_public: false)
+settings.set('seo_default_title', 'Powernode - AI Management Platform', description: 'Default SEO title', setting_type: 'string', is_public: false)
+settings.set('seo_default_description', 'Manage production AI agent fleets — knowledge graph, governance, swarm coordination, and an MCP-native runtime.', description: 'Default SEO description', setting_type: 'text', is_public: false)
 
-  # Footer caching
-  SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for footer data to improve performance', setting_type: 'boolean', is_public: false)
+# Footer caching
+settings.set('footer_cache_enabled', 'true', description: 'Enable caching for footer data to improve performance', setting_type: 'boolean', is_public: false)
 
-  # DevOps integration health sweep. Absence is handled: the model falls back to
-  # Devops::IntegrationInstance::DEFAULT_HEALTH_FAILURE_THRESHOLD, so a
-  # deployment that seeded before this line still auto-pauses.
-  SiteSetting.set(Devops::IntegrationInstance::HEALTH_FAILURE_THRESHOLD_SETTING,
-                  Devops::IntegrationInstance::DEFAULT_HEALTH_FAILURE_THRESHOLD,
-                  description: 'Consecutive failed integration health probes before an active integration is auto-paused',
-                  setting_type: 'integer', is_public: false)
+# DevOps integration health sweep. Absence is handled: the model falls back to
+# Devops::IntegrationInstance::DEFAULT_HEALTH_FAILURE_THRESHOLD, so a
+# deployment that seeded before this line still auto-pauses.
+settings.set(Devops::IntegrationInstance::HEALTH_FAILURE_THRESHOLD_SETTING,
+             Devops::IntegrationInstance::DEFAULT_HEALTH_FAILURE_THRESHOLD,
+             description: 'Consecutive failed integration health probes before an active integration is auto-paused',
+             setting_type: 'integer', is_public: false)
 
-  # Autonomy closure-driver cadence flag (D3). The FIRST ai.* SiteSetting in
-  # this file — there was no existing ai.* convention to follow, so it follows
-  # the operational-setting convention the DevOps threshold above established:
-  # the KEY comes from the owning class's constant, never a string literal, so
-  # the seed and the reader cannot drift.
-  #
-  # WRITTEN ONLY WHEN ABSENT, unlike every other line in this block.
-  # SiteSetting.set overwrites unconditionally and this block is not guarded
-  # against a re-run, so a plain `set` here would silently revert an operator's
-  # decision to enable autonomy back to OFF on the next `rails db:seed`. That
-  # is not a default being restored, it is a control being flipped.
-  #
-  # The row is not load-bearing: Ai::Autonomy::ClosureDriverService.enabled?
-  # casts a missing row to false, so absence already means OFF. The row exists
-  # to give the operator toggle something to render, and the toggle creates it
-  # on first write when it is missing (this deployment seeded long before this
-  # line, and seeds do not re-run after first boot).
-  closure_flag = Ai::Autonomy::ClosureDriverService::ENABLED_SETTING
-  unless SiteSetting.exists?(key: closure_flag)
-    SiteSetting.set(closure_flag, "false",
-                    description: "Run the AI autonomy closure driver on its cron cadence. " \
-                                 "OFF means the scheduled OODA cycle never runs; every other " \
-                                 "autonomy gate still applies when it is ON.",
-                    setting_type: "boolean", is_public: false)
-  end
+# Autonomy closure-driver cadence flag (D3). The FIRST ai.* SiteSetting in
+# this file — there was no existing ai.* convention to follow, so it follows
+# the operational-setting convention the DevOps threshold above established:
+# the KEY comes from the owning class's constant, never a string literal, so
+# the seed and the reader cannot drift.
+#
+# WRITTEN ONLY WHEN ABSENT, unlike every other line in this block.
+# SiteSetting.set overwrites unconditionally and this block is not guarded
+# against a re-run, so a plain `set` here would silently revert an operator's
+# decision to enable autonomy back to OFF on the next `rails db:seed`. That
+# is not a default being restored, it is a control being flipped.
+#
+# The row is not load-bearing: Ai::Autonomy::ClosureDriverService.enabled?
+# casts a missing row to false, so absence already means OFF. The row exists
+# to give the operator toggle something to render, and the toggle creates it
+# on first write when it is missing (this deployment seeded long before this
+# line, and seeds do not re-run after first boot).
+closure_flag = Ai::Autonomy::ClosureDriverService::ENABLED_SETTING
+settings.set_unless_exists(closure_flag, "false",
+                           description: "Run the AI autonomy closure driver on its cron cadence. " \
+                                        "OFF means the scheduled OODA cycle never runs; every other " \
+                                        "autonomy gate still applies when it is ON.",
+                           setting_type: "boolean", is_public: false)
 
-  # Weekly skill auto-evolution flag (D6). Same shape as the closure-driver
-  # line above and for the same reason: `unless exists?`, because a plain `set`
-  # would revert an operator's decision to ENABLE it back to OFF on the next
-  # `rails db:seed`. Absence already means OFF
-  # (SkillMutationService.auto_evolution_enabled? casts a missing row to false),
-  # so the row exists only to give the operator surface something to render.
-  auto_evolution_flag = Ai::SelfImprovement::SkillMutationService::AUTO_EVOLUTION_SETTING
-  unless SiteSetting.exists?(key: auto_evolution_flag)
-    SiteSetting.set(auto_evolution_flag, "false",
-                    description: "Run the weekly skill auto-evolution cron. OFF means the " \
-                                 "scheduled sweep never mutates a skill; the auto_evolve_skill " \
-                                 "MCP verb keeps its own dev.skill_refine approval gate either way.",
-                    setting_type: "boolean", is_public: false)
-  end
+# Weekly skill auto-evolution flag (D6). Same shape as the closure-driver
+# line above and for the same reason: `unless exists?`, because a plain `set`
+# would revert an operator's decision to ENABLE it back to OFF on the next
+# `rails db:seed`. Absence already means OFF
+# (SkillMutationService.auto_evolution_enabled? casts a missing row to false),
+# so the row exists only to give the operator surface something to render.
+auto_evolution_flag = Ai::SelfImprovement::SkillMutationService::AUTO_EVOLUTION_SETTING
+settings.set_unless_exists(auto_evolution_flag, "false",
+                           description: "Run the weekly skill auto-evolution cron. OFF means the " \
+                                        "scheduled sweep never mutates a skill; the auto_evolve_skill " \
+                                        "MCP verb keeps its own dev.skill_refine approval gate either way.",
+                           setting_type: "boolean", is_public: false)
 
-  puts "✅ Created #{SiteSetting.count} site settings"
-rescue StandardError => e
-  Rails.logger.error("[seeds] site settings failed: #{e.class}: #{e.message}")
-  puts "  ⚠️  site settings failed (#{e.class}: #{e.message}) — continuing"
-end
+settings.finish
 
 
 if Powernode::Seeds.demo?
