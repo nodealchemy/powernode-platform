@@ -6,7 +6,9 @@ module Ai
   # Called from `Ai::ApprovalRequest`'s after_create + after_update callbacks
   # (when `current_step` advances). Notifies only the current step's approvers
   # — when a multi-step chain advances, step 2's approvers get fresh
-  # notifications without re-pinging step 1's approvers.
+  # notifications without re-pinging step 1's approvers. Also called from
+  # `#record_decision!` for a decision INSIDE a step, leaving out everyone who
+  # already decided that step, and paired there with `broadcast_queue_change!`.
   #
   # Per-source content rendering is delegated to a registered "content provider"
   # class. Extensions register handlers for their source_types via the
@@ -21,7 +23,10 @@ module Ai
   class ApprovalRequestNotifier
     SOURCE_HANDLERS = {}
 
-    def self.notify_current_step!(request)
+    # `except_user_ids`: people who already decided the current step. They
+    # cannot act on it again, so a card telling them "Approval needed" would be
+    # false.
+    def self.notify_current_step!(request, except_user_ids: [])
       return unless request.pending?
 
       step = request.step_statuses&.dig(request.current_step)
@@ -33,6 +38,7 @@ module Ai
       card = build_card(request, step)
 
       approvers = resolve_approvers(request.account, step["approvers"])
+      approvers = approvers.where.not(id: except_user_ids) if except_user_ids.present?
 
       approvers.find_each do |user|
         # ISOLATED PER APPROVER (G5). Previously one raise anywhere in this loop
@@ -40,7 +46,7 @@ module Ai
         # loop had not reached yet was silently starved. A PARTIAL fan-out is
         # the nastiest shape available here: some operators hear, so the request
         # does not look abandoned, while the rest never learn it is pending.
-        Notification.create_for_user(user, **card)
+        Notification.create_for_user(user, **recipient_card(card, request, user))
       rescue StandardError => e
         Rails.logger.error(
           "[ApprovalRequestNotifier] delivery failed for approver #{user.id} on " \
@@ -49,6 +55,44 @@ module Ai
       end
     rescue StandardError => e
       Rails.logger.error("[ApprovalRequestNotifier] notify_current_step! failed for ##{request.id}: #{e.class}: #{e.message}")
+    end
+
+    # The permission the approvals queue's reads require
+    # (Api::V1::Ai::AutonomyController#validate_permissions).
+    QUEUE_READ_PERMISSION = "ai.agents.read"
+
+    # The queue-refresh event. A socket update, NOT a card: it persists nothing
+    # and names only the request, its status and step, and whether THIS viewer
+    # can act on the step, so every open approvals queue re-reads, including
+    # the decider's and those of viewers who approve nothing on this step.
+    # Delivered on each viewer's own NotificationChannel stream (there is
+    # deliberately no account-wide stream), and only to users who may read the
+    # queue. Isolated per viewer, like the card loop above.
+    def self.broadcast_queue_change!(request)
+      ids = request.account.users.active.with_permission(QUEUE_READ_PERMISSION).pluck(:id).uniq
+      request.account.users.where(id: ids).find_each do |user|
+        NotificationChannel.broadcast_to_user(user, {
+          type: "approval_request_changed",
+          approval_request_id: request.id,
+          status: request.status,
+          current_step: request.current_step,
+          current_step_can_approve: request.can_approve?(user)
+        })
+      rescue StandardError => e
+        Rails.logger.error(
+          "[ApprovalRequestNotifier] queue refresh failed for user #{user.id} on " \
+          "request ##{request.id}: #{e.class}: #{e.message}"
+        )
+      end
+    rescue StandardError => e
+      Rails.logger.error("[ApprovalRequestNotifier] broadcast_queue_change! failed for ##{request.id}: #{e.class}: #{e.message}")
+    end
+
+    # The card as ONE recipient receives it: the shared content, plus whether
+    # this recipient can act on the current step, so a queue refreshed by the
+    # push knows whether to offer its buttons (C3b2 review B1).
+    def self.recipient_card(card, request, user)
+      card.merge(metadata: card[:metadata].merge("current_step_can_approve" => request.can_approve?(user)))
     end
 
     # Build the notification payload, NEVER raising.

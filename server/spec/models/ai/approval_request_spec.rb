@@ -89,6 +89,149 @@ RSpec.describe Ai::ApprovalRequest, type: :model do
     end
   end
 
+  # C3b1 F1 / C3b2 B2: the step-decision push. A decision that neither advances
+  # the step nor resolves the request moves no column the after_update callbacks
+  # watch, so the step's other approvers, and every open queue, kept a stale
+  # count until something else changed. The lead's ruling: the "Approval
+  # needed" card goes only to people who can still act on the step that is now
+  # current (never to whoever already decided it), and a content-free
+  # queue-refresh event reaches every viewer of the queue, the decider included.
+  describe 'a decision reaches the people who can still act on the step (record_decision!)' do
+    let(:perm) { 'system.infra_tasks.control' }
+    let!(:approver_a) { user_with_permissions(perm, 'ai.agents.read', account: account) }
+    let!(:approver_b) { user_with_permissions(perm, 'ai.agents.read', account: account) }
+    let!(:observer)   { user_with_permissions('ai.agents.read', account: account) }
+    let!(:bystander)  { user_without_permissions(account: account) }
+
+    def cards_for(recipient, req)
+      Notification.where(user_id: recipient.id)
+                  .where("metadata->>'approval_request_id' = ?", req.id.to_s)
+                  .count
+    end
+
+    def by_permission(name, required)
+      { 'name' => name, 'approvers' => [ { 'type' => 'permission', 'value' => perm } ],
+        'required_approvals' => required }
+    end
+
+    def two_key_request
+      make_chain(steps: [ by_permission('Two keys', 2) ])
+        .create_request!(source_type: 'X', source_id: SecureRandom.uuid, description: 'd')
+    end
+
+    # The queue-refresh events, as [recipient id, payload], captured at the one
+    # publishing primitive and still delivered.
+    def capture_queue_events
+      events = []
+      allow(NotificationChannel).to receive(:broadcast_to_user).and_wrap_original do |original, user, data|
+        events << [ user.id, data ] if data[:type] == 'approval_request_changed'
+        original.call(user, data)
+      end
+      events
+    end
+
+    it 'sends the card once to each approver who has not decided the step — and not to the decider' do
+      req = two_key_request
+      before = [ approver_a, approver_b, observer, bystander ].to_h { |u| [ u.id, cards_for(u, req) ] }
+
+      req.record_decision!(approver: approver_a, decision: 'approved')
+
+      # Neither watched column moved: this is exactly the decision that went unheard.
+      expect(req.reload.current_step).to eq(0)
+      expect(req.status).to eq('pending')
+      expect(cards_for(approver_b, req) - before[approver_b.id]).to eq(1)
+      expect(cards_for(approver_a, req) - before[approver_a.id]).to eq(0)
+      # The card carries its recipient's own can-act (C3b2 review B1).
+      latest_b = Notification.where(user_id: approver_b.id).order(:created_at).last
+      expect(latest_b.metadata['current_step_can_approve']).to be(true)
+      expect(cards_for(observer, req) - before[observer.id]).to eq(0)
+      expect(cards_for(bystander, req) - before[bystander.id]).to eq(0)
+    end
+
+    it 'sends a step advance to the new step\'s approvers exactly once — the decider too, when eligible there' do
+      req = make_chain(steps: [ by_permission('First', 1), by_permission('Second', 1) ])
+              .create_request!(source_type: 'X', source_id: SecureRandom.uuid, description: 'd')
+      before = { a: cards_for(approver_a, req), b: cards_for(approver_b, req) }
+
+      req.record_decision!(approver: approver_a, decision: 'approved')
+
+      expect(req.reload.current_step).to eq(1)
+      # Once, not once for the advance and again for the decision.
+      expect(cards_for(approver_b, req) - before[:b]).to eq(1)
+      expect(cards_for(approver_a, req) - before[:a]).to eq(1)
+      latest = Notification.where(user_id: approver_a.id).order(:created_at).last
+      expect(latest.metadata['current_step']).to eq(1)
+    end
+
+    it 'leaves the decider out of a step advance when they are not an approver of the new step' do
+      req = make_chain(steps: [
+        by_permission('First', 1),
+        { 'name' => 'Second', 'approvers' => [ { 'type' => 'user', 'value' => approver_b.id.to_s } ], 'required_approvals' => 1 }
+      ]).create_request!(source_type: 'X', source_id: SecureRandom.uuid, description: 'd')
+      before = { a: cards_for(approver_a, req), b: cards_for(approver_b, req) }
+
+      req.record_decision!(approver: approver_a, decision: 'approved')
+
+      expect(req.reload.current_step).to eq(1)
+      expect(cards_for(approver_b, req) - before[:b]).to eq(1)
+      expect(cards_for(approver_a, req) - before[:a]).to eq(0)
+    end
+
+    it 'tells every viewer of the queue the request changed, the decider included, each with their own can-act' do
+      req = two_key_request
+      events = capture_queue_events
+
+      req.record_decision!(approver: approver_a, decision: 'approved')
+
+      # Exactly one event per viewer who may read the queue, and none for a user who may not.
+      expect(events.map(&:first)).to contain_exactly(approver_a.id, approver_b.id, observer.id)
+      by_user = events.to_h
+      expect(by_user.values).to all(include(approval_request_id: req.id, status: 'pending', current_step: 0))
+      expect(by_user[approver_a.id][:current_step_can_approve]).to be(false) # already decided
+      expect(by_user[approver_b.id][:current_step_can_approve]).to be(true)
+      expect(by_user[observer.id][:current_step_can_approve]).to be(false)
+    end
+
+    it "announces the decision only after the lock's transaction has closed" do
+      req = two_key_request
+      baseline = ActiveRecord::Base.connection.open_transactions
+      open_at_event = []
+      allow(NotificationChannel).to receive(:broadcast_to_user).and_wrap_original do |original, user, data|
+        open_at_event << ActiveRecord::Base.connection.open_transactions if data[:type] == 'approval_request_changed'
+        original.call(user, data)
+      end
+
+      req.record_decision!(approver: approver_a, decision: 'approved')
+
+      # A queue that re-reads on the event must find the decision committed.
+      expect(open_at_event).not_to be_empty
+      expect(open_at_event).to all(eq(baseline))
+    end
+
+    it 'sends nothing from the decision once the request is resolved' do
+      req = two_key_request
+      before = cards_for(approver_b, req)
+      events = capture_queue_events
+
+      req.record_decision!(approver: approver_a, decision: 'rejected')
+
+      expect(req.reload.status).to eq('rejected')
+      expect(cards_for(approver_b, req) - before).to eq(0)
+      expect(events).to be_empty
+    end
+
+    it 'sends no queue event from the decision when the step moved — the advance callback carries that' do
+      req = make_chain(steps: [ by_permission('First', 1), by_permission('Second', 1) ])
+              .create_request!(source_type: 'X', source_id: SecureRandom.uuid, description: 'd')
+      events = capture_queue_events
+
+      req.record_decision!(approver: approver_a, decision: 'approved')
+
+      expect(req.reload.current_step).to eq(1)
+      expect(events).to be_empty
+    end
+  end
+
   describe 'polymorphic source notification (after_update)' do
     it 'invokes source.on_approval_decision when status flips' do
       probe = Class.new do

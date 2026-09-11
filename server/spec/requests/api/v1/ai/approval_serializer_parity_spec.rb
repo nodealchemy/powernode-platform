@@ -201,7 +201,7 @@ RSpec.describe 'Approval serializer parity across read surfaces', type: :request
       expect(rows.first.keys.sort).to eq(
         %w[
           action_category action_type agent_id agent_name completed_at created_at
-          current_step description execution_error execution_status expires_at id
+          current_step current_step_can_approve description execution_error execution_status expires_at id
           request_data request_id requested_by_id source_id source_type status total_steps
         ]
       )

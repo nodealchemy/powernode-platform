@@ -112,12 +112,28 @@ module Ai
       # step_statuses: the same approver could turn both keys of a step, and two
       # different approvers could each write current_approvals = 1 and lose a
       # key. Under the lock the check is repeated against the row as it is now.
-      with_lock do
+      announce = false
+      result = with_lock do
         next false unless can_approve?(approver)
+
+        step_before = current_step
         next false unless insert_decision(approver, decision, comments, conditions)
 
-        process_decision(decision)
+        recorded = process_decision(decision)
+        # A decision that neither advanced the step nor resolved the request
+        # (the first of two approvals, a delegation) moves no column the
+        # after_update callbacks watch, so the step's other approvers, and every
+        # open queue, never heard of it. Announced for this case only: a step
+        # advance already fans out through the current_step callback, and a
+        # resolved request has nothing left to act on.
+        announce = pending? && current_step == step_before
+        recorded
       end
+
+      # After the lock's transaction has committed, so a queue that re-reads on
+      # the event sees the decision it announces.
+      announce_decision_within_step if announce
+      result
     end
 
     def check_expiration!
@@ -343,6 +359,22 @@ module Ai
       return false unless user
 
       decisions.where(step_number: current_step, approver_id: user.id).exists?
+    end
+
+    # The two halves of the lead's ruling for a decision inside a step:
+    # - the "Approval needed" card, through the same step fan-out, to the step's
+    #   approvers who can still act on it (everyone who already decided the
+    #   step, the decider included, is left out);
+    # - a content-free queue-refresh event to every viewer of the queue, the
+    #   decider included, so every open queue reconciles.
+    def announce_decision_within_step
+      return unless defined?(::Ai::ApprovalRequestNotifier)
+
+      decided = decisions.where(step_number: current_step).distinct.pluck(:approver_id)
+      ::Ai::ApprovalRequestNotifier.notify_current_step!(self, except_user_ids: decided)
+      ::Ai::ApprovalRequestNotifier.broadcast_queue_change!(self)
+    rescue StandardError => e
+      Rails.logger.error("[ApprovalRequest##{id}] announce_decision_within_step failed: #{e.message}")
     end
 
     def process_decision(decision)

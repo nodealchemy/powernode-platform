@@ -103,7 +103,12 @@ module Ai
         action_type: request.request_data&.dig("action_type") || request.request_data&.dig("action_category"),
         action_category: request.request_data&.dig("action_category"),
         requested_by_id: request.requested_by_id,
-        total_steps: request.step_statuses&.size
+        total_steps: request.step_statuses&.size,
+        # Per viewer, on the LIST as well as the detail (C3b2 review B1): the
+        # client offers Approve/Reject only when this is true, and until it was
+        # listed the quick row followed the permission alone, so a holder of
+        # ai.autonomy.approve who is not on the current step drew a 422.
+        current_step_can_approve: current_user.present? && request.can_approve?(current_user)
       )
       return base unless detailed
 
@@ -111,8 +116,7 @@ module Ai
         approval_chain: serialize_chain(request.approval_chain),
         step_statuses: request.step_statuses,
         decisions: request.decisions.order(:created_at).map { |d| serialize_decision(d) },
-        deferred_operation: serialize_deferred_operation(request),
-        current_step_can_approve: current_user.present? && request.can_approve?(current_user)
+        deferred_operation: serialize_deferred_operation(request)
       )
     end
 
