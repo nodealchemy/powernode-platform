@@ -275,6 +275,50 @@ RSpec.describe Platform::InvestigationService do
     end
   end
 
+  # A9 review S5 — the dependency walk uses the READER's neighbourhood, not the
+  # component's. For a shared component the component's account is nil, which
+  # collapsed the walk to shared rows only and hid every dependent living in a
+  # real account.
+  describe "the neighbourhood a shared component is walked in" do
+    let(:shared_component) do
+      create(:platform_component_status, :shared, component_kind: "provider_circuit_breaker",
+                                                   component_ref: "breaker-1",
+                                                   dependencies: [ { "kind" => "docker_host", "ref" => "a-host-1",
+                                                                     "relation" => "hosts" } ])
+    end
+
+    it "resolves a dependent in the READER's account" do
+      create(:platform_component_status, account: account, component_kind: "docker_host",
+                                         component_ref: "a-host-1", verdict: Platform::ComponentStatus::DOWN)
+
+      chain = described_class.new(account: account).assemble_evidence(shared_component)["dependency_chain"]
+
+      expect(chain.first["resolved"]).to be(true)
+      expect(chain.first["verdict"]).to eq(Platform::ComponentStatus::DOWN)
+    end
+
+    # The tenancy arm: a reader must not resolve another tenant's row.
+    it "does not resolve a dependent in ANOTHER account" do
+      create(:platform_component_status, account: create(:account), component_kind: "docker_host",
+                                         component_ref: "a-host-1", verdict: Platform::ComponentStatus::DOWN)
+
+      chain = described_class.new(account: account).assemble_evidence(shared_component)["dependency_chain"]
+
+      expect(chain.first["resolved"]).to be(false)
+    end
+
+    # No reader at all — the automatic trigger on a shared component. There is
+    # no tenant whose rows could be included, so a tenant's row stays unseen.
+    it "sees shared rows only when there is no reader" do
+      create(:platform_component_status, account: account, component_kind: "docker_host",
+                                         component_ref: "a-host-1", verdict: Platform::ComponentStatus::DOWN)
+
+      chain = described_class.new(account: nil).assemble_evidence(shared_component)["dependency_chain"]
+
+      expect(chain.first["resolved"]).to be(false)
+    end
+  end
+
   # A9 review S1 — whose investigation this is.
   describe "ownership" do
     let(:shared_component) do

@@ -46,7 +46,20 @@ module Api
                                   reason: "already_concluded")
           end
 
-          ranking = ::Platform::Investigation::Ranking.run!(investigation, account: @current_account)
+          # THE INVESTIGATION'S OWN ACCOUNT, NEVER THE WORKER'S (A6
+          # re-verification G3 + §4). There is one system worker platform-wide
+          # and it concludes every tenant's investigation, so `@current_account`
+          # is the WORKER's account, not the tenant's. Passing it here minted
+          # the ranking clone in the worker's account and booked the spend
+          # there: the tenant's evidence sent to another account's agent, and a
+          # mis-billed ledger. The same rule `service_for` follows below.
+          #
+          # For a SHARED investigation opened by an automatic trigger the
+          # account is nil, so no principal is minted and the investigation
+          # concludes on core's deterministic candidates — the arm the spec now
+          # proves THROUGH this door, rather than by calling `agent_for` with a
+          # nil no caller passes.
+          ranking = ::Platform::Investigation::Ranking.run!(investigation, account: investigation.account)
 
           if ranking[:error].present?
             record_ranking_error(investigation, ranking[:error])
@@ -67,13 +80,30 @@ module Api
 
         private
 
-        # Anchored on the worker's own account. A foreign-account id is NOT
-        # FOUND rather than forbidden: an internal door that distinguishes the
-        # two tells a caller which ids exist.
+        # THE SYSTEM WORKER IS CROSS-ACCOUNT; AN ACCOUNT WORKER IS NOT.
+        #
+        # `Worker` enforces exactly ONE system worker globally
+        # (`only_one_system_worker_globally`), and it belongs to a single
+        # account. That worker runs `PlatformInvestigationJob` for every tenant.
+        # Anchoring it on `[its own account, nil]` — as this door originally did
+        # — meant every other tenant's investigation was NOT FOUND here, the job
+        # raised, Sidekiq retried, and the investigation stayed open forever:
+        # the same one-investigation-per-component-ever failure the A6 review
+        # traced to F1–F3, reintroduced one layer further along. The request
+        # spec could not see it because it created the worker in the
+        # investigation's own account.
+        #
+        # So a system worker may conclude any account's investigation — the same
+        # trust every other internal door extends to it (e.g.
+        # `Internal::Ai::AgentExecutionsController` finds by id alone), and the
+        # mTLS certificate is what establishes it. An ACCOUNT worker stays
+        # anchored to its own account plus shared rows, and a foreign id is NOT
+        # FOUND rather than forbidden, so it learns nothing about what exists
+        # elsewhere.
         def find_investigation
-          ::Platform::Investigation
-            .where(account_id: [ @current_account&.id, nil ].uniq)
-            .find_by(id: params[:id])
+          scope = ::Platform::Investigation
+          scope = scope.where(account_id: [ @current_account&.id, nil ].uniq) unless @current_worker&.system?
+          scope.find_by(id: params[:id])
         end
 
         # An investigation belonging to a different account than the worker's

@@ -58,6 +58,7 @@ module Api
 
           render_success(
             component_status_id: @component_status.id,
+            scope: component_scope,
             open: scope.open_investigations.recent_first.map { |row| serialize(row, evidence: true) },
             recent: scope.concluded.recent_first.limit(RECENT_LIMIT).map { |row| serialize(row) },
             daily_cap: ::Platform::InvestigationService.daily_cap
@@ -89,7 +90,8 @@ module Api
                                            daily_cap: ::Platform::InvestigationService.daily_cap })
           end
 
-          render_success({ investigation: serialize(result[:investigation], evidence: true) },
+          render_success({ investigation: serialize(result[:investigation], evidence: true),
+                           scope: component_scope },
                          status: :created)
         end
 

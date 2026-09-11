@@ -35,6 +35,16 @@ module Platform
       render_error("Component status not found", status: :not_found) if @component_status.nil?
     end
 
+    # "shared" | "account" for the component, taken from
+    # `Platform::ComponentStatusSerializer` rather than written a second time
+    # (A9 review S4). That serializer is the one place the plane decides the
+    # label, and A4's REST and MCP surfaces already emit it from there. A drawer
+    # response that computed its own would be a second definition of "shared"
+    # that could disagree with the list the operator clicked through from.
+    def component_scope
+      ::Platform::ComponentStatusSerializer.summary(@component_status)[:scope]
+    end
+
     # The signal kind the sweep ROUTED this component to, or nil when nothing
     # routed it. Read off the persisted remediation payload rather than
     # re-derived: `Platform::Status::RemediationState` is the single writer of

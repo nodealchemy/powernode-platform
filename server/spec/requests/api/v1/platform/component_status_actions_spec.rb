@@ -177,12 +177,51 @@ RSpec.describe "Api::V1::Platform component status drawer reads", type: :request
       expect(body["data"]).not_to have_key("route")
     end
 
-    it "does not construct a proceed" do
+    # A9 review S3. This example previously ran with NO lane registered, so
+    # the router answered NoLaneForSignal and no lane's `describe` — the only
+    # thing that could construct a proceed — ever ran. It caught a core-side
+    # construction and missed the lane-side one, which is the risk the
+    # controller's own header names. A lane is registered here, and the
+    # example asserts that lane was actually CONSULTED, so it cannot pass by
+    # never reaching the path it guards.
+    it "does not construct a proceed, with a real lane consulted" do
+      consulted = []
+      lane = Class.new do
+        define_method(:describe) do |component, kind, account: nil|
+          consulted << [ component.id, kind ]
+          { state: ::Platform::ComponentStatus::REMEDIATION_AWAITING_OPERATOR, lane_key: "probe_lane",
+            can_proceed: false, reason: "consent budget exhausted" }
+        end
+      end.new
+      ::Platform::Remediation::Registry.register_lane("instance.silent", lane)
       expect(::Platform::Remediation::ApprovalRequestService).not_to receive(:new)
 
       get_drawer("remediation_route")
 
       expect(response).to have_http_status(:ok)
+      expect(consulted).to eq([ [ component.id, "instance.silent" ] ])
+      expect(body["data"]["route"]["reason"]).to eq("consent budget exhausted")
+    end
+  end
+
+  # A9 review S4 — every drawer read carries the component's scope, from the
+  # plane's one serializer rather than a second definition of "shared".
+  describe "the scope label" do
+    %w[runbook remediation_route events].each do |endpoint|
+      it "labels a shared component as shared on #{endpoint}" do
+        shared = create(:platform_component_status, :shared, component_kind: "provider_circuit_breaker",
+                                                             component_ref: "breaker-#{endpoint}")
+
+        get_drawer(endpoint, id: shared.id)
+
+        expect(body["data"]["scope"]).to eq(::Platform::ComponentStatusSerializer::SCOPE_SHARED)
+      end
+
+      it "labels an account component as account on #{endpoint} — the other arm" do
+        get_drawer(endpoint)
+
+        expect(body["data"]["scope"]).to eq(::Platform::ComponentStatusSerializer::SCOPE_ACCOUNT)
+      end
     end
   end
 

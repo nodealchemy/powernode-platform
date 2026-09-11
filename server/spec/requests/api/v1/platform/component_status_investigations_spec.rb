@@ -212,11 +212,34 @@ RSpec.describe "Api::V1::Platform component status investigations", type: :reque
       end
     end
 
-    # The drawer and the MCP verb must not disagree about who may spend an LLM
-    # call. If this ever fails, one of the two doors has drifted.
-    it "requires the same permission the MCP verb requires" do
-      expect(Ai::Tools::PlatformInvestigationTool::ACTION_PERMISSIONS["platform_investigate"])
-        .to eq("ai.autonomy.manage")
+    # THE TWO DOORS AGREE — asserted BEHAVIOURALLY, from the tool's own
+    # constant, against the REST door (A9 review S2).
+    #
+    # The previous example compared the MCP constant to a string literal and
+    # never touched the controller, so it stayed green while the REST door was
+    # patched to a permission that does not exist. This builds a user holding
+    # EXACTLY the floor plus whatever the MCP verb requires, and POSTs to the
+    # REST door. If the REST door moves to any other permission, the 201 arm
+    # goes red; the 403 arm proves the door does refuse without it, so the pair
+    # cannot pass by the door accepting everybody.
+    describe "the REST door accepts exactly what the MCP verb requires" do
+      let(:mcp_permission) { Ai::Tools::PlatformInvestigationTool::ACTION_PERMISSIONS.fetch("platform_investigate") }
+
+      it "admits a user holding the floor plus the MCP verb's permission" do
+        exact = create(:user, account: account, permissions: [ "platform.status.read", mcp_permission ])
+
+        open_one(user: exact)
+
+        expect(response).to have_http_status(:created)
+      end
+
+      it "refuses a user holding the floor plus some OTHER write permission" do
+        other = create(:user, account: account, permissions: [ "platform.status.read", "ai.goals.manage" ])
+
+        open_one(user: other)
+
+        expect(response).to have_http_status(:forbidden)
+      end
     end
   end
 
@@ -284,6 +307,30 @@ RSpec.describe "Api::V1::Platform component status investigations", type: :reque
       open_one(user: operator_b, id: shared.id)
 
       expect(response).to have_http_status(:created)
+    end
+  end
+
+  # A9 review S4 — the component's scope, taken from the plane's one serializer.
+  describe "the scope label" do
+    it "labels a shared component as shared" do
+      shared = create(:platform_component_status, :shared, component_kind: "provider_circuit_breaker",
+                                                           component_ref: "breaker-2")
+
+      list(id: shared.id)
+
+      expect(body["data"]["scope"]).to eq(::Platform::ComponentStatusSerializer::SCOPE_SHARED)
+    end
+
+    it "labels an account component as account — the other arm" do
+      list
+
+      expect(body["data"]["scope"]).to eq(::Platform::ComponentStatusSerializer::SCOPE_ACCOUNT)
+    end
+
+    it "carries the label on the 201 too" do
+      open_one
+
+      expect(body["data"]["scope"]).to eq(::Platform::ComponentStatusSerializer::SCOPE_ACCOUNT)
     end
   end
 end

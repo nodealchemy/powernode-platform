@@ -50,6 +50,7 @@ module Api
 
           render_success(
             component_status_id: @component_status.id,
+            scope: component_scope,
             signal_kind: kind,
             runbook: kind.nil? ? no_signal_runbook : ::Platform::Runbook::Registry.render(kind)
           )
@@ -60,8 +61,8 @@ module Api
           kind = routed_signal_kind
 
           if kind.nil?
-            return render_success(component_status_id: @component_status.id, signal_kind: nil,
-                                  routed: false, reason: NO_ROUTED_SIGNAL,
+            return render_success(component_status_id: @component_status.id, scope: component_scope,
+                                  signal_kind: nil, routed: false, reason: NO_ROUTED_SIGNAL,
                                   runbook: no_signal_runbook)
           end
 
@@ -69,6 +70,7 @@ module Api
 
           render_success(
             component_status_id: @component_status.id,
+            scope: component_scope,
             signal_kind: kind,
             routed: true,
             route: serialize_route(route)
@@ -91,6 +93,7 @@ module Api
 
           render_success(
             component_status_id: @component_status.id,
+            scope: component_scope,
             events: events.map { |event| serialize_event(event) },
             meta: { pagination: pagination_meta }
           )

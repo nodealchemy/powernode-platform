@@ -90,23 +90,6 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
       expect(response).to have_http_status(:not_found)
     end
 
-    # Tenancy is the worker's certificate, not a body parameter. An
-    # investigation belonging to another account is NOT FOUND rather than
-    # forbidden: distinguishing the two tells a caller which ids exist.
-    it "404s an investigation belonging to another account" do
-      other_account = create(:account)
-      other_component = create(:platform_component_status, account: other_account,
-                                                           component_kind: "docker_host",
-                                                           component_ref: "theirs")
-      theirs = Platform::InvestigationService.new(account: other_account)
-                                             .open!(other_component, trigger: "operator")[:investigation]
-
-      post_conclude(theirs.id)
-
-      expect(response).to have_http_status(:not_found)
-      expect(theirs.reload).to be_open
-    end
-
     it "reaches a shared investigation, which belongs to no tenant" do
       shared_component = create(:platform_component_status, :shared,
                                 component_kind: "provider_circuit_breaker", component_ref: "breaker-1",
@@ -120,6 +103,98 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
       post_conclude(shared.id)
 
       expect(response).to have_http_status(:ok)
+    end
+  end
+
+  # THERE IS EXACTLY ONE SYSTEM WORKER, platform-wide, and it belongs to one
+  # account (`Worker#only_one_system_worker_globally`). It runs the ranking job
+  # for every tenant, so it must reach every tenant's investigation. This door
+  # used to anchor it on its own account, which 404'd every OTHER tenant's
+  # investigation — the job raised, retried, and the row stayed open forever.
+  # The examples above could not see that, because they put the worker in the
+  # investigation's own account.
+  describe "which worker may conclude which investigation" do
+    let(:tenant) { create(:account) }
+    let(:tenant_component) do
+      create(:platform_component_status, account: tenant, component_kind: "docker_host",
+                                         component_ref: "tenant-host",
+                                         conditions: [ { "type" => "Connected", "status" => false,
+                                                         "reason" => "ConnectionError", "severity" => "down" } ])
+    end
+    let(:tenant_investigation) do
+      Platform::InvestigationService.new(account: tenant)
+                                    .open!(tenant_component, trigger: "operator")[:investigation]
+    end
+
+    it "lets the SYSTEM worker conclude another tenant's investigation" do
+      stub_ranker('{"hypotheses":[]}')
+
+      post_conclude(tenant_investigation.id)
+
+      expect(response).to have_http_status(:ok)
+      expect(tenant_investigation.reload).to be_concluded
+    end
+
+    # THE CLONE AND THE LEDGER ARE THE TENANT'S (A6 re-verification G3).
+    #
+    # Reaching another tenant's investigation is only half of it. The door
+    # used to pass the WORKER's account to the ranker, so the clone that read
+    # the tenant's evidence was minted in the worker's account and the spend
+    # was booked there. This runs the REAL resolver — `agent_for` is not
+    # stubbed — so the account the clone lands in is the account the code
+    # actually chose.
+    it "ranks as a clone in the TENANT's account and books the spend there" do
+      canonical = create(:ai_agent, :global, name: "Infrastructure Generalist")
+      create(:user, account: tenant)
+      stub_provider('{"hypotheses":[{"cause":"daemon died","evidence_classes":["conditions"],"score":1.0}]}')
+
+      post_conclude(tenant_investigation.id)
+
+      expect(response).to have_http_status(:ok)
+      concluded = tenant_investigation.reload
+      expect(concluded).to be_concluded
+      expect(concluded.agent.account_id).to eq(tenant.id)
+      expect(concluded.agent.id).not_to eq(canonical.id)
+
+      execution = Ai::AgentExecution.where(ai_agent_id: concluded.agent_id).sole
+      expect(execution.account_id).to eq(tenant.id)
+      # And nothing was minted in the worker's account.
+      expect(Ai::Agent.where(account_id: account.id, cloned_from_id: canonical.id)).to be_empty
+    end
+
+    # The shared arm, THROUGH the door. An automatic trigger on a shared
+    # component opens with no account, so no principal is minted anywhere — not
+    # in the worker's account — and it concludes on core's own candidates.
+    it "resolves no agent for a shared investigation through the door" do
+      canonical = create(:ai_agent, :global, name: "Infrastructure Generalist")
+      shared_component = create(:platform_component_status, :shared,
+                                component_kind: "provider_circuit_breaker", component_ref: "breaker-g3",
+                                verdict: Platform::ComponentStatus::DEGRADED,
+                                conditions: [ { "type" => "Closed", "status" => false,
+                                                "reason" => "BreakerOpen", "severity" => "degraded" } ])
+      shared = Platform::InvestigationService.new(account: nil)
+                                             .open!(shared_component, trigger: "down")[:investigation]
+      stub_provider('{"hypotheses":[]}')
+
+      post_conclude(shared.id)
+
+      expect(response).to have_http_status(:ok)
+      expect(shared.reload).to be_concluded
+      expect(shared.reload.agent_id).to be_nil
+      expect(Ai::Agent.where(cloned_from_id: canonical.id)).to be_empty
+    end
+
+    # The other arm: an ACCOUNT worker stays anchored to its own tenant, and a
+    # foreign id is NOT FOUND rather than forbidden.
+    it "404s an ACCOUNT worker reaching another tenant's investigation" do
+      account_worker = create(:worker, account: account, is_system: false)
+      headers = { "X-Forwarded-Tls-Client-Cert-Info" =>
+                    CGI.escape(%(Subject="CN=#{account_worker.node_instance_id}")) }
+
+      post_conclude(tenant_investigation.id, headers: headers)
+
+      expect(response).to have_http_status(:not_found)
+      expect(tenant_investigation.reload).to be_open
     end
   end
 

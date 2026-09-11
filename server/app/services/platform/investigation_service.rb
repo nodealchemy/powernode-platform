@@ -393,11 +393,30 @@ module Platform
       end
     end
 
-    # Scoped exactly as Rollup's neighbourhood is: this account's rows plus the
-    # shared ones. A dependency that resolves to another tenant's row is not a
-    # dependency this reader has.
+    # THE NEIGHBOURHOOD IS THE READER'S, NOT THE COMPONENT'S (A9 review S5).
+    #
+    # This keyed on `component_status.account_id`, which is nil for a SHARED
+    # component, so `[nil, nil].uniq` collapsed to `[nil]` and the dependency
+    # walk saw only other shared rows. Every dependent living in a real account
+    # was invisible: the chain reported `resolved: false` for a neighbour the
+    # reader can see perfectly well, and the confidence rule then discounted an
+    # evidence class that should have carried a `down` verdict. A4's controller
+    # documents fixing the identical defect on its own impact walk
+    # (`ComponentStatusesController#neighbourhood_rows`); this is the same fix.
+    #
+    # The set is the one the reader may legally see: the opener's account, the
+    # component's own account, and the shared rows. For an account-scoped
+    # component those are the same account. For a shared component opened by a
+    # tenant they are that tenant plus shared. With no opener (an automatic
+    # trigger on a shared component) it is shared rows only — there is no
+    # reader whose rows could be included.
+    #
+    # Keyed on the reader explicitly rather than by passing an account in:
+    # the review's own probe showed that handing the reader's account to a
+    # method that still keyed on the component changed nothing.
     def neighbourhood_rows(component_status)
-      ::Platform::ComponentStatus.where(account_id: [ component_status.account_id, nil ].uniq).to_a
+      accounts = [ @account&.id, component_status.account_id ].compact.uniq
+      ::Platform::ComponentStatus.where(account_id: accounts + [ nil ]).to_a
     rescue StandardError => e
       Rails.logger.error("[Platform::Investigation] neighbourhood load failed: #{e.class}: #{e.message}")
       []
