@@ -42,10 +42,24 @@ const indexResult = (): ComponentStatusIndexResult => ({
 
 describe('usePlatformStatus subscription churn', () => {
   let subscribe: jest.Mock;
+  let subscribeCount = 0;
+  // Far above the handful a settled page makes, far below a loop. The loop is
+  // stopped HERE, by a named error, instead of by the worker's heap (R9).
+  const SUBSCRIBE_CEILING = 20;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    subscribe = jest.fn(() => jest.fn());
+    subscribeCount = 0;
+    subscribe = jest.fn(() => {
+      subscribeCount += 1;
+      if (subscribeCount > SUBSCRIBE_CEILING) {
+        throw new Error(
+          `subscribe churn: ${subscribeCount} subscribe calls — the subscription is being torn ` +
+            'down and re-created on every render (an inline subscribeTo literal?)'
+        );
+      }
+      return jest.fn();
+    });
     mockedWebSocket.mockReturnValue({
       isConnected: true,
       error: null,
@@ -71,8 +85,10 @@ describe('usePlatformStatus subscription churn', () => {
 
     // With the module-level STATUS_CHANNELS constant this settles in the low
     // single digits. With an inline `subscribeTo: ['platformStatus']` literal
-    // React aborts with "Maximum update depth exceeded" before reaching this
-    // line at all, so the failure is loud rather than a number being off.
+    // the subscribe mock throws its named "subscribe churn" error at the
+    // ceiling (C3p2 review R9). Before the ceiling nothing aborted: React only
+    // WARNS "Maximum update depth exceeded", and the worker ran out of heap
+    // (exit 134) before any expectation ran.
     // The page's pageType is 'dashboard', which brings `notifications` along, so
     // PlatformStatusChannel is one of the subscriptions rather than the first.
     const channels = subscribe.mock.calls.map((call) => call[0].channel);

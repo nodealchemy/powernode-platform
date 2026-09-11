@@ -207,6 +207,59 @@ describe('usePlatformStatus', () => {
       expect(mockedApi.fetchComponentStatuses.mock.calls.length).toBeGreaterThan(afterDrop);
     });
 
+    it('stays on the poll after a reconnect the channel never re-accepts (R7)', async () => {
+      // The reconnect arm "resumes polling when a live cable drops" never
+      // reached: the cable comes BACK, but PlatformStatusChannel does not send
+      // connection_established again (it rejected us this time). Without the
+      // reset-on-drop, the old acceptance would read as live and stop the poll.
+      mockSocket(true);
+      const { result, rerender } = renderHook(() => usePlatformStatus({}));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      establishChannel();
+      expect(result.current.isLive).toBe(true);
+
+      mockSocket(false);
+      rerender();
+      mockSocket(true);
+      rerender();
+
+      expect(result.current.isConnected).toBe(true);
+      expect(result.current.isLive).toBe(false);
+      const afterReconnect = mockedApi.fetchComponentStatuses.mock.calls.length;
+      act(() => {
+        jest.advanceTimersByTime(STATUS_POLL_MS);
+      });
+      expect(mockedApi.fetchComponentStatuses.mock.calls.length).toBeGreaterThan(afterReconnect);
+    });
+
+    it("does not go live on ANOTHER channel's connection_established (R8)", async () => {
+      // NotificationChannel transmits this message too (useNotificationWebSocket
+      // handles it). Only the status channel's acceptance may stop the poll.
+      mockSocket(true);
+      const { result } = renderHook(() => usePlatformStatus({}));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      act(() => {
+        lastOnDataUpdate?.({
+          channel: 'notifications',
+          type: 'connection_established',
+          data: { type: 'connection_established' },
+          timestamp: new Date(),
+        });
+      });
+
+      expect(result.current.isLive).toBe(false);
+      const before = mockedApi.fetchComponentStatuses.mock.calls.length;
+      act(() => {
+        jest.advanceTimersByTime(STATUS_POLL_MS);
+      });
+      expect(mockedApi.fetchComponentStatuses.mock.calls.length).toBeGreaterThan(before);
+    });
+
     it('coalesces a burst of transitions into ONE reconciling read', async () => {
       // C2 review L1. This is the property that keeps a forty-component sweep
       // from becoming forty list reads, and nothing asserted it. Both arms:
