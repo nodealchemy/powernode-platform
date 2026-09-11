@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_11_180713) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_11_181631) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2333,6 +2333,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_180713) do
     t.index ["account_id", "tier"], name: "index_ai_environments_on_account_id_and_tier"
     t.index ["account_id"], name: "index_ai_environments_on_account_id"
     t.index ["account_id"], name: "index_ai_environments_one_default_per_account", unique: true, where: "is_default"
+  end
+
+  create_table "ai_evaluation_attempts", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "execution_id", null: false
+    t.string "outcome", default: "pending", null: false
+    t.string "reason"
+    t.uuid "task_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_evaluation_attempts_on_account_and_created_at"
   end
 
   create_table "ai_evaluation_results", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -11912,6 +11923,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_180713) do
   add_foreign_key "ai_documents", "ai_knowledge_bases", column: "knowledge_base_id"
   add_foreign_key "ai_documents", "users", column: "uploaded_by_id"
   add_foreign_key "ai_encrypted_messages", "accounts"
+  add_foreign_key "ai_evaluation_attempts", "accounts", on_delete: :cascade
   add_foreign_key "ai_evaluation_results", "accounts"
   add_foreign_key "ai_evaluation_results", "ai_agents", column: "agent_id"
   add_foreign_key "ai_execution_events", "accounts"

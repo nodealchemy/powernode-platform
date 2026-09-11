@@ -25,10 +25,15 @@ module Ai
       # daily_cap: per account, rolling day, positive?-guarded so a zero or
       # unparseable value falls back to the default instead of meaning
       # "unlimited" or "never". Turning the judge OFF is the switch's job.
+      # It counts judge ATTEMPTS (Ai::EvaluationAttempt), degraded ones
+      # included, because every attempt is a paid call (D5 review F-D5-1).
       ENABLED_SETTING = "ai.evaluation.enabled"
       DAILY_CAP_SETTING = "ai.evaluation.daily_cap"
       DEFAULT_DAILY_CAP = 20
       REFUSED_DAILY_CAP = "DailyCapReached"
+      # The attempt ledger could not be written, so the judge was not called.
+      # Same reason string as the A6 investigation ledger.
+      REFUSED_LEDGER_UNAVAILABLE = "LedgerUnavailable"
 
       def self.enabled?
         raw = ::SiteSetting.get(ENABLED_SETTING)
@@ -100,6 +105,12 @@ module Ai
         # on spend and not a report of it.
         return not_measured(REFUSED_DAILY_CAP) if daily_cap_reached?
 
+        # NO LEDGER ROW, NO CALL (D5 review F-D5-1). The cap counts attempts,
+        # so an attempt that cannot be recorded must not be made: it would be
+        # a paid call the cap never sees.
+        attempt = open_attempt(execution, task_id)
+        return not_measured(REFUSED_LEDGER_UNAVAILABLE) unless attempt
+
         judge = Ai::Learning::LlmJudgeService.new(account: @account)
         verdict = judge.evaluate(
           agent_output: transcript,
@@ -109,12 +120,15 @@ module Ai
         # D4 review F1 — degraded carries its cause (JudgeUnavailable,
         # JudgeUnparseable, JudgeDimensionMissing, JudgeDimensionNotNumeric).
         # None of them persists a row, moves trust or touches a skill version.
+        # The ATTEMPT stays: the call was made, and the cap counts it.
         if verdict[:degraded]
-          return not_measured(verdict[:degraded_reason].presence || "JudgeUnavailable",
-                              detail: verdict[:degraded_detail])
+          reason = verdict[:degraded_reason].presence || "JudgeUnavailable"
+          close_attempt(attempt, "not_measured", reason)
+          return not_measured(reason, detail: verdict[:degraded_detail])
         end
 
         result = persist_evaluation(execution, agent, task_id, judge, verdict)
+        close_attempt(attempt, "evaluated")
         return evaluated(result, idempotent: true) if result[:already_existed]
 
         record = result[:record]
@@ -124,6 +138,9 @@ module Ai
         evaluated(record).merge(skill_outcome: record_skill_outcome(execution, quality))
       rescue StandardError => e
         Rails.logger.error("[EvaluationService] evaluation failed: #{e.class}: #{e.message}")
+        # An attempt opened before the failure keeps counting: the call may
+        # already have been paid for.
+        close_attempt(attempt, "not_measured", "EvaluationError") if attempt&.outcome == "pending"
         not_measured("EvaluationError", detail: e.message)
       end
 
@@ -298,10 +315,33 @@ module Ai
         not_measured("SkillOutcomeError", detail: e.message)
       end
 
+      # Counts ATTEMPTS, not result rows (D5 review F-D5-1): a degraded verdict
+      # is a paid call that writes no result row, so counting results let five
+      # degraded calls through a cap of 1.
       def daily_cap_reached?
-        Ai::EvaluationResult.where(account_id: @account.id)
-                            .where("created_at >= ?", 1.day.ago)
-                            .count >= self.class.daily_cap
+        Ai::EvaluationAttempt.where(account_id: @account.id)
+                             .since(1.day.ago)
+                             .count >= self.class.daily_cap
+      end
+
+      # Written before the judge is called. nil means the ledger could not be
+      # written, and the caller then makes no call.
+      def open_attempt(execution, task_id)
+        Ai::EvaluationAttempt.create!(account: @account, execution_id: execution.id,
+                                      task_id: task_id, outcome: "pending")
+      rescue StandardError => e
+        Rails.logger.error("[EvaluationService] attempt ledger write failed: #{e.class}: #{e.message}")
+        nil
+      end
+
+      # Closing only records what the call produced. A close that fails leaves
+      # the row pending, and a pending row still counts toward the cap.
+      def close_attempt(attempt, outcome, reason = nil)
+        return unless attempt
+
+        attempt.update_columns(outcome: outcome, reason: reason, updated_at: Time.current)
+      rescue StandardError => e
+        Rails.logger.error("[EvaluationService] attempt #{attempt.id} close failed: #{e.class}: #{e.message}")
       end
 
       def success_quality_threshold

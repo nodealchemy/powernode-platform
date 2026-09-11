@@ -396,37 +396,93 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
         allow(SiteSetting).to receive(:get).with(described_class::DAILY_CAP_SETTING).and_return(value)
       end
 
-      def prior_evaluation!(for_account: account)
-        Ai::EvaluationResult.create!(
-          account: for_account, agent: create(:ai_agent, account: for_account),
-          execution_id: SecureRandom.uuid, evaluator_model: "m",
-          scores: { "correctness" => 4, "completeness" => 4, "helpfulness" => 4, "safety" => 5 }
-        )
+      # F-D5-1: the cap counts ATTEMPTS (paid judge calls), not result rows.
+      def prior_attempt!(for_account: account, at: Time.current, outcome: "evaluated")
+        Ai::EvaluationAttempt.create!(account: for_account, execution_id: SecureRandom.uuid,
+                                      outcome: outcome, created_at: at)
       end
 
-      it "refuses DailyCapReached once today's evaluations reach the cap, before the judge is paid" do
+      it "refuses DailyCapReached once today's judge attempts reach the cap, before the judge is paid" do
         cap!("1")
-        prior_evaluation!
+        prior_attempt!
         expect(Ai::Learning::LlmJudgeService).not_to receive(:new)
 
         expect(service.evaluate_execution(execution: execution))
           .to eq(status: "not_measured", reason: "DailyCapReached")
       end
 
+      it "counts a DEGRADED prior attempt toward the cap too" do
+        cap!("1")
+        prior_attempt!(outcome: "not_measured")
+        expect(Ai::Learning::LlmJudgeService).not_to receive(:new)
+
+        expect(service.evaluate_execution(execution: execution)[:reason]).to eq("DailyCapReached")
+      end
+
       it "evaluates below the cap" do
         cap!("2")
-        prior_evaluation!
+        prior_attempt!
         stub_judge!
 
         expect(service.evaluate_execution(execution: execution)[:status]).to eq("evaluated")
       end
 
-      it "counts only this account's evaluations" do
+      it "counts only this account's attempts" do
         cap!("1")
-        prior_evaluation!(for_account: create(:account))
+        prior_attempt!(for_account: create(:account))
         stub_judge!
 
         expect(service.evaluate_execution(execution: execution)[:status]).to eq("evaluated")
+      end
+
+      it "no longer counts an attempt older than a day" do
+        cap!("1")
+        prior_attempt!(at: 25.hours.ago)
+        stub_judge!
+
+        expect(service.evaluate_execution(execution: execution)[:status]).to eq("evaluated")
+      end
+
+      # No ledger row, no call: an attempt the cap cannot see must not be made.
+      it "calls no judge when the attempt cannot be recorded, and says LedgerUnavailable" do
+        cap!("5")
+        allow(Ai::EvaluationAttempt).to receive(:create!).and_raise(ActiveRecord::StatementInvalid, "ledger down")
+        expect(Ai::Learning::LlmJudgeService).not_to receive(:new)
+
+        expect(service.evaluate_execution(execution: execution))
+          .to eq(status: "not_measured", reason: "LedgerUnavailable")
+      end
+
+      it "records each paid call on the ledger with what it produced, both arms" do
+        cap!("5")
+        judge = stub_judge!
+        service.evaluate_execution(execution: execution)
+        allow(judge).to receive(:evaluate)
+          .and_return(scores: {}, degraded: true, degraded_reason: "JudgeUnparseable")
+        other = create(:ai_agent_execution, :completed, account: account, agent: agent,
+                                                        output_data: { "result" => "second" })
+        service.evaluate_execution(execution: other)
+
+        expect(Ai::EvaluationAttempt.where(account_id: account.id).order(:created_at).pluck(:execution_id, :outcome, :reason))
+          .to eq([ [ execution.id, "evaluated", nil ], [ other.id, "not_measured", "JudgeUnparseable" ] ])
+      end
+
+      # D5 review F-D5-1 — the cap bounds PAID CALLS, not rows. A degraded
+      # verdict is a provider round trip that writes no row, so counting rows
+      # let five of them through a cap of 1.
+      it "counts a degraded verdict as a paid call: at a cap of 1, five degraded verdicts make ONE judge call" do
+        cap!("1")
+        judge = stub_judge!(scores: {}, degraded: true)
+        results = Array.new(5) do |i|
+          run = create(:ai_agent_execution, :completed, account: account, agent: agent,
+                                                        output_data: { "result" => "answer #{i}" })
+          service.evaluate_execution(execution: run)
+        end
+
+        expect(judge).to have_received(:evaluate).once
+        expect(results.first).to include(status: "not_measured", reason: "JudgeUnavailable")
+        expect(results.drop(1).map { |r| r[:reason] }).to all(eq("DailyCapReached"))
+        expect(Ai::EvaluationResult.where(account_id: account.id).count).to eq(0)
       end
 
       it "still answers an idempotent retry at the cap" do
