@@ -75,6 +75,8 @@ module Ai
     # campaign.resume (MCP identity plan R2): a human-only resume parks under it.
     # A row can block it; no row can proceed it (Ai::AutonomyGate forces
     # require_approval for a human-only action).
+    # ai.intervention_policy.write (secreview §21 G4): a tool door's write to
+    # one of these rows is human-only and parks under it, the same way.
     STATIC_CATEGORIES = (%w[
       approval proposal escalation status_update issue_alert
       feedback
@@ -83,6 +85,7 @@ module Ai
       ai.delegation_policy.update
       ralph.repository_write ralph.repository_delete
       campaign.resume
+      ai.intervention_policy.write
     ] + ENGINEERING_CATEGORIES + %w[*]).freeze
 
     @category_registry = Set.new(STATIC_CATEGORIES)

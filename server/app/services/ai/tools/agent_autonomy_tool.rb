@@ -125,10 +125,8 @@ module Ai
       declare_action "agent_introspect", mutating: false
       declare_action "approve_deferred_operation", mutating: true, destructive: true
       declare_action "create_agent_goal", mutating: true
-      declare_action "create_intervention_policy", mutating: true, destructive: true
       declare_action "create_proposal", mutating: true
       declare_action "decompose_goal", mutating: true
-      declare_action "delete_intervention_policy", mutating: true, destructive: true
       declare_action "discover_claude_sessions", mutating: false
       declare_action "escalate", mutating: true
       declare_action "list_agent_goals", mutating: false
@@ -141,7 +139,29 @@ module Ai
       declare_action "request_feedback", mutating: true
       declare_action "send_proactive_notification", mutating: true
       declare_action "update_agent_goal", mutating: true
-      declare_action "update_intervention_policy", mutating: true, destructive: true
+
+      # secreview §21 G4 (self-unmark). An intervention-policy row decides
+      # whether an action parks at all, and which requests need a person's own
+      # session (Ai::Approvals::HumanSessionPolicy reads these rows), so a write
+      # to one is a PERSON's decision. Human-only (MCP identity plan R2): from
+      # any tool door it parks for a person to confirm in their own session, and
+      # runs as that person, who must hold ai.intervention_policies.manage. The
+      # REST/UI door (Api::V1::Ai::InterventionPoliciesController) stays direct.
+      declare_action "create_intervention_policy", mutating: true, destructive: true, human_only: true,
+                                                   action_category: "ai.intervention_policy.write",
+                                                   executor_class: "Ai::Executors::DeferredToolCall",
+                                                   gate_context: :deferred_tool_call_context,
+                                                   on_proceed: :deferred_tool_call_result
+      declare_action "update_intervention_policy", mutating: true, destructive: true, human_only: true,
+                                                   action_category: "ai.intervention_policy.write",
+                                                   executor_class: "Ai::Executors::DeferredToolCall",
+                                                   gate_context: :deferred_tool_call_context,
+                                                   on_proceed: :deferred_tool_call_result
+      declare_action "delete_intervention_policy", mutating: true, destructive: true, human_only: true,
+                                                   action_category: "ai.intervention_policy.write",
+                                                   executor_class: "Ai::Executors::DeferredToolCall",
+                                                   gate_context: :deferred_tool_call_context,
+                                                   on_proceed: :deferred_tool_call_result
 
       # HIER-P0 — delegation authority. The read is plain; the write is the
       # first action on this tool wired to the gate through the generic
