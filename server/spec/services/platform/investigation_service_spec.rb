@@ -357,6 +357,7 @@ RSpec.describe Platform::InvestigationService do
       opened = described_class.new(account: account).open!(component, trigger: "operator", opened_by: opener)
 
       expect(opened[:investigation].opened_by_user_id).to eq(opener.id)
+      expect(opened[:investigation].opened_via_mcp?).to be(false)
     end
 
     it "records nobody through the class-level door the emitter uses" do
@@ -372,6 +373,47 @@ RSpec.describe Platform::InvestigationService do
 
       expect(opened[:investigation].opened_by_user_id).to be_nil
     end
+
+    # A6 H1, keyed on the TRANSPORT: the MCP door never records a person, even
+    # when a caller passes one beside it. That user is the authority its
+    # permission checks asked, not a person's consent.
+    it "records no person for the MCP door, even when one is passed" do
+      opener = create(:user, account: account)
+
+      opened = described_class.new(account: account)
+                              .open!(component, trigger: "operator", opened_by: opener, via_mcp: true)
+
+      expect(opened[:investigation].opened_by_user_id).to be_nil
+      expect(opened[:investigation].opened_by_agent_id).to be_nil
+      expect(opened[:investigation].opened_via_mcp?).to be(true)
+    end
+
+    it "records the agent the MCP door carried, and still no person" do
+      opener = create(:user, account: account)
+      agent = create(:ai_agent, account: account, creator: opener)
+
+      opened = described_class.new(account: account)
+                              .open!(component, trigger: "operator", opened_by: opener, via_mcp: true,
+                                                opened_by_agent: agent)
+
+      expect(opened[:investigation].opened_by_user_id).to be_nil
+      expect(opened[:investigation].opened_by_agent_id).to eq(agent.id)
+      expect(opened[:investigation].opened_via_mcp?).to be(true)
+    end
+
+    # Defence in depth: an agent reaches this service only through the MCP
+    # verb, so a caller that passes one without naming the door still records
+    # no person beside it.
+    it "treats an agent passed alone as the MCP door, so the person beside it is still dropped" do
+      opener = create(:user, account: account)
+      agent = create(:ai_agent, account: account, creator: opener)
+
+      opened = described_class.new(account: account)
+                              .open!(component, trigger: "operator", opened_by: opener, opened_by_agent: agent)
+
+      expect(opened[:investigation].opened_by_user_id).to be_nil
+      expect(opened[:investigation].opened_by_agent_id).to eq(agent.id)
+    end
   end
 
   describe "the ranking record" do
@@ -381,6 +423,15 @@ RSpec.describe Platform::InvestigationService do
 
       expect(described_class.evidence_classes(evidence)).to include("conditions")
       expect(described_class.evidence_classes(evidence)).not_to include("ranking")
+    end
+
+    # A6 H1: the MCP opener is who asked, not anything found about the
+    # component, so it raises no confidence either.
+    it "does not count the MCP opener as an evidence class" do
+      evidence = { "conditions" => [ { "type" => "Up", "status" => false } ],
+                   Platform::Investigation::OPENED_VIA_MCP_KEY => { "agent_id" => SecureRandom.uuid } }
+
+      expect(described_class.evidence_classes(evidence)).to eq([ "conditions" ])
     end
 
     it "puts a terminal record's message into the conclusion" do

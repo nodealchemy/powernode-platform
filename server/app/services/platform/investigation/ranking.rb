@@ -140,7 +140,7 @@ module Platform
           return no_principal(account) if account.nil?
           # Before any clone is minted or any gate consulted: automatic spend
           # is refused at every tier (see the header), whatever the matrix says.
-          return automatic_spend_refused if investigation.opened_by_user_id.nil?
+          return automatic_spend_refused(investigation) if investigation.opened_by_user_id.nil?
 
           agent = agent_for(investigation, account)
           return no_principal(account) if agent.nil?
@@ -275,11 +275,19 @@ module Platform
           terminal(STATE_NOT_RUN, REASON_NO_PRINCIPAL, "Ranking was not run: #{detail}.")
         end
 
-        def automatic_spend_refused
+        # An investigation the MCP verb opened (A6 H1) is automatic too: no
+        # person asked for it. The message says who opened it, and where a
+        # ranked diagnosis can come from.
+        def automatic_spend_refused(investigation = nil)
+          opener = if investigation&.opened_by_agent_id then "An agent"
+                   elsif investigation&.opened_via_mcp? then "An MCP client"
+                   else "An automatic trigger"
+                   end
           terminal(STATE_NOT_RUN, REASON_AUTOMATIC_SPEND_NEEDS_GRANT,
-                   "Ranking was not run because automatic spend needs an agent-scoped grant. An automatic " \
-                     "trigger opened this investigation, and no automatic spend is allowed at any trust tier " \
-                     "until that spend can be attributed to an agent on the ledger.")
+                   "Ranking was not run because automatic spend needs an agent-scoped grant. #{opener} " \
+                     "opened this investigation, and no automatic spend is allowed at any trust tier " \
+                     "until that spend can be attributed to an agent on the ledger. For a ranked " \
+                     "diagnosis, open an investigation from the status page.")
         end
 
         def terminal(state, reason, message)
@@ -392,7 +400,7 @@ module Platform
         #   is what this used to do.
         def create_execution(agent, investigation, account)
           user = investigation.opened_by_user
-          return [ nil, automatic_spend_refused ] if user.nil?
+          return [ nil, automatic_spend_refused(investigation) ] if user.nil?
 
           provider = agent.try(:resolved_provider) || agent.try(:provider)
           if provider.nil?
@@ -494,7 +502,7 @@ module Platform
               component_ref: investigation.component_ref,
               # The ranking record is about earlier attempts, not the component,
               # and the prompt tells the ranker to cite only keys it can see.
-              evidence: (investigation.evidence || {}).except("ranking").to_json.truncate(MAX_EVIDENCE_CHARS)
+              evidence: (investigation.evidence || {}).except("ranking", ::Platform::Investigation::OPENED_VIA_MCP_KEY).to_json.truncate(MAX_EVIDENCE_CHARS)
             },
             fallback: FALLBACK_PROMPT
           )

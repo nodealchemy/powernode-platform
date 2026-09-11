@@ -148,10 +148,17 @@ module Ai
         component = find_component(args)
         return component if component.is_a?(Hash)
 
-        # `opened_by: user`, the principal calling this verb (G1). The service
-        # records it only when it is a real `User`.
+        # THE INITIATOR, NOT THE AUTHORITY (A6 H1), keyed on the TRANSPORT.
+        # This verb is the MCP face: every route here (an MCP client session,
+        # the tool bridge, a skill recipe) is a call an agent or an MCP client
+        # makes. `user` is only who the permission check asked, often an
+        # agent's creator or the owner of an MCP client's token, so no person
+        # is recorded, with or without an agent in the context. The agent, when
+        # there is one, is recorded as the opener, and ranking refuses to spend
+        # until A6b. Only the REST button records a person (G1).
         result = ::Platform::InvestigationService.new(account: account).open!(
-          component, trigger: ::Platform::Investigation::TRIGGER_OPERATOR, opened_by: user
+          component, trigger: ::Platform::Investigation::TRIGGER_OPERATOR,
+                     via_mcp: true, opened_by_agent: agent
         )
 
         if result[:refused]
@@ -220,6 +227,8 @@ module Ai
           conclusion: investigation.conclusion,
           agent_id: investigation.agent_id,
           opened_by_user_id: investigation.opened_by_user_id,
+          opened_by_agent_id: investigation.opened_by_agent_id,
+          opened_via_mcp: investigation.opened_via_mcp?,
           ranking: investigation.ranking_record,
           cost_usd: investigation.cost_usd,
           started_at: investigation.started_at,

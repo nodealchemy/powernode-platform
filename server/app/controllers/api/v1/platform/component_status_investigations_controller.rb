@@ -147,8 +147,11 @@ module Api
             hypotheses: Array(investigation.hypotheses),
             conclusion: investigation.conclusion,
             agent_id: investigation.agent_id,
-            # nil when an automatic trigger opened it (G1).
+            # nil unless a person pressed this door's button (G1): an
+            # automatic trigger and the MCP verb (H1) record no person.
             opened_by_user_id: investigation.opened_by_user_id,
+            opened_by_agent_id: investigation.opened_by_agent_id,
+            opened_via_mcp: investigation.opened_via_mcp?,
             # Why no agent ranked it, or nil when one did. On the concluded
             # rows too, which carry no evidence: that is where an operator
             # reads "ranking was not run".

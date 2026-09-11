@@ -26,6 +26,13 @@ module Platform
     TRIGGER_DOWN     = "down"
     TRIGGERS = [ TRIGGER_OPERATOR, TRIGGER_STUCK, TRIGGER_DOWN ].freeze
 
+    # The evidence key recording that the MCP verb opened the investigation
+    # (A6 H1), with the agent that called it when one did. The row has no
+    # column for it, so it lives in `evidence` beside the ranking record, and
+    # like that record it is not evidence about the component:
+    # `InvestigationService.evidence_classes` and the ranking prompt both skip it.
+    OPENED_VIA_MCP_KEY = "opened_via_mcp"
+
     # ── Statuses ────────────────────────────────────────────────────────────
     # `open` covers both "queued" and "running": the worker job owns the
     # difference and the open-fingerprint rule cares only that one exists.
@@ -87,6 +94,27 @@ module Platform
     # conclusion, so the three cannot describe it differently.
     def ranking_record
       record = evidence.is_a?(Hash) ? evidence["ranking"] : nil
+      record.is_a?(Hash) ? record : nil
+    end
+
+    # True when the MCP verb opened this investigation (A6 H1), whoever called
+    # it: an MCP client session with or without a client agent, the tool
+    # bridge, or a skill recipe. Such an investigation never has an
+    # `opened_by_user`: the user a call carries is the authority it was checked
+    # against, not a person who asked. With no user opener, ranking treats the
+    # investigation as automatic.
+    def opened_via_mcp?
+      !mcp_opener_record.nil?
+    end
+
+    # The agent that called the MCP verb, or nil when none stood behind the
+    # call (or the verb did not open it).
+    def opened_by_agent_id
+      mcp_opener_record&.dig("agent_id")
+    end
+
+    def mcp_opener_record
+      record = evidence.is_a?(Hash) ? evidence[OPENED_VIA_MCP_KEY] : nil
       record.is_a?(Hash) ? record : nil
     end
 

@@ -77,11 +77,21 @@ module Platform
       @account = account
     end
 
-    # `opened_by` is the PERSON who asked, from the REST and MCP doors only
-    # (A6 re-verification G1). The status emitter passes nothing, and the class
-    # method above has no parameter for it on purpose: an automatic trigger
-    # has no person to name, and ranking must reach the security gate that way.
-    def open!(component_status, trigger:, opened_by: nil, now: Time.current)
+    # `opened_by` is the PERSON who asked, from the REST door only (A6
+    # re-verification G1, narrowed by H1). The status emitter passes nothing,
+    # and the class method above has no parameter for it on purpose: an
+    # automatic trigger has no person to name, and ranking must reach the
+    # security gate that way.
+    #
+    # `via_mcp` names the MCP verb as the door (A6 H1), and `opened_by_agent`
+    # is the agent that called it, when one did. The MCP door never records a
+    # person, even if `opened_by` is given too: the user a call carries is the
+    # authority its permission checks asked (an agent's creator, or the owner
+    # of an MCP client's token), and recording that user would hand ranking a
+    # human consent nobody gave. This is keyed on the transport, not on whether
+    # an agent could be resolved. An agent arrives only through that verb, so
+    # passing one implies it.
+    def open!(component_status, trigger:, opened_by: nil, via_mcp: false, opened_by_agent: nil, now: Time.current)
       return { refused: REFUSED_NO_COMPONENT } if component_status.blank?
 
       fingerprint = ::Platform::Investigation.fingerprint_for(
@@ -92,8 +102,11 @@ module Platform
       return { refused: REFUSED_ALREADY_OPEN } if already_open?(fingerprint)
       return { refused: REFUSED_DAILY_CAP } if daily_cap_reached?(now)
 
-      investigation = build(component_status, trigger: trigger, opened_by: opened_by, now: now)
+      via_mcp ||= opened_by_agent.is_a?(::Ai::Agent)
+      investigation = build(component_status, trigger: trigger,
+                            opened_by: via_mcp ? nil : opened_by, now: now)
       investigation.evidence = assemble_evidence(component_status, now: now)
+      record_mcp_opener(investigation, opened_by_agent) if via_mcp
       investigation.save!
 
       enqueue_ranking(investigation)
@@ -131,6 +144,10 @@ module Platform
       base.merge(external[:collected]).merge("errors" => external[:errors])
     end
 
+    # Keys in `evidence` that record the investigation, not the component.
+    NON_EVIDENCE_KEYS = (%w[assembled_at window_seconds errors ranking] +
+                         [ ::Platform::Investigation::OPENED_VIA_MCP_KEY ]).freeze
+
     # The classes that actually carry something. This — not the item count — is
     # what the confidence rule discounts by.
     def self.evidence_classes(evidence)
@@ -139,8 +156,9 @@ module Platform
       evidence.filter_map do |key, value|
         # `ranking` is what the RANKER concluded, recorded after the evidence
         # was assembled. It is not evidence about the component, and counting
-        # it as a class would raise every confidence it touched.
-        next if %w[assembled_at window_seconds errors ranking].include?(key.to_s)
+        # it as a class would raise every confidence it touched. The MCP
+        # opener (A6 H1) is who asked, not anything found about the component.
+        next if NON_EVIDENCE_KEYS.include?(key.to_s)
         next if value.blank?
 
         key.to_s
@@ -388,6 +406,17 @@ module Platform
     # no human is behind: the forgery G1 removed from ranking.
     def opener_id(opened_by)
       opened_by.is_a?(::User) ? opened_by.id : nil
+    end
+
+    # Records the MCP door under its own evidence key (A6 H1), with the agent
+    # that called it when one did. `open!` has already dropped any human
+    # opener, so no person's consent is recorded either way.
+    def record_mcp_opener(investigation, agent)
+      agent = nil unless agent.is_a?(::Ai::Agent)
+
+      investigation.evidence = investigation.evidence.merge(
+        ::Platform::Investigation::OPENED_VIA_MCP_KEY => { "agent_id" => agent&.id, "agent_name" => agent&.name }
+      )
     end
 
     def build(component_status, trigger:, opened_by:, now:)

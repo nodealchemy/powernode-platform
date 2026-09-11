@@ -239,6 +239,63 @@ RSpec.describe Platform::Investigation::Ranking do
       expect(execution.user_id).to eq(operator.id)
       expect(execution.ai_agent_id).to eq(outcome[:agent].id)
     end
+
+    # A6 H1: an AGENT-opened investigation is automatic. The tool bridge and an
+    # MCP client session both hand the verb a user beside the agent (its
+    # creator, or the session's owner). That user is the authority the call was
+    # checked against, never a person's consent to spend.
+    it "refuses an AGENT-opened investigation's spend with its creator beside it, and books nothing" do
+      stub_non_gate_rails
+      provider_calls = 0
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider) do |*_args|
+        provider_calls += 1
+        { "output" => valid_json, "metadata" => { "tokens_used" => 10 } }
+      end
+      creator = create(:user, account: account)
+      asking_agent = create(:ai_agent, account: account, creator: creator)
+      opened = Platform::InvestigationService.new(account: account)
+                                             .open!(component, trigger: "operator", opened_by: creator,
+                                                               via_mcp: true, opened_by_agent: asking_agent)[:investigation]
+      expect(opened.opened_by_user_id).to be_nil
+      expect(opened.opened_by_agent_id).to eq(asking_agent.id)
+
+      outcome = described_class.run!(opened, account: account)
+
+      expect(outcome[:ranking]).to include("state" => "not_run", "reason" => "AutomaticSpendNeedsGrant",
+                                           "retryable" => false)
+      expect(outcome[:ranking]["message"]).to include("An agent opened this investigation")
+      expect(provider_calls).to eq(0)
+      expect(Ai::AgentExecution.where(account_id: account.id).count).to eq(0)
+      expect(Ai::Agent.where(cloned_from_id: canonical.id)).to be_empty
+    end
+
+    # A6 H1, keyed on the TRANSPORT: an MCP call with no client agent behind it
+    # is no more a person's consent than one with an agent. The message names
+    # the MCP client and says where a ranked diagnosis can come from.
+    it "refuses an investigation opened over MCP with no agent behind it, naming the MCP client" do
+      stub_non_gate_rails
+      provider_calls = 0
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider) do |*_args|
+        provider_calls += 1
+        { "output" => valid_json, "metadata" => { "tokens_used" => 10 } }
+      end
+      token_owner = create(:user, account: account)
+      opened = Platform::InvestigationService.new(account: account)
+                                             .open!(component, trigger: "operator", opened_by: token_owner,
+                                                               via_mcp: true)[:investigation]
+      expect(opened.opened_by_user_id).to be_nil
+      expect(opened.opened_by_agent_id).to be_nil
+
+      outcome = described_class.run!(opened, account: account)
+
+      expect(outcome[:ranking]).to include("state" => "not_run", "reason" => "AutomaticSpendNeedsGrant",
+                                           "retryable" => false)
+      expect(outcome[:ranking]["message"]).to include("An MCP client opened this investigation")
+      expect(outcome[:ranking]["message"]).to include("open an investigation from the status page")
+      expect(provider_calls).to eq(0)
+      expect(Ai::AgentExecution.where(account_id: account.id).count).to eq(0)
+      expect(Ai::Agent.where(cloned_from_id: canonical.id)).to be_empty
+    end
   end
 
   # A6 re-review: NO PROVIDER CALL WITHOUT A LEDGER ROW, on every path

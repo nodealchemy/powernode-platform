@@ -77,14 +77,83 @@ RSpec.describe Ai::Tools::PlatformInvestigationTool do
       expect(Platform::Investigation.count).to eq(1)
     end
 
-    # G1: the acting user is recorded as the opener, the only person ranking
-    # may spend as.
-    it "records the acting user as the opener" do
+    # A6 H1, keyed on the TRANSPORT. This verb is the MCP face of the
+    # investigation, and every route to it (the MCP door, the tool bridge, a
+    # skill recipe) is a call an agent or an MCP client makes. So it records no
+    # person as the opener, even with no agent in the context: the user it
+    # carries is who the permission check asked, never a person's consent to
+    # spend. Only the REST button records a person (G1); that arm is proved in
+    # spec/requests/api/v1/mcp/platform_investigate_opener_spec.rb.
+    it "records no person as the opener, even with no agent in the context" do
       result = exec(action: "platform_investigate", component_kind: "docker_host", component_ref: "host-1")
 
-      expect(Platform::Investigation.first.opened_by_user_id).to eq(user.id)
-      expect(result[:data][:investigation][:opened_by_user_id]).to eq(user.id)
-      expect(result[:data][:investigation]).to include(cost_usd: nil)
+      investigation = Platform::Investigation.sole
+      expect(investigation.opened_by_user_id).to be_nil
+      expect(investigation.opened_by_agent_id).to be_nil
+      expect(investigation.opened_via_mcp?).to be(true)
+      expect(result[:data][:investigation]).to include(opened_by_user_id: nil, opened_by_agent_id: nil,
+                                                       opened_via_mcp: true, cost_usd: nil)
+    end
+
+    # A6 H1: THE INITIATOR, NOT THE AUTHORITY. An agent in the tool's context
+    # is the opener. The user beside it (its creator on the bridge, the
+    # session's owner over MCP) is only who the permission check asked, so no
+    # person is recorded and ranking treats the investigation as automatic.
+    describe "with an agent in the context (A6 H1)" do
+      let(:asking_agent) { create(:ai_agent, account: account, creator: user) }
+      let(:component_args) { { "component_kind" => "docker_host", "component_ref" => "host-1" } }
+
+      it "records the agent as the opener and never the user beside it" do
+        agent_tool = described_class.new(account: account, user: user, agent: asking_agent)
+
+        result = agent_tool.execute(params: component_args.merge("action" => "platform_investigate")
+                                                          .with_indifferent_access)
+
+        investigation = Platform::Investigation.sole
+        expect(investigation.opened_by_user_id).to be_nil
+        expect(investigation.opened_by_agent_id).to eq(asking_agent.id)
+        expect(result[:data][:investigation]).to include(opened_by_user_id: nil,
+                                                         opened_by_agent_id: asking_agent.id,
+                                                         opened_via_mcp: true)
+        expect(Platform::InvestigationService.evidence_classes(investigation.evidence))
+          .not_to include(Platform::Investigation::OPENED_VIA_MCP_KEY)
+      end
+
+      it "records the agent through the tool bridge, which passes the agent's creator as the user" do
+        Ai::AgentToolBridgeService.new(agent: asking_agent, account: account)
+                                  .dispatch_tool_call(name: "platform_investigate", arguments: component_args)
+
+        investigation = Platform::Investigation.sole
+        expect(investigation.opened_by_user_id).to be_nil
+        expect(investigation.opened_by_agent_id).to eq(asking_agent.id)
+      end
+
+      it "records an MCP client agent passed the way the streamable controller passes it" do
+        mcp_client = create(:ai_agent, account: account, creator: user, agent_type: "mcp_client")
+
+        Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+          "platform.platform_investigate", params: component_args,
+          account: account, user: user, mcp_agent: mcp_client
+        )
+
+        investigation = Platform::Investigation.sole
+        expect(investigation.opened_by_user_id).to be_nil
+        expect(investigation.opened_by_agent_id).to eq(mcp_client.id)
+      end
+
+      # Keyed on the transport, not on whether an agent could be resolved: the
+      # same registrar call with no agent in the context records no person
+      # either. (The person arm is the REST button, in the opener request spec.)
+      it "records no person through the same registrar call when no agent is in the context" do
+        Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+          "platform.platform_investigate", params: component_args, account: account, user: user
+        )
+
+        investigation = Platform::Investigation.sole
+        expect(investigation.opened_by_user_id).to be_nil
+        expect(investigation.opened_by_agent_id).to be_nil
+        expect(investigation.opened_via_mcp?).to be(true)
+      end
     end
 
     # It opens; it does not conclude. Ranking is an LLM call and belongs in the
