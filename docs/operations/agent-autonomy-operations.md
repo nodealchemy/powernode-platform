@@ -298,7 +298,7 @@ platform.update_intervention_policy(
 
 After any intervention, confirm three signals:
 
-1. **Backend health** — `GET /api/v1/ai/monitoring/health` returns `data.status: "healthy"` (and `data.health_score >= 80`).
+1. **Backend health** — `GET /api/v1/ai/monitoring/health` returns `data.rollup.verdict: "ok"`. `"not_measured"` means no component reported, which is a finding, not a pass. Held components are counted in `data.rollup.held_count` and never raise the verdict. Check `data.shared.verdict` separately: it covers process-wide infrastructure such as circuit breakers, and is never summed into the account verdict.
 2. **Autonomy dashboard** — `GET /api/v1/ai/autonomy/trust_scores` returns the new tier for the affected agent.
 3. **Kill switch state** — `platform.kill_switch_status` returns `halted: false` (or `true` if you intentionally halted as part of the procedure).
 

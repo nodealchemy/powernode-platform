@@ -170,6 +170,21 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
         expect(data).not_to have_key('status')
         expect(data['rollup']['verdict']).to eq('ok')
       end
+
+      # E7 review low 1. The audit row carries the verdict and the per-verdict
+      # counts UNDER METADATA. Passed as bare keywords they were dropped without
+      # a word: AuditLog.log_action keeps metadata and a few named columns, and
+      # nothing else.
+      it 'audits the check with the rollup verdict and counts_by_verdict' do
+        create(:platform_component_status, :degraded, account: account)
+
+        get '/api/v1/ai/monitoring/health', headers: headers, as: :json
+
+        row = AuditLog.where(action: 'ai.monitoring.health_check', account_id: account.id).sole
+        expect(row.metadata).to include('verdict' => 'degraded')
+        expect(row.metadata['counts_by_verdict']).to include('degraded' => 1)
+        expect(row.metadata).not_to have_key('unhealthy_components')
+      end
     end
   end
 

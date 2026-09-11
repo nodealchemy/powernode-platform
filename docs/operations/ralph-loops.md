@@ -355,7 +355,7 @@ After any intervention:
 
 - `platform.get_ralph_loop(loop_id: ...)` returns expected `status` and `schedule_paused`
 - `platform.get_ralph_loop_statistics` shows the loop in the correct bucket
-- `GET /api/v1/ai/monitoring/health` returns `data.status: "healthy"` (and `data.health_score >= 80`)
+- `GET /api/v1/ai/monitoring/health` returns `data.rollup.verdict: "ok"` (`"not_measured"` means nothing reported and is not a pass; check `data.shared.verdict` separately for process-wide infrastructure)
 - Worker is consuming jobs: `journalctl -u powernode-worker@default --since "5 minutes ago" | grep -c RalphTask` should increase if iterations are firing
 - `sudo scripts/systemd/powernode-installer.sh status` reports all services active
 

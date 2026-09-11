@@ -87,9 +87,13 @@ module Api
           # so the audit line records the rollup's verdict — the one the operator
           # actually saw — rather than a number this endpoint no longer has.
           render_success(health_data.merge(rollup))
+          # Under metadata: AuditLog.log_action keeps metadata and a few named
+          # columns, and silently drops any other keyword (E7 review low 1).
           log_audit_event("ai.monitoring.health_check", current_user.account,
-            verdict: rollup[:rollup]&.dig(:verdict),
-            unhealthy_components: rollup[:rollup]&.dig(:counts_by_verdict)
+            metadata: {
+              verdict: rollup[:rollup]&.dig(:verdict),
+              counts_by_verdict: rollup[:rollup]&.dig(:counts_by_verdict)
+            }
           )
         end
 
@@ -261,19 +265,13 @@ module Api
         # already carried by Api::V1::Platform::ComponentStatusesController#rollup:
         # a NULL-account row describes process-wide infrastructure belonging to
         # no tenant, so folding it into the per-account verdict would turn one
-        # shared circuit breaker into every tenant's outage. ::Platform::Status::Rollup
-        # does no tenancy filtering of its own, so the split happens here.
+        # shared circuit breaker into every tenant's outage. The split is
+        # ::Platform::Status::Rollup.split, the one every door calls.
         # Fully qualified because Api::V1::Platform exists and would win.
         def platform_rollup(account)
           return { rollup: nil, shared: nil } if account.blank?
 
-          rows = ::Platform::Status::Query.new(account: account).rows.to_a
-          account_rows, shared_rows = rows.partition { |row| row.account_id.present? }
-
-          {
-            rollup: ::Platform::Status::Rollup.rollup(account_rows),
-            shared: ::Platform::Status::Rollup.rollup(shared_rows)
-          }
+          ::Platform::Status::Rollup.split(::Platform::Status::Query.new(account: account).rows.to_a)
         end
 
         def health_service

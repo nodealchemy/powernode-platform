@@ -218,7 +218,7 @@ Roughly 2 hours per month.
 
 After any intervention:
 
-- `GET /api/v1/ai/monitoring/health` → `data.status: "healthy"` (and `data.health_score >= 80`)
+- `GET /api/v1/ai/monitoring/health` → `data.rollup.verdict: "ok"` (`"not_measured"` means nothing reported and is not a pass; check `data.shared.verdict` separately for process-wide infrastructure)
 - `GET /api/v1/ai/missions?status=stuck` → returns no items
 - `sudo scripts/systemd/powernode-installer.sh status` → all services `active`
 

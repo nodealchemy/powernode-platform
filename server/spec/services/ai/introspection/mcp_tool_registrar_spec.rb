@@ -205,6 +205,20 @@ RSpec.describe Ai::Introspection::McpToolRegistrar do
         expect(result).not_to have_key(:status)
       end
 
+      # E7 review M2: the verb's shared-row split had no oracle of its own
+      # (adopted from the reviewer's probe). One shared breaker going down must
+      # not read as this account's outage over MCP any more than over REST.
+      it 'keeps a shared down row out of the account verdict' do
+        allow(health_service).to receive(:comprehensive_health_check).and_return({ db: "ok" })
+        create(:platform_component_status, account: account, verdict: "ok")
+        create(:platform_component_status, :shared, :down)
+
+        result = described_class.execute_tool("platform.infrastructure", params: {}, account: account, instance_authorized: true)
+
+        expect(result[:rollup][:verdict]).to eq("ok")
+        expect(result[:shared][:verdict]).to eq("down")
+      end
+
       it 'passes skip_cache parameter' do
         allow(health_service).to receive(:comprehensive_health_check).and_return({ db: "ok" })
 

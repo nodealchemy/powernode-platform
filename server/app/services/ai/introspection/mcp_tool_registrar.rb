@@ -63,7 +63,7 @@ module Ai
         {
           id: "platform.infrastructure",
           name: "platform_infrastructure",
-          description: "DB, Redis, worker, and connectivity health",
+          description: "DB, Redis, worker and connectivity measurements, plus the status-plane verdict: rollup for this account, shared for process-wide infrastructure",
           category: "introspection",
           permission_level: "read",
           required_permissions: ["ai.introspection.view"],
@@ -265,17 +265,12 @@ module Ai
         # rather than summed in: a NULL-account row describes process-wide
         # infrastructure belonging to no tenant, so folding it into the
         # per-account verdict would turn one shared breaker into every tenant's
-        # outage. Mirrors Api::V1::Ai::MonitoringController#platform_rollup.
+        # outage. The split is ::Platform::Status::Rollup.split, the same one
+        # the REST doors call.
         def platform_rollup(account)
           return { rollup: nil, shared: nil } if account.blank?
 
-          rows = ::Platform::Status::Query.new(account: account).rows.to_a
-          account_rows, shared_rows = rows.partition { |row| row.account_id.present? }
-
-          {
-            rollup: ::Platform::Status::Rollup.rollup(account_rows),
-            shared: ::Platform::Status::Rollup.rollup(shared_rows)
-          }
+          ::Platform::Status::Rollup.split(::Platform::Status::Query.new(account: account).rows.to_a)
         end
 
         def introspection_service(account)

@@ -86,6 +86,31 @@ RSpec.describe Platform::Status::Rollup do
     end
   end
 
+  # E7 review low 3: the shared-row split had three hand copies (the
+  # component-status door, the monitoring door, the MCP verb). There is one
+  # now, and all three call it.
+  describe ".partition_shared and .split" do
+    it "puts a NULL-account row in the shared half and never in the account half" do
+      mine = component("mine")
+      shared = create(:platform_component_status, :shared, :down)
+
+      account_rows, shared_rows = described_class.partition_shared([ mine, shared ])
+
+      expect(account_rows).to eq([ mine ])
+      expect(shared_rows).to eq([ shared ])
+    end
+
+    it "rolls each half up on its own, so a shared outage never reads as the tenant's" do
+      mine = component("mine")
+      shared = create(:platform_component_status, :shared, :down)
+
+      result = described_class.split([ mine, shared ])
+
+      expect(result[:rollup]).to include(verdict: "ok", total: 1)
+      expect(result[:shared]).to include(verdict: "down", total: 1)
+    end
+  end
+
   describe ".impact" do
     it "reverse-walks dependents to depth 4 and stops there" do
       # e -> d -> c -> b -> a -> root  (each depends on the next)

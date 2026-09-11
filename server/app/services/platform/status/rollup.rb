@@ -48,6 +48,28 @@ module Platform
         }
       end
 
+      # SHARED ROWS ARE SPLIT OUT, never summed in (design §4.4, ruling
+      # 2026-09-10). A NULL-account row describes process-wide infrastructure
+      # that belongs to no tenant; folding it into a per-account verdict would
+      # turn one shared breaker into every tenant's outage. `rollup` does no
+      # tenancy filtering of its own, so every door that shows an account a
+      # verdict splits through HERE: one predicate, not a hand copy per door
+      # (E7 review low 3 found three).
+      #
+      # @return [Array(Array<ComponentStatus>, Array<ComponentStatus>)]
+      #   [account_rows, shared_rows]
+      def partition_shared(scope)
+        materialize(scope).partition { |row| row.account_id.present? }
+      end
+
+      # The account verdict and the shared verdict, side by side.
+      #
+      # @return [Hash] {rollup:, shared:}, each shaped like #rollup
+      def split(scope)
+        account_rows, shared_rows = partition_shared(scope)
+        { rollup: rollup(account_rows), shared: rollup(shared_rows) }
+      end
+
       # Who breaks if this component stays broken. Reverse-walks the
       # dependency edges (row.dependencies lists what a row DEPENDS ON, so the
       # dependents are the rows pointing AT this one), to `depth` hops.
