@@ -175,18 +175,29 @@ RSpec.describe Ai::Autonomy::ClosureDriverService do
     end
   end
 
-  # The seed that gives the operator toggle a row to render. Asserted against
-  # the seed TEXT, following spec/db/seeds/ai_claude_code_provider_seed_spec.rb,
-  # because db/seeds.rb is the root orchestrator and nothing loads it under
-  # test. Two properties, both of which a careless edit would break:
+  # The seed that gives the operator toggle a row to render. db/seeds.rb is the
+  # root orchestrator and nothing loads it under test, so these examples EXECUTE
+  # its closure section: the lines from `closure_flag =` to the next blank line,
+  # run with the per-setting seeder the file builds. (They used to match the
+  # seed TEXT, and went red when 2fef0c12b moved the write onto that seeder
+  # without changing what it does.) Two properties, both of which a careless
+  # edit would break:
   #   - the key comes from THIS constant, so the seed cannot drift from the reader;
-  #   - the write is guarded by an existence check, so re-running db/seeds.rb
+  #   - the write happens only when no row exists, so re-running db/seeds.rb
   #     cannot revert an operator's decision to enable autonomy back to off.
-  #     SiteSetting.set overwrites unconditionally and this block is not
-  #     guarded, so the guard is the only thing standing between a routine
-  #     seed run and a silent control flip.
   describe "the seeded default in db/seeds.rb" do
     let(:seeds) { File.read(Rails.root.join("db", "seeds.rb")) }
+    let(:key) { described_class::ENABLED_SETTING }
+
+    def run_closure_section
+      section = seeds[/^closure_flag = .*?\n(?=\n)/m]
+      raise "the closure-driver section is missing from db/seeds.rb" if section.blank?
+
+      require Rails.root.join("db/seeds/support/site_setting_seeder").to_s
+      settings = Powernode::Seeds::SiteSettingSeeder.new(out: StringIO.new)
+      eval(section, binding, Rails.root.join("db/seeds.rb").to_s) # rubocop:disable Security/Eval
+      expect(settings.failed_keys).to be_empty
+    end
 
     it "names the key through the constant, not a string literal" do
       expect(seeds).to include("Ai::Autonomy::ClosureDriverService::ENABLED_SETTING")
@@ -194,8 +205,22 @@ RSpec.describe Ai::Autonomy::ClosureDriverService do
       expect(seeds).not_to include(%('#{described_class::ENABLED_SETTING}'))
     end
 
-    it "writes it only when absent, so a re-run cannot flip it off" do
-      expect(seeds).to match(/unless SiteSetting\.exists\?\(key: closure_flag\)/)
+    it "writes the OFF default when the flag is absent" do
+      SiteSetting.where(key: key).delete_all
+
+      run_closure_section
+
+      expect(SiteSetting.find_by(key: key)&.value).to eq("false")
+    end
+
+    # The operator's value must DIFFER from the default, or a seed that
+    # overwrote it would leave the same value behind and this could not fail.
+    it "leaves an operator's ON alone when the seeds run again" do
+      SiteSetting.set(key, "true", setting_type: "boolean")
+
+      run_closure_section
+
+      expect(SiteSetting.find_by(key: key).value).to eq("true")
     end
   end
 end
