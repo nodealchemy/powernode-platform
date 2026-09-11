@@ -6,13 +6,22 @@ module Ai
       MAX_ACTIONS_PER_HOUR = 5
 
       class << self
+        # THE ONE READER of the self_healing_remediation flag (B5b). The guard
+        # below and the self-healing page's display ask here, and B5b's provider
+        # remediation lane must too, so the flag cannot mean one thing to the
+        # actuator and another to the screen.
+        def enabled?
+          Shared::FeatureFlagService.enabled?(:self_healing_remediation)
+        end
+
         def dispatch(account:, trigger_source:, trigger_event:, context: {})
-          return unless Shared::FeatureFlagService.enabled?(:self_healing_remediation)
+          return unless enabled?
           return if rate_limited?(account.id)
 
           action = determine_action(trigger_event, context)
           return unless action
           return unless auditable?(action)
+          return if acted_on_target_this_window?(account, action, context)
 
           before_state = capture_state(action, context)
 
@@ -259,6 +268,32 @@ module Ai
           else
             false
           end
+        end
+
+        # PER-TARGET GUARD (B5b). The only guard before this was the per-account
+        # hourly cap above, so two dispatches for the SAME provider inside one
+        # window both acted: a breaker that re-opens, or two predictive runs (and
+        # B5b's lane apply will be a third caller). Refused when this account
+        # already logged this action against this target inside the rate
+        # limiter's own window
+        # (RemediationLog.in_last_hour). No new number.
+        #
+        # The target is what #capture_state records as before_state, so the
+        # identity compared is the one the audit row already carries. An action
+        # with no provider target (alert_escalation, context_trim) is not deduped
+        # here; the per-account cap still bounds it.
+        def acted_on_target_this_window?(account, action, context)
+          target = capture_state(action, context)[:provider_id]
+          return false if target.blank?
+
+          prior = Ai::RemediationLog.by_account(account.id).in_last_hour.by_action_type(action)
+                                    .where("before_state ->> 'provider_id' = ?", target.to_s)
+          return false unless prior.exists?
+
+          Rails.logger.warn(
+            "[RemediationDispatcher] Refusing #{action} for provider #{target}: already dispatched in this window"
+          )
+          true
         end
 
         def transient_error?(error_class)
