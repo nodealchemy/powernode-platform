@@ -3,25 +3,47 @@
 module Ai
   module Codebase
     class StaticAnalysisService
+      # argv, never a shell string: no quoting to get wrong, and nothing a path
+      # can inject into.
       LINTER_CONFIGS = {
         ruby: {
-          command: "bundle exec rubocop --format json",
+          argv: %w[bundle exec rubocop --format json],
           name: "RuboCop",
           extensions: %w[.rb .rake]
         },
         typescript: {
-          command: "npx tsc --noEmit --pretty false",
+          argv: %w[npx tsc --noEmit --pretty false],
           name: "TypeScript",
           extensions: %w[.ts .tsx]
         },
         javascript_lint: {
-          command: "npx eslint --format json",
+          argv: %w[npx eslint --format json],
           name: "ESLint",
           extensions: %w[.js .jsx .ts .tsx]
         }
       }.freeze
 
-      TIMEOUT = 120 # seconds
+      # Seconds, per linter run, ENFORCED (D1 review M3: it used to be defined
+      # and never used). The whole process group is killed at the deadline.
+      TIMEOUT = 120
+      OUTPUT_LIMIT = 1_048_576
+
+      # A CLEAN ENVIRONMENT (D1 review H1). A subprocess used to inherit the
+      # Rails process's environment, BUNDLE_GEMFILE and RUBYOPT included, so
+      # `bundle exec rubocop` resolved against the SERVER's bundle even when run
+      # inside another checkout, and a production server bundle has no rubocop.
+      # The child now gets only these variables, taken from the environment as
+      # it was BEFORE Bundler touched it, plus whatever a linter sets itself
+      # (rubocop sets BUNDLE_GEMFILE to the working copy's own Gemfile).
+      ENV_ALLOWLIST = %w[PATH HOME LANG LC_ALL TMPDIR GEM_HOME GEM_PATH].freeze
+
+      # Statuses a linter summary can carry that mean "did not inspect the
+      # code". Callers must never read these as clean.
+      NOT_MEASURED_STATUSES = %w[timeout unavailable no_output parse_error error no_gemfile no_tsconfig unknown_linter].freeze
+
+      def self.timeout_seconds
+        TIMEOUT
+      end
 
       def initialize(base_path:)
         @base_path = File.expand_path(base_path)
@@ -97,7 +119,10 @@ module Ai
         gemfile = File.join(project_root, "Gemfile")
         return { diagnostics: [], summary: { status: "no_gemfile" } } unless File.exist?(gemfile)
 
-        output = execute_command("cd #{Shellwords.escape(project_root)} && #{config[:command]} #{Shellwords.escape(target)} 2>/dev/null")
+        run = execute_command(config[:argv] + [ target ], chdir: project_root, env: { "BUNDLE_GEMFILE" => gemfile })
+        return not_run(run) unless run[:status] == :ran
+
+        output = run[:output]
         return { diagnostics: [], summary: { status: "no_output" } } if output.blank?
 
         parsed = JSON.parse(output) rescue nil
@@ -134,8 +159,17 @@ module Ai
         tsconfig = File.join(project_root, "tsconfig.json")
         return { diagnostics: [], summary: { status: "no_tsconfig" } } unless File.exist?(tsconfig)
 
-        output = execute_command("cd #{Shellwords.escape(project_root)} && #{config[:command]} 2>&1")
-        return { diagnostics: [], summary: { status: "clean", errors: 0 } } if output.blank?
+        run = execute_command(config[:argv], chdir: project_root, merge_stderr: true)
+        return not_run(run) unless run[:status] == :ran
+
+        output = run[:output]
+        if output.blank?
+          # Clean only on a zero exit. A tsc that failed without printing
+          # anything is not a project with no type errors.
+          return { diagnostics: [], summary: { status: "clean", errors: 0 } } if run[:exitstatus].to_i.zero?
+
+          return { diagnostics: [], summary: { status: "no_output" } }
+        end
 
         diagnostics = []
         output.each_line do |line|
@@ -161,7 +195,10 @@ module Ai
 
       def run_eslint(config, target)
         project_root = find_project_root(target)
-        output = execute_command("cd #{Shellwords.escape(project_root)} && #{config[:command]} #{Shellwords.escape(target)} 2>/dev/null")
+        run = execute_command(config[:argv] + [ target ], chdir: project_root)
+        return not_run(run) unless run[:status] == :ran
+
+        output = run[:output]
         return { diagnostics: [], summary: { status: "no_output" } } if output.blank?
 
         parsed = JSON.parse(output) rescue nil
@@ -193,13 +230,63 @@ module Ai
         }
       end
 
-      def execute_command(command)
-        IO.popen(command, err: [:child, :out]) do |io|
-          io.read(1_048_576) # 1MB max
+      # Runs argv in `chdir` with a clean environment and an enforced deadline.
+      #
+      # @return [Hash] {status: :ran, output:, exitstatus:} |
+      #   {status: :timeout} (process group killed) | {status: :unavailable}
+      #   (the program is not on PATH)
+      def execute_command(argv, chdir:, env: {}, merge_stderr: false)
+        base = defined?(::Bundler) ? ::Bundler.unbundled_env : ENV.to_h
+        child_env = base.slice(*ENV_ALLOWLIST).merge(env)
+        reader, writer = IO.pipe
+        pid = Process.spawn(child_env, *argv, chdir: chdir, in: File::NULL, out: writer,
+                            err: merge_stderr ? writer : File::NULL,
+                            pgroup: true, unsetenv_others: true)
+        writer.close
+
+        output = +""
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + self.class.timeout_seconds
+        loop do
+          remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          if remaining <= 0
+            kill_group(pid)
+            return { status: :timeout }
+          end
+          next unless IO.select([ reader ], nil, nil, remaining)
+
+          chunk = reader.read_nonblock(65_536, exception: false)
+          break if chunk.nil?
+          next if chunk == :wait_readable
+
+          # Keep draining past the limit so a chatty linter cannot block on a
+          # full pipe; only the first OUTPUT_LIMIT bytes are kept.
+          output << chunk if output.bytesize < OUTPUT_LIMIT
         end
-      rescue Errno::ENOENT, Errno::EPIPE => e
-        Rails.logger.warn "[StaticAnalysis] Command failed: #{e.message}"
+
+        _, status = Process.wait2(pid)
+        { status: :ran, output: output.byteslice(0, OUTPUT_LIMIT), exitstatus: status.exitstatus }
+      rescue Errno::ENOENT
+        { status: :unavailable }
+      ensure
+        reader&.close unless reader.nil? || reader.closed?
+        writer&.close unless writer.nil? || writer.closed?
+      end
+
+      def kill_group(pid)
+        Process.kill("KILL", -pid)
+      rescue Errno::ESRCH
         nil
+      ensure
+        begin
+          Process.wait(pid)
+        rescue Errno::ECHILD
+          nil
+        end
+      end
+
+      def not_run(run)
+        Rails.logger.warn("[StaticAnalysis] linter did not run: #{run[:status]}")
+        { diagnostics: [], summary: { status: run[:status].to_s } }
       end
 
       def rubocop_severity(severity)
