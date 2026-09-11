@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { usePlatformStatus, STATUS_POLL_MS } from '@/features/platform/status/hooks/usePlatformStatus';
@@ -47,6 +48,37 @@ const groupRows = (rows: ComponentStatusSummary[]) => {
     (a, b) => a.order - b.order || a.label.localeCompare(b.label)
   );
 };
+
+/**
+ * The refresh icon while a read is in flight (C4 checklist row 2, carried over
+ * from the HealthPanel this page replaces): it spins, and the action is
+ * disabled, so a second click cannot stack a second read on the first.
+ */
+const SpinningRefreshIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <RefreshCw className={`${className ?? ''} animate-spin`} />
+);
+
+/**
+ * First-load placeholder (C4 checklist row 3): the grid's own shape, pulsing,
+ * instead of a sentence — so the page does not jump when the cards land.
+ * Announced once to assistive technology as a status.
+ */
+const StatusGridSkeleton: React.FC = () => (
+  <div
+    role="status"
+    aria-label="Loading components"
+    data-status-skeleton
+    className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"
+  >
+    {[0, 1, 2, 3, 4, 5].map((i) => (
+      <div key={i} className="rounded-lg border border-theme bg-theme-surface p-4 animate-pulse">
+        <div className="mb-3 h-4 w-1/2 rounded bg-theme-background-secondary" />
+        <div className="mb-2 h-3 w-1/3 rounded bg-theme-background-secondary" />
+        <div className="h-3 w-2/3 rounded bg-theme-background-secondary" />
+      </div>
+    ))}
+  </div>
+);
 
 export const StatusPage: React.FC = () => {
   const [filters, setFilters] = useState<StatusFilterValue>({
@@ -107,7 +139,16 @@ export const StatusPage: React.FC = () => {
     <PageContainer
       title="Status"
       description="Every component of the platform and fleet, its verdict, and what is being done about it."
-      actions={[{ id: 'refresh', label: 'Refresh', onClick: refresh, variant: 'secondary' }]}
+      actions={[
+        {
+          id: 'refresh',
+          label: 'Refresh',
+          onClick: refresh,
+          variant: 'secondary',
+          icon: loading ? SpinningRefreshIcon : RefreshCw,
+          disabled: loading,
+        },
+      ]}
     >
       <div className="flex flex-col gap-4">
         {error && <ErrorAlert message={error} />}
@@ -133,9 +174,7 @@ export const StatusPage: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <div className="lg:col-span-3 flex flex-col gap-6">
-            {loading && rows.length === 0 && (
-              <p className="text-sm text-theme-secondary">Loading components…</p>
-            )}
+            {loading && rows.length === 0 && <StatusGridSkeleton />}
 
             {!loading && rows.length === 0 && (
               // Says which question produced the empty page. "No components"

@@ -1,4 +1,4 @@
-import { render, screen, within, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, within, waitFor, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { StatusPage } from './StatusPage';
 import * as api from '@/features/platform/status/api/platformStatusApi';
@@ -393,6 +393,45 @@ describe('StatusPage', () => {
       );
       expect(planeLabels).toEqual(['Development']);
       expect(screen.queryByText(/env-ci-0123456789/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('first load and refresh (C4 checklist rows 2-3, from HealthPanel)', () => {
+    it('shows the grid skeleton on first load, not a sentence', async () => {
+      mockedApi.fetchComponentStatuses.mockReturnValue(new Promise(() => {}));
+      renderPage();
+
+      const skeleton = await screen.findByRole('status', { name: 'Loading components' });
+      expect(skeleton).toHaveAttribute('data-status-skeleton');
+      expect(skeleton.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
+      expect(screen.queryByText('Loading components…')).not.toBeInTheDocument();
+    });
+
+    it('removes the skeleton once the cards land', async () => {
+      renderPage();
+      await screen.findAllByText('Anthropic');
+      expect(document.querySelector('[data-status-skeleton]')).toBeNull();
+    });
+
+    it('the Refresh action spins and is disabled while a read is in flight, then recovers', async () => {
+      let resolveRead!: (value: api.ComponentStatusIndexResult) => void;
+      mockedApi.fetchComponentStatuses.mockReturnValue(
+        new Promise((resolve) => {
+          resolveRead = resolve;
+        })
+      );
+      renderPage();
+
+      const button = await screen.findByTestId('action-refresh');
+      await waitFor(() => expect(button).toBeDisabled());
+      expect(button.querySelector('svg')?.getAttribute('class') ?? '').toMatch(/animate-spin/);
+
+      await act(async () => {
+        resolveRead(indexResult([row()]));
+      });
+
+      await waitFor(() => expect(button).not.toBeDisabled());
+      expect(button.querySelector('svg')?.getAttribute('class') ?? '').not.toMatch(/animate-spin/);
     });
   });
 
