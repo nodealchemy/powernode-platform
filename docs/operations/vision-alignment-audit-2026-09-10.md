@@ -1,7 +1,7 @@
 # Vision-alignment audit — 2026-09-10
 
 **Scope.** The four weeks of committed work from 2026-08-13 to 2026-09-10 across core
-(`/`), the system extension (`extensions/system`) and the private business extension,
+(`/`), the system extension (`extensions/system`) and one private extension,
 evaluated against the platform's stated vision on four questions: (1) is the work on the
 right track for the vision, (2) is AI/MCP integration thorough and comprehensive, (3) do the
 agent skills, prompts and guardrails support autonomous platform development,
@@ -33,7 +33,7 @@ judge its own quality feed nothing.**
 | Question | Verdict | One-line reason |
 |---|---|---|
 | 1. On track for the vision | **Yes, with one structural caveat** | 6 of 9 dead wires from 08-06 are fixed, all 10 gap-map items were built or deliberately deferred, and the environment/plane model landed. The caveat: the vision says *agents implement*; server-side, the implementing agent cannot write a file. |
-| 2. MCP thorough and comprehensive | **Comprehensive on infrastructure; not a control plane for the platform itself** | 634 actions; fleet, network, storage, code, knowledge and the autonomy loop are fully reachable. Identity, roles, audit log, schedules, LLM providers, webhooks and the whole business extension are unreachable. 90% of actions carry no safety annotation although the ground truth exists for all 634. |
+| 2. MCP thorough and comprehensive | **Comprehensive on infrastructure; not a control plane for the platform itself** | 634 actions; fleet, network, storage, code, knowledge and the autonomy loop are fully reachable. Identity, roles, audit log, schedules, LLM providers, webhooks and the whole of one private extension are unreachable. 90% of actions carry no safety annotation although the ground truth exists for all 634. |
 | 3. Skills/prompts support autonomous dev/impl/mgmt | **Management yes; development and implementation only via Claude Code** | Guardrails are genuinely code-prepended to every executor. Fleet agents have real actuators. The Platform Developer canonical has no file-write, shell or commit verb, and none exists in the registry to grant. |
 | 4. Introspection perpetual, remedies present and active | **Sensing: yes, every minute. Remedy: partial. Self-judgement: built, never wired.** | ~95 cron entries, six per-minute ticks, 17 fleet appliers. Improvement discovery has no scheduled driver and the discovery verb is a prompt, not an analyzer. Self-challenge, LLM judge and skill evolution all terminate in rows nothing reads. |
 
@@ -51,7 +51,7 @@ few new ones in the skill lane.
 |---|---:|---:|---:|---:|---:|---:|---:|
 | core | 895 | 273 | 107 | 13 | 138 | 270 | 40 |
 | system extension | 1132 | 456 | 175 | 78 | 182 | 7 | 99 |
-| business extension | 42 | 32 | 1 | 0 | 2 | 1 | 0 |
+| a private extension | 42 | 32 | 1 | 0 | 2 | 1 | 0 |
 
 Core's `chore` mass is 225 submodule-pointer bumps. Excluding those and merges, the corrected
 IMP-tracked : campaign-marked : ad-hoc ratio is roughly **4 : 1 : 3** in core and
@@ -168,7 +168,7 @@ next call — they are among the best tool descriptions in the field.
 | **Safety annotations not exported** | 569 of 634 carry none; `destructiveHint` appears nowhere in the codebase; 3 declared-mutating verbs advertise `readOnlyHint: true` | `tool_catalog.rb:61-66`, `:260-263` keys on a name-prefix heuristic while `declare_action(mutating:)` holds ground truth for all 634; `coordination_tool.rb:72-75` (`measure_pressure`, `perceive_pressure`, `perceive_signals`) |
 | **Platform is not self-administrable over MCP** | users, roles, permissions, invitations, accounts/settings, audit logs, webhooks, schedules/cron, API keys, LLM providers and model catalog: **zero** MCP verbs | `server/config/routes.rb:892-1249` REST families with no tool; `ai/providers_controller` uncovered — the `system_*_provider*` family is cloud providers |
 | **No general approval verb** | an agent cannot raise an `Ai::ApprovalRequest` or respond to one raised elsewhere | only `approve_deferred_operation` / `reject_deferred_operation` on the deferred-op workflow (`agent_autonomy_tool.rb:329-338`) |
-| **Three extensions have zero tools** | marketing, supply-chain, private/business (628 route lines) | no `ai/tools` directory exists in any of the three |
+| **Three extensions have zero tools** | marketing, supply-chain and one private extension (628 route lines) | no `ai/tools` directory exists in any of the three |
 | **Core hardcodes 263 extension entries** | 41% of the registry violates extension isolation; acknowledged in-code | `platform_api_tool_registry.rb:802-810`; the `register_extension_tools` seam has one consumer and it is not the system extension |
 | **Docs catalog over-states availability** | generated from unfiltered `.all_tools`, so it lists verbs the parity spec proves are dropped in core mode | `mcp_tool_catalog.rake:26` |
 | **Thin descriptions on destructive verbs** | 194 under 80 chars; `delete_skill` (30), `toggle_skill` (29), `system_cancel_task` (21), `docker_restart_container` (19) | catalog statistics |
@@ -282,7 +282,7 @@ There is no Claude-Code-in-a-container anywhere in the tree.
 
 ### 6.1 Present and active — the sensing half
 
-~95 cron entries (82 core, 12 system extension, 4 business), six firing every minute:
+~95 cron entries (82 core, 12 system extension, 4 in a private extension), six firing every minute:
 `SystemFleetReconcileJob`, `SystemCveResponderReconcileJob`, `AiRalphLoopSchedulerJob`,
 `AiCampaignLandSchedulerJob`, `SystemFulfillmentRequestReconcileJob`, and the campaign-land
 CI poll. Live confirmation at 17:31–17:33 UTC today: 100 fleet events in two minutes across 18
