@@ -576,6 +576,8 @@ RSpec.describe "Delegated task git actuation (D2)", type: :request do
       expect(@fake.requests.map { |r| r[:method] }).not_to include(:post, :put)
       expect(iteration.git_commit_sha).to be_nil
       expect(Ai::DeferredOperation.where(account: account, action_category: "ralph.repository_write").count).to eq(1)
+      expect(iteration.check_results.dig("actuation", "reason"))
+        .to start_with("no commit: 1 change(s) await operator approval — write_file add.go")
     end
 
     it "parks each write on its own approval" do
@@ -594,6 +596,63 @@ RSpec.describe "Delegated task git actuation (D2)", type: :request do
       expect(operations.count).to eq(2)
       expect(operations.map(&:approval_request_id).compact.uniq.size).to eq(2)
       expect(branch_tip).to eq(@seed_sha)
+    end
+  end
+
+
+  # ---------------------------------------------------------------- D2b
+
+  # The non-bridge agent path (TaskExecutor#execute_via_agent → AgenticLoop →
+  # #normalize_result) — taken by an agent with platform tools off. It carried the
+  # same hardcoded checks_passed: true as the bridge, so a transcript that merely
+  # CLAIMED a green run passed the task with no commit.
+  describe "the non-bridge agent path (D2b)" do
+    let(:plain_agent) do
+      create(:ai_agent, account: account, provider: ai_provider, creator: user, agent_type: "assistant",
+                        mcp_metadata: {
+                          "model_config" => { "model" => "test-model-1" },
+                          "tool_access" => { "enabled" => false }
+                        })
+    end
+
+    it "a prose-only green claim with no commit is not a pass" do
+      delegate!(agent_id: plain_agent.id, mission_id: mission.id)
+      script_llm(llm_reply(content: "Added Add and its test. go test: 12 examples, 0 failures."))
+
+      task, iteration = run_one_iteration!
+
+      # Non-bridge: only the git tools were advertised, no platform tool.
+      expect(advertised_tool_names).to include("write_file")
+      expect(advertised_tool_names).not_to include("discover_skills")
+      expect(iteration.git_commit_sha).to be_nil
+      expect(branch_tip).to eq(@seed_sha)
+      expect(iteration.checks_passed).to be(false)
+      expect(task.status).not_to eq("passed")
+      expect(iteration.check_results.dig("actuation", "reason")).to eq("no commit: the agent made no repository change")
+      expect(test_job_requests).to be_empty
+    end
+
+    it "a commit on the non-bridge path is read back and waits on the real suite" do
+      delegate!(agent_id: plain_agent.id, mission_id: mission.id)
+      script_llm(
+        llm_reply(tool_calls: [
+          write_call("call_1", "add.go", add_go, "Add Add()"),
+          write_call("call_2", "add_test.go", passing_test_go, "Test Add()")
+        ]),
+        llm_reply(content: "Implemented Add with a test.")
+      )
+
+      task, iteration = run_one_iteration!
+
+      expect(advertised_tool_names).not_to include("discover_skills")
+      tip = branch_tip
+      expect(iteration.git_commit_sha).to eq(tip)
+      expect(git!("rev-list", "--count", "#{@seed_sha}..#{tip}")).to eq("2")
+      expect(iteration.checks_passed).to be(false)
+      expect(iteration.check_results["awaiting_test_result"]).to be(true)
+      expect(iteration.check_results.dig("actuation", "reason")).to eq("committed #{tip}; the sandboxed test run decides the pass")
+      expect(task.status).not_to eq("passed")
+      expect(test_job_requests.size).to eq(1)
     end
   end
 

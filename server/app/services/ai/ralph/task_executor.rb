@@ -171,7 +171,7 @@ module Ai
           )
 
           result = loop_runner.execute(messages, options)
-          normalize_result(result, agent)
+          normalize_result(result, agent, git_executor)
         end
       rescue StandardError => e
         Rails.logger.error("Agent execution failed: #{e.message}\n#{e.backtrace.first(5).join("\n")}")
@@ -651,7 +651,7 @@ module Ai
         context
       end
 
-      def normalize_result(result, agent)
+      def normalize_result(result, agent, git_executor = nil)
         unless result[:success]
           return { success: false, error: result[:error], error_code: result[:error_type] }
         end
@@ -661,8 +661,11 @@ module Ai
         {
           success: true,
           output: output,
-          checks_passed: true,
+          # D2b: like the bridge path, this path ran no checks, so it claims none.
+          # A commit is judged by the sandboxed suite; prose is never a pass.
+          checks_passed: false,
           commit_sha: result[:last_commit_sha],
+          actuation: git_actuation(git_executor),
           # Served-by attribution carried through to the iteration record + the
           # maker/checker gate (present only when the maker fell back).
           served_by: result[:served_by],
