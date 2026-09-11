@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Modal } from './Modal';
 
@@ -230,12 +231,20 @@ describe('Modal', () => {
       render(<Modal {...defaultProps} />);
       const dialog = screen.getByRole('dialog');
       expect(dialog).toHaveAttribute('aria-modal', 'true');
-      expect(dialog).toHaveAttribute('aria-labelledby', 'modal-title');
+      // The id is generated per instance (F5, below) rather than a fixed
+      // literal — assert the structural link instead of a literal string.
+      const labelledBy = dialog.getAttribute('aria-labelledby');
+      expect(labelledBy).toBeTruthy();
+      expect(document.getElementById(labelledBy!)).toHaveTextContent('Test Modal');
     });
 
-    it('has title with correct id for aria-labelledby', () => {
+    it('has title with an id matching the dialog\'s aria-labelledby', () => {
       render(<Modal {...defaultProps} />);
-      expect(screen.getByText('Test Modal')).toHaveAttribute('id', 'modal-title');
+      const dialog = screen.getByRole('dialog');
+      expect(screen.getByText('Test Modal')).toHaveAttribute(
+        'id',
+        dialog.getAttribute('aria-labelledby')
+      );
     });
 
     it('prevents body scroll when open', () => {
@@ -268,6 +277,67 @@ describe('Modal', () => {
     it('disables content scroll when disableContentScroll is true', () => {
       render(<Modal {...defaultProps} disableContentScroll />);
       expect(document.querySelector('.max-h-\\[60vh\\]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('nested dialogs (C3 review F5-F7)', () => {
+    it('gives each open instance its own title id, so aria-labelledby never points at the wrong dialog (F5)', () => {
+      render(
+        <>
+          <Modal isOpen onClose={jest.fn()} title="Outer">Outer content</Modal>
+          <Modal isOpen onClose={jest.fn()} title="Inner">Inner content</Modal>
+        </>
+      );
+
+      const [outerDialog, innerDialog] = screen.getAllByRole('dialog');
+      const outerLabelledBy = outerDialog.getAttribute('aria-labelledby');
+      const innerLabelledBy = innerDialog.getAttribute('aria-labelledby');
+
+      expect(outerLabelledBy).toBeTruthy();
+      expect(innerLabelledBy).toBeTruthy();
+      expect(outerLabelledBy).not.toBe(innerLabelledBy);
+      expect(document.getElementById(outerLabelledBy!)).toHaveTextContent('Outer');
+      expect(document.getElementById(innerLabelledBy!)).toHaveTextContent('Inner');
+    });
+
+    it('routes Escape to only the topmost dialog, leaving the one behind it open (F6)', () => {
+      const outerClose = jest.fn();
+      const innerClose = jest.fn();
+      render(
+        <>
+          <Modal isOpen onClose={outerClose} title="Outer">Outer content</Modal>
+          <Modal isOpen onClose={innerClose} title="Inner">Inner content</Modal>
+        </>
+      );
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(innerClose).toHaveBeenCalledTimes(1);
+      expect(outerClose).not.toHaveBeenCalled();
+    });
+
+    it('keeps body scroll locked when an inner dialog closes but the outer one stays open (F7)', () => {
+      function NestedModals() {
+        const [innerOpen, setInnerOpen] = useState(true);
+        return (
+          <>
+            <Modal isOpen onClose={jest.fn()} title="Outer">Outer content</Modal>
+            <Modal isOpen={innerOpen} onClose={() => setInnerOpen(false)} title="Inner">
+              <button onClick={() => setInnerOpen(false)}>Cancel</button>
+            </Modal>
+          </>
+        );
+      }
+
+      render(<NestedModals />);
+      expect(document.body.style.overflow).toBe('hidden');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      // The inner dialog unmounted (isOpen false); the outer one is still
+      // open, so the refcounted lock must not have dropped to zero.
+      expect(document.body.style.overflow).toBe('hidden');
+      expect(screen.getByText('Outer content')).toBeInTheDocument();
     });
   });
 });

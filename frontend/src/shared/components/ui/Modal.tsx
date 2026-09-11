@@ -1,5 +1,44 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
+
+// ── NESTED-DIALOG STATE (C3 review F5-F7) ───────────────────────────────────
+//
+// A page can mount more than one Modal at once (a ConfirmationModal nested
+// inside a drawer, say). Three things must be tracked module-wide, across ALL
+// instances, rather than per-instance:
+//
+//  1. Which instance is TOPMOST, so only it answers Escape (F6: without this,
+//     one Escape keypress closed both the confirmation and the drawer behind
+//     it — both attach the same document-level keydown listener).
+//  2. A REFCOUNT of open modals, so body scroll only unlocks at zero (F7:
+//     without this, cancelling the inner dialog unset `overflow` while the
+//     outer dialog was still open, and the page behind it scrolled again).
+//
+// (F5 — the duplicate `id="modal-title"` breaking `aria-labelledby` for the
+// inner dialog — is per-instance and fixed below with `useId()`, no shared
+// state needed.)
+let openModalStack: string[] = [];
+let scrollLockCount = 0;
+
+function pushOpenModal(instanceId: string) {
+  openModalStack = [...openModalStack, instanceId];
+  scrollLockCount += 1;
+  if (scrollLockCount === 1) {
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function popOpenModal(instanceId: string) {
+  openModalStack = openModalStack.filter((id) => id !== instanceId);
+  scrollLockCount = Math.max(0, scrollLockCount - 1);
+  if (scrollLockCount === 0) {
+    document.body.style.overflow = 'unset';
+  }
+}
+
+function isTopmostModal(instanceId: string): boolean {
+  return openModalStack[openModalStack.length - 1] === instanceId;
+}
 
 export interface ModalProps {
   isOpen: boolean;
@@ -41,6 +80,11 @@ export const Modal: React.FC<ModalProps> = ({
   disableContentScroll = false
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  // Unique per instance so nested Modals never share an id (F5): each dialog's
+  // `aria-labelledby` resolves to its OWN title, not whichever Modal rendered
+  // `id="modal-title"` first.
+  const instanceId = useId();
+  const titleId = `modal-title-${instanceId}`;
 
   // Use size if provided, otherwise use maxWidth
   const effectiveMaxWidth = size || maxWidth;
@@ -59,25 +103,35 @@ export const Modal: React.FC<ModalProps> = ({
     full: 'max-w-full mx-4'
   };
 
-  // Handle escape key
+  // Join the shared open-modal stack while open — refcounts the body scroll
+  // lock (F7) and tracks which instance is topmost (F6). Runs before the
+  // Escape-handling effect below on both mount and unmount ordering, so the
+  // stack is always current by the time a real (async) keydown can fire.
+  useEffect(() => {
+    if (!isOpen) return;
+    pushOpenModal(instanceId);
+    return () => {
+      popOpenModal(instanceId);
+    };
+  }, [isOpen, instanceId]);
+
+  // Handle escape key — only the TOPMOST open Modal answers it (F6), so
+  // cancelling a nested confirmation never also closes the dialog behind it.
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && closeOnEscape) {
+      if (event.key === 'Escape' && closeOnEscape && isTopmostModal(instanceId)) {
         onClose();
       }
     };
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll
-      document.body.style.overflow = 'hidden';
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose, closeOnEscape]);
+  }, [isOpen, onClose, closeOnEscape, instanceId]);
 
   // Click outside to close
   const handleBackdropClick = (event: React.MouseEvent) => {
@@ -150,7 +204,7 @@ export const Modal: React.FC<ModalProps> = ({
   return createPortal(
     <div
       className={`fixed inset-0 z-[70] overflow-x-hidden ${disableContentScroll ? 'overflow-y-auto' : 'overflow-y-auto'}`}
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
       role="dialog"
       aria-modal="true"
     >
@@ -204,7 +258,7 @@ export const Modal: React.FC<ModalProps> = ({
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-theme-primary break-words" id="modal-title">
+                  <h3 className="text-lg font-semibold text-theme-primary break-words" id={titleId}>
                     {title}
                   </h3>
                   {subtitle && (
