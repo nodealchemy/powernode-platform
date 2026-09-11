@@ -112,13 +112,24 @@ module ProviderTesting
       tags_response = make_http_request(tags_url, method: :get, headers: headers, timeout: 15)
 
       if tags_response.success?
-        # Tags endpoint works — parse available models
+        # The server is reachable, and /api/tags lists the models it has
+        # pulled. Green here must mean the platform can actually chat with it
+        # (E3b c): resolve the model a real call would send and check it
+        # against that list. Reachable-but-unusable is a configuration_error.
         models_data = JSON.parse(tags_response.body) rescue {}
-        available_models = models_data["models"] || []
+        tags = ollama_tag_names(models_data)
+        tags_model = resolved_test_model(config)
+        return error_result("configuration_error", "No model configured for this provider") if tags_model.blank?
+
+        unless ollama_tag_listed?(tags, tags_model)
+          return error_result("configuration_error",
+                              "Model #{tags_model} is not pulled on this Ollama server (#{tags.size} models available)")
+        end
+
         return {
           success: true,
           status_code: tags_response.code,
-          response_content: "#{available_models.size} models available",
+          response_content: "#{tags.size} models available, including #{tags_model}",
           provider_response: tags_response.body
         }
       end
@@ -128,8 +139,7 @@ module ProviderTesting
       # never a literal (E3b): "llama2" was the wrong id for any server that
       # had not pulled it, so the test reported a bad connection for a reason
       # that had nothing to do with the connection. Nothing configured is a
-      # configuration_error, exactly as for the openai and anthropic testers,
-      # and the tags check above still passes without any model at all.
+      # configuration_error, exactly as for the openai and anthropic testers.
       test_model = resolved_test_model(config)
       return error_result("configuration_error", "No model configured for this provider") if test_model.blank?
 
@@ -150,6 +160,20 @@ module ProviderTesting
       )
 
       parse_ollama_response(response)
+    end
+
+    # /api/tags names each pulled model under "name" (older servers: "model"),
+    # always with a tag: "llama3.1:8b", "llama3:latest".
+    def ollama_tag_names(models_data)
+      entries = models_data.is_a?(Hash) ? Array(models_data["models"]) : []
+      entries.filter_map { |entry| entry.is_a?(Hash) ? (entry["name"].presence || entry["model"].presence) : nil }
+    end
+
+    # Ollama serves an untagged name as ":latest", so "llama3" is listed as
+    # "llama3:latest".
+    def ollama_tag_listed?(tags, model)
+      candidates = model.include?(":") ? [ model ] : [ model, "#{model}:latest" ]
+      tags.intersect?(candidates)
     end
 
     def build_ollama_base_url(config)

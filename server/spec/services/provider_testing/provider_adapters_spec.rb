@@ -93,22 +93,23 @@ RSpec.describe ProviderTesting::ProviderAdapters do
     end
   end
 
-  # E3b (c): the Ollama chat fallback used to end in `|| "llama2"`. It now
-  # resolves like the other testers. Three arms, because the tags check must
-  # stay model-free: an Ollama server that answers /api/tags is reachable
-  # whether or not the platform knows a model name for it.
+  # E3b (c): the Ollama chat fallback used to end in `|| "llama2"`, and the
+  # /api/tags arm answered success without resolving any model: green for a
+  # provider the platform could not chat with. Both arms now resolve the model
+  # a real call would send, and the tags arm checks it against the models the
+  # server says it has pulled.
   describe "#perform_ollama_connection_test" do
     let(:provider) { create(:ai_provider, account: account, provider_type: "ollama") }
     let(:ollama_creds) { { "base_url" => "http://ollama.example.test:11434" } }
 
     # Every request the tester makes, and the model on each (nil for a GET).
-    def run_ollama(service, tags_ok:)
+    def run_ollama(service, tags_ok:, tags: [])
       calls = []
       allow(service).to receive(:make_http_request) do |url, **opts|
         calls << { url: url, model: opts[:body] && JSON.parse(opts[:body])["model"] }
         if url.end_with?("/api/tags")
           double("tags", success?: tags_ok, code: tags_ok ? 200 : 404, message: "tags",
-                         body: { models: [] }.to_json)
+                         body: { "models" => tags.map { |name| { "name" => name } } }.to_json)
         else
           double("chat", success?: false, code: 500, message: "chat failed", body: {}.to_json)
         end
@@ -116,9 +117,19 @@ RSpec.describe ProviderTesting::ProviderAdapters do
       [ service.send(:perform_ollama_connection_test, service.credential.credentials), calls ]
     end
 
-    it "sends the provider's catalog model on the chat fallback, never a literal" do
+    def configure_default!(model)
+      provider.update_columns(configuration_schema: provider.configuration_schema.merge("default_model" => model))
+    end
+
+    # The old chain and the resolver DISAGREE on this fixture: the old chain
+    # took the catalog's first id ("test-model-1"), the resolver takes the
+    # configured default. The previous version of this example used a fixture
+    # where both picked the catalog's first id, so it passed against the
+    # pre-fix code (E3c-3).
+    it "sends the model Provider#default_model resolves on the chat fallback, not the catalog's first id" do
+      configure_default!("configured-model-1")
       _, calls = run_ollama(service_for(provider, credentials: ollama_creds), tags_ok: false)
-      expect(calls.filter_map { |c| c[:model] }).to eq([ "test-model-1" ])
+      expect(calls.filter_map { |c| c[:model] }).to eq([ "configured-model-1" ])
     end
 
     it "returns a configuration_error and makes NO chat request when no model resolves" do
@@ -129,12 +140,44 @@ RSpec.describe ProviderTesting::ProviderAdapters do
       expect(calls.map { |c| c[:url] }).to all(end_with("/api/tags")), "a chat request went out with no model"
     end
 
-    it "still passes on /api/tags alone, which needs no model" do
-      provider.update_columns(supported_models: [])
-      result, calls = run_ollama(service_for(provider, credentials: ollama_creds), tags_ok: true)
+    describe "when /api/tags answers" do
+      it "passes when the resolved model is among the pulled models, without a chat request" do
+        configure_default!("configured-model-1")
+        result, calls = run_ollama(service_for(provider, credentials: ollama_creds), tags_ok: true,
+                                                                                     tags: [ "other-model:7b", "configured-model-1" ])
 
-      expect(result[:success]).to be true
-      expect(calls.size).to eq(1)
+        expect(result).to include(success: true)
+        expect(result[:response_content]).to include("configured-model-1")
+        expect(calls.size).to eq(1)
+      end
+
+      it "matches an untagged model to its :latest tag, the way Ollama serves it" do
+        configure_default!("configured-model-1")
+        result, = run_ollama(service_for(provider, credentials: ollama_creds), tags_ok: true,
+                                                                               tags: [ "configured-model-1:latest" ])
+
+        expect(result[:success]).to be true
+      end
+
+      it "fails a server that has not pulled the resolved model" do
+        configure_default!("configured-model-1")
+        result, calls = run_ollama(service_for(provider, credentials: ollama_creds), tags_ok: true,
+                                                                                     tags: [ "other-model:7b" ])
+
+        expect(result).to include(success: false, error_type: "configuration_error")
+        expect(result[:error_details]).to include("configured-model-1", "not pulled")
+        expect(calls.size).to eq(1)
+      end
+
+      it "fails when no model resolves, although the server is reachable" do
+        provider.update_columns(supported_models: [])
+        result, calls = run_ollama(service_for(provider, credentials: ollama_creds), tags_ok: true,
+                                                                                     tags: [ "other-model:7b" ])
+
+        expect(result).to include(success: false, error_type: "configuration_error")
+        expect(result[:error_details]).to match(/no model configured/i)
+        expect(calls.size).to eq(1)
+      end
     end
   end
 
