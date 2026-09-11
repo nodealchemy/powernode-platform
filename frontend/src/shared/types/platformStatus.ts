@@ -608,10 +608,36 @@ export type InvestigationTrigger = 'operator' | 'stuck' | 'down' | (string & {})
  * `errors` could NOT be checked at all, which is a gap rather than an absence
  * and must be shown as one.
  */
+/** Stable ranking-outcome tokens (A6). Switch on these; `message` is prose. */
+export type InvestigationRankingReason =
+  | 'AutomaticSpendNeedsGrant'
+  | 'SecurityGateRefused'
+  | 'RankerUnusable'
+  | 'ProviderError'
+  | 'NoPrincipal'
+  | (string & {});
+
+/**
+ * Why an investigation has no AGENT ranking (A6 G2). ABSENT means ranking has
+ * not reported yet — only then is an open investigation still waiting on the
+ * worker. Ranking is not an evidence class, so it lives beside `errors`, never
+ * inside it: `errors` means only "an evidence source failed".
+ */
+export interface InvestigationRanking {
+  state: 'not_run' | 'refused' | 'failed' | (string & {});
+  reason: InvestigationRankingReason;
+  message: string;
+  /** false: it will NOT be retried. Nothing may promise hypotheses are coming. */
+  retryable: boolean;
+  attempts: number;
+  recorded_at: string;
+}
+
 export interface InvestigationEvidence {
   assembled_at?: string;
   window_seconds?: number;
   errors?: Record<string, string>;
+  ranking?: InvestigationRanking;
   [evidenceClass: string]: unknown;
 }
 

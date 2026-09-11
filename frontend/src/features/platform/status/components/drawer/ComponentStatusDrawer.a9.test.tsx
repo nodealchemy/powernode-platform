@@ -280,6 +280,114 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
   });
 
   describe('Investigations tab', () => {
+    describe('ranking outcome (A6 re-verification G2)', () => {
+      type Hypothesis = Investigation['hypotheses'][number];
+      const rankingRecord = (overrides: Record<string, unknown> = {}) => ({
+        state: 'refused',
+        reason: 'SecurityGateRefused',
+        message: 'the gate refused the call',
+        retryable: false,
+        attempts: 1,
+        recorded_at: '2026-09-10T11:01:00Z',
+        ...overrides,
+      });
+      const withRanking = (
+        ranking: Record<string, unknown> | undefined,
+        overrides: Partial<Investigation> = {}
+      ) =>
+        investigation({
+          id: 'inv-r',
+          status: 'open',
+          open: true,
+          evidence: {
+            assembled_at: '2026-09-10T11:00:00Z',
+            window_seconds: 900,
+            errors: {},
+            ...(ranking ? { ranking } : {}),
+          } as Investigation['evidence'],
+          ...overrides,
+        });
+      const evidenceClassNames = () =>
+        Array.from(document.querySelectorAll('dt')).map((node) => node.textContent);
+
+      it('with NO ranking record, an open investigation is still waiting on the worker', async () => {
+        mockedApi.fetchInvestigations.mockResolvedValue(investigations({ open: [withRanking(undefined)] }));
+        renderDrawer();
+        await openTab('Investigations');
+
+        expect(await screen.findByText(/No hypotheses yet\. Ranking runs in the worker/)).toBeInTheDocument();
+        expect(document.querySelector('[data-ranking-outcome]')).toBeNull();
+      });
+
+      it('a refusal that will not be retried promises nothing and is not an evidence gap', async () => {
+        mockedApi.fetchInvestigations.mockResolvedValue(investigations({ open: [withRanking(rankingRecord())] }));
+        renderDrawer();
+        await openTab('Investigations');
+
+        const outcome = await waitFor(() => {
+          const node = document.querySelector('[data-ranking-outcome]');
+          expect(node).not.toBeNull();
+          return node as HTMLElement;
+        });
+        expect(outcome.getAttribute('data-ranking-reason')).toBe('SecurityGateRefused');
+        expect(screen.getByText('Ranking did not run: the security gate refused it.')).toBeInTheDocument();
+        expect(screen.getByText('the gate refused the call')).toBeInTheDocument();
+        expect(screen.getByText('It will not be retried.')).toBeInTheDocument();
+        expect(screen.getByText('No hypotheses were produced.')).toBeInTheDocument();
+        expect(screen.queryByText(/No hypotheses yet/)).not.toBeInTheDocument();
+        // Not under the evidence-class gap heading, and not listed as a class.
+        expect(document.querySelector('[data-evidence-errors]')).toBeNull();
+        expect(evidenceClassNames()).not.toContain('ranking');
+      });
+
+      it("the automatic-spend refusal says the hypotheses are the platform's own", async () => {
+        const hypothesis = {
+          cause: 'disk full on /persist',
+          confidence: 0.6,
+          confidence_state: 'measured',
+          evidence_refs: ['conditions'],
+          recommended_action_category: null,
+        } as unknown as Hypothesis;
+        mockedApi.fetchInvestigations.mockResolvedValue(
+          investigations({
+            recent: [
+              withRanking(
+                rankingRecord({ state: 'not_run', reason: 'AutomaticSpendNeedsGrant', message: 'auto spend refused' }),
+                { status: 'completed', open: false, hypotheses: [hypothesis] }
+              ),
+            ],
+          })
+        );
+        renderDrawer();
+        await openTab('Investigations');
+
+        expect(
+          await screen.findByText(/automatic investigations need an agent-scoped spend grant/)
+        ).toBeInTheDocument();
+        expect(screen.getByText('disk full on /persist')).toBeInTheDocument();
+        expect(screen.queryByText(/No hypotheses/)).not.toBeInTheDocument();
+      });
+
+      it('a retryable failure says it will be retried, not that the worker will finish it', async () => {
+        mockedApi.fetchInvestigations.mockResolvedValue(
+          investigations({
+            open: [
+              withRanking(
+                rankingRecord({ state: 'failed', reason: 'ProviderError', message: 'provider 503', retryable: true, attempts: 2 })
+              ),
+            ],
+          })
+        );
+        renderDrawer();
+        await openTab('Investigations');
+
+        expect(await screen.findByText('It will be retried (2 attempts so far).')).toBeInTheDocument();
+        expect(screen.getByText('provider 503')).toBeInTheDocument();
+        expect(screen.getByText('No hypotheses yet. Ranking will be retried.')).toBeInTheDocument();
+        expect(screen.queryByText(/Ranking runs in the worker/)).not.toBeInTheDocument();
+      });
+    });
+
     it('renders a null confidence as "not measured", never as 0%', async () => {
       mockedApi.fetchInvestigations.mockResolvedValue(
         investigations({

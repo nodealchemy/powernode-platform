@@ -49,7 +49,67 @@ import type {
 const INVESTIGATE_PERMISSION = 'ai.autonomy.manage';
 
 /** Keys of the evidence object that are metadata rather than an evidence class. */
-const EVIDENCE_META_KEYS = new Set(['assembled_at', 'window_seconds', 'errors']);
+const EVIDENCE_META_KEYS = new Set(['assembled_at', 'window_seconds', 'errors', 'ranking']);
+
+// ── RANKING IS NOT AN EVIDENCE CLASS (A6 re-verification G2) ────────────────
+//
+// `evidence.ranking` records why no AGENT ranked this investigation: refused
+// by the security gate, an automatic trigger without a spend grant, a provider
+// error. Listing it under "these classes could not be checked at all" was the
+// wrong heading, and "No hypotheses yet. Ranking runs in the worker" was a
+// promise the worker was never going to keep once a refusal was recorded as
+// non-retryable. So it is rendered in its own block, switched on the stable
+// `reason` token, with the server's `message` as prose beside it.
+
+type RankingRecord = NonNullable<InvestigationEvidence['ranking']>;
+
+const RANKING_LEAD: Record<string, string | undefined> = {
+  AutomaticSpendNeedsGrant:
+    'Ranking was not run: automatic investigations need an agent-scoped spend grant. These hypotheses are the platform\u2019s own, derived without an agent.',
+  SecurityGateRefused: 'Ranking did not run: the security gate refused it.',
+  RankerUnusable: 'Ranking did not produce usable hypotheses.',
+  ProviderError: 'Ranking failed: the AI provider returned an error.',
+  NoPrincipal: 'Ranking did not run: no agent was available to run it.',
+};
+
+const RankingOutcome: React.FC<{ ranking: RankingRecord }> = ({ ranking }) => {
+  const lead = RANKING_LEAD[ranking.reason] ?? 'Ranking did not complete.';
+  // The automatic-spend case has a fixed sentence the server's prose would only
+  // repeat; every other reason shows the recorded message verbatim.
+  const showMessage = ranking.reason !== 'AutomaticSpendNeedsGrant' && Boolean(ranking.message);
+  return (
+    <div
+      data-ranking-outcome
+      data-ranking-reason={ranking.reason}
+      className="mt-2 rounded border border-theme px-2 py-1"
+    >
+      <p className="text-xs text-theme-secondary">{lead}</p>
+      {showMessage && <p className="text-xs text-theme-tertiary">{ranking.message}</p>}
+      <p className="text-xs text-theme-tertiary">
+        {ranking.retryable
+          ? `It will be retried (${ranking.attempts} attempt${ranking.attempts === 1 ? '' : 's'} so far).`
+          : 'It will not be retried.'}
+      </p>
+    </div>
+  );
+};
+
+/**
+ * The "no hypotheses" line, which must never promise an outcome that is not
+ * coming. Only an OPEN investigation with NO ranking record is still waiting on
+ * the worker.
+ */
+const emptyHypothesesText = (investigation: Investigation): string => {
+  const ranking = investigation.evidence?.ranking;
+  if (ranking) {
+    return ranking.retryable && investigation.open
+      ? 'No hypotheses yet. Ranking will be retried.'
+      : 'No hypotheses were produced.';
+  }
+  return investigation.open
+    ? 'No hypotheses yet. Ranking runs in the worker, so an open investigation normally has none until it completes.'
+    : 'This investigation produced no hypotheses.';
+};
 
 const Confidence: React.FC<{ hypothesis: InvestigationHypothesis }> = ({ hypothesis }) => {
   if (hypothesis.confidence_state === 'not_measured' || hypothesis.confidence === null) {
@@ -150,12 +210,10 @@ const InvestigationCard: React.FC<{ investigation: Investigation }> = ({ investi
       <p className="mt-2 text-sm text-theme-primary">{investigation.conclusion}</p>
     )}
 
+    {investigation.evidence?.ranking && <RankingOutcome ranking={investigation.evidence.ranking} />}
+
     {investigation.hypotheses.length === 0 ? (
-      <p className="mt-2 text-xs text-theme-secondary">
-        {investigation.open
-          ? 'No hypotheses yet. Ranking runs in the worker, so an open investigation normally has none until it completes.'
-          : 'This investigation produced no hypotheses.'}
-      </p>
+      <p className="mt-2 text-xs text-theme-secondary">{emptyHypothesesText(investigation)}</p>
     ) : (
       <ol className="mt-2 flex flex-col gap-2">
         {/* Rendered in the stored order. Do not sort. */}
