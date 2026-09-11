@@ -154,6 +154,9 @@ RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
     # column defaults to TRUE in the database, so a writer that forgets the
     # flag would publish it; the discovery prefix is forced private.
     it "keeps the root setting private even when its writer forgets the flag" do
+      # The shared setup already wrote this key; start from no row so the
+      # write below is a fresh create with the flag left at its default.
+      SiteSetting.where(key: described_class::ALLOWED_ROOT_SETTING).delete_all
       row = SiteSetting.create!(key: described_class::ALLOWED_ROOT_SETTING, value: "/srv/discovery",
                                 setting_type: "string")
 
