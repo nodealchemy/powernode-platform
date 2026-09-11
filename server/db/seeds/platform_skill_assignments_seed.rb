@@ -101,21 +101,32 @@ if missing_slugs.any?
 end
 
 platform_skill_assignments.each do |agent_name, slugs|
-  agent = Ai::Agent.resolve_for(admin_account.id, name: agent_name)
-  next unless agent
+  # The GLOBAL canonical is always a target: its bindings are what the Claude
+  # Code export and every account clone read. resolve_for alone (account
+  # override first) bound only an account copy whenever one already existed,
+  # and on a fresh demo install ai_example_templates_seed creates copies of the
+  # three autonomy canonicals BEFORE this baseline pass, so those canonicals
+  # were left with no skills. The account row keeps its bindings as before.
+  targets = [
+    Ai::Agent.global.find_by(name: agent_name),
+    Ai::Agent.resolve_for(admin_account.id, name: agent_name)
+  ].compact.uniq
+  next if targets.empty?
 
-  slugs.each_with_index do |slug, idx|
-    skill = Ai::Skill.global.find_by(slug: slug, status: 'active')
-    next unless skill
+  targets.each do |agent|
+    slugs.each_with_index do |slug, idx|
+      skill = Ai::Skill.global.find_by(slug: slug, status: 'active')
+      next unless skill
 
-    Ai::AgentSkill.find_or_create_by!(
-      ai_agent_id: agent.id,
-      ai_skill_id: skill.id
-    ) do |as|
-      as.is_active = true
-      as.priority = [idx / 3, 2].min
+      Ai::AgentSkill.find_or_create_by!(
+        ai_agent_id: agent.id,
+        ai_skill_id: skill.id
+      ) do |as|
+        as.is_active = true
+        as.priority = [ idx / 3, 2 ].min
+      end
+      platform_skills_assigned += 1
     end
-    platform_skills_assigned += 1
   end
 end
 
