@@ -97,6 +97,66 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(Ai::ImprovementRecommendation.first.evidence["title"]).to eq("Unused variable (refined)")
     end
 
+    # D1 review H2: the dedupe is enforced by the database, not only by the
+    # lookup before the insert.
+    describe "race-proof dedupe" do
+      let(:fingerprint) { "code_lint|server/app/foo.rb|UnusedVar" }
+
+      def raw_offer(status: "pending", fingerprint_column: fingerprint)
+        Ai::ImprovementRecommendation.create!(
+          account: account, recommendation_type: "code_lint", target_type: "Account", target_id: account.id,
+          status: status, confidence_score: 0.8, evidence: { "fingerprint" => fingerprint },
+          fingerprint: fingerprint_column
+        )
+      end
+
+      it "writes the fingerprint column on the offer it files" do
+        rec = Ai::ImprovementRecommendation.find(create_offer[:data][:recommendation][:id])
+
+        expect(rec.fingerprint).to eq(fingerprint)
+      end
+
+      it "has the database refuse a second pending offer for the same account, target and fingerprint" do
+        raw_offer
+
+        expect { Ai::ImprovementRecommendation.transaction(requires_new: true) { raw_offer } }
+          .to raise_error(ActiveRecord::RecordNotUnique)
+      end
+
+      it "lets a dismissed offer and a new pending one share the fingerprint" do
+        raw_offer(status: "dismissed")
+
+        expect { raw_offer }.not_to raise_error
+      end
+
+      it "answers a lost race as a dedupe, not an error" do
+        create_offer
+        lookups = 0
+        # The first lookup misses, as it would when the other sweep's insert
+        # had not committed yet; the insert then hits the unique index.
+        allow(tool).to receive(:open_offer_for).and_wrap_original do |original, *args, **kwargs|
+          lookups += 1
+          lookups == 1 ? nil : original.call(*args, **kwargs)
+        end
+
+        result = create_offer(title: "refined in a race")
+
+        expect(result[:success]).to be true
+        expect(result[:data][:deduped]).to be true
+        expect(Ai::ImprovementRecommendation.where(account: account).count).to eq(1)
+        expect(Ai::ImprovementRecommendation.sole.evidence["title"]).to eq("refined in a race")
+      end
+
+      it "dedupes into an offer filed before the column existed, and gives it the column" do
+        legacy = raw_offer(fingerprint_column: nil)
+
+        result = create_offer
+
+        expect(result[:data][:deduped]).to be true
+        expect(legacy.reload.fingerprint).to eq(fingerprint)
+      end
+    end
+
     it "rejects a non-code-quality recommendation_type" do
       result = create_offer(recommendation_type: "provider_switch")
       expect(result[:success]).to be false

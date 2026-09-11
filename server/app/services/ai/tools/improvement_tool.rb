@@ -243,17 +243,39 @@ module Ai
 
         # Tier-2(b): dedupe is scoped to the target — the same fingerprint in two
         # different repositories is two distinct offers, not a collision.
-        existing = open_offer_for(params[:fingerprint].to_s, target_type: target_type, target_id: target_id)
-        if existing
-          existing.update!(attrs)
-          success_result(recommendation: serialize(existing), deduped: true)
-        else
-          rec = Ai::ImprovementRecommendation.create!(
-            attrs.merge(account: account, recommendation_type: type,
-                        target_type: target_type, target_id: target_id, status: "pending")
-          )
+        fingerprint = params[:fingerprint].to_s
+        attrs = attrs.merge(fingerprint: fingerprint)
+        existing = open_offer_for(fingerprint, target_type: target_type, target_id: target_id)
+        return refresh_offer(existing, attrs) if existing
+
+        begin
+          # A savepoint, so a lost race below does not poison a caller's
+          # enclosing transaction.
+          rec = Ai::ImprovementRecommendation.transaction(requires_new: true) do
+            Ai::ImprovementRecommendation.create!(
+              attrs.merge(account: account, recommendation_type: type,
+                          target_type: target_type, target_id: target_id, status: "pending")
+            )
+          end
           success_result(recommendation: serialize(rec), deduped: false)
+        rescue ActiveRecord::RecordNotUnique
+          # D1 review H2: another sweep filed the same pending offer between
+          # the lookup above and this insert. The partial unique index on
+          # (account, target, fingerprint) refused the second one; that is a
+          # dedupe, not an error.
+          winner = open_offer_for(fingerprint, target_type: target_type, target_id: target_id)
+          raise unless winner
+
+          refresh_offer(winner, attrs)
         end
+      end
+
+      # Re-offering refreshes the open offer. It also writes the fingerprint
+      # column onto an offer filed before that column existed, so the unique
+      # index covers it from then on.
+      def refresh_offer(existing, attrs)
+        existing.update!(attrs)
+        success_result(recommendation: serialize(existing), deduped: true)
       end
 
       def list_improvements(params)
