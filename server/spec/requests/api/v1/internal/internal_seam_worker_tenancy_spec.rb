@@ -151,6 +151,27 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
       request: ->(ctx, worker, rec) {
         ctx.get "/api/v1/internal/approval_tokens/#{rec.id}", headers: ctx.headers_for(worker)
       }
+    },
+    {
+      # Goal plans (review B-1). The action FAILS the step it resolves, so an
+      # unanchored lookup here is a cross-account WRITE. Its response carries
+      # no record material a sentinel could ride in, so the oracle is the ROW
+      # (`mutated`): a foreign step must be left untouched, and the worker's own
+      # fresh executing step must be failed.
+      name: "internal/ai/goal_plans#execute_step (fails the resolved step)",
+      build: ->(account, sentinel) {
+        agent = FactoryBot.create(:ai_agent, account: account)
+        goal = ::Ai::AgentGoal.create!(account: account, agent: agent, title: sentinel,
+                                       goal_type: "improvement", status: "active", priority: 3, progress: 0)
+        plan = ::Ai::GoalPlan.create!(account: account, goal: goal, agent: agent, status: "executing", version: 1)
+        ::Ai::GoalPlanStep.create!(plan: plan, step_number: 1, status: "executing",
+                                   step_type: "agent_execution", description: sentinel)
+      },
+      request: ->(ctx, worker, rec) {
+        ctx.post "/api/v1/internal/ai/goal_plans/execute_step", params: { step_id: rec.id }.to_json,
+                                                              headers: ctx.headers_for(worker)
+      },
+      mutated: ->(rec) { rec.reload.status == "failed" }
     }
   ].freeze
 
@@ -166,6 +187,7 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
     internal/devops/swarm#connection
     internal/devops/integration_health#probe
     internal/approval_tokens#show
+    internal/ai/goal_plans#execute_step
   ].freeze
 
   it "keeps a tenancy case for every required internal controller lookup" do
@@ -198,6 +220,8 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
           expect(response).to have_http_status(:not_found)
           expect(response.body).not_to include(sentinel_b)
           expect(ids_in_body).not_to include(rec_b.id.to_s.downcase)
+          # A mutating case: the foreign row must also be left untouched.
+          expect(kase[:mutated].call(rec_b)).to be(false) if kase[:mutated]
         end
       end
 
@@ -209,6 +233,7 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
 
           expect(response).to have_http_status(:not_found)
           expect(response.body).not_to include(sentinel_b)
+          expect(kase[:mutated].call(rec_b)).to be(false) if kase[:mutated]
         end
       end
 
@@ -219,7 +244,13 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
           kase[:request].call(self, worker_a, rec_a)
 
           expect(response).not_to have_http_status(:not_found)
-          expect(response.body).to include(sentinel_a)
+          # A mutating case proves resolution by the row it changed, since its
+          # response carries no record material; the rest by the body.
+          if kase[:mutated]
+            expect(kase[:mutated].call(rec_a)).to be(true)
+          else
+            expect(response.body).to include(sentinel_a)
+          end
         end
       end
     end

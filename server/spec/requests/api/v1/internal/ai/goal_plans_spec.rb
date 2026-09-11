@@ -77,6 +77,57 @@ RSpec.describe "Api::V1::Internal::Ai::GoalPlans", type: :request do
     expect(blocked.reload.status).to eq("executing")
   end
 
+  # Review B-1: the lookup is anchored to the calling worker's account. The
+  # namespace sweep (internal_seam_worker_tenancy_spec.rb) covers this too;
+  # this is the local, readable arm.
+  it "answers 404 for ANOTHER account's step and leaves it untouched" do
+    other = create(:account)
+    other_agent = create(:ai_agent, account: other)
+    other_goal = Ai::AgentGoal.create!(account: other, agent: other_agent, title: "Theirs",
+                                       goal_type: "improvement", status: "active", priority: 3, progress: 0)
+    other_plan = Ai::GoalPlan.create!(account: other, goal: other_goal, agent: other_agent,
+                                      status: "executing", version: 1)
+    foreign = Ai::GoalPlanStep.create!(plan: other_plan, step_number: 1, status: "executing",
+                                       step_type: "agent_execution")
+
+    execute!(foreign)
+
+    expect(response).to have_http_status(:not_found)
+    # The 404 must not echo the foreign step's id back to the caller.
+    expect(response.body).not_to include(foreign.id)
+    expect(foreign.reload.status).to eq("executing")
+    expect(foreign.result_summary).to be_nil
+  end
+
+  # Review S-1: only an EXECUTING step is acted on. Any other state answers 200
+  # with applied: false, names the state under step_status (never status, which
+  # the worker logs as the outcome) and changes nothing.
+  describe "a step that is not executing" do
+    %w[completed awaiting_approval pending skipped].each do |state|
+      it "leaves a #{state} step exactly as it was" do
+        step = step_of("agent_execution", status: state)
+        before = step.attributes.slice("status", "result_summary", "completed_at", "started_at", "metadata")
+
+        execute!(step)
+
+        expect(response).to have_http_status(:ok)
+        expect(data).to include("step_id" => step.id, "applied" => false, "step_status" => state)
+        expect(data).not_to have_key("status")
+        expect(step.reload.attributes.slice("status", "result_summary", "completed_at", "started_at", "metadata"))
+          .to eq(before)
+      end
+    end
+
+    it "fails an executing step — the other arm" do
+      step = step_of("agent_execution", status: "executing")
+
+      execute!(step)
+
+      expect(data).to include("applied" => true, "status" => "failed")
+      expect(step.reload.status).to eq("failed")
+    end
+  end
+
   it "answers 404 for a step that does not exist" do
     post "/api/v1/internal/ai/goal_plans/execute_step",
          params: { step_id: SecureRandom.uuid }, headers: headers, as: :json
