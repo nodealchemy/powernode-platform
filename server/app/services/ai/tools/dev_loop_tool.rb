@@ -1225,10 +1225,6 @@ module Ai
         ctx
       end
 
-      # Credit-loop half B (see complete_task): resolve this claim's injections
-      # positively via the learning service, then clear the marker so an
-      # operator resolution or replayed report cannot double-credit. Best-effort
-      # — a crediting hiccup must never fail the completion itself.
       # D4 — event-driven enqueue of the judge for this completion.
       #
       # ATTRIBUTION IS THE OPEN HALF, and it is why this mostly no-ops today.
@@ -1259,6 +1255,10 @@ module Ai
         Rails.logger.warn("[DevLoopTool] evaluation enqueue failed for #{task.task_key}: #{e.message}")
       end
 
+      # Credit-loop half B (see complete_task): resolve this claim's injections
+      # positively via the learning service, then clear the marker so an
+      # operator resolution or replayed report cannot double-credit. Best-effort
+      # — a crediting hiccup must never fail the completion itself.
       def credit_injected_learnings!(task)
         ids = Array(task.metadata["injected_learning_ids"])
         return if ids.empty?
