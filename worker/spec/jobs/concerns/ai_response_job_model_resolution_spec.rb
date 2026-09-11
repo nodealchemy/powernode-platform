@@ -5,10 +5,14 @@ require 'rails_helper'
 # Campaign 01a08c9b, E3 review F2 — AiResponseJobConcern#call_provider_streaming.
 #
 # E3 removed `|| 'gpt-4'` (retired, and the wrong provider's id for anything
-# not OpenAI). The concern works off JSON hashes from the backend API, so —
-# unlike the server copies — its chain really is three arms, plus the refusal:
+# not OpenAI). The concern works off JSON hashes from the backend API. Its
+# chain is two arms plus the refusal:
 #
-#   agent['model'] → provider['default_model'] → first supported_models id → error
+#   agent['model'] → provider['default_model'] (resolved server-side) → error
+#
+# E3b removed a third arm, "first supported_models id": catalog[0] is the
+# most expensive model, and the tier rule lives on the server
+# (Provider#default_model), which now sends its result in the agent payload.
 #
 # This concern had no spec at all; the review found every one of those arms
 # untested.
@@ -39,12 +43,13 @@ RSpec.describe AiResponseJobConcern, '#call_provider_streaming model resolution'
     expect(sent).to eq('provider-default-1')
   end
 
-  it "falls back to the first supported_models id — hash or string entry — when neither is set" do
-    _, sent = stream(provider: provider.merge('default_model' => nil), agent: {})
-    expect(sent).to eq('catalog-first-1')
+  # E3b: the worker must NOT pick from the catalog itself. Mutation: put the
+  # old `|| supported_models.first` arm back and this fails.
+  it "never picks from supported_models itself — no server-resolved default means refusal" do
+    result, sent = stream(provider: provider.merge('default_model' => nil), agent: {})
 
-    _, sent = stream(provider: provider.merge('default_model' => nil, 'supported_models' => [ 'catalog-string-1' ]), agent: {})
-    expect(sent).to eq('catalog-string-1')
+    expect(result).to eq(success: false, error: 'No model configured for this agent or its provider')
+    expect(sent).to eq(:no_call), "the worker chose catalog[0] on its own"
   end
 
   it "returns the no-model error and makes NO provider call when nothing resolves" do
