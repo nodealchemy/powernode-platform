@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
-import type { PageAction, BreadcrumbItem } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { useCodeFactory } from '../hooks/useCodeFactory';
 import { ContractList } from '../components/ContractList';
 import { ContractEditor } from '../components/ContractEditor';
