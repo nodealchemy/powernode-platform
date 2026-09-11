@@ -299,7 +299,22 @@ module Devops
       self.health_metrics = {} if health_metrics.blank?
     end
 
+    # The credential is judged only on the saves that put it in question:
+    # changing the status, the credential or the template. Creating the row
+    # is one of them, because a create always sets integration_template_id
+    # (the template is required). A telemetry write (a health probe, an
+    # execution count) changes none of these. Judging it there made an
+    # instance whose credential broke after activation fail its own probe
+    # writes, so the failure streak never climbed and it was never
+    # auto-paused (IMP-01a08da1).
+    def credential_in_question?
+      will_save_change_to_status? ||
+        will_save_change_to_integration_credential_id? ||
+        will_save_change_to_integration_template_id?
+    end
+
     def credential_matches_template_requirements
+      return unless credential_in_question?
       return unless template&.requires_credentials?
       # A paused or disabled instance cannot run, so it does not need a valid
       # credential. An operator must be able to pause an instance whose

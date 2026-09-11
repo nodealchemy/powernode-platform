@@ -205,4 +205,102 @@ RSpec.describe Devops::IntegrationInstance, type: :model do
       expect(row.reload.status).to eq("paused")
     end
   end
+
+  # IMP-01a08da1: the credential check ran on EVERY save. An active instance
+  # whose credential stopped satisfying its template (the template was
+  # tightened, or the credential went away) therefore failed validation on the
+  # health probe's own write. #record_health_probe! raised, health stayed as it
+  # was, the probe streak never climbed, and the threshold never auto-paused
+  # the instance. The check now runs only on the saves it judges: creating the
+  # row, or changing its status, credential or template.
+  describe "the credential check runs only on the saves it judges (IMP-01a08da1)" do
+    let(:account)    { create(:account) }
+    let(:template)   { create(:devops_integration_template, credential_requirements: { "type" => "api_key" }) }
+    let(:credential) { create(:devops_integration_credential, account: account) }
+    let(:instance) do
+      create(:devops_integration_instance, account: account, template: template, credential: credential, status: "active")
+    end
+
+    # Valid when activated, then the template demands a credential type this
+    # one is not. update_column skips validation, as a template edit made
+    # through its own model would for the instance.
+    def broken
+      instance
+      template.update_column(:credential_requirements, { "type" => "oauth2" })
+      instance.reload
+    end
+
+    it "records a telemetry-only update_health! on a broken instance" do
+      row = broken
+
+      expect { row.update_health!("degraded", "probe" => "timeout") }.not_to raise_error
+      expect(row.reload.health_status).to eq("degraded")
+      expect(row.health_metrics["probe"]).to eq("timeout")
+    end
+
+    it "records each failed probe, climbs the streak, and auto-pauses at the threshold" do
+      row = broken
+      threshold = described_class.health_failure_threshold
+
+      (threshold - 1).times do |i|
+        expect(row.record_health_probe!(success: false, error: "401")).to be(false)
+        expect(row.reload.probe_failure_streak).to eq(i + 1)
+        expect(row.health_status).to eq("degraded")
+        expect(row.status).to eq("active")
+      end
+
+      expect(row.record_health_probe!(success: false, error: "401")).to be(true)
+      row.reload
+      expect(row.status).to eq("paused")
+      expect(row.health_status).to eq("unhealthy")
+      expect(row.probe_failure_streak).to eq(threshold)
+      expect(row.last_error).to eq("401")
+    end
+
+    it "records a passing probe on a broken instance as healthy" do
+      row = broken
+      row.update_column(:health_status, "degraded")
+
+      expect(row.record_health_probe!(success: true)).to be(false)
+      expect(row.reload.health_status).to eq("healthy")
+    end
+
+    it "still refuses to reactivate a broken instance" do
+      row = broken
+      row.pause!
+
+      expect(row.update(status: "active")).to be(false)
+      expect(row.errors[:credential]).to include("must be of type oauth2")
+      expect(row.reload.status).to eq("paused")
+    end
+
+    it "still refuses to swap a broken instance onto another wrong-type credential" do
+      row = broken
+      other = create(:devops_integration_credential, account: account)
+
+      expect(row.update(integration_credential_id: other.id)).to be(false)
+      expect(row.errors[:credential]).to include("must be of type oauth2")
+      expect(row.reload.integration_credential_id).to eq(credential.id)
+    end
+
+    it "still refuses to move a valid instance onto a template its credential does not satisfy" do
+      stricter = create(:devops_integration_template, credential_requirements: { "type" => "oauth2" })
+
+      expect(instance.update(integration_template_id: stricter.id)).to be(false)
+      expect(instance.errors[:credential]).to include("must be of type oauth2")
+      expect(instance.reload.integration_template_id).to eq(template.id)
+    end
+
+    it "still refuses to create an instance without the credential its template requires" do
+      row = build(:devops_integration_instance, account: account, template: template, status: "pending")
+
+      expect(row.save).to be(false)
+      expect(row.errors[:credential]).to include("is required for this integration type")
+    end
+
+    it "keeps every other validation on a telemetry save" do
+      expect { instance.update_health!("bogus") }.to raise_error(ActiveRecord::RecordInvalid, /Health status/)
+      expect(instance.reload.health_status).to eq("healthy")
+    end
+  end
 end
