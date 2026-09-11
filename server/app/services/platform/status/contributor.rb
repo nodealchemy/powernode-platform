@@ -46,8 +46,8 @@ module Platform
     # planned drain, never a real outage. Rollup carries the held count beside
     # the operational verdict (Platform::Status::Rollup).
     class Contributor
-      # The registry key. Snake_case, stable, and the suffix of the drawer slot
-      # id `platform.status.drawer.<kind>`.
+      # The registry key. Snake_case, stable, and the `<kind>` segment of the
+      # drawer view ids `platform.status.drawer.<kind>.<view>`.
       def kind
         raise NotImplementedError, "#{self.class}#kind must return the registry key"
       end

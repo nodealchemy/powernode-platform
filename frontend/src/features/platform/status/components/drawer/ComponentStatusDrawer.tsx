@@ -6,6 +6,7 @@ import { VerdictBadge } from '@/shared/components/ui/VerdictBadge';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 import { formatRelativeTimeCompact } from '@/shared/utils/formatters';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import { SectionErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { useComponentStatusDetail } from '@/features/platform/status/hooks/useComponentStatusDetail';
 import { ConditionsTab } from '@/features/platform/status/components/drawer/ConditionsTab';
 import { DependenciesTab } from '@/features/platform/status/components/drawer/DependenciesTab';
@@ -244,13 +245,27 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
                     its own a lazy view suspends to the nearest one above — the
                     page's, which would blank the whole status screen while one
                     tab's code loads. */}
-                <React.Suspense
+                {/* And an ERROR boundary per view, for the same reason: nothing
+                    above the drawer catches (main.tsx, App.tsx and the status
+                    page mount none), so a view that throws would take the
+                    whole app down with it. Keyed by the row, so moving to
+                    another component gives the view a fresh start. */}
+                <SectionErrorBoundary
+                  key={row.id}
                   fallback={
-                    <p className="text-sm text-theme-secondary">{`Loading ${label.toLowerCase()}…`}</p>
+                    <p className="text-sm text-theme-warning-fg" role="alert" data-view-error={value}>
+                      {`The ${label} view failed to render. The other tabs still work.`}
+                    </p>
                   }
                 >
-                  <Component {...({ row: detail } as Record<string, unknown>)} />
-                </React.Suspense>
+                  <React.Suspense
+                    fallback={
+                      <p className="text-sm text-theme-secondary">{`Loading ${label.toLowerCase()}…`}</p>
+                    }
+                  >
+                    <Component {...({ row: detail } as Record<string, unknown>)} />
+                  </React.Suspense>
+                </SectionErrorBoundary>
               </TabsContent>
             ))}
           </Tabs>

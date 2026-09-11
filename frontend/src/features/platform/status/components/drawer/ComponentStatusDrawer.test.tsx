@@ -580,6 +580,30 @@ describe('ComponentStatusDrawer', () => {
       expect(screen.queryByText('Loading boot replay…')).not.toBeInTheDocument();
     });
 
+    it('contains a view that THROWS: the boundary names it, and Conditions and a sibling view stay reachable', async () => {
+      // Nothing above the drawer catches, so an uncontained throw would unmount
+      // the whole tree. React reports the caught error on console.error.
+      const quiet = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const Exploding = () => {
+        throw new Error('boot replay exploded');
+      };
+      featureRegistry.registerComponentSlots({
+        'platform.status.drawer.node_instance.boot_replay': Exploding,
+        'platform.status.drawer.node_instance.signals': () => <p>signals panel</p>,
+      });
+      renderDrawer();
+      await screen.findByText('Reachable');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Boot replay' }));
+      expect(await screen.findByText('The Boot replay view failed to render. The other tabs still work.')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Signals' }));
+      expect(screen.getByText('signals panel')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Conditions' }));
+      expect(screen.getByText('Reachable')).toBeInTheDocument();
+      quiet.mockRestore();
+    });
+
     it('picks up a view registered after the drawer opened', async () => {
       renderDrawer();
       await screen.findByText('Reachable');
