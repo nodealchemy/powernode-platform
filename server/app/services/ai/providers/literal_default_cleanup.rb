@@ -2,11 +2,16 @@
 
 module Ai
   module Providers
-    # Clears a provider's configuration_schema "default_model" when BOTH:
+    # Clears a provider's configuration_schema "default_model" when ALL of:
     #   1. it is one of the literals the PLATFORM ITSELF once wrote as that
-    #      provider type's default, and
-    #   2. that id is absent from the provider's synced catalog.
-    # (Campaign 01a08c9b, E3b.)
+    #      provider type's default;
+    #   2. the provider HAS a synced catalog (a non-empty supported_models
+    #      array); and
+    #   3. that id is absent from it.
+    # (Campaign 01a08c9b, E3b.) Condition 2 is the lead's ruling: a never-synced
+    # provider's catalog is empty, so "absent" is vacuous there, and clearing a
+    # shipped default it is working on would turn it into a refusal at deploy
+    # time. Once it syncs, the catalog replaces the stored value on its own terms.
     #
     # Such a value was never an operator's choice. It was stamped by
     # Ai::Provider::Configurable#set_default_configuration_from_type,
@@ -66,11 +71,21 @@ module Ai
         )
       SQL
 
+      # The provider has synced a catalog: a non-empty supported_models array.
+      # Neither operand can raise on any jsonb value. Postgres does not
+      # short-circuit AND, so jsonb_array_length here would raise on a
+      # non-array row and abort the whole cleanup.
+      SYNCED_SQL = <<~SQL.squish.freeze
+        jsonb_typeof(ai_providers.supported_models) = 'array'
+        AND ai_providers.supported_models <> '[]'::jsonb
+      SQL
+
       Outcome = Struct.new(:status, :count, :provider_ids, :message, keyword_init: true)
 
       class << self
-        # [[provider_id, account_id, literal], ...], ordered by id.
-        def matching_rows
+        # The rows this class acts on. Also the source of the read-only count an
+        # operator runs before a deploy: matching_scope.select("count(*)").to_sql.
+        def matching_scope
           clauses = SHIPPED_DEFAULTS.map do |provider_type, literals|
             ::ActiveRecord::Base.sanitize_sql_array(
               [ "(ai_providers.provider_type = ? AND ai_providers.configuration_schema ->> 'default_model' IN (?))",
@@ -79,8 +94,13 @@ module Ai
           end
 
           ::Ai::Provider.where(clauses.join(" OR "))
+                        .where(SYNCED_SQL)
                         .where.not(IN_CATALOG_SQL)
-                        .order(:id)
+        end
+
+        # [[provider_id, account_id, literal], ...], ordered by id.
+        def matching_rows
+          matching_scope.order(:id)
                         .pluck(:id, :account_id, Arel.sql("ai_providers.configuration_schema ->> 'default_model'"))
         end
 

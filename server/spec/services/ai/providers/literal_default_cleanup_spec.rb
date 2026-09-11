@@ -65,6 +65,28 @@ RSpec.describe Ai::Providers::LiteralDefaultCleanup do
       expect(audit.metadata["cleared"]).to eq(stale.id => literal_for("openai"))
     end
 
+    # A never-synced provider is out of scope. Its catalog is empty, so "absent
+    # from the synced catalog" is vacuous there, and clearing its shipped default
+    # would turn a working provider into a refusal at deploy time. Both arms in
+    # one run: the never-synced rows keep their default and still resolve it; the
+    # synced row beside them is cleared and audited.
+    it "leaves a never-synced provider on its shipped default untouched, and still clears a synced one" do
+      never_synced = provider_with(default_model: literal_for("openai"), catalog: [])
+      not_an_array = provider_with(default_model: literal_for("openai")).tap { |p| p.update_columns(supported_models: {}) }
+      synced = provider_with(default_model: literal_for("openai"))
+
+      expect(described_class.matching_rows.map(&:first)).to eq([ synced.id ])
+
+      outcome = described_class.auto_clear(logger: logger)
+
+      expect(outcome.provider_ids).to eq([ synced.id ])
+      expect(default_of(never_synced)).to eq(literal_for("openai"))
+      expect(Ai::Provider.find(never_synced.id).default_model).to eq(literal_for("openai"))
+      expect(default_of(not_an_array)).to eq(literal_for("openai"))
+      expect(default_of(synced)).to be_nil
+      expect(cleanup_audits.sole.metadata["cleared"]).to eq(synced.id => literal_for("openai"))
+    end
+
     it "writes one audit row per affected account" do
       other_account = create(:account)
       provider_with(default_model: literal_for("openai"))
