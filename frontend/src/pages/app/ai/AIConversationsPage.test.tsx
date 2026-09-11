@@ -540,6 +540,57 @@ describe('AIConversationsPage', () => {
       });
     });
   });
+
+  // A ?id= deep link (TeamExecutionTab's "Chat" button, MissionSidebar's
+  // "Open Conversation" link) must open the DETAIL modal, not the
+  // continue-chat one — this is what makes "opens its detail modal" true
+  // rather than aspirational. Regression coverage for review-lane4-c15.md
+  // addendum G2 (N3: reverting to setChatConversationId stayed green with no
+  // test at all covering this).
+  //
+  // renderWithProviders resets window.history to its `route` option (default
+  // "/") as part of mounting, so the id must be passed THROUGH that option —
+  // a plain window.history.pushState() call before renderComponent() here
+  // gets silently overwritten before the component ever mounts.
+  describe('?id= query param deep link', () => {
+    const renderWithId = (id: string) =>
+      renderWithProviders(<AIConversationsPage />, {
+        preloadedState: mockAuthenticatedState,
+        route: `/app/ai/conversations?id=${id}`,
+      });
+
+    afterEach(() => {
+      window.history.replaceState({}, '', '/');
+    });
+
+    it('opens the detail modal, not the continue-chat modal, from ?id=', async () => {
+      renderWithId('conv-1');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('detail-modal')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('continue-modal')).not.toBeInTheDocument();
+    });
+
+    it('strips the id param from the URL after consuming it', async () => {
+      renderWithId('conv-1');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('detail-modal')).toBeInTheDocument();
+      });
+      expect(window.location.search).toBe('');
+    });
+
+    it('opens no modal when the URL carries no id', async () => {
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Conversation 1')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('detail-modal')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('continue-modal')).not.toBeInTheDocument();
+    });
+  });
 });
 
 describe('AIConversationsPage - API Integration', () => {
