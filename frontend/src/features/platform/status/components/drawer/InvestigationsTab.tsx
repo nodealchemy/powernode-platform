@@ -63,6 +63,23 @@ const EVIDENCE_META_KEYS = new Set(['assembled_at', 'window_seconds', 'errors', 
 
 type RankingRecord = NonNullable<InvestigationEvidence['ranking']>;
 
+/**
+ * The ranking record, wherever this row carries it. The top-level field is on
+ * every row; `evidence.ranking` only on rows that carry evidence (open ones).
+ */
+const rankingOf = (investigation: Investigation): RankingRecord | undefined =>
+  investigation.ranking ?? investigation.evidence?.ranking ?? undefined;
+
+/**
+ * `evidence.errors.ranking` — how servers before the structured record said
+ * ranking failed, and rows they wrote keep it. No retry fact came with it, so
+ * none is claimed; it is shown as what it is and kept out of the evidence gap.
+ */
+const legacyRankingErrorOf = (investigation: Investigation): string | undefined => {
+  const value = investigation.evidence?.errors?.ranking;
+  return typeof value === 'string' && value ? value : undefined;
+};
+
 const RANKING_LEAD: Record<string, string | undefined> = {
   AutomaticSpendNeedsGrant:
     'Ranking was not run: automatic investigations need an agent-scoped spend grant. These hypotheses are the platform\u2019s own, derived without an agent.',
@@ -100,11 +117,14 @@ const RankingOutcome: React.FC<{ ranking: RankingRecord }> = ({ ranking }) => {
  * the worker.
  */
 const emptyHypothesesText = (investigation: Investigation): string => {
-  const ranking = investigation.evidence?.ranking;
+  const ranking = rankingOf(investigation);
   if (ranking) {
     return ranking.retryable && investigation.open
       ? 'No hypotheses yet. Ranking will be retried.'
       : 'No hypotheses were produced.';
+  }
+  if (legacyRankingErrorOf(investigation)) {
+    return investigation.open ? 'No hypotheses yet.' : 'No hypotheses were produced.';
   }
   return investigation.open
     ? 'No hypotheses yet. Ranking runs in the worker, so an open investigation normally has none until it completes.'
@@ -137,7 +157,11 @@ const Confidence: React.FC<{ hypothesis: InvestigationHypothesis }> = ({ hypothe
 
 const EvidenceSummary: React.FC<{ evidence: InvestigationEvidence }> = ({ evidence }) => {
   const classes = Object.entries(evidence).filter(([key]) => !EVIDENCE_META_KEYS.has(key));
-  const errors = evidence.errors ?? {};
+  // `ranking` is not an evidence class; a legacy row's ranking error is shown by
+  // RankingSection, never under the gap heading below.
+  const errors = Object.fromEntries(
+    Object.entries(evidence.errors ?? {}).filter(([name]) => name !== 'ranking')
+  );
 
   return (
     <div className="mt-2">
@@ -189,6 +213,22 @@ const EvidenceSummary: React.FC<{ evidence: InvestigationEvidence }> = ({ eviden
   );
 };
 
+const RankingSection: React.FC<{ investigation: Investigation }> = ({ investigation }) => {
+  const ranking = rankingOf(investigation);
+  if (ranking) return <RankingOutcome ranking={ranking} />;
+  const legacy = legacyRankingErrorOf(investigation);
+  if (!legacy) return null;
+  return (
+    <div
+      data-ranking-outcome
+      data-ranking-reason="legacy"
+      className="mt-2 rounded border border-theme px-2 py-1"
+    >
+      <p className="text-xs text-theme-secondary">Ranking did not run: {legacy}</p>
+    </div>
+  );
+};
+
 const InvestigationCard: React.FC<{ investigation: Investigation }> = ({ investigation }) => (
   <li
     data-investigation-status={investigation.status}
@@ -210,7 +250,7 @@ const InvestigationCard: React.FC<{ investigation: Investigation }> = ({ investi
       <p className="mt-2 text-sm text-theme-primary">{investigation.conclusion}</p>
     )}
 
-    {investigation.evidence?.ranking && <RankingOutcome ranking={investigation.evidence.ranking} />}
+    <RankingSection investigation={investigation} />
 
     {investigation.hypotheses.length === 0 ? (
       <p className="mt-2 text-xs text-theme-secondary">{emptyHypothesesText(investigation)}</p>

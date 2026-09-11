@@ -368,6 +368,56 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
         expect(screen.queryByText(/No hypotheses/)).not.toBeInTheDocument();
       });
 
+      it("reads a CONCLUDED row's top-level ranking — the recent list carries no evidence", async () => {
+        mockedApi.fetchInvestigations.mockResolvedValue(
+          investigations({
+            recent: [
+              investigation({
+                id: 'inv-c',
+                status: 'completed',
+                open: false,
+                hypotheses: [],
+                ranking: rankingRecord() as Investigation['ranking'],
+              }),
+            ],
+          })
+        );
+        renderDrawer();
+        await openTab('Investigations');
+
+        expect(await screen.findByText('Ranking did not run: the security gate refused it.')).toBeInTheDocument();
+        expect(screen.getByText('It will not be retried.')).toBeInTheDocument();
+        expect(screen.getByText('No hypotheses were produced.')).toBeInTheDocument();
+      });
+
+      it('shows a ranking error an older server left in evidence.errors as its own line, never as a gap', async () => {
+        mockedApi.fetchInvestigations.mockResolvedValue(
+          investigations({
+            open: [
+              withRanking(undefined, {
+                evidence: {
+                  assembled_at: '2026-09-10T11:00:00Z',
+                  window_seconds: 900,
+                  errors: { ranking: 'ranker refused: security gate', metrics_window: 'prometheus timeout' },
+                } as Investigation['evidence'],
+              }),
+            ],
+          })
+        );
+        renderDrawer();
+        await openTab('Investigations');
+
+        expect(await screen.findByText('Ranking did not run: ranker refused: security gate')).toBeInTheDocument();
+        // The REAL evidence class that failed is still a gap; ranking is not.
+        const gap = document.querySelector('[data-evidence-errors]') as HTMLElement;
+        expect(gap).not.toBeNull();
+        const gapNames = Array.from(gap.querySelectorAll('dt')).map((node) => node.textContent);
+        expect(gapNames).toEqual(['metrics_window']);
+        // No promise about the worker, and no retry fact that was never recorded.
+        expect(screen.queryByText(/Ranking runs in the worker/)).not.toBeInTheDocument();
+        expect(screen.getByText('No hypotheses yet.')).toBeInTheDocument();
+      });
+
       it('a retryable failure says it will be retried, not that the worker will finish it', async () => {
         mockedApi.fetchInvestigations.mockResolvedValue(
           investigations({

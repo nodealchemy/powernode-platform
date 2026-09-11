@@ -656,6 +656,14 @@ export interface Investigation {
    */
   hypotheses: InvestigationHypothesis[];
   conclusion: string | null;
+  /**
+   * Why no AGENT ranked this investigation, on EVERY row (A6): the same object
+   * as `evidence.ranking`, or null when an agent ranked it. The drawer's recent
+   * list carries no `evidence`, so for a concluded row this is the only copy.
+   */
+  ranking?: InvestigationRanking | null;
+  /** The operator who opened it; null for an automatic trigger. */
+  opened_by_user_id?: string | null;
   agent_id: string | null;
   started_at: string;
   completed_at: string | null;
