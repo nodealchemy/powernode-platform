@@ -480,7 +480,7 @@ describe('StatusPage', () => {
     );
 
     featureRegistry.registerComponentSlots({
-      'platform.status.drawer.node_instance': () => null,
+      'platform.status.drawer.node_instance.signals': () => null,
     });
 
     expect(await screen.findByText('node-7')).toBeInTheDocument();

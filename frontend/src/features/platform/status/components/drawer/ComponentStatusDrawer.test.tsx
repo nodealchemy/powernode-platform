@@ -32,9 +32,9 @@ const showNotification = jest.fn();
 //      hold IS — a filter that hid everything would pass a one-sided test;
 //   2. a `requires_reason` action cannot be confirmed with an empty box, AND
 //      the typed reason reaches the request;
-//   3. a registered rich panel renders, AND nothing renders when none is
-//      registered — an "absent panel" that silently rendered a placeholder
-//      would look identical in a screenshot.
+//   3. every view registered for the kind renders as its own tab, AND nothing
+//      renders when none is registered — an "absent view" that silently
+//      rendered a placeholder would look identical in a screenshot.
 
 const summary = (overrides: Partial<ComponentStatusSummary> = {}): ComponentStatusSummary => ({
   id: 'row-1',
@@ -468,75 +468,130 @@ describe('ComponentStatusDrawer', () => {
     });
   });
 
-  describe('the derived rich-panel slot', () => {
-    it('renders no extra tab when no slot is registered for the kind', async () => {
+  describe('extension views: one tab per platform.status.drawer.<kind>.<view>', () => {
+    const asView = <P,>(view: ComponentType<P>) => view as unknown as ComponentType<unknown>;
+    // The tab list's buttons, in document order.
+    const tabLabels = () =>
+      Array.from(
+        screen.getByRole('button', { name: 'Conditions' }).parentElement!.querySelectorAll('button')
+      ).map((button) => button.textContent);
+    const CORE_TABS = [
+      'Conditions',
+      'Dependencies',
+      'Remediation',
+      'Actions',
+      'Runbook',
+      'Investigations',
+      'Events',
+    ];
+
+    it('adds no tab when nothing is registered for the kind', async () => {
       renderDrawer();
       await screen.findByText('Reachable');
-      expect(screen.queryByText('Details')).not.toBeInTheDocument();
+      expect(tabLabels()).toEqual(CORE_TABS);
     });
 
-    it('renders a slot registered under platform.status.drawer.<kind>', async () => {
+    it('renders two views of one kind as two labelled tabs — the second registration does not replace the first', async () => {
+      // Two separate registrations, as two extensions (or two register.ts
+      // calls) would make them. Under one id per kind the second would silently
+      // overwrite the first.
       featureRegistry.registerComponentSlots({
-        'platform.status.drawer.node_instance': () => <p>instance internals</p>,
+        'platform.status.drawer.node_instance.boot_replay': asView(
+          ({ row }: { row: ComponentStatusDetail }) => <p>{`boot replay of ${row.component_ref}`}</p>
+        ),
+      });
+      featureRegistry.registerComponentSlots({
+        'platform.status.drawer.node_instance.signals': asView(
+          ({ row }: { row: ComponentStatusDetail }) => <p>{`signals of ${row.component_ref}`}</p>
+        ),
       });
       renderDrawer();
       await screen.findByText('Reachable');
 
-      fireEvent.click(screen.getByText('Details'));
-      expect(screen.getByText('instance internals')).toBeInTheDocument();
+      expect(tabLabels()).toEqual([...CORE_TABS, 'Boot replay', 'Signals']);
+
+      // Each tab renders its own view, and each view gets the row.
+      fireEvent.click(screen.getByRole('button', { name: 'Boot replay' }));
+      expect(screen.getByText('boot replay of i-42')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Signals' }));
+      expect(screen.getByText('signals of i-42')).toBeInTheDocument();
+      expect(screen.queryByText('boot replay of i-42')).not.toBeInTheDocument();
     });
 
-    it('ignores a slot registered for a DIFFERENT kind', async () => {
-      // The negative arm of the derivation. A resolver that ignored the kind
-      // would render another kind's panel here and look perfectly fine.
+    it('orders the tabs by view id, not by which registration came first', async () => {
       featureRegistry.registerComponentSlots({
-        'platform.status.drawer.docker_host': () => <p>host internals</p>,
+        'platform.status.drawer.node_instance.zz_last': () => <p>z</p>,
+      });
+      featureRegistry.registerComponentSlots({
+        'platform.status.drawer.node_instance.aa_first': () => <p>a</p>,
       });
       renderDrawer();
       await screen.findByText('Reachable');
-      expect(screen.queryByText('Details')).not.toBeInTheDocument();
+      expect(tabLabels().slice(CORE_TABS.length)).toEqual(['Aa first', 'Zz last']);
     });
 
-    it('renders a LAZY slot in its own Suspense boundary — only the tab waits, the drawer stays', async () => {
-      // Extensions register lazy panels. The property that matters is WHERE the
+    it('ignores views of other kinds — including a kind whose name starts with this one', async () => {
+      // The negative arm of the derivation. 'node_instance_pool' starts with
+      // 'node_instance'; a prefix that did not end at the segment boundary
+      // would hand this drawer the pool's view.
+      featureRegistry.registerComponentSlots({
+        'platform.status.drawer.docker_host.signals': () => <p>host signals</p>,
+        'platform.status.drawer.node_instance_pool.signals': () => <p>pool signals</p>,
+      });
+      renderDrawer();
+      await screen.findByText('Reachable');
+      expect(tabLabels()).toEqual(CORE_TABS);
+    });
+
+    it('does not honour the retired single-id form platform.status.drawer.<kind>', async () => {
+      featureRegistry.registerComponentSlots({
+        'platform.status.drawer.node_instance': () => <p>single-id panel</p>,
+      });
+      renderDrawer();
+      await screen.findByText('Reachable');
+      expect(tabLabels()).toEqual(CORE_TABS);
+    });
+
+    it('renders a LAZY view in its own Suspense boundary — only that tab waits, the drawer stays', async () => {
+      // Extensions register lazy views. The property that matters is WHERE the
       // suspension lands: a boundary above the drawer would swap the whole
-      // screen for its fallback while one tab's code loads. So the panel is held
+      // screen for its fallback while one tab's code loads. So the view is held
       // pending, and the drawer around it must still be there.
-      let resolvePanel!: (module: { default: ComponentType<unknown> }) => void;
+      let resolveView!: (module: { default: ComponentType<unknown> }) => void;
       featureRegistry.registerComponentSlots({
-        'platform.status.drawer.node_instance': lazy(
+        'platform.status.drawer.node_instance.boot_replay': lazy(
           () =>
             new Promise<{ default: ComponentType<unknown> }>((resolve) => {
-              resolvePanel = resolve;
+              resolveView = resolve;
             })
         ),
       });
       renderDrawer();
       await screen.findByText('Reachable');
 
-      fireEvent.click(screen.getByText('Details'));
-      expect(await screen.findByText('Loading details…')).toBeInTheDocument();
-      expect(screen.getAllByText('Conditions').length).toBeGreaterThan(0);
+      fireEvent.click(screen.getByRole('button', { name: 'Boot replay' }));
+      expect(await screen.findByText('Loading boot replay…')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Conditions' })).toBeInTheDocument();
 
       await act(async () => {
-        resolvePanel({ default: () => <p>lazy internals</p> });
+        resolveView({ default: () => <p>lazy boot replay</p> });
       });
-      expect(await screen.findByText('lazy internals')).toBeInTheDocument();
-      expect(screen.queryByText('Loading details…')).not.toBeInTheDocument();
+      expect(await screen.findByText('lazy boot replay')).toBeInTheDocument();
+      expect(screen.queryByText('Loading boot replay…')).not.toBeInTheDocument();
     });
 
-    it('picks up a slot registered after the drawer opened', async () => {
+    it('picks up a view registered after the drawer opened', async () => {
       renderDrawer();
       await screen.findByText('Reachable');
-      expect(screen.queryByText('Details')).not.toBeInTheDocument();
+      expect(tabLabels()).toEqual(CORE_TABS);
 
       act(() => {
         featureRegistry.registerComponentSlots({
-          'platform.status.drawer.node_instance': () => <p>late internals</p>,
+          'platform.status.drawer.node_instance.signals': () => <p>late signals</p>,
         });
       });
 
-      expect(await screen.findByText('Details')).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: 'Signals' })).toBeInTheDocument();
     });
   });
 

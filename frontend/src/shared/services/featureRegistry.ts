@@ -176,6 +176,22 @@ export const featureRegistry = {
   },
 
   /**
+   * List every registered slot id that starts with `prefix`, sorted. For a host
+   * that renders a FAMILY of views under one prefix (e.g. one drawer tab per
+   * 'platform.status.drawer.<kind>.<view>'): a slot id holds one component and a
+   * second registration under the same id replaces the first, so each view needs
+   * an id of its own and the host needs a way to find them. Sorted so the host's
+   * order never depends on which extension happened to register first. A prefix
+   * should end at a segment boundary (a trailing '.'), or 'a.node' matches
+   * 'a.node_pool.x' too.
+   */
+  getComponentSlotIds(prefix: string): string[] {
+    return Array.from(state.componentSlots.keys())
+      .filter((id) => id.startsWith(prefix))
+      .sort();
+  },
+
+  /**
    * Register PUBLIC routes for a namespace (no authentication required).
    * Consumed by App.tsx routing for unauthenticated landing/marketing pages.
    * Public routes render WITHOUT any PublicRoute or ProtectedRoute wrapper —

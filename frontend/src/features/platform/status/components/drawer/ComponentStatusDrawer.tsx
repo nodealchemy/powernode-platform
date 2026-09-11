@@ -21,20 +21,29 @@ import type { ComponentStatusSummary } from '@/shared/types/platformStatus';
 // what is wrong, what depends on it, what the platform is doing, and what a
 // person may do about it.
 //
-// ── THE RICH PANEL IS RESOLVED BY A DERIVED SLOT ID ────────────────────────
+// ── EXTENSION VIEWS ARE FOUND UNDER A DERIVED PREFIX ───────────────────────
 //
-// `platform.status.drawer.<component_kind>`. Core does not enumerate kinds and
-// does not import anything an extension owns: an extension registers a
-// component under the id its own kind derives, and this drawer renders it if it
-// is there. Nothing happens if it is not — an absent rich panel is the ordinary
-// case, not a missing feature, so there is no placeholder and no error.
+// `platform.status.drawer.<component_kind>.<view>` — one registration per view,
+// one tab per view. Core does not enumerate kinds or views and imports nothing
+// an extension owns: an extension registers each view under an id its own kind
+// derives, and this drawer lists whatever sits under that kind's prefix. None
+// is the ordinary case, not a missing feature, so there is no placeholder and
+// no error.
 //
-// The registry is a mutable singleton, so resolution is re-run on every version
-// bump (the CostPage precedent). Without that, an extension that finishes
-// loading after the drawer opened would have registered a panel nobody looks
-// for again.
+// One id per VIEW, not per kind: a slot id holds one component, and a second
+// registration under the same id silently replaces the first. With one id per
+// kind, two views of one kind (boot replay and signals for node_instance) would
+// have to be fused into a single component, or the later one would erase the
+// earlier. Each tab is labelled from its `<view>` segment and the tabs are
+// ordered by id, so the order never depends on which extension loaded first.
+// There is no single-id `<kind>` form.
 //
-// ── EIGHT TABS, FROM TWO SETS OF READS ─────────────────────────────────────
+// The registry is a mutable singleton, so the listing is re-run on every
+// version bump (the CostPage precedent). Without that, an extension that
+// finishes loading after the drawer opened would have registered a view nobody
+// looks for again.
+//
+// ── SEVEN CORE TABS, FROM TWO SETS OF READS ────────────────────────────────
 //
 // Conditions, Dependencies, Remediation and Actions come from the detail +
 // impact reads. Runbook, Investigations and Events (C3 part 2) come from A9's
@@ -44,9 +53,25 @@ import type { ComponentStatusSummary } from '@/shared/types/platformStatus';
 // its own, because "what is the platform doing" and "which lane, under which
 // budget" are one question.
 
-/** The slot id a kind's rich panel registers under. Derived, never enumerated. */
-export const drawerSlotId = (componentKind: string) =>
-  `platform.status.drawer.${componentKind}`;
+/** The prefix every view of one kind registers under. Derived, never enumerated. */
+export const drawerViewPrefix = (componentKind: string) =>
+  `platform.status.drawer.${componentKind}.`;
+
+/** A view's tab label, from the `<view>` segment of its id: `boot_replay` → "Boot replay". */
+export const drawerViewLabel = (view: string) => {
+  const words = view.replace(/[_-]+/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
+type DrawerViewComponent = NonNullable<ReturnType<typeof featureRegistry.getComponentSlot>>;
+
+interface DrawerView {
+  id: string;
+  /** The tab value, namespaced so a view named like a core tab cannot collide with it. */
+  value: string;
+  label: string;
+  Component: DrawerViewComponent;
+}
 
 const resolveIcon = (name?: string): React.ComponentType<{ className?: string }> => {
   if (!name) return icons.Puzzle;
@@ -82,9 +107,16 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
     []
   );
 
-  const RichPanel = useMemo(() => {
-    if (!row) return undefined;
-    return featureRegistry.getComponentSlot(drawerSlotId(row.component_kind));
+  const views = useMemo<DrawerView[]>(() => {
+    if (!row) return [];
+    const prefix = drawerViewPrefix(row.component_kind);
+    return featureRegistry.getComponentSlotIds(prefix).flatMap((id) => {
+      const view = id.slice(prefix.length);
+      const Component = featureRegistry.getComponentSlot(id);
+      return view && Component
+        ? [{ id, value: `view:${view}`, label: drawerViewLabel(view), Component }]
+        : [];
+    });
     // registryVersion is the dependency that matters: the registry is a mutable
     // singleton, so its identity never changes and only the version tells us to
     // look again.
@@ -143,7 +175,11 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
               <TabsTrigger value="runbook">Runbook</TabsTrigger>
               <TabsTrigger value="investigations">Investigations</TabsTrigger>
               <TabsTrigger value="events">Events</TabsTrigger>
-              {RichPanel && <TabsTrigger value="details">Details</TabsTrigger>}
+              {views.map((view) => (
+                <TabsTrigger key={view.id} value={view.value}>
+                  {view.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
 
             <TabsContent value="conditions" className="pt-3">
@@ -196,23 +232,26 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
               />
             </TabsContent>
 
-            {RichPanel && (
-              <TabsContent value="details" className="pt-3">
-                {/* The extension's own panel. Core passes the row and nothing
-                    else: it does not know what this kind's panel needs, and a
+            {views.map(({ id, value, label, Component }) => (
+              <TabsContent key={id} value={value} className="pt-3">
+                {/* The extension's own view. Core passes the row and nothing
+                    else: it does not know what this kind's view needs, and a
                     prop contract invented here would constrain every future
-                    kind to the first one that registered. */}
-                {/* Suspense HERE, not somewhere up the tree: extensions register
-                    lazy panels, and without a boundary of its own a lazy panel
-                    suspends to the nearest one above — the page's, which would
-                    blank the whole status screen while one tab's code loads. */}
+                    view to the first one that registered. */}
+                {/* Suspense HERE, per view, not somewhere up the tree:
+                    extensions register lazy views, and without a boundary of
+                    its own a lazy view suspends to the nearest one above — the
+                    page's, which would blank the whole status screen while one
+                    tab's code loads. */}
                 <React.Suspense
-                  fallback={<p className="text-sm text-theme-secondary">Loading details…</p>}
+                  fallback={
+                    <p className="text-sm text-theme-secondary">{`Loading ${label.toLowerCase()}…`}</p>
+                  }
                 >
-                  <RichPanel {...({ row: detail } as Record<string, unknown>)} />
+                  <Component {...({ row: detail } as Record<string, unknown>)} />
                 </React.Suspense>
               </TabsContent>
-            )}
+            ))}
           </Tabs>
         )}
 
