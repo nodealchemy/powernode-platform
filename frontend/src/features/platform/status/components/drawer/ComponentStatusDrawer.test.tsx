@@ -604,6 +604,30 @@ describe('ComponentStatusDrawer', () => {
       quiet.mockRestore();
     });
 
+    it('contains a view whose chunk import REJECTS: the boundary names it, and the other tabs stay reachable', async () => {
+      // A lazy view's code can fail to load (a deploy swapped the chunks, the
+      // network dropped). The rejection surfaces as a render error, which the
+      // same per-view boundary must catch.
+      const quiet = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      featureRegistry.registerComponentSlots({
+        'platform.status.drawer.node_instance.boot_replay': lazy(() =>
+          Promise.reject(new Error('Loading chunk 42 failed'))
+        ),
+        'platform.status.drawer.node_instance.signals': () => <p>signals panel</p>,
+      });
+      renderDrawer();
+      await screen.findByText('Reachable');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Boot replay' }));
+      expect(await screen.findByText('The Boot replay view failed to render. The other tabs still work.')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Signals' }));
+      expect(screen.getByText('signals panel')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Conditions' }));
+      expect(screen.getByText('Reachable')).toBeInTheDocument();
+      quiet.mockRestore();
+    });
+
     it('picks up a view registered after the drawer opened', async () => {
       renderDrawer();
       await screen.findByText('Reachable');
