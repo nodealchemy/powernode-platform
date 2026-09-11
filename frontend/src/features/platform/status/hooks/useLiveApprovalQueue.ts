@@ -33,20 +33,26 @@ import { usePolling } from '@/shared/hooks/usePolling';
 export const APPROVAL_POLL_MS = 30000;
 
 /** True when a NotificationChannel message is a new notification about an approval request. */
-export const isApprovalNotification = (payload: unknown): boolean => {
-  if (typeof payload !== 'object' || payload === null) return false;
+/** The approval request a NotificationChannel message is about, if it is about one. */
+export const approvalRequestIdOf = (payload: unknown): string | undefined => {
+  if (typeof payload !== 'object' || payload === null) return undefined;
   const notification = (payload as { notification?: unknown }).notification;
-  if (typeof notification !== 'object' || notification === null) return false;
+  if (typeof notification !== 'object' || notification === null) return undefined;
   const metadata = (notification as { metadata?: unknown }).metadata;
-  if (typeof metadata !== 'object' || metadata === null) return false;
+  if (typeof metadata !== 'object' || metadata === null) return undefined;
   const id = (metadata as { approval_request_id?: unknown }).approval_request_id;
-  return typeof id === 'string' && id.length > 0;
+  return typeof id === 'string' && id.length > 0 ? id : undefined;
 };
+
+export const isApprovalNotification = (payload: unknown): boolean =>
+  approvalRequestIdOf(payload) !== undefined;
 
 export function useLiveApprovalQueue() {
   const query = useApprovalQueue();
   const { refetch } = query;
-  const [lastPushAt, setLastPushAt] = useState<Date | null>(null);
+  // WHICH request the last push named, not only when: an expanded card re-reads
+  // its chain on a push for its own request (C3b1 review F1).
+  const [lastPush, setLastPush] = useState<{ requestId: string; at: Date } | null>(null);
 
   const refresh = useCallback(() => {
     void refetch();
@@ -55,8 +61,9 @@ export function useLiveApprovalQueue() {
   const onDataUpdate = useCallback(
     (update: WebSocketDataUpdate) => {
       if (update.channel !== 'notifications' || update.type !== 'new_notification') return;
-      if (!isApprovalNotification(update.data)) return;
-      setLastPushAt(update.timestamp);
+      const requestId = approvalRequestIdOf(update.data);
+      if (!requestId) return;
+      setLastPush({ requestId, at: update.timestamp });
       refresh();
     },
     [refresh]
@@ -80,7 +87,13 @@ export function useLiveApprovalQueue() {
 
   usePolling(refresh, APPROVAL_POLL_MS, { deps: [refresh] });
 
-  return { ...query, isConnected, lastPushAt, pollMs: APPROVAL_POLL_MS };
+  return {
+    ...query,
+    isConnected,
+    lastPush,
+    lastPushAt: lastPush?.at ?? null,
+    pollMs: APPROVAL_POLL_MS,
+  };
 }
 
 export default useLiveApprovalQueue;

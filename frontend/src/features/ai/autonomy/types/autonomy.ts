@@ -1,3 +1,9 @@
+import type {
+  ApprovalChainSummary,
+  ApprovalDecisionRecord,
+  ApprovalStepStatus,
+} from '@/features/platform/status/components/approvals/approvalChainTypes';
+
 export interface AgentLineageNode {
   id: string;
   name: string;
@@ -142,6 +148,17 @@ export interface ApprovalRequest {
   created_at: string;
   expires_at?: string;
   completed_at?: string;
+  /** Chain position, 0-based. On the list AND the detail read. */
+  current_step?: number;
+  /** `step_statuses.size`. On the list read only. */
+  total_steps?: number | null;
+  // Detail read only (GET /ai/autonomy/approvals/:id). There is no
+  // `approval_chain_id` on either read: the chain's id arrives inside
+  // `approval_chain`.
+  step_statuses?: ApprovalStepStatus[];
+  approval_chain?: ApprovalChainSummary | null;
+  decisions?: ApprovalDecisionRecord[];
+  current_step_can_approve?: boolean;
 }
 
 /**

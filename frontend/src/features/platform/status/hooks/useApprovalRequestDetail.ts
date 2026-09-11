@@ -20,11 +20,18 @@ export interface UseApprovalRequestDetailOptions {
   currentStep?: number | null;
   /** From the list row. A change re-reads the chain. */
   status?: string;
+  /**
+   * Changes when something the list row cannot show happened to this request:
+   * a push naming it, or the viewer's own decision. An approval inside a
+   * multi-approval step moves neither `current_step` nor `status`, so without
+   * this an expanded chain would show a stale count (C3b1 review F1).
+   */
+  refreshKey?: string | number;
 }
 
 export function useApprovalRequestDetail(
   id: string | null,
-  { enabled = true, currentStep, status }: UseApprovalRequestDetailOptions = {}
+  { enabled = true, currentStep, status, refreshKey }: UseApprovalRequestDetailOptions = {}
 ) {
   const [detail, setDetail] = useState<ApprovalRequestDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,7 +65,7 @@ export function useApprovalRequestDetail(
       .finally(() => {
         if (!isStale()) setLoading(false);
       });
-  }, [id, enabled, currentStep, status]);
+  }, [id, enabled, currentStep, status, refreshKey]);
 
   return { detail, loading, error };
 }

@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import { renderWithProviders } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApprovalQueuePanel } from './ApprovalQueuePanel';
@@ -31,6 +32,17 @@ jest.mock('@/shared/components/entity', () => ({
   EntityLink: ({ label }: { label: React.ReactNode }) => <span>{label}</span>,
 }));
 
+// The queue is live now (C3b part 2). Here the socket is faked as disconnected
+// and the 30 s poll is inert, so these examples see exactly the reads they
+// cause; the live behaviour has its own mounted suite (ApprovalQueuePanel.live).
+// ONE stable object: usePageWebSocket's callbacks depend on `subscribe`, and a
+// fresh function per render re-runs its effect forever (the real hook memoizes).
+jest.mock('@/shared/hooks/useWebSocket', () => {
+  const socket = { isConnected: false, error: null, subscribe: () => () => undefined };
+  return { useWebSocket: () => socket };
+});
+jest.mock('@/shared/hooks/usePolling', () => ({ usePolling: jest.fn() }));
+
 const PENDING_ROW = {
   id: 'req-1',
   request_id: 'req-1',
@@ -55,16 +67,23 @@ const approveResponse = (revealed?: Record<string, unknown>) => ({
   },
 });
 
-const renderPanel = () => {
+// The panel gates on permissions now: the read needs ai.agents.read, the
+// buttons ai.autonomy.approve. These one-shot examples hold both.
+const renderPanel = (permissions: string[] = ['ai.agents.read', 'ai.autonomy.approve']) => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return {
     queryClient,
-    ...render(
+    ...renderWithProviders(
       <QueryClientProvider client={queryClient}>
         <ApprovalQueuePanel />
-      </QueryClientProvider>
+      </QueryClientProvider>,
+      {
+        preloadedState: {
+          auth: { user: { id: 'u-1', permissions }, isAuthenticated: true, isLoading: false },
+        },
+      }
     ),
   };
 };
