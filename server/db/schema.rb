@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_11_030741) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_11_034316) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2610,6 +2610,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_030741) do
     t.jsonb "current_config", default: {}
     t.text "dismiss_reason"
     t.jsonb "evidence", default: {}
+    t.string "fingerprint"
     t.string "recommendation_type", null: false
     t.jsonb "recommended_config", default: {}
     t.string "status", default: "pending", null: false
@@ -2617,6 +2618,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_030741) do
     t.string "target_type", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_ai_improvement_recommendations_on_account_id"
+    t.index ["account_id", "target_type", "target_id", "fingerprint"], name: "index_ai_improvement_recs_on_pending_fingerprint", unique: true, where: "(((status)::text = 'pending'::text) AND (fingerprint IS NOT NULL))"
     t.index ["approved_by_id"], name: "index_ai_improvement_recommendations_on_approved_by_id"
     t.index ["recommendation_type"], name: "index_ai_improvement_recommendations_on_recommendation_type"
     t.index ["status"], name: "index_ai_improvement_recommendations_on_status"
