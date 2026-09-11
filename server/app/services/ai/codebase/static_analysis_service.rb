@@ -26,7 +26,16 @@ module Ai
       # Seconds, per linter run, ENFORCED (D1 review M3: it used to be defined
       # and never used). The whole process group is killed at the deadline.
       TIMEOUT = 120
-      OUTPUT_LIMIT = 1_048_576
+
+      # The most linter output, in bytes, that is ever parsed (D1 re-verify
+      # M2). A fixed 1 MB used to cut the server repository's 3.2 MB rubocop
+      # report into a parse error, and a cut tsc report would parse as a
+      # complete one. Output over the limit is not parsed at all: it reads as
+      # `output_truncated`, a did-not-measure status. Operator configuration,
+      # so it lives under the private discovery prefix; the leased runner is
+      # handed the same value, and the MCP verb's local run obeys it too.
+      OUTPUT_LIMIT_SETTING = "ai.improvement_discovery_output_limit_bytes"
+      DEFAULT_OUTPUT_LIMIT = 16 * 1024 * 1024
 
       # A CLEAN ENVIRONMENT (D1 review H1). A subprocess used to inherit the
       # Rails process's environment, BUNDLE_GEMFILE and RUBYOPT included, so
@@ -39,10 +48,16 @@ module Ai
 
       # Statuses a linter summary can carry that mean "did not inspect the
       # code". Callers must never read these as clean.
-      NOT_MEASURED_STATUSES = %w[timeout unavailable no_output parse_error error no_gemfile no_tsconfig unknown_linter].freeze
+      NOT_MEASURED_STATUSES = %w[timeout unavailable no_output parse_error error no_gemfile no_tsconfig unknown_linter
+                                 output_truncated].freeze
 
       def self.timeout_seconds
         TIMEOUT
+      end
+
+      def self.output_limit_bytes
+        configured = ::SiteSetting.get(OUTPUT_LIMIT_SETTING).to_i
+        configured.positive? ? configured : DEFAULT_OUTPUT_LIMIT
       end
 
       def initialize(base_path:)
@@ -103,7 +118,9 @@ module Ai
       end
 
       def parse_output(linter_key, output, exitstatus)
-        output = output.to_s.byteslice(0, OUTPUT_LIMIT)
+        output = output.to_s
+        return truncated if output.bytesize > self.class.output_limit_bytes
+
         case linter_key.to_s
         when "ruby" then parse_rubocop(output)
         when "typescript" then parse_tsc(output, exitstatus)
@@ -273,7 +290,8 @@ module Ai
       #
       # @return [Hash] {status: :ran, output:, exitstatus:} |
       #   {status: :timeout} (process group killed) | {status: :unavailable}
-      #   (the program is not on PATH)
+      #   (the program is not on PATH) | {status: :output_truncated} (it
+      #   printed more than output_limit_bytes)
       def execute_command(argv, chdir:, env: {}, merge_stderr: false)
         base = defined?(::Bundler) ? ::Bundler.unbundled_env : ENV.to_h
         child_env = base.slice(*ENV_ALLOWLIST).merge(env)
@@ -284,6 +302,8 @@ module Ai
         writer.close
 
         output = +""
+        limit = self.class.output_limit_bytes
+        overflow = false
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + self.class.timeout_seconds
         loop do
           remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -298,12 +318,22 @@ module Ai
           next if chunk == :wait_readable
 
           # Keep draining past the limit so a chatty linter cannot block on a
-          # full pipe; only the first OUTPUT_LIMIT bytes are kept.
-          output << chunk if output.bytesize < OUTPUT_LIMIT
+          # full pipe, but keep nothing once it is exceeded: a cut report is
+          # not parsed (see OUTPUT_LIMIT_SETTING).
+          next if overflow
+
+          if output.bytesize + chunk.bytesize > limit
+            overflow = true
+            output = +""
+          else
+            output << chunk
+          end
         end
 
         _, status = Process.wait2(pid)
-        { status: :ran, output: output.byteslice(0, OUTPUT_LIMIT), exitstatus: status.exitstatus }
+        return { status: :output_truncated } if overflow
+
+        { status: :ran, output: output, exitstatus: status.exitstatus }
       rescue Errno::ENOENT
         { status: :unavailable }
       ensure
@@ -326,6 +356,10 @@ module Ai
       def not_run(run)
         Rails.logger.warn("[StaticAnalysis] linter did not run: #{run[:status]}")
         { diagnostics: [], summary: { status: run[:status].to_s } }
+      end
+
+      def truncated
+        { diagnostics: [], summary: { status: "output_truncated" } }
       end
 
       def rubocop_severity(severity)

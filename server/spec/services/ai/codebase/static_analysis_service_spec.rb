@@ -150,5 +150,57 @@ RSpec.describe Ai::Codebase::StaticAnalysisService do
     it "names an unknown linter rather than guessing" do
       expect(parse(:cobol, "anything")[:summary][:status]).to eq("unknown_linter")
     end
+
+    # D1 re-verify M2. The server repository's rubocop report is about 3.2 MB.
+    # A 1 MB cut turned it into a parse error, and a cut tsc report would parse
+    # as a COMPLETE one with only its first errors. Output over the limit is
+    # never parsed: it did not measure the whole code, and says so.
+    describe "output over the limit" do
+      let(:rubocop_json) do
+        { "files" => [ { "path" => "a.rb", "offenses" => [
+            { "severity" => "warning", "message" => "m", "cop_name" => "Layout/EndAlignment",
+              "location" => { "start_line" => 1, "start_column" => 1 } }
+          ] } ], "summary" => { "inspected_file_count" => 1, "offense_count" => 1 } }.to_json
+      end
+
+      before do
+        SiteSetting.set(described_class::OUTPUT_LIMIT_SETTING, rubocop_json.bytesize, setting_type: "integer")
+      end
+
+      it "reads output past the limit as output_truncated, never as a parse error or as complete" do
+        rubocop = parse(:ruby, "#{rubocop_json} ")
+        tsc = parse(:typescript, "src/a.ts(4,7): error TS2322: x\n" * 20, exitstatus: 2)
+
+        expect(rubocop).to eq(diagnostics: [], summary: { status: "output_truncated" })
+        expect(tsc).to eq(diagnostics: [], summary: { status: "output_truncated" })
+        expect(described_class::NOT_MEASURED_STATUSES).to include("output_truncated")
+      end
+
+      it "still parses output exactly at the limit" do
+        expect(parse(:ruby, rubocop_json)[:summary]).to include(status: "completed", offenses: 1)
+      end
+
+      it "reports a local run that outgrew the limit as output_truncated" do
+        result = run([ "sh", "-c", "printf '%#{rubocop_json.bytesize + 1}s' x" ])
+
+        expect(result).to eq(status: :output_truncated)
+      end
+    end
+
+    describe ".output_limit_bytes" do
+      it "defaults to 16 MiB with no setting, and follows the setting when there is one" do
+        expect(described_class.output_limit_bytes).to eq(16 * 1024 * 1024)
+
+        SiteSetting.set(described_class::OUTPUT_LIMIT_SETTING, 4096, setting_type: "integer")
+
+        expect(described_class.output_limit_bytes).to eq(4096)
+      end
+
+      it "ignores a setting that is not a positive number" do
+        SiteSetting.set(described_class::OUTPUT_LIMIT_SETTING, 0, setting_type: "integer")
+
+        expect(described_class.output_limit_bytes).to eq(16 * 1024 * 1024)
+      end
+    end
   end
 end

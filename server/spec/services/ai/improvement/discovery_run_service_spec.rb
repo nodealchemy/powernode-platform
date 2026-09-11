@@ -302,6 +302,30 @@ RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
       expect(result).to include(status: "completed", findings: 0)
       expect(result[:analyzers_degraded]).to be_empty
     end
+
+    # D1 re-verify M2: output over the limit files nothing and reads as not
+    # measured, never as a parse error and never as a partial "completed".
+    it "reads output over the limit as not measured, output_truncated, and files nothing" do
+      json = rubocop_json([ offense ])
+      SiteSetting.set(Ai::Codebase::StaticAnalysisService::OUTPUT_LIMIT_SETTING, json.bytesize - 1,
+                      setting_type: "integer")
+
+      result = ingest({ "ruby" => ran(json) })
+
+      expect(result[:status]).to eq("not_measured")
+      expect(result[:linter_statuses]).to eq({ "core" => { "RuboCop" => "output_truncated" } })
+      expect(result[:analyzers_degraded]).to contain_exactly(
+        hash_including(analyzer: "RuboCop", status: "output_truncated")
+      )
+      expect(offers.count).to eq(0)
+    end
+
+    it "reads a runner that reports its own output as truncated the same way" do
+      result = ingest({ "ruby" => { "status" => "output_truncated" } })
+
+      expect(result[:status]).to eq("not_measured")
+      expect(result[:linter_statuses]).to eq({ "core" => { "RuboCop" => "output_truncated" } })
+    end
   end
 
   describe "paths" do

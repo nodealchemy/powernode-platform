@@ -27,6 +27,8 @@ A result that contains the credential the executor gave the runner files nothing
 
 Each handed-back result files at most `ai.improvement_discovery_max_offers_per_run` offers (default 25), the most severe first.
 
+A linter's output is parsed only up to `ai.improvement_discovery_output_limit_bytes` (default 16 MiB). Output over that limit is not parsed at all, because a cut report reads as a parse error or, for tsc, as a complete report with only its first errors. The linter is recorded as `output_truncated`, which is not measured. The runner is handed the same limit and reports `output_truncated` itself rather than sending cut output.
+
 ## Reading the result
 
 Every dispatch, and every handed-back result, writes an audit row (`ai.improvement_discovery.run`) on its account. The `phase` key is `dispatch` or `ingest`. `Ai::Improvement::DiscoveryRun.last_for(account)` returns the newest one.
