@@ -14,6 +14,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { cn } from '@/shared/utils/cn';
+import { useAuth } from '@/shared/hooks/useAuth';
 import type { ChatChannelSummary, ChatPlatform, ChannelStatus } from '@/shared/services/ai';
 
 interface ChannelCardProps {
@@ -70,6 +71,11 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
 }) => {
   const status = statusConfig[channel.status] || statusConfig.inactive;
   const StatusIcon = status.icon;
+  // The backend's connect/disconnect actions require chat.channels.manage
+  // (Api::V1::Chat::ChannelsController); chat.channels.read only lists and
+  // reads. Without this gate a read-only operator sees a button that 403s.
+  const { currentUser } = useAuth();
+  const canManage = currentUser?.permissions?.includes('chat.channels.manage') || false;
 
   const formatTime = (timestamp?: string) => {
     if (!timestamp) return 'Never';
@@ -125,7 +131,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
         </div>
 
         <div className="mt-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
-          {channel.status === 'active' ? (
+          {canManage && (channel.status === 'active' ? (
             <Button
               variant="outline"
               size="sm"
@@ -145,7 +151,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
               <Power className="w-4 h-4 mr-1" />
               Connect
             </Button>
-          )}
+          ))}
           <Button aria-label="Channel settings"
             variant="ghost"
             size="sm"

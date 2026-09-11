@@ -14,6 +14,15 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
   useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 
+// Default (set in beforeEach below): a manage-capable user, so the existing
+// save/regenerate tests exercise the same behavior they did before
+// permission gating was added. The read-only case gets its own describe
+// block further down.
+const mockCurrentUser = jest.fn();
+jest.mock('@/shared/hooks/useAuth', () => ({
+  useAuth: () => ({ currentUser: mockCurrentUser() }),
+}));
+
 import { chatChannelsApi } from '@/shared/services/ai';
 
 const mockedGetChannel = chatChannelsApi.getChannel as jest.Mock;
@@ -41,6 +50,11 @@ const defaultProps = {
 describe('ChannelSettingsModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // jest.config.js sets resetMocks: true, which strips a mock's
+    // constructor-time implementation before every test — so the manage-
+    // capable default has to be (re-)established here, not just once at
+    // module load, or every test silently falls back to canManage: false.
+    mockCurrentUser.mockReturnValue({ permissions: ['chat.channels.read', 'chat.channels.manage'] });
     mockedGetChannel.mockResolvedValue({ channel: mockChannel });
     // Mock clipboard
     Object.assign(navigator, {
@@ -205,5 +219,39 @@ describe('ChannelSettingsModal', () => {
   it('does not render content when closed', () => {
     render(<ChannelSettingsModal {...defaultProps} isOpen={false} />);
     expect(screen.queryByText('Channel Settings')).not.toBeInTheDocument();
+  });
+
+  // The backend gates updateChannel and regenerateToken on chat.channels.manage
+  // (Api::V1::Chat::ChannelsController); chat.channels.read only lists/reads.
+  // Without this gate a read-only operator sees a button that 403s on click.
+  describe('without chat.channels.manage', () => {
+    beforeEach(() => {
+      mockCurrentUser.mockReturnValue({ permissions: ['chat.channels.read'] });
+    });
+
+    it('hides Save Changes', async () => {
+      render(<ChannelSettingsModal {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByText('Channel Settings')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Save Changes')).not.toBeInTheDocument();
+    });
+
+    it('hides the regenerate-token button', async () => {
+      render(<ChannelSettingsModal {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByText('Channel Settings')).toBeInTheDocument();
+      });
+      expect(screen.queryByLabelText('Regenerate token')).not.toBeInTheDocument();
+    });
+
+    it('still shows Cancel and the read-only webhook URL', async () => {
+      render(<ChannelSettingsModal {...defaultProps} />);
+      await waitFor(() => {
+        expect(screen.getByText('Channel Settings')).toBeInTheDocument();
+      });
+      expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+      expect(screen.getByText(mockChannel.webhook_url)).toBeInTheDocument();
+    });
   });
 });
