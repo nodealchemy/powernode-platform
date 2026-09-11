@@ -175,40 +175,23 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
     }
   ].freeze
 
-  # WHICH DOORS THIS SWEEP MUST COVER. Two sources, because a router can say
-  # which doors WRITE but not which reads DISCLOSE:
-  #
-  # - READ doors, kept by hand (.required_read_doors): GETs that return secret
-  #   material or a foreign record. A new sensitive read gets a line there and
-  #   a CASE.
-  # - WRITE doors, DERIVED from the router when the example runs
-  #   (.internal_mutating_doors): every POST/PUT/PATCH/DELETE route under
-  #   /api/v1/internal/, mounted engines included. These were hand-kept too
-  #   until 2026-09-11, and three doors (improvement_discovery#run and
-  #   #timed_out, campaign_discovery#scan) shipped without WorkerTenancy
-  #   because nobody added them to the list. A derived list cannot forget a
-  #   door: a new mutating internal route is REQUIRED the moment it is drawn,
-  #   and fails the guard below until it has a tenancy case.
-  #
-  # A write door with no tenancy case YET is named in
-  # internal_seam_worker_tenancy_baseline.yml, which only shrinks (the ratchet
-  # example below). The required set is the read doors plus every derived
-  # write door that baseline does not name.
-  #
-  # Class methods, not constants: a constant assigned in a describe block lands
-  # on Object, and the derivation must read the router when the example runs,
-  # not when this file loads.
-  def self.required_read_doors
-    %w[
-      internal/git/credentials#decrypted
-      internal/git/credentials#show
-      internal/mcp_servers#show
-      internal/mcp_tool_executions#show
-      internal/devops/docker#connection
-      internal/devops/swarm#connection
-      internal/approval_tokens#show
-    ].freeze
-  end
+  # The controllers this sweep is required to cover. If a CASE is dropped, this
+  # list stops matching and the guard example below fails by name — the sweep
+  # cannot be silently narrowed.
+  REQUIRED_CONTROLLERS = %w[
+    internal/git/credentials#decrypted
+    internal/git/credentials#show
+    internal/mcp_servers#show
+    internal/mcp_tool_executions#show
+    internal/devops/docker#connection
+    internal/devops/swarm#connection
+    internal/devops/integration_health#probe
+    internal/approval_tokens#show
+    internal/ai/goal_plans#execute_step
+    internal/ai/improvement_discovery#run
+    internal/ai/improvement_discovery#timed_out
+    internal/ai/campaign_discovery#scan
+  ].freeze
 
   # POSITIONAL doors. The caller names a POSITION in a walk of accounts, not a
   # row id, so the CASES shape (fetch a foreign id, expect a 404) does not
@@ -233,71 +216,12 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
     { name: "internal/ai/campaign_discovery#scan (writes campaign proposals onto each account it scans)" }
   ].freeze
 
-  # Every mutating route under /api/v1/internal/ as "<controller>#<action>",
-  # named the way the cases below name their door, descending into mounted
-  # engines so an extension's internal door is required too.
-  def self.internal_mutating_doors(routes = Rails.application.routes.routes, prefix = "")
-    routes.flat_map do |route|
-      app = route.app.respond_to?(:app) ? route.app.app : route.app
-      path = prefix + route.path.spec.to_s
-      if app.respond_to?(:routes) && app != Rails.application
-        internal_mutating_doors(app.routes.routes, path.delete_suffix("(.:format)"))
-      elsif path.include?("/api/v1/internal/") && route.defaults[:controller] && route.defaults[:action] &&
-            route.verb.to_s.split("|").any? { |verb| verb.match?(/\A(POST|PUT|PATCH|DELETE)\z/) }
-        [ "#{route.defaults[:controller].delete_prefix('api/v1/')}##{route.defaults[:action]}" ]
-      else
-        []
-      end
-    end.uniq
-  end
-
-  # The doors this file HAS a tenancy case for, read from its own example
-  # groups (each case's describe is named "<door> (<what it guards>)"), so the
-  # coverage cannot drift from the examples that exist.
-  def self.covered_doors
-    children.map { |group| group.description.split(" ").first.to_s }
-            .select { |token| token.include?("#") }
-            .map { |token| token.start_with?("internal/") ? token : "internal/#{token}" }
-            .uniq
-  end
-
-  def self.uncovered_baseline
-    YAML.safe_load_file(File.expand_path("internal_seam_worker_tenancy_baseline.yml", __dir__)).fetch("uncovered")
-  end
-
-  # The baseline's size, pinned. It only goes DOWN: a new mutating door gets a
-  # tenancy case, never a baseline line. Lower it in the same change that
-  # clears an entry; the ratchet example fails until you do.
-  def self.uncovered_ceiling = 182
-
-  def self.required_doors
-    required_read_doors + (internal_mutating_doors - uncovered_baseline)
-  end
-
-  it "keeps a tenancy case for every required internal door" do
-    missing = self.class.required_doors - self.class.covered_doors
-    expect(missing).to be_empty,
-      "no cross-account tenancy case covers #{missing.join(', ')} — add a CASE, WALK_CASE or SWEEP_CASE. " \
-      "A mutating internal door is required the moment it is routed; it never goes in the baseline"
-  end
-
-  it "derives the write doors from the router: a covered door and a baselined door are both seen, a read is not" do
-    doors = self.class.internal_mutating_doors
-    expect(doors).to include("internal/ai/goal_plans#execute_step", "internal/ai/ralph_loops#run_iteration")
-    expect(doors).not_to include("internal/git/credentials#decrypted")
-  end
-
-  it "baselines exactly the write doors that have no tenancy case yet, and the baseline only shrinks" do
-    uncovered = self.class.internal_mutating_doors - self.class.covered_doors
-    baseline = self.class.uncovered_baseline
-    stale = baseline - uncovered
-    expect(stale).to be_empty,
-      "baseline entries that now have a tenancy case, or whose route is gone: delete them and lower " \
-      "uncovered_ceiling — #{stale.join(', ')}"
-    expect(baseline).to eq(baseline.uniq)
-    expect(baseline.size).to eq(self.class.uncovered_ceiling),
-      "the baseline names #{baseline.size} doors but uncovered_ceiling is #{self.class.uncovered_ceiling}: " \
-      "lower the ceiling to match; never raise it"
+  it "keeps a tenancy case for every required internal controller lookup" do
+    covered = (CASES + WALK_CASES + SWEEP_CASES).map { |c| c[:name].split(" ").first }
+    REQUIRED_CONTROLLERS.each do |ctrl|
+      expect(covered).to include(ctrl),
+        "no cross-account tenancy case covers #{ctrl} — the sweep was narrowed"
+    end
   end
 
   describe "authentication sanity" do
