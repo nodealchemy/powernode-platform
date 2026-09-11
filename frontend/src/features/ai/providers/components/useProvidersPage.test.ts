@@ -2,14 +2,13 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useProvidersPage } from './useProvidersPage';
 import { providersApi } from '@/shared/services/ai';
 
-// Regression: handleRefresh ([]), handleSetupDefaults and handleBulkTest
-// ([addNotification]) captured the initial loadProviders closure, so Refresh /
-// Test All / Setup Defaults reloaded the list WITHOUT the active filters and
+// Regression: handleRefresh ([]) and handleBulkTest ([addNotification])
+// captured the initial loadProviders closure, so Refresh / Test All reloaded
+// the list WITHOUT the active filters and
 // search query — silently resetting the visible list to the unfiltered page.
 jest.mock('@/shared/services/ai', () => ({
   providersApi: {
     getProviders: jest.fn(),
-    setupDefaultProviders: jest.fn(),
     testAllProviders: jest.fn(),
     deleteProvider: jest.fn(),
   },
@@ -33,9 +32,6 @@ describe('useProvidersPage refresh callbacks keep active filters/search', () => 
   beforeEach(() => {
     jest.clearAllMocks();
     (providersApi.getProviders as jest.Mock).mockResolvedValue(emptyResponse);
-    (providersApi.setupDefaultProviders as jest.Mock).mockResolvedValue({
-      created_providers: [{ id: 'p1' }],
-    });
     (providersApi.testAllProviders as jest.Mock).mockResolvedValue({
       summary: { successful: 1, failed: 0 },
     });
@@ -83,15 +79,4 @@ describe('useProvidersPage refresh callbacks keep active filters/search', () => 
     );
   });
 
-  it('handleSetupDefaults reloads with the current filters and search', async () => {
-    const { result } = await renderWithActiveSearch();
-
-    await act(async () => {
-      await result.current.handleSetupDefaults(['anthropic']);
-    });
-
-    expect(providersApi.getProviders).toHaveBeenLastCalledWith(
-      expect.objectContaining({ search: 'anthropic', provider_type: 'anthropic' }),
-    );
-  });
 });

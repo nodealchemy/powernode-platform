@@ -255,19 +255,6 @@ class ProvidersApiService extends BaseApiService {
   }
 
   /**
-   * Setup default providers
-   * POST /api/v1/ai/providers/setup_defaults
-   */
-  async setupDefaultProviders(providerTypes: string[]): Promise<{
-    created_providers: string[];
-  }> {
-    const path = this.buildPath(this.resource);
-    return this.post<{ created_providers: string[] }>(`${path}/setup_defaults`, {
-      provider_types: providerTypes,
-    });
-  }
-
-  /**
    * Get available provider types
    * GET /api/v1/ai/providers/available
    */

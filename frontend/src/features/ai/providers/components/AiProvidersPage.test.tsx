@@ -16,7 +16,6 @@ jest.mock('@/shared/services/ai', () => ({
     deleteProvider: jest.fn(),
     testProvider: jest.fn(),
     testAllProviders: jest.fn(),
-    setupDefaultProviders: jest.fn()
   },
   agentsApi: {},
   conversationsApi: {}
@@ -143,19 +142,6 @@ jest.mock('./EditProviderModal', () => ({
         <p>Editing provider: {providerId}</p>
         <button onClick={() => { onSuccess(); onClose(); }}>
           Update
-        </button>
-        <button onClick={onClose}>Cancel</button>
-      </div>
-    ) : null
-  )
-}));
-
-jest.mock('./SetupDefaultProvidersModal', () => ({
-  SetupDefaultProvidersModal: ({ isOpen, onClose, onConfirm }: { isOpen: boolean; onClose: () => void; onConfirm?: () => void }) => (
-    isOpen ? (
-      <div data-testid="setup-defaults-modal">
-        <button onClick={() => { onConfirm?.(); onClose(); }}>
-          Setup Defaults
         </button>
         <button onClick={onClose}>Cancel</button>
       </div>
@@ -340,7 +326,7 @@ describe('AiProvidersPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Add Provider')).toBeInTheDocument();
-        expect(screen.getByText('Setup Defaults')).toBeInTheDocument();
+        expect(screen.queryByText('Setup Defaults')).not.toBeInTheDocument();
         expect(screen.getByText('Test All')).toBeInTheDocument();
       });
     });
@@ -511,23 +497,6 @@ describe('AiProvidersPage', () => {
     // The component uses addNotification for error handling
   });
 
-  describe('Setup Default Providers', () => {
-    it('opens setup defaults modal when button is clicked', async () => {
-      renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Setup Defaults')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('Setup Defaults'));
-
-      expect(screen.getByTestId('setup-defaults-modal')).toBeInTheDocument();
-    });
-
-    // Note: Setup defaults feature displays "Feature Not Available" notification
-    // The backend API exists but the frontend implementation shows a warning
-  });
-
   describe('Filtering and Search', () => {
     // Component uses server-side filtering via API calls
     // Filters are hidden by default and shown when "Filters" button is clicked
@@ -662,7 +631,7 @@ describe('AiProvidersPage', () => {
       await waitFor(() => {
         // Check buttons are present by text content
         expect(screen.getByText('Add Provider')).toBeInTheDocument();
-        expect(screen.getByText('Setup Defaults')).toBeInTheDocument();
+        expect(screen.queryByText('Setup Defaults')).not.toBeInTheDocument();
         expect(screen.getByText('Test All')).toBeInTheDocument();
       });
     });
