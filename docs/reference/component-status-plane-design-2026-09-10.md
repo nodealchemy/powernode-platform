@@ -295,15 +295,31 @@ its header documents why core must not depend on that vocabulary); it gains entr
 `progressing` and `not_measured` with deliberate variants (`not_measured` is never the default
 grey), and maps the six verdicts into its own table.
 
-Absorbed and deleted, gated by the **41-row capability checklist** in the architecture review
-(session-local; copied into the C4 task brief): `HealthPanel` (Compute), the fleet tiles, signals
-feed and attribution modals (Operations → Fleet; the honeypot tile's severity ratchet and the
-boot-replay permission refusal are carried, not dropped), `SelfHealingDashboard` and its timeline
-and correlation views (Observability; the feature-flag-disabled banner is carried as an honest
-`not_actuatable` state), and `ApprovalQueuePanel` (Autonomy; its `OneShotRevealModal` queue is
-security-relevant and is carried). Two capabilities the absorbed surfaces never had are sized as
-new work: approval-chain step display and live updates on the queue. Bulk approve stays
-unsupported. The `ai.monitoring.read` permission typo in the self-healing controller dies with it.
+Absorbed and deleted **family by family**, gated by the **41-row capability checklist**
+(`c4-checklist.md`, copied into the C4 task brief; a source file goes only when every row citing it
+is green). Rev 3 re-scope after the checklist found 25 gaps:
+
+- `HealthPanel` (Compute): deleted once rows 1-3 are green (subsystem evidence fields, refresh spins
+  and disables, skeleton first load).
+- Fleet dashboard: only the tiles that restate component verdicts are deleted. The **signal stream
+  page stays** (kind and severity filters, rolling counters, event detail, correlation chain, live
+  ring buffer, attribution feedback): signals are a different noun from component status. The
+  drawer gets signals **per component** from the system extension registering a recent-signals view
+  into the derived slot `platform.status.drawer.<kind>`, beside boot replay for `node_instance`
+  (the boot-replay permission refusal naming `system.fleet.read` is carried). Core never reads
+  `FleetEvent`.
+- Honeypot, dispatch-latency and remediation-effectiveness tiles: deleted after **B5** gives each a
+  contributor; the honeypot severity ratchet becomes contributor semantics (`not_measured` with
+  `unavailable_since` evidence while the feed is down, never a count of 0).
+- `SelfHealingDashboard` (Observability): deleted after B5 and rows 25-26 (flag-off maps to an honest
+  `not_actuatable`; a per-action result timeline in the Remediation tab).
+- **Kept, not duplicates:** `ApprovalQueuePanel` is the one approvals surface (decision workflow and
+  the only one-shot reveal path; C3b mounts chain display and live updates there), and
+  `KillSwitchPanel` is the one kill-switch control surface (resume mode, preview, halt reason,
+  history, `ai.kill_switch.manage` gating). The drawer links to both.
+
+Bulk approve stays unsupported. The `ai.monitoring.read` permission typo in the self-healing
+controller dies with the `SelfHealingDashboard` family.
 
 ## 7. What this campaign also carries
 
@@ -346,6 +362,7 @@ per increment. Sequencing constraints are stated where they exist.
 | B2 | `node_instance`, `node`, `instance_pool` contributors with `BlastRadiusService` edges and `actions_for` (cordon, uncordon, reboot, replace with permissions and reason prompts) | terminated instances excluded; actions carry the permission the REST door checks |
 | B3 | `node_module`, `sdwan_peer`, `sdwan_service`, `storage_assignment`, `acme_certificate`, `federation_peer` contributors | each enum value maps to a condition |
 | B4 | Fleet lanes registered into the remediation registry (proceed via `gate_action!`); mirror emitter into `FleetEvent`; `runbooks.yml` for all 53 kinds + the extension-side both-arms spec; `get_sensor_config` lists every ladder-tunable sensor (derived; eight today). Sequenced after A5 | a lane proceed consumes one consent unit; every bound kind has a runbook entry or a reasoned `not_documented` |
+| B5 | `honeypot`, `dispatch_latency`, `remediation_effectiveness` contributors (system extension), from the three fleet tiles' data; honeypot ratchet as `not_measured` + `unavailable_since` while the feed is down; flag-off self-healing maps to `not_actuatable` with a reason | feed-down arm reads `not_measured`, never ok or 0; both arms per contributor |
 
 ### Track C — operator screen and frontend consolidation (frontend)
 
@@ -355,7 +372,7 @@ per increment. Sequencing constraints are stated where they exist.
 | C2 | `/app/status` page: grid, rail, filters, live channel, poll fallback, registry-version subscription; delete the duplicate kill-switch banner on the Autonomy page | page renders a kind that registers after first render |
 | C3 | Drawer tabs + derived slot resolution + `actions_for` buttons with `useReasonConfirm`-style confirmation | an action's button is hidden without its permission and prompts for a reason when declared |
 | C3b | Approval-chain step display and live queue updates (new capabilities the absorbed panel never had); `ApprovalRequest` TS type gains `current_step`/`step_statuses`/`approval_chain_id` | a two-step chain renders both steps; a new approval appears without reload |
-| C4 | Absorb and delete `HealthPanel`, fleet tiles, `SelfHealingDashboard` family, `ApprovalQueuePanel`; redirects; 41-row checklist named in the deletion commit | every checklist row green before its source is deleted |
+| C4 | Absorb and delete family by family (rev 3 re-scope): `HealthPanel`, verdict-restating fleet tiles, the three B5 tiles, `SelfHealingDashboard`; per-component signals and boot replay via the extension's derived drawer slot; redirects; `ApprovalQueuePanel`, `KillSwitchPanel` and the fleet signal stream page are kept | every checklist row citing a file green before that file is deleted |
 | C5 | `ui/TabContainer` → `layout/TabContainer` (6 callers), delete `TabNavigation`, `TabButton` | zero references to the deleted paths |
 | C6 | Delete dead forms/atoms/utils (18 files: `EmailField`, `PasswordField`, `MarkdownEditor`, `CheckboxField`, `ErrorMessage`, `ViewToggle`, `SuccessAlert`, `apiUtils`, `mcpClient`, `nodeColorUtils`, `resilienceUtils`, `debounce`, `statusHelpers`, `themeUtils`, `retryUtils`, `AIMonitoringPage` shim + barrel, `ProviderHealthDashboard`, dead `SelfHealingDashboard` export) | each basename has zero importers; no dynamic import |
 | C7 | Formatters: migrate 13 `formatDuration`, 10 `timeAgo`, 2 `formatBytes` onto `shared/utils/formatters.ts` after per-site unit/format diff | zero local definitions outside `formatters.ts`; snapshot tests unchanged |
