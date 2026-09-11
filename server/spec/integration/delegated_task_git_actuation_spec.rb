@@ -447,6 +447,69 @@ RSpec.describe "Delegated task git actuation (D2)", type: :request do
     end
   end
 
+  # ---------------------------------------------------------------- review F2, F4
+
+  describe "the kill switch (review F2, F4)" do
+    def halt!
+      Ai::Autonomy::KillSwitchService.new(account: Account.find(account.id))
+                                     .emergency_halt!(reason: "D2 review F2", triggered_by: user)
+    end
+
+    it "a halt between two writes lets the first land, refuses the second, and asks the model nothing more" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      replies = [ llm_reply(tool_calls: [ write_call("call_1", "add.go", add_go, "Add Add()") ]), :halt_then_write ]
+      stub_request(:post, llm_url).to_return do |request|
+        @llm_requests << JSON.parse(request.body)
+        reply = replies.shift
+        if reply == :halt_then_write
+          halt! # thrown by "another process" while the loop is in flight
+          reply = llm_reply(tool_calls: [ write_call("call_2", "add_test.go", passing_test_go, "Test Add()") ])
+        end
+        reply || llm_reply(content: "done")
+      end
+
+      _task, iteration = run_one_iteration!
+
+      writes = @fake.requests.select { |r| %i[post put delete].include?(r[:method]) }.map { |r| r[:path] }
+      expect(writes).to eq([ "/repos/acme/calc/contents/add.go" ])
+      expect(@llm_requests.size).to eq(2) # the bridge stopped; no third model call
+      tip = branch_tip
+      expect(git!("rev-list", "--count", "#{@seed_sha}..#{tip}")).to eq("1")
+      expect(git!("ls-tree", "--name-only", tip).split("\n")).not_to include("add_test.go")
+      expect(iteration.git_commit_sha).to eq(tip)
+    end
+
+    it "the git write itself refuses while the account is halted" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      executor = Ai::Ralph::GitToolExecutor.new(ralph_loop: loop_record.reload)
+      halt!
+
+      result = executor.execute("write_file", { path: "add.go", content: add_go, message: "Add Add()" })
+
+      expect(result[:success]).to be(false)
+      expect(result[:error]).to match(/suspended/i)
+      expect(@fake.requests).to be_empty
+      expect(branch_tip).to eq(@seed_sha)
+    end
+
+    it "run_iteration refuses to start while the account is halted: no model call, no write" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      task = loop_record.ralph_tasks.create!(task_key: "add-function", position: 1, status: "pending",
+                                             execution_type: "agent", description: "Add Add.")
+      script_llm(llm_reply(tool_calls: [ write_call("call_1", "add.go", add_go, "Add Add()") ]))
+      halt!
+
+      result = Ai::Ralph::ExecutionService.new(ralph_loop: loop_record.reload).run_iteration
+
+      expect(result[:success]).to be(false)
+      expect(result[:error]).to match(/suspended/i)
+      expect(@llm_requests).to be_empty
+      expect(@fake.requests).to be_empty
+      expect(task.reload.status).to eq("pending")
+      expect(branch_tip).to eq(@seed_sha)
+    end
+  end
+
   # ---------------------------------------------------------------- drift guard
 
   describe "GiteaContentsContractFake drift guard" do

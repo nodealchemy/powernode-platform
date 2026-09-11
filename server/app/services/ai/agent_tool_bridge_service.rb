@@ -397,6 +397,11 @@ module Ai
 
         # Dispatch each tool call and append results to conversation
         response.tool_calls.each do |tool_call|
+          # D2 review F2: the kill switch, checked immediately before EVERY tool
+          # call. A halt thrown mid-loop stops the next call, and the loop ends
+          # without asking the model for anything more.
+          return halted_loop_result(accumulated_usage, tool_calls_log, chat_cards, last_served_by) if kill_switch_halted?
+
           tool_name = tool_call[:name] || tool_call["name"]
           tool_call_id = tool_call[:id] || tool_call["id"] || SecureRandom.uuid
           call_start = Time.current
@@ -945,6 +950,22 @@ module Ai
       end
 
       local_tools + tools
+    end
+
+    # D2 review F2: the account's halt, read fresh (a halt thrown by another
+    # process mid-loop is invisible to the Account this bridge was built with).
+    def kill_switch_halted?
+      Ai::Autonomy::KillSwitchService.halted_now?(account&.id)
+    end
+
+    def halted_loop_result(usage, tool_calls_log, chat_cards, served_by)
+      Rails.logger.warn "[AgentToolBridge] Emergency halt: stopping agent #{agent.id} before its next tool call"
+      {
+        content: "Stopped: AI activity is suspended for this account (emergency halt). " \
+                 "The remaining tool calls were not run.",
+        usage: usage, tool_calls_log: tool_calls_log, chat_cards: chat_cards,
+        finish_reason: "emergency_halt", served_by: served_by, refusal_recovery: nil, refusal: nil
+      }
     end
 
     # Run a loop-local tool (see #execute_tool_loop). Same contract as

@@ -74,6 +74,11 @@ module Ai
       # @return [Hash] { success:, ... }
       def execute(tool_name, arguments)
         arguments = (arguments || {}).deep_symbolize_keys
+        # D2 review F2: the kill switch, inside the write itself. Whoever calls a
+        # mutating tool, nothing reaches the repository after an emergency halt.
+        if MUTATING_TOOLS.include?(tool_name) && kill_switch_halted?
+          return { success: false, error: "#{tool_name} refused: AI activity is suspended for this account (emergency halt)" }
+        end
 
         case tool_name
         when "read_file"      then handle_read_file(arguments)
@@ -98,6 +103,10 @@ module Ai
       end
 
       private
+
+      def kill_switch_halted?
+        Ai::Autonomy::KillSwitchService.halted_now?(@ralph_loop.account_id)
+      end
 
       def handle_read_file(arguments)
         path = arguments[:path]

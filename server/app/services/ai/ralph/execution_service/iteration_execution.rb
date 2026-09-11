@@ -8,6 +8,9 @@ module Ai
 
         # Run a single iteration of the loop
         def run_iteration
+          # D2 review F4: the kill switch at the one entry every caller shares
+          # (user API, loop webhook, A2A skill, internal scheduler).
+          return error_result("AI activity is suspended for this account (emergency halt)") if kill_switch_halted?
           return error_result("Loop is not running") unless ralph_loop.status == "running"
           return complete_loop_result if ralph_loop.all_tasks_completed?
           return max_iterations_result if ralph_loop.max_iterations_reached?
@@ -34,6 +37,10 @@ module Ai
         rescue StandardError => e
           Rails.logger.error("Ralph iteration failed: #{e.message}\n#{e.backtrace.first(10).join("\n")}")
           error_result("Iteration failed: #{e.message}")
+        end
+
+        def kill_switch_halted?
+          Ai::Autonomy::KillSwitchService.halted_now?(ralph_loop.account_id)
         end
 
         # Select the next task to work on

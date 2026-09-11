@@ -120,6 +120,15 @@ module Ai
         account.ai_suspended?
       end
 
+      # #halted?, read FRESH from the database. A halt thrown by another process
+      # while an action is in flight is invisible to an Account loaded before it,
+      # so a guard on an in-flight action (a tool call, a git write, an iteration)
+      # asks here. A missing account reads as halted: fail closed.
+      def self.halted_now?(account_id)
+        account = Account.find_by(id: account_id)
+        account.nil? || new(account: account).halted?
+      end
+
       # Get the current status with context.
       def status
         {
