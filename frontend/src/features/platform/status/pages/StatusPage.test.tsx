@@ -502,6 +502,24 @@ describe('StatusPage', () => {
     expect(await screen.findByText('showing 1 of 187')).toBeInTheDocument();
   });
 
+  it('says the total is unknown when the server sent none — never the page length (L1)', async () => {
+    mockedApi.fetchComponentStatuses.mockResolvedValue(
+      indexResult([row()], {
+        pagination: { current_page: 1, per_page: 100, total_count: null, total_pages: 1 },
+      })
+    );
+    renderPage();
+    expect(await screen.findByText('showing 1; total not reported')).toBeInTheDocument();
+    expect(screen.queryByText(/showing 1 of/)).not.toBeInTheDocument();
+  });
+
+  it('adds no count line when the page holds every matching component (the other arm)', async () => {
+    renderPage();
+    await screen.findAllByText('Anthropic');
+    expect(document.querySelector('[data-total-unknown]')).toBeNull();
+    expect(screen.queryByText(/^showing /)).not.toBeInTheDocument();
+  });
+
   it('marks a card selected on click, so C3 can hang a drawer off it', async () => {
     renderPage();
     const card = await screen.findByText('Anthropic');

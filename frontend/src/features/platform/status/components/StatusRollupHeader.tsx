@@ -63,7 +63,8 @@ export interface StatusRollupHeaderProps {
   lastLoadedAt: Date | null;
   /** Rows currently rendered, and the server's total for the same filters. */
   loadedCount: number;
-  totalCount: number;
+  /** Null when the server sent no total: unknown, never the page length. */
+  totalCount: number | null;
   pollMs: number;
 }
 
@@ -123,11 +124,22 @@ export const StatusRollupHeader: React.FC<StatusRollupHeaderProps> = ({
             rolled up {formatRelativeTimeCompact(rollup.observed_at)}
           </span>
         )}
-        {totalCount > loadedCount && (
-          // Said out loud rather than left to be inferred from a short grid.
-          <span title="The server has more matching components than this page loaded. Narrow the filters to see the rest.">
-            showing {loadedCount} of {totalCount}
+        {totalCount === null ? (
+          // Unknown is said, not guessed (C3p2 review L1): the page length would
+          // claim this page is everything that matched.
+          <span
+            data-total-unknown
+            title="The server sent no total for these filters, so whether more components match than this page loaded is unknown."
+          >
+            showing {loadedCount}; total not reported
           </span>
+        ) : (
+          totalCount > loadedCount && (
+            // Said out loud rather than left to be inferred from a short grid.
+            <span title="The server has more matching components than this page loaded. Narrow the filters to see the rest.">
+              showing {loadedCount} of {totalCount}
+            </span>
+          )
         )}
       </div>
     </div>

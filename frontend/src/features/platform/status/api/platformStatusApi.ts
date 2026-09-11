@@ -59,7 +59,8 @@ export interface ComponentStatusIndexResult extends ComponentStatusIndexData {
   pagination: {
     current_page: number;
     per_page: number;
-    total_count: number;
+    /** Null when the server sent no total: unknown, never the page length. */
+    total_count: number | null;
     total_pages: number;
   };
 }
@@ -92,7 +93,9 @@ export const fetchComponentStatuses = async (
     pagination: {
       current_page: pagination.current_page ?? 1,
       per_page: pagination.per_page ?? 100,
-      total_count: pagination.total_count ?? (data.component_statuses?.length ?? 0),
+      // Not the page length (C3p2 review L1): a missing total is unknown, and
+      // the page length would claim this page is every matching component.
+      total_count: pagination.total_count ?? null,
       total_pages: pagination.total_pages ?? 1,
     },
   };
@@ -249,10 +252,16 @@ export const fetchComponentEvents = async (
 export const fetchInvestigations = async (id: string): Promise<InvestigationsData> => {
   const response = await apiClient.get(`${BASE}/${id}/investigations`);
   const data = response.data?.data ?? {};
+  // Missing lists are a failed read, not "0 open, 0 recent" (C3p2 review L2):
+  // an empty list is itself a claim. Rejected, so the tab says it could not
+  // read them.
+  if (!Array.isArray(data.open) || !Array.isArray(data.recent)) {
+    throw new Error('Malformed investigations response: no open/recent lists');
+  }
   return {
     component_status_id: data.component_status_id,
-    open: data.open ?? [],
-    recent: data.recent ?? [],
+    open: data.open,
+    recent: data.recent,
     // Null, never 0 (C3p2 review R11): a missing cap rendered "Daily cap 0.", a
     // bound nobody set.
     daily_cap: data.daily_cap ?? null,

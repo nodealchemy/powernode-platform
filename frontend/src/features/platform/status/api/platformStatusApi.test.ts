@@ -1,5 +1,6 @@
 import { apiClient } from '@/shared/services/apiClient';
 import {
+  fetchComponentStatuses,
   runComponentAction,
   openInvestigation,
   fetchRemediationRoute,
@@ -211,6 +212,36 @@ describe('fetchInvestigations', () => {
       data: { data: { component_status_id: 'row-1', open: [], recent: [], daily_cap: 20 } },
     });
     expect((await fetchInvestigations('row-1')).daily_cap).toBe(20);
+  });
+
+  it('rejects a body without its open and recent lists — missing lists are not "0 open" (L2)', async () => {
+    client.get.mockResolvedValue({ data: { data: { component_status_id: 'row-1' } } });
+    await expect(fetchInvestigations('row-1')).rejects.toThrow(/Malformed investigations response/);
+    client.get.mockResolvedValue({ data: { data: { component_status_id: 'row-1', open: [] } } });
+    await expect(fetchInvestigations('row-1')).rejects.toThrow(/Malformed investigations response/);
+  });
+
+  it('resolves EMPTY lists as no investigations (the other arm)', async () => {
+    client.get.mockResolvedValue({ data: { data: { component_status_id: 'row-1', open: [], recent: [] } } });
+    const data = await fetchInvestigations('row-1');
+    expect(data.open).toEqual([]);
+    expect(data.recent).toEqual([]);
+  });
+});
+
+describe('fetchComponentStatuses — the total', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('keeps a MISSING total null — the page length would claim the page is everything (L1)', async () => {
+    client.get.mockResolvedValue({ data: { data: { component_statuses: [{ id: 'row-1' }] }, meta: {} } });
+    expect((await fetchComponentStatuses()).pagination.total_count).toBeNull();
+  });
+
+  it('keeps the total the server sent', async () => {
+    client.get.mockResolvedValue({
+      data: { data: { component_statuses: [{ id: 'row-1' }] }, meta: { pagination: { total_count: 187 } } },
+    });
+    expect((await fetchComponentStatuses()).pagination.total_count).toBe(187);
   });
 });
 

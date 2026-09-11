@@ -110,8 +110,11 @@ export interface UsePlatformStatusReturn {
   appliedFilters: StatusFilters;
   /** True when a plane was named that this account does not have — not the same as an empty plane. */
   unknownEnvironment: boolean;
-  /** Total matching rows server-side, which may exceed the number loaded. */
-  totalCount: number;
+  /**
+   * Total matching rows server-side, which may exceed the number loaded. Null
+   * until read, and when the server sent none: unknown, never the page length.
+   */
+  totalCount: number | null;
   loading: boolean;
   error: string | null;
   /**
@@ -180,7 +183,7 @@ export function usePlatformStatus(query: PlatformStatusQuery): UsePlatformStatus
   const [rollup, setRollup] = useState<ComponentStatusRollupData | null>(null);
   const [appliedFilters, setAppliedFilters] = useState<StatusFilters>({});
   const [unknownEnvironment, setUnknownEnvironment] = useState(false);
-  const [totalCount, setTotalCount] = useState(0);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
