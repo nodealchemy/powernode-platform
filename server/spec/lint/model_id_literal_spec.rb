@@ -50,7 +50,10 @@ require "find"
 # The walk is Ruby `Find` over the tree, never a shell `grep`: a plain `grep`
 # in this repo is a shell function that hides `extensions/private`, and an
 # absence check piped through `head` is capped rather than complete.
-# A MODULE, not constants inside the RSpec block. A constant assigned inside a
+# A MODULE, not constants inside the RSpec block. (The block used to alias it as
+# `R = ModelIdLintRules`, which is itself such a constant: it landed on Object,
+# where another lint spec defines a different `::R` — E3 review F7. The module
+# is now spelled out.) A constant assigned inside a
 # block lands on Object and can be clobbered by a same-named constant in another
 # spec file; and `described_class` is nil here because the describe argument is a
 # string, so the constants have to be reachable by an explicit name anyway.
@@ -166,6 +169,13 @@ module ModelIdLintRules
   # A two-way oracle, the shape the tool-permission guard already uses: a NEW
   # offender fails, and so does a stale entry here. An entry needs a reason,
   # and the spec fails the moment that reason stops being true.
+  #
+  # Shape: `"path" => [count, "reason"]` — COUNT-scoped, not file-scoped (E3
+  # review F8). The count is the exact number of fallback LINES the file may
+  # carry. A file-wide pass hid a second, new fallback in the same file until
+  # the first was removed, and it also took the whole file out of the
+  # bare-literal ratchet; now a second fallback fails the rule, and only the
+  # exempted lines are subtracted from the ratchet.
   FALLBACK_EXEMPTIONS = {}.freeze
 
   BASELINE = {
@@ -246,89 +256,136 @@ module ModelIdLintRules
   def flags?(pattern, source, as: "example.rb")
     source.each_line.any? { |line| !comment_line?(as, line) && line.match?(pattern) }
   end
+
+  # The FALLBACK rule against its exemptions (E3 review F8): a file may carry
+  # exactly its exempted COUNT of fallback lines. Returns [unexpected, stale].
+  def fallback_violations(counts, exemptions = FALLBACK_EXEMPTIONS)
+    allowed = ->(file) { exemptions.fetch(file, [ 0 ]).first }
+    unexpected = counts.filter_map { |file, n| "#{file}: #{n} (allowed #{allowed.(file)})" if n > allowed.(file) }
+    stale = exemptions.filter_map do |file, (n, _reason)|
+      "#{file}: #{counts.fetch(file, 0)} (exempted #{n})" if counts.fetch(file, 0) < n
+    end
+    [ unexpected, stale ]
+  end
+
+  # The literal counts the ratchet compares with BASELINE (E3 review F8): an
+  # exempted fallback LINE is that debt, so exactly those lines come off, and
+  # the rest of the file stays under the ratchet.
+  def ratchet_counts(model_id_counts, exemptions = FALLBACK_EXEMPTIONS)
+    actual = model_id_counts.to_h.dup
+    exemptions.each { |file, (n, _reason)| actual[file] -= n if actual.key?(file) }
+    actual.delete_if { |_file, n| n <= 0 }
+  end
 end
 
 RSpec.describe "model-id literals in production code" do
-  R = ModelIdLintRules
 
   describe "the matchers themselves" do
-    def matches?(pattern, source) = R.flags?(pattern, source)
-    def ts_matches?(pattern, source) = R.flags?(pattern, source, as: "example.tsx")
+    def matches?(pattern, source) = ModelIdLintRules.flags?(pattern, source)
+    def ts_matches?(pattern, source) = ModelIdLintRules.flags?(pattern, source, as: "example.tsx")
 
     it "flags a fallback in either quote style" do
-      expect(matches?(R::FALLBACK, 'model = provider&.default_model || "gpt-4o-mini"')).to be true
-      expect(matches?(R::FALLBACK, "model = agent['model'] || 'gpt-4'")).to be true
-      expect(matches?(R::FALLBACK, 'x = cred&.provider&.default_model.presence || "claude-haiku-4-5"')).to be true
+      expect(matches?(ModelIdLintRules::FALLBACK, 'model = provider&.default_model || "gpt-4o-mini"')).to be true
+      expect(matches?(ModelIdLintRules::FALLBACK, "model = agent['model'] || 'gpt-4'")).to be true
+      expect(matches?(ModelIdLintRules::FALLBACK, 'x = cred&.provider&.default_model.presence || "claude-haiku-4-5"')).to be true
     end
 
     # E3 review F4, planted: before this the operator had to be `||` followed
     # by whitespace, so `||=` walked straight past the zero-tolerance rule.
     it "flags the ||= and TypeScript ?? / ??= forms, and not their literal-free twins" do
-      expect(matches?(R::FALLBACK, "model ||= 'gpt-4o-mini'")).to be true
-      expect(matches?(R::FALLBACK, 'config["model"] ||= "claude-haiku-4-5"')).to be true
-      expect(matches?(R::FALLBACK, "model ||= provider.default_model")).to be false
+      expect(matches?(ModelIdLintRules::FALLBACK, "model ||= 'gpt-4o-mini'")).to be true
+      expect(matches?(ModelIdLintRules::FALLBACK, 'config["model"] ||= "claude-haiku-4-5"')).to be true
+      expect(matches?(ModelIdLintRules::FALLBACK, "model ||= provider.default_model")).to be false
 
-      expect(ts_matches?(R::FALLBACK, "const model = cfg.model ?? 'gpt-4o'")).to be true
-      expect(ts_matches?(R::FALLBACK, "model ??= `claude-sonnet-5`")).to be true
-      expect(ts_matches?(R::FALLBACK, "const model = cfg.model ?? provider.defaultModel")).to be false
+      expect(ts_matches?(ModelIdLintRules::FALLBACK, "const model = cfg.model ?? 'gpt-4o'")).to be true
+      expect(ts_matches?(ModelIdLintRules::FALLBACK, "model ??= `claude-sonnet-5`")).to be true
+      expect(ts_matches?(ModelIdLintRules::FALLBACK, "const model = cfg.model ?? provider.defaultModel")).to be false
     end
 
     it "accepts a resolution with no literal on the right" do
-      expect(matches?(R::FALLBACK, "model = provider&.default_model || provider.available_models.first")).to be false
-      expect(matches?(R::FALLBACK, 'prefix = config["branch_prefix"] || "claude"')).to be false
+      expect(matches?(ModelIdLintRules::FALLBACK, "model = provider&.default_model || provider.available_models.first")).to be false
+      expect(matches?(ModelIdLintRules::FALLBACK, 'prefix = config["branch_prefix"] || "claude"')).to be false
     end
 
     it "flags a bare literal and ignores names that only look like one" do
-      expect(matches?(R::MODEL_ID, 'MODELS = [ "claude-opus-4-8" ]')).to be true
-      expect(matches?(R::MODEL_ID, 'id = "gemini-2.0-flash"')).to be true
+      expect(matches?(ModelIdLintRules::MODEL_ID, 'MODELS = [ "claude-opus-4-8" ]')).to be true
+      expect(matches?(ModelIdLintRules::MODEL_ID, 'id = "gemini-2.0-flash"')).to be true
       # A provider SLUG and a branch prefix carry no version digit.
-      expect(matches?(R::MODEL_ID, 'SLUG = "claude-code"')).to be false
-      expect(matches?(R::MODEL_ID, 'prefix = "claude"')).to be false
+      expect(matches?(ModelIdLintRules::MODEL_ID, 'SLUG = "claude-code"')).to be false
+      expect(matches?(ModelIdLintRules::MODEL_ID, 'prefix = "claude"')).to be false
     end
 
     it "ignores a full-line comment but still flags the same text as code" do
-      expect(matches?(R::MODEL_ID, '  # the old chain hardcoded "claude-3-sonnet-20240229"')).to be false
-      expect(matches?(R::MODEL_ID, '  model = "claude-3-sonnet-20240229"')).to be true
+      expect(matches?(ModelIdLintRules::MODEL_ID, '  # the old chain hardcoded "claude-3-sonnet-20240229"')).to be false
+      expect(matches?(ModelIdLintRules::MODEL_ID, '  model = "claude-3-sonnet-20240229"')).to be true
     end
 
     it "applies the TypeScript comment rule to a .tsx line, and not the Ruby one" do
-      expect(ts_matches?(R::MODEL_ID, "  // defaults used to be 'claude-sonnet-4-6'")).to be false
-      expect(ts_matches?(R::MODEL_ID, "   * e.g. 'gpt-4o'")).to be false
-      expect(ts_matches?(R::MODEL_ID, "  defaultValue: 'claude-sonnet-4-6',")).to be true
+      expect(ts_matches?(ModelIdLintRules::MODEL_ID, "  // defaults used to be 'claude-sonnet-4-6'")).to be false
+      expect(ts_matches?(ModelIdLintRules::MODEL_ID, "   * e.g. 'gpt-4o'")).to be false
+      expect(ts_matches?(ModelIdLintRules::MODEL_ID, "  defaultValue: 'claude-sonnet-4-6',")).to be true
       # A `#` line in TS is code (a private field), not a comment.
-      expect(ts_matches?(R::MODEL_ID, "  #model = 'gpt-4o';")).to be true
+      expect(ts_matches?(ModelIdLintRules::MODEL_ID, "  #model = 'gpt-4o';")).to be true
     end
   end
 
+  # E3 review F8: exemptions are COUNT-scoped. A file-wide pass hid a second
+  # fallback in an exempted file, and took the whole file out of the ratchet.
+  describe "the exemption rules" do
+    let(:exempt) { { "app/exempted.rb" => [ 1, "one known fallback line" ] } }
+
+    it "fails a second fallback in an exempted file, and passes exactly the exempted count" do
+      unexpected, stale = ModelIdLintRules.fallback_violations({ "app/exempted.rb" => 2 }, exempt)
+      expect(unexpected).to eq([ "app/exempted.rb: 2 (allowed 1)" ])
+      expect(stale).to be_empty
+
+      expect(ModelIdLintRules.fallback_violations({ "app/exempted.rb" => 1 }, exempt)).to eq([ [], [] ])
+    end
+
+    it "reports an exemption whose file no longer carries the fallback as stale" do
+      expect(ModelIdLintRules.fallback_violations({}, exempt)).to eq([ [], [ "app/exempted.rb: 0 (exempted 1)" ] ])
+    end
+
+    it "takes only the exempted lines out of the ratchet, and leaves the rest of the file under it" do
+      counts = { "app/exempted.rb" => 3, "app/other.rb" => 2 }
+      expect(ModelIdLintRules.ratchet_counts(counts, exempt)).to eq("app/exempted.rb" => 2, "app/other.rb" => 2)
+    end
+  end
+
+  # E3 review F7: a constant assigned inside the describe block lands on
+  # Object, where another lint spec defines a different `::R`. Only the rules
+  # module may come from this file.
+  it "puts no constant on Object except the rules module" do
+    from_here = Object.constants.select { |name| Object.const_source_location(name)&.first == __FILE__ }
+    expect(from_here).to eq([ :ModelIdLintRules ])
+  end
+
   it "walks a non-trivial tree, including the extensions (an empty sweep is not a pass)" do
-    files = R.source_files
+    files = ModelIdLintRules.source_files
     expect(files.size).to be > 500
     expect(files.map(&:first)).to include(a_string_starting_with("worker/app/"))
     expect(files.map(&:first)).to include(a_string_starting_with("extensions/"))
   end
 
   it "reaches server/scripts and frontend/src, and leaves the frontend's tests out" do
-    rels = R.source_files.map(&:first)
+    rels = ModelIdLintRules.source_files.map(&:first)
     scripts = rels.grep(%r{\Aserver/scripts/})
     frontend = rels.grep(%r{\Afrontend/src/})
 
     expect(scripts.size).to be > 10
     expect(frontend.size).to be > 500
     expect(frontend).to all(match(/\.tsx?\z/))
-    expect(frontend.grep(R::FRONTEND_TEST_FILE)).to be_empty
+    expect(frontend.grep(ModelIdLintRules::FRONTEND_TEST_FILE)).to be_empty
     # The exclusion must bite on something real, or it is asserting nothing.
-    expect(Dir.glob(File.join(R::REPO_ROOT, "frontend/src/**/*.test.{ts,tsx}"))).not_to be_empty
+    expect(Dir.glob(File.join(ModelIdLintRules::REPO_ROOT, "frontend/src/**/*.test.{ts,tsx}"))).not_to be_empty
   end
 
   it "has NO `|| \"model-id\"` fallback anywhere in production code" do
-    offenders = R.scan(R::FALLBACK).keys.sort
-    exempt = R::FALLBACK_EXEMPTIONS.keys.sort
-    unexpected = offenders - exempt
-    stale = exempt - offenders
+    unexpected, stale = ModelIdLintRules.fallback_violations(ModelIdLintRules.scan(ModelIdLintRules::FALLBACK))
 
     expect(stale).to be_empty, <<~STALE
-      A FALLBACK_EXEMPTIONS entry names a file that no longer has a fallback.
-      The debt is paid — delete the line so the rule goes back to zero tolerance:
+      A FALLBACK_EXEMPTIONS entry allows more fallback lines than the file still has.
+      The debt is (partly) paid — lower or delete the entry so the rule tightens:
 
       #{stale.join(", ")}
     STALE
@@ -351,12 +408,11 @@ RSpec.describe "model-id literals in production code" do
   end
 
   it "keeps bare model-id literals to the catalog files, at exactly the recorded counts" do
-    # A file exempt from the FALLBACK rule is exempt here too, because the one
-    # literal it carries IS that fallback — baselining it separately would mean
-    # two places to re-tighten when lane 10 folds the fix in, and the second
-    # one would be forgotten. One debt, one line.
-    actual = R.scan(R::MODEL_ID, skip_private: true).except(*R::FALLBACK_EXEMPTIONS.keys)
-    baseline = R::BASELINE
+    # An exempted fallback LINE carries a model id, and that literal IS the
+    # exempted debt — so exactly those lines are subtracted here, and the rest
+    # of the file stays under the ratchet (E3 review F8). One debt, one line.
+    actual = ModelIdLintRules.ratchet_counts(ModelIdLintRules.scan(ModelIdLintRules::MODEL_ID, skip_private: true))
+    baseline = ModelIdLintRules::BASELINE
 
     regressions = actual.reject { |file, count| baseline.key?(file) && baseline[file].first >= count }
                         .map { |file, count| "#{file}: #{count} (allowed #{baseline[file]&.first || 0})" }
@@ -380,7 +436,7 @@ RSpec.describe "model-id literals in production code" do
     expect(tightenings).to be_empty, <<~MSG
       Literal counts dropped below the recorded baseline — progress that must be
       recorded in the same change, or the ceiling stops meaning anything.
-      Lower these entries (or delete them at zero) in #{File.basename(R::SELF_REL)}:
+      Lower these entries (or delete them at zero) in #{File.basename(ModelIdLintRules::SELF_REL)}:
 
       #{tightenings.join("\n      ")}
     MSG
