@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_11_040634) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_11_045828) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -969,6 +969,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_040634) do
     t.string "decision", null: false
     t.integer "step_number", null: false
     t.datetime "updated_at", null: false
+    t.index ["approval_request_id", "step_number", "approver_id"], name: "idx_ai_approval_decisions_one_per_approver_per_step", unique: true
     t.index ["approval_request_id", "step_number"], name: "idx_on_approval_request_id_step_number_4d54accc2f"
     t.index ["approval_request_id"], name: "index_ai_approval_decisions_on_approval_request_id"
     t.index ["approver_id", "created_at"], name: "index_ai_approval_decisions_on_approver_id_and_created_at"
