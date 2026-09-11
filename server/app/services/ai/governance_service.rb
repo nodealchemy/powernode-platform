@@ -88,7 +88,8 @@ module Ai
     # ORIGINS); the decision row records it, and a request that needs a
     # person's own session refuses any other.
     def process_approval_decision(request:, user:, decision:, comments: nil, conditions: {}, origin: nil, agent: nil)
-      return { success: false, error: "Cannot approve" } unless request.can_approve?(user)
+      refused = { success: false, error: "Cannot #{decision.to_s == 'rejected' ? 'reject' : 'approve'} this request" }
+      return refused unless request.can_approve?(user)
 
       # The decision's own answer: false when a racing decision by the same
       # approver on this step got there first (the unique index), or when the
@@ -101,7 +102,7 @@ module Ai
         origin: origin,
         agent: agent
       )
-      return { success: false, error: "Cannot approve" } unless recorded
+      return refused unless recorded
 
       { success: true, request: request.reload }
     end

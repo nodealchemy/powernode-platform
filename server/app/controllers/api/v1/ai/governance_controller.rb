@@ -194,6 +194,11 @@ module Api
         # POST /api/v1/ai/governance/approval_requests/:id/decide
         def decide_approval
           request = current_account.ai_approval_requests.find(params[:id])
+          # The reason the approval queue gives (HumanSession#human_session_refusal),
+          # never a bare refusal (secreview §21).
+          refusal = human_session_refusal(request, params[:decision].to_s == "rejected" ? "reject" : "approve")
+          return render_error(refusal, :forbidden) if refusal
+
           result = @service.process_approval_decision(
             request: request,
             user: current_user,
@@ -216,6 +221,9 @@ module Api
             payload = payload.merge(revealed_result: revealed) if revealed.present?
             render_success(approval_request: payload)
           else
+            # L9: a completing approval refused for the decider is named.
+            return render_error(request.decision_refusal, :forbidden) if request.decision_refusal
+
             render_error(result[:error], :unprocessable_content)
           end
         end

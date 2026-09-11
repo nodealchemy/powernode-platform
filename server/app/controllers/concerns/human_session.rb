@@ -15,12 +15,31 @@
 #   * no account-switch delegation: that session carries another account's
 #     permissions (Authentication#delegated_permission?).
 #
-# Included where such a decision is made. It answers; the including
-# controller decides what a refusal says.
+# Included where such a decision is made. It answers, and it words the one
+# refusal every REST decision door gives for it (#human_session_refusal), so
+# the approval queue and the governance door say the same thing.
 module HumanSession
   extend ActiveSupport::Concern
 
   private
+
+  # MCP identity plan R2 and D1: a request that needs a person's own session
+  # (Ai::ApprovalRequest#requires_human_session?), and a tool-door request
+  # decided by the person who asked for it (guard a), are decided only from
+  # that person's own session. An impersonation, account-switch or service
+  # session is refused by name. nil when this session may decide it.
+  def human_session_refusal(request, verb)
+    return nil if own_human_session?
+
+    if request.requires_human_session?
+      return "Cannot #{verb} this request from this session: it needs a person deciding it in their own session, " \
+             "not an impersonation, account-switch or service session."
+    end
+    return nil unless request.requester_excluded?(approver: current_user, origin: human_decision_origin)
+
+    "Cannot #{verb} this request from this session: you asked for it through a tool, so you decide it only " \
+      "in your own session, not an impersonation, account-switch or service session."
+  end
 
   def own_human_session?
     return false if current_user.nil? || current_worker.present?

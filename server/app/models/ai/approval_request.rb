@@ -215,7 +215,7 @@ module Ai
 
       case approval_chain.timeout_action
       when "approve"
-        approve!
+        timeout_may_approve? ? approve! : reject!
       when "reject"
         reject!
       when "escalate"
@@ -288,6 +288,13 @@ module Ai
 
       source = klass.find_by(id: source_id)
       source.respond_to?(:approval_decider_refusal) ? source.approval_decider_refusal(approver) : nil
+    end
+
+    # A timeout is no person (secreview §21 G3). A request that needs a
+    # person's own session is never approved by one: an approve-on-timeout
+    # chain rejects it instead, so nothing runs, as the requester or anyone.
+    def timeout_may_approve?
+      !requires_human_session?
     end
 
     def approver_matches?(spec, user)
