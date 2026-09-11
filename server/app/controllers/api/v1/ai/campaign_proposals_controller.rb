@@ -92,15 +92,19 @@ module Api
         end
 
         def require_read
-          require_permission("ai.campaigns.read")
+          require_campaign_permission(::Ai::Campaigns::Authorization::READ_PERMISSION)
+        end
+
+        def require_manage
+          require_campaign_permission(::Ai::Campaigns::Authorization::MANAGE_PERMISSION)
         end
 
         # Answered for the account whose proposals this controller touches (the user's own),
         # through the shared campaign check, never from an account-switch session's
         # delegation, which carries another account's permissions.
-        def require_manage
-          permission = ::Ai::Campaigns::Authorization::MANAGE_PERMISSION
-          return if ::Ai::Campaigns::Authorization.permitted?(user: current_user, account: current_user&.account)
+        def require_campaign_permission(permission)
+          return if ::Ai::Campaigns::Authorization.permitted?(user: current_user, account: current_user&.account,
+                                                              permission: permission)
 
           raise ::Authentication::PermissionDenied.new("Permission denied: #{permission}", permission: permission)
         end

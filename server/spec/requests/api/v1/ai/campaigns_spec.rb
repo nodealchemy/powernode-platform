@@ -365,5 +365,47 @@ RSpec.describe "Api::V1::Ai::Campaigns", type: :request do
       expect_success_response
       expect(campaign.reload.status).to eq("active")
     end
+
+    # The read-side twin: ai.campaigns.read delegated from the other account; nothing held here.
+    def delegated_reader_headers
+      member = create(:user, account: account, permissions: [])
+      delegation = delegation_from_other_account(to: member, permissions: %w[ai.campaigns.read])
+      expect(delegation.effective_permissions).to include("ai.campaigns.read") # precondition: the grant is real
+      switched_headers(member, delegation)
+    end
+
+    # ai.campaigns.read here; its switched session's delegation carries nothing of the campaigns family.
+    def local_reader_switched_headers
+      delegation = delegation_from_other_account(to: user, permissions: %w[ai.goals.manage])
+      expect(delegation.effective_permissions).not_to include("ai.campaigns.read") # precondition
+      switched_headers(user, delegation)
+    end
+
+    def expect_read_refusal
+      expect(response).to have_http_status(:forbidden)
+      expect(json_response["error"]).to include("Permission denied: ai.campaigns.read")
+    end
+
+    it "index: refuses read delegated from another account, and a reader of this account still lists" do
+      start_campaign(name: "Home")
+
+      get "/api/v1/ai/campaigns", headers: delegated_reader_headers, as: :json
+      expect_read_refusal
+
+      get "/api/v1/ai/campaigns", headers: local_reader_switched_headers, as: :json
+      expect_success_response
+      expect(json_response_data["campaigns"].map { |c| c["name"] }).to include("Home")
+    end
+
+    it "show: refuses read delegated from another account, and a reader of this account still reads" do
+      campaign = start_campaign(name: "Home")
+
+      get "/api/v1/ai/campaigns/#{campaign.id}", headers: delegated_reader_headers, as: :json
+      expect_read_refusal
+
+      get "/api/v1/ai/campaigns/#{campaign.id}", headers: local_reader_switched_headers, as: :json
+      expect_success_response
+      expect(json_response_data["name"]).to eq("Home")
+    end
   end
 end

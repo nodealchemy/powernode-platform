@@ -204,5 +204,47 @@ RSpec.describe "Api::V1::Ai::CampaignProposals", type: :request do
       expect_success_response
       expect(p.reload.status).to eq("spawned")
     end
+
+    # The read-side twin: ai.campaigns.read delegated from the other account; nothing held here.
+    def delegated_reader_headers
+      member = create(:user, account: account, permissions: [])
+      delegation = delegation_from_other_account(to: member, permissions: %w[ai.campaigns.read])
+      expect(delegation.effective_permissions).to include("ai.campaigns.read") # precondition: the grant is real
+      switched_headers(member, delegation)
+    end
+
+    # ai.campaigns.read here; its switched session's delegation carries nothing of the campaigns family.
+    def local_reader_switched_headers
+      delegation = delegation_from_other_account(to: user, permissions: %w[ai.goals.manage])
+      expect(delegation.effective_permissions).not_to include("ai.campaigns.read") # precondition
+      switched_headers(user, delegation)
+    end
+
+    def expect_read_refusal
+      expect(response).to have_http_status(:forbidden)
+      expect(json_response["error"]).to include("Permission denied: ai.campaigns.read")
+    end
+
+    it "index: refuses read delegated from another account, and a reader of this account still lists" do
+      create(:ai_campaign_proposal, account: account, title: "Home proposal")
+
+      get "/api/v1/ai/campaign_proposals", headers: delegated_reader_headers, as: :json
+      expect_read_refusal
+
+      get "/api/v1/ai/campaign_proposals", headers: local_reader_switched_headers, as: :json
+      expect_success_response
+      expect(json_response_data["proposals"].map { |p| p["title"] }).to include("Home proposal")
+    end
+
+    it "show: refuses read delegated from another account, and a reader of this account still reads" do
+      p = create(:ai_campaign_proposal, account: account, title: "Home proposal")
+
+      get "/api/v1/ai/campaign_proposals/#{p.id}", headers: delegated_reader_headers, as: :json
+      expect_read_refusal
+
+      get "/api/v1/ai/campaign_proposals/#{p.id}", headers: local_reader_switched_headers, as: :json
+      expect_success_response
+      expect(json_response_data["title"]).to eq("Home proposal")
+    end
   end
 end

@@ -2,9 +2,10 @@
 
 module Ai
   module Campaigns
-    # The one answer to "may this user change campaigns and campaign proposals in THIS
-    # account?". Both REST doors gate on it, and the services behind them (CampaignDriver,
-    # Ai::CampaignProposal) ask it again, so every door inherits the check.
+    # The one answer to "may this user read or change campaigns and campaign proposals in
+    # THIS account?". Both REST doors gate every action on it, and the services behind the
+    # mutating ones (CampaignDriver, Ai::CampaignProposal) ask it again, so every door
+    # inherits the check.
     #
     # The permission is answered for the account whose campaign or proposal the call
     # touches, from the user's OWN roles there. An account-switch session carries
@@ -15,6 +16,7 @@ module Ai
     # account other than the user's is refused.
     module Authorization
       MANAGE_PERMISSION = "ai.campaigns.manage"
+      READ_PERMISSION = "ai.campaigns.read"
 
       class Refused < StandardError; end
 
