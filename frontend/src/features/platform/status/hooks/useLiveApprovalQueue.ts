@@ -1,0 +1,77 @@
+import { useCallback, useState } from 'react';
+import { useApprovalQueue } from '@/features/ai/autonomy/api/autonomyApi';
+import { usePageWebSocket, type WebSocketDataUpdate } from '@/shared/hooks/usePageWebSocket';
+import { usePolling } from '@/shared/hooks/usePolling';
+
+// The approval queue, kept current without a reload (C3b, checklist row 34).
+// The absorbed ApprovalQueuePanel read it once (`useQuery`, no refetch) and
+// showed a queue that was only as fresh as the page load.
+//
+// ── THERE IS NO APPROVAL BROADCAST, SO THIS RIDES THE NOTIFICATIONS ─────────
+//
+// Nothing on the server broadcasts "approval created" or "approval decided" to
+// an account. What does exist: `Ai::ApprovalRequest` fans out a Notification
+// to every approver of the current step on create and on every step advance
+// (`fan_out_step_notifications`), and each Notification is pushed on the
+// viewer's own NotificationChannel stream. Every such notification carries
+// `metadata.approval_request_id` — `ApprovalRequestNotifier#provenance_for`
+// merges it LAST, so no content handler can strip it. That key is the
+// discriminator; the notification TYPE is not, because a custom handler
+// chooses its own.
+//
+// ── AND THAT IS WHY THE POLL NEVER STOPS ───────────────────────────────────
+//
+// The push reaches only the approvers of the step. It does not reach a viewer
+// who holds `ai.autonomy.approve` but is not named on this step, and nothing is
+// pushed when SOMEONE ELSE decides a request or the hourly expiry sweep expires
+// it. So unlike the status page's poll, which stops once its channel is live,
+// this one runs always: the push makes a new approval immediate for the people
+// who must act on it, and the poll bounds everyone else's staleness. An
+// account-scoped approval broadcast would let the poll become a fallback; it is
+// a server change and is recorded as owed, not faked here.
+
+export const APPROVAL_POLL_MS = 30000;
+
+/** True when a NotificationChannel message is a new notification about an approval request. */
+export const isApprovalNotification = (payload: unknown): boolean => {
+  if (typeof payload !== 'object' || payload === null) return false;
+  const notification = (payload as { notification?: unknown }).notification;
+  if (typeof notification !== 'object' || notification === null) return false;
+  const metadata = (notification as { metadata?: unknown }).metadata;
+  if (typeof metadata !== 'object' || metadata === null) return false;
+  const id = (metadata as { approval_request_id?: unknown }).approval_request_id;
+  return typeof id === 'string' && id.length > 0;
+};
+
+export function useLiveApprovalQueue() {
+  const query = useApprovalQueue();
+  const { refetch } = query;
+  const [lastPushAt, setLastPushAt] = useState<Date | null>(null);
+
+  const refresh = useCallback(() => {
+    void refetch();
+  }, [refetch]);
+
+  const onDataUpdate = useCallback(
+    (update: WebSocketDataUpdate) => {
+      if (update.channel !== 'notifications' || update.type !== 'new_notification') return;
+      if (!isApprovalNotification(update.data)) return;
+      setLastPushAt(update.timestamp);
+      refresh();
+    },
+    [refresh]
+  );
+
+  // 'dashboard' subscribes the notifications channel and nothing else in core.
+  const { isConnected } = usePageWebSocket({
+    pageType: 'dashboard',
+    subscribeToNotifications: true,
+    onDataUpdate,
+  });
+
+  usePolling(refresh, APPROVAL_POLL_MS, { deps: [refresh] });
+
+  return { ...query, isConnected, lastPushAt, pollMs: APPROVAL_POLL_MS };
+}
+
+export default useLiveApprovalQueue;
