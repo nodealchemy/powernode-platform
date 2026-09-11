@@ -67,6 +67,38 @@ RSpec.describe 'Api::V1::Auth::EmailVerifications', type: :request do
       end
     end
 
+    # review2-resume.md V3: the mailer promises the ADMIN-CONFIGURED window
+    # (notification_mailer.rb), but email_verification_expired? hardcoded 24h
+    # regardless of email_verification_expiry_hours. Exercises the real
+    # (unstubbed) method, unlike the two contexts above.
+    context 'with a configured verification expiry (real, unstubbed expiry check)' do
+      before do
+        AdminSetting.set('email_verification_expiry_hours', 1)
+      end
+
+      it 'refuses a token older than the configured window' do
+        unverified_user.update!(email_verification_sent_at: 2.hours.ago)
+
+        post '/api/v1/auth/verify-email',
+             params: { token: unverified_user.email_verification_token },
+             as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(unverified_user.reload.verified?).to be false
+      end
+
+      it 'accepts a token still within the configured window' do
+        unverified_user.update!(email_verification_sent_at: 30.minutes.ago)
+
+        post '/api/v1/auth/verify-email',
+             params: { token: unverified_user.email_verification_token },
+             as: :json
+
+        expect_success_response
+        expect(unverified_user.reload.verified?).to be true
+      end
+    end
+
     context 'when email already verified' do
       it 'returns already verified message' do
         verified_user.update!(email_verification_token: 'another-token')
