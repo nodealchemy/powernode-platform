@@ -241,23 +241,8 @@ module Ai
           tool_class = find_tool_class(tool_name)
           raise ArgumentError, "Unknown platform tool: #{tool_name}" unless tool_class
 
-          # SECURITY: Enforce permission at execution time (defense-in-depth)
-          enforce_permission!(user: user, tool_class: tool_class, tool_id: tool_id, instance_authorized: instance_authorized)
-
-          # Rate limiting per agent
-          if agent_id
-            Ai::Introspection::RateLimiter.check!(
-              agent_id: agent_id,
-              max_calls: Ai::Tools::BaseTool::MAX_CALLS_PER_EXECUTION,
-              window: 60
-            )
-          end
-
-          # Audit log
-          Rails.logger.info(
-            "[McpPlatformTool] Executing #{tool_id} " \
-            "user=#{user&.id} account=#{account.id} agent=#{agent_id}"
-          )
+          guard_call!(tool_class, tool_id: tool_id, account: account, user: user, agent_id: agent_id,
+                                  instance_authorized: instance_authorized)
 
           execution_params = params.with_indifferent_access
 
@@ -319,6 +304,56 @@ module Ai
             return refusal
           end
 
+          build_and_execute(tool_class, execution_params, account: account, user: user, mcp_agent: mcp_agent,
+                                                          instance_authorized: instance_authorized,
+                                                          node_instance: node_instance)
+        end
+
+        # THE GUARDED RUNNER a local tool shares with a registry call (D2 review
+        # F3; Ai::Tools::LocalToolBinding): the same guards in the same order as
+        # #execute_tool — the tool's permission, the per-agent rate limit and the
+        # audit line, then BaseTool#execute — minus the two steps that exist only
+        # because a registry NAME was resolved: the action-scope pin (a binding
+        # sets the action itself, after the caller's arguments) and the
+        # advertisement refusal (a local tool is not a registry entry).
+        def run_guarded(tool_class, tool_id:, params:, account:, user: nil, agent_id: nil, mcp_agent: nil,
+                        instance_authorized: false, node_instance: nil)
+          guard_call!(tool_class, tool_id: tool_id, account: account, user: user, agent_id: agent_id,
+                                  instance_authorized: instance_authorized)
+          build_and_execute(tool_class, params.with_indifferent_access,
+                            account: account, user: user, mcp_agent: mcp_agent,
+                            instance_authorized: instance_authorized, node_instance: node_instance)
+        end
+
+        # The per-call guards, one step each.
+        def guard_call!(tool_class, tool_id:, account:, user:, agent_id:, instance_authorized:)
+          # SECURITY: Enforce permission at execution time (defense-in-depth)
+          enforce_permission!(user: user, tool_class: tool_class, tool_id: tool_id, instance_authorized: instance_authorized)
+          rate_limit_call!(agent_id)
+          audit_call(tool_id, account: account, user: user, agent_id: agent_id)
+        end
+
+        # Rate limiting per agent
+        def rate_limit_call!(agent_id)
+          return unless agent_id
+
+          Ai::Introspection::RateLimiter.check!(
+            agent_id: agent_id,
+            max_calls: Ai::Tools::BaseTool::MAX_CALLS_PER_EXECUTION,
+            window: 60
+          )
+        end
+
+        # Audit log
+        def audit_call(tool_id, account:, user:, agent_id:)
+          Rails.logger.info(
+            "[McpPlatformTool] Executing #{tool_id} " \
+            "user=#{user&.id} account=#{account.id} agent=#{agent_id}"
+          )
+        end
+
+        def build_and_execute(tool_class, execution_params, account:, user:, mcp_agent:, instance_authorized:,
+                              node_instance:)
           tool_instance = tool_class.new(account: account, user: user, agent: mcp_agent)
           # Instance principals (mTLS node cert; user/agent both nil) need their
           # node_instance so DevLoopTool#claimant_ref can scope claims as

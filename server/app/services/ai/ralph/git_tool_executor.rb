@@ -13,7 +13,10 @@ module Ai
       # Tools that change the repository; a refusal of one is a failed change (D2).
       MUTATING_TOOLS = %w[write_file delete_file].freeze
 
-      attr_reader :file_changes, :failed_changes, :last_commit_sha
+      # Where TaskExecutor makes a run's executor live (see .with_live).
+      LIVE_KEY = :ralph_live_git_executors
+
+      attr_reader :file_changes, :failed_changes, :parked_changes, :last_commit_sha
 
       def initialize(ralph_loop:)
         @ralph_loop = ralph_loop
@@ -27,7 +30,43 @@ module Ai
         @branch = ralph_loop.branch || @repository.default_branch || "main"
         @file_changes = []
         @failed_changes = []
+        @parked_changes = []
         @last_commit_sha = nil
+      end
+
+      def ralph_loop_id
+        @ralph_loop.id
+      end
+
+      # The executor of a run in progress in THIS execution context, by loop
+      # (D2 review F3). TaskExecutor makes its executor live for the run, so a
+      # write the AutonomyGate auto-approves — replayed in-process through a
+      # freshly built RepositoryGitTool — commits on the run's own ledger. A
+      # replay after a later approval finds none and builds its own executor.
+      def self.with_live(executor)
+        return yield unless executor
+
+        live = (ActiveSupport::IsolatedExecutionState[LIVE_KEY] ||= {})
+        key = executor.ralph_loop_id.to_s
+        previous = live[key]
+        live[key] = executor
+        begin
+          yield
+        ensure
+          previous ? live[key] = previous : live.delete(key)
+        end
+      end
+
+      def self.live_for(ralph_loop_id)
+        return nil if ralph_loop_id.blank?
+
+        (ActiveSupport::IsolatedExecutionState[LIVE_KEY] || {})[ralph_loop_id.to_s]
+      end
+
+      # D2 review F3: a write the AutonomyGate parked for an operator, recorded
+      # so a run with no commit says it is waiting on an approval.
+      def record_parked_change(path, tool_name, approval_request_id)
+        @parked_changes << { path: path, tool: tool_name.to_s, approval_request_id: approval_request_id }
       end
 
       # Check if git tools are available for this ralph loop

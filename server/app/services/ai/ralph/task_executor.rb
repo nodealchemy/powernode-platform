@@ -132,39 +132,47 @@ module Ai
         # change the repository it was asked to change.
         git_executor = GitToolExecutor.new(ralph_loop: ralph_loop) if GitToolExecutor.available?(ralph_loop)
 
-        # Use AgentToolBridgeService when agent has platform tool access configured
-        tool_bridge = Ai::AgentToolBridgeService.new(agent: agent, account: account)
-        if tool_bridge.tools_enabled? && tool_bridge.tool_definitions_for_llm.any?
-          return execute_via_agent_bridge(agent, client, messages, options, tool_bridge, git_executor)
+        # On both paths the git tools run through ONE binding, on the registry's
+        # guarded runner (D2 review F3). The run's executor is LIVE for the run,
+        # so a write the AutonomyGate auto-approves lands on the run's ledger.
+        local_tools = repository_local_tools(git_executor)
+        GitToolExecutor.with_live(git_executor) do
+          # Use AgentToolBridgeService when agent has platform tool access configured
+          tool_bridge = Ai::AgentToolBridgeService.new(agent: agent, account: account)
+          if tool_bridge.tools_enabled? && tool_bridge.tool_definitions_for_llm.any?
+            return execute_via_agent_bridge(agent, client, messages, options, tool_bridge, git_executor, local_tools)
+          end
+
+          if git_executor
+            git_tools = GitToolDefinitions.for_provider(provider_type)
+            options[:tools] = (options[:tools] || []) + git_tools
+          end
+
+          # Add MCP tools from ralph_loop (server-attached tools)
+          mcp_tools = ralph_loop.available_mcp_tools
+          if mcp_tools.any?
+            mcp_defs = mcp_tools.map { |t| mcp_tool_definition_for_provider(t, provider_type) }
+            options[:tools] = (options[:tools] || []) + mcp_defs
+          end
+
+          # Run agentic loop. Thread the initiating user so external MCP tool calls
+          # enforce per-tool permissions instead of running unauthenticated. A nil
+          # user is a fully autonomous loop and stays trusted, preserving existing
+          # behavior (mirrors #enforce_executor_permissions!, which exempts nil).
+          loop_runner = AgenticLoop.new(
+            client: client,
+            provider_type: provider_type,
+            account: account,
+            git_tool_executor: git_executor,
+            local_tools: local_tools,
+            tool_agent: agent,
+            mcp_tools: mcp_tools,
+            user: user
+          )
+
+          result = loop_runner.execute(messages, options)
+          normalize_result(result, agent)
         end
-
-        if git_executor
-          git_tools = GitToolDefinitions.for_provider(provider_type)
-          options[:tools] = (options[:tools] || []) + git_tools
-        end
-
-        # Add MCP tools from ralph_loop (server-attached tools)
-        mcp_tools = ralph_loop.available_mcp_tools
-        if mcp_tools.any?
-          mcp_defs = mcp_tools.map { |t| mcp_tool_definition_for_provider(t, provider_type) }
-          options[:tools] = (options[:tools] || []) + mcp_defs
-        end
-
-        # Run agentic loop. Thread the initiating user so external MCP tool calls
-        # enforce per-tool permissions instead of running unauthenticated. A nil
-        # user is a fully autonomous loop and stays trusted, preserving existing
-        # behavior (mirrors #enforce_executor_permissions!, which exempts nil).
-        loop_runner = AgenticLoop.new(
-          client: client,
-          provider_type: provider_type,
-          account: account,
-          git_tool_executor: git_executor,
-          mcp_tools: mcp_tools,
-          user: user
-        )
-
-        result = loop_runner.execute(messages, options)
-        normalize_result(result, agent)
       rescue StandardError => e
         Rails.logger.error("Agent execution failed: #{e.message}\n#{e.backtrace.first(5).join("\n")}")
         { success: false, error: e.message, executor_type: "agent", executor_id: agent.id }
@@ -174,7 +182,7 @@ module Ai
       # This routes through the same path as execute_agent MCP tool and concierge,
       # with the loop's git tools (when its mission has a repository) carried as
       # bridge-local tools.
-      def execute_via_agent_bridge(agent, client, messages, options, tool_bridge, git_executor = nil)
+      def execute_via_agent_bridge(agent, client, messages, options, tool_bridge, git_executor = nil, local_tools = nil)
         model = options[:model]
         system_prompt = messages.find { |m| m[:role] == "system" }&.dig(:content)
         user_messages = messages.reject { |m| m[:role] == "system" }
@@ -186,8 +194,7 @@ module Ai
           max_tokens: options[:max_tokens] || 4096,
           temperature: options[:temperature] || 0.7,
           system_prompt: system_prompt,
-          local_tool_definitions: git_executor ? git_tool_bridge_definitions : [],
-          local_tool_executor: git_executor,
+          local_tools: local_tools,
           # Carry the resolved reasoning-effort onto the tool-bridge path too
           # (otherwise this path would silently drop it). Omitted when unset so
           # non-effort models / inert framework are unchanged.
@@ -688,17 +695,36 @@ module Ai
 
         sha = git_executor.last_commit_sha
         failed = git_executor.failed_changes.map { |f| f.transform_keys(&:to_s) }
-        reason =
-          if sha
-            "committed #{sha}; the sandboxed test run decides the pass"
-          elsif failed.any?
-            refused = failed.map { |f| "#{f['operation']} #{f['path']}: #{f['error']}" }.join("; ")
-            "no commit: the repository refused #{failed.size} change(s) — #{refused}"
-          else
-            "no commit: the agent made no repository change"
-          end
+        parked = git_executor.parked_changes.map { |p| p.transform_keys(&:to_s) }
+        reason = sha ? "committed #{sha}; the sandboxed test run decides the pass" : no_commit_reason(failed, parked)
 
-        { "repository_attached" => true, "commit_sha" => sha, "failed_changes" => failed, "reason" => reason }
+        { "repository_attached" => true, "commit_sha" => sha, "failed_changes" => failed,
+          "parked_changes" => parked, "reason" => reason }
+      end
+
+      def no_commit_reason(failed, parked)
+        parts = []
+        if failed.any?
+          refused = failed.map { |f| "#{f['operation']} #{f['path']}: #{f['error']}" }.join("; ")
+          parts << "the repository refused #{failed.size} change(s) — #{refused}"
+        end
+        if parked.any?
+          waiting = parked.map { |c| "#{c['tool']} #{c['path']} (approval #{c['approval_request_id']})" }.join("; ")
+          parts << "#{parked.size} change(s) await operator approval — #{waiting}"
+        end
+        return "no commit: the agent made no repository change" if parts.empty?
+
+        "no commit: #{parts.join('; ')}"
+      end
+
+      # The loop's git tools as a local-tool binding (D2 review F3): run as
+      # Ai::Ralph::RepositoryGitTool on the registry's guarded runner, with the
+      # loop id bound server-side. Nil when the loop has no repository.
+      def repository_local_tools(git_executor)
+        return nil unless git_executor
+
+        Ai::Tools::LocalToolBinding.new(tool_class: RepositoryGitTool, definitions: git_tool_bridge_definitions,
+                                        server_params: { ralph_loop_id: ralph_loop.id })
       end
 
       # The git tools in the bridge's neutral shape ({ name, description,

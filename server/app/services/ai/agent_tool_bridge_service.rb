@@ -323,17 +323,17 @@ module Ai
     # @return [Hash] { content:, usage:, tool_calls_log:, finish_reason: }
     #
     # Loop-local tools (D2): a caller that owns tools the platform registry does
-    # not — the Ralph git tools, whose executor is bound to one loop's repository
-    # and branch — passes their LLM definitions plus the executor that runs them.
-    # They are advertised FIRST and reserved out of the provider cap (the
-    # relevance filter trims platform tools only), and a call to one of them goes
-    # to local_tool_executor#execute(name, arguments), never to the platform
-    # registrar. Definitions without an executor are dropped: an advertised tool
-    # with nothing to run it is the failure this seam exists to close.
-    def execute_tool_loop(llm_client:, messages:, model:, local_tool_definitions: [], local_tool_executor: nil, **opts)
-      local_tools = local_tool_executor ? Array(local_tool_definitions) : []
-      local_names = local_tools.to_set { |t| (t[:name] || t["name"]).to_s }
-      tools = advertised_tools(llm_client, messages, local_tools, local_names)
+    # not — the Ralph git tools, bound to one loop's repository and branch —
+    # passes an Ai::Tools::LocalToolBinding. Its tools are advertised FIRST and
+    # reserved out of the provider cap (the relevance filter trims platform tools
+    # only). A call to one of them goes through the binding, which runs it on the
+    # registry's own guarded runner (D2 review F3): permission, rate limit, audit
+    # line, then BaseTool#execute and its AutonomyGate. The binding refused, at
+    # construction, any name that would shadow a registry verb.
+    def execute_tool_loop(llm_client:, messages:, model:, local_tools: nil, **opts)
+      local_definitions = local_tools ? local_tools.definitions : []
+      local_names = local_tools ? local_tools.names : Set.new
+      tools = advertised_tools(llm_client, messages, local_definitions, local_names)
 
       max_iter = max_iterations
       iteration = 0
@@ -408,7 +408,7 @@ module Ai
 
           result_json, full_result =
             if local_names.include?(tool_name.to_s)
-              dispatch_local_tool_call(local_tool_executor, tool_name, tool_call)
+              dispatch_local_tool_call(local_tools, tool_name, tool_call)
             else
               dispatch_tool_call_capturing(tool_call)
             end
@@ -970,12 +970,12 @@ module Ai
 
     # Run a loop-local tool (see #execute_tool_loop). Same contract as
     # #dispatch_tool_call_capturing: [truncated JSON for the LLM, full result].
-    def dispatch_local_tool_call(executor, tool_name, tool_call)
+    def dispatch_local_tool_call(local_tools, tool_name, tool_call)
       arguments = tool_call[:arguments] || tool_call["arguments"] || {}
-      arguments = JSON.parse(arguments) if arguments.is_a?(String)
 
       Rails.logger.info "[AgentToolBridge] Dispatching local tool: #{tool_name} for agent #{agent.id}"
-      result = executor.execute(tool_name.to_s, arguments)
+      # The principal a registry call runs as (#dispatch_tool_call_capturing).
+      result = local_tools.dispatch(tool_name.to_s, arguments, account: account, user: agent.creator, agent: agent)
       [ truncate_result(result.to_json), result ]
     rescue StandardError => e
       Rails.logger.error "[AgentToolBridge] Local tool error: #{tool_name} - #{e.message}"

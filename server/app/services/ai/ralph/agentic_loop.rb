@@ -5,11 +5,18 @@ module Ai
     class AgenticLoop
       MAX_TOOL_ROUNDS = 15
 
-      def initialize(client:, provider_type:, account:, git_tool_executor: nil, mcp_tools: [], user: nil)
+      # git_tool_executor is the run's commit ledger (file changes, last SHA,
+      # diff). The git tools themselves run through local_tools, an
+      # Ai::Tools::LocalToolBinding, as tool_agent: the same guarded path and the
+      # same principal as the tool-bridge path (D2 review F3).
+      def initialize(client:, provider_type:, account:, git_tool_executor: nil, local_tools: nil, tool_agent: nil,
+                     mcp_tools: [], user: nil)
         @client = client
         @provider_type = provider_type
         @account = account
         @git_executor = git_tool_executor
+        @local_tools = local_tools
+        @tool_agent = tool_agent
         @mcp_tools = mcp_tools
         @user = user
         @tool_calls_log = []
@@ -76,8 +83,8 @@ module Ai
         tool_name = tc[:name]
         arguments = tc[:arguments] || {}
 
-        result = if GitToolDefinitions::GIT_TOOL_NAMES.include?(tool_name) && @git_executor
-          @git_executor.execute(tool_name, arguments)
+        result = if @local_tools&.owns?(tool_name)
+          @local_tools.dispatch(tool_name, arguments, account: @account, user: @tool_agent&.creator, agent: @tool_agent)
         else
           execute_mcp_tool(tool_name, arguments)
         end

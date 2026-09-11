@@ -36,7 +36,8 @@ RSpec.describe "Delegated task git actuation (D2)", type: :request do
   include_context "internal api auth"
 
   let(:account) { internal_account }
-  let(:user) { create(:user, account: account) }
+  # Git tools run as the agent's creator and require ai.loops.execute (D2 review F3).
+  let(:user) { create(:user, account: account, permissions: [ "ai.loops.execute" ]) }
 
   let(:ai_provider) { create(:ai_provider, account: account) }
   let!(:ai_credential) { create(:ai_provider_credential, account: account, provider: ai_provider) }
@@ -94,6 +95,17 @@ RSpec.describe "Delegated task git actuation (D2)", type: :request do
 
   before do
     @llm_requests = []
+
+    # The write actuator is opt-in (D2 review F3, operator ruling (a)): with no
+    # policy row, ralph.repository_write/delete resolve to require_approval and a
+    # commit parks. These examples opt in explicitly, as an operator would; the
+    # :no_policy_row examples show the default.
+    unless RSpec.current_example.metadata[:no_policy_row]
+      %w[ralph.repository_write ralph.repository_delete].each do |category|
+        Ai::InterventionPolicy.create!(account: account, scope: "global", action_category: category,
+                                       policy: "auto_approve", priority: 0, is_active: true)
+      end
+    end
 
     git!("init", "-q", "-b", "main")
     File.write(File.join(@origin, "go.mod"), "module example.com/calc\n\ngo 1.21\n")
@@ -506,6 +518,81 @@ RSpec.describe "Delegated task git actuation (D2)", type: :request do
       expect(@llm_requests).to be_empty
       expect(@fake.requests).to be_empty
       expect(task.reload.status).to eq("pending")
+      expect(branch_tip).to eq(@seed_sha)
+    end
+  end
+
+  # ---------------------------------------------------------------- review F3: the default parks
+
+  describe "with no policy row for the write (the default)", :no_policy_row do
+    it "parks the commit for an operator: no SHA, one approval, and approving it replays the write and commits" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      script_llm(llm_reply(tool_calls: [ write_call("call_1", "add.go", add_go, "Add Add()") ]),
+                 llm_reply(content: "Asked to add Add."))
+
+      task, iteration = run_one_iteration!
+
+      expect(advertised_tool_names).to include("write_file")
+      expect(@fake.requests.map { |r| r[:method] }).not_to include(:post, :put)
+      expect(branch_tip).to eq(@seed_sha)
+      expect(iteration.git_commit_sha).to be_nil
+      expect(task.status).not_to eq("passed")
+      expect(test_job_requests).to be_empty
+
+      operation = Ai::DeferredOperation.find_by!(account: account, action_category: "ralph.repository_write")
+      approval = operation.approval_request
+      expect(approval.status).to eq("pending")
+      actuation = iteration.check_results["actuation"]
+      expect(actuation["parked_changes"]).to eq([ { "path" => "add.go", "tool" => "write_file",
+                                                    "approval_request_id" => approval.id } ])
+      expect(actuation["reason"])
+        .to eq("no commit: 1 change(s) await operator approval — write_file add.go (approval #{approval.id})")
+
+      approval.approve!
+
+      # The approval replays the write through the same guarded path, and it lands.
+      tip = branch_tip
+      expect(tip).not_to eq(@seed_sha)
+      expect(git!("rev-parse", "#{tip}^")).to eq(@seed_sha)
+      expect(git!("show", "#{tip}:add.go", strip: false)).to eq(add_go)
+      expect(operation.reload.status).to eq("completed")
+      expect(@fake.writes_refused).to be_empty
+    end
+
+    # The non-bridge path (an agent with platform tools off) runs the git tools
+    # through the same binding, so its writes park by default too.
+    it "a non-bridge write parks for an operator too" do
+      plain_agent = create(:ai_agent, account: account, provider: ai_provider, creator: user, agent_type: "assistant",
+                                      mcp_metadata: { "model_config" => { "model" => "test-model-1" },
+                                                      "tool_access" => { "enabled" => false } })
+      delegate!(agent_id: plain_agent.id, mission_id: mission.id)
+      script_llm(llm_reply(tool_calls: [ write_call("call_1", "add.go", add_go, "Add Add()") ]),
+                 llm_reply(content: "Asked to add Add."))
+
+      _task, iteration = run_one_iteration!
+
+      expect(advertised_tool_names).to include("write_file")
+      expect(advertised_tool_names).not_to include("discover_skills") # the non-bridge path
+      expect(@fake.requests.map { |r| r[:method] }).not_to include(:post, :put)
+      expect(iteration.git_commit_sha).to be_nil
+      expect(Ai::DeferredOperation.where(account: account, action_category: "ralph.repository_write").count).to eq(1)
+    end
+
+    it "parks each write on its own approval" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      script_llm(
+        llm_reply(tool_calls: [
+          write_call("call_1", "add.go", add_go, "Add Add()"),
+          write_call("call_2", "add_test.go", passing_test_go, "Test Add()")
+        ]),
+        llm_reply(content: "Asked to add Add and its test.")
+      )
+
+      run_one_iteration!
+
+      operations = Ai::DeferredOperation.where(account: account, action_category: "ralph.repository_write")
+      expect(operations.count).to eq(2)
+      expect(operations.map(&:approval_request_id).compact.uniq.size).to eq(2)
       expect(branch_tip).to eq(@seed_sha)
     end
   end

@@ -67,12 +67,18 @@ module Ai
     # mints and nothing resolves is a category an operator can select and get
     # no behaviour from. Removing one cannot invalidate a persisted row —
     # action_category is validated for presence only, never against this list.
+    # ralph.repository_write / ralph.repository_delete (D2 review F3): a
+    # delegated Ralph loop's git write and delete (Ai::Ralph::RepositoryGitTool).
+    # No seed writes a row for either, on purpose: unmatched, they resolve to
+    # require_approval, so a delegated commit parks until an operator adds a
+    # policy row (operator ruling: the write actuator is opt-in).
     STATIC_CATEGORIES = (%w[
       approval proposal escalation status_update issue_alert
       feedback
       project.adapt project.cost_control project.scale_horizontal project.relocate project.schema_change project.security_change
       dev.multi_file_change
       ai.delegation_policy.update
+      ralph.repository_write ralph.repository_delete
     ] + ENGINEERING_CATEGORIES + %w[*]).freeze
 
     @category_registry = Set.new(STATIC_CATEGORIES)
