@@ -466,6 +466,16 @@ if [[ "$SKIP_TS" == "false" ]]; then
     echo -e "${RED}     nav-link reachability lint failed${NC}"
     TS_OK=false
   fi
+  # Page reverse-reachability lint (C15b): the other direction of the same gap —
+  # a finished *Page.tsx with no route, registration, or importer anywhere
+  # (ChatChannelsPage/AIConversationsPage both shipped exactly this way once).
+  echo -e "${BLUE}  └─ page reverse-reachability lint...${NC}"
+  if (cd "$PROJECT_ROOT/frontend" && npx jest src/__tests__/conventions/page-reverse-reachability.test.ts --silent 2>&1); then
+    :
+  else
+    echo -e "${RED}     page reverse-reachability lint failed${NC}"
+    TS_OK=false
+  fi
   # Each extensions/*/frontend/tsconfig.check.json is a tsc gate for that
   # extension's frontend tree (Vite resolves @<slug>/* aliases at runtime,
   # but the platform's main tsconfig.json only includes its own src). Without
