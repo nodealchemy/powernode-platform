@@ -976,6 +976,11 @@ module Ai
         result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).approve(
           request: request, approver: user, comments: params[:comments]
         )
+        # A refused decision is a failed call, not a success carrying
+        # workflow: false: the same approver's second decision on a step, a
+        # request no longer pending, an approver not on the current step.
+        return { success: false, error: "Cannot approve this request" } unless result
+
         # Deliberately does NOT carry the reveal-once handoff (IMP-7b81ca22f661)
         # that the HTTP approval surfaces do. A tool return travels further than
         # its caller: Ai::AgentToolBridgeService puts a 200-byte preview of it in
@@ -988,7 +993,11 @@ module Ai
         # the token is disclosed on the operator UI/API surface instead.
         { success: true, approval_request_id: request.id, request_status: request.reload.status, workflow: result }
       rescue StandardError => e
-        { success: false, error: "Approval failed: #{e.class}: #{e.message}" }
+        # The class and message stay in the server log. A tool result is sent
+        # to the model provider, and a driver error names tables, constraints
+        # and values.
+        Rails.logger.error("[AgentAutonomyTool] approve_deferred_operation failed: #{e.class}: #{e.message}")
+        { success: false, error: "Approval failed" }
       end
 
       def reject_deferred_operation(params)
@@ -998,9 +1007,12 @@ module Ai
         result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).reject(
           request: request, approver: user, comments: params[:comments]
         )
+        return { success: false, error: "Cannot reject this request" } unless result
+
         { success: true, approval_request_id: request.id, request_status: request.reload.status, workflow: result }
       rescue StandardError => e
-        { success: false, error: "Rejection failed: #{e.class}: #{e.message}" }
+        Rails.logger.error("[AgentAutonomyTool] reject_deferred_operation failed: #{e.class}: #{e.message}")
+        { success: false, error: "Rejection failed" }
       end
 
       # Accepts either a DeferredOperation id (looks up its approval_request) or an ApprovalRequest id directly.
