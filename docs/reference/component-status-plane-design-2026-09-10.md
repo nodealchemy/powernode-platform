@@ -129,7 +129,6 @@ where the generated name exceeds 63 characters; JSON defaults on the **model** a
 | `conditions_for(record)` | the only place kind-specific logic lives |
 | `dependencies_for(record)` | reuses `BlastRadiusService` buckets, `ModuleDependency`, `Sdwan::ServiceBackend`, instance→node, peer→network |
 | `actions_for(record)` | `[{key, label, method, path, permission, destructive, confirm: {prompt, requires_reason}}]` — the page renders buttons from data and issues the request; core learns nothing about the kind |
-| `signal_resolver` | maps a `FleetEvent`/`SignalState` to this component (by `node_instance_id`, `payload.instance_id`, `certificate_id`, ...) |
 | `runbook_key`, `owner_agent_slug` (optional) | drawer and investigation defaults |
 
 The drawer resolves optional rich views by **derived** slot ids,
@@ -309,7 +308,11 @@ is green). Rev 3 re-scope after the checklist found 25 gaps:
   drawer gets signals **per component** from the system extension registering a recent-signals view
   into the derived slot `platform.status.drawer.<kind>.signals`, beside `node_instance.boot_replay`
   (the boot-replay permission refusal naming `system.fleet.read` is carried). Core never reads
-  `FleetEvent`.
+  `FleetEvent`. The view filters the existing signals endpoint by the event's **typed** entity
+  column (`node_instance_id`, `node_module_id`, `certificate_id`) — never by matching payload keys,
+  and never through a per-contributor resolver (a row-mapping hook would filter every recent event
+  in memory; the `signal_resolver` hook was deleted unused). Producers that bound an instance only
+  inside `payload` set the typed column at emit, and a derived spec over every emit site keeps it so.
 - Honeypot, dispatch-latency and remediation-effectiveness tiles: deleted after **B5** gives each a
   contributor; the honeypot severity ratchet becomes contributor semantics (`not_measured` with
   `unavailable_since` evidence while the feed is down, never a count of 0).
