@@ -62,6 +62,16 @@ RSpec.describe Ai::Codebase::StaticAnalysisService do
     it "reports a program that is not installed as unavailable, not as empty output" do
       expect(run(%w[definitely-not-a-linter-d1])).to eq(status: :unavailable)
     end
+
+    # D1b critic R1: Ruby's exitstatus is nil for a process killed by a signal,
+    # so a partial report used to arrive with nothing to say it was cut short.
+    it "reports a process killed by a signal as 128 + the signal, and a plain exit as itself" do
+      killed = run([ "sh", "-c", "echo 'a.ts(1,1): error TS2322: x'; kill -9 $$" ])
+
+      expect(killed).to include(status: :ran, exitstatus: 128 + 9)
+      expect(killed[:output]).to include("TS2322")
+      expect(run([ "sh", "-c", "exit 3" ])).to include(status: :ran, exitstatus: 3)
+    end
   end
 
   describe "a linter that did not run is never clean" do
@@ -88,6 +98,40 @@ RSpec.describe Ai::Codebase::StaticAnalysisService do
 
       expect(service.analyze(linters: [ "typescript" ])[:summary][:linters]["TypeScript"])
         .to eq(status: "clean", errors: 0)
+    end
+
+    # D1b critic R1, end to end on the local (MCP verb) path. The linter is a
+    # real process that prints part of a report and is then signalled; each
+    # example also runs it WITHOUT the signal, which must still read completed.
+    def local_linter(linters, tail)
+      allow(service).to receive(:execute_command).and_wrap_original do |original, argv, **opts|
+        report =
+          if argv.include?("tsc") then "a.ts(1,1): error TS2322: x"
+          elsif argv.include?("rubocop") then '{"files":[],"summary":{"offense_count":0}}'
+          else "[]"
+          end
+        original.call([ "sh", "-c", "printf '%s\\n' '#{report}'; #{tail}" ], **opts)
+      end
+      service.analyze(linters: linters)[:summary][:linters]
+    end
+
+    it "reads a local tsc killed by a signal as killed, whatever it printed first" do
+      File.write(File.join(dir, "tsconfig.json"), "{}")
+
+      expect(local_linter(%w[typescript], "kill -9 $$")["TypeScript"]).to eq(status: "killed", exitstatus: 137)
+      expect(local_linter(%w[typescript], "exit 2")["TypeScript"]).to eq(status: "completed", errors: 1)
+    end
+
+    it "reads a local rubocop or eslint killed by a signal as killed, never as its partial JSON" do
+      File.write(File.join(dir, "Gemfile"), "source 'https://rubygems.org'\n")
+
+      killed = local_linter(%w[ruby javascript_lint], "kill -TERM $$")
+      expect(killed["RuboCop"]).to eq(status: "killed", exitstatus: 143)
+      expect(killed["ESLint"]).to eq(status: "killed", exitstatus: 143)
+
+      finished = local_linter(%w[ruby javascript_lint], "exit 1")
+      expect(finished["RuboCop"]).to include(status: "completed")
+      expect(finished["ESLint"]).to include(status: "completed", errors: 0)
     end
 
     it "detects no linter at all in a directory with nothing to lint" do

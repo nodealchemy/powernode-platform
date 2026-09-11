@@ -175,7 +175,9 @@ module Ai
         run = execute_command(config[:argv] + [ target ], chdir: project_root, env: { "BUNDLE_GEMFILE" => gemfile })
         return not_run(run) unless run[:status] == :ran
 
-        parse_rubocop(run[:output])
+        # Through parse_output, so a local run meets the same killed and
+        # truncated gates as a runner's report (D1b critic R1).
+        parse_output(:ruby, run[:output], run[:exitstatus])
       end
 
       def parse_rubocop(output)
@@ -218,7 +220,7 @@ module Ai
         run = execute_command(config[:argv], chdir: project_root, merge_stderr: true)
         return not_run(run) unless run[:status] == :ran
 
-        parse_tsc(run[:output], run[:exitstatus])
+        parse_output(:typescript, run[:output], run[:exitstatus])
       end
 
       def parse_tsc(output, exitstatus)
@@ -267,7 +269,7 @@ module Ai
         run = execute_command(config[:argv] + [ target ], chdir: project_root)
         return not_run(run) unless run[:status] == :ran
 
-        parse_eslint(run[:output])
+        parse_output(:javascript_lint, run[:output], run[:exitstatus])
       end
 
       def parse_eslint(output)
@@ -349,12 +351,19 @@ module Ai
         _, status = Process.wait2(pid)
         return { status: :output_truncated } if overflow
 
-        { status: :ran, output: output, exitstatus: status.exitstatus }
+        { status: :ran, output: output, exitstatus: exit_code(status) }
       rescue Errno::ENOENT
         { status: :unavailable }
       ensure
         reader&.close unless reader.nil? || reader.closed?
         writer&.close unless writer.nil? || writer.closed?
+      end
+
+      # D1b critic R1: Ruby's exitstatus is nil for a process killed by a
+      # signal. Report it the way a shell does (128 + the signal), which
+      # parse_output reads as killed, the same as a runner's `$?`.
+      def exit_code(status)
+        status.signaled? ? SIGNAL_EXIT_FLOOR + status.termsig : status.exitstatus
       end
 
       def kill_group(pid)
