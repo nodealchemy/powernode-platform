@@ -1573,6 +1573,15 @@ Rails.application.routes.draw do
       # under api/v1/internal/platform above. Gated on platform.status.read.
       # ===================================================================
       namespace :platform do
+        # E8: alert-channel configuration. Three write-only credentials (show
+        # answers configured: true|false and never a value), four plain
+        # settings, and an explicit clear per credential. REST only — no MCP
+        # verb reads or writes any of it. Gated on settings.manage, with
+        # admin.access always granting (require_admin_access).
+        resource :alert_channels, only: %i[show update] do
+          delete "secrets/:secret_key", action: :clear_secret, as: :clear_secret
+        end
+
         resources :component_statuses, only: [ :index, :show ] do
           collection do
             get :rollup
