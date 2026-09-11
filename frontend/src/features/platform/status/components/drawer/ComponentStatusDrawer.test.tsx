@@ -1,3 +1,4 @@
+import { lazy, type ComponentType } from 'react';
 import { screen, within, waitFor, fireEvent, act } from '@testing-library/react';
 import { renderWithProviders } from '@/test-utils';
 import { ComponentStatusDrawer } from './ComponentStatusDrawer';
@@ -494,6 +495,34 @@ describe('ComponentStatusDrawer', () => {
       renderDrawer();
       await screen.findByText('Reachable');
       expect(screen.queryByText('Details')).not.toBeInTheDocument();
+    });
+
+    it('renders a LAZY slot in its own Suspense boundary — only the tab waits, the drawer stays', async () => {
+      // Extensions register lazy panels. The property that matters is WHERE the
+      // suspension lands: a boundary above the drawer would swap the whole
+      // screen for its fallback while one tab's code loads. So the panel is held
+      // pending, and the drawer around it must still be there.
+      let resolvePanel!: (module: { default: ComponentType<unknown> }) => void;
+      featureRegistry.registerComponentSlots({
+        'platform.status.drawer.node_instance': lazy(
+          () =>
+            new Promise<{ default: ComponentType<unknown> }>((resolve) => {
+              resolvePanel = resolve;
+            })
+        ),
+      });
+      renderDrawer();
+      await screen.findByText('Reachable');
+
+      fireEvent.click(screen.getByText('Details'));
+      expect(await screen.findByText('Loading details…')).toBeInTheDocument();
+      expect(screen.getAllByText('Conditions').length).toBeGreaterThan(0);
+
+      await act(async () => {
+        resolvePanel({ default: () => <p>lazy internals</p> });
+      });
+      expect(await screen.findByText('lazy internals')).toBeInTheDocument();
+      expect(screen.queryByText('Loading details…')).not.toBeInTheDocument();
     });
 
     it('picks up a slot registered after the drawer opened', async () => {

@@ -202,7 +202,15 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
                     else: it does not know what this kind's panel needs, and a
                     prop contract invented here would constrain every future
                     kind to the first one that registered. */}
-                <RichPanel {...({ row: detail } as Record<string, unknown>)} />
+                {/* Suspense HERE, not somewhere up the tree: extensions register
+                    lazy panels, and without a boundary of its own a lazy panel
+                    suspends to the nearest one above — the page's, which would
+                    blank the whole status screen while one tab's code loads. */}
+                <React.Suspense
+                  fallback={<p className="text-sm text-theme-secondary">Loading details…</p>}
+                >
+                  <RichPanel {...({ row: detail } as Record<string, unknown>)} />
+                </React.Suspense>
               </TabsContent>
             )}
           </Tabs>
