@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { monitoringApi, MonitoringDashboard } from '@/shared/services/ai/MonitoringApiService';
 import { repositoriesApi } from '@/features/devops/git/services/git/repositoriesApi';
 import { logger } from '@/shared/utils/logger';
+import type { Verdict } from '@/shared/types/platformStatus';
 
 export interface DashboardStats {
   systemHealth: {
-    status: 'healthy' | 'degraded' | 'down';
-    score: number;
+    status: Verdict;
+    score: number | null;
   };
   overview: {
     totalExecutionsToday: number;
@@ -25,7 +26,10 @@ export interface DashboardStats {
 }
 
 const DEFAULT_STATS: DashboardStats = {
-  systemHealth: { status: 'healthy', score: 100 },
+  // NOT MEASURED until the monitoring fetch answers (E7 review M1). The old
+  // default, healthy at 100, is also what a FAILED fetch left on screen, so an
+  // unreachable monitoring endpoint read as "All systems operational".
+  systemHealth: { status: 'not_measured', score: null },
   overview: { totalExecutionsToday: 0, successRate: 0, avgResponseTime: 0, totalCostToday: 0 },
   agents: { total: 0, active: 0, paused: 0, errored: 0 },
   repositories: 0,

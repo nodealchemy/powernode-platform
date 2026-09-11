@@ -1,21 +1,14 @@
 import React from 'react';
-import { Activity, CheckCircle, AlertTriangle, XCircle, Zap, Clock, BarChart3, Bell } from 'lucide-react';
+import { Activity, Zap, Clock, BarChart3, Bell } from 'lucide-react';
 import type { DashboardStats } from '@/shared/hooks/useDashboardStats';
+import { VerdictBadge } from '@/shared/components/ui/VerdictBadge';
 
 interface DashboardAIOverviewProps {
   stats: DashboardStats;
   loading: boolean;
 }
 
-const healthConfig = {
-  healthy: { icon: CheckCircle, color: 'text-theme-success-fg', bg: 'bg-theme-success-bg', label: 'Healthy' },
-  degraded: { icon: AlertTriangle, color: 'text-theme-warning-fg', bg: 'bg-theme-warning-bg', label: 'Degraded' },
-  down: { icon: XCircle, color: 'text-theme-error-fg', bg: 'bg-theme-error-bg', label: 'Down' },
-} as const;
-
 export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats, loading }) => {
-  const health = healthConfig[stats.systemHealth.status] || healthConfig.healthy;
-  const HealthIcon = health.icon;
 
   const quickStats = [
     {
@@ -52,15 +45,22 @@ export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats,
     <div className="card-theme-elevated p-6">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${health.bg}`}>
-            <Activity className={`h-5 w-5 ${health.color}`} />
+          <div className="p-2 rounded-lg">
+            <Activity className="h-5 w-5 text-theme-tertiary" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-theme-primary">AI Platform Status</h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <HealthIcon className={`h-4 w-4 ${health.color}`} />
-              <span className={`text-sm font-medium ${health.color}`}>{health.label}</span>
-              {!loading && (
+              {/* The shared verdict rendering (E7 review M1). This used a
+                  three-entry table and fell back to its HEALTHY entry for
+                  any status it did not know, so a not-measured platform read
+                  as healthy. VerdictBadge has no default branch. */}
+              {loading ? (
+                <span className="text-sm text-theme-tertiary">...</span>
+              ) : (
+                <VerdictBadge verdict={stats.systemHealth.status} size="sm" labelPrefix="AI platform" />
+              )}
+              {!loading && stats.systemHealth.score !== null && (
                 <span className="text-xs text-theme-tertiary ml-1">
                   ({stats.systemHealth.score}% health score)
                 </span>

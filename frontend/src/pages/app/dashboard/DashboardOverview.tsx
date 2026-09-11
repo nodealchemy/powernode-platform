@@ -40,6 +40,8 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { Badge } from '@/shared/components/ui/Badge';
 import { ChartFrame, MeterBar, Sparkline, StatTile } from '@/shared/components/charts';
 import type { ChartTone } from '@/shared/components/charts';
+import { verdictLabel } from '@/shared/components/ui/VerdictBadge';
+import type { Verdict } from '@/shared/types/platformStatus';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { useDashboardStats } from '@/shared/hooks/useDashboardStats';
 import { DashboardAIOverview } from '@/features/ai/monitoring/components/DashboardAIOverview';
@@ -70,6 +72,20 @@ const PATHS = {
 } as const;
 
 const PLACEHOLDER = '—';
+
+// SYSTEM HEALTH BY VERDICT (E7 review M1). A Record over the closed Verdict
+// union, so a seventh verdict is a compile error here rather than a fall
+// through to "healthy". `not_measured` is a warning and never success: a thing
+// we could not see is not a thing that is fine. `held` is operator intent and
+// is never rendered as a failure.
+const HEALTH_TONE: Record<Verdict, { chip: ChipTone; chart: ChartTone }> = {
+  ok: { chip: 'success', chart: 'success' },
+  held: { chip: 'default', chart: 'neutral' },
+  progressing: { chip: 'info', chart: 'info' },
+  not_measured: { chip: 'warning', chart: 'warning' },
+  degraded: { chip: 'warning', chart: 'warning' },
+  down: { chip: 'danger', chart: 'error' },
+};
 
 /** React Query root key used by `autonomyApi` (`AUTONOMY_KEYS.all`). */
 const AUTONOMY_QUERY_ROOT = ['autonomy'];
@@ -427,8 +443,7 @@ export const DashboardOverview: React.FC = () => {
   const hasRecentMissions = missionSeries.some((count) => count > 0);
   const missionsUnavailable = missionsLoading || !!missionsError;
 
-  const healthTone: ChartTone =
-    stats.systemHealth.status === 'healthy' ? 'success' : stats.systemHealth.status === 'degraded' ? 'warning' : 'error';
+  const healthTone: ChartTone = HEALTH_TONE[stats.systemHealth.status].chart;
 
   const quickLinks: QuickLink[] = [
     {
@@ -525,8 +540,8 @@ export const DashboardOverview: React.FC = () => {
           <StatusChip
             icon={Activity}
             label="System health"
-            value={statsLoading ? PLACEHOLDER : `${stats.systemHealth.score}%`}
-            tone={stats.systemHealth.status === 'healthy' ? 'success' : stats.systemHealth.status === 'degraded' ? 'warning' : 'danger'}
+            value={statsLoading || stats.systemHealth.score === null ? PLACEHOLDER : `${stats.systemHealth.score}%`}
+            tone={HEALTH_TONE[stats.systemHealth.status].chip}
             onClick={() => navigate(PATHS.observability)}
           />
           <StatusChip
@@ -552,13 +567,13 @@ export const DashboardOverview: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatTile
             label="System health"
-            value={statsLoading ? PLACEHOLDER : stats.systemHealth.score}
-            unit={statsLoading ? undefined : '%'}
+            value={statsLoading || stats.systemHealth.score === null ? PLACEHOLDER : stats.systemHealth.score}
+            unit={statsLoading || stats.systemHealth.score === null ? undefined : '%'}
             icon={<Activity className="h-4 w-4 text-theme-tertiary" />}
-            sub={statsLoading ? 'Loading…' : stats.systemHealth.status === 'healthy' ? 'All systems operational' : `Status: ${stats.systemHealth.status}`}
+            sub={statsLoading ? 'Loading…' : stats.systemHealth.status === 'ok' ? 'All systems operational' : `Status: ${verdictLabel(stats.systemHealth.status)}`}
             onClick={() => navigate(PATHS.observability)}
           >
-            {!statsLoading && (
+            {!statsLoading && stats.systemHealth.score !== null && (
               <MeterBar
                 value={stats.systemHealth.score}
                 max={100}

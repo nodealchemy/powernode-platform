@@ -1,5 +1,5 @@
 import { BaseApiService } from '@/shared/services/ai/BaseApiService';
-import { type StatusRollup, UNHEALTHY_VERDICTS } from '@/shared/types/platformStatus';
+import { type StatusRollup, type Verdict, UNHEALTHY_VERDICTS, isVerdict } from '@/shared/types/platformStatus';
 
 /**
  * MonitoringApiService - Monitoring Controller API Client
@@ -36,8 +36,11 @@ import { type StatusRollup, UNHEALTHY_VERDICTS } from '@/shared/types/platformSt
 
 export interface MonitoringDashboard {
   system_health: {
-    status: 'healthy' | 'degraded' | 'down';
-    uptime_percentage: number;
+    // The platform verdict itself (E7 review M1), not a three-word summary of
+    // it. `not_measured` means the dashboard had no rollup to read.
+    status: Verdict;
+    // null when there is no rollup: no measurement, not 100%.
+    uptime_percentage: number | null;
     last_incident?: string;
   };
   // Native overview data from backend
@@ -305,14 +308,25 @@ class MonitoringApiService extends BaseApiService {
     const unhealthyCount = rollup
       ? UNHEALTHY_VERDICTS.reduce((sum, verdict) => sum + (rollup.counts_by_verdict[verdict] ?? 0), 0)
       : 0;
-    const uptimePercentage = rollup && rollup.total > 0
-      ? Math.round(((rollup.total - unhealthyCount) / rollup.total) * 100)
-      : 100;
+    //
+    // NO ROLLUP AT ALL is not that vacuous case. It is no measurement, and it
+    // reads null: "100% uptime" there was the same lie as the status below.
+    const uptimePercentage: number | null = !rollup
+      ? null
+      : rollup.total > 0
+        ? Math.round(((rollup.total - unhealthyCount) / rollup.total) * 100)
+        : 100;
 
     return {
       system_health: {
-        status: nativeOverview?.status === 'healthy' ? 'healthy' :
-                nativeOverview?.status === 'degraded' ? 'degraded' : 'healthy',
+        // THE PLATFORM VERDICT, passed through (E7 review M1). This used to
+        // read `nativeOverview?.status` and fall back to 'healthy', and E7b
+        // removed that key, so the main dashboard said "All systems
+        // operational" on every load whatever the fleet was doing. There is
+        // no fallback now: a missing or unrecognised verdict is
+        // `not_measured`, because a thing we could not see is not a thing
+        // that is fine (see platformStatus.ts).
+        status: rollup && isVerdict(rollup.verdict) ? rollup.verdict : 'not_measured',
         uptime_percentage: uptimePercentage
       },
       // Pass native overview for direct use
