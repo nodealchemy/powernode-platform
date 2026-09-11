@@ -8,10 +8,11 @@
 # itself with a 0.5 default on a parse failure, and no result ever reached a
 # trust score or a skill. Three MCP verbs advertised the capability.
 #
-# IRREVERSIBLE BY DECLARATION, and deliberately so. `#down` recreates the table
-# and its indexes so a rollback leaves a loadable schema, but the ROWS are gone
-# — nothing in the platform can reconstruct them and nothing ever read them.
-# Writing a `down` that pretends otherwise would be the worse lie.
+# REVERSIBLE IN STRUCTURE, NOT IN DATA. `#down` recreates the table, its
+# indexes and its foreign keys, so a rollback succeeds and leaves a loadable
+# schema. It deliberately does not raise ActiveRecord::IrreversibleMigration.
+# The ROWS are gone: nothing in the platform can reconstruct them, and nothing
+# ever read them, so a rolled-back table comes back empty.
 class DropAiSelfChallenges < ActiveRecord::Migration[8.1]
   # `if_exists` because the postcondition is "the table is absent", and a
   # deployment where it already is (a fresh install seeded from a schema.rb
