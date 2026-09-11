@@ -47,6 +47,29 @@ RSpec.describe SiteSetting, type: :model do
     end
   end
 
+  # A generic seam: whoever owns a key registers what a valid value is, and
+  # every write through the model is checked (D1b security R1).
+  describe '.register_value_check' do
+    let(:key) { "test.value_check.#{SecureRandom.hex(4)}" }
+
+    before do
+      described_class.register_value_check(key) { |value| 'must start with ok' unless value.to_s.start_with?('ok') }
+    end
+
+    it 'refuses a value its key check rejects, naming the reason, and saves nothing' do
+      setting = build(:site_setting, key: key, value: 'bad', setting_type: 'string')
+      expect(setting).not_to be_valid
+      expect(setting.errors[:value]).to include('must start with ok')
+      expect { described_class.set(key, 'bad') }.to raise_error(ActiveRecord::RecordInvalid, /must start with ok/)
+      expect(described_class.find_by(key: key)).to be_nil
+    end
+
+    it 'accepts a value its key check passes, and leaves every other key alone' do
+      expect(described_class.set(key, 'ok-value')).to be_persisted
+      expect(described_class.set("#{key}.other", 'bad')).to be_persisted
+    end
+  end
+
   describe 'scopes' do
     let!(:public_setting) { create(:site_setting, :public_setting) }
     let!(:private_setting) { create(:site_setting) }

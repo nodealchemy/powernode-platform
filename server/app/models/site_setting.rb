@@ -18,6 +18,7 @@ class SiteSetting < ApplicationRecord
   validates :key, presence: true, uniqueness: { case_sensitive: false }
   validates :setting_type, presence: true, inclusion: { in: %w[string text boolean integer json] }
   validates :value, presence: true, unless: ->(setting) { setting.setting_type == "boolean" || setting.key.in?(BLANK_ALLOWED_KEYS) }
+  validate :value_passes_registered_check
 
   # Callbacks
   after_save :clear_footer_cache_if_needed
@@ -56,6 +57,18 @@ class SiteSetting < ApplicationRecord
       contact_email
       contact_phone
     ]
+  end
+
+  # Per-key value checks, registered by whoever owns the key (an extension
+  # included) and run on every write through this model: SiteSetting.set, the
+  # settings door, a seed. A check returns nil for an acceptable value, else
+  # the reason, which becomes the validation error. Core names no key here.
+  def self.register_value_check(key, &check)
+    value_checks[key.to_s] = check
+  end
+
+  def self.value_checks
+    @value_checks ||= {}
   end
 
   def self.get(key)
@@ -138,6 +151,14 @@ class SiteSetting < ApplicationRecord
   def can_be_blank?
     # Allow these fields to be blank
     key.in?(BLANK_ALLOWED_KEYS)
+  end
+
+  def value_passes_registered_check
+    check = self.class.value_checks[key.to_s]
+    return if check.nil?
+
+    reason = check.call(value)
+    errors.add(:value, reason) if reason.present?
   end
 
   def keep_private_namespace_private
