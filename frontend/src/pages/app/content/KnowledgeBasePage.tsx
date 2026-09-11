@@ -304,14 +304,6 @@ export default function KnowledgeBasePage() {
                     >
                       Manage Knowledge Base
                     </Button>
-                    <Button
-                      onClick={() => navigate('/app/content/kb/admin/analytics')}
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start"
-                    >
-                      View Analytics
-                    </Button>
                   </div>
                 </div>
               )}

@@ -21,11 +21,20 @@ import { join } from 'path';
  *
  * EQUALITY RATCHET, NOT A CARRIED BASELINE: the assertion is `toEqual([])`
  * against the full sorted list, not a count. A newly unreachable link fails
- * immediately by name; there is no threshold to creep past. The two-entry
- * ALLOWED_UNBUILT exception below is not a baseline — it names exactly two
- * still-open product gaps, each with the reason it is not yet a route,
- * discovered while landing this guard. Shrink the list as they are resolved;
- * never grow it silently.
+ * immediately by name; there is no threshold to creep past. ALLOWED_UNBUILT
+ * below is not a baseline — it names live, itemized product gaps, each with
+ * the reason it is not yet a route, discovered while landing this guard.
+ * Shrink it as entries are resolved; never grow it silently.
+ *
+ * EMPTY, and meant to stay that way: its original four entries (three
+ * KnowledgeBaseAdminPage actions plus KnowledgeBasePage's Analytics
+ * shortcut) are resolved — Create Article now points at the real route
+ * (/app/content/kb/articles/new, missing an "admin" segment was the actual
+ * bug), and Manage Categories / Moderate Comments / Analytics were removed:
+ * each had a backend endpoint in knowledgeBaseApi.ts but no frontend surface
+ * anywhere consumed it, so there was nothing built to point the button at.
+ * Re-add an entry only for a newly discovered, named, genuinely-unbuilt
+ * destination — never to make a red run green.
  */
 
 const FRONTEND_SRC = join(__dirname, '..', '..');
@@ -77,18 +86,7 @@ function discoverExtensionRegisterFiles(): string[] {
 // exist yet anywhere in the tree (no route, no in-page tab), discovered
 // while building this guard. Building the destination, or removing the
 // affordance, is a product decision outside a nav-link lint's scope.
-const ALLOWED_UNBUILT: readonly string[] = [
-  // KnowledgeBaseAdminPage's "Create Article" / "Manage Categories" /
-  // "Analytics" page actions, and KnowledgeBasePage's "Analytics" shortcut,
-  // all do a full `window.location.href` navigation (not even a React
-  // Router `navigate()`) to a sub-path with no route and no in-page tab
-  // logic reading it. Needs either the destination pages built, or these
-  // actions converted to something else — a design call, not a link fix.
-  '/app/content/kb/admin/analytics',
-  '/app/content/kb/admin/articles/new',
-  '/app/content/kb/admin/categories',
-  '/app/content/kb/admin/comments',
-];
+const ALLOWED_UNBUILT: readonly string[] = [];
 
 function walkSourceFiles(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
