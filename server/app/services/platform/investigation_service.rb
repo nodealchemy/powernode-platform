@@ -338,9 +338,31 @@ module Platform
                                .count >= self.class.daily_cap
     end
 
+    # WHOSE INVESTIGATION IS THIS (A9 review S1).
+    #
+    # An ACCOUNT-SCOPED component's investigation always belongs to that
+    # component's account — never re-homed, even if a caller passes a
+    # different account, so no door can file one tenant's investigation under
+    # another's id.
+    #
+    # A SHARED (NULL-account) component has no tenant, so the investigation
+    # belongs to whoever OPENED it. This previously wrote the component's nil,
+    # which put every operator-opened investigation of a shared component into
+    # one bucket all tenants share: the daily cap (counted by `account_id`)
+    # was charged to that shared bucket, bypassing the caller's own cap; every
+    # tenant listed every other tenant's investigation; and the
+    # open-fingerprint rule, keyed on the same nil, let one tenant's open row
+    # refuse every other tenant with AlreadyOpen indefinitely.
+    #
+    # With no opener (`@account` nil — the automatic trigger on a shared
+    # component), it stays shared: there is no tenant to charge or to own it.
+    def owning_account_id(component_status)
+      component_status.account_id || @account&.id
+    end
+
     def build(component_status, trigger:, now:)
       ::Platform::Investigation.new(
-        account_id: component_status.account_id,
+        account_id: owning_account_id(component_status),
         component_kind: component_status.component_kind,
         component_ref: component_status.component_ref,
         trigger: trigger.to_s,

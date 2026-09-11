@@ -66,8 +66,16 @@ module Api
 
         # POST /api/v1/platform/component_statuses/:component_status_id/investigations
         def create
+          # THE CALLER'S ACCOUNT, NOT THE COMPONENT'S (A9 review S1). For a
+          # SHARED component `@component_status.account` is nil, which filed the
+          # investigation in a bucket every tenant shares — jointly capped,
+          # visible to every tenant, and able to refuse them all with
+          # AlreadyOpen. A user is known here, so the investigation is theirs;
+          # the service keeps an account-scoped component's investigation on
+          # that component's own account regardless. The automatic triggers
+          # have no user and correctly keep the component's account.
           result = ::Platform::InvestigationService
-                   .new(account: @component_status.account)
+                   .new(account: current_user.account)
                    .open!(@component_status, trigger: ::Platform::Investigation::TRIGGER_OPERATOR)
 
           if result[:refused]
@@ -99,6 +107,11 @@ module Api
         # component everywhere else: by (kind, ref) rather than by row id, so a
         # component that was reaped and re-created still shows its own history.
         # Account-scoped the same way the row is, shared rows included.
+        # Unchanged in shape and now correct in effect: after S1 an operator-
+        # opened investigation of a shared component carries the OPENER's
+        # account, so `[current, nil]` shows a tenant its own investigations
+        # plus the genuinely shared ones an automatic trigger opened — and no
+        # longer another tenant's.
         def investigations_scope
           ::Platform::Investigation
             .where(account_id: [ current_user.account.id, nil ])

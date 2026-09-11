@@ -219,4 +219,71 @@ RSpec.describe "Api::V1::Platform component status investigations", type: :reque
         .to eq("ai.autonomy.manage")
     end
   end
+
+  # A9 review S1 — a SHARED component's investigation belongs to whoever opened
+  # it. It used to be filed under the component's nil account: one bucket every
+  # tenant shared, jointly capped, visible to all, and able to refuse them all.
+  describe "investigating a SHARED component" do
+    let(:account_b) { create(:account) }
+    let(:operator_b) do
+      create(:user, account: account_b, permissions: [ "platform.status.read", "ai.autonomy.manage" ])
+    end
+    let(:shared) do
+      create(:platform_component_status, :shared, component_kind: "provider_circuit_breaker",
+                                                   component_ref: "breaker-1",
+                                                   verdict: ::Platform::ComponentStatus::DEGRADED,
+                                                   conditions: [ { "type" => "Closed", "status" => false,
+                                                                   "reason" => "BreakerOpen",
+                                                                   "severity" => "degraded" } ])
+    end
+
+    it "files the investigation under the caller's account, not nil" do
+      open_one(id: shared.id)
+
+      expect(response).to have_http_status(:created)
+      expect(::Platform::Investigation.find(body["data"]["investigation"]["id"]).account_id).to eq(account.id)
+    end
+
+    it "does not show one tenant's investigation to another" do
+      open_one(id: shared.id)
+
+      list(user: operator_b, id: shared.id)
+
+      expect(body["data"]["open"]).to eq([])
+    end
+
+    # The sharpest edge: one tenant's open row used to refuse every other
+    # tenant with AlreadyOpen, indefinitely.
+    it "lets another tenant open its own investigation of the same component" do
+      open_one(id: shared.id)
+
+      open_one(user: operator_b, id: shared.id)
+
+      expect(response).to have_http_status(:created)
+      expect(::Platform::Investigation.where(component_ref: "breaker-1").pluck(:account_id))
+        .to contain_exactly(account.id, account_b.id)
+    end
+
+    # The spend cap is counted against the CALLER's own account. It used to be
+    # charged to the shared nil bucket, which bypassed the caller's cap
+    # entirely.
+    it "charges the caller's own daily cap" do
+      allow(::Platform::InvestigationService).to receive(:daily_cap).and_return(1)
+      open_one(id: shared.id)
+
+      open_one(id: component.id)
+
+      expect(response).to have_http_status(:conflict)
+      expect(body["details"]["refused"]).to eq(::Platform::InvestigationService::REFUSED_DAILY_CAP)
+    end
+
+    it "does not charge another tenant's cap — the other arm" do
+      allow(::Platform::InvestigationService).to receive(:daily_cap).and_return(1)
+      open_one(id: shared.id)
+
+      open_one(user: operator_b, id: shared.id)
+
+      expect(response).to have_http_status(:created)
+    end
+  end
 end

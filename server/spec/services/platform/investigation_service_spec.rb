@@ -275,6 +275,36 @@ RSpec.describe Platform::InvestigationService do
     end
   end
 
+  # A9 review S1 — whose investigation this is.
+  describe "ownership" do
+    let(:shared_component) do
+      create(:platform_component_status, :shared, component_kind: "provider_circuit_breaker",
+                                                   component_ref: "breaker-9")
+    end
+
+    it "files a shared component's investigation under the opener's account" do
+      result = described_class.new(account: account).open!(shared_component, trigger: "operator")
+
+      expect(result[:investigation].account_id).to eq(account.id)
+    end
+
+    it "keeps it shared when there is no opener — the automatic trigger" do
+      result = described_class.new(account: nil).open!(shared_component, trigger: "down")
+
+      expect(result[:investigation].account_id).to be_nil
+    end
+
+    # An account-scoped component is never re-homed, whatever a caller passes:
+    # no door can file one tenant's investigation under another's id.
+    it "never re-homes an account-scoped component's investigation" do
+      stranger = create(:account)
+
+      result = described_class.new(account: stranger).open!(component, trigger: "operator")
+
+      expect(result[:investigation].account_id).to eq(account.id)
+    end
+  end
+
   describe "#conclude!" do
     let(:investigation) { service.open!(component, trigger: "operator")[:investigation] }
 
