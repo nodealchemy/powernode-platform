@@ -167,6 +167,23 @@ RSpec.describe "BaseTool human_only actions (MCP identity plan R2)" do
       expect(operation.reload.result).to include("refused" => true, "reason" => "human_confirmation_missing")
     end
 
+    # The replay reads its PROOF off the decision row (MCP identity plan D1, guard c):
+    # an approving decision that does not record a person's own session is no
+    # confirmation, whoever made it and however the row got there.
+    it "runs nothing when the approving decision row does not record a person's own session" do
+      [ "mcp_oauth", Ai::ApprovalDecision::REST_OTHER, nil ].each do |recorded|
+        operation = park!(tool_for(origin: "mcp_oauth", user: requester))
+        request = operation.approval_request
+        request.decisions.create!(approver: confirmer, step_number: 0, decision: "approved", origin: recorded)
+
+        request.approve!
+
+        expect(operation.reload.result).to include("refused" => true, "reason" => "human_confirmation_missing"),
+                                           "a decision recorded as #{recorded.inspect} confirmed it"
+      end
+      expect(sightings).to be_empty
+    end
+
     it "refuses an approved replay built for anyone but the confirming person, without parking again" do
       operation = park!(tool_for(origin: "mcp_oauth", user: requester))
       workflow.approve(request: operation.approval_request, approver: confirmer,

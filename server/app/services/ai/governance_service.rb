@@ -84,16 +84,22 @@ module Ai
       { success: true, request: request }
     end
 
-    def process_approval_decision(request:, user:, decision:, comments: nil, conditions: {})
+    # `origin` is the door the decision came through (Ai::ApprovalDecision
+    # ORIGINS); the decision row records it, and a request that needs a
+    # person's own session refuses any other.
+    def process_approval_decision(request:, user:, decision:, comments: nil, conditions: {}, origin: nil, agent: nil)
       return { success: false, error: "Cannot approve" } unless request.can_approve?(user)
 
       # The decision's own answer: false when a racing decision by the same
-      # approver on this step got there first (the unique index).
+      # approver on this step got there first (the unique index), or when the
+      # door may not decide this request.
       recorded = request.record_decision!(
         approver: user,
         decision: decision,
         comments: comments,
-        conditions: conditions
+        conditions: conditions,
+        origin: origin,
+        agent: agent
       )
       return { success: false, error: "Cannot approve" } unless recorded
 

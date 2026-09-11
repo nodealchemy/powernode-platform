@@ -83,9 +83,15 @@ module Ai
     #                        require_approval, and a block stays a block. The
     #                        request it opens carries the flag that the
     #                        decision doors and the replay read.
+    # @param call_origin     [String, nil] the tool door the call came through
+    #                        (Ai::Tools::CallOrigin). The request it opens is
+    #                        marked with it, so its requester never decides it
+    #                        through a tool door (MCP identity plan D1, guard a).
+    #                        nil for a call from a person's own session.
     def evaluate(action_category:, executor_class:, params: {}, agent: nil,
                  requested_by: nil, source_type: nil, source_id: nil, description: nil,
-                 environment: nil, requires_human_session: false)
+                 environment: nil, requires_human_session: false, call_origin: nil)
+      call_origin = ::Ai::Tools::CallOrigin.validate!(call_origin)
       resolved_environment = ::Ai::EnvironmentResolution.resolve(
         account: @account, params: params, environment: environment
       )
@@ -116,7 +122,8 @@ module Ai
         require_approval_or_proceed(deferred, policy_match[:record], action_category,
                                     escalation: policy_match[:environment_escalation],
                                     blast_radius: policy_match[:blast_radius],
-                                    requires_human_session: requires_human_session)
+                                    requires_human_session: requires_human_session,
+                                    call_origin: call_origin)
       when "block", "silent"
         deferred.update!(status: "rejected", error_message: "Blocked by policy")
         Result.new(decision: :blocked, deferred_operation: deferred,
@@ -127,7 +134,8 @@ module Ai
         require_approval_or_proceed(deferred, policy_match[:record], action_category,
                                     escalation: policy_match[:environment_escalation],
                                     blast_radius: policy_match[:blast_radius],
-                                    requires_human_session: requires_human_session)
+                                    requires_human_session: requires_human_session,
+                                    call_origin: call_origin)
       end
     rescue StandardError => e
       Rails.logger.error("[AutonomyGate] evaluate(#{action_category}) failed: #{e.class}: #{e.message}")
@@ -168,10 +176,10 @@ module Ai
     # `sdwan/networks destroy`, and every other AutonomyGate-protected
     # request spec running without business loaded.
     def require_approval_or_proceed(deferred, policy_record, action_category, escalation: nil, blast_radius: nil,
-                                    requires_human_session: false)
+                                    requires_human_session: false, call_origin: nil)
       if defined?(::Ai::ApprovalChain)
         request = create_approval_request!(deferred, policy_record, escalation: escalation, blast_radius: blast_radius,
-                                           requires_human_session: requires_human_session)
+                                           requires_human_session: requires_human_session, call_origin: call_origin)
         deferred.update!(approval_request: request)
         Result.new(decision: :pending, deferred_operation: deferred)
       elsif requires_human_session
@@ -190,7 +198,8 @@ module Ai
       end
     end
 
-    def create_approval_request!(deferred, policy_record, escalation: nil, blast_radius: nil, requires_human_session: false)
+    def create_approval_request!(deferred, policy_record, escalation: nil, blast_radius: nil, requires_human_session: false,
+                                 call_origin: nil)
       chain = resolve_chain(deferred, policy_record)
       environment = deferred.environment
       chain.create_request!(
@@ -220,8 +229,9 @@ module Ai
           source_type: deferred.source_type,
           source_id: deferred.source_id
           # Only when set, so every other request keeps its exact shape. Read by
-          # Ai::ApprovalRequest#requires_human_session?.
-        }.merge(requires_human_session ? { requires_human_session: true } : {}),
+          # Ai::ApprovalRequest#requires_human_session? and #tool_door_request?.
+        }.merge(requires_human_session ? { requires_human_session: true } : {})
+         .merge(call_origin ? { call_origin: call_origin } : {}),
         requested_by: deferred.requested_by
       )
     end

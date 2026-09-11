@@ -25,6 +25,9 @@ module Ai
     # Validations
     validates :step_number, presence: true, numericality: { greater_than_or_equal_to: 0 }
     validates :decision, presence: true, inclusion: { in: %w[approved rejected delegated abstained] }
+    # Every decision records its door (guard c). nil only for a caller that
+    # names none, which a requires_human_session request refuses.
+    validates :origin, inclusion: { in: ORIGINS }, allow_nil: true
 
     # Scopes
     scope :approved, -> { where(decision: "approved") }

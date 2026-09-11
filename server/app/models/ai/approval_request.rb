@@ -82,26 +82,54 @@ module Ai
       step_statuses[current_step] if step_statuses.present?
     end
 
-    # Parked for a person's own session (MCP identity plan R2). Ai::AutonomyGate
-    # writes the flag when it parks a human-only tool action. Such a request is
-    # decided only from Ai::ApprovalDecision::REST_SESSION (#record_decision!),
-    # and its replay runs as #confirming_approver
-    # (Ai::Executors::DeferredToolCall).
+    # Decided only by a person in their own session: from
+    # Ai::ApprovalDecision::REST_SESSION (#record_decision!), and never through
+    # a tool door. A human-only tool action (MCP identity plan R2: the flag
+    # Ai::AutonomyGate writes; its replay runs as #confirming_approver), or a
+    # request the operator's policy marks (guard b:
+    # Ai::Approvals::HumanSessionPolicy).
     def requires_human_session?
-      data = request_data
-      return false unless data.is_a?(Hash)
-
-      (data["requires_human_session"] || data[:requires_human_session]) == true
+      ::Ai::Approvals::HumanSessionPolicy.required?(self)
     end
 
-    # The person whose approval completed this request: the last approving
-    # decision on the LAST step. nil until the request is approved, and nil for
-    # an approval no person made on that step (a chain's timeout_action).
+    # Came through a TOOL door (MCP identity plan D1, guard a): the gate marked
+    # the door it parked from (request_data call_origin), or a row written
+    # before that mark names the agent that asked for it.
+    def tool_door_request?
+      data = request_data.is_a?(Hash) ? request_data.with_indifferent_access : {}
+      data[:call_origin].present? || data[:agent_id].present?
+    end
+
+    # Whether the principal that asked for a tool-door request is the one
+    # deciding it, through a door the user's ruling on guard (a) closes to it:
+    # the requesting agent, whichever user it carries, through any door; the
+    # requested_by user through any door but their own session (REST_SESSION),
+    # so a single-user install still decides its own requests. A request parked
+    # from a person's own session keeps today's rule and is never excluded.
+    def requester_excluded?(approver:, origin:, agent: nil)
+      return false unless tool_door_request?
+
+      requesting_agent_id = request_data.with_indifferent_access[:agent_id]
+      return true if agent && requesting_agent_id.present? && agent.id.to_s == requesting_agent_id.to_s
+      return false unless approver && requested_by_id.present? && approver.id == requested_by_id
+
+      !::Ai::ApprovalDecision.human_session_origin?(origin)
+    end
+
+    # The person whose OWN-SESSION approval completed this request: the last
+    # approving decision on the LAST step, when that decision row records
+    # Ai::ApprovalDecision::REST_SESSION. The proof is read off the row, never
+    # inferred: a missing origin is no person. nil until the request is
+    # approved, for an approval no person made on that step (a chain's
+    # timeout_action), and for one recorded from any other door.
     def confirming_approver
       return nil unless approved?
 
       last_step = [ step_statuses.to_a.length - 1, 0 ].max
-      decisions.approved.where(step_number: last_step).order(:created_at, :id).last&.approver
+      decision = decisions.approved.where(step_number: last_step).order(:created_at, :id).last
+      return nil unless decision && ::Ai::ApprovalDecision.human_session_origin?(decision.origin)
+
+      decision.approver
     end
 
     # Typed approver specs supported:
@@ -127,11 +155,14 @@ module Ai
     end
 
     # `origin` names the door the decision came through (Ai::ApprovalDecision
-    # ORIGINS). A requires_human_session request accepts a decision only from a
-    # person's own session. Every other door, and a caller that names none, is
-    # refused (fail closed).
-    def record_decision!(approver:, decision:, comments: nil, conditions: {}, origin: nil)
+    # ORIGINS), and the decision row records it. A requires_human_session
+    # request accepts a decision only from a person's own session. Every other
+    # door, and a caller that names none, is refused (fail closed). `agent` is
+    # the agent a tool door carries: the principal that asked for a tool-door
+    # request does not decide it (#requester_excluded?).
+    def record_decision!(approver:, decision:, comments: nil, conditions: {}, origin: nil, agent: nil)
       return false unless human_session_satisfied?(origin)
+      return false if requester_excluded?(approver: approver, origin: origin, agent: agent)
       return false unless can_approve?(approver)
 
       # THE REQUEST ROW IS LOCKED FOR THE WHOLE DECISION. Without it two
@@ -144,7 +175,7 @@ module Ai
         next false unless can_approve?(approver)
 
         step_before = current_step
-        next false unless insert_decision(approver, decision, comments, conditions)
+        next false unless insert_decision(approver, decision, comments, conditions, origin)
 
         recorded = process_decision(decision)
         # A decision that neither advanced the step nor resolved the request
@@ -371,14 +402,15 @@ module Ai
     # half of the guard and the lock's backstop. A violation gets the check's
     # answer, not a 500. A savepoint, so the enclosing transaction survives the
     # refused insert.
-    def insert_decision(approver, decision, comments, conditions)
+    def insert_decision(approver, decision, comments, conditions, origin)
       self.class.transaction(requires_new: true) do
         decisions.create!(
           approver: approver,
           step_number: current_step,
           decision: decision,
           comments: comments,
-          conditions: conditions
+          conditions: conditions,
+          origin: origin
         )
       end
       true

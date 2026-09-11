@@ -4,6 +4,7 @@ module Ai
   module Missions
     module LifecycleActions
       extend ActiveSupport::Concern
+      include ::HumanSession
 
       # POST /api/v1/ai/missions/:id/start
       def start
@@ -105,6 +106,7 @@ module Ai
           gate: gate,
           user: current_user,
           decision: decision,
+          origin: human_decision_origin,
           comment: params[:comment],
           selected_feature: decision == "approved" ? params[:selected_feature] : nil,
           prd_modifications: decision == "approved" ? params[:prd_modifications] : nil

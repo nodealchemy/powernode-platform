@@ -31,4 +31,10 @@ module HumanSession
 
     payload.dig(:delegation_id).blank?
   end
+
+  # The door a decision made here came through (Ai::ApprovalDecision ORIGINS):
+  # a person's own session, or any other REST session.
+  def human_decision_origin
+    own_human_session? ? ::Ai::ApprovalDecision::REST_SESSION : ::Ai::ApprovalDecision::REST_OTHER
+  end
 end

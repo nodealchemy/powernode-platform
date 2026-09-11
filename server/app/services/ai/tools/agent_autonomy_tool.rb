@@ -973,9 +973,11 @@ module Ai
         request = resolve_approval_request(params[:deferred_operation_id])
         return { success: false, error: "ApprovalRequest not found" } unless request
         return human_session_refusal(request, "approve") if request.requires_human_session?
+        return requester_refusal(request, "approve") if request.requester_excluded?(approver: user, origin: call_origin,
+                                                                                    agent: agent)
 
         result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).approve(
-          request: request, approver: user, comments: params[:comments], origin: call_origin
+          request: request, approver: user, comments: params[:comments], origin: call_origin, agent: agent
         )
         # A refused decision is a failed call, not a success carrying
         # workflow: false: the same approver's second decision on a step, a
@@ -1005,9 +1007,11 @@ module Ai
         request = resolve_approval_request(params[:deferred_operation_id])
         return { success: false, error: "ApprovalRequest not found" } unless request
         return human_session_refusal(request, "reject") if request.requires_human_session?
+        return requester_refusal(request, "reject") if request.requester_excluded?(approver: user, origin: call_origin,
+                                                                                  agent: agent)
 
         result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).reject(
-          request: request, approver: user, comments: params[:comments], origin: call_origin
+          request: request, approver: user, comments: params[:comments], origin: call_origin, agent: agent
         )
         return { success: false, error: "Cannot reject this request" } unless result
 
@@ -1036,6 +1040,15 @@ module Ai
         { success: false, requires_human_session: true, approval_request_id: request.id,
           error: "Cannot #{verb} this request here: it needs a person to decide it in their own session. " \
                  "Open the approval queue on the Autonomy dashboard in the platform UI." }
+      end
+
+      # The principal that asked for a tool-door request never decides it
+      # through a tool (MCP identity plan D1, guard a). Someone else decides it,
+      # or the person who asked, in their own session.
+      def requester_refusal(request, verb)
+        { success: false, approval_request_id: request.id,
+          error: "Cannot #{verb} this request here: you asked for it, so someone else decides it, or you do in " \
+                 "your own session, in the approval queue on the Autonomy dashboard in the platform UI." }
       end
     end
   end

@@ -37,7 +37,7 @@ module Ai
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
       if service.approve(request: request, approver: current_user, comments: params[:comments],
-                         origin: decision_origin)
+                         origin: human_decision_origin)
         payload = ::Ai::SensitiveParams.batch { serialize_approval_request(request.reload, detailed: true) }
         render_success(data: with_revealed_result(request, payload))
       else
@@ -56,7 +56,7 @@ module Ai
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
       if service.reject(request: request, approver: current_user, comments: params[:comments],
-                        origin: decision_origin)
+                        origin: human_decision_origin)
         render_success(
           data: ::Ai::SensitiveParams.batch { serialize_approval_request(request.reload, detailed: true) }
         )
@@ -69,20 +69,22 @@ module Ai
 
     private
 
-    # MCP identity plan R2: a request parked for a person's own session is
-    # decided only from one. An impersonation, account-switch or service
+    # MCP identity plan R2 and D1: a request that needs a person's own session
+    # (Ai::ApprovalRequest#requires_human_session?), and a tool-door request
+    # decided by the person who asked for it (guard a), are decided only from
+    # that person's own session. An impersonation, account-switch or service
     # session is refused by name.
     def human_session_refusal(request, verb)
-      return nil unless request.requires_human_session?
       return nil if own_human_session?
 
-      "Cannot #{verb} this request from this session: it needs a person deciding it in their own session, " \
-        "not an impersonation, account-switch or service session."
-    end
+      if request.requires_human_session?
+        return "Cannot #{verb} this request from this session: it needs a person deciding it in their own session, " \
+               "not an impersonation, account-switch or service session."
+      end
+      return nil unless request.requester_excluded?(approver: current_user, origin: human_decision_origin)
 
-    # The door this decision came through (Ai::ApprovalDecision ORIGINS).
-    def decision_origin
-      own_human_session? ? ::Ai::ApprovalDecision::REST_SESSION : ::Ai::ApprovalDecision::REST_OTHER
+      "Cannot #{verb} this request from this session: you asked for it through a tool, so you decide it only " \
+        "in your own session, not an impersonation, account-switch or service session."
     end
 
     def require_approval_permission
@@ -158,7 +160,7 @@ module Ai
       {
         id: decision.id, approver_id: decision.approver_id,
         step_number: decision.step_number, decision: decision.decision,
-        comments: decision.comments, created_at: decision.created_at
+        comments: decision.comments, origin: decision.origin, created_at: decision.created_at
       }
     end
 

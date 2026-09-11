@@ -158,9 +158,11 @@ export interface ApprovalRequest {
    */
   current_step_can_approve?: boolean;
   /**
-   * An agent or MCP client asked for a human-only action: only a person, in
-   * their own session, can decide it, and it then runs as that person. On the
-   * list AND the detail read.
+   * Only a person, in their own session, can decide this request; no agent or
+   * MCP client can. Set for a human-only action a tool call parked (it then
+   * runs as the person who approves it) and for a category the operator marks
+   * (by default a protected environment, a destructive action, spend and
+   * campaign lifecycle). On the list AND the detail read.
    */
   requires_human_session?: boolean;
   // Detail read only (GET /ai/autonomy/approvals/:id). There is no

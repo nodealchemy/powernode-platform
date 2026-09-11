@@ -230,8 +230,8 @@ const ApprovalCard: React.FC<{
             <div data-human-session-note>
               <p className="text-xs text-theme-tertiary mb-1">Needs a person</p>
               <p className="text-sm text-theme-secondary">
-                An agent or MCP client asked for this. It runs only after a person approves it here, in
-                their own session, and then as the person who approves it.
+                Only a person can decide this, here, in their own session. An agent or MCP client cannot
+                approve or reject it.
               </p>
             </div>
           )}

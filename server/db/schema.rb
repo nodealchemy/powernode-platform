@@ -967,6 +967,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_180713) do
     t.jsonb "conditions", default: {}
     t.datetime "created_at", null: false
     t.string "decision", null: false
+    t.string "origin"
     t.integer "step_number", null: false
     t.datetime "updated_at", null: false
     t.index ["approval_request_id", "step_number", "approver_id"], name: "idx_ai_approval_decisions_one_per_approver_per_step", unique: true

@@ -8,6 +8,8 @@ module Api
         # IMP-550e44e24220 — shared approval-payload core, also included by
         # Ai::AutonomyApprovalActions so both read surfaces cannot drift.
         include ::Ai::ApprovalRequestSerialization
+        # The door a decision here came through (MCP identity plan D1, guard c).
+        include ::HumanSession
         # Authorization on the dedicated ai.governance.* family: reads gate on
         # `ai.governance.read`, writes on `ai.governance.manage` (both catalog-
         # defined). Decoupled from the coarse `ai.manage` gate so AI-operator
@@ -197,7 +199,8 @@ module Api
             user: current_user,
             decision: params[:decision],
             comments: params[:comments],
-            conditions: params[:conditions] || {}
+            conditions: params[:conditions] || {},
+            origin: human_decision_origin
           )
 
           if result[:success]
@@ -427,6 +430,7 @@ module Api
             decision: decision.decision,
             comments: decision.comments,
             conditions: decision.conditions,
+            origin: decision.origin,
             created_at: decision.created_at,
             approver: {
               id: decision.approver_id,

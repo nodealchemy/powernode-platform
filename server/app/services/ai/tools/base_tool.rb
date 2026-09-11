@@ -920,8 +920,10 @@ module Ai
           source_id: context[:source_id],
           description: context[:description],
           # Splatted only when set, so every other call reaches the gate
-          # exactly as before.
-          **(requires_human_session ? { requires_human_session: true } : {})
+          # exactly as before. The call_origin marks the request with the tool
+          # door it came through (MCP identity plan D1, guard a).
+          **(requires_human_session ? { requires_human_session: true } : {}),
+          **(call_origin ? { call_origin: call_origin } : {})
         )
 
         case gate.decision

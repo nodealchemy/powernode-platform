@@ -761,7 +761,9 @@ module Ai
         orchestrator_for(mission).handle_approval!(
           gate: "plan_review",
           user: user,
-          decision: "approved"
+          decision: "approved",
+          origin: call_origin,
+          agent: agent
         )
       end
 
@@ -772,7 +774,9 @@ module Ai
         orchestrator_for(mission).handle_approval!(
           gate: "plan_review",
           user: user,
-          decision: "rejected"
+          decision: "rejected",
+          origin: call_origin,
+          agent: agent
         )
       end
 

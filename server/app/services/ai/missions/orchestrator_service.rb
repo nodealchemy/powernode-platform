@@ -73,7 +73,10 @@ module Ai
         mission
       end
 
-      def handle_approval!(gate:, user:, decision:, comment: nil, selected_feature: nil, prd_modifications: nil)
+      # `origin` and `agent` name the door the decision came through; a
+      # gateway-routed gate records them on its decision (Ai::Approvals::Gateway#resolve!).
+      def handle_approval!(gate:, user:, decision:, comment: nil, selected_feature: nil, prd_modifications: nil,
+                           origin: nil, agent: nil)
         # Translation is idempotent — if `gate` is already a valid gate
         # name (e.g. caller already translated), passing it through the
         # canonical mapping returns it unchanged.
@@ -107,7 +110,8 @@ module Ai
             return mission if same_user_already_approved?(req, user)
 
             Ai::Approvals::Gateway.new(account: account)
-                                  .resolve!(request: req, decision: "approved", by: user, comments: comment)
+                                  .resolve!(request: req, decision: "approved", by: user, comments: comment,
+                                            origin: origin, agent: agent)
             return mission
           end
 
@@ -134,7 +138,8 @@ module Ai
           # routing is off (default).
           if (req = gateway_request_for(gate_name))
             Ai::Approvals::Gateway.new(account: account)
-                                  .resolve!(request: req, decision: "rejected", by: user, comments: comment)
+                                  .resolve!(request: req, decision: "rejected", by: user, comments: comment,
+                                            origin: origin, agent: agent)
             return mission
           end
 

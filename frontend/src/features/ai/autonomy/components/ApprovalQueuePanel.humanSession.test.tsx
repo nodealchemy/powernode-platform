@@ -101,14 +101,14 @@ describe('ApprovalQueuePanel human-only requests', () => {
     expect(screen.getByText('Roll a module back')).toBeInTheDocument();
   });
 
-  it('explains, once expanded, that it runs only after a person approves it here, and as them', async () => {
+  it('explains, once expanded, that only a person decides it, here, in their own session', async () => {
     const user = userEvent.setup();
     renderPanel();
 
     await user.click(await screen.findByText('campaign.resume'));
 
     expect(
-      await screen.findByText(/runs only after a person approves it here, in\s+their own session/)
+      await screen.findByText(/Only a person can decide this, here, in their own session\. An agent or MCP client cannot\s+approve or reject it\./)
     ).toBeInTheDocument();
   });
 });

@@ -75,12 +75,17 @@ module Ai
       # Resolve an open gate. Routes through the chain workflow so the multi-step
       # machinery runs and the approvable's #on_approval_decision is cascaded.
       # @param decision [String, Symbol] "approved" | "rejected"
+      # @param origin [String, nil] the door the decision came through
+      #   (Ai::ApprovalDecision ORIGINS); the decision row records it
+      # @param agent [Ai::Agent, nil] the agent a tool door carries
       # @return [Boolean] whether the decision was recorded
-      def resolve!(request:, decision:, by:, comments: nil)
+      def resolve!(request:, decision:, by:, comments: nil, origin: nil, agent: nil)
         service = Ai::Autonomy::ApprovalWorkflowService.new(account: @account)
         case decision.to_s
-        when "approved" then service.approve(request: request, approver: by, comments: comments)
-        when "rejected" then service.reject(request: request, approver: by, comments: comments)
+        when "approved"
+          service.approve(request: request, approver: by, comments: comments, origin: origin, agent: agent)
+        when "rejected"
+          service.reject(request: request, approver: by, comments: comments, origin: origin, agent: agent)
         else raise ArgumentError, "decision must be approved|rejected, got #{decision.inspect}"
         end
       end
