@@ -236,7 +236,7 @@ RSpec.describe "Api::V1::Ai::Campaigns", type: :request do
              as_headers: { "Authorization" => "Bearer #{Security::JwtService.encode(payload)}",
                            "Content-Type" => "application/json" })
       expect(response).to have_http_status(:forbidden)
-      expect(json_response["error"]).to include("a user's own session")
+      expect(json_response["error"]).to include("refused during an impersonation session")
       expect(campaign.reload.status).to eq("completed")
       expect(resume_decisions(campaign)).to be_empty
     end

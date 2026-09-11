@@ -87,7 +87,14 @@ module Api
         # has no user, and an impersonation session is an administrator acting as the user
         # it names, so the decision row would name the wrong person.
         def require_human_session
-          return if current_user && current_worker.nil? && !impersonating? && current_jwt_payload&.dig(:type) == "access"
+          if impersonating?
+            return render_error(
+              "Resuming a campaign is refused during an impersonation session: it is an operator safety " \
+              "action, so the real person acts as themselves and the decision names them",
+              status: :forbidden
+            )
+          end
+          return if current_user && current_worker.nil? && current_jwt_payload&.dig(:type) == "access"
 
           render_error("Resuming a campaign requires a user's own session", status: :forbidden)
         end

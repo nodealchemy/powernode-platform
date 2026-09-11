@@ -32,6 +32,10 @@ module Ai
       # and "created" exists only inside #start's own transaction.
       RESUMABLE_STATUSES = %w[completed paused].freeze
 
+      # The permission #resume demands of its acting user, checked HERE so every door onto
+      # a resume (the MCP verb, the REST action, any later caller) inherits it.
+      RESUME_PERMISSION = "ai.campaigns.manage"
+
       # The type each stop condition #resume may set must hold. A value is only ever
       # replaced by a valid value of its type: a null reads as "no such stop" in
       # Campaign#tripped_stop_condition, so accepting one would DELETE the stop, and a
@@ -195,6 +199,7 @@ module Ai
       # A refusal raises ArgumentError naming its reason and rolls the merge back.
       def resume(campaign, reason:, stop_conditions: {})
         refuse_without_acting_user!
+        refuse_unless_permitted!
         raise ArgumentError, "reason is required" if reason.blank?
         changes = validated_stop_conditions!(stop_conditions)
 
@@ -562,6 +567,14 @@ module Ai
         return if @user
 
         raise ArgumentError, "campaign_resume refused: a resume must name the acting user, and this call has none"
+      end
+
+      # A door-only permission check is how a future caller skips it, so the service
+      # asks the acting user itself.
+      def refuse_unless_permitted!
+        return if @user.has_permission?(RESUME_PERMISSION)
+
+        raise ArgumentError, "campaign_resume refused: user #{@user.id} does not hold '#{RESUME_PERMISSION}'"
       end
 
       def validated_stop_conditions!(conditions)
