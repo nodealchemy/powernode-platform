@@ -48,11 +48,10 @@ RSpec.describe "Api::V1::Internal::Ai::ImprovementDiscovery", type: :request do
 
   def body = JSON.parse(response.body)["data"]
 
-  def units = Ai::Improvement::DiscoveryRunService.units
+  # The walk the calling worker sees: its own account only. Cross-account
+  # confinement is pinned in internal_seam_worker_tenancy_spec.
+  def units = Ai::Improvement::DiscoveryRunService.units(Account.where(id: account.id))
 
-  # Other factories create accounts of their own, and the walk covers every
-  # active account. So each example runs THIS account's unit, found by its
-  # position in the walk.
   def run_mine!
     run_at!(units.index(account.id))
   end
@@ -135,32 +134,27 @@ RSpec.describe "Api::V1::Internal::Ai::ImprovementDiscovery", type: :request do
     expect(my_audit_rows.last.metadata).to include("status" => "skipped", "skipped_reason" => "ai_suspended")
   end
 
-  # D1 review M1 and L4. PLANT AND GREP: another tenant's repository name, its
-  # account id, and the text of an exception its run raises must reach no
-  # response. The failure is recorded in that tenant's audit row by CLASS.
-  it "answers aggregate counts only, for every unit, and records a failure by class" do
-    other = create(:account)
-    create(:git_repository, account: other, name: "acme-secret-repo")
+  # D1 review M1 and L4. PLANT AND GREP: a repository name, the account id,
+  # and the text of an exception the run raises must reach no response. The
+  # failure is recorded in the account's audit row by CLASS.
+  it "answers aggregate counts only, and records a failure by class" do
+    create(:git_repository, account: account, name: "acme-secret-repo")
     planted = "planted-exception-text /srv/acme/secret"
-    allow_any_instance_of(Ai::Improvement::DiscoveryRunService).to receive(:run!).and_wrap_original do |original, **kwargs|
-      raise planted if original.receiver.send(:account).id == other.id
+    allow_any_instance_of(Ai::Improvement::DiscoveryRunService).to receive(:run!).and_raise(planted)
 
-      original.call(**kwargs)
-    end
-
-    bodies = units.each_index.map do |position|
+    bodies = (0..units.size).map do |position|
       run_at!(position)
       response.body
     end
 
     bodies.each do |text|
-      expect(text).not_to include("acme-secret-repo", planted, other.id, account.id, repository.id)
+      expect(text).not_to include("acme-secret-repo", planted, account.id, repository.id)
       expect(JSON.parse(text)["data"].keys).to match_array(
         %w[ran_unit status findings offers_created offers_deduped offers_parked
            analyzers_degraded position next_position remaining done]
       )
     end
-    failed = AuditLog.where(action: "ai.improvement_discovery.run", account_id: other.id).last
+    failed = my_audit_rows.last
     expect(failed.metadata).to include("status" => "failed", "failure" => "RuntimeError")
     expect(failed.metadata.to_json).not_to include(planted)
   end

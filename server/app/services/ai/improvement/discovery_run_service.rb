@@ -135,9 +135,13 @@ module Ai
       # review H2's concern about a POST that ran the linters itself.
       #
       # Stable order: `find_each` walks accounts by id.
-      def self.units
+      #
+      # @param scope [ActiveRecord::Relation] the accounts the walk may reach.
+      #   The internal door passes the calling worker's own account, so a
+      #   worker never reaches another account's unit.
+      def self.units(scope = ::Account.all)
         ids = []
-        ::Account.find_each { |account| ids << account.id if account.active? }
+        scope.find_each { |account| ids << account.id if account.active? }
         ids
       end
 

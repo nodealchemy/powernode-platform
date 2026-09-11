@@ -23,6 +23,8 @@ module Api
         # so an unqualified `Ai::Improvement` would resolve to
         # `Api::V1::Internal::Ai::Improvement` and raise.
         class ImprovementDiscoveryController < InternalBaseController
+          include ::Api::V1::Internal::WorkerTenancy
+
           # POST /api/v1/internal/ai/improvement_discovery/run   { position: n }
           #
           # ONE UNIT PER CALL (D1 review H2). A tick used to be one POST that
@@ -33,18 +35,18 @@ module Api
           # A unit is one account (D1b: one lease per account per tick), and
           # it dispatches rather than analyses.
           #
-          # AGGREGATE COUNTS ONLY (D1 review M1). The caller is an
-          # account-bound worker and this door runs every account's units, so
-          # the response names no account, repository, environment or error
-          # text. Per-account detail lives in that account's own audit row.
+          # AGGREGATE COUNTS ONLY (D1 review M1). The response names no
+          # account, repository, environment or error text; per-account detail
+          # lives in that account's own audit row. The walk is the calling
+          # worker's own account only (`walk_units`).
           def run
             position = unit_position
             return render_error("position must be a non-negative integer", status: :unprocessable_content) if position.nil?
 
-            units = ::Ai::Improvement::DiscoveryRunService.units
+            units = walk_units
             return render_success(unit_result(nil, position: position, total: units.size)) if position >= units.size
 
-            account = ::Account.find_by(id: units[position])
+            account = account_scope.find_by(id: units[position])
             summary = account && run_unit(account)
             record_run(account, summary) if summary
 
@@ -62,8 +64,8 @@ module Api
             position = unit_position
             return render_error("position must be a non-negative integer", status: :unprocessable_content) if position.nil?
 
-            units = ::Ai::Improvement::DiscoveryRunService.units
-            account = position < units.size ? ::Account.find_by(id: units[position]) : nil
+            units = walk_units
+            account = position < units.size ? account_scope.find_by(id: units[position]) : nil
             if account
               record_run(account, { phase: "dispatch", status: "not_measured", reason: "timeout",
                                     account_id: account.id, findings: 0, offers_created: 0,
@@ -74,6 +76,17 @@ module Api
           end
 
           private
+
+          # THE TENANCY ANCHOR. Both doors write onto the account at the
+          # position they are given: a run record, and on #run a dispatch that
+          # leases that account's runner. They used to walk EVERY active
+          # account, so a worker on account A could walk to account B's
+          # position and do both to B. The walk is now the calling worker's
+          # own account only (`WorkerTenancy#account_scope`); a nil principal
+          # walks nothing.
+          def walk_units
+            ::Ai::Improvement::DiscoveryRunService.units(account_scope)
+          end
 
           def unit_position
             position = Integer(params.fetch(:position, 0), exception: false)

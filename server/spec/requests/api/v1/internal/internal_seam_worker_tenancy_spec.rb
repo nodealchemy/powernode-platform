@@ -188,10 +188,27 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
     internal/devops/integration_health#probe
     internal/approval_tokens#show
     internal/ai/goal_plans#execute_step
+    internal/ai/improvement_discovery#run
+    internal/ai/improvement_discovery#timed_out
+  ].freeze
+
+  # POSITIONAL doors. The caller names a POSITION in a walk of accounts, not a
+  # row id, so the CASES shape (fetch a foreign id, expect a 404) does not
+  # fit: a foreign account is reached by walking to its position. Each door
+  # WRITES onto the account at the position it is given (a discovery run
+  # record, and on #run a dispatch that leases that account's runner), so the
+  # oracle is the ROW, never the status: after the worker walks every position
+  # the GLOBAL walk has, account B must have gained no run record and no
+  # dispatch, and the worker's own account must still have gained both.
+  WALK_CASES = [
+    { name: "internal/ai/improvement_discovery#run (dispatches and records the unit's account)",
+      path: "/api/v1/internal/ai/improvement_discovery/run", dispatches: true },
+    { name: "internal/ai/improvement_discovery#timed_out (records the unit's account)",
+      path: "/api/v1/internal/ai/improvement_discovery/timed_out", dispatches: false }
   ].freeze
 
   it "keeps a tenancy case for every required internal controller lookup" do
-    covered = CASES.map { |c| c[:name].split(" ").first }
+    covered = (CASES + WALK_CASES).map { |c| c[:name].split(" ").first }
     REQUIRED_CONTROLLERS.each do |ctrl|
       expect(covered).to include(ctrl),
         "no cross-account tenancy case covers #{ctrl} — the sweep was narrowed"
@@ -251,6 +268,68 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
           else
             expect(response.body).to include(sentinel_a)
           end
+        end
+      end
+    end
+  end
+
+  WALK_CASES.each do |kase|
+    describe kase[:name] do
+      # The account ids the stand-in discovery executor was handed.
+      let(:dispatched) { [] }
+
+      before do
+        FactoryBot.create(:git_repository, account: account_a)
+        FactoryBot.create(:git_repository, account: account_b)
+        calls = dispatched
+        executor = Object.new.tap do |stand_in|
+          stand_in.define_singleton_method(:dispatch!) do |account:, repositories:|
+            calls << account.id
+            { status: "dispatched", run_ref: "lease-#{account.id}",
+              repositories: repositories.map { |repo| { id: repo.id, status: "dispatched" } } }
+          end
+        end
+        allow(Powernode::ExtensionRegistry).to receive(:provider).and_call_original
+        allow(Powernode::ExtensionRegistry).to receive(:provider)
+          .with(::Ai::Improvement::DiscoveryRunService::EXECUTOR_KEY).and_return(executor)
+      end
+
+      def run_records(account)
+        AuditLog.where(action: "ai.improvement_discovery.run", account_id: account.id).count
+      end
+
+      # Every position of the GLOBAL walk, plus one past its end, so a door
+      # that still indexes every account reaches account B's unit.
+      def walk_every_position(worker, path)
+        (0..::Ai::Improvement::DiscoveryRunService.units.size).each do |position|
+          post path, params: { position: position }.to_json, headers: headers_for(worker)
+        end
+      end
+
+      context "an ACCOUNT-BOUND worker walking every position" do
+        it "writes no run record onto account B and dispatches nothing for it" do
+          account_b # the foreign account exists before the walk is sized
+
+          expect { walk_every_position(worker_a, kase[:path]) }.not_to change { run_records(account_b) }
+          expect(dispatched).not_to include(account_b.id)
+        end
+      end
+
+      context "the SYSTEM worker walking every position" do
+        it "is confined too (its CN is a published constant)" do
+          account_b
+
+          expect { walk_every_position(system_worker, kase[:path]) }.not_to change { run_records(account_b) }
+          expect(dispatched).not_to include(account_b.id)
+        end
+      end
+
+      context "POSITIVE CONTROL: the worker's walk reaches its OWN account" do
+        it "records its own account's unit" do
+          account_b
+
+          expect { walk_every_position(worker_a, kase[:path]) }.to change { run_records(account_a) }.by_at_least(1)
+          expect(dispatched).to include(account_a.id) if kase[:dispatches]
         end
       end
     end

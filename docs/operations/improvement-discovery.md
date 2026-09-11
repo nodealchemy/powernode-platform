@@ -7,10 +7,10 @@ The Rails process never runs a repository's linters. A linter executes code from
 ## How a tick runs
 
 - The worker job `AiImprovementDiscoveryJob` fires weekly (Sunday 04:00 UTC, `maintenance` queue).
-- It walks the server's discovery **units** one at a time. A unit is one active account.
+- It walks the server's discovery **units** one at a time. A unit is one active account. The walk contains only the calling worker's own account, so a worker never dispatches for, or writes a run record onto, another account. An account gets discovery only through a worker bound to it.
 - Each unit is one non-retrying POST to the internal endpoint, with a 600-second timeout. The unit hands the account's repositories to the executor and returns. It does not wait for the linters.
 - The executor hands each repository's raw linter output back to the server. The server parses it with the same parser the `code_static_analysis` tool uses, and files the offers.
-- If a unit times out, the job ends the tick. The next weekly tick starts again from the first unit.
+- If a unit times out, the job records it as `not_measured` with reason `timeout` and ends the tick. The next weekly tick starts at the unit after it.
 - Offers are deduplicated by fingerprint. The database enforces one pending offer per account, target and fingerprint.
 - Sidekiq does not retry the job.
 
