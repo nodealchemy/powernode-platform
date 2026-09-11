@@ -292,6 +292,57 @@ RSpec.describe "Api::V1::Platform::ComponentStatuses", type: :request do
       expect(json_response_data["component_statuses"].size).to eq(3)
       expect(queries).to be <= 1
     end
+
+    # A4b review F1. The shapes real contributors emit on HEALTHY rows: an
+    # enabled provider (ai_provider.rb) and an uncordoned fleet row
+    # (condition_helpers.rb). An intent condition with a false status argues
+    # for `ok`, so it is not a failure and names no reason.
+    it "names no reason on a healthy row whose only false condition is an intent" do
+      component(component_ref: "provider", verdict: "ok",
+                conditions: [ { "type" => "Held", "status" => false, "reason" => "Active",
+                                "message" => "provider is enabled" } ])
+      component(component_ref: "node", verdict: "ok",
+                conditions: [ { "type" => "Held", "status" => false, "reason" => "NotHeld" },
+                              { "type" => "Reachable", "status" => true, "reason" => "Healthy" } ])
+
+      get "/api/v1/platform/component_statuses", headers: headers, as: :json
+
+      rows = json_response_data["component_statuses"].index_by { |r| r["component_ref"] }
+      %w[provider node].each do |ref|
+        expect(rows[ref]).to include("reason" => nil, "reason_message" => nil)
+      end
+    end
+
+    it "still names the down condition on an unhealthy row carrying the same intent condition" do
+      component(component_ref: "broken", verdict: "down",
+                conditions: [ { "type" => "Held", "status" => false, "reason" => "Active",
+                                "message" => "provider is enabled" },
+                              { "type" => "Reachable", "status" => false, "reason" => "KeyRejected",
+                                "message" => "401 from upstream", "severity" => "down" } ])
+
+      get "/api/v1/platform/component_statuses", headers: headers, as: :json
+
+      row = json_response_data["component_statuses"].first
+      expect(row).to include("reason" => "KeyRejected", "reason_message" => "401 from upstream")
+    end
+
+    # A4b review F2. PLANT AND GREP: a plane belongs to one account, and a row
+    # pointing at ANOTHER account's plane must not print that plane's name.
+    # Shared rows reach every account, so that would be one-to-all.
+    it "never prints another tenant's plane name, on a shared row or a mis-pointed account row" do
+      foreign_plane = create(:account).environments.find_by!(slug: "dev")
+      foreign_plane.update!(name: "Acme EU Secret Plane")
+      create(:platform_component_status, :shared, component_ref: "leaky-shared", environment: foreign_plane)
+      component(component_ref: "leaky-own", environment: foreign_plane)
+
+      get "/api/v1/platform/component_statuses", headers: headers, as: :json
+
+      expect(response.body).not_to include("Acme EU Secret Plane")
+      rows = json_response_data["component_statuses"].index_by { |r| r["component_ref"] }
+      %w[leaky-shared leaky-own].each do |ref|
+        expect(rows[ref]).to include("environment_slug" => nil, "environment_name" => nil)
+      end
+    end
   end
 
   describe "the wire name for an absent measurement" do

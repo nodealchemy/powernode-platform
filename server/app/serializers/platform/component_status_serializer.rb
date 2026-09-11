@@ -78,13 +78,20 @@ module Platform
         # association, so `index` eager-loads it — that is also the answer to
         # the A4 review's F6: the `.includes(:environment)` it flagged as dead
         # is now read, rather than dropped.
-        environment_slug: @row.environment&.slug,
-        environment_name: @row.environment&.name,
+        #
+        # Only when the plane is the row's own (A4b review F2). A plane belongs
+        # to exactly one account, and nothing ties a row's plane to the row's
+        # account, so a shared row, or a row mis-pointed at another tenant's
+        # plane, would print that tenant's plane name to every reader. Such a
+        # row keeps the opaque id and gets nil names.
+        environment_slug: own_plane&.slug,
+        environment_name: own_plane&.name,
         plane: plane_label,
         presentation: @row.presentation,
         condition_count: Array(@row.conditions).size,
-        # The reason of the worst false condition, so a list row can say WHY
-        # without carrying every condition. Nil when nothing is false.
+        # The reason of the worst FAILING condition, so a list row can say WHY
+        # without carrying every condition. Nil when no condition argues for
+        # an unhealthy verdict.
         reason: failing_reason,
         reason_message: failing_reason_message,
         remediation_state: remediation_state,
@@ -136,15 +143,28 @@ module Platform
     def worst_failing_condition
       return @worst_failing_condition if defined?(@worst_failing_condition)
 
+      # FAILING IS DECIDED BY THE VERDICT a condition argues for, not by its
+      # status (A4b review F1). For the two intent types a false status is the
+      # ordinary HEALTHY case: an enabled provider reports Held/false/"Active"
+      # and every uncordoned fleet row Held/false/"NotHeld", and
+      # Condition.verdict_for scores both `ok`. Selecting on `status == false`
+      # made that intent condition the "worst failing" one on every healthy row.
       failing = Array(@row.conditions).select do |condition|
-        next false unless condition.is_a?(Hash)
-
-        status = condition["status"].nil? ? condition[:status] : condition["status"]
-        status == false || status == "unknown"
+        condition.is_a?(Hash) &&
+          ::Platform::ComponentStatus::UNHEALTHY_VERDICTS.include?(::Platform::Status::Condition.verdict_for(condition))
       end
 
       @worst_failing_condition =
         failing.max_by { |c| ::Platform::ComponentStatus.rank_of(::Platform::Status::Condition.verdict_for(c)) }
+    end
+
+    # The row's plane when it is unowned or belongs to the row's own account;
+    # nil otherwise, so the names cannot cross the tenancy line.
+    def own_plane
+      plane = @row.environment
+      return nil if plane.nil?
+
+      plane.account_id.nil? || plane.account_id == @row.account_id ? plane : nil
     end
 
     def failing_reason

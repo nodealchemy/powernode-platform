@@ -264,6 +264,67 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
     end
   end
 
+  # A4b review F3: the MCP surface asserted none of the three A4b keys, and its
+  # eager-load had no guard. F1 and F2 are asserted here too, since the tool is
+  # the surface an agent reads.
+  describe "the A4b fields on the MCP surface" do
+    def rows_by_ref(result) = result.dig(:data, :component_statuses).index_by { |r| r[:component_ref] }
+
+    it "carries reason_message and the plane's slug and name" do
+      component(component_ref: "vm-1", verdict: "down", environment: plane_a,
+                conditions: [ { "type" => "Reachable", "status" => false, "reason" => "HeartbeatStale",
+                                "message" => "no heartbeat for 7m 12s", "severity" => "down" } ])
+
+      row = rows_by_ref(call("list_component_status"))["vm-1"]
+
+      expect(row).to include(reason: "HeartbeatStale", reason_message: "no heartbeat for 7m 12s",
+                             environment_slug: plane_a.slug, environment_name: plane_a.name)
+    end
+
+    # Rows on THREE DIFFERENT planes, so a per-row load is three distinct
+    # statements the query cache cannot absorb.
+    it "loads the planes once per page, not once per row" do
+      %w[dev ci staging].each_with_index do |slug, i|
+        component(component_ref: "c#{i}", environment: account.environments.find_by!(slug: slug))
+      end
+
+      queries = 0
+      counter = ->(_n, _s, _f, _i, payload) { queries += 1 if payload[:sql]&.include?("ai_environments") }
+      result = nil
+      ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { result = call("list_component_status") }
+
+      expect(result.dig(:data, :component_statuses).size).to eq(3)
+      expect(queries).to be <= 1
+    end
+
+    it "names no reason on a healthy row whose only false condition is an intent" do
+      component(component_ref: "provider", verdict: "ok",
+                conditions: [ { "type" => "Held", "status" => false, "reason" => "Active",
+                                "message" => "provider is enabled" } ])
+      component(component_ref: "node", verdict: "ok",
+                conditions: [ { "type" => "Held", "status" => false, "reason" => "NotHeld" } ])
+
+      rows = rows_by_ref(call("list_component_status"))
+
+      %w[provider node].each { |ref| expect(rows[ref]).to include(reason: nil, reason_message: nil) }
+    end
+
+    it "never prints another tenant's plane name, on a shared row or a mis-pointed account row" do
+      foreign_plane = create(:account).environments.find_by!(slug: "dev")
+      foreign_plane.update!(name: "Acme EU Secret Plane")
+      create(:platform_component_status, :shared, component_ref: "leaky-shared", environment: foreign_plane)
+      component(component_ref: "leaky-own", environment: foreign_plane)
+
+      result = call("list_component_status")
+
+      expect(result.to_json).not_to include("Acme EU Secret Plane")
+      rows = rows_by_ref(result)
+      %w[leaky-shared leaky-own].each do |ref|
+        expect(rows[ref]).to include(environment_slug: nil, environment_name: nil)
+      end
+    end
+  end
+
   describe "get_component_status" do
     it "returns the full row and an impact summary, found by id or by kind+ref" do
       row = component(
