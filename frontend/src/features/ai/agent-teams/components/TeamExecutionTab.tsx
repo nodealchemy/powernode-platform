@@ -195,7 +195,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   {execution.conversation_id && (
                     <button
-                      onClick={() => navigate(`/app/ai/observability/conversations?id=${execution.conversation_id}`)}
+                      onClick={() => navigate(`/app/ai/conversations?id=${execution.conversation_id}`)}
                       className="btn-theme btn-theme-sm flex items-center gap-1"
                       title="Open Team Chat"
                     >

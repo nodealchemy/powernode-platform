@@ -7,7 +7,7 @@ import {
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Boxes,
   Play, Rocket, DollarSign, Code2, Gauge, Building2, Megaphone,
-  Shield, Route, ClipboardCheck
+  Shield, Route, ClipboardCheck, MessageSquare
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -178,8 +178,21 @@ export const defaultNavigationConfig: NavigationConfig = {
           permissions: ['ai.approval_chains.manage'],
           order: 13.5
         },
+        {
+          // The only operator screen for chat-platform integrations the
+          // server still serves (Api::V1::Chat::ChannelsController) — no
+          // other page links to it, so without this it was reachable only by
+          // typing the URL.
+          id: 'ai-chat-channels',
+          name: 'Chat Channels',
+          href: '/app/ai/chat-channels',
+          icon: MessageSquare,
+          description: 'Manage external chat platform integrations',
+          permissions: ['chat.channels.read'],
+          order: 13.6
+        },
       ],
-      permissions: ['ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai_monitoring.read', 'ai.governance.read', 'ai.routing.read', 'ai.approval_chains.manage'],
+      permissions: ['ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai_monitoring.read', 'ai.governance.read', 'ai.routing.read', 'ai.approval_chains.manage', 'chat.channels.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

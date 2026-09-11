@@ -132,7 +132,7 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
             <MessageSquare className="w-3 h-3" /> Mission Chat
           </h4>
           <Link
-            to={`/app/ai/observability/conversations?id=${mission.conversation_id}`}
+            to={`/app/ai/conversations?id=${mission.conversation_id}`}
             className="inline-flex items-center gap-1 text-xs text-theme-info-fg hover:underline"
           >
             Open Conversation <ExternalLink className="w-3 h-3" />

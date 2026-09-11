@@ -60,6 +60,14 @@ const AIAnalyticsPage = React.lazy(() => import('./ai/AIAnalyticsPage').then(m =
 const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m => ({ default: m.AgentMemoryPage })));
 const ApprovalChainsPage = React.lazy(() => import('./ai/ApprovalChainsPage').then(m => ({ default: m.ApprovalChainsPage })));
 const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then(m => ({ default: m.ContextDetailPage })));
+// The only operator screen for either capability — previously unrouted.
+// AIConversationsPage: CRUD/filter/export/detail over ai conversations, only
+// partly covered by the floating chat window (filter-by-agent, duplicate,
+// export, unarchive, and the detail modal have no other entry point).
+// ChatChannelsPage: management for external chat platform integrations,
+// which the server still serves with no other consumer anywhere.
+const AIConversationsPage = React.lazy(() => import('./ai/AIConversationsPage').then(m => ({ default: m.AIConversationsPage })));
+const ChatChannelsPage = React.lazy(() => import('@/features/ai/chat-channels/pages/ChatChannelsPage'));
 
 // AI Hidden pages
 // SelfHealingDashboard absorbed into Observability Overview
@@ -184,6 +192,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/devops/templates" element={<DevOpsTemplatesPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
+        <Route path="/ai/conversations" element={<AIConversationsPage />} />
+        <Route path="/ai/chat-channels" element={<ChatChannelsPage />} />
 
         {/* Cost hub — Overview / Credits / FinOps / ROI / Outcome Billing (sub-sidebar) */}
         <Route path="/ai/cost/*" element={<CostPage />} />
