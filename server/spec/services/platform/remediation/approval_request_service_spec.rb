@@ -57,6 +57,34 @@ RSpec.describe Platform::Remediation::ApprovalRequestService do
     end
   end
 
+  # MCP identity plan D1: this service mints its request outside
+  # Ai::AutonomyGate, so it records the door itself, the way the gate does.
+  # Without that mark the approval guards read the request as a person's own.
+  describe "the door the request came through" do
+    it "records the tool door and the requesting agent, so the guards see a tool-door request" do
+      agent = create(:ai_agent, account: account)
+
+      request = described_class.new(account: account)
+                               .request!(**args, call_origin: "agent_bridge", agent: agent).approval_request
+
+      expect(request.request_data).to include("call_origin" => "agent_bridge", "agent_id" => agent.id)
+      expect(request.tool_door_request?).to be(true)
+      expect(request.requester_excluded?(approver: nil, origin: "agent_bridge", agent: agent)).to be(true)
+    end
+
+    it "leaves an unmarked call unmarked, so a person's own request keeps today's rule" do
+      request = described_class.new(account: account).request!(**args).approval_request
+
+      expect(request.request_data.keys).not_to include("call_origin", "agent_id")
+      expect(request.tool_door_request?).to be(false)
+    end
+
+    it "refuses a door outside the vocabulary" do
+      expect { described_class.new(account: account).request!(**args, call_origin: "carrier_pigeon") }
+        .to raise_error(ArgumentError, /unknown call_origin "carrier_pigeon"/)
+    end
+  end
+
   describe "an accountless caller" do
     it "fails with RecordInvalid from the chain build, not NoMethodError from the lookup" do
       expect {

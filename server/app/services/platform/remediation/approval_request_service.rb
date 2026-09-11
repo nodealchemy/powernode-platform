@@ -67,9 +67,13 @@ module Platform
       #   the lane, the policy and the runbook without a second resolution
       # @param requested_by [User, nil]
       # @param fingerprint [String, nil] the occurrence id to dedupe on
+      # @param call_origin [String, nil] the tool door the call came through
+      #   (Ai::Tools::CallOrigin); nil for a person's own REST/UI session
+      # @param agent [Ai::Agent, nil] the agent that asked, when one did
       # @return [Result]
       def request!(component_status:, signal_kind:, rationale:, route: nil,
-                   requested_by: nil, fingerprint: nil)
+                   requested_by: nil, fingerprint: nil, call_origin: nil, agent: nil)
+        call_origin = ::Ai::Tools::CallOrigin.validate!(call_origin)
         kind = signal_kind.to_s
         key = fingerprint.presence || derived_fingerprint(component_status, kind)
 
@@ -80,7 +84,8 @@ module Platform
           source_type: SOURCE_TYPE,
           source_id: component_status.id,
           description: description_for(component_status, kind, rationale),
-          request_data: request_data_for(component_status, kind, rationale, route, key),
+          request_data: request_data_for(component_status, kind, rationale, route, key)
+                          .merge(door_mark(call_origin, agent)),
           requested_by: requested_by
         )
         Result.new(approval_request: request, deduplicated: false)
@@ -89,6 +94,16 @@ module Platform
       private
 
       attr_reader :account
+
+      # The door the request came through, recorded the way
+      # Ai::AutonomyGate#create_approval_request! records it. This service mints
+      # outside the gate, so without the mark the approval guards (MCP identity
+      # plan D1, Ai::ApprovalRequest#tool_door_request?) would read a tool
+      # call's request as a person's own, and let the principal that asked for
+      # it decide it through a tool.
+      def door_mark(call_origin, agent)
+        { call_origin: call_origin, agent_id: agent&.id, agent_name: agent&.name }.compact
+      end
 
       def chain
         @chain ||= ::Ai::ApprovalChain.find_or_strengthen!(

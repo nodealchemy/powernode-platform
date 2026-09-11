@@ -196,7 +196,8 @@ module Ai
                    .new(account: account)
                    .request!(component_status: component, signal_kind: signal_kind,
                              rationale: rationale, route: route,
-                             requested_by: user, fingerprint: args["fingerprint"].presence)
+                             requested_by: user, fingerprint: args["fingerprint"].presence,
+                             call_origin: call_origin, agent: agent)
 
         request = result.approval_request
         success_result(
