@@ -467,6 +467,70 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
           .to eq([ [ execution.id, "evaluated", nil ], [ other.id, "not_measured", "JudgeUnparseable" ] ])
       end
 
+      # ---- F-D5-1 dedupe: one paid call per (execution, task) ----
+      it "answers a retry at the cap with its own prior outcome, not DailyCapReached" do
+        cap!("1")
+        judge = stub_judge!(scores: {}, degraded: true)
+        first = service.evaluate_execution(execution: execution, task_id: task_one)
+        second = service.evaluate_execution(execution: execution, task_id: task_one)
+
+        expect(judge).to have_received(:evaluate).once
+        expect(second).to include(status: "not_measured", reason: first[:reason])
+        expect(second[:reason]).not_to eq("DailyCapReached")
+      end
+
+      it "makes one paid call even when a race gets past the early check: the unique index answers" do
+        cap!("5")
+        judge = stub_judge!(scores: {}, degraded: true)
+        allow(service).to receive(:find_attempt).and_return(nil)
+
+        service.evaluate_execution(execution: execution, task_id: task_one)
+        second = service.evaluate_execution(execution: execution, task_id: task_one)
+
+        expect(judge).to have_received(:evaluate).once
+        expect(second).to include(status: "not_measured", reason: "EvaluationInFlight")
+      end
+
+      # A completion that names no task: the NULLS NOT DISTINCT case.
+      it "dedupes a completion with no task: the second request makes no paid call" do
+        cap!("5")
+        judge = stub_judge!(scores: {}, degraded: true)
+        first = service.evaluate_execution(execution: execution)
+        second = service.evaluate_execution(execution: execution)
+
+        expect(judge).to have_received(:evaluate).once
+        expect(second).to include(status: "not_measured", reason: first[:reason])
+      end
+
+      it "dedupes a nil task even past the early check: the index treats NULLs as equal" do
+        cap!("5")
+        judge = stub_judge!(scores: {}, degraded: true)
+        allow(service).to receive(:find_attempt).and_return(nil)
+
+        service.evaluate_execution(execution: execution)
+        second = service.evaluate_execution(execution: execution)
+
+        expect(judge).to have_received(:evaluate).once
+        expect(second).to include(status: "not_measured", reason: "EvaluationInFlight")
+      end
+
+      it "the database refuses a second attempt for the same execution and task, a nil task included" do
+        Ai::EvaluationAttempt.create!(account: account, execution_id: execution.id, task_id: nil)
+
+        expect {
+          Ai::EvaluationAttempt.create!(account: account, execution_id: execution.id, task_id: nil)
+        }.to raise_error(ActiveRecord::RecordNotUnique)
+      end
+
+      it "a DIFFERENT task against the same execution is a different attempt, and a different paid call" do
+        cap!("5")
+        judge = stub_judge!(scores: {}, degraded: true)
+        service.evaluate_execution(execution: execution, task_id: task_one)
+        service.evaluate_execution(execution: execution, task_id: task_two)
+
+        expect(judge).to have_received(:evaluate).twice
+      end
+
       # D5 review F-D5-1 — the cap bounds PAID CALLS, not rows. A degraded
       # verdict is a provider round trip that writes no row, so counting rows
       # let five of them through a cap of 1.

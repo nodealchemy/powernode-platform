@@ -34,6 +34,9 @@ module Ai
       # The attempt ledger could not be written, so the judge was not called.
       # Same reason string as the A6 investigation ledger.
       REFUSED_LEDGER_UNAVAILABLE = "LedgerUnavailable"
+      # Another request for the same (execution, task) holds the attempt and
+      # is making the one paid call; this one makes none.
+      REFUSED_IN_FLIGHT = "EvaluationInFlight"
 
       def self.enabled?
         raw = ::SiteSetting.get(ENABLED_SETTING)
@@ -100,6 +103,16 @@ module Ai
           return evaluated(existing, idempotent: true)
         end
 
+        # ONE PAID CALL PER (execution, task) (F-D5-1 dedupe). A degraded
+        # verdict writes no result row, so the check above cannot see its
+        # retry, and the worker's Sidekiq retry after a 408 paid the judge
+        # again. The first attempt answers instead: its outcome, or
+        # EvaluationInFlight while it is still running. Before the cap, so a
+        # retry at the cap still gets its own answer.
+        if (prior = find_attempt(execution, task_id))
+          return answer_for_attempt(prior, execution, task_id)
+        end
+
         # After idempotency, so a retry of a completion already judged still
         # gets its answer at the cap; before the judge, so the cap is a ceiling
         # on spend and not a report of it.
@@ -107,9 +120,10 @@ module Ai
 
         # NO LEDGER ROW, NO CALL (D5 review F-D5-1). The cap counts attempts,
         # so an attempt that cannot be recorded must not be made: it would be
-        # a paid call the cap never sees.
-        attempt = open_attempt(execution, task_id)
-        return not_measured(REFUSED_LEDGER_UNAVAILABLE) unless attempt
+        # a paid call the cap never sees. A request that loses the insert to a
+        # concurrent one for the same (execution, task) gets that one's answer.
+        attempt, refusal = open_attempt(execution, task_id)
+        return refusal if refusal
 
         judge = Ai::Learning::LlmJudgeService.new(account: @account)
         verdict = judge.evaluate(
@@ -324,14 +338,40 @@ module Ai
                              .count >= self.class.daily_cap
       end
 
-      # Written before the judge is called. nil means the ledger could not be
-      # written, and the caller then makes no call.
+      # Written before the judge is called. Returns [attempt, nil] when the
+      # call may go ahead, or [nil, answer] when it may not. NO ROW, NO CALL.
       def open_attempt(execution, task_id)
-        Ai::EvaluationAttempt.create!(account: @account, execution_id: execution.id,
-                                      task_id: task_id, outcome: "pending")
+        attempt = Ai::EvaluationAttempt.create!(account: @account, execution_id: execution.id,
+                                                task_id: task_id, outcome: "pending")
+        [ attempt, nil ]
+      rescue ActiveRecord::RecordNotUnique
+        # A concurrent request for the same (execution, task) won the insert,
+        # and it makes the call. The unique index is the real guard; the
+        # find_attempt check in evaluate_execution only answers early.
+        [ nil, answer_for_attempt(find_attempt(execution, task_id), execution, task_id) ]
       rescue StandardError => e
         Rails.logger.error("[EvaluationService] attempt ledger write failed: #{e.class}: #{e.message}")
-        nil
+        [ nil, not_measured(REFUSED_LEDGER_UNAVAILABLE) ]
+      end
+
+      # The same key as the unique index (execution_id, task_id) NULLS NOT
+      # DISTINCT, so the early check and the constraint guard the same thing.
+      def find_attempt(execution, task_id)
+        Ai::EvaluationAttempt.find_by(execution_id: execution.id, task_id: task_id)
+      end
+
+      # What a second request for an already-attempted (execution, task) gets:
+      # the first attempt's outcome, never a second paid call.
+      def answer_for_attempt(prior, execution, task_id)
+        case prior&.outcome
+        when "evaluated"
+          existing = find_existing(execution, task_id)
+          existing ? evaluated(existing, idempotent: true) : not_measured(REFUSED_IN_FLIGHT)
+        when "not_measured"
+          not_measured(prior.reason.presence || "EvaluationError", detail: "already attempted; not judged again")
+        else
+          not_measured(REFUSED_IN_FLIGHT)
+        end
       end
 
       # Closing only records what the call produced. A close that fails leaves

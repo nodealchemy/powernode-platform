@@ -9,6 +9,10 @@ module Ai
   # Written by Ai::Learning::EvaluationService BEFORE the judge is called, so
   # there is no call without a row, then closed with what the call produced.
   # A row left `pending` is a call that raised mid-flight, and it still counts.
+  #
+  # ONE ATTEMPT PER (execution_id, task_id): a unique index, NULLS NOT DISTINCT,
+  # on the same key as ai_evaluation_results. A retry of the same completion
+  # answers from the first attempt instead of paying the judge again.
   class EvaluationAttempt < ApplicationRecord
     OUTCOMES = %w[pending evaluated not_measured].freeze
 

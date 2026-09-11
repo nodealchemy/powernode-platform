@@ -132,5 +132,42 @@ RSpec.describe "Api::V1::Internal::Ai::Evaluations", type: :request do
       expect(Ai::EvaluationResult.where(execution_id: execution.id, task_id: task_id).count).to eq(1)
       expect(JSON.parse(response.body)["data"]["idempotent"]).to be(true)
     end
+
+    # F-D5-1 dedupe — ONE PAID CALL per (execution, task). A degraded verdict
+    # writes no result row, so result idempotency cannot catch its retry: the
+    # worker's Sidekiq retry after a 408 used to pay the judge a second time.
+    describe "a retried judge request for the same completion" do
+      let(:task_id) { SecureRandom.uuid }
+
+      def run!
+        post "/api/v1/internal/ai/evaluations/run",
+             params: { account_id: account.id, execution_id: execution.id, task_id: task_id },
+             headers: worker_headers
+        JSON.parse(response.body)["data"]
+      end
+
+      it "makes ONE paid call when the first answer was degraded, and returns that answer again" do
+        allow(Ai::Learning::LlmJudgeService).to receive(:new).and_return(judge)
+        allow(judge).to receive(:evaluator_model).and_return("resolved-model-x")
+        allow(judge).to receive(:evaluate)
+          .and_return(scores: {}, degraded: true, degraded_reason: "JudgeUnparseable")
+
+        first = run!
+        second = run!
+
+        expect(judge).to have_received(:evaluate).once
+        expect(first).to include("status" => "not_measured", "reason" => "JudgeUnparseable")
+        expect(second).to include("status" => "not_measured", "reason" => "JudgeUnparseable")
+        expect(Ai::EvaluationAttempt.where(execution_id: execution.id, task_id: task_id).count).to eq(1)
+      end
+
+      it "makes no call while the first attempt is still in flight" do
+        Ai::EvaluationAttempt.create!(account: account, execution_id: execution.id, task_id: task_id,
+                                      outcome: "pending")
+        expect(Ai::Learning::LlmJudgeService).not_to receive(:new)
+
+        expect(run!).to include("status" => "not_measured", "reason" => "EvaluationInFlight")
+      end
+    end
   end
 end
