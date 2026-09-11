@@ -49,6 +49,7 @@ module Ai
       expires_at
       completed_at
       created_at
+      requires_human_session
     ].freeze
 
     private
@@ -80,7 +81,9 @@ module Ai
         execution_error: request.execution_error,
         expires_at: request.expires_at,
         completed_at: request.completed_at,
-        created_at: request.created_at
+        created_at: request.created_at,
+        # MCP identity plan R2: only a person, in their own session, decides it.
+        requires_human_session: request.requires_human_session?
       }
     end
   end

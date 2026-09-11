@@ -194,22 +194,37 @@ RSpec.describe "MCP tool schema fidelity (IMP-e809396f9eda)" do
       }
     end
 
-    it "names exactly the keys the gate's :pending arm puts in data" do
-      allow(::Ai::AutonomyGate).to receive(:evaluate).and_return(
-        ::Ai::AutonomyGate::Result.new(decision: :pending, deferred_operation: nil)
-      )
-
-      result = tool_class.new(account: nil).send(:run_through_autonomy_gate, declaration, {})
-
-      expect(result[:success]).to be(true)
-      expect(result[:data].keys.map(&:to_s).sort).to(
-        eq(Ai::Tools::BaseTool::PENDING_RESULT_PROPERTIES.keys.map(&:to_s).sort),
-        "The pending envelope BaseTool builds and the shape the MCP outputSchema " \
+    # `requires_human_session` is set only on a human-only park (MCP identity
+    # plan R2); every other park keeps its exact shape. So the two arms are
+    # pinned separately: together they account for every advertised key.
+    let(:advertised) { Ai::Tools::BaseTool::PENDING_RESULT_PROPERTIES.keys.map(&:to_s).sort }
+    let(:divergence) do
+      "The pending envelope BaseTool builds and the shape the MCP outputSchema " \
         "advertises have diverged. Update PENDING_RESULT_PROPERTIES (base_tool.rb) " \
         "alongside the :pending arm. NOTE the scope: a tool may add its own keys " \
         "on its own pending arm (SdwanTool splats **pending_extra); this pins the " \
         "BaseTool arm, which is the one the schema describes."
+    end
+
+    before do
+      allow(::Ai::AutonomyGate).to receive(:evaluate).and_return(
+        ::Ai::AutonomyGate::Result.new(decision: :pending, deferred_operation: nil)
       )
+    end
+
+    it "names exactly the keys the gate's :pending arm puts in data (an ordinary park)" do
+      result = tool_class.new(account: nil).send(:run_through_autonomy_gate, declaration, {})
+
+      expect(result[:success]).to be(true)
+      expect(result[:data].keys.map(&:to_s).sort).to eq(advertised - [ "requires_human_session" ]), divergence
+    end
+
+    it "names exactly the keys a human-only park puts in data, requires_human_session included" do
+      result = tool_class.new(account: nil).send(:run_through_autonomy_gate, declaration, {},
+                                                 requires_human_session: true)
+
+      expect(result[:data].keys.map(&:to_s).sort).to eq(advertised), divergence
+      expect(result[:data][:requires_human_session]).to be(true)
     end
   end
 

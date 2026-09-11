@@ -76,9 +76,16 @@ module Ai
     #                        Ai::EnvironmentResolution when not given. The
     #                        resolved environment can only ESCALATE the verdict
     #                        (Ai::EnvironmentPolicyOverlay), never relax it.
+    # @param requires_human_session [Boolean] a human-only tool action (MCP
+    #                        identity plan R2). It parks for a person's own
+    #                        session whatever the policy says: an auto_approve
+    #                        or notify_and_proceed verdict becomes
+    #                        require_approval, and a block stays a block. The
+    #                        request it opens carries the flag that the
+    #                        decision doors and the replay read.
     def evaluate(action_category:, executor_class:, params: {}, agent: nil,
                  requested_by: nil, source_type: nil, source_id: nil, description: nil,
-                 environment: nil)
+                 environment: nil, requires_human_session: false)
       resolved_environment = ::Ai::EnvironmentResolution.resolve(
         account: @account, params: params, environment: environment
       )
@@ -96,14 +103,20 @@ module Ai
         environment: resolved_environment
       )
 
-      case policy_match[:policy]
+      policy = policy_match[:policy]
+      # No policy row may proceed a human-only action. Proceeding would run it
+      # with no person confirming it, which is exactly what R2 forbids.
+      policy = "require_approval" if requires_human_session && %w[auto_approve notify_and_proceed].include?(policy)
+
+      case policy
       when "auto_approve", "notify_and_proceed"
         result_data = deferred.execute_now!
         Result.new(decision: :proceed, deferred_operation: deferred, result: result_data)
       when "require_approval"
         require_approval_or_proceed(deferred, policy_match[:record], action_category,
                                     escalation: policy_match[:environment_escalation],
-                                    blast_radius: policy_match[:blast_radius])
+                                    blast_radius: policy_match[:blast_radius],
+                                    requires_human_session: requires_human_session)
       when "block", "silent"
         deferred.update!(status: "rejected", error_message: "Blocked by policy")
         Result.new(decision: :blocked, deferred_operation: deferred,
@@ -113,7 +126,8 @@ module Ai
         Rails.logger.warn("[AutonomyGate] Unknown policy '#{policy_match[:policy]}' for #{action_category}, defaulting to require_approval")
         require_approval_or_proceed(deferred, policy_match[:record], action_category,
                                     escalation: policy_match[:environment_escalation],
-                                    blast_radius: policy_match[:blast_radius])
+                                    blast_radius: policy_match[:blast_radius],
+                                    requires_human_session: requires_human_session)
       end
     rescue StandardError => e
       Rails.logger.error("[AutonomyGate] evaluate(#{action_category}) failed: #{e.class}: #{e.message}")
@@ -153,11 +167,19 @@ module Ai
     # :blocked + 422 — which broke `tasks_controller create`,
     # `sdwan/networks destroy`, and every other AutonomyGate-protected
     # request spec running without business loaded.
-    def require_approval_or_proceed(deferred, policy_record, action_category, escalation: nil, blast_radius: nil)
+    def require_approval_or_proceed(deferred, policy_record, action_category, escalation: nil, blast_radius: nil,
+                                    requires_human_session: false)
       if defined?(::Ai::ApprovalChain)
-        request = create_approval_request!(deferred, policy_record, escalation: escalation, blast_radius: blast_radius)
+        request = create_approval_request!(deferred, policy_record, escalation: escalation, blast_radius: blast_radius,
+                                           requires_human_session: requires_human_session)
         deferred.update!(approval_request: request)
         Result.new(decision: :pending, deferred_operation: deferred)
+      elsif requires_human_session
+        # Nothing to park on means nothing a person could confirm, so refuse.
+        # Never take the auto-proceed arm below.
+        deferred.update!(status: "rejected", error_message: "No approval chain to park a human-only action on")
+        Result.new(decision: :blocked, deferred_operation: deferred,
+                   error: "Action #{action_category} needs a person's confirmation and cannot be parked here")
       else
         Rails.logger.info(
           "[AutonomyGate] require_approval policy in core mode (no Ai::ApprovalChain) — " \
@@ -168,7 +190,7 @@ module Ai
       end
     end
 
-    def create_approval_request!(deferred, policy_record, escalation: nil, blast_radius: nil)
+    def create_approval_request!(deferred, policy_record, escalation: nil, blast_radius: nil, requires_human_session: false)
       chain = resolve_chain(deferred, policy_record)
       environment = deferred.environment
       chain.create_request!(
@@ -197,7 +219,9 @@ module Ai
           requested_by_id: deferred.requested_by_id,
           source_type: deferred.source_type,
           source_id: deferred.source_id
-        },
+          # Only when set, so every other request keeps its exact shape. Read by
+          # Ai::ApprovalRequest#requires_human_session?.
+        }.merge(requires_human_session ? { requires_human_session: true } : {}),
         requested_by: deferred.requested_by
       )
     end

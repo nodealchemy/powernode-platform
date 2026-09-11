@@ -149,7 +149,7 @@ RSpec.describe 'Approval serializer parity across read surfaces', type: :request
         %w[
           approval_chain completed_at created_at current_step decisions description
           execution_error execution_status expires_at id request_data request_id
-          source_id source_type status step_statuses updated_at
+          requires_human_session source_id source_type status step_statuses updated_at
         ]
       )
     end
@@ -160,7 +160,7 @@ RSpec.describe 'Approval serializer parity across read surfaces', type: :request
           action_category action_type agent_id agent_name approval_chain completed_at
           created_at current_step current_step_can_approve decisions deferred_operation
           description execution_error execution_status expires_at id request_data
-          request_id requested_by_id source_id source_type status step_statuses total_steps
+          request_id requested_by_id requires_human_session source_id source_type status step_statuses total_steps
         ]
       )
     end
@@ -178,7 +178,7 @@ RSpec.describe 'Approval serializer parity across read surfaces', type: :request
         %w[
           approval_chain completed_at created_at current_step description
           execution_error execution_status expires_at id request_data request_id
-          source_id source_type status step_statuses
+          requires_human_session source_id source_type status step_statuses
         ]
       )
     end
@@ -202,7 +202,7 @@ RSpec.describe 'Approval serializer parity across read surfaces', type: :request
         %w[
           action_category action_type agent_id agent_name completed_at created_at
           current_step current_step_can_approve description execution_error execution_status expires_at id
-          request_data request_id requested_by_id source_id source_type status total_steps
+          request_data request_id requested_by_id requires_human_session source_id source_type status total_steps
         ]
       )
     end

@@ -6,6 +6,7 @@ module Ai
     # IMP-550e44e24220 — shared approval-payload core, also included by
     # Api::V1::Ai::GovernanceController so both read surfaces cannot drift.
     include ::Ai::ApprovalRequestSerialization
+    include ::HumanSession
 
     # GET /api/v1/ai/autonomy/approvals
     def approval_queue
@@ -30,9 +31,13 @@ module Ai
     # POST /api/v1/ai/autonomy/approvals/:id/approve
     def approve_action
       request = ::Ai::ApprovalRequest.where(account_id: current_account.id).find(params[:id])
+      refusal = human_session_refusal(request, "approve")
+      return render_error(refusal, status: :forbidden) if refusal
+
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
-      if service.approve(request: request, approver: current_user, comments: params[:comments])
+      if service.approve(request: request, approver: current_user, comments: params[:comments],
+                         origin: decision_origin)
         payload = ::Ai::SensitiveParams.batch { serialize_approval_request(request.reload, detailed: true) }
         render_success(data: with_revealed_result(request, payload))
       else
@@ -45,9 +50,13 @@ module Ai
     # POST /api/v1/ai/autonomy/approvals/:id/reject
     def reject_action
       request = ::Ai::ApprovalRequest.where(account_id: current_account.id).find(params[:id])
+      refusal = human_session_refusal(request, "reject")
+      return render_error(refusal, status: :forbidden) if refusal
+
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
-      if service.reject(request: request, approver: current_user, comments: params[:comments])
+      if service.reject(request: request, approver: current_user, comments: params[:comments],
+                        origin: decision_origin)
         render_success(
           data: ::Ai::SensitiveParams.batch { serialize_approval_request(request.reload, detailed: true) }
         )
@@ -59,6 +68,22 @@ module Ai
     end
 
     private
+
+    # MCP identity plan R2: a request parked for a person's own session is
+    # decided only from one. An impersonation, account-switch or service
+    # session is refused by name.
+    def human_session_refusal(request, verb)
+      return nil unless request.requires_human_session?
+      return nil if own_human_session?
+
+      "Cannot #{verb} this request from this session: it needs a person deciding it in their own session, " \
+        "not an impersonation, account-switch or service session."
+    end
+
+    # The door this decision came through (Ai::ApprovalDecision ORIGINS).
+    def decision_origin
+      own_human_session? ? ::Ai::ApprovalDecision::REST_SESSION : ::Ai::ApprovalDecision::REST_OTHER
+    end
 
     def require_approval_permission
       return if current_worker

@@ -54,6 +54,9 @@ module Ai
       REASON_PRINCIPAL_UNRESOLVABLE = "principal_unresolvable"
       REASON_PERMISSION_REVOKED = "permission_revoked"
       REASON_ACTION_MISMATCH = "action_mismatch"
+      # A human-only action (MCP identity plan R2) replays only as the person
+      # whose own-session approval completed its request. None means no run.
+      REASON_HUMAN_CONFIRMATION_MISSING = "human_confirmation_missing"
 
       # Statuses of the operation being replayed that BaseTool#approved_replay?
       # accepts. Named here because this class is the one that sets the row on
@@ -75,13 +78,16 @@ module Ai
       class << self
         # Build the parked payload. Lives beside #execute so the wire shape has
         # exactly one author.
-        def pack(tool_class:, action:, tool_params:, principal:)
-          {
+        # `human_only` marks a call that replays as the person who confirms it
+        # rather than as `principal`, which is then only the record of who asked.
+        def pack(tool_class:, action:, tool_params:, principal:, human_only: false)
+          packed = {
             "tool_class" => tool_class.to_s,
             "action" => action.to_s,
             "tool_params" => normalize(tool_params),
             "principal" => normalize(principal)
           }
+          human_only ? packed.merge("human_only" => true) : packed
         end
 
         def execute(params, deferred_operation:)
@@ -94,10 +100,21 @@ module Ai
                           "#{call['tool_class'].inspect} is not a replayable tool")
           end
 
-          principal_ctx = rehydrate_caller(call["principal"], account)
-          if principal_ctx.nil?
-            return refuse(REASON_PRINCIPAL_UNRESOLVABLE,
-                          "the principal that requested this action can no longer be resolved")
+          if call["human_only"] == true
+            # MCP identity plan R2: the replay runs AS the person who confirmed
+            # it, never as the agent or MCP client that asked.
+            principal_ctx = confirming_caller(deferred_operation, account)
+            if principal_ctx.nil?
+              return refuse(REASON_HUMAN_CONFIRMATION_MISSING,
+                            "a human-only action runs only as the person whose own-session approval " \
+                            "completed its request, and there is none")
+            end
+          else
+            principal_ctx = rehydrate_caller(call["principal"], account)
+            if principal_ctx.nil?
+              return refuse(REASON_PRINCIPAL_UNRESOLVABLE,
+                            "the principal that requested this action can no longer be resolved")
+            end
           end
 
           unless authorized?(principal_ctx, tool_class, call["action"])
@@ -125,11 +142,17 @@ module Ai
         def preview(params, deferred_operation: nil)
           call = normalize(params)
 
+          impact = if call["human_only"] == true
+                     "Requested by a #{principal_kind(call)} principal. Runs on approval AS the person who " \
+                       "approves it in their own session; refused if that person lacks the permission."
+                   else
+                     "Replayed on approval as the #{principal_kind(call)} principal that " \
+                       "requested it; refused if that principal has since lost the permission."
+                   end
           {
             summary: "Run #{call['action'].presence || 'tool action'} " \
                      "(#{call['tool_class'].presence || 'unknown tool'})",
-            impact: "Replayed on approval as the #{principal_kind(call)} principal that " \
-                    "requested it; refused if that principal has since lost the permission."
+            impact: impact
           }
         end
 
@@ -180,6 +203,27 @@ module Ai
           when "instance" then instance_caller(descriptor, account)
           when "internal" then Caller.new(kind: "internal")
           end
+        end
+
+        # The person whose own-session approval completed the request, as a
+        # plain user caller with no agent. Every clause fails closed: no
+        # request, not approved, not flagged for a human session, no approving
+        # decision on the last step, or an approver outside the operation's
+        # account.
+        def confirming_caller(deferred_operation, account)
+          return nil if account.nil?
+
+          request = deferred_operation.try(:approval_request)
+          return nil unless request.respond_to?(:requires_human_session?) && request.approved? &&
+                            request.requires_human_session?
+
+          approver = request.confirming_approver
+          return nil if approver.nil?
+
+          person = account.users.find_by(id: approver.id)
+          return nil if person.nil?
+
+          Caller.new(kind: "user", user: person, agent: nil, internal: false)
         end
 
         def user_caller(descriptor, account)

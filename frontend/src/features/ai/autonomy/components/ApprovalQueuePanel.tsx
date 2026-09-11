@@ -154,6 +154,9 @@ const ApprovalCard: React.FC<{
             <span className="text-sm font-medium text-theme-primary truncate">
               {title}
             </span>
+            {request.requires_human_session && (
+              <Badge variant="default" size="sm">Needs a person</Badge>
+            )}
           </div>
           {summary && (
             <p className="text-xs text-theme-secondary mb-1 line-clamp-2">{summary}</p>
@@ -220,6 +223,16 @@ const ApprovalCard: React.FC<{
             <div>
               <p className="text-xs text-theme-tertiary mb-1">Description</p>
               <p className="text-sm text-theme-secondary">{request.description}</p>
+            </div>
+          )}
+
+          {request.requires_human_session && (
+            <div data-human-session-note>
+              <p className="text-xs text-theme-tertiary mb-1">Needs a person</p>
+              <p className="text-sm text-theme-secondary">
+                An agent or MCP client asked for this. It runs only after a person approves it here, in
+                their own session, and then as the person who approves it.
+              </p>
             </div>
           )}
 

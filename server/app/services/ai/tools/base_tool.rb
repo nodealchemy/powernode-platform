@@ -6,6 +6,12 @@ module Ai
       REQUIRED_PERMISSION = nil
       MAX_CALLS_PER_EXECUTION = 20
 
+      # What a parked human-only call tells its caller (MCP identity plan R2).
+      HUMAN_CONFIRMATION_MESSAGE = "Parked for a person to confirm. This action runs only after a person approves " \
+                                   "it in their own session, and then as that person: open the approval queue on " \
+                                   "the Autonomy dashboard in the platform UI. An MCP or agent call cannot " \
+                                   "approve it."
+
       # The `data` body of the third outcome #execute can produce: the autonomy
       # gate returned :pending, so the action was PARKED for an operator and
       # nothing was applied. Declared here, beside the site that builds it, and
@@ -29,6 +35,11 @@ module Ai
         "approval_request_id" => {
           "type" => "string",
           "description" => "Ai::ApprovalRequest UUID an operator decides. May be null."
+        },
+        "requires_human_session" => {
+          "type" => "boolean",
+          "description" => "True when only a person, in their own session, can decide the parked request " \
+                           "(a human-only action). An MCP or agent call cannot approve it."
         },
         "message" => {
           "type" => "string",
@@ -168,14 +179,16 @@ module Ai
         # A tool may still splat its own extra keys alongside (SdwanTool's
         # `pending_extra`); this is the floor, not the ceiling.
         def pending_payload(action_category:, deferred_operation: nil,
-                            approval_request: nil, message: nil)
-          {
+                            approval_request: nil, message: nil, requires_human_session: false)
+          payload = {
             pending: true,
             action_category: action_category,
             deferred_operation_id: deferred_operation&.id,
             approval_request_id: approval_request&.id,
             message: message.presence || "Approval required: #{action_category}"
           }
+          # Only when set, so every other parked envelope keeps its exact shape.
+          requires_human_session ? payload.merge(requires_human_session: true) : payload
         end
 
         def definition
@@ -379,13 +392,31 @@ module Ai
         # declaration is not a stricter statement, it is an incoherent one that
         # would publish a hint no client can act on. Raised at declaration
         # time, i.e. at class load, so it cannot reach a running catalog.
+        #
+        # `human_only:` (MCP identity plan R2): the action is a PERSON's
+        # decision, and no tool door is a person's consent. Called from any
+        # tool door it neither runs nor is refused. It PARKS the exact call
+        # through the gate, flagged requires_human_session. It runs only as the
+        # replay of an approval a person made in their own REST/UI session, and
+        # then AS that person (#human_confirmed_replay?). It therefore requires
+        # the full gate wiring, so there is somewhere to park, and it takes no
+        # `ungated_when` read arm, which would be a way past the park.
         def declare_action(name, mutating:, action_category: nil, executor_class: nil,
                            gate_context: nil, on_proceed: nil, ungated_when: nil,
-                           audit: false, destructive: false)
+                           audit: false, destructive: false, human_only: false)
           if destructive && !mutating
             raise ArgumentError,
                   "#{self}.declare_action(#{name.inspect}): destructive: true implies mutating: true " \
                   "(destructiveHint is only meaningful when readOnlyHint is false)"
+          end
+          if human_only && !(mutating && action_category && executor_class && gate_context && on_proceed)
+            raise ArgumentError,
+                  "#{self}.declare_action(#{name.inspect}): human_only: true needs mutating: true and the full gate " \
+                  "wiring (action_category, executor_class, gate_context, on_proceed), so the call can park"
+          end
+          if human_only && ungated_when
+            raise ArgumentError,
+                  "#{self}.declare_action(#{name.inspect}): human_only: true takes no ungated_when read arm"
           end
 
           declared_actions[name.to_s] = {
@@ -396,7 +427,8 @@ module Ai
             on_proceed: on_proceed,
             ungated_when: ungated_when,
             audit: audit,
-            destructive: destructive
+            destructive: destructive,
+            human_only: human_only
           }.freeze
         end
 
@@ -550,6 +582,25 @@ module Ai
           return refusal if refusal
         end
 
+        # HUMAN-ONLY (MCP identity plan R2): an MCP call requests, and a person
+        # confirms. No tool door is a person's consent, whoever's user or token
+        # it carries, so the call PARKS the exact action through the gate,
+        # flagged requires_human_session. It runs only as the replay of an
+        # approval a person made in their own session, and then AS that person.
+        # An approved replay that is not that person's refuses instead of
+        # parking a second time.
+        if declaration[:human_only]
+          refusal = authorization_error(params)
+          return refusal if refusal
+          return call(params) if human_confirmed_replay?
+          if approved_replay?
+            return error_result("Refusing to run #{action_name}: it runs only as the person who confirmed it " \
+                                "in their own session.")
+          end
+
+          return run_through_autonomy_gate(declaration, params, requires_human_session: true)
+        end
+
         return call(params) unless gated_action?(declaration)
         # The declared READ arm of a gate-routed action (see `ungated_when` on
         # .declare_action): dispatched exactly as an ungated action, so the
@@ -647,6 +698,21 @@ module Ai
         !account.nil? && operation.account_id == account.id
       end
 
+      # True only on the approved replay of a human-only action, when this tool
+      # was built for the person whose own-session approval completed the
+      # request (Ai::ApprovalRequest#confirming_approver). The answer is read
+      # off the rows, never set by a caller. An agent, an instance, an internal
+      # caller or a missing user is never that person.
+      def human_confirmed_replay?
+        return false unless approved_replay?
+        return false if agent || instance_authorized? || internal? || user.nil?
+
+        request = @replaying_operation.try(:approval_request)
+        return false unless request.respond_to?(:requires_human_session?) && request.requires_human_session?
+
+        request.confirming_approver&.id == user.id
+      end
+
       # THE generic `gate_context` (APO-1b). A tool wires an action to the gate
       # with:
       #
@@ -665,6 +731,10 @@ module Ai
       def deferred_tool_call_context(params)
         action = routed_action_name(params)
         descriptor = caller_principal_descriptor(action)
+        # A human-only action replays as the person who confirms it, never as
+        # its caller. Its caller is only RECORDED (who asked), and need not be
+        # replayable.
+        human_only = self.class.declared_action(action)&.dig(:human_only) == true
 
         # VALIDATE FIRST, so a call that could only ever be refused on replay
         # does not park an approval an operator then has to dispose of. An
@@ -674,7 +744,7 @@ module Ai
         # ArgumentError is the seam #run_through_autonomy_gate already rescues
         # around the context build, and it converts to the caller's error
         # envelope BEFORE Ai::AutonomyGate.evaluate is reached.
-        if descriptor["kind"] == "unattributed"
+        if descriptor["kind"] == "unattributed" && !human_only
           raise ArgumentError,
                 "Action #{action} is approval-gated and cannot be parked for an unattributed " \
                 "caller (#{descriptor['detail']}): an approval granted for it could never be replayed"
@@ -685,7 +755,8 @@ module Ai
             tool_class: self.class.name,
             action: action,
             tool_params: params,
-            principal: descriptor
+            principal: descriptor,
+            human_only: human_only
           ),
           description: deferred_tool_call_description(params)
         }
@@ -817,7 +888,7 @@ module Ai
       # that legitimately needs an ungated mutation calls the underlying service
       # directly; a bypass keyed on a constructor flag is exactly the hole this
       # chokepoint exists to close.
-      def run_through_autonomy_gate(declaration, params)
+      def run_through_autonomy_gate(declaration, params, requires_human_session: false)
         misdeclaration = gate_declaration_defect(declaration)
         return misdeclaration if misdeclaration
 
@@ -847,18 +918,31 @@ module Ai
           requested_by: user,
           source_type: context[:source_type],
           source_id: context[:source_id],
-          description: context[:description]
+          description: context[:description],
+          # Splatted only when set, so every other call reaches the gate
+          # exactly as before.
+          **(requires_human_session ? { requires_human_session: true } : {})
         )
 
         case gate.decision
         when :proceed
+          # The gate never proceeds a human-only action (it forces
+          # require_approval). If it ever did, the replay refused for want of a
+          # confirming person, and this reports a refusal, never a success
+          # nobody confirmed.
+          if requires_human_session
+            return error_result("Action #{declaration[:action_category]} needs a person's confirmation; refusing.")
+          end
+
           send(declaration[:on_proceed], params, gate)
         when :pending
           success_result(
             self.class.pending_payload(
               action_category: declaration[:action_category],
               deferred_operation: gate.deferred_operation,
-              approval_request: gate.approval_request
+              approval_request: gate.approval_request,
+              message: (HUMAN_CONFIRMATION_MESSAGE if requires_human_session),
+              requires_human_session: requires_human_session
             )
           )
         else

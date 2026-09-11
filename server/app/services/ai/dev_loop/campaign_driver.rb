@@ -49,6 +49,14 @@ module Ai
         positive_amount: "a positive finite number"
       }.freeze
 
+      # The stop-condition check #resume makes, for a door that must refuse junk BEFORE it
+      # parks a resume for a person to confirm (Ai::Tools::CampaignTool, MCP identity plan
+      # R2): a call that could only ever be refused should not ask a person to confirm it.
+      # Returns the conditions with string keys; raises ArgumentError exactly as #resume does.
+      def self.validate_stop_conditions!(conditions)
+        new(account: nil).send(:validated_stop_conditions!, conditions)
+      end
+
       def initialize(account:, user: nil)
         @account = account
         @user = user

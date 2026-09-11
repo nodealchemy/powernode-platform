@@ -157,6 +157,12 @@ export interface ApprovalRequest {
    * not already decided it. Computed per viewer, on the list AND the detail.
    */
   current_step_can_approve?: boolean;
+  /**
+   * An agent or MCP client asked for a human-only action: only a person, in
+   * their own session, can decide it, and it then runs as that person. On the
+   * list AND the detail read.
+   */
+  requires_human_session?: boolean;
   // Detail read only (GET /ai/autonomy/approvals/:id). There is no
   // `approval_chain_id` on either read: the chain's id arrives inside
   // `approval_chain`.

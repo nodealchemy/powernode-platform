@@ -23,7 +23,14 @@ module Ai
       declare_action "campaign_record_increment", mutating: true
       declare_action "campaign_reject_proposal", mutating: true
       declare_action "campaign_release", mutating: true
-      declare_action "campaign_resume", mutating: true
+      # A resume re-arms a campaign past a stop that fired: a PERSON's decision. Human-only
+      # (MCP identity plan R2): from any tool door it parks for a person to confirm in their
+      # own session, and it runs as that person. The REST door stays direct for a person.
+      declare_action "campaign_resume", mutating: true, human_only: true,
+                                        action_category: "campaign.resume",
+                                        executor_class: "Ai::Executors::DeferredToolCall",
+                                        gate_context: :deferred_tool_call_context,
+                                        on_proceed: :deferred_tool_call_result
       declare_action "campaign_start", mutating: true
       declare_action "campaign_status", mutating: false
       declare_action "campaign_stop", mutating: true
@@ -240,11 +247,14 @@ module Ai
                          "existing ones (e.g. { max_failed: 6 } raises only that cap). Refused, by name, for an " \
                          "archived or already-active campaign, and when a merged stop condition is still met " \
                          "(the campaign would complete again on its next progress snapshot). Each stop condition " \
-                         "must be a valid value of its type; a resume never removes one. Human operators only: " \
-                         "refused for an agent, an instance principal or a caller with no user, for a user who " \
-                         "does not personally hold ai.campaigns.manage, and while a driver holds the campaign's " \
-                         "lease. Records the resume as a campaign decision naming the user, the reason and the " \
-                         "old and new stop conditions.",
+                         "must be a valid value of its type; a resume never removes one. A PERSON's decision: " \
+                         "this verb never resumes anything itself. It checks the call, then PARKS the exact " \
+                         "resume for a person to confirm in their own session (the approval queue on the " \
+                         "Autonomy dashboard) and returns data.pending with requires_human_session and the " \
+                         "approval_request_id. No MCP or agent call can approve it. On approval it runs as the " \
+                         "person who approved, who must hold ai.campaigns.manage, and is refused while a driver " \
+                         "holds the campaign's lease. The campaign decision names that person, the reason and " \
+                         "the old and new stop conditions.",
             parameters: {
               campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
               reason: { type: "string", required: true, description: "Why the campaign is resumed (recorded on the decision)" },
@@ -489,9 +499,9 @@ module Ai
         success_result(campaign: driver.stop(campaign, summary: params[:summary]))
       end
 
+      # Reached only as the replay of a person's own-session confirmation
+      # (BaseTool#human_confirmed_replay?), so `user` is that person.
       def campaign_resume(params)
-        refusal = human_operator_refusal
-        return error_result(refusal) if refusal
         return success_result(halted: true) if halted? # kill-switch: a resume restarts work
 
         campaign = find_campaign(params[:campaign_id])
@@ -507,25 +517,43 @@ module Ai
         error_result(e.message)
       end
 
-      # A resume re-arms a campaign past a stop that fired, so it is a human operator's
-      # decision: authority an agent or an instance inherits is not consent (the A6 H1
-      # ruling). The registrar's gate cannot say that. BaseTool.permitted? lets an agent
-      # reach any REQUIRED_PERMISSION tool when ANY user in its account holds the
-      # permission, and every OAuth MCP call carries a client agent
-      # (StreamableHttpController#mcp_client_agent). So this verb asks for a user acting
-      # alone who personally holds the permission. Scoped here on purpose; the
-      # platform-wide rule is a separate change.
-      def human_operator_refusal
-        principal = if agent then "agent #{agent.id}"
-                    elsif instance_authorized? || node_instance then "an instance principal"
-                    elsif user.nil? then "a caller with no user"
-                    end
-        if principal
-          return "campaign_resume refused: a resume is a human operator's decision, and this call comes from #{principal}"
-        end
-        return nil if ::Ai::Campaigns::Authorization.permitted?(user: user, account: account)
+      # campaign_resume parks for a person (human-only, MCP identity plan R2). A call that could
+      # only ever be refused must not ask a person to confirm it, so the static checks run
+      # BEFORE it parks: the kill switch, a known campaign, a reason, and stop conditions of
+      # valid types (the driver's own validation). Everything that depends on the campaign's
+      # state (resumable, the lease, the re-complete guard) and the confirming person's
+      # permission is checked by the driver on the replay, as that person, against the
+      # campaign as it is then. This runs again on the replay; it holds the same answer.
+      def authorization_error(params)
+        return nil unless params[:action].to_s == "campaign_resume"
+        return success_result(halted: true) if halted?
+        return error_result("Campaign not found") unless find_campaign(params[:campaign_id])
+        return error_result("reason is required") if params[:reason].blank?
 
-        "campaign_resume refused: user #{user.id} does not hold '#{REQUIRED_PERMISSION}'"
+        conditions = params[:stop_conditions] || {}
+        return error_result("stop_conditions must be an object") unless conditions.is_a?(Hash)
+
+        ::Ai::DevLoop::CampaignDriver.validate_stop_conditions!(conditions)
+        nil
+      rescue ArgumentError => e
+        error_result(e.message)
+      end
+
+      # The approval card's line for a parked resume: the campaign and the exact
+      # stop-condition change a person is asked to confirm. Only numeric stop values
+      # appear, and #authorization_error has refused any other value before the call
+      # parks. Never the free-text reason: the card shows that from the filtered params.
+      def deferred_tool_call_description(params)
+        return super unless params[:action].to_s == "campaign_resume"
+
+        campaign = find_campaign(params[:campaign_id])
+        current = campaign&.stop_conditions.to_h
+        changes = (params[:stop_conditions] || {}).to_h.filter_map do |key, value|
+          next unless value.is_a?(Numeric)
+
+          "#{key} #{current[key.to_s] || 'unset'} -> #{value}"
+        end
+        "Resume campaign \"#{campaign&.name}\": #{changes.any? ? changes.join(', ') : 'stop conditions unchanged'}"
       end
     end
   end

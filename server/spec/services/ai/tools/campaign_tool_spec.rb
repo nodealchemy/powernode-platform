@@ -11,6 +11,26 @@ RSpec.describe Ai::Tools::CampaignTool do
     tool.execute(params: params.with_indifferent_access)
   end
 
+  # campaign_resume is human-only (MCP identity plan R2): a tool call PARKS it for a person
+  # to confirm in their own session, and the replay runs as that person. These examples
+  # drive a resume end to end the way it now happens: park, then a person confirms.
+  def confirm!(parked, as: user)
+    request = Ai::ApprovalRequest.find(parked[:data][:approval_request_id])
+    approved = Ai::Autonomy::ApprovalWorkflowService.new(account: account)
+                                                   .approve(request: request, approver: as,
+                                                            origin: Ai::ApprovalDecision::REST_SESSION)
+    expect(approved).to be(true)
+    Ai::DeferredOperation.find(parked[:data][:deferred_operation_id]).result.with_indifferent_access
+  end
+
+  # A call refused before it parks (a static check, or the kill switch) comes back as is.
+  def resume_confirmed(**params)
+    parked = exec(action: "campaign_resume", **params)
+    return parked unless parked[:success] && parked.dig(:data, :pending)
+
+    confirm!(parked)
+  end
+
   it "registers a campaign permission + declares its actions" do
     expect(described_class::REQUIRED_PERMISSION).to eq("ai.campaigns.manage")
     expect(described_class.action_definitions.keys).to contain_exactly(
@@ -279,7 +299,7 @@ RSpec.describe Ai::Tools::CampaignTool do
     it "resumes an auto-completed campaign with a raised cap, and it stays active across the next snapshot" do
       campaign = auto_completed_campaign
 
-      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 6 },
+      res = resume_confirmed(campaign_id: campaign.id, stop_conditions: { max_failed: 6 },
                  reason: "two known-flaky failures; raise the cap")
       expect(res[:success]).to be(true), res[:error].to_s
       expect(res[:data][:campaign][:status]).to eq("active")
@@ -299,13 +319,13 @@ RSpec.describe Ai::Tools::CampaignTool do
       campaign = auto_completed_campaign
       decisions_before = campaign.campaign_decisions.count
 
-      res = exec(action: "campaign_resume", campaign_id: campaign.id, reason: "just try again")
+      res = resume_confirmed(campaign_id: campaign.id, reason: "just try again")
       expect(res[:success]).to be false
       expect(res[:error]).to match(/stop condition 'max_failed'/)
       expect(campaign.reload.status).to eq("completed")
 
       # A merge that still trips is refused the same way, and the merge is rolled back.
-      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 1 },
+      res = resume_confirmed(campaign_id: campaign.id, stop_conditions: { max_failed: 1 },
                  reason: "lower cap")
       expect(res[:success]).to be false
       expect(res[:error]).to match(/stop condition 'max_failed'/)
@@ -317,7 +337,7 @@ RSpec.describe Ai::Tools::CampaignTool do
     it "refuses an archived campaign by name" do
       archived = create(:ai_campaign, account: account, status: "archived")
 
-      res = exec(action: "campaign_resume", campaign_id: archived.id, reason: "bring it back")
+      res = resume_confirmed(campaign_id: archived.id, reason: "bring it back")
       expect(res[:success]).to be false
       expect(res[:error]).to match(/is archived/)
       expect(archived.reload.status).to eq("archived")
@@ -327,7 +347,7 @@ RSpec.describe Ai::Tools::CampaignTool do
     it "refuses an already-active campaign by name" do
       active = create(:ai_campaign, :active, account: account, stop_conditions: { "max_failed" => 3 })
 
-      res = exec(action: "campaign_resume", campaign_id: active.id, stop_conditions: { max_failed: 9 }, reason: "x")
+      res = resume_confirmed(campaign_id: active.id, stop_conditions: { max_failed: 9 }, reason: "x")
       expect(res[:success]).to be false
       expect(res[:error]).to match(/is already active/)
       expect(active.reload.stop_conditions).to eq("max_failed" => 3)
@@ -337,19 +357,20 @@ RSpec.describe Ai::Tools::CampaignTool do
     it "requires a reason and a known campaign" do
       campaign = auto_completed_campaign
 
-      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 6 })
+      res = resume_confirmed(campaign_id: campaign.id, stop_conditions: { max_failed: 6 })
       expect(res[:success]).to be false
       expect(res[:error]).to match(/reason is required/)
       expect(campaign.reload.status).to eq("completed")
 
-      expect(exec(action: "campaign_resume", campaign_id: "nope", reason: "x")[:error]).to eq("Campaign not found")
+      expect(resume_confirmed(campaign_id: "nope", reason: "x")[:error]).to eq("Campaign not found")
+      expect(Ai::ApprovalRequest.count).to eq(0) # neither parked for a person to confirm
     end
 
     it "records the resume as a campaign decision with the actor, reason, and old and new stop conditions" do
       campaign = auto_completed_campaign
       campaign.update_column(:last_activity_at, 1.day.ago)
 
-      res = exec(action: "campaign_resume", campaign_id: campaign.id,
+      res = resume_confirmed(campaign_id: campaign.id,
                  stop_conditions: { max_failed: 6, completion_pct: 90 }, reason: "raise the cap")
       expect(res[:success]).to be(true), res[:error].to_s
 
@@ -371,7 +392,7 @@ RSpec.describe Ai::Tools::CampaignTool do
       campaign = auto_completed_campaign
       account.update!(ai_suspended: true)
 
-      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 6 }, reason: "x")
+      res = resume_confirmed(campaign_id: campaign.id, stop_conditions: { max_failed: 6 }, reason: "x")
       expect(res[:data][:halted]).to be true
       expect(campaign.reload.status).to eq("completed")
     end
@@ -396,12 +417,14 @@ RSpec.describe Ai::Tools::CampaignTool do
         { max_failed: 9, max_cost_per_accepted_change: 0 } => "max_cost_per_accepted_change",
         { max_failed: 9, no_such_stop: 3 } => "no_such_stop"
       }.each do |conditions, key|
-        res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: conditions, reason: "probe")
+        res = resume_confirmed(campaign_id: campaign.id, stop_conditions: conditions, reason: "probe")
         expect(res[:success]).to be(false), "#{conditions.inspect} was accepted"
         expect(res[:error]).to include("invalid stop condition").and include("'#{key}'")
       end
       expect(campaign.reload.status).to eq("completed")
       expect(campaign.stop_conditions).to eq(before_conditions)
+      # Refused at the door, before it parks: a person is never asked to confirm junk.
+      expect(Ai::ApprovalRequest.count).to eq(0)
     end
 
     it "accepts a valid value of each stop condition's type and stores it as given" do
@@ -409,7 +432,7 @@ RSpec.describe Ai::Tools::CampaignTool do
       conditions = { max_failed: 6, min_acceptance_sample: 8, completion_pct: 95.5, min_acceptance_pct: 40,
                      max_cost_per_accepted_change: 2.5 }
 
-      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: conditions, reason: "retune")
+      res = resume_confirmed(campaign_id: campaign.id, stop_conditions: conditions, reason: "retune")
       expect(res[:success]).to be(true), res[:error].to_s
       expect(campaign.reload.stop_conditions).to eq(conditions.stringify_keys)
       expect(campaign.stop_conditions["max_failed"]).to be_a(Integer)
@@ -420,7 +443,7 @@ RSpec.describe Ai::Tools::CampaignTool do
       campaign = auto_completed_campaign
       exec(action: "campaign_claim", campaign_id: campaign.id, holder: "driver-loop-1")
 
-      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 50 },
+      res = resume_confirmed(campaign_id: campaign.id, stop_conditions: { max_failed: 50 },
                  reason: "self re-arm")
       expect(res[:success]).to be false
       expect(res[:error]).to include("held by driver 'driver-loop-1'")
@@ -428,7 +451,7 @@ RSpec.describe Ai::Tools::CampaignTool do
       expect(campaign.stop_conditions["max_failed"]).to eq(2)
 
       exec(action: "campaign_release", campaign_id: campaign.id, holder: "driver-loop-1")
-      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 50 },
+      res = resume_confirmed(campaign_id: campaign.id, stop_conditions: { max_failed: 50 },
                  reason: "operator, after the driver let go")
       expect(res[:success]).to be(true), res[:error].to_s
       expect(campaign.reload.status).to eq("active")
@@ -460,8 +483,10 @@ RSpec.describe Ai::Tools::CampaignTool do
       expect(campaign.campaign_decisions.where("metadata->>'action' = ?", "campaign_resume")).to be_empty
     end
 
-    # §9 fix 2: a resume is a human operator's decision. Authority an agent or an
-    # instance inherits from the account is not consent (the A6 H1 ruling).
+    # MCP identity plan R2, replacing §9 fix 2's refusal ladder. A resume is a person's
+    # decision, and no tool door is a person's consent (the A6 H1 ruling), so EVERY tool
+    # principal parks it for a person to confirm in their own session. Nothing runs until
+    # a person confirms, and then it runs as that person.
     describe "principals" do
       let(:campaign) { auto_completed_campaign }
 
@@ -470,50 +495,60 @@ RSpec.describe Ai::Tools::CampaignTool do
                                         stop_conditions: { max_failed: 50 }, reason: "re-arm" }.with_indifferent_access)
       end
 
-      def expect_refused_untouched(res, named)
-        expect(res[:success]).to be false
-        expect(res[:error]).to match(named)
+      def resume_decisions = campaign.campaign_decisions.where("metadata->>'action' = ?", "campaign_resume")
+
+      def expect_parked_untouched(res)
+        expect(res[:success]).to be(true), res[:error].to_s
+        expect(res[:data]).to include(pending: true, requires_human_session: true)
+        expect(Ai::ApprovalRequest.find(res[:data][:approval_request_id]).requires_human_session?).to be(true)
         expect(campaign.reload.status).to eq("completed")
         expect(campaign.stop_conditions["max_failed"]).to eq(2)
-        expect(campaign.campaign_decisions.where("metadata->>'action' = ?", "campaign_resume")).to be_empty
+        expect(resume_decisions).to be_empty
       end
 
-      it "refuses an agent acting beside a creator who holds ai.campaigns.manage" do
+      it "parks an agent acting beside a creator who holds ai.campaigns.manage" do
         agent = create(:ai_agent, account: account, creator: user)
-        expect_refused_untouched(resume_as(described_class.new(account: account, user: user, agent: agent)),
-                                 /human operator's decision.*agent #{agent.id}/)
+        expect_parked_untouched(resume_as(described_class.new(account: account, user: user, agent: agent)))
       end
 
-      it "refuses an agent alone whose creator is powerless, though the account owner holds the permission" do
+      it "parks an agent alone whose creator is powerless" do
         campaign # built by the owner before the powerless user exists (the first user becomes OWNER)
         powerless = create(:user, account: account, permissions: [])
         agent = create(:ai_agent, account: account, creator: powerless)
-        expect_refused_untouched(resume_as(described_class.new(account: account, agent: agent)),
-                                 /human operator's decision.*agent #{agent.id}/)
+        expect_parked_untouched(resume_as(described_class.new(account: account, agent: agent)))
       end
 
-      it "refuses a grant-gated instance principal" do
+      it "parks a grant-gated instance principal" do
         instance_tool = described_class.new(account: account)
         instance_tool.instance_authorized = true
-        expect_refused_untouched(resume_as(instance_tool), /human operator's decision.*instance principal/)
+        expect_parked_untouched(resume_as(instance_tool))
       end
 
-      it "refuses an internal caller with no user" do
-        expect_refused_untouched(resume_as(described_class.new(account: account, internal: true)),
-                                 /human operator's decision.*no user/)
+      it "parks an internal caller with no user" do
+        expect_parked_untouched(resume_as(described_class.new(account: account, internal: true)))
       end
 
-      it "refuses a user who does not personally hold ai.campaigns.manage, even constructed past the registrar" do
-        campaign # built by the owner before the restricted user exists
-        reader = create(:user, account: account, permissions: %w[ai.campaigns.read])
-        expect_refused_untouched(resume_as(described_class.new(account: account, user: reader)),
-                                 /does not hold 'ai\.campaigns\.manage'/)
+      it "parks a user acting alone who holds ai.campaigns.manage (the ladder's former positive control)" do
+        expect_parked_untouched(resume_as(described_class.new(account: account, user: user)))
       end
 
-      it "lets the human operator who holds the permission through (positive control)" do
-        res = resume_as(described_class.new(account: account, user: user))
-        expect(res[:success]).to be(true), res[:error].to_s
+      it "runs as the person who confirms it from their own session (positive control)" do
+        result = confirm!(resume_as(described_class.new(account: account, user: user)))
+
+        expect(result[:success]).to be(true), result[:error].to_s
         expect(campaign.reload.status).to eq("active")
+        expect(resume_decisions.sole.user_id).to eq(user.id)
+      end
+
+      it "runs nothing when the confirming person does not hold ai.campaigns.manage" do
+        parked = resume_as(described_class.new(account: account, user: user))
+        reader = create(:user, account: account, permissions: %w[ai.campaigns.read])
+
+        result = confirm!(parked, as: reader)
+
+        expect(result).to include(refused: true, reason: "permission_revoked")
+        expect(campaign.reload.status).to eq("completed")
+        expect(resume_decisions).to be_empty
       end
     end
   end
@@ -551,24 +586,28 @@ RSpec.describe Ai::Tools::CampaignTool do
       expect(completed.campaign_decisions.count).to eq(0)
     end
 
-    it "lets a principal holding ai.campaigns.manage through to the resume" do
+    it "parks a manager's call, and runs it as the person who confirms it" do
       manager = create(:user, account: account, permissions: %w[ai.campaigns.manage])
 
       res = via_mcp("campaign_resume", { campaign_id: completed.id, reason: "operator resume" }, as: manager)
       expect(res[:success]).to be(true), res[:error].to_s
+      expect(res[:data]).to include(pending: true, requires_human_session: true)
+      expect(completed.reload.status).to eq("completed")
+
+      confirm!(res, as: manager)
       expect(completed.reload.status).to eq("active")
       expect(completed.campaign_decisions.last.user_id).to eq(manager.id)
     end
 
-    it "refuses an MCP call that carries an agent, though the token's user holds ai.campaigns.manage" do
+    it "parks an MCP call that carries an agent, though the token's user holds ai.campaigns.manage" do
       agent = create(:ai_agent, account: account, creator: user)
 
       res = ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
         "platform.campaign_resume", params: { campaign_id: completed.id, reason: "agent via mcp" },
-                                    account: account, user: user, mcp_agent: agent
+                                    account: account, user: user, mcp_agent: agent, origin: "mcp_oauth"
       )
-      expect(res[:success]).to be false
-      expect(res[:error]).to match(/human operator's decision/)
+      expect(res[:success]).to be(true), res[:error].to_s
+      expect(res[:data]).to include(pending: true, requires_human_session: true)
       expect(completed.reload.status).to eq("completed")
       expect(completed.campaign_decisions.count).to eq(0)
     end

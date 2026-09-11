@@ -72,6 +72,9 @@ module Ai
     # No seed writes a row for either, on purpose: unmatched, they resolve to
     # require_approval, so a delegated commit parks until an operator adds a
     # policy row (operator ruling: the write actuator is opt-in).
+    # campaign.resume (MCP identity plan R2): a human-only resume parks under it.
+    # A row can block it; no row can proceed it (Ai::AutonomyGate forces
+    # require_approval for a human-only action).
     STATIC_CATEGORIES = (%w[
       approval proposal escalation status_update issue_alert
       feedback
@@ -79,6 +82,7 @@ module Ai
       dev.multi_file_change
       ai.delegation_policy.update
       ralph.repository_write ralph.repository_delete
+      campaign.resume
     ] + ENGINEERING_CATEGORIES + %w[*]).freeze
 
     @category_registry = Set.new(STATIC_CATEGORIES)

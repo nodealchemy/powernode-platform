@@ -82,6 +82,28 @@ module Ai
       step_statuses[current_step] if step_statuses.present?
     end
 
+    # Parked for a person's own session (MCP identity plan R2). Ai::AutonomyGate
+    # writes the flag when it parks a human-only tool action. Such a request is
+    # decided only from Ai::ApprovalDecision::REST_SESSION (#record_decision!),
+    # and its replay runs as #confirming_approver
+    # (Ai::Executors::DeferredToolCall).
+    def requires_human_session?
+      data = request_data
+      return false unless data.is_a?(Hash)
+
+      (data["requires_human_session"] || data[:requires_human_session]) == true
+    end
+
+    # The person whose approval completed this request: the last approving
+    # decision on the LAST step. nil until the request is approved, and nil for
+    # an approval no person made on that step (a chain's timeout_action).
+    def confirming_approver
+      return nil unless approved?
+
+      last_step = [ step_statuses.to_a.length - 1, 0 ].max
+      decisions.approved.where(step_number: last_step).order(:created_at, :id).last&.approver
+    end
+
     # Typed approver specs supported:
     #   "*"                                              — any active user
     #   "<user_uuid>"                                    — specific user (legacy)
@@ -104,7 +126,12 @@ module Ai
       approvers.any? { |spec| approver_matches?(spec, user) }
     end
 
-    def record_decision!(approver:, decision:, comments: nil, conditions: {})
+    # `origin` names the door the decision came through (Ai::ApprovalDecision
+    # ORIGINS). A requires_human_session request accepts a decision only from a
+    # person's own session. Every other door, and a caller that names none, is
+    # refused (fail closed).
+    def record_decision!(approver:, decision:, comments: nil, conditions: {}, origin: nil)
+      return false unless human_session_satisfied?(origin)
       return false unless can_approve?(approver)
 
       # THE REQUEST ROW IS LOCKED FOR THE WHOLE DECISION. Without it two
@@ -188,6 +215,10 @@ module Ai
     end
 
     private
+
+    def human_session_satisfied?(origin)
+      !requires_human_session? || ::Ai::ApprovalDecision.human_session_origin?(origin)
+    end
 
     def approver_matches?(spec, user)
       case spec

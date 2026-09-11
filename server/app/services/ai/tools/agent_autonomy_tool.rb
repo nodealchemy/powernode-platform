@@ -972,9 +972,10 @@ module Ai
       def approve_deferred_operation(params)
         request = resolve_approval_request(params[:deferred_operation_id])
         return { success: false, error: "ApprovalRequest not found" } unless request
+        return human_session_refusal(request, "approve") if request.requires_human_session?
 
         result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).approve(
-          request: request, approver: user, comments: params[:comments]
+          request: request, approver: user, comments: params[:comments], origin: call_origin
         )
         # A refused decision is a failed call, not a success carrying
         # workflow: false: the same approver's second decision on a step, a
@@ -1003,9 +1004,10 @@ module Ai
       def reject_deferred_operation(params)
         request = resolve_approval_request(params[:deferred_operation_id])
         return { success: false, error: "ApprovalRequest not found" } unless request
+        return human_session_refusal(request, "reject") if request.requires_human_session?
 
         result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).reject(
-          request: request, approver: user, comments: params[:comments]
+          request: request, approver: user, comments: params[:comments], origin: call_origin
         )
         return { success: false, error: "Cannot reject this request" } unless result
 
@@ -1024,6 +1026,16 @@ module Ai
         else
           ::Ai::ApprovalRequest.where(account_id: account.id).find_by(id: id)
         end
+      end
+
+      # A request parked for a person's own session (MCP identity plan R2) is
+      # never decided through a tool. The call is an agent's or an MCP client's,
+      # and the user it carries is authority, not a person confirming. It is
+      # refused by name, pointing at where a person decides it.
+      def human_session_refusal(request, verb)
+        { success: false, requires_human_session: true, approval_request_id: request.id,
+          error: "Cannot #{verb} this request here: it needs a person to decide it in their own session. " \
+                 "Open the approval queue on the Autonomy dashboard in the platform UI." }
       end
     end
   end

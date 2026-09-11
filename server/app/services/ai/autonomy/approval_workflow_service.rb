@@ -76,16 +76,20 @@ module Ai
       # @param request [Ai::ApprovalRequest] The request to approve
       # @param approver [User] The user approving
       # @param comments [String] Optional comments
+      # @param origin [String, nil] the door the decision came through
+      #   (Ai::ApprovalDecision ORIGINS). A requires_human_session request needs
+      #   Ai::ApprovalDecision::REST_SESSION.
       # @return [Boolean] false when the request is not this account's, not
       #   pending, or the approver does not match the current step
-      def approve(request:, approver:, comments: nil)
+      def approve(request:, approver:, comments: nil, origin: nil)
         return false unless request.account_id == account.id
         return false unless request.pending?
         return false unless request.can_approve?(approver)
 
         # The decision's own answer, not a constant: it is false when a racing
         # decision by the same approver got there first (the unique index).
-        request.record_decision!(approver: approver, decision: "approved", comments: comments) ? true : false
+        request.record_decision!(approver: approver, decision: "approved", comments: comments,
+                                 origin: origin) ? true : false
       end
 
       # Reject a pending request. Rejection at any step terminates the chain.
@@ -94,12 +98,13 @@ module Ai
       # @param comments [String] Optional comments
       # @return [Boolean] false when the request is not this account's, not
       #   pending, or the approver does not match the current step
-      def reject(request:, approver:, comments: nil)
+      def reject(request:, approver:, comments: nil, origin: nil)
         return false unless request.account_id == account.id
         return false unless request.pending?
         return false unless request.can_approve?(approver)
 
-        request.record_decision!(approver: approver, decision: "rejected", comments: comments) ? true : false
+        request.record_decision!(approver: approver, decision: "rejected", comments: comments,
+                                 origin: origin) ? true : false
       end
 
       # Expire overdue requests. Honours each chain's timeout_action
