@@ -5,7 +5,7 @@ require "rails_helper"
 # IMP-01a08b8e. The :user factory's role traits clear the user's roles and then
 # call User#add_role(name), which returns FALSE for a name that is not a role —
 # it does not raise. Two traits named roles that do not exist (`billing_admin`,
-# registered by the business extension as `business.billing_admin`; and
+# registered by a private extension under its own namespace; and
 # `system_admin`, which exists nowhere), so each yielded a user with ZERO roles.
 # A spec built on one gets a refusal from every gate for the wrong reason, and
 # its "the gate refuses" examples pass whether or not the gate works.

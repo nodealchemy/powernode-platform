@@ -41,7 +41,7 @@ require "tmpdir"
 # `determine_health_status` is NOT unique. Five definitions existed and E7b
 # deletes two: Ai::MonitoringHealthService and AiMonitoringConcern. The other
 # three (Devops::BaseExecutor, Ai::Analytics::DashboardService::AiopsMetrics,
-# and the business extension's CustomerHealthScore) are correct code on other
+# and a private extension's customer health scorer) are correct code on other
 # subjects and are explicitly out of E7b's scope (lead ruling). A tree-wide
 # literal would therefore go red on three files nobody is going to change, and
 # the cheapest way to green it would be to weaken the guard — which is how a
@@ -60,8 +60,8 @@ RSpec.describe "rival health-score producers stay deleted (E7, E7b)" do
     "app/services/concerns/ai_monitoring_concern.rb" => "def determine_health_status"
   }.freeze
 
-  # Core only. The business extension has its OWN
-  # `Analytics::CustomerHealthScoreService#calculate_health_score` — customer
+  # Core only. A private extension has its OWN
+  # customer health scorer — customer
   # churn scoring, an entirely different subject that E7 does not touch — so
   # scanning extensions/ here would fail on a correct file.
   ROOTS = %w[app lib].map { |dir| File.expand_path("../../#{dir}", __dir__) }.freeze
