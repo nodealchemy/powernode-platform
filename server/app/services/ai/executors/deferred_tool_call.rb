@@ -72,8 +72,12 @@ module Ai
       # builds every tool it nests with `internal: internal_caller?` while
       # forwarding the caller's user/agent). Dropping it would rebuild a
       # strictly weaker tool than the one that parked the call.
+      #
+      # `call_origin` is the door the parked call came through (MCP identity
+      # plan #6), handed back to the rebuilt tool. Attribution only: the
+      # replay skips the gate.
       Caller = Struct.new(:kind, :user, :agent, :node_instance, :mcp_principal,
-                          :internal, :granted_tool_name, keyword_init: true)
+                          :internal, :granted_tool_name, :call_origin, keyword_init: true)
 
       class << self
         # Build the parked payload. Lives beside #execute so the wire shape has
@@ -237,12 +241,26 @@ module Ai
           descriptor = normalize(principal)
           return nil if account.nil?
 
-          case descriptor["kind"].to_s
-          when "user"     then user_caller(descriptor, account)
-          when "agent"    then agent_caller(descriptor, account)
-          when "instance" then instance_caller(descriptor, account)
-          when "internal" then Caller.new(kind: "internal")
-          end
+          # The door the call came through (MCP identity plan #6). A value outside
+          # the vocabulary is a descriptor this class never wrote: refuse it,
+          # never replay it as an unmarked call.
+          known, origin = recorded_origin(descriptor)
+          return nil unless known
+
+          caller = case descriptor["kind"].to_s
+                   when "user"     then user_caller(descriptor, account)
+                   when "agent"    then agent_caller(descriptor, account)
+                   when "instance" then instance_caller(descriptor, account)
+                   when "internal" then Caller.new(kind: "internal")
+                   end
+          caller&.tap { |rehydrated| rehydrated.call_origin = origin }
+        end
+
+        # [known, origin]: nil is a known answer (an unmarked call).
+        def recorded_origin(descriptor)
+          [ true, ::Ai::Tools::CallOrigin.validate!(descriptor["origin"]) ]
+        rescue ArgumentError
+          [ false, nil ]
         end
 
         # The person whose own-session approval completed the request, as a
@@ -379,12 +397,12 @@ module Ai
         def build_tool(tool_class, principal_ctx, account)
           case principal_ctx.kind
           when "instance"
-            tool = tool_class.new(account: account)
+            tool = tool_class.new(account: account, call_origin: principal_ctx.call_origin)
             tool.instance_authorized = true
             tool.node_instance = principal_ctx.node_instance
             tool
           when "internal"
-            tool_class.new(account: account, internal: true)
+            tool_class.new(account: account, internal: true, call_origin: principal_ctx.call_origin)
           else
             # `internal:` is carried, not dropped. Rebuilding a nested hop
             # without it hands the tool's own #action_permitted? a shallower
@@ -395,7 +413,8 @@ module Ai
             # .permitted?.
             tool_class.new(account: account, user: principal_ctx.user,
                            agent: principal_ctx.agent,
-                           internal: principal_ctx.internal ? true : false)
+                           internal: principal_ctx.internal ? true : false,
+                           call_origin: principal_ctx.call_origin)
           end
         end
 

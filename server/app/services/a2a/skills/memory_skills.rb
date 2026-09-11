@@ -306,7 +306,7 @@ module A2a
       # above plus the account scoping in #find_agent.
       def search_memories(agent:, query:, limit:)
         tool = ::Ai::Tools::MemoryTool.new(
-          account: @account, agent: agent, user: @user, internal: true
+          account: @account, agent: agent, user: @user, internal: true, call_origin: ::Ai::Tools::CallOrigin::A2A
         )
 
         result = tool.execute(

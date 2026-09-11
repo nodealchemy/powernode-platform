@@ -214,13 +214,12 @@ module Ai
           # replay re-check, PlatformApiToolRegistry.tool_definitions) refuses
           # the canonical; #execute refuses it with a named envelope.
           #
-          # OUTSIDE the fail-open rescue below, deliberately: that rescue turns
-          # any error in the account-role lookup into `true`, and a fail-CLOSED
-          # refusal evaluated inside it would become an ALLOW the moment the
-          # predicate raised. The predicate is two `respond_to?`-guarded calls
-          # on the model, so a raise here is a real defect and surfaces as one.
+          # The predicate is two `respond_to?`-guarded calls on the model, so a
+          # raise here is a real defect and surfaces as one.
           return false if canonical_principal?(agent)
-          return true unless agent.respond_to?(:account) && agent.account
+          # An agent with no account to bound it has no account role to ask.
+          # It used to pass here; it fails CLOSED now (MCP identity plan, commit 4).
+          return false unless agent.respond_to?(:account) && agent.account
 
           permitted_by_account_role?(agent)
         end
@@ -231,12 +230,15 @@ module Ai
         # grants and silently hides every code-defined-role permission (e.g.
         # ai.campaigns.*) from all agents, including the concierge. Accounts are small
         # (single-user in core mode), so the per-user check is cheap.
+        #
+        # A check that cannot answer refuses. This rescue used to answer `true` on
+        # the premise that a user's API-level authorization gated the call, which
+        # an agent's own loop and a no-agent MCP call never pass through.
         def permitted_by_account_role?(agent)
           agent.account.users.any? { |user| user.has_permission?(self::REQUIRED_PERMISSION) }
-        rescue StandardError
-          # If permission check fails, allow the tool — execution is already
-          # gated by the triggering user's API-level authorization.
-          true
+        rescue StandardError => e
+          Rails.logger.warn("[#{name}] agent permission check failed closed: #{e.class}: #{e.message}")
+          false
         end
 
         def tool_name
@@ -474,11 +476,15 @@ module Ai
       # principal (mTLS node cert) also arrives with no user, and tools that
       # inferred "internal" from `user.nil?` silently handed those principals
       # every per-action permission. (IMP-9030413bc292)
-      def initialize(account:, agent: nil, user: nil, internal: false)
+      # `call_origin:` is the door a tool CONSTRUCTED DIRECTLY names for its
+      # call (Ai::Tools::CallOrigin; reviewer guidance 3), validated exactly as
+      # the registrar's origin: is. nil for a person's own REST request.
+      def initialize(account:, agent: nil, user: nil, internal: false, call_origin: nil)
         @account = account
         @agent = agent
         @user = user
         @internal = internal
+        @call_origin = ::Ai::Tools::CallOrigin.validate!(call_origin)
       end
 
       # Optionally injected post-construction by McpPlatformToolRegistrar for an
@@ -802,7 +808,23 @@ module Ai
       # on replay, and a tool enforcing per-action permissions with
       # `return true if internal?` would then refuse the action an operator had
       # just approved — the approval silently becoming a no-op.
+      # The principal's shape below, plus the door the call came through
+      # (MCP identity plan #6): attribution on the parked approval and on its
+      # replay. nil for an unmarked call.
       def caller_principal_descriptor(action = nil)
+        principal_shape_descriptor(action).merge("origin" => call_origin)
+      end
+
+      # A MACHINE's call (MCP identity plan #5): a tool door marked it, or it
+      # carries an agent or an instance principal. The gate resolves it in the
+      # agent audience whether or not an agent record could be resolved for it.
+      # False only for an unmarked, agent-less, non-instance call: a person's own
+      # REST request, or a direct construction the lint allowlists.
+      def machine_call?
+        ::Ai::Tools::CallOrigin.machine?(call_origin) || agent.present? || instance_authorized?
+      end
+
+      def principal_shape_descriptor(action = nil)
         if instance_authorized?
           if node_instance
             return { "kind" => "instance", "node_instance_id" => node_instance.id,
@@ -923,7 +945,9 @@ module Ai
           # exactly as before. The call_origin marks the request with the tool
           # door it came through (MCP identity plan D1, guard a).
           **(requires_human_session ? { requires_human_session: true } : {}),
-          **(call_origin ? { call_origin: call_origin } : {})
+          **(call_origin ? { call_origin: call_origin } : {}),
+          # A machine's call resolves in the agent audience (MCP identity plan #5).
+          **(machine_call? ? { agent_initiated: true } : {})
         )
 
         case gate.decision

@@ -43,7 +43,21 @@ module Ai
       # A skill recipe step (Ai::SkillRecipeRunner).
       SKILL_RECIPE   = "skill_recipe"
 
-      ALL = [ MCP_OAUTH, MCP_INSTANCE, MCP_FEDERATION, MCP_CABLE, AGENT_BRIDGE, SKILL_RECIPE ].freeze
+      # Tools CONSTRUCTED DIRECTLY by a machine-driven caller name their door in
+      # the constructor (BaseTool.new(call_origin:), reviewer guidance 3), and
+      # spec/lint/registrar_origin_spec.rb keeps every direct construction marked:
+      # the concierge acting on a model's reading of a chat message,
+      CONCIERGE      = "concierge"
+      # an A2A skill serving a peer agent's request,
+      A2A            = "a2a"
+      # a platform skill executor nesting a tool,
+      SKILL_EXECUTOR = "skill_executor"
+      # and an in-process system service (discovery runs, learning extractors,
+      # orchestrators) acting on its own schedule.
+      SYSTEM_SERVICE = "system_service"
+
+      ALL = [ MCP_OAUTH, MCP_INSTANCE, MCP_FEDERATION, MCP_CABLE, AGENT_BRIDGE, SKILL_RECIPE,
+              CONCIERGE, A2A, SKILL_EXECUTOR, SYSTEM_SERVICE ].freeze
 
       module_function
 

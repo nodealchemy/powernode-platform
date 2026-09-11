@@ -493,7 +493,9 @@ module Ai
       # refuse it on every run with nothing to show for it, the way an
       # extension's auto-evolve trigger once went silent.
       def improvement_tool
-        @improvement_tool ||= ::Ai::Tools::ImprovementTool.new(account: account, internal: true)
+        @improvement_tool ||= ::Ai::Tools::ImprovementTool.new(
+          account: account, internal: true, call_origin: ::Ai::Tools::CallOrigin::SYSTEM_SERVICE
+        )
       end
     end
   end

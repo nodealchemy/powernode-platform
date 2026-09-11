@@ -34,7 +34,8 @@ RSpec.describe "call_origin (MCP identity plan R3)" do
   describe "the vocabulary" do
     it "names every tool door, and each is a machine's" do
       expect(Ai::Tools::CallOrigin::ALL).to contain_exactly(
-        "mcp_oauth", "mcp_instance", "mcp_federation", "mcp_cable", "agent_bridge", "skill_recipe"
+        "mcp_oauth", "mcp_instance", "mcp_federation", "mcp_cable", "agent_bridge", "skill_recipe",
+        "concierge", "a2a", "skill_executor", "system_service"
       )
       expect(Ai::Tools::CallOrigin::ALL).to all(satisfy { |o| Ai::Tools::CallOrigin.machine?(o) })
     end
@@ -42,6 +43,20 @@ RSpec.describe "call_origin (MCP identity plan R3)" do
     it "answers false for nil and for a value it does not define" do
       expect(Ai::Tools::CallOrigin.machine?(nil)).to be(false)
       expect(Ai::Tools::CallOrigin.machine?("rest_session")).to be(false)
+    end
+  end
+
+  # A tool constructed directly names its door in the constructor (reviewer
+  # guidance 3), validated exactly as the registrar's origin: is.
+  describe "BaseTool.new(call_origin:)" do
+    it "carries the door it was built with, and nil when it names none" do
+      expect(probe_class.new(account: account, user: user, call_origin: "concierge").send(:call_origin)).to eq("concierge")
+      expect(probe_class.new(account: account, user: user).send(:call_origin)).to be_nil
+    end
+
+    it "refuses a door outside the vocabulary" do
+      expect { probe_class.new(account: account, user: user, call_origin: "rest_session") }
+        .to raise_error(ArgumentError, /call_origin/)
     end
   end
 

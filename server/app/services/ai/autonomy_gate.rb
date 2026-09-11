@@ -90,16 +90,18 @@ module Ai
     #                        nil for a call from a person's own session.
     def evaluate(action_category:, executor_class:, params: {}, agent: nil,
                  requested_by: nil, source_type: nil, source_id: nil, description: nil,
-                 environment: nil, requires_human_session: false, call_origin: nil)
+                 environment: nil, requires_human_session: false, call_origin: nil, agent_initiated: false)
       call_origin = ::Ai::Tools::CallOrigin.validate!(call_origin)
       resolved_environment = ::Ai::EnvironmentResolution.resolve(
         account: @account, params: params, environment: environment
       )
       # Only worth estimating when a plane (and so a ceiling) applies.
       blast_radius = resolved_environment && ::Ai::EnvironmentResolution.blast_radius(account: @account, params: params)
+      # `agent_initiated` (MCP identity plan #5): a machine's call resolves in
+      # the agent audience even when it carries no agent (BaseTool#machine_call?).
       policy_match = @policy_service.resolve(
         action_category: action_category, agent: agent, user: requested_by,
-        environment: resolved_environment, blast_radius: blast_radius
+        environment: resolved_environment, blast_radius: blast_radius, agent_initiated: agent_initiated
       )
 
       deferred = create_deferred_operation!(

@@ -1148,7 +1148,7 @@ module Ai
       # reconciler paths are unchanged. (IMP-c2e3e5d3cff0)
       def delegate_tool
         @delegate_tool ||= mark_instance_provenance(
-          Ai::Tools::AgentManagementTool.new(account: account, user: user, agent: agent)
+          Ai::Tools::AgentManagementTool.new(account: account, user: user, agent: agent, call_origin: call_origin)
         )
       end
 
