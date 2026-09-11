@@ -107,21 +107,47 @@ module Api
           end
 
           # PATCH /api/v1/internal/devops/swarm/deployments/:id
+          #
+          # Status vocabulary is the WORKER'S, not this controller's guess: the
+          # swarm jobs (stack_deploy_job.rb, service_update_job.rb) send
+          # "in_progress" when they start, then one of "completed",
+          # "partially_converged" (convergence timed out but some services came
+          # up), or "failed". No producer ever sends "running" — that was a
+          # stale branch left over from an earlier internal vocabulary; it is
+          # removed rather than kept as a silent no-op, and any status this
+          # controller does not recognize now fails loudly instead of a 200
+          # that leaves the row "pending" forever.
           def update_deployment
             deployment = deployment_scope.find(params[:id])
 
+            raw_result = params[:result]
+            unless raw_result.nil? || raw_result.is_a?(ActionController::Parameters) || raw_result.is_a?(Hash)
+              return render_error(
+                "Invalid result: expected an object, got #{raw_result.class.name}",
+                status: :unprocessable_content
+              )
+            end
+            result = raw_result.nil? ? {} : raw_result.to_unsafe_h
+
             case params[:status]
-            when "running"
+            when "in_progress"
               deployment.start!
             when "completed"
-              deployment.complete!(params[:result]&.to_unsafe_h || {})
+              deployment.complete!(result)
+            when "partially_converged"
+              deployment.partially_converge!(result)
             when "failed"
-              deployment.fail!(params[:result]&.to_unsafe_h || {})
+              deployment.fail!(result)
+            else
+              return render_error("Unknown deployment status: #{params[:status].inspect}", status: :unprocessable_content)
             end
 
             render_success({ status: "ok" }) # hash literal: braceless, status: binds the HTTP-status keyword and raises
           rescue ActiveRecord::RecordNotFound
             render_error("Deployment not found", status: :not_found)
+          rescue StandardError => e
+            Rails.logger.error "Swarm deployment update error: #{e.message}"
+            render_error(e.message, status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/devops/swarm/events

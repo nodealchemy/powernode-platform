@@ -1001,7 +1001,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_040634) do
     t.index ["expires_at"], name: "index_ai_approval_requests_on_expires_at"
     t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
     t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
-    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying, 'failed'::character varying]::text[]))", name: "check_execution_status"
+    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying::text, 'failed'::character varying::text]))", name: "check_execution_status"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_request_status"
   end
 
@@ -6133,7 +6133,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_040634) do
     t.index ["status"], name: "index_devops_swarm_deployments_on_status"
     t.index ["triggered_by_id"], name: "index_devops_swarm_deployments_on_triggered_by_id"
     t.check_constraint "deployment_type::text = ANY (ARRAY['deploy'::character varying::text, 'update'::character varying::text, 'scale'::character varying::text, 'rollback'::character varying::text, 'remove'::character varying::text, 'stack_deploy'::character varying::text, 'stack_remove'::character varying::text])", name: "swarm_deployments_type_check"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "swarm_deployments_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'partially_converged'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "swarm_deployments_status_check"
   end
 
   create_table "devops_swarm_events", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -8735,7 +8735,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_040634) do
     t.index ["match_method"], name: "index_system_cve_exposures_on_match_method"
     t.index ["node_module_version_id"], name: "index_system_cve_exposures_on_node_module_version_id"
     t.index ["state"], name: "index_system_cve_exposures_on_state"
-    t.check_constraint "state::text = ANY (ARRAY['open'::character varying, 'remediating'::character varying, 'resolved'::character varying, 'wont_fix'::character varying, 'suspected'::character varying]::text[])", name: "ck_cve_exposures_state"
+    t.check_constraint "state::text = ANY (ARRAY['open'::character varying::text, 'remediating'::character varying::text, 'resolved'::character varying::text, 'wont_fix'::character varying::text, 'suspected'::character varying::text])", name: "ck_cve_exposures_state"
   end
 
   create_table "system_cves", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -10135,7 +10135,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_040634) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "captured_at"], name: "index_platform_health_snapshots_on_account_and_time", order: { captured_at: :desc }
     t.index ["account_id", "overall", "captured_at"], name: "index_platform_health_snapshots_on_account_overall_time", order: { captured_at: :desc }
-    t.check_constraint "overall::text = ANY (ARRAY['ok'::character varying, 'degraded'::character varying, 'down'::character varying, 'unknown'::character varying]::text[])", name: "ck_platform_health_snapshots_overall"
+    t.check_constraint "overall::text = ANY (ARRAY['ok'::character varying::text, 'degraded'::character varying::text, 'down'::character varying::text, 'unknown'::character varying::text])", name: "ck_platform_health_snapshots_overall"
   end
 
   create_table "system_project_metrics", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -11006,7 +11006,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_040634) do
     t.index ["sdwan_service_id", "status", "created_at"], name: "idx_sdwan_service_backends_on_service_status_created"
     t.check_constraint "backend_port >= 1 AND backend_port <= 65535", name: "sdwan_service_backends_port_range"
     t.check_constraint "backend_vip_id IS NOT NULL OR backend_host IS NOT NULL", name: "sdwan_service_backends_backend_present"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'draining'::character varying]::text[])", name: "sdwan_service_backends_status_enum"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'draining'::character varying::text])", name: "sdwan_service_backends_status_enum"
     t.check_constraint "weight >= 1 AND weight <= 1000", name: "sdwan_service_backends_weight_range"
   end
 
