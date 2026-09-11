@@ -36,10 +36,26 @@ const DEFAULT_STATS: DashboardStats = {
   alerts: [],
 };
 
+/**
+ * A rejected monitoring request, as operator-facing text. A failed READ is a
+ * different fact from `not_measured` (M1 review F4): not_measured means the
+ * server answered and had no measurement; this means the dashboard never got
+ * an answer. The two must never render the same, so the failure is carried
+ * separately instead of being folded into DEFAULT_STATS.
+ */
+function describeFailure(reason: unknown): string {
+  if (reason instanceof Error && reason.message) return reason.message;
+  if (typeof reason === 'string' && reason) return reason;
+  return 'Monitoring request failed';
+}
+
 export function useDashboardStats() {
   const [stats, setStats] = useState<DashboardStats>(DEFAULT_STATS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Set only when the MONITORING fetch rejected. `error` below is set only
+  // when both fetches fail, so a monitoring-only failure was invisible.
+  const [monitoringError, setMonitoringError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -80,6 +96,7 @@ export function useDashboardStats() {
       setError('Failed to load dashboard data');
     }
 
+    setMonitoringError(monitoringResult.status === 'rejected' ? describeFailure(monitoringResult.reason) : null);
     setStats(next);
     setLoading(false);
   }, []);
@@ -88,5 +105,5 @@ export function useDashboardStats() {
     fetchStats();
   }, [fetchStats]);
 
-  return { stats, loading, error, refresh: fetchStats };
+  return { stats, loading, error, monitoringError, refresh: fetchStats };
 }

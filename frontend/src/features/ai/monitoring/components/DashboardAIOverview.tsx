@@ -6,29 +6,40 @@ import { VerdictBadge } from '@/shared/components/ui/VerdictBadge';
 interface DashboardAIOverviewProps {
   stats: DashboardStats;
   loading: boolean;
+  /**
+   * Set when the monitoring READ failed (M1 review F4). Distinct from a
+   * `not_measured` verdict, which means the server answered and had no
+   * measurement: a failed read renders "Could not load" with the reason, and
+   * the figures are blanked rather than shown as zeros nobody measured.
+   */
+  monitoringError?: string | null;
 }
 
-export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats, loading }) => {
+const PLACEHOLDER = '—';
+
+export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats, loading, monitoringError = null }) => {
+  const unavailable = !loading && monitoringError !== null;
+  const figure = (value: string): string => (loading ? '...' : unavailable ? PLACEHOLDER : value);
 
   const quickStats = [
     {
       label: 'Executions Today',
-      value: loading ? '...' : stats.overview.totalExecutionsToday.toLocaleString(),
+      value: figure(stats.overview.totalExecutionsToday.toLocaleString()),
       icon: Zap,
     },
     {
       label: 'Success Rate',
-      value: loading ? '...' : `${stats.overview.successRate.toFixed(1)}%`,
+      value: figure(`${stats.overview.successRate.toFixed(1)}%`),
       icon: BarChart3,
     },
     {
       label: 'Avg Response Time',
-      value: loading ? '...' : `${stats.overview.avgResponseTime.toFixed(0)}ms`,
+      value: figure(`${stats.overview.avgResponseTime.toFixed(0)}ms`),
       icon: Clock,
     },
     {
       label: 'Active Alerts',
-      value: loading ? '...' : stats.alerts.length.toString(),
+      value: figure(stats.alerts.length.toString()),
       icon: Bell,
     },
   ];
@@ -57,10 +68,14 @@ export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats,
                   as healthy. VerdictBadge has no default branch. */}
               {loading ? (
                 <span className="text-sm text-theme-tertiary">...</span>
+              ) : unavailable ? (
+                <span role="alert" className="text-sm text-theme-danger-fg">
+                  Could not load: {monitoringError}
+                </span>
               ) : (
                 <VerdictBadge verdict={stats.systemHealth.status} size="sm" labelPrefix="AI platform" />
               )}
-              {!loading && stats.systemHealth.score !== null && (
+              {!loading && !unavailable && stats.systemHealth.score !== null && (
                 <span className="text-xs text-theme-tertiary ml-1">
                   ({stats.systemHealth.score}% health score)
                 </span>
@@ -113,8 +128,12 @@ export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats,
         </div>
       )}
 
-      {!loading && recentAlerts.length === 0 && (
-        <p className="text-sm text-theme-tertiary">No active alerts — all systems nominal.</p>
+      {/* "All systems nominal" only on an OK verdict: a not-measured platform
+          with no alerts has no alerts because nothing is looking. */}
+      {!loading && !unavailable && recentAlerts.length === 0 && (
+        <p className="text-sm text-theme-tertiary">
+          {stats.systemHealth.status === 'ok' ? 'No active alerts — all systems nominal.' : 'No active alerts.'}
+        </p>
       )}
     </div>
   );

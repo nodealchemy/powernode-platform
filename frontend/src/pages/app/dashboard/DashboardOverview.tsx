@@ -72,6 +72,10 @@ const PATHS = {
 } as const;
 
 const PLACEHOLDER = '—';
+// A FAILED monitoring read (M1 review F4). Deliberately neither PLACEHOLDER nor
+// a verdict: "the dashboard could not reach the platform" is a different
+// incident from "the platform answered and could not see the fleet".
+const UNAVAILABLE = 'Could not load';
 
 // SYSTEM HEALTH BY VERDICT (E7 review M1). A Record over the closed Verdict
 // union, so a seventh verdict is a compile error here rather than a fall
@@ -408,7 +412,8 @@ export const DashboardOverview: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { stats, loading: statsLoading, refresh: refreshStats } = useDashboardStats();
+  const { stats, loading: statsLoading, monitoringError, refresh: refreshStats } = useDashboardStats();
+  const monitoringUnavailable = !statsLoading && monitoringError !== null;
 
   // Permissions only — never roles.
   const canReadAgents = user?.permissions?.includes('ai.agents.read') ?? false;
@@ -540,14 +545,14 @@ export const DashboardOverview: React.FC = () => {
           <StatusChip
             icon={Activity}
             label="System health"
-            value={statsLoading || stats.systemHealth.score === null ? PLACEHOLDER : `${stats.systemHealth.score}%`}
-            tone={HEALTH_TONE[stats.systemHealth.status].chip}
+            value={monitoringUnavailable ? UNAVAILABLE : statsLoading || stats.systemHealth.score === null ? PLACEHOLDER : `${stats.systemHealth.score}%`}
+            tone={monitoringUnavailable ? 'danger' : HEALTH_TONE[stats.systemHealth.status].chip}
             onClick={() => navigate(PATHS.observability)}
           />
           <StatusChip
             icon={Bot}
             label="Agents active"
-            value={statsLoading ? PLACEHOLDER : `${stats.agents.active} of ${stats.agents.total}`}
+            value={statsLoading || monitoringUnavailable ? PLACEHOLDER : `${stats.agents.active} of ${stats.agents.total}`}
             tone={stats.agents.errored > 0 ? 'warning' : 'default'}
             onClick={() => navigate(PATHS.agents)}
           />
@@ -567,13 +572,13 @@ export const DashboardOverview: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatTile
             label="System health"
-            value={statsLoading || stats.systemHealth.score === null ? PLACEHOLDER : stats.systemHealth.score}
-            unit={statsLoading || stats.systemHealth.score === null ? undefined : '%'}
+            value={monitoringUnavailable ? PLACEHOLDER : statsLoading || stats.systemHealth.score === null ? PLACEHOLDER : stats.systemHealth.score}
+            unit={monitoringUnavailable || statsLoading || stats.systemHealth.score === null ? undefined : '%'}
             icon={<Activity className="h-4 w-4 text-theme-tertiary" />}
-            sub={statsLoading ? 'Loading…' : stats.systemHealth.status === 'ok' ? 'All systems operational' : `Status: ${verdictLabel(stats.systemHealth.status)}`}
+            sub={statsLoading ? 'Loading…' : monitoringUnavailable ? `${UNAVAILABLE}: ${monitoringError}` : stats.systemHealth.status === 'ok' ? 'All systems operational' : `Status: ${verdictLabel(stats.systemHealth.status)}`}
             onClick={() => navigate(PATHS.observability)}
           >
-            {!statsLoading && stats.systemHealth.score !== null && (
+            {!statsLoading && !monitoringUnavailable && stats.systemHealth.score !== null && (
               <MeterBar
                 value={stats.systemHealth.score}
                 max={100}
@@ -585,12 +590,14 @@ export const DashboardOverview: React.FC = () => {
 
           <StatTile
             label="AI agents"
-            value={statsLoading ? PLACEHOLDER : stats.agents.total}
+            value={statsLoading || monitoringUnavailable ? PLACEHOLDER : stats.agents.total}
             icon={<Bot className="h-4 w-4 text-theme-tertiary" />}
             sub={
               statsLoading
                 ? 'Loading…'
-                : `${stats.agents.active} active · ${stats.agents.paused} paused · ${stats.agents.errored} errored`
+                : monitoringUnavailable
+                  ? UNAVAILABLE
+                  : `${stats.agents.active} active · ${stats.agents.paused} paused · ${stats.agents.errored} errored`
             }
             onClick={() => navigate(PATHS.agents)}
           />
@@ -605,18 +612,20 @@ export const DashboardOverview: React.FC = () => {
 
           <StatTile
             label="Executions today"
-            value={statsLoading ? PLACEHOLDER : stats.overview.totalExecutionsToday}
+            value={statsLoading || monitoringUnavailable ? PLACEHOLDER : stats.overview.totalExecutionsToday}
             icon={<Zap className="h-4 w-4 text-theme-tertiary" />}
             sub={
               statsLoading
                 ? 'Loading…'
-                : stats.overview.totalExecutionsToday > 0
+                : monitoringUnavailable
+                  ? UNAVAILABLE
+                  : stats.overview.totalExecutionsToday > 0
                   ? `${stats.overview.successRate.toFixed(1)}% success · ${stats.overview.avgResponseTime.toFixed(0)}ms avg`
                   : 'No executions yet'
             }
             onClick={() => navigate(PATHS.observability)}
           >
-            {!statsLoading && stats.overview.totalExecutionsToday > 0 && (
+            {!statsLoading && !monitoringUnavailable && stats.overview.totalExecutionsToday > 0 && (
               <MeterBar
                 value={stats.overview.successRate}
                 max={100}
@@ -658,7 +667,7 @@ export const DashboardOverview: React.FC = () => {
         {canReadAgents && <GovernanceCharts />}
 
         {/* AI Platform Overview */}
-        <DashboardAIOverview stats={stats} loading={statsLoading} />
+        <DashboardAIOverview stats={stats} loading={statsLoading} monitoringError={monitoringError} />
 
         <QuickLinks links={quickLinks} onNavigate={navigate} />
       </div>
