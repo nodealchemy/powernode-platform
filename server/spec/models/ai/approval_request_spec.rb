@@ -148,6 +148,31 @@ RSpec.describe Ai::ApprovalRequest, type: :model do
       expect(cards_for(bystander, req) - before[bystander.id]).to eq(0)
     end
 
+    # A step can name its approvers by id, and an id is not an account. The card
+    # carries the request's content, so it must stay inside the request's
+    # account and reach only active users, whatever ids the step lists.
+    {
+      'typed user ids' => ->(users) { users.map { |u| { 'type' => 'user', 'value' => u.id.to_s } } },
+      'legacy bare uuids' => ->(users) { users.map { |u| u.id.to_s } }
+    }.each do |shape, approvers_for|
+      it "keeps the card inside the account and off inactive users when the step names ids (#{shape})" do
+        foreign = user_with_permissions(perm, 'ai.agents.read', account: create(:account))
+        inactive = user_with_permissions(perm, 'ai.agents.read', account: account)
+        inactive.update_columns(status: 'suspended')
+        req = make_chain(steps: [ { 'name' => 'Named keys', 'required_approvals' => 2,
+                                    'approvers' => approvers_for.call([ approver_a, approver_b, inactive, foreign ]) } ])
+                .create_request!(source_type: 'X', source_id: SecureRandom.uuid, description: 'd')
+        before = [ approver_b, inactive, foreign ].to_h { |u| [ u.id, cards_for(u, req) ] }
+
+        req.record_decision!(approver: approver_a, decision: 'approved')
+
+        expect(req.reload.current_step).to eq(0)
+        expect(cards_for(approver_b, req) - before[approver_b.id]).to eq(1) # the other key still hears
+        expect(cards_for(foreign, req) - before[foreign.id]).to eq(0)
+        expect(cards_for(inactive, req) - before[inactive.id]).to eq(0)
+      end
+    end
+
     it 'sends a step advance to the new step\'s approvers exactly once — the decider too, when eligible there' do
       req = make_chain(steps: [ by_permission('First', 1), by_permission('Second', 1) ])
               .create_request!(source_type: 'X', source_id: SecureRandom.uuid, description: 'd')
@@ -186,10 +211,15 @@ RSpec.describe Ai::ApprovalRequest, type: :model do
       # Exactly one event per viewer who may read the queue, and none for a user who may not.
       expect(events.map(&:first)).to contain_exactly(approver_a.id, approver_b.id, observer.id)
       by_user = events.to_h
-      expect(by_user.values).to all(include(approval_request_id: req.id, status: 'pending', current_step: 0))
-      expect(by_user[approver_a.id][:current_step_can_approve]).to be(false) # already decided
-      expect(by_user[approver_b.id][:current_step_can_approve]).to be(true)
-      expect(by_user[observer.id][:current_step_can_approve]).to be(false)
+      # The WHOLE payload, not `include`: the push is content-free by design, so
+      # a sixth key (a description, request_data) must turn this red.
+      payload = lambda do |can_act|
+        { type: 'approval_request_changed', approval_request_id: req.id, status: 'pending',
+          current_step: 0, current_step_can_approve: can_act }
+      end
+      expect(by_user[approver_a.id]).to eq(payload.call(false)) # already decided
+      expect(by_user[approver_b.id]).to eq(payload.call(true))
+      expect(by_user[observer.id]).to eq(payload.call(false))
     end
 
     it "announces the decision only after the lock's transaction has closed" do
