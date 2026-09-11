@@ -138,7 +138,10 @@ RSpec.describe 'Api::V1::Auth::EmailVerifications', type: :request do
         end
       end
 
-      { 'a JSON boolean' => 'true', 'a JSON array' => '[1,2,3]', 'a JSON object' => '{"a":1}' }.each do |label, raw|
+      # secreview §25: '1e400' JSON-parses to Float::INFINITY, which raises
+      # FloatDomainError (a RangeError) out of Integer() — previously unrescued.
+      { 'a JSON boolean' => 'true', 'a JSON array' => '[1,2,3]', 'a JSON object' => '{"a":1}',
+        'an overflowing exponent ("1e400")' => '1e400' }.each do |label, raw|
         context "when the setting is #{label}" do
           before { AdminSetting.set('email_verification_expiry_hours', raw) }
 

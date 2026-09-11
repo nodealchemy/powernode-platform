@@ -33,6 +33,18 @@ class AdminSetting < ApplicationRecord
   EMAIL_VERIFICATION_EXPIRY_HOURS_DEFAULT = 24
   EMAIL_VERIFICATION_EXPIRY_HOURS_MAX = 720 # 30 days
 
+  # Parses a candidate expiry value as a base-10 integer only (secreview
+  # §25): Integer() with no base treats a leading "0" as octal and "0x..." as
+  # hex, so a stored/submitted "010" silently meant 8 and "0x10" silently
+  # meant 16. A non-String is passed through Integer() unchanged — a base
+  # argument is only valid for String input. Raises ArgumentError, TypeError,
+  # or RangeError (FloatDomainError covers a JSON-parsed "1e400", which
+  # overflows to Float::INFINITY) on anything that isn't a clean integer;
+  # callers rescue all three.
+  def self.coerce_expiry_integer(value)
+    value.is_a?(String) ? Integer(value, 10) : Integer(value)
+  end
+
   # Single source of truth for the email-verification-link expiry window.
   # User#email_verification_expired? (the check) and the email settings API
   # (what notification_mailer.rb tells the user) both read through here, so
@@ -46,8 +58,8 @@ class AdminSetting < ApplicationRecord
   def self.email_verification_expiry_hours
     raw = get(EMAIL_VERIFICATION_EXPIRY_HOURS_KEY, EMAIL_VERIFICATION_EXPIRY_HOURS_DEFAULT)
     value = begin
-      Integer(raw)
-    rescue ArgumentError, TypeError
+      coerce_expiry_integer(raw)
+    rescue ArgumentError, TypeError, RangeError
       EMAIL_VERIFICATION_EXPIRY_HOURS_DEFAULT
     end
     value = EMAIL_VERIFICATION_EXPIRY_HOURS_DEFAULT if value <= 0
@@ -59,8 +71,8 @@ class AdminSetting < ApplicationRecord
   # integer in 1..MAX. Used by the write door to REFUSE a bad value up
   # front, rather than storing it and relying on the reader's fallback.
   def self.valid_email_verification_expiry_hours?(value)
-    Integer(value).between?(1, EMAIL_VERIFICATION_EXPIRY_HOURS_MAX)
-  rescue ArgumentError, TypeError
+    coerce_expiry_integer(value).between?(1, EMAIL_VERIFICATION_EXPIRY_HOURS_MAX)
+  rescue ArgumentError, TypeError, RangeError
     false
   end
 

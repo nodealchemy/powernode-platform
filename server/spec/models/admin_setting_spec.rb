@@ -91,6 +91,10 @@ RSpec.describe AdminSetting, type: :model do
       'true' => 24, '[1,2,3]' => 24, '{"a":1}' => 24,
       '1000000' => 720, '1e20' => 720,
       '12' => 12, '720' => 720, '721' => 720,
+      # secreview §25: Integer() without an explicit base reads a leading-zero
+      # or "0x"-prefixed string as octal/hex, not decimal, and doesn't rescue
+      # FloatDomainError for a stored value so large it JSON-parses to Infinity.
+      '010' => 10, '0x10' => 24, '1e400' => 24,
     }.each do |raw, expected|
       it "reads #{raw.inspect} as #{expected}" do
         AdminSetting.set('email_verification_expiry_hours', raw)

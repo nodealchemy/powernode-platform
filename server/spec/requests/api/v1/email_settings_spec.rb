@@ -332,7 +332,9 @@ RSpec.describe 'Api::V1::EmailSettings', type: :request do
     describe 'email_verification_expiry_hours validation' do
       before { allow(WorkerJobService).to receive(:enqueue_refresh_email_settings).and_return(true) }
 
-      [ 0, -5, 'abc', '', nil, true, [ 1 ], { 'a' => 1 }, 1_000_000, '1e20' ].each do |bad|
+      # secreview §25: '0x10' passed Integer() without an explicit base (hex),
+      # so the door silently accepted a hex literal as if it were decimal.
+      [ 0, -5, 'abc', '', nil, true, [ 1 ], { 'a' => 1 }, 1_000_000, '1e20', '0x10' ].each do |bad|
         it "refuses #{bad.inspect} with 422 naming the field" do
           put '/api/v1/email_settings',
               params: { email_settings: { email_verification_expiry_hours: bad } },
