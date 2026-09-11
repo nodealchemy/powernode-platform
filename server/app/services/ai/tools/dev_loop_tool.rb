@@ -1427,12 +1427,14 @@ module Ai
       # shape of an agent principal, not evidence of a human session.
       #
       # What DOES separate the two is the agent identity itself. The interactive
-      # MCP door resolves its principal through Ai::McpClientIdentityService and
-      # so always carries an `mcp_client` agent (StreamableHttpController
-      # #mcp_client_agent), never a seeded canonical; a NON-mcp_client agent
+      # MCP door carries an `mcp_client` agent (StreamableHttpController
+      # #mcp_client_agent) only when the account has an active AI provider, and
+      # no agent otherwise; it never carries a seeded canonical. The door's mark
+      # (call_origin), not the agent, is what says MCP. So a NON-mcp_client agent
       # whose id is the loop's default_agent_id is the delegated driver acting
-      # as itself. Every other caller — a Claude Code session, another platform
-      # agent — still meets the "delegated_to_platform" halt.
+      # as itself, and every other caller (a Claude Code session with or without
+      # a client agent, another platform agent) still meets the
+      # "delegated_to_platform" halt.
       def delegated_platform_agent?(loop_record)
         return false if agent.blank? || loop_record.default_agent_id.blank?
         return false unless loop_record.default_agent_id == agent.id
@@ -1448,8 +1450,9 @@ module Ai
       #
       # An agent principal comes through Ai::AgentToolBridgeService carrying its
       # creator as `user`, so "user present" does not mean "a person is
-      # calling". The interactive MCP door's agent is always an `mcp_client`
-      # identity, so a NON-mcp_client agent is the agent itself acting and the
+      # calling". The interactive MCP door carries an `mcp_client` identity when
+      # the account has an active AI provider and no agent otherwise, never a
+      # seeded canonical, so a NON-mcp_client agent is the agent itself acting and the
       # claim belongs to it (HIER-P2B-ENG: the Platform Developer claims as
       # "agent:<id>", the identity the delegation named — not as its creator).
       def claimant_ref
