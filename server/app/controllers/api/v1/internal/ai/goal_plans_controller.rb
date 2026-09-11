@@ -32,7 +32,9 @@ module Api
 
             reason = "no dispatcher for step type #{step.step_type}"
             step.start!
-            step.fail!(reason: reason)
+            # Deterministic by its kind: every replan's step of this type fails
+            # the same way, so self-correct never pays to replan it.
+            step.fail!(reason: reason, kind: "no_dispatcher")
             Rails.logger.warn "[GoalPlan] Step #{step.id} failed: #{reason}"
 
             # A hash literal. Braceless, `status:` binds render_success's

@@ -51,6 +51,8 @@ RSpec.describe "Api::V1::Internal::Ai::GoalPlans", type: :request do
                             "plan_progress" => 0.0)
     expect(step.reload).to have_attributes(status: "failed",
                                            result_summary: "no dispatcher for step type agent_execution")
+    # Deterministic, so self-correct never pays to replan it (goal-plan ruling 2).
+    expect(step.metadata).to include("failure_kind" => "no_dispatcher", "failure_class" => "deterministic")
   end
 
   it "completes no step type without doing its work, and leaves the plan where it was" do

@@ -65,4 +65,79 @@ RSpec.describe Ai::Autonomy::GoalDrivenSchedulerService do
       expect(service.should_execute_now?).to be false
     end
   end
+
+  # Goal-plan rulings 1 and 3: a plan nothing can move concludes, and the
+  # scheduler never re-decomposes a goal whose latest plan failed.
+  describe "which plans it moves" do
+    let!(:goal) do
+      Ai::AgentGoal.create!(account: account, agent: agent, title: "G", description: "x",
+                            goal_type: "creation", status: "active", priority: 3, progress: 0.0)
+    end
+
+    def plan_with(status: "executing", version: 1)
+      Ai::GoalPlan.create!(account: account, goal: goal, agent: agent, status: status, version: version)
+    end
+
+    def step_on(plan, number, status:, type: "agent_execution", dependencies: [])
+      Ai::GoalPlanStep.create!(plan: plan, step_number: number, status: status, step_type: type,
+                               dependencies: dependencies)
+    end
+
+    it "decomposes a goal that has never had a plan" do
+      expect(service.next_action).to include(type: :decompose, goal_id: goal.id)
+    end
+
+    it "does not re-decompose a goal whose latest plan failed — self-correct is the only replan door" do
+      plan_with(status: "failed")
+
+      expect(service.next_action).to be_nil
+    end
+
+    it "still decomposes a goal whose latest plan was rejected" do
+      plan_with(status: "rejected")
+
+      expect(service.next_action).to include(type: :decompose, goal_id: goal.id)
+    end
+
+    it "yields evaluate_plan for an executing plan whose only step failed" do
+      plan = plan_with
+      step_on(plan, 1, status: "failed")
+
+      expect(service.next_action).to include(type: :evaluate_plan, plan_id: plan.id)
+    end
+
+    it "skips a step behind a failed dependency, then yields evaluate_plan" do
+      plan = plan_with
+      step_on(plan, 1, status: "failed")
+      blocked = step_on(plan, 2, status: "pending", dependencies: [ 1 ])
+
+      expect(service.next_action).to include(type: :evaluate_plan, plan_id: plan.id)
+      expect(blocked.reload.status).to eq("skipped")
+    end
+
+    it "yields nothing while a human_review step still waits — the other arm" do
+      plan = plan_with
+      step_on(plan, 1, status: "failed")
+      step_on(plan, 2, status: "executing", type: "human_review")
+
+      expect(service.next_action).to be_nil
+    end
+  end
+
+  describe "#refusal_reason" do
+    it "names the gate that is closed" do
+      Ai::AgentGoal.create!(account: account, agent: agent, title: "G", description: "x",
+                            goal_type: "creation", status: "active", priority: 3, progress: 0.0)
+      account.suspend_ai!
+
+      expect(service.refusal_reason).to eq(:halted)
+    end
+
+    it "is nil when every gate is open — the other arm" do
+      Ai::AgentGoal.create!(account: account, agent: agent, title: "G", description: "x",
+                            goal_type: "creation", status: "active", priority: 3, progress: 0.0)
+
+      expect(service.refusal_reason).to be_nil
+    end
+  end
 end
