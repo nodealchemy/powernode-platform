@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 # Recurring continual-discovery poller for the Campaign Discovery & Delegation Control
-# Plane. Asks the backend to scan standing improvement signals across active accounts and
-# upsert deduped campaign proposals into the queue. All discovery + dedupe happens
+# Plane. Asks the backend to scan the standing improvement signals of this worker's own
+# account (the server scopes the scan to the calling worker's account) and upsert
+# deduped campaign proposals into the queue. All discovery + dedupe happens
 # server-side; this job only triggers it on a cron. Mirrors AiCampaignLandSchedulerJob.
 class AiCampaignDiscoveryJob < BaseJob
   sidekiq_options queue: "ai_orchestration", retry: 1

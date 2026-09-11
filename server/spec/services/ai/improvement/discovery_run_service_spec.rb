@@ -221,7 +221,7 @@ RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
       gone = create(:account)
       gone.update!(status: "cancelled")
 
-      units = described_class.units
+      units = described_class.units(Account.all)
 
       expect(units.count(account.id)).to eq(1)
       expect(units).to include(empty.id)

@@ -190,6 +190,7 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
     internal/ai/goal_plans#execute_step
     internal/ai/improvement_discovery#run
     internal/ai/improvement_discovery#timed_out
+    internal/ai/campaign_discovery#scan
   ].freeze
 
   # POSITIONAL doors. The caller names a POSITION in a walk of accounts, not a
@@ -207,8 +208,16 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
       path: "/api/v1/internal/ai/improvement_discovery/timed_out", dispatches: false }
   ].freeze
 
+  # ACCOUNT-SWEEP doors. One call walks accounts on the server's side, with no
+  # id and no position from the caller, and writes onto each account it walks.
+  # The oracle is the ROW: account B must gain nothing from a call by a worker
+  # bound to account A, and account A must still gain its own rows.
+  SWEEP_CASES = [
+    { name: "internal/ai/campaign_discovery#scan (writes campaign proposals onto each account it scans)" }
+  ].freeze
+
   it "keeps a tenancy case for every required internal controller lookup" do
-    covered = (CASES + WALK_CASES).map { |c| c[:name].split(" ").first }
+    covered = (CASES + WALK_CASES + SWEEP_CASES).map { |c| c[:name].split(" ").first }
     REQUIRED_CONTROLLERS.each do |ctrl|
       expect(covered).to include(ctrl),
         "no cross-account tenancy case covers #{ctrl} — the sweep was narrowed"
@@ -301,7 +310,7 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
       # Every position of the GLOBAL walk, plus one past its end, so a door
       # that still indexes every account reaches account B's unit.
       def walk_every_position(worker, path)
-        (0..::Ai::Improvement::DiscoveryRunService.units.size).each do |position|
+        (0..::Ai::Improvement::DiscoveryRunService.units(::Account.all).size).each do |position|
           post path, params: { position: position }.to_json, headers: headers_for(worker)
         end
       end
@@ -331,6 +340,44 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
           expect { walk_every_position(worker_a, kase[:path]) }.to change { run_records(account_a) }.by_at_least(1)
           expect(dispatched).to include(account_a.id) if kase[:dispatches]
         end
+      end
+    end
+  end
+
+  describe SWEEP_CASES.first[:name] do
+    # One pending recommendation on a target is a backlog worth one proposal.
+    def seed_backlog(account)
+      FactoryBot.create(:ai_improvement_recommendation, account: account, status: "pending",
+                                                        target_type: "Devops::GitRepository", target_id: SecureRandom.uuid)
+    end
+
+    def scan(worker)
+      post "/api/v1/internal/ai/campaign_discovery/scan", headers: headers_for(worker)
+    end
+
+    def proposals(account) = ::Ai::CampaignProposal.where(account_id: account.id).count
+
+    before do
+      seed_backlog(account_a)
+      seed_backlog(account_b)
+    end
+
+    context "an ACCOUNT-BOUND worker's scan" do
+      it "writes no campaign proposal onto account B" do
+        expect { scan(worker_a) }.not_to change { proposals(account_b) }
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
+    context "the SYSTEM worker's scan" do
+      it "is confined too (its CN is a published constant)" do
+        expect { scan(system_worker) }.not_to change { proposals(account_b) }
+      end
+    end
+
+    context "POSITIVE CONTROL: the worker's scan reaches its OWN account" do
+      it "writes account A's proposal" do
+        expect { scan(worker_a) }.to change { proposals(account_a) }.from(0).to(1)
       end
     end
   end

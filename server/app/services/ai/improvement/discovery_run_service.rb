@@ -137,9 +137,10 @@ module Ai
       # Stable order: `find_each` walks accounts by id.
       #
       # @param scope [ActiveRecord::Relation] the accounts the walk may reach.
-      #   The internal door passes the calling worker's own account, so a
-      #   worker never reaches another account's unit.
-      def self.units(scope = ::Account.all)
+      #   Required, with no default: the internal door passes the calling
+      #   worker's own account, so a worker never reaches another account's
+      #   unit, and a caller that wants every account has to say so.
+      def self.units(scope)
         ids = []
         scope.find_each { |account| ids << account.id if account.active? }
         ids
