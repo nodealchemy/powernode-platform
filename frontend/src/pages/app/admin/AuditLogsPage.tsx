@@ -73,9 +73,9 @@ export const AuditLogsPage: React.FC = () => {
     setActiveTab(newTab);
     // Update URL when tab changes
     if (newTab === 'analytics') {
-      navigate('/app/system/audit-logs/analytics');
+      navigate('/app/admin/audit-logs/analytics');
     } else {
-      navigate('/app/system/audit-logs');
+      navigate('/app/admin/audit-logs');
     }
   };
   const [showFilters, setShowFilters] = useState(false);
@@ -328,7 +328,7 @@ export const AuditLogsPage: React.FC = () => {
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          basePath="/app/system/audit-logs"
+          basePath="/app/admin/audit-logs"
           variant="underline"
           className="mb-6"
         >

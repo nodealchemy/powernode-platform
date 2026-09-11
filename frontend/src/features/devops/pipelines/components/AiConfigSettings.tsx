@@ -10,7 +10,7 @@ import type { AiProvider } from '@/shared/types/ai';
  *
  * This component displays AI providers that can be used with DevOps pipelines.
  * Provider management (create, edit, delete) is now done through the main
- * AI Providers page (/app/ai-providers).
+ * AI Providers page (/app/ai/infrastructure).
  */
 
 interface AiConfigSettingsProps {
@@ -97,7 +97,7 @@ const ProviderCard: React.FC<{
       </div>
 
       <Link
-        to={`/app/ai-providers?highlight=${provider.id}`}
+        to={`/app/ai/infrastructure?highlight=${provider.id}`}
         className="inline-flex items-center gap-1 text-xs text-theme-primary hover:underline"
       >
         Manage Provider
@@ -132,7 +132,7 @@ export const AiConfigSettings: React.FC<AiConfigSettingsProps> = ({
             <p className="text-sm text-theme-secondary mt-1">
               AI providers are now managed centrally. To add, edit, or remove providers,
               visit the{' '}
-              <Link to="/app/ai-providers" className="text-theme-primary hover:underline">
+              <Link to="/app/ai/infrastructure" className="text-theme-primary hover:underline">
                 AI Providers page
               </Link>
               . Here you can select which provider to use as the default for DevOps pipelines.
@@ -150,7 +150,7 @@ export const AiConfigSettings: React.FC<AiConfigSettingsProps> = ({
           <p className="text-theme-secondary mb-4">
             Configure AI providers to power your DevOps pipelines with Claude.
           </p>
-          <Link to="/app/ai-providers">
+          <Link to="/app/ai/infrastructure">
             <Button variant="primary">
               <ExternalLink className="w-4 h-4 mr-1" />
               Go to AI Providers

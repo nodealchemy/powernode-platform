@@ -542,7 +542,7 @@ const AdminUsersPage: React.FC = () => {
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
-    { label: 'Admin', href: '/app/admin' },
+    { label: 'Admin', href: '/app/admin/settings' },
     { label: 'Users' }
   ];
 

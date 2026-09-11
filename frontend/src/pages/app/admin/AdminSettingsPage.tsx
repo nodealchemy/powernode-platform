@@ -86,7 +86,7 @@ export const AdminSettingsPage: React.FC = () => {
     const activeTab = getActiveTab();
     const breadcrumbs: { label: string; href?: string }[] = [
       { label: 'Dashboard', href: '/app' },
-      { label: 'Admin', href: '/app/admin' },
+      { label: 'Admin', href: '/app/admin/settings' },
       { label: 'Settings', href: '/app/admin/settings' }
     ];
 

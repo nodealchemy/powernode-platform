@@ -111,7 +111,7 @@ export function IntegrationWizard() {
   }, [wizardState, navigate, showNotification]);
 
   const handleCancel = useCallback(() => {
-    navigate('/app/integrations/marketplace');
+    navigate('/app/devops/connections/integrations');
   }, [navigate]);
 
   return (

@@ -23,7 +23,7 @@ export const QuickActionsPanel: React.FC = () => {
     { id: 'new-mission', title: 'New Mission', icon: Rocket, href: '/app/ai/missions', color: 'text-theme-primary' },
     { id: 'create-agent', title: 'Create Agent', icon: Bot, href: '/app/ai/agents', color: 'text-theme-info-fg' },
     { id: 'conversation', title: 'Chat', icon: MessageSquare, href: '/app/ai/observability/conversations', color: 'text-theme-success-fg' },
-    { id: 'analytics', title: 'Analytics', icon: BarChart3, href: '/app/ai/analytics', color: 'text-theme-secondary' },
+    { id: 'analytics', title: 'Analytics', icon: BarChart3, href: '/app/ai/analytics/system', color: 'text-theme-secondary' },
     { id: 'mcp-browser', title: 'MCP', icon: Server, href: '/app/ai/infrastructure/mcp', color: 'text-theme-tertiary' },
   ], []);
 

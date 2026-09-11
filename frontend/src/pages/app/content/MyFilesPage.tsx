@@ -221,7 +221,7 @@ const MyFilesPage: React.FC = () => {
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
-    { label: 'Content', href: '/app/content' },
+    { label: 'Content', href: '/app/content/pages' },
     { label: 'My Files' }
   ];
 

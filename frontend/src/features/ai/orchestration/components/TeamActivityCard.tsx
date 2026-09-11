@@ -29,7 +29,7 @@ export const TeamActivityCard: React.FC = () => {
   return (
     <div
       className="card-theme p-6 hover:shadow-lg transition-all cursor-pointer h-full"
-      onClick={() => navigate('/app/ai/agent-teams')}
+      onClick={() => navigate('/app/ai/teams')}
     >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">

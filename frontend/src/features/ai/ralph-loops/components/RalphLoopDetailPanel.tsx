@@ -208,7 +208,7 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
         {loop.configuration?.parallel_session_id && (
           <div
             className="flex items-center gap-3 p-3 bg-theme-status-info/5 border border-theme-status-info/20 rounded-lg cursor-pointer hover:bg-theme-status-info/10 transition-colors"
-            onClick={() => navigate(`/app/ai/parallel-execution`)}
+            onClick={() => navigate(`/app/ai/execution/parallel`)}
           >
             <GitFork className="w-5 h-5 text-theme-status-info" />
             <div className="flex-1">

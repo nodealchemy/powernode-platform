@@ -27,7 +27,7 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
       {/* AI Providers Card */}
       <div className={`card-theme p-6 hover:shadow-lg transition-all cursor-pointer ${
         recentUpdates.includes('providers') ? 'ring-2 ring-theme-success-fg/50 bg-theme-success-fg/5' : ''
-      }`} onClick={() => navigate('/app/ai/providers')}>
+      }`} onClick={() => navigate('/app/ai/infrastructure')}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-theme-primary/10 rounded-lg">
@@ -84,7 +84,7 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
       {/* Executions Card */}
       <div className={`card-theme p-6 hover:shadow-lg transition-all cursor-pointer ${
         recentUpdates.includes('executions') ? 'ring-2 ring-theme-success-fg/50 bg-theme-success-fg/5' : ''
-      }`} onClick={() => navigate('/app/ai/analytics')}>
+      }`} onClick={() => navigate('/app/ai/analytics/system')}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-theme-success-fg/10 rounded-lg">
