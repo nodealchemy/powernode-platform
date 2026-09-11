@@ -255,7 +255,8 @@ class BackendApiClient
 
   # `connection:` lets a caller opt out of the default connection's retry
   # middleware. NON-IDEMPOTENT writes must do so — see #no_retry_connection.
-  def make_request(method, path, data = {}, connection: nil)
+  # `timeout:` overrides the connection's timeout for this one request (seconds).
+  def make_request(method, path, data = {}, connection: nil, timeout: nil)
     # Use circuit breaker for all backend API requests
     with_backend_api_circuit_breaker do
       start_time = Time.current
@@ -267,6 +268,10 @@ class BackendApiClient
           req.headers['Accept'] = 'application/json'
           req.headers['User-Agent'] = 'PowernodeWorker/1.0'
           inject_dev_mtls_header(req)
+          if timeout
+            req.options.timeout = timeout
+            req.options.read_timeout = timeout
+          end
 
           case method
           when :get, :delete
@@ -398,8 +403,11 @@ class BackendApiClient
   # but whose response was lost is re-sent, and the side effect happens again.
   # A DESTRUCTIVE or fan-out endpoint must be called through here, so its
   # per-call bound is also its per-invocation bound.
-  def post_no_retry(path, data = {})
-    make_request(:post, path, data, connection: no_retry_connection)
+  #
+  # `timeout:` (seconds) is for a long, side-effecting call: its per-call bound
+  # must cover the work, since there is no retry to recover from a cut-off.
+  def post_no_retry(path, data = {}, timeout: nil)
+    make_request(:post, path, data, connection: no_retry_connection, timeout: timeout)
   end
 
   def no_retry_connection

@@ -592,4 +592,44 @@ RSpec.describe BackendApiClient, type: :service do
       end
     end
   end
+
+  # D1 review H2: the discovery walk calls one long, side-effecting POST per
+  # unit with no retry, so its per-call bound must cover the work. The timeout
+  # is observed on the request itself, through Faraday's test adapter.
+  describe '#post_no_retry timeout' do
+    let(:path) { '/api/v1/internal/ai/improvement_discovery/run' }
+
+    def capturing_connection(captured)
+      stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+        stub.post(path) do |env|
+          captured[:timeout] = env.request.timeout
+          captured[:read_timeout] = env.request.read_timeout
+          [ 200, { 'Content-Type' => 'application/json' }, { 'success' => true, 'data' => {} }.to_json ]
+        end
+      end
+      Faraday.new do |builder|
+        builder.request :json
+        builder.response :json, content_type: /\bjson$/
+        builder.adapter :test, stubs
+      end
+    end
+
+    it 'applies the timeout to that one request' do
+      captured = {}
+      allow(client).to receive(:no_retry_connection).and_return(capturing_connection(captured))
+
+      client.post_no_retry(path, { 'position' => 0 }, timeout: 600)
+
+      expect(captured).to include(timeout: 600, read_timeout: 600)
+    end
+
+    it 'leaves the connection default alone when no timeout is given' do
+      captured = {}
+      allow(client).to receive(:no_retry_connection).and_return(capturing_connection(captured))
+
+      client.post_no_retry(path, {})
+
+      expect(captured[:timeout]).to be_nil
+    end
+  end
 end
