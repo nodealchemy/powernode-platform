@@ -84,7 +84,8 @@ module Ai
         arguments = tc[:arguments] || {}
 
         result = if @local_tools&.owns?(tool_name)
-          @local_tools.dispatch(tool_name, arguments, account: @account, user: @tool_agent&.creator, agent: @tool_agent)
+          @local_tools.dispatch(tool_name, arguments, account: @account, user: @tool_agent&.creator, agent: @tool_agent,
+                                                      origin: ::Ai::Tools::CallOrigin::AGENT_BRIDGE)
         else
           execute_mcp_tool(tool_name, arguments)
         end

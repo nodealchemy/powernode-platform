@@ -622,7 +622,8 @@ module Mcp
         params: params,
         account: @account,
         user: context[:options]&.dig(:user),
-        agent_id: context[:user_id]
+        agent_id: context[:user_id],
+        origin: ::Ai::Tools::CallOrigin::MCP_CABLE
       )
     else
       raise ProtocolError, "Unknown tool type: #{tool_type}"

@@ -474,6 +474,16 @@ module Ai
       # "@user is nil". (IMP-9030413bc292; sibling of the BUG-S writer above.)
       attr_writer :instance_authorized
 
+      # The door this call came through (Ai::Tools::CallOrigin), set by
+      # McpPlatformToolRegistrar from what its caller named. It is never
+      # inferred from whether an agent record could be resolved: an OAuth MCP
+      # call from an account with no active provider carries no client agent
+      # and is still an MCP call. nil for a direct construction. The mark
+      # grants nothing by itself, because a tool call is never a person's
+      # consent (MCP identity plan R1). It is what checks read instead of
+      # reading "no agent" as "a person".
+      attr_writer :call_origin
+
       def execute(params:)
         # FIRST, before every other check (HIER-P2I): a GLOBAL canonical agent
         # is refused as a principal whatever it asked for. Ahead of the deny
@@ -998,7 +1008,7 @@ module Ai
 
       private
 
-      attr_reader :account, :agent, :user, :node_instance
+      attr_reader :account, :agent, :user, :node_instance, :call_origin
 
       # === LIST PAGINATION — the call side of the contract above ===
 

@@ -331,7 +331,9 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
         account: account,
         user: user,
         agent_id: agent.id,
-        mcp_agent: agent
+        mcp_agent: agent,
+        # The bridge names its door (MCP identity plan R3).
+        origin: "agent_bridge"
       ).and_return({ success: true, data: [] })
 
       result = bridge.dispatch_tool_call(tool_call)
@@ -349,7 +351,8 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
         account: account,
         user: user,
         agent_id: agent.id,
-        mcp_agent: agent
+        mcp_agent: agent,
+        origin: "agent_bridge"
       ).and_return({ success: true })
 
       bridge.dispatch_tool_call(string_tool_call)

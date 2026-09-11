@@ -236,13 +236,17 @@ module Ai
           synced_names.size
         end
 
-        def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, mcp_agent: nil, instance_authorized: false, node_instance: nil)
+        # `origin:` names the door the call came through (Ai::Tools::CallOrigin).
+        # Optional so specs need not name one; spec/lint/registrar_origin_spec.rb
+        # holds every production call site to it.
+        def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, mcp_agent: nil, instance_authorized: false,
+                         node_instance: nil, origin: nil)
           tool_name = tool_id.delete_prefix("#{TOOL_ID_PREFIX}.")
           tool_class = find_tool_class(tool_name)
           raise ArgumentError, "Unknown platform tool: #{tool_name}" unless tool_class
 
-          guard_call!(tool_class, tool_id: tool_id, account: account, user: user, agent_id: agent_id,
-                                  instance_authorized: instance_authorized)
+          origin = guard_call!(tool_class, tool_id: tool_id, account: account, user: user, agent_id: agent_id,
+                                           instance_authorized: instance_authorized, origin: origin)
 
           execution_params = params.with_indifferent_access
 
@@ -306,7 +310,7 @@ module Ai
 
           build_and_execute(tool_class, execution_params, account: account, user: user, mcp_agent: mcp_agent,
                                                           instance_authorized: instance_authorized,
-                                                          node_instance: node_instance)
+                                                          node_instance: node_instance, origin: origin)
         end
 
         # THE GUARDED RUNNER a local tool shares with a registry call (D2 review
@@ -317,20 +321,25 @@ module Ai
         # sets the action itself, after the caller's arguments) and the
         # advertisement refusal (a local tool is not a registry entry).
         def run_guarded(tool_class, tool_id:, params:, account:, user: nil, agent_id: nil, mcp_agent: nil,
-                        instance_authorized: false, node_instance: nil)
-          guard_call!(tool_class, tool_id: tool_id, account: account, user: user, agent_id: agent_id,
-                                  instance_authorized: instance_authorized)
+                        instance_authorized: false, node_instance: nil, origin: nil)
+          origin = guard_call!(tool_class, tool_id: tool_id, account: account, user: user, agent_id: agent_id,
+                                           instance_authorized: instance_authorized, origin: origin)
           build_and_execute(tool_class, params.with_indifferent_access,
                             account: account, user: user, mcp_agent: mcp_agent,
-                            instance_authorized: instance_authorized, node_instance: node_instance)
+                            instance_authorized: instance_authorized, node_instance: node_instance,
+                            origin: origin)
         end
 
-        # The per-call guards, one step each.
-        def guard_call!(tool_class, tool_id:, account:, user:, agent_id:, instance_authorized:)
+        # The per-call guards, one step each. Returns the validated origin: one
+        # outside Ai::Tools::CallOrigin raises before anything runs, so a typo
+        # cannot pass as an unmarked call.
+        def guard_call!(tool_class, tool_id:, account:, user:, agent_id:, instance_authorized:, origin: nil)
+          origin = ::Ai::Tools::CallOrigin.validate!(origin)
           # SECURITY: Enforce permission at execution time (defense-in-depth)
           enforce_permission!(user: user, tool_class: tool_class, tool_id: tool_id, instance_authorized: instance_authorized)
           rate_limit_call!(agent_id)
-          audit_call(tool_id, account: account, user: user, agent_id: agent_id)
+          audit_call(tool_id, account: account, user: user, agent_id: agent_id, origin: origin)
+          origin
         end
 
         # Rate limiting per agent
@@ -345,16 +354,22 @@ module Ai
         end
 
         # Audit log
-        def audit_call(tool_id, account:, user:, agent_id:)
+        def audit_call(tool_id, account:, user:, agent_id:, origin: nil)
           Rails.logger.info(
             "[McpPlatformTool] Executing #{tool_id} " \
-            "user=#{user&.id} account=#{account.id} agent=#{agent_id}"
+            "user=#{user&.id} account=#{account.id} agent=#{agent_id}#{" origin=#{origin}" if origin}"
           )
         end
 
         def build_and_execute(tool_class, execution_params, account:, user:, mcp_agent:, instance_authorized:,
-                              node_instance:)
+                              node_instance:, origin: nil)
           tool_instance = tool_class.new(account: account, user: user, agent: mcp_agent)
+          # The door the call came through (MCP identity plan R3). Set from the
+          # caller's `origin:`, never inferred from mcp_agent: an OAuth MCP call
+          # with no client agent (an account with no active provider) is still
+          # an MCP call. Guarded like the two writers below, so an unmarked call
+          # stays byte-for-byte what it was.
+          tool_instance.call_origin = origin if origin
           # Instance principals (mTLS node cert; user/agent both nil) need their
           # node_instance so DevLoopTool#claimant_ref can scope claims as
           # "instance:<id>" — otherwise claimant_ref is nil and every dev-loop

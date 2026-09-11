@@ -296,7 +296,8 @@ module Ai
         account: account,
         user: agent.creator,
         agent_id: agent.id,
-        mcp_agent: agent
+        mcp_agent: agent,
+        origin: ::Ai::Tools::CallOrigin::AGENT_BRIDGE
       )
 
       [truncate_result(result.to_json), result]
@@ -975,7 +976,8 @@ module Ai
 
       Rails.logger.info "[AgentToolBridge] Dispatching local tool: #{tool_name} for agent #{agent.id}"
       # The principal a registry call runs as (#dispatch_tool_call_capturing).
-      result = local_tools.dispatch(tool_name.to_s, arguments, account: account, user: agent.creator, agent: agent)
+      result = local_tools.dispatch(tool_name.to_s, arguments, account: account, user: agent.creator, agent: agent,
+                                                               origin: ::Ai::Tools::CallOrigin::AGENT_BRIDGE)
       [ truncate_result(result.to_json), result ]
     rescue StandardError => e
       Rails.logger.error "[AgentToolBridge] Local tool error: #{tool_name} - #{e.message}"

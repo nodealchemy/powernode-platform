@@ -635,7 +635,11 @@ module Api
                 instance_authorized: current_mcp_principal&.restricted? || false,
                 # ...and give the tool the instance so DevLoopTool#claimant_ref can
                 # scope claims as "instance:<id>" (nil for user/agent). (BUG-S)
-                node_instance: current_mcp_principal&.node_instance
+                node_instance: current_mcp_principal&.node_instance,
+                # The door, from the principal the auth concern built, BEFORE and
+                # regardless of mcp_client_agent, which is nil whenever the
+                # account has no active provider (MCP identity plan R3).
+                origin: current_mcp_principal&.call_origin
               )
             rescue ArgumentError => e
               if e.message.start_with?("Unknown platform tool")

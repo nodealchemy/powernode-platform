@@ -50,7 +50,10 @@ module Ai
       # One local call, through the registry's guarded runner. Permission and
       # rate-limit refusals come back as result envelopes, as the bridge renders
       # them for registry calls; anything else raises to the caller's rescue.
-      def dispatch(name, arguments, account:, user:, agent:)
+      # `origin:` is the caller's door (Ai::Tools::CallOrigin), passed through
+      # to the registrar; spec/lint/registrar_origin_spec.rb holds every
+      # production caller to naming it.
+      def dispatch(name, arguments, account:, user:, agent:, origin: nil)
         args = arguments.is_a?(String) ? JSON.parse(arguments) : arguments
         params = (args.is_a?(Hash) ? args.to_h.stringify_keys : {})
                    .merge(server_params)
@@ -59,7 +62,7 @@ module Ai
         ::Ai::Tools::McpPlatformToolRegistrar.run_guarded(
           tool_class,
           tool_id: "local.#{name}", params: params, account: account,
-          user: user, agent_id: agent&.id, mcp_agent: agent
+          user: user, agent_id: agent&.id, mcp_agent: agent, origin: origin
         )
       rescue ::Mcp::ProtocolService::PermissionDeniedError => e
         { success: false, error: "Permission denied: #{e.message}" }

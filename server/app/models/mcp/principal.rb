@@ -292,6 +292,18 @@ module Mcp
       instance? || federation?
     end
 
+    # The door this principal came through (Ai::Tools::CallOrigin), fixed when
+    # the auth concern built it, before any client-agent resolution. Every
+    # kind is a machine's door: an OAuth user principal is the owner of an MCP
+    # client's token, which is authority, not a person's consent.
+    def call_origin
+      case kind
+      when :user       then ::Ai::Tools::CallOrigin::MCP_OAUTH
+      when :instance   then ::Ai::Tools::CallOrigin::MCP_INSTANCE
+      when :federation then ::Ai::Tools::CallOrigin::MCP_FEDERATION
+      end
+    end
+
     # nil-safe tool authorization. Users are unrestricted (existing permission
     # behavior). Instances are DEFAULT-DENY: a tool is invocable only when it
     # matches one of the instance's granted patterns (from the injected
