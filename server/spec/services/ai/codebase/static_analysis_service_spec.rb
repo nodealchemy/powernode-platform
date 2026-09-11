@@ -151,6 +151,42 @@ RSpec.describe Ai::Codebase::StaticAnalysisService do
       expect(parse(:cobol, "anything")[:summary][:status]).to eq("unknown_linter")
     end
 
+    # D1b critic H2. tsc prints a config or global error (TS18003 "No inputs
+    # were found", TS2318) with no file(line,col) and exits 2; a tsc killed by
+    # a signal may have printed only some of its diagnostics. Neither is a
+    # measurement, and a non-zero exit with nothing parsed is never clean.
+    describe "a tsc run that failed without measuring" do
+      it "reads a location-less tsc error as tsc_error, never completed" do
+        config = parse(:typescript, "error TS18003: No inputs were found in config file 'tsconfig.json'.\n", exitstatus: 2)
+        global = parse(:typescript, "error TS2318: Cannot find global type 'Array'.\n", exitstatus: 2)
+
+        expect(config[:summary]).to include(status: "tsc_error", reason: "global_error")
+        expect(global[:summary]).to include(status: "tsc_error", reason: "global_error")
+      end
+
+      it "reads a non-zero exit whose output parses to nothing as tsc_error" do
+        result = parse(:typescript, "Something went wrong before any file was checked\n", exitstatus: 1)
+
+        expect(result[:summary]).to include(status: "tsc_error", reason: "no_diagnostics")
+        expect(parse(:typescript, "not a diagnostic\n", exitstatus: nil)[:summary]).to include(status: "tsc_error")
+      end
+
+      it "reads any linter killed by a signal as killed, whatever it printed" do
+        tsc = parse(:typescript, "src/a.ts(1,1): error TS2322: x\n", exitstatus: 137)
+        rubocop = parse(:ruby, { "files" => [], "summary" => { "inspected_file_count" => 0 } }.to_json, exitstatus: 143)
+
+        expect(tsc).to eq(diagnostics: [], summary: { status: "killed", exitstatus: 137 })
+        expect(rubocop).to eq(diagnostics: [], summary: { status: "killed", exitstatus: 143 })
+        expect(described_class::NOT_MEASURED_STATUSES).to include("tsc_error", "killed")
+      end
+
+      it "still reads a failed tsc whose errors parse as completed, with the errors" do
+        result = parse(:typescript, "src/a.ts(4,7): error TS2322: Type 'x' is not assignable.\n", exitstatus: 2)
+
+        expect(result[:summary]).to eq(status: "completed", errors: 1)
+      end
+    end
+
     # D1 re-verify M2. The server repository's rubocop report is about 3.2 MB.
     # A 1 MB cut turned it into a parse error, and a cut tsc report would parse
     # as a COMPLETE one with only its first errors. Output over the limit is

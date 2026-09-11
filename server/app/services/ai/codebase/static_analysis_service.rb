@@ -49,7 +49,11 @@ module Ai
       # Statuses a linter summary can carry that mean "did not inspect the
       # code". Callers must never read these as clean.
       NOT_MEASURED_STATUSES = %w[timeout unavailable no_output parse_error error no_gemfile no_tsconfig unknown_linter
-                                 output_truncated].freeze
+                                 output_truncated tsc_error killed].freeze
+
+      # An exit status at or above this is a process killed by a signal (128 +
+      # the signal number). Whatever it printed is not a whole report.
+      SIGNAL_EXIT_FLOOR = 128
 
       def self.timeout_seconds
         TIMEOUT
@@ -120,6 +124,9 @@ module Ai
       def parse_output(linter_key, output, exitstatus)
         output = output.to_s
         return truncated if output.bytesize > self.class.output_limit_bytes
+        # D1b critic H2: a linter killed by a signal may have printed part of
+        # its report; a partial tsc report parses as a complete one.
+        return killed(exitstatus) if exitstatus.is_a?(Integer) && exitstatus >= SIGNAL_EXIT_FLOOR
 
         case linter_key.to_s
         when "ruby" then parse_rubocop(output)
@@ -225,7 +232,11 @@ module Ai
         end
 
         diagnostics = []
+        global_errors = 0
         output.each_line do |line|
+          # A tsc error with no file(line,col), such as TS18003 "No inputs were
+          # found" or TS2318, means the project was not checked at all.
+          global_errors += 1 if line !~ /\A.+?\(\d+,\d+\):/ && line =~ /\berror\s+TS\d+:/
           # Format: file(line,col): error TS1234: message
           if line =~ /\A(.+?)\((\d+),(\d+)\):\s+(error|warning)\s+(TS\d+):\s+(.+)/
             diagnostics << {
@@ -239,6 +250,11 @@ module Ai
             }
           end
         end
+
+        # NOT MEASURED IS NOT CLEAN (D1b critic H2). Both of these used to read
+        # "completed, errors: 0".
+        return tsc_error("global_error") if global_errors.positive?
+        return tsc_error("no_diagnostics") if exitstatus != 0 && diagnostics.empty?
 
         {
           diagnostics: diagnostics,
@@ -360,6 +376,14 @@ module Ai
 
       def truncated
         { diagnostics: [], summary: { status: "output_truncated" } }
+      end
+
+      def killed(exitstatus)
+        { diagnostics: [], summary: { status: "killed", exitstatus: exitstatus } }
+      end
+
+      def tsc_error(reason)
+        { diagnostics: [], summary: { status: "tsc_error", reason: reason } }
       end
 
       def rubocop_severity(severity)

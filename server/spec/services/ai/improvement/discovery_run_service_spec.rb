@@ -320,6 +320,16 @@ RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
       expect(offers.count).to eq(0)
     end
 
+    # D1b critic H2: the real tsc on a project with no inputs exits 2 and prints
+    # TS18003 with no location. That used to read "completed, errors: 0".
+    it "reads a tsc config error as not measured, never as a clean run" do
+      result = ingest({ "typescript" => ran("error TS18003: No inputs were found in config file\n", exitstatus: 2) })
+
+      expect(result[:status]).to eq("not_measured")
+      expect(result[:linter_statuses]).to eq({ "core" => { "TypeScript" => "tsc_error" } })
+      expect(result[:analyzers_degraded]).to contain_exactly(hash_including(analyzer: "TypeScript", status: "tsc_error"))
+    end
+
     it "reads a runner that reports its own output as truncated the same way" do
       result = ingest({ "ruby" => { "status" => "output_truncated" } })
 
