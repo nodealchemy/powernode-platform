@@ -17,6 +17,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { chatChannelsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useAuth } from '@/shared/hooks/useAuth';
 import { cn } from '@/shared/utils/cn';
 import { usePolling } from '@/shared/hooks/usePolling';
 import type { ChatSessionSummary, SessionFilters, SessionStatus } from '@/shared/services/ai';
@@ -56,6 +57,11 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
   className,
 }) => {
   const { addNotification } = useNotifications();
+  // Close/transfer are chat.sessions.manage actions on the backend
+  // (server/app/controllers/api/v1/chat/sessions_controller.rb); the API
+  // already refuses them without it, this only hides the controls.
+  const { currentUser } = useAuth();
+  const canManage = currentUser?.permissions?.includes('chat.sessions.manage') || false;
   const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -230,7 +236,7 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {session.status === 'active' && (
+                      {session.status === 'active' && canManage && (
                         <>
                           {onTransferSession && (
                             <Button aria-label="Transfer session"
