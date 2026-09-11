@@ -21,50 +21,67 @@ module Api
         # so an unqualified `Ai::Improvement` would resolve to
         # `Api::V1::Internal::Ai::Improvement` and raise.
         class ImprovementDiscoveryController < InternalBaseController
-          # POST /api/v1/internal/ai/improvement_discovery/run
+          # POST /api/v1/internal/ai/improvement_discovery/run   { position: n }
           #
-          # One tick. Iterates active accounts; the service applies the kill
-          # switch and the environment ceiling per account and reports why it
-          # skipped, so a tick that files nothing is distinguishable from a tick
-          # that ran nothing.
+          # ONE UNIT PER CALL (D1 review H2). A tick used to be one POST that
+          # swept every account, called through the RETRYING connection inside
+          # a job-level retry: one slow tick became up to eighteen concurrent
+          # sweeps. Now the worker walks `DiscoveryRunService.units` by
+          # position, one non-retrying POST per unit, so a call does one
+          # repository's work and nothing re-sends it.
+          #
+          # AGGREGATE COUNTS ONLY (D1 review M1). The caller is an
+          # account-bound worker and this door runs every account's units, so
+          # the response names no account, repository, environment or error
+          # text. Per-account detail lives in that account's own audit row.
           def run
-            runs = []
-
-            Account.find_each do |account|
-              next unless account.active?
-
-              summary = begin
-                ::Ai::Improvement::DiscoveryRunService.new(account: account).run!
-              rescue StandardError => e
-                Rails.logger.error(
-                  "[ImprovementDiscovery] run failed for account #{account.id}: #{e.class}: #{e.message}"
-                )
-                { status: "failed", account_id: account.id, skipped_reason: e.message,
-                  offers_created: 0, offers_deduped: 0, findings: 0 }
-              end
-
-              record_run(account, summary)
-              runs << summary
+            position = Integer(params.fetch(:position, 0), exception: false)
+            if position.nil? || position.negative?
+              return render_error("position must be a non-negative integer", status: :unprocessable_content)
             end
 
-            render_success(summarize(runs).merge(runs: runs))
+            units = ::Ai::Improvement::DiscoveryRunService.units
+            return render_success(unit_result(nil, position: position, total: units.size)) if position >= units.size
+
+            account_id, repository_id = units[position]
+            account = ::Account.find_by(id: account_id)
+            summary = account && run_unit(account, repository_id)
+            record_run(account, summary) if summary
+
+            render_success(unit_result(summary, position: position, total: units.size))
           end
 
           private
 
-          def summarize(runs)
+          def run_unit(account, repository_id)
+            ::Ai::Improvement::DiscoveryRunService.new(account: account).run!(repository_id: repository_id)
+          rescue StandardError => e
+            Rails.logger.error("[ImprovementDiscovery] run failed for account #{account.id}: #{e.class}: #{e.message}")
+            # The class only (D1 review L4): this is written to an audit row.
+            { status: "failed", account_id: account.id, failure: e.class.name,
+              offers_created: 0, offers_deduped: 0, offers_parked: 0, findings: 0, analyzers_degraded: [] }
+          end
+
+          def unit_result(summary, position:, total:)
+            summary ||= {}
+            remaining = [ total - position - 1, 0 ].max
             {
-              accounts_processed: runs.count { |r| r[:status] == "completed" },
-              accounts_skipped: runs.count { |r| r[:status] == "skipped" },
-              accounts_failed: runs.count { |r| r[:status] == "failed" },
-              findings: runs.sum { |r| r[:findings].to_i },
-              offers_created: runs.sum { |r| r[:offers_created].to_i },
-              offers_deduped: runs.sum { |r| r[:offers_deduped].to_i },
-              analyzers_degraded: runs.flat_map { |r| Array(r[:analyzers_degraded]) }
+              ran_unit: summary.present?,
+              status: summary[:status],
+              findings: summary[:findings].to_i,
+              offers_created: summary[:offers_created].to_i,
+              offers_deduped: summary[:offers_deduped].to_i,
+              offers_parked: summary[:offers_parked].to_i,
+              analyzers_degraded: Array(summary[:analyzers_degraded]).size,
+              position: position,
+              next_position: position + 1,
+              remaining: remaining,
+              done: remaining.zero?
             }
           end
 
-          # The run record, one per ACCOUNT per tick — including a skipped one,
+          # The run record, one per UNIT (a repository, or an account with none)
+          # per tick — including a skipped one,
           # so "discovery last ran for this account at T, and declined because
           # X" is answerable. An aggregate row is not possible here and should
           # not be faked: AuditLog requires a non-null `account_id` and a

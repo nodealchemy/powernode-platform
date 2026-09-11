@@ -49,8 +49,15 @@ module Ai
     #      decides, not a second rival threshold.
     #   3. A repository must have a working copy ON THIS NODE
     #      (`metadata["local_path"]`, the same key `CodebaseContextResolvable`
-    #      resolves). Repositories without one are counted as skipped WITH a
-    #      reason, never silently dropped.
+    #      resolves), and that copy must resolve, symlinks followed, inside the
+    #      operator's discovery root (SiteSetting ALLOWED_ROOT_SETTING; D1
+    #      review M3). The linters execute code from the directory they run in
+    #      (a Gemfile, a .rubocop.yml `require:`, an eslint config), so a tenant
+    #      must not be able to point this at an arbitrary path, or at another
+    #      tenant's copy. The root may carry `%{account_id}`, and a multi-tenant
+    #      deployment must use it; absent, discovery is off for every
+    #      repository and says so. Repositories that fail this are counted as
+    #      skipped WITH a reason, never silently dropped.
     #   4. A per-run offer cap, so a first run against a repo with thousands of
     #      offences files a bounded number of the most severe.
     #
@@ -64,6 +71,14 @@ module Ai
 
       MAX_OFFERS_SETTING = "ai.improvement_discovery_max_offers_per_run"
       DEFAULT_MAX_OFFERS = 25
+
+      ALLOWED_ROOT_SETTING = "ai.improvement_discovery_allowed_root"
+      ACCOUNT_PLACEHOLDER = "%{account_id}"
+
+      # A linter summary in one of these states actually inspected the code.
+      # Anything else (timeout, unavailable, no_output, parse_error, ...) did
+      # not, and must never read as clean.
+      MEASURED_STATUSES = %w[completed clean].freeze
 
       # The analyzers that can hand back a finding with a file, a line and a
       # rule. See the class comment for the three that cannot, yet.
@@ -91,13 +106,43 @@ module Ai
         configured.positive? ? configured : DEFAULT_MAX_OFFERS
       end
 
+      # The discovery root for one account, or nil when none is configured.
+      def self.allowed_root_for(account)
+        raw = ::SiteSetting.get(ALLOWED_ROOT_SETTING).to_s.strip
+        return nil if raw.empty?
+
+        raw.gsub(ACCOUNT_PLACEHOLDER, account.id.to_s)
+      end
+
+      # ONE TICK AS UNITS (D1 review H2). The worker walks these one POST at a
+      # time, so each call does one repository's work and no call can fan out
+      # into a whole-fleet sweep. A unit is [account_id, repository_id], or
+      # [account_id, nil] for an active account with no repositories, so the
+      # account still gets a run record saying why nothing was analysed.
+      #
+      # Stable order (account id, then repository name and id). Two queries plus
+      # the account batches, not one per account.
+      def self.units
+        repos = ::Devops::GitRepository.order(:name, :id).pluck(:account_id, :id).group_by(&:first)
+        units = []
+        ::Account.find_each do |account|
+          next unless account.active?
+
+          ids = Array(repos[account.id]).map(&:last)
+          ids.empty? ? units << [ account.id, nil ] : ids.each { |id| units << [ account.id, id ] }
+        end
+        units
+      end
+
       def initialize(account:)
         @account = account
       end
 
       # @return [Hash] the run summary. Always a summary, never nil: a skipped
       #   run says why it was skipped.
-      def run!
+      # @param repository_id [String, nil] one repository (a door unit), or
+      #   nil for every repository of the account
+      def run!(repository_id: nil)
         @started_at = Time.current
 
         return skipped("ai_suspended") if @account.ai_suspended?
@@ -112,14 +157,18 @@ module Ai
                          environment_tier_ceiling: ceiling)
         end
 
-        sweep(environment, ceiling)
+        repositories = candidate_repositories
+        repositories = repositories.where(id: repository_id) if repository_id
+        return skipped("no_repositories") unless repositories.exists?
+
+        sweep(environment, ceiling, repositories)
       end
 
       private
 
       attr_reader :account
 
-      def sweep(environment, ceiling)
+      def sweep(environment, ceiling, candidates)
         offers_created = 0
         offers_deduped = 0
         offers_parked = 0
@@ -129,12 +178,12 @@ module Ai
 
         budget = self.class.max_offers_per_run
 
-        candidate_repositories.each do |repo|
+        candidates.each do |repo|
           row = { repository: repo.name, id: repo.id }
-          path = local_path_for(repo)
+          path, reason = working_copy_for(repo)
 
-          if path.blank?
-            repositories << row.merge(status: "skipped", reason: "no_local_path")
+          if reason
+            repositories << row.merge(status: "skipped", reason: reason)
             next
           end
 
@@ -145,7 +194,22 @@ module Ai
             next
           end
 
-          degraded.concat(degraded_linters(repo, result[:linters]))
+          # NOT MEASURED IS NOT CLEAN (D1 review H3). No linter detected for
+          # the project root, or none of the detected ones actually inspected
+          # the code: either way this repository was not analysed, and a zero
+          # finding count from it would be a lie.
+          linters = result[:linters] || {}
+          if linters.empty?
+            repositories << row.merge(status: "not_measured", reason: "no_linter_detected", linters: {})
+            degraded << { repository: repo.name, analyzer: "lint", status: "no_linter_detected" }
+            next
+          end
+
+          degraded.concat(degraded_linters(repo, linters))
+          unless linters.values.any? { |summary| measured?(summary) }
+            repositories << row.merge(status: "not_measured", reason: "no_linter_ran", linters: linters)
+            next
+          end
 
           repo_findings = group_findings(result[:diagnostics])
           findings += repo_findings.size
@@ -164,7 +228,7 @@ module Ai
         end
 
         {
-          status: "completed",
+          status: run_status(repositories),
           account_id: account.id,
           environment: environment.slug,
           environment_tier: environment.tier,
@@ -184,7 +248,26 @@ module Ai
           # Per-linter status per repository, verbatim from the analyzer —
           # `completed` / `clean` / `no_gemfile` / `no_output` / `parse_error`.
           linter_statuses: linter_statuses(repositories)
-        }.merge(timing)
+        }.merge(skip_reason_for(repositories)).merge(timing)
+      end
+
+      # completed: at least one repository was analysed. not_measured: some
+      # working copy was reachable but no linter inspected it. skipped: nothing
+      # was reachable at all.
+      def run_status(repositories)
+        statuses = repositories.map { |r| r[:status] }
+        return "completed" if statuses.include?("analyzed")
+        return "not_measured" if statuses.include?("not_measured")
+        return "failed" if statuses.include?("failed")
+
+        "skipped"
+      end
+
+      def skip_reason_for(repositories)
+        return {} if repositories.any? { |r| %w[analyzed not_measured failed].include?(r[:status]) }
+
+        reasons = repositories.map { |r| r[:reason] }.uniq
+        { skipped_reason: reasons.one? ? reasons.first : "no_repository_analyzable" }
       end
 
       # Every run summary carries the same spine, so a skipped run is queryable
@@ -221,12 +304,36 @@ module Ai
         ::Devops::GitRepository.where(account_id: account.id).order(:name)
       end
 
-      def local_path_for(repo)
-        path = repo.metadata&.dig("local_path").to_s
-        return nil if path.blank?
-        return nil unless Dir.exist?(path)
+      # @return [Array(String, nil)] [real_path, nil] or [nil, reason]
+      def working_copy_for(repo)
+        raw = repo.metadata&.dig("local_path").to_s
+        return [ nil, "no_local_path" ] if raw.blank?
 
-        path
+        root = self.class.allowed_root_for(account)
+        return [ nil, "discovery_root_not_configured" ] if root.nil?
+
+        real_root = real_directory(root)
+        return [ nil, "discovery_root_missing" ] if real_root.nil?
+
+        # realpath, not the raw string: a symlink or `..` inside the root must
+        # not reach outside it.
+        real = real_directory(raw)
+        return [ nil, "no_local_path" ] if real.nil?
+        return [ nil, "local_path_outside_discovery_root" ] unless real == real_root || real.start_with?("#{real_root}/")
+
+        [ real, nil ]
+      end
+
+      def real_directory(path)
+        real = File.realpath(path)
+        File.directory?(real) ? real : nil
+      rescue SystemCallError
+        nil
+      end
+
+      def measured?(summary)
+        status = summary.is_a?(Hash) ? (summary[:status] || summary["status"]).to_s : ""
+        MEASURED_STATUSES.include?(status)
       end
 
       def analyze(path)
@@ -237,7 +344,9 @@ module Ai
         }
       rescue StandardError => e
         Rails.logger.error("[ImprovementDiscovery] analysis failed for #{path}: #{e.class}: #{e.message}")
-        { error: "#{e.class}: #{e.message}" }
+        # The class only: this lands in an audit row, and a message can carry
+        # paths or output from the working copy (D1 review L4).
+        { error: e.class.name }
       end
 
       # A linter whose status is anything but `completed`/`clean` did not
@@ -246,7 +355,7 @@ module Ai
       def degraded_linters(repo, linters)
         Array(linters).filter_map do |name, summary|
           status = summary.is_a?(Hash) ? (summary[:status] || summary["status"]).to_s : ""
-          next if %w[completed clean].include?(status)
+          next if MEASURED_STATUSES.include?(status)
 
           { repository: repo.name, analyzer: name.to_s, status: status.presence || "unknown" }
         end

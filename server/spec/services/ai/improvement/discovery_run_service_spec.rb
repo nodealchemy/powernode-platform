@@ -17,6 +17,16 @@ RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
 
   after { FileUtils.remove_entry(local_path) if Dir.exist?(local_path) }
 
+  def allow_root(path)
+    SiteSetting.set(described_class::ALLOWED_ROOT_SETTING, path, setting_type: "string", is_public: false)
+  end
+
+  def sweep_now = described_class.new(account: account).run!
+
+  # D1 review M3 added the discovery root. Most examples are not about it, so
+  # the working copy's own directory is the root unless an example says so.
+  before { allow_root(local_path) }
+
   # The one external boundary: a subprocess (rubocop/tsc/eslint). Everything
   # inside the service runs for real. One example below runs the REAL analyzer.
   def stub_analysis(diagnostics, linters: { "RuboCop" => { status: "completed" } })
@@ -117,7 +127,7 @@ RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
 
       result = described_class.new(account: account).run!
 
-      expect(result[:status]).to eq("completed")
+      expect(result).to include(status: "skipped", skipped_reason: "no_local_path")
       expect(result[:repositories]).to contain_exactly(
         hash_including(repository: "core", status: "skipped", reason: "no_local_path")
       )
@@ -134,19 +144,95 @@ RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
     end
   end
 
+  # D1 review M3: the linters execute code from the directory they run in (a
+  # Gemfile, a .rubocop.yml `require:`, an eslint config), so the working copy
+  # must resolve inside the operator's root, symlinks followed.
+  describe "the discovery root" do
+    before { stub_analysis([ diagnostic ]) }
+
+    # The root is a filesystem path on the node. SiteSetting's is_public
+    # column defaults to TRUE in the database, so a writer that forgets the
+    # flag would publish it; the discovery prefix is forced private.
+    it "keeps the root setting private even when its writer forgets the flag" do
+      row = SiteSetting.create!(key: described_class::ALLOWED_ROOT_SETTING, value: "/srv/discovery",
+                                setting_type: "string")
+
+      expect(row.reload.is_public).to be(false)
+    end
+
+    it "analyses nothing, and says why, when no root is configured" do
+      SiteSetting.find_by(key: described_class::ALLOWED_ROOT_SETTING)&.destroy!
+
+      result = sweep_now
+
+      expect(result[:repositories].first).to include(status: "skipped", reason: "discovery_root_not_configured")
+      expect(offers.count).to eq(0)
+    end
+
+    it "refuses a working copy outside the root" do
+      other_root = Dir.mktmpdir("d1-other-root")
+      allow_root(other_root)
+
+      expect(sweep_now[:repositories].first)
+        .to include(status: "skipped", reason: "local_path_outside_discovery_root")
+      expect(offers.count).to eq(0)
+    ensure
+      FileUtils.remove_entry(other_root) if other_root && Dir.exist?(other_root)
+    end
+
+    it "refuses a symlink inside the root that points outside it" do
+      root = Dir.mktmpdir("d1-root")
+      outside = Dir.mktmpdir("d1-outside")
+      link = File.join(root, "escape")
+      File.symlink(outside, link)
+      allow_root(root)
+      repository.update!(metadata: { "local_path" => link })
+
+      expect(sweep_now[:repositories].first)
+        .to include(status: "skipped", reason: "local_path_outside_discovery_root")
+    ensure
+      [ root, outside ].each { |dir| FileUtils.remove_entry(dir) if dir && Dir.exist?(dir) }
+    end
+
+    it "keeps each account inside its own directory when the root names %{account_id}" do
+      base = Dir.mktmpdir("d1-tenants")
+      mine = FileUtils.mkdir_p(File.join(base, account.id, "core")).first
+      theirs = FileUtils.mkdir_p(File.join(base, create(:account).id, "core")).first
+      allow_root(File.join(base, "%{account_id}"))
+
+      repository.update!(metadata: { "local_path" => theirs })
+      refused = sweep_now
+      repository.update!(metadata: { "local_path" => mine })
+      allowed = sweep_now
+
+      expect(refused[:repositories].first).to include(status: "skipped", reason: "local_path_outside_discovery_root")
+      expect(allowed[:repositories].first).to include(status: "analyzed")
+    ensure
+      FileUtils.remove_entry(base) if base && Dir.exist?(base)
+    end
+  end
+
   # The audit's §4.2 finding for code_static_analysis: the headline `errors: 0`
   # discards a `no_gemfile | no_output` status, so "nothing ran" reads exactly
   # like "nothing found". This service must not repeat that.
   describe "a linter that did not run is not a clean sweep" do
-    it "reports a degraded analyzer rather than an empty, healthy-looking run" do
+    it "reports a degraded analyzer and a not-measured run rather than an empty, healthy-looking one" do
       stub_analysis([], linters: { "RuboCop" => { status: "no_gemfile" } })
 
       result = described_class.new(account: account).run!
 
+      expect(result[:status]).to eq("not_measured")
       expect(result[:findings]).to eq(0)
+      expect(result[:repositories].first).to include(status: "not_measured", reason: "no_linter_ran")
       expect(result[:analyzers_degraded]).to contain_exactly(
         hash_including(repository: "core", analyzer: "RuboCop", status: "no_gemfile")
       )
+    end
+
+    it "reads a linter that timed out as not measured" do
+      stub_analysis([], linters: { "RuboCop" => { status: "timeout" } })
+
+      expect(sweep_now[:status]).to eq("not_measured")
     end
 
     it "reports NO degraded analyzer when the linter genuinely completed clean" do
@@ -154,8 +240,57 @@ RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
 
       result = described_class.new(account: account).run!
 
+      expect(result[:status]).to eq("completed")
       expect(result[:findings]).to eq(0)
       expect(result[:analyzers_degraded]).to be_empty
+    end
+
+    # D1 review H3 and L3. With no linter detected the analyzer returns an EMPTY
+    # linter map, and that used to read as a clean sweep. This runs the REAL
+    # analyzer through the service's own no-argument call, on a working copy
+    # with nothing to lint.
+    it "calls a working copy with no linter at all not measured, through the real analyzer" do
+      result = sweep_now
+
+      expect(result[:status]).to eq("not_measured")
+      expect(result[:repositories].first).to include(status: "not_measured", reason: "no_linter_detected")
+      expect(result[:analyzers_degraded]).to contain_exactly(
+        hash_including(repository: "core", analyzer: "lint", status: "no_linter_detected")
+      )
+      expect(offers.count).to eq(0)
+    end
+  end
+
+  # D1 review H2: the door runs one unit per call.
+  describe ".units and one repository per run" do
+    it "lists one unit per repository and one for an active account with none, skipping inactive accounts" do
+      second = create(:git_repository, account: account, name: "docs", metadata: {})
+      empty = create(:account)
+      gone = create(:account)
+      gone.update!(status: "cancelled")
+      create(:git_repository, account: gone, name: "left-behind")
+
+      units = described_class.units
+
+      expect(units.select { |account_id, _| account_id == account.id })
+        .to eq([ [ account.id, repository.id ], [ account.id, second.id ] ])
+      expect(units).to include([ empty.id, nil ])
+      expect(units.map(&:first)).not_to include(gone.id)
+    end
+
+    it "runs only the named repository" do
+      stub_analysis([ diagnostic ])
+      other = create(:git_repository, account: account, name: "docs", metadata: { "local_path" => local_path })
+
+      result = described_class.new(account: account).run!(repository_id: other.id)
+
+      expect(result[:repositories].map { |row| row[:repository] }).to eq([ "docs" ])
+    end
+
+    it "says why when an account has no repository" do
+      result = described_class.new(account: create(:account)).run!
+
+      expect(result).to include(status: "skipped", skipped_reason: "no_repositories")
     end
   end
 
@@ -213,6 +348,7 @@ RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
       offender = probe_dir.join("offender.rb")
       File.write(offender, "x = [1,2]\nputs x\n")
       repository.update!(metadata: { "local_path" => Rails.root.to_s })
+      allow_root(Rails.root.to_s)
 
       begin
         relative = offender.relative_path_from(Rails.root).to_s

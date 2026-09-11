@@ -29,7 +29,11 @@ class SiteSetting < ApplicationRecord
   # publish operator internals such as where alert email goes. Coerced rather
   # than rejected: rejecting would raise inside the seed file's shared rescue
   # and silently skip every setting seeded after it.
-  PRIVATE_KEY_PREFIXES = %w[platform.status.].freeze
+  #
+  # `ai.improvement_discovery` joined with D1's review fixes: its allowed-root
+  # setting is a filesystem path on the node, and its tier and offer caps are
+  # operator configuration, not anything a public page needs.
+  PRIVATE_KEY_PREFIXES = %w[platform.status. ai.improvement_discovery].freeze
   before_validation :keep_private_namespace_private
 
   # Scopes
