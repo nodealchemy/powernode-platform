@@ -330,6 +330,21 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # PLATFORM ALERT CHANNEL ACTIONS (component status plane, E8) — every set,
+  # replace and clear of an alert-channel credential, and every change to the
+  # plain alert settings. The row names the KEY and the actor, never the value.
+  # Deliberately named without "delete"/"admin": those substrings put an action
+  # under the audit service's strictest rate limit, and a clear that is
+  # rate-limited out of the audit trail is exactly the gap this exists to close.
+  # =============================================================================
+  PLATFORM_ALERT_CHANNEL_ACTIONS = %w[
+    platform.alert_channels.secret_set
+    platform.alert_channels.secret_replaced
+    platform.alert_channels.secret_cleared
+    platform.alert_channels.settings_updated
+  ].freeze
+
+  # =============================================================================
   # CORE ALL ACTIONS — frozen union of the core-only groups above.
   # Extension-contributed actions are NOT here; they join at runtime via
   # the dynamic AuditActions.all_actions union. (Was the combined ALL_ACTIONS.)
@@ -362,6 +377,7 @@ module AuditActions
     INVITATION_ACTIONS,
     SITE_SETTING_ACTIONS,
     REPORT_REQUEST_ACTIONS,
+    PLATFORM_ALERT_CHANNEL_ACTIONS,
     LEGACY_ACTIONS
   ].flatten.uniq.freeze
 

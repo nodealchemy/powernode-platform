@@ -23,6 +23,15 @@ class SiteSetting < ApplicationRecord
   after_save :clear_footer_cache_if_needed
   after_destroy :clear_footer_cache_if_needed
 
+  # E8: nothing under these prefixes is ever public. The column defaults to
+  # TRUE in the database, so any writer that forgets the flag — a seed calling
+  # create!, the generic settings door, a console session — would otherwise
+  # publish operator internals such as where alert email goes. Coerced rather
+  # than rejected: rejecting would raise inside the seed file's shared rescue
+  # and silently skip every setting seeded after it.
+  PRIVATE_KEY_PREFIXES = %w[platform.status.].freeze
+  before_validation :keep_private_namespace_private
+
   # Scopes
   scope :public_settings, -> { where(is_public: true) }
   scope :by_type, ->(type) { where(setting_type: type) }
@@ -126,6 +135,12 @@ class SiteSetting < ApplicationRecord
   def can_be_blank?
     # Allow these fields to be blank
     key.in?(BLANK_ALLOWED_KEYS)
+  end
+
+  def keep_private_namespace_private
+    return unless PRIVATE_KEY_PREFIXES.any? { |prefix| key.to_s.start_with?(prefix) }
+
+    self.is_public = false
   end
 
   def clear_footer_cache_if_needed
