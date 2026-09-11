@@ -32,10 +32,6 @@ module Ai
       # and "created" exists only inside #start's own transaction.
       RESUMABLE_STATUSES = %w[completed paused].freeze
 
-      # The permission #resume demands of its acting user, checked HERE so every door onto
-      # a resume (the MCP verb, the REST action, any later caller) inherits it.
-      RESUME_PERMISSION = "ai.campaigns.manage"
-
       # The type each stop condition #resume may set must hold. A value is only ever
       # replaced by a valid value of its type: a null reads as "no such stop" in
       # Campaign#tripped_stop_condition, so accepting one would DELETE the stop, and a
@@ -61,6 +57,7 @@ module Ai
       # Create the campaign + its dedicated Ralph loop, mark it active, take a first snapshot.
       def start(name:, description: nil, configuration: {}, decision_authority: "trusted",
                 stop_conditions: {}, workload: DEFAULT_WORKLOAD)
+        authorize_actor!(@account)
         workload = DEFAULT_WORKLOAD unless WORKLOADS.include?(workload)
         config = (configuration || {}).merge("workload" => workload)
         # Atomic: a mid-way failure must not leave an orphan campaign with no loop.
@@ -142,6 +139,7 @@ module Ai
       # `target` carries the platform ref ({ "agent_id"|"group_id"|"mission_id" => ... }).
       # `holder` (claude_code only) immediately takes the lease for that session.
       def delegate(campaign, driver_kind:, target: {}, holder: nil)
+        authorize_actor!(campaign.account)
         raise ArgumentError, "unknown driver_kind: #{driver_kind}" unless Ai::RalphLoop::DRIVER_KINDS.include?(driver_kind)
 
         # Validate + account-scope the target BEFORE any mutation: a caller may only wire
@@ -177,6 +175,7 @@ module Ai
 
       # Answer a parked question (which can unblock its associated task downstream).
       def answer_question(campaign, question_id:, answer:)
+        authorize_actor!(campaign.account)
         q = campaign.parked_questions.find(question_id)
         q.answer!(answer, user: @user)
         q.reload.summary
@@ -184,6 +183,7 @@ module Ai
 
       # Stop the campaign: pause its loops' scheduling (executors stop pulling) + mark completed.
       def stop(campaign, summary: nil)
+        authorize_actor!(campaign.account)
         campaign.ralph_loops.each do |l|
           l.pause_schedule!(reason: "campaign stopped") if l.respond_to?(:pause_schedule!)
         end
@@ -199,7 +199,7 @@ module Ai
       # A refusal raises ArgumentError naming its reason and rolls the merge back.
       def resume(campaign, reason:, stop_conditions: {})
         refuse_without_acting_user!
-        refuse_unless_permitted!
+        authorize_actor!(campaign.account)
         raise ArgumentError, "reason is required" if reason.blank?
         changes = validated_stop_conditions!(stop_conditions)
 
@@ -569,12 +569,13 @@ module Ai
         raise ArgumentError, "campaign_resume refused: a resume must name the acting user, and this call has none"
       end
 
-      # A door-only permission check is how a future caller skips it, so the service
-      # asks the acting user itself.
-      def refuse_unless_permitted!
-        return if @user.has_permission?(RESUME_PERMISSION)
-
-        raise ArgumentError, "campaign_resume refused: user #{@user.id} does not hold '#{RESUME_PERMISSION}'"
+      # Every mutating action a door exposes (start, stop, delegate, answer_question,
+      # resume) asks the shared campaign check against the account it touches: a door-only
+      # check is how a future caller skips it, and a permission an account-switch session
+      # carries from ANOTHER account must never act here. No user means an agent or
+      # instance principal its own door already bound to @account.
+      def authorize_actor!(account)
+        ::Ai::Campaigns::Authorization.authorize_actor!(user: @user, account: account)
       end
 
       def validated_stop_conditions!(conditions)

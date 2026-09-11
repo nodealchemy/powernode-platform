@@ -420,7 +420,7 @@ RSpec.describe Ai::Tools::CampaignTool do
       reader_driver = Ai::DevLoop::CampaignDriver.new(account: account, user: reader)
 
       expect { reader_driver.resume(campaign, reason: "not mine to make", stop_conditions: { max_failed: 6 }) }
-        .to raise_error(ArgumentError, /user #{reader.id} does not hold 'ai\.campaigns\.manage'/)
+        .to raise_error(Ai::Campaigns::Authorization::Refused, /user #{reader.id} does not hold 'ai\.campaigns\.manage'/)
       expect(campaign.reload.status).to eq("completed")
       expect(campaign.stop_conditions["max_failed"]).to eq(2)
       expect(campaign.campaign_decisions.where("metadata->>'action' = ?", "campaign_resume")).to be_empty
@@ -451,6 +451,7 @@ RSpec.describe Ai::Tools::CampaignTool do
       end
 
       it "refuses an agent alone whose creator is powerless, though the account owner holds the permission" do
+        campaign # built by the owner before the powerless user exists (the first user becomes OWNER)
         powerless = create(:user, account: account, permissions: [])
         agent = create(:ai_agent, account: account, creator: powerless)
         expect_refused_untouched(resume_as(described_class.new(account: account, agent: agent)),

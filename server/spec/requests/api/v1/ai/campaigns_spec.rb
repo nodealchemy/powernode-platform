@@ -250,4 +250,120 @@ RSpec.describe "Api::V1::Ai::Campaigns", type: :request do
       expect(campaign.reload.status).to eq("completed")
     end
   end
+
+  # Review finding (pre-existing MEDIUM): an account-switch session carries permissions
+  # DELEGATED from another account (Authentication#has_permission? answers from the
+  # delegation), while these doors resolve campaigns in the user's OWN account. The gate
+  # must answer for the account whose campaign the call touches.
+  describe "account-switch sessions: the permission is answered for the campaign's account" do
+    let(:other_account) { create(:account) }
+
+    # Role-backed and bounded by the delegator, who really holds what the role grants there.
+    def delegation_from_other_account(to:, permissions:)
+      grantor = create(:user, account: other_account, permissions: permissions)
+      create(:account_delegation, account: other_account, delegated_user: to, delegated_by: grantor,
+                                  role: grantor.roles.first)
+    end
+
+    def switched_headers(for_user, delegation)
+      payload = { sub: for_user.id, account_id: other_account.id, primary_account_id: for_user.account_id,
+                  delegation_id: delegation.id, type: "access", version: Security::JwtService::CURRENT_TOKEN_VERSION }
+      { "Authorization" => "Bearer #{Security::JwtService.encode(payload)}", "Content-Type" => "application/json" }
+    end
+
+    # ai.campaigns.read only in THIS account; manage delegated from the other one.
+    def delegated_manager_headers
+      member = create(:user, account: account, permissions: %w[ai.campaigns.read])
+      delegation = delegation_from_other_account(to: member, permissions: %w[ai.campaigns.read ai.campaigns.manage])
+      expect(delegation.effective_permissions).to include("ai.campaigns.manage") # precondition: the grant is real
+      switched_headers(member, delegation)
+    end
+
+    # ai.campaigns.manage in THIS account; its switched session's delegation does not carry it.
+    def local_manager_switched_headers
+      delegation = delegation_from_other_account(to: user, permissions: %w[ai.campaigns.read])
+      expect(delegation.effective_permissions).not_to include("ai.campaigns.manage") # precondition
+      switched_headers(user, delegation)
+    end
+
+    def expect_door_refusal
+      expect(response).to have_http_status(:forbidden)
+      expect(json_response["error"]).to include("Permission denied: ai.campaigns.manage")
+    end
+
+    def completed_campaign
+      owner_driver = ::Ai::DevLoop::CampaignDriver.new(account: account, user: user)
+      campaign = owner_driver.start(name: "Switched", stop_conditions: { max_failed: 2 })[:campaign]
+      2.times { |i| owner_driver.record_increment!(campaign, title: "broken #{i}", status: "failed") }
+      campaign.reload
+    end
+
+    it "create: refuses delegated manage, and a manager of this account still creates" do
+      refused = delegated_manager_headers
+      post "/api/v1/ai/campaigns", headers: refused, params: { name: "Delegated" }, as: :json
+      expect_door_refusal
+      expect(account.ai_campaigns.pluck(:name)).not_to include("Delegated")
+
+      post "/api/v1/ai/campaigns", headers: local_manager_switched_headers, params: { name: "Mine" }, as: :json
+      expect_success_response
+      expect(account.ai_campaigns.pluck(:name)).to include("Mine")
+    end
+
+    it "answer_question: refuses delegated manage, and a manager of this account still answers" do
+      campaign = start_campaign
+      question = campaign.park_question!(question: "Pricing?")
+
+      post "/api/v1/ai/campaigns/#{campaign.id}/answer_question", headers: delegated_manager_headers,
+           params: { question_id: question.id, answer: "delegated" }, as: :json
+      expect_door_refusal
+      expect(question.reload.status).to eq("open")
+
+      post "/api/v1/ai/campaigns/#{campaign.id}/answer_question", headers: local_manager_switched_headers,
+           params: { question_id: question.id, answer: "mine" }, as: :json
+      expect_success_response
+      expect(question.reload.status).to eq("answered")
+    end
+
+    it "stop: refuses delegated manage, and a manager of this account still stops" do
+      campaign = start_campaign
+
+      post "/api/v1/ai/campaigns/#{campaign.id}/stop", headers: delegated_manager_headers,
+           params: { summary: "delegated" }, as: :json
+      expect_door_refusal
+      expect(campaign.reload.status).to eq("active")
+
+      post "/api/v1/ai/campaigns/#{campaign.id}/stop", headers: local_manager_switched_headers,
+           params: { summary: "mine" }, as: :json
+      expect_success_response
+      expect(campaign.reload.status).to eq("completed")
+    end
+
+    it "delegate: refuses delegated manage, and a manager of this account still delegates" do
+      campaign = start_campaign
+
+      post "/api/v1/ai/campaigns/#{campaign.id}/delegate", headers: delegated_manager_headers,
+           params: { driver_kind: "claude_code", holder: "delegated-sess" }, as: :json
+      expect_door_refusal
+      expect(campaign.reload.driver_lease_holder).to be_nil
+
+      post "/api/v1/ai/campaigns/#{campaign.id}/delegate", headers: local_manager_switched_headers,
+           params: { driver_kind: "claude_code", holder: "my-sess" }, as: :json
+      expect_success_response
+      expect(campaign.reload.driver_lease_holder).to eq("my-sess")
+    end
+
+    it "resume: refuses delegated manage, and a manager of this account still resumes" do
+      campaign = completed_campaign
+
+      post "/api/v1/ai/campaigns/#{campaign.id}/resume", headers: delegated_manager_headers,
+           params: { reason: "delegated", stop_conditions: { max_failed: 6 } }, as: :json
+      expect_door_refusal
+      expect(campaign.reload.status).to eq("completed")
+
+      post "/api/v1/ai/campaigns/#{campaign.id}/resume", headers: local_manager_switched_headers,
+           params: { reason: "mine", stop_conditions: { max_failed: 6 } }, as: :json
+      expect_success_response
+      expect(campaign.reload.status).to eq("active")
+    end
+  end
 end

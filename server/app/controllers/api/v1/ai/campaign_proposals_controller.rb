@@ -16,6 +16,12 @@ module Api
         # Kill-switch: spawning arms an autonomous campaign loop — refuse while AI is suspended.
         before_action :reject_if_ai_suspended, only: %i[spawn]
 
+        # A refusal from the shared campaign check inside a service is a 403, whichever
+        # action reached it.
+        rescue_from ::Ai::Campaigns::Authorization::Refused do |exception|
+          render_forbidden(exception.message) unless performed?
+        end
+
         def index
           scope = current_user.account.ai_campaign_proposals
           scope = scope.by_status(params[:status]) if params[:status].present?
@@ -34,6 +40,7 @@ module Api
         def create
           proposal = ::Ai::CampaignProposal.propose!(
             account: current_user.account,
+            actor: current_user,
             title: params.require(:title),
             objective: params.require(:objective),
             source: params.fetch(:source, "manual"),
@@ -50,7 +57,7 @@ module Api
         end
 
         def queue
-          @proposal.queue!
+          @proposal.queue!(current_user)
           render_success(serialize(@proposal))
         end
 
@@ -72,6 +79,8 @@ module Api
             account: current_user.account, user: current_user
           ).spawn!(@proposal)
           render_success(serialize(@proposal.reload).merge(spawned_campaign: campaign.summary))
+        rescue ::Ai::Campaigns::Authorization::Refused => e
+          render_forbidden(e.message)
         rescue StandardError => e
           render_error(e.message, status: :unprocessable_content)
         end
@@ -86,8 +95,14 @@ module Api
           require_permission("ai.campaigns.read")
         end
 
+        # Answered for the account whose proposals this controller touches (the user's own),
+        # through the shared campaign check, never from an account-switch session's
+        # delegation, which carries another account's permissions.
         def require_manage
-          require_permission("ai.campaigns.manage")
+          permission = ::Ai::Campaigns::Authorization::MANAGE_PERMISSION
+          return if ::Ai::Campaigns::Authorization.permitted?(user: current_user, account: current_user&.account)
+
+          raise ::Authentication::PermissionDenied.new("Permission denied: #{permission}", permission: permission)
         end
 
         def reject_if_ai_suspended

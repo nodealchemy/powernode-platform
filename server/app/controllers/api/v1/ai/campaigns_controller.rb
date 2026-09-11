@@ -15,6 +15,12 @@ module Api
         # Kill-switch: create/delegate/resume arm autonomous loops — refuse while AI is suspended.
         before_action :reject_if_ai_suspended, only: %i[create delegate resume]
 
+        # A refusal from the shared campaign check inside a service is a 403, whichever
+        # action reached it.
+        rescue_from ::Ai::Campaigns::Authorization::Refused do |exception|
+          render_forbidden(exception.message) unless performed?
+        end
+
         # GET /api/v1/ai/campaigns
         def index
           campaigns = current_user.account.ai_campaigns.recent(params.fetch(:limit, 50).to_i)
@@ -103,8 +109,14 @@ module Api
           require_permission("ai.campaigns.read")
         end
 
+        # Answered for the account whose campaigns this controller touches (the user's own),
+        # through the shared campaign check, never from an account-switch session's
+        # delegation, which carries another account's permissions.
         def require_manage
-          require_permission("ai.campaigns.manage")
+          permission = ::Ai::Campaigns::Authorization::MANAGE_PERMISSION
+          return if ::Ai::Campaigns::Authorization.permitted?(user: current_user, account: current_user&.account)
+
+          raise ::Authentication::PermissionDenied.new("Permission denied: #{permission}", permission: permission)
         end
 
         def reject_if_ai_suspended

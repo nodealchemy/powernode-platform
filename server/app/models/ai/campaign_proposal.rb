@@ -65,9 +65,17 @@ module Ai
     # as-is (the operator already decided). An open duplicate is refreshed with the
     # latest discovery fields. Otherwise a new `proposed` row is created. Returns the
     # proposal in all cases.
+    # The review transitions and a door-made proposal name their acting user; each asks the
+    # shared campaign check for the proposal's account. No user means a discovery or agent
+    # caller its own door already bound to the account.
+    def self.authorize_actor!(actor, account)
+      ::Ai::Campaigns::Authorization.authorize_actor!(user: actor, account: account)
+    end
+
     def self.propose!(account:, title:, objective:, source: "manual", scope: nil,
                       suggested_workload: nil, suggested_driver: nil,
-                      decision_authority: "trusted", configuration: {}, evidence: {})
+                      decision_authority: "trusted", configuration: {}, evidence: {}, actor: nil)
+      authorize_actor!(actor, account)
       workload = suggested_workload.presence || DEFAULT_WORKLOAD
       fp = fingerprint_for(scope: scope, objective: objective, suggested_workload: workload)
       existing = account.ai_campaign_proposals.find_by(fingerprint: fp)
@@ -95,7 +103,8 @@ module Ai
       account.ai_campaign_proposals.find_by!(fingerprint: fp)
     end
 
-    def queue!
+    def queue!(user = nil)
+      self.class.authorize_actor!(user, account)
       update!(status: "queued")
     end
 
@@ -120,10 +129,12 @@ module Ai
     end
 
     def approve!(user = nil)
+      self.class.authorize_actor!(user, account)
       update!(status: "approved", reviewed_by: user, reviewed_at: Time.current)
     end
 
     def reject!(user = nil, reason: nil)
+      self.class.authorize_actor!(user, account)
       update!(status: "rejected", reviewed_by: user, reviewed_at: Time.current, rejection_reason: reason)
     end
 

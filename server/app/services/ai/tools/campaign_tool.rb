@@ -277,6 +277,8 @@ module Ai
         when "campaign_resume" then campaign_resume(params)
         else error_result("Unknown action: #{params[:action]}")
         end
+      rescue ::Ai::Campaigns::Authorization::Refused => e
+        error_result(e.message)
       end
 
       private
@@ -521,7 +523,7 @@ module Ai
         if principal
           return "campaign_resume refused: a resume is a human operator's decision, and this call comes from #{principal}"
         end
-        return nil if user.has_permission?(REQUIRED_PERMISSION)
+        return nil if ::Ai::Campaigns::Authorization.permitted?(user: user, account: account)
 
         "campaign_resume refused: user #{user.id} does not hold '#{REQUIRED_PERMISSION}'"
       end

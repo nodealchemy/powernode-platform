@@ -4,7 +4,9 @@ require "rails_helper"
 
 RSpec.describe Ai::DevLoop::CampaignDriver, "#delegate" do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
+  # Explicit: the driver asks the acting user for ai.campaigns.manage in this account, and an
+  # implicit OWNER role depends on this user being created before any other (an agent's creator).
+  let(:user) { create(:user, account: account, permissions: %w[ai.campaigns.read ai.campaigns.manage]) }
   let(:driver) { described_class.new(account: account, user: user) }
   let(:campaign) { driver.start(name: "Delegatable")[:campaign] }
   let(:loop_record) { campaign.ralph_loops.first }
