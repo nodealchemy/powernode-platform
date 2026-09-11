@@ -207,51 +207,58 @@ module Platform
         return [] unless notifiable?(row)
 
         recipients = recipients_for(row)
-        return [] if recipients.empty?
-
         notifications = recipients.filter_map do |user|
           create_notification(user, row, severity: severity, title: title, message: message)
         end
 
-        # E8 — external channels ride the SAME claim as the in-app rows: one
-        # notifiable pass means one delivery per configured channel, and a pass
-        # the interval suppresses delivers to none of them. Called before the
-        # claim is staked but rescued, so a channel that raises cannot leave the
-        # row unclaimed and turn into a retry on every sweep.
-        deliver_to_channels(row, severity: severity, title: title, message: message)
+        # E8 — the platform operator's pager fires whether or not anyone in the
+        # tenant holds platform.status.read (lead ruling). A shared circuit
+        # breaker going down has no tenant to notify, and is exactly what the
+        # channels exist for.
+        delivered = deliver_to_channels(row, severity: severity)
 
-        # The claim is staked even if every create failed: a notification
-        # subsystem that is broken must not turn into a loop that retries on
-        # every sweep forever.
+        # ONE claim per row covers both, so rate limiting stays one mechanism.
+        # Staked when anything was attempted — an in-app recipient, or a
+        # configured channel, even one that failed or raised: a broken
+        # subsystem must not become a retry on every sweep. (A raising
+        # deliverer returns nil, and counts as attempted for that reason.)
+        # With nobody to tell and no channel configured, nothing happened, so
+        # no claim is staked and the next sweep looks again.
+        attempted = delivered.nil? || delivered.present?
+        return [] if recipients.empty? && !attempted
+
         row.update_column(:last_notified_at, @now)
         notifications
       end
 
       # Fan-out through the core delivery seam (design E8). AlertingService
       # decides which channels are configured and delivers to each; with none
-      # configured it delivers nowhere, which is the default on a fresh install.
+      # configured it returns {} and delivers nowhere, the fresh-install default.
       #
-      # The context carries the row's coordinates and nothing else: no
-      # credential, no condition evidence, nothing a Slack channel or an
-      # outbound webhook should not see.
+      # ROW COORDINATES ONLY (lead ruling): kind, ref, verdict and the reason
+      # TOKENS. Deliberately not display_name and not account_id — an
+      # operator's label for a component is tenant data, and these channels are
+      # platform-global, not the tenant's. The in-app Notification keeps the
+      # friendlier title because it only ever reaches that tenant's own users.
       #
       # Fully qualified: an unqualified `Monitoring` inside Platform::Status
       # would resolve lexically before reaching the top level.
-      def deliver_to_channels(row, severity:, title:, message:)
+      #
+      # @return [Hash, nil] per-channel results; nil when delivery raised
+      def deliver_to_channels(row, severity:)
         ::Monitoring::AlertingService.new.send_alert(
-          title: title,
-          message: message,
+          title: "#{row.component_kind} #{row.component_ref} is #{row.verdict}",
+          message: reason_summary(row),
           severity: severity.to_sym,
           context: {
             component_kind: row.component_kind,
             component_ref: row.component_ref,
-            verdict: row.verdict,
-            account_id: row.account_id
+            verdict: row.verdict
           }
         )
       rescue StandardError => e
-        Rails.logger.error("[Platform::Status::Escalation] channel delivery failed: " \
-                           "#{e.class}: #{e.message}")
+        # Class only: a delivery error's message can carry a credential.
+        Rails.logger.error("[Platform::Status::Escalation] channel delivery failed: #{e.class}")
         nil
       end
 
