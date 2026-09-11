@@ -84,7 +84,8 @@ const UNAVAILABLE = 'Could not load';
 // is never rendered as a failure.
 const HEALTH_TONE: Record<Verdict, { chip: ChipTone; chart: ChartTone }> = {
   ok: { chip: 'success', chart: 'success' },
-  held: { chip: 'default', chart: 'neutral' },
+  // Blue, as VerdictBadge draws `held` — never the inert grey (M1 review).
+  held: { chip: 'info', chart: 'neutral' },
   progressing: { chip: 'info', chart: 'info' },
   not_measured: { chip: 'warning', chart: 'warning' },
   degraded: { chip: 'warning', chart: 'warning' },

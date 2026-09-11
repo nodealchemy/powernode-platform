@@ -93,6 +93,14 @@ describe('DashboardOverview — system health', () => {
     expect(within(tile('System health')).getByTestId('stat-tile-sub')).toHaveTextContent('All systems operational');
   });
 
+  it('held: an info chip — blue, as VerdictBadge draws it — never the inert default grey', () => {
+    renderDashboard(stats('held', 100));
+
+    const chip = healthChip();
+    expect(chip.querySelector('.badge-theme-info')).not.toBeNull();
+    expect(chip.querySelector('.badge-theme-default')).toBeNull();
+  });
+
   it('a FAILED read is "Could not load" with the reason — never not_measured, never zeros', () => {
     renderDashboard(stats('not_measured', null), 'Network Error');
 
