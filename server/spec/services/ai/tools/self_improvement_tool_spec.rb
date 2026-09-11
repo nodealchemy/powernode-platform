@@ -69,6 +69,24 @@ RSpec.describe Ai::Tools::SelfImprovementTool do
                   { "skill_id" => other_skill.id, "strategy" => "learning_driven" }.with_indifferent_access)
       }.to raise_error(ArgumentError, /Skill not found/)
     end
+
+    # THE BODY'S OWN CHECK (D6 review F2). The two examples above both pass on
+    # the gate context alone: #run_through_autonomy_gate turns its
+    # ArgumentError into an error_result before the body ever runs. An
+    # APPROVED REPLAY skips the gate context — BaseTool#execute returns
+    # call(params) when #approved_replay? — so at execution time the body's
+    # find_by is the only tenancy check. Driven directly, the way a replay
+    # reaches it. Stripping the body's account scope must fail this example.
+    it "refuses another account's skill in the action body, the only check on an approved replay" do
+      other_skill = create(:ai_skill, account: account_b)
+      expect(service).not_to receive(:mutate!)
+
+      result = tool.send(:mutate_skill,
+                         { "skill_id" => other_skill.id, "strategy" => "learning_driven" }.with_indifferent_access)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Skill not found/)
+    end
   end
 
   describe "legitimate same-account access" do
