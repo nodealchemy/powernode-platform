@@ -137,7 +137,44 @@ function isPrivateExtensionSrcDir(dir: string): boolean {
 // exist yet anywhere in the tree (no route, no in-page tab), discovered
 // while building this guard. Building the destination, or removing the
 // affordance, is a product decision outside a nav-link lint's scope.
-const ALLOWED_UNBUILT: readonly string[] = [];
+//
+// Found at HEAD in a clean worktree (837adf4f3's own green run was taken in
+// the shared tree, where these two PUBLIC extensions carried other lanes'
+// uncommitted edits that happened to change these literals — see
+// lane4-resume-report.md). Public extensions ARE ratcheted (unlike private
+// ones, above): they're present in any clone that includes them, so a finding
+// here is portable. Each is owned and will get an offer filed to its owner;
+// this repo must not commit into either extension's own submodule.
+const ALLOWED_UNBUILT: readonly string[] = [
+  // marketing extension: ConnectSocialModal.tsx's OAuth redirect_uri. No
+  // register.ts entry and no page component handle /marketing/social/callback
+  // — the social-connect OAuth flow has no landing page for the provider's
+  // redirect to return to.
+  '/app/marketing/social/callback',
+  // supply-chain extension: ContainerImagesPage.tsx navigates here, and
+  // ContainerImageDetailPage.tsx's breadcrumb links back here, but the
+  // registered route is /app/supply-chain/containers (ContainerImagesPage /
+  // ContainerImageDetailPage) -- "container-images" vs "containers" is a
+  // stale rename, not a missing page. The second entry is the same template
+  // literal's detail-page form (`.../container-images/${image.id}`); the
+  // trailing char is the INTERP_PLACEHOLDER sentinel (U+0001) standing in
+  // for ${image.id} -- inlined as \u0001 here rather than referenced, since
+  // this array is initialized before INTERP_PLACEHOLDER further down.
+  '/app/supply-chain/container-images',
+  '/app/supply-chain/container-images/\u0001',
+  // supply-chain extension: SupplyChainDashboardPage.tsx links here, but the
+  // registered routes are /app/supply-chain/licenses/policies and
+  // /app/supply-chain/licenses/violations (LicensePoliciesPage /
+  // LicenseViolationsPage) — same stale-rename shape as container-images.
+  '/app/supply-chain/license-policies',
+  '/app/supply-chain/license-violations',
+  // supply-chain extension: SupplyChainDashboardPage.tsx links here, but no
+  // route or page anywhere registers a dedicated vulnerabilities destination
+  // — vulnerability data today only surfaces inside container/SBOM detail
+  // components (ContainerVulnerabilitiesTable, VulnerabilityDetailModal).
+  // Genuinely missing, not a rename.
+  '/app/supply-chain/vulnerabilities',
+];
 
 function walkSourceFiles(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

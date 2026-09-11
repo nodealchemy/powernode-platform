@@ -116,7 +116,9 @@ export function IntegrationsPage() {
         {
           id: 'browse-marketplace',
           label: 'Browse Marketplace',
-          onClick: () => navigate('/app/marketplace?types=integration_template'),
+          // C15: /app/marketplace is not a route anywhere in core — this is the
+          // only place that actually browses/selects an integration template.
+          onClick: () => navigate('/app/devops/connections/integrations/new'),
           variant: 'outline',
         },
         {
@@ -195,7 +197,7 @@ export function IntegrationsPage() {
               Browse the marketplace to add your first integration
             </p>
             <button
-              onClick={() => navigate('/app/marketplace?types=integration')}
+              onClick={() => navigate('/app/devops/connections/integrations/new')}
               className="btn-theme btn-theme-primary mt-4"
             >
               Browse Marketplace
