@@ -95,7 +95,7 @@ const RoutePanel: React.FC<{ route: RemediationRouteData }> = ({ route }) => {
   return (
     <section data-route-section="routed" className="rounded-md border border-theme p-3">
       <h4 className="text-xs uppercase tracking-wide text-theme-tertiary">Route</h4>
-      <div className="mt-1 flex flex-wrap items-center gap-2">
+      <div data-route-lane className="mt-1 flex flex-wrap items-center gap-2">
         <span className="text-xs text-theme-tertiary">Lane</span>
         <code className="text-sm text-theme-primary">{lane.lane_key}</code>
         {lane.lane_reason && (

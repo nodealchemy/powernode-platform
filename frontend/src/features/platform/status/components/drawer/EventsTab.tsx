@@ -31,11 +31,30 @@ export interface EventsTabProps {
   loading: boolean;
   /** Server-side total, which may exceed the page loaded. */
   totalCount: number;
+  /**
+   * The read failed or was malformed. Nothing is known — which is a different
+   * fact from "no transitions", and is said as one (C3p2 review R2).
+   */
+  failed?: boolean;
 }
 
-export const EventsTab: React.FC<EventsTabProps> = ({ events, loading, totalCount }) => {
+export const EventsTab: React.FC<EventsTabProps> = ({
+  events,
+  loading,
+  totalCount,
+  failed = false,
+}) => {
   if (loading && events.length === 0) {
     return <p className="text-sm text-theme-secondary">Loading events…</p>;
+  }
+
+  if (failed) {
+    return (
+      <p data-events-failed className="text-sm text-theme-warning-fg">
+        Could not load this component&apos;s transition history. Nothing is known about its past
+        verdicts from this read.
+      </p>
+    );
   }
 
   if (events.length === 0) {

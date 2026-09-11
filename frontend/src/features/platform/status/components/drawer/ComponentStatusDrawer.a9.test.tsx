@@ -1,4 +1,5 @@
-import { screen, within, waitFor, fireEvent, act } from '@testing-library/react';
+import { useState } from 'react';
+import { screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { renderWithProviders } from '@/test-utils';
 import { ComponentStatusDrawer } from './ComponentStatusDrawer';
 import * as api from '@/features/platform/status/api/platformStatusApi';
@@ -22,6 +23,13 @@ jest.mock('@/features/platform/status/api/platformStatusApi', () => {
     InvestigationRefusedError: actual.InvestigationRefusedError,
   };
 });
+
+// Mocked so a refusal's WARNING can be told apart from a failure's ERROR
+// (C3p2 review R5) — the other observable effects are identical on both paths.
+const mockShowNotification = jest.fn();
+jest.mock('@/shared/hooks/useNotification', () => ({
+  useNotification: () => ({ showNotification: mockShowNotification }),
+}));
 
 const mockedApi = api as jest.Mocked<typeof api>;
 
@@ -169,9 +177,11 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
         await screen.findByText('fleet_signal');
 
         expect(document.querySelector('[data-lane-reason]')).toBeNull();
-        // And no fabricated stand-in text anywhere in the route panel.
-        const panel = document.querySelector('[data-route-section="routed"]') as HTMLElement;
-        expect(within(panel).queryByText(/no reason|none given|unknown reason/i)).not.toBeInTheDocument();
+        // STRUCTURAL, not an allow-list of placeholder words (C3p2 review R10):
+        // the lane row holds its label and the lane key and NOTHING else, so
+        // any stand-in — "—", "n/a", "none given" — changes its text and fails.
+        const laneRow = document.querySelector('[data-route-lane]') as HTMLElement;
+        expect(laneRow.textContent).toBe('Lanefleet_signal');
         unmount();
       }
     });
@@ -232,6 +242,25 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
   });
 
   describe('Events tab', () => {
+    it('says it could not load the history when the read fails — never "held one verdict" (R2)', async () => {
+      mockedApi.fetchComponentEvents.mockRejectedValue(new Error('events door down'));
+      renderDrawer();
+      await openTab('Events');
+
+      expect(
+        await screen.findByText(/Could not load this component's transition history/)
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/held one verdict/)).not.toBeInTheDocument();
+    });
+
+    it('keeps the empty-history sentence for a SUCCESSFUL empty read only', async () => {
+      renderDrawer();
+      await openTab('Events');
+
+      expect(await screen.findByText(/held one verdict since it was first swept/)).toBeInTheDocument();
+      expect(screen.queryByText(/Could not load this component's transition history/)).not.toBeInTheDocument();
+    });
+
     it('renders a null from as "first seen" and a null to as "removed"', async () => {
       mockedApi.fetchComponentEvents.mockResolvedValue({
         component_status_id: 'row-1',
@@ -379,6 +408,71 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
       // No success path taken: nothing re-read, and the button is back.
       expect(mockedApi.fetchInvestigations.mock.calls.length).toBe(before);
       expect(screen.getByRole('button', { name: 'Investigate' })).not.toBeDisabled();
+      // THE DISCRIMINATING HALF (C3p2 review R5). Both assertions above also
+      // hold on the generic failure path. Only this one does not: a bound is
+      // announced as a WARNING in the refusal's own words, never as
+      // "Investigation failed: …" at error level.
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        'An investigation of this component is already open — see it above.',
+        'warning'
+      );
+      expect(mockShowNotification).not.toHaveBeenCalledWith(expect.anything(), 'error');
+    });
+
+    it("never shows a component's investigation under the component the drawer moved to (R1)", async () => {
+      // Click Investigate on alpha, follow an edge to bravo while the POST is in
+      // flight, then let the POST land. The re-read must stay alpha's business.
+      let resolvePost!: (value: Investigation) => void;
+      mockedApi.openInvestigation.mockReturnValue(
+        new Promise<Investigation>((resolve) => {
+          resolvePost = resolve;
+        })
+      );
+      mockedApi.fetchInvestigations.mockImplementation(async (id: string) =>
+        id === 'row-1'
+          ? investigations({
+              open: [investigation({ id: 'inv-A', status: 'open', open: true, conclusion: 'ALPHA-CONCLUSION' })],
+            })
+          : investigations({ component_status_id: 'row-2' })
+      );
+      const bravo = summary({ id: 'row-2', component_ref: 'i-43', display_name: 'build-02' });
+      const Switcher = () => {
+        const [row, setRow] = useState<ComponentStatusSummary>(summary());
+        return (
+          <>
+            <button type="button" onClick={() => setRow(bravo)}>
+              switch to bravo
+            </button>
+            <ComponentStatusDrawer row={row} onClose={jest.fn()} />
+          </>
+        );
+      };
+      renderWithProviders(<Switcher />, {
+        preloadedState: {
+          auth: { user: { id: 'u-1', permissions: ['ai.autonomy.manage'] }, isAuthenticated: true, isLoading: false },
+        },
+      });
+
+      await openTab('Investigations');
+      await act(async () => {
+        fireEvent.click(await screen.findByRole('button', { name: 'Investigate' }));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText('switch to bravo'));
+      });
+      await openTab('Investigations');
+      expect(await screen.findByText(/Nothing has been investigated/)).toBeInTheDocument();
+
+      // Alpha's POST lands only now.
+      await act(async () => {
+        resolvePost(investigation({ id: 'inv-A' }));
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.queryByText(/ALPHA-CONCLUSION/)).not.toBeInTheDocument();
+      expect(screen.getByText(/0 open, 0 recent/)).toBeInTheDocument();
     });
   });
 

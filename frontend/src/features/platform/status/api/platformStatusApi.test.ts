@@ -3,6 +3,7 @@ import {
   runComponentAction,
   openInvestigation,
   fetchRemediationRoute,
+  fetchComponentEvents,
   InvestigationRefusedError,
 } from './platformStatusApi';
 import type { ComponentAction } from '@/shared/types/platformStatus';
@@ -150,5 +151,27 @@ describe('fetchRemediationRoute', () => {
     // a misbehaving serializer cannot flip the panel into its routed branch.
     client.get.mockResolvedValue({ data: { data: { routed: 'false' } } });
     await expect(fetchRemediationRoute('row-1')).resolves.toMatchObject({ routed: false });
+  });
+});
+
+describe('fetchComponentEvents', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('rejects a body with no events array — a malformed read is not an empty history (R2)', async () => {
+    client.get.mockResolvedValue({ data: { data: { component_status_id: 'row-1' } } });
+    await expect(fetchComponentEvents('row-1')).rejects.toThrow(/Malformed events response/);
+  });
+
+  it('resolves an EMPTY events array as an empty history', async () => {
+    client.get.mockResolvedValue({
+      data: {
+        data: { component_status_id: 'row-1', events: [] },
+        meta: { pagination: { current_page: 1, per_page: 20, total_count: 0, total_pages: 1 } },
+      },
+    });
+    await expect(fetchComponentEvents('row-1')).resolves.toMatchObject({
+      events: [],
+      pagination: { total_count: 0 },
+    });
   });
 });

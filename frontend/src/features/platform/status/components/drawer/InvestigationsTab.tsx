@@ -188,15 +188,20 @@ export interface InvestigationsTabProps {
   data: InvestigationsData | null;
   loading: boolean;
   componentStatusId: string;
-  /** Re-read after opening one, so the new investigation appears. */
-  onOpened?: () => void;
+  /**
+   * Called when the POST STARTS; returns the re-read to run once it lands. The
+   * returned function is bound to this component, so a drawer that moved on in
+   * between never shows this investigation under the next component's name
+   * (C3p2 review R1).
+   */
+  beginRefresh?: () => () => void;
 }
 
 export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({
   data,
   loading,
   componentStatusId,
-  onOpened,
+  beginRefresh,
 }) => {
   const { hasPermission } = usePermissions();
   const { showNotification } = useNotification();
@@ -206,10 +211,12 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({
 
   const start = async () => {
     setStarting(true);
+    // Taken BEFORE the POST, so the re-read is bound to this component.
+    const refreshAfterOpen = beginRefresh?.();
     try {
       await openInvestigation(componentStatusId);
       showNotification('Investigation opened.', 'success');
-      onOpened?.();
+      refreshAfterOpen?.();
     } catch (e) {
       if (e instanceof InvestigationRefusedError) {
         // A BOUND, not a failure — and the two refusals need different

@@ -223,9 +223,16 @@ export const fetchComponentEvents = async (
   });
   const data = response.data?.data ?? {};
   const pagination = response.data?.meta?.pagination ?? {};
+  // A body without an events ARRAY is a failed read, not an empty history
+  // (C3p2 review R2). `?? []` here made a malformed envelope render as "this
+  // component has held one verdict since it was first swept" — a fact nobody
+  // observed. Rejected instead, so the drawer says it could not load.
+  if (!Array.isArray(data.events)) {
+    throw new Error('Malformed events response: no events array');
+  }
   return {
     component_status_id: data.component_status_id,
-    events: data.events ?? [],
+    events: data.events,
     pagination: {
       current_page: pagination.current_page ?? 1,
       per_page: pagination.per_page ?? 20,

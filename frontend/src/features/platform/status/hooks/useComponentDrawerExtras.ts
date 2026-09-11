@@ -22,7 +22,9 @@ import type {
 // and one of them failing — say the investigations route while the worker is
 // down — must not blank the other three. Each result carries its own `null`,
 // and each tab renders its own "could not be read" rather than the whole drawer
-// going dark because of the least important of four panels.
+// going dark because of the least important of four panels. Events carries an
+// explicit `eventsFailed`, because an empty events list is itself a claim ("no
+// transitions") that a failed read must never make (C3p2 review R2).
 //
 // ── A SEQUENCE GUARD, FOR THE SAME REASON THE PAGE HAS ONE ─────────────────
 //
@@ -30,16 +32,27 @@ import type {
 // component's reads may still be in flight. Without the guard, a slow response
 // for component A lands after the drawer is showing component B and paints A's
 // runbook under B's title — a misattribution, which is worse than a blank.
+//
+// The guard covers the investigations RE-READ too, and that one is captured
+// when the POST STARTS, not when it lands (C3p2 review R1). Reading the
+// sequence at landing time let a POST begun on A, landing after the drawer had
+// moved to B, pass B's check and show A's investigation in B's tab.
 
 export interface UseComponentDrawerExtrasReturn {
   runbook: ComponentRunbookData | null;
   route: RemediationRouteData | null;
   events: ComponentStatusEvent[];
   eventsTotal: number;
+  /** The events read failed or was malformed. Not the same fact as "no transitions". */
+  eventsFailed: boolean;
   investigations: InvestigationsData | null;
   loading: boolean;
-  /** Re-read investigations only — called after one is opened. */
-  refreshInvestigations: () => void;
+  /**
+   * Call when an investigation POST STARTS. Captures the component and the read
+   * sequence at that moment and returns the re-read to run once the POST lands;
+   * that re-read does nothing if the drawer has moved on in between.
+   */
+  beginInvestigationRefresh: () => () => void;
 }
 
 export function useComponentDrawerExtras(id: string | null): UseComponentDrawerExtrasReturn {
@@ -47,6 +60,7 @@ export function useComponentDrawerExtras(id: string | null): UseComponentDrawerE
   const [route, setRoute] = useState<RemediationRouteData | null>(null);
   const [events, setEvents] = useState<ComponentStatusEvent[]>([]);
   const [eventsTotal, setEventsTotal] = useState(0);
+  const [eventsFailed, setEventsFailed] = useState(false);
   const [investigations, setInvestigations] = useState<InvestigationsData | null>(null);
   const [loading, setLoading] = useState(false);
   const seq = useRef(0);
@@ -58,11 +72,18 @@ export function useComponentDrawerExtras(id: string | null): UseComponentDrawerE
     setRoute(null);
     setEvents([]);
     setEventsTotal(0);
+    setEventsFailed(false);
     setInvestigations(null);
 
-    if (!id) return;
-
+    // Bumped on close as well as on every re-point, so nothing still in flight
+    // — an initial read or an investigations re-read — can land afterwards.
     const current = ++seq.current;
+
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     void Promise.allSettled([
@@ -78,10 +99,13 @@ export function useComponentDrawerExtras(id: string | null): UseComponentDrawerE
       // Optional-chained: a fulfilled promise can still carry a malformed body,
       // and a TypeError thrown inside this `.then` would reject silently and
       // leave `loading` stuck on — a drawer that spins forever over one bad
-      // envelope.
+      // envelope. (The events client itself rejects a body with no events
+      // array, so a malformed events envelope arrives here as `rejected`.)
       if (eventsResult.status === 'fulfilled') {
         setEvents(eventsResult.value?.events ?? []);
         setEventsTotal(eventsResult.value?.pagination?.total_count ?? 0);
+      } else {
+        setEventsFailed(true);
       }
       if (investigationsResult.status === 'fulfilled') {
         setInvestigations(investigationsResult.value ?? null);
@@ -96,17 +120,31 @@ export function useComponentDrawerExtras(id: string | null): UseComponentDrawerE
     });
   }, [id]);
 
-  const refreshInvestigations = useCallback(() => {
-    if (!id) return;
-    const current = seq.current;
-    void fetchInvestigations(id)
-      .then((data) => {
-        if (current === seq.current) setInvestigations(data);
-      })
-      .catch((e) => logger.error('[PlatformStatus] investigations refresh failed', e));
+  const beginInvestigationRefresh = useCallback(() => {
+    // Captured NOW — when the POST starts — together with the component it is
+    // for. Both are checked when the re-read runs and again when it lands.
+    const targetId = id;
+    const startedAt = seq.current;
+    return () => {
+      if (!targetId || startedAt !== seq.current) return;
+      void fetchInvestigations(targetId)
+        .then((data) => {
+          if (startedAt === seq.current) setInvestigations(data ?? null);
+        })
+        .catch((e: unknown) => logger.error('[PlatformStatus] investigations refresh failed', e));
+    };
   }, [id]);
 
-  return { runbook, route, events, eventsTotal, investigations, loading, refreshInvestigations };
+  return {
+    runbook,
+    route,
+    events,
+    eventsTotal,
+    eventsFailed,
+    investigations,
+    loading,
+    beginInvestigationRefresh,
+  };
 }
 
 export default useComponentDrawerExtras;

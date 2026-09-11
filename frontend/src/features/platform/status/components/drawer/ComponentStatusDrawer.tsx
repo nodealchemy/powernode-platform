@@ -183,7 +183,7 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
                 data={extras.investigations}
                 loading={extras.loading}
                 componentStatusId={row.id}
-                onOpened={extras.refreshInvestigations}
+                beginRefresh={extras.beginInvestigationRefresh}
               />
             </TabsContent>
 
@@ -192,6 +192,7 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
                 events={extras.events}
                 loading={extras.loading}
                 totalCount={extras.eventsTotal}
+                failed={extras.eventsFailed}
               />
             </TabsContent>
 
