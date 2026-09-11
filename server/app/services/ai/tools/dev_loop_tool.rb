@@ -120,7 +120,13 @@ module Ai
               learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
               git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
               commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
-              files_changed: { type: "array", required: false, description: "Paths touched by this task" }
+              files_changed: { type: "array", required: false, description: "Paths touched by this task" },
+              agent_execution_id: { type: "string", required: false,
+                                    description: "The Ai::AgentExecution that did this work (a Claude Code " \
+                                                 "session gets it back as `id` from record_agent_execution). " \
+                                                 "Checked against this account; when given, the completion is " \
+                                                 "handed to the LLM judge against that run. An id that names no " \
+                                                 "execution here is refused before the task moves." }
             }
           },
           "dev_list_tasks" => {
@@ -620,6 +626,24 @@ module Ai
         summary = params[:summary].to_s
         return error_result("summary is required") if summary.blank?
 
+        # D5 — the task→execution producer. The executor names the run that did
+        # this work, and it is checked against THIS account before anything
+        # moves: the id decides whose trust score and which skill versions the
+        # judge's verdict lands on. A bad id is refused rather than dropped —
+        # dropped, the judge would silently never run for this completion.
+        attributed_execution_id = nil
+        if params[:agent_execution_id].present?
+          attributed_execution_id = ::Ai::AgentExecution.where(account_id: account.id)
+                                                        .where(id: params[:agent_execution_id].to_s)
+                                                        .pick(:id)
+          unless attributed_execution_id
+            return error_result(
+              "agent_execution_id #{params[:agent_execution_id]} names no agent execution in this account — " \
+              "pass the `id` record_agent_execution returned, or omit it"
+            )
+          end
+        end
+
 
         # G10: scope guardrail. A "passed" outcome that touches a protected path
         # (payments/auth/crypto/secrets) or a critical-tier file is NOT silently
@@ -759,6 +783,7 @@ module Ai
         # the trust quality dimension and skill effectiveness upward by
         # construction. Best-effort and rescued: a judge that cannot be reached
         # must never fail a completion that has already been recorded.
+        stamp_evaluable_execution!(task, attributed_execution_id) if attributed_execution_id
         enqueue_evaluation!(task)
 
         loop_record.reload
@@ -1227,7 +1252,7 @@ module Ai
 
       # D4 — event-driven enqueue of the judge for this completion.
       #
-      # ATTRIBUTION IS THE OPEN HALF, and it is why this mostly no-ops today.
+      # ATTRIBUTION is named by the executor, never inferred.
       # Nothing links a RalphTask to an Ai::AgentExecution: the task carries
       # executor_id/executor_type (the polymorphic AGENT, not a run), the
       # iteration carries no execution id, and a Claude Code executor's row is
@@ -1238,9 +1263,19 @@ module Ai
       # inferred discriminator here would credit trust and skill effectiveness
       # to whichever run happened to be nearby.
       #
-      # The producer for that key does not exist yet; naming it in one place
-      # means the increment that adds attribution has exactly one line to write.
+      # D5's producer is complete_task's `agent_execution_id` parameter: the
+      # executor names its own run, complete_task checks it against this
+      # account, and #stamp_evaluable_execution! writes it here.
       EVALUABLE_EXECUTION_METADATA_KEY = "agent_execution_id"
+
+      # jsonb `||` merge, the same discipline as the injection markers: a
+      # whole-column rewrite would drop concurrent writers' keys.
+      def stamp_evaluable_execution!(task, execution_id)
+        Ai::RalphTask.where(id: task.id)
+                     .update_all([ "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb, updated_at = ?",
+                                   { EVALUABLE_EXECUTION_METADATA_KEY => execution_id }.to_json, Time.current ])
+        task.reload
+      end
 
       def enqueue_evaluation!(task)
         execution_id = task.metadata.is_a?(Hash) ? task.metadata[EVALUABLE_EXECUTION_METADATA_KEY].presence : nil

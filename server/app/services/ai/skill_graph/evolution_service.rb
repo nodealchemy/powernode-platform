@@ -10,25 +10,67 @@ module Ai
       end
 
       # Record an outcome against the active version (or A/B variant) and the skill itself
-      def record_outcome(skill_id:, successful:)
-        skill = find_skill!(skill_id)
-        active_version = skill.versions.active.first
-        ab_variant = skill.versions.ab_variants.first
+      # D5 — THE A/B routing decision, made where the prompt is SERVED.
+      #
+      # Returns { skill_id => { version_id:, prompt: } } for every id given.
+      # `prompt` is the variant's own text when the variant was drawn, and nil
+      # when the skill's text serves (which is the active version's text, since
+      # SkillVersion#activate! writes it there). `version_id` names what served,
+      # or nil for a skill with no versions at all.
+      #
+      # A variant whose share is outside (0, 1] is never served: create_variant
+      # wrote 20.0 — a percent — before D5, and clamping that would serve such
+      # a variant on every call. An out-of-range share is not a routing
+      # instruction, so it fails closed. One draw per skill per build; `random`
+      # is injectable so specs can pin the draw.
+      def self.route_served_versions(skill_ids, random: Random)
+        ids = Array(skill_ids).compact.uniq
+        return {} if ids.empty?
 
-        # Route traffic to A/B variant based on traffic percentage
-        target_version = if ab_variant && active_version
-                           rand < (ab_variant.ab_traffic_pct || 0.2) ? ab_variant : active_version
-                         else
-                           active_version
-                         end
+        rows = Ai::SkillVersion.where(ai_skill_id: ids)
+                               .where("is_active = TRUE OR is_ab_variant = TRUE")
+                               .order(:created_at)
+                               .group_by(&:ai_skill_id)
+
+        ids.index_with do |skill_id|
+          versions = rows[skill_id] || []
+          active = versions.find(&:is_active)
+          variant = versions.find { |v| v.is_ab_variant && !v.is_active }
+          share = variant&.ab_traffic_pct.to_f
+
+          if variant && variant.system_prompt.present? && share.positive? && share <= 1.0 && random.rand < share
+            { version_id: variant.id, prompt: variant.system_prompt }
+          else
+            { version_id: active&.id, prompt: nil }
+          end
+        end
+      end
+
+      # D5 — credit the version that SERVED, never a coin flip.
+      #
+      # This used to choose a version at RECORD time (`rand < ab_traffic_pct`
+      # between the active version and the variant) while the serving path read
+      # ai_skills.system_prompt and never served the variant at all — so the
+      # variant was credited with outcomes of text it never produced. Routing
+      # now happens at serve time (.route_served_versions) and the served
+      # version travels with the execution; this credits the one named.
+      #
+      # With no version named: outside an A/B the active version is the only
+      # one serving, so it is credited. During an A/B the served one is not
+      # knowable here, so NO version is credited — the skill-level usage still
+      # records, and `attributed: false` says why the version counters did not
+      # move.
+      def record_outcome(skill_id:, successful:, version_id: nil)
+        skill = find_skill!(skill_id)
+        target_version = served_version_for(skill, version_id)
 
         target_version&.record_outcome!(successful: successful)
 
         outcome = successful ? "success" : "failure"
         skill.record_usage!(outcome: outcome)
 
-        Rails.logger.info "[SkillGraph::Evolution] Recorded #{outcome} for skill #{skill_id}, version #{target_version&.version}"
-        { skill_id: skill.id, version_id: target_version&.id, outcome: outcome }
+        Rails.logger.info "[SkillGraph::Evolution] Recorded #{outcome} for skill #{skill_id}, version #{target_version&.version || 'unattributed'}"
+        { skill_id: skill.id, version_id: target_version&.id, attributed: target_version.present?, outcome: outcome }
       rescue StandardError => e
         Rails.logger.error "[SkillGraph::Evolution] record_outcome failed: #{e.message}"
         { error: e.message }
@@ -242,6 +284,15 @@ module Ai
       end
 
       private
+
+      # The version an outcome belongs to (see #record_outcome). A named id is
+      # looked up WITHIN the skill, so another skill's version is never credited.
+      def served_version_for(skill, version_id)
+        return skill.versions.find_by(id: version_id) if version_id.present?
+        return nil if skill.versions.ab_variants.exists?
+
+        skill.versions.active.first
+      end
 
       # Override-aware (F2/F3 clone-on-evolve): resolves by id first, then falls
       # back to Ai::Skill.resolve_for so a slug shared by a global skill and the

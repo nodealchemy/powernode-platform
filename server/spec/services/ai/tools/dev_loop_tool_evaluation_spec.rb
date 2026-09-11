@@ -18,9 +18,10 @@ require "rails_helper"
 # time window — an inferred discriminator here would credit trust and skill
 # effectiveness to whichever run happened to be nearby.
 #
-# Nothing writes that key yet. Both arms are pinned anyway, by writing it on a
-# fixture, so the consumer is PROVEN and the producer is the only thing D5 has
-# to add.
+# D5 lands the producer: the executor names its run on dev_complete_task
+# (`agent_execution_id`, e.g. the `id` record_agent_execution returned), the
+# id is checked against this account, and only then is it stamped on the task.
+# The fixture-written arms below still pin the consumer on its own.
 RSpec.describe Ai::Tools::DevLoopTool, "evaluation enqueue" do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
@@ -80,6 +81,50 @@ RSpec.describe Ai::Tools::DevLoopTool, "evaluation enqueue" do
 
       expect(result[:success]).not_to be(false)
       expect(task.reload.status).to eq("passed")
+    end
+  end
+
+  context "when the executor names its run on completion (the D5 producer)" do
+    let(:key) { described_class.const_get(:EVALUABLE_EXECUTION_METADATA_KEY) }
+    let(:agent) { create(:ai_agent, account: account) }
+    let(:execution) { create(:ai_agent_execution, :completed, account: account, agent: agent) }
+
+    def complete_naming(id, outcome: "passed")
+      tool.execute(params: {
+        action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "E1-01",
+        outcome: outcome, summary: "work reported", agent_execution_id: id
+      })
+    end
+
+    it "stamps the task with the run and hands that run to the judge" do
+      complete_naming(execution.id)
+
+      expect(task.reload.metadata[key]).to eq(execution.id)
+      expect(WorkerJobService).to have_received(:enqueue_job).with(
+        "AgentEvaluationJob",
+        hash_including(
+          args: [ { "account_id" => account.id, "execution_id" => execution.id, "task_id" => task.id } ]
+        )
+      )
+    end
+
+    it "refuses an id that names no execution in this account, before the task moves" do
+      result = complete_naming(SecureRandom.uuid)
+
+      expect(result[:success]).to be(false)
+      expect(result[:error]).to include("agent_execution_id")
+      expect(task.reload.status).to eq("in_progress")
+      expect(WorkerJobService).not_to have_received(:enqueue_job)
+    end
+
+    it "refuses another account's execution" do
+      other = create(:account)
+      foreign = create(:ai_agent_execution, :completed, account: other, agent: create(:ai_agent, account: other))
+
+      result = complete_naming(foreign.id)
+
+      expect(result[:success]).to be(false)
+      expect(task.reload.metadata).not_to have_key(key)
     end
   end
 

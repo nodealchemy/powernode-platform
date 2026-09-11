@@ -35,6 +35,31 @@ module Ai
     # Public Methods
     # ==========================================
 
+    # D5 — the execution_context key naming every skill version whose prompt
+    # served an execution. Written by the serving paths (record_served!), read
+    # by Ai::Learning::EvaluationService to credit the judge's verdict.
+    SERVED_CONTEXT_KEY = "skill_version_ids"
+
+    # Stamps the served versions onto an execution. A jsonb `||` merge, not a
+    # rewrite of the column: other writers share execution_context, and a
+    # read-modify-write would drop their keys. An empty list is written too —
+    # "served none" and "never stamped" are different facts. The in-memory row
+    # is updated WITHOUT dirtying it, so a later update! on the same object
+    # (Ai::Agent#execute finishes its row that way) cannot rewrite the column
+    # from a stale copy.
+    def self.record_served!(execution:, version_ids:)
+      return unless execution.is_a?(::Ai::AgentExecution) && execution.persisted?
+
+      ids = Array(version_ids).compact.map(&:to_s).uniq
+      ::Ai::AgentExecution.where(id: execution.id).update_all(
+        [ "execution_context = COALESCE(execution_context, '{}'::jsonb) || ?::jsonb",
+          { SERVED_CONTEXT_KEY => ids }.to_json ]
+      )
+      execution.execution_context = (execution.execution_context || {}).merge(SERVED_CONTEXT_KEY => ids)
+      execution.clear_attribute_changes([ :execution_context ])
+      ids
+    end
+
     def record_outcome!(successful:)
       if successful
         increment!(:success_count)

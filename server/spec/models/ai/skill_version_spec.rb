@@ -177,6 +177,43 @@ RSpec.describe Ai::SkillVersion, type: :model do
     end
   end
 
+  # D5 — the producer half of attribution: which versions served an execution.
+  describe '.record_served!' do
+    let(:agent) { create(:ai_agent, account: account) }
+    let(:execution) do
+      create(:ai_agent_execution, account: account, agent: agent, execution_context: { "kind" => "keep-me" })
+    end
+
+    it 'writes the served ids under the one named key and keeps the rest of the context' do
+      version = create(:ai_skill_version, account: account, ai_skill: skill, version: "7.0.0")
+
+      described_class.record_served!(execution: execution, version_ids: [ version.id ])
+
+      stored = execution.reload.execution_context
+      expect(stored[described_class::SERVED_CONTEXT_KEY]).to eq([ version.id ])
+      expect(stored["kind"]).to eq("keep-me")
+    end
+
+    it 'leaves the in-memory row consistent and clean, so a later update! cannot clobber it' do
+      version = create(:ai_skill_version, account: account, ai_skill: skill, version: "7.1.0")
+
+      described_class.record_served!(execution: execution, version_ids: [ version.id ])
+
+      expect(execution.execution_context[described_class::SERVED_CONTEXT_KEY]).to eq([ version.id ])
+      expect(execution.changed?).to be(false)
+    end
+
+    it 'records an empty list, so "served none" differs from "never stamped"' do
+      described_class.record_served!(execution: execution, version_ids: [])
+
+      expect(execution.reload.execution_context).to include(described_class::SERVED_CONTEXT_KEY => [])
+    end
+
+    it 'does nothing without a persisted execution' do
+      expect { described_class.record_served!(execution: nil, version_ids: [ "x" ]) }.not_to raise_error
+    end
+  end
+
   describe 'scopes' do
     let!(:active_version) { create(:ai_skill_version, account: account, ai_skill: skill, version: "1.0.0", is_active: true) }
     let!(:inactive_version) { create(:ai_skill_version, :inactive, account: account, ai_skill: skill, version: "2.0.0") }

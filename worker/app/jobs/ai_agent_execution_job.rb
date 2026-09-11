@@ -80,7 +80,8 @@ class AiAgentExecutionJob < BaseJob
     ctx = fetch_execution_context(agent_id, {
       input: input_data['input'] || input_data.to_json,
       context: input_data['context'] || {},
-      memory_token_budget: input_data.dig('context', 'memory_token_budget') || 4000
+      memory_token_budget: input_data.dig('context', 'memory_token_budget') || 4000,
+      agent_execution_id: @agent_execution['id']
     })
 
     execution_context = ctx['execution_context'] || {}

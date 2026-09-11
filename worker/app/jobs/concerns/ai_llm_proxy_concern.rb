@@ -66,12 +66,17 @@ module AiLlmProxyConcern
   # Fetch a memory-enriched execution context from the server.
   # Returns: { execution_context:, system_prompt:, model:, max_tokens:, temperature: }
   def fetch_execution_context(agent_id, input_params = {})
-    response = backend_api_post("/api/v1/internal/ai/execution_contexts", {
+    payload = {
       agent_id: agent_id,
       input: input_params[:input] || input_params["input"],
       context: input_params[:context] || input_params["context"] || {},
       memory_token_budget: input_params[:memory_token_budget] || 4000
-    })
+    }
+    # D5: the execution row this prompt will serve, so the server can stamp
+    # which skill versions served it. Only callers that own a row send it.
+    execution_row = input_params[:agent_execution_id] || input_params["agent_execution_id"]
+    payload[:agent_execution_id] = execution_row if execution_row.present?
+    response = backend_api_post("/api/v1/internal/ai/execution_contexts", payload)
 
     if response.is_a?(Hash) && response["success"]
       response["data"]
