@@ -201,14 +201,84 @@ RSpec.describe Platform::Status::Escalation do
   end
 
   # E8 — Escalation fans out through Monitoring::AlertingService under the
-  # SAME last_notified_at claim. The arms that CONFIGURE a channel wait on the
-  # storage ruling for the channel credentials; these two need no channel at
-  # all, which is also the fresh-install default.
+  # SAME last_notified_at claim, and the channels fire whether or not anyone in
+  # the tenant holds the permission (lead ruling).
   describe "external channel fan-out (E8)" do
-    def degraded_past_dwell
-      row_for(Platform::ComponentStatus::DEGRADED,
-              conditions: [ condition(reason: "Disconnected", severity: "degraded",
-                                      transition_at: (described_class.degraded_after_minutes + 5).minutes.ago) ])
+    let(:slack_url) { "https://hooks.slack.com/services/T0/B0/escalation-planted" }
+
+    before { AdminSetting.where(key: Security::SecretStore::SETTING_KEY).delete_all }
+
+    def degraded_past_dwell(target_account = account)
+      create(:platform_component_status,
+             account: target_account, component_kind: "docker_host", verdict: Platform::ComponentStatus::DEGRADED,
+             display_name: "web-1",
+             conditions: [ condition(reason: "Disconnected", severity: "degraded",
+                                     transition_at: (described_class.degraded_after_minutes + 5).minutes.ago) ])
+    end
+
+    def configure_slack
+      Monitoring::AlertChannels.write_secret!("slack_webhook_url", slack_url)
+      stub_request(:post, slack_url).to_return(status: 200)
+    end
+
+    # The lead's oracle, on dwell: A7 pages nobody on ENTRY to degraded.
+    it "a sweep past dwell sends one POST and one Notification" do
+      configure_slack
+      degraded_past_dwell
+
+      described_class.sweep!(account)
+
+      expect(a_request(:post, slack_url)).to have_been_made.once
+      expect(notifications_for(operator).count).to eq(1)
+    end
+
+    it "a second sweep inside the interval sends neither" do
+      configure_slack
+      degraded_past_dwell
+
+      described_class.sweep!(account)
+      described_class.sweep!(account, now: Time.current + 1.minute)
+
+      expect(a_request(:post, slack_url)).to have_been_made.once
+      expect(notifications_for(operator).count).to eq(1)
+    end
+
+    it "a shared row going down POSTs with zero Notifications, and once per interval" do
+      configure_slack
+      shared = create(:platform_component_status, :shared, :down,
+                      component_kind: "provider_circuit_breaker",
+                      conditions: [ condition(reason: "BreakerOpen") ])
+
+      described_class.run!(transition: transition_to("down", row: shared), events: [])
+      described_class.run!(transition: transition_to("down", row: shared.reload), events: [])
+
+      expect(a_request(:post, slack_url)).to have_been_made.once
+      expect(Notification.count).to eq(0)
+      expect(shared.reload.last_notified_at).to be_present
+    end
+
+    it "an account with no permissioned user still POSTs" do
+      configure_slack
+      lonely = create(:account)
+      create(:user, account: lonely, permissions: [])
+      degraded_past_dwell(lonely)
+
+      described_class.sweep!(lonely)
+
+      expect(a_request(:post, slack_url)).to have_been_made.once
+      expect(Notification.where(user_id: lonely.users.select(:id)).count).to eq(0)
+    end
+
+    it "sends row coordinates only: no display name, no account" do
+      configure_slack
+      row = degraded_past_dwell
+
+      described_class.sweep!(account)
+
+      expect(a_request(:post, slack_url).with { |req|
+        body = req.body
+        body.include?(row.component_ref) && !body.include?("web-1") && !body.include?(account.id.to_s)
+      }).to have_been_made.once
     end
 
     # Asserted through WebMock's request registry, which records every request
@@ -233,6 +303,35 @@ RSpec.describe Platform::Status::Escalation do
       expect(notifications_for(operator).count).to eq(1)
       # Without the claim, a broken channel becomes a retry on every sweep.
       expect(row.reload.last_notified_at).to be_present
+    end
+
+    # Lead ruling: the claim is staked on ANY attempt, a raising deliverer
+    # included. A shared row has nobody to notify in-app, so the claim rests on
+    # the attempt alone. This is the example that can see that; the one above
+    # stakes the claim through its recipient whatever the deliverer does.
+    it "a deliverer that raises on a shared row still stakes the one claim, and logs no message" do
+      shared = create(:platform_component_status, :shared, :down,
+                      component_kind: "provider_circuit_breaker",
+                      conditions: [ condition(reason: "BreakerOpen") ])
+      attempts = 0
+      allow_any_instance_of(Monitoring::AlertingService).to receive(:send_alert) do
+        attempts += 1
+        raise "channel exploded at #{slack_url}"
+      end
+      io = StringIO.new
+      capture = ActiveSupport::Logger.new(io)
+      Rails.logger.broadcast_to(capture)
+
+      described_class.run!(transition: transition_to("down", row: shared), events: [])
+      described_class.run!(transition: transition_to("down", row: shared.reload), events: [])
+
+      expect(attempts).to eq(1)
+      expect(shared.reload.last_notified_at).to be_present
+      expect(Notification.count).to eq(0)
+      expect(io.string).to include("channel delivery failed: RuntimeError")
+      expect(io.string).not_to include("escalation-planted")
+    ensure
+      Rails.logger.stop_broadcasting_to(capture) if capture
     end
   end
 
