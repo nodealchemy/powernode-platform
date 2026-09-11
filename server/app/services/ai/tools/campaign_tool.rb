@@ -23,6 +23,7 @@ module Ai
       declare_action "campaign_record_increment", mutating: true
       declare_action "campaign_reject_proposal", mutating: true
       declare_action "campaign_release", mutating: true
+      declare_action "campaign_resume", mutating: true
       declare_action "campaign_start", mutating: true
       declare_action "campaign_status", mutating: false
       declare_action "campaign_stop", mutating: true
@@ -33,18 +34,21 @@ module Ai
           name: "campaign",
           description: "Manage Autonomous Improvement Campaigns and the discovery/delegation control " \
                        "plane: propose a campaign into the queue, approve+spawn a proposal, start a " \
-                       "campaign directly (and its dev-loop), check status, answer parked questions, stop it.",
+                       "campaign directly (and its dev-loop), check status, answer parked questions, stop " \
+                       "or resume it.",
           parameters: {
             action: { type: "string", required: true,
                       description: "campaign_propose | campaign_list_proposals | campaign_update_proposal | " \
                                    "campaign_approve_proposal | campaign_reject_proposal | " \
                                    "campaign_delegate | campaign_start | campaign_list | campaign_status | " \
                                    "campaign_claim | campaign_release | campaign_answer_question | " \
-                                   "campaign_record_increment | campaign_check_rebase | campaign_stop" },
+                                   "campaign_record_increment | campaign_check_rebase | campaign_stop | " \
+                                   "campaign_resume" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
             proposal_id: { type: "string", required: false,
                            description: "CampaignProposal UUID (campaign_update_proposal/campaign_approve_proposal/campaign_reject_proposal)" },
-            reason: { type: "string", required: false, description: "Rejection reason (campaign_reject_proposal)" },
+            reason: { type: "string", required: false,
+                      description: "Rejection reason (campaign_reject_proposal) / why it is resumed (campaign_resume)" },
             driver_kind: { type: "string", required: false, description: "claude_code|external_cli|platform_agent|platform_team|platform_mission (campaign_delegate)" },
             target: { type: "object", required: false, description: "Platform target ref: { agent_id|group_id|mission_id } (campaign_delegate)" },
             holder: { type: "string", required: false, description: "Driver identity for the single-driver lease (campaign_claim/release/delegate)" },
@@ -60,7 +64,8 @@ module Ai
                              description: "Durable config: scope/posture/ordering/keep-going" },
             decision_authority: { type: "string", required: false,
                                   description: "supervised | monitored | trusted | autonomous (default trusted)" },
-            stop_conditions: { type: "object", required: false, description: "e.g. { max_failed:, completion_pct: }" },
+            stop_conditions: { type: "object", required: false,
+                               description: "e.g. { max_failed:, completion_pct: } (campaign_start sets; campaign_resume merges)" },
             question_id: { type: "string", required: false, description: "Parked question UUID" },
             answer: { type: "string", required: false, description: "Answer to a parked question" },
             summary: { type: "string", required: false, description: "Increment/completion summary" },
@@ -228,6 +233,20 @@ module Ai
               campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
               summary: { type: "string", required: false, description: "Completion summary" }
             }
+          },
+          "campaign_resume" => {
+            description: "Resume a completed or paused campaign — typically one a stop condition auto-completed — " \
+                         "and adjust its stop conditions in the same call. stop_conditions is MERGED into the " \
+                         "existing ones (e.g. { max_failed: 6 } raises only that cap). Refused, by name, for an " \
+                         "archived or already-active campaign, and when a merged stop condition is still met " \
+                         "(the campaign would complete again on its next progress snapshot). Records the resume " \
+                         "as a campaign decision carrying the reason and the old and new stop conditions.",
+            parameters: {
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
+              reason: { type: "string", required: true, description: "Why the campaign is resumed (recorded on the decision)" },
+              stop_conditions: { type: "object", required: false,
+                                 description: "Merged into the existing stop conditions, e.g. { max_failed: 6 }" }
+            }
           }
         }
       end
@@ -251,6 +270,7 @@ module Ai
         when "campaign_record_increment" then campaign_record_increment(params)
         when "campaign_check_rebase" then campaign_check_rebase(params)
         when "campaign_stop" then campaign_stop(params)
+        when "campaign_resume" then campaign_resume(params)
         else error_result("Unknown action: #{params[:action]}")
         end
       end
@@ -461,6 +481,22 @@ module Ai
         return error_result("Campaign not found") unless campaign
 
         success_result(campaign: driver.stop(campaign, summary: params[:summary]))
+      end
+
+      def campaign_resume(params)
+        return success_result(halted: true) if halted? # kill-switch: a resume restarts work
+
+        campaign = find_campaign(params[:campaign_id])
+        return error_result("Campaign not found") unless campaign
+
+        stop_conditions = params[:stop_conditions] || {}
+        return error_result("stop_conditions must be an object") unless stop_conditions.is_a?(Hash)
+
+        success_result(driver.resume(campaign, reason: params[:reason], stop_conditions: stop_conditions))
+      rescue ArgumentError => e
+        error_result(e.message)
+      rescue ActiveRecord::RecordInvalid => e
+        error_result(e.message)
       end
     end
   end

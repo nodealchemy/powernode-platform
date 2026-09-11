@@ -17,7 +17,8 @@ RSpec.describe Ai::Tools::CampaignTool do
       "campaign_propose", "campaign_list_proposals", "campaign_update_proposal", "campaign_approve_proposal",
       "campaign_reject_proposal", "campaign_delegate",
       "campaign_start", "campaign_list", "campaign_status", "campaign_claim", "campaign_release",
-      "campaign_answer_question", "campaign_record_increment", "campaign_check_rebase", "campaign_stop"
+      "campaign_answer_question", "campaign_record_increment", "campaign_check_rebase", "campaign_stop",
+      "campaign_resume"
     )
   end
 
@@ -223,5 +224,164 @@ RSpec.describe Ai::Tools::CampaignTool do
     expect(res[:success]).to be true
     expect(res[:data][:halted]).to be true
     expect(account.ai_campaigns.find(id).campaign_decisions.count).to eq(0)
+  end
+
+  describe "campaign_resume" do
+    # A campaign that genuinely auto-completed on its stop condition: failed increments
+    # against max_failed drive record_increment!'s snapshot + maybe_finalize! to complete
+    # it. Built through that real path so the resume runs against the state the finalizer
+    # actually leaves behind, not a hand-set status.
+    def auto_completed_campaign(name: "Resumable", max_failed: 2)
+      id = exec(action: "campaign_start", name: name, stop_conditions: { max_failed: max_failed })[:data][:campaign][:id]
+      max_failed.times do |i|
+        exec(action: "campaign_record_increment", campaign_id: id, title: "broken #{i}", status: "failed")
+      end
+      campaign = account.ai_campaigns.find(id)
+      expect(campaign.status).to eq("completed") # precondition: the stop condition finalized it
+      expect(campaign.failed_tasks).to eq(max_failed)
+      campaign
+    end
+
+    it "resumes an auto-completed campaign with a raised cap, and it stays active across the next snapshot" do
+      campaign = auto_completed_campaign
+
+      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 6 },
+                 reason: "two known-flaky failures; raise the cap")
+      expect(res[:success]).to be(true), res[:error].to_s
+      expect(res[:data][:campaign][:status]).to eq("active")
+      expect(campaign.reload.status).to eq("active")
+      # MERGED, not replaced: the start-time default survives beside the raised cap.
+      expect(campaign.stop_conditions).to eq("min_acceptance_pct" => 50, "max_failed" => 6)
+      expect(campaign.completed_at).to be_nil
+
+      # The next increment snapshots progress and runs maybe_finalize! — the very path
+      # that completed it. With the cap raised it must not flip back.
+      exec(action: "campaign_record_increment", campaign_id: campaign.id, title: "fixed", status: "passed")
+      expect(campaign.reload.status).to eq("active")
+      expect(campaign.failed_tasks).to eq(2)
+    end
+
+    it "refuses, by name, a resume whose merged stop conditions would re-complete it, leaving it untouched" do
+      campaign = auto_completed_campaign
+      decisions_before = campaign.campaign_decisions.count
+
+      res = exec(action: "campaign_resume", campaign_id: campaign.id, reason: "just try again")
+      expect(res[:success]).to be false
+      expect(res[:error]).to match(/stop condition 'max_failed'/)
+      expect(campaign.reload.status).to eq("completed")
+
+      # A merge that still trips is refused the same way, and the merge is rolled back.
+      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 1 },
+                 reason: "lower cap")
+      expect(res[:success]).to be false
+      expect(res[:error]).to match(/stop condition 'max_failed'/)
+      expect(campaign.reload.status).to eq("completed")
+      expect(campaign.stop_conditions).to eq("min_acceptance_pct" => 50, "max_failed" => 2)
+      expect(campaign.campaign_decisions.count).to eq(decisions_before)
+    end
+
+    it "refuses an archived campaign by name" do
+      archived = create(:ai_campaign, account: account, status: "archived")
+
+      res = exec(action: "campaign_resume", campaign_id: archived.id, reason: "bring it back")
+      expect(res[:success]).to be false
+      expect(res[:error]).to match(/is archived/)
+      expect(archived.reload.status).to eq("archived")
+      expect(archived.campaign_decisions.count).to eq(0)
+    end
+
+    it "refuses an already-active campaign by name" do
+      active = create(:ai_campaign, :active, account: account, stop_conditions: { "max_failed" => 3 })
+
+      res = exec(action: "campaign_resume", campaign_id: active.id, stop_conditions: { max_failed: 9 }, reason: "x")
+      expect(res[:success]).to be false
+      expect(res[:error]).to match(/is already active/)
+      expect(active.reload.stop_conditions).to eq("max_failed" => 3)
+      expect(active.campaign_decisions.count).to eq(0)
+    end
+
+    it "requires a reason and a known campaign" do
+      campaign = auto_completed_campaign
+
+      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 6 })
+      expect(res[:success]).to be false
+      expect(res[:error]).to match(/reason is required/)
+      expect(campaign.reload.status).to eq("completed")
+
+      expect(exec(action: "campaign_resume", campaign_id: "nope", reason: "x")[:error]).to eq("Campaign not found")
+    end
+
+    it "records the resume as a campaign decision with the actor, reason, and old and new stop conditions" do
+      campaign = auto_completed_campaign
+      campaign.update_column(:last_activity_at, 1.day.ago)
+
+      res = exec(action: "campaign_resume", campaign_id: campaign.id,
+                 stop_conditions: { max_failed: 6, completion_pct: 90 }, reason: "raise the cap")
+      expect(res[:success]).to be(true), res[:error].to_s
+
+      decision = campaign.campaign_decisions.find(res[:data][:decision_id])
+      expect(decision.decision_type).to eq("policy")
+      expect(decision.rationale).to eq("raise the cap")
+      expect(decision.user_id).to eq(user.id)
+      expect(decision.metadata).to include(
+        "action" => "campaign_resume",
+        "previous_status" => "completed",
+        "old_stop_conditions" => { "min_acceptance_pct" => 50, "max_failed" => 2 },
+        "new_stop_conditions" => { "min_acceptance_pct" => 50, "max_failed" => 6, "completion_pct" => 90 }
+      )
+      expect(campaign.reload.last_activity_at).to be_within(1.minute).of(Time.current)
+    end
+
+    it "is a no-op (halted) when the account AI is suspended (kill-switch)" do
+      campaign = auto_completed_campaign
+      account.update!(ai_suspended: true)
+
+      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 6 }, reason: "x")
+      expect(res[:data][:halted]).to be true
+      expect(campaign.reload.status).to eq("completed")
+    end
+  end
+
+  # The gate is the tool's REQUIRED_PERMISSION, enforced by the registrar before the
+  # tool is constructed — the same floor campaign_stop sits behind. Exercised through
+  # McpPlatformToolRegistrar.execute_tool, the seam MCP callers actually pass.
+  describe "campaign_resume authorization" do
+    let(:completed) { create(:ai_campaign, account: account, status: "completed", stop_conditions: {}) }
+
+    # The first user created in an account is given the OWNER role (spec/factories/users.rb),
+    # so occupy that slot before creating the restricted principals.
+    before { user }
+
+    def via_mcp(tool_name, params, as:)
+      ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+        "platform.#{tool_name}", params: params, account: account, user: as
+      )
+    rescue ::Mcp::ProtocolService::PermissionDeniedError => e
+      { success: false, error: e.message, denied: true }
+    end
+
+    it "denies every principal that cannot stop a campaign, exactly as campaign_stop does" do
+      nobody = create(:user, account: account, permissions: [])
+      reader = create(:user, account: account, permissions: %w[ai.campaigns.read])
+
+      [nobody, reader].each do |principal|
+        stop = via_mcp("campaign_stop", { campaign_id: completed.id }, as: principal)
+        resume = via_mcp("campaign_resume", { campaign_id: completed.id, reason: "x" }, as: principal)
+        expect(stop[:denied]).to be(true)
+        expect(resume[:denied]).to be(true)
+        expect(resume[:error]).to include("requires 'ai.campaigns.manage'")
+      end
+      expect(completed.reload.status).to eq("completed")
+      expect(completed.campaign_decisions.count).to eq(0)
+    end
+
+    it "lets a principal holding ai.campaigns.manage through to the resume" do
+      manager = create(:user, account: account, permissions: %w[ai.campaigns.manage])
+
+      res = via_mcp("campaign_resume", { campaign_id: completed.id, reason: "operator resume" }, as: manager)
+      expect(res[:success]).to be(true), res[:error].to_s
+      expect(completed.reload.status).to eq("active")
+      expect(completed.campaign_decisions.last.user_id).to eq(manager.id)
+    end
   end
 end

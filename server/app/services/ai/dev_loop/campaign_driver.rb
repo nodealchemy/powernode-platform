@@ -28,6 +28,10 @@ module Ai
       # completion_pct here — a 100% target on an unseeded loop self-finalizes early.
       DEFAULT_STOP_CONDITIONS = { "min_acceptance_pct" => 50 }.freeze
 
+      # The states #resume reopens. "archived" is final, "active" has nothing to resume,
+      # and "created" exists only inside #start's own transaction.
+      RESUMABLE_STATUSES = %w[completed paused].freeze
+
       def initialize(account:, user: nil)
         @account = account
         @user = user
@@ -164,6 +168,40 @@ module Ai
         end
         campaign.complete!(summary)
         campaign.reload.summary
+      end
+
+      # Reopen a completed or paused campaign — typically one a stop condition
+      # auto-completed — merging `stop_conditions` into its existing ones in the same
+      # step, since a stop condition is usually why it stopped. One transaction under the
+      # campaign's row lock: the status re-check, a fresh snapshot, the merge, the
+      # re-complete guard, the transition and the decision commit together or not at all.
+      # A refusal raises ArgumentError naming its reason and rolls the merge back.
+      def resume(campaign, reason:, stop_conditions: {})
+        raise ArgumentError, "reason is required" if reason.blank?
+
+        decision = nil
+        campaign.with_lock do
+          refuse_unless_resumable!(campaign)
+          previous_status = campaign.status
+          previous_summary = campaign.completion_summary
+          # Judge the guard on the aggregates the NEXT snapshot will produce, not on
+          # whatever the last one left behind.
+          campaign.snapshot_progress!
+          old_conditions = campaign.stop_conditions.to_h
+          campaign.stop_conditions = old_conditions.merge(stop_conditions.to_h.deep_stringify_keys)
+          refuse_if_would_recomplete!(campaign)
+
+          campaign.resume!
+          decision = campaign.record_decision!(
+            decision_type: "policy", title: "Campaign resumed", rationale: reason, user: @user,
+            metadata: {
+              "action" => "campaign_resume", "previous_status" => previous_status,
+              "previous_completion_summary" => previous_summary,
+              "old_stop_conditions" => old_conditions, "new_stop_conditions" => campaign.stop_conditions
+            }
+          )
+        end
+        { campaign: campaign.reload.summary, decision_id: decision.id, stop_conditions: campaign.stop_conditions }
       end
 
       # Record one completed campaign increment in a single call: mark a RalphTask
@@ -370,7 +408,8 @@ module Ai
 
         mission = @account.ai_missions.find_by(id: mission_id)
         raise ArgumentError, "mission not found in this account" unless mission
-        raise ArgumentError, "mission #{mission.id} has no repository to attach" unless mission.repository
+        raise ArgumentError, "mission #{mission.id} has no repository to attach" if mission.repository_id.blank?
+        raise ArgumentError, "mission #{mission.id}: repository not found in this account" unless account_repository(mission)
 
         { "mission_id" => mission.id }
       end
@@ -379,7 +418,14 @@ module Ai
       def mission_repository_url(mission_id)
         return nil if mission_id.blank?
 
-        @account.ai_missions.find_by(id: mission_id)&.repository&.clone_url_for_devops
+        mission = @account.ai_missions.find_by(id: mission_id)
+        mission && account_repository(mission)&.clone_url_for_devops
+      end
+
+      # D2 review F1: the mission's repository and its credential, resolved only
+      # within the delegating account (the actuator's own tenancy rule).
+      def account_repository(mission)
+        Ai::Ralph::GitToolExecutor.account_repository(mission.repository, @account.id)
       end
 
       # The account's OWN Platform Developer: its existing row for the slug if it
@@ -475,6 +521,29 @@ module Ai
         loop_record.update!(
           configuration: loop_record.configuration.merge("completion" => { "all_tasks_terminal" => true })
         )
+      end
+
+      def refuse_unless_resumable!(campaign)
+        return if RESUMABLE_STATUSES.include?(campaign.status)
+
+        state = case campaign.status
+                when "archived" then "is archived, and archival is final"
+                when "active" then "is already active"
+                else "has status #{campaign.status}, which campaign_resume does not reopen"
+                end
+        raise ArgumentError, "campaign_resume refused: campaign '#{campaign.name}' #{state}"
+      end
+
+      # Asked of Campaign#tripped_stop_condition — the predicate maybe_finalize! itself
+      # uses — so a resume the finalizer would immediately undo is refused up front.
+      def refuse_if_would_recomplete!(campaign)
+        tripped = campaign.tripped_stop_condition
+        return unless tripped
+
+        raise ArgumentError,
+              "campaign_resume refused: stop condition '#{tripped}' " \
+              "(#{campaign.stop_conditions[tripped].inspect}) is still met after the merge, so the campaign " \
+              "would complete again on its next progress snapshot; raise or clear '#{tripped}' in stop_conditions"
       end
 
       def create_campaign_loop(campaign, workload: DEFAULT_WORKLOAD)

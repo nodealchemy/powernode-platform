@@ -462,6 +462,7 @@ module Ai
         "campaign_record_increment" => "Ai::Tools::CampaignTool",
         "campaign_check_rebase" => "Ai::Tools::CampaignTool",
         "campaign_stop" => "Ai::Tools::CampaignTool",
+        "campaign_resume" => "Ai::Tools::CampaignTool",
         # Progressive delivery (Ai::Delivery on Ai::Deploy) — deliver a ref via a strategy
         "deliver" => "Ai::Tools::DeliveryTool",
         "delivery_status" => "Ai::Tools::DeliveryTool",
