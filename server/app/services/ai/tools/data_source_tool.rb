@@ -1478,11 +1478,35 @@ module Ai
         permission?(MANAGE_PERMISSION) || permission?(MUTATION_PERMISSIONS[action])
       end
 
-      # True when any user in the acting account holds the permission. Mirrors
-      # BaseTool.permitted? account-wide model. When there is no agent context
-      # (direct API/worker invocation) the API layer already authorized the call,
-      # so allow.
+      # Who must hold the permission (MCP identity plan #7):
+      #   * an in-process caller (`internal`) holds nothing to check;
+      #   * a call a tool door marked, carrying no agent (an MCP client acting
+      #     with its user's authority): that USER must hold it. It fails closed:
+      #     a marked call with no user, or a read that raises, is refused. A
+      #     missing agent used to answer "allowed" here, so an MCP client with no
+      #     client agent skipped the per-action bar;
+      #   * an agent: any user in its account holding it (#account_permission?);
+      #   * an unmarked call with no agent (the REST/API layer, which already
+      #     authorized it): allowed.
       def permission?(permission_name)
+        return true if internal?
+        return door_user_permitted?(permission_name) if agent.nil? && call_origin.present?
+
+        account_permission?(permission_name)
+      end
+
+      def door_user_permitted?(permission_name)
+        user.present? && permission_name.present? && user.has_permission?(permission_name)
+      rescue StandardError => e
+        Rails.logger.warn("[DataSourceTool] permission read failed for a door-marked call: #{e.class}: #{e.message}")
+        false
+      end
+
+      # True when any user in the acting account holds the permission, the
+      # account-wide model BaseTool.permitted? also applies to an agent (offer
+      # 01a09102-95c9 is what would narrow it). With no agent, the call is the
+      # API layer's, which already authorized it.
+      def account_permission?(permission_name)
         return true unless agent
         return true unless account
 
@@ -1491,7 +1515,7 @@ module Ai
                       .where(permission_name: permission_name)
                       .exists?
       rescue StandardError
-        # Fail open like BaseTool.permitted? — execution is already gated upstream.
+        # Fails open, as before: changing the agent's account-wide read is offer 95c9's work.
         true
       end
 
