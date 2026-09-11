@@ -34,7 +34,7 @@ export const UnauthorizedPage: React.FC = () => {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            to="/dashboard"
+            to="/app"
             className="btn-theme btn-theme-primary inline-flex items-center gap-2 px-6 py-3 rounded-xl"
           >
             <HomeIcon className="h-5 w-5" />

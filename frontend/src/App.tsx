@@ -369,11 +369,6 @@ const AppContent: React.FC = () => {
             }
           />
 
-          {/* Legacy dashboard redirect */}
-          <Route
-            path="/dashboard/*"
-            element={<Navigate to="/app" replace />}
-          />
           <Route
             path="/app/*"
             element={
@@ -457,11 +452,6 @@ const AppContent: React.FC = () => {
               )
             }
           />
-          <Route
-            path="/dashboard"
-            element={<Navigate to="/app" replace />}
-          />
-
           {/* Catch all route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
