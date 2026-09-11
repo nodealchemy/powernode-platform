@@ -138,6 +138,23 @@ export interface CreateProposalParams {
   configuration?: Record<string, unknown>;
 }
 
+// Body of POST /ai/campaigns/:id/resume (CampaignsController#resume). Stop conditions are
+// MERGED into the campaign's existing ones; omit a key to keep its current value.
+export interface ResumeCampaignParams {
+  reason: string;
+  stop_conditions?: {
+    max_failed?: number;
+    min_acceptance_pct?: number;
+  };
+}
+
+// Mirrors CampaignDriver#resume's return
+export interface ResumeCampaignResult {
+  campaign: CampaignSummary;
+  decision_id: string;
+  stop_conditions: Record<string, unknown>;
+}
+
 export interface DelegateParams {
   driver_kind: DriverKind;
   target?: Record<string, unknown>;

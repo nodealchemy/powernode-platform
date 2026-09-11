@@ -10,6 +10,9 @@ export const STATUS_CONFIG: Record<CampaignStatus, { label: string; variant: Bad
   archived: { label: 'Archived', variant: 'outline' },
 };
 
+// Mirrors Ai::DevLoop::CampaignDriver::RESUMABLE_STATUSES — the states a resume reopens.
+export const RESUMABLE_STATUSES: CampaignStatus[] = ['completed', 'paused'];
+
 export const PROPOSAL_STATUS_CONFIG: Record<ProposalStatus, { label: string; variant: BadgeVariant }> = {
   proposed: { label: 'Proposed', variant: 'secondary' },
   queued: { label: 'Queued', variant: 'info' },

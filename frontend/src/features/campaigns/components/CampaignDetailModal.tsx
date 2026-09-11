@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { HelpCircle, GitBranch, ListChecks, StopCircle, Activity, Lock, Send } from 'lucide-react';
+import { HelpCircle, GitBranch, ListChecks, StopCircle, Activity, Lock, Send, PlayCircle } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -9,9 +9,16 @@ import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { getErrorMessage } from '@/shared/utils/errorHandling';
 import { campaignsApi } from '../api/campaignsApi';
-import type { CampaignDetail, DriverKind } from '../types/campaign';
-import { STATUS_CONFIG, DECISION_AUTHORITY_LABELS, DRIVER_KIND_OPTIONS, DRIVER_KIND_LABELS } from '../constants/campaign';
+import type { CampaignDetail, DriverKind, ResumeCampaignParams } from '../types/campaign';
+import {
+  STATUS_CONFIG,
+  DECISION_AUTHORITY_LABELS,
+  DRIVER_KIND_OPTIONS,
+  DRIVER_KIND_LABELS,
+  RESUMABLE_STATUSES,
+} from '../constants/campaign';
 
 // Map a platform driver_kind to the target key its delegate call expects.
 const TARGET_KEY: Partial<Record<DriverKind, string>> = {
@@ -43,6 +50,10 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
   const [busy, setBusy] = useState<string | null>(null);
   const [driverKind, setDriverKind] = useState<DriverKind>('claude_code');
   const [targetId, setTargetId] = useState('');
+  const [showResume, setShowResume] = useState(false);
+  const [resumeReason, setResumeReason] = useState('');
+  const [resumeMaxFailed, setResumeMaxFailed] = useState('');
+  const [resumeMinAcceptance, setResumeMinAcceptance] = useState('');
   const { addNotification } = useNotifications();
 
   const load = useCallback(async () => {
@@ -59,6 +70,10 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
   useEffect(() => {
     if (isOpen && campaignId) {
       setAnswers({});
+      setShowResume(false);
+      setResumeReason('');
+      setResumeMaxFailed('');
+      setResumeMinAcceptance('');
       load();
     }
   }, [isOpen, campaignId, load]);
@@ -110,8 +125,41 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
     }
   };
 
+  const handleResume = async () => {
+    if (!campaignId) return;
+    const reason = resumeReason.trim();
+    if (!reason) return;
+    // Only the stop conditions the operator filled in: the server merges them into the
+    // existing ones and validates every value, so the rules live in one place.
+    const stopConditions: NonNullable<ResumeCampaignParams['stop_conditions']> = {};
+    if (resumeMaxFailed.trim()) stopConditions.max_failed = Number(resumeMaxFailed);
+    if (resumeMinAcceptance.trim()) stopConditions.min_acceptance_pct = Number(resumeMinAcceptance);
+    setBusy('resume');
+    try {
+      await campaignsApi.resumeCampaign(campaignId, {
+        reason,
+        ...(Object.keys(stopConditions).length > 0 ? { stop_conditions: stopConditions } : {}),
+      });
+      addNotification({ type: 'success', message: 'Campaign resumed' });
+      setShowResume(false);
+      await load();
+      onChanged();
+    } catch (err) {
+      // The server names each refusal; show its reason as it is.
+      addNotification({ type: 'error', message: getErrorMessage(err) });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const currentStop = (key: string): string => {
+    const value = detail?.stop_conditions?.[key];
+    return value === undefined || value === null ? 'not set' : String(value);
+  };
+
   const statusConfig = detail ? (STATUS_CONFIG[detail.status] || { label: detail.status, variant: 'outline' as const }) : null;
   const isTerminal = detail ? TERMINAL.includes(detail.status) : false;
+  const isResumable = detail ? RESUMABLE_STATUSES.includes(detail.status) : false;
 
   return (
     <Modal
@@ -126,6 +174,17 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
             {detail && `${DECISION_AUTHORITY_LABELS[detail.decision_authority]} authority`}
           </span>
           <div className="flex gap-2">
+            {canManage && detail && isResumable && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowResume((open) => !open)}
+                aria-expanded={showResume}
+              >
+                <PlayCircle size={14} className="mr-1" />
+                Resume
+              </Button>
+            )}
             {canManage && detail && !isTerminal && (
               <Button variant="danger" size="sm" onClick={handleStop} loading={busy === 'stop'}>
                 <StopCircle size={14} className="mr-1" />
@@ -141,6 +200,56 @@ export const CampaignDetailModal: React.FC<CampaignDetailModalProps> = ({
         <div className="flex justify-center py-12"><LoadingSpinner /></div>
       ) : (
         <div className="space-y-6">
+          {/* Resume: reopen a completed/paused campaign, optionally moving its stop conditions */}
+          {canManage && isResumable && showResume && (
+            <Section icon={PlayCircle} title="Resume campaign">
+              <p className="mb-2 text-xs text-theme-secondary">
+                Reopens the campaign and records your reason in its decision log. Leave a stop
+                condition blank to keep its current value.
+              </p>
+              <div className="space-y-2">
+                <Textarea
+                  aria-label="Resume reason"
+                  value={resumeReason}
+                  onChange={(e) => setResumeReason(e.target.value)}
+                  placeholder="Why is this campaign being resumed?"
+                  rows={2}
+                />
+                <div className="flex flex-wrap items-end gap-2">
+                  <Input
+                    type="number"
+                    aria-label="Max failed tasks"
+                    min={1}
+                    step={1}
+                    value={resumeMaxFailed}
+                    onChange={(e) => setResumeMaxFailed(e.target.value)}
+                    placeholder={`Max failed (current: ${currentStop('max_failed')})`}
+                    className="min-w-[12rem] flex-1"
+                  />
+                  <Input
+                    type="number"
+                    aria-label="Minimum acceptance %"
+                    min={0}
+                    max={100}
+                    value={resumeMinAcceptance}
+                    onChange={(e) => setResumeMinAcceptance(e.target.value)}
+                    placeholder={`Min acceptance % (current: ${currentStop('min_acceptance_pct')})`}
+                    className="min-w-[12rem] flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleResume}
+                    loading={busy === 'resume'}
+                    disabled={!resumeReason.trim()}
+                  >
+                    <PlayCircle size={14} className="mr-1" />
+                    Resume campaign
+                  </Button>
+                </div>
+              </div>
+            </Section>
+          )}
+
           {/* Header stats */}
           <div className="flex flex-wrap items-center gap-4">
             {statusConfig && <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>}
