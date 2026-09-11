@@ -210,12 +210,6 @@ module Api
             ::Ai::Agent.for_account(worker_account_id)
           end
 
-          # `accounts.id` is never NULL, so a nil worker account_id matches no
-          # row — the nil principal is denied rather than granted.
-          def account_scope
-            Account.where(id: worker_account_id)
-          end
-
           # Ordered non-Fable reasoning fallbacks for the worker's refusal handler.
           # Gated on refusal_capable? — non-Fable models never pay the resolution
           # cost. Best-effort: a resolution failure must never break the config call.

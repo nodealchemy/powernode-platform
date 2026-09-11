@@ -99,4 +99,20 @@ RSpec.describe AgentEvaluationJob, type: :job do
 
     expect { job.execute(args) }.to raise_error(Errno::ECONNRESET)
   end
+
+  # D4 review F2 — the server 404s an execution that is missing OR belongs to
+  # another account, indistinguishably. Neither can ever succeed, so a retry
+  # only repeats the refusal: the 404 is terminal here, and says so.
+  it "treats the server's 404 as terminal instead of retrying it" do
+    allow(api_client).to receive(:post)
+      .and_raise(BackendApiClient::ApiError.new("Resource not found", 404))
+
+    expect(job.execute(args)).to eq(status: "not_measured", reason: "ExecutionNotFound", evaluation_id: nil)
+  end
+
+  it "still lets any other server error surface, so Sidekiq retries it" do
+    allow(api_client).to receive(:post).and_raise(BackendApiClient::ApiError.new("boom", 500))
+
+    expect { job.execute(args) }.to raise_error(BackendApiClient::ApiError)
+  end
 end

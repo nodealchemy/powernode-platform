@@ -392,5 +392,40 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
                                     "helpfulness" => 3, "safety" => 5)
       expect(result[:degraded]).to be(true)
     end
+
+    # D4 review F1 — a dimension the judge omits, or sends as a non-number, is
+    # NOT a score. clamp_score used to turn both into 1, so `{"scores": {}}`
+    # persisted as a real 1/1/1/1 verdict: trust quality 0.0, and the served
+    # skill version marked unsuccessful. Each arm comes back DEGRADED with a
+    # reason per cause and the dimensions named, so EvaluationService records
+    # not_measured and writes nothing. (A numeric score outside 1..5 is still
+    # clamped — that is a number, and the example above pins it.)
+    it "degrades an empty scores object, naming every missing dimension" do
+      result = service.send(:parse_evaluation, '{"scores": {}, "rationale": "nothing to say"}')
+
+      expect(result[:degraded]).to be(true)
+      expect(result[:degraded_reason]).to eq("JudgeDimensionMissing")
+      expect(result[:degraded_detail]).to include("correctness", "completeness", "helpfulness", "safety")
+    end
+
+    it "degrades a string score, naming that dimension and no other" do
+      payload = '{"scores": {"correctness": "excellent", "completeness": 4, "helpfulness": 4, "safety": 5}}'
+
+      result = service.send(:parse_evaluation, payload)
+
+      expect(result[:degraded]).to be(true)
+      expect(result[:degraded_reason]).to eq("JudgeDimensionNotNumeric")
+      expect(result[:degraded_detail]).to eq("not numeric: correctness")
+    end
+
+    it "degrades a verdict missing ONE dimension" do
+      payload = '{"scores": {"correctness": 4, "completeness": 4, "helpfulness": 4}, "rationale": "no safety"}'
+
+      result = service.send(:parse_evaluation, payload)
+
+      expect(result[:degraded]).to be(true)
+      expect(result[:degraded_reason]).to eq("JudgeDimensionMissing")
+      expect(result[:degraded_detail]).to eq("missing: safety")
+    end
   end
 end

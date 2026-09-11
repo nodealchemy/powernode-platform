@@ -15,19 +15,28 @@ module Api
         # execution row rather than round-tripping an agent's output through a
         # Sidekiq payload and back.
         class EvaluationsController < InternalBaseController
+          include Api::V1::Internal::WorkerTenancy
+
           # POST /api/v1/internal/ai/evaluations/run
+          #
+          # D4 review F2 — both lookups are anchored on the CALLING worker's
+          # account (WorkerTenancy#account_scope), never on the posted id alone.
+          # An account id that is not the worker's own, an execution that was
+          # never recorded, and another account's execution all answer the SAME
+          # 404, so the door discloses nothing about rows it will not serve and
+          # nothing is judged or written. AgentEvaluationJob treats that 404 as
+          # terminal, so none of the three is retried.
           def run
-            account = Account.find(params[:account_id])
-            # find_by, not find: a deleted or never-recorded execution is an
-            # ordinary not_measured answer from the service, not a 404 that
-            # would make the worker retry forever.
-            execution = ::Ai::AgentExecution.find_by(id: params[:execution_id])
+            account = account_scope.find(params[:account_id])
+            execution = ::Ai::AgentExecution.where(account_id: account.id).find(params[:execution_id])
 
             result = ::Ai::Learning::EvaluationService
               .new(account: account)
               .evaluate_execution(execution: execution, task_id: params[:task_id].presence)
 
             render_success(result)
+          rescue ActiveRecord::RecordNotFound
+            render_error("Execution not found", status: :not_found)
           end
         end
       end

@@ -51,6 +51,10 @@ module Ai
 
         agent = execution.respond_to?(:agent) ? execution.agent : nil
         return not_measured("NoEvaluableExecution") unless execution && agent
+        # D4 review F2 — tenancy here as well as at the door: another account's
+        # execution is never judged under this one. Same reason as a missing
+        # row, so this answer discloses nothing about rows it will not serve.
+        return not_measured("NoEvaluableExecution") unless execution.try(:account_id) == @account.id
 
         transcript = output.presence || default_transcript(execution)
         return not_measured("NoEvaluableExecution") if transcript.blank?
@@ -68,7 +72,13 @@ module Ai
           task_description: context[:task_description] || execution.input_parameters&.dig("prompt"),
           expected_output: context[:expected_output]
         )
-        return not_measured("JudgeUnavailable") if verdict[:degraded]
+        # D4 review F1 — degraded carries its cause (JudgeUnavailable,
+        # JudgeUnparseable, JudgeDimensionMissing, JudgeDimensionNotNumeric).
+        # None of them persists a row, moves trust or touches a skill version.
+        if verdict[:degraded]
+          return not_measured(verdict[:degraded_reason].presence || "JudgeUnavailable",
+                              detail: verdict[:degraded_detail])
+        end
 
         result = persist_evaluation(execution, agent, task_id, judge, verdict)
         return evaluated(result, idempotent: true) if result[:already_existed]
@@ -171,7 +181,9 @@ module Ai
       end
 
       def find_existing(execution, task_id)
-        Ai::EvaluationResult.find_by(execution_id: execution.id, task_id: task_id)
+        # Account-scoped (D4 review F2): an idempotent hit must never hand back
+        # another account's row.
+        Ai::EvaluationResult.find_by(account_id: @account.id, execution_id: execution.id, task_id: task_id)
       end
 
       # The unique index (execution_id, task_id) NULLS NOT DISTINCT is the real
@@ -240,7 +252,9 @@ module Ai
       # takes the NoServedVersion arm. Both arms are spec'd by writing the key
       # on a fixture, so the consumer is proven rather than merely written.
       def record_skill_outcome(execution, quality)
-        return not_measured("NoServedVersion") if quality.nil?
+        # D4 review F6 — one code per cause: a nil quality means the row carried
+        # no scores, which is not the same fact as "no version served".
+        return not_measured("UnscoredEvaluation") if quality.nil?
 
         version_id = execution.try(:execution_context)&.dig(SKILL_VERSION_CONTEXT_KEY)
         return not_measured("NoServedVersion") if version_id.blank?

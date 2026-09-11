@@ -143,6 +143,8 @@ module Ai
       # db/seeds/ai_system_prompt_templates_seed.rb — "editable via API/UI
       # without code deploys"), so the parser must not assume that the shape it
       # ships with is the shape it will be asked for.
+      SCORE_DIMENSIONS = %w[correctness completeness helpfulness safety].freeze
+
       def parse_evaluation(response)
         return default_scores unless response
 
@@ -153,7 +155,7 @@ module Ai
             "[LlmJudge] evaluation response contained no JSON object; applying neutral " \
               "default scores; excerpt: #{response.to_s.strip[0, 200].inspect}"
           )
-          return default_scores
+          return default_scores(reason: "JudgeUnparseable")
         end
 
         parsed = JSON.parse(json)
@@ -162,12 +164,19 @@ module Ai
         # nested answer from missing keys.
         dimensions = parsed["scores"].is_a?(Hash) ? parsed["scores"] : parsed
 
-        scores = {
-          "correctness" => clamp_score(dimensions["correctness"]),
-          "completeness" => clamp_score(dimensions["completeness"]),
-          "helpfulness" => clamp_score(dimensions["helpfulness"]),
-          "safety" => clamp_score(dimensions["safety"])
-        }
+        # D4 review F1 — a dimension the judge omitted, or sent as anything but
+        # a number, is NOT a score. clamp_score used to turn both into 1, so
+        # `{"scores": {}}` persisted as a real 1/1/1/1 verdict: trust quality
+        # 0.0 and the served skill version marked unsuccessful, off a judge that
+        # said nothing. That is a verdict we did not get, so it degrades like
+        # one — and names the dimension, so the not_measured reason says why.
+        missing = SCORE_DIMENSIONS.select { |dim| dimensions[dim].nil? }
+        not_numeric = SCORE_DIMENSIONS.reject { |dim| dimensions[dim].nil? || dimensions[dim].is_a?(Numeric) }
+        return malformed_verdict(missing, not_numeric, response) if missing.any? || not_numeric.any?
+
+        # A NUMBER outside 1..5 is still clamped: that is a verdict on the
+        # wrong scale, not a missing one.
+        scores = SCORE_DIMENSIONS.index_with { |dim| clamp_score(dimensions[dim]) }
 
         { scores: scores, feedback: parsed["rationale"] || parsed["feedback"] }
       rescue JSON::ParserError => e
@@ -175,7 +184,21 @@ module Ai
           "[LlmJudge] evaluation JSON parse failed: #{e.message}; applying neutral " \
             "default scores; excerpt: #{response.to_s.strip[0, 200].inspect}"
         )
-        default_scores
+        default_scores(reason: "JudgeUnparseable")
+      end
+
+      # One reason per cause: a MISSING dimension and a NON-NUMERIC one are
+      # different judge failures, and the detail names the dimensions.
+      def malformed_verdict(missing, not_numeric, response)
+        detail = [
+          ("missing: #{missing.join(', ')}" if missing.any?),
+          ("not numeric: #{not_numeric.join(', ')}" if not_numeric.any?)
+        ].compact.join("; ")
+        Rails.logger.warn(
+          "[LlmJudge] malformed verdict (#{detail}); not scoring it; " \
+            "excerpt: #{response.to_s.strip[0, 200].inspect}"
+        )
+        default_scores(reason: missing.any? ? "JudgeDimensionMissing" : "JudgeDimensionNotNumeric", detail: detail)
       end
 
       # Brace-balanced scan, because the payload is nested. Ignores braces
@@ -219,12 +242,17 @@ module Ai
       # caller (EvaluationService) refuses to persist a row, move trust, or
       # credit a skill version on a degraded result, so an unavailable judge
       # reads as "not measured" rather than as "measured, mediocre".
-      def default_scores
+      #
+      # `degraded_reason` / `degraded_detail` say WHICH failure this was, and
+      # EvaluationService reports them as the not_measured reason.
+      def default_scores(reason: "JudgeUnavailable", detail: nil)
         {
           scores: { "correctness" => 3, "completeness" => 3, "helpfulness" => 3, "safety" => 5 },
           feedback: "Default scores applied (evaluation unavailable)",
-          degraded: true
-        }
+          degraded: true,
+          degraded_reason: reason,
+          degraded_detail: detail
+        }.compact
       end
     end
   end

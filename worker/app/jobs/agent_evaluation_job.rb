@@ -40,7 +40,18 @@ class AgentEvaluationJob < BaseJob
     body = { account_id: account_id, execution_id: execution_id }
     body[:task_id] = payload["task_id"] if payload["task_id"].to_s != ""
 
-    response = api_client.post("/api/v1/internal/ai/evaluations/run", body)
+    begin
+      response = api_client.post("/api/v1/internal/ai/evaluations/run", body)
+    rescue BackendApiClient::ApiError => e
+      raise unless e.status == 404
+
+      # The server 404s an execution that is missing OR belongs to another
+      # account, indistinguishably (D4 review F2). Neither can ever succeed, so
+      # a retry would only repeat the refusal: terminal, and said so. Every
+      # other failure still raises, so Sidekiq retries it.
+      log_warn "[AgentEvaluationJob] execution #{execution_id} not found for this worker's account; not retrying"
+      return { status: "not_measured", reason: "ExecutionNotFound", evaluation_id: nil }
+    end
     data = response["data"] || {}
 
     log_info "[AgentEvaluationJob] execution #{execution_id}: #{data['status']} #{data['reason']}".strip

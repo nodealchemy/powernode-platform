@@ -69,6 +69,16 @@ module Api
         def worker_account_id
           current_worker&.account_id
         end
+
+        # The calling worker's own account as a relation, so `.find` on it 404s
+        # every other account id. `accounts.id` is never NULL, so a nil worker
+        # account_id matches no row — the nil principal is denied rather than
+        # granted. Defined ONCE here (it was private to
+        # ExecutionContextsController) so the evaluations door reuses it
+        # instead of copying it (D4 review F2).
+        def account_scope
+          Account.where(id: worker_account_id)
+        end
       end
     end
   end

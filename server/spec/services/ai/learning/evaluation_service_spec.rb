@@ -306,6 +306,69 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
         expect(result[:skill_outcome]).to include(successful: false)
       end
     end
+
+    # ---- D4 review F1: a malformed verdict is not a score ----
+    # Through the REAL judge, so the parse -> service chain is what is pinned:
+    # the provider answers `{"scores": {}}`, and nothing may move.
+    context "when the judge answers with a malformed verdict" do
+      let(:skill) { create(:ai_skill, account: account) }
+      let(:version) { create(:ai_skill_version, account: account, ai_skill: skill) }
+      let(:judge_agent) { create(:ai_agent, account: account, name: "LLM Judge", slug: "llm-judge") }
+      let(:client) { instance_double(WorkerLlmClient) }
+
+      before do
+        enable_flag!(true)
+        judge_agent
+        allow_any_instance_of(Ai::Tools::SemanticToolDiscoveryService).to receive(:discover).and_return([])
+        allow(WorkerLlmClient).to receive(:new).with(hash_including(agent_id: judge_agent.id)).and_return(client)
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: '{"scores": {}, "rationale": "empty"}',
+                                usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 })
+        )
+        execution.update!(execution_context: { described_class::SKILL_VERSION_CONTEXT_KEY => version.id })
+      end
+
+      it "records not_measured naming the missing dimensions, and moves neither trust nor the version" do
+        # The judge's OWN LLM call is tracked as an execution of the judge
+        # agent, and that row's model hook evaluates trust for the JUDGE. That
+        # is not what F1 is about: the judged execution must never reach trust.
+        trust = instance_double(Ai::Autonomy::TrustEngineService, evaluate: true)
+        allow(Ai::Autonomy::TrustEngineService).to receive(:new).and_return(trust)
+
+        result = service.evaluate_execution(execution: execution)
+
+        expect(trust).not_to have_received(:evaluate).with(hash_including(execution: execution))
+
+        expect(result[:status]).to eq("not_measured")
+        expect(result[:reason]).to eq("JudgeDimensionMissing")
+        expect(result[:detail]).to include("correctness", "safety")
+        expect(Ai::EvaluationResult.count).to eq(0)
+        expect((execution.reload.performance_metrics || {})["quality_score"]).to be_nil
+        expect(version.reload.usage_count).to eq(0)
+      end
+    end
+
+    # ---- D4 review F6: one reason code per cause ----
+    it "reports UnscoredEvaluation, not NoServedVersion, for an evaluation with no quality" do
+      # A nil quality means the row carried no scores. "No version served" is
+      # a different fact about a different thing, and shared one code before.
+      expect(service.send(:record_skill_outcome, execution, nil))
+        .to eq(status: "not_measured", reason: "UnscoredEvaluation")
+    end
+
+    # ---- D4 review F2: tenancy ----
+    it "never judges another account's execution" do
+      enable_flag!(true)
+      other = create(:account)
+      foreign = create(:ai_agent_execution, :completed, account: other, agent: create(:ai_agent, account: other),
+                                                        output_data: { "result" => "account B private transcript" })
+      expect(Ai::Learning::LlmJudgeService).not_to receive(:new)
+
+      result = service.evaluate_execution(execution: foreign)
+
+      expect(result).to eq(status: "not_measured", reason: "NoEvaluableExecution")
+      expect(Ai::EvaluationResult.count).to eq(0)
+    end
   end
 
   describe "#agent_score_trends" do
