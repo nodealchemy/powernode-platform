@@ -615,6 +615,7 @@ export type InvestigationRankingReason =
   | 'RankerUnusable'
   | 'ProviderError'
   | 'NoPrincipal'
+  | 'LedgerUnavailable'
   | (string & {});
 
 /**
@@ -664,6 +665,11 @@ export interface Investigation {
   ranking?: InvestigationRanking | null;
   /** The operator who opened it; null for an automatic trigger. */
   opened_by_user_id?: string | null;
+  /**
+   * What ranking cost across EVERY attempt, as a decimal string ("0.048").
+   * Null until a positive cost is booked: "not recorded", never zero.
+   */
+  cost_usd?: string | null;
   agent_id: string | null;
   started_at: string;
   completed_at: string | null;
@@ -678,6 +684,11 @@ export interface InvestigationsData {
   recent: Investigation[];
   /** Null when the server sent none; never shown as a cap of 0. */
   daily_cap: number | null;
+  /**
+   * The component's scope, as the index reports it. `shared` means the list is
+   * this account's investigations plus the automatic ones, not everyone's.
+   */
+  scope?: ComponentScope | null;
 }
 
 /** Why a `POST :id/investigations` was refused. Switch on the token, not the message. */

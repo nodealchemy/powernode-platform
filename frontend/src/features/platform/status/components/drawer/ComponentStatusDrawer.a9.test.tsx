@@ -320,6 +320,9 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
           id: 'inv-r',
           status: 'open',
           open: true,
+          // The server sends the record in both places on an open row; the
+          // drawer reads only the top-level one.
+          ranking: (ranking ?? null) as Investigation['ranking'],
           evidence: {
             assembled_at: '2026-09-10T11:00:00Z',
             window_seconds: 900,
@@ -389,6 +392,54 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
         expect(screen.queryByText(/No hypotheses/)).not.toBeInTheDocument();
       });
 
+      it('reads ONLY the top-level ranking: a row carrying just evidence.ranking renders no outcome', async () => {
+        mockedApi.fetchInvestigations.mockResolvedValue(
+          investigations({
+            open: [
+              investigation({
+                id: 'inv-e',
+                status: 'open',
+                open: true,
+                evidence: {
+                  window_seconds: 900,
+                  errors: {},
+                  ranking: rankingRecord(),
+                } as Investigation['evidence'],
+              }),
+            ],
+          })
+        );
+        renderDrawer();
+        await openTab('Investigations');
+
+        expect(await screen.findByText(/Ranking runs in the worker/)).toBeInTheDocument();
+        expect(document.querySelector('[data-ranking-outcome]')).toBeNull();
+      });
+
+      it('has no errors.ranking reader: a row carrying only that renders no ranking outcome', async () => {
+        mockedApi.fetchInvestigations.mockResolvedValue(
+          investigations({
+            open: [
+              investigation({
+                id: 'inv-l',
+                status: 'open',
+                open: true,
+                evidence: {
+                  window_seconds: 900,
+                  errors: { ranking: 'ranker refused: security gate' },
+                } as Investigation['evidence'],
+              }),
+            ],
+          })
+        );
+        renderDrawer();
+        await openTab('Investigations');
+
+        await screen.findByText(/Ranking runs in the worker/);
+        expect(document.querySelector('[data-ranking-outcome]')).toBeNull();
+        expect(screen.queryByText(/Ranking did not run/)).not.toBeInTheDocument();
+      });
+
       it("reads a CONCLUDED row's top-level ranking — the recent list carries no evidence", async () => {
         mockedApi.fetchInvestigations.mockResolvedValue(
           investigations({
@@ -411,33 +462,6 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
         expect(screen.getByText('No hypotheses were produced.')).toBeInTheDocument();
       });
 
-      it('shows a ranking error an older server left in evidence.errors as its own line, never as a gap', async () => {
-        mockedApi.fetchInvestigations.mockResolvedValue(
-          investigations({
-            open: [
-              withRanking(undefined, {
-                evidence: {
-                  assembled_at: '2026-09-10T11:00:00Z',
-                  window_seconds: 900,
-                  errors: { ranking: 'ranker refused: security gate', metrics_window: 'prometheus timeout' },
-                } as Investigation['evidence'],
-              }),
-            ],
-          })
-        );
-        renderDrawer();
-        await openTab('Investigations');
-
-        expect(await screen.findByText('Ranking did not run: ranker refused: security gate')).toBeInTheDocument();
-        // The REAL evidence class that failed is still a gap; ranking is not.
-        const gap = document.querySelector('[data-evidence-errors]') as HTMLElement;
-        expect(gap).not.toBeNull();
-        const gapNames = Array.from(gap.querySelectorAll('dt')).map((node) => node.textContent);
-        expect(gapNames).toEqual(['metrics_window']);
-        // No promise about the worker, and no retry fact that was never recorded.
-        expect(screen.queryByText(/Ranking runs in the worker/)).not.toBeInTheDocument();
-        expect(screen.getByText('No hypotheses yet.')).toBeInTheDocument();
-      });
 
       it('a retryable failure says it will be retried, not that the worker will finish it', async () => {
         mockedApi.fetchInvestigations.mockResolvedValue(
@@ -541,6 +565,77 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
       expect(screen.getByText('checked, nothing found')).toBeInTheDocument();
       expect(screen.getByText(/could not be checked at all/)).toBeInTheDocument();
       expect(screen.getByText('RuntimeError: extension is down')).toBeInTheDocument();
+    });
+
+    it('shows a booked ranking cost as the server sent it, across all attempts', async () => {
+      mockedApi.fetchInvestigations.mockResolvedValue(
+        investigations({ recent: [investigation({ id: 'inv-c', cost_usd: '0.048' })] })
+      );
+      renderDrawer();
+      await openTab('Investigations');
+
+      expect(await screen.findByText('ranking cost $0.048')).toBeInTheDocument();
+    });
+
+    it('says a null cost was not recorded — never $0 (the other arm)', async () => {
+      mockedApi.fetchInvestigations.mockResolvedValue(
+        investigations({ recent: [investigation({ id: 'inv-c', cost_usd: null })] })
+      );
+      renderDrawer();
+      await openTab('Investigations');
+
+      expect(await screen.findByText('no ranking cost recorded')).toBeInTheDocument();
+      expect(screen.queryByText(/\$0/)).not.toBeInTheDocument();
+    });
+
+    it('prints no cost line when the server sends no cost_usd at all', async () => {
+      mockedApi.fetchInvestigations.mockResolvedValue(
+        investigations({ recent: [investigation({ id: 'inv-c' })] })
+      );
+      renderDrawer();
+      await openTab('Investigations');
+
+      await screen.findByText('This investigation produced no hypotheses.');
+      expect(document.querySelector('[data-investigation-cost]')).toBeNull();
+    });
+
+    it('names a LedgerUnavailable ranking outcome: no model was called', async () => {
+      mockedApi.fetchInvestigations.mockResolvedValue(
+        investigations({
+          recent: [
+            investigation({
+              id: 'inv-c',
+              ranking: {
+                state: 'failed', reason: 'LedgerUnavailable', message: 'ledger write failed',
+                retryable: false, attempts: 3, recorded_at: '2026-09-10T11:01:00Z',
+              },
+            }),
+          ],
+        })
+      );
+      renderDrawer();
+      await openTab('Investigations');
+
+      expect(
+        await screen.findByText('Ranking did not run: the spend ledger could not be written, so no model was called.')
+      ).toBeInTheDocument();
+    });
+
+    it('says whose investigations a SHARED component lists (A9 scope)', async () => {
+      mockedApi.fetchInvestigations.mockResolvedValue(investigations({ scope: 'shared' }));
+      renderDrawer();
+      await openTab('Investigations');
+
+      expect(await screen.findByText(/Other accounts.? investigations of it are not/)).toBeInTheDocument();
+    });
+
+    it('adds no scope line for an account-scoped component (the other arm)', async () => {
+      mockedApi.fetchInvestigations.mockResolvedValue(investigations({ scope: 'account' }));
+      renderDrawer();
+      await openTab('Investigations');
+
+      await screen.findByText(/Daily cap 20/);
+      expect(document.querySelector('[data-investigations-scope]')).toBeNull();
     });
 
     it('prints no daily cap the server did not send — never "Daily cap 0" (C3p2 review R11)', async () => {

@@ -61,24 +61,15 @@ const EVIDENCE_META_KEYS = new Set(['assembled_at', 'window_seconds', 'errors', 
 // non-retryable. So it is rendered in its own block, switched on the stable
 // `reason` token, with the server's `message` as prose beside it.
 
-type RankingRecord = NonNullable<InvestigationEvidence['ranking']>;
+type RankingRecord = NonNullable<Investigation['ranking']>;
 
 /**
- * The ranking record, wherever this row carries it. The top-level field is on
- * every row; `evidence.ranking` only on rows that carry evidence (open ones).
+ * The ranking record: the top-level field ONLY. Every server door serializes
+ * it on every row (A6); `evidence.ranking` is the same object on open rows and
+ * is not read, so the drawer has one source and no fallback to keep in step.
  */
 const rankingOf = (investigation: Investigation): RankingRecord | undefined =>
-  investigation.ranking ?? investigation.evidence?.ranking ?? undefined;
-
-/**
- * `evidence.errors.ranking` — how servers before the structured record said
- * ranking failed, and rows they wrote keep it. No retry fact came with it, so
- * none is claimed; it is shown as what it is and kept out of the evidence gap.
- */
-const legacyRankingErrorOf = (investigation: Investigation): string | undefined => {
-  const value = investigation.evidence?.errors?.ranking;
-  return typeof value === 'string' && value ? value : undefined;
-};
+  investigation.ranking ?? undefined;
 
 const RANKING_LEAD: Record<string, string | undefined> = {
   AutomaticSpendNeedsGrant:
@@ -87,6 +78,7 @@ const RANKING_LEAD: Record<string, string | undefined> = {
   RankerUnusable: 'Ranking did not produce usable hypotheses.',
   ProviderError: 'Ranking failed: the AI provider returned an error.',
   NoPrincipal: 'Ranking did not run: no agent was available to run it.',
+  LedgerUnavailable: 'Ranking did not run: the spend ledger could not be written, so no model was called.',
 };
 
 const RankingOutcome: React.FC<{ ranking: RankingRecord }> = ({ ranking }) => {
@@ -122,9 +114,6 @@ const emptyHypothesesText = (investigation: Investigation): string => {
     return ranking.retryable && investigation.open
       ? 'No hypotheses yet. Ranking will be retried.'
       : 'No hypotheses were produced.';
-  }
-  if (legacyRankingErrorOf(investigation)) {
-    return investigation.open ? 'No hypotheses yet.' : 'No hypotheses were produced.';
   }
   return investigation.open
     ? 'No hypotheses yet. Ranking runs in the worker, so an open investigation normally has none until it completes.'
@@ -168,11 +157,7 @@ const unseenLabel = (entry: UnseenEntry): string =>
 
 const EvidenceSummary: React.FC<{ evidence: InvestigationEvidence }> = ({ evidence }) => {
   const classes = Object.entries(evidence).filter(([key]) => !EVIDENCE_META_KEYS.has(key));
-  // `ranking` is not an evidence class; a legacy row's ranking error is shown by
-  // RankingSection, never under the gap heading below.
-  const errors = Object.fromEntries(
-    Object.entries(evidence.errors ?? {}).filter(([name]) => name !== 'ranking')
-  );
+  const errors = evidence.errors ?? {};
 
   return (
     <div className="mt-2">
@@ -252,18 +237,7 @@ const EvidenceSummary: React.FC<{ evidence: InvestigationEvidence }> = ({ eviden
 
 const RankingSection: React.FC<{ investigation: Investigation }> = ({ investigation }) => {
   const ranking = rankingOf(investigation);
-  if (ranking) return <RankingOutcome ranking={ranking} />;
-  const legacy = legacyRankingErrorOf(investigation);
-  if (!legacy) return null;
-  return (
-    <div
-      data-ranking-outcome
-      data-ranking-reason="legacy"
-      className="mt-2 rounded border border-theme px-2 py-1"
-    >
-      <p className="text-xs text-theme-secondary">Ranking did not run: {legacy}</p>
-    </div>
-  );
+  return ranking ? <RankingOutcome ranking={ranking} /> : null;
 };
 
 const InvestigationCard: React.FC<{ investigation: Investigation }> = ({ investigation }) => (
@@ -281,6 +255,17 @@ const InvestigationCard: React.FC<{ investigation: Investigation }> = ({ investi
       <span className="text-xs text-theme-tertiary" title={`Started at ${investigation.started_at}.`}>
         started {formatRelativeTimeCompact(investigation.started_at)}
       </span>
+      {/* Null is "not recorded", never $0: a cost is booked only when it was
+          positive. Absent (a server that does not send it) says nothing. */}
+      {investigation.cost_usd !== undefined && (
+        <span
+          className="text-xs text-theme-tertiary"
+          data-investigation-cost
+          title="What ranking this investigation cost, across every attempt."
+        >
+          {investigation.cost_usd === null ? 'no ranking cost recorded' : `ranking cost $${investigation.cost_usd}`}
+        </span>
+      )}
     </div>
 
     {investigation.conclusion && (
@@ -400,6 +385,17 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({
           </p>
         )}
       </div>
+
+      {/* Whose investigations these are, for a SHARED component (A9, S1): the
+          list is this account's plus the automatic ones, never another
+          account's, so an operator must not read it as the whole history. */}
+      {data?.scope === 'shared' && (
+        <p className="text-xs text-theme-tertiary" data-investigations-scope="shared">
+          This component is shared infrastructure. Listed here: investigations your account opened
+          and ones the platform opened automatically. Other accounts&apos; investigations of it are not
+          shown, and one you open counts against your account&apos;s daily cap.
+        </p>
+      )}
 
       {data && data.open.length === 0 && data.recent.length === 0 && (
         <p className="text-sm text-theme-secondary">

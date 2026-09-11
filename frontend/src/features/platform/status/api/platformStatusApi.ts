@@ -256,6 +256,7 @@ export const fetchInvestigations = async (id: string): Promise<InvestigationsDat
     // Null, never 0 (C3p2 review R11): a missing cap rendered "Daily cap 0.", a
     // bound nobody set.
     daily_cap: data.daily_cap ?? null,
+    scope: data.scope ?? null,
   };
 };
 

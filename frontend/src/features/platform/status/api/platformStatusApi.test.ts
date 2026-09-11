@@ -199,6 +199,13 @@ describe('fetchInvestigations', () => {
     expect(data.daily_cap).toBeNull();
   });
 
+  it('passes the component scope through, and leaves a missing one null', async () => {
+    client.get.mockResolvedValue({ data: { data: { component_status_id: 'row-1', open: [], recent: [], scope: 'shared' } } });
+    expect((await fetchInvestigations('row-1')).scope).toBe('shared');
+    client.get.mockResolvedValue({ data: { data: { component_status_id: 'row-1', open: [], recent: [] } } });
+    expect((await fetchInvestigations('row-1')).scope).toBeNull();
+  });
+
   it('keeps the daily cap the server sent', async () => {
     client.get.mockResolvedValue({
       data: { data: { component_status_id: 'row-1', open: [], recent: [], daily_cap: 20 } },
