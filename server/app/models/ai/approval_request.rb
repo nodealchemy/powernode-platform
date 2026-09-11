@@ -94,6 +94,11 @@ module Ai
 
       step_info = current_step_info
       return false unless step_info
+      # One person, one decision per step. Without this a second "approved" from
+      # the same user counted toward required_approvals, so one approver could
+      # satisfy a two-approval step alone. It is also what makes
+      # current_step_can_approve false for someone who has already decided.
+      return false if decided_current_step?(user)
 
       approvers = step_info["approvers"] || []
       approvers.any? { |spec| approver_matches?(spec, user) }
@@ -102,15 +107,17 @@ module Ai
     def record_decision!(approver:, decision:, comments: nil, conditions: {})
       return false unless can_approve?(approver)
 
-      decisions.create!(
-        approver: approver,
-        step_number: current_step,
-        decision: decision,
-        comments: comments,
-        conditions: conditions
-      )
+      # THE REQUEST ROW IS LOCKED FOR THE WHOLE DECISION. Without it two
+      # concurrent decisions both pass the check above and both read-modify-write
+      # step_statuses: the same approver could turn both keys of a step, and two
+      # different approvers could each write current_approvals = 1 and lose a
+      # key. Under the lock the check is repeated against the row as it is now.
+      with_lock do
+        next false unless can_approve?(approver)
+        next false unless insert_decision(approver, decision, comments, conditions)
 
-      process_decision(decision)
+        process_decision(decision)
+      end
     end
 
     def check_expiration!
@@ -313,12 +320,41 @@ module Ai
       Rails.logger.error("[ApprovalRequest##{id}] fan_out_step_notifications failed: #{e.message}")
     end
 
+    # The unique index (one decision per approver per step) is the database's
+    # half of the guard and the lock's backstop. A violation gets the check's
+    # answer, not a 500. A savepoint, so the enclosing transaction survives the
+    # refused insert.
+    def insert_decision(approver, decision, comments, conditions)
+      self.class.transaction(requires_new: true) do
+        decisions.create!(
+          approver: approver,
+          step_number: current_step,
+          decision: decision,
+          comments: comments,
+          conditions: conditions
+        )
+      end
+      true
+    rescue ActiveRecord::RecordNotUnique
+      false
+    end
+
+    def decided_current_step?(user)
+      return false unless user
+
+      decisions.where(step_number: current_step, approver_id: user.id).exists?
+    end
+
     def process_decision(decision)
       step_info = step_statuses[current_step]
 
       case decision
       when "approved"
-        step_info["current_approvals"] += 1
+        # The tally is the step's approval ROWS, never a counter carried
+        # forward in step_statuses: a counter incremented on a stale copy loses
+        # a concurrent approver's key. Recounted under the lock, with this
+        # decision's row already in.
+        step_info["current_approvals"] = decisions.where(step_number: current_step, decision: "approved").count
         step_info["status"] = "approved" if step_info["current_approvals"] >= step_info["required_approvals"]
 
         if step_info["status"] == "approved"

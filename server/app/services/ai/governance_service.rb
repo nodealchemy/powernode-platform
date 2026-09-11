@@ -87,12 +87,15 @@ module Ai
     def process_approval_decision(request:, user:, decision:, comments: nil, conditions: {})
       return { success: false, error: "Cannot approve" } unless request.can_approve?(user)
 
-      request.record_decision!(
+      # The decision's own answer: false when a racing decision by the same
+      # approver on this step got there first (the unique index).
+      recorded = request.record_decision!(
         approver: user,
         decision: decision,
         comments: comments,
         conditions: conditions
       )
+      return { success: false, error: "Cannot approve" } unless recorded
 
       { success: true, request: request.reload }
     end

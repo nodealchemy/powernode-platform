@@ -83,8 +83,9 @@ module Ai
         return false unless request.pending?
         return false unless request.can_approve?(approver)
 
-        request.record_decision!(approver: approver, decision: "approved", comments: comments)
-        true
+        # The decision's own answer, not a constant: it is false when a racing
+        # decision by the same approver got there first (the unique index).
+        request.record_decision!(approver: approver, decision: "approved", comments: comments) ? true : false
       end
 
       # Reject a pending request. Rejection at any step terminates the chain.
@@ -98,8 +99,7 @@ module Ai
         return false unless request.pending?
         return false unless request.can_approve?(approver)
 
-        request.record_decision!(approver: approver, decision: "rejected", comments: comments)
-        true
+        request.record_decision!(approver: approver, decision: "rejected", comments: comments) ? true : false
       end
 
       # Expire overdue requests. Honours each chain's timeout_action
