@@ -129,13 +129,6 @@ module Platform
         nil
       end
 
-      # Maps a FleetEvent/SignalState to this component (by node_instance_id,
-      # payload.instance_id, certificate_id, ...). A5 consumes it; nil means
-      # "signals never bind to this kind".
-      def signal_resolver
-        nil
-      end
-
       # Drawer and investigation defaults. Optional.
       def runbook_key
         nil
