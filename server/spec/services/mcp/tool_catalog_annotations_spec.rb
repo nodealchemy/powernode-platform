@@ -50,7 +50,8 @@ RSpec.describe Mcp::ToolCatalog, "safety annotations" do
   # was advertised as a safe read before E2.
   let(:measuring_write_tool) { fake_tool("measure_fake_pressure", mutating: true) }
   # A declared write whose name is destroy-SHAPED but which declares nothing
-  # about destructiveness — the extension surface's current state.
+  # about destructiveness. The whole-surface lint forbids this declaration; the
+  # catalog no longer papers over it.
   let(:undeclared_destroy_tool) { fake_tool("fake_terminate_instance", mutating: true) }
 
   let(:catalog) { described_class.new(protocol_version: "2025-11-25") }
@@ -153,20 +154,24 @@ RSpec.describe Mcp::ToolCatalog, "safety annotations" do
     end
   end
 
-  describe "the deny-overlay floor" do
-    # E2 declares the CORE surface; the extension tool files are another
-    # lane's partition. Publishing the bare declaration for those would
-    # advertise `destructiveHint: false` on system_terminate_instance — a
-    # FALSE hint, worse than the silence it replaced.
-    it "reports destructiveHint true for a destroy-shaped write that declares nothing about destructiveness" do
+  # THE DECLARATION ALONE DECIDES A DECLARED WRITE (E2 follow-through). While
+  # the system extension's destroy-shaped verbs were undeclared, a floor here
+  # published destructiveHint true for any overlay match. Every such verb is
+  # declared now, so the floor is gone and the catalog reports exactly what the
+  # declaration says. Agreement with the overlay is enforced in one place, by
+  # spec/lint/destructive_declaration_matches_deny_overlay_spec.rb, over the
+  # whole surface.
+  describe "a declared write" do
+    # The overlay is NOT consulted on this path: a destroy-shaped name that
+    # declares nothing publishes false. That declaration cannot exist in the
+    # tree — the lint refuses it — which is why the floor could go.
+    it "publishes exactly its declaration, even for a destroy-shaped name that declares nothing" do
       with_registry("fake_terminate_instance" => undeclared_destroy_tool)
 
       expect(::Mcp::Principal.destructive_tool?("fake_terminate_instance")).to be(true)
-      expect(annotations_for("fake_terminate_instance")["destructiveHint"]).to be(true)
+      expect(annotations_for("fake_terminate_instance")["destructiveHint"]).to be(false)
     end
 
-    # The other arm: the floor is not a blanket. A write the overlay does not
-    # refuse and nobody declared destructive stays false.
     it "leaves an ordinary write false" do
       with_registry("fake_noun_upsert" => write_tool)
 
@@ -174,9 +179,8 @@ RSpec.describe Mcp::ToolCatalog, "safety annotations" do
       expect(annotations_for("fake_noun_upsert")["destructiveHint"]).to be(false)
     end
 
-    # The floor can only TIGHTEN. It must never pull a declared destroy back
-    # down just because the glob does not happen to match its name.
-    it "does not override a declaration downward" do
+    # A declared destroy is true whether or not the glob matches its name.
+    it "publishes a declared destroy true whatever the overlay says" do
       with_registry("fake_noun_obliterate" => destructive_tool)
 
       expect(::Mcp::Principal.destructive_tool?("fake_noun_obliterate")).to be(false)
@@ -185,11 +189,11 @@ RSpec.describe Mcp::ToolCatalog, "safety annotations" do
 
     # THE GENUINELY UNDECLARED ARM (E2 review L4). The first example in this
     # group names a class that DOES declare — mutating, just not destructive —
-    # so it drives #destructive? and never reaches #inferred_annotations. An
-    # action with no declaration at all takes the inferred path, which did not
-    # consult the overlay. Its other arm is "still reports its source when the
-    # prefix rule says nothing" above: a non-destroy-shaped inferred action
-    # still carries annotationSource alone.
+    # so it takes the declared path. An action with no declaration at all
+    # takes the inferred path, where the overlay is still the only input. Its
+    # other arm is "still reports its source when the prefix rule says
+    # nothing" above: a non-destroy-shaped inferred action still carries
+    # annotationSource alone.
     it "reports destructiveHint true for a destroy-shaped action with no declaration at all" do
       stub_const("Ai::Introspection::McpToolRegistrar::INTROSPECTION_TOOLS",
                  [ { id: "platform.purge_fake_cache", description: "Purges.", input_schema: { "type" => "object" } } ])

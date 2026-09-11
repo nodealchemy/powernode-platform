@@ -3,7 +3,7 @@
 require "rails_helper"
 
 # Increment E2 — the two destructiveness classifications on this platform agree
-# over the CORE tool surface.
+# over the WHOLE registered tool surface, core and extension alike.
 #
 # There are two of them, and before E2 they never met:
 #
@@ -17,13 +17,13 @@ require "rails_helper"
 #
 # They are different questions with the same subject, and two rival
 # classifications of the same verbs is how one of them silently rots. This
-# holds them in SET EQUALITY over core, in both directions:
+# holds them in SET EQUALITY over every registered action, in both directions:
 #
-#   overlay - declared   a destroy-shaped core action nobody declared. It would
+#   overlay - declared   a destroy-shaped action nobody declared. It would
 #                        publish `destructiveHint: false`, and a client reading
 #                        the hint would treat a verb the platform refuses to
 #                        even grant an instance as a reversible write.
-#   declared - overlay   a core action declared destructive that the overlay
+#   declared - overlay   an action declared destructive that the overlay
 #                        does NOT refuse. That is not a harmless surplus: the
 #                        author has said it performs an irreversible update, so
 #                        the overlay should be refusing it for instance
@@ -49,23 +49,24 @@ require "rails_helper"
 #   reject_deferred_operation    a terminal transition that abandons it
 #
 # By MCP's own definition four of the five are correctly `true`; only the
-# first is additive, and it stays `true` for the effect above. More to the
-# point, undeclaring any of them would change nothing on the wire: the
-# catalog's floor publishes destructiveHint true for every overlay match
-# whatever the declaration says, so an undeclared entry would only make the
-# declaration contradict the published hint. The one way to publish `false`
-# is to take them off the overlay, which would let an instance principal
-# write its own autonomy policy, lift the kill switch, or approve operations
-# parked against it. The control wins; the over-statement is the safe
-# direction and is recorded here rather than rediscovered.
+# first is additive, and it stays `true` for the effect above. Undeclaring any
+# of them is not an option either: the catalog now publishes destructiveHint
+# from the declaration alone, so an undeclared entry would advertise a verb the
+# overlay refuses as a reversible write, which the first equality example
+# below forbids. The one way to publish `false` is to take them off the
+# overlay, which would let an instance principal write its own autonomy
+# policy, lift the kill switch, or approve operations parked against it. The
+# control wins; the over-statement is the safe direction and is recorded here
+# rather than rediscovered.
 #
-# SCOPE IS CORE ONLY, and that is a live gap rather than a design choice. The
-# 40 destroy-shaped actions in extensions/system carry no `destructive:`
-# declaration yet — E2's partition is core tool files. Mcp::ToolCatalog covers
-# them meanwhile with a floor that reads the overlay directly, so nothing is
-# UNDER-stated on the wire today; what is missing is the declaration. The
-# extension arm below asserts that gap is still exactly what it was, so it
-# cannot quietly grow while it waits for its lane.
+# SCOPE IS THE WHOLE SURFACE (E2 follow-through). E2 declared the core tool
+# files, and the 40 destroy-shaped actions in the system extension were
+# declared in its own lane (extension commit a6bda1dc). Until then this file
+# covered core only, Mcp::ToolCatalog stood in for the extension with a floor
+# that read the overlay directly, and a pin asserted the extension gap had not
+# grown. With every destroy-shaped verb declared, the pin and the floor are
+# both gone: the catalog publishes destructiveHint from the declaration alone,
+# and the equality below is what keeps that honest, in every tree.
 RSpec.describe "declare_action(destructive:) agrees with the instance deny overlay", type: :lint do
   # Walked from the REGISTRY MAP, one row per registry key. Walking
   # ToolDeclarationCoverage.resolved_actions instead and recovering the key by
@@ -122,17 +123,14 @@ RSpec.describe "declare_action(destructive:) agrees with the instance deny overl
   # Keyed on the REGISTRY KEY, because that is the name Mcp::Principal
   # #may_invoke? checks the overlay against — the name a caller invokes, not
   # the name BaseTool dispatches internally.
-  let(:overlay_core) do
-    Ai::Tools::PlatformApiToolRegistry.all_tools.filter_map do |key, class_name|
-      next nil unless core?(source_path(class_name))
-
+  let(:overlay) do
+    Ai::Tools::PlatformApiToolRegistry.all_tools.filter_map do |key, _class_name|
       key if Mcp::Principal.destructive_tool?(key)
     end.to_set
   end
 
-  let(:declared_core) do
+  let(:declared) do
     rows.filter_map do |row|
-      next nil unless core?(row[:source])
       next nil unless row[:declaration].is_a?(Hash) && row[:declaration][:destructive] == true
 
       row[:registry_key]
@@ -173,26 +171,37 @@ RSpec.describe "declare_action(destructive:) agrees with the instance deny overl
       "found no extension-defined actions — the core?/extension split has stopped working"
   end
 
-  it "declares every core action the deny overlay refuses" do
-    missing = (overlay_core - declared_core).to_a.sort
+  # The equality is only as wide as the sets it compares. If the extension
+  # stopped loading, both sides would shrink to core and still agree, so both
+  # trees must be present in the overlay set for the examples below to mean
+  # what they say.
+  it "compares sets that span both trees" do
+    trees = overlay.map { |key| core?(source_path(Ai::Tools::PlatformApiToolRegistry.all_tools[key])) ? :core : :extension }
+
+    expect(trees).to include(:core, :extension),
+      "the overlay set covers only #{trees.uniq.inspect} — the whole-surface equality is not measuring both trees"
+  end
+
+  it "declares every action the deny overlay refuses" do
+    missing = (overlay - declared).to_a.sort
 
     expect(missing).to be_empty, <<~MSG
-      #{missing.size} core action(s) are refused by Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS
+      #{missing.size} action(s) are refused by Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS
       but carry no `destructive: true` on their declare_action:
 
         #{missing.join("\n  ")}
 
-      Mcp::ToolCatalog publishes destructiveHint from the declaration, so each of
-      these would advertise as a reversible write to any client that did not also
-      hit the overlay's floor. Add `destructive: true` to the declaration.
+      Mcp::ToolCatalog publishes destructiveHint from the declaration alone, so each
+      of these would advertise as a reversible write. Add `destructive: true` to the
+      declaration.
     MSG
   end
 
-  it "refuses a core destructive declaration the deny overlay would still grant" do
-    surplus = (declared_core - overlay_core).to_a.sort
+  it "refuses a destructive declaration the deny overlay would still grant" do
+    surplus = (declared - overlay).to_a.sort
 
     expect(surplus).to be_empty, <<~MSG
-      #{surplus.size} core action(s) declare `destructive: true` but are NOT matched by
+      #{surplus.size} action(s) declare `destructive: true` but are NOT matched by
       Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS:
 
         #{surplus.join("\n  ")}
@@ -201,38 +210,6 @@ RSpec.describe "declare_action(destructive:) agrees with the instance deny overl
       instance principal should not be able to hold a grant for it. Add a pattern
       to the overlay rather than dropping the declaration — the overlay is the
       control, the hint is only the disclosure.
-    MSG
-  end
-
-  # THE PENDING HALF, asserted rather than described. If somebody declares the
-  # extension verbs (the intended follow-up) this goes red and is deleted
-  # along with Mcp::ToolCatalog#destructive?'s floor; if somebody adds a new
-  # undeclared destroy-shaped extension verb it goes red too.
-  it "pins the extension surface as still entirely undeclared" do
-    overlay_ext = Ai::Tools::PlatformApiToolRegistry.all_tools.filter_map do |key, class_name|
-      path = source_path(class_name)
-      next nil if path.empty? || core?(path)
-
-      key if Mcp::Principal.destructive_tool?(key)
-    end.to_set
-
-    declared_ext = rows.filter_map do |row|
-      next nil if row[:source].empty? || core?(row[:source])
-      next nil unless row[:declaration].is_a?(Hash) && row[:declaration][:destructive] == true
-
-      row[:registry_key]
-    end.to_set
-
-    expect(overlay_ext).not_to be_empty,
-      "no destroy-shaped extension actions found — either the extension is not loaded in this " \
-      "environment, or the split has broken; either way this pin is not measuring anything"
-    expect(declared_ext).to be_empty, <<~MSG
-      #{declared_ext.size} extension action(s) now declare destructive: true:
-        #{declared_ext.to_a.sort.join("\n  ")}
-
-      Good — that is the follow-up landing. When ALL of them are declared, delete
-      this example and the deny-overlay floor in Mcp::ToolCatalog#destructive?,
-      and widen the two set-equality examples above from core to the whole surface.
     MSG
   end
 end

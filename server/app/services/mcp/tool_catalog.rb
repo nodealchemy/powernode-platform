@@ -365,49 +365,26 @@ module Mcp
     #
     # ANNOTATION_SOURCE_KEY reports where the READ/WRITE classification came
     # from — the field that was wrong before E2 — not every field in the
-    # object. See #destructive? for the one place a second input contributes.
+    # object. On this path the declaration is the ONLY input. The deny-overlay
+    # floor that stood in while the system extension's destroy-shaped verbs were
+    # undeclared is gone (E2 follow-through); spec/lint/
+    # destructive_declaration_matches_deny_overlay_spec.rb holds the declarations
+    # and the overlay in set equality over the whole surface instead.
     def annotations_for(action, declaration)
       return inferred_annotations(action) if declaration.nil?
 
       read_only = declaration[:mutating] != true
       hints = { "readOnlyHint" => read_only }
-      hints["destructiveHint"] = destructive?(action, declaration) unless read_only
+      hints["destructiveHint"] = declaration[:destructive] == true unless read_only
       hints[ANNOTATION_SOURCE_KEY] = ANNOTATION_SOURCE_DECLARED
       hints
     end
 
-    # THE DECLARATION, OR THE DENY OVERLAY AS A FLOOR THAT CAN ONLY TIGHTEN.
-    #
-    # `destructive:` is opt-in and E2 marks the CORE surface only — the
-    # extension tool files are another lane's partition. Publishing the bare
-    # declaration would therefore advertise `destructiveHint: false` on ~40
-    # extension verbs including `system_terminate_instance` and
-    # `system_destroy_instance`: not a missing hint but a FALSE one, which is
-    # strictly worse than the pre-E2 silence and is the same failure this
-    # increment exists to remove, moved one field over.
-    #
-    # So an action the instance deny overlay refuses as destroy-shaped reports
-    # `destructiveHint: true` even with nothing declared. Note the DIRECTION:
-    # the floor can only ever make a verb look more dangerous, never less, so
-    # the worst it can do is overstate — and this is not the glob becoming the
-    # source of truth, which is what #declare_action's own comment rejects. A
-    # declaration is never overridden downward by it, because a declaration
-    # that said `false` where the overlay says `true` is a disagreement the
-    # lint refuses to let exist in core.
-    #
-    # It retires for the extension surface the moment those declarations land;
-    # for core it is already a no-op, asserted by the lint's set equality.
-    def destructive?(action, declaration)
-      return true if declaration[:destructive] == true
-
-      ::Mcp::Principal.destructive_tool?(action)
-    end
-
-    # THE FLOOR HOLDS HERE TOO (E2 review L4). Before this, the inferred path
-    # never consulted the overlay: #destructive? is reached only from a
-    # declared write, so an action with NO declaration — its class would not
-    # load, #declaration_for rescued, or it is an introspection tool, which
-    # never has one — published no destructiveHint even when destroy-shaped.
+    # THE OVERLAY STILL DECIDES HERE, AND ONLY HERE (E2 review L4). An action
+    # with NO declaration — its class would not load, #declaration_for rescued,
+    # or it is an introspection tool, which never has one — has nothing else to
+    # go on. Before L4 this path never consulted the overlay and published no
+    # destructiveHint even when destroy-shaped.
     # MCP reads an absent destructiveHint as true, so that was safe by
     # accident. It is safe by construction now, and a destroy-shaped name is
     # never advertised read-only on the strength of a prefix match: the overlay
