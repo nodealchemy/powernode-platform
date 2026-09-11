@@ -60,7 +60,11 @@ module Ai
       def self.action_definitions
         {
           "query_learnings" => {
-            description: "Query compound learnings with optional filters and keyword search",
+            description: "Query compound learnings with optional filters. With a query, semantic search runs " \
+                         "first and falls back to keyword search when it finds nothing or no embedding can be " \
+                         "generated; match_mode says which ran (semantic | keyword | none, or filter when no " \
+                         "query is given). That empty-result fallback is this recall verb's alone: learnings " \
+                         "injected into agent context fall back to keywords only when no embedding can be generated.",
             parameters: {
               query: { type: "string", required: false, description: "Search query for learnings" },
               category: { type: "string", required: false, description: "Filter by category (pattern/anti_pattern/best_practice/discovery/fact/failure_mode/review_finding/performance_insight)" },
