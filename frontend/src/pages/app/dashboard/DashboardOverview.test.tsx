@@ -42,6 +42,8 @@ const renderDashboard = (value: DashboardStats, monitoringError: string | null =
 
 const healthChip = (): HTMLElement =>
   screen.getByText('System health', { selector: 'button span' }).closest('button') as HTMLElement;
+const chipFor = (label: string): HTMLElement =>
+  screen.getByText(label, { selector: 'button span' }).closest('button') as HTMLElement;
 const tile = (label: string): HTMLElement =>
   screen.getAllByTestId('stat-tile').find((t) => within(t).queryByText(label, { selector: 'h3' })) as HTMLElement;
 
@@ -53,6 +55,8 @@ describe('DashboardOverview — system health', () => {
     expect(within(chip).getByText('—')).toBeInTheDocument();
     expect(chip.querySelector('.badge-theme-warning')).not.toBeNull();
     expect(chip.querySelector('.badge-theme-success')).toBeNull();
+    // An answered not_measured still shows the agent figures the server sent.
+    expect(within(chipFor('Agents active')).getByText('2 of 3')).toBeInTheDocument();
 
     const health = tile('System health');
     expect(within(health).getByTestId('stat-tile-value')).toHaveTextContent('—');
@@ -104,6 +108,8 @@ describe('DashboardOverview — system health', () => {
     expect(within(executions).getByTestId('stat-tile-value')).toHaveTextContent('—');
     expect(within(executions).getByTestId('stat-tile-sub')).toHaveTextContent('Could not load');
     expect(within(tile('AI agents')).getByTestId('stat-tile-value')).toHaveTextContent('—');
+    // The posture chip too (review h5): a failed read is not "2 of 3" agents.
+    expect(within(chipFor('Agents active')).getByText('—')).toBeInTheDocument();
 
     expect(screen.getByRole('alert')).toHaveTextContent('Could not load: Network Error');
     expect(screen.queryByRole('img', { name: /Not measured/ })).toBeNull();
