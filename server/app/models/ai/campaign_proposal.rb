@@ -111,12 +111,15 @@ module Ai
     # Revise a proposal's fields before it's been approved (operator-directed review
     # rounds, as opposed to .propose!'s discovery-rediscovery refresh path above).
     # Recomputes the fingerprint so dedupe stays consistent with the edited target.
-    def update_fields!(**attrs)
+    def update_fields!(actor: nil, **attrs)
+      self.class.authorize_actor!(actor, account)
       unless PRE_APPROVAL_STATUSES.include?(status)
         raise ArgumentError, "cannot update a #{status} proposal — only proposed/queued proposals can be edited"
       end
 
-      attrs = attrs.slice(*UPDATABLE_FIELDS).compact
+      # Symbolized first: with the explicit actor: keyword, a caller's string-keyed
+      # (indifferent) hash arrives as a plain Hash and would match no field below.
+      attrs = attrs.transform_keys(&:to_sym).slice(*UPDATABLE_FIELDS).compact
       return self if attrs.empty?
 
       attrs[:fingerprint] = self.class.fingerprint_for(

@@ -110,6 +110,23 @@ RSpec.describe Ai::Tools::CampaignTool do
     expect(res[:error]).to match(/spawned proposal/)
   end
 
+  # Secreview LOW: the verb changed a proposal with no shared campaign check at all.
+  it "campaign_update_proposal asks the shared campaign check for its user, changing nothing for one who lacks manage here" do
+    pid = exec(action: "campaign_propose", title: "Owner's", objective: "Owner objective")[:data][:proposal][:id]
+    reader = create(:user, account: account, permissions: %w[ai.campaigns.read])
+
+    res = described_class.new(account: account, user: reader)
+                         .execute(params: { action: "campaign_update_proposal", proposal_id: pid,
+                                            title: "Rewritten by a reader" }.with_indifferent_access)
+    expect(res[:success]).to be false
+    expect(res[:error]).to include("user #{reader.id} does not hold 'ai.campaigns.manage' in account #{account.id}")
+    expect(account.ai_campaign_proposals.find(pid).title).to eq("Owner's")
+
+    res = exec(action: "campaign_update_proposal", proposal_id: pid, title: "Owner rewrite")
+    expect(res[:success]).to be true
+    expect(account.ai_campaign_proposals.find(pid).title).to eq("Owner rewrite")
+  end
+
   it "campaign_reject_proposal rejects a proposed/queued proposal with a reason" do
     pid = exec(action: "campaign_propose", title: "Not needed", objective: "Do something unnecessary")[:data][:proposal][:id]
 

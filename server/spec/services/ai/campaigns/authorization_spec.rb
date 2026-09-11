@@ -138,6 +138,18 @@ RSpec.describe "Ai::Campaigns::Authorization" do
       expect(proposal.reload.status).to eq("rejected")
     end
 
+    # Secreview LOW: update_fields! changed a proposal with no shared check at all.
+    it "update_fields! refuses a reader or a manager of another account named as the actor, changing nothing" do
+      original_title = proposal.title
+      [reader, foreign_manager].each do |actor|
+        expect { proposal.update_fields!(actor: actor, title: "Rewritten") }.to raise_error(StandardError, refusal)
+      end
+      expect(proposal.reload.title).to eq(original_title)
+
+      proposal.update_fields!(actor: owner, title: "Owner rewrite")
+      expect(proposal.reload.title).to eq("Owner rewrite")
+    end
+
     it "SpawnService (through CampaignDriver#start) refuses a reader, spawning nothing" do
       approved = create(:ai_campaign_proposal, :approved, account: account)
 

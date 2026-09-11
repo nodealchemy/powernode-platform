@@ -344,7 +344,7 @@ module Ai
                              :suggested_driver, :decision_authority, :configuration).compact
         return error_result("at least one field to update is required") if attrs.empty?
 
-        proposal.update_fields!(**attrs)
+        proposal.update_fields!(actor: user, **attrs)
         success_result(proposal: proposal.reload.summary)
       rescue ArgumentError => e
         error_result(e.message)
