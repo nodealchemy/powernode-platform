@@ -25,7 +25,12 @@ RSpec.describe Platform::Investigation::Ranking do
   end
 
   let(:investigation) do
-    Platform::InvestigationService.new(account: account).open!(component, trigger: "operator")[:investigation]
+    # Opened BY A PERSON, the way the REST and MCP doors open one. Ranking
+    # spends only as the opener (G1), so an investigation with no opener gets
+    # no ledger row; the automatic arm is proved separately against the real
+    # gate below.
+    Platform::InvestigationService.new(account: account)
+                                  .open!(component, trigger: "operator", opened_by: owner)[:investigation]
   end
 
   let(:valid_json) do
@@ -80,29 +85,172 @@ RSpec.describe Platform::Investigation::Ranking do
     # rather than raising when a gate refuses, and reporting that as "no
     # output" would send an operator to the provider for a refusal the
     # platform itself issued.
-    it "reports a security-gate block in the gate's own words" do
+    #
+    # And a refusal ENDS ranking (F4): the same input would meet the same gate
+    # on a retry, so it comes back terminal, not as a retryable error.
+    it "reports a security-gate block in the gate's own words, as a refusal" do
       allow(described_class).to receive(:agent_for).and_return(create(:ai_agent, account: account))
+      stub_provider(valid_json)
       allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_pre_execution_security_gate)
-        .and_return("error" => { "message" => "Blocked by security gate (anomaly_precheck): nope" })
+        .and_return("error" => { "type" => "SecurityGateViolation", "blocked_by" => "prompt_injection",
+                                 "message" => "Blocked by security gate (prompt_injection): nope" })
 
-      expect(described_class.run!(investigation, account: account)[:error])
-        .to include("Blocked by security gate")
+      outcome = described_class.run!(investigation, account: account)
+
+      expect(outcome[:error]).to be_nil
+      expect(outcome[:ranked]).to be_nil
+      expect(outcome[:ranking]).to include("state" => "refused", "reason" => "SecurityGateRefused",
+                                           "retryable" => false)
+      expect(outcome[:ranking]["message"]).to include("Blocked by security gate (prompt_injection): nope")
+    end
+
+    # The executor's OTHER refusal type. A guardrail block is the same kind of
+    # decision about the same input, so it ends ranking the same way.
+    it "treats a guardrail block as a refusal too" do
+      allow(described_class).to receive(:agent_for).and_return(create(:ai_agent, account: account))
+      stub_provider(valid_json)
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_input_guardrails)
+        .and_return(blocked: true, violations: [ { message: "topic not allowed" } ])
+
+      outcome = described_class.run!(investigation, account: account)
+
+      expect(outcome[:ranking]).to include("state" => "refused", "reason" => "SecurityGateRefused",
+                                           "retryable" => false)
+      expect(outcome[:ranking]["message"]).to include("Blocked by input guardrail: topic not allowed")
+    end
+
+    # The other arm: a provider failure the executor CAUGHT comes back as an
+    # error hash too, and it is retryable, not a refusal.
+    it "reports a provider failure the executor caught as retryable" do
+      allow(described_class).to receive(:agent_for).and_return(create(:ai_agent, account: account))
+      stub_provider(valid_json)
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider)
+        .and_raise(StandardError, "provider is down")
+
+      outcome = described_class.run!(investigation, account: account)
+
+      expect(outcome).to include(error: "provider is down", reason: described_class::REASON_PROVIDER_ERROR)
+      expect(outcome).not_to have_key(:ranking)
     end
 
     it "still reports no output when the provider genuinely returns none" do
       allow(described_class).to receive(:agent_for).and_return(create(:ai_agent, account: account))
       stub_provider("")
 
-      expect(described_class.run!(investigation, account: account)[:error])
-        .to eq("ranker returned no output")
+      outcome = described_class.run!(investigation, account: account)
+
+      expect(outcome[:error]).to eq("ranker returned no output")
+      expect(outcome[:reason]).to eq(described_class::REASON_RANKER_UNUSABLE)
     end
 
     it "reports unusable prose as unusable, not as a conclusion" do
       allow(described_class).to receive(:agent_for).and_return(create(:ai_agent, account: account))
       stub_provider("I'm sorry, I can't help with that.")
 
-      expect(described_class.run!(investigation, account: account)[:error])
-        .to eq("ranker returned no usable hypotheses")
+      outcome = described_class.run!(investigation, account: account)
+
+      expect(outcome[:error]).to eq("ranker returned no usable hypotheses")
+      expect(outcome[:reason]).to eq(described_class::REASON_RANKER_UNUSABLE)
+    end
+  end
+
+  # A6 re-verification G1, arms 2 and 3, through the REAL pre-execution
+  # security gate and the REAL principal resolution: a global canonical, minted
+  # into a clone in this account. Only the provider boundary and the NON-gate
+  # rails are stubbed. Arm 1, automatic spend WITH an agent-scoped grant,
+  # waits on A6b.
+  describe "the real security gate decides who may spend (G1)" do
+    let!(:canonical) do
+      create(:ai_agent, :global, slug: "infrastructure-generalist", name: "Infrastructure Generalist")
+    end
+    let!(:account_provider) { create(:ai_provider, account: account) }
+
+    def stub_non_gate_rails
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_input_guardrails).and_return(blocked: false)
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_post_execution_security_gate).and_return(nil)
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_output_guardrails).and_return(blocked: false)
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:validate_output!).and_return(true)
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:write_back_to_memory).and_return(nil)
+    end
+
+    it "refuses an AUTOMATIC investigation's spend, records why, and books nothing" do
+      stub_non_gate_rails
+      provider_calls = 0
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider) do
+        provider_calls += 1
+        { "output" => valid_json, "metadata" => { "tokens_used" => 10 } }
+      end
+      automatic = Platform::InvestigationService.new(account: account)
+                                                .open!(component, trigger: "down")[:investigation]
+      expect(automatic.opened_by_user_id).to be_nil
+
+      outcome = described_class.run!(automatic, account: account)
+
+      expect(outcome[:ranked]).to be_nil
+      expect(outcome[:agent]).to be_nil
+      expect(outcome[:ranking]).to include("state" => "not_run", "reason" => "AutomaticSpendNeedsGrant",
+                                           "retryable" => false)
+      expect(outcome[:ranking]["message"]).to include("automatic spend needs an agent-scoped grant")
+      expect(provider_calls).to eq(0)
+      expect(Ai::AgentExecution.where(account_id: account.id).count).to eq(0)
+    end
+
+    it "lets an OPERATOR-opened investigation spend, as that operator — the other arm" do
+      stub_non_gate_rails
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider)
+        .and_return("output" => valid_json, "metadata" => { "tokens_used" => 10 })
+      operator = create(:user, account: account)
+      opened = Platform::InvestigationService.new(account: account)
+                                             .open!(component, trigger: "operator", opened_by: operator)[:investigation]
+
+      outcome = described_class.run!(opened, account: account)
+
+      expect(outcome[:ranking]).to be_nil
+      expect(outcome[:error]).to be_nil
+      expect(outcome[:ranked].map { |c| c[:cause] }).to include("docker daemon died")
+      execution = Ai::AgentExecution.where(account_id: account.id).sole
+      expect(execution.user_id).to eq(operator.id)
+      expect(execution.ai_agent_id).to eq(outcome[:agent].id)
+    end
+  end
+
+  # A6 review F4 — what stays open. Only `record_outcome!` decides it.
+  describe ".record_outcome!" do
+    let(:unusable) { { error: "ranker returned no usable hypotheses", reason: described_class::REASON_RANKER_UNUSABLE } }
+
+    it "counts unusable answers and turns terminal on the last one the job will make" do
+      records = Array.new(described_class::MAX_RANKING_ATTEMPTS) do
+        described_class.record_outcome!(investigation, unusable)
+      end
+
+      expect(records.map { |r| r["attempts"] }).to eq((1..described_class::MAX_RANKING_ATTEMPTS).to_a)
+      expect(records.map { |r| r["retryable"] })
+        .to eq([ true ] * (described_class::MAX_RANKING_ATTEMPTS - 1) + [ false ])
+      expect(records.last).to include("state" => "failed", "reason" => "RankerUnusable")
+      expect(investigation.reload.ranking_record).to eq(records.last)
+    end
+
+    # G2-2: the job's last attempt is the last for a provider failure too.
+    # After it nothing retries, so a retryable record would promise a retry
+    # that never comes while the open row refuses every new investigation.
+    it "exhausts a provider failure on the job's last attempt too" do
+      provider_down = { error: "StandardError: provider is down", reason: described_class::REASON_PROVIDER_ERROR }
+
+      records = Array.new(described_class::MAX_RANKING_ATTEMPTS) do
+        described_class.record_outcome!(investigation, provider_down)
+      end
+
+      expect(records.map { |r| r["retryable"] })
+        .to eq([ true ] * (described_class::MAX_RANKING_ATTEMPTS - 1) + [ false ])
+      expect(records.last).to include("state" => "failed", "reason" => "ProviderError")
+      expect(records.last["message"]).to include("provider is down")
+    end
+
+    it "clears the record when an agent finally ranks it" do
+      described_class.record_outcome!(investigation, unusable)
+
+      expect(described_class.record_outcome!(investigation, { ranked: [], agent: owner })).to be_nil
+      expect(investigation.reload.evidence).not_to have_key("ranking")
     end
   end
 
@@ -182,6 +330,39 @@ RSpec.describe Platform::Investigation::Ranking do
       described_class.run!(investigation, account: account)
 
       expect(Ai::AgentExecution.where(account_id: account.id).last.status).to eq("failed")
+      expect(investigation.reload.cost_usd).to be_nil
+    end
+
+    # F7, the arm the review found missing: a real token count reaches the
+    # ledger and becomes a real, nonzero cost on both rows. The oracle is the
+    # pricing service itself, not a copied number.
+    it "books the provider's tokens and a priced, nonzero cost onto both rows" do
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider)
+        .and_return("output" => valid_json,
+                    "metadata" => { "tokens_used" => 5000, "prompt_tokens" => 4000,
+                                    "completion_tokens" => 1000, "model_used" => "gpt-4o" })
+      expected = Ai::CostCalculationService.calculate(model_id: "gpt-4o", prompt_tokens: 4000,
+                                                      completion_tokens: 1000)
+
+      described_class.run!(investigation, account: account)
+
+      execution = Ai::AgentExecution.where(account_id: account.id).last
+      expect(expected).to be > 0
+      expect(execution.tokens_used).to eq(5000)
+      expect(execution.cost_usd.to_f).to eq(expected)
+      expect(investigation.reload.cost_usd.to_f).to eq(expected)
+    end
+
+    # The column default is 0.0; copying it made every investigation report
+    # that it cost nothing, including the ones nobody measured.
+    it "leaves the investigation's cost nil when the provider reported no usage" do
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider)
+        .and_return("output" => valid_json, "metadata" => {})
+
+      described_class.run!(investigation, account: account)
+
+      expect(Ai::AgentExecution.where(account_id: account.id).last.status).to eq("completed")
+      expect(investigation.reload.cost_usd).to be_nil
     end
 
     # A ledger that cannot be written must not stop the diagnosis.
@@ -208,7 +389,7 @@ RSpec.describe Platform::Investigation::Ranking do
 
       # 1. A door opens it. Evidence recorded, nothing ranked yet.
       opened = Platform::InvestigationService.new(account: account)
-                                             .open!(component, trigger: "operator")[:investigation]
+                                             .open!(component, trigger: "operator", opened_by: owner)[:investigation]
       expect(opened).to be_open
       expect(opened.hypotheses).to eq([])
 

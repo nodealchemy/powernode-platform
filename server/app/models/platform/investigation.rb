@@ -45,6 +45,13 @@ module Platform
     belongs_to :account, optional: true
     belongs_to :agent, class_name: "Ai::Agent", optional: true
 
+    # WHO PRESSED INVESTIGATE (A6 re-verification G1). Set by the two doors a
+    # person acts through, the REST button and the MCP verb, and never by the
+    # status emitter, so an automatic investigation carries nil. Ranking uses it
+    # as the execution's user, and the executor's security gate reads THAT as a
+    # person's consent to spend: see `Ranking.create_execution`.
+    belongs_to :opened_by_user, class_name: "User", optional: true
+
     # jsonb defaults live on the MODEL as lambdas, never on the column alone,
     # so a new record and a reloaded one carry the same object.
     attribute :evidence, :json, default: -> { {} }
@@ -72,6 +79,15 @@ module Platform
     # an operator, and an investigation of it should still dedupe.
     def self.fingerprint_for(component_kind:, component_ref:)
       "#{component_kind}:#{component_ref}"
+    end
+
+    # What ranking concluded when no agent's ranking was used, or nil when an
+    # agent ranked it (or nothing has tried yet). Written only by
+    # `Ranking.record_outcome!`; read by the doors' serializers and by the
+    # conclusion, so the three cannot describe it differently.
+    def ranking_record
+      record = evidence.is_a?(Hash) ? evidence["ranking"] : nil
+      record.is_a?(Hash) ? record : nil
     end
 
     def open? = status == STATUS_OPEN

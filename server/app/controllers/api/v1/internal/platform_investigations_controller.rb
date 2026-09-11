@@ -60,18 +60,30 @@ module Api
           # proves THROUGH this door, rather than by calling `agent_for` with a
           # nil no caller passes.
           ranking = ::Platform::Investigation::Ranking.run!(investigation, account: investigation.account)
+          recorded = ::Platform::Investigation::Ranking.record_outcome!(investigation, ranking)
 
-          if ranking[:error].present?
-            record_ranking_error(investigation, ranking[:error])
-            return render_error("Ranking failed: #{ranking[:error]}", status: :unprocessable_content)
+          # ONLY A RETRYABLE FAILURE STAYS OPEN (A6 review F4). A provider
+          # failure before the job's last attempt may succeed next time, so the row stays open, the reason is
+          # recorded, and the 422 makes the worker job raise and Sidekiq retry.
+          # Everything else concludes, because the open-fingerprint index
+          # releases only when a row LEAVES `open`: a refusal a retry cannot
+          # change, left open, blocks every future investigation of this
+          # component. That covers the gate refusing automatic spend (G1), no
+          # principal to act, and any failure on the job's last attempt
+          # (`Ranking::MAX_RANKING_ATTEMPTS`, G2-2), after which nothing retries.
+          if recorded && recorded["retryable"]
+            return render_error("Ranking failed: #{recorded['message']}", status: :unprocessable_content)
           end
 
+          # `ranked` is nil for every terminal outcome, so `conclude!` derives
+          # core's own candidates, and the recorded reason goes into the
+          # conclusion.
           concluded = service_for(investigation).conclude!(
             investigation, ranked: ranking[:ranked], agent: ranking[:agent]
           )
 
-          render_success(investigation: serialize(concluded), ranked: true,
-                         agent_id: ranking[:agent]&.id)
+          render_success(investigation: serialize(concluded), ranked: ranking[:agent].present?,
+                         agent_id: ranking[:agent]&.id, ranking: recorded)
         rescue StandardError => e
           Rails.logger.error("[PlatformInvestigations] conclude failed for #{params[:id]}: " \
                              "#{e.class}: #{e.message}")
@@ -114,22 +126,6 @@ module Api
           ::Platform::InvestigationService.new(account: investigation.account)
         end
 
-        # The investigation stays OPEN and the reason is recorded, so a
-        # retryable failure is retried rather than concluded away. `evidence`
-        # already carries an `errors` map by contract (an evidence source that
-        # raised lands there too), which is the honest home for "this class of
-        # information could not be obtained" — no column, no migration, and it
-        # renders in the same place an operator already reads about gaps.
-        def record_ranking_error(investigation, message)
-          evidence = investigation.evidence.is_a?(Hash) ? investigation.evidence.deep_dup : {}
-          errors = evidence["errors"].is_a?(Hash) ? evidence["errors"] : {}
-          evidence["errors"] = errors.merge("ranking" => message.to_s.truncate(500))
-
-          investigation.update_columns(evidence: evidence, updated_at: Time.current)
-        rescue StandardError => e
-          Rails.logger.error("[PlatformInvestigations] could not record ranking error: #{e.class}: #{e.message}")
-        end
-
         def serialize(investigation)
           {
             id: investigation.id,
@@ -140,6 +136,7 @@ module Api
             hypotheses: investigation.hypotheses,
             conclusion: investigation.conclusion,
             agent_id: investigation.agent_id,
+            ranking: investigation.ranking_record,
             completed_at: investigation.completed_at
           }
         end

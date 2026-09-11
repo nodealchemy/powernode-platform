@@ -35,6 +35,14 @@ RSpec.describe Platform::Investigation::TriggerEmitter do
       expect(result[:investigation].trigger).to eq(Platform::Investigation::TRIGGER_DOWN)
     end
 
+    # G1: an automatic trigger has no person behind it, so ranking reaches the
+    # security gate as machine-initiated spend.
+    it "names no opener" do
+      described_class.handle(transition: transition(subsystem, to: Platform::ComponentStatus::DOWN))
+
+      expect(Platform::Investigation.last.opened_by_user_id).to be_nil
+    end
+
     it "does not investigate a subsystem that merely degraded" do
       expect(described_class.handle(transition: transition(subsystem, to: Platform::ComponentStatus::DEGRADED)))
         .to be_nil

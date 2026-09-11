@@ -121,9 +121,13 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
                                          conditions: [ { "type" => "Connected", "status" => false,
                                                          "reason" => "ConnectionError", "severity" => "down" } ])
     end
+    # Opened by a person in the tenant, the way the drawer opens one. Ranking
+    # spends only as the opener (G1), so this is the user the ledger row names.
+    let(:tenant_operator) { create(:user, account: tenant) }
     let(:tenant_investigation) do
       Platform::InvestigationService.new(account: tenant)
-                                    .open!(tenant_component, trigger: "operator")[:investigation]
+                                    .open!(tenant_component, trigger: "operator",
+                                                             opened_by: tenant_operator)[:investigation]
     end
 
     it "lets the SYSTEM worker conclude another tenant's investigation" do
@@ -145,7 +149,6 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
     # actually chose.
     it "ranks as a clone in the TENANT's account and books the spend there" do
       canonical = create(:ai_agent, :global, name: "Infrastructure Generalist")
-      create(:user, account: tenant)
       stub_provider('{"hypotheses":[{"cause":"daemon died","evidence_classes":["conditions"],"score":1.0}]}')
 
       post_conclude(tenant_investigation.id)
@@ -158,6 +161,7 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
 
       execution = Ai::AgentExecution.where(ai_agent_id: concluded.agent_id).sole
       expect(execution.account_id).to eq(tenant.id)
+      expect(execution.user_id).to eq(tenant_operator.id)
       # And nothing was minted in the worker's account.
       expect(Ai::Agent.where(account_id: account.id, cloned_from_id: canonical.id)).to be_empty
     end
@@ -182,6 +186,8 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
       expect(shared.reload).to be_concluded
       expect(shared.reload.agent_id).to be_nil
       expect(Ai::Agent.where(cloned_from_id: canonical.id)).to be_empty
+      expect(shared.reload.ranking_record)
+        .to include("state" => "not_run", "reason" => "NoPrincipal", "retryable" => false)
     end
 
     # The other arm: an ACCOUNT worker stays anchored to its own tenant, and a
@@ -254,6 +260,9 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
       expect(investigation.reload).to be_concluded
       expect(investigation.reload.top_hypothesis["cause"]).to include("ConnectionError")
       expect(investigation.reload.agent_id).to be_nil
+      expect(investigation.reload.ranking_record)
+        .to include("state" => "not_run", "reason" => "NoPrincipal", "retryable" => false)
+      expect(body.dig("data", "ranked")).to be(false)
     end
 
     # A retry after a timeout that actually succeeded must not spend a second
@@ -309,7 +318,8 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
       reloaded = investigation.reload
       expect(reloaded).to be_open
       expect(reloaded.hypotheses).to eq([])
-      expect(reloaded.evidence["errors"]["ranking"]).to be_present
+      expect(reloaded.ranking_record).to include("state" => "failed", "reason" => "RankerUnusable",
+                                                 "retryable" => true, "attempts" => 1)
     end
 
     it "does the same when the provider call itself raises" do
@@ -322,7 +332,8 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
 
       expect(response).to have_http_status(:unprocessable_content)
       expect(investigation.reload).to be_open
-      expect(investigation.reload.evidence["errors"]["ranking"]).to include("provider is down")
+      expect(investigation.reload.ranking_record["message"]).to include("provider is down")
+      expect(investigation.reload.ranking_record["reason"]).to eq("ProviderError")
     end
 
     # The evidence that was already assembled must survive the error write —
@@ -334,6 +345,114 @@ RSpec.describe "Api::V1::Internal platform investigation conclude", type: :reque
       post_conclude(investigation.id)
 
       expect(investigation.reload.evidence["conditions"]).to be_present
+    end
+  end
+
+  # A6 review F4 — a refusal a retry cannot change CONCLUDES, on core's own
+  # candidates, with the reason recorded. Only a retryable failure stays open,
+  # because the open-fingerprint index releases only when a row leaves `open`.
+  describe "which failures end an investigation (F4)" do
+    let(:max) { Platform::Investigation::Ranking::MAX_RANKING_ATTEMPTS }
+
+    # Through the REAL security gate and the REAL principal resolution. Only
+    # the provider boundary and the input guardrail are stubbed.
+    it "concludes an AUTOMATIC investigation the gate refused, and says why" do
+      create(:ai_agent, :global, slug: "infrastructure-generalist", name: "Infrastructure Generalist")
+      create(:ai_provider, account: account)
+      provider_calls = 0
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:execute_with_provider) do
+        provider_calls += 1
+        { "output" => '{"hypotheses":[]}', "metadata" => {} }
+      end
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_input_guardrails).and_return(blocked: false)
+      automatic = Platform::InvestigationService.new(account: account)
+                                                .open!(component, trigger: "down")[:investigation]
+
+      post_conclude(automatic.id)
+
+      expect(response).to have_http_status(:ok)
+      reloaded = automatic.reload
+      expect(reloaded).to be_concluded
+      expect(reloaded.top_hypothesis["cause"]).to include("ConnectionError")
+      expect(reloaded.agent_id).to be_nil
+      expect(reloaded.ranking_record).to include("state" => "not_run", "reason" => "AutomaticSpendNeedsGrant",
+                                                 "retryable" => false)
+      expect(reloaded.conclusion).to include("automatic spend needs an agent-scoped grant")
+      expect(body.dig("data", "ranked")).to be(false)
+      expect(provider_calls).to eq(0)
+      expect(Ai::AgentExecution.where(account_id: account.id).count).to eq(0)
+      expect(Platform::InvestigationService.new(account: account)
+               .open!(component, trigger: "down")[:opened]).to be(true)
+    end
+
+    it "concludes on a gate refusal of an operator-opened investigation too" do
+      stub_ranker('{"hypotheses":[]}')
+      allow_any_instance_of(Ai::McpAgentExecutor).to receive(:run_pre_execution_security_gate).and_call_original
+      allow_any_instance_of(Ai::Security::SecurityGateService).to receive(:pre_execution_gate)
+        .and_return(allowed: false, blocked_by: :prompt_injection,
+                    checks: [ { name: :prompt_injection, passed: false, blocked: true,
+                                details: { reason: "Prompt injection detected" } } ])
+
+      post_conclude(investigation.id)
+
+      expect(response).to have_http_status(:ok)
+      reloaded = investigation.reload
+      expect(reloaded).to be_concluded
+      expect(reloaded.ranking_record).to include("state" => "refused", "reason" => "SecurityGateRefused",
+                                                 "retryable" => false)
+      expect(reloaded.conclusion).to include("Ranking was refused")
+    end
+
+    it "concludes once the ranker has answered prose on every attempt the job makes" do
+      stub_ranker("I'm sorry, I can't help with that.")
+
+      statuses = Array.new(max) do
+        post_conclude(investigation.id)
+        response.status
+      end
+
+      expect(statuses).to eq([ 422 ] * (max - 1) + [ 200 ])
+      reloaded = investigation.reload
+      expect(reloaded).to be_concluded
+      expect(reloaded.agent_id).to be_nil
+      expect(reloaded.ranking_record).to include("state" => "failed", "reason" => "RankerUnusable",
+                                                 "retryable" => false, "attempts" => max)
+    end
+
+    # G2-2: a provider failure stays open while the job will retry it, and
+    # concludes on the job's last attempt, after which nothing retries.
+    it "keeps a provider failure open while the job retries, and concludes on its last attempt" do
+      create(:ai_agent, account: account).tap do |agent|
+        allow(Platform::Investigation::Ranking).to receive(:agent_for).and_return(agent)
+      end
+      allow(Ai::McpAgentExecutor).to receive(:new).and_raise(StandardError, "provider is down")
+
+      statuses = Array.new(max) do
+        post_conclude(investigation.id)
+        response.status
+      end
+
+      expect(statuses).to eq([ 422 ] * (max - 1) + [ 200 ])
+      reloaded = investigation.reload
+      expect(reloaded).to be_concluded
+      expect(reloaded.top_hypothesis["cause"]).to include("ConnectionError")
+      expect(reloaded.ranking_record).to include("state" => "failed", "reason" => "ProviderError",
+                                                 "retryable" => false, "attempts" => max)
+      expect(reloaded.conclusion).to include("the provider failed on all #{max} attempts")
+      expect(Platform::InvestigationService.new(account: account)
+               .open!(component, trigger: "operator")[:opened]).to be(true)
+    end
+
+    it "clears the recorded failure when a later attempt ranks" do
+      stub_ranker("nonsense")
+      post_conclude(investigation.id)
+
+      stub_ranker('{"hypotheses":[{"cause":"disk full","evidence_classes":["conditions"],"score":1.0}]}')
+      post_conclude(investigation.id)
+
+      expect(response).to have_http_status(:ok)
+      expect(investigation.reload.ranking_record).to be_nil
+      expect(investigation.reload.top_hypothesis["cause"]).to eq("disk full")
     end
   end
 

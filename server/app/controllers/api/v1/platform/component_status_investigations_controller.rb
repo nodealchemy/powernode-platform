@@ -77,7 +77,8 @@ module Api
           # have no user and correctly keep the component's account.
           result = ::Platform::InvestigationService
                    .new(account: current_user.account)
-                   .open!(@component_status, trigger: ::Platform::Investigation::TRIGGER_OPERATOR)
+                   .open!(@component_status, trigger: ::Platform::Investigation::TRIGGER_OPERATOR,
+                                             opened_by: current_user)
 
           if result[:refused]
             # A REFUSAL IS NOT AN ERROR, and 409 rather than 422 says which:
@@ -146,6 +147,12 @@ module Api
             hypotheses: Array(investigation.hypotheses),
             conclusion: investigation.conclusion,
             agent_id: investigation.agent_id,
+            # nil when an automatic trigger opened it (G1).
+            opened_by_user_id: investigation.opened_by_user_id,
+            # Why no agent ranked it, or nil when one did. On the concluded
+            # rows too, which carry no evidence: that is where an operator
+            # reads "ranking was not run".
+            ranking: investigation.ranking_record,
             started_at: investigation.started_at&.utc&.iso8601,
             completed_at: investigation.completed_at&.utc&.iso8601
           }

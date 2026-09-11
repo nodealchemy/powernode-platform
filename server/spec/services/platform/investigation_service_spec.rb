@@ -349,6 +349,61 @@ RSpec.describe Platform::InvestigationService do
     end
   end
 
+  # A6 re-verification G1(a) — who opened it.
+  describe "the opener" do
+    it "records the person who asked" do
+      opener = create(:user, account: account)
+
+      opened = described_class.new(account: account).open!(component, trigger: "operator", opened_by: opener)
+
+      expect(opened[:investigation].opened_by_user_id).to eq(opener.id)
+    end
+
+    it "records nobody through the class-level door the emitter uses" do
+      expect(described_class.open!(component, trigger: "down")[:investigation].opened_by_user_id).to be_nil
+    end
+
+    # A principal that is not a person must not become the "human" the
+    # security gate reads as consent.
+    it "records nobody for a principal that is not a User" do
+      agent = create(:ai_agent, account: account)
+
+      opened = described_class.new(account: account).open!(component, trigger: "operator", opened_by: agent)
+
+      expect(opened[:investigation].opened_by_user_id).to be_nil
+    end
+  end
+
+  describe "the ranking record" do
+    it "is not counted as an evidence class" do
+      evidence = { "conditions" => [ { "type" => "Up", "status" => false } ],
+                   "ranking" => { "state" => "failed" } }
+
+      expect(described_class.evidence_classes(evidence)).to include("conditions")
+      expect(described_class.evidence_classes(evidence)).not_to include("ranking")
+    end
+
+    it "puts a terminal record's message into the conclusion" do
+      automatic = described_class.new(account: account).open!(component, trigger: "down")[:investigation]
+      automatic.update_columns(evidence: automatic.evidence.merge(
+        "ranking" => { "retryable" => false,
+                       "message" => "Ranking was not run because automatic spend needs an agent-scoped grant." }
+      ))
+
+      expect(described_class.new(account: account).conclude!(automatic).conclusion).to include("agent-scoped grant")
+    end
+
+    it "says nothing about ranking when an agent's ranking was used — the other arm" do
+      opened = described_class.new(account: account).open!(component, trigger: "operator")[:investigation]
+
+      concluded = described_class.new(account: account)
+                                 .conclude!(opened, ranked: [ { cause: "disk full", score: 1.0,
+                                                                evidence_classes: [ "conditions" ] } ])
+
+      expect(concluded.conclusion).not_to include("Ranking")
+    end
+  end
+
   describe "#conclude!" do
     let(:investigation) { service.open!(component, trigger: "operator")[:investigation] }
 

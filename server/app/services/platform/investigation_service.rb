@@ -77,7 +77,11 @@ module Platform
       @account = account
     end
 
-    def open!(component_status, trigger:, now: Time.current)
+    # `opened_by` is the PERSON who asked, from the REST and MCP doors only
+    # (A6 re-verification G1). The status emitter passes nothing, and the class
+    # method above has no parameter for it on purpose: an automatic trigger
+    # has no person to name, and ranking must reach the security gate that way.
+    def open!(component_status, trigger:, opened_by: nil, now: Time.current)
       return { refused: REFUSED_NO_COMPONENT } if component_status.blank?
 
       fingerprint = ::Platform::Investigation.fingerprint_for(
@@ -88,7 +92,7 @@ module Platform
       return { refused: REFUSED_ALREADY_OPEN } if already_open?(fingerprint)
       return { refused: REFUSED_DAILY_CAP } if daily_cap_reached?(now)
 
-      investigation = build(component_status, trigger: trigger, now: now)
+      investigation = build(component_status, trigger: trigger, opened_by: opened_by, now: now)
       investigation.evidence = assemble_evidence(component_status, now: now)
       investigation.save!
 
@@ -133,7 +137,10 @@ module Platform
       return [] unless evidence.is_a?(Hash)
 
       evidence.filter_map do |key, value|
-        next if %w[assembled_at window_seconds errors].include?(key.to_s)
+        # `ranking` is what the RANKER concluded, recorded after the evidence
+        # was assembled. It is not evidence about the component, and counting
+        # it as a class would raise every confidence it touched.
+        next if %w[assembled_at window_seconds errors ranking].include?(key.to_s)
         next if value.blank?
 
         key.to_s
@@ -242,6 +249,21 @@ module Platform
     end
 
     def summarize(investigation)
+      [ summary_of_candidates(investigation), ranking_note(investigation) ].compact.join(" ")
+    end
+
+    # WHY NO AGENT RANKED THIS, in the conclusion an operator reads (lead
+    # ruling on G1(b)). `Ranking.record_outcome!` writes the reason before
+    # `conclude!` runs. Without it, "Most likely: X" would read as an agent's
+    # finding when it is core's deterministic fallback.
+    def ranking_note(investigation)
+      record = investigation.ranking_record
+      return nil unless record && record["retryable"] == false
+
+      record["message"].presence
+    end
+
+    def summary_of_candidates(investigation)
       top = investigation.hypotheses.first
       return "No candidate cause could be derived from the assembled evidence." if top.blank?
 
@@ -360,9 +382,18 @@ module Platform
       component_status.account_id || @account&.id
     end
 
-    def build(component_status, trigger:, now:)
+    # Only a real `User` is recorded as the opener. The MCP verb can be called
+    # by a principal that is not a person (an instance or an agent), and
+    # recording one would hand the security gate a "human initiated" user that
+    # no human is behind: the forgery G1 removed from ranking.
+    def opener_id(opened_by)
+      opened_by.is_a?(::User) ? opened_by.id : nil
+    end
+
+    def build(component_status, trigger:, opened_by:, now:)
       ::Platform::Investigation.new(
         account_id: owning_account_id(component_status),
+        opened_by_user_id: opener_id(opened_by),
         component_kind: component_status.component_kind,
         component_ref: component_status.component_ref,
         trigger: trigger.to_s,

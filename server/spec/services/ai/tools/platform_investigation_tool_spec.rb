@@ -77,6 +77,15 @@ RSpec.describe Ai::Tools::PlatformInvestigationTool do
       expect(Platform::Investigation.count).to eq(1)
     end
 
+    # G1: the acting user is recorded as the opener, the only person ranking
+    # may spend as.
+    it "records the acting user as the opener" do
+      result = exec(action: "platform_investigate", component_kind: "docker_host", component_ref: "host-1")
+
+      expect(Platform::Investigation.first.opened_by_user_id).to eq(user.id)
+      expect(result[:data][:investigation][:opened_by_user_id]).to eq(user.id)
+    end
+
     # It opens; it does not conclude. Ranking is an LLM call and belongs in the
     # worker, so an open investigation with no hypotheses is the correct
     # product of this verb, not an incomplete one.

@@ -23,21 +23,42 @@ module Platform
     # score, and optionally an action category. Any `confidence` key the model
     # volunteers is discarded by `conclude!`.
     #
-    # ── NO AGENT IS A VALID ANSWER, GARBAGE IS NOT ──────────────────────────
-    # Two failure shapes that must not be collapsed:
+    # ── THREE OUTCOMES, AND WHICH ONES END THE INVESTIGATION ────────────────
+    # `run!` answers one of three ways. What separates them is whether trying
+    # again could change the answer.
     #
-    #   - **No canonical agent resolves.** That is core mode, or a platform
-    #     whose agents are not seeded. Nothing is wrong and nothing will change
-    #     on a retry, so the investigation concludes on the deterministic
-    #     candidates core derived itself. It gets a worse answer, not no answer.
+    #   - **Ranked.** An agent read the evidence and ordered candidates.
     #
-    #   - **An agent answered and its answer was unusable.** Something IS wrong
-    #     — a provider outage, a model returning prose, a truncated response —
-    #     and it may well succeed on a retry. So the investigation stays OPEN,
-    #     the reason is recorded on the row, and the caller is told it failed so
-    #     the job can raise and Sidekiq can retry. Concluding here would burn
-    #     the one open investigation this component is allowed on a result we
-    #     know is empty.
+    #   - **Terminal: conclude on core's candidates and say why.** No retry
+    #     changes the answer. Either no principal can act for this
+    #     investigation (core mode, an unseeded platform, a shared
+    #     investigation with no tenant), or the security gate refused the
+    #     spend. Leaving such an investigation open would block every future
+    #     investigation of the component forever (A6 review F4). So it
+    #     concludes on the deterministic candidates with the refusal recorded.
+    #
+    #   - **Retryable: stay open, but only within the job's budget.** A
+    #     provider failure or a prose answer may succeed on the next attempt,
+    #     so the investigation stays open and the job retries. The attempt that
+    #     reaches `MAX_RANKING_ATTEMPTS` is the job's last, and `record_outcome!`
+    #     turns ANY failure on it terminal (A6 review F4, G2-2). After it
+    #     nothing retries, so an open row would promise a retry that never
+    #     comes while refusing every new investigation of the component.
+    #
+    # Every outcome without an agent's ranking is written to
+    # `evidence["ranking"]` as `{state, reason, message, retryable, attempts,
+    # recorded_at}`. The drawer renders it, and `conclude!` folds its message
+    # into the conclusion.
+    #
+    # ── AUTOMATIC SPEND NEEDS A GRANT (A6 re-verification G1) ───────────────
+    # The executor's security gate treats an execution's `user_id` as a person
+    # having initiated the call, which waives the capability matrix's
+    # `requires_approval`. So the only user this ever attaches is the person
+    # who opened the investigation (`opened_by_user`). An investigation that an
+    # automatic trigger opened has none. It reaches the REAL gate as
+    # machine-initiated spend and is refused unless the agent's tier allows
+    # that outright. The refusal is recorded as `AutomaticSpendNeedsGrant`. An
+    # agent-scoped grant for that spend is A6b, not this file.
     module Ranking
       PROMPT_SLUG = "platform-investigation-ranking"
 
@@ -50,6 +71,27 @@ module Platform
       # context window, and a silently truncated prompt produces a confident
       # answer about the half that fit.
       MAX_EVIDENCE_CHARS = 12_000
+
+      # How many attempts the worker job makes: one run plus `retry: 2` in
+      # `PlatformInvestigationJob`. The attempt that reaches this count is the
+      # job's last, so any failure on it concludes, whatever its reason (G2-2).
+      # If the job's retry count changes, this must change with it.
+      MAX_RANKING_ATTEMPTS = 3
+
+      STATE_NOT_RUN = "not_run"
+      STATE_REFUSED = "refused"
+      STATE_FAILED  = "failed"
+
+      REASON_AUTOMATIC_SPEND_NEEDS_GRANT = "AutomaticSpendNeedsGrant"
+      REASON_SECURITY_GATE_REFUSED       = "SecurityGateRefused"
+      REASON_RANKER_UNUSABLE             = "RankerUnusable"
+      REASON_PROVIDER_ERROR              = "ProviderError"
+      REASON_NO_PRINCIPAL                = "NoPrincipal"
+
+      # The executor's refusal types. It returns these instead of raising, and
+      # both are decisions the platform made about THIS input with THIS agent,
+      # so a retry sends the same input to the same gate.
+      REFUSAL_TYPES = %w[SecurityGateViolation GuardrailViolation].freeze
 
       FALLBACK_PROMPT = <<~PROMPT
         You are diagnosing one failing component of an infrastructure control plane.
@@ -83,20 +125,66 @@ module Platform
         include ::Ai::Concerns::PromptTemplateLookup
 
         # @return [Hash] one of
-        #   `{ranked: [..], agent: <Ai::Agent>}` — an agent answered
-        #   `{ranked: nil, agent: nil}`          — no agent to ask; conclude deterministically
-        #   `{error: "..."}`                     — an agent answered unusably; stay open
+        #   `{ranked: [..], agent: <Ai::Agent>}`         an agent ranked it
+        #   `{ranked: nil, agent: nil, ranking: {..}}`  terminal: conclude on core's candidates
+        #   `{error: "..", reason: ".."}`                retryable: see `record_outcome!`
         def run!(investigation, account: nil)
           agent = agent_for(investigation, account)
-          return { ranked: nil, agent: nil } if agent.nil?
+          return no_principal(account) if agent.nil?
 
           output = invoke(agent, investigation, account)
-          return { error: output[:error] } if output[:error].present?
+          return output if output.key?(:ranking) || output[:error].present?
 
           ranked = parse(output[:text])
-          return { error: "ranker returned no usable hypotheses" } if ranked.nil?
+          return { error: "ranker returned no usable hypotheses", reason: REASON_RANKER_UNUSABLE } if ranked.nil?
 
           { ranked: ranked, agent: agent }
+        end
+
+        # WRITE DOWN WHAT RANKING CONCLUDED, and decide whether the
+        # investigation stays open. The one writer of `evidence["ranking"]`.
+        #
+        # `attempts` counts every call that did not end in an agent's ranking,
+        # so any failure turns terminal on the job's last attempt
+        # (`MAX_RANKING_ATTEMPTS`). An agent's ranking clears the record:
+        # the hypotheses speak for themselves, and a stale "failed" left beside
+        # them would contradict them.
+        #
+        # @return [Hash, nil] the record now stored, or nil when an agent ranked it
+        def record_outcome!(investigation, outcome, now: Time.current)
+          evidence = investigation.evidence.is_a?(Hash) ? investigation.evidence.deep_dup : {}
+          attempts = investigation.ranking_record.to_h["attempts"].to_i + 1
+
+          record = if outcome.key?(:ranking) then outcome[:ranking]
+                   elsif outcome[:error].present? then failure_record(outcome, attempts)
+                   end
+
+          return nil if record.nil? && !evidence.key?("ranking")
+
+          if record.nil?
+            evidence.delete("ranking")
+          else
+            evidence["ranking"] = record.merge("attempts" => attempts, "recorded_at" => now.utc.iso8601)
+          end
+          investigation.update_columns(evidence: evidence, updated_at: now)
+          evidence["ranking"]
+        end
+
+        # THE REASON A GATE REFUSAL IS RECORDED UNDER. Public because the
+        # legacy rewrite maps old stored messages through this same rule
+        # instead of a copy of it.
+        #
+        # Read from the gate's own answer, never re-derived: the gate is the
+        # one place that decides, and a copy of its matrix here would be a
+        # rival answer. The anomaly precheck is where the capability matrix
+        # speaks, and "requires approval" is its approval-required branch
+        # (`AgentAnomalyDetectionService#evaluate_trust_gate`). With no opener,
+        # no person's consent could have satisfied it.
+        def refusal_reason(investigation, blocked_by:, message:)
+          automatic = investigation.opened_by_user_id.nil? &&
+                      blocked_by.to_s == "anomaly_precheck" &&
+                      message.to_s.include?("requires approval")
+          automatic ? REASON_AUTOMATIC_SPEND_NEEDS_GRANT : REASON_SECURITY_GATE_REFUSED
         end
 
         # WHICH `Ai::Agent` ROW ACTUALLY ACTS (HIER-P2I).
@@ -144,9 +232,42 @@ module Platform
 
         private
 
+        def failure_record(outcome, attempts)
+          reason = outcome[:reason] || REASON_PROVIDER_ERROR
+          exhausted = attempts >= MAX_RANKING_ATTEMPTS
+          message = exhausted ? exhausted_message(reason, attempts, outcome[:error]) : outcome[:error].to_s.truncate(500)
+
+          { "state" => STATE_FAILED, "reason" => reason, "message" => message, "retryable" => !exhausted }
+        end
+
+        def exhausted_message(reason, attempts, error)
+          what = if reason == REASON_RANKER_UNUSABLE
+                   "the ranker returned no usable hypotheses in #{attempts} attempts"
+                 else
+                   "the provider failed on all #{attempts} attempts the worker makes " \
+                     "(last error: #{error.to_s.truncate(300)})"
+                 end
+          "Ranking failed: #{what}, so the investigation concluded on the platform's own candidates."
+        end
+
+        def no_principal(account)
+          detail = if account.nil?
+                     "a shared investigation belongs to no tenant, so no agent can act for it"
+                   else
+                     "no agent can act for this component in this account"
+                   end
+          terminal(STATE_NOT_RUN, REASON_NO_PRINCIPAL, "Ranking was not run: #{detail}.")
+        end
+
+        def terminal(state, reason, message)
+          { ranked: nil, agent: nil,
+            ranking: { "state" => state, "reason" => reason,
+                       "message" => message.to_s.truncate(500), "retryable" => false } }
+        end
+
         def invoke(agent, investigation, account)
           prompt = build_prompt(investigation, account)
-          return { error: "no ranking prompt could be resolved" } if prompt.blank?
+          return { error: "no ranking prompt could be resolved", reason: REASON_RANKER_UNUSABLE } if prompt.blank?
 
           # An `Ai::AgentExecution` FIRST, and handed to the executor, so the
           # provider spend lands in the ledger. Without it the executor's own
@@ -162,16 +283,19 @@ module Platform
 
           text = extract_text(result)
           if text.blank?
-            reason = executor_error(result)
-            finish_execution(execution, investigation, status: "failed", error_message: reason)
-            return { error: reason }
+            failure = classify_failure(result, investigation)
+            finish_execution(execution, investigation, status: "failed",
+                                                       error_message: failure[:error] || failure.dig(:ranking, "message"))
+            return failure
           end
 
-          finish_execution(execution, investigation, status: "completed")
+          # Booked BEFORE the row closes (F7), so the close sees the cost.
+          booked = book_usage(execution, result)
+          finish_execution(execution, investigation, status: "completed", booked: booked)
           { text: text }
         rescue StandardError => e
           Rails.logger.error("[Platform::Investigation] ranking invocation failed: #{e.class}: #{e.message}")
-          { error: "#{e.class}: #{e.message}" }
+          { error: "#{e.class}: #{e.message}", reason: REASON_PROVIDER_ERROR }
         end
 
         # THE EXECUTOR'S REAL RETURN SHAPE, verified by running it rather than
@@ -195,24 +319,50 @@ module Platform
           result.dig("result", "output").presence&.to_s
         end
 
-        # A BLOCK IS NOT AN EMPTY ANSWER. The executor returns `{"error" => {…}}`
-        # rather than raising when a security gate or a guardrail refuses, and
-        # reporting that as "no output" would send an operator looking at the
-        # provider for a refusal the platform itself issued.
-        def executor_error(result)
-          message = result.is_a?(Hash) ? result.dig("error", "message") : nil
-          message.presence || "ranker returned no output"
+        # A BLOCK IS NOT AN EMPTY ANSWER, AND A REFUSAL IS NOT AN OUTAGE.
+        #
+        # The executor returns `{"error" => {...}}` instead of raising when a
+        # security gate or a guardrail refuses, and when the provider call
+        # itself fails. Reporting a refusal as "no output" would send an
+        # operator to the provider for a decision the platform made. Treating
+        # it as retryable would retry the same input against the same gate.
+        # A provider failure and a blank answer are retryable within
+        # `MAX_RANKING_ATTEMPTS`. A refusal is terminal at once.
+        def classify_failure(result, investigation)
+          error = result.is_a?(Hash) ? result["error"] : nil
+          message = error.is_a?(Hash) ? error["message"].presence : nil
+          return { error: "ranker returned no output", reason: REASON_RANKER_UNUSABLE } if message.nil?
+          return { error: message, reason: REASON_PROVIDER_ERROR } unless REFUSAL_TYPES.include?(error["type"])
+
+          if refusal_reason(investigation, blocked_by: error["blocked_by"], message: message) ==
+             REASON_AUTOMATIC_SPEND_NEEDS_GRANT
+            terminal(STATE_NOT_RUN, REASON_AUTOMATIC_SPEND_NEEDS_GRANT,
+                     "Ranking was not run because automatic spend needs an agent-scoped grant. " \
+                       "An automatic trigger opened this investigation, and the security gate answered: #{message}")
+          else
+            terminal(STATE_REFUSED, REASON_SECURITY_GATE_REFUSED, "Ranking was refused: #{message}")
+          end
         end
 
-        # `Ai::AgentExecution` requires a user and a provider, and an
-        # investigation is started by a system trigger as often as by a person.
-        # The agent's creator is the honest owner of the spend — it is who the
-        # account made responsible for that agent — with the account's first
-        # user as the fallback, the same resolution `Ai::Tools::AgentAsToolAdapter`
-        # already uses for a tool-initiated run. No user and no provider means
-        # no ledger row rather than a fabricated one.
+        # THE USER ON THE LEDGER ROW IS THE PERSON WHO ACTED, OR NOBODY
+        # (A6 re-verification G1).
+        #
+        # This used to be `agent.creator || account.users.first`, "the honest
+        # owner of the spend". But the field has two readers. The ledger reads
+        # it as who pays. The executor's security gate reads it as who
+        # CONSENTED: `evaluate_trust_gate` allows any call whose `user_id` is
+        # present. A value defensible for the first is a forgery for the
+        # second, and every automatic investigation passed a gate that refuses
+        # the identical call without it.
+        #
+        # So the user is `investigation.opened_by_user` and nothing else. An
+        # automatic investigation gets no ledger row, because
+        # `Ai::AgentExecution` requires a user, and it reaches the gate as what
+        # it is. If an agent's tier lets it spend without approval, that spend
+        # has no ledger row. Attributing machine spend belongs to the
+        # agent-scoped grant (A6b) and is not faked here.
         def create_execution(agent, investigation, account)
-          user = agent.try(:creator) || account.users.first
+          user = investigation.opened_by_user
           provider = agent.try(:resolved_provider) || agent.try(:provider)
           return nil if user.nil? || provider.nil?
 
@@ -248,16 +398,51 @@ module Platform
         # the executor's own — a gate's refusal in the gate's words, or the
         # ranker's unusable answer — so the ledger and the investigation's
         # recorded error say the same thing.
-        def finish_execution(execution, investigation, status:, error_message: nil)
+        #
+        # `investigation.cost_usd` stays nil unless a cost was actually booked
+        # and priced (F7). The execution's column defaults to 0.0, and copying
+        # that default made every investigation report that it cost nothing,
+        # including the ones nobody measured. An unpriced model gets nil,
+        # meaning unknown, not $0.00.
+        def finish_execution(execution, investigation, status:, error_message: nil, booked: false)
           return if execution.nil?
 
           attrs = { status: status, completed_at: Time.current }
           attrs[:error_message] = error_message.to_s.truncate(1000) if status == "failed"
           execution.update!(attrs)
           cost = execution.reload.cost_usd
-          investigation.update_columns(cost_usd: cost, updated_at: Time.current) if cost.present?
+          investigation.update_columns(cost_usd: cost, updated_at: Time.current) if booked && cost.to_f.positive?
         rescue StandardError => e
           Rails.logger.error("[Platform::Investigation] execution close failed: #{e.class}: #{e.message}")
+        end
+
+        # BOOK THE TOKENS THE PROVIDER REPORTED (A6 review F7).
+        #
+        # Nothing else does this. The executor reads `@execution.cost_usd` for
+        # its telemetry but never writes it, so every ranking execution closed
+        # at the column default. The prompt/completion split and the model that
+        # answered go into `output_data` first, because that is where
+        # `AgentExecution#calculate_cost` reads them. `record_token_usage!`
+        # then prices the call and, through the model's own callback, debits
+        # the agent's budget.
+        #
+        # @return [Boolean] whether usage was booked
+        def book_usage(execution, result)
+          return false if execution.nil?
+
+          metadata = result.is_a?(Hash) ? result.dig("result", "metadata") : nil
+          return false unless metadata.is_a?(Hash)
+
+          tokens = metadata["tokens_used"].to_i
+          return false unless tokens.positive?
+
+          breakdown = metadata.slice("prompt_tokens", "completion_tokens", "model_used").compact
+          execution.update!(output_data: (execution.output_data || {}).merge(breakdown)) if breakdown.any?
+          execution.record_token_usage!(tokens)
+          true
+        rescue StandardError => e
+          Rails.logger.error("[Platform::Investigation] usage booking failed: #{e.class}: #{e.message}")
+          false
         end
 
         def build_prompt(investigation, account)
@@ -267,7 +452,9 @@ module Platform
             variables: {
               component_kind: investigation.component_kind,
               component_ref: investigation.component_ref,
-              evidence: (investigation.evidence || {}).to_json.truncate(MAX_EVIDENCE_CHARS)
+              # The ranking record is about earlier attempts, not the component,
+              # and the prompt tells the ranker to cite only keys it can see.
+              evidence: (investigation.evidence || {}).except("ranking").to_json.truncate(MAX_EVIDENCE_CHARS)
             },
             fallback: FALLBACK_PROMPT
           )

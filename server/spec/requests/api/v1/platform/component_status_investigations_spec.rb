@@ -243,6 +243,41 @@ RSpec.describe "Api::V1::Platform component status investigations", type: :reque
     end
   end
 
+  # A6 re-verification G1 — the person who pressed Investigate is recorded,
+  # and is the only person ranking may spend as.
+  describe "who opened it, and why no agent ranked it" do
+    it "records the operator as the opener" do
+      open_one
+
+      expect(response).to have_http_status(:created)
+      expect(body["data"]["investigation"]["opened_by_user_id"]).to eq(operator.id)
+      expect(::Platform::Investigation.find(body["data"]["investigation"]["id"]).opened_by_user_id)
+        .to eq(operator.id)
+    end
+
+    # Concluded rows carry no evidence on this list, so the ranking record has
+    # its own field: this is where the drawer reads "ranking was not run".
+    it "says why no agent ranked a concluded investigation, on the list the drawer reads" do
+      automatic = ::Platform::InvestigationService.new(account: account)
+                                                  .open!(component, trigger: "down")[:investigation]
+      ::Platform::Investigation::Ranking.record_outcome!(
+        automatic, { ranked: nil, agent: nil,
+                     ranking: { "state" => "not_run", "reason" => "AutomaticSpendNeedsGrant",
+                                "message" => "Ranking was not run because automatic spend needs an " \
+                                             "agent-scoped grant.",
+                                "retryable" => false } }
+      )
+      ::Platform::InvestigationService.new(account: account).conclude!(automatic)
+
+      list
+
+      row = body["data"]["recent"].first
+      expect(row["opened_by_user_id"]).to be_nil
+      expect(row["ranking"]).to include("state" => "not_run", "reason" => "AutomaticSpendNeedsGrant")
+      expect(row["conclusion"]).to include("agent-scoped grant")
+    end
+  end
+
   # A9 review S1 — a SHARED component's investigation belongs to whoever opened
   # it. It used to be filed under the component's nil account: one bucket every
   # tenant shared, jointly capped, visible to all, and able to refuse them all.

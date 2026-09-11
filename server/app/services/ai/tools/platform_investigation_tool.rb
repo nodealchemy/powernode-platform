@@ -148,8 +148,10 @@ module Ai
         component = find_component(args)
         return component if component.is_a?(Hash)
 
+        # `opened_by: user`, the principal calling this verb (G1). The service
+        # records it only when it is a real `User`.
         result = ::Platform::InvestigationService.new(account: account).open!(
-          component, trigger: ::Platform::Investigation::TRIGGER_OPERATOR
+          component, trigger: ::Platform::Investigation::TRIGGER_OPERATOR, opened_by: user
         )
 
         if result[:refused]
@@ -217,6 +219,8 @@ module Ai
           hypotheses: investigation.hypotheses,
           conclusion: investigation.conclusion,
           agent_id: investigation.agent_id,
+          opened_by_user_id: investigation.opened_by_user_id,
+          ranking: investigation.ranking_record,
           started_at: investigation.started_at,
           completed_at: investigation.completed_at
         }
