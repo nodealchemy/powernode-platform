@@ -72,6 +72,24 @@ RSpec.describe Integrations::IntegrationHealthCheckJob, type: :job do
       expect(api_client_double).to have_received(:post_no_retry)
     end
 
+    # Both arms of the single-probe 404 rule: a 404 is a skip that does NOT
+    # raise (so Sidekiq does not burn three retries on a row that is gone), and
+    # any OTHER ApiError still raises (so a genuinely transient failure retries).
+    it 'treats a 404 as a skip and does not raise' do
+      allow(api_client_double).to receive(:post_no_retry)
+        .and_raise(BackendApiClient::ApiError.new('Integration instance not found', 404))
+
+      expect { job_instance.execute('gone') }.not_to raise_error
+      expect(job_instance.execute('gone')).to eq(applied: false, reason: 'not_found')
+    end
+
+    it 'still raises a non-404 ApiError so a transient failure is retried' do
+      allow(api_client_double).to receive(:post_no_retry)
+        .and_raise(BackendApiClient::ApiError.new('Service temporarily unavailable', 503))
+
+      expect { job_instance.execute('inst-1') }.to raise_error(BackendApiClient::ApiError)
+    end
+
     it 'reports a probe the server declined to apply' do
       allow(api_client_double).to receive(:post_no_retry)
         .and_return(probe_result(applied: false, reason: 'not_active'))
@@ -127,6 +145,22 @@ RSpec.describe Integrations::IntegrationHealthCheckJob, type: :job do
         .and_return(probe_result(applied: false, reason: 'not_active'))
 
       expect(job_instance.execute).to include(checked: 1, healthy: 0, unhealthy: 0, skipped: 1)
+    end
+
+    # The F4 argument — the probe may 404 a row not visible to this worker —
+    # rests on the sweep treating that 404 as a per-instance SKIP and carrying
+    # on. Asserted here rather than assumed: one instance 404s, the next is
+    # still probed, and the tally records exactly one skip.
+    it 'skips an instance whose probe 404s and still probes the next one' do
+      allow(api_client_double).to receive(:get).and_return(list_page(%w[gone inst-2]))
+      allow(api_client_double).to receive(:post_no_retry)
+        .with('/api/v1/internal/devops/integration_health/gone/probe')
+        .and_raise(BackendApiClient::ApiError.new('Integration instance not found', 404))
+      expect(api_client_double).to receive(:post_no_retry)
+        .with('/api/v1/internal/devops/integration_health/inst-2/probe')
+        .and_return(probe_result)
+
+      expect(job_instance.execute).to include(checked: 2, skipped: 1, healthy: 1)
     end
 
     it 'stops without probing when the list call reports failure' do

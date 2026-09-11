@@ -50,7 +50,22 @@ module Integrations
       log_info('Probing integration health', instance_id: instance_id)
 
       # post_no_retry, not post: see the class comment (side effect per call).
-      response = api_client.post_no_retry("/api/v1/internal/devops/integration_health/#{instance_id}/probe")
+      #
+      # A 404 is an AUTHORIZATION outcome, not a transient failure: the server
+      # answers it identically for "gone" and "another account's row"
+      # (worker_tenancy.rb:55-58). Re-driving it can never succeed, so it is a
+      # skip — the same rule the sweep applies per instance. Without this the
+      # single-probe path (execute(instance_id)) raised and burned all three
+      # Sidekiq retries on a row that will never be there. Anything else still
+      # raises, so a genuinely transient failure is retried.
+      response = begin
+        api_client.post_no_retry("/api/v1/internal/devops/integration_health/#{instance_id}/probe")
+      rescue BackendApiClient::ApiError => e
+        raise unless e.status == 404
+
+        log_info('Integration health probe target not visible; skipping', instance_id: instance_id)
+        return { applied: false, reason: 'not_found' }
+      end
       data = response['data'] || {}
 
       unless data['applied']
