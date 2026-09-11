@@ -32,9 +32,13 @@ const TAB_SEGMENTS: Record<TabId, string> = {
 };
 
 export const CodeFactoryContent: React.FC<{
-  basePath?: string;
+  // Required, no default: the standalone CodeFactoryPage that used to supply
+  // a default (/app/ai/code-factory, itself long unreachable) was deleted as
+  // dead code (C15) once MissionsPage absorbed this content. The one live
+  // caller (MissionsPage) always passes its own mounted path explicitly.
+  basePath: string;
   onActionsReady?: (actions: PageAction[]) => void;
-}> = ({ basePath = '/app/ai/code-factory', onActionsReady }) => {
+}> = ({ basePath, onActionsReady }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -380,50 +384,5 @@ export const CodeFactoryContent: React.FC<{
         />
       )}
     </>
-  );
-};
-
-export const CodeFactoryPage: React.FC = () => {
-  const location = useLocation();
-  const [actions, setActions] = useState<PageAction[]>([]);
-
-  const getActiveTabFromPath = (pathname: string): TabId => {
-    const segment = pathname.split('/').filter(Boolean).pop() || '';
-    const match = (Object.entries(TAB_SEGMENTS) as [TabId, string][]).find(
-      ([, seg]) => seg !== '' && seg === segment
-    );
-    return match ? match[0] : 'dashboard';
-  };
-
-  const activeTab = getActiveTabFromPath(location.pathname);
-
-  const breadcrumbs = useMemo<BreadcrumbItem[]>(() => {
-    const base: BreadcrumbItem[] = [
-      { label: 'Dashboard', href: '/app' },
-      { label: 'AI', href: '/app/ai' },
-    ];
-    if (activeTab === 'dashboard') {
-      base.push({ label: 'Code Factory' });
-    } else {
-      base.push({ label: 'Code Factory', href: '/app/ai/code-factory' });
-      const tab = TABS.find(t => t.id === activeTab);
-      if (tab) base.push({ label: tab.label });
-    }
-    return base;
-  }, [activeTab]);
-
-  const handleActionsReady = useCallback((newActions: PageAction[]) => {
-    setActions(newActions);
-  }, []);
-
-  return (
-    <PageContainer
-      title="Code Factory"
-      description="Automated code review, remediation, and evidence loops"
-      breadcrumbs={breadcrumbs}
-      actions={actions}
-    >
-      <CodeFactoryContent onActionsReady={handleActionsReady} />
-    </PageContainer>
   );
 };

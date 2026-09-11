@@ -8,7 +8,6 @@ export { ObservabilityPage } from './ObservabilityPage';
 export { OperationsPage } from './OperationsPage';
 export { McpBrowserPage } from './McpBrowserPage';
 export { AIDebugPage } from './AIDebugPage';
-export { AgentCardsPage } from './AgentCardsPage';
 export { A2aTasksPage } from './A2aTasksPage';
 export { AgentDetailPage } from './AgentDetailPage';
 export { default as CompoundLearningPage } from './CompoundLearningPage';
