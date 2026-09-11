@@ -162,12 +162,6 @@ const ALLOWED_ORPHANED: readonly string[] = [
   // Small wrapper around a real DailySummariesPanel — no /app/content/... route
   // registers it anywhere.
   'DailySummariesPage',
-  // Reads a ?token= param and calls authApi.verifyEmail(token) — nothing else in
-  // the tree calls verifyEmail at all. App.tsx's own /verify-email route (:384-390)
-  // renders VerifyEmailPage instead, which only shows a resend-email UI and never
-  // reads the token param. Worth checking whether the emailed verification link
-  // currently does anything when clicked.
-  'EmailVerificationPage',
   // A full admin file browser (permission-gated, upload + browse), distinct from
   // the routed content/MyFilesPage — no /app/admin/... route registers it.
   'FilesPage',
