@@ -88,4 +88,61 @@ RSpec.describe Ai::SelfHealing::RemediationDispatcher, "B5b guards", type: :serv
       expect(logged("provider_failover", provider_a)).to eq(1)
     end
   end
+
+  # The guard's key is the provider's UUID, not the text it arrived as. The
+  # action resolves the provider through the uuid type, which accepts upper
+  # case, no hyphens and braces, so the guard must store and compare that same
+  # normalized value; an id the type rejects must not act at all.
+  describe "one provider, whatever form its id arrives in" do
+    before { allow(described_class).to receive(:enabled?).and_return(true) }
+
+    def failovers
+      Ai::RemediationLog.where(account: account, action_type: "provider_failover")
+    end
+
+    {
+      "UPPERCASE" => ->(id) { id.upcase },
+      "hyphenless" => ->(id) { id.delete("-") },
+      "{braced}" => ->(id) { "{#{id}}" }
+    }.each do |form, variant|
+      it "acts once when the same provider comes back #{form} in the window" do
+        breaker_opened(provider_a)
+        breaker_opened(variant.call(provider_a))
+
+        expect(failovers.count).to eq(1)
+      end
+
+      it "stores a #{form} id canonically, so the canonical id is then refused" do
+        breaker_opened(variant.call(provider_a))
+        breaker_opened(provider_a)
+
+        expect(failovers.count).to eq(1)
+        expect(failovers.pick(Arel.sql("before_state ->> 'provider_id'"))).to eq(provider_a)
+      end
+
+      it "still acts for a different provider sent #{form}" do
+        breaker_opened(provider_a)
+        breaker_opened(variant.call(provider_b))
+
+        expect(failovers.count).to eq(2)
+      end
+    end
+
+    it "acts once when a model downgrade's source id comes back in another form" do
+      degrade = lambda do |source_id|
+        described_class.dispatch(account: account, trigger_source: "spec", trigger_event: "execution_degradation",
+                                 context: { source_id: source_id })
+      end
+      degrade.call(provider_a)
+      degrade.call(provider_a.upcase)
+
+      expect(Ai::RemediationLog.where(account: account, action_type: "model_downgrade").count).to eq(1)
+    end
+
+    [ ->(id) { " #{id} " }, ->(_id) { "not-a-uuid" } ].each_with_index do |bad, i|
+      it "refuses a provider id the uuid type rejects, logging nothing (form #{i + 1})" do
+        expect { breaker_opened(bad.call(provider_a)) }.not_to change(Ai::RemediationLog, :count)
+      end
+    end
+  end
 end

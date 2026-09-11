@@ -21,6 +21,7 @@ module Ai
           action = determine_action(trigger_event, context)
           return unless action
           return unless auditable?(action)
+          return if unparseable_provider_target?(action, context)
           return if acted_on_target_this_window?(account, action, context)
 
           before_state = capture_state(action, context)
@@ -279,9 +280,13 @@ module Ai
         # (RemediationLog.in_last_hour). No new number.
         #
         # The target is what #capture_state records as before_state, so the
-        # identity compared is the one the audit row already carries. An action
-        # with no provider target (alert_escalation, context_trim) is not deduped
-        # here; the per-account cap still bounds it.
+        # identity compared is the one the audit row already carries. Both sides
+        # are the uuid-cast id (#provider_target), never the raw text: the action
+        # resolves the provider through that same cast, so an UPPERCASE,
+        # hyphenless or {braced} spelling of one id must be one target, not a
+        # way past the guard. An action with no provider target
+        # (alert_escalation, context_trim) is not deduped here; the per-account
+        # cap still bounds it.
         def acted_on_target_this_window?(account, action, context)
           target = capture_state(action, context)[:provider_id]
           return false if target.blank?
@@ -293,6 +298,35 @@ module Ai
           Rails.logger.warn(
             "[RemediationDispatcher] Refusing #{action} for provider #{target}: already dispatched in this window"
           )
+          true
+        end
+
+        # The provider id an action names, exactly as the caller sent it.
+        def raw_provider_target(action, context)
+          case action
+          when "provider_failover" then context[:provider_id]
+          when "model_downgrade" then context[:source_id] || context[:provider_id]
+          end
+        end
+
+        # That id as the uuid type reads it: the same cast Ai::Provider.find_by(id:)
+        # applies when the action resolves the provider, so every spelling the
+        # action would accept becomes the one canonical string. nil when the action
+        # names no provider, or names one the type rejects.
+        def provider_target(action, context)
+          raw = raw_provider_target(action, context)
+          raw.nil? ? nil : Ai::Provider.type_for_attribute(:id).cast(raw)
+        end
+
+        # An id the uuid type rejects names no provider. Acting on it could only
+        # log a skip under a key no later dispatch would ever match, so it is
+        # refused before acting and nothing is logged. A blank id is not this
+        # case: the action's own "No provider specified" skip still handles it.
+        def unparseable_provider_target?(action, context)
+          return false if raw_provider_target(action, context).blank?
+          return false unless provider_target(action, context).nil?
+
+          Rails.logger.warn("[RemediationDispatcher] Refusing #{action}: provider id is not a UUID")
           true
         end
 
@@ -335,10 +369,12 @@ module Ai
 
         def capture_state(action, context)
           case action
+          # The provider id is stored uuid-cast (#provider_target), so the audit row
+          # carries the key the per-target guard compares.
           when "provider_failover"
-            { provider_id: context[:provider_id], circuit_state: context[:circuit_state] }
+            { provider_id: provider_target(action, context), circuit_state: context[:circuit_state] }
           when "model_downgrade"
-            { provider_id: context[:source_id] || context[:provider_id] }
+            { provider_id: provider_target(action, context) }
           when "context_trim"
             { execution_id: context[:execution_id] }
           when "alert_escalation"
