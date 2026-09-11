@@ -106,6 +106,8 @@ RSpec.describe "MCP tools/call advertisement parity", type: :request do
     tool = instance_double(::Ai::Tools::DiskImageOperatorTool)
     allow(tool).to receive(:node_instance=)
     allow(tool).to receive(:instance_authorized=)
+    # The door marks every call it dispatches (MCP identity plan, call_origin).
+    allow(tool).to receive(:call_origin=)
     allow(tool).to receive(:execute).and_return({ success: true, data: { control: true } })
     expect(::Ai::Tools::DiskImageOperatorTool).to receive(:new).and_return(tool)
 
@@ -113,5 +115,6 @@ RSpec.describe "MCP tools/call advertisement parity", type: :request do
 
     expect(body["error"]).to be_nil, "expected a result envelope, got #{body["error"].inspect}"
     expect(body.dig("result", "structuredContent", "success")).to be(true)
+    expect(tool).to have_received(:call_origin=).with("mcp_oauth")
   end
 end

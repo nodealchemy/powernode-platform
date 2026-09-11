@@ -198,6 +198,8 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
       autonomy_for_user = instance_double(Ai::Tools::AgentAutonomyTool)
       allow(Ai::Tools::AgentAutonomyTool).to receive(:new)
         .with(account: account, user: user, agent: nil).and_return(autonomy_for_user)
+      # The door marks every call it dispatches (MCP identity plan, call_origin).
+      allow(autonomy_for_user).to receive(:call_origin=)
       allow(autonomy_for_user).to receive(:execute).and_return({ success: true })
 
       call_via_protocol_service(
@@ -209,6 +211,7 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
       expect(autonomy_for_user).to have_received(:execute) do |args|
         expect(args[:params][:action]).to eq("list_agent_goals")
       end
+      expect(autonomy_for_user).to have_received(:call_origin=).with("mcp_cable")
     end
 
     it "still injects the action when the caller supplies none" do
@@ -216,6 +219,7 @@ RSpec.describe "MCP platform-tool action scope (both entry points)", type: :serv
       allow(Ai::Tools::IntegrationHealthTool).to receive(:new)
         .with(account: account, user: nil, agent: nil).and_return(single)
       allow(single).to receive(:instance_authorized=)
+      allow(single).to receive(:call_origin=)
       allow(single).to receive(:execute).and_return({ success: true })
 
       call_via_protocol_service(Ai::Tools::IntegrationHealthTool, {})
