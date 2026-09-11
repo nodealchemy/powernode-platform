@@ -325,6 +325,7 @@ RSpec.describe Ai::Tools::CampaignTool do
       expect(decision.user_id).to eq(user.id)
       expect(decision.metadata).to include(
         "action" => "campaign_resume",
+        "principal" => "user",
         "previous_status" => "completed",
         "old_stop_conditions" => { "min_acceptance_pct" => 50, "max_failed" => 2 },
         "new_stop_conditions" => { "min_acceptance_pct" => 50, "max_failed" => 6, "completion_pct" => 90 }
@@ -339,6 +340,131 @@ RSpec.describe Ai::Tools::CampaignTool do
       res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 6 }, reason: "x")
       expect(res[:data][:halted]).to be true
       expect(campaign.reload.status).to eq("completed")
+    end
+
+    # Security review §9 fix 1: a null reads as "no such stop", so a merged nil used to
+    # slip past the re-complete guard AND delete the stop. Every value must be a valid
+    # value of its key's type; nothing is removed.
+    it "refuses, by name, a stop value that is null, a string, the wrong type, inert or unknown, deleting nothing" do
+      campaign = auto_completed_campaign
+      before_conditions = campaign.stop_conditions.dup
+
+      {
+        { max_failed: nil } => "max_failed",
+        { max_failed: 9, min_acceptance_pct: nil } => "min_acceptance_pct",
+        { max_failed: "6" } => "max_failed",
+        { max_failed: 6.5 } => "max_failed",
+        { max_failed: 0 } => "max_failed",
+        { max_failed: true } => "max_failed",
+        { max_failed: 9, min_acceptance_pct: 0 } => "min_acceptance_pct",
+        { max_failed: 9, completion_pct: 101 } => "completion_pct",
+        { max_failed: 9, min_acceptance_sample: "4" } => "min_acceptance_sample",
+        { max_failed: 9, max_cost_per_accepted_change: 0 } => "max_cost_per_accepted_change",
+        { max_failed: 9, no_such_stop: 3 } => "no_such_stop"
+      }.each do |conditions, key|
+        res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: conditions, reason: "probe")
+        expect(res[:success]).to be(false), "#{conditions.inspect} was accepted"
+        expect(res[:error]).to include("invalid stop condition").and include("'#{key}'")
+      end
+      expect(campaign.reload.status).to eq("completed")
+      expect(campaign.stop_conditions).to eq(before_conditions)
+    end
+
+    it "accepts a valid value of each stop condition's type and stores it as given" do
+      campaign = auto_completed_campaign
+      conditions = { max_failed: 6, min_acceptance_sample: 8, completion_pct: 95.5, min_acceptance_pct: 40,
+                     max_cost_per_accepted_change: 2.5 }
+
+      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: conditions, reason: "retune")
+      expect(res[:success]).to be(true), res[:error].to_s
+      expect(campaign.reload.stop_conditions).to eq(conditions.stringify_keys)
+      expect(campaign.stop_conditions["max_failed"]).to be_a(Integer)
+    end
+
+    # §9 fix 3: the campaign's own driver cannot re-arm it.
+    it "refuses while a driver holds the campaign's lease, and goes through once the lease is released" do
+      campaign = auto_completed_campaign
+      exec(action: "campaign_claim", campaign_id: campaign.id, holder: "driver-loop-1")
+
+      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 50 },
+                 reason: "self re-arm")
+      expect(res[:success]).to be false
+      expect(res[:error]).to include("held by driver 'driver-loop-1'")
+      expect(campaign.reload.status).to eq("completed")
+      expect(campaign.stop_conditions["max_failed"]).to eq(2)
+
+      exec(action: "campaign_release", campaign_id: campaign.id, holder: "driver-loop-1")
+      res = exec(action: "campaign_resume", campaign_id: campaign.id, stop_conditions: { max_failed: 50 },
+                 reason: "operator, after the driver let go")
+      expect(res[:success]).to be(true), res[:error].to_s
+      expect(campaign.reload.status).to eq("active")
+    end
+
+    # §9 fix 4: the driver itself never writes a resume that names no one.
+    it "has the driver refuse a resume with no acting user, before any write" do
+      campaign = auto_completed_campaign
+      nobody_driver = Ai::DevLoop::CampaignDriver.new(account: account, user: nil)
+
+      expect { nobody_driver.resume(campaign, reason: "no one", stop_conditions: { max_failed: 6 }) }
+        .to raise_error(ArgumentError, /acting user/)
+      expect(campaign.reload.status).to eq("completed")
+      expect(campaign.campaign_decisions.where("metadata->>'action' = ?", "campaign_resume")).to be_empty
+    end
+
+    # §9 fix 2: a resume is a human operator's decision. Authority an agent or an
+    # instance inherits from the account is not consent (the A6 H1 ruling).
+    describe "principals" do
+      let(:campaign) { auto_completed_campaign }
+
+      def resume_as(tool_instance)
+        tool_instance.execute(params: { action: "campaign_resume", campaign_id: campaign.id,
+                                        stop_conditions: { max_failed: 50 }, reason: "re-arm" }.with_indifferent_access)
+      end
+
+      def expect_refused_untouched(res, named)
+        expect(res[:success]).to be false
+        expect(res[:error]).to match(named)
+        expect(campaign.reload.status).to eq("completed")
+        expect(campaign.stop_conditions["max_failed"]).to eq(2)
+        expect(campaign.campaign_decisions.where("metadata->>'action' = ?", "campaign_resume")).to be_empty
+      end
+
+      it "refuses an agent acting beside a creator who holds ai.campaigns.manage" do
+        agent = create(:ai_agent, account: account, creator: user)
+        expect_refused_untouched(resume_as(described_class.new(account: account, user: user, agent: agent)),
+                                 /human operator's decision.*agent #{agent.id}/)
+      end
+
+      it "refuses an agent alone whose creator is powerless, though the account owner holds the permission" do
+        powerless = create(:user, account: account, permissions: [])
+        agent = create(:ai_agent, account: account, creator: powerless)
+        expect_refused_untouched(resume_as(described_class.new(account: account, agent: agent)),
+                                 /human operator's decision.*agent #{agent.id}/)
+      end
+
+      it "refuses a grant-gated instance principal" do
+        instance_tool = described_class.new(account: account)
+        instance_tool.instance_authorized = true
+        expect_refused_untouched(resume_as(instance_tool), /human operator's decision.*instance principal/)
+      end
+
+      it "refuses an internal caller with no user" do
+        expect_refused_untouched(resume_as(described_class.new(account: account, internal: true)),
+                                 /human operator's decision.*no user/)
+      end
+
+      it "refuses a user who does not personally hold ai.campaigns.manage, even constructed past the registrar" do
+        campaign # built by the owner before the restricted user exists
+        reader = create(:user, account: account, permissions: %w[ai.campaigns.read])
+        expect_refused_untouched(resume_as(described_class.new(account: account, user: reader)),
+                                 /does not hold 'ai\.campaigns\.manage'/)
+      end
+
+      it "lets the human operator who holds the permission through (positive control)" do
+        res = resume_as(described_class.new(account: account, user: user))
+        expect(res[:success]).to be(true), res[:error].to_s
+        expect(campaign.reload.status).to eq("active")
+      end
     end
   end
 
@@ -382,6 +508,19 @@ RSpec.describe Ai::Tools::CampaignTool do
       expect(res[:success]).to be(true), res[:error].to_s
       expect(completed.reload.status).to eq("active")
       expect(completed.campaign_decisions.last.user_id).to eq(manager.id)
+    end
+
+    it "refuses an MCP call that carries an agent, though the token's user holds ai.campaigns.manage" do
+      agent = create(:ai_agent, account: account, creator: user)
+
+      res = ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+        "platform.campaign_resume", params: { campaign_id: completed.id, reason: "agent via mcp" },
+                                    account: account, user: user, mcp_agent: agent
+      )
+      expect(res[:success]).to be false
+      expect(res[:error]).to match(/human operator's decision/)
+      expect(completed.reload.status).to eq("completed")
+      expect(completed.campaign_decisions.count).to eq(0)
     end
   end
 end

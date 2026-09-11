@@ -32,6 +32,23 @@ module Ai
       # and "created" exists only inside #start's own transaction.
       RESUMABLE_STATUSES = %w[completed paused].freeze
 
+      # The type each stop condition #resume may set must hold. A value is only ever
+      # replaced by a valid value of its type: a null reads as "no such stop" in
+      # Campaign#tripped_stop_condition, so accepting one would DELETE the stop, and a
+      # zero floor or budget leaves the stop inert, which is a removal by another name.
+      STOP_CONDITION_TYPES = {
+        "max_failed" => :positive_integer,
+        "min_acceptance_sample" => :positive_integer,
+        "completion_pct" => :percentage,
+        "min_acceptance_pct" => :percentage,
+        "max_cost_per_accepted_change" => :positive_amount
+      }.freeze
+      STOP_CONDITION_RULES = {
+        positive_integer: "a positive integer",
+        percentage: "a number above 0 and at most 100",
+        positive_amount: "a positive finite number"
+      }.freeze
+
       def initialize(account:, user: nil)
         @account = account
         @user = user
@@ -177,25 +194,28 @@ module Ai
       # re-complete guard, the transition and the decision commit together or not at all.
       # A refusal raises ArgumentError naming its reason and rolls the merge back.
       def resume(campaign, reason:, stop_conditions: {})
+        refuse_without_acting_user!
         raise ArgumentError, "reason is required" if reason.blank?
+        changes = validated_stop_conditions!(stop_conditions)
 
         decision = nil
         campaign.with_lock do
           refuse_unless_resumable!(campaign)
+          refuse_while_driven!(campaign)
           previous_status = campaign.status
           previous_summary = campaign.completion_summary
           # Judge the guard on the aggregates the NEXT snapshot will produce, not on
           # whatever the last one left behind.
           campaign.snapshot_progress!
           old_conditions = campaign.stop_conditions.to_h
-          campaign.stop_conditions = old_conditions.merge(stop_conditions.to_h.deep_stringify_keys)
+          campaign.stop_conditions = old_conditions.merge(changes)
           refuse_if_would_recomplete!(campaign)
 
           campaign.resume!
           decision = campaign.record_decision!(
             decision_type: "policy", title: "Campaign resumed", rationale: reason, user: @user,
             metadata: {
-              "action" => "campaign_resume", "previous_status" => previous_status,
+              "action" => "campaign_resume", "principal" => "user", "previous_status" => previous_status,
               "previous_completion_summary" => previous_summary,
               "old_stop_conditions" => old_conditions, "new_stop_conditions" => campaign.stop_conditions
             }
@@ -521,6 +541,53 @@ module Ai
         loop_record.update!(
           configuration: loop_record.configuration.merge("completion" => { "all_tasks_terminal" => true })
         )
+      end
+
+      # The decision row must name the person who re-armed the campaign. The tool refuses
+      # every non-human principal first; this holds the line for any other caller.
+      def refuse_without_acting_user!
+        return if @user
+
+        raise ArgumentError, "campaign_resume refused: a resume must name the acting user, and this call has none"
+      end
+
+      def validated_stop_conditions!(conditions)
+        conditions = conditions.to_h.transform_keys(&:to_s)
+        problems = conditions.filter_map do |key, value|
+          type = STOP_CONDITION_TYPES[key]
+          next "'#{key}' is not a stop condition" unless type
+          next if valid_stop_value?(type, value)
+
+          "'#{key}' must be #{STOP_CONDITION_RULES[type]} (got #{value.inspect})"
+        end
+        return conditions if problems.empty?
+
+        raise ArgumentError,
+              "campaign_resume refused: invalid stop condition #{problems.join('; ')}. A resume sets a stop " \
+              "condition only to a valid value of its type and never removes one"
+      end
+
+      def valid_stop_value?(type, value)
+        return false unless value.is_a?(Numeric) && value.real? && value.finite?
+
+        case type
+        when :positive_integer then value.is_a?(Integer) && value.positive?
+        when :percentage then value.positive? && value <= 100
+        when :positive_amount then value.positive?
+        else false
+        end
+      end
+
+      # A campaign's own driver cannot re-arm the campaign it is driving. The lease holder
+      # is an opaque string, so "held at all" is the check a principal cannot dodge by
+      # choosing its holder name.
+      def refuse_while_driven!(campaign)
+        return unless campaign.driver_lease_active?
+
+        raise ArgumentError,
+              "campaign_resume refused: campaign '#{campaign.name}' is held by driver " \
+              "'#{campaign.driver_lease_holder}' until #{campaign.driver_lease_expires_at.utc.iso8601}; a " \
+              "campaign's own driver cannot re-arm it. The lease must be released (campaign_release) or expire first"
       end
 
       def refuse_unless_resumable!(campaign)

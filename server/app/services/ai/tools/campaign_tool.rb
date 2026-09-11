@@ -239,8 +239,12 @@ module Ai
                          "and adjust its stop conditions in the same call. stop_conditions is MERGED into the " \
                          "existing ones (e.g. { max_failed: 6 } raises only that cap). Refused, by name, for an " \
                          "archived or already-active campaign, and when a merged stop condition is still met " \
-                         "(the campaign would complete again on its next progress snapshot). Records the resume " \
-                         "as a campaign decision carrying the reason and the old and new stop conditions.",
+                         "(the campaign would complete again on its next progress snapshot). Each stop condition " \
+                         "must be a valid value of its type; a resume never removes one. Human operators only: " \
+                         "refused for an agent, an instance principal or a caller with no user, for a user who " \
+                         "does not personally hold ai.campaigns.manage, and while a driver holds the campaign's " \
+                         "lease. Records the resume as a campaign decision naming the user, the reason and the " \
+                         "old and new stop conditions.",
             parameters: {
               campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
               reason: { type: "string", required: true, description: "Why the campaign is resumed (recorded on the decision)" },
@@ -484,6 +488,8 @@ module Ai
       end
 
       def campaign_resume(params)
+        refusal = human_operator_refusal
+        return error_result(refusal) if refusal
         return success_result(halted: true) if halted? # kill-switch: a resume restarts work
 
         campaign = find_campaign(params[:campaign_id])
@@ -497,6 +503,27 @@ module Ai
         error_result(e.message)
       rescue ActiveRecord::RecordInvalid => e
         error_result(e.message)
+      end
+
+      # A resume re-arms a campaign past a stop that fired, so it is a human operator's
+      # decision: authority an agent or an instance inherits is not consent (the A6 H1
+      # ruling). The registrar's gate cannot say that. BaseTool.permitted? lets an agent
+      # reach any REQUIRED_PERMISSION tool when ANY user in its account holds the
+      # permission, and every OAuth MCP call carries a client agent
+      # (StreamableHttpController#mcp_client_agent). So this verb asks for a user acting
+      # alone who personally holds the permission. Scoped here on purpose; the
+      # platform-wide rule is a separate change.
+      def human_operator_refusal
+        principal = if agent then "agent #{agent.id}"
+                    elsif instance_authorized? || node_instance then "an instance principal"
+                    elsif user.nil? then "a caller with no user"
+                    end
+        if principal
+          return "campaign_resume refused: a resume is a human operator's decision, and this call comes from #{principal}"
+        end
+        return nil if user.has_permission?(REQUIRED_PERMISSION)
+
+        "campaign_resume refused: user #{user.id} does not hold '#{REQUIRED_PERMISSION}'"
       end
     end
   end
