@@ -132,9 +132,11 @@ where the generated name exceeds 63 characters; JSON defaults on the **model** a
 | `signal_resolver` | maps a `FleetEvent`/`SignalState` to this component (by `node_instance_id`, `payload.instance_id`, `certificate_id`, ...) |
 | `runbook_key`, `owner_agent_slug` (optional) | drawer and investigation defaults |
 
-The drawer resolves an optional rich panel by a **derived** slot id,
-`platform.status.drawer.<component_kind>`, through the existing `registerComponentSlots` seam
-(global ids, one component per id, last write wins — documented as a hazard). The page subscribes
+The drawer resolves optional rich views by **derived** slot ids,
+`platform.status.drawer.<component_kind>.<view>` — one id per view, one tab per id, found with
+`featureRegistry.getComponentSlotIds('platform.status.drawer.<component_kind>.')` (sorted, so tab
+order never depends on registration order) through the existing `registerComponentSlots` seam
+(global ids, one component per id, last write wins — which is why each view needs its own id). The page subscribes
 to `featureRegistry.getVersion()` so a runtime extension that registers after first render is
 picked up (the `CostPage` precedent).
 
@@ -305,7 +307,7 @@ is green). Rev 3 re-scope after the checklist found 25 gaps:
   page stays** (kind and severity filters, rolling counters, event detail, correlation chain, live
   ring buffer, attribution feedback): signals are a different noun from component status. The
   drawer gets signals **per component** from the system extension registering a recent-signals view
-  into the derived slot `platform.status.drawer.<kind>`, beside boot replay for `node_instance`
+  into the derived slot `platform.status.drawer.<kind>.signals`, beside `node_instance.boot_replay`
   (the boot-replay permission refusal naming `system.fleet.read` is carried). Core never reads
   `FleetEvent`.
 - Honeypot, dispatch-latency and remediation-effectiveness tiles: deleted after **B5** gives each a
