@@ -108,9 +108,10 @@ module Ai
       LINT_CONFIDENCE = 0.9
 
       # Worst first, so the per-run cap keeps what matters. `info` is where
-      # rubocop's `convention` and `refactor` offences land — under this repo's
-      # omakase config that is most of them, so excluding it would leave a
-      # discovery loop that mechanically cannot find anything in Ruby.
+      # rubocop's `convention` and `refactor` offences land. Under this repo's
+      # omakase config most offences are conventions, so excluding `info` would
+      # file only the few Lint warnings and errors, and miss most of what the
+      # linter reports.
       SEVERITY_RANK = { "error" => 0, "warning" => 1, "info" => 2 }.freeze
 
       def self.max_environment_tier

@@ -165,6 +165,36 @@ RSpec.describe "Api::V1::Internal::Ai::ImprovementDiscovery", type: :request do
     expect(failed.metadata.to_json).not_to include(planted)
   end
 
+  # D1 re-verify: a unit the worker stopped waiting on is recorded, so the run
+  # history never reads as if it was not tried.
+  describe "a unit the worker stopped waiting on" do
+    def time_out_at!(position)
+      post "/api/v1/internal/ai/improvement_discovery/timed_out",
+           params: { position: position }, headers: internal_headers, as: :json
+    end
+
+    it "records that unit as not measured, reason timeout, on its own account only" do
+      expect { time_out_at!(units.index(account.id)) }.to change { my_audit_rows.count }.by(1)
+
+      expect(body).to eq({ "recorded" => true })
+      expect(my_audit_rows.last.metadata).to include("phase" => "dispatch", "status" => "not_measured",
+                                                     "reason" => "timeout")
+      expect(dispatched).to be_empty
+    end
+
+    it "records nothing past the end of the walk" do
+      expect { time_out_at!(units.size) }
+        .not_to change { AuditLog.where(action: "ai.improvement_discovery.run").count }
+      expect(body).to eq({ "recorded" => false })
+    end
+
+    it "refuses a position that is not a non-negative integer" do
+      time_out_at!(-1)
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+  end
+
   it "says when the walk is over, on the last unit and past it" do
     last = units.size - 1
 

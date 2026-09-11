@@ -575,6 +575,8 @@ Rails.application.routes.draw do
           # mechanical analyzers and file code-quality offers through the same
           # fingerprint-deduped path create_improvement uses (D1).
           post "improvement_discovery/run", to: "improvement_discovery#run"
+          # The worker records a unit it stopped waiting on (D1 re-verify).
+          post "improvement_discovery/timed_out", to: "improvement_discovery#timed_out"
 
           # Worktree session management (worker → server)
           resources :worktree_sessions, only: [:show] do

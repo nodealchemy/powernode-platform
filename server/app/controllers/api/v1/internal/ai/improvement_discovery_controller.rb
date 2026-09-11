@@ -38,10 +38,8 @@ module Api
           # the response names no account, repository, environment or error
           # text. Per-account detail lives in that account's own audit row.
           def run
-            position = Integer(params.fetch(:position, 0), exception: false)
-            if position.nil? || position.negative?
-              return render_error("position must be a non-negative integer", status: :unprocessable_content)
-            end
+            position = unit_position
+            return render_error("position must be a non-negative integer", status: :unprocessable_content) if position.nil?
 
             units = ::Ai::Improvement::DiscoveryRunService.units
             return render_success(unit_result(nil, position: position, total: units.size)) if position >= units.size
@@ -53,7 +51,34 @@ module Api
             render_success(unit_result(summary, position: position, total: units.size))
           end
 
+          # POST /api/v1/internal/ai/improvement_discovery/timed_out   { position: n }
+          #
+          # The worker stopped waiting on unit n (D1 re-verify). The unit is
+          # recorded on its account as not measured, reason timeout, so the run
+          # history never reads as if it was not tried. The server-side run may
+          # still finish and record its own outcome later; the newest record is
+          # the one DiscoveryRun.last_for answers. Aggregate answer only (M1).
+          def timed_out
+            position = unit_position
+            return render_error("position must be a non-negative integer", status: :unprocessable_content) if position.nil?
+
+            units = ::Ai::Improvement::DiscoveryRunService.units
+            account = position < units.size ? ::Account.find_by(id: units[position]) : nil
+            if account
+              record_run(account, { phase: "dispatch", status: "not_measured", reason: "timeout",
+                                    account_id: account.id, findings: 0, offers_created: 0,
+                                    offers_deduped: 0, offers_parked: 0, analyzers_degraded: [] })
+            end
+
+            render_success({ recorded: account.present? })
+          end
+
           private
+
+          def unit_position
+            position = Integer(params.fetch(:position, 0), exception: false)
+            position.nil? || position.negative? ? nil : position
+          end
 
           def run_unit(account)
             ::Ai::Improvement::DiscoveryRunService.new(account: account).run!
