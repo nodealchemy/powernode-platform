@@ -7,35 +7,43 @@ import { usePolling } from '@/shared/hooks/usePolling';
 // The absorbed ApprovalQueuePanel read it once (`useQuery`, no refetch) and
 // showed a queue that was only as fresh as the page load.
 //
-// ── THERE IS NO APPROVAL BROADCAST, SO THIS RIDES THE NOTIFICATIONS ─────────
+// ── TWO PUSHES, BOTH ON THE VIEWER'S OWN NOTIFICATIONCHANNEL STREAM ────────
 //
-// Nothing on the server broadcasts "approval created" or "approval decided" to
-// an account. What does exist: `Ai::ApprovalRequest` fans out a Notification
-// to every approver of the current step on create and on every step advance
-// (`fan_out_step_notifications`), and each Notification is pushed on the
-// viewer's own NotificationChannel stream. Every such notification carries
-// `metadata.approval_request_id` — `ApprovalRequestNotifier#provenance_for`
-// merges it LAST, so no content handler can strip it. That key is the
-// discriminator; the notification TYPE is not, because a custom handler
-// chooses its own.
+// 1. The card. `Ai::ApprovalRequest` fans out a Notification to the approvers
+//    of the current step on create, on every step advance, and on a decision
+//    inside a step (leaving out whoever already decided it). Every such
+//    notification carries `metadata.approval_request_id` —
+//    `ApprovalRequestNotifier#provenance_for` merges it LAST, so no content
+//    handler can strip it. That key is the discriminator; the notification TYPE
+//    is not, because a custom handler chooses its own.
+// 2. The queue refresh (C3b2 review B2). A decision inside a step also sends
+//    `approval_request_changed` — a socket event, not a card — to every viewer
+//    who may read the queue, the decider included, carrying the request id.
 //
-// ── AND THAT IS WHY THE POLL NEVER STOPS ───────────────────────────────────
+// ── AND STILL THE POLL NEVER STOPS ─────────────────────────────────────────
 //
-// The push reaches only the approvers of the step. It does not reach a viewer
-// who holds `ai.autonomy.approve` but is not named on this step, and nothing is
-// pushed when SOMEONE ELSE decides a request or the hourly expiry sweep expires
-// it. So unlike the status page's poll, which stops once its channel is live,
-// this one runs always: the push makes a new approval immediate for the people
-// who must act on it, and the poll bounds everyone else's staleness. An
-// account-scoped approval broadcast would let the poll become a fallback; it is
-// a server change and is recorded as owed, not faked here.
+// A step advance and a resolution send cards only to the approvers of the new
+// step (a resolution sends none), and the hourly expiry sweep sends nothing. So
+// unlike the status page's poll, which stops once its channel is live, this one
+// runs always: the pushes make the common changes immediate, and the poll
+// bounds the staleness of the rest.
 
 export const APPROVAL_POLL_MS = 30000;
 
-/** True when a NotificationChannel message is a new notification about an approval request. */
+/** The queue-refresh event's type (C3b2 review B2). */
+export const APPROVAL_QUEUE_CHANGED = 'approval_request_changed';
+
 /** The approval request a NotificationChannel message is about, if it is about one. */
 export const approvalRequestIdOf = (payload: unknown): string | undefined => {
   if (typeof payload !== 'object' || payload === null) return undefined;
+  // The queue refresh names its request at the top level, and only its own
+  // type counts there: any other message's top-level id is not a claim.
+  const direct = payload as { type?: unknown; approval_request_id?: unknown };
+  if (direct.type === APPROVAL_QUEUE_CHANGED) {
+    return typeof direct.approval_request_id === 'string' && direct.approval_request_id.length > 0
+      ? direct.approval_request_id
+      : undefined;
+  }
   const notification = (payload as { notification?: unknown }).notification;
   if (typeof notification !== 'object' || notification === null) return undefined;
   const metadata = (notification as { metadata?: unknown }).metadata;
@@ -44,6 +52,7 @@ export const approvalRequestIdOf = (payload: unknown): string | undefined => {
   return typeof id === 'string' && id.length > 0 ? id : undefined;
 };
 
+/** True when a NotificationChannel message is about an approval request. */
 export const isApprovalNotification = (payload: unknown): boolean =>
   approvalRequestIdOf(payload) !== undefined;
 
@@ -60,7 +69,8 @@ export function useLiveApprovalQueue() {
 
   const onDataUpdate = useCallback(
     (update: WebSocketDataUpdate) => {
-      if (update.channel !== 'notifications' || update.type !== 'new_notification') return;
+      if (update.channel !== 'notifications') return;
+      if (update.type !== 'new_notification' && update.type !== APPROVAL_QUEUE_CHANGED) return;
       const requestId = approvalRequestIdOf(update.data);
       if (!requestId) return;
       setLastPush({ requestId, at: update.timestamp });

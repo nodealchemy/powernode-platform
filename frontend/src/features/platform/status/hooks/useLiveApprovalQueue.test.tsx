@@ -194,11 +194,27 @@ describe('useLiveApprovalQueue', () => {
     });
     await waitFor(() => expect(mockGet.mock.calls.length).toBeGreaterThan(readsBefore));
   });
+
+  it('treats a queue-refresh event as a push about its request (C3b2 review B2)', async () => {
+    mockGet.mockResolvedValue({ data: { data: [row('req-1')] } });
+    const { result } = renderHook(() => useLiveApprovalQueue(), { wrapper: makeWrapper() });
+    await waitFor(() => expect(ids(result.current.data)).toEqual(['req-1']));
+
+    // Someone else resolved it: no card reaches this viewer, only the refresh.
+    mockGet.mockResolvedValue({ data: { data: [] } });
+    deliver({ type: 'approval_request_changed', approval_request_id: 'req-1', status: 'pending', current_step: 0 });
+
+    await waitFor(() => expect(ids(result.current.data)).toEqual([]));
+    expect(result.current.lastPush?.requestId).toBe('req-1');
+  });
 });
 
 describe('isApprovalNotification', () => {
   it.each([
     ['an approval notification', approvalNotification('req-9'), true],
+    ['a queue-refresh event', { type: 'approval_request_changed', approval_request_id: 'req-9' }, true],
+    ['a queue-refresh event with no id', { type: 'approval_request_changed' }, false],
+    ['a top-level id on any other message', { type: 'new_notification', approval_request_id: 'req-9' }, false],
     ['no metadata', { type: 'new_notification', notification: { id: 'n' } }, false],
     ['an empty id', { notification: { metadata: { approval_request_id: '' } } }, false],
     ['a non-string id', { notification: { metadata: { approval_request_id: 42 } } }, false],

@@ -28,6 +28,11 @@ jest.mock('@/shared/components/entity', () => ({
 }));
 jest.mock('@/shared/hooks/useWebSocket');
 jest.mock('@/shared/hooks/usePolling', () => ({ usePolling: jest.fn() }));
+// Mocked so a refused decision's notice can be ASSERTED (C3b2 review B1).
+const mockShowNotification = jest.fn();
+jest.mock('@/shared/hooks/useNotification', () => ({
+  useNotification: () => ({ showNotification: mockShowNotification }),
+}));
 
 const mockedWebSocket = useWebSocket as jest.MockedFunction<typeof useWebSocket>;
 
@@ -50,6 +55,8 @@ const row = (id: string, overrides: Record<string, unknown> = {}) => ({
   created_at: '2026-09-10T00:00:00Z',
   current_step: 0,
   total_steps: 1,
+  // The server's per-viewer answer (C3b2 review B1).
+  current_step_can_approve: true,
   ...overrides,
 });
 
@@ -198,12 +205,13 @@ describe('ApprovalQueuePanel — mounted, live (C3b part 2)', () => {
     details['req-1'] = twoStepDetail('req-1', 1, { current_step_can_approve: false });
     renderPanel();
     await screen.findByText('action req-1');
-    // Collapsed, nothing has said otherwise yet: the permission alone decides.
+    // Collapsed, the list row's answer decides, and it says this viewer can act.
     expect(screen.getAllByRole('button', { name: /approve/i })).toHaveLength(1);
 
     fireEvent.click(screen.getByTitle('Expand'));
 
-    expect(await screen.findByText(/not an approver on the current step/)).toBeInTheDocument();
+    // The fresher detail says otherwise, and wins.
+    expect(await screen.findByText(/You cannot decide the current step/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /approve/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /reject/i })).not.toBeInTheDocument();
   });
@@ -228,6 +236,80 @@ describe('ApprovalQueuePanel — mounted, live (C3b part 2)', () => {
     deliver(approvalPush('req-1'));
     await waitFor(() => expect(detailReads('req-1')).toBe(readsAfterExpand + 1));
     expect(await screen.findByText('2 of 2 approvals')).toBeInTheDocument();
+  });
+
+  it('shows the quick row only when the list says this viewer can act on the step (C3b2 review B1)', async () => {
+    listRows = [
+      row('req-1', { current_step_can_approve: false }),
+      row('req-2', { current_step_can_approve: true }),
+    ];
+    renderPanel();
+    await screen.findByText('action req-1');
+    await screen.findByText('action req-2');
+
+    // One row's worth: req-2's. On the permission alone there would be two.
+    expect(screen.getAllByRole('button', { name: /approve/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /reject/i })).toHaveLength(1);
+  });
+
+  it("names the server's reason when it refuses a decision (C3b2 review B1)", async () => {
+    mockPost.mockImplementation((url: string) =>
+      Promise.reject({
+        response: {
+          status: 422,
+          data: {
+            success: false,
+            error: url.endsWith('/approve') ? 'Cannot approve this request' : 'Cannot reject this request',
+          },
+        },
+      })
+    );
+    renderPanel();
+    await screen.findByText('action req-1');
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /approve/i }));
+    });
+    await waitFor(() =>
+      expect(mockShowNotification).toHaveBeenCalledWith('Approval failed: Cannot approve this request', 'error')
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /reject/i }));
+    });
+    await waitFor(() =>
+      expect(mockShowNotification).toHaveBeenCalledWith('Rejection failed: Cannot reject this request', 'error')
+    );
+  });
+
+  it('announces no failure when the decision succeeds (B1, the other arm)', async () => {
+    mockPost.mockResolvedValue({ data: { data: { ...row('req-1'), status: 'approved' } } });
+    renderPanel();
+    await screen.findByText('action req-1');
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /approve/i }));
+    });
+    await waitFor(() => expect(mockPost).toHaveBeenCalled());
+    expect(mockShowNotification).not.toHaveBeenCalledWith(expect.anything(), 'error');
+  });
+
+  it("re-reads on a queue-refresh event: the list always, an expanded chain only for ITS request (C3b2 review B2)", async () => {
+    listRows = [row('req-1', { current_step: 1, total_steps: 2 })];
+    details['req-1'] = twoStepDetail('req-1');
+    renderPanel();
+    await screen.findByText('Step 2 of 2');
+    fireEvent.click(screen.getByTitle('Expand'));
+    await screen.findByText('Step 1: SRE review');
+    const detailBefore = detailReads('req-1');
+    const listBefore = listReads();
+
+    deliver({ type: 'approval_request_changed', approval_request_id: 'req-other', status: 'pending', current_step: 0 });
+    await waitFor(() => expect(listReads()).toBeGreaterThan(listBefore));
+    expect(detailReads('req-1')).toBe(detailBefore);
+
+    deliver({ type: 'approval_request_changed', approval_request_id: 'req-1', status: 'pending', current_step: 1 });
+    await waitFor(() => expect(detailReads('req-1')).toBeGreaterThan(detailBefore));
   });
 
   it("re-reads an expanded chain after the viewer's own decision inside a multi-approval step", async () => {

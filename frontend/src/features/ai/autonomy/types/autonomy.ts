@@ -152,13 +152,17 @@ export interface ApprovalRequest {
   current_step?: number;
   /** `step_statuses.size`. On the list read only. */
   total_steps?: number | null;
+  /**
+   * Whether THIS viewer can act on the current step: an approver of it who has
+   * not already decided it. Computed per viewer, on the list AND the detail.
+   */
+  current_step_can_approve?: boolean;
   // Detail read only (GET /ai/autonomy/approvals/:id). There is no
   // `approval_chain_id` on either read: the chain's id arrives inside
   // `approval_chain`.
   step_statuses?: ApprovalStepStatus[];
   approval_chain?: ApprovalChainSummary | null;
   decisions?: ApprovalDecisionRecord[];
-  current_step_can_approve?: boolean;
 }
 
 /**

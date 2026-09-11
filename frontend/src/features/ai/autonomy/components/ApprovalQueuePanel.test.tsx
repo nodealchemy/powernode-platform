@@ -51,6 +51,8 @@ const PENDING_ROW = {
   description: 'Rotate secret for disk image webhook',
   request_data: { webhook_id: 'wh-1' },
   created_at: '2026-09-08T00:00:00Z',
+  // The server's per-viewer answer (C3b2 review B1); the buttons need it.
+  current_step_can_approve: true,
 };
 
 const SECRET = 'whsec_zz_test_only_not_a_real_secret';

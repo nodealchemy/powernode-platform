@@ -5,6 +5,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { OneShotRevealModal } from '@/shared/components/ui/OneShotRevealModal';
 import { EntityLink } from '@/shared/components/entity';
 import { usePermissions } from '@/shared/hooks/usePermissions';
+import { useNotification } from '@/shared/hooks/useNotification';
 import { useApproveAction, useRejectAction } from '../api/autonomyApi';
 import { useLiveApprovalQueue } from '@/features/platform/status/hooks/useLiveApprovalQueue';
 import { useApprovalRequestDetail } from '@/features/platform/status/hooks/useApprovalRequestDetail';
@@ -23,9 +24,19 @@ import type { ApprovalRequest } from '../types/autonomy';
 // The list and detail reads need `ai.agents.read` (autonomy_controller.rb
 // before_action). Without it the panel does not mount the live queue at all —
 // its always-on poll would draw a 403 every 30 s — and says which permission is
-// missing. Approve and Reject additionally need `ai.autonomy.approve`, and the
-// detail read reports `current_step_can_approve` for THIS viewer on THIS step:
-// once it says false, the buttons go too, because the server would refuse.
+// missing. Approve and Reject additionally need `ai.autonomy.approve`, AND the
+// server's `current_step_can_approve` for THIS viewer on THIS step — on the list
+// row, and on the detail once it has loaded. Offered only when it is true: on
+// the permission alone, a holder who is not on the current step (or who has
+// already decided it) saw buttons whose click drew a 422 (C3b2 review B1).
+
+// The server's own words for a refused decision. A 422 says "Cannot approve
+// this request"; before, nothing showed at all (C3b2 review B1).
+const refusalReason = (error: unknown): string => {
+  const body = (error as { response?: { data?: { error?: unknown } } } | null)?.response?.data;
+  if (typeof body?.error === 'string' && body.error) return body.error;
+  return error instanceof Error && error.message ? error.message : 'the server gave no reason';
+};
 
 const READ_PERMISSION = 'ai.agents.read';
 const APPROVE_PERMISSION = 'ai.autonomy.approve';
@@ -54,6 +65,7 @@ const ApprovalCard: React.FC<{
 }> = ({ request, isExpanded, onToggle, onRevealed, canDecide, pushKey }) => {
   const approveMutation = useApproveAction();
   const rejectMutation = useRejectAction();
+  const { showNotification } = useNotification();
   // Bumped after this viewer's own decision settles: an approval inside a
   // multi-approval step changes nothing the list row shows.
   const [ownDecisions, setOwnDecisions] = useState(0);
@@ -71,23 +83,29 @@ const ApprovalCard: React.FC<{
     // moments later and would take an unrecoverable secret with it.
     approveMutation.mutate(
       { id: request.id, onRevealedResult: onRevealed },
-      { onSuccess: () => setOwnDecisions((count) => count + 1) }
+      {
+        onSuccess: () => setOwnDecisions((count) => count + 1),
+        onError: (error) => showNotification(`Approval failed: ${refusalReason(error)}`, 'error'),
+      }
     );
   };
 
   const handleReject = () => {
     rejectMutation.mutate(
       { id: request.id },
-      { onSuccess: () => setOwnDecisions((count) => count + 1) }
+      {
+        onSuccess: () => setOwnDecisions((count) => count + 1),
+        onError: (error) => showNotification(`Rejection failed: ${refusalReason(error)}`, 'error'),
+      }
     );
   };
 
   const isPending = request.status === 'pending';
-  // Unknown until the detail has loaded (and it only loads when expanded), so
-  // the permission alone decides until then. Once the server has said this
-  // viewer cannot decide the current step, the buttons go.
-  const stepRefusesViewer = detail?.current_step_can_approve === false;
-  const showDecisionButtons = isPending && canDecide && !stepRefusesViewer;
+  // The server's answer for THIS viewer: the detail's once loaded (it is
+  // re-read on every push for this request), otherwise the list row's.
+  const canActOnStep = detail?.current_step_can_approve ?? request.current_step_can_approve;
+  const showDecisionButtons = isPending && canDecide && canActOnStep === true;
+  const viewerRefused = isPending && canDecide && canActOnStep === false;
   const requestDataKeys = Object.keys(request.request_data ?? {});
   const title = approvalTitle(request);
   // The description is the only operator-readable text on most rows; show it
@@ -233,9 +251,10 @@ const ApprovalCard: React.FC<{
             </div>
           )}
 
-          {isPending && canDecide && stepRefusesViewer && (
+          {viewerRefused && (
             <p className="text-xs text-theme-tertiary">
-              You are not an approver on the current step, so you cannot decide it.
+              You cannot decide the current step: you are not one of its approvers, or you have
+              already decided it.
             </p>
           )}
 
