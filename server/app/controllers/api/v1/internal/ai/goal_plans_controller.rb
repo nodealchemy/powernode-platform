@@ -6,79 +6,47 @@ module Api
       module Ai
         class GoalPlansController < InternalBaseController
           # POST /api/v1/internal/ai/goal_plans/execute_step
-          # Called by AiGoalPlanExecutionJob to advance a goal plan step
+          # Called by AiGoalPlanExecutionJob, which RalphLoopClosureService
+          # enqueues for agent_execution steps.
+          #
+          # NO STEP TYPE HAS A DISPATCHER HERE (goal_plans ruling, option A).
+          # This used to crash at `step.goal_plan` (the association is `plan`)
+          # before doing anything, so every agent_execution step sat in
+          # "executing" forever while the job retried into a 500. Its three
+          # dispatch branches named step types the model does not allow
+          # (execute_agent, api_call, decompose) and called methods that do not
+          # exist; every allowed type fell through to "Completed step type: X".
+          # Fixing only the crash would have marked agent steps completed with
+          # no agent ever run.
+          #
+          # So a step sent here FAILS, with a named reason, and never completes
+          # without doing its work. Real agent_execution dispatch, with its
+          # completion flowing back to the step, is filed as an offer.
           def execute_step
             step = ::Ai::GoalPlanStep.find(params[:step_id])
-            plan = step.goal_plan
+            plan = step.plan
 
             unless step.dependencies_met?
               return render_error("Step dependencies not met", status: :unprocessable_content)
             end
 
+            reason = "no dispatcher for step type #{step.step_type}"
             step.start!
+            step.fail!(reason: reason)
+            Rails.logger.warn "[GoalPlan] Step #{step.id} failed: #{reason}"
 
-            begin
-              result = dispatch_step(step)
-              step.complete!(result: result)
-            rescue StandardError => e
-              step.fail!(reason: e.message)
-              Rails.logger.error "[GoalPlan] Step #{step.id} failed: #{e.message}"
-              return render_success(
-                step_id: step.id,
-                status: "failed",
-                reason: e.message,
-                plan_progress: plan.progress_percentage
-              )
-            end
-
-            # Check if the whole plan is now complete
-            plan.complete! if plan.all_steps_completed?
-
-            render_success(
+            # A hash literal. Braceless, `status:` binds render_success's
+            # HTTP-status keyword (api_response.rb:16) and raises; the worker
+            # logs data.status, so it stays a body key. A 200 with status
+            # failed is what the job logs and does not retry.
+            render_success({
               step_id: step.id,
-              status: "completed",
-              plan_progress: plan.progress_percentage,
-              plan_completed: plan.all_steps_completed?
-            )
+              status: "failed",
+              reason: reason,
+              plan_progress: plan.progress_percentage
+            })
           rescue ActiveRecord::RecordNotFound => e
             render_error(e.message, status: :not_found)
-          end
-
-          private
-
-          def dispatch_step(step)
-            case step.step_type
-            when "execute_agent"
-              dispatch_agent_step(step)
-            when "api_call"
-              dispatch_api_call_step(step)
-            when "decompose"
-              dispatch_decompose_step(step)
-            else
-              "Completed step type: #{step.step_type}"
-            end
-          end
-
-          def dispatch_agent_step(step)
-            config = step.config || {}
-            agent = ::Ai::Agent.find(config["agent_id"] || step.goal_plan.agent_goal.ai_agent_id)
-            execution = agent.executions.create!(
-              account: step.goal_plan.account,
-              prompt: config["prompt"] || step.description,
-              status: "pending"
-            )
-            "Agent execution #{execution.id} created"
-          end
-
-          def dispatch_api_call_step(step)
-            "API call step acknowledged"
-          end
-
-          def dispatch_decompose_step(step)
-            goal = step.goal_plan.agent_goal
-            service = ::Ai::Autonomy::GoalDecompositionService.new(account: step.goal_plan.account)
-            sub_plan = service.decompose(goal: goal)
-            "Decomposed into #{sub_plan&.steps&.count || 0} sub-steps"
           end
         end
       end
