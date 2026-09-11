@@ -50,6 +50,33 @@ RSpec.describe "internal auto_evolve is gated on a SiteSetting", type: :request 
       expect(SiteSetting.get(setting)).to eq("false")
       expect(described_class_service.auto_evolution_enabled?).to be(false)
     end
+
+    # THE TRUTH TABLE (D6 review F4), driven through the raw value the
+    # predicate receives. Four values are ON; every other one is OFF, including
+    # the spellings of "no" a generic boolean cast reads as true, and
+    # capitalised or "yes"-shaped values, because this gate fails closed.
+    {
+      true => true, "true" => true, "1" => true, 1 => true,
+      false => false, nil => false, "" => false, "false" => false, "0" => false, 0 => false,
+      "no" => false, "NO" => false, "n" => false, "disabled" => false, "off" => false,
+      "f" => false, "yes" => false, "TRUE" => false, "on" => false
+    }.each do |raw, expected|
+      it "reads #{raw.inspect} as #{expected ? 'ON' : 'OFF'}" do
+        allow(SiteSetting).to receive(:get).and_call_original
+        allow(SiteSetting).to receive(:get).with(setting).and_return(raw)
+
+        expect(described_class_service.auto_evolution_enabled?).to be(expected)
+      end
+    end
+
+    # The same property through a REAL row, not a stub: an operator who retypes
+    # the row to string and writes "no" gets OFF.
+    it "reads a string-typed row saying \"no\" as OFF" do
+      SiteSetting.set(setting, "no", setting_type: "string")
+
+      expect(SiteSetting.get(setting)).to eq("no")
+      expect(described_class_service.auto_evolution_enabled?).to be(false)
+    end
   end
 
   # The endpoint is mTLS-internal, so the gate is asserted on the controller

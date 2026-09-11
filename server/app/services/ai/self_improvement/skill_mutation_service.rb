@@ -24,10 +24,19 @@ module Ai
       # follow — and the endpoint reads it.
       AUTO_EVOLUTION_SETTING = "ai.skill_auto_evolution_enabled"
 
-      # A missing row casts to false, so absence already means OFF and a
-      # deployment that never seeded the row is gated correctly.
+      # STRICT, and fail-closed (D6 review F4). Only these four values turn the
+      # cron on; everything else — a missing row, nil, "false", and every
+      # spelling of no — leaves it off. A generic boolean cast was wrong here:
+      # ActiveModel::Type::Boolean reads "no", "n" and "disabled" as TRUE, and
+      # a row reaches this method as a raw string whenever its setting_type is
+      # not boolean, which the admin update endpoint lets an operator change.
+      # An operator typing "no" must not switch on a weekly sweep over every
+      # account. SiteSetting.get's own boolean branch has a third truth table
+      # again, so this one is stated here rather than borrowed.
+      AUTO_EVOLUTION_ON_VALUES = [ true, "true", "1", 1 ].freeze
+
       def self.auto_evolution_enabled?
-        ActiveModel::Type::Boolean.new.cast(::SiteSetting.get(AUTO_EVOLUTION_SETTING)) || false
+        AUTO_EVOLUTION_ON_VALUES.include?(::SiteSetting.get(AUTO_EVOLUTION_SETTING))
       end
 
       # `challenge_derived` was removed with the self-challenge subsystem (D6):
