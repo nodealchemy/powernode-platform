@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
-import { resendVerificationEmail, clearResendVerificationSuccess, decrementResendCooldown } from '@/shared/services';
+import { resendVerificationEmail, clearResendVerificationSuccess, decrementResendCooldown, getCurrentUser } from '@/shared/services';
 import { usePolling } from '@/shared/hooks/usePolling';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { authApi } from '@/features/account/auth/services/authAPI';
@@ -76,9 +76,14 @@ export const VerifyEmailPage: React.FC = () => {
 
     setTokenState('verifying');
     authApi.verifyEmail(token)
-      .then((response) => {
+      .then(async (response) => {
         const envelope = response.data as VerifyEmailEnvelope;
         const message = envelope.data?.message || 'Email verified successfully!';
+        // Refresh the stored user BEFORE offering Continue: /app is
+        // ProtectedRoute requireEmailVerification, and the redux user is
+        // still the stale pre-verification copy at this point (dispatch
+        // never rejects -- it resolves to a fulfilled OR rejected action).
+        await dispatch(getCurrentUser(false));
         setTokenMessage(message);
         setTokenState('success');
         addNotification({
