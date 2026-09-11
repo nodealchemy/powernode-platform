@@ -51,18 +51,11 @@ function popOpenModal(instanceId: string) {
   openModalStack = openModalStack.filter((e) => e.instanceId !== instanceId);
   // C14-3: an unbalanced pop (an instance popping that was never pushed —
   // the exact shape of the C14-2 mutant) must not be silently absorbed by a
-  // clamp. Only decrement for an entry that was actually removed, and warn
-  // loudly (dev-only) if the id was not found, so the class of bug that
-  // would otherwise unlock scroll behind a still-open dialog is audible
-  // instead of invisible.
+  // clamp. Only decrement for an entry that was actually removed; the
+  // Modal.test.tsx "does not release the scroll lock" pair (C14-2) is the
+  // guard against a regression here, not a console call (pattern-validation
+  // fails on any console.* call, dev-only or not — the tests carry this now).
   if (openModalStack.length === before) {
-    if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[Modal] popOpenModal called for an instance not on the stack (${instanceId}) — ` +
-        'this is a bug in the scroll-lock refcount, not user-caused.'
-      );
-    }
     return;
   }
   scrollLockCount -= 1;
