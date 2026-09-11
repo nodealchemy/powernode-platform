@@ -67,6 +67,23 @@ RSpec.describe Ai::Tools::CampaignTool do
     expect(account.ai_campaign_proposals.count).to eq(1)
   end
 
+  # Secreview LOW: the verb passed no actor to propose!, so it skipped the shared campaign check.
+  it "campaign_propose asks the shared campaign check for its user, creating nothing for one who lacks manage here" do
+    user # the account's first user (OWNER) holds ai.campaigns.manage
+    reader = create(:user, account: account, permissions: %w[ai.campaigns.read])
+
+    res = described_class.new(account: account, user: reader)
+                         .execute(params: { action: "campaign_propose", title: "Reader",
+                                            objective: "Not mine to queue" }.with_indifferent_access)
+    expect(res[:success]).to be false
+    expect(res[:error]).to include("user #{reader.id} does not hold 'ai.campaigns.manage' in account #{account.id}")
+    expect(account.ai_campaign_proposals.count).to eq(0)
+
+    res = exec(action: "campaign_propose", title: "Owner", objective: "Mine to queue")
+    expect(res[:success]).to be true
+    expect(account.ai_campaign_proposals.pluck(:title)).to eq(["Owner"])
+  end
+
   it "campaign_update_proposal revises fields on a proposed proposal and recomputes its fingerprint" do
     pid = exec(action: "campaign_propose", title: "Add export", objective: "Add CSV export to reports", scope: "core")[:data][:proposal][:id]
     original_fingerprint = account.ai_campaign_proposals.find(pid).fingerprint

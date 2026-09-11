@@ -320,7 +320,7 @@ module Ai
         return error_result("title and objective are required") if params[:title].blank? || params[:objective].blank?
 
         proposal = Ai::CampaignProposal.propose!(
-          account: account,
+          account: account, actor: user,
           title: params[:title], objective: params[:objective],
           source: params[:source].presence || "manual",
           scope: params[:scope],
