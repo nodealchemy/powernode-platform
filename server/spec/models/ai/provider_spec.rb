@@ -222,12 +222,16 @@ RSpec.describe Ai::Provider, type: :model do
         expect(provider.api_endpoint).to eq('https://api.openai.com/v1')
       end
 
-      it 'sets default configuration based on provider type' do
+      # E3b: this used to assert a hardcoded model list and a literal
+      # default_model for openai. The default is now model-free for every
+      # type; the model comes from the synced catalog via #default_model.
+      it 'writes a model-free default configuration, whatever the provider type' do
         provider = build(:ai_provider, provider_type: 'openai', configuration: nil)
         provider.valid?
 
-        expect(provider.configuration['models']).to include('gpt-4.1-mini')
-        expect(provider.configuration['default_model']).to be_present
+        expect(provider.configuration_schema['models']).to eq([])
+        expect(provider.configuration_schema).to have_key('default_model')
+        expect(provider.configuration_schema['default_model']).to be_nil
       end
     end
 
@@ -324,7 +328,7 @@ RSpec.describe Ai::Provider, type: :model do
         expect(provider.default_model).to eq('gpt-4')
       end
 
-      it 'returns first available model when no default configured' do
+      it 'returns the lightest-tier available model when no default is configured (ties keep catalog order)' do
         provider = create(:ai_provider,
                          configuration: { models: [ 'gpt-3.5-turbo', 'gpt-4' ] })
         expect(provider.default_model).to eq('gpt-3.5-turbo')
@@ -624,6 +628,19 @@ RSpec.describe Ai::Provider, type: :model do
 
     describe '.setup_default_providers' do
       let(:account) { create(:account) }
+
+      # E3b: bootstrap used to copy the catalog's literal default_model (or,
+      # failing that, catalog[0], the most expensive entry) into the stored
+      # configuration. It stores none now, so #default_model follows the synced
+      # catalog's tier rule.
+      it 'stores no literal default_model, so the default follows the catalog tier rule' do
+        described_class.setup_default_providers(account).each do |provider|
+          fresh = described_class.find(provider.id)
+
+          expect(fresh.configuration_schema).to include('default_model' => nil), "#{provider.provider_type} stored a literal"
+          expect(fresh.default_model).to eq(fresh.send(:lightest_catalog_model))
+        end
+      end
 
       it 'creates default providers for new accounts' do
         expect {

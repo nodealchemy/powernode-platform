@@ -107,19 +107,25 @@ RSpec.describe Ai::ModelRouterService do
   describe "#models_for_tier (empty-models fallback)" do
     let(:service) { described_class.new(account: account) }
 
-    it "returns a non-empty default when the provider has no models" do
-      empty_provider = create(
-        :ai_provider,
-        account: account,
-        provider_type: "openai",
-        is_active: false,
-        supported_models: []
-      )
+    # E3b: this example used to pass only because the openai before_validation
+    # stamped a literal model list onto every new provider. That list is gone,
+    # so the fallback is exactly the provider's configured default.
+    def empty_provider(default_model: nil)
+      create(:ai_provider, account: account, provider_type: "openai", is_active: false, supported_models: []).tap do |p|
+        p.update_columns(configuration_schema: p.configuration_schema.merge("default_model" => default_model))
+      end
+    end
 
-      result = service.send(:models_for_tier, "standard", empty_provider)
+    it "falls back to the provider's configured default when it has no synced models" do
+      result = service.send(:models_for_tier, "standard", Ai::Provider.find(empty_provider(default_model: "configured-model-1").id))
 
-      expect(result).not_to be_empty
-      expect(result.compact).to eq(result), "expected no nil model ids in #{result.inspect}"
+      expect(result).to eq([ "configured-model-1" ])
+    end
+
+    it "returns no model, never a nil or a literal one, when nothing resolves" do
+      result = service.send(:models_for_tier, "standard", Ai::Provider.find(empty_provider.id))
+
+      expect(result).to eq([])
     end
 
     it "still resolves tier-matched models when the provider has models" do
@@ -128,6 +134,20 @@ RSpec.describe Ai::ModelRouterService do
       result = service.send(:models_for_tier, "premium", stocked_provider)
 
       expect(result).not_to be_empty
+    end
+  end
+
+  describe "#route_and_build_client" do
+    let(:service) { described_class.new(account: account) }
+
+    # E3b: an empty recommended_models list used to become `model: nil` on the
+    # returned client. It is a refusal now, before any client is built.
+    it "refuses when no model resolves, instead of returning a nil model" do
+      allow(service).to receive(:route_for_task).and_return({ provider: provider, recommended_models: [] })
+      expect(service).not_to receive(:client_for_routing)
+
+      expect { service.route_and_build_client(task_type: "chat") }
+        .to raise_error(described_class::RoutingError, /no model configured/i)
     end
   end
 

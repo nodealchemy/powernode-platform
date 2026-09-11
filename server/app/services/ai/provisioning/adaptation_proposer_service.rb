@@ -607,7 +607,10 @@ module Ai
         # nil model is dropped from the request and the worker guesses one or
         # posts `model: null`. #diff_from_llm turns this into a recorded
         # decline, which is what the old comment claimed already happened.
-        resolved = provider&.default_model.presence || provider&.available_models&.first
+        # Provider#default_model already falls through to the LIGHTEST-tier
+        # catalog model (E3b); a trailing `|| available_models.first` would be
+        # catalog[0] — the priciest — so there is deliberately no second arm.
+        resolved = provider&.default_model.presence
         return resolved if resolved.present?
 
         raise ::Ai::Provisioning::NoModelConfiguredError.new(

@@ -42,14 +42,14 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "model resolution" d
       expect(resolved).to eq("configured-model-1")
     end
 
-    it "uses the first catalog id when nothing is configured (through Provider#default_model)" do
+    it "uses the lightest-tier catalog id when nothing is configured (ties keep catalog order)" do
       bind(provider)
       expect(resolved).to eq("test-model-1")
     end
 
-    it "reaches its own available_models.first arm for a blank-but-present configured default" do
+    it "falls through to the catalog tier rule for a blank-but-present configured default" do
       bind(provider).update_columns(configuration_schema: provider.configuration_schema.merge("default_model" => ""))
-      expect(provider.reload.default_model).to eq("")
+      expect(provider.reload.default_model).to eq("test-model-1")
       expect(resolved).to eq("test-model-1")
     end
 

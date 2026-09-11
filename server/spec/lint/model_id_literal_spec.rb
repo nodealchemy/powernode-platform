@@ -180,13 +180,11 @@ module ModelIdLintRules
 
   BASELINE = {
     # — the model catalog proper —
-    "server/app/models/ai/provider_catalog.rb" => [ 33, "Ai::ProviderCatalog::CONFIGS — the built-in provider catalog itself" ],
+    "server/app/models/ai/provider_catalog.rb" => [ 30, "Ai::ProviderCatalog::CONFIGS — the built-in provider catalog itself" ],
     "server/app/services/ai/provider_management_service.rb" => [ 27, "MODEL_PRICING: the per-1k price table, keyed by model id" ],
     "server/app/services/ai/provider_management_service/provider_specs.rb" => [ 2, "built-in provider specs: the seed catalog for a provider created from a template" ],
-    "server/app/services/ai/providers/default_config.rb" => [ 6, "per-provider default_model catalog — the value `Provider#default_model` resolves to" ],
     "server/app/services/ai/providers/sync/openai.rb" => [ 13, "classifies a SYNCED id into context window / capabilities / rank; reads ids, never invents one" ],
     "server/app/services/ai/providers/sync/azure.rb" => [ 6, "same classifier shape for Azure deployments" ],
-    "server/app/models/concerns/ai/provider/configurable.rb" => [ 2, "masked configuration fallback, mirrors default_config.rb for a provider with no row" ],
     # — seeded content. OUT OF E3's SCOPE and recorded rather than fixed: a seed
     #   that creates an agent must pin something, and Ai::Agent validates the pin
     #   against its bound provider, so these are checked at write time. Capped

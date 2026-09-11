@@ -147,7 +147,9 @@ module Ai
         # E3: resolve from the provider this client is bound to, never a
         # literal — `llm` may be the openai client OR the account fallback, and
         # a pinned id is wrong for one of them.
-        model = llm.provider&.default_model.presence || llm.provider&.available_models&.first
+        # No `|| available_models.first`: that is catalog[0], the priciest
+        # model; Provider#default_model already applies the tier rule (E3b).
+        model = llm.provider&.default_model.presence
         return { error: "No model configured for the account's LLM provider" } if model.blank?
 
         result = llm.complete(

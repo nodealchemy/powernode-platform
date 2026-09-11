@@ -328,7 +328,10 @@ module Ai
         # posts `model: null`. #safe_complete turns this into the
         # `no_model_configured` reason on the capture/refine result, which is
         # what the old comment claimed already happened and did not.
-        resolved = provider&.default_model.presence || provider&.available_models&.first
+        # Provider#default_model already falls through to the LIGHTEST-tier
+        # catalog model (E3b); a trailing `|| available_models.first` would be
+        # catalog[0] — the priciest — so there is deliberately no second arm.
+        resolved = provider&.default_model.presence
         return resolved if resolved.present?
 
         raise ::Ai::Provisioning::NoModelConfiguredError.new(

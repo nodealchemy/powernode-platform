@@ -12,16 +12,17 @@ module ProviderTesting
     # the test failed for a reason that had nothing to do with the credential
     # it was testing.
     #
-    # Resolution order: an explicit per-credential override, then the
-    # provider's configured default, then the first model its own catalog
-    # advertises. Blank means "nothing is configured", which each caller
-    # reports as a configuration error rather than guessing.
+    # Resolution order: an explicit per-credential override, then
+    # Provider#default_model — the configured default, else the LIGHTEST-tier
+    # model in the synced catalog (E3b). No `|| available_models.first`: that is
+    # catalog[0], the most expensive model. Blank means "nothing is configured",
+    # which each caller reports as a configuration error rather than guessing.
     def resolved_test_model(config)
       explicit = config["model"].presence
       return explicit if explicit
 
       provider = credential&.provider
-      provider&.default_model.presence || provider&.available_models&.first
+      provider&.default_model.presence
     end
 
     def perform_connection_test

@@ -20,14 +20,10 @@ RSpec.describe 'AI Provider Integration', type: :request do
 
   describe 'Complete AI Provider Setup Workflow' do
     it 'completes full provider setup and testing workflow' do
-      # Step 1: Setup default providers (as admin)
+      # (The first step used to POST /api/v1/ai/providers/setup_defaults. That
+      # endpoint is deleted — it could never create a provider — so the flow
+      # now starts from the account's providers.)
       allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(admin_user)
-
-      # Not 403: until IMP-01a08b8e this step ran as a :system_admin trait user
-      # that held ZERO roles (no such role exists), so a refusal was accepted
-      # here and the step could not tell a working admin path from a broken one.
-      post '/api/v1/ai/providers/setup_defaults'
-      expect(response.status).to be_in([ 200, 201, 412, 422 ])
 
       # Step 2: List providers
       get '/api/v1/ai/providers'

@@ -14,16 +14,17 @@ require "rails_helper"
 # What is tested now is the one behaviour E3 changed on the LIVE family: the
 # model a connection test sends comes from the credential or the provider,
 # never a literal, and nothing configured is a configuration_error with NO
-# request sent. Four resolving arms, because four are distinguishable:
+# request sent. Four resolving arms:
 #
 #   1. the credential's own `model` override;
 #   2. the provider's configured default (configuration_schema["default_model"]);
-#   3. no configured default: Ai::Provider#default_model falls back to the
-#      first catalog id ITSELF (model_management.rb:66);
-#   4. a BLANK-but-present configured default: #default_model returns "" (a
-#      truthy String), `.presence` makes it nil, and only then does
-#      #resolved_test_model's own `|| available_models&.first` fire. This is
-#      the only arm that proves that clause is live rather than decorative.
+#   3. no configured default: Ai::Provider#default_model picks the LIGHTEST-tier
+#      catalog model itself, catalog order breaking ties (E3b ruling);
+#   4. a BLANK-but-present configured default is treated as absent and falls
+#      through to the same tier rule. There is deliberately no
+#      `|| available_models.first` arm any more: that is catalog[0], which sync
+#      orders most-expensive-first. The tier rule's own oracle is
+#      spec/models/ai/provider_default_model_spec.rb.
 RSpec.describe ProviderTesting::ProviderAdapters do
   let(:account) { create(:account) }
 
@@ -68,14 +69,14 @@ RSpec.describe ProviderTesting::ProviderAdapters do
         expect(sent).to eq("configured-model-1")
       end
 
-      it "sends the first catalog id when nothing is configured (through Provider#default_model)" do
+      it "sends the lightest-tier catalog id when nothing is configured (ties keep catalog order)" do
         _, sent = run(service_for(provider), tester)
         expect(sent).to eq("test-model-1")
       end
 
-      it "reaches its own available_models.first arm for a blank-but-present configured default" do
+      it "falls through to the catalog tier rule for a blank-but-present configured default" do
         provider.update_columns(configuration_schema: provider.configuration_schema.merge("default_model" => ""))
-        expect(provider.reload.default_model).to eq(""), "precondition: default_model must return a blank String here"
+        expect(provider.reload.default_model).to eq("test-model-1"), "a blank configured default must fall through to the tier rule"
 
         _, sent = run(service_for(provider), tester)
         expect(sent).to eq("test-model-1")

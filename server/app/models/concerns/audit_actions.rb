@@ -160,7 +160,7 @@ module AuditActions
     ai_provider_credential_encryption_rotated
     ai.providers.list ai.providers.view ai.providers.create ai.providers.update ai.providers.delete
     ai.providers.read ai.providers.test ai.providers.sync ai.providers.configure
-    ai.providers.test_connection ai.providers.sync_models ai.providers.setup_defaults ai.providers.test_all
+    ai.providers.test_connection ai.providers.sync_models ai.providers.test_all
     ai.providers.credential.create ai.providers.credential.update ai.providers.credential.delete
     ai.providers.credential.test ai.providers.credential.make_default ai.providers.credential.rotate
     ai.credentials.read ai.credentials.create ai.credentials.update ai.credentials.delete ai.credentials.test

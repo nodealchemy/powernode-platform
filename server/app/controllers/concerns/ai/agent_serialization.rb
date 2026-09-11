@@ -159,12 +159,20 @@ module Ai
       { id: user.id, name: user.full_name, email: user.email }
     end
 
+    # default_model is the one the platform would use for an unpinned agent:
+    # Provider#default_model, i.e. the configured default, else the
+    # LIGHTEST-tier model in the synced catalog (E3b). The worker's streaming
+    # concern (AiResponseJobConcern) reads exactly this key; before E3b it was
+    # absent, so an unpinned agent could only fall through to a literal (and,
+    # briefly, to catalog[0]). Nil means no model resolves, and the worker
+    # refuses rather than guess.
     def serialize_agent_provider(provider)
       {
         id: provider.id,
         name: provider.name,
         slug: provider.slug,
-        provider_type: provider.provider_type
+        provider_type: provider.provider_type,
+        default_model: provider.default_model.presence
       }
     end
 

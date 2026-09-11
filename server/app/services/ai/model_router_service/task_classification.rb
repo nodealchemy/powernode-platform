@@ -42,8 +42,12 @@ module Ai
       # @return [Hash] { client:, model:, routing: }
       def route_and_build_client(task_type:, **request_context)
         routing = route_for_task(task_type: task_type, **request_context)
-        client = client_for_routing(routing)
         model = routing[:recommended_models]&.first
+        # Nothing synced and nothing configured is a refusal (E3b), never a nil
+        # model on the client and never a literal one.
+        raise RoutingError, "No model configured for provider #{routing[:provider]&.name}" if model.blank?
+
+        client = client_for_routing(routing)
 
         { client: client, model: model, routing: routing }
       end
@@ -125,8 +129,8 @@ module Ai
           available = available.reject { |m| ::Ai::FableRouting.fable_model?(m) }
         end
         if available.empty?
-          # No synced models: fall back to the provider's configured default so
-          # downstream callers (route_and_build_client) never receive a nil model.
+          # No synced models: fall back to the provider's configured default.
+          # With neither, the list is empty and route_and_build_client refuses.
           default = provider.default_model
           default = nil if default.present? && ::Ai::FableRouting.fable_model?(default) && !fable_on
           return default.present? ? [default] : []

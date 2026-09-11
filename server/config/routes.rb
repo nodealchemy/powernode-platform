@@ -1801,7 +1801,6 @@ Rails.application.routes.draw do
         scope :providers, controller: "provider_sync" do
           post ":id/test_connection", action: :test_connection, as: :test_connection_provider
           post ":id/sync_models", action: :sync_models, as: :sync_models_provider
-          post "setup_defaults", action: :setup_defaults, as: :setup_defaults_providers
           post "test_all", action: :test_all, as: :test_all_providers
           post "sync_all", action: :sync_all, as: :sync_all_providers
         end

@@ -10,10 +10,10 @@ require "rails_helper"
 # Ai::Provisioning::NoModelConfiguredError, and #safe_complete reports that on
 # the capture/refine result the way the cost-cap refusal already is.
 #
-# The resolving arms are the three distinguishable ones; see
-# spec/services/provider_testing/provider_adapters_spec.rb for why the blank
-# configured default is the arm that proves the explicit
-# `|| available_models&.first` clause is live.
+# The resolving arms: a configured default, the lightest-tier catalog model
+# when none is configured, and a blank configured default falling through to
+# that same tier rule (E3b). The tier rule's own oracle, including the
+# expensive-first catalog, is spec/models/ai/provider_default_model_spec.rb.
 RSpec.describe Ai::Provisioning::IntentCaptureService, "model resolution" do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
@@ -41,14 +41,14 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "model resolution" do
       expect(resolved).to eq("configured-model-1")
     end
 
-    it "uses the first catalog id when nothing is configured (through Provider#default_model)" do
+    it "uses the lightest-tier catalog id when nothing is configured (ties keep catalog order)" do
       bind(provider)
       expect(resolved).to eq("test-model-1")
     end
 
-    it "reaches its own available_models.first arm for a blank-but-present configured default" do
+    it "falls through to the catalog tier rule for a blank-but-present configured default" do
       bind(provider).update_columns(configuration_schema: provider.configuration_schema.merge("default_model" => ""))
-      expect(provider.reload.default_model).to eq("")
+      expect(provider.reload.default_model).to eq("test-model-1")
       expect(resolved).to eq("test-model-1")
     end
 

@@ -7,8 +7,8 @@ require "rails_helper"
 #
 # `llm` may be the openai client OR the account fallback, so the model must
 # come from the provider THAT client is bound to. Three resolving arms and the
-# refusal; the blank configured default is the arm that proves the explicit
-# `|| available_models&.first` is live (see provider_adapters_spec.rb).
+# refusal; a blank configured default falls through to Provider#default_model's
+# lightest-tier rule, and there is no catalog[0] arm (E3b).
 RSpec.describe Ai::Skills::DesignAgentTeamFromIntentExecutor, "model resolution" do
   let(:account) { create(:account) }
   subject(:executor) { described_class.new(account: account) }
@@ -41,14 +41,14 @@ RSpec.describe Ai::Skills::DesignAgentTeamFromIntentExecutor, "model resolution"
     expect(result).to have_key(:spec)
   end
 
-  it "sends the first catalog id when nothing is configured (through Provider#default_model)" do
+  it "sends the lightest-tier catalog id when nothing is configured (ties keep catalog order)" do
     _, sent = design_with(provider_with)
     expect(sent).to eq("test-model-1")
   end
 
-  it "reaches its own available_models.first arm for a blank-but-present configured default" do
+  it "falls through to the catalog tier rule for a blank-but-present configured default" do
     provider = provider_with(schema_extra: { "default_model" => "" })
-    expect(provider.default_model).to eq("")
+    expect(provider.default_model).to eq("test-model-1")
 
     _, sent = design_with(provider)
     expect(sent).to eq("test-model-1")
