@@ -17,7 +17,7 @@ module Ai
 
       def initialize(ralph_loop:)
         @ralph_loop = ralph_loop
-        @repository = ralph_loop.mission&.repository
+        @repository = self.class.account_repository(ralph_loop.mission&.repository, ralph_loop.account_id)
         raise ArgumentError, "Ralph loop has no associated repository" unless @repository
 
         @credential = @repository.credential
@@ -32,7 +32,18 @@ module Ai
 
       # Check if git tools are available for this ralph loop
       def self.available?(ralph_loop)
-        ralph_loop.mission&.repository.present?
+        account_repository(ralph_loop.mission&.repository, ralph_loop.account_id).present?
+      end
+
+      # D2 review F1: the repository, only when it AND the credential it commits
+      # with belong to account_id. A mission row that points at another account's
+      # repository, however it was written, gets no actuator; the refusal reads
+      # the same as having no repository at all.
+      def self.account_repository(repository, account_id)
+        return nil unless repository && account_id.present? && repository.account_id == account_id
+        return nil if repository.credential && repository.credential.account_id != account_id
+
+        repository
       end
 
       # G3 follow-up: build a bounded, REAL unified diff for a commit (defaults to

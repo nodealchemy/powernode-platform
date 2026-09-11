@@ -2,8 +2,10 @@
 
 FactoryBot.define do
   factory :git_repository, class: 'Devops::GitRepository' do
-    association :credential, factory: :git_provider_credential
     association :account
+    # The credential belongs to the repository's account, as in production; the
+    # actuator refuses a repository whose credential is another account's.
+    credential { association :git_provider_credential, account: account }
 
     sequence(:external_id) { |n| "repo#{n}" }
     sequence(:name) { |n| "test-repo-#{n}" }

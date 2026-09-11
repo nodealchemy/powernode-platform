@@ -304,6 +304,7 @@ module Ai
     validates :current_phase, inclusion: { in: ->(m) { m.phases_for_type + %w[completed] } }, allow_nil: true
     validates :deployed_port, numericality: { only_integer: true, greater_than_or_equal_to: 6000, less_than_or_equal_to: 6199 }, allow_nil: true
     validate :repository_required_for_development
+    validate :repository_belongs_to_account
 
     # ==================== Scopes ====================
     scope :active, -> { where(status: "active") }
@@ -1108,6 +1109,21 @@ module Ai
       if mission_type == "development" && repository_id.blank?
         errors.add(:repository, "is required for development missions")
       end
+    end
+
+    # D2 review F1: a mission may carry only a repository its own account owns;
+    # otherwise a delegated task would commit into another tenant's repository
+    # with that tenant's credential. Reads as not-found, like the controller.
+    def repository_belongs_to_account
+      return if repository_id.blank?
+      return unless new_record? || will_save_change_to_repository_id? || will_save_change_to_account_id?
+
+      # account_id is nil on an unsaved mission whose account was assigned but
+      # not yet written through, so read the association too.
+      owner_id = account_id || account&.id
+      return if owner_id && Devops::GitRepository.exists?(id: repository_id, account_id: owner_id)
+
+      errors.add(:repository, "not found")
     end
 
     def calculate_duration

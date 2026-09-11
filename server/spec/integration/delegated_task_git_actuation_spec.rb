@@ -394,6 +394,59 @@ RSpec.describe "Delegated task git actuation (D2)", type: :request do
     end
   end
 
+  # ---------------------------------------------------------------- review F1
+
+  describe "tenancy at the actuator (review F1)" do
+    let(:other_account) { create(:account) }
+    let(:foreign_repository) do
+      other_provider = create(:git_provider, account: other_account, provider_type: "gitea",
+                                             api_base_url: gitea_api, web_base_url: gitea_host)
+      create(:git_repository, account: other_account,
+                              credential: create(:git_provider_credential, account: other_account, provider: other_provider),
+                              owner: "acme", name: "calc", full_name: "acme/calc", default_branch: "main",
+                              clone_url: "#{gitea_host}/acme/calc.git", web_url: "#{gitea_host}/acme/calc")
+    end
+
+    # A mission row carrying another account's repository, written past the door
+    # and the model (update_column): the shape any unguarded writer could leave.
+    def smuggle_foreign_repository!
+      mission.update_column(:repository_id, foreign_repository.id)
+    end
+
+    def gitea_writes
+      %i[post put delete].flat_map do |verb|
+        WebMock::RequestRegistry.instance.requested_signatures.hash.keys.select do |sig|
+          sig.method == verb && sig.uri.to_s.start_with?(gitea_api)
+        end
+      end
+    end
+
+    it "campaign_delegate refuses a mission whose repository belongs to another account" do
+      smuggle_foreign_repository!
+
+      expect { delegate!(agent_id: agent.id, mission_id: mission.id) }
+        .to raise_error(ArgumentError, /repository not found in this account/)
+      expect(loop_record.reload.mission_id).to be_nil
+      expect(gitea_writes).to be_empty
+    end
+
+    it "a loop whose mission now carries another account's repository gets no git tools and writes nothing" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      smuggle_foreign_repository!
+      script_llm(llm_reply(tool_calls: [ write_call("call_1", "add.go", add_go, "Add Add()") ]),
+                 llm_reply(content: "done"))
+
+      _task, iteration = run_one_iteration!
+
+      expect(@llm_requests).not_to be_empty # the agent ran — it was the actuator that was withheld
+      expect(advertised_tool_names).not_to include("write_file")
+      expect(gitea_writes).to be_empty
+      expect(iteration.git_commit_sha).to be_nil
+      expect(iteration.check_results.dig("actuation", "reason")).to start_with("no repository attached")
+      expect(branch_tip).to eq(@seed_sha)
+    end
+  end
+
   # ---------------------------------------------------------------- drift guard
 
   describe "GiteaContentsContractFake drift guard" do
