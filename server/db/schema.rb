@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_11_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_11_030741) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -7587,6 +7587,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_000000) do
     t.jsonb "evidence", default: {}, null: false
     t.string "fingerprint", null: false
     t.jsonb "hypotheses", default: [], null: false
+    t.uuid "opened_by_user_id"
     t.datetime "started_at"
     t.string "status", default: "open", null: false
     t.string "trigger", null: false
@@ -7595,6 +7596,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_000000) do
     t.index ["account_id", "fingerprint"], name: "index_platform_investigations_open_fingerprint", unique: true, where: "((status)::text = 'open'::text)", nulls_not_distinct: true
     t.index ["agent_id"], name: "index_platform_investigations_on_agent_id"
     t.index ["component_kind", "component_ref"], name: "index_platform_investigations_on_component"
+    t.index ["opened_by_user_id"], name: "index_platform_investigations_on_opened_by_user_id"
   end
 
   create_table "platform_status_events", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -12331,6 +12333,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_000000) do
   add_foreign_key "platform_component_statuses", "ai_environments", column: "environment_id", on_delete: :nullify
   add_foreign_key "platform_investigations", "accounts", on_delete: :cascade
   add_foreign_key "platform_investigations", "ai_agents", column: "agent_id", on_delete: :nullify
+  add_foreign_key "platform_investigations", "users", column: "opened_by_user_id", on_delete: :nullify
   add_foreign_key "platform_status_events", "accounts", on_delete: :cascade
   add_foreign_key "platform_status_events", "platform_component_statuses", column: "component_status_id", on_delete: :nullify
   add_foreign_key "report_requests", "accounts"
