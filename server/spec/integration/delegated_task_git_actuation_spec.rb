@@ -16,6 +16,8 @@ require "tmpdir"
 #   CampaignDriver#delegate → ExecutionService#run_iteration → TaskExecutor
 #   → AgentToolBridgeService#execute_tool_loop → GitToolExecutor
 #   → Devops::Git::GiteaApiClient (real Faraday) → a git repository on disk
+#   → TestVerificationService on a checkout of the read-back SHA
+#   → the real internal test_results callback that resolves the task.
 #
 # Only two HTTP boundaries are replaced, both with STRING-keyed JSON bodies in the
 # shape the real peer sends (a symbol-keyed double hiding a string-keyed body has
@@ -23,14 +25,17 @@ require "tmpdir"
 #
 #   1. the LLM — the worker's POST /api/v1/llm/complete_with_tools, whose body is
 #      worker LlmProxyClient#format_response wrapped in { "data" => ... };
-#   2. the Gitea REST API — there is no Gitea in a test, and the platform has no
-#      local-filesystem git backend (Devops::Git::ApiClient.for knows only
-#      github/gitlab/gitea). The responder below answers the Gitea contents/branch/
-#      commit endpoints by running REAL git plumbing against a REAL repository in a
-#      tmpdir, so every SHA the platform records is one git itself produced, and the
-#      oracle reads it back with the git CLI — never from the platform's own record.
-RSpec.describe "Delegated task git actuation (D2)", type: :service do
-  let(:account) { create(:account) }
+#   2. the Gitea REST API — GiteaContentsContractFake (spec/support), a CONTRACT
+#      fake over a real git repository: it enforces the contents-API rules the
+#      client relies on (each cited there) and answers a violation the way Gitea
+#      does. The drift guard at the bottom pins the client's request shape to it.
+#
+# The stub cannot prove the real provider's behaviour: the deploy-time check (one
+# delegated task against the real dev Gitea) is recorded by the campaign lead.
+RSpec.describe "Delegated task git actuation (D2)", type: :request do
+  include_context "internal api auth"
+
+  let(:account) { internal_account }
   let(:user) { create(:user, account: account) }
 
   let(:ai_provider) { create(:ai_provider, account: account) }
@@ -74,8 +79,12 @@ RSpec.describe "Delegated task git actuation (D2)", type: :service do
       "\tif got := Add(2, 3); got != 6 {\n\t\tt.Fatalf(\"Add(2, 3) = %d, want 6\", got)\n\t}\n}\n"
   end
 
+  # Real git repositories live under server/tmp (gitignored, on the repository's
+  # disk) — never /tmp, whose root overlay on the dev box is 512M.
   around do |example|
-    Dir.mktmpdir("d2-actuation-") do |tmp|
+    base = Rails.root.join("tmp").to_s
+    FileUtils.mkdir_p(base)
+    Dir.mktmpdir("d2-actuation-", base) do |tmp|
       @tmp = tmp
       @origin = File.join(tmp, "origin")
       FileUtils.mkdir_p(@origin)
@@ -84,8 +93,6 @@ RSpec.describe "Delegated task git actuation (D2)", type: :service do
   end
 
   before do
-    @gitea_requests = []
-    @gitea_unhandled = []
     @llm_requests = []
 
     git!("init", "-q", "-b", "main")
@@ -96,7 +103,9 @@ RSpec.describe "Delegated task git actuation (D2)", type: :service do
     @seed_sha = git!("rev-parse", "HEAD")
     git!("branch", branch, "main")
 
-    stub_request(:any, %r{\A#{Regexp.escape(gitea_api)}/}).to_return { |request| gitea_respond(request) }
+    @fake = GiteaContentsContractFake.new(repo_path: @origin, api_base: gitea_api, owner: "acme", repo: "calc",
+                                          token: git_credential.access_token, git_env: git_env)
+    stub_request(:any, %r{\A#{Regexp.escape(gitea_api)}/}).to_return { |request| @fake.call(request) }
   end
 
   # ---------------------------------------------------------------- helpers
@@ -110,105 +119,19 @@ RSpec.describe "Delegated task git actuation (D2)", type: :service do
     }
   end
 
-  def git!(*args, input: nil, env: {}, strip: true)
-    out, err, status = Open3.capture3(git_env.merge(env), "git", "-C", @origin, *args, stdin_data: input.to_s)
+  def git!(*args, strip: true)
+    out, err, status = Open3.capture3(git_env, "git", "-C", @origin, *args)
     raise "git #{args.join(' ')} failed: #{err}" unless status.success?
 
     strip ? out.strip : out
   end
 
-  def git_try(*args)
-    git!(*args)
-  rescue RuntimeError
-    nil
+  def branch_tip
+    git!("rev-parse", "refs/heads/#{branch}")
   end
 
   def json_reply(status, body)
     { status: status, headers: { "Content-Type" => "application/json" }, body: body.to_json }
-  end
-
-  # The Gitea REST surface GitToolExecutor + GiteaApiClient actually call.
-  def gitea_respond(request)
-    path = Addressable::URI.unencode(request.uri.path.delete_prefix(URI(gitea_api).path))
-    @gitea_requests << [ request.method, path ]
-    prefix = "/repos/acme/calc/"
-    return json_reply(404, "message" => "repo not found") unless path.start_with?(prefix)
-
-    rest = path.delete_prefix(prefix)
-    query = Rack::Utils.parse_query(request.uri.query.to_s)
-    body = request.body.present? ? JSON.parse(request.body) : {}
-
-    if request.method == :get && (m = rest.match(%r{\Abranches/(.+)\z}))
-      sha = git_try("rev-parse", "--verify", "--quiet", "refs/heads/#{m[1]}")
-      return json_reply(404, "message" => "branch not found") unless sha
-
-      json_reply(200, "name" => m[1], "commit" => { "id" => sha, "sha" => sha })
-    elsif request.method == :get && (m = rest.match(%r{\Acontents/(.+)\z}))
-      file_reply(query["ref"].presence || "main", m[1])
-    elsif %i[post put].include?(request.method) && (m = rest.match(%r{\Acontents/(.+)\z}))
-      write_reply(request.method, m[1], body)
-    elsif request.method == :get && (m = rest.match(%r{\Agit/commits/(\h{40})\z}))
-      commit_reply(m[1])
-    elsif request.method == :get && (m = rest.match(%r{\Acommits/(\h{40})\.diff\z}))
-      { status: 200, headers: { "Content-Type" => "text/plain" }, body: git!("diff", "#{m[1]}^", m[1], strip: false) }
-    else
-      @gitea_unhandled << [ request.method, path ]
-      json_reply(501, "message" => "not implemented by the D2 responder: #{request.method} #{path}")
-    end
-  end
-
-  def file_reply(ref, file_path)
-    commit = git_try("rev-parse", "--verify", "--quiet", "#{ref}^{commit}")
-    blob = commit && git_try("rev-parse", "--verify", "--quiet", "#{commit}:#{file_path}")
-    return json_reply(404, "message" => "file not found") unless blob
-
-    content = git!("cat-file", "blob", blob, strip: false)
-    json_reply(200, "name" => File.basename(file_path), "path" => file_path, "sha" => blob, "type" => "file",
-                    "size" => content.bytesize, "encoding" => "base64", "content" => Base64.strict_encode64(content))
-  end
-
-  def write_reply(method, file_path, body)
-    branch_name = body["branch"].presence || "main"
-    parent = git_try("rev-parse", "--verify", "--quiet", "refs/heads/#{branch_name}")
-    return json_reply(404, "message" => "branch does not exist") unless parent
-
-    existing = git_try("rev-parse", "--verify", "--quiet", "#{parent}:#{file_path}")
-    if method == :post && existing
-      return json_reply(422, "message" => "repository file already exists [path: #{file_path}]")
-    end
-    if method == :put && existing != body["sha"]
-      return json_reply(422, "message" => "sha does not match [given: #{body['sha']}, expected: #{existing}]")
-    end
-
-    content = Base64.strict_decode64(body["content"].to_s)
-    blob = git!("hash-object", "-w", "--stdin", input: content)
-    index = File.join(@tmp, "index-#{SecureRandom.hex(4)}")
-    index_env = { "GIT_INDEX_FILE" => index }
-    git!("read-tree", parent, env: index_env)
-    git!("update-index", "--add", "--cacheinfo", "100644,#{blob},#{file_path}", env: index_env)
-    tree = git!("write-tree", env: index_env)
-    commit = git!("commit-tree", tree, "-p", parent, "-m", body["message"].to_s)
-    git!("update-ref", "refs/heads/#{branch_name}", commit, parent)
-    FileUtils.rm_f(index)
-
-    json_reply(method == :post ? 201 : 200,
-               "content" => { "name" => File.basename(file_path), "path" => file_path, "sha" => blob,
-                              "type" => "file", "size" => content.bytesize },
-               "commit" => { "sha" => commit, "message" => body["message"].to_s })
-  end
-
-  def commit_reply(sha)
-    return json_reply(404, "message" => "commit not found") unless git_try("cat-file", "-e", "#{sha}^{commit}") || git_try("rev-parse", "--verify", "--quiet", "#{sha}^{commit}")
-
-    parents = git!("rev-list", "--parents", "-n", "1", sha).split.drop(1)
-    files = git!("diff-tree", "--no-commit-id", "--name-status", "-r", sha).lines.map do |line|
-      status, name = line.strip.split("\t", 2)
-      { "filename" => name, "status" => status == "A" ? "added" : "modified" }
-    end
-    person = { "name" => "gitea", "email" => "gitea@d2.test", "date" => Time.current.iso8601 }
-    json_reply(200, "sha" => sha, "parents" => parents.map { |p| { "sha" => p } },
-                    "commit" => { "message" => git!("log", "-1", "--format=%B", sha), "author" => person, "committer" => person },
-                    "files" => files, "stats" => {})
   end
 
   # Body shape of the worker's success_response(format_response(...)).
@@ -259,13 +182,24 @@ RSpec.describe "Delegated task git actuation (D2)", type: :service do
   def verify_at(sha)
     checkout = File.join(@tmp, "checkout-#{sha[0, 12]}")
     git!("worktree", "add", "--detach", "-q", checkout, sha)
+    go_env = { "GOFLAGS" => "-mod=mod", "GOPROXY" => "off", "GOTOOLCHAIN" => "local", "GOTMPDIR" => @tmp, "TMPDIR" => @tmp }
     runner = lambda do |command:, dir:, timeout_seconds:|
-      out, err, status = Open3.capture3({ "GOFLAGS" => "-mod=mod", "GOPROXY" => "off", "GOTOOLCHAIN" => "local" },
-                                        command, chdir: dir)
+      out, err, status = Open3.capture3(go_env, command, chdir: dir)
       { stdout: out, stderr: err, exit_code: status.exitstatus, timeout_seconds: timeout_seconds }
     end
     Ai::Ralph::TestVerificationService.new(runner: runner)
                                       .verify(dir: checkout, root_entries: Dir.children(checkout), timeout_seconds: 120)
+  end
+
+  # The worker's AiTestExecutionJob posts its raw result to this internal
+  # callback, which evaluates it and resolves the task.
+  def post_test_results!(iteration, verification)
+    post "/api/v1/internal/ai/ralph_loops/#{loop_record.id}/iterations/#{iteration.id}/test_results",
+         params: { test_result: { framework: verification[:framework], command: verification[:command],
+                                  exit_code: verification[:exit_code], output: verification[:output] } },
+         headers: service_headers, as: :json
+    expect(response).to have_http_status(:ok)
+    JSON.parse(response.body)["data"]
   end
 
   def test_job_requests
@@ -275,93 +209,247 @@ RSpec.describe "Delegated task git actuation (D2)", type: :service do
     end
   end
 
+  def verdict_of(verification)
+    Ai::Ralph::TestVerificationService.adjudicate_check_results("output" => verification[:output])[:verdict]
+  end
+
   # ---------------------------------------------------------------- oracle
 
-  it "a delegated task ends in a commit SHA read back from the repository and a verified TestVerificationService verdict" do
-    delegate!(agent_id: agent.id, mission_id: mission.id)
-    script_llm(
-      llm_reply(tool_calls: [
-        write_call("call_1", "add.go", add_go, "Add Add()"),
-        write_call("call_2", "add_test.go", passing_test_go, "Test Add()")
-      ]),
-      llm_reply(content: "Implemented Add with a test.")
-    )
+  describe "a delegated task" do
+    it "ends in a commit SHA read back from the repository and a verified TestVerificationService verdict" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      script_llm(
+        llm_reply(tool_calls: [
+          write_call("call_1", "add.go", add_go, "Add Add()"),
+          write_call("call_2", "add_test.go", passing_test_go, "Test Add()")
+        ]),
+        llm_reply(content: "Implemented Add with a test.")
+      )
 
-    task, iteration = run_one_iteration!
+      task, iteration = run_one_iteration!
 
-    # The git tools reached the LLM on the tool-bridge path.
-    expect(advertised_tool_names).to include("write_file", "read_file")
+      # The git tools reached the LLM on the tool-bridge path.
+      expect(advertised_tool_names).to include("write_file", "read_file")
 
-    # READ BACK: the branch tip IS the recorded SHA, it is a real commit git made,
-    # it descends from the seed by exactly the two writes, and it carries the file.
-    tip = git!("rev-parse", "refs/heads/#{branch}")
-    expect(iteration.git_commit_sha).to eq(tip)
-    expect(git!("cat-file", "-t", tip)).to eq("commit")
-    expect(git!("rev-list", "--count", "#{@seed_sha}..#{tip}")).to eq("2")
-    expect(git!("show", "#{tip}:add_test.go", strip: false)).to eq(passing_test_go)
+      # READ BACK: the branch tip IS the recorded SHA, it is a real commit git made,
+      # it descends from the seed by exactly the two writes, and it carries the file.
+      tip = branch_tip
+      expect(iteration.git_commit_sha).to eq(tip)
+      expect(git!("cat-file", "-t", tip)).to eq("commit")
+      expect(git!("rev-list", "--count", "#{@seed_sha}..#{tip}")).to eq("2")
+      expect(git!("show", "#{tip}:add_test.go", strip: false)).to eq(passing_test_go)
+      expect(iteration.check_results.dig("actuation", "reason")).to eq("committed #{tip}; the sandboxed test run decides the pass")
 
-    # No fabricated pass: the bridge claims nothing; the task waits on the real suite.
-    expect(iteration.checks_passed).to be(false)
-    expect(iteration.check_results["awaiting_test_result"]).to be(true)
-    expect(task.status).not_to eq("passed")
-    jobs = test_job_requests
-    expect(jobs.size).to eq(1)
-    job_args = JSON.parse(jobs.first.body.to_s)["args"].first
-    expect(job_args).to include("repository" => "acme/calc", "branch" => branch)
+      # No fabricated pass: the bridge claims nothing; the task waits on the real suite.
+      expect(iteration.checks_passed).to be(false)
+      expect(iteration.check_results["awaiting_test_result"]).to be(true)
+      expect(task.status).not_to eq("passed")
+      jobs = test_job_requests
+      expect(jobs.size).to eq(1)
+      expect(JSON.parse(jobs.first.body.to_s)["args"].first).to include("repository" => "acme/calc", "branch" => branch)
 
-    # The real verifier over the read-back SHA.
-    verification = verify_at(tip)
-    expect(verification).to include(success: true, ran: true, framework: "gotest", exit_code: 0)
-    expect(Ai::Ralph::TestVerificationService.adjudicate_check_results("output" => verification[:output])[:verdict])
-      .to eq(:verified)
+      # The real verifier over the read-back SHA, resolved through the real callback.
+      verification = verify_at(tip)
+      expect(verification).to include(success: true, ran: true, framework: "gotest", exit_code: 0)
+      expect(verdict_of(verification)).to eq(:verified)
+      expect(post_test_results!(iteration, verification)).to include("passed" => true)
+      expect(task.reload.status).to eq("passed")
+      expect(iteration.reload.checks_passed).to be(true)
 
-    expect(@gitea_unhandled).to be_empty
+      # Contract hygiene: every provider call was contract-backed and well-formed.
+      expect(@fake.unhandled).to be_empty
+      expect(@fake.unknown_keys).to be_empty
+      expect(@fake.writes_refused).to be_empty
+    end
+
+    # The update path: an existing file is changed through PUT with the file's
+    # CURRENT blob sha (Gitea refuses a stale or wrong one with 422).
+    it "an edit to an existing file commits through the update path with the file's current sha" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      seed_blob = git!("rev-parse", "#{branch}:calc.go")
+      edited = "package calc\n\n// Sub returns a - b.\nfunc Sub(a, b int) int {\n\treturn a - b\n}\n"
+      script_llm(llm_reply(tool_calls: [ write_call("call_1", "calc.go", edited, "Add Sub()") ]),
+                 llm_reply(content: "Added Sub to calc.go."))
+
+      _task, iteration = run_one_iteration!
+
+      put = @fake.requests.find { |r| r[:method] == :put }
+      expect(put).to be_present, "no PUT reached the provider: #{@fake.requests.map { |r| [ r[:method], r[:path] ] }}"
+      expect(put[:path]).to eq("/repos/acme/calc/contents/calc.go")
+      expect(put[:body]["sha"]).to eq(seed_blob)
+      expect(@fake.requests.map { |r| r[:method] }).not_to include(:post)
+
+      tip = branch_tip
+      expect(iteration.git_commit_sha).to eq(tip)
+      expect(git!("rev-parse", "#{tip}^")).to eq(@seed_sha)
+      expect(git!("show", "#{tip}:calc.go", strip: false)).to eq(edited)
+      expect(iteration.check_results.dig("actuation", "reason")).to eq("committed #{tip}; the sandboxed test run decides the pass")
+      expect(@fake.writes_refused).to be_empty
+    end
+
+    it "a commit whose tests fail lands as a real SHA but ends NOT verified" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      script_llm(
+        llm_reply(tool_calls: [
+          write_call("call_1", "add.go", add_go, "Add Add()"),
+          write_call("call_2", "add_test.go", failing_test_go, "Test Add()")
+        ]),
+        llm_reply(content: "Implemented Add with a test.")
+      )
+
+      task, iteration = run_one_iteration!
+
+      tip = branch_tip
+      expect(iteration.git_commit_sha).to eq(tip)
+      verification = verify_at(tip)
+      expect(verification).to include(success: false, ran: true, framework: "gotest")
+      expect(verification[:failed_count]).to be_positive
+      expect(verdict_of(verification)).to eq(:contradicted)
+
+      expect(post_test_results!(iteration, verification)).to include("passed" => false)
+      expect(task.reload.status).not_to eq("passed")
+      iteration.reload
+      expect(iteration.checks_passed).to be(false)
+      expect(iteration.check_results.dig("test_result", "failed_count")).to be_positive
+    end
+
+    it "a task the agent cannot implement yields no SHA and no pass, and says why" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      script_llm(llm_reply(content: "I cannot implement this: the package spec is ambiguous."))
+
+      task, iteration = run_one_iteration!
+
+      expect(advertised_tool_names).to include("write_file") # the actuator WAS available
+      expect(iteration.git_commit_sha).to be_nil
+      expect(branch_tip).to eq(@seed_sha)
+      expect(@fake.requests.map { |r| r[:method] }).not_to include(:post, :put)
+      expect(iteration.checks_passed).to be(false)
+      expect(iteration.check_results.dig("actuation", "reason")).to eq("no commit: the agent made no repository change")
+      expect(task.status).not_to eq("passed")
+      expect(test_job_requests).to be_empty
+    end
+
+    it "a delegation that carries no repository attaches no git tools, produces no SHA, and says why" do
+      delegate!(agent_id: agent.id)
+      script_llm(llm_reply(content: "Here is a plan for adding Add."))
+
+      _task, iteration = run_one_iteration!
+
+      expect(advertised_tool_names).not_to include("write_file")
+      expect(iteration.git_commit_sha).to be_nil
+      expect(branch_tip).to eq(@seed_sha)
+      expect(iteration.check_results.dig("actuation", "reason")).to start_with("no repository attached")
+    end
   end
 
-  it "a task the agent cannot implement yields no SHA and no pass" do
-    delegate!(agent_id: agent.id, mission_id: mission.id)
-    script_llm(llm_reply(content: "I cannot implement this: the package spec is ambiguous."))
+  describe "when the provider refuses the commit" do
+    it "a 5xx on the write produces no SHA; the iteration ends NOT verified with the provider's reason" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      @fake.fail_next_write(status: 500, message: "internal error committing to acme/calc")
+      script_llm(llm_reply(tool_calls: [ write_call("call_1", "add.go", add_go, "Add Add()") ]),
+                 llm_reply(content: "Tried to add Add."))
 
-    task, iteration = run_one_iteration!
+      task, iteration = run_one_iteration!
 
-    expect(advertised_tool_names).to include("write_file") # the actuator WAS available
-    expect(iteration.git_commit_sha).to be_nil
-    expect(git!("rev-parse", "refs/heads/#{branch}")).to eq(@seed_sha)
-    expect(@gitea_requests.map(&:first)).not_to include(:post, :put)
-    expect(iteration.checks_passed).to be(false)
-    expect(task.status).not_to eq("passed")
-    expect(test_job_requests).to be_empty
+      expect(@fake.writes_refused.map { |w| w[:status] }).to eq([ 500 ])
+      expect(branch_tip).to eq(@seed_sha)
+      expect(iteration.git_commit_sha).to be_nil
+      expect(iteration.checks_passed).to be(false)
+      expect(task.status).not_to eq("passed")
+      expect(test_job_requests).to be_empty
+
+      actuation = iteration.check_results["actuation"]
+      expect(actuation["commit_sha"]).to be_nil
+      expect(actuation["failed_changes"]).to eq([ { "path" => "add.go", "operation" => "created",
+                                                    "error" => "Server error (500): internal error committing to acme/calc" } ])
+      expect(actuation["reason"]).to eq("no commit: the repository refused 1 change(s) — created add.go: " \
+                                        "Server error (500): internal error committing to acme/calc")
+    end
+
+    it "a concurrent commit makes the sha stale: Gitea's 422 conflict leaves no agent SHA, NOT verified, reason recorded" do
+      delegate!(agent_id: agent.id, mission_id: mission.id)
+      concurrent = nil
+      @fake.before_next_write do
+        concurrent = @fake.commit!(branch: branch, path: "calc.go", content: "package calc\n\n// concurrent edit\n",
+                                   message: "concurrent edit")
+      end
+      script_llm(llm_reply(tool_calls: [ write_call("call_1", "calc.go", "package calc\n\n// agent edit\n", "Edit calc") ]),
+                 llm_reply(content: "Edited calc.go."))
+
+      task, iteration = run_one_iteration!
+
+      # The tip is the concurrent commit on the seed — nothing of the agent's landed.
+      expect(branch_tip).to eq(concurrent)
+      expect(git!("rev-parse", "#{concurrent}^")).to eq(@seed_sha)
+      expect(@fake.writes_refused.map { |w| w[:status] }).to eq([ 422 ])
+      expect(iteration.git_commit_sha).to be_nil
+      expect(iteration.checks_passed).to be(false)
+      expect(task.status).not_to eq("passed")
+      expect(test_job_requests).to be_empty
+
+      change = iteration.check_results.dig("actuation", "failed_changes", 0)
+      expect(change).to include("path" => "calc.go", "operation" => "updated")
+      expect(change["error"]).to match(/Validation failed: sha does not match/)
+      expect(iteration.check_results.dig("actuation", "reason")).to start_with("no commit: the repository refused 1 change(s)")
+    end
   end
 
-  it "the verifier's red arm: a committed failing test reads back as a real SHA and adjudicates contradicted" do
-    delegate!(agent_id: agent.id, mission_id: mission.id)
-    script_llm(
-      llm_reply(tool_calls: [
-        write_call("call_1", "add.go", add_go, "Add Add()"),
-        write_call("call_2", "add_test.go", failing_test_go, "Test Add()")
-      ]),
-      llm_reply(content: "Implemented Add with a test.")
-    )
+  # ---------------------------------------------------------------- drift guard
 
-    _task, iteration = run_one_iteration!
+  describe "GiteaContentsContractFake drift guard" do
+    let(:client) { Devops::Git::ApiClient.for(git_credential) }
 
-    tip = git!("rev-parse", "refs/heads/#{branch}")
-    expect(iteration.git_commit_sha).to eq(tip)
-    verification = verify_at(tip)
-    expect(verification).to include(success: false, ran: true, framework: "gotest")
-    expect(verification[:failed_count]).to be_positive
-    expect(Ai::Ralph::TestVerificationService.adjudicate_check_results("output" => verification[:output])[:verdict])
-      .to eq(:contradicted)
-  end
+    it "accepts exactly the request bodies the real GiteaApiClient builds, and commits what they carry" do
+      expect(client).to be_a(Devops::Git::GiteaApiClient)
+      expect(git_credential.access_token).to be_present
 
-  it "a delegation that carries no repository attaches no git tools and produces no SHA" do
-    delegate!(agent_id: agent.id)
-    script_llm(llm_reply(content: "Here is a plan for adding Add."))
+      created = client.create_file("acme", "calc", "notes.md", "hello\n", message: "add notes", branch: branch)
+      expect(created[:success]).to be(true), created.inspect
+      expect(created.dig(:content, "commit", "sha")).to eq(branch_tip)
 
-    _task, iteration = run_one_iteration!
+      file = client.get_file_content("acme", "calc", "notes.md", branch)
+      updated = client.update_file("acme", "calc", "notes.md", "hello v2\n", file[:sha], message: "edit notes", branch: branch)
+      expect(updated[:success]).to be(true), updated.inspect
+      expect(updated.dig(:content, "commit", "sha")).to eq(branch_tip)
+      expect(git!("show", "#{branch_tip}:notes.md", strip: false)).to eq("hello v2\n")
 
-    expect(advertised_tool_names).not_to include("write_file")
-    expect(iteration.git_commit_sha).to be_nil
-    expect(git!("rev-parse", "refs/heads/#{branch}")).to eq(@seed_sha)
+      post_body = @fake.requests.find { |r| r[:method] == :post }[:body]
+      put_body = @fake.requests.find { |r| r[:method] == :put }[:body]
+      # EQUALITY with the pinned client shape: a renamed, dropped or added key in
+      # the client fails here instead of being silently accepted by the fake.
+      expect(post_body.keys.sort).to eq(GiteaContentsContractFake::CLIENT_CREATE_KEYS.sort)
+      expect(put_body.keys.sort).to eq(GiteaContentsContractFake::CLIENT_UPDATE_KEYS.sort)
+      expect(Base64.strict_decode64(put_body["content"])).to eq("hello v2\n")
+      expect(put_body["sha"]).to eq(file[:sha])
+      expect(@fake.unknown_keys).to be_empty
+      expect(@fake.writes_refused).to be_empty
+    end
+
+    it "refuses every request that breaks the contract, with Gitea's status, and commits nothing" do
+      conn = Faraday.new(url: gitea_api)
+      calc_sha = git!("rev-parse", "#{branch}:calc.go")
+      auth = { "Authorization" => "token #{git_credential.access_token}", "Content-Type" => "application/json" }
+      b64 = Base64.strict_encode64("x\n")
+      cases = [
+        [ :post, "new.txt", { "message" => "m", "branch" => branch }, auth, 422, /content is required/ ],
+        [ :post, "new.txt", { "content" => "not base64!!", "branch" => branch }, auth, 422, /not valid base64/ ],
+        [ :post, "calc.go", { "content" => b64, "branch" => branch }, auth, 422, /already exists/ ],
+        [ :put, "calc.go", { "content" => b64, "branch" => branch }, auth, 422, /sha is required/ ],
+        [ :put, "calc.go", { "content" => b64, "sha" => "0" * 40, "branch" => branch }, auth, 422, /sha does not match/ ],
+        [ :post, "new.txt", { "content" => b64, "branch" => "no-such-branch" }, auth, 404, /branch does not exist/ ],
+        [ :post, "new.txt", { "content" => b64, "branch" => branch }, { "Content-Type" => "application/json" }, 401, /token/ ],
+        [ :post, "new.txt", "content=#{b64}", auth.merge("Content-Type" => "text/plain"), 422, /JSON object/ ]
+      ]
+
+      cases.each do |method, file_path, body, headers, status, message|
+        response = conn.run_request(method, "repos/acme/calc/contents/#{file_path}",
+                                    body.is_a?(Hash) ? body.to_json : body, headers)
+        expect([ method, file_path, response.status ]).to eq([ method, file_path, status ])
+        expect(JSON.parse(response.body)["message"]).to match(message)
+      end
+
+      expect(branch_tip).to eq(@seed_sha)
+      expect(git!("rev-parse", "#{branch}:calc.go")).to eq(calc_sha)
+    end
   end
 end

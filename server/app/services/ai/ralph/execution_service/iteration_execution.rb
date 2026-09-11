@@ -192,6 +192,15 @@ module Ai
             learning: extract_learning(scrubbed_output)
           )
 
+          # D2: record what the git actuator did and why there is — or is not — a
+          # commit to verify, so an iteration that is not verified carries its
+          # reason. Scrubbed at the persistence boundary like the output (G15).
+          if result[:actuation].present?
+            iteration.update!(check_results: (iteration.check_results || {}).merge(
+              "actuation" => scrub_actuation(result[:actuation])
+            ))
+          end
+
           # LOUD served-by attribution: when the maker's call refused and fell back
           # (e.g. Fable→Opus), record which model actually served on the iteration
           # so it's visible AND the maker/checker gate below can honor the served
@@ -266,6 +275,18 @@ module Ai
           broadcast_iteration_completed(iteration)
           broadcast_task_status_changed(task)
           broadcast_progress
+        end
+
+        # Provider error text can echo request data; scrub the free-text fields
+        # (reason, each refused change's error) but not the commit SHA, which is
+        # an identifier the test dispatch and an operator both need verbatim.
+        def scrub_actuation(actuation)
+          record = actuation.deep_stringify_keys
+          record["reason"] = ::DataManagement::Sanitizer.sanitize_output(record["reason"].to_s)
+          record["failed_changes"] = Array(record["failed_changes"]).map do |change|
+            change.merge("error" => ::DataManagement::Sanitizer.sanitize_output(change["error"].to_s))
+          end
+          record
         end
 
         # Park the task awaiting async test results and dispatch the sandboxed run.

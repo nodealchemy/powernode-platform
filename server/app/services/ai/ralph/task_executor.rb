@@ -208,6 +208,7 @@ module Ai
           commit_sha: git_executor&.last_commit_sha,
           file_changes: git_executor&.file_changes || [],
           diff: git_executor&.unified_diff,
+          actuation: git_actuation(git_executor),
           tokens: { input: result.dig(:usage, :prompt_tokens) || 0, output: result.dig(:usage, :completion_tokens) || 0 },
           cost: nil,
           executor_type: "agent",
@@ -674,6 +675,30 @@ module Ai
           # inc6: carry the governed routing decision id (nil when gate OFF / unresolved).
           routing_decision_id: @routing_decision_id
         }
+      end
+
+      # D2: what the git actuator did this run and why there is — or is not — a
+      # commit to verify. IterationExecution records it on the iteration, so an
+      # iteration that is not verified always carries its reason.
+      def git_actuation(git_executor)
+        unless git_executor
+          return { "repository_attached" => false, "commit_sha" => nil,
+                   "reason" => "no repository attached to this loop: nothing to commit or verify" }
+        end
+
+        sha = git_executor.last_commit_sha
+        failed = git_executor.failed_changes.map { |f| f.transform_keys(&:to_s) }
+        reason =
+          if sha
+            "committed #{sha}; the sandboxed test run decides the pass"
+          elsif failed.any?
+            refused = failed.map { |f| "#{f['operation']} #{f['path']}: #{f['error']}" }.join("; ")
+            "no commit: the repository refused #{failed.size} change(s) — #{refused}"
+          else
+            "no commit: the agent made no repository change"
+          end
+
+        { "repository_attached" => true, "commit_sha" => sha, "failed_changes" => failed, "reason" => reason }
       end
 
       # The git tools in the bridge's neutral shape ({ name, description,

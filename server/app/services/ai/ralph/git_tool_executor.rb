@@ -10,7 +10,10 @@ module Ai
       # blow up the checker's context window; the diff is marked truncated past this.
       MAX_DIFF_BYTES = 256 * 1024
 
-      attr_reader :file_changes, :last_commit_sha
+      # Tools that change the repository; a refusal of one is a failed change (D2).
+      MUTATING_TOOLS = %w[write_file delete_file].freeze
+
+      attr_reader :file_changes, :failed_changes, :last_commit_sha
 
       def initialize(ralph_loop:)
         @ralph_loop = ralph_loop
@@ -23,6 +26,7 @@ module Ai
         @repo = @repository.name
         @branch = ralph_loop.branch || @repository.default_branch || "main"
         @file_changes = []
+        @failed_changes = []
         @last_commit_sha = nil
       end
 
@@ -76,7 +80,10 @@ module Ai
         end
       rescue StandardError => e
         Rails.logger.error("GitToolExecutor #{tool_name} failed: #{e.message}")
-        { success: false, error: "#{tool_name} failed: #{e.message}" }
+        error = "#{tool_name} failed: #{e.message}"
+        return { success: false, error: error } unless MUTATING_TOOLS.include?(tool_name)
+
+        record_failed_change(arguments.is_a?(Hash) ? arguments[:path] : nil, tool_name, error)
       end
 
       private
@@ -124,7 +131,8 @@ module Ai
         end
 
         unless result[:success]
-          return { success: false, error: result[:error] || "Failed to write file" }
+          return record_failed_change(path, existing && existing[:sha] ? :updated : :created,
+                                      result[:error] || "Failed to write file")
         end
 
         operation = existing && existing[:sha] ? :updated : :created
@@ -156,7 +164,7 @@ module Ai
           message: message, branch: @branch)
 
         unless result[:success]
-          return { success: false, error: result[:error] || "Failed to delete file" }
+          return record_failed_change(path, :deleted, result[:error] || "Failed to delete file")
         end
 
         commit_sha = extract_commit_sha(result)
@@ -330,6 +338,14 @@ module Ai
         end
 
         { success: true, commits: commit_list, count: commit_list.size }
+      end
+
+      # D2: a change the provider refused (a stale sha, a 5xx) is recorded, so a
+      # run with no commit carries the provider's reason instead of reading as
+      # "the agent changed nothing".
+      def record_failed_change(path, operation, error)
+        @failed_changes << { path: path, operation: operation.to_s, error: error }
+        { success: false, error: error }
       end
 
       def extract_commit_sha(result)
