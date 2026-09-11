@@ -33,18 +33,13 @@ end
 
 puts "✓ Using AI Provider: #{provider.name} (#{provider.provider_type})"
 
-# Determine model based on provider
-default_model = case provider.provider_type
-when 'anthropic'
-                  'claude-sonnet-4-5-20250514'
-when 'openai'
-                  'gpt-4o'
-when 'grok', 'custom'
-                  'grok-beta'
-when 'ollama'
-                  'llama3.3:latest'
-else
-                  provider.supported_models.first['id']
+# The model the provider resolves for an unpinned caller: its configured
+# default, else the lightest-tier model in its synced catalog (E3b). This used
+# to be a per-type literal list, several of them retired ids.
+default_model = provider.default_model.presence
+unless default_model
+  puts "❌ Error: #{provider.name} has no model configured (set a default_model or sync its catalog)"
+  exit 1
 end
 
 puts "✓ Using model: #{default_model}"

@@ -67,14 +67,23 @@ module ModelIdLintRules
   # DIGIT requirement is what keeps `"claude-code"` (a provider slug) and
   # `"claude"` (a git branch prefix in create_pr_handler) out: neither names a
   # model, and flagging them would train people to add exemptions.
+  #
+  # Two forms. HYPHENATED: "claude-opus-4-8", "gpt-4.1-mini". HYPHENLESS: the
+  # digit follows the family directly, the shape Ollama tags take ("llama2",
+  # "llama3.1:8b", "qwen2.5-coder:14b"). The E3b(c) review found a live
+  # `model ||= "llama3.1:8b"` that the hyphen-only form could not see. Both
+  # forms accept an Ollama ":tag" suffix.
   FAMILIES = %w[claude gpt gemini grok llama mistral deepseek qwen].freeze
   MODEL_ID = /
     ['"`]                                  # opening quote (backtick: a TS
                                            #  template literal is a string too)
     (?:#{Regexp.union(FAMILIES)})          # a known family
-    -[a-z0-9-]*\d[a-z0-9._-]*              # a suffix carrying at least one digit
+    (?:
+      -[a-z0-9-]*\d[a-z0-9._:-]*           # hyphenated: a suffix carrying a digit
                                            # (hyphens allowed BEFORE the digit, or
                                            #  "claude-opus-4-8" would not match)
+      | \d[a-z0-9._:-]*                    # hyphenless: the digit comes first
+    )
     ['"`]                                  # closing quote
   /xi
 
@@ -180,9 +189,9 @@ module ModelIdLintRules
 
   BASELINE = {
     # — the model catalog proper —
-    "server/app/models/ai/provider_catalog.rb" => [ 30, "Ai::ProviderCatalog::CONFIGS — the built-in provider catalog itself" ],
+    "server/app/models/ai/provider_catalog.rb" => [ 33, "Ai::ProviderCatalog::CONFIGS — the built-in provider catalog itself" ],
     "server/app/services/ai/provider_management_service.rb" => [ 27, "MODEL_PRICING: the per-1k price table, keyed by model id" ],
-    "server/app/services/ai/provider_management_service/provider_specs.rb" => [ 2, "built-in provider specs: the seed catalog for a provider created from a template" ],
+    "server/app/services/ai/provider_management_service/provider_specs.rb" => [ 3, "built-in provider specs: the seed catalog for a provider created from a template" ],
     "server/app/services/ai/providers/sync/openai.rb" => [ 13, "classifies a SYNCED id into context window / capabilities / rank; reads ids, never invents one" ],
     "server/app/services/ai/providers/sync/azure.rb" => [ 6, "same classifier shape for Azure deployments" ],
     # — seeded content. OUT OF E3's SCOPE and recorded rather than fixed: a seed
@@ -190,7 +199,8 @@ module ModelIdLintRules
     #   against its bound provider, so these are checked at write time. Capped
     #   here so the set cannot grow; migrating them onto a resolver is its own
     #   increment (see the E3 report).
-    "server/db/seeds/ai_dev_team_seed.rb" => [ 6, "seeded dev-team agents pin their model" ],
+    "server/db/seeds/ai_dev_team_seed.rb" => [ 15, "seeded dev-team agents pin their model" ],
+    "server/db/seeds/ai_memory_pools_seed.rb" => [ 3, "seeded memory pools pin a model per pool (made visible by the hyphenless form, E3b c)" ],
     "server/db/seeds/ai_example_templates_seed.rb" => [ 8, "seeded example agent templates" ],
     "server/db/seeds/ai_governance_seed.rb" => [ 3, "seeded governance agents" ],
     "server/db/seeds/ai_todo_team_seed.rb" => [ 1, "seeded todo-team agent" ],
@@ -206,7 +216,6 @@ module ModelIdLintRules
     #   own API instead and carry no literal, so they are absent here. These two
     #   still choose models by name and are recorded, not blessed: —
     "server/scripts/diagnostics/check_and_update_agent_models.rb" => [ 6, "one-off diagnostic that REWRITES agent pins from a task-name heuristic; the ids are retired — capped here, owed a resolver rewrite (E3 review report)" ],
-    "server/scripts/setup/create_image_generation_agent.rb" => [ 2, "setup script picks a per-provider-type default for the agent it creates; owed Provider#default_model (E3 review report)" ],
     # — frontend/src (root added by the E3 review) —
     "frontend/src/features/onboarding/ProviderCredentialForm.tsx" => [ 3, "onboarding form PRE-FILLS a default_model field per provider type; the operator can edit it, but a shipped default rots — owed a read of the provider catalog" ],
     "frontend/src/features/ai/devops/components/WorkflowTab.tsx" => [ 1, "an example model id inside a textarea PLACEHOLDER showing the JSON shape — illustrative, never submitted" ]
@@ -311,6 +320,19 @@ RSpec.describe "model-id literals in production code" do
       # A provider SLUG and a branch prefix carry no version digit.
       expect(matches?(ModelIdLintRules::MODEL_ID, 'SLUG = "claude-code"')).to be false
       expect(matches?(ModelIdLintRules::MODEL_ID, 'prefix = "claude"')).to be false
+    end
+
+    # E3b (c): the hyphen-only form missed Ollama-style ids, and a live
+    # `model ||= "llama3.1:8b"` survived because of it.
+    it "flags hyphenless and Ollama-tagged ids, as a bare literal and as a fallback" do
+      expect(ModelIdLintRules.flags?(ModelIdLintRules::MODEL_ID, 'model = "llama3.1:8b"')).to be true
+      expect(ModelIdLintRules.flags?(ModelIdLintRules::MODEL_ID, "id = 'qwen2.5-coder:14b'")).to be true
+      expect(ModelIdLintRules.flags?(ModelIdLintRules::MODEL_ID, 'name = "llama2"')).to be true
+      expect(ModelIdLintRules.flags?(ModelIdLintRules::MODEL_ID, 'id = "deepseek-r1:7b"')).to be true
+      expect(ModelIdLintRules.flags?(ModelIdLintRules::FALLBACK, 'model ||= "llama3.1:8b"')).to be true
+      # Still no digit, still not a model.
+      expect(ModelIdLintRules.flags?(ModelIdLintRules::MODEL_ID, 'family = "llama"')).to be false
+      expect(ModelIdLintRules.flags?(ModelIdLintRules::MODEL_ID, 'slug = "llama-cpp"')).to be false
     end
 
     it "ignores a full-line comment but still flags the same text as code" do
