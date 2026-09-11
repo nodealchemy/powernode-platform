@@ -676,7 +676,8 @@ export interface InvestigationsData {
   component_status_id: string;
   open: Investigation[];
   recent: Investigation[];
-  daily_cap: number;
+  /** Null when the server sent none; never shown as a cap of 0. */
+  daily_cap: number | null;
 }
 
 /** Why a `POST :id/investigations` was refused. Switch on the token, not the message. */

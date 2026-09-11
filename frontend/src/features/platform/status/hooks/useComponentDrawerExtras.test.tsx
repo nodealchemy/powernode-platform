@@ -147,4 +147,19 @@ describe('useComponentDrawerExtras', () => {
     await waitFor(() => expect(result.current.runbook?.component_status_id).toBe('row-B'));
     expect(result.current.eventsFailed).toBe(false);
   });
+
+  it('reports a failed route read, and clears it when the drawer moves to a component whose route loads (C3p2 review R4)', async () => {
+    mockedApi.fetchRemediationRoute.mockImplementation(async (id: string) => {
+      if (id === 'row-A') throw new Error('gateway timeout');
+      return { component_status_id: id, signal_kind: null, routed: false } as RemediationRouteData;
+    });
+
+    const { result, rerender } = renderExtras('row-A');
+    await waitFor(() => expect(result.current.routeFailed).toBe(true));
+    expect(result.current.route).toBeNull();
+
+    rerender({ id: 'row-B' });
+    await waitFor(() => expect(result.current.route?.component_status_id).toBe('row-B'));
+    expect(result.current.routeFailed).toBe(false);
+  });
 });

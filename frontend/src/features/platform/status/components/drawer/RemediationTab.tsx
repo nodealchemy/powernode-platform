@@ -157,11 +157,18 @@ const RoutePanel: React.FC<{ route: RemediationRouteData }> = ({ route }) => {
 export interface RemediationTabProps {
   remediation: ComponentRemediation;
   state: RemediationState;
-  /** The owning lane's report. Null while loading or when the read failed. */
+  /** The owning lane's report. Null while loading, and when the read failed (see `routeFailed`). */
   route?: RemediationRouteData | null;
+  /** The route read failed, which is a different fact from "nothing routes this component". */
+  routeFailed?: boolean;
 }
 
-export const RemediationTab: React.FC<RemediationTabProps> = ({ remediation, state, route }) => (
+export const RemediationTab: React.FC<RemediationTabProps> = ({
+  remediation,
+  state,
+  route,
+  routeFailed = false,
+}) => (
   <div className="flex flex-col gap-4" data-remediation-state={state}>
     <div className="flex items-center gap-2">
       <RemediationChip state={state} size="sm" />
@@ -170,6 +177,15 @@ export const RemediationTab: React.FC<RemediationTabProps> = ({ remediation, sta
     <StateExplanation state={state} />
 
     {route && <RoutePanel route={route} />}
+
+    {/* Said, not left blank (C3p2 review R4): an absent route panel reads as
+        "no lane report", and a failed read has not established that. */}
+    {routeFailed && (
+      <p className="text-sm text-theme-warning-fg" data-route-failed>
+        Could not load this component&apos;s remediation route. What its lane is doing is unknown
+        here; this is a failed read, not a finding that nothing routes it.
+      </p>
+    )}
 
     <dl className="grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-2">
       {remediation.signal_kind && (

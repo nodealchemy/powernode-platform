@@ -199,6 +199,7 @@ export const ComponentStatusDrawer: React.FC<ComponentStatusDrawerProps> = ({
                 remediation={detail.remediation}
                 state={detail.remediation_state}
                 route={extras.route}
+                routeFailed={extras.routeFailed}
               />
             </TabsContent>
 

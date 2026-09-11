@@ -24,7 +24,9 @@ import type {
 // and each tab renders its own "could not be read" rather than the whole drawer
 // going dark because of the least important of four panels. Events carries an
 // explicit `eventsFailed`, because an empty events list is itself a claim ("no
-// transitions") that a failed read must never make (C3p2 review R2).
+// transitions") that a failed read must never make (C3p2 review R2). The route
+// carries `routeFailed` for the same reason: a null route reads as "no lane
+// report", and a failed read must say it failed (C3p2 review R4).
 //
 // ── A SEQUENCE GUARD, FOR THE SAME REASON THE PAGE HAS ONE ─────────────────
 //
@@ -41,8 +43,11 @@ import type {
 export interface UseComponentDrawerExtrasReturn {
   runbook: ComponentRunbookData | null;
   route: RemediationRouteData | null;
+  /** The route read failed. Not the same fact as "no lane routes this component". */
+  routeFailed: boolean;
   events: ComponentStatusEvent[];
-  eventsTotal: number;
+  /** Null when the server sent no total. */
+  eventsTotal: number | null;
   /** The events read failed or was malformed. Not the same fact as "no transitions". */
   eventsFailed: boolean;
   investigations: InvestigationsData | null;
@@ -58,8 +63,9 @@ export interface UseComponentDrawerExtrasReturn {
 export function useComponentDrawerExtras(id: string | null): UseComponentDrawerExtrasReturn {
   const [runbook, setRunbook] = useState<ComponentRunbookData | null>(null);
   const [route, setRoute] = useState<RemediationRouteData | null>(null);
+  const [routeFailed, setRouteFailed] = useState(false);
   const [events, setEvents] = useState<ComponentStatusEvent[]>([]);
-  const [eventsTotal, setEventsTotal] = useState(0);
+  const [eventsTotal, setEventsTotal] = useState<number | null>(null);
   const [eventsFailed, setEventsFailed] = useState(false);
   const [investigations, setInvestigations] = useState<InvestigationsData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -70,8 +76,9 @@ export function useComponentDrawerExtras(id: string | null): UseComponentDrawerE
     // runbook or events while the new ones load.
     setRunbook(null);
     setRoute(null);
+    setRouteFailed(false);
     setEvents([]);
-    setEventsTotal(0);
+    setEventsTotal(null);
     setEventsFailed(false);
     setInvestigations(null);
 
@@ -96,6 +103,7 @@ export function useComponentDrawerExtras(id: string | null): UseComponentDrawerE
 
       if (runbookResult.status === 'fulfilled') setRunbook(runbookResult.value ?? null);
       if (routeResult.status === 'fulfilled') setRoute(routeResult.value ?? null);
+      else setRouteFailed(true);
       // Optional-chained: a fulfilled promise can still carry a malformed body,
       // and a TypeError thrown inside this `.then` would reject silently and
       // leave `loading` stuck on — a drawer that spins forever over one bad
@@ -103,7 +111,7 @@ export function useComponentDrawerExtras(id: string | null): UseComponentDrawerE
       // array, so a malformed events envelope arrives here as `rejected`.)
       if (eventsResult.status === 'fulfilled') {
         setEvents(eventsResult.value?.events ?? []);
-        setEventsTotal(eventsResult.value?.pagination?.total_count ?? 0);
+        setEventsTotal(eventsResult.value?.pagination?.total_count ?? null);
       } else {
         setEventsFailed(true);
       }
@@ -138,6 +146,7 @@ export function useComponentDrawerExtras(id: string | null): UseComponentDrawerE
   return {
     runbook,
     route,
+    routeFailed,
     events,
     eventsTotal,
     eventsFailed,

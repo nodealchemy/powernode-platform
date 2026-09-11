@@ -30,7 +30,8 @@ export interface EventsTabProps {
   events: ComponentStatusEvent[];
   loading: boolean;
   /** Server-side total, which may exceed the page loaded. */
-  totalCount: number;
+  /** Null when the server sent no total; the "N of M" line then says nothing. */
+  totalCount: number | null;
   /**
    * The read failed or was malformed. Nothing is known — which is a different
    * fact from "no transitions", and is said as one (C3p2 review R2).
@@ -101,7 +102,7 @@ export const EventsTab: React.FC<EventsTabProps> = ({
         ))}
       </ul>
 
-      {totalCount > events.length && (
+      {totalCount !== null && totalCount > events.length && (
         <p className="text-xs text-theme-tertiary">
           Showing the {events.length} most recent of {totalCount} recorded transitions.
         </p>

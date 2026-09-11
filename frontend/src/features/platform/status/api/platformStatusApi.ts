@@ -208,7 +208,8 @@ export interface ComponentEventsResult extends ComponentEventsData {
   pagination: {
     current_page: number;
     per_page: number;
-    total_count: number;
+    /** Null when the server sent no total: unknown, never the page length. */
+    total_count: number | null;
     total_pages: number;
   };
 }
@@ -236,7 +237,9 @@ export const fetchComponentEvents = async (
     pagination: {
       current_page: pagination.current_page ?? 1,
       per_page: pagination.per_page ?? 20,
-      total_count: pagination.total_count ?? (data.events?.length ?? 0),
+      // Not the page length (C3p2 review R11): a missing total is unknown, and
+      // the page length would claim there are no older transitions.
+      total_count: pagination.total_count ?? null,
       total_pages: pagination.total_pages ?? 1,
     },
   };
@@ -250,7 +253,9 @@ export const fetchInvestigations = async (id: string): Promise<InvestigationsDat
     component_status_id: data.component_status_id,
     open: data.open ?? [],
     recent: data.recent ?? [],
-    daily_cap: data.daily_cap ?? 0,
+    // Null, never 0 (C3p2 review R11): a missing cap rendered "Daily cap 0.", a
+    // bound nobody set.
+    daily_cap: data.daily_cap ?? null,
   };
 };
 
@@ -260,10 +265,11 @@ export const fetchInvestigations = async (id: string): Promise<InvestigationsDat
  * prose and may change.
  */
 export class InvestigationRefusedError extends Error {
-  readonly refused: InvestigationRefusal;
+  /** Null when the 409 named no token; the caller then shows the server's message. */
+  readonly refused: InvestigationRefusal | null;
   readonly dailyCap: number | null;
 
-  constructor(message: string, refused: InvestigationRefusal, dailyCap: number | null) {
+  constructor(message: string, refused: InvestigationRefusal | null, dailyCap: number | null) {
     super(message);
     this.name = 'InvestigationRefusedError';
     this.refused = refused;
@@ -293,7 +299,8 @@ export const openInvestigation = async (id: string): Promise<Investigation> => {
       const details = err.response.data?.details ?? {};
       throw new InvestigationRefusedError(
         err.response.data?.error ?? 'The investigation was refused.',
-        details.refused ?? 'Unknown',
+        // Null, not an invented 'Unknown' token outside the union (C3p2 review R11).
+        details.refused ?? null,
         details.daily_cap ?? null
       );
     }

@@ -217,6 +217,27 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
       expect(screen.queryByRole('link', { name: /silent\.md/ })).not.toBeInTheDocument();
     });
 
+    it('says a FAILED route read failed, instead of rendering nothing (C3p2 review R4)', async () => {
+      mockedApi.fetchRemediationRoute.mockRejectedValue(new Error('gateway timeout'));
+      renderDrawer();
+      await openTab('Remediation');
+
+      expect(
+        await screen.findByText(/Could not load this component.s remediation route/)
+      ).toBeInTheDocument();
+      expect(document.querySelector('[data-route-section]')).toBeNull();
+    });
+
+    it('shows no failure line when the route read succeeds (R4, the other arm)', async () => {
+      renderDrawer();
+      await openTab('Remediation');
+
+      await waitFor(() =>
+        expect(document.querySelector('[data-route-section="routed"]')).not.toBeNull()
+      );
+      expect(document.querySelector('[data-route-failed]')).toBeNull();
+    });
+
     it('distinguishes "nothing routed" from "routed but undocumented"', async () => {
       mockedApi.fetchComponentRunbook.mockResolvedValue({
         component_status_id: 'row-1',
@@ -520,6 +541,87 @@ describe('ComponentStatusDrawer — A9 tabs', () => {
       expect(screen.getByText('checked, nothing found')).toBeInTheDocument();
       expect(screen.getByText(/could not be checked at all/)).toBeInTheDocument();
       expect(screen.getByText('RuntimeError: extension is down')).toBeInTheDocument();
+    });
+
+    it('prints no daily cap the server did not send — never "Daily cap 0" (C3p2 review R11)', async () => {
+      mockedApi.fetchInvestigations.mockResolvedValue(investigations({ daily_cap: null }));
+      renderDrawer();
+      await openTab('Investigations');
+
+      expect(await screen.findByText('0 open, 0 recent.')).toBeInTheDocument();
+      expect(screen.queryByText(/Daily cap/)).not.toBeInTheDocument();
+    });
+
+    it('shows a null evidence class as "no value reported", not as checked-and-empty (C3p2 review R12)', async () => {
+      mockedApi.fetchInvestigations.mockResolvedValue(
+        investigations({
+          open: [
+            investigation({
+              status: 'open',
+              open: true,
+              evidence: { window_seconds: 3600, learnings: null, conditions: [] },
+            }),
+          ],
+        })
+      );
+      renderDrawer();
+      await openTab('Investigations');
+
+      const learnings = (await screen.findByText('learnings')).nextElementSibling as HTMLElement;
+      expect(learnings.textContent).toBe('no value reported');
+      // The empty array beside it is still the finding it always was — once.
+      expect(screen.getAllByText('checked, nothing found')).toHaveLength(1);
+    });
+
+    it('names the dependency-chain neighbours that could not be seen (C3p2 review R12)', async () => {
+      mockedApi.fetchInvestigations.mockResolvedValue(
+        investigations({
+          open: [
+            investigation({
+              status: 'open',
+              open: true,
+              evidence: {
+                window_seconds: 3600,
+                dependency_chain: [
+                  { kind: 'node', ref: 'node-3', relation: 'hosts', verdict: 'ok', resolved: true },
+                  { kind: 'docker_host', ref: 'h-9', relation: 'runs_on', resolved: false },
+                ],
+              },
+            }),
+          ],
+        })
+      );
+      renderDrawer();
+      await openTab('Investigations');
+
+      expect(await screen.findByText('2 items')).toBeInTheDocument();
+      const unseen = document.querySelector('[data-evidence-unseen="dependency_chain"]') as HTMLElement;
+      expect(unseen).not.toBeNull();
+      expect(unseen.textContent).toMatch(/^1 could not be seen/);
+      expect(unseen.textContent).toContain('docker_host h-9');
+      expect(unseen.textContent).not.toContain('node-3');
+    });
+
+    it('lists nothing as unseen when every neighbour resolved (R12, the other arm)', async () => {
+      mockedApi.fetchInvestigations.mockResolvedValue(
+        investigations({
+          open: [
+            investigation({
+              status: 'open',
+              open: true,
+              evidence: {
+                window_seconds: 3600,
+                dependency_chain: [{ kind: 'node', ref: 'node-3', verdict: 'ok', resolved: true }],
+              },
+            }),
+          ],
+        })
+      );
+      renderDrawer();
+      await openTab('Investigations');
+
+      expect(await screen.findByText('1 item')).toBeInTheDocument();
+      expect(document.querySelector('[data-evidence-unseen]')).toBeNull();
     });
 
     it('hides the Investigate button without ai.autonomy.manage and shows it with', async () => {

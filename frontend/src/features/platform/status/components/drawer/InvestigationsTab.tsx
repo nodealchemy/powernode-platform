@@ -155,6 +155,17 @@ const Confidence: React.FC<{ hypothesis: InvestigationHypothesis }> = ({ hypothe
   );
 };
 
+/** An entry the investigation could not resolve — dependency_chain's `resolved: false`. */
+type UnseenEntry = { resolved: false; kind?: unknown; ref?: unknown };
+
+const isUnseenEntry = (entry: unknown): entry is UnseenEntry =>
+  typeof entry === 'object' && entry !== null && (entry as { resolved?: unknown }).resolved === false;
+
+const unseenLabel = (entry: UnseenEntry): string =>
+  [entry.kind, entry.ref]
+    .filter((part): part is string => typeof part === 'string' && part !== '')
+    .join(' ') || 'an entry with no reference';
+
 const EvidenceSummary: React.FC<{ evidence: InvestigationEvidence }> = ({ evidence }) => {
   const classes = Object.entries(evidence).filter(([key]) => !EVIDENCE_META_KEYS.has(key));
   // `ranking` is not an evidence class; a legacy row's ranking error is shown by
@@ -175,7 +186,24 @@ const EvidenceSummary: React.FC<{ evidence: InvestigationEvidence }> = ({ eviden
 
       <dl className="mt-1 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
         {classes.map(([name, value]) => {
-          const count = Array.isArray(value) ? value.length : value === null ? 0 : 1;
+          // A null class is outside the contract, so it claims nothing. It is
+          // not "checked, nothing found", which is a finding (C3p2 review R12).
+          if (value === null) {
+            return (
+              <React.Fragment key={name}>
+                <dt className="font-mono text-theme-tertiary">{name}</dt>
+                <dd className="text-theme-tertiary" data-evidence-unreported={name}>
+                  <span title="The server sent no value for this class. That is neither a count nor a clean absence.">
+                    no value reported
+                  </span>
+                </dd>
+              </React.Fragment>
+            );
+          }
+          const count = Array.isArray(value) ? value.length : 1;
+          // A neighbour the investigation could not see is a finding in its own
+          // right (A9), not one more item in a count (C3p2 review R12).
+          const unseen = Array.isArray(value) ? value.filter(isUnseenEntry) : [];
           return (
             <React.Fragment key={name}>
               <dt className="font-mono text-theme-tertiary">{name}</dt>
@@ -186,6 +214,15 @@ const EvidenceSummary: React.FC<{ evidence: InvestigationEvidence }> = ({ eviden
                   </span>
                 ) : (
                   `${count} item${count === 1 ? '' : 's'}`
+                )}
+                {unseen.length > 0 && (
+                  <span
+                    className="block text-theme-warning-fg"
+                    data-evidence-unseen={name}
+                    title="The investigation could not resolve these entries, so their state is unknown. That is not the same as healthy."
+                  >
+                    {`${unseen.length} could not be seen, so ${unseen.length === 1 ? 'its' : 'their'} state is unknown: ${unseen.map(unseenLabel).join(', ')}`}
+                  </span>
                 )}
               </dd>
             </React.Fragment>
@@ -345,7 +382,9 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-theme-tertiary">
           {data
-            ? `${data.open.length} open, ${data.recent.length} recent. Daily cap ${data.daily_cap}.`
+            ? `${data.open.length} open, ${data.recent.length} recent.${
+                data.daily_cap === null ? '' : ` Daily cap ${data.daily_cap}.`
+              }`
             : 'Investigations could not be read.'}
         </p>
         {mayInvestigate ? (

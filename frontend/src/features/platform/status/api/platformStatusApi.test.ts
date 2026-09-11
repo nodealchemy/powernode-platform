@@ -4,6 +4,7 @@ import {
   openInvestigation,
   fetchRemediationRoute,
   fetchComponentEvents,
+  fetchInvestigations,
   InvestigationRefusedError,
 } from './platformStatusApi';
 import type { ComponentAction } from '@/shared/types/platformStatus';
@@ -118,6 +119,17 @@ describe('openInvestigation', () => {
     }
   );
 
+  it('a 409 that names no token carries null, not an invented one (C3p2 review R11)', async () => {
+    client.post.mockRejectedValue({
+      response: { status: 409, data: { success: false, error: 'refused for a reason not named' } },
+    });
+
+    const error = await openInvestigation('row-1').catch((e) => e);
+    expect(error).toBeInstanceOf(InvestigationRefusedError);
+    expect(error.refused).toBeNull();
+    expect(error.message).toBe('refused for a reason not named');
+  });
+
   it('rethrows anything that is NOT a 409 unchanged — a 500 is not a bound', async () => {
     const serverError = { response: { status: 500, data: { error: 'boom' } } };
     client.post.mockRejectedValue(serverError);
@@ -173,5 +185,47 @@ describe('fetchComponentEvents', () => {
       events: [],
       pagination: { total_count: 0 },
     });
+  });
+});
+
+// C3p2 review R11: no fabricated defaults. A value the server did not send is
+// unknown, and each of these used to become a number nobody measured.
+describe('fetchInvestigations', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('keeps a MISSING daily cap null — never a cap of 0', async () => {
+    client.get.mockResolvedValue({ data: { data: { component_status_id: 'row-1', open: [], recent: [] } } });
+    const data = await fetchInvestigations('row-1');
+    expect(data.daily_cap).toBeNull();
+  });
+
+  it('keeps the daily cap the server sent', async () => {
+    client.get.mockResolvedValue({
+      data: { data: { component_status_id: 'row-1', open: [], recent: [], daily_cap: 20 } },
+    });
+    expect((await fetchInvestigations('row-1')).daily_cap).toBe(20);
+  });
+});
+
+describe('fetchComponentEvents — the total', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const event = { id: 'e-1', from_verdict: 'ok', to_verdict: 'down', reason: null, occurred_at: '2026-09-10T12:00:00Z' };
+
+  it('keeps a MISSING total null — the page length would claim there is nothing older', async () => {
+    client.get.mockResolvedValue({ data: { data: { component_status_id: 'row-1', events: [event] }, meta: {} } });
+    const result = await fetchComponentEvents('row-1');
+    expect(result.events).toHaveLength(1);
+    expect(result.pagination.total_count).toBeNull();
+  });
+
+  it('keeps the total the server sent', async () => {
+    client.get.mockResolvedValue({
+      data: {
+        data: { component_status_id: 'row-1', events: [event] },
+        meta: { pagination: { current_page: 1, per_page: 20, total_count: 57, total_pages: 3 } },
+      },
+    });
+    expect((await fetchComponentEvents('row-1')).pagination.total_count).toBe(57);
   });
 });
