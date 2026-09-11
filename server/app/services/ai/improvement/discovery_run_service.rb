@@ -482,8 +482,13 @@ module Ai
         data[:deduped] ? :deduped : :created
       end
 
+      # A system-initiated caller, declared as one. Built with only an account,
+      # the tool records the call as "unattributed" (BaseTool#
+      # caller_principal_descriptor), and a per-action gate added later would
+      # refuse it on every run with nothing to show for it, the way an
+      # extension's auto-evolve trigger once went silent.
       def improvement_tool
-        @improvement_tool ||= ::Ai::Tools::ImprovementTool.new(account: account)
+        @improvement_tool ||= ::Ai::Tools::ImprovementTool.new(account: account, internal: true)
       end
     end
   end

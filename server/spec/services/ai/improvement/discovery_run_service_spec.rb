@@ -348,6 +348,23 @@ RSpec.describe Ai::Improvement::DiscoveryRunService, type: :service do
     end
   end
 
+  # Lane 3's finding: discovery built the tool with an account and no
+  # principal, which BaseTool records as "unattributed". The stand-in gate
+  # below refuses a call with no principal, as a per-action gate would; the
+  # REAL tool runs behind it and must still file.
+  describe "the principal discovery files under" do
+    it "files through the real tool as an explicit internal caller, past a gate that refuses no principal" do
+      allow_any_instance_of(Ai::Tools::ImprovementTool).to receive(:execute).and_wrap_original do |original, **kwargs|
+        next { success: false, error: "permission denied: no principal" } if original.receiver.send(:principal_kind) == "none"
+
+        original.call(**kwargs)
+      end
+
+      expect(ingest).to include(status: "completed", offers_created: 1)
+      expect(offers.count).to eq(1)
+    end
+  end
+
   describe "grouping and bounding" do
     it "files one offer per (file, rule), carrying the occurrence count" do
       ingest({ "ruby" => ran(rubocop_json([ offense(line: 3), offense(line: 9), offense(line: 14),
