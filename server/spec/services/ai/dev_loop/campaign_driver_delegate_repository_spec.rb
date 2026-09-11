@@ -12,7 +12,13 @@ RSpec.describe Ai::DevLoop::CampaignDriver, "#delegate repository wiring", type:
   let(:campaign) { driver.start(name: "Repository wiring")[:campaign] }
   let(:loop_record) { campaign.ralph_loops.first }
   let(:agent) { create(:ai_agent, account: account) }
-  let(:mission) { create(:ai_mission, account: account, created_by: user) }
+  # owner/name and full_name agree: the loop derives repository_full_name from the
+  # clone URL (built from owner/name), and the factory's name and full_name
+  # sequences drift apart once other specs in the process pass a full_name.
+  let(:repository) do
+    create(:git_repository, account: account, owner: "acme", name: "widgets", full_name: "acme/widgets")
+  end
+  let(:mission) { create(:ai_mission, account: account, created_by: user, repository: repository) }
 
   it "platform_agent with a mission_id wires the mission and its repository onto the loop" do
     result = driver.delegate(campaign, driver_kind: "platform_agent", target: { agent_id: agent.id, mission_id: mission.id })
