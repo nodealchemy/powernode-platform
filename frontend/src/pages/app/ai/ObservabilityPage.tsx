@@ -213,12 +213,14 @@ export const ObservabilityPage: React.FC = () => {
           id: a.id,
           name: a.name,
           status: a.status === 'active' ? 'active' : a.status === 'error' ? 'error' : 'inactive',
-          health_score: a.success_rate || 100,
+          // Passed through, never defaulted (M1 review F3): `|| 100` turned a
+          // real 0% into 100%, and the service already reads "no runs" as null.
+          health_score: a.success_rate,
           performance: {
-            success_rate: a.success_rate || 100,
+            success_rate: a.success_rate,
             avg_response_time: a.avg_execution_time || 0,
             throughput: 0,
-            error_rate: a.success_rate ? (100 - a.success_rate) : 0
+            error_rate: a.success_rate === null ? null : 100 - a.success_rate
           },
           usage: {
             executions_count: a.executions || 0,

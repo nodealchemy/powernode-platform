@@ -70,7 +70,8 @@ export interface MonitoringDashboard {
     name: string;
     status: string;
     executions?: number;
-    success_rate?: number;
+    // null when the agent has no measured rate — never a default (M1 review F3).
+    success_rate: number | null;
     avg_execution_time?: number;
     total_cost?: number;
   }>;
@@ -274,13 +275,22 @@ class MonitoringApiService extends BaseApiService {
     const providerComponents = dashboard?.components?.providers;
     const agentComponents = dashboard?.components?.agents;
 
+    // A rate over ZERO executions is not a measurement (M1 review F3). The
+    // server's calculate_success_rate answers 0.0 for 0 of 0, so the rate alone
+    // cannot tell "never ran" from "always failed"; the execution count in the
+    // same row can. No runs, or no rate, reads null: never a made-up 100, and
+    // never a 0 standing in for "no data".
+    const measuredRate = (executions: number | undefined, rate: number | undefined): number | null =>
+      executions !== undefined && executions > 0 && typeof rate === 'number' ? rate : null;
+    const errorRateFrom = (rate: number | null): number | undefined => (rate === null ? undefined : 100 - rate);
+
     // Map providers from nested structure
     const providers = (providerComponents?.providers || []).map(p => ({
       id: p.id,
       name: p.name,
       status: (p.status === 'active' ? 'healthy' : p.status === 'inactive' ? 'down' : 'degraded') as 'healthy' | 'degraded' | 'down',
       latency_ms: p.avg_response_time || 0,
-      error_rate: p.success_rate ? (100 - p.success_rate) : 0
+      error_rate: errorRateFrom(measuredRate(p.executions, p.success_rate))
     }));
 
     // Calculate agent stats from nested structure
@@ -350,7 +360,7 @@ class MonitoringApiService extends BaseApiService {
         name: a.name,
         status: a.status,
         executions: a.executions || 0,
-        success_rate: a.success_rate || 100,
+        success_rate: measuredRate(a.executions, a.success_rate),
         avg_execution_time: 0,
         total_cost: 0
       })),

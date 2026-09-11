@@ -96,12 +96,22 @@ export interface CredentialStatus {
   status: 'valid' | 'invalid' | 'expired' | 'unknown';
 }
 
+/**
+ * An agent's rates may be absent (M1 review F3): an agent with no executions
+ * has no measured rate, and an absent rate must render as absent, never as a
+ * made-up 100.
+ */
+export interface AgentPerformanceMetrics extends Omit<PerformanceMetrics, 'success_rate' | 'error_rate'> {
+  success_rate: number | null;
+  error_rate: number | null;
+}
+
 export interface AgentMetrics {
   id: string;
   name: string;
   status: 'active' | 'inactive' | 'error';
-  health_score: number;
-  performance: PerformanceMetrics;
+  health_score: number | null;
+  performance: AgentPerformanceMetrics;
   usage: UsageMetrics;
   executions: ExecutionSummary;
   provider_distribution: ProviderDistribution[];

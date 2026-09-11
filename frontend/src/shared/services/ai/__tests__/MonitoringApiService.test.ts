@@ -147,3 +147,50 @@ describe('MonitoringApiService#getDashboard — system_health.status is the plat
     expect(result.system_health.status).toBe('ok');
   });
 });
+
+describe('MonitoringApiService#getDashboard — per-agent and per-provider rates (M1 review F3)', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  const withComponents = (agents: unknown[], providers: unknown[] = []) => ({
+    dashboard: { components: { agents: { total_agents: agents.length, agents }, providers: { providers } } },
+    rollup: rollup(),
+  });
+
+  it('an agent at a real 0% reads 0 — not 100', async () => {
+    jest.spyOn(target, 'get').mockResolvedValue(withComponents([{ id: 'a1', name: 'A', status: 'active', executions: 4, success_rate: 0 }]));
+    const result = await monitoringApi.getDashboard();
+    expect(result.agentsList?.[0].success_rate).toBe(0);
+  });
+
+  it("an agent with NO executions reads null — the server's 0.0 for 0 of 0 is not a measurement", async () => {
+    jest.spyOn(target, 'get').mockResolvedValue(withComponents([{ id: 'a1', name: 'A', status: 'active', executions: 0, success_rate: 0 }]));
+    const result = await monitoringApi.getDashboard();
+    expect(result.agentsList?.[0].success_rate).toBeNull();
+  });
+
+  it('an agent with an absent rate reads null — not 100', async () => {
+    jest.spyOn(target, 'get').mockResolvedValue(withComponents([{ id: 'a1', name: 'A', status: 'active', executions: 3 }]));
+    const result = await monitoringApi.getDashboard();
+    expect(result.agentsList?.[0].success_rate).toBeNull();
+  });
+
+  it('passes a measured agent rate through unchanged', async () => {
+    jest.spyOn(target, 'get').mockResolvedValue(withComponents([{ id: 'a1', name: 'A', status: 'active', executions: 10, success_rate: 87.5 }]));
+    const result = await monitoringApi.getDashboard();
+    expect(result.agentsList?.[0].success_rate).toBe(87.5);
+  });
+
+  it('a provider at a real 0% success has a 100% error rate — not 0%', async () => {
+    jest.spyOn(target, 'get').mockResolvedValue(withComponents([], [{ id: 'p1', name: 'P', status: 'active', executions: 5, success_rate: 0 }]));
+    const result = await monitoringApi.getDashboard();
+    expect(result.providers[0].error_rate).toBe(100);
+  });
+
+  it('a provider with no executions has no error rate at all', async () => {
+    jest.spyOn(target, 'get').mockResolvedValue(withComponents([], [{ id: 'p1', name: 'P', status: 'active', executions: 0, success_rate: 0 }]));
+    const result = await monitoringApi.getDashboard();
+    expect(result.providers[0].error_rate).toBeUndefined();
+  });
+});

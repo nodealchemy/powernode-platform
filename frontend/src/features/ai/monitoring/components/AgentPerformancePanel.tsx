@@ -88,8 +88,9 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
               {/* Health Score */}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-theme-tertiary">Health Score</span>
-                <span className={`font-medium ${agent.health_score >= 90 ? 'text-theme-success-fg' : agent.health_score >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
-                  {agent.health_score.toFixed(1)}%
+                {/* No measured rate reads as absent, never a number (M1 review F3). */}
+                <span className={`font-medium ${agent.health_score === null ? 'text-theme-tertiary' : agent.health_score >= 90 ? 'text-theme-success-fg' : agent.health_score >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
+                  {agent.health_score === null ? '—' : `${agent.health_score.toFixed(1)}%`}
                 </span>
               </div>
 
@@ -97,11 +98,13 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-theme-tertiary">Success Rate</span>
-                  <span className={agent.performance.success_rate >= 95 ? 'text-theme-success-fg' : agent.performance.success_rate >= 90 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}>
-                    {agent.performance.success_rate.toFixed(1)}%
+                  <span className={agent.performance.success_rate === null ? 'text-theme-tertiary' : agent.performance.success_rate >= 95 ? 'text-theme-success-fg' : agent.performance.success_rate >= 90 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}>
+                    {agent.performance.success_rate === null ? '—' : `${agent.performance.success_rate.toFixed(1)}%`}
                   </span>
                 </div>
-                <Progress value={agent.performance.success_rate} className="h-2" />
+                {agent.performance.success_rate !== null && (
+                  <Progress value={agent.performance.success_rate} className="h-2" />
+                )}
               </div>
 
               {/* Execution Stats */}
