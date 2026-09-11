@@ -584,6 +584,14 @@ The frontend chat interface is built as part of the AI feature module.
 
 ### Backend monitoring
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 ```bash
 # Tail broadcast logs
 journalctl -u powernode-backend@default -f | grep -E "Broadcasting|execution"

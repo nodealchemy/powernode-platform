@@ -21,6 +21,14 @@
 
 ## Prerequisites
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 - Backend (`powernode-backend@default`) and worker (`powernode-worker@default`) services running.
 - An admin user (one with the `admin.access` permission).
 - At least one published `Page` author resolvable (admin-role user, otherwise first user in the account).

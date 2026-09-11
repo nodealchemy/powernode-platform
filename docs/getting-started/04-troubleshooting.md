@@ -20,6 +20,14 @@ If you hit a problem during install or first run, scan this page before diving i
 
 ## Services and ports
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `connection refused` on port 3000 | Backend not running | `sudo systemctl status powernode-backend@default`; restart if dead |
