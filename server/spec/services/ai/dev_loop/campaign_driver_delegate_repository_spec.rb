@@ -72,4 +72,67 @@ RSpec.describe Ai::DevLoop::CampaignDriver, "#delegate repository wiring", type:
     expect(loop_record.repository_url).to eq(mission.repository.clone_url)
     expect(result[:loops].first).to include(git_tools: true)
   end
+
+  it "platform_mission still delegates a mission that has no repository, and attaches no git tools" do
+    research = create(:ai_mission, :research, account: account, created_by: user)
+
+    result = driver.delegate(campaign, driver_kind: "platform_mission", target: { mission_id: research.id })
+
+    expect(loop_record.reload.mission_id).to eq(research.id)
+    expect(result[:loops].first).to include(git_tools: false)
+  end
+
+  # D2 review L2/L3: the F1 shape at this door is the account's OWN mission whose
+  # repository, or that repository's credential, belongs to another account (a row
+  # only an unguarded writer can leave, hence update_columns). Both driver kinds
+  # that carry a mission refuse it by name, and the loop is left untouched.
+  describe "a mission whose repository is not the account's" do
+    let(:other_account) { create(:account) }
+    let(:foreign_repository) do
+      create(:git_repository, account: other_account, owner: "rival", name: "secrets", full_name: "rival/secrets")
+    end
+
+    def expect_refused_leaving_the_loop_untouched(&delegation)
+      expect(&delegation).to raise_error(ArgumentError, /mission #{mission.id}: repository not found in this account/)
+
+      loop_record.reload
+      expect(loop_record.mission_id).to be_nil
+      expect(loop_record.repository_url).to be_nil
+      expect(loop_record.driver_kind).to eq("claude_code")
+    end
+
+    context "when the repository belongs to another account" do
+      before { mission.update_columns(repository_id: foreign_repository.id) }
+
+      it "platform_agent refuses it" do
+        expect_refused_leaving_the_loop_untouched do
+          driver.delegate(campaign, driver_kind: "platform_agent", target: { agent_id: agent.id, mission_id: mission.id })
+        end
+      end
+
+      it "platform_mission refuses it at the door too" do
+        expect_refused_leaving_the_loop_untouched do
+          driver.delegate(campaign, driver_kind: "platform_mission", target: { mission_id: mission.id })
+        end
+      end
+    end
+
+    context "when the account's own repository carries another account's credential" do
+      before do
+        repository.update_columns(git_provider_credential_id: create(:git_provider_credential, account: other_account).id)
+      end
+
+      it "platform_agent refuses it" do
+        expect_refused_leaving_the_loop_untouched do
+          driver.delegate(campaign, driver_kind: "platform_agent", target: { agent_id: agent.id, mission_id: mission.id })
+        end
+      end
+
+      it "platform_mission refuses it at the door too" do
+        expect_refused_leaving_the_loop_untouched do
+          driver.delegate(campaign, driver_kind: "platform_mission", target: { mission_id: mission.id })
+        end
+      end
+    end
+  end
 end

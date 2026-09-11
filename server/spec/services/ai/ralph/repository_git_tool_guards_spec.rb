@@ -131,6 +131,26 @@ RSpec.describe Ai::Tools::LocalToolBinding, "guards on the Ralph git tools", typ
       end.to raise_error(Mcp::ProtocolService::PermissionDeniedError, /destroy-shaped/)
       expect(executor.calls).to be_empty
     end
+
+    # D2 security review L4: the loop resolves only within the tool's own account.
+    # The foreign loop's executor is LIVE in this thread, so the account scope in
+    # RepositoryGitTool#executor_for is the only thing between the call and it.
+    it "refuses a loop id from another account, even with that loop's executor live, and it never runs" do
+      other_loop = create(:ai_ralph_loop, account: create(:account))
+      foreign_executor = executor_class.new(other_loop.id)
+
+      result = Ai::Ralph::GitToolExecutor.with_live(foreign_executor) do
+        Ai::Tools::McpPlatformToolRegistrar.run_guarded(
+          Ai::Ralph::RepositoryGitTool,
+          tool_id: "local.read_file", account: account, user: user, agent_id: agent.id, mcp_agent: agent,
+          params: { "action" => "read_file", "path" => "a.go", "ralph_loop_id" => other_loop.id }
+        )
+      end
+
+      expect(result).to include(success: false)
+      expect(result[:error]).to match(/Ralph loop not found/)
+      expect(foreign_executor.calls).to be_empty
+    end
   end
 
   describe "the autonomy gate on writes" do

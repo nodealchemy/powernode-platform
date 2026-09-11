@@ -402,8 +402,11 @@ module Ai
         when "platform_mission"
           id = target["mission_id"].presence
           raise ArgumentError, "platform_mission delegation requires target.mission_id" if id.blank?
-          raise ArgumentError, "mission not found in this account" unless @account.ai_missions.exists?(id: id)
 
+          mission = @account.ai_missions.find_by(id: id)
+          raise ArgumentError, "mission not found in this account" unless mission
+
+          refuse_foreign_repository!(mission)
           { "mission_id" => id }
         when "platform_team"
           # "Agent group" is unified into Ai::AgentTeam (the canonical agent grouping) — a
@@ -429,9 +432,19 @@ module Ai
         mission = @account.ai_missions.find_by(id: mission_id)
         raise ArgumentError, "mission not found in this account" unless mission
         raise ArgumentError, "mission #{mission.id} has no repository to attach" if mission.repository_id.blank?
-        raise ArgumentError, "mission #{mission.id}: repository not found in this account" unless account_repository(mission)
 
+        refuse_foreign_repository!(mission)
         { "mission_id" => mission.id }
+      end
+
+      # D2 review L3: a mission whose repository, or that repository's credential,
+      # is not this account's is refused at delegation, on every driver kind that
+      # carries a mission. The actuator refuses it too, but silently; the door says
+      # why. A mission with no repository is not refused here.
+      def refuse_foreign_repository!(mission)
+        return if mission.repository_id.blank? || account_repository(mission)
+
+        raise ArgumentError, "mission #{mission.id}: repository not found in this account"
       end
 
       # The clone URL of the mission's repository, for the loop's repository_url.
