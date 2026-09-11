@@ -2617,8 +2617,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_11_034316) do
     t.uuid "target_id", null: false
     t.string "target_type", null: false
     t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_ai_improvement_recommendations_on_account_id"
     t.index ["account_id", "target_type", "target_id", "fingerprint"], name: "index_ai_improvement_recs_on_pending_fingerprint", unique: true, where: "(((status)::text = 'pending'::text) AND (fingerprint IS NOT NULL))"
+    t.index ["account_id"], name: "index_ai_improvement_recommendations_on_account_id"
     t.index ["approved_by_id"], name: "index_ai_improvement_recommendations_on_approved_by_id"
     t.index ["recommendation_type"], name: "index_ai_improvement_recommendations_on_recommendation_type"
     t.index ["status"], name: "index_ai_improvement_recommendations_on_status"
