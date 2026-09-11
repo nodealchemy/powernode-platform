@@ -455,6 +455,17 @@ if [[ "$SKIP_TS" == "false" ]]; then
   else
     TS_OK=false
   fi
+  # Nav-link reachability lint (C15, review-lane4-c15.md F5): jest, not tsc,
+  # but it runs right next to the tsc step because nothing else in this gate
+  # runs frontend jest at all — no .gitea/workflows job does, and without
+  # this line the lint only ever caught anything if someone ran it by hand.
+  echo -e "${BLUE}  └─ nav-link reachability lint...${NC}"
+  if (cd "$PROJECT_ROOT/frontend" && npx jest src/__tests__/conventions/nav-link-reachability.test.ts --silent 2>&1); then
+    :
+  else
+    echo -e "${RED}     nav-link reachability lint failed${NC}"
+    TS_OK=false
+  fi
   # Each extensions/*/frontend/tsconfig.check.json is a tsc gate for that
   # extension's frontend tree (Vite resolves @<slug>/* aliases at runtime,
   # but the platform's main tsconfig.json only includes its own src). Without

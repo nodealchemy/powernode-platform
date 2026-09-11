@@ -105,7 +105,7 @@ export const AdminMaintenancePage: React.FC = () => {
   const handleTabChange = (tabId: MaintenanceTab) => {
     const tab = MAINTENANCE_TABS.find(t => t.id === tabId);
     if (tab) {
-      const targetPath = tabId === 'overview' ? '/app/admin/maintenance' : `/app/admin/maintenance${tab.path}`;
+      const targetPath = tabId === 'overview' ? '/app/admin/maintenance' : `/app/admin/maintenance/${tab.path}`;
       navigate(targetPath);
     }
   };
