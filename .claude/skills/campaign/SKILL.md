@@ -14,7 +14,7 @@ async parked-questions queue, and a progress ledger. `/campaign run` is the Ralp
 body — drive it repeatedly with `/loop /campaign run <id>`.
 
 Aliases: `/campaign` and `/autodev` are the same skill. Dual surface — platform agents call the
-same actions via the `campaign` MCP tool (`campaign_start/status/answer_question/stop`).
+same actions via the `campaign` MCP tool (`campaign_start/status/answer_question/stop/resume`).
 
 ## Usage
 ```
@@ -23,6 +23,7 @@ same actions via the `campaign` MCP tool (`campaign_start/status/answer_question
 /campaign status [<id>]    # progress + open questions + recent decisions (all, or one)
 /campaign answer <id>      # answer a parked question to unblock the campaign
 /campaign stop <id>        # stop the campaign + pause its loops + record a summary
+/campaign resume <id>      # request a resume (human-confirmed; parks until a person approves)
 ```
 
 ## start <name>
@@ -67,6 +68,14 @@ question_id:, answer:)`. The answer unblocks the next `/campaign run` for that a
 ## stop <id>
 `platform.campaign_stop(<id>, summary:)` — pauses the campaign's loop schedules and marks the
 campaign completed with your summary. Use when scope is drained or the operator calls it.
+
+## resume <id>
+Resumes a stopped or auto-completed campaign, optionally with updated `stop_conditions` (for
+example a higher `max_failed`). The action is human-confirmed: `platform.campaign_resume(<id>,
+stop_conditions:)` from any MCP caller parks as a pending approval, and a person confirms it
+from their own session (the approval queue, the campaign's Resume button, or
+`POST /api/v1/ai/campaigns/:id/resume`). The requester's MCP client cannot confirm its own
+request. Stop values must be valid for their type, and a resume never removes a stop condition.
 
 ## Decision authority
 | Level | The loop decides… | It parks… |
