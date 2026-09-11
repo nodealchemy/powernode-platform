@@ -23,7 +23,7 @@ type TokenState = 'idle' | 'verifying' | 'success' | 'expired' | 'invalid';
 export const VerifyEmailPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { addNotification } = useNotifications();
   const {
     user,
@@ -66,13 +66,18 @@ export const VerifyEmailPage: React.FC = () => {
     if (!token || verifyStartedRef.current) return;
     verifyStartedRef.current = true;
 
-    // Strip the token from the address bar immediately, before the network
-    // call even resolves: it is single-use, and must never sit in browser
-    // history or leak through a Referer header on whatever page comes next.
-    // Never logged, anywhere, in any form.
-    const url = new URL(window.location.href);
-    url.searchParams.delete('token');
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    // Strip the token from BOTH the address bar and React Router's own
+    // location (setSearchParams updates history AND useLocation/
+    // useSearchParams together -- a raw history.replaceState only did the
+    // former, leaving the token readable via useSearchParams and liable to
+    // resurface through ProtectedRoute's login-redirect capture of
+    // pathname+search). Done immediately, before the network call even
+    // resolves: it is single-use, and must never sit in browser history or
+    // leak through a Referer header on whatever page comes next. Never
+    // logged, anywhere, in any form.
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('token');
+    setSearchParams(nextParams, { replace: true });
 
     setTokenState('verifying');
     authApi.verifyEmail(token)

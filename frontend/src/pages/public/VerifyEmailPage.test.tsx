@@ -1,8 +1,15 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
 import { VerifyEmailPage } from './VerifyEmailPage';
 import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
+
+// secreview (review-security-resume.md L1): window.history.replaceState alone
+// bypasses React Router -- useLocation/useSearchParams still hold ?token=.
+const RouterLocationProbe = () => {
+  const location = useLocation();
+  return <div data-testid="router-location">{location.pathname + location.search}</div>;
+};
 
 const mockAddNotification = jest.fn();
 jest.mock('@/shared/hooks/useNotifications', () => ({
@@ -69,6 +76,29 @@ describe('VerifyEmailPage', () => {
       await waitFor(() => expect(mockVerifyEmail).toHaveBeenCalledTimes(1));
       expect(window.location.search).not.toContain('token');
       expect(window.location.pathname).toBe('/verify-email');
+    });
+
+    // secreview L1: a raw history.replaceState strips the address bar but not
+    // React Router's OWN location -- useLocation/useSearchParams keep the
+    // token, which ProtectedRoute's login-redirect capture (pathname + search)
+    // could resurface later. Other params must survive the strip.
+    it("strips the token from React Router's own location, not just the address bar", async () => {
+      mockVerifyEmail.mockResolvedValue({
+        data: { success: true, data: { message: 'Email verified successfully' } },
+      });
+      renderWithProviders(
+        <>
+          <VerifyEmailPage />
+          <RouterLocationProbe />
+        </>,
+        {
+          preloadedState: AUTH_STATE,
+          route: '/verify-email?token=abc123&utm_source=mail',
+        },
+      );
+
+      await waitFor(() => expect(mockVerifyEmail).toHaveBeenCalledTimes(1));
+      expect(screen.getByTestId('router-location').textContent).toBe('/verify-email?utm_source=mail');
     });
 
     it('renders the backend success message', async () => {
@@ -207,6 +237,27 @@ describe('VerifyEmailPage', () => {
 
       await waitFor(() => expect(screen.getByText('DASHBOARD STUB')).toBeInTheDocument());
       expect(screen.queryByText('Verify your email')).toBeNull();
+    });
+
+    // secreview L2: the committed spec's earlier StrictMode reasoning relied on
+    // <React.StrictMode> nested INSIDE renderWithProviders's own wrapper, which
+    // does not reliably double-invoke effects in this harness. RTL's root-level
+    // `reactStrictMode` render option does (it wraps the whole render, not a
+    // child element) -- this is the form that actually exercises the guard.
+    it('under React.StrictMode (root-level), verifyEmail still runs exactly once', async () => {
+      mockVerifyEmail.mockResolvedValue({
+        data: { success: true, data: { message: 'Email verified successfully' } },
+      });
+      renderWithProviders(<VerifyEmailPage />, {
+        preloadedState: AUTH_STATE,
+        route: '/verify-email?token=strict-tok',
+        reactStrictMode: true,
+      });
+
+      await waitFor(() => expect(screen.getByText('Email verified successfully')).toBeInTheDocument());
+      // Give a second effect pass (if any) a tick to fire before asserting.
+      await new Promise((r) => setTimeout(r, 20));
+      expect(mockVerifyEmail).toHaveBeenCalledTimes(1);
     });
   });
 
