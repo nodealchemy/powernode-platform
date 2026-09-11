@@ -24,7 +24,7 @@ export function IntegrationCard({
   if (template && !instance) {
     return (
       <Link
-        to={`/app/integrations/marketplace/${template.id}`}
+        to={`/app/devops/connections/integrations/new/${template.id}`}
         className="block bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-primary transition-colors"
       >
         <div className="flex items-start gap-3">
@@ -89,7 +89,7 @@ export function IntegrationCard({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <Link
-                  to={`/app/integrations/${instance.id}`}
+                  to={`/app/devops/connections/integrations/${instance.id}`}
                   className="font-medium text-theme-primary hover:text-theme-info-fg truncate"
                 >
                   {instance.name}
@@ -148,7 +148,7 @@ export function IntegrationCard({
               </button>
             )}
             <Link
-              to={`/app/integrations/${instance.id}`}
+              to={`/app/devops/connections/integrations/${instance.id}`}
               className="px-3 py-1.5 text-sm text-theme-secondary hover:text-theme-primary bg-theme-surface rounded transition-colors"
             >
               Configure
