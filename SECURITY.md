@@ -55,31 +55,29 @@ Boot images (UKI) **are** cosign-verified before use, on every path, with no dev
 
 _Verified in:_ `extensions/system/agent/internal/bootupgrade/bootupgrade.go:811` (CosignVerifier invoked on the boot blob), `extensions/system/agent/internal/verify/cosign.go:63-98` (`verify-blob` with identity/issuer pins; refuses without a trust anchor). Confirmed 2026-08-28.
 
-### Module artifact verification — Sigstore/Fulcio keyless + fs-verity (Partial / do-not-rely)
+### Module artifact verification — static-key cosign + fs-verity (Partial / do-not-rely)
 
-**Correction (2026-08-28): a previous revision of this document labelled this capability "Enforced for module mounts". That was wrong, and this section previously overstated the guarantee. Both checks are implemented and fail-closed, but neither is currently wired into any path that mounts a module.** Reviewers assessing this platform should not assume module-mount signature verification today. The correction is recorded here rather than quietly edited, because the prior claim may already have been relied upon.
+**Correction (2026-08-28): a previous revision of this document labelled this capability "Enforced for module mounts". That was wrong, and this section previously overstated the guarantee.** At that time both checks were implemented and fail-closed, but neither was wired into any path that mounts a module. The correction is recorded here rather than quietly edited, because the prior claim may already have been relied upon.
 
-The two checks exist and are correct in isolation:
+**Update (2026-09-12): verification is now wired but opt-in per node, and DEFAULT OFF.** Reviewers should still not assume module-mount signature verification on a node unless its operator has enabled an enforcing mode. The heading's old "Sigstore/Fulcio keyless" label was also inaccurate for modules: they are verified against static keys.
 
-1. **Sigstore/Fulcio keyless signature verification** — `CosignVerifier` shells out to `cosign verify-blob` with pinned Fulcio certificate-identity and OIDC-issuer regexps, and refuses to verify without a trust anchor.
-2. **fs-verity root-hash verification** — `FsVerifier` enables fs-verity on the pulled blob and asserts the on-disk Merkle root matches the hash the control plane published; if fs-verity is enabled but the module has no published root hash, the mount is refused rather than allowed through.
+**What is wired on the module-mount paths** (all under `extensions/system/agent/`):
 
-**What is actually wired on the module-mount paths:**
+- **Signature arm.** The platform signs each module's erofs blob at publish (`System::ModuleBlobSigner` → `System::ModuleSigningService#sign_blob!`, using Vault transit or the on-box local key). A failed signing still publishes the version, unsigned, and emits a `system.module_blob_signing_failed` fleet event. Nodes verify with static-key `cosign verify-blob` against the platform's trusted key list or operator-pinned keys. All three reconciler construction sites resolve the verifier from node policy through `ResolveModuleVerifier`: the service loop (`internal/runtime/service.go:362`), the boot composer (`internal/runtime/compose.go:608`), and CLI attach/update/sync (`cmd/powernode-agent/internal/cli/reconciler_factory.go:37`). The policy is a ladder: `off` (the default; no verification), `audit` (verify and report, never refuse), `runtime` (enforce on the service loop and CLIs), and `all` (enforce on the boot composer too).
+- **fs-verity arm.** It is resolved at the same three sites through `ResolveModuleFsverity` (`service.go:367`, `compose.go:614`, `reconciler_factory.go:42`). It does not run under `off`, and it is **measure-only under every other mode**: it reports and never refuses, because node images do not yet ship the `fsverity` binary.
+- The gate itself (`Reconciler.mountModuleArtifact`, `internal/runtime/reconcile.go:976`) is fail-closed for whatever the policy hands it.
 
-- All three reconciler construction sites pass `verify.AlwaysOK{}` — a `Verifier` whose `VerifyBlob` unconditionally `return nil`s — as the module verifier: the service loop (`internal/runtime/service.go:361`), the pivot composer (`internal/runtime/compose.go:611`), and CLI attach/update/sync (`cmd/powernode-agent/internal/cli/reconciler_factory.go:38`). `AlwaysOK` is labelled in its own source comment "NEVER use in production"; it is nevertheless the current default on these paths.
-- `ReconcilerConfig.Fsverity` is **nil by default**, so the fs-verity gate is dormant — stated as such in the source at `internal/runtime/reconcile.go:934`.
-- `CosignVerifier` is reachable from only two places: the boot-upgrade path above, and the operator-invoked `powernode-agent verify` CLI subcommand (`cmd/powernode-agent/internal/cli/verify_cmd.go:69`). Neither runs during a module mount.
-- The gate at `internal/runtime/reconcile.go:926-944` is real and correctly fail-closed — it is simply handed a no-op verifier and a nil fs-verifier.
+**Consequently, on a node that has not opted in (every node by default), the only integrity control applied to a module mount is the sha256 blob digest** checked by the puller (`internal/oci/pull.go`). The control plane delivers that digest over the same channel as the blob, so it detects corruption and truncation in transit; it does **not** establish provenance, and it does not survive a compromised or impersonated control plane. An operator can enforce signature verification on a node by following `extensions/system/docs/runbooks/module-signature-verification.md`. On the platform side, `module_promotion_require_signature` (default off) makes unsigned versions ineligible for promotion.
 
-**Consequently the only integrity control actually applied to a module mount today is the sha256 blob digest** (`internal/oci/pull.go:229`), which is delivered by the control plane over the same channel as the blob itself. That detects corruption and truncation in transit; it does **not** establish provenance, and it does not survive a compromised or impersonated control plane.
+Remaining gaps:
 
-Additional gaps, unchanged from the previous revision:
+- **The default is off.** Audit findings go only to the agent's stderr (the service journal, or the console at boot) and are not delivered to the platform, so there is no fleet-wide measurement to justify enforcing by default.
+- **fs-verity cannot be enforced** until node images ship `fsverity`.
+- **The module manifest is unsigned**, and a signature bundle is not bound to a module identity.
+- On-node **script execution does not verify cosign signatures**. That path requires an explicit `--allow-unsigned` dev flag and is **not** production-hardened (`extensions/system/agent/cmd/powernode-agent/internal/cli/exec_cmd.go:94`).
+- **No Rekor / transparency-log inclusion check** is performed. Static-key verification passes `--insecure-ignore-tlog=true` (`internal/verify/cosign.go:94`), so we make no transparency-log claim.
 
-- The module-signing **publish pipeline does not yet emit signatures** for all artifact paths. This is the stated reason the verifier is stubbed: `extensions/system/agent/internal/runtime/service.go:344-347` — "Wired with `verify.AlwaysOK` as a Phase 1 development default … production deployments will swap in a real `CosignVerifier` once the M1 publish pipeline ships signatures."
-- On-node **script execution does not yet verify cosign signatures** — that path currently requires an explicit `--allow-unsigned` dev flag and is **not** production-hardened. (`extensions/system/agent/cmd/powernode-agent/internal/cli/exec_cmd.go`: "cosign verification not yet implemented (use --allow-unsigned in dev only)".)
-- **No Rekor / transparency-log inclusion check** is performed. We make no transparency-log claim. Keyless verification here means Fulcio-identity-pinned signature checking, not tlog-backed inclusion proofs.
-
-_Verified in:_ `extensions/system/agent/internal/verify/cosign.go:46-108` (`CosignVerifier`; `AlwaysOK` at :101-108), `extensions/system/agent/internal/verify/fsverity.go` (enable + root-hash assertion), `extensions/system/agent/internal/runtime/reconcile.go:926-944` (the gate), and the three `AlwaysOK` call sites cited above. Re-confirmed by source review 2026-08-28.
+_Verified in:_ `extensions/system/agent/internal/verify/cosign.go:63` (`CosignVerifier.VerifyBlob`), `extensions/system/agent/internal/verify/module.go:108` and `:148` (`NewModuleVerifier`, `NewModuleFsverity`), `extensions/system/agent/internal/runtime/module_signing.go:119` and `:140` (the two resolvers), the six call sites cited above, and `extensions/system/server/app/services/system/module_blob_signer.rb`. Re-confirmed by source review 2026-09-12.
 
 ### Read-only verified module filesystem — erofs + overlayfs (Enforced)
 
@@ -124,7 +122,7 @@ As a project rule, key generation happens inside Vault (or a service that writes
 
 For a reviewer's threat model, the most important concessions:
 
-- Module **signature verification is not currently applied to module mounts at all** — the cosign and fs-verity gates are implemented and fail-closed but are wired with a no-op verifier and a nil fs-verifier on all three mount paths, leaving a control-plane-supplied sha256 digest as the only integrity check. Boot-image verification *is* enforced. The signing/publish pipeline and on-node script-exec verification are not yet shipped, and there is **no transparency-log (Rekor) check**. Do not assume a signed supply chain for module artifacts today. (This corrects a prior revision of this document, which described module-mount verification as Enforced.)
+- Module **signature verification is opt-in per node and DEFAULT OFF**. On a node that has not enabled an enforcing mode (every node by default), a control-plane-supplied sha256 digest is the only integrity check on a module mount. Blobs are signed at publish, and all three mount paths resolve their verifier from node policy. The fs-verity check is measure-only in every mode until node images ship the `fsverity` binary. Boot-image verification *is* enforced. On-node script-exec verification is not yet shipped, and there is **no transparency-log (Rekor) check**. Do not assume a signed supply chain for module artifacts. (A prior revision of this document described module-mount verification as Enforced; see the correction above.)
 - Supply-chain SBOM/SLSA tooling is real and format-correct, but the **cryptographic reject-on-install enforcement loop is still maturing** and the extension is optional.
 - AI guardrails are **pattern/heuristic-based defense-in-depth**, not a proof against novel prompt-injection.
 - This is a **small-maintainer project**: there is no 24/7 security on-call and no paid bug bounty (see Acknowledgments).
