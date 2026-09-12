@@ -37,7 +37,14 @@ RSpec.describe "Delegated task git actuation (D2)", type: :request do
 
   let(:account) { internal_account }
   # Git tools run as the agent's creator and require ai.loops.execute (D2 review F3).
-  let(:user) { create(:user, account: account, permissions: [ "ai.loops.execute" ]) }
+  # ai.campaigns.manage is this actor's OWN grant in THIS account: every mutating campaign
+  # action asks the shared campaign check against the account it touches, so start and
+  # delegate demand it here, and declaring permissions at all suppresses the implicit OWNER
+  # role this spec previously leaned on. The arm below pins that the grant must be held in
+  # THIS account — a grant carried in from another one still refuses.
+  let(:user) do
+    create(:user, account: account, permissions: %w[ai.loops.execute ai.campaigns.manage])
+  end
 
   let(:ai_provider) { create(:ai_provider, account: account) }
   let!(:ai_credential) { create(:ai_provider_credential, account: account, provider: ai_provider) }
@@ -438,6 +445,23 @@ RSpec.describe "Delegated task git actuation (D2)", type: :request do
 
       expect { delegate!(agent_id: agent.id, mission_id: mission.id) }
         .to raise_error(ArgumentError, /repository not found in this account/)
+      expect(loop_record.reload.mission_id).to be_nil
+      expect(gitea_writes).to be_empty
+    end
+
+    # The acting user above holds ai.campaigns.manage in THIS account. A holder of the same
+    # permission in ANOTHER account — what an account-switch session carries — is refused by
+    # name and wires nothing: the grant is answered where the campaign lives, never imported.
+    it "campaign_delegate refuses an actor holding ai.campaigns.manage only in another account" do
+      foreign_user = create(:user, account: other_account,
+                                   permissions: %w[ai.loops.execute ai.campaigns.manage])
+      foreign_driver = Ai::DevLoop::CampaignDriver.new(account: account, user: foreign_user)
+
+      expect {
+        foreign_driver.delegate(campaign, driver_kind: "platform_agent",
+                                          target: { agent_id: agent.id, mission_id: mission.id })
+      }.to raise_error(Ai::Campaigns::Authorization::Refused,
+                       /user #{foreign_user.id} does not hold 'ai\.campaigns\.manage' in account #{account.id}/)
       expect(loop_record.reload.mission_id).to be_nil
       expect(gitea_writes).to be_empty
     end
