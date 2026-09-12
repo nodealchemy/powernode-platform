@@ -705,4 +705,7 @@ not be scheduled as if one will appear on its own.
    keeps a weaker, unsigned token format accepted while protecting nobody — the same shape as the
    `open` tier this revision removed, and the precedent rev 3 cites for removing it. Queue
    separately: flip the default off (or delete the legacy path) before the first real peer
-   enrols, so the grace never becomes load-bearing.
+   enrols, so the grace never becomes load-bearing. **Resolved (IMP-01166cdc69a7):** the
+   raw-PK path and its env toggle are deleted outright; `fgs.` envelopes are the only token
+   shape. The same change made a blank pessimistic-scope allowlist deny; "any" on an axis is
+   now the explicit `["*"]`.
