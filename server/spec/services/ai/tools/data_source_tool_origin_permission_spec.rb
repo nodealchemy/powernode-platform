@@ -6,7 +6,8 @@ require "rails_helper"
 #   * an internal call                 -> allowed
 #   * an agent call                    -> the account-wide check, unchanged here
 #   * a call a door marked, no agent   -> the call's own user must hold the grant
-#                                         (fails closed on a nil user)
+#                                         (fails closed on a nil user, and when the
+#                                          permission read itself raises)
 #   * no mark and no agent             -> allowed: a REST controller authorized it
 # Every example asserts the row, not only the envelope.
 RSpec.describe Ai::Tools::DataSourceTool, "mutation permission by door (MCP identity plan #7)" do
@@ -45,6 +46,30 @@ RSpec.describe Ai::Tools::DataSourceTool, "mutation permission by door (MCP iden
 
   it "lets a marked call through when its own user holds the grant" do
     result = update!(tool_for(user: updater, origin: "mcp_oauth"))
+
+    expect(result[:success]).to be(true), result[:error].to_s
+    expect(data_source.reload.name).to eq("After")
+  end
+
+  it "refuses a marked call whose permission read raises, at the arm and end to end" do
+    tool = tool_for(user: updater, origin: "mcp_oauth")
+    allow(updater).to receive(:has_permission?).and_raise(ActiveRecord::StatementInvalid, "permission read failed")
+
+    expect(tool.send(:permission?, "ai.data_sources.update")).to be(false)
+
+    result = update!(tool)
+
+    expect(result[:success]).to be(false)
+    expect(data_source.reload.name).to eq("Before")
+  end
+
+  it "control for the raise: the same marked call runs when the permission read answers" do
+    tool = tool_for(user: updater, origin: "mcp_oauth")
+    allow(updater).to receive(:has_permission?).and_return(true)
+
+    expect(tool.send(:permission?, "ai.data_sources.update")).to be(true)
+
+    result = update!(tool)
 
     expect(result[:success]).to be(true), result[:error].to_s
     expect(data_source.reload.name).to eq("After")
