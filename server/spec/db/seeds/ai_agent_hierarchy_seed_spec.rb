@@ -115,7 +115,9 @@ RSpec.describe "ai_agent_hierarchy_seed" do
       expect(policy.inheritance_policy).to eq("conservative")
       expect(policy.max_depth).to eq(1)
       expect(policy.allowed_delegate_types).to eq([]) unless %w[platform-developer release-manager].include?(agent.slug)
-      expect(policy.delegatable_actions).to eq([])
+      # An empty list now means NONE for actions as for types (IMP-d2873a16567e),
+      # so the action a delegation is checked as is spelled out.
+      expect(policy.delegatable_actions).to eq(Ai::DelegationPolicy::DELEGATABLE_ACTIONS)
     end
   end
 

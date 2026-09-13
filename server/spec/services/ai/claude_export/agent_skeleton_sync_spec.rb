@@ -458,14 +458,18 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
       expect(content).to include("Inheritance: moderate")
     end
 
-    it "renders 'any agent type' when the policy lists no delegate types" do
-      agent = build_agent(name: "Open Delegator", resolved_model: "claude-sonnet-4-6")
+    # An empty list means NONE (HIER-P0 for types, IMP-d2873a16567e for
+    # actions); the body used to render it as "any agent type".
+    it "renders 'no agent type' when the policy lists no delegate types" do
+      agent = build_agent(name: "Leaf Delegator", resolved_model: "claude-sonnet-4-6")
       create(:ai_delegation_policy, account: account, agent: agent, allowed_delegate_types: [])
       stub_syncable([ agent ])
 
       service.sync!
 
-      expect(content_for(agent)).to include("May delegate to: any agent type")
+      expect(content_for(agent)).to include("May delegate to: no agent type")
+      expect(content_for(agent)).not_to include("any agent type")
+      expect(content_for(agent)).to include("Delegatable actions: none")
     end
 
     it "renders the lineage parent as 'Reports to' (parent_agent column or an active AgentLineage)" do

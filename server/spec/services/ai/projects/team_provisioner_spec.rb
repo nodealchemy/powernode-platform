@@ -21,9 +21,9 @@ require "rails_helper"
 # THE LAUNDERING RULE is the sharp one. It predates HIER-P0, when
 # Ai::DelegationPolicy read a BLANK allowed_delegate_types as UNRESTRICTED and
 # "narrowing" a policy by writing an empty list silently granted everything — a
-# widening dressed as a restriction. An empty list now means NONE, so the
-# laundering is closed at the model; the sentinel below still earns its place by
-# saying "nobody" in a way a reader cannot misread.
+# widening dressed as a restriction. An empty list now means NONE for both
+# lists (HIER-P0 for types, IMP-d2873a16567e for actions), and both are derived
+# through Ai::DelegationPolicy.narrow, so the laundering is closed at the model.
 # The guard and the lineage assertion are deliberately separate examples with
 # separate oracles: a single example asserting both would let either one carry
 # the other, which is how a redundant guard corrupts a mutation oracle.
@@ -50,13 +50,14 @@ RSpec.describe Ai::Projects::TeamProvisioner do
   let(:parent_delegate_types) { %w[assistant code_assistant monitor data_analyst] }
   let(:parent_max_depth)      { 4 }
   let(:parent_budget_pct)     { 0.5 }
+  let(:parent_actions)        { %w[execute deploy observe] }
 
   before do
     [ deployer, observer ].each { |child| writer.attach!(child: child, parent: sre, spawn_reason: "seed") }
     writer.ensure_delegation_policy!(
       agent: sre, inheritance_policy: "moderate", max_depth: parent_max_depth,
       allowed_delegate_types: parent_delegate_types, budget_delegation_pct: parent_budget_pct,
-      allowed_actions: %w[research deploy observe]
+      allowed_actions: parent_actions
     )
   end
 
@@ -153,57 +154,10 @@ RSpec.describe Ai::Projects::TeamProvisioner do
     end
   end
 
-  # THE LAUNDERING GUARD, on its own oracle.
-  #
-  # These examples call the pure narrowing directly, so nothing about clone
-  # resolution, template seeding or team seating can fail them. That
-  # independence is the point: while the guard could only be reached through
-  # the whole provisioning path, breaking the clone lookup also failed the
-  # sentinel example, and the example stopped being a unique signal for the
-  # guard being gone. Mutation-checked in both directions.
-  describe ".narrow_delegate_types" do
-    let(:seated) { %w[assistant code_assistant monitor] }
-
-    it "writes the SENTINEL when the intersection is empty, never an empty list" do
-      # `[]` is the UNRESTRICTED spelling — see Ai::DelegationPolicy
-      # #allows_delegate_type?. Returning it here would turn the narrowing into
-      # a grant of everything.
-      expect(described_class.narrow_delegate_types(held: %w[data_analyst], seated: seated))
-        .to eq([ described_class::NO_SUCH_TYPE_SENTINEL ])
-    end
-
-    it "narrows an UNRESTRICTED parent to the seated types instead of copying it" do
-      expect(described_class.narrow_delegate_types(held: [], seated: seated)).to match_array(seated)
-      expect(described_class.narrow_delegate_types(held: nil, seated: seated)).to match_array(seated)
-    end
-
-    it "grants only the intersection — never a type the parent lacked" do
-      granted = described_class.narrow_delegate_types(held: %w[assistant monitor data_analyst], seated: seated)
-
-      expect(granted).to match_array(%w[assistant monitor])
-      expect(granted).not_to include("code_assistant")
-      expect(granted).not_to include("data_analyst")
-    end
-
-    it "returns the sentinel when BOTH sides are empty, not an unrestricted grant" do
-      expect(described_class.narrow_delegate_types(held: [], seated: []))
-        .to eq([ described_class::NO_SUCH_TYPE_SENTINEL ])
-    end
-  end
-
-  describe ".narrow_delegatable_actions" do
-    it "returns the SENTINEL for a parent that declared no actions" do
-      # #allows_action? reads blank as unrestricted too.
-      expect(described_class.narrow_delegatable_actions(held: []))
-        .to eq([ described_class::NO_SUCH_ACTION_SENTINEL ])
-    end
-
-    it "keeps exactly what the parent held" do
-      expect(described_class.narrow_delegatable_actions(held: %w[deploy observe]))
-        .to match_array(%w[deploy observe])
-    end
-  end
-
+  # The narrowing itself is Ai::DelegationPolicy.narrow, specced on its own
+  # oracle in spec/models/ai/delegation_policy_spec.rb (IMP-d2873a16567e).
+  # What is left to pin here is that the provisioner derives both lists through
+  # it, end to end.
   describe "the delegation policy it writes (permission laundering)" do
     it "grants no delegate type the cloning agent did not hold" do
       team = provision.team
@@ -238,32 +192,50 @@ RSpec.describe Ai::Projects::TeamProvisioner do
     context "when the cloning agent may delegate to NOTHING the team carries" do
       let(:parent_delegate_types) { %w[data_analyst] }
 
-      it "writes the no-such-type SENTINEL, never an empty list" do
-        # THE TRAP: Ai::DelegationPolicy#allows_delegate_type? answers TRUE for a
-        # blank list. An intersection that comes out empty must therefore be
-        # written as a type nothing carries, or the narrowing becomes a grant of
-        # everything.
+      it "writes an empty list, which refuses every seated type" do
         team = provision.team
         manager_principal = team.team_lead.agent
         policy = Ai::DelegationPolicy.resolve_for(agent_id: manager_principal.id, account_id: account.id)
 
-        expect(Array(policy.allowed_delegate_types)).to eq([ described_class::NO_SUCH_TYPE_SENTINEL ])
+        expect(Array(policy.allowed_delegate_types)).to eq([])
         expect(policy.allows_delegate_type?("code_assistant")).to be false
         expect(policy.allows_delegate_type?("monitor")).to be false
         expect(policy.allows_delegate_type?("assistant")).to be false
       end
     end
 
-    context "when the cloning agent holds an UNRESTRICTED policy" do
+    # IMP-d2873a16567e: the parent's empty list means it may delegate to NO
+    # type. The provisioner used to read it as unrestricted and grant the
+    # project team every seated type — a clone holding more than its parent.
+    context "when the cloning agent may delegate to NO type" do
       let(:parent_delegate_types) { [] }
 
-      it "does not inherit the unrestricted grant — it narrows to the seated types" do
+      it "grants the project team no type either" do
         team = provision.team
         policy = Ai::DelegationPolicy.resolve_for(agent_id: team.team_lead.ai_agent_id, account_id: account.id)
 
-        granted = Array(policy.allowed_delegate_types).map(&:to_s)
-        expect(granted).not_to be_empty
-        expect(granted).to match_array(%w[assistant code_assistant monitor])
+        expect(Array(policy.allowed_delegate_types)).to eq([])
+        expect(policy.allows_delegate_type?("assistant")).to be false
+      end
+    end
+
+    it "grants only the delegated action the cloning agent held, never one it lacked" do
+      team = provision.team
+      policy = Ai::DelegationPolicy.resolve_for(agent_id: team.team_lead.ai_agent_id, account_id: account.id)
+
+      expect(policy.delegatable_actions).to eq(%w[execute])
+      expect(policy.allows_action?("deploy")).to be false
+    end
+
+    context "when the cloning agent may delegate NO action" do
+      let(:parent_actions) { [] }
+
+      it "grants the project team no action either" do
+        team = provision.team
+        policy = Ai::DelegationPolicy.resolve_for(agent_id: team.team_lead.ai_agent_id, account_id: account.id)
+
+        expect(policy.delegatable_actions).to eq([])
+        expect(policy.allows_action?("execute")).to be false
       end
     end
   end

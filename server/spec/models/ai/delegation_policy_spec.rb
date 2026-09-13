@@ -139,13 +139,88 @@ RSpec.describe Ai::DelegationPolicy, type: :model do
       expect(policy.allows_delegate_type?("assistant")).to be(false)
     end
 
-    it "leaves #allows_action? alone — delegatable_actions keeps blank-means-any" do
-      # Deliberately NOT changed by E4: the audit's HIER-P0 finding is about
-      # delegate types. Pinned so the asymmetry is a recorded decision rather
-      # than an oversight, and so a later change to it is deliberate.
+  end
+
+  # IMP-d2873a16567e — a BLANK delegatable_actions means NONE too.
+  #
+  # E4 left #allows_action? reading blank as "any action", so the two lists on
+  # one row meant opposite things when empty, and every derivation of one list
+  # from another had to know which. Operator rule 2026-09-08: a blank
+  # permission/scope list means DENY. The list is now read literally.
+  describe "#allows_action?" do
+    let(:policy) { build(:ai_delegation_policy, account: account_a, agent: canonical_agent) }
+
+    it "admits an action on the list" do
+      policy.delegatable_actions = %w[execute]
+
+      expect(policy.allows_action?("execute")).to be(true)
+      expect(policy.allows_action?(:execute)).to be(true)
+    end
+
+    it "refuses an action that is not on the list" do
+      policy.delegatable_actions = %w[execute]
+
+      expect(policy.allows_action?("deploy")).to be(false)
+    end
+
+    it "refuses EVERY action when the list is empty" do
       policy.delegatable_actions = []
 
-      expect(policy.allows_action?("anything")).to be(true)
+      expect(policy.allows_action?("execute")).to be(false)
+      expect(policy.allows_action?("anything")).to be(false)
+    end
+
+    it "refuses every action when the list is nil" do
+      policy.delegatable_actions = nil
+
+      expect(policy.allows_action?("execute")).to be(false)
+    end
+  end
+
+  # DELEGATABLE_ACTIONS is how "every action delegation is checked as" is
+  # spelled explicitly — by the hierarchy seeds, the system hierarchy and the
+  # migration that repaired blank rows. It must name what the doors pass.
+  describe "DELEGATABLE_ACTIONS" do
+    it "covers the action type every delegation door checks" do
+      expect(described_class::DELEGATABLE_ACTIONS)
+        .to include(Ai::TeamStrategies::HierarchicalStrategy::DELEGATED_ACTION_TYPE)
+    end
+  end
+
+  # THE ORACLE the finding asked for: narrowing a blank parent by a non-empty
+  # need must permit strictly less than the parent — which, with a blank
+  # parent, is nothing. Under blank-means-any the obvious intersection came out
+  # empty and so granted everything.
+  describe ".narrow" do
+    let(:need) { %w[assistant code_assistant monitor] }
+
+    def permits(list, candidates)
+      row = described_class.new(allowed_delegate_types: list)
+      candidates.select { |type| row.allows_delegate_type?(type) }
+    end
+
+    it "grants nothing when the parent's list is empty" do
+      narrowed = described_class.narrow(held: [], needed: need)
+
+      expect(narrowed).to eq([])
+      expect(permits(narrowed, need + %w[data_analyst])).to be_empty
+    end
+
+    it "grants only the intersection — never a value the parent lacked" do
+      narrowed = described_class.narrow(held: %w[assistant monitor data_analyst], needed: need)
+
+      expect(narrowed).to match_array(%w[assistant monitor])
+    end
+
+    it "bounds an ABSENT parent (no policy row, so ungoverned) by the need alone" do
+      expect(described_class.narrow(held: nil, needed: need)).to match_array(need)
+    end
+
+    it "never returns more than the parent permits" do
+      held = %w[monitor]
+      narrowed = described_class.narrow(held: held, needed: need)
+
+      expect(permits(narrowed, need) - permits(held, need)).to be_empty
     end
   end
 end

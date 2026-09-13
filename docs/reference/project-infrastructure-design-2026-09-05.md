@@ -127,7 +127,8 @@ account. §3.
 
 - `server/app/services/ai/projects/team_provisioner.rb:7-12`: "REUSE, NOT A SECOND PATH";
   seats are clones minted by `AccountPrincipalResolver` with a `canonical_clone` lineage edge.
-  `:99` `narrow_delegate_types`, `:112` `narrow_delegatable_actions` are the narrowing guards;
+  `#narrow_types` / `#narrow_actions` are the narrowing guards (since IMP-d2873a16567e both
+  delegate to `Ai::DelegationPolicy.narrow`);
   `:132` `provision!`; `:204-205` the canonical is found by slug.
 - `server/app/services/ai/teams/canonical_team_reconciler.rb:1-40`: three views, `drift`
   is read-only.

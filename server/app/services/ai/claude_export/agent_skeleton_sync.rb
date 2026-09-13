@@ -458,11 +458,11 @@ module Ai
         lines << "- Reports to: `#{sync_key(parent)}` (#{parent.name})" if parent
         if policy
           types = Array(policy.allowed_delegate_types).map(&:to_s).reject(&:blank?)
-          lines << "- May delegate to: #{types.any? ? "#{types.join(', ')}#{delegate_type_warning(types)}" : 'any agent type'}"
+          lines << "- May delegate to: #{types.any? ? "#{types.join(', ')}#{delegate_type_warning(types)}" : 'no agent type'}"
           lines << "- Max delegation depth: #{policy.max_depth}"
           lines << "- Inheritance: #{policy.inheritance_policy}"
           actions = Array(policy.delegatable_actions).map(&:to_s).reject(&:blank?)
-          lines << "- Delegatable actions: #{actions.join(', ')}" if actions.any?
+          lines << "- Delegatable actions: #{actions.any? ? actions.join(', ') : 'none'}"
         end
         lines
       end

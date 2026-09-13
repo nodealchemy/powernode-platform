@@ -880,8 +880,12 @@ Custom rules defined per account via `GuardrailConfig`.
 | `max_depth` | Maximum delegation chain depth (1–10) |
 | `budget_delegation_pct` | Fraction of budget delegatable (0.0–1.0) |
 | `inheritance_policy` | Trust inheritance policy (`conservative`, `moderate`, `permissive`) |
-| `allowed_delegate_types` | Array of agent types allowed as delegates |
-| `delegatable_actions` | Array of action types that can be delegated |
+| `allowed_delegate_types` | Array of agent types allowed as delegates — empty means none |
+| `delegatable_actions` | Array of action types that can be delegated — empty means none; delegation is checked as `execute` (`Ai::DelegationPolicy::DELEGATABLE_ACTIONS`) |
+
+Both lists are read literally, and a list derived from a parent's goes through
+`Ai::DelegationPolicy.narrow(held:, needed:)`, which never permits more than the
+parent. Holding no policy row at all leaves an agent ungoverned.
 
 ```ruby
 service = Ai::Autonomy::DelegationAuthorityService.new(account: account)

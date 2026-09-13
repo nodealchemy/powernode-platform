@@ -22,14 +22,13 @@ module Ai
     # row that has a single-writer ruling.
     #
     # PERMISSION LAUNDERING. A project team must not be able to delegate
-    # authority it was not granted, and the trap is in the model:
-    # Ai::DelegationPolicy#allows_delegate_type? and #allows_action? both answer
-    # TRUE for a BLANK list, because blank means UNRESTRICTED. So the obvious
-    # narrowing — intersect the parent's grants with what the team needs and
-    # write the result — GRANTS EVERYTHING the moment that intersection comes
-    # out empty. Every derivation below therefore ends at a sentinel rather than
-    # at `[]`, and an unrestricted parent is narrowed to the seated types rather
-    # than copied. See #narrow_types and #narrow_actions.
+    # authority it was not granted. Both lists are derived through
+    # Ai::DelegationPolicy.narrow, which reads a parent's list literally (an
+    # empty list permits nothing) and so can never return more than the parent
+    # held. This used to end every derivation at a sentinel and to widen an
+    # empty parent to the seated types, from when an empty list meant
+    # UNRESTRICTED; under HIER-P0 that widening handed a leaf's clone
+    # delegation its parent did not hold (IMP-d2873a16567e).
     #
     # BEST-EFFORT, like the mission attach in app-4. A project whose team cannot
     # be created is still a valid, usable project: the team is additive, nothing
@@ -43,15 +42,6 @@ module Ai
       # db/seeds/ai_project_operations_team_seed.rb as a global, is_system,
       # source_key-managed Ai::TeamTemplate.
       TEMPLATE_SLUG = "project-operations"
-
-      # The delegate-type list that means NOBODY. Spelled the same way
-      # Ai::Teams::CanonicalTeamReconciler and the hierarchy seed spell it,
-      # because a blank list means the opposite. Never a real agent_type.
-      NO_SUCH_TYPE_SENTINEL = ::Ai::Teams::CanonicalTeamReconciler::NO_SUCH_TYPE_SENTINEL
-
-      # The same idea for delegatable_actions, which #allows_action? reads with
-      # the same blank-means-unrestricted rule. Never a dispatched action name.
-      NO_SUCH_ACTION_SENTINEL = "none"
 
       # Ceiling on a project team's delegation depth, before the parent's own
       # depth and the project's declaration narrow it further. A project team
@@ -76,43 +66,6 @@ module Ai
       class << self
         def provision!(project:, user: nil, template_slug: TEMPLATE_SLUG)
           new(project: project, user: user, template_slug: template_slug).provision!
-        end
-
-        # THE LAUNDERING GUARD, as a PURE FUNCTION of the two lists.
-        #
-        # Public and parameterised on purpose. As an instance method it could
-        # only be exercised through the whole provisioning path, and its oracle
-        # then shared a failure mode with the clone-resolution chain that
-        # supplies `held`: breaking the clone lookup made the sentinel example
-        # fail too, so that example was no longer a unique signal for "the
-        # sentinel is gone". A guard whose test can be failed by something else
-        # is a guard whose test proves less than it appears to.
-        #
-        #   * `held` BLANK means the parent is UNRESTRICTED
-        #     (Ai::DelegationPolicy#allows_delegate_type? answers true for a
-        #     blank list). It is NOT copied — the grant narrows to `seated`.
-        #   * otherwise the grant is the intersection, so no type the parent
-        #     lacked can appear.
-        #   * an EMPTY result becomes the SENTINEL, never `[]`, because `[]`
-        #     is the unrestricted spelling and would turn this narrowing into
-        #     a grant of everything.
-        def narrow_delegate_types(held:, seated:)
-          held_types = Array(held).map(&:to_s).compact_blank
-          seated_types = Array(seated).map(&:to_s).compact_blank
-          granted = (held_types.empty? ? seated_types : (seated_types & held_types)).uniq
-
-          granted.empty? ? [ NO_SUCH_TYPE_SENTINEL ] : granted
-        end
-
-        # Same blank-means-unrestricted rule for actions
-        # (Ai::DelegationPolicy#allows_action?). There is no narrower set to
-        # intersect against — a project team's actions are whatever its lead
-        # already held — so the guard is only: a parent that declared nothing
-        # must not resolve to unrestricted.
-        def narrow_delegatable_actions(held:)
-          held_actions = Array(held).map(&:to_s).compact_blank
-
-          held_actions.empty? ? [ NO_SUCH_ACTION_SENTINEL ] : held_actions
         end
       end
 
@@ -280,14 +233,15 @@ module Ai
         [ candidates.min, 1 ].max
       end
 
-      # Both narrowings are the class-level pure functions above — see the
-      # comment there for why they are not written inline here.
+      # The team needs its seated types and the action delegation is checked
+      # as; it gets the part of each its cloning agent held. A principal cloned
+      # from nothing (no parent row) is bounded by those needs alone.
       def narrow_types(parent, seated_types)
-        self.class.narrow_delegate_types(held: parent&.allowed_delegate_types, seated: seated_types)
+        ::Ai::DelegationPolicy.narrow(held: parent&.allowed_delegate_types, needed: seated_types)
       end
 
       def narrow_actions(parent)
-        self.class.narrow_delegatable_actions(held: parent&.delegatable_actions)
+        ::Ai::DelegationPolicy.narrow(held: parent&.delegatable_actions, needed: ::Ai::DelegationPolicy::DELEGATABLE_ACTIONS)
       end
 
       # A fraction in [0, 1]. The project may lower it; nothing may raise it

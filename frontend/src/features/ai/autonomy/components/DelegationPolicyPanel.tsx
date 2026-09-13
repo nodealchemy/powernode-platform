@@ -58,7 +58,7 @@ const PolicyRow: React.FC<{
           </div>
           <div>
             <p className="text-xs text-theme-tertiary">Delegatable Actions</p>
-            <p className="text-theme-primary font-medium">{policy.delegatable_actions.length || 'All'}</p>
+            <p className="text-theme-primary font-medium">{policy.delegatable_actions.length || 'None'}</p>
           </div>
           {policy.created_at && (
             <div>

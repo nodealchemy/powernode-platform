@@ -35,9 +35,10 @@
 #
 # Delegation (operator rulings 2026-09-03):
 #   * core-forest children: single-purpose, `conservative`, max_depth 1, no
-#     delegate types and no delegatable actions. HIER-P0 is FIXED:
-#     Ai::DelegationPolicy#allows_delegate_type? now reads an EMPTY list as
-#     NONE, so the empty list is itself the brake and depth 1 is a second one;
+#     delegate types. Ai::DelegationPolicy reads BOTH lists literally (an EMPTY
+#     list is NONE: types since HIER-P0, actions since IMP-d2873a16567e), so the
+#     empty type list is itself the brake and depth 1 is a second one; the
+#     action a delegation is checked as is spelled out (DELEGATABLE_ACTIONS);
 #   * Platform Architect: `moderate`, max_depth 3, may delegate to every
 #     Engineering agent — written in the CONSUMER's vocabulary, the agent
 #     TYPES its children carry (the column is compared against
@@ -45,9 +46,9 @@
 #     new Engineering agent of a new type widens it without a second edit;
 #   * Platform Developer: `conservative`, max_depth 1, may delegate review to
 #     the LLM Judge's type only;
-#   * Release Manager: delegates to NOBODY. Ai::DelegationPolicy validates
-#     max_depth > 0 and reads an empty type list as "any", so "nobody" is
-#     spelled as a delegate-type list no agent can carry (RELEASE_MANAGER_NO_DELEGATES);
+#   * Release Manager: delegates to NOBODY, spelled as a delegate-type list no
+#     agent can carry (RELEASE_MANAGER_NO_DELEGATES). An empty list means the
+#     same since HIER-P0; the sentinel predates that and says "nobody" out loud;
 #   * every other Engineering child: the core-forest leaf policy.
 #
 # The lineage table needs an owning account (a global agent has none): the
@@ -83,17 +84,20 @@ ENGINEERING_HIERARCHY_CHILD_SLUGS = %w[
   knowledge-graph-curator
 ].freeze
 
+# Both lists read literally: empty means NONE (allowed_delegate_types since
+# HIER-P0, allowed_actions since IMP-d2873a16567e). WHO a child may hand to is
+# governed by the types; the action a delegation is checked as is spelled out.
 CORE_HIERARCHY_CHILD_DELEGATION = {
   inheritance_policy: "conservative",
   max_depth: 1,
   allowed_delegate_types: [],
-  allowed_actions: []
+  allowed_actions: Ai::DelegationPolicy::DELEGATABLE_ACTIONS
 }.freeze
 
 ENGINEERING_ROOT_DELEGATION = {
   inheritance_policy: "moderate",
   max_depth: 3,
-  allowed_actions: []
+  allowed_actions: Ai::DelegationPolicy::DELEGATABLE_ACTIONS
 }.freeze
 
 PLATFORM_DEVELOPER_REVIEWER_SLUG = "llm-judge"
