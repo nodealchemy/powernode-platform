@@ -3,7 +3,7 @@ import { Shield, AlertTriangle, FileCheck, Activity, Eye } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { TabContainer } from '@/shared/components/ui/TabContainer';
+import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useAuditStats } from '../api/auditApi';
 import { ViolationList } from '../components/ViolationList';
@@ -79,28 +79,28 @@ export const AuditDashboardPage: React.FC = () => {
       id: 'violations',
       label: 'Violations',
       icon: <AlertTriangle className="h-4 w-4" />,
-      badge: stats?.open_violations,
+      badge: { count: stats?.open_violations ?? 0 },
       content: <ViolationList />,
     },
     {
       id: 'policies',
       label: 'Policies',
       icon: <FileCheck className="h-4 w-4" />,
-      badge: stats?.active_policies,
+      badge: { count: stats?.active_policies ?? 0 },
       content: <PolicyList />,
     },
     {
       id: 'audit-log',
       label: 'Audit Log',
       icon: <Activity className="h-4 w-4" />,
-      badge: stats?.audit_entries_today,
+      badge: { count: stats?.audit_entries_today ?? 0 },
       content: <AuditLogList />,
     },
     {
       id: 'security-events',
       label: 'Security Events',
       icon: <Eye className="h-4 w-4" />,
-      badge: stats?.security_events_today,
+      badge: { count: stats?.security_events_today ?? 0 },
       content: <SecurityEventList />,
     },
   ];
@@ -146,6 +146,7 @@ export const AuditDashboardPage: React.FC = () => {
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        renderContent={(tabId) => tabs.find((tab) => tab.id === tabId)?.content}
         variant="underline"
       />
     </PageContainer>

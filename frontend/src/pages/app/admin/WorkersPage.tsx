@@ -6,7 +6,7 @@ import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { workerApi, Worker } from '@/features/admin/workers/services/workerApi';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { TabContainer } from '@/shared/components/ui/TabContainer';
+import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -452,78 +452,69 @@ export const WorkersPage: React.FC = () => {
         <TabContainer
           basePath="/app/admin/workers"
           tabs={[
-            {
-              id: 'overview',
-              label: 'Overview',
-              icon: <Eye className="w-4 h-4" />,
-              path: '/overview',
-              content: (
-                <WorkerOverviewTab
-                  workers={state.workers}
-                  stats={stats}
-                  onRefresh={loadWorkers}
-                  loading={state.loading}
-                />
-              )
-            },
+            { id: 'overview', label: 'Overview', icon: <Eye className="w-4 h-4" />, path: '/overview' },
             {
               id: 'workers',
               label: 'Worker Management',
               icon: <Users className="w-4 h-4" />,
               path: '/management',
-              badge: stats.total,
-              content: (
-                <WorkerManagementTab
-                  state={state}
-                  setState={setState}
-                  canManageWorkers={canManageWorkers}
-                  handleFiltersChange={handleFiltersChange}
-                  handleWorkerSelect={handleWorkerSelect}
-                  handleWorkerView={handleWorkerView}
-                  handleBulkAction={handleBulkAction}
-                  loadWorkers={loadWorkers}
-                />
-              )
+              badge: { count: stats.total }
             },
-            {
-              id: 'activity',
-              label: 'Activity Monitoring',
-              icon: <Activity className="w-4 h-4" />,
-              path: '/activity',
-              content: (
-                <WorkerActivityTab
-                  workers={state.workers}
-                  onRefresh={loadWorkers}
-                />
-              )
-            },
-            {
-              id: 'security',
-              label: 'Security & Permissions',
-              icon: <Shield className="w-4 h-4" />,
-              path: '/security',
-              content: (
-                <WorkerSecurityTab
-                  workers={state.workers}
-                  canManageWorkers={canManageWorkers}
-                  onRefresh={loadWorkers}
-                />
-              )
-            },
-            {
-              id: 'settings',
-              label: 'Configuration',
-              icon: <Settings className="w-4 h-4" />,
-              path: '/settings',
-              content: (
-                <WorkerSettingsTab
-                  workers={state.workers}
-                  canManageWorkers={canManageWorkers}
-                  onRefresh={loadWorkers}
-                />
-              )
-            }
+            { id: 'activity', label: 'Activity Monitoring', icon: <Activity className="w-4 h-4" />, path: '/activity' },
+            { id: 'security', label: 'Security & Permissions', icon: <Shield className="w-4 h-4" />, path: '/security' },
+            { id: 'settings', label: 'Configuration', icon: <Settings className="w-4 h-4" />, path: '/settings' }
           ]}
+          renderContent={(tabId) => {
+            switch (tabId) {
+              case 'overview':
+                return (
+                  <WorkerOverviewTab
+                    workers={state.workers}
+                    stats={stats}
+                    onRefresh={loadWorkers}
+                    loading={state.loading}
+                  />
+                );
+              case 'workers':
+                return (
+                  <WorkerManagementTab
+                    state={state}
+                    setState={setState}
+                    canManageWorkers={canManageWorkers}
+                    handleFiltersChange={handleFiltersChange}
+                    handleWorkerSelect={handleWorkerSelect}
+                    handleWorkerView={handleWorkerView}
+                    handleBulkAction={handleBulkAction}
+                    loadWorkers={loadWorkers}
+                  />
+                );
+              case 'activity':
+                return (
+                  <WorkerActivityTab
+                    workers={state.workers}
+                    onRefresh={loadWorkers}
+                  />
+                );
+              case 'security':
+                return (
+                  <WorkerSecurityTab
+                    workers={state.workers}
+                    canManageWorkers={canManageWorkers}
+                    onRefresh={loadWorkers}
+                  />
+                );
+              case 'settings':
+                return (
+                  <WorkerSettingsTab
+                    workers={state.workers}
+                    canManageWorkers={canManageWorkers}
+                    onRefresh={loadWorkers}
+                  />
+                );
+              default:
+                return null;
+            }
+          }}
           activeTab={activeTab}
           onTabChange={(tabId) => setActiveTab(tabId as TabType)}
           variant="underline"

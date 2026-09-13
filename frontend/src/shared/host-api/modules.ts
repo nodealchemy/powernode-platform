@@ -40,8 +40,13 @@
  * runtime loader refuses to load a module whose `coreUiApi` does not match this
  * value (prevents linking an extension built against an incompatible surface).
  * Bump this on any BREAKING change to an exposed module's runtime shape.
+ *
+ * 2: the deprecated TabContainer under `components/ui` removed from the exposed
+ * ids in favour of `@/shared/components/layout/TabContainer` (IMP-efa22f08cb32). A
+ * bundle built against 1 still imports the removed id; the loader now skips it
+ * instead of letting the import fail, until the extension is rebuilt.
  */
-export const CORE_UI_API_VERSION = 1;
+export const CORE_UI_API_VERSION = 2;
 
 /**
  * Core `@/…` modules exposed to extension frontends. Derived empirically from
@@ -59,6 +64,7 @@ const HOST_APP_IDS = [
   '@/shared/components/concierge/ConciergeActionCard',
   '@/shared/components/entity',
   '@/shared/components/layout/PageContainer',
+  '@/shared/components/layout/TabContainer',
   '@/shared/components/navigation/PathTabs',
   '@/shared/components/ui/Badge',
   '@/shared/components/ui/Button',
@@ -70,7 +76,6 @@ const HOST_APP_IDS = [
   '@/shared/components/ui/Modal',
   '@/shared/components/ui/MultiSelect',
   '@/shared/components/ui/Pagination',
-  '@/shared/components/ui/TabContainer',
   // Shared hooks
   '@/shared/hooks/BreadcrumbContext',
   '@/shared/hooks/useArmedConfirm',

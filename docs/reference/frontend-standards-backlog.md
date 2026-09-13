@@ -68,6 +68,8 @@ Two competing implementations: `layout/TabContainer` (state-based) vs the **cano
 
 **Progress (AI IA refactor):** `FinOpsPage`, `CreditsContent`, and `OutcomeBillingContent` migrated state→path tabs; `AIMonitoringPage` (TabContainer) split into `ObservabilityPage` + `OperationsPage` on `PathTabs`. New canonical vertical sub-nav primitive `shared/components/navigation/SubNavRail.tsx` (path-based, permission-gated) for deep hubs — first consumer: `CostPage`. Remaining `TabContainer` importers should migrate next.
 
+**Progress (IMP-efa22f08cb32):** `ui/TabContainer` deleted. Its core, system-extension and supply-chain callers moved to `layout/TabContainer` (now in the host API), guarded by `layout/TabContainer.single.contract.test.ts`. `TabNavigation`/`TabButton` were already gone. `BreadcrumbAwareTabNavigation` is also gone. Remaining work is state→path migration of `layout/TabContainer` importers.
+
 ---
 
 ## System extension (`extensions/system/frontend`) — already clean

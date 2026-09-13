@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Activity, MessageSquare, Wrench, List } from 'lucide-react';
-import { TabContainer } from '@/shared/components/ui/TabContainer';
+import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { AguiRunStatus } from './AguiRunStatus';
 import { AguiTextStream } from './AguiTextStream';
 import { AguiToolCallPanel } from './AguiToolCallPanel';
@@ -60,6 +60,7 @@ export const AguiSessionDetailPanel: React.FC<AguiSessionDetailPanelProps> = ({
           tabs={detailTabs}
           activeTab={detailTab}
           onTabChange={setDetailTab}
+          renderContent={(tabId) => detailTabs.find((tab) => tab.id === tabId)?.content}
           variant="underline"
         />
       </div>

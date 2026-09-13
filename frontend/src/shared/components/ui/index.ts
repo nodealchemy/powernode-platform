@@ -23,7 +23,6 @@ export * from '@/shared/components/ui/DateRangePicker';
 
 // Navigation Components
 export * from '@/shared/components/ui/Breadcrumb';
-export * from '@/shared/components/ui/TabContainer';
 
 // Utility Components
 export * from '@/shared/components/ui/CodeBlock';

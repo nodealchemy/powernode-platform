@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { GitBranch, Search, Network } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
-import { TabContainer } from '@/shared/components/ui/TabContainer';
+import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { KnowledgeGraphVisualization } from '../components/KnowledgeGraphVisualization';
@@ -57,6 +57,7 @@ export const KnowledgeGraphContent: React.FC<KnowledgeGraphContentProps> = ({ on
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={setActiveTab}
+      renderContent={(tabId) => tabs.find((tab) => tab.id === tabId)?.content}
       variant="underline"
     />
   );

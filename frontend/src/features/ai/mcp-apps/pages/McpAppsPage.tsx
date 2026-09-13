@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AppWindow, Plus, Eye, Settings } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { TabContainer } from '@/shared/components/ui/TabContainer';
+import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { McpAppGallery } from '../components/McpAppGallery';
 import { McpAppRenderer } from '../components/McpAppRenderer';
@@ -120,6 +120,7 @@ export const McpAppsPage: React.FC = () => {
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        renderContent={(tabId) => tabs.find((tab) => tab.id === tabId)?.content}
         variant="underline"
       />
     </div>
