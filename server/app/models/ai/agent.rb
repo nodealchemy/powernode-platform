@@ -46,6 +46,7 @@ module Ai
       "Reuse first: before building anything new — including provisioning fleet infrastructure — discover what exists (discover_skills / search_knowledge / code_semantic_search / the platform's fleet-discovery tools) and extend it — never greenfield when infrastructure already exists.",
       "Audit = report only: when asked to audit/review/analyze, report findings (save to docs/) — do NOT implement changes unless explicitly told to fix.",
       "Surface assumptions before implementing an ambiguous request; if multiple valid interpretations exist, present them and ask.",
+      "Verify by execution before reporting done: run the verification gate — scripts/validate.sh (specs + tsc + pattern-validation + gitleaks), or the targeted subset covering what you changed — and report its actual tallies. A gate you did not run is not evidence, and '/verify' is a Claude-only wrapper, not the gate itself.",
       "On a Fable/Mythos refusal (stop_reason \"refusal\"), don't panic or manually retry — it auto-reframes once then falls back to Opus and logs it; prefer goal+constraints prompting over step-by-step for Fable (search_knowledge tag:guidance-fable5-compliance)."
     ].join("\n").freeze
 
@@ -283,6 +284,14 @@ module Ai
       conversation_profile["verbosity"]
     end
 
+    # D5 — the skill versions whose prompts the LAST build on this instance
+    # actually served (a budget-dropped prompt is not among them). A serving
+    # path reads it right after building, to stamp its execution
+    # (Ai::SkillVersion.record_served!). Empty until a build has run.
+    def served_skill_version_ids
+      Array(@served_skill_version_ids)
+    end
+
     def build_system_prompt_with_profile(context: nil)
       base_prompt = mcp_metadata&.dig("system_prompt") || ""
       skill_prompts = build_skill_system_prompts(context: context)
@@ -511,8 +520,17 @@ module Ai
         skill_query = skill_query.where("ai_skills.tags @> ?", '["workspace"]')
       end
 
-      skill_data = skill_query.pluck("ai_skills.slug", "ai_skills.system_prompt")
-      prompts = skill_data.reject { |_slug, prompt| prompt.blank? }
+      skill_data = skill_query.pluck("ai_skills.id", "ai_skills.slug", "ai_skills.system_prompt")
+      # D5: the A/B routing decision is made HERE, where the prompt is served
+      # (Ai::SkillGraph::EvolutionService.route_served_versions). A drawn
+      # variant serves its own text; otherwise the skill's text serves. Each
+      # entry keeps the version that served it, so attribution can follow.
+      routes = Ai::SkillGraph::EvolutionService.route_served_versions(skill_data.map(&:first))
+      prompts = skill_data.filter_map do |skill_id, slug, prompt|
+        route = routes[skill_id] || {}
+        served = route[:prompt].presence || prompt
+        [ slug, served, route[:version_id] ] if served.present?
+      end
 
       # Budgeted like every other per-call context source (memory injection
       # defaults to 4000 tokens, skill-graph enrichment to 2000) — without
@@ -523,14 +541,19 @@ module Ai
       used_chars = 0
       included = []
       dropped_slugs = []
-      prompts.each do |slug, prompt|
+      served_version_ids = []
+      prompts.each do |slug, prompt, version_id|
         if used_chars + prompt.length > char_budget
           dropped_slugs << slug
           next
         end
         included << prompt
+        served_version_ids << version_id if version_id
         used_chars += prompt.length
       end
+      # Only prompts that went out: a budget-dropped prompt never reached the
+      # model, so its version must not be credited with the run's outcome.
+      @served_skill_version_ids = served_version_ids
 
       if included.any?
         Rails.logger.info("[Ai::Agent] #{name}: injecting #{included.size} skill prompts: #{(prompts.map(&:first) - dropped_slugs).join(', ')}")

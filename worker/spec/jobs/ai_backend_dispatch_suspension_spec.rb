@@ -12,7 +12,7 @@ require 'rails_helper'
 #   * ai_memory_maintenance_job — global, cross-account
 #     (handled separately; no single account to gate on).
 #
-# ai_goal_plan_execution_job / ai_self_challenge_job previously could not be gated
+# ai_goal_plan_execution_job previously could not be gated
 # worker-side because the worker received only a step_id / challenge_id. The server
 # now resolves the owning account_id at enqueue (from the step's goal plan / the
 # challenge record) and threads it into the job payload, so both are gated here.
@@ -206,19 +206,4 @@ RSpec.describe 'Backend-dispatch AI job kill-switch compliance' do
     end
   end
 
-  describe AiSelfChallengeJob do
-    it 'includes AiSuspensionCheckConcern' do
-      expect(described_class.include?(AiSuspensionCheckConcern)).to be true
-    end
-
-    it 'bails before processing the challenge when AI is suspended' do
-      job = described_class.new
-      api = instance_double('BackendApiClient')
-      allow(job).to receive(:api_client).and_return(api)
-      allow(job).to receive(:ai_suspended?).with(account_id).and_return(true)
-      expect(api).not_to receive(:post)
-
-      job.execute('challenge-1', account_id)
-    end
-  end
 end

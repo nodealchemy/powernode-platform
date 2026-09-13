@@ -37,8 +37,8 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "consolidate_memory", mutating: true
       declare_action "create_memory_pool", mutating: true
-      declare_action "delete_memory_pool", mutating: true
-      declare_action "delete_shared_memory", mutating: true
+      declare_action "delete_memory_pool", mutating: true, destructive: true
+      declare_action "delete_shared_memory", mutating: true, destructive: true
       declare_action "list_pools", mutating: false
       declare_action "memory_stats", mutating: false
       declare_action "read_shared_memory", mutating: false
@@ -280,9 +280,13 @@ module Ai
                 .limit(limit)
         results += stm.map { |m| { tier: "short_term", key: m.memory_key, value: m.memory_value, created_at: m.created_at&.iso8601 } }
 
-        # Search compound learnings (long-term)
+        # Search compound learnings (long-term). Account-shared BY DESIGN, not
+        # by the asking agent: visibility is CompoundLearning#scope (team |
+        # global) and source_agent_id is provenance; RouterService's own
+        # long-term reads are account-wide too (IMP-01a07d5a). `sanitized`, as
+        # above — the raw query made % and _ wildcards here.
         ltm = Ai::CompoundLearning.where(account: account)
-                .where("content ILIKE ?", "%#{query}%")
+                .where("content ILIKE ?", "%#{sanitized}%")
                 .active.limit(limit)
         results += ltm.map { |l| { tier: "long_term", content: l.content, category: l.category, created_at: l.created_at&.iso8601 } }
 

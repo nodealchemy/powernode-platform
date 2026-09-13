@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Loading } from '@/shared/components/ui/Loading';
+import { VerdictBadge } from '@/shared/components/ui/VerdictBadge';
 import { HealthStatus } from '@/shared/services/ai/MonitoringApiService';
 
 interface SystemHealthDashboardProps {
@@ -135,14 +136,19 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
         }
       />
       <CardContent className="space-y-6">
-        {/* Overall Health Score - using native health_score */}
+        {/* Overall status - status-plane rollup verdict (E7b: the health
+            service no longer stamps its own health_score/status) */}
         <div className="text-center">
-          <div className={`text-3xl font-bold ${getHealthScoreColor(healthData.health_score)}`}>
-            {healthData.health_score.toFixed(1)}%
-          </div>
-          <Badge variant={getHealthStatusBadge(healthData.status)} className="mt-2">
-            {healthData.status.charAt(0).toUpperCase() + healthData.status.slice(1)}
-          </Badge>
+          {healthData.rollup ? (
+            <VerdictBadge
+              verdict={healthData.rollup.verdict}
+              size="md"
+              labelPrefix="Overall status"
+              className="mt-2"
+            />
+          ) : (
+            <Badge variant="outline" className="mt-2">Not measured</Badge>
+          )}
           <p className="text-sm text-theme-tertiary mt-1">
             Updated {formatTimestamp(healthData.timestamp)}
           </p>

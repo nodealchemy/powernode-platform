@@ -4,37 +4,25 @@ module ProviderTesting
   module ProviderAdapters
     private
 
-    def perform_test
-      provider = credential.provider
-      decrypted_config = credential.credentials
+    # THE MODEL A CONNECTION TEST SENDS COMES FROM THE PROVIDER (E3).
+    #
+    # Each arm used to carry its own `config["model"] || "<a literal>"`. That
+    # made a green connection test a statement about a model the operator may
+    # never use — and on a provider whose catalog does not include the literal,
+    # the test failed for a reason that had nothing to do with the credential
+    # it was testing.
+    #
+    # Resolution order: an explicit per-credential override, then
+    # Provider#default_model — the configured default, else the LIGHTEST-tier
+    # model in the synced catalog (E3b). No `|| available_models.first`: that is
+    # catalog[0], the most expensive model. Blank means "nothing is configured",
+    # which each caller reports as a configuration error rather than guessing.
+    def resolved_test_model(config)
+      explicit = config["model"].presence
+      return explicit if explicit
 
-      case provider.provider_type
-      when "ollama"
-        test_ollama_connection(provider, decrypted_config)
-      when "openai"
-        test_openai_connection(provider, decrypted_config)
-      when "anthropic"
-        test_anthropic_connection(provider, decrypted_config)
-      when "xai"
-        test_xai_connection(provider, decrypted_config)
-      when "huggingface"
-        test_huggingface_connection(provider, decrypted_config)
-      when "cohere"
-        test_cohere_connection(provider, decrypted_config)
-      when "custom"
-        case provider.slug
-        when /xai|grok/i
-          test_xai_connection(provider, decrypted_config)
-        when /ollama/i
-          test_ollama_connection(provider, decrypted_config)
-        when /cohere/i
-          test_cohere_connection(provider, decrypted_config)
-        else
-          test_generic_connection(provider, decrypted_config)
-        end
-      else
-        test_generic_connection(provider, decrypted_config)
-      end
+      provider = credential&.provider
+      provider&.default_model.presence
     end
 
     def perform_connection_test
@@ -61,8 +49,11 @@ module ProviderTesting
         "Content-Type" => "application/json"
       }
 
+      model = resolved_test_model(config)
+      return error_result("configuration_error", "No model configured for this provider") if model.blank?
+
       payload = {
-        model: config["model"] || "gpt-4.1-mini",
+        model: model,
         messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }
@@ -87,8 +78,11 @@ module ProviderTesting
         "Content-Type" => "application/json"
       }
 
+      model = resolved_test_model(config)
+      return error_result("configuration_error", "No model configured for this provider") if model.blank?
+
       payload = {
-        model: config["model"] || "claude-haiku-4-5",
+        model: model,
         messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }
@@ -118,22 +112,36 @@ module ProviderTesting
       tags_response = make_http_request(tags_url, method: :get, headers: headers, timeout: 15)
 
       if tags_response.success?
-        # Tags endpoint works — parse available models
+        # The server is reachable, and /api/tags lists the models it has
+        # pulled. Green here must mean the platform can actually chat with it
+        # (E3b c): resolve the model a real call would send and check it
+        # against that list. Reachable-but-unusable is a configuration_error.
         models_data = JSON.parse(tags_response.body) rescue {}
-        available_models = models_data["models"] || []
+        tags = ollama_tag_names(models_data)
+        tags_model = resolved_test_model(config)
+        return error_result("configuration_error", "No model configured for this provider") if tags_model.blank?
+
+        unless ollama_tag_listed?(tags, tags_model)
+          return error_result("configuration_error",
+                              "Model #{tags_model} is not pulled on this Ollama server (#{tags.size} models available)")
+        end
+
         return {
           success: true,
           status_code: tags_response.code,
-          response_content: "#{available_models.size} models available",
+          response_content: "#{tags.size} models available, including #{tags_model}",
           provider_response: tags_response.body
         }
       end
 
-      # Fall back to chat test if tags endpoint not available
-      test_model = config["model"].presence ||
-                   @provider&.supported_models&.first&.dig("id").presence ||
-                   @provider&.supported_models&.first&.dig("name").presence ||
-                   "llama2"
+      # Fall back to a chat test when the tags endpoint is not available. The
+      # model comes from the credential or the provider (#resolved_test_model),
+      # never a literal (E3b): "llama2" was the wrong id for any server that
+      # had not pulled it, so the test reported a bad connection for a reason
+      # that had nothing to do with the connection. Nothing configured is a
+      # configuration_error, exactly as for the openai and anthropic testers.
+      test_model = resolved_test_model(config)
+      return error_result("configuration_error", "No model configured for this provider") if test_model.blank?
 
       payload = {
         model: test_model,
@@ -152,6 +160,20 @@ module ProviderTesting
       )
 
       parse_ollama_response(response)
+    end
+
+    # /api/tags names each pulled model under "name" (older servers: "model"),
+    # always with a tag: "llama3.1:8b", "llama3:latest".
+    def ollama_tag_names(models_data)
+      entries = models_data.is_a?(Hash) ? Array(models_data["models"]) : []
+      entries.filter_map { |entry| entry.is_a?(Hash) ? (entry["name"].presence || entry["model"].presence) : nil }
+    end
+
+    # Ollama serves an untagged name as ":latest", so "llama3" is listed as
+    # "llama3:latest".
+    def ollama_tag_listed?(tags, model)
+      candidates = model.include?(":") ? [ model ] : [ model, "#{model}:latest" ]
+      tags.intersect?(candidates)
     end
 
     def build_ollama_base_url(config)
@@ -175,198 +197,6 @@ module ProviderTesting
 
     def perform_generic_connection_test(_config)
       { success: true, response_content: "Generic test successful", provider_response: {} }
-    end
-
-    def test_ollama_connection(provider, config)
-      base_url = build_ollama_base_url(config)
-      api_url = build_ollama_api_url(base_url, "/api/tags")
-
-      # Build headers - include API key if provided (for Open WebUI authentication)
-      headers = {}
-      api_key = config["api_key"]
-      if api_key.present?
-        headers["Authorization"] = "Bearer #{api_key}"
-      end
-
-      response = make_http_request(api_url, method: :get, headers: headers)
-
-      if response.success?
-        models = JSON.parse(response.body)["models"] || []
-        is_remote = !base_url.include?("localhost") && !base_url.include?("127.0.0.1")
-        {
-          success: true,
-          provider_info: { version: "latest", status: "running", connection_type: is_remote ? "remote" : "local" },
-          model_info: { available_models: models.size }
-        }
-      else
-        {
-          success: false,
-          error: "Ollama server not reachable at #{api_url}",
-          error_code: "SERVER_UNREACHABLE"
-        }
-      end
-    end
-
-    def test_openai_connection(provider, config)
-      api_key = config["api_key"]
-      return { success: false, error: "API key not configured", error_code: "MISSING_CREDENTIALS" } unless api_key
-
-      headers = {
-        "Authorization" => "Bearer #{api_key}",
-        "Content-Type" => "application/json"
-      }
-
-      response = make_http_request("#{provider.api_base_url}/models", method: :get, headers: headers)
-
-      if response.success?
-        data = JSON.parse(response.body)
-        {
-          success: true,
-          provider_info: { status: "active" },
-          model_info: { available_models: data["data"]&.size || 0 }
-        }
-      else
-        error_data = JSON.parse(response.body) rescue {}
-        {
-          success: false,
-          error: error_data["error"]&.dig("message") || "Authentication failed",
-          error_code: "AUTHENTICATION_FAILED"
-        }
-      end
-    end
-
-    def test_anthropic_connection(provider, config)
-      api_key = config["api_key"]
-      return { success: false, error: "API key not configured", error_code: "MISSING_CREDENTIALS" } unless api_key
-
-      headers = {
-        "x-api-key" => api_key,
-        "anthropic-version" => "2023-06-01",
-        "Content-Type" => "application/json"
-      }
-
-      # Credential check via the free models-list endpoint (same pattern as
-      # the OpenAI tester): validates auth without a hardcoded model id or a
-      # paid test completion — model names are never hardcoded.
-      response = make_http_request(
-        "#{provider.api_base_url}/models",
-        method: :get,
-        headers: headers
-      )
-
-      if response.success?
-        data = JSON.parse(response.body) rescue {}
-        {
-          success: true,
-          provider_info: { status: "active", api_version: "2023-06-01" },
-          model_info: { available_models: data["data"]&.size || 0 }
-        }
-      else
-        error_data = JSON.parse(response.body) rescue {}
-        error_message = error_data.dig("error", "message") || "Authentication failed"
-        { success: false, error: error_message, error_code: "AUTHENTICATION_FAILED" }
-      end
-    rescue StandardError => e
-      { success: false, error: "Anthropic connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
-    end
-
-    def test_xai_connection(provider, config)
-      api_key = config["api_key"]
-      return { success: false, error: "API key not configured", error_code: "MISSING_CREDENTIALS" } unless api_key
-
-      begin
-        headers = { "Authorization" => "Bearer #{api_key}", "Content-Type" => "application/json" }
-
-        # Credential check via the free models-list endpoint (OpenAI-compatible
-        # API): no hardcoded model id, no paid test completion.
-        response = make_http_request(
-          "#{provider.api_base_url}/models",
-          method: :get,
-          headers: headers
-        )
-
-        if response.success?
-          data = JSON.parse(response.body) rescue {}
-          {
-            success: true,
-            provider_info: { status: "active", api_version: "v1" },
-            model_info: { available_models: data["data"]&.size || 0 }
-          }
-        else
-          error_data = JSON.parse(response.body) rescue {}
-          error_message = if error_data["error"].is_a?(Hash)
-                            error_data["error"]["message"] || error_data["error"].to_s
-          elsif error_data["error"].is_a?(String)
-                            error_data["error"]
-          else
-                            error_data["message"] || "Connection test failed"
-          end
-          { success: false, error: error_message, error_code: "AUTHENTICATION_FAILED" }
-        end
-      rescue StandardError => e
-        { success: false, error: "x.ai connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
-      end
-    end
-
-    def test_huggingface_connection(provider, config)
-      api_key = config["api_key"]
-      return { success: false, error: "API key not configured", error_code: "MISSING_CREDENTIALS" } unless api_key
-
-      # Real credential check (was a stub returning success without any HTTP
-      # call): the free whoami endpoint validates the token — no model names,
-      # no inference spend.
-      response = make_http_request(
-        "https://huggingface.co/api/whoami-v2",
-        method: :get,
-        headers: { "Authorization" => "Bearer #{api_key}" }
-      )
-
-      if response.success?
-        data = JSON.parse(response.body) rescue {}
-        { success: true, provider_info: { status: "active", username: data["name"] }, model_info: {} }
-      else
-        error_data = JSON.parse(response.body) rescue {}
-        { success: false, error: error_data["error"] || "Authentication failed",
-          error_code: "AUTHENTICATION_FAILED" }
-      end
-    rescue StandardError => e
-      { success: false, error: "Hugging Face connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
-    end
-
-    def test_cohere_connection(provider, config)
-      api_key = config["api_key"]
-      return { success: false, error: "API key not configured", error_code: "MISSING_CREDENTIALS" } unless api_key
-
-      # Real credential check (was a stub returning success without any HTTP
-      # call): the free models-list endpoint validates auth — no hardcoded
-      # model ids, no paid completion.
-      response = make_http_request(
-        "#{provider.api_base_url}/models",
-        method: :get,
-        headers: { "Authorization" => "Bearer #{api_key}" }
-      )
-
-      if response.success?
-        data = JSON.parse(response.body) rescue {}
-        { success: true, provider_info: { status: "active" },
-          model_info: { available_models: data["models"]&.size || 0 } }
-      else
-        error_data = JSON.parse(response.body) rescue {}
-        { success: false, error: error_data["message"] || error_data["error"] || "Authentication failed",
-          error_code: "AUTHENTICATION_FAILED" }
-      end
-    rescue StandardError => e
-      { success: false, error: "Cohere connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
-    end
-
-    def test_generic_connection(provider, config)
-      response = make_http_request(provider.api_base_url, method: :get)
-
-      if response.success?
-        { success: true, provider_info: { status: "reachable" }, model_info: { test: "basic_connectivity" } }
-      else
-        { success: false, error: "Provider endpoint not reachable", error_code: "CONNECTION_FAILED" }
-      end
     end
 
     def parse_openai_response(response)

@@ -468,8 +468,8 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         // still open here (cleanup job, manual delete, cross-device sync).
         // Emit an event so ChatWindowContext can close the orphaned tab —
         // we use a CustomEvent to keep this component decoupled from the
-        // chat surface (it's also rendered standalone in AgentChatPage and
-        // ConversationContinueModal where the event is simply ignored).
+        // chat surface (it's also rendered standalone in
+        // ConversationContinueModal, where the event is simply ignored).
         const status = (err as { response?: { status?: number } })?.response?.status;
         if (status === 404) {
           window.dispatchEvent(new CustomEvent('ai:conversation-not-found', {

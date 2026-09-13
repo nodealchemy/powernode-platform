@@ -2,6 +2,7 @@
 import React from 'react';
 import { Handle, Position, NodeTypes } from '@xyflow/react';
 import { Bot, Crown, Play, Flag, CheckCircle, XCircle, Loader, Clock } from 'lucide-react';
+import { formatDurationMs } from '@/shared/utils/formatters';
 import type { ExecutionMemberNodeData } from './executionDiagramTypes';
 
 const statusBorderClass: Record<string, string> = {
@@ -17,11 +18,6 @@ const statusIcon: Record<string, React.ReactNode> = {
   completed: <CheckCircle className="h-3 w-3 text-theme-success-fg" />,
   failed: <XCircle className="h-3 w-3 text-theme-danger-fg" />,
 };
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
 
 function ExecutionMemberNode({ data }: { data: ExecutionMemberNodeData }) {
   const borderClass = statusBorderClass[data.status] || statusBorderClass.idle;
@@ -52,7 +48,7 @@ function ExecutionMemberNode({ data }: { data: ExecutionMemberNodeData }) {
 
       {data.durationMs !== undefined && (
         <div className="text-[10px] text-theme-secondary mt-1">
-          {formatDuration(data.durationMs)}
+          {formatDurationMs(data.durationMs, { emptyCheck: 'none', subSecond: 'raw' })}
         </div>
       )}
     </div>

@@ -331,7 +331,8 @@ module Ai
         account: @account,
         user: @user,
         agent_id: @agent&.id,
-        mcp_agent: @agent
+        mcp_agent: @agent,
+        origin: ::Ai::Tools::CallOrigin::SKILL_RECIPE
       )
     end
 

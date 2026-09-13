@@ -1,41 +1,45 @@
 import React from 'react';
-import { Activity, CheckCircle, AlertTriangle, XCircle, Zap, Clock, BarChart3, Bell } from 'lucide-react';
+import { Activity, Zap, Clock, BarChart3, Bell } from 'lucide-react';
 import type { DashboardStats } from '@/shared/hooks/useDashboardStats';
+import { VerdictBadge } from '@/shared/components/ui/VerdictBadge';
 
 interface DashboardAIOverviewProps {
   stats: DashboardStats;
   loading: boolean;
+  /**
+   * Set when the monitoring READ failed (M1 review F4). Distinct from a
+   * `not_measured` verdict, which means the server answered and had no
+   * measurement: a failed read renders "Could not load" with the reason, and
+   * the figures are blanked rather than shown as zeros nobody measured.
+   */
+  monitoringError?: string | null;
 }
 
-const healthConfig = {
-  healthy: { icon: CheckCircle, color: 'text-theme-success-fg', bg: 'bg-theme-success-bg', label: 'Healthy' },
-  degraded: { icon: AlertTriangle, color: 'text-theme-warning-fg', bg: 'bg-theme-warning-bg', label: 'Degraded' },
-  down: { icon: XCircle, color: 'text-theme-error-fg', bg: 'bg-theme-error-bg', label: 'Down' },
-} as const;
+const PLACEHOLDER = '—';
 
-export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats, loading }) => {
-  const health = healthConfig[stats.systemHealth.status] || healthConfig.healthy;
-  const HealthIcon = health.icon;
+export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats, loading, monitoringError = null }) => {
+  const unavailable = !loading && monitoringError !== null;
+  const figure = (value: string): string => (loading ? '...' : unavailable ? PLACEHOLDER : value);
 
   const quickStats = [
     {
       label: 'Executions Today',
-      value: loading ? '...' : stats.overview.totalExecutionsToday.toLocaleString(),
+      value: figure(stats.overview.totalExecutionsToday.toLocaleString()),
       icon: Zap,
     },
     {
       label: 'Success Rate',
-      value: loading ? '...' : `${stats.overview.successRate.toFixed(1)}%`,
+      value: figure(`${stats.overview.successRate.toFixed(1)}%`),
       icon: BarChart3,
     },
     {
       label: 'Avg Response Time',
-      value: loading ? '...' : `${stats.overview.avgResponseTime.toFixed(0)}ms`,
+      value: figure(`${stats.overview.avgResponseTime.toFixed(0)}ms`),
       icon: Clock,
     },
     {
       label: 'Active Alerts',
-      value: loading ? '...' : stats.alerts.length.toString(),
+      value: figure(stats.alerts.length.toString()),
       icon: Bell,
     },
   ];
@@ -52,15 +56,26 @@ export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats,
     <div className="card-theme-elevated p-6">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${health.bg}`}>
-            <Activity className={`h-5 w-5 ${health.color}`} />
+          <div className="p-2 rounded-lg">
+            <Activity className="h-5 w-5 text-theme-tertiary" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-theme-primary">AI Platform Status</h3>
             <div className="flex items-center gap-2 mt-0.5">
-              <HealthIcon className={`h-4 w-4 ${health.color}`} />
-              <span className={`text-sm font-medium ${health.color}`}>{health.label}</span>
-              {!loading && (
+              {/* The shared verdict rendering (E7 review M1). This used a
+                  three-entry table and fell back to its HEALTHY entry for
+                  any status it did not know, so a not-measured platform read
+                  as healthy. VerdictBadge has no default branch. */}
+              {loading ? (
+                <span className="text-sm text-theme-tertiary">...</span>
+              ) : unavailable ? (
+                <span role="alert" className="text-sm text-theme-danger-fg">
+                  Could not load: {monitoringError}
+                </span>
+              ) : (
+                <VerdictBadge verdict={stats.systemHealth.status} size="sm" labelPrefix="AI platform" />
+              )}
+              {!loading && !unavailable && stats.systemHealth.score !== null && (
                 <span className="text-xs text-theme-tertiary ml-1">
                   ({stats.systemHealth.score}% health score)
                 </span>
@@ -113,8 +128,12 @@ export const DashboardAIOverview: React.FC<DashboardAIOverviewProps> = ({ stats,
         </div>
       )}
 
-      {!loading && recentAlerts.length === 0 && (
-        <p className="text-sm text-theme-tertiary">No active alerts — all systems nominal.</p>
+      {/* "All systems nominal" only on an OK verdict: a not-measured platform
+          with no alerts has no alerts because nothing is looking. */}
+      {!loading && !unavailable && recentAlerts.length === 0 && (
+        <p className="text-sm text-theme-tertiary">
+          {stats.systemHealth.status === 'ok' ? 'No active alerts — all systems nominal.' : 'No active alerts.'}
+        </p>
       )}
     </div>
   );

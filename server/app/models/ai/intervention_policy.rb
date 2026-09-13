@@ -55,13 +55,37 @@ module Ai
       docs.update
     ].freeze
 
+    # dev.multi_file_change is the ONE live static dev.* category:
+    # Ai::Tools::DevLoopTool annotates a >5-file completion with it
+    # (dev_loop_tool.rb:806). Four siblings were removed as dead vocabulary
+    # (IMP-01a06aef): dev.pull_task and dev.complete_task were SUPERSEDED by
+    # dev.task_claim / dev.task_complete in ENGINEERING_CATEGORIES above, which
+    # are the names the engineering seed actually writes rows for;
+    # dev.commit_to_branch and dev.merge had no seed, no gate and no reference
+    # anywhere in the tree. A registry entry is a DISCOVERY surface
+    # (category_registered?, the autonomy domain pivot), so a name nothing
+    # mints and nothing resolves is a category an operator can select and get
+    # no behaviour from. Removing one cannot invalidate a persisted row —
+    # action_category is validated for presence only, never against this list.
+    # ralph.repository_write / ralph.repository_delete (D2 review F3): a
+    # delegated Ralph loop's git write and delete (Ai::Ralph::RepositoryGitTool).
+    # No seed writes a row for either, on purpose: unmatched, they resolve to
+    # require_approval, so a delegated commit parks until an operator adds a
+    # policy row (operator ruling: the write actuator is opt-in).
+    # campaign.resume (MCP identity plan R2): a human-only resume parks under it.
+    # A row can block it; no row can proceed it (Ai::AutonomyGate forces
+    # require_approval for a human-only action).
+    # ai.intervention_policy.write (secreview §21 G4): a tool door's write to
+    # one of these rows is human-only and parks under it, the same way.
     STATIC_CATEGORIES = (%w[
       approval proposal escalation status_update issue_alert
       feedback
       project.adapt project.cost_control project.scale_horizontal project.relocate project.schema_change project.security_change
-      dev.pull_task dev.complete_task dev.commit_to_branch
-      dev.multi_file_change dev.merge
+      dev.multi_file_change
       ai.delegation_policy.update
+      ralph.repository_write ralph.repository_delete
+      campaign.resume
+      ai.intervention_policy.write
     ] + ENGINEERING_CATEGORIES + %w[*]).freeze
 
     @category_registry = Set.new(STATIC_CATEGORIES)

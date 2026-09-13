@@ -21,6 +21,14 @@ When to use this runbook: daily trust score sweeps, post-incident demotions, pro
 
 ## Prerequisites
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 - `ai.autonomy.manage` permission (kill switch, intervention policies, duty cycles, and override paths)
 - `ai.monitoring.read` permission (trust score dashboard, telemetry endpoints)
 - `ai.agents.execute` permission (required by the MCP tools that mutate agent state)
@@ -290,7 +298,7 @@ platform.update_intervention_policy(
 
 After any intervention, confirm three signals:
 
-1. **Backend health** — `GET /api/v1/ai/monitoring/health` returns `data.status: "healthy"` (and `data.health_score >= 80`).
+1. **Backend health** — `GET /api/v1/ai/monitoring/health` returns `data.rollup.verdict: "ok"`. `"not_measured"` means no component reported, which is a finding, not a pass. Held components are counted in `data.rollup.held_count` and never raise the verdict. Check `data.shared.verdict` separately: it covers process-wide infrastructure such as circuit breakers, and is never summed into the account verdict.
 2. **Autonomy dashboard** — `GET /api/v1/ai/autonomy/trust_scores` returns the new tier for the affected agent.
 3. **Kill switch state** — `platform.kill_switch_status` returns `halted: false` (or `true` if you intentionally halted as part of the procedure).
 

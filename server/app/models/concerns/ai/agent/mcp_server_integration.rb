@@ -27,6 +27,20 @@ module Ai
       # Attached servers, scoped to this agent's account and to connected status —
       # a disconnected/errored server is invisible so we never advertise a tool we
       # cannot reach. A global agent (account nil) has no external servers.
+      #
+      # LOAD-BEARING BEYOND THIS FILE (IMP-01a06b9a). The `account.nil?` arm is
+      # the only thing keeping a global CANONICAL out of
+      # AgentToolBridgeService's external-MCP dispatch branch, which returns
+      # before McpPlatformToolRegistrar and so never meets BaseTool's
+      # canonical_principal? refusal — its own gates ask about the creator's
+      # permissions, never about what kind of agent is acting. Because a
+      # canonical resolves no server here, it advertises no external tool and
+      # the dispatch fork cannot be taken; it falls through to the platform
+      # registrar, where the refusal applies.
+      #
+      # Widening this to let global agents carry servers therefore needs a
+      # canonical guard ON that branch first. Pinned at both ends by
+      # spec/services/ai/agent_tool_bridge_canonical_external_mcp_spec.rb.
       def mcp_servers
         return McpServer.none if account.nil? || mcp_server_ids.empty?
 

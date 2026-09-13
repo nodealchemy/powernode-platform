@@ -338,4 +338,86 @@ RSpec.describe 'Api::V1::Admin::RateLimiting::RateLimitingController', type: :re
       end
     end
   end
+
+  # IMP-01a0823e — until these existed, an IP the DDoS middleware blocked by
+  # mistake (an operator's browser, or the platform's own worker — both have
+  # happened) could only be freed by waiting out a block of up to 24 hours or
+  # restarting the process. There was no way to even SEE the blocklist.
+  describe 'IP blocks' do
+    let(:blocked_ip) { '198.51.100.55' }
+
+    before do
+      Security::IpBlockStore.with do |redis|
+        redis.scan_each(match: "#{Security::IpBlockStore::PREFIX}:*") { |key| redis.del(key) }
+      end
+    end
+
+    describe 'GET /api/v1/admin/rate_limiting/ip_blocks' do
+      it 'lists the blocked IPs with their remaining time' do
+        Security::IpBlockStore.block!(blocked_ip, duration_seconds: 300)
+
+        get '/api/v1/admin/rate_limiting/ip_blocks', headers: headers, as: :json
+
+        expect_success_response
+        data = json_response_data
+        expect(data['total_count']).to eq(1)
+        expect(data['truncated']).to be(false)
+        expect(data['blocks'].first['ip']).to eq(blocked_ip)
+        expect(data['blocks'].first['ttl_seconds']).to be > 0
+      end
+
+      it 'returns an empty list when nothing is blocked' do
+        get '/api/v1/admin/rate_limiting/ip_blocks', headers: headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['blocks']).to eq([])
+      end
+
+      it 'refuses a caller without admin.settings.security' do
+        get '/api/v1/admin/rate_limiting/ip_blocks', headers: non_admin_headers, as: :json
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+
+    describe 'DELETE /api/v1/admin/rate_limiting/ip_blocks/:ip' do
+      it 'lifts the block' do
+        Security::IpBlockStore.block!(blocked_ip, duration_seconds: 300)
+
+        delete "/api/v1/admin/rate_limiting/ip_blocks/#{blocked_ip}", headers: headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['unblocked']).to be(true)
+        expect(Security::IpBlockStore.blocked?(blocked_ip)).to be(false)
+      end
+
+      # The dotted IP must survive routing: Rails would otherwise read the last
+      # segment as a :format.
+      it 'reports honestly when the IP was not blocked' do
+        delete "/api/v1/admin/rate_limiting/ip_blocks/#{blocked_ip}", headers: headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['ip']).to eq(blocked_ip)
+        expect(json_response_data['unblocked']).to be(false)
+      end
+
+      # Lifting a block must not reset the progressive-penalty memory, or an
+      # attacker resets their own escalation by getting one block lifted.
+      it 'leaves the offense count standing' do
+        Security::IpBlockStore.bump_offense(blocked_ip)
+        Security::IpBlockStore.bump_offense(blocked_ip)
+        Security::IpBlockStore.block!(blocked_ip, duration_seconds: 300)
+
+        delete "/api/v1/admin/rate_limiting/ip_blocks/#{blocked_ip}", headers: headers, as: :json
+
+        expect(Security::IpBlockStore.offense_count(blocked_ip)).to eq(2)
+      end
+
+      it 'refuses a caller without admin.settings.security' do
+        delete "/api/v1/admin/rate_limiting/ip_blocks/#{blocked_ip}", headers: non_admin_headers, as: :json
+
+        expect(response).to have_http_status(:forbidden)
+      end
+    end
+  end
 end

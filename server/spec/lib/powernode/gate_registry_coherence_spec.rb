@@ -343,7 +343,13 @@ RSpec.describe "Powernode::GateRegistry coherence", type: :lib do
   # satisfy. Floors are the current counts, so a scan that silently reads
   # nothing cannot go green.
   it "reads real inputs on every surface it claims to guard" do
-    expect(primitive_files.size).to be >= 11
+    # 11 -> 10: Ai::Land::ApprovalBinding stopped touching a minting primitive
+    # when it began delegating to Ai::Approvals::Gateway (IMP-01a081f2). The
+    # floor tracks how many core files reach a primitive DIRECTLY, and one
+    # fewer is the intended outcome of centralising a mint — the mechanism is
+    # still covered, now through the delegation branch of the census example
+    # above rather than through this count.
+    expect(primitive_files.size).to be >= 10
     expect(mechanism_files.size).to eq(core_entries.size) # two mechanisms sharing a file would silently drop a reverse check
     expect(core_entries.size).to be >= 8
     expect(Powernode::GateRegistry.for_species(:policy).size).to be >= 4

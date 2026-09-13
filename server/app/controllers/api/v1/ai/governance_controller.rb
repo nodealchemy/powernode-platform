@@ -8,6 +8,8 @@ module Api
         # IMP-550e44e24220 — shared approval-payload core, also included by
         # Ai::AutonomyApprovalActions so both read surfaces cannot drift.
         include ::Ai::ApprovalRequestSerialization
+        # The door a decision here came through (MCP identity plan D1, guard c).
+        include ::HumanSession
         # Authorization on the dedicated ai.governance.* family: reads gate on
         # `ai.governance.read`, writes on `ai.governance.manage` (both catalog-
         # defined). Decoupled from the coarse `ai.manage` gate so AI-operator
@@ -192,12 +194,18 @@ module Api
         # POST /api/v1/ai/governance/approval_requests/:id/decide
         def decide_approval
           request = current_account.ai_approval_requests.find(params[:id])
+          # The reason the approval queue gives (HumanSession#human_session_refusal),
+          # never a bare refusal (secreview §21).
+          refusal = human_session_refusal(request, params[:decision].to_s == "rejected" ? "reject" : "approve")
+          return render_error(refusal, :forbidden) if refusal
+
           result = @service.process_approval_decision(
             request: request,
             user: current_user,
             decision: params[:decision],
             comments: params[:comments],
-            conditions: params[:conditions] || {}
+            conditions: params[:conditions] || {},
+            origin: human_decision_origin
           )
 
           if result[:success]
@@ -213,6 +221,9 @@ module Api
             payload = payload.merge(revealed_result: revealed) if revealed.present?
             render_success(approval_request: payload)
           else
+            # L9: a completing approval refused for the decider is named.
+            return render_error(request.decision_refusal, :forbidden) if request.decision_refusal
+
             render_error(result[:error], :unprocessable_content)
           end
         end
@@ -427,6 +438,7 @@ module Api
             decision: decision.decision,
             comments: decision.comments,
             conditions: decision.conditions,
+            origin: decision.origin,
             created_at: decision.created_at,
             approver: {
               id: decision.approver_id,

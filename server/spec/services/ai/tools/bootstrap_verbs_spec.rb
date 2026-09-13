@@ -32,6 +32,26 @@ RSpec.describe Ai::Tools::BootstrapVerbs do
     class_name.constantize.declared_action(dispatched)
   end
 
+  # THE derivation: every registry key BASE_GUARDRAILS names by its own name.
+  # One definition, used by the coverage ratchet below and by the example that
+  # proves the ratchet can fail.
+  def actions_named_in(text)
+    text.scan(/[a-z][a-z0-9_]+/).uniq.select { |token| registry_map.key?(token) }
+  end
+
+  # Registered verbs BASE_GUARDRAILS names that WRITE, so the read-only
+  # bootstrap set cannot carry them. Each is a reviewed exception, never a
+  # blanket exemption: a NEW write verb appearing in the guardrails reds the
+  # coverage example until it is listed here on purpose.
+  #
+  # create_knowledge — the deployment-local-facts guardrail orders every agent
+  # to RECORD new deployment facts with it, but it is declared mutating
+  # (Ai::Tools::SharedKnowledgeTool), and BootstrapVerbs is asserted read-only
+  # above. So an agent whose tool_families exclude knowledge is told to call a
+  # verb it may not hold — the same shape as the P2D finding in this file's
+  # header, still open. Listed so the gap is VISIBLE rather than absent.
+  GUARDRAIL_WRITE_VERBS = %w[create_knowledge].freeze
+
   it "names the verbs BASE_GUARDRAILS tells every agent to call" do
     expect(described_class::ACTIONS).to include(
       "discover_skills", "get_skill_context", "search_knowledge", "query_learnings",
@@ -65,14 +85,48 @@ RSpec.describe Ai::Tools::BootstrapVerbs do
     expect(offenders).to be_empty, "bootstrap verbs that are not read-only: #{offenders.inspect}"
   end
 
-  # Derived, not restated: every REGISTERED action BASE_GUARDRAILS names by
-  # its registry key must be in the set, so a guardrail that starts telling
-  # agents to call a new verb reds here until the set carries it.
-  it "covers every registered action BASE_GUARDRAILS names" do
-    named = Ai::Agent::BASE_GUARDRAILS.scan(/[a-z][a-z0-9_]+/).uniq.select { |token| registry_map.key?(token) }
+  # Derived, not restated: every REGISTERED READ-ONLY action BASE_GUARDRAILS
+  # names by its registry key must be in the set, so a guardrail that starts
+  # telling agents to call a new read verb reds here until the set carries it.
+  #
+  # Scoped to read-only in E4. The original form demanded coverage of EVERY
+  # registered name in the guardrail text, which the deployment-local-facts
+  # line has been violating since it started naming create_knowledge — a write
+  # verb the read-only set can never carry, so the example could only be made
+  # green by breaking the read-only invariant above. The write half is now
+  # asserted separately against a reviewed list, which keeps the ratchet biting
+  # in BOTH directions instead of being satisfiable only by weakening it.
+  it "covers every registered read-only action BASE_GUARDRAILS names, and names no unreviewed write verb" do
+    named = actions_named_in(Ai::Agent::BASE_GUARDRAILS)
+    read_only, writing = named.partition { |name| declaration_for(name)&.[](:mutating) == false }
 
-    expect(named).not_to be_empty
-    expect(described_class::ACTIONS).to include(*named)
+    expect(read_only).not_to be_empty
+    expect(described_class::ACTIONS).to include(*read_only)
+    expect(writing).to match_array(GUARDRAIL_WRITE_VERBS)
+  end
+
+  # The ratchet must be able to fail differently: a red on everything and a
+  # green on anything are the same defect. This pins that the derivation
+  # actually detects a named-but-uncovered verb.
+  it "detects a registered verb named by guardrail text that the set does not carry" do
+    uncovered = registry_map.keys.find { |name| !described_class::ACTIONS.include?(name) }
+    expect(uncovered).to be_present
+
+    expect(actions_named_in("Always call #{uncovered} before acting.")).to eq([ uncovered ])
+    expect(actions_named_in("Always call nothing_registered_here before acting.")).to be_empty
+  end
+
+  # E4 — the verification-gate line the audit found missing: the canonicals
+  # outside the dev loop were never told to verify by execution before
+  # reporting done. It deliberately names a SCRIPT, not an MCP verb, which is
+  # why the bootstrap set does not have to grow to carry it.
+  it "carries the verification-gate rule, and that rule names no MCP verb" do
+    gate_line = Ai::Agent::BASE_GUARDRAILS.lines.find { |line| line.include?("scripts/validate.sh") }
+
+    expect(gate_line).to be_present
+    expect(gate_line).to match(/verification gate/i)
+    expect(gate_line).to match(/before reporting done/i)
+    expect(actions_named_in(gate_line)).to be_empty
   end
 
   describe ".include?" do

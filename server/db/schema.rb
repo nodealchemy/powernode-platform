@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_11_183147) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -967,8 +967,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.jsonb "conditions", default: {}
     t.datetime "created_at", null: false
     t.string "decision", null: false
+    t.string "origin"
     t.integer "step_number", null: false
     t.datetime "updated_at", null: false
+    t.index ["approval_request_id", "step_number", "approver_id"], name: "idx_ai_approval_decisions_one_per_approver_per_step", unique: true
     t.index ["approval_request_id", "step_number"], name: "idx_on_approval_request_id_step_number_4d54accc2f"
     t.index ["approval_request_id"], name: "index_ai_approval_decisions_on_approval_request_id"
     t.index ["approver_id", "created_at"], name: "index_ai_approval_decisions_on_approver_id_and_created_at"
@@ -1001,7 +1003,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.index ["expires_at"], name: "index_ai_approval_requests_on_expires_at"
     t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
     t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
-    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying, 'failed'::character varying]::text[]))", name: "check_execution_status"
+    t.check_constraint "execution_status IS NULL OR (execution_status::text = ANY (ARRAY['succeeded'::character varying::text, 'failed'::character varying::text]))", name: "check_execution_status"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_request_status"
   end
 
@@ -2333,6 +2335,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.index ["account_id"], name: "index_ai_environments_one_default_per_account", unique: true, where: "is_default"
   end
 
+  create_table "ai_evaluation_attempts", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "execution_id", null: false
+    t.string "outcome", default: "pending", null: false
+    t.string "reason"
+    t.uuid "task_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_evaluation_attempts_on_account_and_created_at"
+    t.index ["execution_id", "task_id"], name: "index_ai_evaluation_attempts_on_execution_and_task", unique: true, nulls_not_distinct: true
+  end
+
   create_table "ai_evaluation_results", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "agent_id", null: false
@@ -2341,10 +2355,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.uuid "execution_id", null: false
     t.text "feedback"
     t.jsonb "scores", default: {}
+    t.uuid "task_id"
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_ai_evaluation_results_on_account_id"
     t.index ["agent_id", "created_at"], name: "index_ai_evaluation_results_on_agent_id_and_created_at"
     t.index ["agent_id"], name: "index_ai_evaluation_results_on_agent_id"
+    t.index ["execution_id", "task_id"], name: "index_ai_evaluation_results_on_execution_and_task", unique: true, nulls_not_distinct: true
     t.index ["execution_id"], name: "index_ai_evaluation_results_on_execution_id"
   end
 
@@ -2606,13 +2622,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.decimal "confidence_score", precision: 5, scale: 4, null: false
     t.datetime "created_at", null: false
     t.jsonb "current_config", default: {}
+    t.text "dismiss_reason"
     t.jsonb "evidence", default: {}
+    t.string "fingerprint"
     t.string "recommendation_type", null: false
     t.jsonb "recommended_config", default: {}
     t.string "status", default: "pending", null: false
     t.uuid "target_id", null: false
     t.string "target_type", null: false
     t.datetime "updated_at", null: false
+    t.index ["account_id", "target_type", "target_id", "fingerprint"], name: "index_ai_improvement_recs_on_pending_fingerprint", unique: true, where: "(((status)::text = 'pending'::text) AND (fingerprint IS NOT NULL))"
     t.index ["account_id"], name: "index_ai_improvement_recommendations_on_account_id"
     t.index ["approved_by_id"], name: "index_ai_improvement_recommendations_on_approved_by_id"
     t.index ["recommendation_type"], name: "index_ai_improvement_recommendations_on_recommendation_type"
@@ -3939,32 +3958,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.index ["created_at"], name: "index_ai_security_audit_trails_on_created_at"
     t.index ["outcome"], name: "index_ai_security_audit_trails_on_outcome"
     t.index ["severity"], name: "index_ai_security_audit_trails_on_severity"
-  end
-
-  create_table "ai_self_challenges", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.uuid "ai_skill_id"
-    t.string "challenge_id", null: false
-    t.text "challenge_prompt"
-    t.uuid "challenger_agent_id", null: false
-    t.datetime "created_at", null: false
-    t.string "difficulty", default: "medium", null: false
-    t.text "execution_result"
-    t.uuid "executor_agent_id"
-    t.jsonb "expected_criteria", default: {}
-    t.decimal "quality_score", precision: 5, scale: 4
-    t.string "status", default: "pending", null: false
-    t.datetime "updated_at", null: false
-    t.jsonb "validation_result", default: {}
-    t.uuid "validator_agent_id"
-    t.index ["account_id", "status"], name: "index_ai_self_challenges_on_account_id_and_status"
-    t.index ["account_id"], name: "index_ai_self_challenges_on_account_id"
-    t.index ["ai_skill_id"], name: "index_ai_self_challenges_on_ai_skill_id"
-    t.index ["challenge_id"], name: "index_ai_self_challenges_on_challenge_id", unique: true
-    t.index ["challenger_agent_id", "status"], name: "index_ai_self_challenges_on_challenger_agent_id_and_status"
-    t.index ["challenger_agent_id"], name: "index_ai_self_challenges_on_challenger_agent_id"
-    t.index ["executor_agent_id"], name: "index_ai_self_challenges_on_executor_agent_id"
-    t.index ["validator_agent_id"], name: "index_ai_self_challenges_on_validator_agent_id"
   end
 
   create_table "ai_shadow_executions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -6154,7 +6147,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.index ["status"], name: "index_devops_swarm_deployments_on_status"
     t.index ["triggered_by_id"], name: "index_devops_swarm_deployments_on_triggered_by_id"
     t.check_constraint "deployment_type::text = ANY (ARRAY['deploy'::character varying::text, 'update'::character varying::text, 'scale'::character varying::text, 'rollback'::character varying::text, 'remove'::character varying::text, 'stack_deploy'::character varying::text, 'stack_remove'::character varying::text])", name: "swarm_deployments_type_check"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "swarm_deployments_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'partially_converged'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "swarm_deployments_status_check"
   end
 
   create_table "devops_swarm_events", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -7573,6 +7566,73 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.index ["user_id"], name: "index_password_histories_on_user_id"
   end
 
+  create_table "platform_component_statuses", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.jsonb "actions"
+    t.string "component_kind", null: false
+    t.string "component_ref", null: false
+    t.jsonb "conditions"
+    t.datetime "created_at", null: false
+    t.jsonb "dependencies"
+    t.string "display_name"
+    t.uuid "environment_id"
+    t.datetime "last_notified_at"
+    t.datetime "last_seen_sweep_at"
+    t.jsonb "links"
+    t.datetime "observed_at"
+    t.string "observed_generation"
+    t.jsonb "presentation"
+    t.jsonb "remediation"
+    t.datetime "updated_at", null: false
+    t.string "verdict", default: "not_measured", null: false
+    t.index ["account_id", "component_kind", "component_ref"], name: "index_platform_component_statuses_on_account_kind_ref", unique: true, nulls_not_distinct: true
+    t.index ["account_id", "verdict"], name: "index_platform_component_statuses_on_account_and_verdict"
+    t.index ["account_id"], name: "index_platform_component_statuses_on_account_id"
+    t.index ["environment_id"], name: "index_platform_component_statuses_on_environment_id"
+  end
+
+  create_table "platform_investigations", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.uuid "agent_id"
+    t.datetime "completed_at"
+    t.string "component_kind", null: false
+    t.string "component_ref", null: false
+    t.text "conclusion"
+    t.decimal "cost_usd", precision: 12, scale: 6
+    t.datetime "created_at", null: false
+    t.jsonb "evidence", default: {}, null: false
+    t.string "fingerprint", null: false
+    t.jsonb "hypotheses", default: [], null: false
+    t.uuid "opened_by_user_id"
+    t.datetime "started_at"
+    t.string "status", default: "open", null: false
+    t.string "trigger", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_platform_investigations_on_account_and_created_at"
+    t.index ["account_id", "fingerprint"], name: "index_platform_investigations_open_fingerprint", unique: true, where: "((status)::text = 'open'::text)", nulls_not_distinct: true
+    t.index ["agent_id"], name: "index_platform_investigations_on_agent_id"
+    t.index ["component_kind", "component_ref"], name: "index_platform_investigations_on_component"
+    t.index ["opened_by_user_id"], name: "index_platform_investigations_on_opened_by_user_id"
+  end
+
+  create_table "platform_status_events", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.string "component_kind", null: false
+    t.string "component_ref", null: false
+    t.uuid "component_status_id"
+    t.datetime "created_at", null: false
+    t.string "from_verdict"
+    t.string "kind", null: false
+    t.datetime "occurred_at", null: false
+    t.jsonb "payload"
+    t.string "to_verdict"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "occurred_at"], name: "index_platform_status_events_on_account_and_occurred_at"
+    t.index ["component_kind", "component_ref", "occurred_at"], name: "index_platform_status_events_on_component_and_occurred_at"
+    t.index ["component_status_id"], name: "index_platform_status_events_on_component_status_id"
+    t.index ["occurred_at"], name: "index_platform_status_events_on_occurred_at"
+  end
+
   create_table "report_requests", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "completed_at"
@@ -8689,7 +8749,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.index ["match_method"], name: "index_system_cve_exposures_on_match_method"
     t.index ["node_module_version_id"], name: "index_system_cve_exposures_on_node_module_version_id"
     t.index ["state"], name: "index_system_cve_exposures_on_state"
-    t.check_constraint "state::text = ANY (ARRAY['open'::character varying, 'remediating'::character varying, 'resolved'::character varying, 'wont_fix'::character varying, 'suspected'::character varying]::text[])", name: "ck_cve_exposures_state"
+    t.check_constraint "state::text = ANY (ARRAY['open'::character varying::text, 'remediating'::character varying::text, 'resolved'::character varying::text, 'wont_fix'::character varying::text, 'suspected'::character varying::text])", name: "ck_cve_exposures_state"
   end
 
   create_table "system_cves", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -9026,6 +9086,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "emitted_at"], name: "index_system_fleet_events_on_account_id_and_emitted_at"
     t.index ["account_id"], name: "index_system_fleet_events_on_account_id"
+    t.index ["certificate_id"], name: "index_system_fleet_events_on_certificate_id", where: "(certificate_id IS NOT NULL)"
     t.index ["correlation_id"], name: "index_system_fleet_events_on_correlation_id"
     t.index ["emitted_at"], name: "index_system_fleet_events_on_emitted_at"
     t.index ["kind"], name: "index_system_fleet_events_on_kind"
@@ -9957,7 +10018,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.text "sync_fingerprint"
     t.string "sync_status", default: "idle", null: false
     t.datetime "updated_at", null: false
-    t.string "vault_credential_path"
     t.string "visibility", default: "account", null: false
     t.index ["account_id", "name"], name: "idx_pkgrepo_account_name_unique", unique: true, where: "(account_id IS NOT NULL)"
     t.index ["account_id"], name: "index_system_package_repositories_on_account_id"
@@ -10090,7 +10150,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "captured_at"], name: "index_platform_health_snapshots_on_account_and_time", order: { captured_at: :desc }
     t.index ["account_id", "overall", "captured_at"], name: "index_platform_health_snapshots_on_account_overall_time", order: { captured_at: :desc }
-    t.check_constraint "overall::text = ANY (ARRAY['ok'::character varying, 'degraded'::character varying, 'down'::character varying, 'unknown'::character varying]::text[])", name: "ck_platform_health_snapshots_overall"
+    t.check_constraint "overall::text = ANY (ARRAY['ok'::character varying::text, 'degraded'::character varying::text, 'down'::character varying::text, 'unknown'::character varying::text])", name: "ck_platform_health_snapshots_overall"
   end
 
   create_table "system_project_metrics", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -10961,7 +11021,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.index ["sdwan_service_id", "status", "created_at"], name: "idx_sdwan_service_backends_on_service_status_created"
     t.check_constraint "backend_port >= 1 AND backend_port <= 65535", name: "sdwan_service_backends_port_range"
     t.check_constraint "backend_vip_id IS NOT NULL OR backend_host IS NOT NULL", name: "sdwan_service_backends_backend_present"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'draining'::character varying]::text[])", name: "sdwan_service_backends_status_enum"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'draining'::character varying::text])", name: "sdwan_service_backends_status_enum"
     t.check_constraint "weight >= 1 AND weight <= 1000", name: "sdwan_service_backends_weight_range"
   end
 
@@ -11427,7 +11487,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
     t.inet "last_used_ip"
     t.jsonb "metadata", default: {}
     t.string "name", limit: 100
-    t.text "permissions"
     t.boolean "revoked", default: false
     t.datetime "revoked_at"
     t.string "revoked_reason", limit: 100
@@ -11865,6 +11924,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
   add_foreign_key "ai_documents", "ai_knowledge_bases", column: "knowledge_base_id"
   add_foreign_key "ai_documents", "users", column: "uploaded_by_id"
   add_foreign_key "ai_encrypted_messages", "accounts"
+  add_foreign_key "ai_evaluation_attempts", "accounts", on_delete: :cascade
   add_foreign_key "ai_evaluation_results", "accounts"
   add_foreign_key "ai_evaluation_results", "ai_agents", column: "agent_id"
   add_foreign_key "ai_execution_events", "accounts"
@@ -11993,11 +12053,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
   add_foreign_key "ai_scheduled_messages", "ai_conversations", column: "conversation_id"
   add_foreign_key "ai_scheduled_messages", "users"
   add_foreign_key "ai_security_audit_trails", "accounts"
-  add_foreign_key "ai_self_challenges", "accounts"
-  add_foreign_key "ai_self_challenges", "ai_agents", column: "challenger_agent_id"
-  add_foreign_key "ai_self_challenges", "ai_agents", column: "executor_agent_id"
-  add_foreign_key "ai_self_challenges", "ai_agents", column: "validator_agent_id"
-  add_foreign_key "ai_self_challenges", "ai_skills"
   add_foreign_key "ai_shadow_executions", "accounts"
   add_foreign_key "ai_shadow_executions", "ai_agents", column: "agent_id"
   add_foreign_key "ai_shared_knowledges", "accounts"
@@ -12292,6 +12347,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_010000) do
   add_foreign_key "pages", "accounts"
   add_foreign_key "pages", "users", column: "author_id"
   add_foreign_key "password_histories", "users"
+  add_foreign_key "platform_component_statuses", "accounts", on_delete: :cascade
+  add_foreign_key "platform_component_statuses", "ai_environments", column: "environment_id", on_delete: :nullify
+  add_foreign_key "platform_investigations", "accounts", on_delete: :cascade
+  add_foreign_key "platform_investigations", "ai_agents", column: "agent_id", on_delete: :nullify
+  add_foreign_key "platform_investigations", "users", column: "opened_by_user_id", on_delete: :nullify
+  add_foreign_key "platform_status_events", "accounts", on_delete: :cascade
+  add_foreign_key "platform_status_events", "platform_component_statuses", column: "component_status_id", on_delete: :nullify
   add_foreign_key "report_requests", "accounts"
   add_foreign_key "report_requests", "users", column: "requested_by_id"
   add_foreign_key "role_permissions", "roles"

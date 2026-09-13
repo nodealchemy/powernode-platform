@@ -592,4 +592,80 @@ RSpec.describe BackendApiClient, type: :service do
       end
     end
   end
+
+  # D1 review H2: the discovery walk calls one long, side-effecting POST per
+  # unit with no retry, so its per-call bound must cover the work. The timeout
+  # is observed on the request itself, through Faraday's test adapter.
+  describe '#post_no_retry timeout' do
+    let(:path) { '/api/v1/internal/ai/improvement_discovery/run' }
+
+    def capturing_connection(captured)
+      stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+        stub.post(path) do |env|
+          captured[:timeout] = env.request.timeout
+          captured[:read_timeout] = env.request.read_timeout
+          [ 200, { 'Content-Type' => 'application/json' }, { 'success' => true, 'data' => {} }.to_json ]
+        end
+      end
+      Faraday.new do |builder|
+        builder.request :json
+        builder.response :json, content_type: /\bjson$/
+        builder.adapter :test, stubs
+      end
+    end
+
+    it 'applies the timeout to that one request' do
+      captured = {}
+      allow(client).to receive(:no_retry_connection).and_return(capturing_connection(captured))
+
+      client.post_no_retry(path, { 'position' => 0 }, timeout: 600)
+
+      expect(captured).to include(timeout: 600, read_timeout: 600)
+    end
+
+    it 'leaves the connection default alone when no timeout is given' do
+      captured = {}
+      allow(client).to receive(:no_retry_connection).and_return(capturing_connection(captured))
+
+      client.post_no_retry(path, {})
+
+      expect(captured[:timeout]).to be_nil
+    end
+  end
+
+  # D1 re-verify: the shared backend_api breaker's own Timeout.timeout (120s in
+  # production) used to cut a longer per-call timeout short. Here the breaker's
+  # bound is 1s and the server takes 1.5s: a call that asks for 5s finishes, and
+  # a call that asks for nothing is still cut off at the breaker's bound.
+  describe 'the shared breaker honours a per-call timeout' do
+    let(:path) { '/api/v1/internal/ai/improvement_discovery/run' }
+    let(:slow_connection) do
+      stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+        stub.post(path) do
+          sleep 1.5
+          [ 200, { 'Content-Type' => 'application/json' }, { 'success' => true, 'data' => { 'done' => true } }.to_json ]
+        end
+      end
+      Faraday.new do |builder|
+        builder.request :json
+        builder.response :json, content_type: /\bjson$/
+        builder.adapter :test, stubs
+      end
+    end
+
+    before do
+      allow(CircuitBreaker::CircuitBreakerRegistry.instance).to receive(:get_breaker)
+        .with('backend_api', anything)
+        .and_return(CircuitBreaker::CircuitBreakerService.new('backend_api', timeout: 1))
+      allow(client).to receive(:no_retry_connection).and_return(slow_connection)
+    end
+
+    it 'lets a call with a longer per-call timeout outlive the breaker default' do
+      expect(client.post_no_retry(path, {}, timeout: 5)).to include('success' => true)
+    end
+
+    it 'keeps the breaker default for a call that sets no timeout' do
+      expect { client.post_no_retry(path, {}) }.to raise_error(Timeout::Error)
+    end
+  end
 end

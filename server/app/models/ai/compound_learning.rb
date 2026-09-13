@@ -12,6 +12,16 @@ module Ai
     CATEGORIES = %w[pattern anti_pattern best_practice discovery fact failure_mode review_finding performance_insight reflexion].freeze
     SCOPES = %w[team global].freeze
     STATUSES = %w[active deprecated superseded verified disproven retired].freeze
+
+    # THE surfacing set: the statuses every recall path consults. Defined once
+    # so the semantic branch, the keyword fallback and the embedding backfill
+    # cannot drift apart — they had. .semantic_search and the service's
+    # keyword_search both read active + verified, but #backfill_embeddings was
+    # scoped to .active alone, so a VERIFIED row stored without an embedding
+    # (worker embedding service down at write time) was never repaired and
+    # stayed permanently invisible to nearest_neighbors. That is the same
+    # most-trusted-tier omission the keyword fallback already had to fix once.
+    SURFACING_STATUSES = %w[active verified].freeze
     EXTRACTION_METHODS = %w[marker auto_success auto_failure review evaluation reflexion ralph_loop].freeze
 
     # ==========================================
@@ -49,6 +59,7 @@ module Ai
     # Scopes
     # ==========================================
     scope :active, -> { where(status: "active") }
+    scope :surfacing, -> { where(status: SURFACING_STATUSES) }
     scope :for_team, ->(team_id) { where(ai_agent_team_id: team_id) }
     scope :for_account, ->(account_id) { where(account_id: account_id) }
     # Portability (Tier-2): account + repository scoped recall
@@ -76,10 +87,15 @@ module Ai
     # ==========================================
 
     # Semantic search using neighbor gem's nearest_neighbors scope (cosine distance)
-    def self.semantic_search(query_embedding, account_id:, threshold: 0.6, limit: 20, repository_id: nil)
+    # `statuses` defaults to the surfacing set. A caller that asks for a
+    # specific status (MCP query_learnings passing status:) gets that status
+    # instead, so a non-surfacing status is answerable rather than silently
+    # unsatisfiable.
+    def self.semantic_search(query_embedding, account_id:, threshold: 0.6, limit: 20, repository_id: nil,
+                             statuses: SURFACING_STATUSES)
       return [] if query_embedding.blank?
 
-      scope = where(account_id: account_id, status: %w[active verified])
+      scope = where(account_id: account_id, status: Array(statuses))
       scope = scope.where(git_repository_id: repository_id) if repository_id.present?
       scope
         .nearest_neighbors(:embedding, query_embedding, distance: "cosine")

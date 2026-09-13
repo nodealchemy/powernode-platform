@@ -135,13 +135,18 @@ module Ai
 
         # setup_default_providers stores this (not configuration_schema) as
         # the provider's actual runtime configuration — see Configurable#configuration=.
+        #
+        # default_model is deliberately nil (E3b): the catalog no longer names
+        # one, and `model_ids.first` would be the catalog's most capable (and
+        # most expensive) entry. Provider#default_model picks the lightest-tier
+        # model from `models` instead. The key stays, so
+        # set_default_configuration_from_type sees the shape is already written.
         def bootstrap_configuration(catalog)
-          model_ids = catalog[:supported_models].map { |model| model["id"] }
-          default_model = catalog[:configuration_schema]["default_model"] || model_ids.first
+          model_ids = catalog[:supported_models].map { |model| ::Ai::ModelTiers.id_for(model) }.compact_blank
 
           {
             models: model_ids,
-            default_model: default_model
+            default_model: nil
           }
         end
       end

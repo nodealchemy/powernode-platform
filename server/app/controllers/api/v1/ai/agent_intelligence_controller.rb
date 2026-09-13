@@ -10,8 +10,11 @@ module Api
         # GET /api/v1/ai/agents/:agent_id/intelligence/summary
         def summary
           replays = current_account.ai_experience_replays.for_agent(@agent.id)
-          challenges = current_account.ai_self_challenges.for_agent(@agent.id)
 
+          # The `self_challenges` block was removed with the subsystem (D6).
+          # Dropped from the payload rather than zeroed: a block of zeroes reads
+          # as "this agent has run no challenges", which is a measurement, and
+          # there is nothing left to measure.
           render_success(
             summary: {
               experience_replays: {
@@ -19,12 +22,6 @@ module Api
                 active: replays.active.count,
                 avg_quality: replays.active.average(:quality_score)&.to_f&.round(3) || 0,
                 avg_effectiveness: replays.active.average(:effectiveness_score)&.to_f&.round(3) || 0
-              },
-              self_challenges: {
-                total: challenges.count,
-                active: challenges.active.count,
-                completed: challenges.completed.count,
-                pass_rate: calculate_pass_rate(challenges)
               }
             }
           )
@@ -49,25 +46,6 @@ module Api
           )
         end
 
-        # GET /api/v1/ai/agents/:agent_id/intelligence/self_challenges
-        def self_challenges
-          scope = current_account.ai_self_challenges
-            .for_agent(@agent.id)
-            .includes(:skill, :executor_agent, :validator_agent)
-
-          scope = scope.where(status: params[:status]) if params[:status].present?
-          scope = scope.where(difficulty: params[:difficulty]) if params[:difficulty].present?
-
-          challenges = scope.recent.page(params[:page]).per(params[:per_page] || 20)
-
-          render_success(
-            items: challenges.map { |c| serialize_challenge(c) },
-            total: challenges.total_count,
-            page: challenges.current_page,
-            per_page: challenges.limit_value
-          )
-        end
-
         private
 
         def set_agent
@@ -79,14 +57,6 @@ module Api
           # authorize_permission! does not exist and raised NoMethodError (500)
           # on every agent_intelligence endpoint.
           require_permission("ai.manage")
-        end
-
-        def calculate_pass_rate(challenges)
-          completed = challenges.completed
-          return 0.0 if completed.empty?
-
-          passed = completed.where("quality_score >= 0.7").count
-          (passed.to_f / completed.count * 100).round(1)
         end
 
         def serialize_replay(replay)
@@ -105,23 +75,6 @@ module Api
           }
         end
 
-        def serialize_challenge(challenge)
-          {
-            id: challenge.id,
-            challenge_id: challenge.challenge_id,
-            status: challenge.status,
-            difficulty: challenge.difficulty,
-            challenge_prompt: challenge.challenge_prompt&.truncate(300),
-            expected_criteria: challenge.expected_criteria,
-            response: challenge.response&.truncate(300),
-            quality_score: challenge.quality_score&.to_f,
-            validation_result: challenge.validation_result,
-            skill: challenge.skill ? { id: challenge.skill.id, name: challenge.skill.name } : nil,
-            executor_agent: challenge.executor_agent ? { id: challenge.executor_agent.id, name: challenge.executor_agent.name } : nil,
-            validator_agent: challenge.validator_agent ? { id: challenge.validator_agent.id, name: challenge.validator_agent.name } : nil,
-            created_at: challenge.created_at.iso8601
-          }
-        end
       end
     end
   end

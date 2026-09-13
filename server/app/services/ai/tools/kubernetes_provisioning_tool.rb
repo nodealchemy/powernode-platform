@@ -40,7 +40,7 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "kubernetes_decommission_cluster", mutating: true
+      declare_action "kubernetes_decommission_cluster", mutating: true, destructive: true
       # audit: true — this verb releases the cluster-admin kubeconfig, i.e. root
       # on every workload in the cluster. BaseTool writes a fail-closed
       # AuditLog row BEFORE the action runs; if it cannot be written the

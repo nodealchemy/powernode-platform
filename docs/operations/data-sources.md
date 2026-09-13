@@ -254,6 +254,14 @@ Every acquisition emits a **single non-secret audit line** via `BaseBroker#audit
 - **`source=`** — the data source slug (`unknown` if unresolvable).
 - **`outcome=`** — the operationally relevant signal: **`acquired`** (a fresh short-lived credential was minted — carries `expires_at=<iso8601|none>`), **`skipped`** (brokering could not proceed — carries `reason=<...>`, the credential degraded to base), or **`error`** (the exchange raised — carries `error_class=<...>`, also degraded to base). (`cached` is defined in the contract but the current brokers do not emit it — a cache HIT is silent; only the miss-path mint logs `acquired`.)
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 ```bash
 # Is brokering firing at all? Tail the audit lines (all brokers share the prefix).
 journalctl -u powernode-backend@default -f | grep -E '\[Credentials::[A-Za-z]+\]'

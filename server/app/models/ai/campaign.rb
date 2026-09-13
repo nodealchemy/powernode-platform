@@ -65,8 +65,12 @@ module Ai
       update!(status: "paused", paused_at: Time.current, paused_reason: reason)
     end
 
+    # Reopens a paused OR completed campaign. A completed one carries the
+    # completion stamp and summary its finalizer wrote; left in place they would
+    # describe an active campaign as finished (CampaignDriver#resume records the
+    # summary it clears on the resume decision).
     def resume!
-      update!(status: "active", paused_at: nil, paused_reason: nil)
+      update!(status: "active", paused_at: nil, paused_reason: nil, completed_at: nil, completion_summary: nil)
     end
 
     def complete!(summary = nil)
@@ -250,19 +254,27 @@ module Ai
 
     # ---- stop policy -------------------------------------------------------
     def should_stop?
-      return true if terminal?
+      terminal? || tripped_stop_condition.present?
+    end
+
+    # The stop_conditions key of the first configured stop condition the CURRENT
+    # ledger meets, or nil. Split from #should_stop? (which adds terminality) so a
+    # caller about to reopen a terminal campaign — CampaignDriver#resume — can ask
+    # "would the finalizer complete this again?" of the very predicate the finalizer
+    # uses, instead of a re-derived copy that could drift from it.
+    def tripped_stop_condition
       max_failed = stop_conditions["max_failed"]
-      return true if max_failed && failed_tasks >= max_failed.to_i
+      return "max_failed" if max_failed && failed_tasks >= max_failed.to_i
       target = stop_conditions["completion_pct"]
       # A completion_pct target may only stop the campaign once its loop(s) have actually
       # ended. While a loop is still ACTIVE (pending/running/paused) the percentage is
       # premature — the FIRST passed increment on an unseeded loop reads 1/1 = 100% and
       # would self-finalize the campaign mid-drain. Mirror fully_drained?'s active-loop
       # guard. A campaign with NO loops is not active, so the pct-stop can still finalize it.
-      return true if target && completion_pct >= target.to_f && !ralph_loops.active.exists?
-      return true if acceptance_floor_breached?
-      return true if cost_per_change_budget_exceeded?
-      false
+      return "completion_pct" if target && completion_pct >= target.to_f && !ralph_loops.active.exists?
+      return "min_acceptance_pct" if acceptance_floor_breached?
+      return "max_cost_per_accepted_change" if cost_per_change_budget_exceeded?
+      nil
     end
 
     # G2: dollar-budget guard — METERED (platform-driven) loops ONLY. Halt a campaign

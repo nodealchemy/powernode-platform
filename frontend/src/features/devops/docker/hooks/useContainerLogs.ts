@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { dockerApi } from '../services/dockerApi';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { ContainerLogEntry, ContainerLogOptions } from '../types';
 
 export function useContainerLogs(
@@ -11,7 +12,6 @@ export function useContainerLogs(
   const [logs, setLogs] = useState<ContainerLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetch = useCallback(async () => {
     if (!hostId || !containerId) return;
@@ -28,17 +28,10 @@ export function useContainerLogs(
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  useEffect(() => {
-    if (pollIntervalMs > 0 && hostId && containerId) {
-      intervalRef.current = setInterval(fetch, pollIntervalMs);
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      };
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [fetch, pollIntervalMs, hostId, containerId]);
+  usePolling(fetch, pollIntervalMs, {
+    enabled: !!hostId && !!containerId,
+    deps: [fetch, pollIntervalMs, hostId, containerId],
+  });
 
   return { logs, isLoading, error, refresh: fetch };
 }

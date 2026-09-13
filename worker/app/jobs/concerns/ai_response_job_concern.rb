@@ -88,7 +88,19 @@ module AiResponseJobConcern
 
   def call_provider_streaming(provider, credentials, agent, messages)
     provider_type = provider['provider_type']&.downcase || 'openai'
-    model = agent['model'] || provider['default_model'] || 'gpt-4'
+    # E3: no `|| 'gpt-4'`. This concern streams to whatever provider the agent
+    # is bound to, so a literal here is the wrong id for every provider except
+    # OpenAI — and `gpt-4` is retired, so it was the wrong id there too.
+    #
+    # The agent's pin, then the provider's default AS THE SERVER RESOLVED IT
+    # (Provider#default_model: the configured default, else the LIGHTEST-tier
+    # model in the synced catalog — E3b). There is deliberately no third arm
+    # picking from supported_models here: the worker has no tier classifier,
+    # and catalog[0] is the most expensive model because sync orders catalogs
+    # most-capable-first. Nothing configured is an error the caller reports.
+    model = agent['model'].presence || provider['default_model'].presence
+    return { success: false, error: 'No model configured for this agent or its provider' } if model.blank?
+
     temperature = agent['temperature'] || 0.7
     max_tokens = agent['max_tokens'] || 2048
 

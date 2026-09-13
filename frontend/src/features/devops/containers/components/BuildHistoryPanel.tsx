@@ -6,6 +6,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { containerExecutionApi } from '@/shared/services/ai';
 import type { ContainerImageBuild } from '@/shared/services/ai';
+import { formatDurationMs } from '@/shared/utils/formatters';
 
 interface BuildHistoryPanelProps {
   templateId: string;
@@ -24,14 +25,6 @@ const triggerLabels: Record<string, string> = {
   cascade: 'Cascade',
   manual: 'Manual',
 };
-
-function formatDuration(ms?: number): string {
-  if (!ms) return '-';
-  if (ms < 1000) return `${ms}ms`;
-  const secs = Math.round(ms / 1000);
-  if (secs < 60) return `${secs}s`;
-  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
-}
 
 export const BuildHistoryPanel: React.FC<BuildHistoryPanelProps> = ({
   templateId,
@@ -124,7 +117,16 @@ export const BuildHistoryPanel: React.FC<BuildHistoryPanelProps> = ({
                     <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1 text-xs text-theme-secondary">
                         <Clock className="w-3 h-3" />
-                        {formatDuration(build.duration_ms)}
+                        {formatDurationMs(build.duration_ms, {
+                          emptyValue: '-',
+                          emptyCheck: 'falsy',
+                          subSecond: 'raw',
+                          tiering: 'floor-integer',
+                          minuteTier: 'minutes-seconds',
+                          roundSeconds: true,
+                          hourTier: false,
+                          subSecondTier: true,
+                        })}
                       </span>
                       <span className="text-xs text-theme-secondary">
                         {new Date(build.created_at).toLocaleString()}

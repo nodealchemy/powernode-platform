@@ -100,7 +100,26 @@ grants present in the database that the catalog does not declare, which a
 destructive full sync **would delete**; and `ORPHAN GRANT KEY` lines — grants
 registered against a role name the catalog does not declare, which are
 permanently inert and which the reconcile cannot fix. It writes nothing, and it
-**exits 1** when it finds drift (`server/lib/tasks/permissions.rake:234-272`).
+**exits 1** when it finds drift.
+
+A missing grant is reported in one of two ways, because they mean different
+things:
+
+- `MISSING <role>/<permission>` — the grant never landed here. The reconcile
+  will create it.
+- `MISSING <role>/<permission> — previously held by this deployment` — this
+  deployment *had* the row and it was removed outside the catalog. That is a
+  revocation the next boot's reconcile will **undo**; to revoke durably, remove
+  the grant from the catalog.
+
+`permissions:reconcile_role_grants` makes the same distinction from the other
+side: a first-time creation prints `+ grant`, while restoring a row this
+deployment previously held prints `RE-CREATED grant (reversal)`.
+
+Both are derived from a ledger of grants the reconciler has observed present
+(one `SiteSetting` row). If that ledger cannot be read, both tasks print
+`ledger unavailable (reversal detection degraded)` — read it as "this run
+cannot tell the two apart", not as "no reversals".
 
 ### Revoking a grant
 

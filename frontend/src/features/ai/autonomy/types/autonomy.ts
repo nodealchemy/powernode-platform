@@ -1,3 +1,9 @@
+import type {
+  ApprovalChainSummary,
+  ApprovalDecisionRecord,
+  ApprovalStepStatus,
+} from '@/features/platform/status/components/approvals/approvalChainTypes';
+
 export interface AgentLineageNode {
   id: string;
   name: string;
@@ -142,6 +148,29 @@ export interface ApprovalRequest {
   created_at: string;
   expires_at?: string;
   completed_at?: string;
+  /** Chain position, 0-based. On the list AND the detail read. */
+  current_step?: number;
+  /** `step_statuses.size`. On the list read only. */
+  total_steps?: number | null;
+  /**
+   * Whether THIS viewer can act on the current step: an approver of it who has
+   * not already decided it. Computed per viewer, on the list AND the detail.
+   */
+  current_step_can_approve?: boolean;
+  /**
+   * Only a person, in their own session, can decide this request; no agent or
+   * MCP client can. Set for a human-only action a tool call parked (it then
+   * runs as the person who approves it) and for a category the operator marks
+   * (by default a protected environment, a destructive action, spend and
+   * campaign lifecycle). On the list AND the detail read.
+   */
+  requires_human_session?: boolean;
+  // Detail read only (GET /ai/autonomy/approvals/:id). There is no
+  // `approval_chain_id` on either read: the chain's id arrives inside
+  // `approval_chain`.
+  step_statuses?: ApprovalStepStatus[];
+  approval_chain?: ApprovalChainSummary | null;
+  decisions?: ApprovalDecisionRecord[];
 }
 
 /**

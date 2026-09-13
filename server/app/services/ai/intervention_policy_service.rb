@@ -44,15 +44,22 @@ module Ai
     # require_approval — never relax it. nil ⇒ no environment rule applies.
     # `blast_radius` (increment 4): how many instances the operation touches,
     # checked against the environment's max_blast_radius by the overlay.
-    def resolve(action_category:, agent: nil, user: nil, severity: nil, environment: nil, blast_radius: nil)
+    # `agent_initiated` (MCP identity plan #5): the call is a machine's (an MCP
+    # client, a bridge, a recipe, an instance principal) even when it carries
+    # no agent, so it resolves in the agent audience below and never on the
+    # operator path. False for a person's own REST call, which keeps it.
+    def resolve(action_category:, agent: nil, user: nil, severity: nil, environment: nil, blast_radius: nil,
+                agent_initiated: false)
       match = resolve_without_environment(
-        action_category: action_category, agent: agent, user: user, severity: severity, environment: environment
+        action_category: action_category, agent: agent, user: user, severity: severity, environment: environment,
+        agent_initiated: agent_initiated
       )
       ::Ai::EnvironmentPolicyOverlay.apply(match, environment: environment, action_category: action_category,
                                                   blast_radius: blast_radius)
     end
 
-    def resolve_without_environment(action_category:, agent: nil, user: nil, severity: nil, environment: nil)
+    def resolve_without_environment(action_category:, agent: nil, user: nil, severity: nil, environment: nil,
+                                    agent_initiated: false)
       policies = Ai::InterventionPolicy
         .active
         .for_account(account.id)
@@ -109,8 +116,13 @@ module Ai
       # "action_type" so that a scope added to SCOPES later is non-binding until
       # someone decides otherwise, and so a malformed scope-"agent" row with a
       # nil ai_agent_id cannot bind every agent in the account.
-      if agent
-        audience = matching.select { |p| p.ai_agent_id == agent.id || p.scope == "global" }
+      #
+      # A machine's call that carries no agent (`agent_initiated`, MCP identity
+      # plan #5) takes the same cut: it has no rows of its own, so it reads the
+      # scope-"global" audience only. Before this, an OAuth MCP client in an
+      # account with no AI provider (no client agent) read the operator path.
+      if agent || agent_initiated
+        audience = matching.select { |p| (agent && p.ai_agent_id == agent.id) || p.scope == "global" }
         return default_policy if audience.empty?
 
         matching = audience

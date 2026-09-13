@@ -8,6 +8,13 @@ module Ai
     # Constants
     # ==========================================
     STATUSES = %w[building completed archived].freeze
+    # `self_challenge` is KEPT although increment D6 deleted the self-challenge
+    # subsystem entirely (3 MCP verbs, the service, 2 jobs, the table). This is
+    # a validated enum over rows that already exist: dropping the value would
+    # make every historical trajectory of that type fail validation on its next
+    # save, and would make the column lie about what produced the row. Nothing
+    # WRITES it any more — the only producer is gone — so the value is
+    # read-only history from here on.
     TRAJECTORY_TYPES = %w[task_completion workflow_run investigation implementation self_challenge].freeze
 
     # ==========================================

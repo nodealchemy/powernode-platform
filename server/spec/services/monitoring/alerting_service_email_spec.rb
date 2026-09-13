@@ -16,9 +16,10 @@ RSpec.describe Monitoring::AlertingService, "email channel" do
 
   let(:alert_email) { "ops@example.com" }
 
+  # E8: the address is a SiteSetting written through the real settings writer.
+  # The environment-variable read was deleted outright, with no fallback.
   before do
-    allow(ENV).to receive(:[]).and_call_original
-    allow(ENV).to receive(:[]).with("ALERT_EMAIL").and_return(alert_email)
+    Monitoring::AlertChannels.update_settings!("email" => alert_email)
     allow(WorkerJobService).to receive(:enqueue_alert_email).and_return({ "status" => "queued" })
   end
 
@@ -70,7 +71,8 @@ RSpec.describe Monitoring::AlertingService, "email channel" do
   end
 
   it "reports unconfigured rather than creating a row when no alert email is set" do
-    allow(ENV).to receive(:[]).with("ALERT_EMAIL").and_return(nil)
+    # Absence means off: clearing the setting removes the row.
+    Monitoring::AlertChannels.update_settings!("email" => "")
 
     expect { expect(described_class.new.send(:send_email_alert, "t", "m", :critical, {})[:success]).to be false }
       .not_to change(EmailDelivery, :count)

@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.agents.create', 'ai.agents.update', 'ai.agents.delete', 'ai.agents.execute' ]) }
-  let(:admin_user) { create(:user, :system_admin, account: account) }
+  let(:admin_user) { create(:user, :admin, account: account) }
   let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.agents.read' ]) }
   let(:other_account_user) { create(:user) }
 

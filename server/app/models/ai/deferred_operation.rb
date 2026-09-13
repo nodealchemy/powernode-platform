@@ -234,6 +234,22 @@ module Ai
       @executor_constant ||= executor_class.constantize
     end
 
+    # L9: why `approver`'s approval must not complete this operation's request,
+    # or nil. Ai::ApprovalRequest#record_decision! asks before it records a
+    # completing approval. The executor answers, since only it knows who its
+    # replay runs as, and it gets the account alone, as #preview does. An
+    # operation no longer pending runs nothing on approval, so no one is
+    # refused for it; an executor class that no longer resolves is refused by
+    # its replay instead.
+    def approval_decider_refusal(approver)
+      return nil unless pending?
+
+      executor = executor_class.to_s.safe_constantize
+      return nil unless executor.respond_to?(:approval_decider_refusal)
+
+      executor.approval_decider_refusal(params, deferred_operation: PreviewContext.new(account), approver: approver)
+    end
+
     # The approval card's text, rendered by Ai::DeferredOperationApprovalContent
     # from the executor's own summary/impact.
     #

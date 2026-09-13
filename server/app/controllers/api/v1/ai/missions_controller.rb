@@ -33,6 +33,8 @@ module Api
 
         # POST /api/v1/ai/missions
         def create
+          return render_repository_not_found if foreign_repository_requested?
+
           mission = current_account.ai_missions.new(mission_params)
           mission.created_by = current_user
 
@@ -55,6 +57,7 @@ module Api
         def update
           mission = find_mission!
           return unless mission
+          return render_repository_not_found if foreign_repository_requested?
 
           if mission.update(mission_params)
             render_success(mission: mission.mission_details)
@@ -117,6 +120,19 @@ module Api
 
         def handle_worker_service_error(exception)
           render_error("Worker service unavailable: #{exception.message}", :service_unavailable)
+        end
+
+        # D2 review F1: a mission may carry only a repository its own account owns.
+        # Refused as not-found, before anything else is validated, so the reply
+        # never confirms that another account's repository exists. Ai::Mission
+        # enforces the same rule for every other writer.
+        def foreign_repository_requested?
+          repository_id = mission_params[:repository_id]
+          repository_id.present? && !current_account.git_repositories.exists?(id: repository_id)
+        end
+
+        def render_repository_not_found
+          render_error("Repository not found", :unprocessable_content)
         end
 
         def mission_params

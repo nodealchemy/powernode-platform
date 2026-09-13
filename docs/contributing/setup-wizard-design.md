@@ -126,6 +126,14 @@ Setup::StepRegistry.steps_for(account)
 The admin-setup endpoint runs **before any user exists**, so it cannot use JWT. Threat: a
 random visitor claims the instance.
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 - `POST /api/v1/setup/admin` is **unauthenticated** but gated on **two** conditions:
   1. `User.count == 0` for the account (one-shot — once an admin exists, it 409s), and
   2. a one-time **bootstrap token**. On first boot with zero users, the backend generates a

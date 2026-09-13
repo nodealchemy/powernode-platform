@@ -8,6 +8,8 @@ import type {
   CreateProposalParams,
   DelegateParams,
   DelegateResult,
+  ResumeCampaignParams,
+  ResumeCampaignResult,
 } from '../types/campaign';
 
 const BASE_PATH = '/ai/campaigns';
@@ -46,6 +48,12 @@ export const campaignsApi = {
     unwrap<{ campaign: CampaignSummary }>(
       apiClient.post(`${BASE_PATH}/${id}/stop`, { summary }),
     ),
+
+  // Reopen a completed or paused campaign and adjust its stop conditions. The server
+  // names every refusal (422) — archived, already active, an invalid stop value, a
+  // driver holding the lease.
+  resumeCampaign: (id: string, data: ResumeCampaignParams) =>
+    unwrap<ResumeCampaignResult>(apiClient.post(`${BASE_PATH}/${id}/resume`, data)),
 
   // Route a spawned campaign's loop to a driver (claude_code | platform_*).
   delegateCampaign: (id: string, data: DelegateParams) =>

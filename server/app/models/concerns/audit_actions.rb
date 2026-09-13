@@ -160,7 +160,7 @@ module AuditActions
     ai_provider_credential_encryption_rotated
     ai.providers.list ai.providers.view ai.providers.create ai.providers.update ai.providers.delete
     ai.providers.read ai.providers.test ai.providers.sync ai.providers.configure
-    ai.providers.test_connection ai.providers.sync_models ai.providers.setup_defaults ai.providers.test_all
+    ai.providers.test_connection ai.providers.sync_models ai.providers.test_all
     ai.providers.credential.create ai.providers.credential.update ai.providers.credential.delete
     ai.providers.credential.test ai.providers.credential.make_default ai.providers.credential.rotate
     ai.credentials.read ai.credentials.create ai.credentials.update ai.credentials.delete ai.credentials.test
@@ -206,6 +206,17 @@ module AuditActions
   # =============================================================================
   AI_ROI_ACTIONS = %w[
     ai.roi.dashboard ai.roi.calculate ai.roi.aggregate
+  ].freeze
+
+  # =============================================================================
+  # AI IMPROVEMENT ACTIONS
+  # =============================================================================
+  # The weekly discovery clock's per-account run record (D1). Registered here
+  # because `AuditLog` validates `action` against this allowlist, and
+  # `log_internal_audit` rescues its own failure — an unregistered action is
+  # dropped silently, leaving a run history that reads as "never ran".
+  AI_IMPROVEMENT_ACTIONS = %w[
+    ai.improvement_discovery.run
   ].freeze
 
   # =============================================================================
@@ -320,6 +331,21 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # PLATFORM ALERT CHANNEL ACTIONS (component status plane, E8) — every set,
+  # replace and clear of an alert-channel credential, and every change to the
+  # plain alert settings. The row names the KEY and the actor, never the value.
+  # Deliberately named without "delete"/"admin": those substrings put an action
+  # under the audit service's strictest rate limit, and a clear that is
+  # rate-limited out of the audit trail is exactly the gap this exists to close.
+  # =============================================================================
+  PLATFORM_ALERT_CHANNEL_ACTIONS = %w[
+    platform.alert_channels.secret_set
+    platform.alert_channels.secret_replaced
+    platform.alert_channels.secret_cleared
+    platform.alert_channels.settings_updated
+  ].freeze
+
+  # =============================================================================
   # CORE ALL ACTIONS — frozen union of the core-only groups above.
   # Extension-contributed actions are NOT here; they join at runtime via
   # the dynamic AuditActions.all_actions union. (Was the combined ALL_ACTIONS.)
@@ -344,6 +370,7 @@ module AuditActions
     AI_PROMPT_TEMPLATE_ACTIONS,
     AI_MONITORING_ACTIONS,
     AI_ROI_ACTIONS,
+    AI_IMPROVEMENT_ACTIONS,
     AI_AGENT_TEAM_ACTIONS,
     DEVOPS_ACTIONS,
     DEPLOY_ACTIONS,
@@ -351,6 +378,7 @@ module AuditActions
     INVITATION_ACTIONS,
     SITE_SETTING_ACTIONS,
     REPORT_REQUEST_ACTIONS,
+    PLATFORM_ALERT_CHANNEL_ACTIONS,
     LEGACY_ACTIONS
   ].flatten.uniq.freeze
 
@@ -464,6 +492,7 @@ module AuditActions
         AI_PROMPT_TEMPLATE_ACTIONS,
         AI_MONITORING_ACTIONS,
         AI_ROI_ACTIONS,
+        AI_IMPROVEMENT_ACTIONS,
         AI_AGENT_TEAM_ACTIONS
       ].flatten.uniq
     end

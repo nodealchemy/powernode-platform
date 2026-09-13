@@ -123,25 +123,45 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "agent_introspect", mutating: false
-      declare_action "approve_deferred_operation", mutating: true
+      declare_action "approve_deferred_operation", mutating: true, destructive: true
       declare_action "create_agent_goal", mutating: true
-      declare_action "create_intervention_policy", mutating: true
       declare_action "create_proposal", mutating: true
       declare_action "decompose_goal", mutating: true
-      declare_action "delete_intervention_policy", mutating: true
       declare_action "discover_claude_sessions", mutating: false
       declare_action "escalate", mutating: true
       declare_action "list_agent_goals", mutating: false
       declare_action "list_deferred_operations", mutating: false
       declare_action "list_intervention_policies", mutating: false
       declare_action "propose_feature", mutating: true
-      declare_action "reject_deferred_operation", mutating: true
+      declare_action "reject_deferred_operation", mutating: true, destructive: true
       declare_action "report_issue", mutating: true
       declare_action "request_code_change", mutating: true
       declare_action "request_feedback", mutating: true
       declare_action "send_proactive_notification", mutating: true
       declare_action "update_agent_goal", mutating: true
-      declare_action "update_intervention_policy", mutating: true
+
+      # secreview §21 G4 (self-unmark). An intervention-policy row decides
+      # whether an action parks at all, and which requests need a person's own
+      # session (Ai::Approvals::HumanSessionPolicy reads these rows), so a write
+      # to one is a PERSON's decision. Human-only (MCP identity plan R2): from
+      # any tool door it parks for a person to confirm in their own session, and
+      # runs as that person, who must hold ai.intervention_policies.manage. The
+      # REST/UI door (Api::V1::Ai::InterventionPoliciesController) stays direct.
+      declare_action "create_intervention_policy", mutating: true, destructive: true, human_only: true,
+                                                   action_category: "ai.intervention_policy.write",
+                                                   executor_class: "Ai::Executors::DeferredToolCall",
+                                                   gate_context: :deferred_tool_call_context,
+                                                   on_proceed: :deferred_tool_call_result
+      declare_action "update_intervention_policy", mutating: true, destructive: true, human_only: true,
+                                                   action_category: "ai.intervention_policy.write",
+                                                   executor_class: "Ai::Executors::DeferredToolCall",
+                                                   gate_context: :deferred_tool_call_context,
+                                                   on_proceed: :deferred_tool_call_result
+      declare_action "delete_intervention_policy", mutating: true, destructive: true, human_only: true,
+                                                   action_category: "ai.intervention_policy.write",
+                                                   executor_class: "Ai::Executors::DeferredToolCall",
+                                                   gate_context: :deferred_tool_call_context,
+                                                   on_proceed: :deferred_tool_call_result
 
       # HIER-P0 — delegation authority. The read is plain; the write is the
       # first action on this tool wired to the gate through the generic
@@ -351,7 +371,7 @@ module Ai
             parameters: {
               agent_id: { type: "string", required: false, description: "Target agent ID (omit for self; another agent's ID requires ai.autonomy.manage)" },
               max_depth: { type: "integer", required: false, description: "Maximum delegation depth, 1..10" },
-              allowed_delegate_types: { type: "array", required: false, description: "Agent types this agent may delegate to (empty = any)" },
+              allowed_delegate_types: { type: "array", required: false, description: "Agent types this agent may delegate to (empty = none; delegate to any type by enumerating them, or by holding no policy row)" },
               delegatable_actions: { type: "array", required: false, description: "Action types this agent may delegate (empty = any)" },
               budget_delegation_pct: { type: "number", required: false, description: "Fraction 0..1 of remaining budget delegatable per task" },
               inheritance_policy: { type: "string", required: false, description: "conservative | moderate | permissive" }
@@ -972,10 +992,18 @@ module Ai
       def approve_deferred_operation(params)
         request = resolve_approval_request(params[:deferred_operation_id])
         return { success: false, error: "ApprovalRequest not found" } unless request
+        return human_session_refusal(request, "approve") if request.requires_human_session?
+        return requester_refusal(request, "approve") if request.requester_excluded?(approver: user, origin: call_origin,
+                                                                                    agent: agent)
 
         result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).approve(
-          request: request, approver: user, comments: params[:comments]
+          request: request, approver: user, comments: params[:comments], origin: call_origin, agent: agent
         )
+        # A refused decision is a failed call, not a success carrying
+        # workflow: false: the same approver's second decision on a step, a
+        # request no longer pending, an approver not on the current step.
+        return { success: false, error: "Cannot approve this request" } unless result
+
         # Deliberately does NOT carry the reveal-once handoff (IMP-7b81ca22f661)
         # that the HTTP approval surfaces do. A tool return travels further than
         # its caller: Ai::AgentToolBridgeService puts a 200-byte preview of it in
@@ -988,19 +1016,29 @@ module Ai
         # the token is disclosed on the operator UI/API surface instead.
         { success: true, approval_request_id: request.id, request_status: request.reload.status, workflow: result }
       rescue StandardError => e
-        { success: false, error: "Approval failed: #{e.class}: #{e.message}" }
+        # The class and message stay in the server log. A tool result is sent
+        # to the model provider, and a driver error names tables, constraints
+        # and values.
+        Rails.logger.error("[AgentAutonomyTool] approve_deferred_operation failed: #{e.class}: #{e.message}")
+        { success: false, error: "Approval failed" }
       end
 
       def reject_deferred_operation(params)
         request = resolve_approval_request(params[:deferred_operation_id])
         return { success: false, error: "ApprovalRequest not found" } unless request
+        return human_session_refusal(request, "reject") if request.requires_human_session?
+        return requester_refusal(request, "reject") if request.requester_excluded?(approver: user, origin: call_origin,
+                                                                                  agent: agent)
 
         result = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account).reject(
-          request: request, approver: user, comments: params[:comments]
+          request: request, approver: user, comments: params[:comments], origin: call_origin, agent: agent
         )
+        return { success: false, error: "Cannot reject this request" } unless result
+
         { success: true, approval_request_id: request.id, request_status: request.reload.status, workflow: result }
       rescue StandardError => e
-        { success: false, error: "Rejection failed: #{e.class}: #{e.message}" }
+        Rails.logger.error("[AgentAutonomyTool] reject_deferred_operation failed: #{e.class}: #{e.message}")
+        { success: false, error: "Rejection failed" }
       end
 
       # Accepts either a DeferredOperation id (looks up its approval_request) or an ApprovalRequest id directly.
@@ -1012,6 +1050,25 @@ module Ai
         else
           ::Ai::ApprovalRequest.where(account_id: account.id).find_by(id: id)
         end
+      end
+
+      # A request parked for a person's own session (MCP identity plan R2) is
+      # never decided through a tool. The call is an agent's or an MCP client's,
+      # and the user it carries is authority, not a person confirming. It is
+      # refused by name, pointing at where a person decides it.
+      def human_session_refusal(request, verb)
+        { success: false, requires_human_session: true, approval_request_id: request.id,
+          error: "Cannot #{verb} this request here: it needs a person to decide it in their own session. " \
+                 "Open the approval queue on the Autonomy dashboard in the platform UI." }
+      end
+
+      # The principal that asked for a tool-door request never decides it
+      # through a tool (MCP identity plan D1, guard a). Someone else decides it,
+      # or the person who asked, in their own session.
+      def requester_refusal(request, verb)
+        { success: false, approval_request_id: request.id,
+          error: "Cannot #{verb} this request here: you asked for it, so someone else decides it, or you do in " \
+                 "your own session, in the approval queue on the Autonomy dashboard in the platform UI." }
       end
     end
   end

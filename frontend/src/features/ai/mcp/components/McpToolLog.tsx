@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { cn } from '@/shared/utils/cn';
+import { formatDurationMs } from '@/shared/utils/formatters';
 
 export interface ToolLogEntry {
   id: string;
@@ -50,12 +51,6 @@ export const McpToolLog: React.FC<McpToolLogProps> = ({ entries, className }) =>
     } catch {
       return ts;
     }
-  };
-
-  const formatDuration = (ms?: number) => {
-    if (ms === undefined) return '--';
-    if (ms < 1000) return `${ms}ms`;
-    return `${(ms / 1000).toFixed(1)}s`;
   };
 
   return (
@@ -108,7 +103,7 @@ export const McpToolLog: React.FC<McpToolLogProps> = ({ entries, className }) =>
                       <Badge variant={badge.variant} size="xs">{badge.label}</Badge>
                     </td>
                     <td className="px-3 py-1 text-right text-theme-tertiary whitespace-nowrap">
-                      {formatDuration(entry.durationMs)}
+                      {formatDurationMs(entry.durationMs, { emptyValue: '--', subSecond: 'raw' })}
                     </td>
                   </tr>
                 );

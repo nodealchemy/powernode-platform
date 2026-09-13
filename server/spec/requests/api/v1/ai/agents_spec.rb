@@ -133,6 +133,22 @@ RSpec.describe 'Api::V1::Ai::Agents', type: :request do
         expect(data['agent']).to have_key('provider')
       end
 
+      # E3b: the worker's streaming concern reads provider['default_model'] from
+      # this payload and no longer picks from the catalog itself, so the key must
+      # carry the SERVER's resolution: the lightest-tier catalog model, not
+      # catalog[0] (sync orders catalogs most-capable-first). Nil when nothing
+      # resolves, so the worker refuses.
+      it "carries the provider's server-resolved default_model" do
+        agent.provider.update_columns(supported_models: [ { "id" => "claude-opus-tier-probe" },
+                                                          { "id" => "claude-haiku-tier-probe" } ])
+        get "/api/v1/ai/agents/#{agent.id}", headers: headers, as: :json
+        expect(json_response_data['agent']['provider']).to include('default_model' => 'claude-haiku-tier-probe')
+
+        agent.provider.update_columns(supported_models: [])
+        get "/api/v1/ai/agents/#{agent.id}", headers: headers, as: :json
+        expect(json_response_data['agent']['provider']).to include('default_model' => nil)
+      end
+
       it 'includes skill_slugs' do
         get "/api/v1/ai/agents/#{agent.id}", headers: headers, as: :json
 

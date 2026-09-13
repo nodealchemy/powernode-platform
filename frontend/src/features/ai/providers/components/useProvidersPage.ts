@@ -13,7 +13,6 @@ export function useProvidersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showSetupModal, setShowSetupModal] = useState(false);
   const [showBulkTestModal, setShowBulkTestModal] = useState(false);
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
@@ -100,35 +99,6 @@ export function useProvidersPage() {
   const handleRefresh = useCallback(() => {
     loadProviders(false);
   }, [loadProviders]);
-
-  const handleSetupDefaults = useCallback(async (providerTypes?: string[]) => {
-    try {
-      const types = providerTypes || ['openai', 'anthropic', 'google', 'groq', 'mistral'];
-      const result = await providersApi.setupDefaultProviders(types);
-
-      if (result.created_providers && result.created_providers.length > 0) {
-        addNotification({
-          type: 'success',
-          title: 'Providers Created',
-          message: `Successfully created ${result.created_providers.length} default provider(s).`
-        });
-        loadProviders(false);
-      } else {
-        addNotification({
-          type: 'info',
-          title: 'No Providers Created',
-          message: 'All selected providers already exist in your account.'
-        });
-      }
-    } catch (error) {
-      addNotification({
-        type: 'error',
-        title: 'Setup Failed',
-        message: error instanceof Error ? error.message : 'Failed to setup default providers'
-      });
-    }
-    setShowSetupModal(false);
-  }, [addNotification, loadProviders]);
 
   const handleBulkTest = useCallback(async () => {
     try {
@@ -229,13 +199,6 @@ export function useProvidersPage() {
     }] : []),
     ...(canCreateProviders ? [
       {
-        id: 'setup-defaults',
-        label: 'Setup Defaults',
-        onClick: () => setShowSetupModal(true),
-        variant: 'outline' as const,
-        size: 'sm' as const
-      },
-      {
         id: 'add-provider',
         label: 'Add Provider',
         onClick: () => setShowCreateModal(true),
@@ -252,7 +215,6 @@ export function useProvidersPage() {
     searchQuery,
     showFilters,
     showCreateModal,
-    showSetupModal,
     showBulkTestModal,
     selectedProviderId,
     editingProviderId,
@@ -264,7 +226,6 @@ export function useProvidersPage() {
     pageActions,
     setShowFilters,
     setShowCreateModal,
-    setShowSetupModal,
     setShowBulkTestModal,
     setSelectedProviderId,
     setEditingProviderId,
@@ -272,7 +233,6 @@ export function useProvidersPage() {
     handleFilterChange,
     handlePageChange,
     handleRefresh,
-    handleSetupDefaults,
     handleBulkTest,
     handleProviderUpdate,
     handleViewProvider,

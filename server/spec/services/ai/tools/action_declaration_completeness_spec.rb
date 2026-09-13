@@ -146,6 +146,15 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 (core categories on the Release Manager;
   #                                 the mode-less wizard call is the verb's
   #                                 declared read arm — `ungated_when`)
+  #   campaign_resume               MCP identity plan R2 campaign.resume
+  #                                 (human_only: every tool call parks for a
+  #                                 person's own session, whatever the policy;
+  #                                 the replay runs as that person)
+  #   create_/update_/delete_intervention_policy
+  #                                 secreview §21 G4  ai.intervention_policy.write
+  #                                 (human_only: a policy row decides what parks
+  #                                 and what needs a person, so a tool door's
+  #                                 write to one parks for a person's own session)
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -175,6 +184,10 @@ RSpec.describe "MCP action declaration completeness" do
     system_promote_module_version
     system_rollback_module_version
     system_deploy_platform
+    campaign_resume
+    create_intervention_policy
+    update_intervention_policy
+    delete_intervention_policy
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

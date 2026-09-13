@@ -1,4 +1,5 @@
 import { BaseApiService } from '@/shared/services/ai/BaseApiService';
+import { type StatusRollup, type Verdict, UNHEALTHY_VERDICTS, isVerdict } from '@/shared/types/platformStatus';
 
 /**
  * MonitoringApiService - Monitoring Controller API Client
@@ -35,8 +36,11 @@ import { BaseApiService } from '@/shared/services/ai/BaseApiService';
 
 export interface MonitoringDashboard {
   system_health: {
-    status: 'healthy' | 'degraded' | 'down';
-    uptime_percentage: number;
+    // The platform verdict itself (E7 review M1), not a three-word summary of
+    // it. `not_measured` means the dashboard had no rollup to read.
+    status: Verdict;
+    // null when there is no rollup: no measurement, not 100%.
+    uptime_percentage: number | null;
     last_incident?: string;
   };
   // Native overview data from backend
@@ -66,7 +70,8 @@ export interface MonitoringDashboard {
     name: string;
     status: string;
     executions?: number;
-    success_rate?: number;
+    // null when the agent has no measured rate — never a default (M1 review F3).
+    success_rate: number | null;
     avg_execution_time?: number;
     total_cost?: number;
   }>;
@@ -80,7 +85,7 @@ export interface MonitoringDashboard {
   resources?: {
     cpu: { usage_percent: number; idle_percent: number; load_average: string };
     memory: { total_mb: number; used_mb: number; free_mb: number; usage_percent: number };
-    database: { status: string; connection_count: number };
+    database: { status: string; connection_count: number | null };
     redis: { status: string; used_memory: string; connected_clients: number };
   };
 }
@@ -90,9 +95,12 @@ export interface MonitoringDashboard {
  * Matches Rails Ai::MonitoringHealthService#comprehensive_health_check output
  */
 export interface HealthStatus {
-  // Overall status
-  status: 'healthy' | 'degraded' | 'unhealthy' | 'critical';
-  health_score: number;
+  // E7b: the health service reports component measurements only and stamps
+  // no verdict of its own. The overall verdict comes from the status-plane
+  // rollup the health action merges in beside the measurements (account-owned
+  // rows only; shared/NULL-account rows are split out separately).
+  rollup: StatusRollup | null;
+  shared: StatusRollup | null;
   timestamp: string;
   time_range_seconds?: number;
 
@@ -213,7 +221,6 @@ class MonitoringApiService extends BaseApiService {
         avg_response_time?: number;
         success_rate?: number;
       };
-      health_score?: number;
       components?: {
         providers?: {
           total_providers?: number;
@@ -257,6 +264,8 @@ class MonitoringApiService extends BaseApiService {
 
     const response = await this.get<{
       dashboard: BackendDashboard;
+      rollup?: StatusRollup | null;
+      shared?: StatusRollup | null;
       generated_at: string;
     }>(`${this.basePath}/dashboard`);
 
@@ -266,13 +275,22 @@ class MonitoringApiService extends BaseApiService {
     const providerComponents = dashboard?.components?.providers;
     const agentComponents = dashboard?.components?.agents;
 
+    // A rate over ZERO executions is not a measurement (M1 review F3). The
+    // server's calculate_success_rate answers 0.0 for 0 of 0, so the rate alone
+    // cannot tell "never ran" from "always failed"; the execution count in the
+    // same row can. No runs, or no rate, reads null: never a made-up 100, and
+    // never a 0 standing in for "no data".
+    const measuredRate = (executions: number | undefined, rate: number | undefined): number | null =>
+      executions !== undefined && executions > 0 && typeof rate === 'number' ? rate : null;
+    const errorRateFrom = (rate: number | null): number | undefined => (rate === null ? undefined : 100 - rate);
+
     // Map providers from nested structure
     const providers = (providerComponents?.providers || []).map(p => ({
       id: p.id,
       name: p.name,
       status: (p.status === 'active' ? 'healthy' : p.status === 'inactive' ? 'down' : 'degraded') as 'healthy' | 'degraded' | 'down',
       latency_ms: p.avg_response_time || 0,
-      error_rate: p.success_rate ? (100 - p.success_rate) : 0
+      error_rate: errorRateFrom(measuredRate(p.executions, p.success_rate))
     }));
 
     // Calculate agent stats from nested structure
@@ -285,11 +303,41 @@ class MonitoringApiService extends BaseApiService {
     // Use native overview data from backend
     const nativeOverview = dashboard?.overview;
 
+    // `dashboard.health_score` is GONE (E7) — the endpoint never carried it at
+    // this nesting level in the first place (the pre-E7 field, when it
+    // existed, was a SIBLING of `dashboard`, not nested inside it), so the
+    // `|| 100` here was silently reporting "100% uptime" on every single call.
+    // The authoritative replacement is the `rollup` sibling `platform_rollup`
+    // now returns: derive a genuine percentage from its counts rather than
+    // defaulting to a number that means "nothing is wrong" when the truth is
+    // "we don't have an opinion". `rollup.total === 0` (nothing tracked yet)
+    // is the one case where 100 is a real computed answer, not a fabricated
+    // one — zero unhealthy components out of zero is vacuously true, not a
+    // guess standing in for a missing signal.
+    const rollup = response?.rollup;
+    const unhealthyCount = rollup
+      ? UNHEALTHY_VERDICTS.reduce((sum, verdict) => sum + (rollup.counts_by_verdict[verdict] ?? 0), 0)
+      : 0;
+    //
+    // NO ROLLUP AT ALL is not that vacuous case. It is no measurement, and it
+    // reads null: "100% uptime" there was the same lie as the status below.
+    const uptimePercentage: number | null = !rollup
+      ? null
+      : rollup.total > 0
+        ? Math.round(((rollup.total - unhealthyCount) / rollup.total) * 100)
+        : 100;
+
     return {
       system_health: {
-        status: nativeOverview?.status === 'healthy' ? 'healthy' :
-                nativeOverview?.status === 'degraded' ? 'degraded' : 'healthy',
-        uptime_percentage: dashboard?.health_score || 100
+        // THE PLATFORM VERDICT, passed through (E7 review M1). This used to
+        // read `nativeOverview?.status` and fall back to 'healthy', and E7b
+        // removed that key, so the main dashboard said "All systems
+        // operational" on every load whatever the fleet was doing. There is
+        // no fallback now: a missing or unrecognised verdict is
+        // `not_measured`, because a thing we could not see is not a thing
+        // that is fine (see platformStatus.ts).
+        status: rollup && isVerdict(rollup.verdict) ? rollup.verdict : 'not_measured',
+        uptime_percentage: uptimePercentage
       },
       // Pass native overview for direct use
       overview: {
@@ -312,7 +360,7 @@ class MonitoringApiService extends BaseApiService {
         name: a.name,
         status: a.status,
         executions: a.executions || 0,
-        success_rate: a.success_rate || 100,
+        success_rate: measuredRate(a.executions, a.success_rate),
         avg_execution_time: 0,
         total_cost: 0
       })),
@@ -332,7 +380,7 @@ class MonitoringApiService extends BaseApiService {
         },
         database: {
           status: dashboard.components.resources.database?.status || 'unknown',
-          connection_count: dashboard.components.resources.database?.connection_count || 0
+          connection_count: dashboard.components.resources.database?.connection_count ?? null
         },
         redis: {
           status: dashboard.components.resources.redis?.status || 'unknown',

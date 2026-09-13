@@ -35,10 +35,9 @@
 #
 # Delegation (operator rulings 2026-09-03):
 #   * core-forest children: single-purpose, `conservative`, max_depth 1, no
-#     delegate types and no delegatable actions (Ai::DelegationPolicy
-#     #allows_delegate_type? treats an EMPTY list as unrestricted; depth 1 is
-#     the operative brake until the model's blank-means-any semantics are
-#     revisited — tracked with HIER-P0);
+#     delegate types and no delegatable actions. HIER-P0 is FIXED:
+#     Ai::DelegationPolicy#allows_delegate_type? now reads an EMPTY list as
+#     NONE, so the empty list is itself the brake and depth 1 is a second one;
 #   * Platform Architect: `moderate`, max_depth 3, may delegate to every
 #     Engineering agent — written in the CONSUMER's vocabulary, the agent
 #     TYPES its children carry (the column is compared against
@@ -156,11 +155,10 @@ else
   engineering_delegation = lambda do |child|
     case child.slug
     when "platform-developer"
-      # NARROW when the reviewer is missing, never widen. Ai::DelegationPolicy
-      # reads an EMPTY allowed_delegate_types as "any type" (#allows_delegate_type?
-      # is `blank? || include?`), so `[reviewer_type].compact` on an install
-      # where llm-judge has not been seeded — a state the graceful-skip contract
-      # makes expected — would hand the Platform Developer unrestricted
+      # NARROW when the reviewer is missing, never widen. The sentinel is kept
+      # for what it SAYS: on an install where llm-judge has not been seeded — a
+      # state the graceful-skip contract makes expected — `[reviewer_type].compact`
+      # would be empty, and %w[none] records that the Platform Developer
       # delegation. Fall back to the same no-such-type sentinel the Release
       # Manager carries.
       types = reviewer_type.present? ? [ reviewer_type ] : RELEASE_MANAGER_NO_DELEGATES

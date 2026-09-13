@@ -41,7 +41,7 @@ module Ai
             repository: { type: "string", required: false, description: "Repository id/full_name; resolved to a Devops::GitRepository target when known, else recorded as a tag" },
             agent_id: { type: "string", required: false, description: "Agent (UUID/slug/name) to drain the dev-improve loop when enabling autonomy" },
             max_iterations_per_day: { type: "integer", required: false, description: "Daily iteration cap for unattended autonomy" },
-            reason: { type: "string", required: false, description: "Reason for revert_improvement" },
+            reason: { type: "string", required: false, description: "Reason for revert_improvement or dismiss_improvement" },
             direction: { type: "string", required: false, description: "Operator decision pinned onto the promoted task's brief (approve_improvement)" },
             title: { type: "string", required: false, description: "Short finding title" },
             description: { type: "string", required: false, description: "What to fix and why" },
@@ -107,7 +107,8 @@ module Ai
                          "pending/blocked dev-improve task is cascaded to skipped in the same transaction; an " \
                          "in_progress or already-terminal task is left untouched and named back in the response.",
             parameters: {
-              recommendation_id: { type: "string", required: true, description: "Recommendation to dismiss" }
+              recommendation_id: { type: "string", required: true, description: "Recommendation to dismiss" },
+              reason: { type: "string", required: false, description: "Why it was dismissed — e.g. \"implemented in <sha>\", \"not reproducible\", \"wrong finding\". Optional, but a dismissal without one is indistinguishable from noise in the scoreboard funnel." }
             }
           },
           "revert_improvement" => {
@@ -242,17 +243,39 @@ module Ai
 
         # Tier-2(b): dedupe is scoped to the target — the same fingerprint in two
         # different repositories is two distinct offers, not a collision.
-        existing = open_offer_for(params[:fingerprint].to_s, target_type: target_type, target_id: target_id)
-        if existing
-          existing.update!(attrs)
-          success_result(recommendation: serialize(existing), deduped: true)
-        else
-          rec = Ai::ImprovementRecommendation.create!(
-            attrs.merge(account: account, recommendation_type: type,
-                        target_type: target_type, target_id: target_id, status: "pending")
-          )
+        fingerprint = params[:fingerprint].to_s
+        attrs = attrs.merge(fingerprint: fingerprint)
+        existing = open_offer_for(fingerprint, target_type: target_type, target_id: target_id)
+        return refresh_offer(existing, attrs) if existing
+
+        begin
+          # A savepoint, so a lost race below does not poison a caller's
+          # enclosing transaction.
+          rec = Ai::ImprovementRecommendation.transaction(requires_new: true) do
+            Ai::ImprovementRecommendation.create!(
+              attrs.merge(account: account, recommendation_type: type,
+                          target_type: target_type, target_id: target_id, status: "pending")
+            )
+          end
           success_result(recommendation: serialize(rec), deduped: false)
+        rescue ActiveRecord::RecordNotUnique
+          # D1 review H2: another sweep filed the same pending offer between
+          # the lookup above and this insert. The partial unique index on
+          # (account, target, fingerprint) refused the second one; that is a
+          # dedupe, not an error.
+          winner = open_offer_for(fingerprint, target_type: target_type, target_id: target_id)
+          raise unless winner
+
+          refresh_offer(winner, attrs)
         end
+      end
+
+      # Re-offering refreshes the open offer. It also writes the fingerprint
+      # column onto an offer filed before that column existed, so the unique
+      # index covers it from then on.
+      def refresh_offer(existing, attrs)
+        existing.update!(attrs)
+        success_result(recommendation: serialize(existing), deduped: true)
       end
 
       def list_improvements(params)
@@ -319,8 +342,8 @@ module Ai
 
         response = nil
         ActiveRecord::Base.transaction do
-          rec.dismiss!
-          response = { recommendation_id: rec.id, status: rec.status }
+          rec.dismiss!(reason: params[:reason])
+          response = { recommendation_id: rec.id, status: rec.status, dismiss_reason: rec.dismiss_reason }
           cascade = cascade_dismiss_promoted_task!(rec)
           response.merge!(cascade) if cascade
         end
@@ -419,7 +442,11 @@ module Ai
         return nil unless task
 
         if task.can_skip?
-          task.skip!(reason: "Recommendation #{rec.id} dismissed")
+          # The operator's words travel with the skip. Without them the task
+          # reads "Recommendation <uuid> dismissed" and whoever finds it has to
+          # go back to the recommendation to learn anything.
+          detail = rec.dismiss_reason.presence
+          task.skip!(reason: "Recommendation #{rec.id} dismissed#{": #{detail}" if detail}")
           { promoted_task_key: task.task_key, promoted_task_status: task.status }
         else
           { promoted_task_key: task.task_key, promoted_task_status: task.status,
@@ -556,6 +583,11 @@ module Ai
           target_type: rec.target_type,
           extension: evidence["extension"],
           fingerprint: evidence["fingerprint"],
+          # Surfaced, not just stored. list_improvements is the only way an
+          # operator reads offers through this tool, so a reason that persisted
+          # and never came back out would be the same write-only shape as the
+          # gap it closes. nil on every non-dismissed row, which is honest.
+          dismiss_reason: rec.dismiss_reason,
           created_at: rec.created_at
         }
       end

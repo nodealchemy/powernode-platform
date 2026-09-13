@@ -179,7 +179,7 @@ const StorageProvidersPage: React.FC = () => {
         title="File Storage"
         description="Configure storage providers for file management"
         breadcrumbs={[
-          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Dashboard', href: '/app' },
           { label: 'System', href: '/system' },
           { label: 'File Storage', href: '/system/storage' }
         ]}

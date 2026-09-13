@@ -185,13 +185,12 @@ RSpec.describe "sibling MCP tools: per-action authorization parity" do
   end
 
   describe "Ai::Tools::SelfImprovementTool" do
-    # REST twins: the self-challenge surface is gated as a family on ai.manage
-    # (agent_intelligence_controller.rb:76-81); skill writes on
-    # ai.skills.update / ai.skills.create (skills_controller.rb).
+    # REST twins: skill writes on ai.skills.update / ai.skills.create
+    # (skills_controller.rb). The self-challenge family that used to sit beside
+    # them on ai.manage was deleted in D6, along with its three verbs.
     let(:reader) { create(:user, account: account, permissions: %w[ai.skills.read]) }
     let(:updater) { create(:user, account: account, permissions: %w[ai.skills.read ai.skills.update]) }
     let(:creator) { create(:user, account: account, permissions: %w[ai.skills.read ai.skills.create]) }
-    let(:ai_manager) { create(:user, account: account, permissions: %w[ai.skills.read ai.manage]) }
     let!(:skill) { create(:ai_skill, account: account) }
 
     # The oracle is that the mutation service is never CONSTRUCTED. A row count
@@ -234,20 +233,23 @@ RSpec.describe "sibling MCP tools: per-action authorization parity" do
       expect(result[:error]).to include("ai.skills.update")
     end
 
-    it "refuses the self-challenge reads without ai.manage" do
-      result = refuse("list_challenges", {}, user: reader, mcp_agent: agent)
-
-      expect(result[:success]).to be(false)
-      expect(result[:error]).to include("ai.manage")
-    end
-
-    it "refuses a skill mutation smuggled in under the challenge-list name" do
+    # THE SMUGGLED-ACTION ORACLE. A user principal is deliberately NOT pinned
+    # to the invoked tool name, so a name-keyed check is bypassable by supplying
+    # a sibling :action — the gate has to key on the action that RUNS.
+    #
+    # This used to be driven through `list_challenges` (ai.manage) as the
+    # cheap outer name. D6 deleted that verb, so the same property is driven
+    # through the cheapest surviving pair on this tool: compose_skills
+    # (ai.skills.create) as the invoked name, mutate_skill (ai.skills.update)
+    # as the smuggled one, with a caller holding create but NOT update. The
+    # oracle is unchanged; only the pair carrying it moved.
+    it "refuses a skill mutation smuggled in under the compose name" do
       expect(::Ai::SelfImprovement::SkillMutationService).not_to receive(:new)
 
       result = refuse(
-        "list_challenges",
+        "compose_skills",
         { "action" => "mutate_skill", "skill_id" => skill.id, "strategy" => "learning_driven" },
-        user: ai_manager, mcp_agent: agent
+        user: creator, mcp_agent: agent
       )
 
       expect(result[:success]).to be(false)
@@ -255,13 +257,6 @@ RSpec.describe "sibling MCP tools: per-action authorization parity" do
     end
 
     # CONTROLS.
-    it "still lists challenges for a caller holding ai.manage" do
-      result = run("list_challenges", {}, user: ai_manager, mcp_agent: agent)
-
-      expect(result[:success]).to be(true)
-      expect(result[:data][:count]).to eq(0)
-    end
-
     it "still mutates for a caller holding ai.skills.update" do
       result = run("mutate_skill", { "skill_id" => SecureRandom.uuid, "strategy" => "learning_driven" },
                    user: updater, mcp_agent: agent)
@@ -607,9 +602,6 @@ RSpec.describe "sibling MCP tools: per-action authorization parity" do
       )
 
       expect(::Ai::Tools::SelfImprovementTool::ACTION_PERMISSIONS).to eq(
-        "generate_self_challenge" => "ai.manage",
-        "list_challenges" => "ai.manage",
-        "get_challenge_result" => "ai.manage",
         "mutate_skill" => "ai.skills.update",
         "auto_evolve_skill" => "ai.skills.update",
         "compose_skills" => "ai.skills.create"

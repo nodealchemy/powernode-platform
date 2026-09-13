@@ -70,6 +70,7 @@ module Api
             credential = agent.resolved_credential
 
             system_prompt = agent.build_system_prompt_with_profile
+            stamp_served_skill_versions(agent, account)
 
             render_success(
               execution_context: execution_context,
@@ -159,6 +160,21 @@ module Api
 
           private
 
+          # D5 — AiAgentExecutionJob owns an execution row but asks HERE for its
+          # prompt, so this build is the one that served it. The job names its
+          # row; the row must belong to THIS agent in THIS account or nothing is
+          # stamped — the id is data from the caller, not authority. Best-effort:
+          # a failed stamp costs the run its skill-version credit, not its prompt.
+          def stamp_served_skill_versions(agent, account)
+            return if params[:agent_execution_id].blank?
+
+            execution = ::Ai::AgentExecution.find_by(id: params[:agent_execution_id].to_s,
+                                                      account_id: account.id, ai_agent_id: agent.id)
+            ::Ai::SkillVersion.record_served!(execution: execution, version_ids: agent.served_skill_version_ids)
+          rescue StandardError => e
+            Rails.logger.warn "[ExecutionContexts] served skill version stamp failed: #{e.message}"
+          end
+
           # ------------------------------------------------------------------
           # Tenancy anchors for this controller's caller-supplied lookups.
           #
@@ -208,12 +224,6 @@ module Api
           def agent_scope
             # Shared anchor definition — see Api::V1::Internal::WorkerTenancy.
             ::Ai::Agent.for_account(worker_account_id)
-          end
-
-          # `accounts.id` is never NULL, so a nil worker account_id matches no
-          # row — the nil principal is denied rather than granted.
-          def account_scope
-            Account.where(id: worker_account_id)
           end
 
           # Ordered non-Fable reasoning fallbacks for the worker's refusal handler.

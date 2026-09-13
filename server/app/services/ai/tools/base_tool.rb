@@ -6,6 +6,12 @@ module Ai
       REQUIRED_PERMISSION = nil
       MAX_CALLS_PER_EXECUTION = 20
 
+      # What a parked human-only call tells its caller (MCP identity plan R2).
+      HUMAN_CONFIRMATION_MESSAGE = "Parked for a person to confirm. This action runs only after a person approves " \
+                                   "it in their own session, and then as that person: open the approval queue on " \
+                                   "the Autonomy dashboard in the platform UI. An MCP or agent call cannot " \
+                                   "approve it."
+
       # The `data` body of the third outcome #execute can produce: the autonomy
       # gate returned :pending, so the action was PARKED for an operator and
       # nothing was applied. Declared here, beside the site that builds it, and
@@ -29,6 +35,11 @@ module Ai
         "approval_request_id" => {
           "type" => "string",
           "description" => "Ai::ApprovalRequest UUID an operator decides. May be null."
+        },
+        "requires_human_session" => {
+          "type" => "boolean",
+          "description" => "True when only a person, in their own session, can decide the parked request " \
+                           "(a human-only action). An MCP or agent call cannot approve it."
         },
         "message" => {
           "type" => "string",
@@ -85,6 +96,29 @@ module Ai
           description: "Opaque keyset cursor taken from a previous page's `next_cursor`. Omit for the first page. " \
                        "Read `count` (the total matching your filters, NOT this page's size) and `has_more` to tell " \
                        "a complete answer from a truncated one."
+        }
+      }.freeze
+
+      # The fragment a list action splats in to accept `environment` as a
+      # FILTER: narrow the answer to one plane of the fleet.
+      #
+      # Distinct from the `environment` key System::EnvironmentResolver reads,
+      # which is a gating FLOOR — the two coexist deliberately. Asking for one
+      # plane's rows also gates the read at that plane's strictness, which is
+      # the conservative direction: naming `prod` can only tighten the policy
+      # the call is measured against, never loosen it.
+      #
+      # No `enum:`. The plane set is per-account and extensible (an operator may
+      # add planes), so the accepted values are a QUERY, not a constant — which
+      # is why the prose points at environment_list instead of spelling a list
+      # the platform would then have to keep true.
+      ENVIRONMENT_FILTER_PARAMETER = {
+        environment: {
+          type: "string", required: false,
+          description: "Environment slug or Ai::Environment id: return only rows on that plane of the fleet. " \
+                       "The plane set is per-account and extensible, so it is NOT a closed enum — call " \
+                       "environment_list for this account's planes (seeded: dev, ci, staging, ops, prod). " \
+                       "A plane this account does not have is refused, never ignored."
         }
       }.freeze
 
@@ -145,14 +179,16 @@ module Ai
         # A tool may still splat its own extra keys alongside (SdwanTool's
         # `pending_extra`); this is the floor, not the ceiling.
         def pending_payload(action_category:, deferred_operation: nil,
-                            approval_request: nil, message: nil)
-          {
+                            approval_request: nil, message: nil, requires_human_session: false)
+          payload = {
             pending: true,
             action_category: action_category,
             deferred_operation_id: deferred_operation&.id,
             approval_request_id: approval_request&.id,
             message: message.presence || "Approval required: #{action_category}"
           }
+          # Only when set, so every other parked envelope keeps its exact shape.
+          requires_human_session ? payload.merge(requires_human_session: true) : payload
         end
 
         def definition
@@ -178,13 +214,12 @@ module Ai
           # replay re-check, PlatformApiToolRegistry.tool_definitions) refuses
           # the canonical; #execute refuses it with a named envelope.
           #
-          # OUTSIDE the fail-open rescue below, deliberately: that rescue turns
-          # any error in the account-role lookup into `true`, and a fail-CLOSED
-          # refusal evaluated inside it would become an ALLOW the moment the
-          # predicate raised. The predicate is two `respond_to?`-guarded calls
-          # on the model, so a raise here is a real defect and surfaces as one.
+          # The predicate is two `respond_to?`-guarded calls on the model, so a
+          # raise here is a real defect and surfaces as one.
           return false if canonical_principal?(agent)
-          return true unless agent.respond_to?(:account) && agent.account
+          # An agent with no account to bound it has no account role to ask.
+          # It used to pass here; it fails CLOSED now (MCP identity plan, commit 4).
+          return false unless agent.respond_to?(:account) && agent.account
 
           permitted_by_account_role?(agent)
         end
@@ -195,12 +230,15 @@ module Ai
         # grants and silently hides every code-defined-role permission (e.g.
         # ai.campaigns.*) from all agents, including the concierge. Accounts are small
         # (single-user in core mode), so the per-user check is cheap.
+        #
+        # A check that cannot answer refuses. This rescue used to answer `true` on
+        # the premise that a user's API-level authorization gated the call, which
+        # an agent's own loop and a no-agent MCP call never pass through.
         def permitted_by_account_role?(agent)
           agent.account.users.any? { |user| user.has_permission?(self::REQUIRED_PERMISSION) }
-        rescue StandardError
-          # If permission check fails, allow the tool — execution is already
-          # gated by the triggering user's API-level authorization.
-          true
+        rescue StandardError => e
+          Rails.logger.warn("[#{name}] agent permission check failed closed: #{e.class}: #{e.message}")
+          false
         end
 
         def tool_name
@@ -334,9 +372,57 @@ module Ai
         # child-before-parent, so a subclass that re-declares an audited action
         # without repeating `audit: true` silently disarms the gate, with
         # nothing in the diff to show for it.
+        #
+        # `destructive:` (E2) marks an action that may perform an IRREVERSIBLE
+        # update — the MCP `destructiveHint` sense. Mcp::ToolCatalog publishes
+        # it, and it is the ground truth that replaces the name-shaped guess
+        # the catalog used to make.
+        #
+        # WHY A DECLARATION AND NOT A NAME GLOB. Mcp::Principal
+        # ::DESTRUCTIVE_TOOL_PATTERNS already classifies destroy-shaped tools,
+        # and the obvious shortcut is to publish `destructiveHint` from it.
+        # That would repeat, one field over, exactly the defect E2 exists to
+        # fix: the old `readOnlyHint` was a name-prefix guess and it was
+        # ACTIVELY WRONG for three declared-mutating verbs whose names begin
+        # `perceive`/`measure`. A glob cannot know what a verb does; the author
+        # can. The overlay keeps its patterns — it answers a different
+        # question, "may an instance principal invoke this at all" — and a lint
+        # holds the two in agreement over the core surface so they cannot drift
+        # into two rival classifications.
+        #
+        # `destructive: true` IMPLIES `mutating: true`, enforced here rather
+        # than left to convention: per the MCP spec `destructiveHint` is only
+        # meaningful when `readOnlyHint` is false, so a read-only destructive
+        # declaration is not a stricter statement, it is an incoherent one that
+        # would publish a hint no client can act on. Raised at declaration
+        # time, i.e. at class load, so it cannot reach a running catalog.
+        #
+        # `human_only:` (MCP identity plan R2): the action is a PERSON's
+        # decision, and no tool door is a person's consent. Called from any
+        # tool door it neither runs nor is refused. It PARKS the exact call
+        # through the gate, flagged requires_human_session. It runs only as the
+        # replay of an approval a person made in their own REST/UI session, and
+        # then AS that person (#human_confirmed_replay?). It therefore requires
+        # the full gate wiring, so there is somewhere to park, and it takes no
+        # `ungated_when` read arm, which would be a way past the park.
         def declare_action(name, mutating:, action_category: nil, executor_class: nil,
                            gate_context: nil, on_proceed: nil, ungated_when: nil,
-                           audit: false)
+                           audit: false, destructive: false, human_only: false)
+          if destructive && !mutating
+            raise ArgumentError,
+                  "#{self}.declare_action(#{name.inspect}): destructive: true implies mutating: true " \
+                  "(destructiveHint is only meaningful when readOnlyHint is false)"
+          end
+          if human_only && !(mutating && action_category && executor_class && gate_context && on_proceed)
+            raise ArgumentError,
+                  "#{self}.declare_action(#{name.inspect}): human_only: true needs mutating: true and the full gate " \
+                  "wiring (action_category, executor_class, gate_context, on_proceed), so the call can park"
+          end
+          if human_only && ungated_when
+            raise ArgumentError,
+                  "#{self}.declare_action(#{name.inspect}): human_only: true takes no ungated_when read arm"
+          end
+
           declared_actions[name.to_s] = {
             mutating: mutating,
             action_category: action_category,
@@ -344,7 +430,9 @@ module Ai
             gate_context: gate_context,
             on_proceed: on_proceed,
             ungated_when: ungated_when,
-            audit: audit
+            audit: audit,
+            destructive: destructive,
+            human_only: human_only
           }.freeze
         end
 
@@ -390,11 +478,15 @@ module Ai
       # principal (mTLS node cert) also arrives with no user, and tools that
       # inferred "internal" from `user.nil?` silently handed those principals
       # every per-action permission. (IMP-9030413bc292)
-      def initialize(account:, agent: nil, user: nil, internal: false)
+      # `call_origin:` is the door a tool CONSTRUCTED DIRECTLY names for its
+      # call (Ai::Tools::CallOrigin; reviewer guidance 3), validated exactly as
+      # the registrar's origin: is. nil for a person's own REST request.
+      def initialize(account:, agent: nil, user: nil, internal: false, call_origin: nil)
         @account = account
         @agent = agent
         @user = user
         @internal = internal
+        @call_origin = ::Ai::Tools::CallOrigin.validate!(call_origin)
       end
 
       # Optionally injected post-construction by McpPlatformToolRegistrar for an
@@ -421,6 +513,16 @@ module Ai
       # apart from a bare no-user call — indistinguishable while both were just
       # "@user is nil". (IMP-9030413bc292; sibling of the BUG-S writer above.)
       attr_writer :instance_authorized
+
+      # The door this call came through (Ai::Tools::CallOrigin), set by
+      # McpPlatformToolRegistrar from what its caller named. It is never
+      # inferred from whether an agent record could be resolved: an OAuth MCP
+      # call from an account with no active provider carries no client agent
+      # and is still an MCP call. nil for a direct construction. The mark
+      # grants nothing by itself, because a tool call is never a person's
+      # consent (MCP identity plan R1). It is what checks read instead of
+      # reading "no agent" as "a person".
+      attr_writer :call_origin
 
       def execute(params:)
         # FIRST, before every other check (HIER-P2I): a GLOBAL canonical agent
@@ -489,6 +591,25 @@ module Ai
         if declaration[:audit]
           refusal = enforce_sensitive_access_audit!(action_name, params)
           return refusal if refusal
+        end
+
+        # HUMAN-ONLY (MCP identity plan R2): an MCP call requests, and a person
+        # confirms. No tool door is a person's consent, whoever's user or token
+        # it carries, so the call PARKS the exact action through the gate,
+        # flagged requires_human_session. It runs only as the replay of an
+        # approval a person made in their own session, and then AS that person.
+        # An approved replay that is not that person's refuses instead of
+        # parking a second time.
+        if declaration[:human_only]
+          refusal = authorization_error(params)
+          return refusal if refusal
+          return call(params) if human_confirmed_replay?
+          if approved_replay?
+            return error_result("Refusing to run #{action_name}: it runs only as the person who confirmed it " \
+                                "in their own session.")
+          end
+
+          return run_through_autonomy_gate(declaration, params, requires_human_session: true)
         end
 
         return call(params) unless gated_action?(declaration)
@@ -588,6 +709,21 @@ module Ai
         !account.nil? && operation.account_id == account.id
       end
 
+      # True only on the approved replay of a human-only action, when this tool
+      # was built for the person whose own-session approval completed the
+      # request (Ai::ApprovalRequest#confirming_approver). The answer is read
+      # off the rows, never set by a caller. An agent, an instance, an internal
+      # caller or a missing user is never that person.
+      def human_confirmed_replay?
+        return false unless approved_replay?
+        return false if agent || instance_authorized? || internal? || user.nil?
+
+        request = @replaying_operation.try(:approval_request)
+        return false unless request.respond_to?(:requires_human_session?) && request.requires_human_session?
+
+        request.confirming_approver&.id == user.id
+      end
+
       # THE generic `gate_context` (APO-1b). A tool wires an action to the gate
       # with:
       #
@@ -606,6 +742,10 @@ module Ai
       def deferred_tool_call_context(params)
         action = routed_action_name(params)
         descriptor = caller_principal_descriptor(action)
+        # A human-only action replays as the person who confirms it, never as
+        # its caller. Its caller is only RECORDED (who asked), and need not be
+        # replayable.
+        human_only = self.class.declared_action(action)&.dig(:human_only) == true
 
         # VALIDATE FIRST, so a call that could only ever be refused on replay
         # does not park an approval an operator then has to dispose of. An
@@ -615,7 +755,7 @@ module Ai
         # ArgumentError is the seam #run_through_autonomy_gate already rescues
         # around the context build, and it converts to the caller's error
         # envelope BEFORE Ai::AutonomyGate.evaluate is reached.
-        if descriptor["kind"] == "unattributed"
+        if descriptor["kind"] == "unattributed" && !human_only
           raise ArgumentError,
                 "Action #{action} is approval-gated and cannot be parked for an unattributed " \
                 "caller (#{descriptor['detail']}): an approval granted for it could never be replayed"
@@ -626,7 +766,8 @@ module Ai
             tool_class: self.class.name,
             action: action,
             tool_params: params,
-            principal: descriptor
+            principal: descriptor,
+            human_only: human_only
           ),
           description: deferred_tool_call_description(params)
         }
@@ -672,7 +813,23 @@ module Ai
       # on replay, and a tool enforcing per-action permissions with
       # `return true if internal?` would then refuse the action an operator had
       # just approved — the approval silently becoming a no-op.
+      # The principal's shape below, plus the door the call came through
+      # (MCP identity plan #6): attribution on the parked approval and on its
+      # replay. nil for an unmarked call.
       def caller_principal_descriptor(action = nil)
+        principal_shape_descriptor(action).merge("origin" => call_origin)
+      end
+
+      # A MACHINE's call (MCP identity plan #5): a tool door marked it, or it
+      # carries an agent or an instance principal. The gate resolves it in the
+      # agent audience whether or not an agent record could be resolved for it.
+      # False only for an unmarked, agent-less, non-instance call: a person's own
+      # REST request, or a direct construction the lint allowlists.
+      def machine_call?
+        ::Ai::Tools::CallOrigin.machine?(call_origin) || agent.present? || instance_authorized?
+      end
+
+      def principal_shape_descriptor(action = nil)
         if instance_authorized?
           if node_instance
             return { "kind" => "instance", "node_instance_id" => node_instance.id,
@@ -758,7 +915,7 @@ module Ai
       # that legitimately needs an ungated mutation calls the underlying service
       # directly; a bypass keyed on a constructor flag is exactly the hole this
       # chokepoint exists to close.
-      def run_through_autonomy_gate(declaration, params)
+      def run_through_autonomy_gate(declaration, params, requires_human_session: false)
         misdeclaration = gate_declaration_defect(declaration)
         return misdeclaration if misdeclaration
 
@@ -788,18 +945,35 @@ module Ai
           requested_by: user,
           source_type: context[:source_type],
           source_id: context[:source_id],
-          description: context[:description]
+          description: context[:description],
+          # Splatted only when set, so every other call reaches the gate
+          # exactly as before. The call_origin marks the request with the tool
+          # door it came through (MCP identity plan D1, guard a).
+          **(requires_human_session ? { requires_human_session: true } : {}),
+          **(call_origin ? { call_origin: call_origin } : {}),
+          # A machine's call resolves in the agent audience (MCP identity plan #5).
+          **(machine_call? ? { agent_initiated: true } : {})
         )
 
         case gate.decision
         when :proceed
+          # The gate never proceeds a human-only action (it forces
+          # require_approval). If it ever did, the replay refused for want of a
+          # confirming person, and this reports a refusal, never a success
+          # nobody confirmed.
+          if requires_human_session
+            return error_result("Action #{declaration[:action_category]} needs a person's confirmation; refusing.")
+          end
+
           send(declaration[:on_proceed], params, gate)
         when :pending
           success_result(
             self.class.pending_payload(
               action_category: declaration[:action_category],
               deferred_operation: gate.deferred_operation,
-              approval_request: gate.approval_request
+              approval_request: gate.approval_request,
+              message: (HUMAN_CONFIRMATION_MESSAGE if requires_human_session),
+              requires_human_session: requires_human_session
             )
           )
         else
@@ -949,7 +1123,7 @@ module Ai
 
       private
 
-      attr_reader :account, :agent, :user, :node_instance
+      attr_reader :account, :agent, :user, :node_instance, :call_origin
 
       # === LIST PAGINATION — the call side of the contract above ===
 
@@ -971,6 +1145,34 @@ module Ai
       # @param direction [:asc, :desc]
       # @param extra     [Hash] additional payload keys for this action
       # @yield [record] serializer for one row
+      # === ENVIRONMENT FILTER — the call side of ENVIRONMENT_FILTER_PARAMETER ===
+
+      # Resolve the `environment` filter, or nil when the caller did not name a
+      # plane. An unknown plane RAISES, and every tool that splats the parameter
+      # converts ArgumentError to a refusal envelope.
+      #
+      # Fail closed is the whole point. The alternative — drop a filter that
+      # cannot be resolved — answers "what is running in prod" with rows from
+      # every plane, which is the most dangerous possible misreading of the
+      # question. It is the same refusal Ai::EnvironmentResolution makes when an
+      # ACTION names a plane the account does not have.
+      def environment_filter(params)
+        value = params[:environment]
+        return nil if value.blank?
+
+        ::Ai::Environment.find_for_account(@account.id, value.to_s) ||
+          raise(ArgumentError, "environment '#{value}' not found in this account")
+      end
+
+      # Narrow a relation to the named plane. The `in_environment` scope is
+      # declared by whichever model carries an environment_id, so a model that
+      # is not plane-bearing fails loudly here rather than silently returning
+      # every row.
+      def narrow_to_environment(relation, params)
+        environment = environment_filter(params)
+        environment ? relation.in_environment(environment) : relation
+      end
+
       def paginated_result(key, relation, params, sort: :id, direction: :desc, **extra, &serializer)
         page = paginate_list(relation, params, sort: sort, direction: direction)
         success_result(

@@ -7,7 +7,9 @@ require "rails_helper"
 # same campaign. Legacy (non-campaign) loops are unaffected.
 RSpec.describe Ai::Tools::DevLoopTool, "campaign delegation gating" do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
+  # Explicit: the campaign driver asks the acting user for ai.campaigns.manage in this account,
+  # and an implicit OWNER role depends on this user being created before any other (an agent's creator).
+  let(:user) { create(:user, account: account, permissions: %w[ai.campaigns.read ai.campaigns.manage]) }
   let(:tool) { described_class.new(account: account, user: user) }
   let(:cdriver) { Ai::DevLoop::CampaignDriver.new(account: account, user: user) }
   let(:campaign) { cdriver.start(name: "Drainable")[:campaign] }

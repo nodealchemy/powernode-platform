@@ -1,5 +1,6 @@
 import React from 'react';
 import type { PieLabelRenderProps } from 'recharts';
+import { formatDurationMs } from '@/shared/utils/formatters';
 
 export const PERIOD_OPTIONS = [7, 14, 30, 90];
 
@@ -22,12 +23,12 @@ export const tooltipStyle = {
 export const formatCurrency = (v: number): string =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(v);
 
-export const formatDuration = (ms: number | null | undefined): string => {
-  if (ms == null) return '—';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${(ms / 60000).toFixed(1)}m`;
-};
+// Kept as an alias (not a reimplementation) — several charts and aiopsHelpers.tsx
+// (which re-exports it further) import `formatDuration` from here; the actual
+// formatting logic now lives only in shared/utils/formatters.ts (IMP-01a082a3).
+const teamAnalyticsFormatDuration = (ms: number | null | undefined): string =>
+  formatDurationMs(ms, { tiering: 'decimal-minutes' });
+export { teamAnalyticsFormatDuration as formatDuration };
 
 export const formatNumber = (n: number | null | undefined): string => {
   if (n == null) return '—';

@@ -55,4 +55,55 @@ RSpec.describe "db/seeds/platform_skill_assignments_seed.rb", type: :seed do
     end
     expect(Ai::AgentSkill.count).to eq(0)
   end
+
+  # A fresh demo install creates ACCOUNT copies of the three autonomy canonicals
+  # (ai_example_templates_seed's showcase instances) BEFORE the baseline binding
+  # pass, and resolve_for (account override first) bound those copies instead —
+  # so the GLOBAL canonical rows, the ones the Claude Code export and every
+  # clone read, carried no skills and no declared tier.
+  it "binds the global autonomy canonicals and declares their tier despite account copies; a re-seed changes nothing" do
+    seed_global_skills!
+    # A provider exists before the first pass, so the canonicals' owner
+    # back-fill (CoreSeeds::CanonicalAgentOwner) completes in that pass and the
+    # re-seed below measures THIS fix, not a column that legitimately fills in
+    # once a provider appears.
+    create(:ai_provider, account: admin_account, provider_type: "openai", is_active: true)
+    load_autonomy_seed = -> { silence_warnings { load Rails.root.join("db", "seeds", "autonomy_data_seed.rb") } }
+    load_autonomy_seed.call
+
+    expected_skills = {
+      "infrastructure-health-monitor" => %w[devops-engineer security-analyst sre-incident-response],
+      "process-automation-optimizer" => %w[product-management productivity],
+      "visual-design-assistant" => %w[marketing product-management]
+    }
+    canonicals = expected_skills.keys.index_with { |slug| Ai::Agent.global.find_by!(slug: slug) }
+    copies = canonicals.transform_values { |canonical| create(:ai_agent, account: admin_account, name: canonical.name) }
+
+    run_seed!
+
+    canonicals.each do |slug, canonical|
+      bound = Ai::AgentSkill.where(ai_agent_id: canonical.id, is_active: true)
+                            .joins(:skill).pluck("ai_skills.slug").sort
+      expect(bound).to eq(expected_skills[slug]), "#{slug}: the global canonical is bound to #{bound.inspect}"
+    end
+    %w[process-automation-optimizer visual-design-assistant].each do |slug|
+      tier = canonicals[slug].reload.mcp_metadata.dig("model_config", "model_requirements", "tier")
+      expect(tier).to eq("reasoning"), "#{slug}: the global canonical declares tier #{tier.inspect}"
+    end
+    copies.each do |slug, copy|
+      expect(Ai::AgentSkill.where(ai_agent_id: copy.id).count).to eq(expected_skills[slug].size)
+    end
+
+    bindings = -> { Ai::AgentSkill.order(:id).pluck(:id, :ai_agent_id, :ai_skill_id, :is_active, :priority) }
+    rows = lambda do
+      Ai::Agent.where(id: canonicals.values.map(&:id)).order(:id)
+               .pluck(:id, :updated_at, :version, :mcp_metadata, :ai_provider_id, :description)
+    end
+    bindings_before = bindings.call
+    rows_before = rows.call
+    load_autonomy_seed.call
+    run_seed!
+    expect(bindings.call).to eq(bindings_before)
+    expect(rows.call).to eq(rows_before)
+  end
 end

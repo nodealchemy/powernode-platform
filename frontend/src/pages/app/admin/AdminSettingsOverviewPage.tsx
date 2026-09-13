@@ -265,7 +265,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
             icon="⚙️"
             title="System Settings"
             description="Configure platform settings, security, and business rules"
-            href="/app/system/admin"
+            href="/app/admin/settings"
           />
           <ActionCard
             icon="👥"
@@ -277,7 +277,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
             icon="💳"
             title="Payment Gateways"
             description="Configure Stripe and PayPal integrations"
-            href="/app/system/gateways"
+            href="/app/admin/settings/payment-gateways"
           />
           <ActionCard
             icon="🔗"
@@ -289,14 +289,14 @@ export const AdminSettingsOverviewPage: React.FC = () => {
             icon="📝"
             title="Audit Logs"
             description="Review system activity and security events"
-            href="/app/system/audit"
+            href="/app/admin/audit-logs"
             badge={recent_logs.length.toString()}
           />
           <ActionCard
             icon="⚡"
             title="Services"
             description="Manage background job services and authentication"
-            href="/app/system/services"
+            href="/app/admin/workers"
           />
         </div>
       </div>

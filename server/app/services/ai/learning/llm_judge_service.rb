@@ -22,8 +22,8 @@ module Ai
 
         {{ expected_section }}
 
-        Respond in this exact JSON format:
-        {"correctness": N, "completeness": N, "helpfulness": N, "safety": N, "feedback": "brief explanation"}
+        Return ONLY valid JSON, with no prose outside it:
+        { "scores": { "correctness": N, "completeness": N, "helpfulness": N, "safety": N }, "overall": N, "rationale": "brief explanation" }
       LIQUID
 
       # The model used for evaluation: the caller's explicit pin when given,
@@ -60,7 +60,8 @@ module Ai
         Rails.logger.error "[LlmJudge] Evaluation failed: #{e.message}"
         {
           scores: { "correctness" => 3, "completeness" => 3, "helpfulness" => 3, "safety" => 5 },
-          feedback: "Evaluation failed: #{e.message}"
+          feedback: "Evaluation failed: #{e.message}",
+          degraded: true
         }
       end
 
@@ -124,48 +125,134 @@ module Ai
         nil
       end
 
+      # D4 — the schema the judge is asked for and the schema this parsed were
+      # DIFFERENT, and the mismatch was silent.
+      #
+      # The llm-judge agent's own system prompt (db/seeds/ai_utility_agents_seed.rb)
+      # orders a NESTED object, {"scores": {...}, "overall": N, "rationale": "..."};
+      # the task prompt above ordered a FLAT one and this method read flat keys.
+      # Worse, the old extraction regex /\{[^}]+\}/ stops at the first closing
+      # brace, so it could not even match a nested object. A judge that obeyed
+      # its system prompt therefore produced no usable scores and fell through
+      # to the neutral defaults, which are indistinguishable from a real
+      # mediocre evaluation everywhere downstream.
+      #
+      # The task prompt now orders the same nested shape as the agent prompt,
+      # so the two agree. This still accepts BOTH shapes, and that is not a
+      # legacy shim: prompt templates are DB-editable by design (see
+      # db/seeds/ai_system_prompt_templates_seed.rb — "editable via API/UI
+      # without code deploys"), so the parser must not assume that the shape it
+      # ships with is the shape it will be asked for.
+      SCORE_DIMENSIONS = %w[correctness completeness helpfulness safety].freeze
+
       def parse_evaluation(response)
         return default_scores unless response
 
-        json_match = response.to_s.match(/\{[^}]+\}/)
-        unless json_match
-          # A silently-unparseable judge degrades learning invisibly: the
-          # neutral defaults below are indistinguishable from a real mediocre
-          # score in every downstream metric. Fail-soft stays; silence doesn't.
+        json = extract_json_object(response.to_s)
+        unless json
+          # Fail-soft stays; silence doesn't.
           Rails.logger.warn(
             "[LlmJudge] evaluation response contained no JSON object; applying neutral " \
               "default scores; excerpt: #{response.to_s.strip[0, 200].inspect}"
           )
-          return default_scores
+          return default_scores(reason: "JudgeUnparseable")
         end
 
-        parsed = JSON.parse(json_match[0])
+        parsed = JSON.parse(json)
+        # Nested first, flat second — a nested payload also has top-level keys
+        # (overall, rationale), so reading flat first would silently score a
+        # nested answer from missing keys.
+        dimensions = parsed["scores"].is_a?(Hash) ? parsed["scores"] : parsed
 
-        scores = {
-          "correctness" => clamp_score(parsed["correctness"]),
-          "completeness" => clamp_score(parsed["completeness"]),
-          "helpfulness" => clamp_score(parsed["helpfulness"]),
-          "safety" => clamp_score(parsed["safety"])
-        }
+        # D4 review F1 — a dimension the judge omitted, or sent as anything but
+        # a number, is NOT a score. clamp_score used to turn both into 1, so
+        # `{"scores": {}}` persisted as a real 1/1/1/1 verdict: trust quality
+        # 0.0 and the served skill version marked unsuccessful, off a judge that
+        # said nothing. That is a verdict we did not get, so it degrades like
+        # one — and names the dimension, so the not_measured reason says why.
+        missing = SCORE_DIMENSIONS.select { |dim| dimensions[dim].nil? }
+        not_numeric = SCORE_DIMENSIONS.reject { |dim| dimensions[dim].nil? || dimensions[dim].is_a?(Numeric) }
+        return malformed_verdict(missing, not_numeric, response) if missing.any? || not_numeric.any?
 
-        { scores: scores, feedback: parsed["feedback"] }
+        # A NUMBER outside 1..5 is still clamped: that is a verdict on the
+        # wrong scale, not a missing one.
+        scores = SCORE_DIMENSIONS.index_with { |dim| clamp_score(dimensions[dim]) }
+
+        { scores: scores, feedback: parsed["rationale"] || parsed["feedback"] }
       rescue JSON::ParserError => e
         Rails.logger.warn(
           "[LlmJudge] evaluation JSON parse failed: #{e.message}; applying neutral " \
             "default scores; excerpt: #{response.to_s.strip[0, 200].inspect}"
         )
-        default_scores
+        default_scores(reason: "JudgeUnparseable")
+      end
+
+      # One reason per cause: a MISSING dimension and a NON-NUMERIC one are
+      # different judge failures, and the detail names the dimensions.
+      def malformed_verdict(missing, not_numeric, response)
+        detail = [
+          ("missing: #{missing.join(', ')}" if missing.any?),
+          ("not numeric: #{not_numeric.join(', ')}" if not_numeric.any?)
+        ].compact.join("; ")
+        Rails.logger.warn(
+          "[LlmJudge] malformed verdict (#{detail}); not scoring it; " \
+            "excerpt: #{response.to_s.strip[0, 200].inspect}"
+        )
+        default_scores(reason: missing.any? ? "JudgeDimensionMissing" : "JudgeDimensionNotNumeric", detail: detail)
+      end
+
+      # Brace-balanced scan, because the payload is nested. Ignores braces
+      # inside strings so a rationale containing "{" cannot truncate the object.
+      def extract_json_object(text)
+        start = text.index("{")
+        return nil unless start
+
+        depth = 0
+        in_string = false
+        escaped = false
+
+        text[start..].each_char.with_index do |char, offset|
+          if in_string
+            if escaped then escaped = false
+            elsif char == "\\" then escaped = true
+            elsif char == '"' then in_string = false
+            end
+            next
+          end
+
+          case char
+          when '"' then in_string = true
+          when "{" then depth += 1
+          when "}"
+            depth -= 1
+            return text[start, offset + 1] if depth.zero?
+          end
+        end
+
+        nil
       end
 
       def clamp_score(value)
         [[value.to_i, 1].max, 5].min
       end
 
-      def default_scores
+      # `degraded: true` is the load-bearing part. These are NOT an evaluation —
+      # they are what this service returns when it could not obtain one, and
+      # 3/3/3/5 is otherwise byte-identical to a real mediocre verdict. The
+      # caller (EvaluationService) refuses to persist a row, move trust, or
+      # credit a skill version on a degraded result, so an unavailable judge
+      # reads as "not measured" rather than as "measured, mediocre".
+      #
+      # `degraded_reason` / `degraded_detail` say WHICH failure this was, and
+      # EvaluationService reports them as the not_measured reason.
+      def default_scores(reason: "JudgeUnavailable", detail: nil)
         {
           scores: { "correctness" => 3, "completeness" => 3, "helpfulness" => 3, "safety" => 5 },
-          feedback: "Default scores applied (evaluation unavailable)"
-        }
+          feedback: "Default scores applied (evaluation unavailable)",
+          degraded: true,
+          degraded_reason: reason,
+          degraded_detail: detail
+        }.compact
       end
     end
   end

@@ -82,6 +82,56 @@ module Ai
       step_statuses[current_step] if step_statuses.present?
     end
 
+    # Decided only by a person in their own session: from
+    # Ai::ApprovalDecision::REST_SESSION (#record_decision!), and never through
+    # a tool door. A human-only tool action (MCP identity plan R2: the flag
+    # Ai::AutonomyGate writes; its replay runs as #confirming_approver), or a
+    # request the operator's policy marks (guard b:
+    # Ai::Approvals::HumanSessionPolicy).
+    def requires_human_session?
+      ::Ai::Approvals::HumanSessionPolicy.required?(self)
+    end
+
+    # Came through a TOOL door (MCP identity plan D1, guard a): the gate marked
+    # the door it parked from (request_data call_origin), or a row written
+    # before that mark names the agent that asked for it.
+    def tool_door_request?
+      data = request_data.is_a?(Hash) ? request_data.with_indifferent_access : {}
+      data[:call_origin].present? || data[:agent_id].present?
+    end
+
+    # Whether the principal that asked for a tool-door request is the one
+    # deciding it, through a door the user's ruling on guard (a) closes to it:
+    # the requesting agent, whichever user it carries, through any door; the
+    # requested_by user through any door but their own session (REST_SESSION),
+    # so a single-user install still decides its own requests. A request parked
+    # from a person's own session keeps today's rule and is never excluded.
+    def requester_excluded?(approver:, origin:, agent: nil)
+      return false unless tool_door_request?
+
+      requesting_agent_id = request_data.with_indifferent_access[:agent_id]
+      return true if agent && requesting_agent_id.present? && agent.id.to_s == requesting_agent_id.to_s
+      return false unless approver && requested_by_id.present? && approver.id == requested_by_id
+
+      !::Ai::ApprovalDecision.human_session_origin?(origin)
+    end
+
+    # The person whose OWN-SESSION approval completed this request: the last
+    # approving decision on the LAST step, when that decision row records
+    # Ai::ApprovalDecision::REST_SESSION. The proof is read off the row, never
+    # inferred: a missing origin is no person. nil until the request is
+    # approved, for an approval no person made on that step (a chain's
+    # timeout_action), and for one recorded from any other door.
+    def confirming_approver
+      return nil unless approved?
+
+      last_step = [ step_statuses.to_a.length - 1, 0 ].max
+      decision = decisions.approved.where(step_number: last_step).order(:created_at, :id).last
+      return nil unless decision && ::Ai::ApprovalDecision.human_session_origin?(decision.origin)
+
+      decision.approver
+    end
+
     # Typed approver specs supported:
     #   "*"                                              — any active user
     #   "<user_uuid>"                                    — specific user (legacy)
@@ -94,23 +144,70 @@ module Ai
 
       step_info = current_step_info
       return false unless step_info
+      # One person, one decision per step. Without this a second "approved" from
+      # the same user counted toward required_approvals, so one approver could
+      # satisfy a two-approval step alone. It is also what makes
+      # current_step_can_approve false for someone who has already decided.
+      return false if decided_current_step?(user)
 
       approvers = step_info["approvers"] || []
       approvers.any? { |spec| approver_matches?(spec, user) }
     end
 
-    def record_decision!(approver:, decision:, comments: nil, conditions: {})
+    # Why this instance's last #record_decision! refused, when the person
+    # deciding can act on the reason: an approval that would complete the
+    # request, from someone its source says may not complete it (L9). nil
+    # otherwise. In memory only: the caller that decided holds this instance.
+    attr_reader :decision_refusal
+
+    # `origin` names the door the decision came through (Ai::ApprovalDecision
+    # ORIGINS), and the decision row records it. A requires_human_session
+    # request accepts a decision only from a person's own session. Every other
+    # door, and a caller that names none, is refused (fail closed). `agent` is
+    # the agent a tool door carries: the principal that asked for a tool-door
+    # request does not decide it (#requester_excluded?). An approval that would
+    # complete the request is refused, by the decider's name, when the source
+    # says that person may not complete it (L9): a human-only tool call
+    # replays AS them.
+    def record_decision!(approver:, decision:, comments: nil, conditions: {}, origin: nil, agent: nil)
+      @decision_refusal = nil
+      return false unless human_session_satisfied?(origin)
+      return false if requester_excluded?(approver: approver, origin: origin, agent: agent)
       return false unless can_approve?(approver)
 
-      decisions.create!(
-        approver: approver,
-        step_number: current_step,
-        decision: decision,
-        comments: comments,
-        conditions: conditions
-      )
+      # THE REQUEST ROW IS LOCKED FOR THE WHOLE DECISION. Without it two
+      # concurrent decisions both pass the check above and both read-modify-write
+      # step_statuses: the same approver could turn both keys of a step, and two
+      # different approvers could each write current_approvals = 1 and lose a
+      # key. Under the lock the check is repeated against the row as it is now.
+      announce = false
+      result = with_lock do
+        next false unless can_approve?(approver)
 
-      process_decision(decision)
+        # Before the row is written, so a refused decision spends nothing.
+        if decision == "approved" && completes_on_approval?
+          @decision_refusal = completing_decider_refusal(approver)
+          next false if @decision_refusal
+        end
+
+        step_before = current_step
+        next false unless insert_decision(approver, decision, comments, conditions, origin)
+
+        recorded = process_decision(decision)
+        # A decision that neither advanced the step nor resolved the request
+        # (the first of two approvals, a delegation) moves no column the
+        # after_update callbacks watch, so the step's other approvers, and every
+        # open queue, never heard of it. Announced for this case only: a step
+        # advance already fans out through the current_step callback, and a
+        # resolved request has nothing left to act on.
+        announce = pending? && current_step == step_before
+        recorded
+      end
+
+      # After the lock's transaction has committed, so a queue that re-reads on
+      # the event sees the decision it announces.
+      announce_decision_within_step if announce
+      result
     end
 
     def check_expiration!
@@ -118,7 +215,7 @@ module Ai
 
       case approval_chain.timeout_action
       when "approve"
-        approve!
+        timeout_may_approve? ? approve! : reject!
       when "reject"
         reject!
       when "escalate"
@@ -165,6 +262,40 @@ module Ai
     end
 
     private
+
+    def human_session_satisfied?(origin)
+      !requires_human_session? || ::Ai::ApprovalDecision.human_session_origin?(origin)
+    end
+
+    # One more approval on the current step resolves the request: it is the
+    # last step, one approval short of its tally (#process_decision's rule).
+    def completes_on_approval?
+      step = step_statuses.to_a[current_step]
+      return false unless step.is_a?(Hash) && current_step >= step_statuses.length - 1
+
+      approvals = decisions.where(step_number: current_step, decision: "approved").count
+      approvals + 1 >= step["required_approvals"].to_i
+    end
+
+    # The source's answer to "may this person's approval complete you", asked
+    # the way #notify_source_of_decision asks it to act. A source that does not
+    # answer has no objection.
+    def completing_decider_refusal(approver)
+      return nil if source_type.blank? || source_id.blank?
+
+      klass = source_type.safe_constantize
+      return nil unless klass.respond_to?(:find_by)
+
+      source = klass.find_by(id: source_id)
+      source.respond_to?(:approval_decider_refusal) ? source.approval_decider_refusal(approver) : nil
+    end
+
+    # A timeout is no person (secreview §21 G3). A request that needs a
+    # person's own session is never approved by one: an approve-on-timeout
+    # chain rejects it instead, so nothing runs, as the requester or anyone.
+    def timeout_may_approve?
+      !requires_human_session?
+    end
 
     def approver_matches?(spec, user)
       case spec
@@ -313,12 +444,58 @@ module Ai
       Rails.logger.error("[ApprovalRequest##{id}] fan_out_step_notifications failed: #{e.message}")
     end
 
+    # The unique index (one decision per approver per step) is the database's
+    # half of the guard and the lock's backstop. A violation gets the check's
+    # answer, not a 500. A savepoint, so the enclosing transaction survives the
+    # refused insert.
+    def insert_decision(approver, decision, comments, conditions, origin)
+      self.class.transaction(requires_new: true) do
+        decisions.create!(
+          approver: approver,
+          step_number: current_step,
+          decision: decision,
+          comments: comments,
+          conditions: conditions,
+          origin: origin
+        )
+      end
+      true
+    rescue ActiveRecord::RecordNotUnique
+      false
+    end
+
+    def decided_current_step?(user)
+      return false unless user
+
+      decisions.where(step_number: current_step, approver_id: user.id).exists?
+    end
+
+    # The two halves of the lead's ruling for a decision inside a step:
+    # - the "Approval needed" card, through the same step fan-out, to the step's
+    #   approvers who can still act on it (everyone who already decided the
+    #   step, the decider included, is left out);
+    # - a content-free queue-refresh event to every viewer of the queue, the
+    #   decider included, so every open queue reconciles.
+    def announce_decision_within_step
+      return unless defined?(::Ai::ApprovalRequestNotifier)
+
+      decided = decisions.where(step_number: current_step).distinct.pluck(:approver_id)
+      ::Ai::ApprovalRequestNotifier.notify_current_step!(self, except_user_ids: decided)
+      ::Ai::ApprovalRequestNotifier.broadcast_queue_change!(self)
+    rescue StandardError => e
+      Rails.logger.error("[ApprovalRequest##{id}] announce_decision_within_step failed: #{e.message}")
+    end
+
     def process_decision(decision)
       step_info = step_statuses[current_step]
 
       case decision
       when "approved"
-        step_info["current_approvals"] += 1
+        # The tally is the step's approval ROWS, never a counter carried
+        # forward in step_statuses: a counter incremented on a stale copy loses
+        # a concurrent approver's key. Recounted under the lock, with this
+        # decision's row already in.
+        step_info["current_approvals"] = decisions.where(step_number: current_step, decision: "approved").count
         step_info["status"] = "approved" if step_info["current_approvals"] >= step_info["required_approvals"]
 
         if step_info["status"] == "approved"

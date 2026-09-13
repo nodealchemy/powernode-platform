@@ -462,6 +462,7 @@ module Ai
         "campaign_record_increment" => "Ai::Tools::CampaignTool",
         "campaign_check_rebase" => "Ai::Tools::CampaignTool",
         "campaign_stop" => "Ai::Tools::CampaignTool",
+        "campaign_resume" => "Ai::Tools::CampaignTool",
         # Progressive delivery (Ai::Delivery on Ai::Deploy) — deliver a ref via a strategy
         "deliver" => "Ai::Tools::DeliveryTool",
         "delivery_status" => "Ai::Tools::DeliveryTool",
@@ -469,6 +470,38 @@ module Ai
         # Environments (Environment campaign, increment 4): the operator's knobs
         "environment_list" => "Ai::Tools::EnvironmentTool",
         "environment_update" => "Ai::Tools::EnvironmentTool",
+        # Component status plane (campaign 01a08c9b, increment A4) — read-only.
+        # The one status model behind the operator screen; the sweep is the only
+        # producer, so nothing here writes.
+        "list_component_status" => "Ai::Tools::PlatformStatusTool",
+        "get_component_status" => "Ai::Tools::PlatformStatusTool",
+        "get_component_impact" => "Ai::Tools::PlatformStatusTool",
+        # Component status plane (campaign 01a08c9b, increment A6) — the
+        # investigation. `platform_investigate` is the one WRITE: it records the
+        # evidence around a failure and enqueues the ranking. The two `get_*`
+        # verbs are reads, and the naming is what makes their readOnlyHint true
+        # rather than annotated after the fact.
+        "platform_investigate" => "Ai::Tools::PlatformInvestigationTool",
+        "get_investigation" => "Ai::Tools::PlatformInvestigationTool",
+        "get_investigations" => "Ai::Tools::PlatformInvestigationTool",
+        # === Read-only reach (campaign 01a08c9b, increment E1) ===
+        # Four families REST exposed in full and MCP could not reach at all
+        # (audit remedies 16 and 18). Every action is a READ; identity, provider,
+        # schedule and webhook WRITES stay operator-only — see each tool's
+        # header and docs/concepts/mcp-and-tools.md#the-identity-boundary.
+        "list_users" => "Ai::Tools::IdentityReadTool",
+        "get_user" => "Ai::Tools::IdentityReadTool",
+        "list_roles" => "Ai::Tools::IdentityReadTool",
+        "list_permissions" => "Ai::Tools::IdentityReadTool",
+        "list_audit_logs" => "Ai::Tools::IdentityReadTool",
+        "list_llm_providers" => "Ai::Tools::ProviderReadTool",
+        "get_llm_provider" => "Ai::Tools::ProviderReadTool",
+        "list_models" => "Ai::Tools::ProviderReadTool",
+        "list_schedules" => "Ai::Tools::ScheduleReadTool",
+        "get_schedule" => "Ai::Tools::ScheduleReadTool",
+        "list_webhooks" => "Ai::Tools::WebhookReadTool",
+        "get_webhook" => "Ai::Tools::WebhookReadTool",
+        "list_webhook_deliveries" => "Ai::Tools::WebhookReadTool",
         # Improvement-discovery loop (Tier-1): offer -> approve -> dev-improve task
         "discover_improvements" => "Ai::Tools::ImprovementTool",
         "create_improvement" => "Ai::Tools::ImprovementTool",
@@ -645,9 +678,6 @@ module Ai
         "describe_delegation" => "Ai::Tools::AgentAutonomyTool",
         "set_delegation_policy" => "Ai::Tools::AgentAutonomyTool",
         # Self-improvement (skill mutation, challenges)
-        "generate_self_challenge" => "Ai::Tools::SelfImprovementTool",
-        "list_challenges" => "Ai::Tools::SelfImprovementTool",
-        "get_challenge_result" => "Ai::Tools::SelfImprovementTool",
         "mutate_skill" => "Ai::Tools::SelfImprovementTool",
         "compose_skills" => "Ai::Tools::SelfImprovementTool",
         "auto_evolve_skill" => "Ai::Tools::SelfImprovementTool",
@@ -790,7 +820,16 @@ module Ai
         "code_create_relation" => "Ai::Tools::CodeMemoryTool",
         "code_search_graph" => "Ai::Tools::CodeMemoryTool",
         "code_prune_stale" => "Ai::Tools::CodeMemoryTool",
-        "code_bulk_index" => "Ai::Tools::CodeMemoryTool"
+        "code_bulk_index" => "Ai::Tools::CodeMemoryTool",
+        # Component status plane — remediation front door (campaign 01a08c9b,
+        # increment A5; design §5.1). The two reads are named `get_*` so
+        # Mcp::ToolCatalog's readOnlyHint heuristic is TRUE for them rather
+        # than merely claimed; `request_approval` is the design's own name for
+        # core's one write on this surface, and there is deliberately no
+        # respond_to_approval sibling.
+        "get_remediation_route" => "Ai::Tools::PlatformRemediationTool",
+        "get_runbook" => "Ai::Tools::PlatformRemediationTool",
+        "request_approval" => "Ai::Tools::PlatformRemediationTool"
       }.freeze
 
       # Tool maps contributed by extensions at boot. Extensions call

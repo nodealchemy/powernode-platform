@@ -41,9 +41,19 @@ If seeds fail:
 
 ## Step 4: Restart Services
 
+Discover the units first. On a module-composed node (dev-cell, ops-hub) they
+are generated as `powernode-<moduleID>-<service>.service`, and no `@default`
+unit exists: a guessed name fails `systemctl` silently, which looks exactly like
+a successful restart. Fall back to the installer's `@default` name only when
+discovery finds nothing, which is the plain installer-shape host. Same shape as
+the deploy skill.
+
 ```bash
-sudo systemctl restart powernode-backend@default
-sudo systemctl restart powernode-worker@default
+RAILS=$(systemctl list-units 'powernode-*-rails.service' --no-pager --no-legend --plain | awk '{print $1}' | head -1)
+SIDEKIQ=$(systemctl list-units 'powernode-*-sidekiq.service' --no-pager --no-legend --plain | awk '{print $1}' | head -1)
+sudo systemctl restart "${RAILS:-powernode-backend@default}"
+sudo systemctl restart "${SIDEKIQ:-powernode-worker@default}"
+systemctl is-active "${RAILS:-powernode-backend@default}" "${SIDEKIQ:-powernode-worker@default}"
 ```
 
 Wait 5 seconds, then check status:

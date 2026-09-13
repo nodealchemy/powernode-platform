@@ -56,12 +56,18 @@ export const AIConversationsPage: React.FC = () => {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [chatConversationId, setChatConversationId] = useState<string | null>(null);
 
-  // Auto-open conversation from URL query param (?id=...)
+  // Auto-open the DETAIL modal (not the continue-chat one) from a URL query
+  // param (?id=...) — this is the deep-link target for TeamExecutionTab and
+  // MissionSidebar, both of which used to link to Observability's
+  // conversations tab with ?id=, which Observability never read.
+  // ConversationDetailModal tolerates an empty agentId (it resolves the
+  // agent from the conversation itself when one isn't already loaded), so
+  // this works even before this page's own conversation list has fetched.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const conversationId = params.get('id');
     if (conversationId) {
-      setChatConversationId(conversationId);
+      setSelectedConversationId(conversationId);
       // Clean the URL param after consuming it
       const url = new URL(window.location.href);
       url.searchParams.delete('id');

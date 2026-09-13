@@ -75,21 +75,23 @@ extra_agents = [
     slug: "visual-design-assistant",
     agent_type: "content_generator",
     provider: openai_provider,
-    description: "Visual design assistant — design briefs, UI mockup specs, brand-asset specs, and image-generation prompts (text/spec output)"
+    tier: "reasoning",
+    description: "Creates design briefs, UI mockup specs, brand asset specs, and visual concept directions via structured prompts."
   },
   {
     name: "Infrastructure Health Monitor",
     slug: "infrastructure-health-monitor",
     agent_type: "monitor",
     provider: claude_provider,
-    description: "Continuous infrastructure monitoring agent tracking system health, performance metrics, and availability"
+    description: "Monitors system metrics, detects anomalies, manages alert thresholds, and reports health status. Correlates events across components."
   },
   {
     name: "Process Automation Optimizer",
     slug: "process-automation-optimizer",
     agent_type: "assistant",
     provider: grok_provider,
-    description: "Process optimization agent that analyzes and improves automated processes for efficiency and reliability"
+    tier: "reasoning",
+    description: "Identifies process bottlenecks, redundancies, and automation opportunities. Designs optimized workflows with time/cost savings."
   },
   {
     name: "Legal & Compliance Analyst",
@@ -137,6 +139,23 @@ GLOBAL_AUTONOMY_AGENT_SLUGS = %w[
   visual-design-assistant
 ].freeze
 
+# Declared model tier on a GLOBAL canonical, fill-when-absent: a tier already
+# on the row (an operator's choice, an earlier seed's) always wins. The
+# find_or_create_global block below is create-only, so a canonical that already
+# exists would never acquire the tier from it; this runs on every seed and
+# writes at most once. The tier is what Ai::ClaudeExport::AgentSkeletonSync
+# renders as the subagent's model — without it a canonical falls back to the
+# default tier.
+declare_canonical_tier = lambda do |agent, tier|
+  metadata = agent.mcp_metadata.is_a?(Hash) ? agent.mcp_metadata.deep_dup : {}
+  model_config = metadata["model_config"].is_a?(Hash) ? metadata["model_config"] : {}
+  requirements = model_config["model_requirements"].is_a?(Hash) ? model_config["model_requirements"] : {}
+  next if requirements["tier"].present?
+
+  metadata["model_config"] = model_config.merge("model_requirements" => requirements.merge("tier" => tier))
+  agent.update!(mcp_metadata: metadata)
+end
+
 extra_agents.each do |ad|
   # These definitions carry no model pin, so the per-agent provider above is
   # editorial; the seam keeps it whenever the family rule allows and never
@@ -159,6 +178,7 @@ extra_agents.each do |ad|
     # admin account and the providers existed acquires its owner columns here
     # on the next re-seed (never blanking what is already set).
     CoreSeeds::CanonicalAgentOwner.backfill_owner!(canonical, creator: admin_user, provider: ad[:provider])
+    declare_canonical_tier.call(canonical, ad[:tier]) if ad[:tier]
   else
     # Account-scoped demo agent: needs the admin account, its user and a provider.
     next unless admin_account && admin_user && chosen_provider

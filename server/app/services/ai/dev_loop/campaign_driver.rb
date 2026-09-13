@@ -28,6 +28,35 @@ module Ai
       # completion_pct here — a 100% target on an unseeded loop self-finalizes early.
       DEFAULT_STOP_CONDITIONS = { "min_acceptance_pct" => 50 }.freeze
 
+      # The states #resume reopens. "archived" is final, "active" has nothing to resume,
+      # and "created" exists only inside #start's own transaction.
+      RESUMABLE_STATUSES = %w[completed paused].freeze
+
+      # The type each stop condition #resume may set must hold. A value is only ever
+      # replaced by a valid value of its type: a null reads as "no such stop" in
+      # Campaign#tripped_stop_condition, so accepting one would DELETE the stop, and a
+      # zero floor or budget leaves the stop inert, which is a removal by another name.
+      STOP_CONDITION_TYPES = {
+        "max_failed" => :positive_integer,
+        "min_acceptance_sample" => :positive_integer,
+        "completion_pct" => :percentage,
+        "min_acceptance_pct" => :percentage,
+        "max_cost_per_accepted_change" => :positive_amount
+      }.freeze
+      STOP_CONDITION_RULES = {
+        positive_integer: "a positive integer",
+        percentage: "a number above 0 and at most 100",
+        positive_amount: "a positive finite number"
+      }.freeze
+
+      # The stop-condition check #resume makes, for a door that must refuse junk BEFORE it
+      # parks a resume for a person to confirm (Ai::Tools::CampaignTool, MCP identity plan
+      # R2): a call that could only ever be refused should not ask a person to confirm it.
+      # Returns the conditions with string keys; raises ArgumentError exactly as #resume does.
+      def self.validate_stop_conditions!(conditions)
+        new(account: nil).send(:validated_stop_conditions!, conditions)
+      end
+
       def initialize(account:, user: nil)
         @account = account
         @user = user
@@ -36,6 +65,7 @@ module Ai
       # Create the campaign + its dedicated Ralph loop, mark it active, take a first snapshot.
       def start(name:, description: nil, configuration: {}, decision_authority: "trusted",
                 stop_conditions: {}, workload: DEFAULT_WORKLOAD)
+        authorize_actor!(@account)
         workload = DEFAULT_WORKLOAD unless WORKLOADS.include?(workload)
         config = (configuration || {}).merge("workload" => workload)
         # Atomic: a mid-way failure must not leave an orphan campaign with no loop.
@@ -117,6 +147,7 @@ module Ai
       # `target` carries the platform ref ({ "agent_id"|"group_id"|"mission_id" => ... }).
       # `holder` (claude_code only) immediately takes the lease for that session.
       def delegate(campaign, driver_kind:, target: {}, holder: nil)
+        authorize_actor!(campaign.account)
         raise ArgumentError, "unknown driver_kind: #{driver_kind}" unless Ai::RalphLoop::DRIVER_KINDS.include?(driver_kind)
 
         # Validate + account-scope the target BEFORE any mutation: a caller may only wire
@@ -141,14 +172,18 @@ module Ai
 
         {
           campaign_id: campaign.id, driver_kind: driver_kind, target: normalized_target, lease: lease,
-          loops: campaign.ralph_loops.reload.map do |l|
-            { id: l.id, driver_kind: l.driver_kind, scheduling_mode: l.scheduling_mode, status: l.status }
+          # git_tools says whether the delegated loop can commit (D2): a platform
+          # driver with no mission repository plans, it does not change code.
+          loops: campaign.ralph_loops.includes(mission: :repository).map do |l|
+            { id: l.id, driver_kind: l.driver_kind, scheduling_mode: l.scheduling_mode, status: l.status,
+              git_tools: Ai::Ralph::GitToolExecutor.available?(l) }
           end
         }
       end
 
       # Answer a parked question (which can unblock its associated task downstream).
       def answer_question(campaign, question_id:, answer:)
+        authorize_actor!(campaign.account)
         q = campaign.parked_questions.find(question_id)
         q.answer!(answer, user: @user)
         q.reload.summary
@@ -156,11 +191,50 @@ module Ai
 
       # Stop the campaign: pause its loops' scheduling (executors stop pulling) + mark completed.
       def stop(campaign, summary: nil)
+        authorize_actor!(campaign.account)
         campaign.ralph_loops.each do |l|
           l.pause_schedule!(reason: "campaign stopped") if l.respond_to?(:pause_schedule!)
         end
         campaign.complete!(summary)
         campaign.reload.summary
+      end
+
+      # Reopen a completed or paused campaign — typically one a stop condition
+      # auto-completed — merging `stop_conditions` into its existing ones in the same
+      # step, since a stop condition is usually why it stopped. One transaction under the
+      # campaign's row lock: the status re-check, a fresh snapshot, the merge, the
+      # re-complete guard, the transition and the decision commit together or not at all.
+      # A refusal raises ArgumentError naming its reason and rolls the merge back.
+      def resume(campaign, reason:, stop_conditions: {})
+        refuse_without_acting_user!
+        authorize_actor!(campaign.account)
+        raise ArgumentError, "reason is required" if reason.blank?
+        changes = validated_stop_conditions!(stop_conditions)
+
+        decision = nil
+        campaign.with_lock do
+          refuse_unless_resumable!(campaign)
+          refuse_while_driven!(campaign)
+          previous_status = campaign.status
+          previous_summary = campaign.completion_summary
+          # Judge the guard on the aggregates the NEXT snapshot will produce, not on
+          # whatever the last one left behind.
+          campaign.snapshot_progress!
+          old_conditions = campaign.stop_conditions.to_h
+          campaign.stop_conditions = old_conditions.merge(changes)
+          refuse_if_would_recomplete!(campaign)
+
+          campaign.resume!
+          decision = campaign.record_decision!(
+            decision_type: "policy", title: "Campaign resumed", rationale: reason, user: @user,
+            metadata: {
+              "action" => "campaign_resume", "principal" => "user", "previous_status" => previous_status,
+              "previous_completion_summary" => previous_summary,
+              "old_stop_conditions" => old_conditions, "new_stop_conditions" => campaign.stop_conditions
+            }
+          )
+        end
+        { campaign: campaign.reload.summary, decision_id: decision.id, stop_conditions: campaign.stop_conditions }
       end
 
       # Record one completed campaign increment in a single call: mark a RalphTask
@@ -337,12 +411,15 @@ module Ai
           raise ArgumentError, "platform_agent delegation requires target.agent_id" if id.blank?
           raise ArgumentError, "agent not found in this account" unless @account.ai_agents.exists?(id: id)
 
-          { "agent_id" => id }
+          { "agent_id" => id }.merge(resolve_repository_mission!(target["mission_id"]))
         when "platform_mission"
           id = target["mission_id"].presence
           raise ArgumentError, "platform_mission delegation requires target.mission_id" if id.blank?
-          raise ArgumentError, "mission not found in this account" unless @account.ai_missions.exists?(id: id)
 
+          mission = @account.ai_missions.find_by(id: id)
+          raise ArgumentError, "mission not found in this account" unless mission
+
+          refuse_foreign_repository!(mission)
           { "mission_id" => id }
         when "platform_team"
           # "Agent group" is unified into Ai::AgentTeam (the canonical agent grouping) — a
@@ -355,6 +432,46 @@ module Ai
         else
           raise ArgumentError, "unknown driver_kind: #{driver_kind}"
         end
+      end
+
+      # D2: a platform_agent loop may carry a mission for its REPOSITORY — the
+      # tool-bridge git tools read ralph_loop.mission.repository, and a campaign
+      # loop has no mission otherwise. Account-scoped like every other ref, and a
+      # mission with no repository is refused: attaching it would promise an
+      # actuator that cannot commit.
+      def resolve_repository_mission!(mission_id)
+        return {} if mission_id.blank?
+
+        mission = @account.ai_missions.find_by(id: mission_id)
+        raise ArgumentError, "mission not found in this account" unless mission
+        raise ArgumentError, "mission #{mission.id} has no repository to attach" if mission.repository_id.blank?
+
+        refuse_foreign_repository!(mission)
+        { "mission_id" => mission.id }
+      end
+
+      # D2 review L3: a mission whose repository, or that repository's credential,
+      # is not this account's is refused at delegation, on every driver kind that
+      # carries a mission. The actuator refuses it too, but silently; the door says
+      # why. A mission with no repository is not refused here.
+      def refuse_foreign_repository!(mission)
+        return if mission.repository_id.blank? || account_repository(mission)
+
+        raise ArgumentError, "mission #{mission.id}: repository not found in this account"
+      end
+
+      # The clone URL of the mission's repository, for the loop's repository_url.
+      def mission_repository_url(mission_id)
+        return nil if mission_id.blank?
+
+        mission = @account.ai_missions.find_by(id: mission_id)
+        mission && account_repository(mission)&.clone_url_for_devops
+      end
+
+      # D2 review F1: the mission's repository and its credential, resolved only
+      # within the delegating account (the actuator's own tenancy rule).
+      def account_repository(mission)
+        Ai::Ralph::GitToolExecutor.account_repository(mission.repository, @account.id)
       end
 
       # The account's OWN Platform Developer: its existing row for the slug if it
@@ -389,6 +506,12 @@ module Ai
         else # platform_agent | platform_team | platform_mission
           attrs[:default_agent_id] = target["agent_id"] if target["agent_id"].present?
           attrs[:mission_id] = target["mission_id"] if target["mission_id"].present?
+          # D2: the loop names the repository its git tools commit to, so the
+          # prompt, the worker's test run (repository_full_name) and an operator
+          # all read the same one.
+          if (repository_url = mission_repository_url(target["mission_id"]))
+            attrs[:repository_url] = repository_url
+          end
           attrs[:scheduling_mode] = "continuous"
           attrs[:schedule_config] = (loop_record.schedule_config || {}).merge("iteration_interval_seconds" => 60)
           attrs[:schedule_paused] = false
@@ -444,6 +567,85 @@ module Ai
         loop_record.update!(
           configuration: loop_record.configuration.merge("completion" => { "all_tasks_terminal" => true })
         )
+      end
+
+      # The decision row must name the person who re-armed the campaign. The tool refuses
+      # every non-human principal first; this holds the line for any other caller.
+      def refuse_without_acting_user!
+        return if @user
+
+        raise ArgumentError, "campaign_resume refused: a resume must name the acting user, and this call has none"
+      end
+
+      # Every mutating action a door exposes (start, stop, delegate, answer_question,
+      # resume) asks the shared campaign check against the account it touches: a door-only
+      # check is how a future caller skips it, and a permission an account-switch session
+      # carries from ANOTHER account must never act here. No user means an agent or
+      # instance principal its own door already bound to @account.
+      def authorize_actor!(account)
+        ::Ai::Campaigns::Authorization.authorize_actor!(user: @user, account: account)
+      end
+
+      def validated_stop_conditions!(conditions)
+        conditions = conditions.to_h.transform_keys(&:to_s)
+        problems = conditions.filter_map do |key, value|
+          type = STOP_CONDITION_TYPES[key]
+          next "'#{key}' is not a stop condition" unless type
+          next if valid_stop_value?(type, value)
+
+          "'#{key}' must be #{STOP_CONDITION_RULES[type]} (got #{value.inspect})"
+        end
+        return conditions if problems.empty?
+
+        raise ArgumentError,
+              "campaign_resume refused: invalid stop condition #{problems.join('; ')}. A resume sets a stop " \
+              "condition only to a valid value of its type and never removes one"
+      end
+
+      def valid_stop_value?(type, value)
+        return false unless value.is_a?(Numeric) && value.real? && value.finite?
+
+        case type
+        when :positive_integer then value.is_a?(Integer) && value.positive?
+        when :percentage then value.positive? && value <= 100
+        when :positive_amount then value.positive?
+        else false
+        end
+      end
+
+      # A campaign's own driver cannot re-arm the campaign it is driving. The lease holder
+      # is an opaque string, so "held at all" is the check a principal cannot dodge by
+      # choosing its holder name.
+      def refuse_while_driven!(campaign)
+        return unless campaign.driver_lease_active?
+
+        raise ArgumentError,
+              "campaign_resume refused: campaign '#{campaign.name}' is held by driver " \
+              "'#{campaign.driver_lease_holder}' until #{campaign.driver_lease_expires_at.utc.iso8601}; a " \
+              "campaign's own driver cannot re-arm it. The lease must be released (campaign_release) or expire first"
+      end
+
+      def refuse_unless_resumable!(campaign)
+        return if RESUMABLE_STATUSES.include?(campaign.status)
+
+        state = case campaign.status
+                when "archived" then "is archived, and archival is final"
+                when "active" then "is already active"
+                else "has status #{campaign.status}, which campaign_resume does not reopen"
+                end
+        raise ArgumentError, "campaign_resume refused: campaign '#{campaign.name}' #{state}"
+      end
+
+      # Asked of Campaign#tripped_stop_condition — the predicate maybe_finalize! itself
+      # uses — so a resume the finalizer would immediately undo is refused up front.
+      def refuse_if_would_recomplete!(campaign)
+        tripped = campaign.tripped_stop_condition
+        return unless tripped
+
+        raise ArgumentError,
+              "campaign_resume refused: stop condition '#{tripped}' " \
+              "(#{campaign.stop_conditions[tripped].inspect}) is still met after the merge, so the campaign " \
+              "would complete again on its next progress snapshot; raise or clear '#{tripped}' in stop_conditions"
       end
 
       def create_campaign_loop(campaign, workload: DEFAULT_WORKLOAD)

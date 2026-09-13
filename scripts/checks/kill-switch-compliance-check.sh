@@ -48,10 +48,13 @@ REQUIRED_JOBS=(
   ai_a2a_external_task_job
   ai_reflexion_job
   ai_goal_plan_execution_job
-  ai_self_challenge_job
   ai_team_execution_job
   # ai_agent_execution_job_spec.rb
   ai_agent_execution_job
+  # agent_evaluation_job_spec.rb — the LLM judge (D4). It calls no provider of
+  # its own, so the layer-2 marker sweep cannot see it; it spends an LLM call
+  # server-side, so it belongs in layer 1 deliberately.
+  agent_evaluation_job
 )
 
 violations=()

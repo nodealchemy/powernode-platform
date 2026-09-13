@@ -134,7 +134,6 @@ module Ai
         configuration_schema: {
           "api_version" => "v1",
           "auth_type" => "bearer",
-          "default_model" => "gpt-4.1-mini",
           "supports_streaming" => true,
           "supports_functions" => true,
           "max_retries" => 3,
@@ -250,7 +249,6 @@ module Ai
         configuration_schema: {
           "api_version" => "v1",
           "auth_type" => "bearer",
-          "default_model" => "grok-3-mini",
           "supports_streaming" => true,
           "supports_functions" => true,
           "max_retries" => 3,
@@ -451,7 +449,6 @@ module Ai
         configuration_schema: {
           "api_version" => "2023-06-01",
           "auth_type" => "x-api-key",
-          "default_model" => "claude-haiku-4-5",
           "supports_streaming" => true,
           "supports_functions" => true,
           "max_retries" => 3,

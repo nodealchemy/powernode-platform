@@ -1,5 +1,89 @@
-import React, { useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
+
+// ── NESTED-DIALOG STATE (C3 review F5-F7, C14 review C14-1/C14-2) ──────────
+//
+// A page can mount more than one Modal at once (a ConfirmationModal nested
+// inside a drawer, say). Three things must be tracked module-wide, across ALL
+// instances, rather than per-instance:
+//
+//  1. Which instance is TOPMOST, so only it answers Escape (F6: without this,
+//     one Escape keypress closed both the confirmation and the drawer behind
+//     it — both attach the same document-level keydown listener).
+//  2. A REFCOUNT of open modals, so body scroll only unlocks at zero (F7:
+//     without this, cancelling the inner dialog unset `overflow` while the
+//     outer dialog was still open, and the page behind it scrolled again).
+//
+// (F5 — the duplicate `id="modal-title"` breaking `aria-labelledby` for the
+// inner dialog — is per-instance and fixed below with `useId()`, no shared
+// state needed.)
+//
+// C14-1: "topmost" cannot be "last pushed". React runs a CHILD's effects
+// before its PARENT's, so an outer Modal and an inner Modal that mount in the
+// SAME commit (e.g. a form Modal whose ConfirmationModal is already open on
+// mount, from restored state) push the inner one first — making the OUTER
+// read as "last pushed" and wrongly topmost. Ordering by NESTING DEPTH fixes
+// this regardless of effect order: each Modal reads its depth from
+// `ModalDepthContext` and provides `depth + 1` to its own children, so a
+// truly nested Modal is always deeper than its parent no matter which one's
+// effect ran first. Depth ties (siblings, not nested in each other) still
+// break by push order, preserving the existing sibling semantics.
+const ModalDepthContext = createContext(0);
+
+interface OpenModalEntry {
+  instanceId: string;
+  depth: number;
+}
+
+let openModalStack: OpenModalEntry[] = [];
+let scrollLockCount = 0;
+
+function pushOpenModal(instanceId: string, depth: number) {
+  openModalStack = [...openModalStack, { instanceId, depth }];
+  scrollLockCount += 1;
+  if (scrollLockCount === 1) {
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function popOpenModal(instanceId: string) {
+  const before = openModalStack.length;
+  openModalStack = openModalStack.filter((e) => e.instanceId !== instanceId);
+  // C14-3: an unbalanced pop (an instance popping that was never pushed —
+  // the exact shape of the C14-2 mutant) must not be silently absorbed by a
+  // clamp. Only decrement for an entry that was actually removed; the
+  // Modal.test.tsx "does not release the scroll lock" pair (C14-2) is the
+  // guard against a regression here, not a console call (pattern-validation
+  // fails on any console.* call, dev-only or not — the tests carry this now).
+  if (openModalStack.length === before) {
+    return;
+  }
+  scrollLockCount -= 1;
+  if (scrollLockCount <= 0) {
+    scrollLockCount = 0;
+    document.body.style.overflow = 'unset';
+  }
+}
+
+function isTopmostModal(instanceId: string): boolean {
+  if (openModalStack.length === 0) return false;
+  const maxDepth = Math.max(...openModalStack.map((e) => e.depth));
+  const deepest = openModalStack.filter((e) => e.depth === maxDepth);
+  // Tie-break: last pushed among the deepest wins (matches the pre-existing
+  // sibling behaviour — two modals at the same depth, opened in turn).
+  return deepest[deepest.length - 1]?.instanceId === instanceId;
+}
+
+// Test-only reset seam (C14-4). Module-wide state cannot leak between RTL
+// tests through normal unmount/cleanup (push and pop are balanced by React's
+// own effect cleanup), but a raw root that skips RTL's cleanup — or a test
+// that crashes mid-render — could leave it dirty for the next test file in
+// the same worker. Never called from application code.
+export function __resetModalStackForTests(): void {
+  openModalStack = [];
+  scrollLockCount = 0;
+  document.body.style.overflow = 'unset';
+}
 
 export interface ModalProps {
   isOpen: boolean;
@@ -41,6 +125,15 @@ export const Modal: React.FC<ModalProps> = ({
   disableContentScroll = false
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  // Unique per instance so nested Modals never share an id (F5): each dialog's
+  // `aria-labelledby` resolves to its OWN title, not whichever Modal rendered
+  // `id="modal-title"` first.
+  const instanceId = useId();
+  const titleId = `modal-title-${instanceId}`;
+  // C14-1: this instance's own nesting depth, read from whichever Modal (if
+  // any) rendered it inside `{children}`. Its own children — anything this
+  // Modal renders — are one level deeper still (provided below).
+  const depth = useContext(ModalDepthContext);
 
   // Use size if provided, otherwise use maxWidth
   const effectiveMaxWidth = size || maxWidth;
@@ -59,25 +152,35 @@ export const Modal: React.FC<ModalProps> = ({
     full: 'max-w-full mx-4'
   };
 
-  // Handle escape key
+  // Join the shared open-modal stack while open — refcounts the body scroll
+  // lock (F7) and tracks which instance is topmost (F6). Runs before the
+  // Escape-handling effect below on both mount and unmount ordering, so the
+  // stack is always current by the time a real (async) keydown can fire.
+  useEffect(() => {
+    if (!isOpen) return;
+    pushOpenModal(instanceId, depth);
+    return () => {
+      popOpenModal(instanceId);
+    };
+  }, [isOpen, instanceId, depth]);
+
+  // Handle escape key — only the TOPMOST open Modal answers it (F6), so
+  // cancelling a nested confirmation never also closes the dialog behind it.
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && closeOnEscape) {
+      if (event.key === 'Escape' && closeOnEscape && isTopmostModal(instanceId)) {
         onClose();
       }
     };
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll
-      document.body.style.overflow = 'hidden';
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
     };
-  }, [isOpen, onClose, closeOnEscape]);
+  }, [isOpen, onClose, closeOnEscape, instanceId]);
 
   // Click outside to close
   const handleBackdropClick = (event: React.MouseEvent) => {
@@ -150,7 +253,7 @@ export const Modal: React.FC<ModalProps> = ({
   return createPortal(
     <div
       className={`fixed inset-0 z-[70] overflow-x-hidden ${disableContentScroll ? 'overflow-y-auto' : 'overflow-y-auto'}`}
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
       role="dialog"
       aria-modal="true"
     >
@@ -204,7 +307,7 @@ export const Modal: React.FC<ModalProps> = ({
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-theme-primary break-words" id="modal-title">
+                  <h3 className="text-lg font-semibold text-theme-primary break-words" id={titleId}>
                     {title}
                   </h3>
                   {subtitle && (
@@ -251,7 +354,12 @@ export const Modal: React.FC<ModalProps> = ({
             ${variant === 'fullscreen' || variant === 'drawer' ? 'flex-1 min-h-0 px-6 py-4 overflow-y-auto custom-scrollbar' :
               disableContentScroll ? 'px-6 py-4' : 'px-6 py-4 max-h-[60vh] overflow-y-auto custom-scrollbar'}
           `}>
-            {children}
+            {/* C14-1: anything rendered here — including a nested Modal, no
+                matter how many plain components sit between it and this one
+                — is one nesting level deeper than THIS Modal. */}
+            <ModalDepthContext.Provider value={depth + 1}>
+              {children}
+            </ModalDepthContext.Provider>
           </div>
 
           {/* Enhanced Footer */}

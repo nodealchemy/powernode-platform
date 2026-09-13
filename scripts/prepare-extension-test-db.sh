@@ -20,8 +20,9 @@
 #   2. delete the private extensions' migration versions from schema_migrations (un-assume them),
 #   3. run db:migrate with the PRIVATE bundle so those engine migrations actually execute and
 #      create their tables,
-#   4. restore the core-only schema.rb (db:migrate re-dumps it in full/private mode; that full dump
-#      must NEVER be kept or committed — see CLAUDE.md "full-mode schema.rb leak").
+#   4. never touch the tracked core-only schema.rb: the post-migrate auto-dump is disabled
+#      (config/initializers/schema_dump_isolation.rb) and step 3 sends any dump to a SCHEMA= temp
+#      sink, so a full/private-mode dump can never land in it — and uncommitted edits survive.
 #
 # Private extensions are discovered dynamically from extensions/private/* — NONE is named here
 # (public-safe). In core mode (no private extensions present) this degrades to a plain core
@@ -231,16 +232,17 @@ RUBY
 )"
 
 echo "[prepare-extension-test-db] running private engine migrations…"
+# The tracked server/db/schema.rb is never written here. The post-migrate auto-dump is disabled
+# everywhere (config/initializers/schema_dump_isolation.rb), and SCHEMA= points any dump that does
+# happen at a throwaway sink. Nothing restores the tracked file afterwards: a `git checkout` of it
+# discarded whatever UNCOMMITTED schema.rb edits the checkout held — in a shared checkout, another
+# session's in-flight migration work (IMP-01a08cc5; guarded by
+# scripts/checks/tests/prepare_extension_test_db_schema_safety_test.sh).
+SCHEMA_DUMP_SINK="$(mktemp "${TMPDIR:-/tmp}/prepare-extension-test-db-schema.XXXXXX.rb")"
 db_io_lock
-bin/rails db:migrate
+SCHEMA="$SCHEMA_DUMP_SINK" bin/rails db:migrate
 db_io_unlock
-
-# db:migrate just re-dumped schema.rb in FULL (private) mode. Restore the committed core-only file —
-# that full dump must never be kept or committed.
-if git -C "$REPO" ls-files --error-unmatch server/db/schema.rb >/dev/null 2>&1; then
-  git -C "$REPO" checkout -- server/db/schema.rb && \
-    echo "[prepare-extension-test-db] restored core-only server/db/schema.rb (discarded full-mode dump)"
-fi
+rm -f "$SCHEMA_DUMP_SINK"
 
 # Seed/refresh the golden template from the freshly-built target so the NEXT worktree clones instead
 # of rebuilding. Re-check freshness first: if another worktree already rebuilt golden while we

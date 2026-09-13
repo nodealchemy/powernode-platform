@@ -16,7 +16,14 @@ module Devops
     belongs_to :account
     belongs_to :created_by_user, class_name: "User", optional: true
 
-    has_many :instances, class_name: "Devops::IntegrationInstance", foreign_key: "integration_credential_id", dependent: :nullify
+    # restrict_with_error, not nullify (IMP-01a04d08-ea13): an instance whose
+    # template requires a credential cannot be valid without one, so nulling it
+    # orphaned the instance and made every later update! fail validation.
+    # RegistryService#delete_credential already refused an in-use credential;
+    # this makes that the model's rule, so no other destroy path can bypass it.
+    # Account deletion is unaffected: Account destroys its instances first.
+    has_many :instances, class_name: "Devops::IntegrationInstance", foreign_key: "integration_credential_id",
+                         dependent: :restrict_with_error
 
     # Backward compatibility alias
     def integration_instances

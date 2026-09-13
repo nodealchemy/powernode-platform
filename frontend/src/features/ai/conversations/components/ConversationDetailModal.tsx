@@ -105,15 +105,11 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
     }
   }, [isOpen, conversationId, agentId]);
 
-  if (loading || !conversation) {
-    return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Loading Conversation..." maxWidth="4xl" icon={<MessageSquare />}
-        footer={<Button variant="outline" onClick={onClose}>Close</Button>}>
-        <LoadingSpinner className="py-12" />
-      </Modal>
-    );
-  }
-
+  // error MUST be checked before loading/!conversation: every failure path
+  // sets error, clears loading, and leaves conversation null, so checking
+  // loading first meant the error branch (and its Try Again button) could
+  // never render — an unknown or failed conversation id showed an endless
+  // "Loading Conversation..." spinner with only a Close button forever.
   if (error) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Error Loading Conversation" maxWidth="md" icon={<MessageSquare />}
@@ -122,6 +118,15 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
           <p className="text-theme-danger-fg">{error}</p>
           <Button variant="outline" onClick={loadConversation} className="mt-4">Try Again</Button>
         </div>
+      </Modal>
+    );
+  }
+
+  if (loading || !conversation) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="Loading Conversation..." maxWidth="4xl" icon={<MessageSquare />}
+        footer={<Button variant="outline" onClick={onClose}>Close</Button>}>
+        <LoadingSpinner className="py-12" />
       </Modal>
     );
   }

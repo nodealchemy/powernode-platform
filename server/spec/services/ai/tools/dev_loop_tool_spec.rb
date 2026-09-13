@@ -52,6 +52,24 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(ralph_loop.reload.status).to eq("running")
     end
 
+    # IMP-01a05525 — the serve order IS RalphTask.by_priority, not a second copy
+    # of it. The two tasks disagree between the model's two orders: `ordered`
+    # (position first, the LISTING order) puts "first-in-plan" on top, while
+    # `by_priority` (priority first, the SERVE order) puts "urgent" on top. The
+    # expectation is read from the scope rather than hard-coded, so an edit to
+    # by_priority that the serve path did not follow goes red here.
+    it "serves the pending task RalphTask.by_priority puts first, not the listing order" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "first-in-plan", priority: 1, position: 0)
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "urgent", priority: 20, position: 5)
+      expect(ralph_loop.ralph_tasks.ordered.first.task_key).to eq("first-in-plan")
+
+      expected = ralph_loop.ralph_tasks.pending.by_priority.first.task_key
+      result = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.name })
+
+      expect(result[:success]).to be true
+      expect(result[:task][:task_key]).to eq(expected)
+    end
+
     it "re-injects prior context every iteration (G12): learnings, open decisions, base files" do
       campaign = create(:ai_campaign, account: account)
       ralph_loop.update!(campaign: campaign,
@@ -886,9 +904,21 @@ RSpec.describe Ai::Tools::DevLoopTool do
   end
 
   describe "governance" do
-    it "registers the dev.* intervention categories" do
-      %w[dev.pull_task dev.complete_task dev.commit_to_branch dev.multi_file_change dev.merge].each do |cat|
+    # A CENSUS, not a presence check (IMP-01a06aef). The previous version
+    # asserted five dev.* categories were registered; four of them were dead
+    # vocabulary — dev.pull_task / dev.complete_task superseded by the seeded
+    # dev.task_claim / dev.task_complete, and dev.commit_to_branch / dev.merge
+    # with no seed, no gate and no reference in the tree. Asserting only
+    # PRESENCE is what let them accumulate, so the absent half is asserted too:
+    # re-adding a name nothing mints reds this example.
+    it "registers the live dev.* intervention categories and no dead ones" do
+      %w[dev.multi_file_change dev.task_claim dev.task_complete].each do |cat|
         expect(Ai::InterventionPolicy.category_registered?(cat)).to be(true), "expected #{cat} registered"
+      end
+
+      %w[dev.pull_task dev.complete_task dev.commit_to_branch dev.merge].each do |cat|
+        expect(Ai::InterventionPolicy.category_registered?(cat)).to be(false),
+               "#{cat} is registered but nothing seeds or resolves it"
       end
     end
 

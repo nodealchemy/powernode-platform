@@ -253,6 +253,14 @@ Errors are automatically reported to Sentry when `SENTRY_DSN` is configured.
 
 ### Log Access
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 ```bash
 journalctl -u 'powernode-*' --since "10 min ago"     # all services
 journalctl -u powernode-backend@default              # one service

@@ -22,6 +22,14 @@
 
 ## Prerequisites
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 - Backend (`powernode-backend@default`), worker (`powernode-worker@default`), and frontend (`powernode-frontend@default`) services running — verify with `sudo scripts/systemd/powernode-installer.sh status`
 - `ai.monitoring.read`, `ai.autonomy.manage` permissions for operators
 - Sidekiq dashboard accessible (default `http://localhost:4567`)
@@ -210,7 +218,7 @@ Roughly 2 hours per month.
 
 After any intervention:
 
-- `GET /api/v1/ai/monitoring/health` → `data.status: "healthy"` (and `data.health_score >= 80`)
+- `GET /api/v1/ai/monitoring/health` → `data.rollup.verdict: "ok"` (`"not_measured"` means nothing reported and is not a pass; check `data.shared.verdict` separately for process-wide infrastructure)
 - `GET /api/v1/ai/missions?status=stuck` → returns no items
 - `sudo scripts/systemd/powernode-installer.sh status` → all services `active`
 

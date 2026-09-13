@@ -41,12 +41,13 @@ RSpec.describe Ai::Provisioning::AdaptationProposerService, "change-type composa
   #
   # Every skill this file drives (attach_storage, configure_sdwan_for_project,
   # scale_project, relocate_workload) has its executor in the system extension.
-  # With the extension absent, #required_inputs_for returns nil
-  # (skill_composition_runner.rb:348-350), #bindable? returns true unconditionally
-  # (adaptation_proposer_service.rb:754-756), and EVERY step survives
-  # #reject_unbindable — so the equality passes, the anti-vacuity example passes,
-  # and condition 1 "composes" with an empty inputs hash. The whole verdict
-  # degrades to a tautology while reporting green.
+  # With the extension absent, #required_inputs_for returns nil. #bindable? used
+  # to return true unconditionally for that, so EVERY step survived
+  # #reject_unbindable, the equality and the anti-vacuity example passed, and
+  # condition 1 "composed" with an empty inputs hash — a tautology reporting
+  # green. Since IMP-01a04cd4-94c2 it DECLINES an unresolvable executor instead,
+  # so core mode would now go red rather than falsely green; either way the
+  # verdict says nothing about composability without the executors.
   #
   # A per-example skip on the inner group was not enough: a skip is not a
   # failure, and the file would still report every other example as a pass. The

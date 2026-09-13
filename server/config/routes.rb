@@ -315,6 +315,20 @@ Rails.application.routes.draw do
           post "cleanup_old", to: "reports#cleanup_old"
         end
 
+        # Component status plane (worker → server) — the server runs no
+        # Sidekiq, so PlatformStatusSweepJob owns the 60s cadence and calls
+        # in. Every gate (kill switch, dual-plane standby fence) is server
+        # side, so the cron ticks unconditionally.
+        scope :platform do
+          post "status_sweep", to: "platform_status#status_sweep"
+
+          # Investigation ranking (A6). The evidence is assembled synchronously
+          # wherever the investigation was opened; ranking is an LLM call
+          # against a canonical agent, so PlatformInvestigationJob owns the
+          # retry and calls in here for the work.
+          post "investigations/:id/conclude", to: "platform_investigations#conclude"
+        end
+
         # Git provider internal endpoints (for worker service)
         namespace :git do
           resources :webhook_events, only: [ :show, :update ] do
@@ -400,6 +414,15 @@ Rails.application.routes.draw do
           resources :integration_executions, only: [] do
             member do
               post :run
+            end
+          end
+
+          # Integration health sweep (worker: Integrations::IntegrationHealthCheckJob).
+          # The worker cannot reach the operator-auth /api/v1/devops/integration_instances
+          # surface, so the probe + persistence live here (A8).
+          resources :integration_health, only: [ :index ] do
+            member do
+              post :probe
             end
           end
 
@@ -548,6 +571,13 @@ Rails.application.routes.draw do
           # improvement signals into deduped campaign proposals across active accounts.
           post "campaign_discovery/scan", to: "campaign_discovery#scan"
 
+          # Weekly improvement-discovery clock (worker cron → server): run the
+          # mechanical analyzers and file code-quality offers through the same
+          # fingerprint-deduped path create_improvement uses (D1).
+          post "improvement_discovery/run", to: "improvement_discovery#run"
+          # The worker records a unit it stopped waiting on (D1 re-verify).
+          post "improvement_discovery/timed_out", to: "improvement_discovery#timed_out"
+
           # Worktree session management (worker → server)
           resources :worktree_sessions, only: [:show] do
             member do
@@ -611,6 +641,10 @@ Rails.application.routes.draw do
           # Autonomy intervention policy tuning (worker → server)
           post "intervention_policies/analyze_patterns", to: "autonomy#analyze_policy_patterns"
 
+          # LLM-judge evaluation (worker → server) — D4. Event-driven, not cron:
+          # dev_complete_task enqueues AgentEvaluationJob, which posts here.
+          post "evaluations/run", to: "evaluations#run"
+
           # Phase 1: Experience replay + reflexion (worker → server)
           post "experience_replays/capture", to: "experience_replays#capture"
           post "reflexions/reflect", to: "reflexions#reflect"
@@ -638,12 +672,6 @@ Rails.application.routes.draw do
               post :cleanup
               post :security_findings
             end
-          end
-
-          # Phase 4: Self-challenges (worker → server)
-          scope "self_challenges", controller: "self_challenges" do
-            post :process, action: :process_challenge
-            post :schedule_daily
           end
 
           # Phase 4: Governance (worker → server)
@@ -1111,6 +1139,14 @@ Rails.application.routes.draw do
           post :disable, to: "rate_limiting#disable_temporarily"
           post :enable, to: "rate_limiting#enable"
 
+          # RequestInspector IP blocks (the DDoS middleware's own blocklist,
+          # separate from the rate_limit:* counters above). An IP contains dots,
+          # which Rails would otherwise parse as a :format, so the segment takes
+          # an explicit constraint — an IPv6 address contains colons for the
+          # same reason.
+          get "ip_blocks", to: "rate_limiting#ip_blocks"
+          delete "ip_blocks/:ip", to: "rate_limiting#clear_ip_block", constraints: { ip: %r{[^/]+} }
+
           # Account tier management
           scope "accounts/:account_id" do
             get :statistics, to: "rate_limiting#account_statistics", as: :account_statistics
@@ -1532,6 +1568,48 @@ Rails.application.routes.draw do
       end
 
       # ===================================================================
+      # COMPONENT STATUS PLANE (campaign 01a08c9b, increment A4)
+      # ===================================================================
+      # The operator screen's read door. Four reads, no writes: the sweep is
+      # the one producer and reaches the rows through the mTLS worker route
+      # under api/v1/internal/platform above. Gated on platform.status.read.
+      # ===================================================================
+      namespace :platform do
+        # E8: alert-channel configuration. Three write-only credentials (show
+        # answers configured: true|false and never a value), four plain
+        # settings, and an explicit clear per credential. REST only — no MCP
+        # verb reads or writes any of it. Gated on settings.manage, with
+        # admin.access always granting (require_admin_access).
+        resource :alert_channels, only: %i[show update] do
+          delete "secrets/:secret_key", action: :clear_secret, as: :clear_secret
+        end
+
+        resources :component_statuses, only: [ :index, :show ] do
+          collection do
+            get :rollup
+          end
+          member do
+            get :impact
+          end
+
+          # THE DRAWER (design §6, increment A9). Nested rather than member
+          # routes so `:component_status_id` is the param everywhere — a drawer
+          # endpoint that took `:id` for the component and another that took it
+          # for the investigation would be two meanings for one name.
+          #
+          # The three reads are gated on platform.status.read; POST
+          # investigations is gated on ai.autonomy.manage as well, matching the
+          # MCP verb exactly, so the button and the tool cannot disagree about
+          # who may spend an LLM call.
+          get :runbook, to: "component_status_actions#runbook"
+          get :remediation_route, to: "component_status_actions#remediation_route"
+          get :events, to: "component_status_actions#events"
+          resources :investigations, only: [ :index, :create ],
+                                     controller: "component_status_investigations"
+        end
+      end
+
+      # ===================================================================
       # AI ORCHESTRATION SYSTEM - CONSOLIDATED CONTROLLERS
       # ===================================================================
       # 6 RESTful resource controllers replacing 25+ old controllers
@@ -1640,10 +1718,10 @@ Rails.application.routes.draw do
             get :statistics
           end
 
-          # Agent intelligence (experience replays, self-challenges)
+          # Agent intelligence (experience replays). The self_challenges route
+          # was removed with the subsystem it served (D6).
           get "intelligence/summary", to: "agent_intelligence#summary", as: :intelligence_summary
           get "intelligence/experience_replays", to: "agent_intelligence#experience_replays", as: :intelligence_experience_replays
-          get "intelligence/self_challenges", to: "agent_intelligence#self_challenges", as: :intelligence_self_challenges
 
           # Nested executions (replaces ai_agent_executions)
           # Explicitly map REST actions to prefixed controller methods
@@ -1723,7 +1801,6 @@ Rails.application.routes.draw do
         scope :providers, controller: "provider_sync" do
           post ":id/test_connection", action: :test_connection, as: :test_connection_provider
           post ":id/sync_models", action: :sync_models, as: :sync_models_provider
-          post "setup_defaults", action: :setup_defaults, as: :setup_defaults_providers
           post "test_all", action: :test_all, as: :test_all_providers
           post "sync_all", action: :sync_all, as: :sync_all_providers
         end
@@ -2849,6 +2926,7 @@ Rails.application.routes.draw do
             post :answer_question
             post :stop
             post :delegate
+            post :resume
           end
         end
 

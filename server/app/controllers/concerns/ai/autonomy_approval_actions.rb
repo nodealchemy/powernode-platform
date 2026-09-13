@@ -6,6 +6,7 @@ module Ai
     # IMP-550e44e24220 — shared approval-payload core, also included by
     # Api::V1::Ai::GovernanceController so both read surfaces cannot drift.
     include ::Ai::ApprovalRequestSerialization
+    include ::HumanSession
 
     # GET /api/v1/ai/autonomy/approvals
     def approval_queue
@@ -30,12 +31,19 @@ module Ai
     # POST /api/v1/ai/autonomy/approvals/:id/approve
     def approve_action
       request = ::Ai::ApprovalRequest.where(account_id: current_account.id).find(params[:id])
+      refusal = human_session_refusal(request, "approve")
+      return render_error(refusal, status: :forbidden) if refusal
+
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
-      if service.approve(request: request, approver: current_user, comments: params[:comments])
+      if service.approve(request: request, approver: current_user, comments: params[:comments],
+                         origin: human_decision_origin)
         payload = ::Ai::SensitiveParams.batch { serialize_approval_request(request.reload, detailed: true) }
         render_success(data: with_revealed_result(request, payload))
       else
+        # L9: a refusal the decider can act on is named; any other stays generic.
+        return render_error(request.decision_refusal, status: :forbidden) if request.decision_refusal
+
         render_error("Cannot approve this request", status: :unprocessable_content)
       end
     rescue ActiveRecord::RecordNotFound
@@ -45,9 +53,13 @@ module Ai
     # POST /api/v1/ai/autonomy/approvals/:id/reject
     def reject_action
       request = ::Ai::ApprovalRequest.where(account_id: current_account.id).find(params[:id])
+      refusal = human_session_refusal(request, "reject")
+      return render_error(refusal, status: :forbidden) if refusal
+
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
-      if service.reject(request: request, approver: current_user, comments: params[:comments])
+      if service.reject(request: request, approver: current_user, comments: params[:comments],
+                        origin: human_decision_origin)
         render_success(
           data: ::Ai::SensitiveParams.batch { serialize_approval_request(request.reload, detailed: true) }
         )
@@ -59,6 +71,9 @@ module Ai
     end
 
     private
+
+    # #human_session_refusal is HumanSession's, shared with the governance
+    # door so both REST decision doors give the same reason.
 
     def require_approval_permission
       return if current_worker
@@ -103,7 +118,12 @@ module Ai
         action_type: request.request_data&.dig("action_type") || request.request_data&.dig("action_category"),
         action_category: request.request_data&.dig("action_category"),
         requested_by_id: request.requested_by_id,
-        total_steps: request.step_statuses&.size
+        total_steps: request.step_statuses&.size,
+        # Per viewer, on the LIST as well as the detail (C3b2 review B1): the
+        # client offers Approve/Reject only when this is true, and until it was
+        # listed the quick row followed the permission alone, so a holder of
+        # ai.autonomy.approve who is not on the current step drew a 422.
+        current_step_can_approve: current_user.present? && request.can_approve?(current_user)
       )
       return base unless detailed
 
@@ -111,8 +131,7 @@ module Ai
         approval_chain: serialize_chain(request.approval_chain),
         step_statuses: request.step_statuses,
         decisions: request.decisions.order(:created_at).map { |d| serialize_decision(d) },
-        deferred_operation: serialize_deferred_operation(request),
-        current_step_can_approve: current_user.present? && request.can_approve?(current_user)
+        deferred_operation: serialize_deferred_operation(request)
       )
     end
 
@@ -129,7 +148,7 @@ module Ai
       {
         id: decision.id, approver_id: decision.approver_id,
         step_number: decision.step_number, decision: decision.decision,
-        comments: decision.comments, created_at: decision.created_at
+        comments: decision.comments, origin: decision.origin, created_at: decision.created_at
       }
     end
 

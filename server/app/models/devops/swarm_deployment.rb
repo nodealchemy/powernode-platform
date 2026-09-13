@@ -10,7 +10,7 @@ module Devops
     include ExecutionTrackable
 
     DEPLOYMENT_TYPES = %w[deploy update scale rollback remove stack_deploy stack_remove].freeze
-    STATUSES = %w[pending running completed failed cancelled].freeze
+    STATUSES = %w[pending running completed partially_converged failed cancelled].freeze
 
     belongs_to :cluster, class_name: "Devops::SwarmCluster"
     belongs_to :service, class_name: "Devops::SwarmService", optional: true
@@ -44,6 +44,18 @@ module Devops
         completed_at: Time.current,
         duration_ms: calculate_duration_ms,
         result: error_data
+      )
+    end
+
+    # Convergence timed out but some services came up — distinct from both a
+    # clean completion and an outright failure, so callers (and operators)
+    # can tell "some replicas never converged" apart from either.
+    def partially_converge!(result_data = {})
+      update!(
+        status: "partially_converged",
+        completed_at: Time.current,
+        duration_ms: calculate_duration_ms,
+        result: result_data
       )
     end
 

@@ -128,10 +128,37 @@ class ApiKey < ApplicationRecord
     permissions.any? { |scope| scope_matches?(scope, required_scope) }
   end
 
+  # Records that the key was used. The counter half always applies; the
+  # detailed row is written only when the caller can supply what the table
+  # requires (IMP-01a07d5a).
+  #
+  # api_key_usages.endpoint / method / response_status are all NOT NULL, and
+  # an AUTHENTICATOR does not yet know the response status — it runs before the
+  # action. This used to be called with NO arguments at all from
+  # a2a_controller.rb, so every create! passed three nils into NOT NULL columns.
+  # That never surfaced because the model raised earlier still (see
+  # ApiKeyUsage), and the one caller rescued StandardError into nil, taking the
+  # whole authentication down with it silently.
+  #
+  # So the detail row is now the caller's choice: pass the request context once
+  # the status is known (the A2A controller does it in an after_action) and a
+  # row is written; call it bare from an authenticator and only the counters
+  # move. Nothing is invented to satisfy a NOT NULL constraint — a placeholder
+  # endpoint would be worse than no row.
+  #
+  # usage_count is incremented here as well. The column exists and is surfaced
+  # by api_keys_controller (`usage_count: api_key.usage_count || 0`), and
+  # nothing has ever written it, so every key has always reported 0.
   def record_usage!(request_data = {})
-    update!(last_used_at: Time.current)
+    self.class.where(id: id).update_all(
+      last_used_at: Time.current,
+      usage_count: ApiKey.arel_table[:usage_count] + 1,
+      updated_at: Time.current
+    )
+    reload
 
-    # Create detailed usage record
+    return nil unless detailed_usage_recordable?(request_data)
+
     api_key_usages.create!(
       endpoint: request_data[:endpoint],
       method: request_data[:method],
@@ -177,6 +204,15 @@ class ApiKey < ApplicationRecord
   end
 
   private
+
+  # The three NOT NULL columns a detail row needs. Checked rather than
+  # defaulted: a row invented around missing data would make the usage table
+  # look populated while describing nothing.
+  def detailed_usage_recordable?(request_data)
+    request_data[:endpoint].present? &&
+      request_data[:method].present? &&
+      request_data[:status].present?
+  end
 
   def set_defaults
     self.is_active = true if is_active.nil?

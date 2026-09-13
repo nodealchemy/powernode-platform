@@ -44,8 +44,8 @@ module Ai
       declare_action "attach_skill_to_agent", mutating: true
       declare_action "clone_skill", mutating: true
       declare_action "create_skill", mutating: true
-      declare_action "delete_skill", mutating: true
-      declare_action "detach_skill_from_agent", mutating: true
+      declare_action "delete_skill", mutating: true, destructive: true
+      declare_action "detach_skill_from_agent", mutating: true, destructive: true
       declare_action "discover_skills", mutating: false
       declare_action "get_skill", mutating: false
       declare_action "get_skill_context", mutating: false

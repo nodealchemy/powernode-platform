@@ -11,28 +11,22 @@ module Ai
       # therefore reachable by any MCP caller with no check at all, including
       # mutate_skill and compose_skills, which write Ai::Skill records.
       #
-      # This tool bundles two unrelated surfaces whose REST twins are gated
-      # differently — self-challenges on the coarse ai.manage, skill writes on
-      # the ai.skills.* family — so no single constant expresses parity. The
-      # floor is ai.skills.read: every legitimate caller of EITHER surface holds
-      # it (granted to member upward, permissions.rb:738; every role granted
-      # ai.skills.update/create or ai.manage also carries it), so it is the
-      # least-privileged thing the registrar can demand before the action is
-      # known. Unusually, NO action sits at the floor — each one raises above it.
+      # The floor is ai.skills.read: every legitimate caller holds it (granted
+      # to member upward, permissions.rb:738; every role granted
+      # ai.skills.update/create also carries it), so it is the least-privileged
+      # thing the registrar can demand before the action is known. Unusually, NO
+      # action sits at the floor — each one raises above it.
+      #
+      # Until D6 this tool bundled two unrelated surfaces gated differently —
+      # self-challenges on the coarse ai.manage, skill writes on the
+      # ai.skills.* family — which is why the floor is a shared minimum rather
+      # than any action's own bar. The self-challenge half is gone; the floor is
+      # left where it is because it is still correct and still below all three
+      # remaining actions.
       REQUIRED_PERMISSION = "ai.skills.read"
 
       # Each entry names the permission the REST twin of that action requires.
       ACTION_PERMISSIONS = {
-        # Api::V1::Ai::AgentIntelligenceController#validate_permissions is
-        # blanket ai.manage (agent_intelligence_controller.rb:7,76-81), and
-        # #self_challenges is the twin of list_challenges. get_challenge_result
-        # returns rows from that same list, and generate_self_challenge WRITES
-        # one — the whole Ai::SelfChallenge surface is gated as a family, and
-        # ai.manage is the only permission any human surface asks for it.
-        "generate_self_challenge" => "ai.manage",
-        "list_challenges" => "ai.manage",
-        "get_challenge_result" => "ai.manage",
-
         # The skill writes. Their operational twins
         # (Api::V1::Internal::Ai::SkillsController#mutate / #auto_evolve) are
         # mTLS worker endpoints carrying no permission string, so the binding
@@ -85,9 +79,6 @@ module Ai
                      gate_context: :auto_evolve_skill_gate_context,
                      on_proceed: :deferred_tool_call_result
       declare_action "compose_skills", mutating: true
-      declare_action "generate_self_challenge", mutating: true
-      declare_action "get_challenge_result", mutating: false
-      declare_action "list_challenges", mutating: false
       declare_action "mutate_skill",
                      mutating: true,
                      action_category: REFINE_PROMPT_CATEGORY,
@@ -96,36 +87,16 @@ module Ai
                      on_proceed: :deferred_tool_call_result
 
       def self.definition
-        { name: "self_improvement", description: "Self-challenge generation, skill mutation, and skill composition", parameters: { type: "object", properties: {} } }
+        { name: "self_improvement", description: "Skill mutation and skill composition", parameters: { type: "object", properties: {} } }
       end
 
       def self.action_definitions
         {
-          "generate_self_challenge" => {
-            description: "Generate a self-challenge for an agent to practice and improve",
-            parameters: {
-              skill_id: { type: "string", required: false, description: "Skill to challenge (optional)" },
-              difficulty: { type: "string", required: false, description: "Difficulty level: easy, medium, hard, expert" }
-            }
-          },
-          "list_challenges" => {
-            description: "List self-challenges for the current agent",
-            parameters: {
-              status: { type: "string", required: false, description: "Filter by status" },
-              limit: { type: "integer", required: false, description: "Max results (default 20)" }
-            }
-          },
-          "get_challenge_result" => {
-            description: "Get detailed result for a specific self-challenge",
-            parameters: {
-              challenge_id: { type: "string", required: true, description: "Challenge ID" }
-            }
-          },
           "mutate_skill" => {
             description: "Mutate a skill using a specified strategy to improve it — rewrites that ONE skill's prompt as a new version. APPROVAL-GATED (dev.prompt_refine): when policy requires approval this returns {pending: true} with a deferred_operation_id and NOTHING is mutated until an operator approves — do not retry and do not report the mutation as done on that response. The seeded Platform Developer / Platform Architect rows auto-approve only from the `trusted` trust tier and require approval below it; a caller with no row of its own (an operator's mcp_client session, an instance principal) auto-approves through the account-wide dev.prompt_refine floor unless an operator retuned it.",
             parameters: {
               skill_id: { type: "string", required: true, description: "Skill ID to mutate" },
-              strategy: { type: "string", required: true, description: "Mutation strategy: learning_driven, failure_analysis, challenge_derived, peer_comparison" }
+              strategy: { type: "string", required: true, description: "Mutation strategy: learning_driven, failure_analysis, peer_comparison" }
             }
           },
           "compose_skills" => {
@@ -153,9 +124,6 @@ module Ai
         end
 
         case action
-        when "generate_self_challenge" then generate_self_challenge(params)
-        when "list_challenges" then list_challenges(params)
-        when "get_challenge_result" then get_challenge_result(params)
         when "mutate_skill" then mutate_skill(params)
         when "compose_skills" then compose_skills(params)
         when "auto_evolve_skill" then auto_evolve_skill(params)
@@ -198,39 +166,8 @@ module Ai
         user.has_permission?(required_perm_for(action)) == true
       end
 
-      def generate_self_challenge(params)
-        service = Ai::SelfImprovement::ChallengeService.new(account: account)
-        skill = params["skill_id"] ? Ai::Skill.find_by(id: params["skill_id"], account: account) : nil
-        challenge = service.generate_challenge!(
-          agent: agent,
-          skill: skill,
-          difficulty: params["difficulty"] || "medium"
-        )
-        return error_result("Failed to generate challenge") unless challenge
-        success_result(challenge.as_json(only: [:id, :challenge_id, :status, :difficulty, :challenge_prompt]))
-      rescue StandardError => e
-        error_result("Challenge generation failed: #{e.message}")
-      end
 
-      def list_challenges(params)
-        scope = Ai::SelfChallenge.for_agent(agent.id)
-        scope = scope.where(status: params["status"]) if params["status"]
-        challenges = scope.recent.limit((params["limit"] || 20).to_i)
-        success_result({
-          challenges: challenges.map { |c| c.as_json(only: [:id, :challenge_id, :status, :difficulty, :quality_score, :created_at]) },
-          count: challenges.size
-        })
-      rescue StandardError => e
-        error_result("List challenges failed: #{e.message}")
-      end
 
-      def get_challenge_result(params)
-        challenge = Ai::SelfChallenge.find_by(id: params["challenge_id"], account: account)
-        return error_result("Challenge not found") unless challenge
-        success_result(challenge.as_json(except: [:updated_at]))
-      rescue StandardError => e
-        error_result("Get challenge failed: #{e.message}")
-      end
 
       # The tool's own pre-dispatch authorization, hoisted out of #call so a
       # GATED refine verb — which bypasses #call — is authorized exactly as an

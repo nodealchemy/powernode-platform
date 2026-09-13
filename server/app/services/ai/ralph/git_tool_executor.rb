@@ -10,11 +10,17 @@ module Ai
       # blow up the checker's context window; the diff is marked truncated past this.
       MAX_DIFF_BYTES = 256 * 1024
 
-      attr_reader :file_changes, :last_commit_sha
+      # Tools that change the repository; a refusal of one is a failed change (D2).
+      MUTATING_TOOLS = %w[write_file delete_file].freeze
+
+      # Where TaskExecutor makes a run's executor live (see .with_live).
+      LIVE_KEY = :ralph_live_git_executors
+
+      attr_reader :file_changes, :failed_changes, :parked_changes, :last_commit_sha
 
       def initialize(ralph_loop:)
         @ralph_loop = ralph_loop
-        @repository = ralph_loop.mission&.repository
+        @repository = self.class.account_repository(ralph_loop.mission&.repository, ralph_loop.account_id)
         raise ArgumentError, "Ralph loop has no associated repository" unless @repository
 
         @credential = @repository.credential
@@ -23,12 +29,60 @@ module Ai
         @repo = @repository.name
         @branch = ralph_loop.branch || @repository.default_branch || "main"
         @file_changes = []
+        @failed_changes = []
+        @parked_changes = []
         @last_commit_sha = nil
+      end
+
+      def ralph_loop_id
+        @ralph_loop.id
+      end
+
+      # The executor of a run in progress in THIS execution context, by loop
+      # (D2 review F3). TaskExecutor makes its executor live for the run, so a
+      # write the AutonomyGate auto-approves — replayed in-process through a
+      # freshly built RepositoryGitTool — commits on the run's own ledger. A
+      # replay after a later approval finds none and builds its own executor.
+      def self.with_live(executor)
+        return yield unless executor
+
+        live = (ActiveSupport::IsolatedExecutionState[LIVE_KEY] ||= {})
+        key = executor.ralph_loop_id.to_s
+        previous = live[key]
+        live[key] = executor
+        begin
+          yield
+        ensure
+          previous ? live[key] = previous : live.delete(key)
+        end
+      end
+
+      def self.live_for(ralph_loop_id)
+        return nil if ralph_loop_id.blank?
+
+        (ActiveSupport::IsolatedExecutionState[LIVE_KEY] || {})[ralph_loop_id.to_s]
+      end
+
+      # D2 review F3: a write the AutonomyGate parked for an operator, recorded
+      # so a run with no commit says it is waiting on an approval.
+      def record_parked_change(path, tool_name, approval_request_id)
+        @parked_changes << { path: path, tool: tool_name.to_s, approval_request_id: approval_request_id }
       end
 
       # Check if git tools are available for this ralph loop
       def self.available?(ralph_loop)
-        ralph_loop.mission&.repository.present?
+        account_repository(ralph_loop.mission&.repository, ralph_loop.account_id).present?
+      end
+
+      # D2 review F1: the repository, only when it AND the credential it commits
+      # with belong to account_id. A mission row that points at another account's
+      # repository, however it was written, gets no actuator; the refusal reads
+      # the same as having no repository at all.
+      def self.account_repository(repository, account_id)
+        return nil unless repository && account_id.present? && repository.account_id == account_id
+        return nil if repository.credential && repository.credential.account_id != account_id
+
+        repository
       end
 
       # G3 follow-up: build a bounded, REAL unified diff for a commit (defaults to
@@ -59,6 +113,11 @@ module Ai
       # @return [Hash] { success:, ... }
       def execute(tool_name, arguments)
         arguments = (arguments || {}).deep_symbolize_keys
+        # D2 review F2: the kill switch, inside the write itself. Whoever calls a
+        # mutating tool, nothing reaches the repository after an emergency halt.
+        if MUTATING_TOOLS.include?(tool_name) && kill_switch_halted?
+          return { success: false, error: "#{tool_name} refused: AI activity is suspended for this account (emergency halt)" }
+        end
 
         case tool_name
         when "read_file"      then handle_read_file(arguments)
@@ -76,10 +135,17 @@ module Ai
         end
       rescue StandardError => e
         Rails.logger.error("GitToolExecutor #{tool_name} failed: #{e.message}")
-        { success: false, error: "#{tool_name} failed: #{e.message}" }
+        error = "#{tool_name} failed: #{e.message}"
+        return { success: false, error: error } unless MUTATING_TOOLS.include?(tool_name)
+
+        record_failed_change(arguments.is_a?(Hash) ? arguments[:path] : nil, tool_name, error)
       end
 
       private
+
+      def kill_switch_halted?
+        Ai::Autonomy::KillSwitchService.halted_now?(@ralph_loop.account_id)
+      end
 
       def handle_read_file(arguments)
         path = arguments[:path]
@@ -124,7 +190,8 @@ module Ai
         end
 
         unless result[:success]
-          return { success: false, error: result[:error] || "Failed to write file" }
+          return record_failed_change(path, existing && existing[:sha] ? :updated : :created,
+                                      result[:error] || "Failed to write file")
         end
 
         operation = existing && existing[:sha] ? :updated : :created
@@ -156,7 +223,7 @@ module Ai
           message: message, branch: @branch)
 
         unless result[:success]
-          return { success: false, error: result[:error] || "Failed to delete file" }
+          return record_failed_change(path, :deleted, result[:error] || "Failed to delete file")
         end
 
         commit_sha = extract_commit_sha(result)
@@ -330,6 +397,14 @@ module Ai
         end
 
         { success: true, commits: commit_list, count: commit_list.size }
+      end
+
+      # D2: a change the provider refused (a stale sha, a 5xx) is recorded, so a
+      # run with no commit carries the provider's reason instead of reading as
+      # "the agent changed nothing".
+      def record_failed_change(path, operation, error)
+        @failed_changes << { path: path, operation: operation.to_s, error: error }
+        { success: false, error: error }
       end
 
       def extract_commit_sha(result)

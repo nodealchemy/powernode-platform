@@ -90,13 +90,20 @@ module Permissions
   # and emits a System::FleetEvent for it.
   #
   # #drift carries the same memory from the other direction as
-  # DriftReport#previously_held — missing rows this deployment once held. That
-  # member is a reporting SURFACE, not a printed signal: as of this change
-  # `permissions:role_grant_drift` still prints one undifferentiated `MISSING`
-  # line for every absent grant, and `permissions:reconcile_role_grants` one
-  # undifferentiated `+ grant` line for every creation. Wiring both printers to
-  # these members is a follow-up in lib/tasks/permissions.rake; do not describe
-  # the rake output as distinguishing them until it does.
+  # DriftReport#previously_held — missing rows this deployment once held.
+  #
+  # BOTH OPERATOR DOORS NOW READ THESE (IMP-01a06af0). For a while only the
+  # boot runner did, and `permissions:role_grant_drift` printed one
+  # undifferentiated `MISSING` line per absent grant while
+  # `permissions:reconcile_role_grants` printed one undifferentiated `+ grant`
+  # line per creation — so the one case this ledger exists to surface, a
+  # deliberate revocation being silently undone, was invisible at exactly the
+  # door a human is watching, and on an install with no hub image it was
+  # invisible everywhere. lib/tasks/permissions.rake now splits both, and
+  # spec/lib/tasks/permissions_role_grant_printers_spec.rb pins the three-state
+  # sequence at both doors: a printer that said "reversal" for every creation
+  # would pass a one-pass assertion, so each example asserts the plain line and
+  # the reversal line exclude each other.
   #
   # Detection changes what is REPORTED, never what is DONE: the re-creation is
   # not suppressed. Suppressing it would give this class hidden state that can
@@ -144,8 +151,16 @@ module Permissions
     # previously_held ⊆ missing_grants: missing rows the ledger says this
     # deployment once held — a revocation made outside the catalog, which the
     # next boot's reconcile will undo.
+    #
+    # ledger_error mirrors Result#ledger_error, and for the same reason
+    # (IMP-01a06af0): an unreadable ledger reads as EMPTY, so previously_held
+    # comes back empty and the report would read clean in precisely the case
+    # the ledger exists to catch. `drift` used to discard that error, which made
+    # "no reversals" and "reversal detection is broken" the same output. A
+    # caller printing previously_held MUST print this too.
     DriftReport = Struct.new(:missing_grants, :missing_roles, :extra_grants,
-                             :orphan_grants, :present, :previously_held, keyword_init: true) do
+                             :orphan_grants, :present, :previously_held, :ledger_error,
+                             keyword_init: true) do
       # A declared global role missing from the database is drift in its own
       # right: it contributes no missing GRANTS precisely because it was never
       # examined, so counting only missing_grants would report that install as
@@ -256,12 +271,13 @@ module Permissions
         (current - desired).each { |p| extra_grants << "#{name}/#{p}" }
       end
 
-      ledger, _error = load_ledger
+      ledger, ledger_error = load_ledger
 
       DriftReport.new(missing_grants: missing_grants, missing_roles: missing_roles,
                       extra_grants: extra_grants, orphan_grants: orphan_grant_keys,
                       present: present,
-                      previously_held: missing_grants.select { |key| ledger.key?(key) })
+                      previously_held: missing_grants.select { |key| ledger.key?(key) },
+                      ledger_error: ledger_error)
     end
 
     private

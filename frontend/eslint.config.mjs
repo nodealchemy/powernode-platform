@@ -115,7 +115,10 @@ export default tseslint.config(
       // grandfathered in .claude/hooks/console-log-baseline.txt; this allows
       // nothing so the two guards state one policy. Severity stays `warn`,
       // matching the surrounding rules and the grandfathered core sites.
-      'no-console': ['warn', { allow: [] }],
+      // No options object: `no-console` with none reports every method, and
+      // `{ allow: [] }` is a schema error that aborted ESLint on every file
+      // (IMP-01a08cac).
+      'no-console': 'warn',
       'no-debugger': 'warn',
       'no-unused-vars': 'off', // Handled by TypeScript
       '@typescript-eslint/no-unused-vars': ['warn', {

@@ -13,6 +13,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { StorageProvider } from '@/shared/types/storage';
+import { formatFileSize } from '@/shared/utils/formatters';
 
 interface StorageProviderCardProps {
   provider: StorageProvider;
@@ -74,14 +75,6 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
       default:
         return <AlertCircle className="h-5 w-5 text-theme-secondary" />;
     }
-  };
-
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
   return (
@@ -187,7 +180,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
           <div>
             <p className="text-xs text-theme-secondary mb-1">Storage Used</p>
             <p className="text-lg font-semibold text-theme-primary">
-              {formatBytes(provider.usage_stats.total_size_bytes)}
+              {formatFileSize(provider.usage_stats.total_size_bytes, { byteUnitLabel: 'Bytes', autoTrimDecimals: 2 })}
             </p>
           </div>
         </div>

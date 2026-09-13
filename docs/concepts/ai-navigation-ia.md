@@ -1,8 +1,7 @@
 # AI Navigation Information Architecture
 
-The map of the **AI** sidebar category: what each item is, how nesting works, and the
-route/redirect table. This is the reference a frontend change to the AI category should
-update.
+The map of the **AI** sidebar category: what each item is and how nesting works. This is
+the reference a frontend change to the AI category should update.
 
 ## Principles
 
@@ -53,17 +52,6 @@ sub-views renders a single `PathTabs` row:
 - **FinOps** — `FinOpsContent` → tabs: overview · cost-explorer · budget.
 - **ROI** — `RoiDashboardContent` (single view).
 - **Outcome Billing** — `OutcomeBillingContent` → tabs: definitions · contracts · records · violations · performance · summary.
-
-## Redirect / route table (legacy → current)
-
-| Old path | Now |
-|---|---|
-| `/app/ai/observability/credits*` | `/app/ai/cost/credits` |
-| `/app/ai/billing/*` | `/app/ai/cost/credits` |
-| `/app/ai/observability/operations` | `/app/ai/operations` |
-| `/app/ai/observability/alerts` | `/app/ai/operations/alerts` |
-| `/app/developer/traces` | `/app/ai/operations/traces` |
-| `/app/ai/monitoring/*` | `/app/ai/observability` |
 
 ## Backend note
 

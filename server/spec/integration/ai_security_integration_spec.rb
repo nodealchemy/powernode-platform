@@ -5,7 +5,6 @@ require 'rails_helper'
 RSpec.describe 'AI Security Integration', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
-  let(:admin_user) { create(:user, :system_admin, account: account) }
   let(:regular_user) { create(:user, account: account, permissions: [ 'ai.conversations.read', 'ai.agents.read' ]) }
 
   # Security-focused AI components

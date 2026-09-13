@@ -6,6 +6,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { chatChannelsApi } from '@/shared/services/ai';
 import { cn } from '@/shared/utils/cn';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { ChatMessageSummary, TypingIndicator } from '@/shared/services/ai';
 
 interface SessionMessagesProps {
@@ -72,35 +73,39 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
   }, [loadMessages]);
 
   // Auto-refresh for active sessions
+  usePolling(loadMessages, 5000, { enabled: sessionStatus === 'active' });
+
+  // Poll typing indicator for active sessions. `typingGenRef` mirrors the
+  // effect-scoped `cancelled` flag the raw setInterval version used, but
+  // per-generation rather than as a single shared boolean: a boolean reset to
+  // false by the *next* generation's setup effect would let an in-flight
+  // request from a stale session write into the new session's UI (the setup
+  // for N+1 runs immediately after the cleanup for N). Each generation
+  // instead captures its own counter value and only applies its response if
+  // the counter still matches when it resolves.
+  const typingGenRef = useRef(0);
   useEffect(() => {
-    if (sessionStatus === 'active') {
-      const interval = setInterval(loadMessages, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [sessionStatus, loadMessages]);
-
-  // Poll typing indicator for active sessions
-  useEffect(() => {
-    if (sessionStatus !== 'active') return;
-
-    let cancelled = false;
-    const pollTyping = async () => {
-      try {
-        const res = await chatChannelsApi.getTypingStatus(sessionId);
-        if (!cancelled) setTyping(res.typing ?? null);
-      } catch {
-        if (!cancelled) setTyping(null);
-      }
-    };
-
-    const interval = setInterval(pollTyping, 2000);
-    pollTyping();
-
+    typingGenRef.current += 1;
     return () => {
-      cancelled = true;
-      clearInterval(interval);
+      typingGenRef.current += 1;
     };
   }, [sessionId, sessionStatus]);
+
+  const pollTyping = useCallback(async () => {
+    const gen = typingGenRef.current;
+    try {
+      const res = await chatChannelsApi.getTypingStatus(sessionId);
+      if (typingGenRef.current === gen) setTyping(res.typing ?? null);
+    } catch {
+      if (typingGenRef.current === gen) setTyping(null);
+    }
+  }, [sessionId]);
+
+  usePolling(pollTyping, 2000, {
+    enabled: sessionStatus === 'active',
+    immediate: true,
+    deps: [sessionId, sessionStatus, pollTyping],
+  });
 
   // Scroll to bottom on new messages
   useEffect(() => {

@@ -369,6 +369,28 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       allow(agent).to receive(:build_system_prompt_with_profile).and_return('sys')
     end
 
+    # D5 — the server path's producer. The executor builds the prompt and owns
+    # the execution row, so it is where "which skill versions served this run"
+    # is known; it stamps them for the judge to credit.
+    it 'stamps the skill versions the prompt served onto a real execution' do
+      real_execution = create(:ai_agent_execution, account: account, agent: agent)
+      served = [ SecureRandom.uuid ]
+      allow(agent).to receive(:served_skill_version_ids).and_return(served)
+
+      described_class.new(agent: agent, execution: real_execution, account: account)
+                     .send(:resolve_model_config, execution_context, messages)
+
+      expect(real_execution.reload.execution_context[Ai::SkillVersion::SERVED_CONTEXT_KEY]).to eq(served)
+    end
+
+    it 'builds the prompt without an execution row to stamp' do
+      model, opts = described_class.new(agent: agent, execution: nil, account: account)
+                                   .send(:resolve_model_config, execution_context, messages)
+
+      expect(model).to eq('claude-sonnet-4-6')
+      expect(opts[:system_prompt]).to eq('sys')
+    end
+
     context 'when the account gate is OFF (default)' do
       it 'never invokes the resolver and keeps the baseline resolved_model' do
         expect(Ai::Routing::TaskTierResolver).not_to receive(:resolve)

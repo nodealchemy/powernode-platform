@@ -6,7 +6,6 @@ export * from '@/shared/components/ui/Badge';
 export * from '@/shared/components/ui/FormField';
 export * from '@/shared/components/ui/LoadingSpinner';
 export * from '@/shared/components/ui/Pagination';
-export * from '@/shared/components/ui/TabNavigation';
 export * from '@/shared/components/layout/PageContainer';
 export * from '@/shared/components/layout/DashboardLayout';
 export * from '@/shared/components/navigation/Header';

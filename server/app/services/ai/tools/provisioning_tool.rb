@@ -467,9 +467,14 @@ module Ai
 
         plan = result[:plan]
         unless plan
+          # The proposer names the cause (IMP-01a04cd4-46c5) — converged,
+          # unobservable, missing footprint, LLM down, unbindable — so the
+          # operator is told which one instead of one sentence for all.
+          decline = result[:decline] || {}
+          reason = [ decline[:reason], decline[:detail] ].compact_blank.join(": ")
           return error_result(
             "No adaptation steps could be composed for change_type '#{change_type}' " \
-            "on mission #{mission.id}"
+            "on mission #{mission.id}#{" (#{reason})" if reason.present?}"
           )
         end
 
@@ -756,7 +761,9 @@ module Ai
         orchestrator_for(mission).handle_approval!(
           gate: "plan_review",
           user: user,
-          decision: "approved"
+          decision: "approved",
+          origin: call_origin,
+          agent: agent
         )
       end
 
@@ -767,7 +774,9 @@ module Ai
         orchestrator_for(mission).handle_approval!(
           gate: "plan_review",
           user: user,
-          decision: "rejected"
+          decision: "rejected",
+          origin: call_origin,
+          agent: agent
         )
       end
 

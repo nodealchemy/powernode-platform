@@ -4,18 +4,25 @@ module Api
   module V1
     module Internal
       module Ai
-        # Worker-cron entry point for continual campaign-proposal discovery. Iterates
-        # active, non-suspended accounts and turns their standing improvement signals into
-        # deduped Ai::CampaignProposal rows (the discovery half of the control plane).
-        # Server-side because the worker is Sidekiq-only and reaches the server via the
-        # internal mTLS API.
+        # Worker-cron entry point for continual campaign-proposal discovery. Turns the
+        # calling worker's account's standing improvement signals into deduped
+        # Ai::CampaignProposal rows (the discovery half of the control plane), if the
+        # account is active and not suspended. Server-side because the worker is
+        # Sidekiq-only and reaches the server via the internal mTLS API.
         class CampaignDiscoveryController < InternalBaseController
+          include ::Api::V1::Internal::WorkerTenancy
+
           # POST /api/v1/internal/ai/campaign_discovery/scan
+          #
+          # THE TENANCY ANCHOR. The scan used to walk EVERY account and write
+          # proposals onto each, so any authenticated worker wrote onto every
+          # tenant. It now walks the calling worker's own account only
+          # (`WorkerTenancy#account_scope`); a nil principal scans nothing.
           def scan
             accounts_processed = 0
             proposals_created = 0
 
-            Account.find_each do |account|
+            account_scope.find_each do |account|
               next unless account.active? && !account.ai_suspended? # kill-switch
 
               begin

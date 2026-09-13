@@ -53,7 +53,7 @@ module Api
             remediation_count_1h: total_1h,
             success_rate: total_1h > 0 ? (success_1h.to_f / total_1h * 100).round(1) : 100.0,
             active_circuit_breakers: count_open_circuit_breakers,
-            feature_flag_enabled: Shared::FeatureFlagService.enabled?(:self_healing_remediation)
+            feature_flag_enabled: ::Ai::SelfHealing::RemediationDispatcher.enabled?
           }
         end
 

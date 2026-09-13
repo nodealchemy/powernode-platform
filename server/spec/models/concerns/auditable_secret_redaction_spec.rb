@@ -189,6 +189,66 @@ RSpec.describe "Auditable secret redaction" do
       expect_no_disclosure(user, user.reload.password_digest)
     end
 
+    # IMP-01a07dd5. The offer named THREE columns as leaking; measured on HEAD,
+    # only this one did. password_digest has been in ALWAYS_REDACTED_ATTRIBUTES
+    # since the original fix (the two examples above pin it), so the offer was
+    # wrong about it — and authorized_keys is a deliberate NON-fix, see below.
+    #
+    # reset_token_digest is the bcrypt digest of a password-RESET token, which
+    # is the same class of material as password_digest sitting one line away in
+    # the same model, redacted. It carries no `encrypts`, so
+    # audit_redacted_attribute_names cannot see it. A digest is not directly
+    # replayable, but a reset token has far less entropy than a password, which
+    # makes an offline attack on its digest correspondingly cheaper — and the
+    # inconsistency with password_digest is not defensible either way.
+    it "does not write reset_token_digest on UPDATE" do
+      user = create(:user)
+
+      Auditable.with_logging do
+        user.update!(reset_token_digest: BCrypt::Password.create(SyntheticAuditProbe::PASSWORD))
+      end
+
+      digest = user.reload.reset_token_digest
+      expect(digest).to be_present
+      expect_no_disclosure(user, digest)
+    end
+
+    it "keeps the key so the trail still records that a reset token was set" do
+      user = create(:user)
+
+      Auditable.with_logging do
+        user.update!(reset_token_digest: BCrypt::Password.create(SyntheticAuditProbe::PASSWORD))
+      end
+
+      row = audit_rows_for(user).where(action: "updated").order(:created_at).last
+      expect(row.new_values).to have_key("reset_token_digest")
+      expect(row.new_values["reset_token_digest"]).to eq(SyntheticAuditProbe::FILTERED)
+    end
+
+    # A DELIBERATE NON-FIX, pinned so nobody "completes" the offer later.
+    #
+    # The same offer asked for authorized_keys to be redacted too. It must NOT
+    # be. These are OpenSSH PUBLIC keys — #authorized_keys_format rejects
+    # anything that is not a valid authorized_keys line, so a private key cannot
+    # land here — and they are published to every node in the account by design.
+    # There is no secret to disclose.
+    #
+    # What there IS, is audit value: adding a key to this column grants SSH
+    # access to the whole fleet, and "operator X added ssh-ed25519 AAAA..." is
+    # precisely the event an audit trail exists to capture. Redacting it would
+    # replace the record of a privileged change with [FILTERED] and make the
+    # trail WORSE while looking like a security improvement.
+    it "still records authorized_keys in full — a public key is not a secret" do
+      user = create(:user)
+      key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAuditProbePublicKeyValue probe@example.com"
+
+      Auditable.with_logging { user.update!(authorized_keys: key) }
+
+      row = audit_rows_for(user).where(action: "updated").order(:created_at).last
+      expect(row.new_values["authorized_keys"].to_s).to include("AAAAC3NzaC1lZDI1NTE5")
+      expect(row.new_values["authorized_keys"].to_s).not_to eq(SyntheticAuditProbe::FILTERED)
+    end
+
     it "does not write the encrypted email on CREATE" do
       user = nil
 

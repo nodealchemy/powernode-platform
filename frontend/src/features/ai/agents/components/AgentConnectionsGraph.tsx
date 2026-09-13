@@ -221,7 +221,7 @@ export const AgentConnectionsGraph: React.FC<AgentConnectionsGraphProps> = ({ ag
     if (nodeType === 'peer_agent') {
       navigate(`/app/ai/agents/${node.id}`);
     } else if (nodeType === 'team') {
-      navigate('/app/ai/agent-teams');
+      navigate('/app/ai/teams');
     }
   }, [navigate]);
 

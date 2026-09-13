@@ -82,6 +82,14 @@ The seed populates AI provider records, skills, intervention policies, and the a
 
 ### Recommended: systemd
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 ```bash
 # First-time install (puts units under /etc/systemd/system + config under /etc/powernode/)
 sudo scripts/systemd/powernode-installer.sh install

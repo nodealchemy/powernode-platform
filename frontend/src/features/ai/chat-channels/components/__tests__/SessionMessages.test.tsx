@@ -4,12 +4,14 @@ import { SessionMessages } from '../SessionMessages';
 jest.mock('@/shared/services/ai', () => ({
   chatChannelsApi: {
     getSessionMessages: jest.fn(),
+    getTypingStatus: jest.fn(),
   },
 }));
 
 import { chatChannelsApi } from '@/shared/services/ai';
 
 const mockedGetSessionMessages = chatChannelsApi.getSessionMessages as jest.Mock;
+const mockedGetTypingStatus = chatChannelsApi.getTypingStatus as jest.Mock;
 
 const mockMessages = [
   {
@@ -51,6 +53,7 @@ describe('SessionMessages', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedGetSessionMessages.mockResolvedValue({ items: mockMessages });
+    mockedGetTypingStatus.mockResolvedValue({ typing: null });
     // Mock scrollIntoView
     Element.prototype.scrollIntoView = jest.fn();
   });
@@ -148,5 +151,50 @@ describe('SessionMessages', () => {
     await waitFor(() => {
       expect(screen.getByText('Message History')).toBeInTheDocument();
     });
+  });
+
+  it('drops a typing-status response that resolves after switching sessions', async () => {
+    // Regression test for review F2 (review-lane4-c8.md): a shared
+    // "cancelled" boolean reset by the next generation's setup effect would
+    // let an in-flight request from a stale session write into the new
+    // session's UI. This asserts the fix (a per-generation counter) blocks
+    // that write, the way the original effect-scoped `cancelled` flag did.
+    let resolveSessionOneTyping: (value: { typing: { session_id: string; agent_name: string; is_typing: boolean; timestamp: string } }) => void;
+    const sessionOneTypingPromise = new Promise<{
+      typing: { session_id: string; agent_name: string; is_typing: boolean; timestamp: string };
+    }>((resolve) => {
+      resolveSessionOneTyping = resolve;
+    });
+
+    mockedGetTypingStatus.mockImplementation((sessionId: string) => {
+      if (sessionId === 'session-1') return sessionOneTypingPromise;
+      return Promise.resolve({ typing: null });
+    });
+
+    const { rerender } = render(
+      <SessionMessages {...defaultProps} sessionId="session-1" sessionStatus="active" />
+    );
+
+    await waitFor(() => {
+      expect(mockedGetTypingStatus).toHaveBeenCalledWith('session-1');
+    });
+
+    // Switch sessions while session-1's typing request is still in flight.
+    rerender(<SessionMessages {...defaultProps} sessionId="session-2" sessionStatus="active" />);
+
+    await waitFor(() => {
+      expect(mockedGetTypingStatus).toHaveBeenCalledWith('session-2');
+    });
+
+    // The stale session-1 response resolves after the switch, claiming an
+    // agent is typing. It must not land in session-2's UI.
+    resolveSessionOneTyping!({
+      typing: { session_id: 'session-1', agent_name: 'Agent A', is_typing: true, timestamp: '2026-02-01T10:00:00Z' },
+    });
+
+    // Flush the microtask queue so the stale .then() has a chance to run.
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(screen.queryByText(/is typing/)).not.toBeInTheDocument();
   });
 });

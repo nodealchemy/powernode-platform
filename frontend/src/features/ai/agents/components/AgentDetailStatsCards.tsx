@@ -1,16 +1,11 @@
 import React from 'react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { CLAUDE_CODE_TOKEN_CONVENTION } from '../constants/agentConstants';
+import { formatDurationMs } from '@/shared/utils/formatters';
 import type { AgentStats } from '@/shared/services/ai/types/agent-api-types';
 
 interface AgentDetailStatsCardsProps {
   stats: AgentStats;
-}
-
-function formatDuration(ms: number): string {
-  if (!ms || isNaN(ms)) return '—';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 function successRateColor(rate: number): string {
@@ -54,7 +49,7 @@ export const AgentDetailStatsCards: React.FC<AgentDetailStatsCardsProps> = ({ st
       <Card>
         <CardContent className="p-4">
           <div className="text-2xl font-bold text-theme-primary">
-            {formatDuration(stats.avg_execution_time)}
+            {formatDurationMs(stats.avg_execution_time, { emptyCheck: 'falsy' })}
           </div>
           <div className="text-sm text-theme-secondary">Avg Time</div>
         </CardContent>

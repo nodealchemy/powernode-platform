@@ -364,9 +364,12 @@ module Api
         # POST /api/v1/ai/skill_graph/record_outcome
         def record_outcome
           authorize_permission!("ai.skills.update")
+          # version_id: the version that SERVED (D5). Omitted during an A/B,
+          # no version is credited — the served one is not knowable here.
           evolution_service.record_outcome(
             skill_id: params[:skill_id],
-            successful: params[:successful] == true || params[:successful] == "true"
+            successful: params[:successful] == true || params[:successful] == "true",
+            version_id: params[:version_id].presence
           )
           render_success(recorded: true)
         rescue StandardError => e

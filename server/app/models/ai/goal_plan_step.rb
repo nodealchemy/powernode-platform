@@ -12,6 +12,29 @@ module Ai
     STATUSES = %w[pending executing completed failed skipped awaiting_approval].freeze
     STEP_TYPES = %w[agent_execution workflow_run observation human_review sub_goal provisioning_skill].freeze
 
+    # ── WHY A STEP FAILED, AND WHETHER A REPLAN COULD CHANGE IT ─────────────
+    # The ONE place a failure's class is named (goal-plan ruling Q1). A writer
+    # that fails a step passes its `kind:`, and adds that kind here with its
+    # class. Only a kind listed as TRANSIENT lets self-correct spend a paid
+    # replan on the plan (`RalphLoopClosureService#replan_decision`). A kind not
+    # listed, or no kind at all, is DETERMINISTIC: replanning a failure nobody
+    # has shown to be transient buys the same failure again, for money.
+    FAILURE_DETERMINISTIC = "deterministic"
+    FAILURE_TRANSIENT = "transient"
+    FAILURE_KINDS = {
+      # No dispatcher exists for the step's type, so a replan's step of the
+      # same type fails the same way (Internal::Ai::GoalPlansController).
+      "no_dispatcher" => FAILURE_DETERMINISTIC,
+      # Dispatching the step raised, e.g. the enqueue or a database write
+      # (RalphLoopClosureService#execute_plan_step). The same step can succeed
+      # on another attempt.
+      "dispatch_raised" => FAILURE_TRANSIENT
+    }.freeze
+
+    def self.failure_class_for(kind)
+      FAILURE_KINDS.fetch(kind.to_s, FAILURE_DETERMINISTIC)
+    end
+
     belongs_to :plan, class_name: "Ai::GoalPlan", foreign_key: "plan_id"
     belongs_to :sub_goal, class_name: "Ai::AgentGoal", foreign_key: "sub_goal_id", optional: true
     belongs_to :ralph_task, class_name: "Ai::RalphTask", foreign_key: "ralph_task_id", optional: true
@@ -40,8 +63,23 @@ module Ai
       update!(status: "completed", result_summary: result, completed_at: Time.current)
     end
 
-    def fail!(reason: nil)
-      update!(status: "failed", result_summary: reason, completed_at: Time.current)
+    # `kind:` names the failure in FAILURE_KINDS. A writer that passes none
+    # records a deterministic failure.
+    def fail!(reason: nil, kind: nil)
+      update!(status: "failed", result_summary: reason, completed_at: Time.current,
+              metadata: (metadata || {}).merge("failure_kind" => kind&.to_s,
+                                               "failure_class" => self.class.failure_class_for(kind)))
+    end
+
+    # A pending step that can never run, because a dependency will never
+    # complete. Terminal, and not a failure of its own: the plan's failure is
+    # the dependency's (`GoalPlan#first_failed_step`).
+    def skip!(reason:)
+      update!(status: "skipped", result_summary: reason, completed_at: Time.current)
+    end
+
+    def failure_class
+      (metadata.is_a?(Hash) && metadata["failure_class"].presence) || FAILURE_DETERMINISTIC
     end
 
     def dependencies_met?

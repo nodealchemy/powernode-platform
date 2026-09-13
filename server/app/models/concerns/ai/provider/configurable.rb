@@ -148,34 +148,28 @@ module Ai
         if configuration_schema.is_a?(Hash)
           models = configuration_schema["models"] || configuration_schema[:models]
           return if models.is_a?(Array) && models.any?
+          # Written once, then left alone. The default below always carries a
+          # "default_model" key, so its presence means this shape (or an
+          # operator's edit of it) is already here. Without this, a config with
+          # an empty "models" list was re-defaulted on EVERY validation, wiping
+          # an operator's default_model on the next save.
+          return if configuration_schema.key?("default_model") || configuration_schema.key?(:default_model)
         end
 
-        default_config = case provider_type.to_s.downcase
-        when "openai"
-                           {
-                             "models" => %w[gpt-4.1 gpt-4.1-mini gpt-4o],
-                             "default_model" => "gpt-4.1-mini",
-                             "api_key" => nil,
-                             "temperature" => 0.7,
-                             "max_tokens" => 2000
-                           }
-        when "anthropic"
-                           {
-                             "models" => %w[claude-opus-4-8 claude-sonnet-5 claude-haiku-4-5],
-                             "default_model" => "claude-haiku-4-5",
-                             "api_key" => nil,
-                             "temperature" => 0.7,
-                             "max_tokens" => 2000
-                           }
-        else
-                           {
-                             "api_key" => "",
-                             "models" => [],
-                             "default_model" => nil,
-                             "temperature" => 0.7,
-                             "max_tokens" => 2000
-                           }
-        end
+        # ONE default for every provider type, with no model in it (E3b). This
+        # used to write hardcoded model lists and a literal default_model for
+        # openai and anthropic, so those providers ALWAYS resolved to a baked-in
+        # id — one that need not be in the synced catalog — and the
+        # no_model_configured refusal could never fire for the two busiest
+        # types. The model now comes from the synced catalog, through
+        # Provider#default_model's tier rule.
+        default_config = {
+          "api_key" => "",
+          "models" => [],
+          "default_model" => nil,
+          "temperature" => 0.7,
+          "max_tokens" => 2000
+        }
 
         # Add capability-specific defaults
         default_config["supports_functions"] = true if supports_capability?("function_calling")

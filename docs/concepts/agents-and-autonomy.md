@@ -1148,7 +1148,7 @@ See [`concepts/permissions.md`](./permissions.md) for the full permission system
 | Symptom | Most Likely Cause | Fix |
 |---------|------------------|-----|
 | WebSocket not connecting | Permission missing (`ai_orchestration.read`) | Check `currentUser.permissions` includes the channel's read perm |
-| Mission stuck in a phase | Sidekiq worker not running, or phase job failed | `systemctl status powernode-worker@default`; `journalctl -u powernode-worker@default -f` |
+| Mission stuck in a phase | Sidekiq worker not running, or phase job failed | Installer host: `systemctl status powernode-worker@default`; `journalctl -u powernode-worker@default -f`. Module-composed node (dev-cell, ops-hub): there is no `@default` unit, so discover it with `systemctl list-units 'powernode-*-sidekiq.service' --no-pager --no-legend` and never guess the name |
 | Circuit breakers always open | Provider unreachable or failure threshold too low | Check `/api/v1/internal/ai/providers/:id/health`; reset via `Ai::CircuitBreaker.find(id).attempt_reset!` (or `.close!` to force-close) |
 | API calls 401-ing | Token expired | Frontend auto-refreshes; if persistent, re-login |
 | Permission denied | User missing required permission | `console.log(currentUser?.permissions)` to verify |

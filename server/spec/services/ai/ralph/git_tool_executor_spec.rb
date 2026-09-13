@@ -7,14 +7,19 @@ RSpec.describe Ai::Ralph::GitToolExecutor, type: :service do
 
   # Build an executor without the heavy initialize (which needs a ralph_loop with a
   # repository + git credential). We only exercise handle_write_file's create/update
-  # bookkeeping, so set just the ivars it touches.
+  # bookkeeping, so set just the ivars it touches — which include the loop, since
+  # every mutating call first checks the account's kill switch (D2 review F2).
+  let(:ralph_loop) { instance_double(Ai::RalphLoop, id: SecureRandom.uuid, account_id: create(:account).id) }
+
   subject(:executor) do
     described_class.allocate.tap do |e|
+      e.instance_variable_set(:@ralph_loop, ralph_loop)
       e.instance_variable_set(:@git_client, git_client)
       e.instance_variable_set(:@owner, "acme")
       e.instance_variable_set(:@repo, "widgets")
       e.instance_variable_set(:@branch, "main")
       e.instance_variable_set(:@file_changes, [])
+      e.instance_variable_set(:@failed_changes, [])
     end
   end
 

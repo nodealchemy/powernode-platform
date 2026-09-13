@@ -23,15 +23,22 @@ RSpec.describe ScrubHistoricalAuditLogSecrets do
   let(:token_marker)   { "SYNTHETIC-NOT-A-REAL-TOKEN-#{SecureRandom.hex(4)}" }
   let(:user_marker)    { "synthetic-not-a-real-secret-#{SecureRandom.hex(4)}" }
 
+  # Seeds a row AS IT EXISTED BEFORE the write seam — which is the only kind of
+  # row this migration has to clean. `update_columns` after the insert, because
+  # AuditLog#redact_secret_values (IMP-01a08809) now masks these values on the
+  # way in: going through create! alone would hand the migration nothing to do
+  # and the examples would pass vacuously. The seam stops the WRITE; this
+  # migration cleans what was written before it existed, and the two must be
+  # testable independently.
   def audit!(resource_type:, old_values: {}, new_values: {})
-    AuditLog.create!(
+    row = AuditLog.create!(
       account: account,
       action: "deleted",
       resource_type: resource_type,
-      resource_id: SecureRandom.uuid,
-      old_values: old_values,
-      new_values: new_values
+      resource_id: SecureRandom.uuid
     )
+    row.update_columns(old_values: old_values, new_values: new_values)
+    row.reload
   end
 
   describe "#up" do

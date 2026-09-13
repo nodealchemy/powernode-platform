@@ -31,14 +31,12 @@ class Ai::ProviderManagementService
             requires_auth: false,
             supports_streaming: true,
             priority_order: 1,
-            supported_models: [
-              {
-                "name" => "llama2",
-                "id" => "llama2",
-                "context_length" => 4096,
-                "description" => "Meta's Llama 2 model"
-              }
-            ],
+            # No built-in catalog (E3b): a local server serves whatever it has
+            # pulled, and the "llama2" entry here was a guess. The provider
+            # starts inactive with an empty catalog; sync_provider_models below
+            # reads the real one from /api/tags, and an operator activates it.
+            is_active: false,
+            supported_models: [],
             configuration_schema: {
               type: "object",
               properties: {
@@ -195,7 +193,7 @@ class Ai::ProviderManagementService
             begin
               complete_provider_data = provider_data.merge(
                 account: account,
-                is_active: true,
+                is_active: provider_data.fetch(:is_active, true),
                 api_endpoint: provider_data[:api_base_url]
               )
 

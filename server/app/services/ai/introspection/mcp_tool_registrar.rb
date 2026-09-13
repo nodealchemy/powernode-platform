@@ -63,7 +63,7 @@ module Ai
         {
           id: "platform.infrastructure",
           name: "platform_infrastructure",
-          description: "DB, Redis, worker, and connectivity health",
+          description: "DB, Redis, worker and connectivity measurements, plus the status-plane verdict: rollup for this account, shared for process-wide infrastructure",
           category: "introspection",
           permission_level: "read",
           required_permissions: ["ai.introspection.view"],
@@ -197,9 +197,14 @@ module Ai
           when "platform.alerts"
             metrics_service(account).active_alerts
           when "platform.infrastructure"
+            # E7b: the health service reports measurements and no longer stamps
+            # a verdict on them. Composed here rather than there, the same way
+            # the REST door does it, so an agent asking this verb whether the
+            # platform is healthy gets the status plane's answer instead of
+            # silently getting no answer at all.
             health_service(account).comprehensive_health_check(
               skip_cache: params[:skip_cache] || false
-            )
+            ).merge(platform_rollup(account))
           when "platform.cost_analysis"
             time_range = (params[:time_range_minutes] || 60).minutes
             metrics_service(account).cost_analysis(time_range)
@@ -254,6 +259,18 @@ module Ai
 
         def health_service(account)
           Ai::MonitoringHealthService.new(account: account)
+        end
+
+        # THE one health score (design section 4.4). Shared rows are split out
+        # rather than summed in: a NULL-account row describes process-wide
+        # infrastructure belonging to no tenant, so folding it into the
+        # per-account verdict would turn one shared breaker into every tenant's
+        # outage. The split is ::Platform::Status::Rollup.split, the same one
+        # the REST doors call.
+        def platform_rollup(account)
+          return { rollup: nil, shared: nil } if account.blank?
+
+          ::Platform::Status::Rollup.split(::Platform::Status::Query.new(account: account).rows.to_a)
         end
 
         def introspection_service(account)

@@ -182,8 +182,13 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # 19 since IMP-4d6423bf4eb3 added *replace_instance* (ruling R5): the
     # additive half of a DR replace is denied to instance principals alongside
     # the reap it can raise. Collateral pinned below — one action, no others.
+    #
+    # 22 since the E2 review (M2) added three LITERAL names —
+    # remove_team_member, detach_skill_from_agent, data_source_unsubscribe —
+    # each of which destroys rows and had been publishing destructiveHint:
+    # false. Collateral pinned below: exactly those three registry keys.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(19)
+      expect(patterns.size).to eq(22)
     end
 
     # The collateral check itself, kept mechanical: a pattern added later that
@@ -216,6 +221,20 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
       end
 
       expect(denied).to eq(%w[system_replace_instance])
+    end
+
+    # A literal matches only itself, so the real assertion here is the other
+    # direction: each literal NAMES A REGISTERED KEY. A typo'd or renamed
+    # literal would deny nothing at all while reading as a control.
+    it "denies exactly the three E2-review literals, each a real registry key" do
+      literals = %w[remove_team_member detach_skill_from_agent data_source_unsubscribe]
+      expect(patterns).to include(*literals)
+
+      denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+        literals.any? { |pattern| ::File.fnmatch(pattern, name, ::File::FNM_EXTGLOB) }
+      end
+
+      expect(denied.sort).to eq(literals.sort)
     end
   end
 

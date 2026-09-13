@@ -26,7 +26,13 @@ module Api
             skill = ::Ai::Skill.find(params[:skill_id])
             strategy = params[:strategy]
 
-            valid_strategies = %w[learning_driven failure_analysis challenge_derived peer_comparison]
+            # READ FROM THE SERVICE'S CONSTANT, not a second literal list. This
+            # line carried its own copy including `challenge_derived`, which D6
+            # removed from Ai::SelfImprovement::SkillMutationService — so the
+            # endpoint would have accepted a strategy #mutate!'s own membership
+            # guard silently rejects, answering 200 with `version: nil` for a
+            # mutation that never happened. Two lists is how they drift.
+            valid_strategies = ::Ai::SelfImprovement::SkillMutationService::MUTATION_STRATEGIES
             unless valid_strategies.include?(strategy)
               return render_error("Invalid strategy. Must be one of: #{valid_strategies.join(', ')}", status: :unprocessable_content)
             end
@@ -53,7 +59,25 @@ module Api
 
           # POST /api/v1/internal/ai/skills/auto_evolve
           # Called by AiSkillAutoEvolutionJob — auto-mutate underperforming skills
+          #
+          # GATED ON A SiteSetting, DEFAULT OFF (D6). This is the weekly cron's
+          # landing point: no feature flag, no approval gate, every active
+          # account, creating A/B prompt variants at 20% traffic. The
+          # `dev.skill_refine` approval gate is on the MCP verb, not here, so
+          # this door was the ungated one.
+          #
+          # A no-op RENDERS SUCCESS with a reason rather than an error. The
+          # caller is a Sidekiq job with `retry: 1`; a 4xx/5xx would make a
+          # deliberate "off" look like a failure and be retried, and the job's
+          # own log line would read as an outage. `enabled: false` in the body
+          # is the honest answer to "what did this tick do".
           def auto_evolve
+            unless ::Ai::SelfImprovement::SkillMutationService.auto_evolution_enabled?
+              reason = "#{::Ai::SelfImprovement::SkillMutationService::AUTO_EVOLUTION_SETTING} is not enabled"
+              Rails.logger.info("[SkillAutoEvolve] Skipped: #{reason}")
+              return render_success(enabled: false, mutated: 0, reason: reason)
+            end
+
             threshold = (params[:threshold] || 0.4).to_f
             total_mutated = 0
 
@@ -66,7 +90,7 @@ module Api
               Rails.logger.error "[SkillAutoEvolve] Failed for account #{account.id}: #{e.message}"
             end
 
-            render_success(mutated: total_mutated, threshold: threshold)
+            render_success(enabled: true, mutated: total_mutated, threshold: threshold)
           end
 
           # POST /api/v1/internal/ai/skills/:id/refresh_connectors

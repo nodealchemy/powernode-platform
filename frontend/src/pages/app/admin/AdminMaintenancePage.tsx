@@ -105,7 +105,7 @@ export const AdminMaintenancePage: React.FC = () => {
   const handleTabChange = (tabId: MaintenanceTab) => {
     const tab = MAINTENANCE_TABS.find(t => t.id === tabId);
     if (tab) {
-      const targetPath = tabId === 'overview' ? '/app/admin/maintenance' : `/app/admin/maintenance${tab.path}`;
+      const targetPath = tabId === 'overview' ? '/app/admin/maintenance' : `/app/admin/maintenance/${tab.path}`;
       navigate(targetPath);
     }
   };
@@ -114,7 +114,7 @@ export const AdminMaintenancePage: React.FC = () => {
     const activeTabInfo = MAINTENANCE_TABS.find(tab => tab.id === activeTab);
     const breadcrumbs: { label: string; href?: string }[] = [
       { label: 'Dashboard', href: '/app' },
-      { label: 'Admin', href: '/app/admin' },
+      { label: 'Admin', href: '/app/admin/settings' },
       { label: 'Maintenance', href: '/app/admin/maintenance' }
     ];
 

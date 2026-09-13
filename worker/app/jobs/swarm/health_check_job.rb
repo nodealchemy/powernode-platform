@@ -171,8 +171,16 @@ module Swarm
       [{ severity: "warning", message: "Failed to check service health: #{e.message}" }]
     end
 
+    # post_no_retry, not post: each call has a side effect on the server
+    # (increments/resets the cluster's consecutive_failures streak, and
+    # creates a SwarmEvent per alert). The default connection retries POST up
+    # to 5 times on timeout/502/503/504 — safe for idempotent writes, but here
+    # a response lost after the server already applied it would double-count
+    # the failure streak and duplicate the alert events on retry. A health
+    # check runs again on the next tick regardless, so losing one report to a
+    # transient failure is cheaper than that double-count.
     def report_health_results(cluster_id, results)
-      api_client.post("/api/v1/internal/devops/swarm/clusters/#{cluster_id}/health_results", results)
+      api_client.post_no_retry("/api/v1/internal/devops/swarm/clusters/#{cluster_id}/health_results", results)
     end
   end
 end

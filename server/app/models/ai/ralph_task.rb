@@ -57,6 +57,11 @@ module Ai
     scope :skipped, -> { where(status: "skipped") }
     scope :terminal, -> { where(status: TERMINAL_STATUSES) }
     scope :active, -> { where(status: %w[pending in_progress blocked]) }
+    # Two orders for two jobs (IMP-01a05525). `by_priority` is the SERVE order —
+    # what runs next: Ralph execution and dev_next_task both serve from it, so
+    # never re-spell it inline. `ordered` is the LISTING order — the plan as
+    # positioned — used by every task listing. They disagree whenever a later-
+    # positioned task outranks an earlier one, by design.
     scope :by_priority, -> { order(priority: :desc, position: :asc) }
     scope :ordered, -> { order(position: :asc, priority: :desc) }
     # Tier-2(c): revert tracking for the ungameable improvement metric

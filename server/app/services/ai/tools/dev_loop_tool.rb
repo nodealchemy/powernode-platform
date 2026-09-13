@@ -120,7 +120,13 @@ module Ai
               learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
               git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
               commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
-              files_changed: { type: "array", required: false, description: "Paths touched by this task" }
+              files_changed: { type: "array", required: false, description: "Paths touched by this task" },
+              agent_execution_id: { type: "string", required: false,
+                                    description: "The Ai::AgentExecution that did this work (a Claude Code " \
+                                                 "session gets it back as `id` from record_agent_execution). " \
+                                                 "Checked against this account; when given, the completion is " \
+                                                 "handed to the LLM judge against that run. An id that names no " \
+                                                 "execution here is refused before the task moves." }
             }
           },
           "dev_list_tasks" => {
@@ -518,10 +524,12 @@ module Ai
         loop_record.ralph_tasks.in_progress.to_a.count { |t| t.metadata&.dig("claimed_by") == claimant_ref }
       end
 
+      # The serve order is RalphTask.by_priority — the same scope the Ralph
+      # execution service serves from — not a copy of it (IMP-01a05525).
       def eligible_pending_tasks(loop_record)
         loop_record.ralph_tasks.pending
                    .where.not(execution_type: "human")
-                   .order(priority: :desc, position: :asc)
+                   .by_priority
                    .select(&:dependencies_satisfied?)
       end
 
@@ -617,6 +625,24 @@ module Ai
 
         summary = params[:summary].to_s
         return error_result("summary is required") if summary.blank?
+
+        # D5 — the task→execution producer. The executor names the run that did
+        # this work, and it is checked against THIS account before anything
+        # moves: the id decides whose trust score and which skill versions the
+        # judge's verdict lands on. A bad id is refused rather than dropped —
+        # dropped, the judge would silently never run for this completion.
+        attributed_execution_id = nil
+        if params[:agent_execution_id].present?
+          attributed_execution_id = ::Ai::AgentExecution.where(account_id: account.id)
+                                                        .where(id: params[:agent_execution_id].to_s)
+                                                        .pick(:id)
+          unless attributed_execution_id
+            return error_result(
+              "agent_execution_id #{params[:agent_execution_id]} names no agent execution in this account — " \
+              "pass the `id` record_agent_execution returned, or omit it"
+            )
+          end
+        end
 
 
         # G10: scope guardrail. A "passed" outcome that touches a protected path
@@ -751,6 +777,14 @@ module Ai
         # learning effectiveness on it either); failed/blocked leave the
         # injections unresolved — that depression is the intended signal.
         credit_injected_learnings!(task) if outcome == "passed" && verification == :verified
+
+        # D4: hand the completed work to the LLM judge. Enqueued for EVERY
+        # terminal outcome, not just passes — scoring only successes would bias
+        # the trust quality dimension and skill effectiveness upward by
+        # construction. Best-effort and rescued: a judge that cannot be reached
+        # must never fail a completion that has already been recorded.
+        stamp_evaluable_execution!(task, attributed_execution_id) if attributed_execution_id
+        enqueue_evaluation!(task)
 
         loop_record.reload
         all_tasks_completed = loop_record.all_tasks_completed?
@@ -1114,7 +1148,7 @@ module Ai
       # reconciler paths are unchanged. (IMP-c2e3e5d3cff0)
       def delegate_tool
         @delegate_tool ||= mark_instance_provenance(
-          Ai::Tools::AgentManagementTool.new(account: account, user: user, agent: agent)
+          Ai::Tools::AgentManagementTool.new(account: account, user: user, agent: agent, call_origin: call_origin)
         )
       end
 
@@ -1214,6 +1248,46 @@ module Ai
           ctx[:base_context_contents] = contents if contents.present?
         end
         ctx
+      end
+
+      # D4 — event-driven enqueue of the judge for this completion.
+      #
+      # ATTRIBUTION is named by the executor, never inferred.
+      # Nothing links a RalphTask to an Ai::AgentExecution: the task carries
+      # executor_id/executor_type (the polymorphic AGENT, not a run), the
+      # iteration carries no execution id, and a Claude Code executor's row is
+      # minted by a separate MCP verb (record_agent_execution, keyed
+      # "cc-"+digest(account, run_key)) with no correlation key back to the
+      # loop. So this reads ONE named metadata key and takes the miss quietly
+      # when it is absent, rather than guessing from a time window — an
+      # inferred discriminator here would credit trust and skill effectiveness
+      # to whichever run happened to be nearby.
+      #
+      # D5's producer is complete_task's `agent_execution_id` parameter: the
+      # executor names its own run, complete_task checks it against this
+      # account, and #stamp_evaluable_execution! writes it here.
+      EVALUABLE_EXECUTION_METADATA_KEY = "agent_execution_id"
+
+      # jsonb `||` merge, the same discipline as the injection markers: a
+      # whole-column rewrite would drop concurrent writers' keys.
+      def stamp_evaluable_execution!(task, execution_id)
+        Ai::RalphTask.where(id: task.id)
+                     .update_all([ "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb, updated_at = ?",
+                                   { EVALUABLE_EXECUTION_METADATA_KEY => execution_id }.to_json, Time.current ])
+        task.reload
+      end
+
+      def enqueue_evaluation!(task)
+        execution_id = task.metadata.is_a?(Hash) ? task.metadata[EVALUABLE_EXECUTION_METADATA_KEY].presence : nil
+        return if execution_id.blank?
+
+        ::WorkerJobService.enqueue_job(
+          "AgentEvaluationJob",
+          args: [ { "account_id" => account.id, "execution_id" => execution_id, "task_id" => task.id } ],
+          queue: "ai_orchestration"
+        )
+      rescue StandardError => e
+        Rails.logger.warn("[DevLoopTool] evaluation enqueue failed for #{task.task_key}: #{e.message}")
       end
 
       # Credit-loop half B (see complete_task): resolve this claim's injections
@@ -1353,12 +1427,14 @@ module Ai
       # shape of an agent principal, not evidence of a human session.
       #
       # What DOES separate the two is the agent identity itself. The interactive
-      # MCP door resolves its principal through Ai::McpClientIdentityService and
-      # so always carries an `mcp_client` agent (StreamableHttpController
-      # #mcp_client_agent), never a seeded canonical; a NON-mcp_client agent
+      # MCP door carries an `mcp_client` agent (StreamableHttpController
+      # #mcp_client_agent) only when the account has an active AI provider, and
+      # no agent otherwise; it never carries a seeded canonical. The door's mark
+      # (call_origin), not the agent, is what says MCP. So a NON-mcp_client agent
       # whose id is the loop's default_agent_id is the delegated driver acting
-      # as itself. Every other caller — a Claude Code session, another platform
-      # agent — still meets the "delegated_to_platform" halt.
+      # as itself, and every other caller (a Claude Code session with or without
+      # a client agent, another platform agent) still meets the
+      # "delegated_to_platform" halt.
       def delegated_platform_agent?(loop_record)
         return false if agent.blank? || loop_record.default_agent_id.blank?
         return false unless loop_record.default_agent_id == agent.id
@@ -1374,8 +1450,9 @@ module Ai
       #
       # An agent principal comes through Ai::AgentToolBridgeService carrying its
       # creator as `user`, so "user present" does not mean "a person is
-      # calling". The interactive MCP door's agent is always an `mcp_client`
-      # identity, so a NON-mcp_client agent is the agent itself acting and the
+      # calling". The interactive MCP door carries an `mcp_client` identity when
+      # the account has an active AI provider and no agent otherwise, never a
+      # seeded canonical, so a NON-mcp_client agent is the agent itself acting and the
       # claim belongs to it (HIER-P2B-ENG: the Platform Developer claims as
       # "agent:<id>", the identity the delegation named — not as its creator).
       def claimant_ref

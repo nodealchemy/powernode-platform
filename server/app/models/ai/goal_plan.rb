@@ -12,6 +12,9 @@ module Ai
     # and adaptation read back), so nothing may rewrite or destroy its rows
     # behind the operator's back.
     EXECUTED_STATUSES = %w[executing completed failed].freeze
+    # Step statuses nothing will move again. A plan whose steps are all in
+    # these can conclude (`concludable?`).
+    TERMINAL_STEP_STATUSES = %w[completed failed skipped].freeze
 
     belongs_to :account
     belongs_to :goal, class_name: "Ai::AgentGoal", foreign_key: "goal_id"
@@ -55,10 +58,16 @@ module Ai
       update!(status: "completed", completed_at: Time.current)
     end
 
-    def fail!(reason: nil)
+    # `failure_class` is the failing step's (`GoalPlanStep#failure_class`).
+    # A caller that passes none records a deterministic failure, which is
+    # never replanned.
+    def fail!(reason: nil, failure_class: nil)
       update!(
         status: "failed",
-        validation_result: validation_result.merge("failure_reason" => reason)
+        validation_result: validation_result.merge(
+          "failure_reason" => reason,
+          "failure_class" => failure_class.presence || Ai::GoalPlanStep::FAILURE_DETERMINISTIC
+        )
       )
     end
 
@@ -84,6 +93,42 @@ module Ai
 
     def all_steps_completed?
       steps.where.not(status: "completed").empty?
+    end
+
+    # PENDING STEPS THAT CAN NEVER RUN (goal-plan ruling 1). A step waits for
+    # every dependency to COMPLETE (`GoalPlanStep#dependencies_met?`), so one
+    # whose dependency failed or was skipped would wait forever and hold the
+    # plan in `executing` with nothing able to move it. Skip it, naming the
+    # dependency, and repeat until nothing changes, so a whole chain behind
+    # one failure is skipped.
+    def skip_unreachable_steps!
+      loop do
+        dead = steps.where(status: %w[failed skipped]).pluck(:step_number)
+        return if dead.empty?
+
+        skipped_any = false
+        steps.where(status: "pending").find_each do |step|
+          blocked = Array(step.dependencies).map(&:to_i) & dead
+          next if blocked.empty?
+
+          step.skip!(reason: "dependency #{blocked.min} did not complete")
+          skipped_any = true
+        end
+        return unless skipped_any
+      end
+    end
+
+    # NOTHING CAN MOVE THIS PLAN ANY MORE: every step is completed, failed or
+    # skipped. A step still executing (dispatched and not back), awaiting
+    # approval, or pending on dependencies that can still complete keeps the
+    # plan open, because something can still move it.
+    def concludable?
+      steps.exists? && steps.where.not(status: TERMINAL_STEP_STATUSES).empty?
+    end
+
+    # The failure the plan concludes on: the first failed step by number.
+    def first_failed_step
+      steps.where(status: "failed").order(:step_number).first
     end
 
     def progress_percentage

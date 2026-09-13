@@ -48,52 +48,19 @@ FactoryBot.define do
     # actor, pass permissions: [] (or use PermissionTestHelpers#
     # user_without_permissions) to get a genuinely permissionless user.
 
-    trait :owner do
-      after(:create) do |user|
-        user.roles = []
-        user.add_role('owner')
-      end
-    end
-
-    trait :admin do
-      after(:create) do |user|
-        user.roles = []
-        user.add_role('admin')
-      end
-    end
-
-    trait :super_admin do
-      after(:create) do |user|
-        user.roles = []
-        user.add_role('super_admin')
-      end
-    end
-
-    trait :manager do
-      after(:create) do |user|
-        user.roles = []
-        user.add_role('manager')
-      end
-    end
-
-    trait :member do
-      after(:create) do |user|
-        user.roles = []
-        user.add_role('member')
-      end
-    end
-
-    trait :billing_admin do
-      after(:create) do |user|
-        user.roles = []
-        user.add_role('billing_admin')
-      end
-    end
-
-    trait :system_admin do
-      after(:create) do |user|
-        user.roles = []
-        user.add_role('system_admin')
+    # One trait per real global role. User#add_role returns false for a name
+    # that is not a role, so the trait RAISES on that instead of quietly handing
+    # back a user with zero roles — which every gate refuses, making a spec's
+    # "refused" examples pass for the wrong reason (IMP-01a08b8e: :billing_admin
+    # and :system_admin named no role and did exactly that).
+    # spec/lint/user_factory_role_traits_spec.rb pins both arms.
+    %w[owner admin super_admin manager member].each do |role_name|
+      trait role_name.to_sym do
+        after(:create) do |user|
+          user.roles = []
+          user.add_role(role_name) ||
+            raise(ArgumentError, "user factory trait :#{role_name} names no role (Role.find_by(name: #{role_name.inspect}) is nil)")
+        end
       end
     end
 

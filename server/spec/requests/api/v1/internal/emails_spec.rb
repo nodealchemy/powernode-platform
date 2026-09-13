@@ -149,6 +149,22 @@ RSpec.describe 'Api::V1::Internal::Emails', type: :request do
         expect(delivery.sent_at).to be_present
         expect(delivery.external_id).to eq('abc123@mail')
       end
+
+      # ASSERT THE BODY, not only the row. The row was always updated correctly;
+      # the body is what lied. With `status:` braceless it bound to the HTTP
+      # status keyword, raised, and the rescue answered `applied: false` with
+      # "Invalid HTTP status \"sent\"" on every successful delivery.
+      it 'answers applied: true with the delivery status in the BODY' do
+        post "/api/v1/internal/emails/#{delivery.id}/delivered",
+             params: { status: 'sent', message_id: 'abc123@mail' },
+             headers: internal_headers, as: :json
+
+        expect(response).to have_http_status(:ok)
+        expect(json_response_data).to include(
+          'applied' => true, 'status' => 'sent', 'email_delivery_id' => delivery.id
+        )
+        expect(json_response_data).not_to have_key('error')
+      end
     end
 
     context 'when the worker reports a failed send' do
@@ -161,6 +177,15 @@ RSpec.describe 'Api::V1::Internal::Emails', type: :request do
         delivery.reload
         expect(delivery.status).to eq('failed')
         expect(delivery.error_message).to eq('SMTP connection refused')
+      end
+
+      it 'answers applied: true with status failed in the BODY' do
+        post "/api/v1/internal/emails/#{delivery.id}/delivered",
+             params: { status: 'failed', error: 'SMTP connection refused' },
+             headers: internal_headers, as: :json
+
+        expect(json_response_data).to include('applied' => true, 'status' => 'failed')
+        expect(json_response_data).not_to have_key('error')
       end
     end
 

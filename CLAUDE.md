@@ -148,9 +148,11 @@ A guessed name (`powernode-backend@default`, `rails.service`) does **not** error
 `systemctl restart` on a nonexistent unit fails silently in a `||` chain, leaving
 new code on disk while the old image keeps running, which looks exactly like a
 successful deploy. Verify with `systemctl is-active` on the discovered unit.
-The `@default` template form appears throughout `extensions/system/docs/runbooks/`
-but is installed on neither dev-cell nor ops-hub — `systemctl list-unit-files
-'powernode*'` shows no `@` template at all. Treat those references as stale.
+The `@default` template form appears throughout `extensions/system/docs/runbooks/`.
+It is real on installer-provisioned hosts (`powernode-installer.sh` installs
+`powernode-<svc>@default`), but module-composed nodes such as dev-cell and ops-hub
+have no `@` template (`systemctl list-unit-files 'powernode*'` shows none). On a
+module-composed node, treat those references as stale.
 
 After a Rails restart `/up` returns **502 for ~30s** while it boots; that is not a
 failed deploy.

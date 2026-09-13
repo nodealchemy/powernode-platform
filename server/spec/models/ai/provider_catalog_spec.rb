@@ -10,6 +10,15 @@ RSpec.describe Ai::ProviderCatalog do
     end
   end
 
+  # E3b: three entries used to carry a literal configuration_schema
+  # "default_model", which bootstrap then stored on every new account's
+  # providers. The model now comes from each provider's synced catalog.
+  it "names no default_model in any built-in entry" do
+    described_class.all.each do |entry|
+      expect(entry[:configuration_schema].to_h.stringify_keys).not_to have_key("default_model"), entry[:provider_type]
+    end
+  end
+
   describe ".for" do
     it "returns the catalog entry for a known provider_type" do
       entry = described_class.for("openai")

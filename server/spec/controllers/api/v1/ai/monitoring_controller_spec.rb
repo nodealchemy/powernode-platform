@@ -34,17 +34,12 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       total_agents: 5
     })
 
-    allow_any_instance_of(Monitoring::UnifiedService).to receive(:calculate_health_score).and_return(95)
-
     allow_any_instance_of(Monitoring::UnifiedService).to receive(:get_alerts).and_return({
       alerts: [],
       total_alerts: 0
     })
 
     allow_any_instance_of(Monitoring::UnifiedService).to receive(:check_and_trigger_alerts).and_return([])
-
-    # Mock Ai::MonitoringHealthService#determine_health_status (used by overview action)
-    allow_any_instance_of(Ai::MonitoringHealthService).to receive(:determine_health_status).and_return('healthy')
   end
 
   # =============================================================================
@@ -142,15 +137,25 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
     context 'with valid permissions' do
       before { sign_in monitoring_read_user }
 
-      it 'returns system overview' do
+      it 'returns system overview beside the status-plane rollup' do
+        create(:platform_component_status, :degraded, account: monitoring_read_user.account)
+
         get :overview
 
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
         expect(json['success']).to be true
         expect(json['data']['overview']).to be_present
-        expect(json['data']['health_score']).to eq(95)
-        expect(json['data']['health_status']).to eq('healthy')
+        expect(json['data']['rollup']['verdict']).to eq('degraded')
+      end
+
+      # E7 both arms: the rollup arriving is only half the claim.
+      it 'no longer returns the deleted health score' do
+        get :overview
+
+        json = JSON.parse(response.body)
+        expect(json['data']).not_to have_key('health_score')
+        expect(json['data']).not_to have_key('health_status')
       end
 
       it 'includes timestamp' do
@@ -203,12 +208,23 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
         )
       end
 
-      it 'includes health score' do
+      # E7b both arms: the rollup replaces the deleted score AND the deleted
+      # service-derived status string.
+      it 'includes the status-plane rollup instead of a health score' do
+        create(:platform_component_status, :down, account: monitoring_read_user.account)
+
         get :health
 
         json = JSON.parse(response.body)
-        expect(json['data']['health_score']).to be_a(Integer)
-        expect(json['data']['status']).to be_present
+        expect(json['data']['rollup']['verdict']).to eq('down')
+      end
+
+      it 'no longer includes a health score or a service-derived status' do
+        get :health
+
+        json = JSON.parse(response.body)
+        expect(json['data']).not_to have_key('health_score')
+        expect(json['data']).not_to have_key('status')
       end
 
       it 'includes timestamp and time range' do

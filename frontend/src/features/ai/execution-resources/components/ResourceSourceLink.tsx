@@ -6,14 +6,14 @@ interface ResourceSourceLinkProps {
 }
 
 const SOURCE_ROUTES: Record<string, string> = {
-  'Ai::A2aTask': '/app/ai/a2a-tasks',
-  'Ai::Worktree': '/app/ai/parallel-execution',
-  'Ai::MergeOperation': '/app/ai/parallel-execution',
+  'Ai::A2aTask': '/app/ai/execution/a2a-tasks',
+  'Ai::Worktree': '/app/ai/execution/parallel',
+  'Ai::MergeOperation': '/app/ai/execution/parallel',
   'Ai::TeamExecution': '/app/ai/teams',
   'Ai::MemoryPool': '/app/ai/teams',
   'Ai::Trajectory': '/app/ai/learning/insights',
   'Ai::TaskReview': '/app/ai/teams',
-  'Ai::RunnerDispatch': '/app/ai/parallel-execution',
+  'Ai::RunnerDispatch': '/app/ai/execution/parallel',
 };
 
 export function ResourceSourceLink({ sourceType, sourceId: _sourceId }: ResourceSourceLinkProps) {

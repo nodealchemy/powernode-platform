@@ -178,7 +178,10 @@ module A2a
               properties: {
                 agent_id: { type: "string" },
                 content: { type: "object" },
-                memory_type: { type: "string", enum: %w[factual experiential procedural] },
+                # Exactly the tiers A2a::Skills::MemorySkills::MEMORY_TYPES
+                # implements. "procedural" was advertised and silently stored as a
+                # FACT — an offered option that quietly does something else.
+                memory_type: { type: "string", enum: %w[factual experiential] },
                 context: { type: "object" }
               }
             },

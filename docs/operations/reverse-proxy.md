@@ -25,6 +25,14 @@ to (a) let it fully replace an external proxy and (b) resolve where it should li
 
 ## 1. Current state — it is functional
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 - Unit: `powernode-reverse-proxy@default.service` — **active (running)**, `PartOf=powernode.target`,
   runs as user `rett` on **:80 and :443** via the `CAP_NET_BIND_SERVICE` ambient capability
   (not root). Unit: `scripts/systemd/units/powernode-reverse-proxy@.service`.

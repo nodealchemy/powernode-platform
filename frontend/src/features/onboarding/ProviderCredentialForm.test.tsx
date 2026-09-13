@@ -54,6 +54,14 @@ describe('ProviderCredentialForm', () => {
     expect(uri.value).toBe('qemu:///system');
   });
 
+  // E3b: this used to prefill 'llama3', a model the server may never have
+  // pulled. The field starts empty; the operator names one it has.
+  it('renders the Ollama schema with no default model prefilled', () => {
+    render(<ProviderCredentialForm category="ai" providerType="ollama" />);
+    const model = screen.getByTestId('provider-cred-field-default_model') as HTMLInputElement;
+    expect(model.value).toBe('');
+  });
+
   it('renders the GitHub schema with an access_token field (not personal_access_token)', () => {
     render(<ProviderCredentialForm category="git" providerType="github" />);
     expect(screen.getByTestId('provider-cred-field-access_token')).toBeInTheDocument();

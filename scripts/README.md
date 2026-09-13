@@ -4,6 +4,14 @@ This directory contains systemd-based service management for the Powernode platf
 
 ## Overview
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 Services are managed via **systemd template units** (`@.service`). Each service type supports multiple named instances (e.g., `powernode-backend@default`, `powernode-backend@api2`), each with its own configuration file in `/etc/powernode/`.
 
 ### Services

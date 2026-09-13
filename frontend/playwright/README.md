@@ -6,12 +6,13 @@ This directory holds Playwright specs that run against Chromium, Firefox, and We
 
 ## One-time setup
 
-```bash
-npm install --save-dev @playwright/test
-npx playwright install   # downloads ~200MB of browser binaries — once per machine
-```
+`@playwright/test` is a pinned `devDependency` in `frontend/package.json`, so a normal
+`npm install` already gets you the package. The browser binaries are the separate, ~200MB
+download most contributors don't need until they actually run these specs:
 
-Playwright is intentionally not a hard dependency of the frontend `package.json` — adding it forces every contributor to download the browser binaries. Install it locally when you need to run these specs.
+```bash
+npx playwright install   # downloads the Chromium/Firefox/WebKit binaries — once per machine
+```
 
 ## Run
 
@@ -45,10 +46,10 @@ See `frontend/playwright.config.ts`. The dev server is started automatically whe
 
 ## CI
 
-Not wired into CI yet. To enable, add a workflow job that runs:
+Not wired into CI yet. To enable, add a workflow job that runs (after the usual `npm install`,
+which already pulls in `@playwright/test`):
 
 ```yaml
-- run: npm install --save-dev @playwright/test
 - run: npx playwright install --with-deps
 - run: npx playwright test --reporter=line
 ```

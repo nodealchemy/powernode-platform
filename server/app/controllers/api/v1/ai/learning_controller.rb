@@ -38,7 +38,10 @@ module Api
           )
 
           if recommendation
-            recommendation.dismiss!
+            # The REST twin of the MCP verb's `reason`. Both doors write the same
+            # column, so an offer dismissed from the UI is as legible afterwards
+            # as one dismissed over MCP.
+            recommendation.dismiss!(reason: params[:reason])
             render_success(recommendation: recommendation_json(recommendation))
           else
             render_error("Recommendation not found", status: :not_found)
@@ -432,6 +435,7 @@ module Api
             evidence: rec.evidence,
             confidence_score: rec.confidence_score,
             status: rec.status,
+            dismiss_reason: rec.dismiss_reason,
             created_at: rec.created_at&.iso8601
           }
         end

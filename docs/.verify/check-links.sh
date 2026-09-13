@@ -13,7 +13,8 @@
 #   - extensions/** (submodule territory; own harnesses)
 #
 # Exit codes:
-#   0 — all links resolve
+#   0 — every link resolves, or points at a target the repo deliberately
+#       does not track (see the GENERATED branch below)
 #   1 — one or more broken links found
 #   2 — script invocation error
 #
@@ -33,6 +34,7 @@ if [ ! -d "$DOCS_ROOT" ]; then
 fi
 
 broken=0
+generated=0
 total_links=0
 total_files=0
 
@@ -91,6 +93,32 @@ while IFS= read -r mdfile; do
       fi
       resolved="$dir/$target"
       if [ ! -e "$resolved" ]; then
+        # GENERATED, INTENTIONALLY UNTRACKED (IMP-01a08a0f). A target the repo
+        # deliberately does not track cannot exist in a fresh checkout, and CI
+        # is exactly that: .gitea/workflows/docs.yml runs this gate straight
+        # after actions/checkout with no generation step. docs/reference/auto/
+        # todo.md and learnings.md are DB-backed artifacts, gitignored on
+        # purpose by 0bbe16e63 ("split auto-gen tracking policy — mcp-tools
+        # tracked, DB-backed not"), so four correct references to them made
+        # this — the ONE non-advisory step in the docs workflow — fail every
+        # single run. A gate that is always red is not a gate; it left two
+        # outcomes, permanent failure or the [docs-skip-verify] marker that
+        # disables ALL doc verification.
+        #
+        # The repo's own tracking policy is the authority, so this derives the
+        # exemption from .gitignore rather than a second hand-kept list: adding
+        # another generated doc needs no edit here. Reported on its own line,
+        # never silently — a doc that stops being generated should be visible
+        # BEFORE it becomes a failure.
+        #
+        # Fail-closed: if git is unavailable or this is not a work tree,
+        # check-ignore is non-zero and the target counts as BROKEN, which is
+        # the behaviour that predates this block.
+        if git -C "$PLATFORM_ROOT" check-ignore -q "$resolved" 2>/dev/null; then
+          echo "$mdfile:$lineno: GENERATED (untracked by policy, absent here) -> $target"
+          generated=$((generated + 1))
+          continue
+        fi
         echo "$mdfile:$lineno: BROKEN -> $target"
         broken=$((broken + 1))
       fi
@@ -100,8 +128,9 @@ done < "$mdfiles"
 
 echo
 echo "------------------------------------------"
-echo "  scanned: $total_files files / $total_links links"
-echo "  broken:  $broken"
+echo "  scanned:   $total_files files / $total_links links"
+echo "  generated: $generated (untracked by policy — not a failure)"
+echo "  broken:    $broken"
 echo "------------------------------------------"
 
 if [ "$broken" -gt 0 ]; then

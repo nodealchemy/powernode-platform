@@ -89,6 +89,39 @@ RSpec.describe Ai::Executors::DeferredToolCall do
       expect(operation.params["principal"]).to include("kind" => "user", "user_id" => user.id)
       expect(sightings).to be_empty
     end
+
+    # MCP identity plan #6: the descriptor records the door the call came
+    # through (attribution), and the replay hands it back to the rebuilt tool.
+    it "records the door the call came through, and hands it back to the replayed tool" do
+      tool = SpecReplayTool.new(account: account, user: user)
+      tool.call_origin = "mcp_oauth"
+      operation = park!(tool)
+
+      expect(operation.params["principal"]).to include("kind" => "user", "user_id" => user.id, "origin" => "mcp_oauth")
+
+      expect(SpecReplayTool).to receive(:new).with(hash_including(call_origin: "mcp_oauth")).and_call_original
+      operation.execute_now!
+      expect(sightings.size).to eq(1)
+    end
+
+    it "records no door for an unmarked call" do
+      operation = park!(SpecReplayTool.new(account: account, user: user))
+
+      expect(operation.params["principal"]["origin"]).to be_nil
+    end
+
+    it "refuses a replay whose recorded door is not a machine's door" do
+      tool = SpecReplayTool.new(account: account, user: user)
+      tool.call_origin = "mcp_oauth"
+      operation = park!(tool)
+      tampered = operation.params.merge("principal" => operation.params["principal"].merge("origin" => "rest_session"))
+      operation.update_column(:params, tampered)
+
+      result = operation.execute_now!
+
+      expect(result).to include(refused: true, reason: "principal_unresolvable")
+      expect(sightings).to be_empty
+    end
   end
 
   describe "replay as the original principal" do

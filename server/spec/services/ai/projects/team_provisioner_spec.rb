@@ -18,9 +18,12 @@ require "rails_helper"
 # edge. Seating canonical rows directly would produce a team that could never
 # run.
 #
-# THE LAUNDERING RULE is the sharp one. Ai::DelegationPolicy reads a BLANK
-# allowed_delegate_types as UNRESTRICTED, so "narrowing" a policy by writing an
-# empty list silently grants everything — a widening dressed as a restriction.
+# THE LAUNDERING RULE is the sharp one. It predates HIER-P0, when
+# Ai::DelegationPolicy read a BLANK allowed_delegate_types as UNRESTRICTED and
+# "narrowing" a policy by writing an empty list silently granted everything — a
+# widening dressed as a restriction. An empty list now means NONE, so the
+# laundering is closed at the model; the sentinel below still earns its place by
+# saying "nobody" in a way a reader cannot misread.
 # The guard and the lineage assertion are deliberately separate examples with
 # separate oracles: a single example asserting both would let either one carry
 # the other, which is how a redundant guard corrupts a mutation oracle.
@@ -209,7 +212,9 @@ RSpec.describe Ai::Projects::TeamProvisioner do
 
       expect(policy).to be_present
       granted = Array(policy.allowed_delegate_types).map(&:to_s)
-      expect(granted).not_to be_empty, "an empty list reads as UNRESTRICTED — see the model predicate"
+      expect(granted).not_to be_empty,
+             "the provisioner must name the types it grants; an empty list now means NONE " \
+             "(HIER-P0), so an empty grant here is a silent revocation, not a widening"
       expect(granted - parent_delegate_types).to be_empty
     end
 

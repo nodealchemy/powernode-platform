@@ -30,7 +30,7 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "list_git_runners", mutating: false
-      declare_action "prune_stale_git_runners", mutating: true
+      declare_action "prune_stale_git_runners", mutating: true, destructive: true
 
       def self.definition
         {

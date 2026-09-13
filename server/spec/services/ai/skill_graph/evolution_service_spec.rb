@@ -80,26 +80,50 @@ RSpec.describe Ai::SkillGraph::EvolutionService, type: :service do
       expect(active_version.usage_count).to eq(11)
     end
 
-    context "with A/B variant" do
+    # D5 — an outcome lands on the version that SERVED, never on a coin flip.
+    #
+    # The old example here ("routes traffic between active and variant") could
+    # not fail: it asserted `include(active).or include(variant)` over 20 flips,
+    # which passes when every flip lands on the same version. Routing now
+    # happens where the prompt is served (.route_served_versions); recording
+    # only credits what the caller says served.
+    context "during an A/B" do
       let!(:variant) do
         create(:ai_skill_version, :ab_variant,
-          account: account,
-          ai_skill: skill,
-          version: "2.0.0",
-          is_active: false,
-          is_ab_variant: true,
-          ab_traffic_pct: 0.5
-        )
+          account: account, ai_skill: skill, version: "2.0.0",
+          is_active: false, is_ab_variant: true, ab_traffic_pct: 0.5)
       end
 
-      it "routes traffic between active and variant versions" do
-        # Run enough outcomes that at least some go to each version
-        results = 20.times.map { service.record_outcome(skill_id: skill.id, successful: true) }
-        version_ids = results.map { |r| r[:version_id] }.uniq
+      it "credits the version named as served, and only that one" do
+        result = service.record_outcome(skill_id: skill.id, successful: true, version_id: variant.id)
 
-        # With 50% traffic split and 20 trials, both should receive some traffic
-        # (probabilistic, but extremely unlikely to fail with these numbers)
-        expect(version_ids).to include(active_version.id).or include(variant.id)
+        expect(result[:version_id]).to eq(variant.id)
+        expect(variant.reload.success_count).to eq(1)
+        expect(active_version.reload.success_count).to eq(7)
+      end
+
+      it "credits NO version when the served version is unknown" do
+        # The other arm. Without a named version the served one is not
+        # knowable during an A/B, and a guess is exactly the misattribution
+        # D5 removes — the skill-level usage still records.
+        expect {
+          result = service.record_outcome(skill_id: skill.id, successful: true)
+          expect(result[:version_id]).to be_nil
+          expect(result[:attributed]).to be(false)
+        }.to change { skill.reload.positive_usage_count.to_i }.by(1)
+
+        expect(variant.reload.usage_count).to eq(0)
+        expect(active_version.reload.usage_count).to eq(10)
+      end
+
+      it "refuses to credit a version that belongs to another skill" do
+        other = create(:ai_skill, account: account)
+        foreign = create(:ai_skill_version, account: account, ai_skill: other, version: "9.9.9")
+
+        result = service.record_outcome(skill_id: skill.id, successful: true, version_id: foreign.id)
+
+        expect(result[:version_id]).to be_nil
+        expect(foreign.reload.usage_count).to eq(0)
       end
     end
 
@@ -107,6 +131,53 @@ RSpec.describe Ai::SkillGraph::EvolutionService, type: :service do
       result = service.record_outcome(skill_id: SecureRandom.uuid, successful: true)
 
       expect(result).to have_key(:error)
+    end
+  end
+
+  describe ".route_served_versions" do
+    let(:low)  { instance_double(Random, rand: 0.1) }
+    let(:high) { instance_double(Random, rand: 0.9) }
+
+    def route(random)
+      described_class.route_served_versions([ skill.id ], random: random).fetch(skill.id)
+    end
+
+    context "with a variant at a 0.5 share" do
+      let!(:variant) do
+        create(:ai_skill_version, :ab_variant, account: account, ai_skill: skill, version: "2.0.0",
+               is_active: false, is_ab_variant: true, ab_traffic_pct: 0.5,
+               system_prompt: "the variant text")
+      end
+
+      it "serves the variant, with its own prompt, inside its share" do
+        expect(route(low)).to eq(version_id: variant.id, prompt: "the variant text")
+      end
+
+      it "serves the active version, with the skill's own text, outside it" do
+        expect(route(high)).to eq(version_id: active_version.id, prompt: nil)
+      end
+    end
+
+    it "never serves a variant whose share is out of range (a legacy percent row)" do
+      # create_variant wrote 20.0 before D5. Clamped, that would serve the
+      # variant 100% of the time the moment serving honours variants at all;
+      # an out-of-range share is not a routing instruction, so it fails closed.
+      create(:ai_skill_version, :ab_variant, account: account, ai_skill: skill, version: "2.0.0",
+             is_active: false, is_ab_variant: true, ab_traffic_pct: 20.0,
+             system_prompt: "the variant text")
+
+      expect(route(low)).to eq(version_id: active_version.id, prompt: nil)
+    end
+
+    it "serves the active version when no A/B is running" do
+      expect(route(low)).to eq(version_id: active_version.id, prompt: nil)
+    end
+
+    it "names no version for a skill that has none" do
+      bare = create(:ai_skill, account: account)
+
+      expect(described_class.route_served_versions([ bare.id ], random: low).fetch(bare.id))
+        .to eq(version_id: nil, prompt: nil)
     end
   end
 

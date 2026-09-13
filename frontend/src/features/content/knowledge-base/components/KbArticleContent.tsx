@@ -233,7 +233,7 @@ export function KbArticleContent({ article }: KbArticleContentProps) {
           </div>
           {article.can_edit && (
             <Button 
-              onClick={() => window.location.href = `/app/content/kb/admin/articles/${article.id}/edit`}
+              onClick={() => window.location.href = `/app/content/kb/articles/${article.id}/edit`}
               variant="secondary" 
               size="sm"
               className="font-medium"

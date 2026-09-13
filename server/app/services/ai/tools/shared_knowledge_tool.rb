@@ -35,7 +35,7 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "create_knowledge", mutating: true
-      declare_action "delete_knowledge", mutating: true
+      declare_action "delete_knowledge", mutating: true, destructive: true
       declare_action "promote_knowledge", mutating: true
       declare_action "search_knowledge", mutating: false
       declare_action "update_knowledge", mutating: true

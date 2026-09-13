@@ -23,6 +23,14 @@ module Ai
       declare_action "campaign_record_increment", mutating: true
       declare_action "campaign_reject_proposal", mutating: true
       declare_action "campaign_release", mutating: true
+      # A resume re-arms a campaign past a stop that fired: a PERSON's decision. Human-only
+      # (MCP identity plan R2): from any tool door it parks for a person to confirm in their
+      # own session, and it runs as that person. The REST door stays direct for a person.
+      declare_action "campaign_resume", mutating: true, human_only: true,
+                                        action_category: "campaign.resume",
+                                        executor_class: "Ai::Executors::DeferredToolCall",
+                                        gate_context: :deferred_tool_call_context,
+                                        on_proceed: :deferred_tool_call_result
       declare_action "campaign_start", mutating: true
       declare_action "campaign_status", mutating: false
       declare_action "campaign_stop", mutating: true
@@ -33,18 +41,21 @@ module Ai
           name: "campaign",
           description: "Manage Autonomous Improvement Campaigns and the discovery/delegation control " \
                        "plane: propose a campaign into the queue, approve+spawn a proposal, start a " \
-                       "campaign directly (and its dev-loop), check status, answer parked questions, stop it.",
+                       "campaign directly (and its dev-loop), check status, answer parked questions, stop " \
+                       "or resume it.",
           parameters: {
             action: { type: "string", required: true,
                       description: "campaign_propose | campaign_list_proposals | campaign_update_proposal | " \
                                    "campaign_approve_proposal | campaign_reject_proposal | " \
                                    "campaign_delegate | campaign_start | campaign_list | campaign_status | " \
                                    "campaign_claim | campaign_release | campaign_answer_question | " \
-                                   "campaign_record_increment | campaign_check_rebase | campaign_stop" },
+                                   "campaign_record_increment | campaign_check_rebase | campaign_stop | " \
+                                   "campaign_resume" },
             campaign_id: { type: "string", required: false, description: "Campaign UUID or name" },
             proposal_id: { type: "string", required: false,
                            description: "CampaignProposal UUID (campaign_update_proposal/campaign_approve_proposal/campaign_reject_proposal)" },
-            reason: { type: "string", required: false, description: "Rejection reason (campaign_reject_proposal)" },
+            reason: { type: "string", required: false,
+                      description: "Rejection reason (campaign_reject_proposal) / why it is resumed (campaign_resume)" },
             driver_kind: { type: "string", required: false, description: "claude_code|external_cli|platform_agent|platform_team|platform_mission (campaign_delegate)" },
             target: { type: "object", required: false, description: "Platform target ref: { agent_id|group_id|mission_id } (campaign_delegate)" },
             holder: { type: "string", required: false, description: "Driver identity for the single-driver lease (campaign_claim/release/delegate)" },
@@ -60,7 +71,8 @@ module Ai
                              description: "Durable config: scope/posture/ordering/keep-going" },
             decision_authority: { type: "string", required: false,
                                   description: "supervised | monitored | trusted | autonomous (default trusted)" },
-            stop_conditions: { type: "object", required: false, description: "e.g. { max_failed:, completion_pct: }" },
+            stop_conditions: { type: "object", required: false,
+                               description: "e.g. { max_failed:, completion_pct: } (campaign_start sets; campaign_resume merges)" },
             question_id: { type: "string", required: false, description: "Parked question UUID" },
             answer: { type: "string", required: false, description: "Answer to a parked question" },
             summary: { type: "string", required: false, description: "Increment/completion summary" },
@@ -228,6 +240,27 @@ module Ai
               campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
               summary: { type: "string", required: false, description: "Completion summary" }
             }
+          },
+          "campaign_resume" => {
+            description: "Resume a completed or paused campaign — typically one a stop condition auto-completed — " \
+                         "and adjust its stop conditions in the same call. stop_conditions is MERGED into the " \
+                         "existing ones (e.g. { max_failed: 6 } raises only that cap). Refused, by name, for an " \
+                         "archived or already-active campaign, and when a merged stop condition is still met " \
+                         "(the campaign would complete again on its next progress snapshot). Each stop condition " \
+                         "must be a valid value of its type; a resume never removes one. A PERSON's decision: " \
+                         "this verb never resumes anything itself. It checks the call, then PARKS the exact " \
+                         "resume for a person to confirm in their own session (the approval queue on the " \
+                         "Autonomy dashboard) and returns data.pending with requires_human_session and the " \
+                         "approval_request_id. No MCP or agent call can approve it. On approval it runs as the " \
+                         "person who approved, who must hold ai.campaigns.manage, and is refused while a driver " \
+                         "holds the campaign's lease. The campaign decision names that person, the reason and " \
+                         "the old and new stop conditions.",
+            parameters: {
+              campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
+              reason: { type: "string", required: true, description: "Why the campaign is resumed (recorded on the decision)" },
+              stop_conditions: { type: "object", required: false,
+                                 description: "Merged into the existing stop conditions, e.g. { max_failed: 6 }" }
+            }
           }
         }
       end
@@ -251,8 +284,11 @@ module Ai
         when "campaign_record_increment" then campaign_record_increment(params)
         when "campaign_check_rebase" then campaign_check_rebase(params)
         when "campaign_stop" then campaign_stop(params)
+        when "campaign_resume" then campaign_resume(params)
         else error_result("Unknown action: #{params[:action]}")
         end
+      rescue ::Ai::Campaigns::Authorization::Refused => e
+        error_result(e.message)
       end
 
       private
@@ -294,7 +330,7 @@ module Ai
         return error_result("title and objective are required") if params[:title].blank? || params[:objective].blank?
 
         proposal = Ai::CampaignProposal.propose!(
-          account: account,
+          account: account, actor: user,
           title: params[:title], objective: params[:objective],
           source: params[:source].presence || "manual",
           scope: params[:scope],
@@ -318,7 +354,7 @@ module Ai
                              :suggested_driver, :decision_authority, :configuration).compact
         return error_result("at least one field to update is required") if attrs.empty?
 
-        proposal.update_fields!(**attrs)
+        proposal.update_fields!(actor: user, **attrs)
         success_result(proposal: proposal.reload.summary)
       rescue ArgumentError => e
         error_result(e.message)
@@ -461,6 +497,63 @@ module Ai
         return error_result("Campaign not found") unless campaign
 
         success_result(campaign: driver.stop(campaign, summary: params[:summary]))
+      end
+
+      # Reached only as the replay of a person's own-session confirmation
+      # (BaseTool#human_confirmed_replay?), so `user` is that person.
+      def campaign_resume(params)
+        return success_result(halted: true) if halted? # kill-switch: a resume restarts work
+
+        campaign = find_campaign(params[:campaign_id])
+        return error_result("Campaign not found") unless campaign
+
+        stop_conditions = params[:stop_conditions] || {}
+        return error_result("stop_conditions must be an object") unless stop_conditions.is_a?(Hash)
+
+        success_result(driver.resume(campaign, reason: params[:reason], stop_conditions: stop_conditions))
+      rescue ArgumentError => e
+        error_result(e.message)
+      rescue ActiveRecord::RecordInvalid => e
+        error_result(e.message)
+      end
+
+      # campaign_resume parks for a person (human-only, MCP identity plan R2). A call that could
+      # only ever be refused must not ask a person to confirm it, so the static checks run
+      # BEFORE it parks: the kill switch, a known campaign, a reason, and stop conditions of
+      # valid types (the driver's own validation). Everything that depends on the campaign's
+      # state (resumable, the lease, the re-complete guard) and the confirming person's
+      # permission is checked by the driver on the replay, as that person, against the
+      # campaign as it is then. This runs again on the replay; it holds the same answer.
+      def authorization_error(params)
+        return nil unless params[:action].to_s == "campaign_resume"
+        return success_result(halted: true) if halted?
+        return error_result("Campaign not found") unless find_campaign(params[:campaign_id])
+        return error_result("reason is required") if params[:reason].blank?
+
+        conditions = params[:stop_conditions] || {}
+        return error_result("stop_conditions must be an object") unless conditions.is_a?(Hash)
+
+        ::Ai::DevLoop::CampaignDriver.validate_stop_conditions!(conditions)
+        nil
+      rescue ArgumentError => e
+        error_result(e.message)
+      end
+
+      # The approval card's line for a parked resume: the campaign and the exact
+      # stop-condition change a person is asked to confirm. Only numeric stop values
+      # appear, and #authorization_error has refused any other value before the call
+      # parks. Never the free-text reason: the card shows that from the filtered params.
+      def deferred_tool_call_description(params)
+        return super unless params[:action].to_s == "campaign_resume"
+
+        campaign = find_campaign(params[:campaign_id])
+        current = campaign&.stop_conditions.to_h
+        changes = (params[:stop_conditions] || {}).to_h.filter_map do |key, value|
+          next unless value.is_a?(Numeric)
+
+          "#{key} #{current[key.to_s] || 'unset'} -> #{value}"
+        end
+        "Resume campaign \"#{campaign&.name}\": #{changes.any? ? changes.join(', ') : 'stop conditions unchanged'}"
       end
     end
   end

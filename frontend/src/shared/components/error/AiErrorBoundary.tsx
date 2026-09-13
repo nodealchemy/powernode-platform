@@ -22,7 +22,7 @@ interface State {
  * @example
  * ```tsx
  * <AiErrorBoundary onRetry={() => window.location.reload()}>
- *   <AIMonitoringPage />
+ *   <ObservabilityPage />
  * </AiErrorBoundary>
  * ```
  */

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { agentsApi, providersApi, conversationsApi } from '@/shared/services/ai';
 import { useAIOrchestrationMonitor, resetAIOrchestrationMonitor } from '../services/aiOrchestrationMonitor';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { AISystemMetrics } from '../services/aiOrchestrationMonitor';
 
 export interface OverviewStats {
@@ -224,14 +225,8 @@ export function useOverviewData() {
     loadOverviewData();
   }, []);
 
-  // Fallback polling when WebSocket is down. Depends on the lifted connection
-  // state so the effect re-runs on disconnect (starts polling) and reconnect
-  // (clears the interval).
-  useEffect(() => {
-    if (!isLiveUpdateActive || isSocketConnected) return;
-    const updateInterval = setInterval(() => { loadOverviewData(); }, 30000);
-    return () => clearInterval(updateInterval);
-  }, [isLiveUpdateActive, isSocketConnected, loadOverviewData]);
+  // Fallback polling when WebSocket is down.
+  usePolling(loadOverviewData, 30000, { enabled: isLiveUpdateActive && !isSocketConnected });
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);

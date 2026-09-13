@@ -6,6 +6,23 @@ The `check-mcp-actions.sh` harness may report unknown actions because
 some docs reference `platform.X(...)` MCP syntax for actions that aren't
 yet in the platform's `server/app/services/ai/tools/platform_api_tool_registry.rb`.
 
+**This table is MACHINE-READ** (IMP-01a05ec2). `check-mcp-actions.sh` parses the
+first cell of each row below and subtracts those actions from the unknowns it
+reports, so the check has a green baseline and a genuinely new unknown turns it
+red. Before that it only *pointed* at this file and exited 1 on every run —
+which made it a permanently-red advisory step that nobody read, and a third
+unknown indistinguishable from the two expected ones.
+
+Two consequences of it being machine-read:
+
+- **The row format is load-bearing.** A row must begin `| ` followed by the
+  action name in backticks. Only that first cell is parsed, so a note
+  mentioning another verb cannot silently widen the allowlist.
+- **A row that stops being referenced is reported as STALE.** An allowlist
+  nobody re-examines becomes a permanent exemption for a doc that has moved on,
+  so delete the row when its usage goes away. That report is informational and
+  never fails the check.
+
 Each entry below is intentional: the doc shows the **intended** MCP
 shape, with a callout explaining that the wrapper is forthcoming and
 operators should use the REST endpoint today.

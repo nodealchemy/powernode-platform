@@ -39,6 +39,18 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "tier routing", type: :se
     end
   end
 
+  # The account needs a model, because #resolve_model RAISES without one
+  # (Ai::Provisioning::NoModelConfiguredError, E3 review F1 / f773ac74d) and
+  # #safe_complete then reports it instead of calling the LLM at all. These
+  # fixtures never configured one: before F1 resolution returned nil, the model
+  # key vanished from the payload in WorkerLlmClient#build_payload's `compact`,
+  # and the call still went out. So every example here asserting a model on the
+  # outgoing call needs what the error text prescribes — an active credential
+  # whose provider has a non-empty supported_models. The provider factory's
+  # catalog gives "test-model-1" through the lightest-tier rule. The raise
+  # itself is pinned directly in intent_capture_model_resolution_spec.rb.
+  let!(:credential) { create(:ai_provider_credential, account: account, provider: create(:ai_provider, account: account), is_active: true) }
+
   let(:response) do
     instance_double("WorkerLlmResponse", success?: true, content: '{"intent":"x"}',
                                          prompt_tokens: 5, completion_tokens: 5, cached_tokens: 0,

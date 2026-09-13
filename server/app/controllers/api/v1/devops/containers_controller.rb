@@ -89,10 +89,13 @@ module Api
 
         # GET /api/v1/mcp/containers/:id/logs
         def logs
+          # NOT `status:` — that binds render_success's HTTP-status keyword, not a
+          # data field, and a live instance status ("running", "completed", ...) is
+          # never a valid Rack status. See render_success_status_keyword_spec.rb.
           render_success(
             execution_id: @instance.execution_id,
             logs: @instance.logs,
-            status: @instance.status
+            instance_status: @instance.status
           )
         end
 
@@ -101,7 +104,7 @@ module Api
           render_success(
             execution_id: @instance.execution_id,
             artifacts: @instance.artifacts || [],
-            status: @instance.status
+            instance_status: @instance.status
           )
         end
 

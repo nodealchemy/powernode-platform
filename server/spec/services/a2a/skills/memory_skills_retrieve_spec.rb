@@ -141,10 +141,15 @@ RSpec.describe "A2A memory.retrieve skill" do
     end
   end
 
-  # A federated peer arrives with no User at all. It is allowed through on
-  # purpose — account scoping in #find_agent is its boundary — and pinning it
-  # keeps a later "tighten the gate" edit from silently killing the skill for
-  # the only principal that actually calls it.
+  # A principal with no User at all — a federated peer, or an API-key caller
+  # (an ApiKey belongs to an account and carries scopes, never a user). It is
+  # allowed through on purpose — account scoping in #find_agent is its boundary
+  # — and pinning it keeps a later "tighten the gate" edit from silently
+  # killing the skill for those principals.
+  #
+  # NO LONGER THE ONLY CALLER, since IMP-01a07d5a: Api::V1::A2aController now
+  # threads the JWT's User through, so the refusal examples above are what a
+  # user-principal request actually meets.
   describe "a peer principal with no user" do
     before { seed_stm!(key: "deploy_runbook_live") }
 
@@ -156,9 +161,8 @@ RSpec.describe "A2A memory.retrieve skill" do
 
     # The QUERY branch specifically, because it is the only one that constructs
     # Ai::Tools::MemoryTool — and that construction passes `internal: true`,
-    # which is both the riskiest line in the fix and the production default
-    # (the A2A controller threads no user). An earlier draft covered only the
-    # listing branch, leaving that line with no coverage at all.
+    # the riskiest line in the fix. An earlier draft covered only the listing
+    # branch, leaving that line with no coverage at all.
     it "is served on the query branch, which is the one that builds the tool" do
       result = invoke({ "agent_id" => agent.id, "query" => "deploy_runbook" }, as: nil)
 

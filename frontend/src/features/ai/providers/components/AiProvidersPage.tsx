@@ -9,7 +9,6 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { AiProviderCard } from './AiProviderCard';
 import { AiProviderFilters } from './AiProviderFilters';
 import { CreateProviderModal } from './CreateProviderModal';
-import { SetupDefaultProvidersModal } from './SetupDefaultProvidersModal';
 import { BulkTestModal } from './BulkTestModal';
 import { ProviderDetailModal } from './ProviderDetailModal';
 import { EditProviderModal } from './EditProviderModal';
@@ -27,7 +26,6 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
     searchQuery,
     showFilters,
     showCreateModal,
-    showSetupModal,
     showBulkTestModal,
     selectedProviderId,
     editingProviderId,
@@ -39,14 +37,12 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
     pageActions,
     setShowFilters,
     setShowCreateModal,
-    setShowSetupModal,
     setShowBulkTestModal,
     setSelectedProviderId,
     setEditingProviderId,
     handleSearch,
     handleFilterChange,
     handlePageChange,
-    handleSetupDefaults,
     handleBulkTest,
     handleProviderUpdate,
     handleViewProvider,
@@ -108,17 +104,12 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
         <EmptyState
           icon={Settings}
           title="No AI providers found"
-          description="Get started by adding your first AI provider or setting up defaults"
+          description="Get started by adding your first AI provider"
           action={
             canCreateProviders ? (
-              <div className="flex gap-2">
-                <Button onClick={() => setShowSetupModal(true)} variant="outline">
-                  Setup Defaults
-                </Button>
-                <Button onClick={() => setShowCreateModal(true)}>
-                  Add Provider
-                </Button>
-              </div>
+              <Button onClick={() => setShowCreateModal(true)}>
+                Add Provider
+              </Button>
             ) : undefined
           }
         />
@@ -196,14 +187,6 @@ export const AiProvidersPage: React.FC<AiProvidersPageProps> = ({ onActionsReady
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleProviderUpdate}
-        />
-      )}
-
-      {showSetupModal && (
-        <SetupDefaultProvidersModal
-          isOpen={showSetupModal}
-          onClose={() => setShowSetupModal(false)}
-          onConfirm={handleSetupDefaults}
         />
       )}
 

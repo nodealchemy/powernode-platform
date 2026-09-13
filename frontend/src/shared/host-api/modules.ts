@@ -80,6 +80,7 @@ const HOST_APP_IDS = [
   '@/shared/hooks/usePermissions',
   '@/shared/hooks/useQueryParamFilter',
   '@/shared/hooks/useWebSocket',
+  '@/shared/hooks/useWsSubscription',
   // Shared services (stateful singletons — MUST be core's single instance)
   '@/shared/services',
   '@/shared/services/apiClient',
@@ -93,6 +94,13 @@ const HOST_APP_IDS = [
   // externalize them uniformly)
   '@/shared/types/ai',
   '@/shared/types/autonomy',
+  // The component status plane's wire vocabulary (Verdict, VERDICT_LADDER,
+  // isVerdict, ...). Not type-only: the chunk carries real runtime exports.
+  // Exposed so an extension that renders verdicts checks its mapping against
+  // core's ONE ladder instead of restating the six strings, which a copy would
+  // let go stale (extensions/system StatusBadge.coverage.ts). Additive, so
+  // CORE_UI_API_VERSION is unchanged.
+  '@/shared/types/platformStatus',
   // Shared utils
   '@/shared/utils/formatters',
   '@/shared/utils/logger',

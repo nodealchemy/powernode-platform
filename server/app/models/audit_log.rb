@@ -76,7 +76,35 @@ class AuditLog < ApplicationRecord
 
   # Callbacks
   after_initialize :set_defaults
+  before_validation :redact_secret_values
   before_create :apply_integrity_hash
+
+  # THE seam that decides what secret material may land in an audit row, placed
+  # on the row itself rather than on each writer (IMP-01a08809).
+  #
+  # Auditable redacts before it calls log_action, so its own path was safe — but
+  # it is not the only writer. Audit::LoggingService#log passed old_values /
+  # new_values through to log_action verbatim, log_action wrote them verbatim,
+  # and 58 call sites reach AuditLog.create! without passing through log_action
+  # at all (site_settings_controller#destroy hands over `.attributes` wholesale).
+  # AuditLogging#resource_attributes_for_logging filtered by a hand-written
+  # 8-name denylist that named no encrypted column. Because `encrypts` installs
+  # an attribute TYPE, `.attributes` yields DECRYPTED plaintext, so each of those
+  # wrote raw secrets into a durable table served by GET /api/v1/audit_logs.
+  #
+  # Guarding the row is what makes the rule cover writers that do not exist yet.
+  # The rule itself is Auditable's, called at module level so there is exactly
+  # one definition — a second denylist here is the failure being fixed.
+  #
+  # BEFORE apply_integrity_hash deliberately: the chain hash must cover the
+  # values actually stored. Idempotent, so Auditable's pre-redacted rows pass
+  # through unchanged, and unqualified by :on so an update cannot reintroduce a
+  # secret the create path masked.
+  def redact_secret_values
+    klass = resource_type&.safe_constantize
+    self.old_values = Auditable.redact_values(old_values, klass)
+    self.new_values = Auditable.redact_values(new_values, klass)
+  end
 
   # Apply cryptographic integrity hash for immutable audit chain
   def apply_integrity_hash

@@ -114,26 +114,4 @@ RSpec.describe WorkerJobService do
       expect(payload["options"]).to eq({ "retry" => 2 })
     end
   end
-
-  describe ".enqueue_ai_self_challenge" do
-    let(:challenge_id) { "challenge-123" }
-    let(:account_id) { "account-xyz" }
-
-    it "resolves account_id from the challenge record and threads it into args" do
-      challenge = double("Ai::SelfChallenge", account_id: account_id)
-      allow(Ai::SelfChallenge).to receive(:find_by).with(id: challenge_id).and_return(challenge)
-
-      payload = capture_payload { described_class.enqueue_ai_self_challenge(challenge_id) }
-
-      expect(payload["args"]).to eq([ challenge_id, account_id ])
-    end
-
-    it "passes nil account_id when the challenge cannot be resolved (fail-open)" do
-      allow(Ai::SelfChallenge).to receive(:find_by).with(id: challenge_id).and_return(nil)
-
-      payload = capture_payload { described_class.enqueue_ai_self_challenge(challenge_id) }
-
-      expect(payload["args"]).to eq([ challenge_id, nil ])
-    end
-  end
 end

@@ -95,6 +95,28 @@ RSpec.describe Ai::InterventionPolicyService do
                                  "the operator path lost its own row — IMP-bfbf8052e179's fix was reverted"
     end
 
+    # MCP identity plan #5. A machine call that carries no agent (an OAuth MCP
+    # client in an account with no AI provider, a bridge or recipe step)
+    # resolves in the agent audience: scope-"global" rows, never the operator
+    # path. Example 3 above is the other arm: a person's REST call keeps it.
+    it "keeps a scope-action_type row away from a machine call that carries no agent" do
+      create_policy!(policy: "auto_approve", scope: "action_type")
+
+      result = service.resolve(action_category: "widget.create", agent: nil, user: user, agent_initiated: true)
+
+      expect(result[:policy]).to eq("require_approval")
+      expect(result[:record]).to be_nil, "an operator-path row bound a machine call"
+    end
+
+    it "still binds a scope-global row to a machine call that carries no agent" do
+      row = create_policy!(policy: "block", scope: "global")
+
+      result = service.resolve(action_category: "widget.create", agent: nil, user: user, agent_initiated: true)
+
+      expect(result[:policy]).to eq("block")
+      expect(result[:record]).to eq(row)
+    end
+
     # 4. The documented precedence at the top of #resolve — user+agent > user >
     #    agent > global — is false for agent callers unless a user-scoped row in
     #    an agent-binding audience reaches them. `user_id` narrows WITHIN an

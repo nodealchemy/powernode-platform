@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PageContainer, BreadcrumbItem } from '@/shared/components/layout/PageContainer';
+import { PageContainer, BreadcrumbItem, PageAction } from '@/shared/components/layout/PageContainer';
 import { knowledgeBaseAdminApi, KbArticle, KbCategory } from '@/shared/services/content/knowledgeBaseApi';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -11,13 +11,9 @@ import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { 
-  PlusIcon, 
- 
-  ChartBarIcon, 
+import {
+  PlusIcon,
   DocumentTextIcon,
-  FolderIcon,
-  ChatBubbleLeftRightIcon,
   BookOpenIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
@@ -154,20 +150,22 @@ export default function KnowledgeBaseAdminPage() {
     return <Navigate to="/app/content/kb" replace />;
   }
 
-  const actions = [
+  // Explicit PageAction[] — with only one literal element left after removing
+  // "Manage Categories", TS would otherwise narrow variant to just "primary"
+  // and reject the "secondary" bulk-action entries unshifted in below.
+  const actions: PageAction[] = [
     {
       id: 'create-article',
       label: 'Create Article',
-      onClick: () => { window.location.href = '/app/content/kb/admin/articles/new'; },
+      // Real route is /app/content/kb/articles/new (KnowledgeBaseArticleEditor,
+      // registered in DashboardPage.tsx) — no "admin" segment. "Manage
+      // Categories" and "Analytics" had no such route to point to (backend
+      // category CRUD / comment moderation / article analytics endpoints
+      // exist in knowledgeBaseApi.ts but no frontend surface consumes them
+      // yet), so those actions were removed rather than pointed at nothing.
+      onClick: () => { window.location.href = '/app/content/kb/articles/new'; },
       variant: 'primary' as const,
       icon: PlusIcon
-    },
-    {
-      id: 'manage-categories',
-      label: 'Manage Categories', 
-      onClick: () => { window.location.href = '/app/content/kb/admin/categories'; },
-      variant: 'secondary' as const,
-      icon: FolderIcon
     }
   ];
 
@@ -196,16 +194,6 @@ export default function KnowledgeBaseAdminPage() {
         icon: TrashIcon
       }
     );
-  }
-
-  if (canManageKb) {
-    actions.push({
-      id: 'analytics',
-      label: 'Analytics',
-      onClick: () => window.location.href = '/app/content/kb/admin/analytics',
-      variant: 'secondary' as const,
-      icon: ChartBarIcon
-    });
   }
 
   if (isLoading) {
@@ -381,9 +369,14 @@ export default function KnowledgeBaseAdminPage() {
         {/* Quick Actions */}
         <div className="bg-theme-surface rounded-lg border border-theme p-6">
           <h2 className="text-lg font-semibold text-theme-primary mb-4">Quick Actions</h2>
+          {/* Categories/Comments/Analytics quick actions removed: no route or
+              in-page surface exists for any of them. Backend support
+              (category CRUD, comment moderation, article analytics) exists in
+              knowledgeBaseApi.ts, but no frontend consumes it yet — a real
+              gap, not a link-pointer bug. See nav-link-reachability.test.ts. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Button
-              onClick={() => window.location.href = '/app/content/kb/admin/articles/new'}
+              onClick={() => window.location.href = '/app/content/kb/articles/new'}
               variant="outline"
               className="h-auto p-4 flex-col items-start"
             >
@@ -391,40 +384,6 @@ export default function KnowledgeBaseAdminPage() {
               <span className="font-medium">Create Article</span>
               <span className="text-sm text-theme-secondary mt-1">Write a new knowledge base article</span>
             </Button>
-
-            <Button
-              onClick={() => window.location.href = '/app/content/kb/admin/categories'}
-              variant="outline"
-              className="h-auto p-4 flex-col items-start"
-            >
-              <FolderIcon className="h-6 w-6 mb-2" />
-              <span className="font-medium">Manage Categories</span>
-              <span className="text-sm text-theme-secondary mt-1">Organize articles into categories</span>
-            </Button>
-
-            {canManageKb && (
-              <Button
-                onClick={() => window.location.href = '/app/content/kb/admin/comments'}
-                variant="outline"
-                className="h-auto p-4 flex-col items-start"
-              >
-                <ChatBubbleLeftRightIcon className="h-6 w-6 mb-2" />
-                <span className="font-medium">Moderate Comments</span>
-                <span className="text-sm text-theme-secondary mt-1">Review and approve comments</span>
-              </Button>
-            )}
-
-            {canManageKb && (
-              <Button
-                onClick={() => window.location.href = '/app/content/kb/admin/analytics'}
-                variant="outline"
-                className="h-auto p-4 flex-col items-start"
-              >
-                <ChartBarIcon className="h-6 w-6 mb-2" />
-                <span className="font-medium">View Analytics</span>
-                <span className="text-sm text-theme-secondary mt-1">Track content performance</span>
-              </Button>
-            )}
           </div>
         </div>
 
@@ -521,7 +480,7 @@ export default function KnowledgeBaseAdminPage() {
                         View
                       </Button>
                       <Button
-                        onClick={() => window.location.href = `/app/content/kb/admin/articles/${article.id}/edit`}
+                        onClick={() => window.location.href = `/app/content/kb/articles/${article.id}/edit`}
                         variant="ghost"
                         size="sm"
                       >
@@ -542,7 +501,7 @@ export default function KnowledgeBaseAdminPage() {
                 Get started by creating your first knowledge base article.
               </p>
               <Button
-                onClick={() => window.location.href = '/app/content/kb/admin/articles/new'}
+                onClick={() => window.location.href = '/app/content/kb/articles/new'}
                 variant="primary"
               >
                 <PlusIcon className="h-4 w-4 mr-1" />

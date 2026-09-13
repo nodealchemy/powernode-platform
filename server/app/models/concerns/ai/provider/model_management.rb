@@ -42,9 +42,13 @@ module Ai
           # Method might not be implemented in all providers
         end
 
-        # Finally, extract model IDs from supported_models (prefer API identifier over display name)
+        # Finally, extract model IDs from supported_models (prefer API identifier
+        # over display name). Ai::ModelTiers.id_for reads a Hash's "id"/"name"
+        # AND a bare String entry — `model["id"]` on a String is String#[], which
+        # returned nil for any id not containing "id", so a string catalog used
+        # to vanish here and the default rule below could not see it (E3b).
         if supported_models&.any?
-          return supported_models.map { |model| model["id"] || model["name"] }.compact
+          return supported_models.filter_map { |model| ::Ai::ModelTiers.id_for(model).presence }
         end
 
         []
@@ -54,16 +58,32 @@ module Ai
         supported_models.map { |model| model.is_a?(Hash) ? model["name"] || model["id"] : model }
       end
 
+      # The model an unpinned caller gets (campaign 01a08c9b, E3b ruling).
+      #
+      # An operator's explicit, NON-BLANK default wins. Otherwise: the
+      # LIGHTEST-tier model the provider's synced catalog lists, ties broken by
+      # catalog order. Never a literal — an empty catalog has no default, and
+      # every resolver then refuses with no_model_configured instead of guessing.
+      #
+      # Why not the first catalog entry: sync ORDERS catalogs most-capable-first
+      # (Sync::Anthropic#anthropic_model_sort_priority, Sync::OpenAI's
+      # openai_model_priority), so "first" would silently make every unpinned
+      # default the priciest model on the account. The literals this replaced
+      # were each type's cheap model; the tier rule keeps that intent without
+      # naming one.
       def default_model
-        # Check virtual @configuration first (for tests), then configuration_schema
-        if @configuration.is_a?(Hash)
-          default = @configuration[:default_model] || @configuration["default_model"]
-          return default if default.present?
-        end
+        configured = (@configuration[:default_model] || @configuration["default_model"]) if @configuration.is_a?(Hash)
+        configured = configuration_schema["default_model"] if configured.blank? && configuration_schema.is_a?(Hash)
+        return configured if configured.present?
 
-        # Fall back to configuration_schema or available models
-        config_default = configuration_schema&.dig("default_model") if configuration_schema.is_a?(Hash)
-        config_default || available_models.first
+        lightest_catalog_model
+      end
+
+      # Lightest Ai::ModelTiers tier wins; catalog position breaks a tie, so two
+      # unclassifiable ids (both :standard) keep the order sync gave them.
+      def lightest_catalog_model
+        ids = Array(available_models).filter_map { |entry| ::Ai::ModelTiers.id_for(entry).presence }
+        ids.each_with_index.min_by { |id, position| [ ::Ai::ModelTiers::ORDER.index(::Ai::ModelTiers.classify(id)), position ] }&.first
       end
 
       def default_parameters_for_model(model_name)

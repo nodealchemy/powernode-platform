@@ -46,8 +46,8 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "docker_create_network", mutating: true
       declare_action "docker_create_volume", mutating: true
-      declare_action "docker_delete_network", mutating: true
-      declare_action "docker_delete_volume", mutating: true
+      declare_action "docker_delete_network", mutating: true, destructive: true
+      declare_action "docker_delete_volume", mutating: true, destructive: true
       declare_action "docker_list_networks", mutating: false
       declare_action "docker_list_volumes", mutating: false
 

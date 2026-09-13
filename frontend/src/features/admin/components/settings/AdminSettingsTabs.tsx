@@ -6,7 +6,7 @@ import { useSelector } from 'react-redux';
 import {
   Mail, Server,
   LayoutDashboard, ShieldAlert,
-  Network, Lock, Wrench, Puzzle, KeyRound,
+  Network, Lock, Wrench, Puzzle, KeyRound, Bot,
   icons as lucideIcons
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
@@ -98,6 +98,18 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     href: '/app/admin/settings/development',
     icon: Wrench,
     description: 'Manage extensions and development tools',
+    requiredPermissions: ['admin.settings.read']
+  },
+  {
+    // D3. Listed under the same read permission as its siblings so the tab is
+    // visible to anyone who can view settings; the CONTROL inside it gates
+    // separately on settings.manage, which is the permission its write
+    // endpoint names.
+    id: 'autonomy',
+    label: 'Autonomy',
+    href: '/app/admin/settings/autonomy',
+    icon: Bot,
+    description: 'Platform-wide switches for autonomous agent cadences',
     requiredPermissions: ['admin.settings.read']
   }
 ];

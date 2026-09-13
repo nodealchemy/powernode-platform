@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'AI Provider Integration', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
-  let(:admin_user) { create(:user, :system_admin, account: account) }
+  let(:admin_user) { create(:user, :admin, account: account) }
   let!(:ai_provider) { create(:ai_provider, slug: 'openai') }
 
   before do
@@ -20,11 +20,10 @@ RSpec.describe 'AI Provider Integration', type: :request do
 
   describe 'Complete AI Provider Setup Workflow' do
     it 'completes full provider setup and testing workflow' do
-      # Step 1: Setup default providers (as admin)
+      # (The first step used to POST /api/v1/ai/providers/setup_defaults. That
+      # endpoint is deleted — it could never create a provider — so the flow
+      # now starts from the account's providers.)
       allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(admin_user)
-
-      post '/api/v1/ai/providers/setup_defaults'
-      expect(response.status).to be_in([ 200, 201, 403, 412, 422 ])
 
       # Step 2: List providers
       get '/api/v1/ai/providers'

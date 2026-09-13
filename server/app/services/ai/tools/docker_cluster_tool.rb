@@ -52,8 +52,8 @@ module Ai
       declare_action "docker_cluster_health", mutating: false
       declare_action "docker_create_config", mutating: true
       declare_action "docker_create_secret", mutating: true
-      declare_action "docker_delete_config", mutating: true
-      declare_action "docker_delete_secret", mutating: true
+      declare_action "docker_delete_config", mutating: true, destructive: true
+      declare_action "docker_delete_secret", mutating: true, destructive: true
       declare_action "docker_get_cluster", mutating: false
       declare_action "docker_list_clusters", mutating: false
       declare_action "docker_list_configs", mutating: false

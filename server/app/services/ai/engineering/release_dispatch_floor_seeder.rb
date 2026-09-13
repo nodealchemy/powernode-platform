@@ -16,9 +16,10 @@ module Ai
     # for the agent it names, and the principals that legitimately call those
     # verbs through MCP carry no such row:
     #
-    #   * an operator's Claude Code / CLI session — its MCP principal is an
-    #     `mcp_client` identity minted by Ai::McpClientIdentityService, never a
-    #     seeded canonical; and
+    #   * an operator's Claude Code / CLI session: it carries an `mcp_client`
+    #     identity minted by Ai::McpClientIdentityService when the account has
+    #     an active AI provider, and no agent otherwise, never a seeded
+    #     canonical (the door's mark, not the agent, says MCP); and
     #   * a dev-cell INSTANCE principal (mTLS node cert) — no User and no Agent
     #     at all.
     #

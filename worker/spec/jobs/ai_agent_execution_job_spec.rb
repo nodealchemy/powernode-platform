@@ -203,6 +203,16 @@ RSpec.describe AiAgentExecutionJob, type: :job do
           ))
       end
 
+      # D5 — the server builds this run's prompt, so it is the only side that
+      # knows which skill versions served it; it can stamp them onto this row
+      # only if the job names the row. String-keyed, as the real body is.
+      it 'names its execution row when it asks the server for its prompt' do
+        job_instance.execute(agent_execution_id)
+
+        expect(WebMock).to have_requested(:post, %r{api/v1/internal/ai/execution_contexts})
+          .with(body: hash_including('agent_execution_id' => agent_execution_id))
+      end
+
       it 'logs execution start and completion' do
         logger_double = mock_logger
         job_instance.execute(agent_execution_id)

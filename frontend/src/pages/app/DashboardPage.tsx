@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
@@ -60,6 +60,14 @@ const AIAnalyticsPage = React.lazy(() => import('./ai/AIAnalyticsPage').then(m =
 const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m => ({ default: m.AgentMemoryPage })));
 const ApprovalChainsPage = React.lazy(() => import('./ai/ApprovalChainsPage').then(m => ({ default: m.ApprovalChainsPage })));
 const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then(m => ({ default: m.ContextDetailPage })));
+// The only operator screen for either capability — previously unrouted.
+// AIConversationsPage: CRUD/filter/export/detail over ai conversations, only
+// partly covered by the floating chat window (filter-by-agent, duplicate,
+// export, unarchive, and the detail modal have no other entry point).
+// ChatChannelsPage: management for external chat platform integrations,
+// which the server still serves with no other consumer anywhere.
+const AIConversationsPage = React.lazy(() => import('./ai/AIConversationsPage').then(m => ({ default: m.AIConversationsPage })));
+const ChatChannelsPage = React.lazy(() => import('@/features/ai/chat-channels/pages/ChatChannelsPage'));
 
 // AI Hidden pages
 // SelfHealingDashboard absorbed into Observability Overview
@@ -112,6 +120,9 @@ const SwarmHubPage = React.lazy(() => import('@/pages/app/devops/SwarmHubPage').
 const DockerHubPage = React.lazy(() => import('@/pages/app/devops/DockerHubPage').then(m => ({ default: m.DockerHubPage })));
 const KubernetesHubPage = React.lazy(() => import('@/pages/app/devops/KubernetesHubPage').then(m => ({ default: m.KubernetesHubPage })));
 
+// Component status plane (campaign 01a08c9b, design §6)
+const StatusPage = React.lazy(() => import('@/features/platform/status/pages/StatusPage').then(m => ({ default: m.StatusPage })));
+
 // Marketing routes handled by featureRegistry (marketing extension)
 
 const DashboardPage: React.FC = () => {
@@ -131,6 +142,12 @@ const DashboardPage: React.FC = () => {
         {/* Notifications Page */}
         <Route path="/notifications" element={<NotificationsPage />} />
 
+        {/* Component status plane — one screen for what is unhealthy, why, and
+            what is being done about it. Gated on platform.status.read
+            (defense-in-depth; Api::V1::Platform::ComponentStatusesController
+            enforces the same permission, and each row's actions carry their own). */}
+        <Route path="/status" element={<ProtectedRoute requiredPermissions={['platform.status.read']}><StatusPage /></ProtectedRoute>} />
+
         {/* Individual Pages - No More Management Page Groupings */}
 
         {/* AI Pages - Primary navigation */}
@@ -143,13 +160,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
         <Route path="/ai/agents/*" element={<AIAgentsPage />} />
         <Route path="/ai/teams" element={<TeamsPage />} />
-        <Route path="/ai/communication/conversations" element={<Navigate to="/app/ai/observability/conversations" replace />} />
-        <Route path="/ai/communication/*" element={<Navigate to="/app/ai/teams" replace />} />
         <Route path="/ai/governance/*" element={<GovernancePage />} />
         {/* Approval chains — gated on ai.approval_chains.manage (defense-in-depth;
             Api::V1::Ai::ApprovalChainsController enforces the same permission). */}
         <Route path="/ai/approval-chains" element={<ProtectedRoute requiredPermissions={['ai.approval_chains.manage']}><ApprovalChainsPage /></ProtectedRoute>} />
-        <Route path="/ai/sandbox" element={<Navigate to="/app/ai/execution/testing" replace />} />
 
         {/* AI Pages - Tabbed wrappers */}
         <Route path="/ai/execution/*" element={<ExecutionPage />} />
@@ -158,22 +172,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/infrastructure/providers/new" element={<AIProvidersPage />} />
         <Route path="/ai/infrastructure/providers/:id" element={<AIProvidersPage />} />
         <Route path="/ai/infrastructure/*" element={<InfrastructurePage />} />
-        {/* Observability = monitoring only; Operations = AiOps/alerts/traces; Cost = billing/finops/roi.
-            More-specific redirects win over the /ai/observability/* splat via router ranking. */}
-        <Route path="/ai/observability/credits/*" element={<Navigate to="/app/ai/cost/credits" replace />} />
-        <Route path="/ai/observability/operations" element={<Navigate to="/app/ai/operations" replace />} />
-        <Route path="/ai/observability/alerts" element={<Navigate to="/app/ai/operations/alerts" replace />} />
+        {/* Observability = monitoring only; Operations = AiOps/alerts/traces; Cost = billing/finops/roi. */}
         <Route path="/ai/observability/*" element={<ObservabilityPage />} />
         <Route path="/ai/operations/*" element={<OperationsPage />} />
-        <Route path="/ai/billing/*" element={<Navigate to="/app/ai/cost/credits" replace />} />
-        <Route path="/ai/monitoring/*" element={<Navigate to="/app/ai/observability" replace />} />
-
-        {/* AI Pages - Agent Orchestration */}
-        <Route path="/ai/sandboxes" element={<Navigate to="/app/ai/execution/containers" replace />} />
-        <Route path="/ai/autonomy" element={<Navigate to="/app/ai/agents/autonomy" replace />} />
-        <Route path="/ai/learning" element={<Navigate to="/app/ai/knowledge/learning" replace />} />
-        <Route path="/ai/audit" element={<Navigate to="/app/ai/governance/audit" replace />} />
-        <Route path="/ai/security" element={<Navigate to="/app/ai/governance/security" replace />} />
 
         {/* AI Missions - code-factory before :missionId, static tabs before dynamic */}
         <Route path="/ai/missions/code-factory/*" element={<MissionsPageWrapper />} />
@@ -185,21 +186,19 @@ const DashboardPage: React.FC = () => {
         {/* AI Improvement Campaigns */}
         <Route path="/ai/campaigns" element={<ProtectedRoute requiredPermissions={['ai.campaigns.read']}><CampaignsPageWrapper /></ProtectedRoute>} />
 
-        {/* AI Redirects - Absorbed pages */}
-        <Route path="/ai/code-factory/*" element={<Navigate to="/app/ai/missions/code-factory" replace />} />
-        <Route path="/ai/evaluation" element={<Navigate to="/app/ai/observability/evaluation" replace />} />
-        <Route path="/ai/self-healing" element={<Navigate to="/app/ai/observability" replace />} />
+        {/* AI Pages - Additional standalone routes */}
         <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
         <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/devops/templates" element={<DevOpsTemplatesPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
+        <Route path="/ai/conversations" element={<ProtectedRoute requiredPermissions={['ai.conversations.read']}><AIConversationsPage /></ProtectedRoute>} />
+        <Route path="/ai/chat-channels" element={<ProtectedRoute requiredPermissions={['chat.channels.read']}><ChatChannelsPage /></ProtectedRoute>} />
 
         {/* Cost hub — Overview / Credits / FinOps / ROI / Outcome Billing (sub-sidebar) */}
         <Route path="/ai/cost/*" element={<CostPage />} />
 
-        {/* Developer Portal (now under DevOps nav); Execution Traces moved to Operations */}
-        <Route path="/developer/traces" element={<Navigate to="/app/ai/operations/traces" replace />} />
+        {/* Developer Portal (now under DevOps nav) */}
         <Route path="/developer" element={<DeveloperPortal />} />
 
         {/* Core Pages */}

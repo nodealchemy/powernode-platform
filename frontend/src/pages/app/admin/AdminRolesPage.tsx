@@ -171,7 +171,7 @@ export const AdminRolesPage: React.FC = () => {
 
   const getBreadcrumbs = () => [
     { label: 'Dashboard', href: '/app' },
-    { label: 'Admin', href: '/app/admin' },
+    { label: 'Admin', href: '/app/admin/settings' },
     { label: 'Roles & Permissions' }
   ];
 

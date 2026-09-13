@@ -134,39 +134,6 @@ module Api
           )
         end
 
-        # POST /api/v1/ai/providers/setup_defaults
-        def setup_defaults
-          requested_types = params[:provider_types] || ::Ai::Providers::DefaultConfig.types
-          created_providers = []
-
-          requested_types.each do |provider_type|
-            next if current_user.account.ai_providers.exists?(provider_type: provider_type)
-
-            provider_config = ::Ai::Providers::DefaultConfig.for(provider_type)
-            next unless provider_config
-
-            provider = current_user.account.ai_providers.build(
-              name: provider_config[:name],
-              provider_type: provider_type,
-              is_active: false,
-              configuration: provider_config[:configuration] || {}
-            )
-
-            if provider.save
-              created_providers << { id: provider.id, name: provider.name, provider_type: provider_type }
-            end
-          end
-
-          render_success({
-            created_providers: created_providers,
-            message: created_providers.any? ? "Created #{created_providers.length} default providers" : "All default providers already exist"
-          })
-
-          log_audit_event("ai.providers.setup_defaults", current_user.account,
-            created_count: created_providers.length
-          )
-        end
-
         private
 
         def set_provider
@@ -183,8 +150,6 @@ module Api
             require_permission("ai.providers.read")
           when "sync_models", "sync_all"
             require_permission("ai.providers.update")
-          when "setup_defaults"
-            require_permission("ai.providers.create")
           end
         end
 

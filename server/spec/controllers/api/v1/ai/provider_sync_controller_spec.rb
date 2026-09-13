@@ -174,31 +174,13 @@ RSpec.describe "Api::V1::Ai::ProviderSyncController", type: :request do
     end
   end
 
-  # =========================================================================
-  # SETUP DEFAULTS (ai.providers.create)
-  # =========================================================================
-  describe "POST /api/v1/ai/providers/setup_defaults" do
-    let(:path) { "#{base_path}/setup_defaults" }
-
-    before do
-      allow(Ai::Providers::DefaultConfig).to receive(:types).and_return([])
-    end
-
-    it 'returns 401 when unauthenticated' do
-      post path, headers: { 'Content-Type' => 'application/json' }
-      expect(response).to have_http_status(:unauthorized)
-    end
-
-    it 'returns 403 when user lacks ai.providers.create permission' do
-      post path, headers: auth_headers_for(no_perms_user)
-      expect(response).to have_http_status(:forbidden)
-    end
-
-    it 'returns success with created providers list' do
-      post path, headers: auth_headers_for(create_user)
-      expect(response).to have_http_status(:success)
-      expect(json_response['data']['created_providers']).to be_an(Array)
-      expect(json_response['data']['message']).to be_present
+  # E3b: POST /api/v1/ai/providers/setup_defaults built providers from the
+  # deleted Ai::Providers::DefaultConfig, whose per-type literal default_models
+  # the catalog no longer carries. The endpoint, its route and its UI are gone.
+  describe "setup_defaults (deleted)" do
+    it "has no route and no action" do
+      expect(Rails.application.routes.named_routes.key?(:setup_defaults_providers)).to be false
+      expect(Api::V1::Ai::ProviderSyncController.action_methods).not_to include("setup_defaults")
     end
   end
 end

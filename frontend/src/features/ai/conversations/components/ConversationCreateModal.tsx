@@ -15,7 +15,6 @@ export interface ConversationCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConversationCreated?: (conversation: AiConversation) => void;
-  preselectedAgentId?: string;
 }
 
 interface CreateConversationFormData {
@@ -40,8 +39,7 @@ interface ConversationRequestData {
 export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = ({
   isOpen,
   onClose,
-  onConversationCreated,
-  preselectedAgentId
+  onConversationCreated
 }) => {
   const { addNotification } = useNotifications();
   const { currentUser } = useAuth();
@@ -49,7 +47,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
   const [agentsLoading, setAgentsLoading] = useState(false);
   const [formData, setFormData] = useState<CreateConversationFormData>({
     title: '',
-    ai_agent_id: preselectedAgentId || '',
+    ai_agent_id: '',
     description: '',
     system_prompt: '',
     temperature: 0.7,
@@ -69,8 +67,8 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
 
       setAgents(agents.filter((agent: AiAgent) => agent.status === 'active'));
 
-      // Pre-select first agent if none is preselected and we have agents
-      if (!preselectedAgentId && agents.length > 0) {
+      // Pre-select the first agent when there is no selection yet.
+      if (agents.length > 0) {
         setFormData(prev => ({
           ...prev,
           ai_agent_id: agents[0].id
@@ -94,7 +92,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
       // Reset form when opening
       setFormData({
         title: '',
-        ai_agent_id: preselectedAgentId || '',
+        ai_agent_id: '',
         description: '',
         system_prompt: '',
         temperature: 0.7,
@@ -102,7 +100,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
       });
       setErrors({});
     }
-  }, [isOpen, preselectedAgentId]);
+  }, [isOpen]);
 
   const handleInputChange = (
     field: keyof CreateConversationFormData,

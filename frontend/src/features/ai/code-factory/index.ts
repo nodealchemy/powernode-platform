@@ -1,4 +1,3 @@
-export { CodeFactoryPage } from './pages/CodeFactoryPage';
 export { ContractList } from './components/ContractList';
 export { ContractEditor } from './components/ContractEditor';
 export { RunList } from './components/RunList';

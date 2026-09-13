@@ -1,6 +1,4 @@
 // Ralph Loops feature exports
-export { RalphLoopCard } from './components/RalphLoopCard';
-export { RalphLoopList } from './components/RalphLoopList';
 export { RalphTaskList } from './components/RalphTaskList';
 export { RalphIterationList } from './components/RalphIterationList';
 export { RalphProgressView } from './components/RalphProgressView';

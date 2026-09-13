@@ -1,9 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Shield, Activity, AlertTriangle, Clock, RefreshCw } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import React, { useState, useCallback } from 'react';
+import { Shield, Activity, AlertTriangle, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePolling } from '@/shared/hooks/usePolling';
 import { RemediationTimeline } from './RemediationTimeline';
 import { HealthCorrelationView } from './HealthCorrelationView';
 import { apiClient } from '@/shared/services/apiClient';
@@ -61,11 +61,7 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
     }
   }, [addNotification]);
 
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
-  }, [loadData, refreshKey]);
+  usePolling(loadData, 30000, { immediate: true, deps: [loadData, refreshKey] });
 
   if (loading && !healthSummary) return <LoadingSpinner />;
 
@@ -164,26 +160,5 @@ export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshK
         </Card>
       </div>
     </div>
-  );
-};
-
-export const SelfHealingDashboard: React.FC = () => {
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  return (
-    <PageContainer
-      title="Self-Healing"
-      description="Automated remediation and health monitoring"
-      actions={[
-        {
-          label: 'Refresh',
-          onClick: () => setRefreshKey((k) => k + 1),
-          variant: 'outline',
-          icon: RefreshCw,
-        },
-      ]}
-    >
-      <SelfHealingContent refreshKey={refreshKey} />
-    </PageContainer>
   );
 };

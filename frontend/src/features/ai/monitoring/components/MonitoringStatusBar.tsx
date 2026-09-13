@@ -2,9 +2,9 @@ import React from 'react';
 import { Activity, Clock } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Select } from '@/shared/components/ui/Select';
+import { VerdictBadge } from '@/shared/components/ui/VerdictBadge';
 import { HealthStatus } from '@/shared/services/ai/MonitoringApiService';
 import {
-  getHealthScoreColor,
   getConnectionStatusColor,
   formatLastUpdate
 } from '../utils';
@@ -24,16 +24,6 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
   timeRange,
   onTimeRangeChange
 }) => {
-  const getStatusBadgeVariant = (status: string): 'success' | 'warning' | 'danger' | 'outline' => {
-    switch (status) {
-      case 'healthy': return 'success';
-      case 'degraded': return 'warning';
-      case 'unhealthy':
-      case 'critical': return 'danger';
-      default: return 'outline';
-    }
-  };
-
   return (
     <div className="flex items-center justify-between bg-theme-surface border border-theme rounded-lg p-4">
       <div className="flex items-center gap-4">
@@ -48,12 +38,11 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-theme-tertiary" />
             <span className="text-sm text-theme-tertiary">System Health:</span>
-            <span className={`text-sm font-medium ${getHealthScoreColor(systemHealth.health_score)}`}>
-              {systemHealth.health_score.toFixed(1)}%
-            </span>
-            <Badge variant={getStatusBadgeVariant(systemHealth.status)}>
-              {systemHealth.status}
-            </Badge>
+            {systemHealth.rollup ? (
+              <VerdictBadge verdict={systemHealth.rollup.verdict} size="sm" />
+            ) : (
+              <Badge variant="outline">Not measured</Badge>
+            )}
           </div>
         )}
 

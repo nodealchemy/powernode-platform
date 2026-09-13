@@ -67,9 +67,9 @@
 #     Manager's prompt. Making it enforceable needs a new condition key, which
 #     the brief said not to invent.
 #   * Release Manager "delegation depth 0" — Ai::DelegationPolicy validates
-#     max_depth > 0 and reads an EMPTY allowed_delegate_types as unrestricted,
-#     so "delegates to nobody" is spelled depth 1 plus the no-such-type sentinel
-#     %w[none] (ai_agent_hierarchy_seed.rb); #allows_delegate_type? is then false
+#     max_depth > 0, so "delegates to nobody" is spelled depth 1 plus the
+#     no-such-type sentinel %w[none] (ai_agent_hierarchy_seed.rb). Since HIER-P0
+#     an empty list would say the same; #allows_delegate_type? is false either way
 #     for every real agent_type. Same verdict, expressible vocabulary.
 #   Documentation Spec.  docs.update auto_approve
 # A REFINE PAIR (ruling #3, through the EXISTING conditions mechanism): an
@@ -157,7 +157,7 @@ ENGINEERING_AGENTS = [
       list_agents get_agent create_agent update_agent propose_feature record_agent_execution
       list_teams create_team
       list_skills get_skill create_skill discover_skills get_skill_context skill_health skill_metrics
-      mutate_skill auto_evolve_skill compose_skills generate_self_challenge list_challenges get_challenge_result
+      mutate_skill auto_evolve_skill compose_skills
       list_improvements create_improvement discover_improvements dismiss_improvement
       campaign
       describe_delegation set_delegation_policy route_task

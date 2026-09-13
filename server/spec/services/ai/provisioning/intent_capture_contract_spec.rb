@@ -62,6 +62,19 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "output contract + parse 
       end
     end
 
+    # The account needs a model, because #resolve_model RAISES without one
+    # (Ai::Provisioning::NoModelConfiguredError, E3 review F1 / f773ac74d), and
+    # it is read for the BASELINE before any substitution decision, so without
+    # it #safe_complete reports no_model_configured and makes no call at all —
+    # no model to substitute, no annotation, nothing for these examples to
+    # observe. Before F1 resolution returned nil and the call still went out
+    # with the model key dropped by WorkerLlmClient#build_payload's `compact`.
+    # An active credential whose provider has a non-empty supported_models is
+    # what the error text prescribes; the factory catalog resolves to
+    # "test-model-1". The raise itself is pinned directly in
+    # intent_capture_model_resolution_spec.rb.
+    let!(:credential) { create(:ai_provider_credential, account: account, provider: create(:ai_provider, account: account), is_active: true) }
+
     let(:substituted) do
       instance_double(::Ai::Routing::TaskTierResolver::Resolution,
                       model: "o3-mini", effort: nil, tier: :standard, baseline_model: "gpt-4o")

@@ -51,6 +51,12 @@ module Ai
     #   value. Endpoints likewise drop id/ai_data_source_id/timestamps plus the
     #   runtime cursor/etag/last_modified/contract columns.
     class ConfigPortabilityService
+      # #scrub_value / #secret_key? and the two key-name lists they read. THE
+      # one definition of "this key is secret-bearing" for free-form jsonb; this
+      # class used to hold it privately, and Ai::Tools::ProviderReadTool now
+      # screens the same columns through the same seam.
+      include ::Ai::SecretKeyScrubber
+
       MANIFEST_VERSION = 1
 
       # ── ALLOWLIST: portable, NON-secret source attributes ──────────────────
@@ -93,24 +99,16 @@ module Ai
         path lease_seconds ttl token_request_method token_file
       ].freeze
 
-      # ── DENYLIST: substrings that mark a key as secret-bearing ─────────────
-      # Applied to every auth_config key (nested too) on top of the allowlist as
-      # defense in depth. A key matching ANY of these is dropped regardless of the
-      # allowlist. NOTE token_file (a PATH, not material) is allowlisted above and
-      # survives because we screen on these substrings, none of which it contains;
-      # "token_url"/"token_request_method" likewise contain "token" but are
-      # allowlisted AND do not match a denied substring on their own — see
-      # #secret_key? for the exact-token guard that keeps a bare "token" out.
-      SECRET_KEY_SUBSTRINGS = %w[
-        secret password passwd credential private mnemonic seed_phrase
-        access_key secret_key client_secret api_secret web_identity_token
-      ].freeze
-
-      # Exact key names that are ALWAYS secret even though their substring is not
-      # caught above (e.g. a bare "token" / "key" / "apikey" / "api_key").
-      SECRET_KEY_EXACT = %w[
-        token key apikey api_key auth jwt bearer signature passphrase
-      ].freeze
+      # ── DENYLIST: applied to every auth_config key (nested too) on top of the
+      # allowlist as defense in depth. The key names and the recursive walk live
+      # in Ai::SecretKeyScrubber (included above) because the MCP provider read
+      # surface screens the same free-form jsonb columns and must not carry a
+      # second, drifting copy of the rule. NOTE token_file (a PATH, not material)
+      # is allowlisted above and survives because the denylist screens on
+      # SUBSTRINGS, none of which it contains; "token_url"/"token_request_method"
+      # likewise contain "token" but are allowlisted AND do not match a denied
+      # substring on their own — SecretKeyScrubber#secret_key?'s exact-name set
+      # is what keeps a bare "token" out.
 
       # @param account [Account] the account every import/snapshot is scoped to.
       def initialize(account:)
@@ -311,33 +309,6 @@ module Ai
 
           acc[key] = scrub_value(value)
         end
-      end
-
-      # Recursively scrub a value so no secret-keyed entry survives inside a
-      # nested Hash/Array that rode in under an allowlisted parent key.
-      def scrub_value(value)
-        case value
-        when Hash
-          value.each_with_object({}) do |(k, v), acc|
-            next if secret_key?(k.to_s)
-
-            acc[k.to_s] = scrub_value(v)
-          end
-        when Array
-          value.map { |v| scrub_value(v) }
-        else
-          value
-        end
-      end
-
-      # True when a key name looks secret-bearing. Checks the exact-name set
-      # first (catches a bare "token"/"key"), then the substring denylist. Used
-      # as defense-in-depth ON TOP OF the allowlist.
-      def secret_key?(key)
-        k = key.to_s.downcase
-        return true if SECRET_KEY_EXACT.include?(k)
-
-        SECRET_KEY_SUBSTRINGS.any? { |needle| k.include?(needle) }
       end
 
       # ---- import helpers ----------------------------------------------------

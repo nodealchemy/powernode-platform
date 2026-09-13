@@ -1,21 +1,16 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Activity, HardDrive, Wifi, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Progress } from '@/shared/components/ui/Progress';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { fetchSandboxMetrics } from '../api/sandboxApi';
+import { formatFileSize } from '@/shared/utils/formatters';
+import { usePolling } from '@/shared/hooks/usePolling';
 import type { SandboxMetrics } from '../types/sandbox';
 
 interface SandboxMetricsPanelProps {
   sandboxId: string;
 }
-
-const formatBytes = (bytes: number): string => {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-};
 
 const formatUptime = (seconds: number): string => {
   const hrs = Math.floor(seconds / 3600);
@@ -29,7 +24,6 @@ const formatUptime = (seconds: number): string => {
 export const SandboxMetricsPanel: React.FC<SandboxMetricsPanelProps> = ({ sandboxId }) => {
   const [metrics, setMetrics] = useState<SandboxMetrics | null>(null);
   const [loading, setLoading] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadMetrics = useCallback(async () => {
     try {
@@ -42,13 +36,7 @@ export const SandboxMetricsPanel: React.FC<SandboxMetricsPanelProps> = ({ sandbo
     }
   }, [sandboxId]);
 
-  useEffect(() => {
-    loadMetrics();
-    intervalRef.current = setInterval(loadMetrics, 5000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [loadMetrics]);
+  usePolling(loadMetrics, 5000, { immediate: true });
 
   if (loading) return <LoadingSpinner />;
   if (!metrics) return null;
@@ -118,7 +106,7 @@ export const SandboxMetricsPanel: React.FC<SandboxMetricsPanelProps> = ({ sandbo
                   <HardDrive className="h-3.5 w-3.5" /> Storage
                 </span>
                 <span className="text-theme-primary font-medium">
-                  {formatBytes(metrics.storage_used_bytes)}
+                  {formatFileSize(metrics.storage_used_bytes, { capAtGB: true, decimals: 1 })}
                 </span>
               </div>
               <Progress
@@ -138,12 +126,12 @@ export const SandboxMetricsPanel: React.FC<SandboxMetricsPanelProps> = ({ sandbo
               <div className="text-right text-xs">
                 {metrics.network_bytes_in !== undefined && (
                   <p className="text-theme-primary">
-                    In: {formatBytes(metrics.network_bytes_in)}
+                    In: {formatFileSize(metrics.network_bytes_in, { capAtGB: true, decimals: 1 })}
                   </p>
                 )}
                 {metrics.network_bytes_out !== undefined && (
                   <p className="text-theme-primary">
-                    Out: {formatBytes(metrics.network_bytes_out)}
+                    Out: {formatFileSize(metrics.network_bytes_out, { capAtGB: true, decimals: 1 })}
                   </p>
                 )}
               </div>

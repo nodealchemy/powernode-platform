@@ -99,6 +99,9 @@ class Ai::McpAgentExecutor
                     model_config["temperature"] || 0.7
 
       system_prompt = @agent.build_system_prompt_with_profile
+      # D5: that build decided which skill versions served this run (an A/B
+      # variant is drawn there); stamp them so the judge credits what served.
+      stamp_served_skill_versions
 
       opts = { max_tokens: max_tokens, temperature: temperature,
                system_prompt: system_prompt, effort: effort }.compact
@@ -122,6 +125,15 @@ class Ai::McpAgentExecutor
     # is a real record (guards against the test double / nil).
     def routing_agent_execution
       @execution if @execution.is_a?(::Ai::AgentExecution)
+    end
+
+    # Best-effort: a failed stamp costs the run its skill-version credit (the
+    # judge answers NoServedVersion), never the run itself.
+    def stamp_served_skill_versions
+      ::Ai::SkillVersion.record_served!(execution: routing_agent_execution,
+                                        version_ids: @agent.served_skill_version_ids)
+    rescue StandardError => e
+      @logger.warn("[MCP_AGENT_EXECUTOR] served skill version stamp failed: #{e.class}: #{e.message}")
     end
 
     def format_tool_loop_result(result, model)

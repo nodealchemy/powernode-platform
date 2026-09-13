@@ -91,23 +91,57 @@ class RequestInspector
     payload_size_limit: 10.megabytes    # Max request body size
   }.freeze
 
+  # The window the suspicious-request counter accumulates over — the
+  # denominator of suspicious_request_limit.
+  SUSPICIOUS_WINDOW_SECONDS = 3600
+
   # The rapid-request window. Both the per-IP request counter and the
   # "already flagged this window" marker live for exactly this long.
   RAPID_WINDOW_SECONDS = 10
+
+  # AdminSetting key for a THRESHOLDS entry. Rack::Attack, the sibling control
+  # in the same request path, has read its limits from AdminSetting since it
+  # was written (Rack::Attack.get_rate_limit) — these were a frozen constant,
+  # so tuning the two halves of the same defence meant a settings change on one
+  # side and a REDEPLOY on the other. Same shape as get_rate_limit: DB value if
+  # present and parseable, the constant otherwise, and never an exception (this
+  # runs in middleware, ahead of routing).
+  def self.setting_key(name) = "ddos_#{name}"
+
+  # Effective value of a THRESHOLDS entry: AdminSetting override, else the
+  # compiled-in default. A non-positive or unparseable override is IGNORED
+  # rather than honoured — a typo in a settings row must not disable a
+  # security control or set a zero-second block.
+  def self.threshold(name)
+    fallback = THRESHOLDS.fetch(name)
+    raw = AdminSetting.find_by(key: setting_key(name))&.value
+    return fallback if raw.blank?
+
+    value = Integer(raw.to_s.strip, 10)
+    value.positive? ? value : fallback
+  rescue StandardError
+    THRESHOLDS.fetch(name)
+  end
 
   # Requests per window above which traffic is scored as a flood. The default
   # is deliberately above a browser page load: the platform's own SPA issues
   # 50-100 XHRs in the first seconds of a dashboard (IMP-4f9ee46c0f50 — the
   # old default of 50 IP-blocked an operator for opening the autonomy page).
-  # Overridable per deployment without a rebuild via
-  # DDOS_RAPID_REQUEST_THRESHOLD; an unparseable value falls back to the
-  # default rather than disabling the check.
+  #
+  # PRECEDENCE: DDOS_RAPID_REQUEST_THRESHOLD, then the AdminSetting, then the
+  # constant. The env var stays on top because it is the escape hatch that
+  # works when the DATABASE is the thing being flooded — a threshold that can
+  # only be raised through a DB read is unreachable in exactly that incident.
+  # An unparseable value at either level falls through rather than disabling
+  # the check.
   def self.rapid_request_threshold
-    raw = ENV.fetch("DDOS_RAPID_REQUEST_THRESHOLD", THRESHOLDS[:rapid_request_threshold])
-    value = Integer(raw)
-    value.positive? ? value : THRESHOLDS[:rapid_request_threshold]
+    raw = ENV["DDOS_RAPID_REQUEST_THRESHOLD"]
+    return threshold(:rapid_request_threshold) if raw.blank?
+
+    value = Integer(raw, 10)
+    value.positive? ? value : threshold(:rapid_request_threshold)
   rescue ArgumentError, TypeError
-    THRESHOLDS[:rapid_request_threshold]
+    threshold(:rapid_request_threshold)
   end
 
   def initialize(app)
@@ -253,19 +287,17 @@ class RequestInspector
   end
 
   # Marks the current window as flagged for the IP. Returns true only the
-  # first time in a window; the marker expires with the window.
+  # first time in a window; the marker expires with the window. Atomic
+  # (SET NX EX) — the read-then-write version let two threads in one burst
+  # each score a hit.
   def flag_rapid_window!(ip)
-    key = "ddos_rapid_flagged:#{ip}"
-    return false if Rails.cache.read(key).present?
-
-    Rails.cache.write(key, true, expires_in: RAPID_WINDOW_SECONDS.seconds)
-    true
+    ::Security::IpBlockStore.claim_rapid_window!(ip, ttl_seconds: RAPID_WINDOW_SECONDS)
   end
 
   def check_payload_size(request, result)
     content_length = request.content_length.to_i
 
-    if content_length > THRESHOLDS[:payload_size_limit]
+    if content_length > self.class.threshold(:payload_size_limit)
       result[:threats] << { type: :oversized_payload, size: content_length }
       result[:score] += 5
     end
@@ -291,7 +323,7 @@ class RequestInspector
   # =========================================================================
 
   def blocked?(ip)
-    Rails.cache.read(block_cache_key(ip)).present?
+    ::Security::IpBlockStore.blocked?(ip)
   end
 
   def block_ip(ip, duration_seconds: nil)
@@ -301,30 +333,25 @@ class RequestInspector
 
     duration = duration_seconds || calculate_block_duration(offense_count)
 
-    Rails.cache.write(block_cache_key(ip), true, expires_in: duration.seconds)
+    ::Security::IpBlockStore.block!(ip, duration_seconds: duration)
 
     log_block(ip, duration, offense_count)
   end
 
   def calculate_block_duration(offense_count)
-    base_duration = THRESHOLDS[:block_duration_seconds]
-    multiplier = THRESHOLDS[:progressive_multiplier]**offense_count
+    base_duration = self.class.threshold(:block_duration_seconds)
+    multiplier = self.class.threshold(:progressive_multiplier)**offense_count
     duration = base_duration * multiplier
 
-    [ duration, THRESHOLDS[:max_block_duration] ].min
-  end
-
-  def block_cache_key(ip)
-    "ddos_block:#{ip}"
+    [ duration, self.class.threshold(:max_block_duration) ].min
   end
 
   def get_offense_count(ip)
-    Rails.cache.read("ddos_offenses:#{ip}").to_i
+    ::Security::IpBlockStore.offense_count(ip)
   end
 
   def increment_offense_count(ip)
-    current = get_offense_count(ip)
-    Rails.cache.write("ddos_offenses:#{ip}", current + 1, expires_in: 7.days)
+    ::Security::IpBlockStore.bump_offense(ip)
   end
 
   # =========================================================================
@@ -332,24 +359,19 @@ class RequestInspector
   # =========================================================================
 
   def track_request(request)
-    cache_key = "ddos_rapid:#{request.ip}"
-    current = Rails.cache.read(cache_key).to_i
-    Rails.cache.write(cache_key, current + 1, expires_in: RAPID_WINDOW_SECONDS.seconds)
+    ::Security::IpBlockStore.bump_rapid(request.ip, ttl_seconds: RAPID_WINDOW_SECONDS)
   end
 
   def get_rapid_request_count(ip)
-    Rails.cache.read("ddos_rapid:#{ip}").to_i
+    ::Security::IpBlockStore.rapid_count(ip)
   end
 
-  def track_suspicious_request(request, result)
-    cache_key = "ddos_suspicious:#{request.ip}"
-    current = Rails.cache.read(cache_key).to_i
-    Rails.cache.write(cache_key, current + 1, expires_in: 1.hour)
-    current + 1
+  def track_suspicious_request(request, _result)
+    ::Security::IpBlockStore.bump_suspicious(request.ip, ttl_seconds: SUSPICIOUS_WINDOW_SECONDS)
   end
 
   def get_suspicious_count(ip)
-    Rails.cache.read("ddos_suspicious:#{ip}").to_i
+    ::Security::IpBlockStore.suspicious_count(ip)
   end
 
   # =========================================================================
@@ -363,7 +385,7 @@ class RequestInspector
     log_suspicious_request(request, result, suspicious_count)
 
     # Block if threshold exceeded
-    if suspicious_count >= THRESHOLDS[:suspicious_request_limit]
+    if suspicious_count >= self.class.threshold(:suspicious_request_limit)
       block_ip(request.ip)
     end
   end
@@ -469,10 +491,12 @@ class RequestInspector
     ]
   end
 
+  # Real remaining seconds. This read used to go through Powernode::CacheRedis,
+  # which resolves Redis OFF Rails.cache and therefore returned nil for every
+  # non-Redis cache store — so on the hub (CACHE_STORE=memory_store) every
+  # Retry-After was the 3600 fallback regardless of the actual block.
   def remaining_block_time(ip)
-    # Estimate remaining time (default to 1 hour if unknown)
-    ttl = Powernode::CacheRedis.ttl(block_cache_key(ip)) || 3600
-    [ ttl, 0 ].max
+    ::Security::IpBlockStore.block_ttl(ip) || self.class.threshold(:block_duration_seconds)
   end
 
   # =========================================================================
@@ -486,7 +510,7 @@ class RequestInspector
       "Path=#{request.path} " \
       "Score=#{result[:score]} " \
       "Threats=#{result[:threats].map { |t| t[:type] }.join(', ')} " \
-      "Count=#{count}/#{THRESHOLDS[:suspicious_request_limit]}"
+      "Count=#{count}/#{self.class.threshold(:suspicious_request_limit)}"
     )
   end
 

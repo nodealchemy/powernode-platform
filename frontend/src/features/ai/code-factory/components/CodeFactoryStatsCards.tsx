@@ -59,7 +59,8 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
   const activeRuns = reviewStates.filter(s =>
     !['clean', 'dirty', 'stale', 'completed'].includes(s.status)
   );
-  const slaRate = gapMetrics?.sla_compliance_rate ?? 100;
+  // Absent metrics are no measurement: null, never 100% compliance (M1 tail).
+  const slaRate: number | null = gapMetrics?.sla_compliance_rate ?? null;
   const openGaps = harnessGaps.filter(g => g.status === 'open' || g.status === 'in_progress');
   const criticalGaps = openGaps.filter(g => g.severity === 'critical' || g.severity === 'high');
 
@@ -116,12 +117,12 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
         {/* SLA Compliance */}
         <div
           className={`card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-interactive-primary/30 transition-all ${
-            slaRate < 80 ? 'border-l-2 border-theme-error-border' : ''
+            slaRate !== null && slaRate < 80 ? 'border-l-2 border-theme-error-border' : ''
           }`}
           onClick={() => toggleExpand('sla')}
         >
-          <div className={`text-2xl font-bold ${slaRate >= 90 ? 'text-theme-success-fg' : slaRate >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
-            {slaRate.toFixed(0)}%
+          <div className={`text-2xl font-bold ${slaRate === null ? 'text-theme-tertiary' : slaRate >= 90 ? 'text-theme-success-fg' : slaRate >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}`}>
+            {slaRate === null ? '—' : `${slaRate.toFixed(0)}%`}
           </div>
           <div className="text-xs text-theme-secondary mt-0.5">SLA Compliance</div>
         </div>
@@ -239,16 +240,16 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           <div>
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="text-theme-secondary">Compliance Rate</span>
-              <span className={slaRate >= 90 ? 'text-theme-success-fg' : slaRate >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}>
-                {slaRate.toFixed(1)}%
+              <span className={slaRate === null ? 'text-theme-tertiary' : slaRate >= 90 ? 'text-theme-success-fg' : slaRate >= 70 ? 'text-theme-warning-fg' : 'text-theme-error-fg'}>
+                {slaRate === null ? '—' : `${slaRate.toFixed(1)}%`}
               </span>
             </div>
             <div className="h-2 bg-theme-background-secondary rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
-                  slaRate >= 90 ? 'bg-theme-success-bg' : slaRate >= 70 ? 'bg-theme-warning-bg' : 'bg-theme-error-bg'
+                  slaRate === null ? 'bg-theme-background-secondary' : slaRate >= 90 ? 'bg-theme-success-bg' : slaRate >= 70 ? 'bg-theme-warning-bg' : 'bg-theme-error-bg'
                 }`}
-                style={{ width: `${Math.min(slaRate, 100)}%` }}
+                style={{ width: `${slaRate === null ? 0 : Math.min(slaRate, 100)}%` }}
               />
             </div>
           </div>

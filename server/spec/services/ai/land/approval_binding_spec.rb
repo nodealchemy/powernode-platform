@@ -44,6 +44,77 @@ RSpec.describe Ai::Land::ApprovalBinding do
     end
   end
 
+  # IMP-01a081f2 — #create_governance_request called
+  # `Ai::ApprovalChain.find_or_create_default_for`, a method that is defined
+  # NOWHERE in the tree. The resulting NoMethodError was caught by the method's
+  # own `rescue StandardError`, logged at warn, and swallowed into nil, so with
+  # a governance extension present NO ApprovalRequest was ever minted: the land
+  # fell through to the proposal card and the formal chain — the thing that
+  # makes land.on_approval_decision fire — silently did not exist.
+  #
+  # SELF-SEALING, which is why it survived: the rescue that hid the error is in
+  # the same method as the error, the fallback path looks like a working
+  # feature, and the only signal was one warn line on a code path core-mode
+  # installs never take.
+  #
+  # THE ORACLE IS THE PERSISTED REQUEST ROW, never "did not raise" — the old
+  # code did not raise either. Nor is it the log line: asserting the warn would
+  # have passed against the broken code.
+  describe "the formal approval chain (governance present)" do
+    before { allow(Ai::Autonomy::ApprovalWorkflowService).to receive(:governance_enabled?).and_return(true) }
+
+    it "mints an ApprovalRequest bound to the land" do
+      c = campaign("supervised")
+
+      land = described_class.request_land_approval(campaign: c, description: "land it")
+
+      request = Ai::ApprovalRequest.find_by(source_type: "Ai::CampaignLand", source_id: land.id)
+      expect(request).to be_present
+      expect(request.status).to eq("pending")
+      expect(request.description).to eq("land it")
+    end
+
+    it "leaves the land pending_approval, waiting on that request" do
+      land = described_class.request_land_approval(campaign: campaign("supervised"))
+
+      expect(land.reload.status).to eq("pending_approval")
+    end
+
+    # The source-keyed chain distinction the class documents ("missions and
+    # campaigns route through distinct default chains") was unreachable — the
+    # kind was computed and handed to a method that did not exist. Missions
+    # auto-approve, so the campaign side is where the kind is observable.
+    it "routes the campaign land through a campaign_land chain" do
+      land = described_class.request_land_approval(campaign: campaign("supervised"))
+
+      chain = Ai::ApprovalRequest.find_by(source_type: "Ai::CampaignLand", source_id: land.id).approval_chain
+      expect(chain.name).to include("campaign_land")
+    end
+
+    it "mints nothing for an autonomous campaign, which auto-enqueues instead" do
+      land = described_class.request_land_approval(campaign: campaign("autonomous"))
+
+      expect(land.status).to eq("queued")
+      expect(Ai::ApprovalRequest.where(source_type: "Ai::CampaignLand", source_id: land.id)).to be_empty
+    end
+  end
+
+  # Core mode (no governance extension) must keep its existing behaviour: no
+  # chain, no request, land parked for the proposal card. Pinned because the
+  # repair routes through Ai::Approvals::Gateway, whose #request! answers
+  # :proceed rather than :pending in core mode — read as "go ahead" that would
+  # have auto-enqueued a land that needs a human.
+  describe "core mode (no governance extension)" do
+    before { allow(Ai::Autonomy::ApprovalWorkflowService).to receive(:governance_enabled?).and_return(false) }
+
+    it "parks the land for the proposal card without minting a request" do
+      land = described_class.request_land_approval(campaign: campaign("supervised"))
+
+      expect(land.reload.status).to eq("pending_approval")
+      expect(Ai::ApprovalRequest.where(source_type: "Ai::CampaignLand", source_id: land.id)).to be_empty
+    end
+  end
+
   describe "blocking security gate (G4)" do
     before { Ai::Land::SecurityScannerRegistry.reset! }
     after { Ai::Land::SecurityScannerRegistry.reset! }

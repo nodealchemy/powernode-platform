@@ -39,6 +39,16 @@ module Ai
       MIN_VERIFICATION_SAMPLE = 3
       DEFAULT_VERIFY_BATCH_SIZE = 100
 
+      # Recall (D7). Similarity floor for the semantic branch of
+      # #ranked_learning_candidates, and the size of the candidate window it
+      # pulls before ranking. Overridable per account via
+      # Account#settings["ai_learning_recall_similarity_threshold"], matching
+      # the ai_learning_cluster_* thresholds in
+      # Ai::Learning::LearningClusterService (Account#settings -> constant
+      # fallback). The default is the value the floor was hardcoded to.
+      DEFAULT_RECALL_SIMILARITY_THRESHOLD = 0.5
+      SEMANTIC_CANDIDATE_LIMIT = 30
+
       def initialize(account:)
         @account = account
         @embedding_service = Ai::Memory::EmbeddingService.new(account: account)
@@ -505,7 +515,12 @@ module Ai
       # mid-batch, invoked by the compound maintenance endpoint so coverage
       # self-heals. Oldest rows recover first.
       def backfill_embeddings(batch_size: 50, max_per_run: 200)
-        scope = Ai::CompoundLearning.active
+        # The SURFACING set, not `.active`: a VERIFIED row stored without an
+        # embedding was never repaired here, so the most trusted tier stayed
+        # permanently invisible to nearest_neighbors — the same omission the
+        # keyword fallback below already had to fix once. Same constant as both
+        # recall branches so they cannot drift again.
+        scope = Ai::CompoundLearning.surfacing
           .for_account(@account.id)
           .where(embedding: nil)
 
@@ -818,17 +833,30 @@ module Ai
       # so counting it as an injection would depress effectiveness exactly the
       # way the uncredited dev-loop injections did (IMP-5f8a744b8892).
       # record_access! only (usage telemetry with no effectiveness impact).
-      # Post-filters subset the retrieved candidate set (30 semantic / 20
-      # keyword), so a tight filter can return fewer than limit — acceptable
-      # for a recall surface; the no-query browse path in the tool remains a
-      # plain filtered listing.
+      # Post-filters subset the retrieved candidate set (SEMANTIC_CANDIDATE_LIMIT
+      # semantic / 20 keyword), so a tight filter can return fewer than limit —
+      # acceptable for a recall surface; the no-query browse path in the tool
+      # remains a plain filtered listing.
+      #
+      # Returns { learnings:, match_mode: }. match_mode names the RETRIEVAL
+      # branch, before the post-filters — "semantic" with an empty learnings
+      # array means the embedding branch found candidates and the filters
+      # removed them, which is a different diagnosis from "none".
       def search_learnings(query:, category: nil, learning_scope: nil, status: nil, limit: 20)
-        candidates = ranked_learning_candidates(query.to_s)
+        # `status` is pushed DOWN into both retrieval branches rather than
+        # applied as a post-filter. As a post-filter it could only ever subset
+        # a candidate set already restricted to the surfacing pair, so four of
+        # the six statuses were unsatisfiable on the query path while the tool
+        # advertised them and the no-query browse path returned them.
+        candidates, match_mode = ranked_learning_candidates_with_mode(
+          query.to_s,
+          fallback: :on_empty,
+          statuses: status.present? ? Array(status) : Ai::CompoundLearning::SURFACING_STATUSES
+        )
         candidates = candidates.select { |l| l.category == category } if category.present?
         candidates = candidates.select { |l| l.scope == learning_scope } if learning_scope.present?
-        candidates = candidates.select { |l| l.status == status } if status.present?
 
-        candidates.first(limit).each(&:record_access!)
+        { learnings: candidates.first(limit).each(&:record_access!), match_mode: match_mode }
       end
 
       def credit_injections!(learning_ids:)
@@ -907,30 +935,102 @@ module Ai
         }
       end
 
-      # Shared retrieval + ranking for build_compound_context and
-      # top_relevant_learnings: embedding search first, keyword fallback when no
-      # embedding is available, ranked by effective_importance (importance_score
+      # Shared retrieval + ranking for build_compound_context,
+      # top_relevant_learnings and search_learnings: embedding search first,
+      # keyword fallback, ranked by effective_importance (importance_score
       # blended with observed injection effectiveness once there's enough
       # signal — see Ai::CompoundLearning#effective_importance). Both retrieval
       # paths already restrict to the active/verified surfacing set.
+      # The INJECTION consumers' entry point. `fallback: :on_missing_embedding`
+      # is deliberate — see the note on the mode parameter below.
       def ranked_learning_candidates(task_description)
-        query_embedding = @embedding_service.generate(task_description)
+        ranked_learning_candidates_with_mode(task_description, fallback: :on_missing_embedding).first
+      end
+
+      # Returns [candidates, match_mode]. match_mode names the branch the rows
+      # came from: "semantic", "keyword", or "none" when neither matched.
+      #
+      # D7 — on the RECALL surface the fallback fires whenever the semantic
+      # branch yields NOTHING, not only when the query embedding is nil. An
+      # embedding that succeeds but matches nothing above the floor is the
+      # ordinary state of a corpus whose rows carry no embedding of their own
+      # (stored during an embedding outage — see #backfill_embeddings):
+      # nearest_neighbors cannot see them, so the old nil-only condition
+      # returned an empty set with no keyword attempt and query_learnings
+      # answered every keyword query with zero rows.
+      #
+      # THE MODE IS NOT COSMETIC. `fallback:` says which of the two rules
+      # applies, and the two consumers genuinely need different ones:
+      #   :on_empty              — recall (search_learnings -> query_learnings).
+      #                            Read-only: it records access, never an
+      #                            injection, so a loose keyword match costs
+      #                            nothing but a caller's attention.
+      #   :on_missing_embedding  — injection (build_compound_context,
+      #                            top_relevant_learnings). Both call
+      #                            record_injection! on every row they surface
+      #                            and boost_injected_learnings_on_success
+      #                            later credits those injections positively.
+      #                            keyword_search ORs the first five words of
+      #                            >= 3 characters, so on a prose task
+      #                            description it is low precision; letting it
+      #                            fire whenever the semantic branch merely
+      #                            matched nothing would pour loosely matched
+      #                            rows into injection_count/effectiveness —
+      #                            the signal effective_importance ranks on.
+      #                            A corpus with no embeddings gets semantic
+      #                            recall back from the backfill task, not from
+      #                            widened injection.
+      #
+      # #generate_or_nil, not #generate: #generate RAISES (EmbeddingError) when
+      # the worker embedding service is down or has no provider credentials,
+      # which escaped PAST the fallback in exactly the outage the fallback
+      # exists for. The read-path wrapper degrades to nil and is what the other
+      # search surfaces (SharedKnowledgeService, code_semantic_search) use.
+      # Both modes keep that, so an outage still reaches the keyword branch.
+      FALLBACK_MODES = %i[on_empty on_missing_embedding].freeze
+
+      def ranked_learning_candidates_with_mode(task_description, fallback: :on_empty,
+                                               statuses: Ai::CompoundLearning::SURFACING_STATUSES)
+        unless FALLBACK_MODES.include?(fallback)
+          raise ArgumentError, "unknown fallback mode #{fallback.inspect} (expected one of #{FALLBACK_MODES.inspect})"
+        end
+
+        query_embedding = @embedding_service.generate_or_nil(
+          task_description,
+          context: "CompoundLearningService#ranked_learning_candidates"
+        )
 
         candidates = if query_embedding
           Ai::CompoundLearning.semantic_search(
             query_embedding,
             account_id: @account.id,
-            threshold: 0.5,
-            limit: 30
-          )
+            threshold: recall_similarity_threshold,
+            limit: SEMANTIC_CANDIDATE_LIMIT,
+            statuses: statuses
+          ).to_a
         else
-          keyword_search(task_description)
+          []
         end
 
-        candidates.sort_by { |l| -l.effective_importance }
+        match_mode = "semantic"
+        if candidates.empty? && (fallback == :on_empty || query_embedding.nil?)
+          candidates = keyword_search(task_description, statuses: statuses).to_a
+          match_mode = candidates.any? ? "keyword" : "none"
+        elsif candidates.empty?
+          match_mode = "none"
+        end
+
+        [ candidates.sort_by { |l| -l.effective_importance }, match_mode ]
       end
 
-      def keyword_search(query)
+      # Account#settings -> constant fallback, matching
+      # Ai::Learning::LearningClusterService#resolve_similarity_threshold.
+      def recall_similarity_threshold
+        value = setting("ai_learning_recall_similarity_threshold").presence || DEFAULT_RECALL_SIMILARITY_THRESHOLD
+        value.to_f.clamp(0.0, 1.0)
+      end
+
+      def keyword_search(query, statuses: Ai::CompoundLearning::SURFACING_STATUSES)
         return Ai::CompoundLearning.none if query.blank?
 
         keywords = query.downcase.split(/\s+/).reject { |w| w.length < 3 }.first(5)
@@ -943,12 +1043,14 @@ module Ai
         # here. Title included for parity with the old tool-side matcher.
         conditions = Array.new(keywords.size) { "(LOWER(title) LIKE ? OR LOWER(content) LIKE ?)" }.join(" OR ")
         patterns = keywords.flat_map { |kw| pattern = "%#{Ai::CompoundLearning.sanitize_sql_like(kw)}%"; [ pattern, pattern ] }
-        # active + verified — the same surfacing set semantic_search uses.
-        # `.active` alone excluded the MOST TRUSTED tier from the fallback,
-        # which made status-less recall silently depend on embedding-service
-        # availability (and falsified this file's own "both retrieval paths"
-        # comment on ranked_learning_candidates).
-        Ai::CompoundLearning.where(status: %w[active verified])
+        # The same status set semantic_search uses, from the same constant
+        # (Ai::CompoundLearning::SURFACING_STATUSES) so the two branches cannot
+        # drift — `.active` alone once excluded the MOST TRUSTED tier from the
+        # fallback, which made status-less recall silently depend on
+        # embedding-service availability. A caller asking for a specific status
+        # overrides it on BOTH branches, so a non-surfacing status is
+        # answerable instead of silently unsatisfiable.
+        Ai::CompoundLearning.where(status: Array(statuses))
           .for_account(@account.id)
           .where(conditions, *patterns)
           .order(importance_score: :desc)

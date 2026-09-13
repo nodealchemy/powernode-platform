@@ -4,6 +4,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { EntityLink } from '@/shared/components/entity';
 import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 import { workspacesApi } from '@/shared/services/ai';
+import { formatRelativeTimeCompact } from '@/shared/utils/formatters';
 import type { WorkspaceInfo, WorkspaceMember } from '@/shared/services/ai/WorkspacesApiService';
 
 interface AgentWorkspacesTabProps {
@@ -12,18 +13,6 @@ interface AgentWorkspacesTabProps {
 
 interface AgentWorkspace extends WorkspaceInfo {
   role?: string;
-}
-
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return 'No activity';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
 }
 
 export const AgentWorkspacesTab: React.FC<AgentWorkspacesTabProps> = ({ agentId }) => {
@@ -129,7 +118,7 @@ export const AgentWorkspacesTab: React.FC<AgentWorkspacesTabProps> = ({ agentId 
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-[10px] text-theme-tertiary whitespace-nowrap">
-              {timeAgo(ws.last_activity_at)}
+              {formatRelativeTimeCompact(ws.last_activity_at, { emptyValue: 'No activity' })}
             </span>
             {ws.is_collaborative && (
               <Badge variant="info" size="xs">Collab</Badge>

@@ -3,25 +3,66 @@
 module Ai
   module Codebase
     class StaticAnalysisService
+      # argv, never a shell string: no quoting to get wrong, and nothing a path
+      # can inject into.
       LINTER_CONFIGS = {
         ruby: {
-          command: "bundle exec rubocop --format json",
+          argv: %w[bundle exec rubocop --format json],
           name: "RuboCop",
           extensions: %w[.rb .rake]
         },
         typescript: {
-          command: "npx tsc --noEmit --pretty false",
+          argv: %w[npx tsc --noEmit --pretty false],
           name: "TypeScript",
           extensions: %w[.ts .tsx]
         },
         javascript_lint: {
-          command: "npx eslint --format json",
+          argv: %w[npx eslint --format json],
           name: "ESLint",
           extensions: %w[.js .jsx .ts .tsx]
         }
       }.freeze
 
-      TIMEOUT = 120 # seconds
+      # Seconds, per linter run, ENFORCED (D1 review M3: it used to be defined
+      # and never used). The whole process group is killed at the deadline.
+      TIMEOUT = 120
+
+      # The most linter output, in bytes, that is ever parsed (D1 re-verify
+      # M2). A fixed 1 MB used to cut the server repository's 3.2 MB rubocop
+      # report into a parse error, and a cut tsc report would parse as a
+      # complete one. Output over the limit is not parsed at all: it reads as
+      # `output_truncated`, a did-not-measure status. Operator configuration,
+      # so it lives under the private discovery prefix; the leased runner is
+      # handed the same value, and the MCP verb's local run obeys it too.
+      OUTPUT_LIMIT_SETTING = "ai.improvement_discovery_output_limit_bytes"
+      DEFAULT_OUTPUT_LIMIT = 16 * 1024 * 1024
+
+      # A CLEAN ENVIRONMENT (D1 review H1). A subprocess used to inherit the
+      # Rails process's environment, BUNDLE_GEMFILE and RUBYOPT included, so
+      # `bundle exec rubocop` resolved against the SERVER's bundle even when run
+      # inside another checkout, and a production server bundle has no rubocop.
+      # The child now gets only these variables, taken from the environment as
+      # it was BEFORE Bundler touched it, plus whatever a linter sets itself
+      # (rubocop sets BUNDLE_GEMFILE to the working copy's own Gemfile).
+      ENV_ALLOWLIST = %w[PATH HOME LANG LC_ALL TMPDIR GEM_HOME GEM_PATH].freeze
+
+      # Statuses a linter summary can carry that mean "did not inspect the
+      # code". Callers must never read these as clean.
+      NOT_MEASURED_STATUSES = %w[timeout unavailable no_output parse_error error no_gemfile no_tsconfig unknown_linter
+                                 output_truncated tsc_error killed].freeze
+
+      # An exit status at or above this is a process killed by a signal (128 +
+      # the signal number). Whatever it printed is not a whole report.
+      SIGNAL_EXIT_FLOOR = 128
+
+      def self.timeout_seconds
+        TIMEOUT
+      end
+
+      def self.output_limit_bytes
+        configured = ::SiteSetting.get(OUTPUT_LIMIT_SETTING).to_i
+        configured.positive? ? configured : DEFAULT_OUTPUT_LIMIT
+      end
 
       def initialize(base_path:)
         @base_path = File.expand_path(base_path)
@@ -63,6 +104,40 @@ module Ai
         }
       end
 
+      # PARSING, SEPARATE FROM RUNNING (D1b). A linter's raw output becomes the
+      # same diagnostics whether it ran in this process (the MCP verb) or on a
+      # leased runner that handed it back (improvement discovery). `base_path`
+      # is the directory the linter ran in, so reported paths come back
+      # relative to the repository root either way.
+      #
+      # Never raises: output that cannot be read is a `parse_error`, which is
+      # a did-not-measure status, never a clean one.
+      #
+      # @param linter_key [Symbol, String] :ruby | :typescript | :javascript_lint
+      # @param output [String] the linter's stdout (tsc: stdout and stderr)
+      # @param exitstatus [Integer, nil]
+      # @return [Hash] {diagnostics:, summary:}
+      def self.parse_output(linter_key, output:, exitstatus:, base_path:)
+        new(base_path: base_path).parse_output(linter_key, output, exitstatus)
+      end
+
+      def parse_output(linter_key, output, exitstatus)
+        output = output.to_s
+        return truncated if output.bytesize > self.class.output_limit_bytes
+        # D1b critic H2: a linter killed by a signal may have printed part of
+        # its report; a partial tsc report parses as a complete one.
+        return killed(exitstatus) if exitstatus.is_a?(Integer) && exitstatus >= SIGNAL_EXIT_FLOOR
+
+        case linter_key.to_s
+        when "ruby" then parse_rubocop(output)
+        when "typescript" then parse_tsc(output, exitstatus)
+        when "javascript_lint" then parse_eslint(output)
+        else { diagnostics: [], summary: { status: "unknown_linter" } }
+        end
+      rescue StandardError
+        { diagnostics: [], summary: { status: "parse_error" } }
+      end
+
       private
 
       def detect_linters(target)
@@ -97,11 +172,19 @@ module Ai
         gemfile = File.join(project_root, "Gemfile")
         return { diagnostics: [], summary: { status: "no_gemfile" } } unless File.exist?(gemfile)
 
-        output = execute_command("cd #{Shellwords.escape(project_root)} && #{config[:command]} #{Shellwords.escape(target)} 2>/dev/null")
+        run = execute_command(config[:argv] + [ target ], chdir: project_root, env: { "BUNDLE_GEMFILE" => gemfile })
+        return not_run(run) unless run[:status] == :ran
+
+        # Through parse_output, so a local run meets the same killed and
+        # truncated gates as a runner's report (D1b critic R1).
+        parse_output(:ruby, run[:output], run[:exitstatus])
+      end
+
+      def parse_rubocop(output)
         return { diagnostics: [], summary: { status: "no_output" } } if output.blank?
 
         parsed = JSON.parse(output) rescue nil
-        return { diagnostics: [], summary: { status: "parse_error" } } unless parsed
+        return { diagnostics: [], summary: { status: "parse_error" } } unless parsed.is_a?(Hash)
 
         diagnostics = []
         (parsed["files"] || []).each do |file_entry|
@@ -134,11 +217,28 @@ module Ai
         tsconfig = File.join(project_root, "tsconfig.json")
         return { diagnostics: [], summary: { status: "no_tsconfig" } } unless File.exist?(tsconfig)
 
-        output = execute_command("cd #{Shellwords.escape(project_root)} && #{config[:command]} 2>&1")
-        return { diagnostics: [], summary: { status: "clean", errors: 0 } } if output.blank?
+        run = execute_command(config[:argv], chdir: project_root, merge_stderr: true)
+        return not_run(run) unless run[:status] == :ran
+
+        parse_output(:typescript, run[:output], run[:exitstatus])
+      end
+
+      def parse_tsc(output, exitstatus)
+        if output.blank?
+          # Clean only on a zero exit. A tsc that failed without printing
+          # anything, or whose exit status never arrived, is not a project with
+          # no type errors.
+          return { diagnostics: [], summary: { status: "clean", errors: 0 } } if exitstatus == 0
+
+          return { diagnostics: [], summary: { status: "no_output" } }
+        end
 
         diagnostics = []
+        global_errors = 0
         output.each_line do |line|
+          # A tsc error with no file(line,col), such as TS18003 "No inputs were
+          # found" or TS2318, means the project was not checked at all.
+          global_errors += 1 if line !~ /\A.+?\(\d+,\d+\):/ && line =~ /\berror\s+TS\d+:/
           # Format: file(line,col): error TS1234: message
           if line =~ /\A(.+?)\((\d+),(\d+)\):\s+(error|warning)\s+(TS\d+):\s+(.+)/
             diagnostics << {
@@ -153,6 +253,11 @@ module Ai
           end
         end
 
+        # NOT MEASURED IS NOT CLEAN (D1b critic H2). Both of these used to read
+        # "completed, errors: 0".
+        return tsc_error("global_error") if global_errors.positive?
+        return tsc_error("no_diagnostics") if exitstatus != 0 && diagnostics.empty?
+
         {
           diagnostics: diagnostics,
           summary: { status: "completed", errors: diagnostics.size }
@@ -161,7 +266,13 @@ module Ai
 
       def run_eslint(config, target)
         project_root = find_project_root(target)
-        output = execute_command("cd #{Shellwords.escape(project_root)} && #{config[:command]} #{Shellwords.escape(target)} 2>/dev/null")
+        run = execute_command(config[:argv] + [ target ], chdir: project_root)
+        return not_run(run) unless run[:status] == :ran
+
+        parse_output(:javascript_lint, run[:output], run[:exitstatus])
+      end
+
+      def parse_eslint(output)
         return { diagnostics: [], summary: { status: "no_output" } } if output.blank?
 
         parsed = JSON.parse(output) rescue nil
@@ -193,13 +304,95 @@ module Ai
         }
       end
 
-      def execute_command(command)
-        IO.popen(command, err: [:child, :out]) do |io|
-          io.read(1_048_576) # 1MB max
+      # Runs argv in `chdir` with a clean environment and an enforced deadline.
+      #
+      # @return [Hash] {status: :ran, output:, exitstatus:} |
+      #   {status: :timeout} (process group killed) | {status: :unavailable}
+      #   (the program is not on PATH) | {status: :output_truncated} (it
+      #   printed more than output_limit_bytes)
+      def execute_command(argv, chdir:, env: {}, merge_stderr: false)
+        base = defined?(::Bundler) ? ::Bundler.unbundled_env : ENV.to_h
+        child_env = base.slice(*ENV_ALLOWLIST).merge(env)
+        reader, writer = IO.pipe
+        pid = Process.spawn(child_env, *argv, chdir: chdir, in: File::NULL, out: writer,
+                            err: merge_stderr ? writer : File::NULL,
+                            pgroup: true, unsetenv_others: true)
+        writer.close
+
+        output = +""
+        limit = self.class.output_limit_bytes
+        overflow = false
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + self.class.timeout_seconds
+        loop do
+          remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          if remaining <= 0
+            kill_group(pid)
+            return { status: :timeout }
+          end
+          next unless IO.select([ reader ], nil, nil, remaining)
+
+          chunk = reader.read_nonblock(65_536, exception: false)
+          break if chunk.nil?
+          next if chunk == :wait_readable
+
+          # Keep draining past the limit so a chatty linter cannot block on a
+          # full pipe, but keep nothing once it is exceeded: a cut report is
+          # not parsed (see OUTPUT_LIMIT_SETTING).
+          next if overflow
+
+          if output.bytesize + chunk.bytesize > limit
+            overflow = true
+            output = +""
+          else
+            output << chunk
+          end
         end
-      rescue Errno::ENOENT, Errno::EPIPE => e
-        Rails.logger.warn "[StaticAnalysis] Command failed: #{e.message}"
+
+        _, status = Process.wait2(pid)
+        return { status: :output_truncated } if overflow
+
+        { status: :ran, output: output, exitstatus: exit_code(status) }
+      rescue Errno::ENOENT
+        { status: :unavailable }
+      ensure
+        reader&.close unless reader.nil? || reader.closed?
+        writer&.close unless writer.nil? || writer.closed?
+      end
+
+      # D1b critic R1: Ruby's exitstatus is nil for a process killed by a
+      # signal. Report it the way a shell does (128 + the signal), which
+      # parse_output reads as killed, the same as a runner's `$?`.
+      def exit_code(status)
+        status.signaled? ? SIGNAL_EXIT_FLOOR + status.termsig : status.exitstatus
+      end
+
+      def kill_group(pid)
+        Process.kill("KILL", -pid)
+      rescue Errno::ESRCH
         nil
+      ensure
+        begin
+          Process.wait(pid)
+        rescue Errno::ECHILD
+          nil
+        end
+      end
+
+      def not_run(run)
+        Rails.logger.warn("[StaticAnalysis] linter did not run: #{run[:status]}")
+        { diagnostics: [], summary: { status: run[:status].to_s } }
+      end
+
+      def truncated
+        { diagnostics: [], summary: { status: "output_truncated" } }
+      end
+
+      def killed(exitstatus)
+        { diagnostics: [], summary: { status: "killed", exitstatus: exitstatus } }
+      end
+
+      def tsc_error(reason)
+        { diagnostics: [], summary: { status: "tsc_error", reason: reason } }
       end
 
       def rubocop_severity(severity)
@@ -221,8 +414,12 @@ module Ai
         @base_path
       end
 
+      # A linter reports paths relative to the directory it ran in (rubocop,
+      # tsc) or absolute (eslint). Both resolve against @base_path, never
+      # against this process's working directory, which is not where the
+      # linter ran.
       def relative_path(path)
-        Pathname.new(File.expand_path(path)).relative_path_from(Pathname.new(@base_path)).to_s
+        Pathname.new(File.expand_path(path.to_s, @base_path)).relative_path_from(Pathname.new(@base_path)).to_s
       rescue ArgumentError
         path
       end

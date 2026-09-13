@@ -5,6 +5,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Loading } from '@/shared/components/ui/Loading';
 import { chatChannelsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useAuth } from '@/shared/hooks/useAuth';
 import type { ChatChannel, ChannelRoutingConfig, ChannelAgentPersonality } from '@/shared/services/ai';
 
 interface ChannelSettingsModalProps {
@@ -40,6 +41,10 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
   onSaved,
 }) => {
   const { addNotification } = useNotifications();
+  // Regenerating the webhook token is a chat.channels.manage action on the
+  // backend; chat.channels.read only lists and reads.
+  const { currentUser } = useAuth();
+  const canManage = currentUser?.permissions?.includes('chat.channels.manage') || false;
   const [channel, setChannel] = useState<ChatChannel | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -229,14 +234,16 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
             <Button aria-label="Copy webhook URL" variant="ghost" size="sm" onClick={copyWebhookUrl}>
               <Copy className="w-4 h-4" />
             </Button>
-            <Button aria-label="Regenerate token"
-              variant="outline"
-              size="sm"
-              onClick={handleRegenerateToken}
-              disabled={regenerating}
-            >
-              <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-            </Button>
+            {canManage && (
+              <Button aria-label="Regenerate token"
+                variant="outline"
+                size="sm"
+                onClick={handleRegenerateToken}
+                disabled={regenerating}
+              >
+                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -423,9 +430,11 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
           <Button variant="secondary" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleSave} disabled={saving || loading}>
-            {saving ? <Loading size="sm" /> : 'Save Changes'}
-          </Button>
+          {canManage && (
+            <Button variant="primary" onClick={handleSave} disabled={saving || loading}>
+              {saving ? <Loading size="sm" /> : 'Save Changes'}
+            </Button>
+          )}
         </div>
       }
     >

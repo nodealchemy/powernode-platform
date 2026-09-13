@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Activity, CheckCircle2, XCircle, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Card, CardContent } from '@/shared/components/ui/Card';
+import { formatDurationMs } from '@/shared/utils/formatters';
 import type { RalphIteration } from '@/shared/services/ai/types/ralph-types';
 
 interface RalphLiveExecutionPanelProps {
@@ -41,15 +42,6 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
     });
   };
 
-  const formatDuration = (ms?: number) => {
-    if (!ms) return '-';
-    if (ms < 1000) return `${ms}ms`;
-    const seconds = Math.round(ms / 1000);
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds}s`;
-  };
 
   const truncateOutput = (text?: string, maxLength = 300) => {
     if (!text) return '';
@@ -141,7 +133,16 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-theme-secondary">
-                        {formatDuration(iteration.duration_ms)}
+                        {formatDurationMs(iteration.duration_ms, {
+                          emptyValue: '-',
+                          emptyCheck: 'falsy',
+                          subSecond: 'raw',
+                          tiering: 'floor-integer',
+                          minuteTier: 'minutes-seconds',
+                          roundSeconds: true,
+                          hourTier: false,
+                          subSecondTier: true,
+                        })}
                       </span>
                       {isExpanded ? (
                         <ChevronUp className="w-3.5 h-3.5 text-theme-secondary" />

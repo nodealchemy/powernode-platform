@@ -46,7 +46,13 @@ module CircuitBreaker
       @logger = PowernodeWorker.application.logger
     end
 
-    def call
+    # `timeout:` overrides this breaker's wall-clock bound for ONE call
+    # (seconds). A caller that gives the HTTP client a longer per-request
+    # timeout must lift this bound with it: otherwise the breaker cuts the call
+    # short at its own default and raises Timeout::Error, ahead of the client's
+    # timeout and its handling (D1 re-verify: a 600s discovery unit died at the
+    # shared backend_api breaker's 120s).
+    def call(timeout: nil)
       # Check state and determine action WITHOUT holding mutex during execution
       action = @mutex.synchronize do
         case @state
@@ -67,7 +73,7 @@ module CircuitBreaker
       # Execute the determined action without holding the mutex
       case action
       when :execute
-        execute_request { yield }
+        execute_request(timeout) { yield }
       when :raise_circuit_open
         raise CircuitOpenError, "Circuit breaker is OPEN for #{@service_name}. Last failure: #{@last_failure_time}"
       end
@@ -99,12 +105,12 @@ module CircuitBreaker
 
     private
 
-    def execute_request
+    def execute_request(timeout = nil)
       start_time = Time.current
 
       begin
-        # Set request timeout
-        result = Timeout.timeout(@options[:timeout]) do
+        # Set request timeout: the per-call override, else the breaker's own.
+        result = Timeout.timeout(timeout || @options[:timeout]) do
           yield
         end
 
@@ -238,7 +244,8 @@ module CircuitBreaker
   end
 
   # Helper methods for common circuit breaker patterns
-  def with_backend_api_circuit_breaker(&block)
+  # `timeout:` lifts the 120s bound for one call; see CircuitBreakerService#call.
+  def with_backend_api_circuit_breaker(timeout: nil, &block)
     breaker = CircuitBreakerRegistry.instance.get_breaker(
       'backend_api',
       failure_threshold: 15,
@@ -246,7 +253,7 @@ module CircuitBreaker
       timeout: 120
     )
 
-    breaker.call(&block)
+    breaker.call(timeout: timeout, &block)
   end
 
   # Separate circuit breaker for web interface authentication

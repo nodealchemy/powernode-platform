@@ -127,6 +127,91 @@ RSpec.describe Ai::SkillVersion, type: :model do
       new_version.activate!
       expect(other_version.reload.is_active).to be true
     end
+
+    # D5 — activation must change WHAT IS SERVED, not just a label.
+    #
+    # Ai::Agent#build_skill_system_prompts plucks ai_skills.system_prompt, so a
+    # version that is "active" but whose text was never copied there is
+    # inert: the skill goes on serving whatever prompt it already had, every
+    # outcome recorded against the "active version" is really an outcome of the
+    # old text, and the evolution loop's whole premise is false.
+    it 'writes the activated version prompt onto the skill it serves' do
+      skill.update!(system_prompt: "the old text")
+      version = create(:ai_skill_version, :inactive, account: account, ai_skill: skill,
+                       version: "9.0.0", system_prompt: "the new text")
+
+      version.activate!
+
+      expect(skill.reload.system_prompt).to eq("the new text")
+    end
+
+    it 'is visible through the prompt an agent actually receives' do
+      # The end of the chain, not the column: this is the oracle the design
+      # names — after activation, build_skill_system_prompts returns the new
+      # text. Asserting only the column would pass even if the serving path
+      # read from somewhere else.
+      agent = create(:ai_agent, account: account)
+      skill.update!(system_prompt: "the old text", status: "active", is_enabled: true)
+      Ai::AgentSkill.create!(ai_agent_id: agent.id, ai_skill_id: skill.id, is_active: true, priority: 1)
+      version = create(:ai_skill_version, :inactive, account: account, ai_skill: skill,
+                       version: "9.1.0", system_prompt: "the new text")
+
+      expect(agent.send(:build_skill_system_prompts)).to include("the old text")
+
+      version.activate!
+
+      expect(agent.reload.send(:build_skill_system_prompts)).to include("the new text")
+      expect(agent.send(:build_skill_system_prompts)).not_to include("the old text")
+    end
+
+    it 'leaves the served prompt alone when the version carries none' do
+      # The other arm: older rows predate system_prompt being written, and
+      # activating one must not blank the skill it serves.
+      skill.update!(system_prompt: "the old text")
+      version = create(:ai_skill_version, :inactive, account: account, ai_skill: skill,
+                       version: "9.2.0", system_prompt: nil)
+
+      version.activate!
+
+      expect(skill.reload.system_prompt).to eq("the old text")
+    end
+  end
+
+  # D5 — the producer half of attribution: which versions served an execution.
+  describe '.record_served!' do
+    let(:agent) { create(:ai_agent, account: account) }
+    let(:execution) do
+      create(:ai_agent_execution, account: account, agent: agent, execution_context: { "kind" => "keep-me" })
+    end
+
+    it 'writes the served ids under the one named key and keeps the rest of the context' do
+      version = create(:ai_skill_version, account: account, ai_skill: skill, version: "7.0.0")
+
+      described_class.record_served!(execution: execution, version_ids: [ version.id ])
+
+      stored = execution.reload.execution_context
+      expect(stored[described_class::SERVED_CONTEXT_KEY]).to eq([ version.id ])
+      expect(stored["kind"]).to eq("keep-me")
+    end
+
+    it 'leaves the in-memory row consistent and clean, so a later update! cannot clobber it' do
+      version = create(:ai_skill_version, account: account, ai_skill: skill, version: "7.1.0")
+
+      described_class.record_served!(execution: execution, version_ids: [ version.id ])
+
+      expect(execution.execution_context[described_class::SERVED_CONTEXT_KEY]).to eq([ version.id ])
+      expect(execution.changed?).to be(false)
+    end
+
+    it 'records an empty list, so "served none" differs from "never stamped"' do
+      described_class.record_served!(execution: execution, version_ids: [])
+
+      expect(execution.reload.execution_context).to include(described_class::SERVED_CONTEXT_KEY => [])
+    end
+
+    it 'does nothing without a persisted execution' do
+      expect { described_class.record_served!(execution: nil, version_ids: [ "x" ]) }.not_to raise_error
+    end
   end
 
   describe 'scopes' do

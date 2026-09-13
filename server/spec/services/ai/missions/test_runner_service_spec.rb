@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe Ai::Missions::TestRunnerService, type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
-  let(:repository) { create(:git_repository, account: account) }
+  let!(:repository) { create(:git_repository, account: account) }
   let(:mission) do
     create(:ai_mission,
       account: account,

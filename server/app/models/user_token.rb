@@ -22,12 +22,11 @@ class UserToken < ApplicationRecord
   validates :name, length: { maximum: 100 }
   validates :scopes, length: { maximum: 500 }
 
-  # Serialization. `permissions` is NOT an authorization input — see
-  # #has_permission?. Nothing writes it and nothing in production reads it any
-  # more; the coder is retained only so the surviving rows still present as the
-  # Array they were written as, for anyone inspecting the table or writing a
-  # migration to drop it. Do not read it as a grant.
-  serialize :permissions, coder: JSON
+  # NO `permissions` serialization, because there is no longer a `permissions`
+  # COLUMN (IMP-01a05fea, migration 20260910000000). This used to carry a JSON
+  # coder whose only remaining job was to make legacy rows present as the Array
+  # they were written as, "for anyone inspecting the table or writing a migration
+  # to drop it". That migration is written; the coder went with the column.
 
   # Scopes
   scope :active, -> { where(revoked: false).where("expires_at > ?", Time.current) }
@@ -178,6 +177,12 @@ class UserToken < ApplicationRecord
   # token minted BEFORE a narrowing may do — neither exists. Same shape as the JWT
   # `permissions` claim deleted in IMP-4b5fffbf5421. Pinned by
   # spec/models/user_token_permission_snapshot_spec.rb.
+  #
+  # The column itself is gone as of IMP-01a05fea. Deleting the readers left every
+  # pre-fix row still holding a stale permission list in a table where it reads as
+  # authoritative — a standing invitation to a future reader, against which the
+  # paragraph above was the only defence. Now the warning is structural: there is
+  # nothing to read.
   def has_permission?(permission_name)
     user.has_permission?(permission_name)
   end

@@ -296,7 +296,8 @@ module Ai
         account: account,
         user: agent.creator,
         agent_id: agent.id,
-        mcp_agent: agent
+        mcp_agent: agent,
+        origin: ::Ai::Tools::CallOrigin::AGENT_BRIDGE
       )
 
       [truncate_result(result.to_json), result]
@@ -321,22 +322,19 @@ module Ai
     # @param model [String] model ID
     # @param opts [Hash] max_tokens, temperature, system_prompt, etc.
     # @return [Hash] { content:, usage:, tool_calls_log:, finish_reason: }
-    def execute_tool_loop(llm_client:, messages:, model:, **opts)
-      tools = tool_definitions_for_llm
-
-      # Provider tool-count cap — OpenAI rejects >128, Anthropic rejects ~256.
-      # Filter to an intent-relevant subset based on the user's most recent
-      # message so we never blow the cap. See Ai::ToolRelevanceFilter.
-      max_tools = max_tools_for_provider(llm_client)
-      if tools.size > max_tools
-        latest_user_message = messages.reverse.find do |m|
-          (m[:role] || m["role"])&.to_s == "user"
-        end
-        user_content = latest_user_message&.dig(:content) || latest_user_message&.dig("content")
-        before_count = tools.size
-        tools = ::Ai::ToolRelevanceFilter.filter(tools, user_message: user_content, max_tools: max_tools)
-        Rails.logger.info "[AgentToolBridge] Tool relevance filter: #{before_count} → #{tools.size} (cap=#{max_tools})"
-      end
+    #
+    # Loop-local tools (D2): a caller that owns tools the platform registry does
+    # not — the Ralph git tools, bound to one loop's repository and branch —
+    # passes an Ai::Tools::LocalToolBinding. Its tools are advertised FIRST and
+    # reserved out of the provider cap (the relevance filter trims platform tools
+    # only). A call to one of them goes through the binding, which runs it on the
+    # registry's own guarded runner (D2 review F3): permission, rate limit, audit
+    # line, then BaseTool#execute and its AutonomyGate. The binding refused, at
+    # construction, any name that would shadow a registry verb.
+    def execute_tool_loop(llm_client:, messages:, model:, local_tools: nil, **opts)
+      local_definitions = local_tools ? local_tools.definitions : []
+      local_names = local_tools ? local_tools.names : Set.new
+      tools = advertised_tools(llm_client, messages, local_definitions, local_names)
 
       max_iter = max_iterations
       iteration = 0
@@ -400,11 +398,21 @@ module Ai
 
         # Dispatch each tool call and append results to conversation
         response.tool_calls.each do |tool_call|
+          # D2 review F2: the kill switch, checked immediately before EVERY tool
+          # call. A halt thrown mid-loop stops the next call, and the loop ends
+          # without asking the model for anything more.
+          return halted_loop_result(accumulated_usage, tool_calls_log, chat_cards, last_served_by) if kill_switch_halted?
+
           tool_name = tool_call[:name] || tool_call["name"]
           tool_call_id = tool_call[:id] || tool_call["id"] || SecureRandom.uuid
           call_start = Time.current
 
-          result_json, full_result = dispatch_tool_call_capturing(tool_call)
+          result_json, full_result =
+            if local_names.include?(tool_name.to_s)
+              dispatch_local_tool_call(local_tools, tool_name, tool_call)
+            else
+              dispatch_tool_call_capturing(tool_call)
+            end
           call_duration_ms = ((Time.current - call_start) * 1000).round
 
           tool_calls_log << {
@@ -920,6 +928,60 @@ module Ai
       end
 
       { type: "object", properties: properties, required: required }
+    end
+
+    # The tool list for one loop run. Provider tool-count cap — OpenAI rejects
+    # >128, Anthropic rejects ~256 — so platform tools are filtered to an
+    # intent-relevant subset of the user's most recent message (see
+    # Ai::ToolRelevanceFilter). Loop-local tools come first and are reserved out
+    # of the cap: the filter never sees them, so an intent guess can never drop
+    # the actuator the caller attached.
+    def advertised_tools(llm_client, messages, local_tools, local_names)
+      tools = tool_definitions_for_llm.reject { |t| local_names.include?((t[:name] || t.dig(:function, :name)).to_s) }
+
+      max_tools = [ max_tools_for_provider(llm_client) - local_tools.size, 0 ].max
+      if tools.size > max_tools
+        latest_user_message = messages.reverse.find do |m|
+          (m[:role] || m["role"])&.to_s == "user"
+        end
+        user_content = latest_user_message&.dig(:content) || latest_user_message&.dig("content")
+        before_count = tools.size
+        tools = ::Ai::ToolRelevanceFilter.filter(tools, user_message: user_content, max_tools: max_tools)
+        Rails.logger.info "[AgentToolBridge] Tool relevance filter: #{before_count} → #{tools.size} (cap=#{max_tools})"
+      end
+
+      local_tools + tools
+    end
+
+    # D2 review F2: the account's halt, read fresh (a halt thrown by another
+    # process mid-loop is invisible to the Account this bridge was built with).
+    def kill_switch_halted?
+      Ai::Autonomy::KillSwitchService.halted_now?(account&.id)
+    end
+
+    def halted_loop_result(usage, tool_calls_log, chat_cards, served_by)
+      Rails.logger.warn "[AgentToolBridge] Emergency halt: stopping agent #{agent.id} before its next tool call"
+      {
+        content: "Stopped: AI activity is suspended for this account (emergency halt). " \
+                 "The remaining tool calls were not run.",
+        usage: usage, tool_calls_log: tool_calls_log, chat_cards: chat_cards,
+        finish_reason: "emergency_halt", served_by: served_by, refusal_recovery: nil, refusal: nil
+      }
+    end
+
+    # Run a loop-local tool (see #execute_tool_loop). Same contract as
+    # #dispatch_tool_call_capturing: [truncated JSON for the LLM, full result].
+    def dispatch_local_tool_call(local_tools, tool_name, tool_call)
+      arguments = tool_call[:arguments] || tool_call["arguments"] || {}
+
+      Rails.logger.info "[AgentToolBridge] Dispatching local tool: #{tool_name} for agent #{agent.id}"
+      # The principal a registry call runs as (#dispatch_tool_call_capturing).
+      result = local_tools.dispatch(tool_name.to_s, arguments, account: account, user: agent.creator, agent: agent,
+                                                               origin: ::Ai::Tools::CallOrigin::AGENT_BRIDGE)
+      [ truncate_result(result.to_json), result ]
+    rescue StandardError => e
+      Rails.logger.error "[AgentToolBridge] Local tool error: #{tool_name} - #{e.message}"
+      [ { error: "Tool execution failed", tool: tool_name, message: e.message }.to_json, nil ]
     end
 
     def accumulate_usage(accumulated, response_usage)

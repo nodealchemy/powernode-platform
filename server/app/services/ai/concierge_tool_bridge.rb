@@ -121,7 +121,7 @@ module Ai
       )
 
       tool = ::Ai::Tools::ProvisioningTool.new(
-        account: account, agent: agent, user: @user
+        account: account, agent: agent, user: @user, call_origin: ::Ai::Tools::CallOrigin::CONCIERGE
       )
       tool.execute(params: {
         action: "platform_provisioning_capture_brief",

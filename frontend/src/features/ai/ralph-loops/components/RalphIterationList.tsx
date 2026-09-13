@@ -25,6 +25,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { cn } from '@/shared/utils/cn';
+import { formatDurationMs } from '@/shared/utils/formatters';
 import type { RalphIterationSummary, RalphIteration, RalphIterationStatus, CheckCommandResult } from '@/shared/services/ai/types/ralph-types';
 
 interface RalphIterationListProps {
@@ -44,13 +45,6 @@ const statusConfig: Record<RalphIterationStatus, {
   completed: { variant: 'success', label: 'Completed' },
   failed: { variant: 'danger', label: 'Failed' },
   skipped: { variant: 'outline', label: 'Skipped' },
-};
-
-const formatDuration = (ms?: number) => {
-  if (!ms) return '--';
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
 };
 
 const formatTimestamp = (iso?: string) => {
@@ -110,7 +104,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
         {iteration.duration_ms != null && (
           <span className="flex items-center gap-1">
             <Timer className="w-3 h-3" />
-            {formatDuration(iteration.duration_ms)}
+            {formatDurationMs(iteration.duration_ms, { emptyValue: '--', emptyCheck: 'falsy', subSecond: 'raw', tiering: 'decimal-seconds-then-floor-minutes', roundRemainderSeconds: true })}
           </span>
         )}
         {iteration.git_commit_sha && (
@@ -442,7 +436,7 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
                         {iteration.duration_ms && (
                           <div className="flex items-center gap-1 text-xs text-theme-secondary">
                             <Timer className="w-4 h-4" />
-                            <span>{formatDuration(iteration.duration_ms)}</span>
+                            <span>{formatDurationMs(iteration.duration_ms, { emptyValue: '--', emptyCheck: 'falsy', subSecond: 'raw', tiering: 'decimal-seconds-then-floor-minutes', roundRemainderSeconds: true })}</span>
                           </div>
                         )}
                         {isExpanded ? (

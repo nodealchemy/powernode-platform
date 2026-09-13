@@ -64,10 +64,10 @@ export interface ScheduledTasksTabProps {
 // Helper functions for tab definitions
 export const MAINTENANCE_TABS = [
   { id: 'overview', label: 'Overview', icon: '📊', path: '' },
-  { id: 'mode', label: 'Maintenance Mode', icon: '🔧', path: '/mode' },
-  { id: 'health', label: 'System Health', icon: '💚', path: '/health' },
-  { id: 'backups', label: 'Database Backups', icon: '💾', path: '/backups' },
-  { id: 'cleanup', label: 'Data Cleanup', icon: '🗑️', path: '/cleanup' },
-  { id: 'operations', label: 'System Operations', icon: '⚙️', path: '/operations' },
-  { id: 'schedules', label: 'Scheduled Tasks', icon: '📅', path: '/schedules' }
+  { id: 'mode', label: 'Maintenance Mode', icon: '🔧', path: 'mode' },
+  { id: 'health', label: 'System Health', icon: '💚', path: 'health' },
+  { id: 'backups', label: 'Database Backups', icon: '💾', path: 'backups' },
+  { id: 'cleanup', label: 'Data Cleanup', icon: '🗑️', path: 'cleanup' },
+  { id: 'operations', label: 'System Operations', icon: '⚙️', path: 'operations' },
+  { id: 'schedules', label: 'Scheduled Tasks', icon: '📅', path: 'schedules' }
 ] as const;

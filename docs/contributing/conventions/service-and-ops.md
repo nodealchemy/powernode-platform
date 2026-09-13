@@ -4,6 +4,14 @@ Deep runbooks: [../../operations/](../../operations/). **NEVER** use manual comm
 
 ## Services
 
+> **Unit names.** `powernode-<service>@default` is the unit the installer creates
+> (`scripts/systemd/powernode-installer.sh`). A module-composed node such as dev-cell or
+> ops-hub has no `@default` unit: its units are generated as
+> `powernode-<moduleID>-<service>.service`. There, discover the real name with
+> `systemctl list-units 'powernode-*' --no-pager --no-legend` and substitute it. Never
+> guess one: `systemctl restart` on a unit that does not exist fails silently in a `||`
+> chain.
+
 ```bash
 sudo systemctl start powernode.target            # Start all
 sudo systemctl restart powernode-backend@default # Restart one
