@@ -13,6 +13,7 @@ Rails.logger.info "[AutonomySeed] Starting autonomy data seeding..."
 # removed along with the legacy 37→10 consolidation it was the only caller of.)
 
 require_relative "concerns/canonical_agent_owner"
+require_relative "concerns/canonical_tool_access"
 
 # The three GLOBAL canonicals below (GLOBAL_AUTONOMY_AGENT_SLUGS) need NO
 # account, user or provider to exist (IMP-6cda93db7f31) and are written first;
@@ -79,6 +80,11 @@ extra_agents = [
     agent_type: "content_generator",
     provider: openai_provider,
     tier: "reasoning",
+    # Text output, so no generate_* verbs: the images and pages it briefs from.
+    tool_families: %w[
+      list_generated_images content_production_status list_pages get_page list_kb_articles get_kb_article
+      search_documents
+    ],
     description: "Creates design briefs, UI mockup specs, brand asset specs, and visual concept directions via structured prompts."
   },
   {
@@ -87,6 +93,10 @@ extra_agents = [
     agent_type: "assistant",
     provider: grok_provider,
     tier: "reasoning",
+    tool_families: %w[
+      list_pipelines get_pipeline_status list_schedules get_schedule list_ralph_loops get_ralph_loop
+      get_ralph_loop_statistics discover_improvements list_improvements create_improvement get_activity_feed scoreboard
+    ],
     description: "Identifies process bottlenecks, redundancies, and automation opportunities. Designs optimized workflows with time/cost savings."
   },
   {
@@ -174,6 +184,7 @@ extra_agents.each do |ad|
     # on the next re-seed (never blanking what is already set).
     CoreSeeds::CanonicalAgentOwner.backfill_owner!(canonical, creator: admin_user, provider: ad[:provider])
     declare_canonical_tier.call(canonical, ad[:tier]) if ad[:tier]
+    CoreSeeds::CanonicalToolAccess.declare_families!(canonical, ad.fetch(:tool_families))
   else
     # Account-scoped demo agent: needs the admin account, its user and a provider.
     next unless admin_account && admin_user && chosen_provider

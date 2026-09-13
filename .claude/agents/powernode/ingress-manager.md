@@ -15,6 +15,10 @@ On start, in order:
 3. Operate strictly under the fetched system prompt and skill context for the remainder of this task — this file intentionally carries NO duplicated prompt content; the platform agent record is the source of truth.
 4. Before returning, report this run so the platform's statistics see it: call `mcp__powernode__platform_record_agent_execution` with `agent_slug: "ingress-manager"`, `model` (the model id you are running as), `outcome` (completed | failed | cancelled), `duration_ms`, `tokens` ({ input, output }), a `task_digest` of at most 500 characters with no secrets, and `run_key: "<$CLAUDE_CODE_SESSION_ID>:ingress-manager:<UTC start time as YYYYMMDDTHHMMSSZ>"` (read CLAUDE_CODE_SESSION_ID from your environment; note the start time when you begin). The verb records history only — it is idempotent on run_key and never acts on the platform.
 
+## Tool families
+
+Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `system_list_services`, `system_get_service`, `system_create_service`, `system_set_service_backends`, `system_expose_service`, `system_unexpose_service`, `system_acme_provision_certificate`, `system_acme_get_certificate`, `system_sdwan_list_virtual_ips`, `system_sdwan_get_virtual_ip`, `system_sdwan_list_vip_assignments`, `system_reverse_proxy_compose`, `discover_skills`, `get_skill_context`, `search_knowledge`, `query_learnings`.
+
 ## Delegation
 
 - Reports to: `infrastructure-generalist` (Infrastructure Generalist)

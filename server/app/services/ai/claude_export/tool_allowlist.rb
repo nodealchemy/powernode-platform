@@ -125,6 +125,17 @@ module Ai
       end
 
       # Same two sources, same precedence, as AgentToolBridgeService#tool_families.
+      # The families a family-scoped agent's allowlist resolves from (case 4), or
+      # nil when its access is decided by another case. The skeleton renders them
+      # beside the resolved `tools:` names (IMP-777f59d4cc1e).
+      def scoping_families(agent)
+        config = tool_access_config(agent)
+        return nil if config.key?("enabled") && config["enabled"] != true
+        return nil if config["allowed_tools"].present? || config["full_registry"] == true
+
+        families_for(agent, config).presence
+      end
+
       def families_for(agent, config)
         configured = config["tool_families"]
         return Array(configured).map(&:to_s) if configured.present?

@@ -397,6 +397,9 @@ module Ai
             "refuse — and note in your final response that a lower tier would likely have sufficed."
         end
 
+        families = ToolAllowlist.scoping_families(agent)
+        lines.concat([ "" ] + tool_families_section(families)) if families
+
         delegation = delegation_section(context[:delegation][agent.id], context[:parents][agent.id])
         lines.concat([ "" ] + delegation) if delegation.any?
 
@@ -412,6 +415,21 @@ module Ai
         ])
 
         lines.join("\n")
+      end
+
+      # IMP-777f59d4cc1e: tool access is authored as FAMILIES, but `tools:` must
+      # stay the resolved exact names — Claude Code resolves an exact tool name
+      # or a whole MCP server, not a prefix inside one, and refuses to launch a
+      # subagent none of whose entries resolve. So the families render here.
+      def tool_families_section(families)
+        [
+          "## Tool families",
+          "",
+          "Platform tool access is scoped to these families (a family admits a platform verb by exact name or " \
+            "by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export " \
+            "time, plus the bootstrap verbs every agent carries: " \
+            "#{families.map { |family| "`#{family}`" }.join(', ')}."
+        ]
       end
 
       # HIER-P1C item 4(b): the run reports itself back so the platform's

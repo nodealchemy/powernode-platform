@@ -12,6 +12,7 @@ puts "📊 Creating Monitoring Agents..."
 # optional on a global row; an account's executing clone gets THAT account's
 # through Ai::Agents::AccountPrincipalResolver).
 require_relative "concerns/canonical_agent_owner"
+require_relative "concerns/canonical_tool_access"
 
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
@@ -125,6 +126,15 @@ end
 platform_health_monitor.save! if platform_health_monitor.new_record? || platform_health_monitor.changed?
 
 CoreSeeds::CanonicalAgentOwner.backfill_owner!(platform_health_monitor, creator: admin_user, provider: provider)
+# Tool scope: the health checks its prompt names, and the status and signal
+# reads that explain them. The system_* verbs exist only with the system
+# extension; the core ones keep the list live without it.
+CoreSeeds::CanonicalToolAccess.declare_families!(platform_health_monitor, %w[
+  get_system_health list_component_status get_component_status get_component_impact integration_health
+  kill_switch_status get_investigations get_investigation platform_investigate get_remediation_route get_runbook
+  agent_container_status system_platform_maintenance system_platform_resilience system_recent_signals
+  system_get_silent_instances system_drift_report
+])
 
 # update!, so retiring a platform-wide agent goes through the model's audit and
 # change notifications. A retired row may be one a later change made invalid,
@@ -233,6 +243,13 @@ qa_monitor = Ai::Agent.find_or_create_global(slug: 'system-quality-assurance') d
 end
 
 CoreSeeds::CanonicalAgentOwner.backfill_owner!(qa_monitor, creator: admin_user, provider: provider)
+# Tool scope from its review duties: governance reports, audit logs, knowledge
+# and skill health, learning verification, and static code quality reads.
+CoreSeeds::CanonicalToolAccess.declare_families!(qa_monitor, %w[
+  governance_scan governance_dashboard list_governance_reports get_governance_report list_audit_logs
+  knowledge_health skill_health learning_metrics verify_learning_batch detect_collusion data_source_quality
+  code_static_analysis code_dead_code code_find_duplicates
+])
 
 puts "✅ Platform Health Monitor (ID: #{platform_health_monitor.id})"
 puts "✅ System Quality Assurance (ID: #{qa_monitor.id})"

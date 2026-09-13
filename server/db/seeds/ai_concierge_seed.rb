@@ -12,6 +12,22 @@ admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 
 require_relative "concerns/canonical_agent_owner"
+require_relative "concerns/canonical_tool_access"
+
+# The capability areas the prompt below lists, as tool families
+# (concerns/canonical_tool_access.rb). Only the Claude Code export and the
+# generic executor read them: Ai::ConciergeToolBridge builds its own tool list
+# for concierge chat.
+concierge_tool_families = %w[
+  list_agents get_agent create_agent update_agent execute_agent
+  list_teams get_team create_team add_team_member execute_team
+  list_skills get_skill search_knowledge_graph
+  read_shared_memory write_shared_memory search_memory query_knowledge_base search_documents
+  list_pipelines get_pipeline_status trigger_pipeline dispatch_to_runner create_gitea_repository
+  get_activity_feed get_mission_status get_notifications get_system_health
+  list_kb_articles get_kb_article create_kb_article update_kb_article list_pages get_page
+  list_workspaces send_message list_messages invite_agent active_sessions send_concierge_message confirm_concierge_action
+]
 
 # The concierge carries no model pin (its model_config names a provider family
 # and generation settings only), so the OpenAI-then-Ollama preference is
@@ -46,7 +62,7 @@ ActiveRecord::Base.transaction do
       "style" => "professional",
       "greeting" => "Hi! I'm your Powernode Assistant. I can help you create missions, check status, analyze repos, and more. What would you like to do?"
     },
-    mcp_metadata: {
+    mcp_metadata: CoreSeeds::CanonicalToolAccess.with_families({
       "system_prompt" => <<~PROMPT.strip,
         You are the Powernode Concierge — a platform mediator with full access to platform tools.
         You help users manage their entire Powernode environment through natural conversation.
@@ -77,7 +93,7 @@ ActiveRecord::Base.transaction do
         "temperature" => 0.3
       },
       "cost_tier" => "low"
-    }
+    }, concierge_tool_families)
   )
   agent.save!
   puts "  ✅ Concierge agent created: #{agent.name} (#{agent.id})"

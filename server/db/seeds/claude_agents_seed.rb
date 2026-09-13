@@ -14,6 +14,7 @@ puts "🧠 Creating reasoning/analysis workflow agents..."
 # gets THAT account's through Ai::Agents::AccountPrincipalResolver). Only the
 # provider configuration below, an account-scoped row, waits for setup.
 require_relative "concerns/canonical_agent_owner"
+require_relative "concerns/canonical_tool_access"
 
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
@@ -138,6 +139,13 @@ ActiveRecord::Base.transaction do
   # admin account and the providers existed acquires its owner columns here on
   # the next re-seed (never blanking what is already set).
   CoreSeeds::CanonicalAgentOwner.backfill_owner!(strategic_planner, creator: admin_user, provider: claude_provider)
+  # Tool scope from its planning duties: campaigns, goals, projects, missions,
+  # improvements and governance. Written on every seed (the block is create-only).
+  CoreSeeds::CanonicalToolAccess.declare_families!(strategic_planner, %w[
+    campaign_list campaign_status campaign_list_proposals campaign_propose
+    list_agent_goals create_agent_goal update_agent_goal decompose_goal
+    project_list project_status get_mission_status list_improvements governance_dashboard get_governance_report
+  ])
 
   # Domain skills for the Strategic Planner are assigned by
   # platform_skill_assignments_seed.rb (loaded last, after all target agents
@@ -239,6 +247,12 @@ ActiveRecord::Base.transaction do
 
   CoreSeeds::CanonicalAgentOwner.backfill_owner!(research_analyst, creator: admin_user,
                                                  provider: (ollama_provider || claude_provider))
+  # Tool scope from its research duties: documents, knowledge bases, the
+  # knowledge graph, and recording what it found.
+  CoreSeeds::CanonicalToolAccess.declare_families!(research_analyst, %w[
+    search_documents query_knowledge_base list_knowledge_bases search_knowledge_graph reason_knowledge_graph
+    list_kb_articles get_kb_article get_api_reference create_learning create_knowledge
+  ])
 
   # Research Analyst's domain skills (technical-researcher / data /
   # knowledge-system-curator / business-search / user-research) are assigned by

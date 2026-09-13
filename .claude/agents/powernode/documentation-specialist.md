@@ -15,6 +15,10 @@ On start, in order:
 3. Operate strictly under the fetched system prompt and skill context for the remainder of this task — this file intentionally carries NO duplicated prompt content; the platform agent record is the source of truth.
 4. Before returning, report this run so the platform's statistics see it: call `mcp__powernode__platform_record_agent_execution` with `agent_slug: "documentation-specialist"`, `model` (the model id you are running as), `outcome` (completed | failed | cancelled), `duration_ms`, `tokens` ({ input, output }), a `task_digest` of at most 500 characters with no secrets, and `run_key: "<$CLAUDE_CODE_SESSION_ID>:documentation-specialist:<UTC start time as YYYYMMDDTHHMMSSZ>"` (read CLAUDE_CODE_SESSION_ID from your environment; note the start time when you begin). The verb records history only — it is idempotent on run_key and never acts on the platform.
 
+## Tool families
+
+Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `list_kb_articles`, `get_kb_article`, `create_kb_article`, `update_kb_article`, `list_pages`, `get_page`, `create_page`, `update_page`, `search_knowledge`, `query_learnings`, `create_knowledge`, `update_knowledge`, `create_learning`, `search_knowledge_graph`, `code_semantic_search`, `code_file_skeleton`, `code_context_tree`, `discover_skills`, `get_skill_context`, `describe_tool`, `route_task`, `record_agent_execution`, `escalate`, `report_issue`.
+
 ## Delegation
 
 - Reports to: `platform-architect` (Platform Architect)

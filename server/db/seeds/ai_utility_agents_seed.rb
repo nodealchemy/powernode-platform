@@ -13,6 +13,7 @@ admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 
 require_relative "concerns/canonical_agent_owner"
+require_relative "concerns/canonical_tool_access"
 
 # The utility agents carry no model pin (see the model_config note below), so
 # the seed's OpenAI-then-Ollama preference is editorial; the seam keeps it when
@@ -25,9 +26,15 @@ provider = CoreSeeds::CanonicalAgentOwner.provider_for(pinned_model: nil, prefer
 
 # Each agent has: slug, name, agent_type, description, system_prompt, temperature,
 # max_tokens, and skills (matched by slug) so agents are discoverable via the skill graph.
+# tool_families is each agent's tool scope, derived from what its prompt does
+# (concerns/canonical_tool_access.rb).
 UTILITY_AGENTS = [
   {
     slug: "prd-generator",
+    tool_families: %w[
+      project_list project_get project_status decompose_goal get_mission_status list_agent_goals
+      code_feature_hub code_context_tree
+    ],
     name: "PRD Generator",
     agent_type: "assistant",
     description: "Generates Product Requirement Documents by decomposing features into implementable tasks.",
@@ -63,6 +70,10 @@ UTILITY_AGENTS = [
   },
   {
     slug: "llm-judge",
+    tool_families: %w[
+      get_conversation_messages check_task_status get_mission_status agent_introspect scoreboard
+      learning_metrics skill_metrics verify_learning dispute_learning
+    ],
     name: "LLM Judge",
     agent_type: "assistant",
     description: "Impartial quality evaluator that scores AI agent outputs on correctness, completeness, helpfulness, and safety.",
@@ -98,6 +109,10 @@ UTILITY_AGENTS = [
   },
   {
     slug: "knowledge-graph-curator",
+    tool_families: %w[
+      extract_to_knowledge_graph search_knowledge_graph reason_knowledge_graph get_graph list_graph_nodes
+      get_subgraph graph_statistics resolve_contradiction knowledge_health promote_knowledge
+    ],
     name: "Knowledge Graph Curator",
     agent_type: "assistant",
     description: "Extracts entities and relationships from text to build and maintain the platform knowledge graph.",
@@ -152,6 +167,7 @@ UTILITY_AGENTS = [
   },
   {
     slug: "rag-reranker",
+    tool_families: %w[search_documents query_knowledge_base search_memory],
     name: "RAG Reranker",
     agent_type: "data_analyst",
     description: "Scores and reranks RAG search results by semantic relevance to the query.",
@@ -178,6 +194,10 @@ UTILITY_AGENTS = [
   },
   {
     slug: "rag-query-engine",
+    tool_families: %w[
+      search_documents query_knowledge_base list_knowledge_bases search_memory read_shared_memory
+      search_knowledge_graph reason_knowledge_graph list_kb_articles get_kb_article
+    ],
     name: "RAG Query Engine",
     agent_type: "data_analyst",
     description: "Reformulates search queries and synthesizes answers from retrieved documents using agentic RAG.",
@@ -211,6 +231,7 @@ UTILITY_AGENTS = [
   },
   {
     slug: "intent-classifier",
+    tool_families: %w[get_conversation_messages list_messages list_teams get_team],
     name: "Intent Classifier",
     agent_type: "assistant",
     description: "Classifies user message intent for team conversation routing (approve, change, discussion).",
@@ -267,14 +288,17 @@ UTILITY_AGENTS.each do |attrs|
     # on create (mcp set), so re-assigning "1.0.0" on re-seed would downgrade it
     # and churn an audit. Keep the existing (callback-bumped) version.
     version: (agent.version || "1.0.0"),
-    mcp_metadata: (agent.mcp_metadata || {}).merge(
-      # #37: no model pin — these cheap/standard utility agents resolve their
-      # model at runtime via Ai::Agent#resolved_model (unpinned ⇒ selector picks).
-      "model_config" => {
-        "temperature" => attrs[:temperature],
-        "max_tokens" => attrs[:max_tokens]
-      },
-      "system_prompt" => attrs[:system_prompt]
+    mcp_metadata: CoreSeeds::CanonicalToolAccess.with_families(
+      (agent.mcp_metadata || {}).merge(
+        # #37: no model pin — these cheap/standard utility agents resolve their
+        # model at runtime via Ai::Agent#resolved_model (unpinned ⇒ selector picks).
+        "model_config" => {
+          "temperature" => attrs[:temperature],
+          "max_tokens" => attrs[:max_tokens]
+        },
+        "system_prompt" => attrs[:system_prompt]
+      ),
+      attrs[:tool_families]
     )
   )
 

@@ -300,6 +300,34 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
 
       expect(frontmatter_of(content_for(agent))).not_to have_key("tools")
     end
+
+    # IMP-777f59d4cc1e: `tools:` stays the resolved exact names — the only form
+    # Claude Code resolves — and the body renders the families it came from.
+    it "renders the agent's tool families in the body" do
+      agent = build_agent(name: "Scoped Monitor", resolved_model: "claude-sonnet-4-6",
+                          mcp_metadata: { "tool_access" => { "tool_families" => %w[get_system_health list_component_status] } })
+      stub_syncable([ agent ])
+
+      service.sync!
+      body = body_of(content_for(agent))
+
+      expect(body).to include("## Tool families\n\n")
+      expect(body).to include("`get_system_health`, `list_component_status`")
+      expect(tools_of(agent)).to include("mcp__powernode__platform_get_system_health")
+    end
+
+    it "renders no tool families section when access is not family-scoped" do
+      scopeless = build_agent(name: "Scopeless", resolved_model: "claude-sonnet-4-6")
+      listed = build_agent(name: "Listed", resolved_model: "claude-sonnet-4-6",
+                           mcp_metadata: { "tool_access" => { "allowed_tools" => %w[list_agents],
+                                                              "tool_families" => %w[get_system_health] } })
+      stub_syncable([ scopeless, listed ])
+
+      service.sync!
+
+      expect(body_of(content_for(scopeless))).not_to include("## Tool families")
+      expect(body_of(content_for(listed))).not_to include("## Tool families")
+    end
   end
 
   describe "body shape" do

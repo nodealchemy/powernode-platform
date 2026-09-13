@@ -14,6 +14,10 @@ On start, in order:
 2. Operate strictly under the fetched system prompt and skill context for the remainder of this task — this file intentionally carries NO duplicated prompt content; the platform agent record is the source of truth.
 3. Before returning, report this run so the platform's statistics see it: call `mcp__powernode__platform_record_agent_execution` with `agent_slug: "release-manager"`, `model` (the model id you are running as), `outcome` (completed | failed | cancelled), `duration_ms`, `tokens` ({ input, output }), a `task_digest` of at most 500 characters with no secrets, and `run_key: "<$CLAUDE_CODE_SESSION_ID>:release-manager:<UTC start time as YYYYMMDDTHHMMSSZ>"` (read CLAUDE_CODE_SESSION_ID from your environment; note the start time when you begin). The verb records history only — it is idempotent on run_key and never acts on the platform.
 
+## Tool families
+
+Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `system_dispatch_module_build_batch`, `system_cancel_module_build_batch`, `system_promote_module_version`, `system_rollback_module_version`, `system_module_mark_canary`, `system_unmark_module_canary`, `system_list_disk_image_publications`, `system_set_default_disk_image_publication`, `system_revert_disk_image`, `system_set_disk_image_retention`, `system_module_publication_integrity`, `system_drift_report`, `system_list_modules`, `system_get_module`, `system_list_module_versions`, `system_module_diff`, `system_module_publish_target`, `system_deploy_platform`, `system_list_tasks`, `system_get_task`, `list_gitea_workflows`, `list_gitea_workflow_runs`, `get_gitea_workflow_run`, `get_gitea_job_logs`, `cancel_gitea_workflow_run`, `rerun_gitea_workflow_failed_jobs`, `search_knowledge`, `query_learnings`, `create_learning`, `discover_skills`, `get_skill_context`, `describe_tool`, `route_task`, `record_agent_execution`, `escalate`, `report_issue`.
+
 ## Delegation
 
 - Reports to: `platform-architect` (Platform Architect)
