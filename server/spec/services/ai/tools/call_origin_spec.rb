@@ -13,6 +13,9 @@ RSpec.describe "call_origin (MCP identity plan R3)" do
     Class.new(Ai::Tools::BaseTool) do
       def self.name = "CallOriginProbeTool"
 
+      # BaseTool#execute refuses an undeclared action (APO-1e).
+      declare_action "call_origin_probe", mutating: false
+
       def self.definition
         { name: "call_origin_probe", description: "Reports its call_origin", parameters: {} }
       end
