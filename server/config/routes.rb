@@ -1449,7 +1449,6 @@ Rails.application.routes.draw do
           post :make_default, to: "providers#make_default"
           get :available_repositories, to: "providers#available_repositories"
           post :import_repositories, to: "providers#import_repositories"
-          post :sync_repositories, to: "providers#sync_repositories"  # deprecated, use import_repositories
         end
 
         # Repositories

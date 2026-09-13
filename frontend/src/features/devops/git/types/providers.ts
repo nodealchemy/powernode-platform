@@ -125,18 +125,6 @@ export interface ConnectionTestResult {
   capabilities?: string[];
 }
 
-export interface SyncRepositoriesResult {
-  synced_count: number;
-  error_count: number;
-  repositories: Array<{
-    id: string;
-    name: string;
-    full_name: string;
-    is_private: boolean;
-    webhook_configured: boolean;
-  }>;
-}
-
 export interface GitProvidersResponse {
   providers: GitProvider[];
   count: number;

@@ -256,32 +256,6 @@ module Api
           render_error(e.message, status: :unprocessable_content)
         end
 
-        # POST /api/v1/git/providers/:id/credentials/:credential_id/sync_repositories
-        # @deprecated Use import_repositories instead
-        def sync_repositories
-          result = ::Devops::Git::ProviderManagementService.sync_repositories(
-            @credential,
-            page: params[:page]&.to_i || 1,
-            per_page: params[:per_page]&.to_i || 100,
-            include_archived: params[:include_archived] == "true",
-            include_forks: params[:include_forks] == "true"
-          )
-
-          if result[:success]
-            render_success({
-              synced_count: result[:synced_count],
-              error_count: result[:error_count],
-              repositories: result[:repositories]&.map { |r| serialize_repository(r) },
-              errors: result[:errors],
-              message: "Synced #{result[:synced_count]} repositories"
-            })
-          else
-            render_error(result[:error], status: :unprocessable_content)
-          end
-        rescue ::Devops::Git::ProviderManagementService::CredentialError => e
-          render_error(e.message, status: :unprocessable_content)
-        end
-
         # ============================================
         # OAUTH FLOW
         # ============================================
@@ -368,7 +342,7 @@ module Api
             require_permission("git.credentials.create")
           when "available_repositories"
             require_permission("git.repositories.read")
-          when "import_repositories", "sync_repositories"
+          when "import_repositories"
             require_permission("git.repositories.sync")
           end
         end

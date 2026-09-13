@@ -298,26 +298,11 @@ describe('gitProvidersApi', () => {
     });
   });
 
-  describe('syncRepositories', () => {
-    it('triggers repository sync', async () => {
-      mockApiClient.post.mockResolvedValue(
-        mockAxiosResponse({
-          success: true,
-          data: {
-            synced_count: 5,
-            new_repositories: 2,
-            updated_repositories: 3,
-          },
-        })
-      );
-
-      const result = await gitProvidersApi.syncRepositories('provider-1', 'cred-1');
-
-      expect(mockApiClient.post).toHaveBeenCalledWith(
-        '/git/providers/provider-1/credentials/cred-1/sync_repositories',
-        undefined
-      );
-      expect(result.synced_count).toBe(5);
+  describe('repository import (IMP-93dffbd1868c)', () => {
+    it('offers only the available + import flow, not the deleted syncRepositories', () => {
+      expect('syncRepositories' in gitProvidersApi).toBe(false);
+      expect(typeof gitProvidersApi.getAvailableRepositories).toBe('function');
+      expect(typeof gitProvidersApi.importRepositories).toBe('function');
     });
   });
 

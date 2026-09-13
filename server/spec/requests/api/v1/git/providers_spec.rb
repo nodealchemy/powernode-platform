@@ -17,6 +17,32 @@ RSpec.describe 'Api::V1::Git::Providers', type: :request do
   end
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
+  # IMP-93dffbd1868c: the credential-scoped sync_repositories endpoint was kept
+  # @deprecated beside available_repositories + import_repositories. Nothing
+  # called it, and it could not have worked: it was absent from the
+  # set_provider/set_credential before_actions, so @credential was nil. Deleted
+  # under the no-legacy rule.
+  describe 'the deleted credential sync_repositories endpoint' do
+    let(:sync_path) { '/api/v1/git/providers/p1/credentials/c1/sync_repositories' }
+
+    it 'is not routed' do
+      expect {
+        Rails.application.routes.recognize_path(sync_path, method: :post)
+      }.to raise_error(ActionController::RoutingError)
+    end
+
+    it 'leaves import_repositories routed' do
+      expect(Rails.application.routes.recognize_path(sync_path.sub('sync_repositories', 'import_repositories'), method: :post))
+        .to include(controller: 'api/v1/git/providers', action: 'import_repositories')
+    end
+
+    it 'has no controller action or service entry point behind it' do
+      expect(Api::V1::Git::ProvidersController.action_methods).not_to include('sync_repositories')
+      expect(Devops::Git::ProviderManagementService).not_to respond_to(:sync_repositories)
+      expect(Devops::Git::ProviderManagementService).to respond_to(:import_specific_repositories, :sync_single_repository)
+    end
+  end
+
   describe 'GET /api/v1/git/providers' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
 

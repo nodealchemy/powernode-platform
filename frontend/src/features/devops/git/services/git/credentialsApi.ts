@@ -4,7 +4,6 @@ import {
   GitCredentialDetail,
   CreateCredentialData,
   ConnectionTestResult,
-  SyncRepositoriesResult,
   AvailableRepositoriesResponse,
   ImportRepositoriesResult,
 } from '../../types';
@@ -116,22 +115,6 @@ export const credentialsApi = {
       credential: GitCredential;
     }>>(`/git/providers/${providerId}/credentials/${credentialId}/make_default`);
     return response.data.data.credential;
-  },
-
-  /**
-   * Sync repositories for a credential
-   * @deprecated Use getAvailableRepositories + importRepositories instead
-   */
-  syncRepositories: async (
-    providerId: string,
-    credentialId: string,
-    options?: { include_archived?: boolean; include_forks?: boolean }
-  ): Promise<SyncRepositoriesResult> => {
-    const response = await apiClient.post<ApiResponse<SyncRepositoriesResult>>(
-      `/git/providers/${providerId}/credentials/${credentialId}/sync_repositories`,
-      options
-    );
-    return response.data.data;
   },
 
   /**

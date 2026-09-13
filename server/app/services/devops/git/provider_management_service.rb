@@ -173,42 +173,6 @@ module Devops
         { success: false, error: e.message }
       end
 
-      # Sync repositories from the provider
-      # @deprecated Use import_specific_repositories for individual imports
-      def sync_repositories(credential, options = {})
-        raise CredentialError, "Credential cannot be used" unless credential.can_be_used?
-
-        client = Devops::Git::ApiClient.for(credential)
-        repos_data = client.list_repositories(
-          page: options[:page] || 1,
-          per_page: options[:per_page] || 100
-        )
-
-        synced = []
-        errors = []
-
-        repos_data.each do |repo_data|
-          result = sync_single_repository(credential, repo_data, options)
-          if result[:success]
-            synced << result[:repository]
-          else
-            errors << { repo: repo_data["full_name"], error: result[:error] }
-          end
-        end
-
-        credential.record_success!
-        {
-          success: true,
-          synced_count: synced.count,
-          error_count: errors.count,
-          repositories: synced,
-          errors: errors
-        }
-      rescue Devops::Git::ApiClient::ApiError => e
-        credential.record_failure!(e.message)
-        { success: false, error: e.message }
-      end
-
       # Sync a single repository
       def sync_single_repository(credential, repo_data, options = {})
         account = credential.account

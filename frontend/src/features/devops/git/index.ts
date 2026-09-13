@@ -54,7 +54,6 @@ export type {
   PipelineStats,
   WebhookEventStats,
   ConnectionTestResult,
-  SyncRepositoriesResult,
   PaginationInfo,
   BranchFilterType,
   // Commit and diff types

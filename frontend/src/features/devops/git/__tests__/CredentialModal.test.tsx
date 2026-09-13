@@ -75,7 +75,6 @@ describe('CredentialModal', () => {
       deleteCredential: jest.fn(),
       testCredential: jest.fn(),
       makeDefault: jest.fn(),
-      syncRepositories: jest.fn(),
     } as ReturnType<typeof useGitCredentials>);
 
     mockCreateCredential.mockResolvedValue({ id: 'new-cred' });
