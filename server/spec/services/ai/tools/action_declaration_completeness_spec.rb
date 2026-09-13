@@ -161,6 +161,9 @@ RSpec.describe "MCP action declaration completeness" do
   #   site_setting_set_protected    IMP-70db2b60bfb3  platform.site_setting.protected_write
   #                                 (human_only: a protected key, such as the one
   #                                 that arms INV-1, is a person's decision)
+  #   dev_requeue_task              dev-loop requeue  dev.task_requeue
+  #                                 (human_only: returning a review-parked task to
+  #                                 the queue unblocks a park, a person's decision)
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -196,6 +199,7 @@ RSpec.describe "MCP action declaration completeness" do
     delete_intervention_policy
     site_setting_set
     site_setting_set_protected
+    dev_requeue_task
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

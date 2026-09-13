@@ -150,6 +150,34 @@ module Ai
       )
     end
 
+    # Return a BLOCKED task to the queue. The only other blocked -> pending move
+    # is #unblock_dependent_tasks, which deliberately never touches a review
+    # park, so without this an operator's answer to the question that parked a
+    # task was recorded (dev_update_task) and never delivered.
+    #
+    # The block's own record (error_message, blocked_for, the claim stamps) is
+    # cleared so the next claim starts clean, and kept in
+    # metadata["requeue_history"] with who requeued it and why. The attempt
+    # count and the operator notes stay, so the next executor sees the earlier
+    # attempts and the answer that unblocked it.
+    def requeue!(reason:, by:)
+      raise ArgumentError, "requeue! needs a reason" if reason.to_s.strip.empty?
+
+      with_lock do
+        raise InvalidTransitionError, "Cannot requeue task in #{status} status (only a blocked task)" unless status == "blocked"
+
+        meta = metadata.is_a?(Hash) ? metadata : {}
+        entry = {
+          "at" => Time.current.iso8601, "by" => by.to_s, "reason" => reason.to_s,
+          "previous_error_message" => error_message, "previous_blocked_for" => meta["blocked_for"],
+          "previous_claimed_by" => meta["claimed_by"]
+        }
+        update!(status: "pending", error_message: nil, error_code: nil)
+        merge_metadata!("requeue_history" => Array(meta["requeue_history"]) + [ entry ],
+                        "blocked_for" => nil, "claimed_by" => nil, "claimed_holder" => nil, "claimed_at" => nil)
+      end
+    end
+
     # ==================== Revert Tracking (Tier-2c) ====================
 
     # Mark a previously-committed task as reverted. Orthogonal to the pass/fail
@@ -485,7 +513,7 @@ module Ai
         # question that blocked it).
         "task #{task_key} is blocked — dev_next_task claims only pending tasks, so the " \
           "amendment is recorded but will not be delivered until the task is re-queued " \
-          "(dev_complete_task disposition or re-approval)."
+          "(dev_requeue_task, which parks for a person's confirmation)."
       elsif execution_type == "human"
         "task #{task_key} has execution_type \"human\" — dev_next_task skips human tasks, so it " \
           "stays pending in dev_list_tasks but will never be handed to a drain session."

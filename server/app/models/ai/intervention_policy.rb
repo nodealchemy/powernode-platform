@@ -81,6 +81,9 @@ module Ai
     # (IMP-70db2b60bfb3): an MCP write of an allow-listed SiteSetting. No seed
     # writes a row for either: the ordinary write parks (require_approval)
     # until an operator adds a policy, and the protected write is human-only.
+    # dev.task_requeue: Ai::Tools::DevLoopTool dev_requeue_task returns a blocked
+    # (typically review-parked) task to the queue. Human-only, so it parks under
+    # this category whatever a row says, and a row can only block it.
     STATIC_CATEGORIES = (%w[
       approval proposal escalation status_update issue_alert
       feedback
@@ -89,6 +92,7 @@ module Ai
       ai.delegation_policy.update
       ralph.repository_write ralph.repository_delete
       campaign.resume
+      dev.task_requeue
       ai.intervention_policy.write
       platform.site_setting.write platform.site_setting.protected_write
     ] + ENGINEERING_CATEGORIES + %w[*]).freeze

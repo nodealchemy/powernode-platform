@@ -29,6 +29,17 @@ module Ai
       declare_action "dev_list_tasks", mutating: false
       declare_action "dev_next_task", mutating: true
       declare_action "dev_update_task", mutating: true
+      # Returning a task parked for review to the queue unblocks the park: a
+      # PERSON's decision, or an executor could clear its own review parks.
+      # Human-only (MCP identity plan R2): from any tool door it parks for a
+      # person to confirm in their own session, and it runs as that person.
+      # Refusing principals instead would refuse the operator, who reaches MCP
+      # as an instance principal (see #self_amended_brief?).
+      declare_action "dev_requeue_task", mutating: true, human_only: true,
+                                         action_category: "dev.task_requeue",
+                                         executor_class: "Ai::Executors::DeferredToolCall",
+                                         gate_context: :deferred_tool_call_context,
+                                         on_proceed: :deferred_tool_call_result
 
       def self.definition
         {
@@ -55,6 +66,7 @@ module Ai
             acceptance_criteria: { type: "string", required: false, description: "Executor-facing brief (dev_update_task)" },
             priority: { type: "integer", required: false, description: "Queue priority (dev_update_task)" },
             note: { type: "string", required: false, description: "Append-only operator note (dev_update_task)" },
+            reason: { type: "string", required: false, description: "Why a blocked task is requeued (dev_requeue_task)" },
             required_capabilities: { type: "array", required: false, description: "Capabilities an executor must match" },
             capability_match_strategy: { type: "string", required: false, description: "all | any | weighted" },
             # Kept in sync with action_definitions["dev_update_task"] on purpose:
@@ -155,7 +167,8 @@ module Ai
                          "the operator made post-approval (scope narrowed, one of two offered directions chosen). " \
                          "Edits reach the executor on the next dev_next_task claim. Overwrites are journalled with " \
                          "their prior value in metadata.operator_edits; `note` appends without touching the brief. " \
-                         "Cannot change status — use dev_complete_task for transitions.",
+                         "Cannot change status — use dev_complete_task for transitions, or dev_requeue_task to " \
+                         "return a blocked task to the queue.",
             parameters: {
               loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
               task_key: { type: "string", required: true, description: "Task key (or task UUID) to amend" },
@@ -173,6 +186,23 @@ module Ai
                                            description: Ai::RalphTask::CAPABILITY_STRATEGIES.join(" | ") },
               delegation_config: { type: "object", required: false, description: "Delegation settings" }
             }
+          },
+          "dev_requeue_task" => {
+            description: "Return a BLOCKED task to the queue (blocked -> pending) — typically one parked for " \
+                         "operator review whose question has now been answered (record the answer first with " \
+                         "dev_update_task). Clears the block report and the claim, and keeps them in " \
+                         "metadata.requeue_history with who requeued it and why; the attempt count and operator " \
+                         "notes stay. Refused, before anything parks, for an unknown loop or task, a task that is " \
+                         "not blocked, or a missing reason. A PERSON's decision: this verb never requeues anything " \
+                         "itself. It PARKS the exact requeue for a person to confirm in their own session (the " \
+                         "approval queue on the Autonomy dashboard) and returns data.pending with " \
+                         "requires_human_session and the approval_request_id. No MCP or agent call can approve " \
+                         "it. On approval it runs as that person and re-checks that the task is still blocked.",
+            parameters: {
+              loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
+              task_key: { type: "string", required: true, description: "Task key (or task UUID) to requeue" },
+              reason: { type: "string", required: true, description: "Why it is requeued (recorded in requeue_history)" }
+            }
           }
         }
       end
@@ -188,6 +218,7 @@ module Ai
         when "dev_complete_task" then complete_task(params)
         when "dev_list_tasks" then list_tasks(params)
         when "dev_update_task" then update_task(params)
+        when "dev_requeue_task" then requeue_task(params)
         when "delegate_ralph_task" then delegate_ralph_task(params)
         else
           error_result("Unknown action: #{params[:action]}")
@@ -379,6 +410,52 @@ module Ai
         # and deliberately omits an operator's approval-time direction.
         amended_by = task.metadata.is_a?(Hash) ? task.metadata["brief_amended_by"] : nil
         Array(amended_by).include?(claimant_ref)
+      end
+
+      # Reached only as the replay of a person's own-session confirmation
+      # (BaseTool#human_confirmed_replay?), so `user` is that person. The static
+      # checks in #authorization_error ran again just before this, and
+      # RalphTask#requeue! re-checks the status under the task's row lock.
+      def requeue_task(params)
+        loop_record = find_loop(params[:loop_id])
+        task = loop_record && find_task(loop_record, params[:task_key])
+        return error_result("Task not found: #{params[:task_key]}") unless task
+
+        task.requeue!(reason: params[:reason].to_s, by: claimant_ref)
+        { success: true, task: task.reload.task_details, requeued_by: claimant_ref }
+      rescue Ai::RalphTask::InvalidTransitionError, ArgumentError => e
+        error_result(e.message)
+      end
+
+      # dev_requeue_task parks for a person (human-only). A call that could only
+      # ever be refused must not ask a person to confirm it, so these checks run
+      # BEFORE it parks, and again on the replay against the task as it is then.
+      def authorization_error(params)
+        return nil unless params[:action].to_s == "dev_requeue_task"
+
+        if account.respond_to?(:ai_suspended?) && account.ai_suspended?
+          return { success: true, halted: true, reason: "emergency_halt", task_key: params[:task_key] }
+        end
+
+        loop_record = find_loop(params[:loop_id])
+        return error_result("Ralph loop not found") unless loop_record
+
+        task = find_task(loop_record, params[:task_key])
+        return error_result("Task not found: #{params[:task_key]}") unless task
+        unless task.status == "blocked"
+          return error_result("Task #{task.task_key} is #{task.status}, not blocked — only a blocked task can be requeued")
+        end
+        return error_result("reason is required") if params[:reason].to_s.strip.empty?
+
+        nil
+      end
+
+      # The approval card's line for a parked requeue. Never the free-text
+      # reason: the card shows that from the filtered params.
+      def deferred_tool_call_description(params)
+        return super unless params[:action].to_s == "dev_requeue_task"
+
+        "Requeue blocked dev-loop task #{params[:task_key]} (loop #{params[:loop_id]})"
       end
 
       def find_task(loop_record, key)
