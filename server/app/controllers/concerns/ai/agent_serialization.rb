@@ -50,7 +50,8 @@ module Ai
         max_tokens: agent.max_tokens,
         system_prompt: agent.system_prompt,
         full_system_prompt: agent.build_system_prompt_with_profile,
-        # Legacy fields for backwards compatibility
+        # MCP registration fields: live ai_agents columns, read by the agent
+        # config tab (AgentConfigTab) and typed in shared/types/ai.ts.
         mcp_tool_manifest: agent.mcp_tool_manifest,
         mcp_input_schema: agent.mcp_input_schema,
         mcp_output_schema: agent.mcp_output_schema,
