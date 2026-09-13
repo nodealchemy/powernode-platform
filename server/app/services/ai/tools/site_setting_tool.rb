@@ -74,13 +74,23 @@ module Ai
       # it cannot widen anything while REQUIRED_PERMISSION gates the door.
       GRANTING_PERMISSIONS = %w[admin.access settings.manage].freeze
 
-      ACTIONS = %w[site_setting_get site_setting_set].freeze
+      ACTIONS = %w[site_setting_get site_setting_set site_setting_set_protected].freeze
+
+      # IMP-70db2b60bfb3 — a write is an operator decision, so it goes through
+      # Ai::AutonomyGate rather than running on the caller's say-so. An
+      # ordinary key parks under WRITE_CATEGORY (no seeded policy row, so it
+      # resolves to require_approval until an operator writes one). A PROTECTED
+      # key — one whose change alters the control plane's authority over itself
+      # — has its own human-only verb: it parks for a person to confirm in their
+      # own session, and runs as that person, whatever any policy says.
+      WRITE_CATEGORY = "platform.site_setting.write"
+      PROTECTED_WRITE_CATEGORY = "platform.site_setting.protected_write"
 
       VALID_SETTING_TYPES = %w[string text boolean integer json].freeze
 
       class << self
-        # The allowlist: key => {setting_type:, description:}. Keys register
-        # themselves; nothing is reachable by default.
+        # The allowlist: key => {setting_type:, description:, protected:}. Keys
+        # register themselves; nothing is reachable by default.
         def operator_configurable_keys
           @operator_configurable_keys ||= {}
         end
@@ -92,7 +102,12 @@ module Ai
         # shape raises rather than silently taking one of them — two owners
         # disagreeing about a key's type is a defect, and the last writer
         # winning would make it depend on load order.
-        def register_key(key, setting_type:, description:)
+        #
+        # `protected: true` routes every write of the key through
+        # site_setting_set_protected (human-only). Protection is part of the
+        # shape: an owner that registers the key unprotected conflicts with one
+        # that protects it, rather than quietly relaxing it.
+        def register_key(key, setting_type:, description:, protected: false)
           key = key.to_s
           unless VALID_SETTING_TYPES.include?(setting_type.to_s)
             raise ArgumentError,
@@ -100,7 +115,8 @@ module Ai
                   "#{VALID_SETTING_TYPES.join('/')} — SiteSetting's validation would reject it"
           end
 
-          spec = { setting_type: setting_type.to_s, description: description.to_s }.freeze
+          spec = { setting_type: setting_type.to_s, description: description.to_s,
+                   protected: protected == true }.freeze
           existing = operator_configurable_keys[key]
           if existing && existing != spec
             raise ArgumentError,
@@ -128,7 +144,16 @@ module Ai
       # wants.
 
       declare_action "site_setting_get", mutating: false
-      declare_action "site_setting_set", mutating: true, audit: true
+      declare_action "site_setting_set", mutating: true, audit: true,
+                                         action_category: WRITE_CATEGORY,
+                                         executor_class: "Ai::Executors::DeferredToolCall",
+                                         gate_context: :deferred_tool_call_context,
+                                         on_proceed: :deferred_tool_call_result
+      declare_action "site_setting_set_protected", mutating: true, audit: true, human_only: true,
+                                                   action_category: PROTECTED_WRITE_CATEGORY,
+                                                   executor_class: "Ai::Executors::DeferredToolCall",
+                                                   gate_context: :deferred_tool_call_context,
+                                                   on_proceed: :deferred_tool_call_result
 
       def self.definition
         {
@@ -142,6 +167,8 @@ module Ai
 
       def self.action_definitions
         allowed = operator_configurable_keys.keys.sort.join(", ")
+        ordinary = operator_configurable_keys.reject { |_, spec| spec[:protected] }.keys.sort.join(", ")
+        protected_keys = operator_configurable_keys.select { |_, spec| spec[:protected] }.keys.sort.join(", ")
 
         {
           "site_setting_get" => {
@@ -155,13 +182,29 @@ module Ai
             }
           },
           "site_setting_set" => {
-            description: "Write one allow-listed global platform setting. Allowed keys: #{allowed}. " \
-                         "Requires admin.access or settings.manage, the same ladder as " \
-                         "PUT /api/v1/site_settings/:id. Refused outright for an instance (node) " \
-                         "principal, whatever it was granted. Writes an AuditLog naming the key " \
-                         "and the actor, never the value.",
+            description: "Request a write of one allow-listed global platform setting. Allowed keys: " \
+                         "#{ordinary}. The write goes through the autonomy gate: unless an operator's " \
+                         "policy proceeds the platform.site_setting.write category, it parks for " \
+                         "approval and returns a pending envelope. Protected keys are refused here; " \
+                         "use site_setting_set_protected. Requires admin.access or settings.manage, " \
+                         "the same ladder as PUT /api/v1/site_settings/:id. Refused outright for an " \
+                         "instance (node) principal or an in-process caller. Audit rows name the key " \
+                         "and the actor, never the value; the value does travel with the parked request " \
+                         "so the approver can see what they approve.",
             parameters: {
-              key: { type: "string", required: true, description: "Setting key. One of: #{allowed}" },
+              key: { type: "string", required: true, description: "Setting key. One of: #{ordinary}" },
+              value: { type: "string", required: true, description: "New value. Booleans accept true/false." }
+            }
+          },
+          "site_setting_set_protected" => {
+            description: "Request a write of one PROTECTED global platform setting. Protected keys: " \
+                         "#{protected_keys}. Always parks for a person to confirm in their own session " \
+                         "(no policy can proceed it) and runs as that person, who must hold admin.access. " \
+                         "Refused outright for an instance (node) principal or an in-process caller. " \
+                         "Audit rows name the key and the actor, never the value; the value travels with " \
+                         "the parked request so the confirming person sees it.",
+            parameters: {
+              key: { type: "string", required: true, description: "Protected setting key. One of: #{protected_keys}" },
               value: { type: "string", required: true, description: "New value. Booleans accept true/false." }
             }
           }
@@ -170,7 +213,7 @@ module Ai
 
       # Pre-dispatch authorization, hoisted by BaseTool so it applies to gated
       # and ungated actions alike.
-      def authorization_error(_params)
+      def authorization_error(params)
         # NO `return nil if internal?` either, and this one is the least
         # obvious of the three refusals. `internal: true` is the in-process
         # bypass for reconcilers and skill executors running without a user,
@@ -211,33 +254,34 @@ module Ai
           )
         end
 
-        return nil if user.respond_to?(:has_permission?) &&
-                      GRANTING_PERMISSIONS.any? { |p| user.has_permission?(p) == true }
+        permitted = user.respond_to?(:has_permission?) &&
+                    GRANTING_PERMISSIONS.any? { |p| user.has_permission?(p) == true }
+        unless permitted
+          return error_result(
+            "site_setting_* requires #{GRANTING_PERMISSIONS.join(' or ')} — the same ladder as " \
+            "the /api/v1/site_settings operator API."
+          )
+        end
 
-        error_result(
-          "site_setting_* requires #{GRANTING_PERMISSIONS.join(' or ')} — the same ladder as " \
-          "the /api/v1/site_settings operator API."
-        )
+        write_key_error(params)
       end
 
       protected
 
       def call(params)
         # AUTHORIZE HERE TOO, not only in #authorization_error. BaseTool#execute
-        # returns `call(params)` for a declared-but-UNGATED action
-        # (base_tool.rb:489) BEFORE it reaches #authorization_error
-        # (base_tool.rb:500), so that hook fires only on the gated path. Both
-        # of this tool's actions are ungated, so relying on the hook alone left
-        # the permission check and the instance-principal refusal completely
-        # inert — the spec caught it, reading the hook's own doc comment did
-        # not. The hook is kept as well so a future gated declaration inherits
-        # the same ladder; running it twice is idempotent.
+        # returns `call(params)` for a declared-but-UNGATED action BEFORE it
+        # reaches #authorization_error, so that hook fires only on the gated
+        # and human-only paths. site_setting_get is ungated, so its refusals
+        # live here; for the two writes the hook has already run before the
+        # park, and runs again here on the approved replay, as the principal
+        # the replay was rebuilt for. Running it twice is idempotent.
         refusal = authorization_error(params)
         return refusal if refusal
 
         case params[:action].to_s
         when "site_setting_get" then get_setting(params)
-        when "site_setting_set" then set_setting(params)
+        when "site_setting_set", "site_setting_set_protected" then set_setting(params)
         else
           error_result("Unknown action: #{params[:action].inspect} (supported: #{ACTIONS.join(', ')})")
         end
@@ -261,6 +305,35 @@ module Ai
 
       def key_spec(params)
         self.class.operator_configurable_keys[params[:key].to_s]
+      end
+
+      # Which write verb carries which key, checked BEFORE a write can park. An
+      # unlisted key and a key on the wrong verb are refused here, so an
+      # operator is never asked to approve a write that could only be refused
+      # on replay — and an ordinary key cannot borrow the human-only verb, nor a
+      # protected key slip through the policy-gated one.
+      def write_key_error(params)
+        action = routed_action_name(params)
+        return nil unless %w[site_setting_set site_setting_set_protected].include?(action)
+
+        spec = key_spec(params)
+        return not_allowlisted_error(params) unless spec
+
+        if spec[:protected] && action == "site_setting_set"
+          return error_result(
+            "#{params[:key].to_s.inspect} is a protected setting: writing it changes the control " \
+            "plane's authority over itself, so it is a person's decision. Use " \
+            "site_setting_set_protected, which parks for a person to confirm in their own session."
+          )
+        end
+
+        if !spec[:protected] && action == "site_setting_set_protected"
+          return error_result(
+            "#{params[:key].to_s.inspect} is not a protected setting; use site_setting_set."
+          )
+        end
+
+        nil
       end
 
       def not_allowlisted_error(params)

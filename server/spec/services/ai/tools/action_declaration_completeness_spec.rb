@@ -155,6 +155,12 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 (human_only: a policy row decides what parks
   #                                 and what needs a person, so a tool door's
   #                                 write to one parks for a person's own session)
+  #   site_setting_set              IMP-70db2b60bfb3  platform.site_setting.write
+  #                                 (no seeded row: parks until an operator's
+  #                                 policy proceeds it)
+  #   site_setting_set_protected    IMP-70db2b60bfb3  platform.site_setting.protected_write
+  #                                 (human_only: a protected key, such as the one
+  #                                 that arms INV-1, is a person's decision)
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -188,6 +194,8 @@ RSpec.describe "MCP action declaration completeness" do
     create_intervention_policy
     update_intervention_policy
     delete_intervention_policy
+    site_setting_set
+    site_setting_set_protected
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

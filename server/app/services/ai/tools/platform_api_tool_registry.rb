@@ -421,6 +421,8 @@ module Ai
         # core declares its own, extensions declare theirs.
         "site_setting_get"               => "Ai::Tools::SiteSettingTool",
         "site_setting_set"               => "Ai::Tools::SiteSettingTool",
+        # IMP-70db2b60bfb3: a protected key's write is human-only.
+        "site_setting_set_protected"     => "Ai::Tools::SiteSettingTool",
         # Container deployment & management
         "deploy_container_agent" => "Ai::Tools::ContainerDeploymentTool",
         "agent_container_status" => "Ai::Tools::ContainerStatusTool",

@@ -25,25 +25,34 @@ require "rails_helper"
 #      stores in a SiteSetting.
 RSpec.describe Ai::Tools::SiteSettingTool do
   let(:account) { create(:account) }
-  let(:admin) { create(:user, account: account) }
+  # A real permission row, not a stub: since IMP-70db2b60bfb3 a write goes
+  # through Ai::AutonomyGate, and its replay rebuilds the user from the
+  # database and re-checks the permission there.
+  let(:admin) { create(:user, account: account, permissions: [ "admin.access" ]) }
   let(:tool) { described_class.new(account: account, user: admin) }
-
-  # The REST twin gates on `admin.access` OR `settings.manage`
-  # (site_settings_controller.rb:5 -> require_admin_access("settings.manage")).
-  # Mirroring it exactly is the task's requirement, so both spellings are
-  # exercised rather than assumed equivalent.
-  before do
-    allow(admin).to receive(:has_permission?).and_return(false)
-    allow(admin).to receive(:has_permission?).with("admin.access").and_return(true)
-  end
 
   def call(action, **params)
     tool.execute(params: { action: action }.merge(params))
   end
 
+  # The gate proceeds a write only on an operator's policy; the gate itself is
+  # site_setting_tool_gate_spec's subject. These examples are about what a
+  # write DOES once it runs, so they proceed it.
+  def auto_approve_writes!
+    Ai::InterventionPolicy.create!(account: account, action_category: described_class::WRITE_CATEGORY,
+                                   scope: "global", policy: "auto_approve", priority: 5, is_active: true)
+  end
+
+  let(:plain_key) { "zz_spec_core_owned_key" }
+
+  before do
+    described_class.register_key(plain_key, setting_type: "string", description: "core-owned fixture key")
+  end
+
   describe "the allowlist" do
-    it "carries the key this task exists to make reachable, registered by the extension that owns it" do
+    it "carries the key this task exists to make reachable, registered PROTECTED by the extension that owns it" do
       expect(described_class.operator_configurable_keys).to include("self_hosting_node_id")
+      expect(described_class.operator_configurable_keys["self_hosting_node_id"]).to include(protected: true)
     end
 
     # Core registers no key of its own (see the class comment — an earlier
@@ -52,14 +61,12 @@ RSpec.describe Ai::Tools::SiteSettingTool do
     # through the extension's, which would make a CORE spec depend on an
     # extension being installed.
     it "serves a key registered by any owner, not only the extension's" do
-      described_class.register_key(
-        "zz_spec_core_owned_key", setting_type: "string", description: "core-owned fixture key"
-      )
+      auto_approve_writes!
 
-      result = call("site_setting_set", key: "zz_spec_core_owned_key", value: "v1")
+      result = call("site_setting_set", key: plain_key, value: "v1")
 
-      expect(result[:success]).to be true
-      expect(SiteSetting.get("zz_spec_core_owned_key")).to eq("v1")
+      expect(result[:success]).to be(true), result.inspect
+      expect(SiteSetting.get(plain_key)).to eq("v1")
     end
 
     # The seam exists so core never names an extension's configuration
@@ -123,11 +130,25 @@ RSpec.describe Ai::Tools::SiteSettingTool do
   end
 
   describe "site_setting_set" do
-    it "writes an allow-listed key" do
+    it "writes an allow-listed key once the gate proceeds it" do
+      auto_approve_writes!
+
+      result = call("site_setting_set", key: plain_key, value: "node-abc")
+
+      expect(result[:success]).to be(true), result.inspect
+      expect(SiteSetting.get(plain_key)).to eq("node-abc")
+    end
+
+    # The INV-1 arming key is protected: the policy-gated verb refuses it, and
+    # the human-only verb parks it. Arming it is NOT done here.
+    it "refuses the protected INV-1 key, even under an auto_approve policy, and the row is unchanged" do
+      auto_approve_writes!
+
       result = call("site_setting_set", key: "self_hosting_node_id", value: "node-abc")
 
-      expect(result[:success]).to be true
-      expect(SiteSetting.get("self_hosting_node_id")).to eq("node-abc")
+      expect(result[:success]).to be false
+      expect(result[:error]).to include("site_setting_set_protected")
+      expect(SiteSetting.find_by(key: "self_hosting_node_id")).to be_nil
     end
 
     # site_setting_set is declared `audit: true`, so BaseTool writes a
@@ -135,16 +156,17 @@ RSpec.describe Ai::Tools::SiteSettingTool do
     # action outright if the row does not persist. That is the ledger; this
     # tool writes no second one.
     it "writes a fail-closed sensitive-access row for the REQUEST and an outcome row for the WRITE" do
-      call("site_setting_set", key: "self_hosting_node_id", value: "node-abc")
+      auto_approve_writes!
+      call("site_setting_set", key: plain_key, value: "node-abc")
 
       requested = AuditLog.where(action: "mcp.tools.sensitive_access").order(:created_at).last
       expect(requested.user_id).to eq(admin.id)
-      expect(requested.metadata.to_s).to include("self_hosting_node_id")
+      expect(requested.metadata.to_s).to include(plain_key)
 
       written = AuditLog.where(action: "update_site_setting").order(:created_at).last
       expect(written).to be_present
       expect(written.user_id).to eq(admin.id)
-      expect(written.metadata["setting_key"]).to eq("self_hosting_node_id")
+      expect(written.metadata["setting_key"]).to eq(plain_key)
     end
 
     # The two rows answer different questions, and conflating them was a real
@@ -168,7 +190,8 @@ RSpec.describe Ai::Tools::SiteSettingTool do
     # read by more people than hold the permission to write settings, and for
     # this tool the value IS the sensitive material.
     it "does not put the value in the audit row" do
-      call("site_setting_set", key: "self_hosting_node_id", value: "node-secret-value")
+      auto_approve_writes!
+      call("site_setting_set", key: plain_key, value: "node-secret-value")
 
       expect(AuditLog.pluck(:metadata).to_json).not_to include("node-secret-value")
     end
@@ -286,8 +309,18 @@ RSpec.describe Ai::Tools::SiteSettingTool do
   end
 
   describe "catalog surface" do
-    it "declares both actions" do
-      expect(described_class::ACTIONS).to contain_exactly("site_setting_get", "site_setting_set")
+    it "declares the read and both write verbs" do
+      expect(described_class::ACTIONS).to contain_exactly("site_setting_get", "site_setting_set",
+                                                          "site_setting_set_protected")
+    end
+
+    it "wires the ordinary write to the gate and the protected write as human-only" do
+      expect(described_class.declared_action("site_setting_set")).to include(
+        action_category: described_class::WRITE_CATEGORY, executor_class: "Ai::Executors::DeferredToolCall"
+      )
+      expect(described_class.declared_action("site_setting_set_protected")).to include(
+        human_only: true, action_category: described_class::PROTECTED_WRITE_CATEGORY
+      )
     end
 
     it "declares site_setting_set as mutating so the governance layer sees it" do

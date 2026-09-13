@@ -77,6 +77,10 @@ module Ai
     # require_approval for a human-only action).
     # ai.intervention_policy.write (secreview §21 G4): a tool door's write to
     # one of these rows is human-only and parks under it, the same way.
+    # platform.site_setting.write / platform.site_setting.protected_write
+    # (IMP-70db2b60bfb3): an MCP write of an allow-listed SiteSetting. No seed
+    # writes a row for either: the ordinary write parks (require_approval)
+    # until an operator adds a policy, and the protected write is human-only.
     STATIC_CATEGORIES = (%w[
       approval proposal escalation status_update issue_alert
       feedback
@@ -86,6 +90,7 @@ module Ai
       ralph.repository_write ralph.repository_delete
       campaign.resume
       ai.intervention_policy.write
+      platform.site_setting.write platform.site_setting.protected_write
     ] + ENGINEERING_CATEGORIES + %w[*]).freeze
 
     @category_registry = Set.new(STATIC_CATEGORIES)
