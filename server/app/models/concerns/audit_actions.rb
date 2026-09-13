@@ -237,11 +237,12 @@ module AuditActions
   # MCP SERVER ACTIONS
   # =============================================================================
   # mcp.tools.undeclared_action is governance telemetry (IMP-a0553dda1ec3): a
-  # tool action executed with no Ai::Tools::BaseTool.declare_action
-  # declaration. It records WHICH actions run ungoverned so the fail-closed
-  # flip (IMP-439d31353f9b) is a measured decision rather than a guess. Its
-  # payload is shape-only — principal KIND, tool class, action name; never
-  # identity, never credentials.
+  # tool action requested with no Ai::Tools::BaseTool.declare_action
+  # declaration. Since the fail-closed flip (APO-1e) such an action is REFUSED
+  # and the row carries metadata outcome "refused"; rows without an outcome
+  # predate the flip and record an action that ran ungoverned. Its payload is
+  # shape-only — principal KIND, tool class, action name; never identity,
+  # never credentials.
   # mcp.tools.canonical_principal_refused (HIER-P2I): Ai::Tools::BaseTool
   # refused a GLOBAL canonical agent (account_id NULL) as the acting
   # principal — a template never executes; the account's clone does. Carries

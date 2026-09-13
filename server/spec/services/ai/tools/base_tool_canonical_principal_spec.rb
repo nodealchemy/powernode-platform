@@ -27,6 +27,10 @@ RSpec.describe Ai::Tools::BaseTool, "canonical principals never execute (HIER-P2
 
       def self.name = "Ai::Tools::HierP2iProbeTool"
 
+      # Declared: an undeclared action is refused by BaseTool#execute (APO-1e),
+      # which would mask the principal behaviour under test.
+      declare_action "hier_p2i_probe", mutating: false
+
       def self.definition
         { name: "hier_p2i_probe", description: "HIER-P2I probe", parameters: {} }
       end

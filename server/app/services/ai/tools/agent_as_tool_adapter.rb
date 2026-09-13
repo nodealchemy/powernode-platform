@@ -5,6 +5,11 @@ module Ai
     class AgentAsToolAdapter < BaseTool
       REQUIRED_PERMISSION = "ai.agents.execute"
 
+      # Invoking an agent starts an execution. Declared because BaseTool#execute
+      # refuses an undeclared action (APO-1e), and this tool's calls carry no
+      # :action, so they route on the definition name.
+      declare_action "invoke_agent", mutating: true
+
       def initialize(account:, agent: nil, target_agent:)
         super(account: account, agent: agent)
         @target_agent = target_agent

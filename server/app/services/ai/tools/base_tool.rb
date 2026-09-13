@@ -263,9 +263,10 @@ module Ai
         # reappear unnoticed and read as coverage. (A tool outside that
         # registry is outside the assertion, as it is outside the equality.)
         #
-        # `mutating:` is INTENT for the registry: it can carry the fail-closed
-        # invariant "an undeclared action is refused" (IMP-439d31353f9b owns
-        # that flip). Nothing enforces it today.
+        # `mutating:` is INTENT for the registry. The invariant it exists to
+        # carry — "an undeclared action is refused" (IMP-439d31353f9b) — is
+        # ENFORCED by #execute since APO-1e (IMP-31e7c3dbeb2a): a name with no
+        # declaration here is refused with a result and never reaches #call.
         #
         # APO-1a (IMP-1e58753b3b6c) closed the gap that blocked the flip: every
         # action Ai::Tools::PlatformApiToolRegistry.all_tools advertises now
@@ -273,7 +274,8 @@ module Ai
         # spec/services/ai/tools/action_declaration_completeness_spec.rb. An
         # existence check could not do that job — a declaration keyed on the
         # registry key rather than the ALIASED name #execute dispatches on
-        # reads as coverage while the action still runs undeclared.
+        # reads as coverage while the action is still undeclared (and, since
+        # APO-1e, refused).
         #
         # Those bulk declarations pass `mutating:` and NOTHING ELSE, on
         # purpose. #gated_action? below needs action_category, executor_class,
@@ -438,28 +440,31 @@ module Ai
         action_name = routed_action_name(params)
         declaration = self.class.declared_action(action_name)
 
-        # UNDECLARED PATH. Behaviourally `return call(params)` — which is what
-        # an undeclared action always did, since gated_action?(nil) is false —
-        # plus one sighting recorded in an `ensure` AFTER the body has run.
+        # UNDECLARED PATH — FAILS CLOSED (APO-1e, IMP-31e7c3dbeb2a). An action
+        # with no declaration is REFUSED and #call never runs, whoever calls:
+        # an `internal: true` in-process caller and an instance principal are
+        # refused exactly as a user is, because the declaration is the only
+        # place the platform learns what an action does.
         #
-        # AFTER, not before (D4): AuditLog's integrity chain serializes every
-        # insert behind pg_advisory_xact_lock(SEQUENCE_LOCK_KEY), and an
-        # advisory *xact* lock is only released by the OUTERMOST transaction's
-        # commit. Emitting first meant that, inside a caller's transaction, the
-        # global audit-sequence lock was held across the whole of #call —
-        # provider/HTTP latency for a fleet tool — with every audit write on the
-        # platform queued behind it.
+        # It used to be `return call(params)` plus a sighting. The flip was held
+        # until that sighting could size it: APO-1a declared every advertised
+        # action (action_declaration_completeness_spec), APO-1b gave gated
+        # actions their replay executor, and the undeclared-execution telemetry
+        # then read zero on the production control plane for longer than a week.
+        # base_tool_undeclared_fail_closed_spec also holds every tool class
+        # OUTSIDE the registry to its declarations, so no in-process tool ships
+        # already refused.
         #
-        # `ensure`, so a raising tool still records its sighting. That makes an
-        # exception escaping the telemetry able to REPLACE the tool's own return
-        # value or exception, so #record_undeclared_action carries an outermost
-        # rescue. Not a silent swallow: it logs at ERROR level.
+        # A RESULT, never a raise: an exception reaches an MCP client as a
+        # JSON-RPC internal error (-32603), which reads as a platform fault
+        # rather than as the governance decision it is.
+        #
+        # The sighting is still recorded (now marked refused), so an operator
+        # can see which undeclared names callers keep asking for. No body runs,
+        # so the old AFTER-the-body ordering (D4) no longer applies.
         if declaration.nil?
-          begin
-            return call(params)
-          ensure
-            record_undeclared_action(action_name)
-          end
+          record_undeclared_action(action_name)
+          return undeclared_action_refusal(action_name)
         end
 
         # SENSITIVE ACCESS, FAIL CLOSED. Ahead of every `return call(params)`
@@ -475,10 +480,10 @@ module Ai
         # Those record anomalies; losing one costs visibility. This one gates a
         # credential; losing it costs the only evidence that it was taken.
         #
-        # It also deliberately writes BEFORE the body, which the D4 note below
-        # explains is what the undeclared-action sighting must NOT do: inside a
-        # caller's transaction the audit-sequence advisory lock is then held
-        # across #call. That cost is accepted here and bounded by keeping the
+        # It also deliberately writes BEFORE the body, which telemetry must never
+        # do (D4, IMP-a0553dda1ec3): inside a caller's transaction the
+        # audit-sequence advisory lock is then held across #call. That cost is
+        # accepted here and bounded by keeping the
         # audited set to short, DB-only bodies — the alternative is releasing
         # the credential first and recording it afterwards, which is the hole.
         if declaration[:audit]
@@ -1098,15 +1103,17 @@ module Ai
         "cursor: not a cursor this action issued — omit it to start at the first page"
       end
 
-      # UNDECLARED-EXECUTION TELEMETRY (IMP-a0553dda1ec3) — measure the real
-      # breakage set BEFORE the fail-closed flip (IMP-439d31353f9b).
+      # UNDECLARED-ACTION TELEMETRY (IMP-a0553dda1ec3) — built to measure the
+      # real breakage set BEFORE the fail-closed flip (IMP-439d31353f9b).
       #
-      # 605 of the 606 registry actions execute with no declaration today. The
-      # flip's invariant ("an undeclared action is refused") would refuse every
-      # one of them, and nothing on the platform currently records WHICH of
-      # those 605 actually run, under which kind of principal. That is the
-      # number the flip has to be sized against, so this produces it from real
-      # traffic instead of from a guess.
+      # When it landed, 605 of the 606 registry actions executed with no
+      # declaration, and nothing recorded WHICH of them actually ran, under
+      # which kind of principal. That was the number the flip had to be sized
+      # against. It read zero on the production control plane once APO-1a
+      # declared the surface, and the flip (APO-1e) followed. Undeclared
+      # actions are now REFUSED; each row below records a refused request
+      # (metadata outcome: "refused"). Rows without an outcome predate the flip
+      # and record an action that RAN undeclared.
       #
       # WHY HERE: this is the same chokepoint the declaration registry itself
       # keys off, so the telemetry's notion of "the action" is #execute's, not
@@ -1142,9 +1149,10 @@ module Ai
       # also buckets under the sentinel. The flip acts on the registry surface,
       # which is exactly what stays resolved.
       #
-      # VOLUME: this fires on nearly all traffic. It is deduped per (account,
-      # principal_kind, action) over a window — never per action alone, since
-      # losing which actions execute undeclared destroys the entire point — and
+      # VOLUME: before APO-1e this fired on nearly all traffic; now only on
+      # refused requests. It is deduped per (account, principal_kind, action)
+      # over a window — never per action alone, since losing which undeclared
+      # actions are being asked for destroys the entire point — and
       # a FIRST sighting is never dropped: the dedupe check fails OPEN (emit)
       # whenever the cache is unavailable.
       #
@@ -1165,6 +1173,8 @@ module Ai
 
       # Every caller-supplied action name that is not registry surface.
       UNREGISTERED_ACTION_LABEL = "<unregistered>"
+      # The `refusal:` discriminator on an undeclared action's envelope (APO-1e).
+      UNDECLARED_ACTION_REFUSAL = "undeclared_action"
 
       # How long one (account, principal_kind, action) tuple stays deduped. Long
       # enough that a hot action costs one row per hour, short enough that the
@@ -1272,22 +1282,35 @@ module Ai
         )
       end
 
+      # The envelope for an action with no declaration. The name is echoed so a
+      # caller can see what it asked for, but through #telemetry_token: it is
+      # caller-supplied and must not carry control characters or an unbounded
+      # blob back out. The internal class name is not echoed.
+      def undeclared_action_refusal(action_name)
+        name = telemetry_token(action_name)
+        {
+          success: false,
+          refusal: UNDECLARED_ACTION_REFUSAL,
+          error: "Unknown action: #{name} — refused: this tool declares no such action, " \
+                 "and an undeclared action is never run"
+        }
+      end
+
       # One structured sighting per (account, principal_kind, action) per window.
       #
       # The Rails.logger line is emitted FIRST and is not itself guarded, so the
       # sighting exists even if the durable row cannot be written. The row is
       # guarded, and so is the whole method — but by rescues that LOG at error
-      # level, never ones that return quietly. That is required by the `ensure`
-      # this runs in: an exception escaping here would replace the tool's own
-      # return value or exception, breaking exactly the undeclared calls this
-      # exists to observe.
+      # level, never ones that return quietly. An exception escaping here would
+      # replace the refusal envelope with a raise, which reaches an MCP client
+      # as an internal error instead of the refusal.
       def record_undeclared_action(action_name)
         principal = principal_kind
         label = telemetry_action_label(action_name)
         return unless first_undeclared_sighting?(label, principal)
 
         Rails.logger.info(
-          "[BaseTool] Undeclared action executed: " \
+          "[BaseTool] Undeclared action refused: " \
           "action=#{label} tool=#{telemetry_token(self.class.name)} principal=#{principal}"
         )
         persist_undeclared_action_audit(label, principal)
@@ -1377,7 +1400,8 @@ module Ai
             metadata: {
               action_name: label,
               tool_class: telemetry_token(self.class.name),
-              principal_kind: principal
+              principal_kind: principal,
+              outcome: "refused"
             }
           )
         end

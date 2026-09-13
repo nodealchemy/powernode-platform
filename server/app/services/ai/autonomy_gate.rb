@@ -19,10 +19,11 @@ module Ai
   # per-call-site coverage failed at depth) and now consults `declare_action`
   # declarations to decide whether to route a call through this gate.
   #
-  # Until every mutating action is declared and the chokepoint fails CLOSED on
-  # undeclared ones, an unreferenced action is still an ungated one — silently.
-  # An audit of this file will not reveal that; only the declaration registry's
-  # coverage will.
+  # The chokepoint fails CLOSED on undeclared actions (APO-1e): an action with
+  # no declaration is refused, never run. A DECLARED action still reaches this
+  # gate only when its declaration wires it (action_category, executor_class,
+  # gate_context, on_proceed); a `mutating:`-only declaration runs ungated. An
+  # audit of this file will not reveal which; only the declarations will.
   #
   # Callers dispatch on the returned `decision`:
   #

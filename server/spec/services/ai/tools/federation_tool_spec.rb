@@ -88,8 +88,12 @@ RSpec.describe Ai::Tools::FederationTool do
     end
   end
 
+  # An undeclared name never reaches #call: BaseTool#execute refuses it (APO-1e).
   it "rejects an unknown action" do
-    expect(tool.execute(params: { action: "nope" })[:error]).to match(/Unknown federation action/)
+    result = tool.execute(params: { action: "nope" })
+
+    expect(result[:refusal]).to eq(Ai::Tools::BaseTool::UNDECLARED_ACTION_REFUSAL)
+    expect(result[:error]).to match(/Unknown action: nope/)
   end
 
   it "refuses to run for a restricted principal (a peer must not drive outbound federation)" do

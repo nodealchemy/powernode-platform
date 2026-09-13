@@ -2,17 +2,16 @@
 
 require "rails_helper"
 
-# UNDECLARED-EXECUTION TELEMETRY (IMP-a0553dda1ec3).
+# UNDECLARED-ACTION TELEMETRY (IMP-a0553dda1ec3).
 #
-# These examples EXECUTE actions and assert on what the execution produced.
-# Asserting that no refusal happened, or that a code path "is reachable", is
-# how three eventless silent-PASS states shipped here before; the oracle is the
-# audit ROW, in both directions — present for an undeclared action, absent for
-# a declared one.
+# Since APO-1e an undeclared action is REFUSED (base_tool_undeclared_fail_closed_spec
+# owns that invariant); this file owns the sighting each refusal records. The
+# oracle is the audit ROW, in both directions — present for an undeclared
+# action, absent for a declared one.
 #
 # Half of what follows is about what the telemetry must NOT do: it must not let
-# a caller mint unbounded rows (D1/D2), must not leave a caller's transaction
-# aborted (D3), and must not run before the tool body (D4).
+# a caller mint unbounded rows (D1/D2), and must not leave a caller's
+# transaction aborted (D3).
 RSpec.describe "Ai::Tools::BaseTool undeclared-action telemetry" do
   let(:account) { create(:account) }
 
@@ -37,7 +36,7 @@ RSpec.describe "Ai::Tools::BaseTool undeclared-action telemetry" do
       declare_action "zz_telemetry_fixture_declared", mutating: false
 
       class << self
-        attr_accessor :audits_seen_inside_call, :raise_from_call
+        attr_accessor :audits_seen_inside_call
       end
 
       def self.definition
@@ -51,7 +50,6 @@ RSpec.describe "Ai::Tools::BaseTool undeclared-action telemetry" do
       def call(params)
         self.class.audits_seen_inside_call =
           AuditLog.where(action: "mcp.tools.undeclared_action").count
-        raise ArgumentError, "fixture blew up" if self.class.raise_from_call
 
         success_result(ran: params[:action])
       end
@@ -72,19 +70,20 @@ RSpec.describe "Ai::Tools::BaseTool undeclared-action telemetry" do
   end
 
   describe "an UNDECLARED action" do
-    it "emits exactly one audit event carrying action name, tool class and principal shape" do
+    it "emits exactly one audit event carrying action name, tool class, principal shape and the refusal" do
       tool = ZzTelemetryFixtureTool.new(account: account)
 
       expect {
         expect(tool.execute(params: { action: registry_action }))
-          .to eq(success: true, data: { ran: registry_action })
+          .to include(success: false, refusal: Ai::Tools::BaseTool::UNDECLARED_ACTION_REFUSAL)
       }.to change { undeclared_audits.count }.by(1)
 
       event = undeclared_audits.last
       expect(event.metadata).to include(
         "action_name" => registry_action,
         "tool_class" => "ZzTelemetryFixtureTool",
-        "principal_kind" => "none"
+        "principal_kind" => "none",
+        "outcome" => "refused"
       )
       expect(event.resource_type).to eq("ZzTelemetryFixtureTool")
       expect(event.account_id).to eq(account.id)
@@ -143,22 +142,23 @@ RSpec.describe "Ai::Tools::BaseTool undeclared-action telemetry" do
       }.to change { undeclared_audits.count }.by(1)
     end
 
-    it "emits AFTER the tool body has run, never before it (D4)" do
+    it "records the sighting without ever entering the tool body" do
       ZzTelemetryFixtureTool.new(account: account).execute(params: { action: registry_action })
 
-      expect(ZzTelemetryFixtureTool.audits_seen_inside_call).to eq(0)
+      expect(ZzTelemetryFixtureTool.audits_seen_inside_call).to be_nil
       expect(undeclared_audits.count).to eq(1)
     end
 
-    it "still records the sighting when the tool body raises, and re-raises the tool's error" do
-      ZzTelemetryFixtureTool.raise_from_call = true
+    # Stubs a step #persist_undeclared_action_audit does NOT guard, so it is the
+    # outermost rescue in #record_undeclared_action that keeps the envelope.
+    it "still returns the refusal envelope when the telemetry itself raises" do
+      allow_any_instance_of(ZzTelemetryFixtureTool).to receive(:principal_kind).and_raise(ArgumentError, "telemetry down")
+      allow(Rails.logger).to receive(:error)
 
-      expect {
-        expect { ZzTelemetryFixtureTool.new(account: account).execute(params: { action: registry_action }) }
-          .to raise_error(ArgumentError, "fixture blew up")
-      }.to change { undeclared_audits.count }.by(1)
-    ensure
-      ZzTelemetryFixtureTool.raise_from_call = false
+      result = ZzTelemetryFixtureTool.new(account: account).execute(params: { action: registry_action })
+
+      expect(result).to include(success: false, refusal: Ai::Tools::BaseTool::UNDECLARED_ACTION_REFUSAL)
+      expect(Rails.logger).to have_received(:error).with(/Undeclared-action telemetry failed/)
     end
   end
 
@@ -261,7 +261,7 @@ RSpec.describe "Ai::Tools::BaseTool undeclared-action telemetry" do
         subsequent_query = Account.where(id: account.id).count
       end
 
-      expect(result).to eq(success: true, data: { ran: registry_action })
+      expect(result).to include(success: false, refusal: Ai::Tools::BaseTool::UNDECLARED_ACTION_REFUSAL)
       expect(subsequent_query).to eq(1)
       expect(undeclared_audits.count).to eq(0)
       expect(Rails.logger).to have_received(:error)
