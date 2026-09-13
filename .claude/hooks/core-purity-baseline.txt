@@ -6,34 +6,6 @@
 # Format: <repo-relative-path>|<extension-slug>
 # Shrinking this list is core-purity debt reduction; regenerate after cleanup.
 server/spec/models/concerns/auditable_spec.rb|marketing
-server/spec/factories/supply_chain/attestations.rb|supply-chain
-server/spec/factories/supply_chain/attributions.rb|supply-chain
-server/spec/factories/supply_chain/build_provenances.rb|supply-chain
-server/spec/factories/supply_chain/container_images.rb|supply-chain
-server/spec/factories/supply_chain/cve_monitors.rb|supply-chain
-server/spec/factories/supply_chain/image_policies.rb|supply-chain
-server/spec/factories/supply_chain/license_detections.rb|supply-chain
-server/spec/factories/supply_chain/license_policies.rb|supply-chain
-server/spec/factories/supply_chain/license_violations.rb|supply-chain
-server/spec/factories/supply_chain/licenses.rb|supply-chain
-server/spec/factories/supply_chain/questionnaire_responses.rb|supply-chain
-server/spec/factories/supply_chain/questionnaire_templates.rb|supply-chain
-server/spec/factories/supply_chain/remediation_plans.rb|supply-chain
-server/spec/factories/supply_chain/reports.rb|supply-chain
-server/spec/factories/supply_chain/risk_assessments.rb|supply-chain
-server/spec/factories/supply_chain/sbom_components.rb|supply-chain
-server/spec/factories/supply_chain/sbom_diffs.rb|supply-chain
-server/spec/factories/supply_chain/sbom_vulnerabilities.rb|supply-chain
-server/spec/factories/supply_chain/sboms.rb|supply-chain
-server/spec/factories/supply_chain/scan_executions.rb|supply-chain
-server/spec/factories/supply_chain/scan_instances.rb|supply-chain
-server/spec/factories/supply_chain/scan_templates.rb|supply-chain
-server/spec/factories/supply_chain/signing_keys.rb|supply-chain
-server/spec/factories/supply_chain/vendor_monitoring_events.rb|supply-chain
-server/spec/factories/supply_chain/vendors.rb|supply-chain
-server/spec/factories/supply_chain/verification_logs.rb|supply-chain
-server/spec/factories/supply_chain/vulnerability_feeds.rb|supply-chain
-server/spec/factories/supply_chain/vulnerability_scans.rb|supply-chain
 server/spec/lib/extensions_loader_helper_spec.rb|supply-chain
 server/spec/models/concerns/auditable_spec.rb|supply-chain
 server/spec/services/core_supply_chain_coupling_guard_spec.rb|supply-chain
