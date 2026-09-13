@@ -4,18 +4,22 @@
 #
 # A project (Ai::Project, APO app-4) is the durable owner of a fleet of
 # missions, and it needs a team that owns it: something that watches it,
-# deploys it and keeps it up. That is three seats — an OBSERVER, a DEPLOYER and
-# an SRE — and all three already exist as core canonical agents, so this seed
-# names them rather than inventing agents.
+# deploys it and keeps it up. Both seats already exist as core canonical agents,
+# so this seed names them rather than inventing agents.
 #
-#   observer  system-health-monitor         — availability and health
-#   deployer  release-manager               — walks the promotion ladder
-#   SRE       infrastructure-health-monitor — owns the incident, LEADS the team
+#   SRE       platform-health-monitor — observes availability and health, owns
+#                                       the incident, LEADS the team
+#   deployer  release-manager         — walks the promotion ladder
+#
+# There were three seats — an observer and an SRE besides the deployer — held
+# by System Health Monitor and Infrastructure Health Monitor. IMP-80a353489ba4
+# merged both into the Platform Health Monitor, and one agent cannot hold two
+# seats of a team, so watching and owning the incident are one seat.
 #
 # WHY THE SRE LEADS. Ai::Teams::CanonicalTeamSeeder requires exactly one lead
 # carrying the "manager" role, and in an operations team the incident owner is
-# the one that decides and delegates. Making the observer or the deployer the
-# manager would put the narrowest role at the top of the team.
+# the one that decides and delegates. Making the deployer the manager would put
+# the narrowest role at the top of the team.
 #
 # WHY A THIRD TEMPLATE. The two seeded canonical teams do not almost fit.
 # "Platform Engineering" (db/seeds/ai_canonical_teams_seed.rb) builds the
@@ -49,13 +53,11 @@ PROJECT_OPERATIONS_TEAM = {
                "for the account as a whole.",
   materialisation: Ai::Teams::CanonicalTeamSeeder::MATERIALISATION_PROJECT,
   members: [
-    { slug: "infrastructure-health-monitor", name: "Project SRE", role: "manager", lead: true,
-      description: "Owns the project's reliability: triages its signals, decides the response and " \
-                   "delegates to the deployer or the observer within the project's bounds" },
+    { slug: "platform-health-monitor", name: "Project SRE", role: "manager", lead: true,
+      description: "Watches the project's availability and health, owns its reliability: triages its " \
+                   "signals, decides the response and delegates delivery to the deployer" },
     { slug: "release-manager", name: "Project Deployer", role: "executor",
-      description: "Delivers changes to the project — walks the promotion ladder and verifies by digest" },
-    { slug: "system-health-monitor", name: "Project Observer", role: "analyst",
-      description: "Watches the project's availability and health and reports what it sees" }
+      description: "Delivers changes to the project — walks the promotion ladder and verifies by digest" }
   ]
 }.freeze
 

@@ -68,11 +68,16 @@ RSpec.describe "db/seeds/platform_skill_assignments_seed.rb", type: :seed do
     # re-seed below measures THIS fix, not a column that legitimately fills in
     # once a provider appears.
     create(:ai_provider, account: admin_account, provider_type: "openai", is_active: true)
-    load_autonomy_seed = -> { silence_warnings { load Rails.root.join("db", "seeds", "autonomy_data_seed.rb") } }
+    # The Platform Health Monitor (IMP-80a353489ba4) is seeded by the monitoring
+    # seed, which runs before autonomy_data in db/seeds.rb.
+    load_autonomy_seed = lambda do
+      silence_warnings { load Rails.root.join("db", "seeds", "monitoring_analytics_agents_seed.rb") }
+      silence_warnings { load Rails.root.join("db", "seeds", "autonomy_data_seed.rb") }
+    end
     load_autonomy_seed.call
 
     expected_skills = {
-      "infrastructure-health-monitor" => %w[devops-engineer security-analyst sre-incident-response],
+      "platform-health-monitor" => %w[devops-engineer security-analyst sre-incident-response],
       "process-automation-optimizer" => %w[product-management productivity],
       "visual-design-assistant" => %w[marketing product-management]
     }

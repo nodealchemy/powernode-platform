@@ -119,9 +119,8 @@ RSpec.describe "ProvisioningTool — project attach on brief capture" do
     end
 
     before do
-      canonical("infrastructure-health-monitor", "Infrastructure Health Monitor")
+      canonical("platform-health-monitor", "Platform Health Monitor")
       canonical("release-manager", "Release Manager")
-      canonical("system-health-monitor", "System Health Monitor")
       silence_warnings { load Rails.root.join("db", "seeds", "ai_project_operations_team_seed.rb") }
     end
 
@@ -134,7 +133,7 @@ RSpec.describe "ProvisioningTool — project attach on brief capture" do
       project = Ai::Project.order(:created_at).last
 
       expect(project.team).to be_present
-      expect(project.team.members.count).to eq(3)
+      expect(project.team.members.count).to eq(2)
       # Clones, never the canonicals (ruling 8).
       expect(project.team.members.includes(:agent).map { |m| m.agent.account_id }.uniq).to eq([ account.id ])
     end

@@ -366,7 +366,7 @@ RSpec.describe "ai_engineering_agents_seed" do
     end
 
     it "keeps the rest of the core forest under Powernode Assistant" do
-      %w[system-performance-monitor intent-classifier rag-reranker].each do |slug|
+      %w[platform-health-monitor intent-classifier rag-reranker].each do |slug|
         child = canonical(slug)
         expect(Ai::AgentLineage.for_child(child.id).active.pluck(:parent_agent_id)).to eq([ assistant.id ])
       end

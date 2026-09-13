@@ -131,9 +131,7 @@ RSpec.describe "no seed file independently re-creates a global canonical Ai::Age
   single_global_names = [
     single_global_name(claude_agents_text, "strategic-planner", "claude_agents_seed.rb"),
     single_global_name(claude_agents_text, "research-analyst", "claude_agents_seed.rb"),
-    single_global_name(monitoring_text, "system-performance-monitor", "monitoring_analytics_agents_seed.rb"),
-    single_global_name(monitoring_text, "system-analytics-intelligence", "monitoring_analytics_agents_seed.rb"),
-    single_global_name(monitoring_text, "system-health-monitor", "monitoring_analytics_agents_seed.rb"),
+    single_global_name(monitoring_text, "platform-health-monitor", "monitoring_analytics_agents_seed.rb"),
     single_global_name(monitoring_text, "system-quality-assurance", "monitoring_analytics_agents_seed.rb"),
     single_global_name(concierge_text, "powernode-assistant", "ai_concierge_seed.rb")
   ]

@@ -61,10 +61,7 @@
 CORE_HIERARCHY_ROOT_SLUG = "powernode-assistant"
 
 CORE_HIERARCHY_CHILD_SLUGS = %w[
-  system-performance-monitor
-  system-analytics-intelligence
-  system-health-monitor
-  infrastructure-health-monitor
+  platform-health-monitor
   process-automation-optimizer
   visual-design-assistant
   rag-reranker

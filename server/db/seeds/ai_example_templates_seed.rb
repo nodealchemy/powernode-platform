@@ -347,7 +347,9 @@ agents_data = [
     }
   },
   {
-    name: 'Infrastructure Health Monitor',
+    # IMP-80a353489ba4: showcase copy of the Platform Health Monitor canonical
+    # (formerly the Infrastructure Health Monitor).
+    name: 'Platform Health Monitor',
     agent_type: 'monitor',
     provider: grok_provider,
     description: 'Monitors system metrics, detects anomalies, manages alert thresholds, and reports health status. Correlates events across components.',
@@ -773,7 +775,7 @@ teams_data = [
       {
         role_name: 'Security Reviewer',
         role_type: 'reviewer',
-        agent_name: 'Infrastructure Health Monitor',
+        agent_name: 'Platform Health Monitor',
         role_description: 'Evaluates proposals for security risk and threat modeling',
         responsibilities: 'Threat modeling, security pattern review, compliance validation, risk assessment',
         goals: 'Identify and mitigate security risks in proposed architectures',

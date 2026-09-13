@@ -37,7 +37,10 @@ KEEP_AGENT_NAMES = [
   "Strategic Planner",
   "Research Analyst",
   "Visual Design Assistant",
-  "Infrastructure Health Monitor",
+  # IMP-80a353489ba4: the Infrastructure Health Monitor became the Platform
+  # Health Monitor (seeded by monitoring_analytics_agents_seed.rb, which adopts
+  # an existing row in place).
+  "Platform Health Monitor",
   "Process Automation Optimizer",
   "Legal & Compliance Analyst",
   "Life Sciences Research Analyst",
@@ -77,13 +80,6 @@ extra_agents = [
     provider: openai_provider,
     tier: "reasoning",
     description: "Creates design briefs, UI mockup specs, brand asset specs, and visual concept directions via structured prompts."
-  },
-  {
-    name: "Infrastructure Health Monitor",
-    slug: "infrastructure-health-monitor",
-    agent_type: "monitor",
-    provider: claude_provider,
-    description: "Monitors system metrics, detects anomalies, manages alert thresholds, and reports health status. Correlates events across components."
   },
   {
     name: "Process Automation Optimizer",
@@ -134,7 +130,6 @@ extra_agents = [
 # to customize. The industry/business example agents below stay account-scoped
 # demo data.
 GLOBAL_AUTONOMY_AGENT_SLUGS = %w[
-  infrastructure-health-monitor
   process-automation-optimizer
   visual-design-assistant
 ].freeze
@@ -218,7 +213,7 @@ provider_assignments = {
   "Process Automation Optimizer" => grok_provider,
   "Powernode Backend Developer"  => claude_provider,
   "Research Analyst"      => claude_provider,
-  "Infrastructure Health Monitor" => claude_provider,
+  "Platform Health Monitor" => claude_provider,
   "Powernode QA/Test Engineer"   => openai_provider,
   "Visual Design Assistant"      => openai_provider,
   "Powernode Documentation Specialist" => ollama_provider,
@@ -289,7 +284,7 @@ TRUST_PROFILES = {
   "Powernode Frontend Developer"     => { tier: "trusted",    rel: 0.80, cost: 0.70, safety: 0.80, qual: 0.70, speed: 0.70, evals: 25 },
   "Powernode QA/Test Engineer"       => { tier: "trusted",    rel: 0.85, cost: 0.75, safety: 0.85, qual: 0.80, speed: 0.75, evals: 28 },
   "Powernode Backend Developer"      => { tier: "trusted",    rel: 0.90, cost: 0.80, safety: 0.90, qual: 0.85, speed: 0.80, evals: 32 },
-  "Infrastructure Health Monitor"    => { tier: "trusted",    rel: 0.92, cost: 0.85, safety: 0.95, qual: 0.85, speed: 0.85, evals: 35 },
+  "Platform Health Monitor"          => { tier: "trusted",    rel: 0.92, cost: 0.85, safety: 0.95, qual: 0.85, speed: 0.85, evals: 35 },
   "Legal & Compliance Analyst"       => { tier: "supervised", rel: 0.30, cost: 0.40, safety: 0.50, qual: 0.35, speed: 0.30, evals: 3  },
   "Life Sciences Research Analyst"   => { tier: "supervised", rel: 0.25, cost: 0.80, safety: 0.35, qual: 0.25, speed: 0.40, evals: 3  },
   "Finance Operations Analyst"       => { tier: "supervised", rel: 0.30, cost: 0.80, safety: 0.45, qual: 0.30, speed: 0.40, evals: 3  },
@@ -353,7 +348,7 @@ BUDGET_PROFILES = {
   "Powernode Frontend Developer"     => { total: 5000,  spent: 0 },
   "Powernode QA/Test Engineer"       => { total: 5000,  spent: 0 },
   "Powernode Backend Developer"      => { total: 5000,  spent: 0 },
-  "Infrastructure Health Monitor"    => { total: 5000,  spent: 0 },
+  "Platform Health Monitor"          => { total: 5000,  spent: 0 },
   "Legal & Compliance Analyst"       => { total: 1000,  spent: 0 },
   "Life Sciences Research Analyst"   => { total: 1000,  spent: 0 },
   "Finance Operations Analyst"       => { total: 1000,  spent: 0 },

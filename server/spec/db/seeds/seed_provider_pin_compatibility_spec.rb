@@ -64,7 +64,7 @@ RSpec.describe "seed provider choice honours the model pin" do
     it "seeds the monitoring canonicals on an ACTIVE provider" do
       load_seed!("monitoring_analytics_agents_seed.rb")
 
-      agent = Ai::Agent.global.find_by(slug: "system-performance-monitor")
+      agent = Ai::Agent.global.find_by(slug: "platform-health-monitor")
       expect(agent).to be_present
       expect(agent.ai_provider_id).to eq(active_second.id)
     end

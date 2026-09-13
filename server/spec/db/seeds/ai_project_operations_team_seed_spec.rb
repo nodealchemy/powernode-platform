@@ -6,12 +6,15 @@ require "rails_helper"
 #
 # Two properties matter here and neither is about membership repair:
 #
-#   1. the template names three CORE canonicals (observer / deployer / SRE) and
-#      the SRE leads it;
+#   1. the template names two CORE canonicals — the Platform Health Monitor
+#      (observes the project and owns its incidents, so it leads) and the
+#      Release Manager (deploys) — IMP-80a353489ba4 merged the separate
+#      observer and SRE seats, which were two of the four monitors that became
+#      the Platform Health Monitor;
 #   2. it materialises NOTHING for the account. It is marked `per_project`, so
 #      Ai::Teams::CanonicalTeamReconciler's account-level walk must skip it —
-#      otherwise every reconcilable account silently acquires a team and three
-#      agent clones on every boot, and `drift` reports the account team it
+#      otherwise every reconcilable account silently acquires a team and agent
+#      clones on every boot, and `drift` reports the account team it
 #      deliberately does not have as drift that no reconcile can clear.
 #
 # The second is asserted on ROWS (no team, no extra clones) and on the walk
@@ -25,17 +28,16 @@ RSpec.describe "ai_project_operations_team_seed" do
   let!(:user)      { create(:user, account: account, email: "admin@powernode.org") }
   let!(:anthropic) { create(:ai_provider, account: account, provider_type: "anthropic", is_active: true) }
 
-  # The three canonicals the template names, minted directly rather than by
-  # running six agent seeds: this spec is about the TEMPLATE, and the seed
-  # resolves its seats by slug at materialisation time, not at seed time.
+  # The canonicals the template names, minted directly rather than by running
+  # the agent seeds: this spec is about the TEMPLATE, and the seed resolves its
+  # seats by slug at materialisation time, not at seed time.
   def canonical(slug, name)
     create(:ai_agent, :global, owner_account: account, slug: slug, source_key: slug,
                                name: name, agent_type: "monitor", is_system: true)
   end
 
-  let!(:sre)      { canonical("infrastructure-health-monitor", "Infrastructure Health Monitor") }
+  let!(:monitor)  { canonical("platform-health-monitor", "Platform Health Monitor") }
   let!(:deployer) { canonical("release-manager", "Release Manager") }
-  let!(:observer) { canonical("system-health-monitor", "System Health Monitor") }
 
   let(:slug) { Ai::Projects::TeamProvisioner::TEMPLATE_SLUG }
   let(:template) { Ai::TeamTemplate.global.find_by(slug: slug) }
@@ -51,12 +53,19 @@ RSpec.describe "ai_project_operations_team_seed" do
     expect(template.name).to eq("Project Operations")
   end
 
-  it "names the observer, the deployer and the SRE, with the SRE leading" do
+  it "names the Platform Health Monitor and the deployer, with the monitor leading" do
     expect(template.member_definitions.map { |d| d["agent_slug"] })
-      .to eq(%w[infrastructure-health-monitor release-manager system-health-monitor])
+      .to eq(%w[platform-health-monitor release-manager])
     expect(template.member_definitions.map { |d| d["member_role"] })
-      .to eq(%w[manager executor analyst])
-    expect(template.manager_definition["agent_slug"]).to eq("infrastructure-health-monitor")
+      .to eq(%w[manager executor])
+    expect(template.manager_definition["agent_slug"]).to eq("platform-health-monitor")
+  end
+
+  it "names no retired monitor" do
+    retired = %w[infrastructure-health-monitor system-health-monitor system-performance-monitor
+                 system-analytics-intelligence]
+
+    expect(template.member_definitions.map { |d| d["agent_slug"] } & retired).to be_empty
   end
 
   it "is marked per_project, so nothing materialises it for the account" do
@@ -90,6 +99,6 @@ RSpec.describe "ai_project_operations_team_seed" do
     expect { load_seed!("ai_project_operations_team_seed.rb") }
       .to change { Ai::TeamTemplate.count }.by(0)
 
-    expect(template.member_definitions.size).to eq(3)
+    expect(template.member_definitions.size).to eq(2)
   end
 end

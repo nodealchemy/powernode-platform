@@ -25,15 +25,13 @@ require "rails_helper"
 module CoreCanonicalSeedsWithoutUsers
   CANONICAL_SLUGS_BY_SEED = {
     "claude_agents_seed.rb" => %w[strategic-planner research-analyst],
-    "monitoring_analytics_agents_seed.rb" => %w[
-      system-performance-monitor system-analytics-intelligence
-      system-health-monitor system-quality-assurance
-    ],
+    # IMP-80a353489ba4: four overlapping monitors became the Platform Health Monitor.
+    "monitoring_analytics_agents_seed.rb" => %w[platform-health-monitor system-quality-assurance],
     "ai_utility_agents_seed.rb" => %w[
       prd-generator llm-judge knowledge-graph-curator rag-reranker rag-query-engine intent-classifier
     ],
     "ai_concierge_seed.rb" => %w[powernode-assistant],
-    "autonomy_data_seed.rb" => %w[infrastructure-health-monitor process-automation-optimizer visual-design-assistant],
+    "autonomy_data_seed.rb" => %w[process-automation-optimizer visual-design-assistant],
     "ai_engineering_agents_seed.rb" => %w[platform-architect platform-developer release-manager documentation-specialist]
   }.freeze
 

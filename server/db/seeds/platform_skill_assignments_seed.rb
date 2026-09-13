@@ -22,7 +22,9 @@ platform_skill_assignments = {
   # compliance-review, security-audit. They are removed below (the seed now
   # fails loud on unknown slugs); authoring those specialist skills is tracked
   # as its own improvement offer. Re-add the binding WITH the skill.
-  'Infrastructure Health Monitor' => %w[
+  # IMP-80a353489ba4: the Infrastructure Health Monitor's skills move to the
+  # Platform Health Monitor that replaced it (same row where one existed).
+  'Platform Health Monitor' => %w[
     sre-incident-response devops-engineer security-analyst
   ],
   'Knowledge Graph Curator' => %w[

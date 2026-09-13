@@ -31,17 +31,18 @@ RSpec.describe "core fundamental agent seeds → global" do
     end
   end
 
-  it "globalizes the 4 monitoring agents" do
+  # IMP-80a353489ba4: the four overlapping monitors are one Platform Health
+  # Monitor; System Quality Assurance stays.
+  it "globalizes the Platform Health Monitor and System Quality Assurance" do
     load_seed!("monitoring_analytics_agents_seed.rb")
-    %w[system-performance-monitor system-analytics-intelligence
-       system-health-monitor system-quality-assurance].each do |slug|
+    %w[platform-health-monitor system-quality-assurance].each do |slug|
       expect(global?(slug)).to be(true), "#{slug} should be global"
     end
   end
 
-  it "globalizes the 3 fundamental autonomy_data agents but keeps industry agents account-scoped" do
+  it "globalizes the 2 fundamental autonomy_data agents but keeps industry agents account-scoped" do
     load_seed!("autonomy_data_seed.rb")
-    %w[infrastructure-health-monitor process-automation-optimizer visual-design-assistant].each do |slug|
+    %w[process-automation-optimizer visual-design-assistant].each do |slug|
       expect(global?(slug)).to be(true), "#{slug} should be global"
     end
     # industry/business example agents stay account-scoped demo data

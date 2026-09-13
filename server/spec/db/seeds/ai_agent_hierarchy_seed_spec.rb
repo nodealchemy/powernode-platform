@@ -95,7 +95,7 @@ RSpec.describe "ai_agent_hierarchy_seed" do
 
     core_forest = Ai::AgentLineage.for_parent(root.id).active.map { |e| e.child_agent.slug }
     expect(core_forest & ENGINEERING_HIERARCHY_CHILD_SLUGS).to be_empty
-    expect(core_forest).to include("system-performance-monitor", "intent-classifier")
+    expect(core_forest).to include("platform-health-monitor", "intent-classifier")
   end
 
   # Keyed on the seeding account, not as an account_id-NULL canonical row, so
