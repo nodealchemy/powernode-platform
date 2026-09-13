@@ -128,6 +128,14 @@ It runs outside the tick's `FOR UPDATE` transaction: it only touches rows alread
 past the window, so it never contends with `acquire!`/`drain!`, and holding pool row locks
 across a cascading destroy would serialise the 60s tick behind it.
 
+**Later changes to the same phase.**
+
+- IMP-64d9f2cdff63 prunes a record only once the provider confirms, by guest name, that its guest is gone.
+- IMP-1f0996aa7fa3 changed three things:
+  - **Clock:** the retention clock is the member's last sign of life (heartbeat, claim, warm start, creation) instead of `updated_at`. The hourly cloud sync writes `updated_at` on dead rows whose recycled VMID is still listed, so the old clock kept restarting.
+  - **Window:** the fleet-wide default comes from the `system.instance_pool.dead_record_retention_days` SiteSetting. The per-pool metadata override still wins, and the fallback is still 7.
+  - **Planes:** only rows on the churn tier (seeded: dev, ci) that the plane's rules leave alone are collected. A claimed member in `error` is kept.
+
 ## Reproducing the census
 
 ```sql
