@@ -58,7 +58,7 @@ module Ai
       end
 
       def redis
-        @redis ||= Powernode::Redis.client
+        Powernode::Redis.client
       end
     end
   end

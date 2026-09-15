@@ -8,8 +8,6 @@ RSpec.describe Ai::Introspection::RateLimiter do
 
   before do
     allow(Powernode::Redis).to receive(:client).and_return(mock_redis)
-    # Reset memoized redis instance between tests
-    described_class.instance_variable_set(:@redis, nil)
   end
 
   describe "constants" do

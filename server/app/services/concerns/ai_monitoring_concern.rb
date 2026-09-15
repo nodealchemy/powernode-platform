@@ -303,7 +303,7 @@ module AiMonitoringConcern
   # =============================================================================
 
   def redis
-    @redis ||= Powernode::Redis.client
+    Powernode::Redis.client
   end
 
   def build_metric_key(metric_name, tags = {})

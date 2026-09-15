@@ -106,7 +106,7 @@ module Security
 
       # Get Redis connection
       def redis
-        @redis ||= Powernode::Redis.client
+        Powernode::Redis.client
       end
 
       # Calculate TTL in seconds

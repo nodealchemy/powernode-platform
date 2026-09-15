@@ -108,7 +108,7 @@ module Security
       end
 
       def redis
-        @redis ||= Powernode::Redis.client
+        Powernode::Redis.client
       end
     end
   end

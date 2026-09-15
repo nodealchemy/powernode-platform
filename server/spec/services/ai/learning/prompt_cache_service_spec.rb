@@ -12,8 +12,6 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
   let(:cached_response) { { 'content' => 'Quantum computing uses qubits...', 'model' => 'gpt-4' } }
 
   before do
-    # Reset class-level redis instance variable between tests
-    described_class.instance_variable_set(:@redis, nil)
     allow(Powernode::Redis).to receive(:client).and_return(mock_redis)
 
     allow(Rails.logger).to receive(:info)
