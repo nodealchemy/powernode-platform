@@ -85,7 +85,11 @@ RSpec.describe Ai::Tools::DevLoopTool do
       campaign.record_decision!(decision_type: "build", title: "Unify the approval flows")
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "ctx", priority: 5)
 
-      ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+      # A campaign loop's pull asks the campaign authorization (IMP-5e2b153a3a04),
+      # so the actor here is one who may drive the campaign.
+      manager = create(:user, account: account, permissions: %w[ai.agents.update ai.campaigns.manage])
+      ctx = described_class.new(account: account, user: manager)
+                           .execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
 
       expect(ctx[:recent_learnings].last["text"]).to match(/generic seam/)
       expect(ctx[:open_decisions].size).to eq(1)
@@ -644,6 +648,10 @@ RSpec.describe Ai::Tools::DevLoopTool do
       # premature-finalization bug").
       campaign = create(:ai_campaign, account: account)
       ralph_loop.update!(campaign: campaign)
+      # Completing a campaign loop's task asks the campaign authorization (IMP-5e2b153a3a04).
+      campaign_role = create(:role)
+      campaign_role.role_permissions.create!(permission_name: "ai.campaigns.manage")
+      user.roles << campaign_role
 
       result = tool.execute(params: {
         action: "dev_complete_task", loop_id: ralph_loop.id, task_key: "F9-99",

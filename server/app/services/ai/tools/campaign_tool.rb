@@ -6,6 +6,8 @@ module Ai
     # start a campaign (+ its dedicated dev-loop), check live status (ledger + open questions +
     # decisions + loops), answer a parked question, and stop a campaign.
     class CampaignTool < BaseTool
+      include Concerns::CampaignPrincipal
+
       REQUIRED_PERMISSION = "ai.campaigns.manage"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
@@ -299,15 +301,6 @@ module Ai
 
       def driver
         Ai::DevLoop::CampaignDriver.new(account: account, user: user, principal: campaign_principal)
-      end
-
-      # IMP-a658fc220367: a call with no user names its principal for the campaign check,
-      # which asserts it: the agent or node instance this door was built for, or the
-      # declared in-process caller. Anything else carries none and is refused.
-      def campaign_principal
-        return nil if user
-
-        agent || node_instance || (internal? ? ::Ai::Campaigns::Authorization::INTERNAL : nil)
       end
 
       def find_campaign(id)

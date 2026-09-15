@@ -7,6 +7,8 @@ module Ai
     # work via dev_next_task and report results via dev_complete_task —
     # the platform schedules, tracks, and governs but never pushes work.
     class DevLoopTool < BaseTool
+      include Concerns::CampaignPrincipal
+
       REQUIRED_PERMISSION = "ai.agents.update"
 
       OUTCOMES = %w[passed failed blocked skipped].freeze
@@ -284,6 +286,12 @@ module Ai
         campaign = loop_record.campaign
         return nil unless campaign
 
+        # IMP-5e2b153a3a04: the tool's own ai.agents.update is not the campaign check.
+        # Taking (or draining under) a campaign's single-driver lease asks the same
+        # authorization CampaignDriver#claim asks, or a caller without
+        # ai.campaigns.manage could hold the lease and lock the legitimate driver out.
+        return "campaign_not_authorized" unless campaign_pull_authorized?(campaign)
+
         if holder.present?
           # Single atomic step: acquires the lease if it's free or already ours, returns
           # false if another driver holds it (no check-then-acquire gap).
@@ -292,6 +300,30 @@ module Ai
 
         # Legacy CC caller without a holder: allow only when the lease is free.
         campaign.driver_lease_active? ? "leased_to:#{campaign.driver_lease_holder}" : nil
+      end
+
+      # The same question for the actions that change a campaign loop's tasks without
+      # pulling one: dev_complete_task (including claim_if_pending, which claims and
+      # closes in one call), dev_update_task and delegate_ralph_task. Each could
+      # otherwise drain or rewrite a campaign's queue under ai.agents.update alone.
+      # The loop's delegated platform agent is admitted as dev_next_task admits it.
+      def campaign_authorization_refusal(loop_record)
+        return nil if loop_record.campaign_id.blank?
+
+        campaign = loop_record.campaign
+        return nil unless campaign
+        return nil if loop_record.platform_driven? && delegated_platform_agent?(loop_record)
+
+        campaign_pull_authorized?(campaign) ? nil : "campaign_not_authorized"
+      end
+
+      def campaign_pull_authorized?(campaign)
+        ::Ai::Campaigns::Authorization.authorize_actor!(
+          user: user, account: campaign.account, principal: campaign_principal
+        )
+        true
+      rescue ::Ai::Campaigns::Authorization::Refused
+        false
       end
 
       def list_tasks(params)
@@ -336,6 +368,9 @@ module Ai
         # model the credit guard below addresses.
         if account.respond_to?(:ai_suspended?) && account.ai_suspended?
           return { success: true, halted: true, reason: "emergency_halt", task_key: params[:task_key] }
+        end
+        if (reason = campaign_authorization_refusal(loop_record))
+          return { success: true, halted: true, reason: reason, task_key: params[:task_key] }
         end
 
         task = find_task(loop_record, params[:task_key])
@@ -668,6 +703,9 @@ module Ai
         # write task transitions / iterations / learnings (mirrors next_task's halt guard).
         if account.respond_to?(:ai_suspended?) && account.ai_suspended?
           return { success: true, halted: true, reason: "emergency_halt", task_key: params[:task_key] }
+        end
+        if (reason = campaign_authorization_refusal(loop_record))
+          return { success: true, halted: true, reason: reason, task_key: params[:task_key] }
         end
 
         task = loop_record.ralph_tasks.find_by(task_key: params[:task_key])
@@ -1136,6 +1174,9 @@ module Ai
         return error_result("Ralph loop not found") unless loop_record
 
         if (reason = halt_reason(loop_record))
+          return { success: true, halted: true, reason: reason }
+        end
+        if (reason = campaign_authorization_refusal(loop_record))
           return { success: true, halted: true, reason: reason }
         end
 
