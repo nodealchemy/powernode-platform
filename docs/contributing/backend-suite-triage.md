@@ -9,7 +9,8 @@
 > identically on two independent machines. The dominant cause is verified: specs
 > that intend an *unauthorized* actor are using a privileged one, because a bare
 > `create(:user, account:)` is the account's first user and therefore an **owner
-> with all 329 permissions**. The product code is correct.
+> holding every resource permission plus the account-admin permissions**. The
+> product code is correct.
 
 ## Table of Contents
 
@@ -64,7 +65,9 @@ end
 Measured directly:
 
 ```
-create(:user, account: acct)  ->  roles ["owner"], 329 permissions
+create(:user, account: acct)  ->  roles ["owner"], every resource permission
+                                  plus the account-admin permissions
+                                  (count: Permissions.permissions_for_role("owner").size)
                                   has_permission?("ai.security.manage") = true
 ```
 

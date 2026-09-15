@@ -20,8 +20,31 @@ RSpec.describe 'permissions docs stale registry references' do
     /permission_seeder/ => 'reference to the deleted permission_seeder.rb',
     /ai_autonomy_permissions/ => 'reference to the deleted ai_autonomy_permissions.rb seed file',
     /\bALL_PERMISSIONS\b/ => 'reference to the renamed Permissions::ALL_PERMISSIONS (now CORE_PERMISSIONS / Permissions.all_permissions)',
-    /\b371\b/ => 'hardcoded permission count (the total is dynamic — Permissions.all_permissions.size)'
+    # Any count of permissions written into prose ("371 static permissions",
+    # "329 permissions"), not a bare number: a code line range such as
+    # `file.rb:346-371` is not a count.
+    /\b\d{2,}\s+(?:static\s+|total\s+|core\s+|registered\s+|catalog\s+|defined\s+)?permissions?\b/i =>
+      'hardcoded permission count (the total is dynamic — Permissions.all_permissions.size)'
   }
+
+  descriptions_for = lambda do |line|
+    forbidden.filter_map { |pattern, desc| desc if line.match?(pattern) }
+  end
+
+  # IMP-faac96398df8: the count rule matched any bare "371", so two docs citing
+  # code line ranges (`processor.rb:371-381`, `tool.rb:346-371`) turned this spec
+  # red with no permission count in sight. The rule is about a COUNT of permissions.
+  describe 'the hardcoded-count rule' do
+    it 'flags a permission count written into prose' do
+      expect(descriptions_for.call('The catalog defines 371 static permissions.').join)
+        .to include('hardcoded permission count')
+    end
+
+    it 'does not flag a code line reference that happens to contain the number' do
+      expect(descriptions_for.call('see `module_publication_processor.rb:371-381`')).to be_empty
+      expect(descriptions_for.call('(`improvement_tool.rb:346-371`) already exists')).to be_empty
+    end
+  end
 
   it 'does not cite removed/renamed permission registry internals' do
     violations = []
