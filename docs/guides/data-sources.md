@@ -816,7 +816,9 @@ The posture is **deny-on-explicit, default-allow** (documented intentionally in 
 
 > User/system fetches (no agent) skip ABAC entirely — the controller already authorized the human via permissions. ABAC applies to **agent-initiated** reads.
 
-**Deny** an agent (or a whole trust tier) access to one source — put the resource token in `denied_resources`:
+**Deny** an agent (or a whole trust tier) access to one source — put the resource token in `denied_resources`.
+
+> The same row is also read by `Ai::Security::PrivilegeEnforcementService` for every action, tool and resource check, and there a **blank allow-list denies**. A deny-only policy must spell its allow-lists as `["*"]`, or it blocks the agent from everything, not just this source.
 
 ```ruby
 # DENY: agent-scoped block of one data source.
@@ -827,6 +829,9 @@ Ai::AgentPrivilegePolicy.create!(
   agent_id:     agent.id,            # agent-scoped; OR set trust_tier: for a tier-wide rule
   active:       true,
   priority:     100,
+  allowed_actions:   ["*"],          # blank would deny every action
+  allowed_tools:     ["*"],          # blank would deny every tool
+  allowed_resources: ["*"],
   denied_resources: ["data_source:#{data_source.id}"]  # "*" denies ALL sources
 )
 ```
@@ -842,6 +847,8 @@ Ai::AgentPrivilegePolicy.create!(
   trust_tier:   "trusted",           # applies to every "trusted"-tier agent
   active:       true,
   priority:     50,
+  allowed_actions: ["*"],            # blank would deny every action for the tier
+  allowed_tools:   ["*"],            # blank would deny every tool for the tier
   allowed_resources: [
     "data_source:#{open_meteo.id}",
     "data_source:#{fred.id}"
@@ -849,12 +856,12 @@ Ai::AgentPrivilegePolicy.create!(
 )
 ```
 
-Field semantics (verified against `Ai::AgentPrivilegePolicy#resource_allowed?`):
+Field semantics (verified against `GovernanceService#explicit_deny?` and `Ai::AgentPrivilegePolicy#resource_allowed?`):
 
 | Field | Type | Role in the data-source decision |
 |---|---|---|
 | `denied_resources` | jsonb array | `"*"` or `"data_source:<id>"` here is the **only** thing that produces a deny. Checked first, wins over `allowed_resources`. |
-| `allowed_resources` | jsonb array | An allow-list. **Empty** = allow anything not denied (the default-allow posture). `"*"` or the token grants. |
+| `allowed_resources` | jsonb array | Not read by the data-source gate, which is default-allow. `#resource_allowed?` (used by `PrivilegeEnforcementService`) treats it as an allow-list: `"*"` or the token grants, and **empty or null denies**. |
 | `agent_id` / `trust_tier` / `policy_type` | uuid / string / string | Selectors for `applicable_to(agent_id, trust_tier)` — a policy applies when its `agent_id` matches, its `trust_tier` matches the agent's tier, or it is a tier-agnostic `policy_type: "system"` policy. |
 | `priority` | int | Higher first (`by_priority`); a higher-priority explicit deny is reached before lower ones. |
 

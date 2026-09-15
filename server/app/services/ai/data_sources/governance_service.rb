@@ -15,9 +15,9 @@ module Ai
     #        Ai::Security::PiiRedactionService masking primitive.
     #
     # REUSE (this service invents NO new models and NO new policy engine)
-    #   * Ai::AgentPrivilegePolicy.applicable_to(agent_id, trust_tier) +
-    #     #resource_allowed?("data_source:<id>") — the existing per-agent ABAC grant
-    #     check (allowed_resources / denied_resources, wildcard-aware).
+    #   * Ai::AgentPrivilegePolicy.applicable_to(agent_id, trust_tier) + each
+    #     policy's denied_resources ("data_source:<id>" or "*"), read directly — the
+    #     existing per-agent ABAC rows (see ABAC DEFAULT-ALLOW POSTURE below).
     #   * Ai::CompliancePolicy.active.by_type("data_access") + #applies_to? +
     #     #evaluate(context) + #blocking? + #record_violation! — the existing
     #     compliance evaluation + violation-recording surface.
@@ -51,10 +51,9 @@ module Ai
     #   the request is ALLOWED. This keeps existing fetches working when no operator
     #   has authored a resource-scoped policy yet. A request is denied ONLY when an
     #   applicable policy explicitly lists the resource (or "*") under
-    #   denied_resources. (Note: AgentPrivilegePolicy#resource_allowed? already
-    #   returns true for a non-mentioning policy because allowed_resources is empty;
-    #   we additionally treat "policy never mentions the resource" as a no-op so a
-    #   single permissive policy cannot accidentally grant-away nothing.)
+    #   denied_resources. (Note: AgentPrivilegePolicy#resource_allowed? reads a
+    #   blank allowed_resources as DENY since IMP-636a10c80024, so it cannot express
+    #   this posture; the gate reads denied_resources directly and never calls it.)
     #
     # MASKING IS POST-CACHE, PER-REQUEST
     #   QueryService caches RAW (unmasked) records — masking is applied at the single
@@ -250,9 +249,9 @@ module Ai
       # True when this privilege policy EXPLICITLY denies the resource — the
       # resource (or "*") appears in denied_resources. This is the only condition
       # that produces a deny; a policy that merely fails to grant the resource is a
-      # no-op under the default-allow posture. Wildcard-aware via the model's own
-      # #resource_allowed? for the affirmative case, but we gate on an explicit
-      # mention so an empty/permissive policy cannot deny.
+      # no-op under the default-allow posture. Deliberately NOT the model's
+      # #resource_allowed?, which denies on a blank allow-list: only an explicit
+      # mention denies here.
       def explicit_deny?(policy, resource)
         denied = Array(policy.denied_resources)
         return true if denied.include?("*")

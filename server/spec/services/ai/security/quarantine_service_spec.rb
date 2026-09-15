@@ -76,6 +76,18 @@ RSpec.describe Ai::Security::QuarantineService, type: :service do
       expect(policy.denied_tools).to be_present
     end
 
+    # IMP-636a10c80024: a blank allow-list denies, so a deny-only restriction
+    # policy must spell its allow-lists as the wildcard.
+    it "restricts only the named tools on a medium quarantine policy" do
+      service.quarantine!(agent: agent, severity: "medium", reason: "Test")
+
+      policy = Ai::AgentPrivilegePolicy.find_by!(account: account, agent_id: agent.id)
+      expect(policy.tool_allowed?("search_knowledge")).to be true
+      expect(policy.tool_allowed?("execute")).to be false
+      expect(policy.action_allowed?("read_data")).to be true
+      expect(policy.resource_allowed?("documents")).to be true
+    end
+
     it "pauses agent for critical severity" do
       service.quarantine!(agent: agent, severity: "critical", reason: "Critical")
       agent.reload

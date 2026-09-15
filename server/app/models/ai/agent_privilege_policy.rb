@@ -44,25 +44,19 @@ module Ai
     # ==========================================
     # Methods
     # ==========================================
+    # A blank (empty or null) allow-list DENIES (operator rule 2026-09-08,
+    # IMP-636a10c80024): unrestricted is spelled ["*"], so a writer that
+    # forgets the list fails closed. The deny-list still bounds a wildcard.
     def action_allowed?(action)
-      return false if denied_actions.include?("*") || denied_actions.include?(action)
-      return true if allowed_actions.empty? || allowed_actions.include?(action) || allowed_actions.include?("*")
-
-      false
+      listed_and_not_denied?(allowed_actions, denied_actions, action)
     end
 
     def tool_allowed?(tool_name)
-      return false if denied_tools.include?("*") || denied_tools.include?(tool_name)
-      return true if allowed_tools.empty? || allowed_tools.include?(tool_name) || allowed_tools.include?("*")
-
-      false
+      listed_and_not_denied?(allowed_tools, denied_tools, tool_name)
     end
 
     def resource_allowed?(resource)
-      return false if denied_resources.include?("*") || denied_resources.include?(resource)
-      return true if allowed_resources.empty? || allowed_resources.include?(resource) || allowed_resources.include?("*")
-
-      false
+      listed_and_not_denied?(allowed_resources, denied_resources, resource)
     end
 
     def communication_allowed?(from_agent_id, to_agent_id)
@@ -79,6 +73,18 @@ module Ai
     end
 
     private
+
+    # A NULL deny-list denies too: the old reading raised on it and enforcement
+    # failed closed, and Array(nil) would quietly read it as "nothing denied".
+    def listed_and_not_denied?(allowed, denied, name)
+      return false if denied.nil?
+
+      denied = Array(denied)
+      return false if denied.include?("*") || denied.include?(name)
+
+      allowed = Array(allowed)
+      allowed.include?("*") || allowed.include?(name)
+    end
 
     # Match a communication pair, treating "*" as a wildcard that matches any agent ID.
     def pair_matches?(pair, from_agent_id, to_agent_id)

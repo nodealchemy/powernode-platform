@@ -304,12 +304,21 @@ module Ai
         { error: e.message }
       end
 
+      # A restriction policy only DENIES. Its allow-lists are the explicit
+      # wildcard because a blank allow-list denies everything
+      # (IMP-636a10c80024), which would turn a medium quarantine's "no write
+      # tools" into "no tools".
+      UNRESTRICTED_ALLOW_LISTS = {
+        allowed_actions: [ "*" ], allowed_tools: [ "*" ], allowed_resources: [ "*" ]
+      }.freeze
+
       def create_restriction_policy(agent, severity, denied_tools: [], denied_actions: [], communication_rules: {})
         policy_name = "quarantine_#{agent.id}_#{severity}"
 
         existing = Ai::AgentPrivilegePolicy.where(account: @account, policy_name: policy_name).first
         if existing
           existing.update!(
+            **UNRESTRICTED_ALLOW_LISTS,
             denied_tools: denied_tools,
             denied_actions: denied_actions,
             communication_rules: communication_rules,
@@ -322,6 +331,7 @@ module Ai
             agent_id: agent.id,
             policy_name: policy_name,
             policy_type: "system",
+            **UNRESTRICTED_ALLOW_LISTS,
             denied_tools: denied_tools,
             denied_actions: denied_actions,
             communication_rules: communication_rules,

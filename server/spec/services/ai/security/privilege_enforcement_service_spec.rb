@@ -87,6 +87,15 @@ RSpec.describe Ai::Security::PrivilegeEnforcementService, type: :service do
       result = service.check_tool!(agent: agent, tool_name: "search")
       expect(result[:allowed]).to be true
     end
+
+    # IMP-636a10c80024: a blank allow-list denies, end to end.
+    it "denies every tool under a policy whose allow-list is blank" do
+      policy.update!(allowed_tools: [])
+
+      result = service.check_tool!(agent: agent, tool_name: "search")
+      expect(result[:allowed]).to be false
+      expect(result[:policy_id]).to eq(policy.id)
+    end
   end
 
   describe "#check_communication!" do

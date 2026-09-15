@@ -5,11 +5,13 @@ FactoryBot.define do
     account
     sequence(:policy_name) { |n| "policy_#{n}" }
     policy_type { "custom" }
-    allowed_actions { [] }
+    # Explicit wildcards: a blank allow-list DENIES (IMP-636a10c80024), so a
+    # deny-list-only policy has to spell "unrestricted" as ["*"].
+    allowed_actions { [ "*" ] }
     denied_actions { [] }
-    allowed_tools { [] }
+    allowed_tools { [ "*" ] }
     denied_tools { [] }
-    allowed_resources { [] }
+    allowed_resources { [ "*" ] }
     denied_resources { [] }
     communication_rules { {} }
     escalation_rules { {} }

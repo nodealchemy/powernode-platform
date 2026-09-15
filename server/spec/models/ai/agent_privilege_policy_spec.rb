@@ -79,6 +79,37 @@ RSpec.describe Ai::AgentPrivilegePolicy, type: :model do
     end
   end
 
+  # IMP-636a10c80024, operator rule 2026-09-08: a blank permission/scope list
+  # means DENY, not unrestricted. Unrestricted is spelled ["*"].
+  describe "blank allow-lists" do
+    let(:blank) { build(:ai_agent_privilege_policy, account: account, allowed_actions: [], allowed_tools: [], allowed_resources: []) }
+    let(:null) { build(:ai_agent_privilege_policy, account: account, allowed_actions: nil, allowed_tools: nil, allowed_resources: nil) }
+
+    it "denies every action, tool and resource when the allow-list is empty" do
+      expect(blank.action_allowed?("read_data")).to be false
+      expect(blank.tool_allowed?("search")).to be false
+      expect(blank.resource_allowed?("documents")).to be false
+    end
+
+    it "denies every action, tool and resource when the allow-list is null" do
+      expect(null.action_allowed?("read_data")).to be false
+      expect(null.tool_allowed?("search")).to be false
+      expect(null.resource_allowed?("documents")).to be false
+    end
+
+    it "denies when the deny-list is null even under a wildcard allow-list" do
+      policy = build(:ai_agent_privilege_policy, account: account, allowed_tools: ["*"], denied_tools: nil)
+      expect(policy.tool_allowed?("search")).to be false
+    end
+
+    it "allows what an explicit wildcard allow-list names, bounded by the deny-list" do
+      policy = build(:ai_agent_privilege_policy, account: account,
+                     allowed_tools: ["*"], denied_tools: ["execute_code"])
+      expect(policy.tool_allowed?("search")).to be true
+      expect(policy.tool_allowed?("execute_code")).to be false
+    end
+  end
+
   describe "#communication_allowed?" do
     let(:agent_a_id) { SecureRandom.uuid }
     let(:agent_b_id) { SecureRandom.uuid }
