@@ -90,6 +90,63 @@ RSpec.describe "Ai::Campaigns::Authorization" do
       expect(campaign.reload.status).to eq("active")
     end
 
+    # IMP-c7a173fd2198: the lease, the progress ledger and the rebase advisories were
+    # changed with no check at all, so only the MCP door's own permission stood in front
+    # of them and any other caller of the service reached them unchecked.
+    it "claim refuses a reader and a manager of another account, leaving the lease free" do
+      campaign = owner_driver.start(name: "Lease")[:campaign]
+      [reader, foreign_manager].each do |actor|
+        expect { driver_for(actor).claim(campaign, holder: "x") }.to raise_error(StandardError, refusal)
+      end
+      expect(campaign.reload.driver_lease_holder).to be_nil
+
+      expect(owner_driver.claim(campaign, holder: "owner-sess")[:ok]).to be(true)
+    end
+
+    it "release refuses a reader and a manager of another account, leaving the lease held" do
+      campaign = owner_driver.start(name: "Held")[:campaign]
+      owner_driver.claim(campaign, holder: "owner-sess")
+      [reader, foreign_manager].each do |actor|
+        expect { driver_for(actor).release(campaign, holder: "owner-sess") }.to raise_error(StandardError, refusal)
+      end
+      expect(campaign.reload.driver_lease_holder).to eq("owner-sess")
+
+      expect(owner_driver.release(campaign, holder: "owner-sess")).to eq({ ok: true })
+    end
+
+    it "record_increment! refuses a reader and a manager of another account, writing nothing to the ledger" do
+      campaign = owner_driver.start(name: "Ledger")[:campaign]
+      [reader, foreign_manager].each do |actor|
+        expect { driver_for(actor).record_increment!(campaign, title: "forged", task_key: "forged") }
+          .to raise_error(StandardError, refusal)
+      end
+      expect(campaign.ralph_loops.first.ralph_tasks.where(task_key: "forged")).to be_empty
+      expect(campaign.campaign_decisions.count).to eq(0)
+
+      owner_driver.record_increment!(campaign, title: "real", task_key: "real")
+      expect(campaign.ralph_loops.first.ralph_tasks.where(task_key: "real")).to exist
+    end
+
+    it "notify_rebase_advisories refuses a reader and a manager of another account before advising anyone" do
+      expect(Ai::Land::RebaseAdvisor).not_to receive(:new)
+      [reader, foreign_manager].each do |actor|
+        expect { driver_for(actor).notify_rebase_advisories(target_branch: "develop") }
+          .to raise_error(StandardError, refusal)
+      end
+    end
+
+    it "claim, release, record_increment! and notify_rebase_advisories refuse a caller with no user and no principal" do
+      campaign = owner_driver.start(name: "Nobody")[:campaign]
+      nobody = Ai::DevLoop::CampaignDriver.new(account: account)
+      no_principal = /no user must name its principal/
+
+      expect { nobody.claim(campaign, holder: "x") }.to raise_error(Ai::Campaigns::Authorization::Refused, no_principal)
+      expect { nobody.release(campaign, holder: "x") }.to raise_error(Ai::Campaigns::Authorization::Refused, no_principal)
+      expect { nobody.record_increment!(campaign, title: "t") }.to raise_error(Ai::Campaigns::Authorization::Refused, no_principal)
+      expect { nobody.notify_rebase_advisories }.to raise_error(Ai::Campaigns::Authorization::Refused, no_principal)
+      expect(campaign.reload.driver_lease_holder).to be_nil
+    end
+
     # IMP-a658fc220367: a call with no user used to pass unchecked, trusting that its door
     # had bound the account. It must now name its principal, and the check asserts it.
     describe "a caller with no user" do

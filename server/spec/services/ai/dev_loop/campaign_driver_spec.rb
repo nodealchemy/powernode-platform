@@ -100,7 +100,10 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
   describe "#claim / #release (single-driver lease)" do
     it "claims a free campaign, blocks a second driver, and frees it on release" do
       campaign = driver.start(name: "X")[:campaign]
-      other = described_class.new(account: account, user: create(:user, account: account))
+      # A competing driver that may drive (claim now asks ai.campaigns.manage): the lease,
+      # not the permission, is what blocks it here.
+      other = described_class.new(account: account,
+                                  user: create(:user, account: account, permissions: %w[ai.campaigns.manage]))
 
       first = driver.claim(campaign, holder: "sess-a")
       expect(first[:ok]).to be true

@@ -116,6 +116,7 @@ module Ai
       # the caller backs off instead of double-driving. `holder` identifies the driver
       # (e.g. a session id); defaults to the driver's user id.
       def claim(campaign, holder: nil, ttl: nil)
+        authorize_actor!(campaign.account)
         who = (holder.presence || @user&.id&.to_s)
         ok = if ttl
                campaign.acquire_driver_lease!(holder: who, ttl: ttl)
@@ -134,6 +135,7 @@ module Ai
       # Release this campaign's single-driver lease (call when done driving). Returns
       # { ok: true } once the lease is free, { ok: false } if a different driver holds it.
       def release(campaign, holder: nil)
+        authorize_actor!(campaign.account)
         who = (holder.presence || @user&.id&.to_s)
         { ok: campaign.release_driver_lease!(holder: who) }
       end
@@ -246,6 +248,7 @@ module Ai
       # Idempotent on task_key.
       def record_increment!(campaign, title:, summary: nil, task_key: nil, decision_type: "build",
                             rationale: nil, status: "passed", metadata: {}, check_results: {})
+        authorize_actor!(campaign.account)
         loop_record = campaign.ralph_loops.order(:created_at).first
         raise ArgumentError, "campaign has no loop to record against" unless loop_record
 
@@ -374,6 +377,7 @@ module Ai
       # source — auto-lands, manual lands (operator ff), other-repo pushes — so it can
       # be invoked on a schedule or after a manual land. Deduped per target tip.
       def notify_rebase_advisories(target_branch: "develop", exclude: nil)
+        authorize_actor!(@account)
         advised = Ai::Land::RebaseAdvisor.new(account: @account)
                                          .notify_stale!(target_branch: target_branch, exclude: exclude)
         {
