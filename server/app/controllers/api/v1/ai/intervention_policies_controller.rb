@@ -4,6 +4,8 @@ module Api
   module V1
     module Ai
       class InterventionPoliciesController < ApplicationController
+        include ::HumanSession
+
         before_action :validate_permissions
         before_action :set_policy, only: %i[show update destroy]
 
@@ -32,6 +34,7 @@ module Api
         # POST /api/v1/ai/intervention_policies
         def create
           policy = current_user.account.ai_intervention_policies.build(policy_params)
+          return refuse_mark_write unless mark_write_permitted?(before: nil, after: policy.conditions)
 
           if policy.save
             render_success(serialize_policy(policy), status: :created)
@@ -42,7 +45,12 @@ module Api
 
         # PATCH /api/v1/ai/intervention_policies/:id
         def update
-          if @policy.update(policy_params)
+          @policy.assign_attributes(policy_params)
+          unless mark_write_permitted?(before: @policy.attribute_in_database(:conditions), after: @policy.conditions)
+            return refuse_mark_write
+          end
+
+          if @policy.save
             render_success(serialize_policy(@policy))
           else
             render_error(@policy.errors.full_messages.join(", "), status: :unprocessable_content)
@@ -51,6 +59,8 @@ module Api
 
         # DELETE /api/v1/ai/intervention_policies/:id
         def destroy
+          return refuse_mark_write unless mark_write_permitted?(before: @policy.conditions, after: nil)
+
           @policy.destroy!
           render_success(message: "Intervention policy deleted")
         end
@@ -90,6 +100,18 @@ module Api
 
         def validate_permissions
           require_permission("ai.intervention_policies.manage")
+        end
+
+        # IMP-03134d9452d2: these rows decide which requests only a person may decide in
+        # their own session (Ai::Approvals::HumanSessionPolicy#account_mark). A write that
+        # could lift that mark needs that person's own session; the tool doors that write
+        # the same rows are human-only for the same reason.
+        def mark_write_permitted?(before:, after:)
+          own_human_session? || !::Ai::Approvals::HumanSessionPolicy.mark_lifting_write?(before: before, after: after)
+        end
+
+        def refuse_mark_write
+          render_error(::Ai::Approvals::HumanSessionPolicy::MARK_WRITE_REFUSAL, status: :forbidden)
         end
 
         def serialize_policy(policy)

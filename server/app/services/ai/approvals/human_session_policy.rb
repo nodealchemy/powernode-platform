@@ -37,8 +37,25 @@ module Ai
         "*delete*", "*destroy*", "*terminate*", "*reap*", "*decommission*", "*revoke*"
       ].freeze
 
+      # The refusal both REST writers of intervention-policy rows give for #mark_lifting_write?.
+      MARK_WRITE_REFUSAL = "Changing whether requests need a person's own session is refused from this session: " \
+                           "it needs a person acting in their own session, not an impersonation, account-switch " \
+                           "or service session."
+
       def self.required?(request)
         new(request).required?
+      end
+
+      # Could this write to ONE intervention-policy row lift the mark #account_mark reads
+      # (IMP-03134d9452d2, secreview §21 G4 option 1)? True when the row carried
+      # CONDITION_KEY before the write (a change to its verb, activity, category or
+      # priority, a delete, or a change of the key can each let another row's answer win),
+      # or when the write sets it false. Adding the mark to a row that had none only
+      # tightens, so it is not such a write. `before` and `after` are the row's conditions:
+      # nil before a create, nil after a delete.
+      def self.mark_lifting_write?(before:, after:)
+        carries = ->(conditions) { conditions.is_a?(Hash) && conditions.stringify_keys.key?(CONDITION_KEY) }
+        carries.call(before) || (after.is_a?(Hash) && after.stringify_keys[CONDITION_KEY] == false)
       end
 
       def initialize(request)
