@@ -19,7 +19,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
-for ext in system marketing; do
+for ext in system marketing supply-chain; do
   ext_frontend="extensions/${ext}/frontend"
   link="${ext_frontend}/node_modules"
   target="../../../frontend/node_modules"
