@@ -58,9 +58,11 @@ class Api::V1::WebhooksController < ApplicationController
       # Log webhook creation
       log_webhook_action("webhook_created", webhook)
 
+      # IMP-4fdae24c24a3: the signing secret is served ONCE, here, so the creator can
+      # configure verification. No other response carries it.
       render_success(
         message: "Webhook endpoint created successfully",
-        data: detailed_webhook_data(webhook),
+        data: detailed_webhook_data(webhook).merge(secret_key: webhook.secret_key),
         status: :created
       )
     else
@@ -420,7 +422,7 @@ class Api::V1::WebhooksController < ApplicationController
 
   def detailed_webhook_data(webhook)
     webhook_summary(webhook).merge({
-      secret_key: webhook.secret_key,
+      secret_key_set: webhook.secret_key.present?,
       retry_backoff: webhook.retry_backoff,
       recent_deliveries: webhook.webhook_deliveries
                                .order(created_at: :desc)

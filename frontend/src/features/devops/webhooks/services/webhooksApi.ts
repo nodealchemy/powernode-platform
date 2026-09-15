@@ -21,8 +21,14 @@ export interface WebhookEndpoint {
   };
 }
 
+// The create response is the only one that carries the signing secret; it is
+// never served again.
+export interface CreatedWebhookEndpoint extends DetailedWebhookEndpoint {
+  secret_key: string;
+}
+
 export interface DetailedWebhookEndpoint extends WebhookEndpoint {
-  secret_token: string;
+  secret_key_set: boolean;
   retry_backoff: 'linear' | 'exponential';
   recent_deliveries: WebhookDelivery[];
   delivery_stats: {
@@ -183,7 +189,7 @@ export const webhooksApi = {
   },
 
   // Create new webhook endpoint
-  async createWebhook(webhookData: WebhookFormData): Promise<{ success: boolean; data?: DetailedWebhookEndpoint; message?: string; error?: string }> {
+  async createWebhook(webhookData: WebhookFormData): Promise<{ success: boolean; data?: CreatedWebhookEndpoint; message?: string; error?: string }> {
     try {
       const response = await api.post('/webhooks', { webhook: webhookData });
       return response.data;

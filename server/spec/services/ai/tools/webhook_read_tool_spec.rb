@@ -6,9 +6,9 @@ require "rails_helper"
 #
 # `webhook_endpoints` carries FOUR secret-bearing fields, two of them PLAINTEXT
 # columns (`secret_key`, `signature_secret`) and two jsonb header bags that
-# routinely hold an Authorization token. The REST twin already returns
-# `secret_key` verbatim in its show payload, so "the model does not expose it"
-# is not an argument available here. Every secret oracle below plants a real
+# routinely hold an Authorization token. The model itself does not hide them
+# (the REST twin returned `secret_key` verbatim until IMP-4fdae24c24a3), so "the
+# model does not expose it" is not an argument available here. Every secret oracle below plants a real
 # value and greps the serialized response for that exact string.
 RSpec.describe Ai::Tools::WebhookReadTool do
   let(:account) { create(:account) }

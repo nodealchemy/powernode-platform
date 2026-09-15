@@ -19,13 +19,11 @@ module Ai
     #   custom_headers    caller-supplied request headers — routinely hold an
     #   headers           Authorization / bearer token
     #
-    # This is not a theoretical risk here. The REST twin already leaks one:
-    # `WebhooksController#detailed_webhook_data` returns `secret_key` verbatim
-    # in its `show` payload (webhooks_controller.rb:423) even though the model
-    # ships a `masked_secret` helper. That is an existing operator-only surface
-    # and out of this increment's partition — but it is exactly why this tool
-    # emits neither the value NOR the mask, only the boolean `secret_configured`.
-    # A mask still discloses length and shape.
+    # This is not a theoretical risk here. The REST twin used to return
+    # `secret_key` verbatim in its show payload; since IMP-4fdae24c24a3 it serves
+    # the secret once, in the create response, and `secret_key_set` otherwise.
+    # This tool emits neither the value NOR the model's `masked_secret`, only the
+    # boolean `secret_configured`: a mask still discloses length and shape.
     #
     # Deliveries carry a fifth: `WebhookDelivery#request_headers` holds the
     # outbound signature header and any custom auth headers, and `response_body`

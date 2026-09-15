@@ -64,10 +64,17 @@ module Ai
     # reaches this filter today; widening the rule to "any _id survives" was
     # rejected — over-redaction is visible on the card, a leak is not, and that
     # is the polarity to keep.
+    #
+    # AuditLog metadata is filtered here since IMP-4fdae24c24a3. tokens_revoked is
+    # a COUNT an audit row records for an OAuth application revocation, and
+    # api_key_name is an ApiKey's display name: once the key row is deleted it is
+    # the only readable record of which key an audit row was about.
     SAFE_KEY_ALLOWLIST = %w[
       generate_token
       token_ttl_seconds
       acceptance_token_expires_at
+      tokens_revoked
+      api_key_name
     ].freeze
 
     # Deployment-specific additions (JSON array of strings). EXTENDS the

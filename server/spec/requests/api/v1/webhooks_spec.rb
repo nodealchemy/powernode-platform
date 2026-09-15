@@ -43,12 +43,15 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
       expect(json_response['data']).to be_nil.or(satisfy { |d| !d.key?('secret_key') })
     end
 
-    it 'allows access to an own-account endpoint and exposes its secret_key' do
+    # IMP-4fdae24c24a3: the signing secret is shown once, on create, and never served again.
+    it 'allows access to an own-account endpoint without serving its secret_key' do
       get "/api/v1/webhooks/#{own_webhook.id}", headers: headers, as: :json
 
       expect_success_response
       expect(json_response['data']['id']).to eq(own_webhook.id)
-      expect(json_response['data']).to have_key('secret_key')
+      expect(json_response['data']).not_to have_key('secret_key')
+      expect(response.body.include?(own_webhook.secret_key)).to be(false)
+      expect(json_response['data']['secret_key_set']).to be(true)
     end
 
     context 'delivery_history / failed_deliveries / stats (cross-account read)' do
@@ -201,11 +204,12 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
         )
       end
 
-      it 'includes secret_key in detailed view' do
+      it 'reports whether a secret is set without serving it in the detailed view' do
         get "/api/v1/webhooks/#{webhook.id}", headers: headers, as: :json
 
-        response_data = json_response
-        expect(response_data['data']).to have_key('secret_key')
+        expect(json_response['data']).not_to have_key('secret_key')
+        expect(response.body.include?(webhook.secret_key)).to be(false)
+        expect(json_response['data']['secret_key_set']).to be(true)
       end
 
       it 'includes recent_deliveries' do
@@ -257,6 +261,17 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
         expect(response_data['data']['url']).to eq('https://example.com/webhook')
       end
 
+      it 'returns the generated secret_key once, in the create response only' do
+        post '/api/v1/webhooks', params: valid_params, headers: headers, as: :json
+
+        created = WebhookEndpoint.find(json_response['data']['id'])
+        expect(created.secret_key).to be_present
+        expect(json_response['data']['secret_key'] == created.secret_key).to be(true)
+
+        get "/api/v1/webhooks/#{created.id}", headers: headers, as: :json
+        expect(json_response['data']).not_to have_key('secret_key')
+      end
+
       it 'sets created_by to current user' do
         post '/api/v1/webhooks', params: valid_params, headers: headers, as: :json
 
@@ -304,6 +319,15 @@ RSpec.describe 'Api::V1::Webhooks', type: :request do
     let(:webhook) { create(:webhook_endpoint, account: account, created_by: admin_user) }
 
     context 'with webhook.update permission' do
+      it 'does not serve the secret_key in the update response' do
+        put "/api/v1/webhooks/#{webhook.id}",
+            params: { webhook: { description: 'No secret here' } }, headers: headers, as: :json
+
+        expect_success_response
+        expect(json_response['data']).not_to have_key('secret_key')
+        expect(response.body.include?(webhook.secret_key)).to be(false)
+      end
+
       it 'updates webhook successfully' do
         put "/api/v1/webhooks/#{webhook.id}",
             params: { webhook: { description: 'Updated description' } },

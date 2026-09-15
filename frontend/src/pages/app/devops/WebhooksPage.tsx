@@ -9,8 +9,10 @@ import {
   CheckCircle,
   Clock,
   RefreshCw,
-  BarChart3
+  BarChart3,
+  Copy
 } from 'lucide-react';
+import { Button } from '@/shared/components/ui/Button';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import {
@@ -59,6 +61,8 @@ const WebhookManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  // The signing secret from a create response, held in memory only until dismissed.
+  const [createdSecret, setCreatedSecret] = useState<{ url: string; secret: string } | null>(null);
   const [pagination, setPagination] = useState({
     current_page: 1,
     per_page: 20,
@@ -140,6 +144,9 @@ const WebhookManagementPage: React.FC = () => {
 
       if (response.success) {
         showNotification(response.message || 'Webhook created successfully', 'success');
+        if (response.data?.secret_key) {
+          setCreatedSecret({ url: response.data.url, secret: response.data.secret_key });
+        }
         setShowCreateModal(false);
         loadWebhooks(pagination.current_page);
       } else {
@@ -147,6 +154,17 @@ const WebhookManagementPage: React.FC = () => {
       }
     } catch (_error) {
       showNotification('An unexpected error occurred while creating the webhook', 'error');
+    }
+  };
+
+  const copyCreatedSecret = async () => {
+    if (!createdSecret) return;
+
+    try {
+      await navigator.clipboard.writeText(createdSecret.secret);
+      showNotification('Signing secret copied to clipboard', 'success');
+    } catch (_error) {
+      showNotification('Failed to copy signing secret', 'error');
     }
   };
 
@@ -432,6 +450,27 @@ const WebhookManagementPage: React.FC = () => {
       {viewMode === 'list' && (
         <div className="bg-theme-surface rounded-lg p-6 mb-6">
           {renderStatsOverview()}
+        </div>
+      )}
+
+      {/* One-time signing secret from the create response */}
+      {createdSecret && (
+        <div className="bg-theme-surface rounded-lg border border-theme p-4 mb-6" role="status">
+          <p className="text-theme-primary font-medium">Save this webhook&apos;s signing secret now</p>
+          <p className="text-sm text-theme-secondary mt-1">
+            It is shown only once, for {createdSecret.url}, and cannot be retrieved later.
+          </p>
+          <div className="flex items-center gap-2 mt-3">
+            <code className="flex-1 font-mono text-sm text-theme-primary bg-theme-background px-3 py-2 rounded border border-theme break-all">
+              {createdSecret.secret}
+            </code>
+            <Button variant="outline" onClick={copyCreatedSecret} aria-label="Copy signing secret">
+              <Copy className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" onClick={() => setCreatedSecret(null)}>
+              Dismiss
+            </Button>
+          </div>
         </div>
       )}
 

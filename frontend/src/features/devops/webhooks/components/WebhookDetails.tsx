@@ -12,9 +12,6 @@ import {
   CheckCircle,
   AlertTriangle,
   ExternalLink,
-  Copy,
-  Eye,
-  EyeOff,
   Settings,
   TrendingUp,
   Calendar,
@@ -52,7 +49,6 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingDeliveries, setLoadingDeliveries] = useState(false);
-  const [showSecretToken, setShowSecretToken] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
   type WebhookTabKey = 'overview' | 'deliveries' | 'test';
   const [activeTab, setActiveTab] = useState<WebhookTabKey>('overview');
@@ -123,18 +119,6 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
       loadDeliveries(deliveryFilters.page);
     }
   }, [activeTab, deliveryFilters, webhook.id, loadDeliveries]);
-
-  // Copy secret token to clipboard
-  const copySecretToken = async () => {
-    if (!detailedWebhook?.secret_token) return;
-    
-    try {
-      await navigator.clipboard.writeText(detailedWebhook.secret_token);
-      addNotification({ type: 'success', message: 'Secret token copied to clipboard' });
-    } catch (_error) {
-      addNotification({ type: 'error', message: 'Failed to copy secret token' });
-    }
-  };
 
   // Handle delivery page change
   const handleDeliveryPageChange = (page: number) => {
@@ -428,28 +412,11 @@ export const WebhookDetails: React.FC<WebhookDetailsProps> = ({
               <div>
                 <h3 className="text-lg font-semibold text-theme-primary mb-4">Secret Token</h3>
                 <div className="bg-theme-background rounded-lg border border-theme p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <div className="font-mono text-sm text-theme-primary bg-theme-surface px-3 py-2 rounded border">
-                        {showSecretToken ? detailedWebhook.secret_token : '••••••••••••••••••••••••••••••••'}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" onClick={() => setShowSecretToken(!showSecretToken)}
-                        title={showSecretToken ? 'Hide token' : 'Show token'}
-                      >
-                        {showSecretToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </Button>
-                      
-                      <Button aria-label="Copy secret token" onClick={copySecretToken} variant="outline">
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  
+                  <p className="text-theme-primary">
+                    {detailedWebhook.secret_key_set ? 'A signing secret is set.' : 'No signing secret is set.'}
+                  </p>
                   <p className="text-xs text-theme-secondary mt-2">
-                    Use this token to verify webhook authenticity in your application
+                    The secret is shown once, when the webhook is created, and is not retrievable afterwards.
                   </p>
                 </div>
               </div>

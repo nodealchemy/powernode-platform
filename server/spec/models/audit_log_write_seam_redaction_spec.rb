@@ -111,6 +111,33 @@ RSpec.describe "AuditLog write-seam redaction" do
     end
   end
 
+  # IMP-4fdae24c24a3: metadata is free-form per writer, so it is judged by key name
+  # (Ai::SensitiveParams), not by the resource's attribute list.
+  describe "metadata" do
+    it "masks secret-named keys, nested too, and keeps the rest of the trail" do
+      row = AuditLog.create!(
+        account: account, user: user,
+        action: "update", resource_type: "User", resource_id: user.id,
+        source: "api",
+        metadata: {
+          "api_key" => SyntheticSeamProbe::TOTP_SECRET,
+          "request" => { "webhook_secret" => SyntheticSeamProbe::RESET_DIGEST },
+          "setting_key" => "site_name",
+          "tokens_revoked" => 3,
+          "api_key_name" => "ci deploy key"
+        }
+      )
+
+      metadata = row.reload.metadata
+      expect(discloses?(metadata, SyntheticSeamProbe::TOTP_SECRET)).to be(false), "metadata disclosed api_key"
+      expect(discloses?(metadata, SyntheticSeamProbe::RESET_DIGEST)).to be(false), "metadata disclosed a nested secret"
+      expect(metadata["setting_key"]).to eq("site_name")
+      expect(metadata["tokens_revoked"]).to eq(3)
+      # The only readable record of which key a deleted ApiKey row was (api_keys_controller).
+      expect(metadata["api_key_name"]).to eq("ci deploy key")
+    end
+  end
+
   describe "AuditLog.log_action — the Audit::LoggingService path" do
     it "redacts values the caller passes through Audit::LoggingService" do
       user.update!(two_factor_secret: SyntheticSeamProbe::TOTP_SECRET)

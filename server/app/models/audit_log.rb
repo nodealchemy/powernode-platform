@@ -104,6 +104,9 @@ class AuditLog < ApplicationRecord
     klass = resource_type&.safe_constantize
     self.old_values = Auditable.redact_values(old_values, klass)
     self.new_values = Auditable.redact_values(new_values, klass)
+    # metadata is free-form per writer and follows no resource's attribute list, so
+    # it is judged by key name (IMP-4fdae24c24a3). Nested hashes are traversed.
+    self.metadata = ::Ai::SensitiveParams.filter(metadata)
   end
 
   # Apply cryptographic integrity hash for immutable audit chain

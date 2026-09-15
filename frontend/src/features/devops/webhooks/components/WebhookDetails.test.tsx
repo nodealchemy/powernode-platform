@@ -43,7 +43,7 @@ describe('WebhookDetails stats cards — semantic theme tokens (IMP-be10354a89eb
       success: true,
       data: {
         retry_backoff: 'exponential',
-        secret_token: 'secret-token-value',
+        secret_key_set: true,
         delivery_stats: {
           total_deliveries: 500,
           average_response_time: 245,
