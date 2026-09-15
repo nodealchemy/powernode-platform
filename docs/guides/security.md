@@ -294,6 +294,35 @@ end
 
 Returning a 500 to a webhook provider triggers exponential-backoff retries — they pile up, exhaust your workers, and break the system. ALWAYS return 200/202 even when processing fails.
 
+### Verifying Powernode webhook deliveries
+
+Every delivery Powernode sends to a webhook endpoint, including the test ping, is signed with that endpoint's signing secret (`whsec_…`), which is shown once when the endpoint is created. The secret is never sent with a delivery. (AI execution callbacks and monitoring notification webhooks are separate channels and are not signed this way.)
+
+| Header | Value |
+|---|---|
+| `X-Powernode-Signature` | `t=<unix timestamp>,v1=<hex HMAC-SHA256>` |
+| `X-Powernode-Timestamp` | the same unix timestamp |
+
+The HMAC is computed over the string `"<timestamp>.<raw request body>"`. To verify a delivery:
+
+1. Read the raw request body before any JSON parsing. Re-serializing changes the bytes.
+2. Parse `t` and `v1` from `X-Powernode-Signature`.
+3. Reject the delivery if `t` is more than 5 minutes from your clock. Each retry is signed afresh with a new timestamp.
+4. Compute `HMAC-SHA256(secret, "#{t}.#{raw_body}")` as lowercase hex and compare it to `v1` in constant time.
+
+Treat a malformed header as a failed verification (reject with 401), not as an error: the example raises on bad input, so rescue it rather than let it become a 500.
+
+```ruby
+def verify_powernode_delivery!(raw_body, signature_header, secret)
+  parts = signature_header.to_s.split(",").to_h { |kv| kv.split("=", 2) }
+  timestamp, received = parts["t"], parts["v1"]
+  raise "stale delivery" if timestamp.nil? || (Time.now.to_i - timestamp.to_i).abs > 300
+
+  expected = OpenSSL::HMAC.hexdigest("SHA256", secret, "#{timestamp}.#{raw_body}")
+  raise "bad signature" unless received && ActiveSupport::SecurityUtils.secure_compare(expected, received)
+end
+```
+
 ## Audit logging
 
 The platform maintains structured audit logs across multiple subsystems:

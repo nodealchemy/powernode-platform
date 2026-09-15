@@ -8,11 +8,16 @@ class Api::V1::Internal::WebhookDeliveriesController < Api::V1::Internal::Intern
   def show
     delivery = ::WebhookDelivery.find(params[:id])
     endpoint = delivery.webhook_endpoint
+    # IMP-3e7c104f2b36: the exact bytes the worker sends, trimmed to the
+    # endpoint's detail level and signed HERE, so the signing secret never
+    # leaves the server — not to the worker, not to the receiver.
+    body = endpoint.trim_payload(delivery.webhook_event&.payload).to_json
 
     render_success({
       id: delivery.id,
       webhook_url: endpoint.url,
-      payload: delivery.webhook_event&.payload,
+      body: body,
+      signature_headers: delivery_signature_headers(endpoint, body),
       headers: endpoint.headers || {},
       custom_headers: endpoint.custom_headers || {},
       attempt: delivery.attempt_number,
@@ -98,5 +103,19 @@ class Api::V1::Internal::WebhookDeliveriesController < Api::V1::Internal::Intern
   rescue StandardError => e
     Rails.logger.error "Failed to increment attempt: #{e.message}"
     render_error("Failed to increment attempt", status: :internal_server_error)
+  end
+
+  private
+
+  # The receiver contract (docs/guides/security.md, "Verifying Powernode webhook
+  # deliveries"): X-Powernode-Signature is "t=<unix ts>,v1=<hex HMAC-SHA256 of
+  # '<ts>.<body>'>" keyed by the endpoint's secret_key, the secret shown once when
+  # the endpoint is created. X-Powernode-Timestamp repeats the ts. Signed per
+  # fetch, so a retry carries a fresh timestamp.
+  def delivery_signature_headers(endpoint, body)
+    return {} if endpoint.secret_key.blank?
+
+    signature = ::Security::WebhookAuthenticator.sign_timestamped(payload: body, secret: endpoint.secret_key)
+    { "X-Powernode-Signature" => signature, "X-Powernode-Timestamp" => signature[/\At=(\d+),/, 1] }
   end
 end

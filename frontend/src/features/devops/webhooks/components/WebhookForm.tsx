@@ -422,8 +422,8 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
             <div className="text-sm text-theme-secondary">
               <p className="font-medium text-theme-primary mb-2">Security Considerations:</p>
               <ul className="space-y-1">
-                <li>• Your endpoint will receive a secret token in the headers for verification</li>
-                <li>• Webhook payloads are signed for authenticity verification</li>
+                <li>• Every delivery carries an X-Powernode-Signature header: an HMAC-SHA256 of the timestamp and request body, keyed by this endpoint&apos;s signing secret. The secret itself is never sent.</li>
+                <li>• The signing secret is shown once, when the endpoint is created. Store it to verify deliveries.</li>
                 <li>• Ensure your endpoint can handle the expected request volume</li>
                 <li>• Failed deliveries will be retried based on your retry configuration</li>
               </ul>

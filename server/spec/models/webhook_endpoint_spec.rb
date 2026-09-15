@@ -277,6 +277,21 @@ RSpec.describe WebhookEndpoint, type: :model do
         expect(masked).to include('*' * 24)
       end
     end
+
+    # IMP-3e7c104f2b36: every delivery is signed with secret_key, so an endpoint
+    # may never be left without one.
+    describe 'secret_key presence' do
+      it 'generates a secret on create when a blank one is supplied' do
+        created = create(:webhook_endpoint, account: account, secret_key: '')
+        expect(created.secret_key).to start_with('whsec_')
+      end
+
+      it 'refuses an update that blanks the secret' do
+        persisted = create(:webhook_endpoint, account: account)
+        expect(persisted.update(secret_key: '')).to be(false)
+        expect(persisted.errors[:secret_key]).to be_present
+      end
+    end
   end
 
   describe 'class methods' do

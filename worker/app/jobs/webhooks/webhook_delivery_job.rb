@@ -18,7 +18,11 @@ class Webhooks::WebhookDeliveryJob < BaseJob
 
     delivery_data = delivery_response['data']
     webhook_url = delivery_data['webhook_url']
-    payload = delivery_data['payload']
+    # IMP-3e7c104f2b36: the server trims and serializes the payload and signs
+    # those exact bytes; the worker never sees the signing secret, so it must send
+    # this body unchanged.
+    body = delivery_data['body']
+    signature_headers = delivery_data['signature_headers'] || {}
     headers = delivery_data['headers'] || {}
     custom_headers = delivery_data['custom_headers'] || {}
     delivery_attempt = delivery_data['attempt'] || 1
@@ -34,8 +38,18 @@ class Webhooks::WebhookDeliveryJob < BaseJob
       return { success: false, error: "Circuit breaker is open", skipped: true }
     end
 
-    # Apply payload detail level trimming if specified
-    payload = apply_payload_trimming(payload, delivery_data['payload_detail_level'])
+    # A delivery the server did not sign is not sent: receivers are told to
+    # verify every delivery, and an unsigned one would fail that check or teach
+    # them to skip it. Retried, so it goes out once the server signs it.
+    if body.nil? || signature_headers['X-Powernode-Signature'].blank?
+      log_error "Webhook delivery #{delivery_id} has no server-signed body; not sending"
+      mark_delivery_status(delivery_id, 'failed', {
+        error_message: 'Delivery was not signed by the server',
+        error_category: 'unsigned_delivery'
+      })
+      schedule_retry(delivery_id, delivery_attempt) if delivery_attempt < 5
+      return { success: false, error: 'Unsigned delivery' }
+    end
 
     log_info "Delivering webhook to: #{webhook_url} (attempt #{delivery_attempt})"
 
@@ -60,7 +74,7 @@ class Webhooks::WebhookDeliveryJob < BaseJob
     merged_headers = headers.merge(custom_headers)
 
     # Make the HTTP request
-    result = deliver_webhook(vetted_target, payload, merged_headers)
+    result = deliver_webhook(vetted_target, body, merged_headers, signature_headers)
 
     if result[:success]
       log_info "Webhook delivered successfully: #{delivery_id}"
@@ -106,7 +120,7 @@ class Webhooks::WebhookDeliveryJob < BaseJob
 
   private
 
-  def deliver_webhook(vetted_target, payload, headers)
+  def deliver_webhook(vetted_target, body, headers, signature_headers)
     require 'net/http'
     require 'uri'
 
@@ -126,16 +140,19 @@ class Webhooks::WebhookDeliveryJob < BaseJob
     request = Net::HTTP::Post.new(uri.request_uri)
     request['Content-Type'] = 'application/json'
     request['User-Agent'] = 'Powernode-Webhook/1.0'
-    request['X-Powernode-Delivery-Timestamp'] = Time.current.to_i.to_s
 
     # Add all headers (including custom headers)
     headers.each do |key, value|
       # Skip headers that might conflict with our standard headers
       next if %w[content-type user-agent host content-length].include?(key.to_s.downcase)
+
       request[key] = value.to_s
     end
+    # Applied LAST, so an endpoint's configured headers can never replace the
+    # server's signature (Net::HTTP#[]= overwrites).
+    signature_headers.each { |key, value| request[key] = value.to_s }
 
-    request.body = payload.is_a?(String) ? payload : payload.to_json
+    request.body = body
 
     response = http.request(request)
     response_time_ms = ((Time.current - start_time) * 1000).round
@@ -232,54 +249,6 @@ class Webhooks::WebhookDeliveryJob < BaseJob
       response_time_ms: response_time_ms,
       error_type: 'unknown_error'
     }
-  end
-
-  def apply_payload_trimming(payload, detail_level)
-    return payload if detail_level.blank? || detail_level == 'full'
-
-    case detail_level
-    when 'minimal'
-      trim_payload_minimal(payload)
-    when 'ids_only'
-      trim_payload_ids_only(payload)
-    else
-      payload
-    end
-  end
-
-  def trim_payload_minimal(payload)
-    return {} unless payload.is_a?(Hash)
-
-    {
-      event_type: payload['event_type'] || payload[:event_type],
-      timestamp: payload['timestamp'] || payload[:timestamp] || Time.current.iso8601,
-      id: payload['id'] || payload[:id],
-      action: payload['action'] || payload[:action],
-      account_id: payload['account_id'] || payload[:account_id]
-    }.compact
-  end
-
-  def trim_payload_ids_only(payload)
-    return {} unless payload.is_a?(Hash)
-
-    extract_ids(payload)
-  end
-
-  def extract_ids(obj, prefix = '')
-    result = {}
-    return result unless obj.is_a?(Hash)
-
-    obj.each do |key, value|
-      key_str = key.to_s
-      full_key = prefix.empty? ? key_str : "#{prefix}_#{key_str}"
-
-      if key_str.end_with?('_id') || key_str == 'id'
-        result[full_key] = value
-      elsif value.is_a?(Hash)
-        result.merge!(extract_ids(value, full_key))
-      end
-    end
-    result
   end
 
   def categorize_error(result)

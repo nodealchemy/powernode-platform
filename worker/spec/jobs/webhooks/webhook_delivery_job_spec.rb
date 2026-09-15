@@ -12,7 +12,9 @@ RSpec.describe Webhooks::WebhookDeliveryJob, type: :job do
       'success' => true,
       'data' => {
         'webhook_url' => webhook_url,
-        'payload' => { 'event_type' => 'test', 'id' => 'x' },
+        'body' => '{"event_type":"test","id":"x"}',
+        'signature_headers' => { 'X-Powernode-Signature' => 't=1700000000,v1=abc',
+                                 'X-Powernode-Timestamp' => '1700000000' },
         'headers' => {},
         'custom_headers' => {},
         'attempt' => 1,
@@ -76,6 +78,46 @@ RSpec.describe Webhooks::WebhookDeliveryJob, type: :job do
           .and_return(delivery_response(webhook_url))
         allow(Resolv).to receive(:getaddresses).with('hooks.example.com').and_return(['93.184.216.34'])
         stub_request(:post, webhook_url).to_return(status: 200, body: 'ok')
+      end
+
+      # IMP-3e7c104f2b36 — the server signs the exact body it hands over; the
+      # worker must send those bytes unchanged, carry the signature headers, and
+      # never let an endpoint's custom headers replace them.
+      it 'sends the server-provided body verbatim with its signature headers, which custom headers cannot override' do
+        # Deliberately NOT canonical JSON (spacing, key order, an escaped "<"):
+        # a worker that parsed and re-serialized the body would change the bytes.
+        body = "{ \"id\" : \"x\",  \"event_type\":\"test\", \"note\":\"\\u003cb\\u003e\" }"
+        signed = delivery_response(webhook_url)
+        signed['data']['body'] = body
+        signed['data']['signature_headers'] = { 'X-Powernode-Signature' => 't=1700000000,v1=abc',
+                                                 'X-Powernode-Timestamp' => '1700000000' }
+        signed['data']['custom_headers'] = { 'X-Powernode-Signature' => 'forged', 'X-Team' => 'ops' }
+        allow(api_client_double).to receive(:get)
+          .with("/api/v1/internal/webhook_deliveries/#{delivery_id}").and_return(signed)
+
+        job_instance.execute(delivery_id)
+
+        expect(a_request(:post, webhook_url).with(
+          body: body,
+          headers: { 'X-Powernode-Signature' => 't=1700000000,v1=abc', 'X-Powernode-Timestamp' => '1700000000',
+                     'X-Team' => 'ops' }
+        )).to have_been_made.once
+      end
+
+      it 'refuses to deliver an unsigned body and schedules a retry' do
+        unsigned = delivery_response(webhook_url)
+        unsigned['data'].delete('signature_headers')
+        allow(api_client_double).to receive(:get)
+          .with("/api/v1/internal/webhook_deliveries/#{delivery_id}").and_return(unsigned)
+        allow(job_instance).to receive(:mark_delivery_status)
+
+        result = job_instance.execute(delivery_id)
+
+        expect(a_request(:post, webhook_url)).not_to have_been_made
+        expect(job_instance).to have_received(:mark_delivery_status)
+          .with(delivery_id, 'failed', hash_including(error_category: 'unsigned_delivery'))
+        expect(result[:success]).to be(false)
+        expect(Webhooks::WebhookRetryJob.jobs.size).to eq(1)
       end
 
       it 'delivers the webhook and marks it delivered' do

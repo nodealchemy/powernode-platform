@@ -218,13 +218,20 @@ class WebhookHealthService
     request["Content-Type"] = "application/json"
     request["User-Agent"] = "Powernode-Webhook-Health-Check/1.0"
 
-    # Add any authentication headers if configured
-    if endpoint.signature_secret.present?
-      signature = generate_signature(payload.to_json, endpoint.signature_secret)
+    body = payload.to_json
+
+    # IMP-3e7c104f2b36: the same signature contract as a real delivery
+    # (Api::V1::Internal::WebhookDeliveriesController#delivery_signature_headers,
+    # docs/guides/security.md), so a receiver verifying deliveries does not reject
+    # health checks. It used to send a bare-body HMAC keyed by signature_secret
+    # under the same header name.
+    if endpoint.secret_key.present?
+      signature = Security::WebhookAuthenticator.sign_timestamped(payload: body, secret: endpoint.secret_key)
       request["X-Powernode-Signature"] = signature
+      request["X-Powernode-Timestamp"] = signature[/\At=(\d+),/, 1]
     end
 
-    request.body = payload.to_json
+    request.body = body
 
     http.request(request)
   end
@@ -234,10 +241,6 @@ class WebhookHealthService
 
     code = response.code.to_i
     code >= 200 && code < 300
-  end
-
-  def generate_signature(payload, secret)
-    OpenSSL::HMAC.hexdigest("SHA256", secret, payload)
   end
 
   def truncate_response_body(body)

@@ -51,6 +51,29 @@ RSpec.describe WebhookHealthService do
       expect(WebMock).to have_requested(:post, 'http://93.184.216.34/webhook')
     end
 
+    # IMP-3e7c104f2b36 — the test ping is the one request that reaches a
+    # WebhookEndpoint today, so it is where the receiver contract in
+    # docs/guides/security.md is pinned end to end: recomputed from the request
+    # as sent, keyed by the secret_key shown once on create.
+    it 'signs the ping with t=<ts>,v1=<HMAC-SHA256 of "<ts>.<body>"> keyed by the secret_key' do
+      endpoint.update_column(:url, 'http://93.184.216.34/webhook')
+      captured = nil
+      stub_request(:post, 'http://93.184.216.34/webhook').to_return do |request|
+        captured = request
+        { status: 200, body: 'ok' }
+      end
+
+      service.send(:make_test_request, endpoint, payload)
+
+      signature = captured.headers['X-Powernode-Signature']
+      timestamp = captured.headers['X-Powernode-Timestamp']
+      expect(signature).to match(/\At=(\d+),v1=(\h{64})\z/)
+      expect(signature).to start_with("t=#{timestamp},")
+      expected = OpenSSL::HMAC.hexdigest('SHA256', endpoint.secret_key, "#{timestamp}.#{captured.body}")
+      expect(signature).to end_with("v1=#{expected}")
+      expect(captured.body).not_to include(endpoint.secret_key)
+    end
+
     # DNS-rebinding TOCTOU: validating the host then connecting by hostname
     # re-resolves at connect, so a sub-TTL rebind could reach an internal IP.
     # make_test_request must resolve+validate ONCE and PIN the socket to that IP

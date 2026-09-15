@@ -25,6 +25,8 @@ class WebhookEndpoint < ApplicationRecord
   }
   validates :retry_backoff, presence: true, inclusion: { in: %w[linear exponential] }
   validates :description, length: { maximum: 500 }, allow_blank: true
+  # The delivery signing key; generated on create (#generate_secret_token).
+  validates :secret_key, presence: true, on: :update
 
   # Note: event_types and metadata are JSON columns in PostgreSQL
   # They have native JSON serialization, no need for explicit serialize calls
@@ -372,8 +374,11 @@ class WebhookEndpoint < ApplicationRecord
     self.headers ||= {}
   end
 
+  # Every delivery is signed with secret_key (IMP-3e7c104f2b36), so an endpoint
+  # never exists without one: a blank value supplied on create is replaced, and
+  # an update may not blank it (validated below).
   def generate_secret_token
-    self.secret_key ||= generate_secret_token_value
+    self.secret_key = generate_secret_token_value if secret_key.blank?
   end
 
   def generate_secret_token_value
