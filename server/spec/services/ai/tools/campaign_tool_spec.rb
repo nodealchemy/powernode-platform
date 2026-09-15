@@ -104,6 +104,23 @@ RSpec.describe Ai::Tools::CampaignTool do
     expect(account.ai_campaign_proposals.pluck(:title)).to eq(["Owner"])
   end
 
+  # IMP-a658fc220367: a call with no user names its principal. The tool supplies the agent
+  # it was built for; a door that carries no principal at all is refused.
+  it "campaign_propose with no user runs as its agent principal, and is refused with no principal" do
+    agent = create(:ai_agent, account: account)
+    res = described_class.new(account: account, agent: agent)
+                         .execute(params: { action: "campaign_propose", title: "Agent",
+                                            objective: "Agent queued" }.with_indifferent_access)
+    expect(res[:success]).to be true
+
+    res = described_class.new(account: account)
+                         .execute(params: { action: "campaign_propose", title: "Nobody",
+                                            objective: "No principal" }.with_indifferent_access)
+    expect(res[:success]).to be false
+    expect(res[:error]).to include("no user must name its principal")
+    expect(account.ai_campaign_proposals.pluck(:title)).to eq(["Agent"])
+  end
+
   it "campaign_update_proposal revises fields on a proposed proposal and recomputes its fingerprint" do
     pid = exec(action: "campaign_propose", title: "Add export", objective: "Add CSV export to reports", scope: "core")[:data][:proposal][:id]
     original_fingerprint = account.ai_campaign_proposals.find(pid).fingerprint

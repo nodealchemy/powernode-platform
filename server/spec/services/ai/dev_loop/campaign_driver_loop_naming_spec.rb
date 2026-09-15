@@ -4,7 +4,7 @@ require "rails_helper"
 
 RSpec.describe Ai::DevLoop::CampaignDriver, "campaign loop naming" do
   let(:account) { create(:account) }
-  let(:driver) { described_class.new(account: account) }
+  let(:driver) { described_class.new(account: account, principal: create(:ai_agent, account: account)) }
 
   it "names a new campaign loop after the campaign (for the execution interface)" do
     result = driver.start(name: "Drain dev-improve backlog")

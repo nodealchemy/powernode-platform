@@ -11,9 +11,10 @@ module Ai
       # proposal must NOT be resurrectable; a freshly proposed one must be queued/approved first.)
       SPAWNABLE_STATUSES = %w[queued approved].freeze
 
-      def initialize(account:, user: nil)
+      def initialize(account:, user: nil, principal: nil)
         @account = account
         @user = user
+        @principal = principal
       end
 
       # Returns the spawned (or already-spawned) Ai::Campaign. Takes a row lock so two
@@ -29,7 +30,7 @@ module Ai
             raise ArgumentError, "proposal is #{proposal.status}; only #{SPAWNABLE_STATUSES.join('/')} proposals can be spawned"
           end
 
-          result = Ai::DevLoop::CampaignDriver.new(account: @account, user: @user).start(**proposal.to_campaign_args)
+          result = Ai::DevLoop::CampaignDriver.new(account: @account, user: @user, principal: @principal).start(**proposal.to_campaign_args)
           campaign = result[:campaign]
           proposal.mark_spawned!(campaign)
           campaign

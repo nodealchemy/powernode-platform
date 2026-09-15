@@ -66,16 +66,16 @@ module Ai
     # latest discovery fields. Otherwise a new `proposed` row is created. Returns the
     # proposal in all cases.
     # The review transitions and a door-made proposal name their acting user; each asks the
-    # shared campaign check for the proposal's account. No user means a discovery or agent
-    # caller its own door already bound to the account.
-    def self.authorize_actor!(actor, account)
-      ::Ai::Campaigns::Authorization.authorize_actor!(user: actor, account: account)
+    # shared campaign check for the proposal's account. A caller with no user names its
+    # `principal:` (a discovery scan, or an agent/instance), which the check asserts.
+    def self.authorize_actor!(actor, account, principal: nil)
+      ::Ai::Campaigns::Authorization.authorize_actor!(user: actor, account: account, principal: principal)
     end
 
     def self.propose!(account:, title:, objective:, source: "manual", scope: nil,
                       suggested_workload: nil, suggested_driver: nil,
-                      decision_authority: "trusted", configuration: {}, evidence: {}, actor: nil)
-      authorize_actor!(actor, account)
+                      decision_authority: "trusted", configuration: {}, evidence: {}, actor: nil, principal: nil)
+      authorize_actor!(actor, account, principal: principal)
       workload = suggested_workload.presence || DEFAULT_WORKLOAD
       fp = fingerprint_for(scope: scope, objective: objective, suggested_workload: workload)
       existing = account.ai_campaign_proposals.find_by(fingerprint: fp)
@@ -103,16 +103,16 @@ module Ai
       account.ai_campaign_proposals.find_by!(fingerprint: fp)
     end
 
-    def queue!(user = nil)
-      self.class.authorize_actor!(user, account)
+    def queue!(user = nil, principal: nil)
+      self.class.authorize_actor!(user, account, principal: principal)
       update!(status: "queued")
     end
 
     # Revise a proposal's fields before it's been approved (operator-directed review
     # rounds, as opposed to .propose!'s discovery-rediscovery refresh path above).
     # Recomputes the fingerprint so dedupe stays consistent with the edited target.
-    def update_fields!(actor: nil, **attrs)
-      self.class.authorize_actor!(actor, account)
+    def update_fields!(actor: nil, principal: nil, **attrs)
+      self.class.authorize_actor!(actor, account, principal: principal)
       unless PRE_APPROVAL_STATUSES.include?(status)
         raise ArgumentError, "cannot update a #{status} proposal — only proposed/queued proposals can be edited"
       end
@@ -131,13 +131,13 @@ module Ai
       self
     end
 
-    def approve!(user = nil)
-      self.class.authorize_actor!(user, account)
+    def approve!(user = nil, principal: nil)
+      self.class.authorize_actor!(user, account, principal: principal)
       update!(status: "approved", reviewed_by: user, reviewed_at: Time.current)
     end
 
-    def reject!(user = nil, reason: nil)
-      self.class.authorize_actor!(user, account)
+    def reject!(user = nil, reason: nil, principal: nil)
+      self.class.authorize_actor!(user, account, principal: principal)
       update!(status: "rejected", reviewed_by: user, reviewed_at: Time.current, rejection_reason: reason)
     end
 

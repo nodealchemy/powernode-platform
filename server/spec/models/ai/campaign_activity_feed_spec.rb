@@ -4,7 +4,7 @@ require "rails_helper"
 
 RSpec.describe Ai::Campaign, "#activity_feed" do
   let(:account) { create(:account) }
-  let(:driver) { Ai::DevLoop::CampaignDriver.new(account: account) }
+  let(:driver) { Ai::DevLoop::CampaignDriver.new(account: account, principal: create(:ai_agent, account: account)) }
   let(:campaign) { driver.start(name: "obs")[:campaign] }
 
   it "returns a time-ordered (newest-first) feed of decisions, parked questions, and completed tasks" do

@@ -7,7 +7,9 @@ require "rails_helper"
 RSpec.describe "Api::V1::Internal::Ai::RalphLoops drain gating", type: :request do
   include_context "internal api auth"
 
-  let(:cdriver) { Ai::DevLoop::CampaignDriver.new(account: internal_account) }
+  let(:cdriver) do
+    Ai::DevLoop::CampaignDriver.new(account: internal_account, principal: create(:ai_agent, account: internal_account))
+  end
   let(:campaign) { cdriver.start(name: "Schedulable")[:campaign] }
   let(:loop_record) { campaign.ralph_loops.first }
 

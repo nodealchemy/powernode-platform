@@ -57,9 +57,11 @@ module Ai
         new(account: nil).send(:validated_stop_conditions!, conditions)
       end
 
-      def initialize(account:, user: nil)
+      # `principal:` names a caller with no user (see Ai::Campaigns::Authorization).
+      def initialize(account:, user: nil, principal: nil)
         @account = account
         @user = user
+        @principal = principal
       end
 
       # Create the campaign + its dedicated Ralph loop, mark it active, take a first snapshot.
@@ -580,10 +582,10 @@ module Ai
       # Every mutating action a door exposes (start, stop, delegate, answer_question,
       # resume) asks the shared campaign check against the account it touches: a door-only
       # check is how a future caller skips it, and a permission an account-switch session
-      # carries from ANOTHER account must never act here. No user means an agent or
-      # instance principal its own door already bound to @account.
+      # carries from ANOTHER account must never act here. No user means the caller must
+      # have named its principal, which the check asserts against the account.
       def authorize_actor!(account)
-        ::Ai::Campaigns::Authorization.authorize_actor!(user: @user, account: account)
+        ::Ai::Campaigns::Authorization.authorize_actor!(user: @user, account: account, principal: @principal)
       end
 
       def validated_stop_conditions!(conditions)

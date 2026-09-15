@@ -39,7 +39,7 @@ RSpec.describe Ai::CampaignProposals::SpawnService, type: :service do
 
   it "refuses to resurrect a rejected proposal" do
     proposal = create(:ai_campaign_proposal, account: account)
-    proposal.reject!(reason: "no")
+    proposal.reject!(user, reason: "no")
     expect { service.spawn!(proposal) }.to raise_error(ArgumentError, /rejected/)
     expect(account.ai_campaigns.count).to eq(0)
   end

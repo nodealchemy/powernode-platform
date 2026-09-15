@@ -9,9 +9,10 @@ module Ai
   class ProjectWorkflowService
     DEV_WORKLOADS = %w[feature-development new-project improvement-campaign].freeze
 
-    def initialize(account:, user: nil)
+    def initialize(account:, user: nil, principal: nil)
       @account = account
       @user = user
+      @principal = principal
     end
 
     # Drive a development/improvement campaign on an already-registered repo.
@@ -62,7 +63,7 @@ module Ai
     private
 
     def driver
-      @driver ||= Ai::DevLoop::CampaignDriver.new(account: @account, user: @user)
+      @driver ||= Ai::DevLoop::CampaignDriver.new(account: @account, user: @user, principal: @principal)
     end
 
     def resolve_repository(ref)

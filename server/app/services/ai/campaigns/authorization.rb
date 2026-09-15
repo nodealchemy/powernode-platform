@@ -20,6 +20,16 @@ module Ai
 
       class Refused < StandardError; end
 
+      # A caller with no human user names its principal instead of passing nil
+      # (IMP-a658fc220367). A record principal (an Ai::Agent, or an instance principal's
+      # node instance: anything carrying account_id) must belong to the account touched. A
+      # system principal is an in-process caller with no record to compare, so it must be
+      # one DECLARED here; an undeclared name is refused.
+      SystemPrincipal = Data.define(:name)
+      DISCOVERY = SystemPrincipal.new(name: "campaign_discovery")
+      INTERNAL = SystemPrincipal.new(name: "internal_tool_call")
+      SYSTEM_PRINCIPALS = [ DISCOVERY, INTERNAL ].freeze
+
       module_function
 
       def permitted?(user:, account:, permission: MANAGE_PERMISSION)
@@ -36,13 +46,30 @@ module Ai
         raise Refused, "#{who} does not hold '#{permission}' in account #{account&.id}"
       end
 
-      # For services an agent or instance principal also reaches: a call with no user
-      # comes from a principal its own door already bound to the account. A call that
-      # names a user is always asked.
-      def authorize_actor!(user:, account:, permission: MANAGE_PERMISSION)
-        return if user.nil?
+      # For services an agent or instance principal also reaches. A call that names a user
+      # is asked for the permission. A call with no user must name its principal, and the
+      # principal is asserted rather than trusted to have been bound by some door.
+      def authorize_actor!(user:, account:, permission: MANAGE_PERMISSION, principal: nil)
+        return authorize!(user: user, account: account, permission: permission) if user
+        raise Refused, "a caller with no user must name its principal (account #{account&.id})" if principal.nil?
 
-        authorize!(user: user, account: account, permission: permission)
+        if principal.is_a?(SystemPrincipal)
+          # By identity: a Data value rebuilt with a declared name compares equal.
+          return if account && SYSTEM_PRINCIPALS.any? { |declared| declared.equal?(principal) }
+
+          raise Refused, "system principal #{principal.name.inspect} is not a declared campaign caller"
+        end
+
+        # These carry account_id too but are not principals: a user belongs in user: (where
+        # it is asked for the permission), and a campaign or proposal of the account touched
+        # would match by construction.
+        if principal.is_a?(::User) || principal.is_a?(::Ai::Campaign) || principal.is_a?(::Ai::CampaignProposal)
+          raise Refused, "#{principal.class.name} is not a campaign principal; pass a user as user:"
+        end
+
+        return if account && principal.respond_to?(:account_id) && principal.account_id == account.id
+
+        raise Refused, "#{principal.class.name} principal #{principal.try(:id)} is not bound to account #{account&.id}"
       end
     end
   end

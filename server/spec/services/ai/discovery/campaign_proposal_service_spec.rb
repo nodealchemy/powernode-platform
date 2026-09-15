@@ -52,7 +52,7 @@ RSpec.describe Ai::Discovery::CampaignProposalService, type: :service do
   it "does not resurrect a proposal the operator rejected" do
     rec(target_id: repo1)
     p = service.scan!.first
-    p.reject!(reason: "later")
+    p.reject!(reason: "later", principal: create(:ai_agent, account: account))
     service.scan!
 
     expect(account.ai_campaign_proposals.where("evidence->>'target_id' = ?", repo1).count).to eq(1)

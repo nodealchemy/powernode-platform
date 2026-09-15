@@ -90,12 +90,81 @@ RSpec.describe "Ai::Campaigns::Authorization" do
       expect(campaign.reload.status).to eq("active")
     end
 
-    # Documented pass-through: an agent or instance MCP principal arrives with no user,
-    # already bound to this account by its own door.
-    it "lets a caller with no user through, bound to the driver's account" do
-      campaign = owner_driver.start(name: "Agent-stopped")[:campaign]
-      Ai::DevLoop::CampaignDriver.new(account: account, user: nil).stop(campaign)
-      expect(campaign.reload.status).to eq("completed")
+    # IMP-a658fc220367: a call with no user used to pass unchecked, trusting that its door
+    # had bound the account. It must now name its principal, and the check asserts it.
+    describe "a caller with no user" do
+      let(:agent) { create(:ai_agent, account: account) }
+      let(:foreign_agent) { create(:ai_agent, account: create(:account)) }
+
+      it "is refused when it names no principal, leaving the campaign active" do
+        campaign = owner_driver.start(name: "Unnamed")[:campaign]
+
+        expect { Ai::DevLoop::CampaignDriver.new(account: account, user: nil).stop(campaign) }
+          .to raise_error(Ai::Campaigns::Authorization::Refused, /no user must name its principal/)
+        expect(campaign.reload.status).to eq("active")
+      end
+
+      it "is let through as an agent principal bound to the account touched" do
+        campaign = owner_driver.start(name: "Agent-stopped")[:campaign]
+
+        Ai::DevLoop::CampaignDriver.new(account: account, principal: agent).stop(campaign)
+        expect(campaign.reload.status).to eq("completed")
+      end
+
+      it "is refused as an agent principal from another account, leaving the campaign active" do
+        campaign = owner_driver.start(name: "Foreign agent")[:campaign]
+
+        expect { Ai::DevLoop::CampaignDriver.new(account: account, principal: foreign_agent).stop(campaign) }
+          .to raise_error(Ai::Campaigns::Authorization::Refused, /not bound to account #{account.id}/)
+        expect(campaign.reload.status).to eq("active")
+      end
+
+      it "is let through as a declared system principal, and refused as an undeclared one" do
+        expect(Ai::CampaignProposal.propose!(account: account, title: "t", objective: "o",
+                                             principal: Ai::Campaigns::Authorization::DISCOVERY)).to be_persisted
+
+        forged = Ai::Campaigns::Authorization::SystemPrincipal.new(name: "forged")
+        expect { Ai::CampaignProposal.propose!(account: account, title: "t2", objective: "o2", principal: forged) }
+          .to raise_error(Ai::Campaigns::Authorization::Refused)
+        expect(account.ai_campaign_proposals.count).to eq(1)
+      end
+
+      it "refuses a system principal rebuilt with a declared name: only the declared object counts" do
+        rebuilt = Ai::Campaigns::Authorization::SystemPrincipal.new(name: Ai::Campaigns::Authorization::DISCOVERY.name)
+
+        expect { Ai::CampaignProposal.propose!(account: account, title: "t", objective: "o", principal: rebuilt) }
+          .to raise_error(Ai::Campaigns::Authorization::Refused)
+        expect(account.ai_campaign_proposals.count).to eq(0)
+      end
+
+      it "lets the declared in-process principal through" do
+        campaign = owner_driver.start(name: "Internal-stopped")[:campaign]
+
+        Ai::DevLoop::CampaignDriver.new(account: account, principal: Ai::Campaigns::Authorization::INTERNAL).stop(campaign)
+        expect(campaign.reload.status).to eq("completed")
+      end
+
+      # A user or a campaign record also carries account_id, but is not a principal: a user
+      # passed that way would skip its own permission check, and a record of the account
+      # touched matches by construction.
+      it "refuses a user, a campaign or a proposal passed as the principal" do
+        campaign = owner_driver.start(name: "Not a principal")[:campaign]
+        proposal = create(:ai_campaign_proposal, account: account)
+
+        [reader, campaign, proposal].each do |not_a_principal|
+          expect { Ai::DevLoop::CampaignDriver.new(account: account, principal: not_a_principal).stop(campaign) }
+            .to raise_error(Ai::Campaigns::Authorization::Refused, /not a campaign principal/)
+        end
+        expect(campaign.reload.status).to eq("active")
+      end
+
+      it "still asks a named user for the permission even when a valid principal rides along" do
+        campaign = owner_driver.start(name: "User wins")[:campaign]
+
+        expect { Ai::DevLoop::CampaignDriver.new(account: account, user: reader, principal: agent).stop(campaign) }
+          .to raise_error(Ai::Campaigns::Authorization::Refused, refusal)
+        expect(campaign.reload.status).to eq("active")
+      end
     end
   end
 

@@ -298,7 +298,16 @@ module Ai
       end
 
       def driver
-        Ai::DevLoop::CampaignDriver.new(account: account, user: user)
+        Ai::DevLoop::CampaignDriver.new(account: account, user: user, principal: campaign_principal)
+      end
+
+      # IMP-a658fc220367: a call with no user names its principal for the campaign check,
+      # which asserts it: the agent or node instance this door was built for, or the
+      # declared in-process caller. Anything else carries none and is refused.
+      def campaign_principal
+        return nil if user
+
+        agent || node_instance || (internal? ? ::Ai::Campaigns::Authorization::INTERNAL : nil)
       end
 
       def find_campaign(id)
@@ -330,7 +339,7 @@ module Ai
         return error_result("title and objective are required") if params[:title].blank? || params[:objective].blank?
 
         proposal = Ai::CampaignProposal.propose!(
-          account: account, actor: user,
+          account: account, actor: user, principal: campaign_principal,
           title: params[:title], objective: params[:objective],
           source: params[:source].presence || "manual",
           scope: params[:scope],
@@ -354,7 +363,7 @@ module Ai
                              :suggested_driver, :decision_authority, :configuration).compact
         return error_result("at least one field to update is required") if attrs.empty?
 
-        proposal.update_fields!(actor: user, **attrs)
+        proposal.update_fields!(actor: user, principal: campaign_principal, **attrs)
         success_result(proposal: proposal.reload.summary)
       rescue ArgumentError => e
         error_result(e.message)
@@ -371,7 +380,7 @@ module Ai
           return error_result("cannot reject a #{proposal.status} proposal — use campaign_stop for an already-spawned campaign")
         end
 
-        proposal.reject!(user, reason: params[:reason])
+        proposal.reject!(user, reason: params[:reason], principal: campaign_principal)
         success_result(proposal: proposal.reload.summary)
       end
 
@@ -381,8 +390,9 @@ module Ai
         proposal = find_proposal(params[:proposal_id])
         return error_result("Proposal not found") unless proposal
 
-        proposal.approve!(user)
-        campaign = Ai::CampaignProposals::SpawnService.new(account: account, user: user).spawn!(proposal)
+        proposal.approve!(user, principal: campaign_principal)
+        campaign = Ai::CampaignProposals::SpawnService.new(account: account, user: user, principal: campaign_principal)
+                                                    .spawn!(proposal)
         loop_record = campaign.ralph_loops.order(:created_at).first
         success_result(
           proposal: proposal.reload.summary,

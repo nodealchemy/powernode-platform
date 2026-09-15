@@ -4,7 +4,7 @@ require "rails_helper"
 
 RSpec.describe Ai::DevLoop::CampaignDriver do
   let(:account) { create(:account) }
-  let(:driver) { described_class.new(account: account) }
+  let(:driver) { described_class.new(account: account, principal: create(:ai_agent, account: account)) }
   let(:campaign) { driver.start(name: "obs")[:campaign] }
 
   describe "#record_increment! (auto-record progress per run)" do

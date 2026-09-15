@@ -40,6 +40,7 @@ module Ai
 
           Ai::CampaignProposal.propose!(
             account: account,
+            principal: ::Ai::Campaigns::Authorization::DISCOVERY,
             # Title carries the live count (refreshed each scan; NOT part of the fingerprint).
             title: "Drain #{recs.size} improvement recommendation(s) for #{label}",
             # Objective is STABLE per target (no count) so the per-target fingerprint is

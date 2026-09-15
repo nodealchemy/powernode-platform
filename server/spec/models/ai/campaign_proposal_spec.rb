@@ -4,6 +4,8 @@ require "rails_helper"
 
 RSpec.describe Ai::CampaignProposal, type: :model do
   let(:account) { create(:account) }
+  # A caller with no user names its principal (IMP-a658fc220367).
+  let(:principal) { create(:ai_agent, account: account) }
 
   describe "validations" do
     it "is valid from the factory" do
@@ -49,8 +51,8 @@ RSpec.describe Ai::CampaignProposal, type: :model do
 
   describe ".propose! dedupe (per-target, account-scoped)" do
     it "refreshes an open duplicate instead of creating a second row" do
-      first = described_class.propose!(account: account, title: "T1", objective: "Same target", scope: "repo-x")
-      second = described_class.propose!(account: account, title: "T1 refreshed", objective: "Same target",
+      first = described_class.propose!(account: account, principal: principal, title: "T1", objective: "Same target", scope: "repo-x")
+      second = described_class.propose!(account: account, principal: principal, title: "T1 refreshed", objective: "Same target",
                                         scope: "repo-x", evidence: { "n" => 2 })
       expect(second.id).to eq(first.id)
       expect(account.ai_campaign_proposals.count).to eq(1)
@@ -59,9 +61,9 @@ RSpec.describe Ai::CampaignProposal, type: :model do
     end
 
     it "does NOT resurrect a terminal (rejected) duplicate" do
-      first = described_class.propose!(account: account, title: "T", objective: "Done target", scope: "repo-x")
-      first.reject!(reason: "not now")
-      again = described_class.propose!(account: account, title: "T again", objective: "Done target", scope: "repo-x")
+      first = described_class.propose!(account: account, principal: principal, title: "T", objective: "Done target", scope: "repo-x")
+      first.reject!(reason: "not now", principal: principal)
+      again = described_class.propose!(account: account, principal: principal, title: "T again", objective: "Done target", scope: "repo-x")
       expect(again.id).to eq(first.id)
       expect(again.status).to eq("rejected")
       expect(account.ai_campaign_proposals.count).to eq(1)
@@ -69,34 +71,36 @@ RSpec.describe Ai::CampaignProposal, type: :model do
 
     it "scopes dedupe per account (same target, different accounts → distinct rows)" do
       other = create(:account)
-      p1 = described_class.propose!(account: account, title: "T", objective: "Shared target", scope: "repo-x")
-      p2 = described_class.propose!(account: other, title: "T", objective: "Shared target", scope: "repo-x")
+      p1 = described_class.propose!(account: account, principal: principal, title: "T", objective: "Shared target", scope: "repo-x")
+      p2 = described_class.propose!(account: other, principal: create(:ai_agent, account: other), title: "T", objective: "Shared target", scope: "repo-x")
       expect(p1.id).not_to eq(p2.id)
     end
 
     it "defaults workload to the campaign driver default" do
-      p = described_class.propose!(account: account, title: "T", objective: "No workload given")
+      p = described_class.propose!(account: account, principal: principal, title: "T", objective: "No workload given")
       expect(p.suggested_workload).to eq(Ai::DevLoop::CampaignDriver::DEFAULT_WORKLOAD)
     end
 
     it "converges (no 500) on a concurrent unique-index race (TOCTOU)" do
-      existing = described_class.propose!(account: account, title: "First", objective: "Race target", scope: "repo-z")
+      existing = described_class.propose!(account: account, principal: principal, title: "First", objective: "Race target", scope: "repo-z")
       # Simulate the race: our initial find_by misses, then create! loses the unique-index
       # race to a concurrent insert. propose! must converge to the existing row, not 500.
       allow(account.ai_campaign_proposals).to receive(:find_by).and_return(nil)
       allow(account.ai_campaign_proposals).to receive(:create!).and_raise(ActiveRecord::RecordNotUnique.new("duplicate"))
 
-      result = described_class.propose!(account: account, title: "Second", objective: "Race target", scope: "repo-z")
+      result = described_class.propose!(account: account, principal: principal, title: "Second", objective: "Race target", scope: "repo-z")
       expect(result.id).to eq(existing.id)
     end
   end
 
   describe "review transitions" do
-    let(:user) { create(:user, account: account) }
+    # Created first so it is the account's OWNER (holds ai.campaigns.manage): the agent
+    # principal's factory would otherwise create the owner before it.
+    let!(:user) { create(:user, account: account) }
 
     it "queue! / approve! / reject! advance status + stamp reviewer" do
       p = create(:ai_campaign_proposal, account: account)
-      p.queue!
+      p.queue!(principal: principal)
       expect(p.status).to eq("queued")
       p.approve!(user)
       expect(p.status).to eq("approved")
