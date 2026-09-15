@@ -27,6 +27,11 @@ module Devops
     belongs_to :kubernetes_cluster,
                class_name: "Devops::KubernetesCluster",
                foreign_key: :kubernetes_cluster_id
+    # A node has no account_id of its own; its account is its cluster's. Answered
+    # so an account-anchored lookup (System::Executors::Base#resolve_scoped reads
+    # `account` when a row has no account_id) compares the right owner instead of
+    # passing the node through unanchored.
+    delegate :account, to: :kubernetes_cluster, allow_nil: true
     # Guarded by the `defined?(::System::...)` seam: in core mode the system
     # extension is absent, so accessing `node.node_instance` (or running the
     # required-belongs_to presence validation) would NameError. Full mode
