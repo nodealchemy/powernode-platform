@@ -127,6 +127,15 @@ module Ai
 
           operator_configurable_keys[key] = spec
         end
+
+        # True when `key` is registered protected. The REST twin
+        # (Api::V1::SiteSettingsController) refuses such a key, so its only
+        # write door on any surface is site_setting_set_protected.
+        # Case-insensitive because SiteSetting's key uniqueness is: a case
+        # variant row would make the confirmed protected write fail validation.
+        def protected_key?(key)
+          operator_configurable_keys.any? { |name, spec| spec[:protected] && name.casecmp?(key.to_s) }
+        end
       end
 
       # CORE REGISTERS NO KEY OF ITS OWN, deliberately.

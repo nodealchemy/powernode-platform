@@ -4,6 +4,11 @@ class Api::V1::SiteSettingsController < ApplicationController
   before_action :authenticate_request, except: [ :public_footer ]
   before_action -> { require_admin_access("settings.manage") }, except: [ :public_footer ]
   before_action :set_site_setting, only: [ :show, :update, :destroy ]
+  # IMP-b9998004a8e2: a protected key is written only through the human-only
+  # site_setting_set_protected MCP action, which parks for a person to confirm
+  # in their own session. This door refuses one, including a rename onto it
+  # and a delete (an unset key disarms as surely as a write).
+  before_action :refuse_protected_key_write, only: [ :create, :update, :destroy, :bulk_update ]
 
   # GET /api/v1/public/footer (public endpoint)
   def public_footer
@@ -204,6 +209,30 @@ class Api::V1::SiteSettingsController < ApplicationController
 
   def site_setting_params
     params.require(:site_setting).permit(:key, :value, :description, :setting_type, :is_public)
+  end
+
+  # Checks every key the request could write: the new key on create, the
+  # row's current key and any rename target on update/destroy, and all keys of
+  # a bulk update before any of them is written.
+  def refuse_protected_key_write
+    if action_name == "bulk_update" && params.key?(:settings) && !params[:settings].is_a?(ActionController::Parameters)
+      return render_error("settings must be an object of key => { value: ... }", status: :unprocessable_content)
+    end
+
+    keys = case action_name
+           when "bulk_update" then params[:settings]&.keys || []
+           when "create" then [ params.dig(:site_setting, :key) ]
+           else [ @site_setting.key, params.dig(:site_setting, :key) ]
+           end
+    protected_keys = keys.compact.map(&:to_s).uniq.select { |key| Ai::Tools::SiteSettingTool.protected_key?(key) }
+    return if protected_keys.empty?
+
+    render_error(
+      "#{protected_keys.join(', ')}: protected setting. Changing it alters the control plane's authority " \
+      "over itself, so it is a person's decision. Request it with the site_setting_set_protected MCP " \
+      "action, which parks for a person to confirm in their own session.",
+      status: :forbidden
+    )
   end
 
   def setting_data(setting)
