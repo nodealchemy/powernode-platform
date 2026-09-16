@@ -138,15 +138,21 @@ module Ai
         end
       end
 
-      # CORE REGISTERS NO KEY OF ITS OWN, deliberately.
+      # NOTHING IS REGISTERED HERE. Owners register their own keys, core
+      # included: config/initializers/human_session_setting_keys.rb declares the
+      # human-session category list PROTECTED (IMP-d0403597f455), which NARROWS
+      # that key — registering it is what lets every door tell it from an
+      # ordinary row and refuse it.
       #
-      # A draft registered ai.autonomy.closure_driver_enabled here. Review
-      # flagged it as a widening and was right: Ai::AgentToolBridgeService runs
-      # tool calls as agent.creator, so registering that key would have made
-      # the platform's autonomy enable-switch writable from inside an agent
-      # conversation. Turning autonomy on is an operator decision, and this
-      # task's direction put closure-driver semantics out of scope. It can be
-      # registered later as its own reviewed act.
+      # Registering an UNPROTECTED key is the widening to weigh. A draft
+      # registered ai.autonomy.closure_driver_enabled here and review was right
+      # to flag it: Ai::AgentToolBridgeService runs tool calls as agent.creator,
+      # so that would have made the platform's autonomy enable-switch writable
+      # from inside an agent conversation. A protected key carries no such
+      # WRITE reach — its only write door is the human-only verb. Reads are a
+      # separate question and `protected` does not answer it: site_setting_get
+      # serves every registered key, protected ones included, so registering a
+      # key also makes its VALUE readable over MCP by an admin.access holder.
       #
       # The registry is therefore empty until an owner declares a key —
       # nothing is reachable by default, which is the posture this surface

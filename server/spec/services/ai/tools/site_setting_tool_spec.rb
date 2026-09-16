@@ -55,11 +55,12 @@ RSpec.describe Ai::Tools::SiteSettingTool do
       expect(described_class.operator_configurable_keys["self_hosting_node_id"]).to include(protected: true)
     end
 
-    # Core registers no key of its own (see the class comment — an earlier
-    # draft registered the autonomy enable-switch and that was a widening), so
-    # the mechanism is exercised through a key registered here rather than
-    # through the extension's, which would make a CORE spec depend on an
-    # extension being installed.
+    # Core's own registration is the PROTECTED human-session category list
+    # (config/initializers/human_session_setting_keys.rb, IMP-d0403597f455); an
+    # earlier draft registered the autonomy enable-switch UNPROTECTED and that
+    # was a widening. The ordinary-key mechanism is exercised through a key
+    # registered here rather than through the extension's, which would make a
+    # CORE spec depend on an extension being installed.
     it "serves a key registered by any owner, not only the extension's" do
       auto_approve_writes!
 
