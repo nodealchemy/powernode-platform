@@ -104,21 +104,35 @@ RSpec.describe "registrar call sites carry origin:" do
   # tool for a mark to reach. That is a decision, not a blind spot.
   def repo_root = File.expand_path("..", server_root)
 
-  # A construction's receiver is a `...Tool` constant under Ai::Tools (written
-  # qualified, or bare from inside that namespace) or a variable, whose class the
-  # text cannot name. It is built with `.new`, or `public_send`/`send` of `:new`,
-  # with or without parentheses. Ai::Tools::LocalToolBinding and
-  # SemanticToolDiscoveryService are not tools, and do not end in "Tool".
+  # A construction's receiver is a `...Tool` constant — bare, or fully
+  # qualified through any number of `::`-namespaces, so Ai::Tools::MemoryTool,
+  # a bare MemoryTool written from inside Ai::Tools, and a namespaced BaseTool
+  # OUTSIDE Ai::Tools (the real Ai::Ralph::RepositoryGitTool) are all judged
+  # the same way — or a variable, whose class the text cannot name. It is
+  # built with `.new` (dot or safe-nav `&.`), or `public_send`/`send` of
+  # `:new`, `"new"`, or `'new'`, with or without parentheses.
+  # Ai::Tools::LocalToolBinding and SemanticToolDiscoveryService are not
+  # tools, and do not end in "Tool".
+  #
+  # KNOWN UNJUDGED SHAPES (deliberate, not a promise of full coverage): a
+  # chained receiver (self.class.new, obj.x.new, MAP[k].new,
+  # "X".constantize.new); a variable receiver whose call is entirely
+  # `**opts`-splatted, with no literal `account:` in its own text; the
+  # metaprogramming forms `Class.new`, `&:new`, `method(:new)`,
+  # `instance_variable_get(...).new`, and the rare `X::new` call syntax; a
+  # class variable (`@@k`) or global (`$k`) receiver.
   # (IMP-bda82956101d widened this from Ai::Tools-qualified constants and
-  # tool_class/tool_klass called with parentheses.)
+  # tool_class/tool_klass called with parentheses; a same-IMP follow-up
+  # widened it further to any namespace, safe navigation, and a string-keyed
+  # send/public_send.)
   def construction_pattern
     /
       (?<receiver>
-        (?:(?:::)?Ai::Tools::|(?<![\w:]))[A-Z]\w*Tool\b
+        (?:::)?(?:[A-Z]\w*::)*[A-Z]\w*Tool\b
       | (?<![\w:.@$])@?[a-z_]\w*
       )
-      \s*\.\s*
-      (?:new\b(?![?!=])|(?:public_send|__send__|send)\s*\(?\s*:new\b)
+      \s*(?:&\.|\.)\s*
+      (?:new\b(?![?!=])|(?:public_send|__send__|send)\s*\(?\s*(?::new\b|["']new["']))
     /x
   end
 
@@ -126,6 +140,11 @@ RSpec.describe "registrar call sites carry origin:" do
   # construction in it, or `file#receiver`, which excuses only the constructions
   # through that variable. Use the second for a variable that holds a class that
   # is not a tool, so a real tool built elsewhere in the file is still judged.
+  # A `#receiver` key excuses that receiver NAME wherever it appears in the
+  # file, not only the reviewed call site — a different construction that
+  # reuses the same variable name for a genuinely different class is excused
+  # too, so pick a name-scoped exemption only when that is true throughout
+  # the file.
   # An extension lists its own in server/config/direct_tool_constructions.yml
   # (keys relative to its server/ directory, mapped to the reason), found by
   # glob, so core names no extension.
@@ -140,9 +159,12 @@ RSpec.describe "registrar call sites carry origin:" do
       "server/app/services/ai/provisioning/skill_composition_runner.rb#executor_class" =>
         "build_executor builds a System::Ai::Skills executor, not a BaseTool",
       "server/app/services/ai/concierge_router.rb#klass" =>
-        "invoke_skill builds the class a skill's metadata executor_class names: a skill executor, not a BaseTool",
+        "invoke_skill calls klass.descriptor[:inputs] before .new; no BaseTool defines .descriptor, " \
+        "so a tool name raises there and is rescued before construction is ever reached",
       "server/app/services/ai/autonomy/observation_pipeline_service.rb#sensor_class" =>
         "an observation sensor, not a BaseTool",
+      "server/app/services/ai/coordination/pressure_field_service.rb#klass" =>
+        "calculators[field_type] is an Ai::Coordination::Metrics::*Calculator, not a BaseTool",
       "server/app/services/ai/delivery/progressive_executor.rb#klass" =>
         "a delivery strategy from STRATEGY_CLASSES, not a BaseTool",
       "server/app/services/ai/deploy/orchestrator.rb#method_class" =>
@@ -173,23 +195,52 @@ RSpec.describe "registrar call sites carry origin:" do
       args = construction_arguments(source, match)
       next unless receiver.end_with?("Tool") || args.match?(/\baccount:/)
 
-      found << { receiver: receiver.delete_prefix("@"), args: args }
+      # `call` is match[0] with any overlap it shares with `args` trimmed off
+      # (public_send/send WITH parens re-scans from their own opening paren,
+      # which match[0] already reached), so `call + args` reads back as the
+      # source text, never duplicating the "(:new" it was found through.
+      paren = match[0].index("(")
+      call = paren ? match[0][0...paren] : match[0]
+
+      found << { receiver: receiver.delete_prefix("@"), args: args, call: call }
     end
     found
   end
 
+  # A no-paren call's line, up to an unquoted "#" or ";" — a trailing comment
+  # or a chained statement never belongs to this call's own arguments, and
+  # must not be scanned for a call_origin: that isn't really there. Quote
+  # tracking is naive (single-char strings only, no here-docs, "\\" escapes
+  # a same-quote char) — good enough for the shapes this lint judges.
+  def truncate_at_unquoted(line)
+    quote = nil
+    line.each_char.with_index do |char, i|
+      if quote
+        quote = nil if char == quote && line[i - 1] != "\\"
+      elsif char == '"' || char == "'"
+        quote = char
+      elsif char == "#" || char == ";"
+        return line[0...i]
+      end
+    end
+    line
+  end
+
   # A parenthesized call's argument text runs to its matching paren (for
   # public_send(:new, ...), that call's own paren). One without parentheses
-  # runs to the end of its line, and on through lines ending in a comma or a
-  # backslash.
+  # runs to the end of its line (truncated at an unquoted "#" or ";"), and on
+  # through lines ending in a comma or a backslash — but a line cut short by
+  # a comment or a chained statement ends the call there; it does not
+  # continue, even if what's left of it ends in a comma.
   def construction_arguments(source, match)
     paren = match[0].index("(")
     open_at = paren ? match.begin(0) + paren : (match.end(0) if source[match.end(0)] == "(")
     unless open_at
       text = +""
       source[match.end(0)..].each_line do |line|
-        text << line
-        break unless line.rstrip.end_with?(",", "\\")
+        truncated = truncate_at_unquoted(line)
+        text << truncated
+        break if truncated != line || !line.rstrip.end_with?(",", "\\")
       end
       return text
     end
@@ -275,14 +326,36 @@ RSpec.describe "registrar call sites carry origin:" do
       expect(unmarked_constructions(source)).to be_empty
     end
 
-    it "does not judge a variable's construction that takes no account:, or a tool outside Ai::Tools" do
+    it "flags safe navigation and a string-keyed send/public_send" do
+      source = <<~RUBY
+        a = klass&.new(account: account)
+        b = Ai::Tools::MemoryTool.send("new", account: account)
+        c = Ai::Tools::MemoryTool.send('new', account: account)
+        d = Ai::Tools::MemoryTool.public_send("new", account: account)
+      RUBY
+      expect(unmarked_constructions(source).size).to eq(4)
+    end
+
+    it "does not judge a variable's construction that takes no account:" do
       source = <<~RUBY
         row = klass.new(name: "x")
         record.new_record?
         service = System::FleetService.new(account: account)
-        other = Foo::BarTool.new(account: account)
       RUBY
       expect(construction_argument_texts(source)).to be_empty
+    end
+
+    it "judges a bare or namespaced Tool constant in ANY namespace, not only inside Ai::Tools" do
+      source = "other = Foo::BarTool.new(account: account)\n"
+      expect(unmarked_constructions(source).size).to eq(1)
+    end
+
+    it "stops a paren-less call's arguments at an unquoted # or ;, so a trailing comment or a chained statement is never read as its call_origin:" do
+      source = <<~RUBY
+        t = Ai::Tools::MemoryTool.new account: a # call_origin: TODO
+        Ai::Tools::MemoryTool.new account: a; log(call_origin: o)
+      RUBY
+      expect(unmarked_constructions(source).size).to eq(2)
     end
 
     it "a #receiver allowlist entry excuses only that receiver, not every construction in the file" do
@@ -292,6 +365,12 @@ RSpec.describe "registrar call sites carry origin:" do
       RUBY
       allowlist = { "some/file.rb#sensor_class" => "not a tool" }
       expect(offenders_for("some/file.rb", source, allowlist).size).to eq(1)
+    end
+
+    it "an offender message shows the matched call text, not a hardcoded .new" do
+      source = "sensor_class.public_send(:new, account: account)\n"
+      message = offenders_for("some/file.rb", source, {}).first
+      expect(message).to eq("some/file.rb: sensor_class.public_send(:new, account: account)")
     end
   end
 
@@ -304,7 +383,7 @@ RSpec.describe "registrar call sites carry origin:" do
 
     unmarked(source)
       .reject { |c| allowlist.key?("#{key}##{c[:receiver]}") }
-      .map { |c| "#{key}: #{c[:receiver]}.new #{c[:args].lines.first.strip}" }
+      .map { |c| "#{key}: #{(c[:call] + c[:args]).lines.first.strip}" }
   end
 
   it "every direct tool construction under app/ names its origin, or is allowlisted with a reason" do
