@@ -120,7 +120,11 @@ RSpec.describe "registrar call sites carry origin:" do
   # `**opts`-splatted, with no literal `account:` in its own text; the
   # metaprogramming forms `Class.new`, `&:new`, `method(:new)`,
   # `instance_variable_get(...).new`, and the rare `X::new` call syntax; a
-  # class variable (`@@k`) or global (`$k`) receiver.
+  # class variable (`@@k`) or global (`$k`) receiver; a dynamic-symbol send
+  # (`send(:"new", ...)`, which is neither the `:new\b` literal nor a
+  # quoted-string arm); and a real BaseTool subclass whose name does not end
+  # in "Tool" (e.g. AgentAsToolAdapter) — this matcher judges by naming
+  # convention, not by ancestry.
   # (IMP-bda82956101d widened this from Ai::Tools-qualified constants and
   # tool_class/tool_klass called with parentheses; a same-IMP follow-up
   # widened it further to any namespace, safe navigation, and a string-keyed
@@ -210,18 +214,36 @@ RSpec.describe "registrar call sites carry origin:" do
   # A no-paren call's line, up to an unquoted "#" or ";" — a trailing comment
   # or a chained statement never belongs to this call's own arguments, and
   # must not be scanned for a call_origin: that isn't really there. Quote
-  # tracking is naive (single-char strings only, no here-docs, "\\" escapes
-  # a same-quote char) — good enough for the shapes this lint judges.
+  # tracking is naive (single-line strings only, no here-docs): inside a
+  # string, a "\\" escapes whatever char follows it (so it never mistakes an
+  # escaped backslash for an escaped quote), and a quote only OPENS when it
+  # is both not preceded by "?" (a ?x char literal) and has a later partner
+  # of the same char on this line — a "'" with no such partner (a contraction
+  # inside a comment or a regex, `it's`) is left as an ordinary char rather
+  # than risk opening a string that never closes and swallows the rest of
+  # the line. Not handled: a regex/%-literal whose delimiter IS a real quote
+  # char with a coincidental same-char partner later on the line, and
+  # send(:"new", ...) (a dynamic-symbol send — see construction_pattern).
   def truncate_at_unquoted(line)
-    quote = nil
-    line.each_char.with_index do |char, i|
-      if quote
-        quote = nil if char == quote && line[i - 1] != "\\"
-      elsif char == '"' || char == "'"
+    i = 0
+    while i < line.length
+      char = line[i]
+      if (char == '"' || char == "'") && (i.zero? || line[i - 1] != "?") && line.index(char, i + 1)
         quote = char
+        i += 1
+        while i < line.length
+          if line[i] == "\\"
+            i += 2
+            next
+          end
+          break if line[i] == quote
+
+          i += 1
+        end
       elsif char == "#" || char == ";"
         return line[0...i]
       end
+      i += 1
     end
     line
   end
@@ -229,9 +251,11 @@ RSpec.describe "registrar call sites carry origin:" do
   # A parenthesized call's argument text runs to its matching paren (for
   # public_send(:new, ...), that call's own paren). One without parentheses
   # runs to the end of its line (truncated at an unquoted "#" or ";"), and on
-  # through lines ending in a comma or a backslash — but a line cut short by
-  # a comment or a chained statement ends the call there; it does not
-  # continue, even if what's left of it ends in a comma.
+  # through lines whose TRUNCATED text ends in a comma or a backslash — a
+  # trailing comment after a comma (`foo a: 1, # note`) still continues onto
+  # the next line in real Ruby, so continuation is decided on the truncated
+  # text, not the raw line. Only a ";" ends the call outright, since it is a
+  # real statement separator; a "#" truncation alone does not force a stop.
   def construction_arguments(source, match)
     paren = match[0].index("(")
     open_at = paren ? match.begin(0) + paren : (match.end(0) if source[match.end(0)] == "(")
@@ -240,7 +264,8 @@ RSpec.describe "registrar call sites carry origin:" do
       source[match.end(0)..].each_line do |line|
         truncated = truncate_at_unquoted(line)
         text << truncated
-        break if truncated != line || !line.rstrip.end_with?(",", "\\")
+        stopped_at_semicolon = truncated != line && line[truncated.length] == ";"
+        break if stopped_at_semicolon || !truncated.rstrip.end_with?(",", "\\")
       end
       return text
     end
@@ -356,6 +381,30 @@ RSpec.describe "registrar call sites carry origin:" do
         Ai::Tools::MemoryTool.new account: a; log(call_origin: o)
       RUBY
       expect(unmarked_constructions(source).size).to eq(2)
+    end
+
+    it "does not let an escaped backslash, a ?-char literal, or a regex literal's apostrophe hide a trailing comment" do
+      source = <<~'RUBY'
+        x.new account: a, sep: "\\" # call_origin: TODO
+        x.new account: a, sep: ?' # call_origin: TODO
+        x.new account: a, re: /it's/ # call_origin: TODO
+      RUBY
+      expect(unmarked_constructions(source).size).to eq(3)
+    end
+
+    it "still treats a real quoted string as opaque, so a # or ; inside it is not read as ending the call" do
+      source = <<~'RUBY'
+        x.new account: a, s: "a # b", call_origin: o
+      RUBY
+      expect(unmarked_constructions(source)).to be_empty
+    end
+
+    it "continues a paren-less call across a trailing comment after a comma, onto the next line's account:" do
+      source = <<~RUBY
+        x = klass.new name: 1, # note
+                      account: a
+      RUBY
+      expect(unmarked_constructions(source).size).to eq(1)
     end
 
     it "a #receiver allowlist entry excuses only that receiver, not every construction in the file" do
