@@ -89,4 +89,38 @@ RSpec.describe WebhookHealthService do
       service.send(:make_test_request, endpoint, payload)
     end
   end
+
+  # IMP-dd0305de2799, D3: outbound "system" platform events are never
+  # transitioned out of "pending" (WebhookDelivery, not WebhookEvent#status,
+  # is their outcome ledger) — mixed into this reader's success_rate, growing
+  # outbound volume alone would drive it toward 0 with no real degradation.
+  describe '#webhook_event_stats' do
+    it 'excludes outbound "system" events from total/processed/success_rate/breakdowns' do
+      create(:webhook_event, account: account, provider: 'stripe', status: 'processed')
+      create(:webhook_event, account: account, provider: 'stripe', status: 'pending')
+      create(:webhook_event, account: account, provider: 'system', status: 'pending', event_type: 'user.created')
+      create(:webhook_event, account: account, provider: 'system', status: 'pending', event_type: 'user.created')
+
+      stats = service.webhook_event_stats(days: 7)
+
+      expect(stats[:total_events]).to eq(2)
+      expect(stats[:processed]).to eq(1)
+      expect(stats[:pending]).to eq(1)
+      expect(stats[:success_rate]).to eq(50.0)
+      expect(stats[:provider_breakdown].keys).to contain_exactly('stripe')
+    end
+
+    it 'reports outbound platform-event volume as its own figure, never blended into success_rate' do
+      create(:webhook_event, account: account, provider: 'system', status: 'pending', event_type: 'user.created')
+      create(:webhook_event, account: account, provider: 'system', status: 'pending', event_type: 'account.updated')
+
+      stats = service.webhook_event_stats(days: 7)
+
+      expect(stats[:total_events]).to eq(0)
+      expect(stats[:outbound_platform_events][:total]).to eq(2)
+      expect(stats[:outbound_platform_events][:event_type_breakdown]).to eq(
+        'user.created' => 1, 'account.updated' => 1
+      )
+    end
+  end
 end

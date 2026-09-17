@@ -44,32 +44,64 @@ class WebhookEndpoint < ApplicationRecord
   before_create :generate_secret_token
   after_update :log_status_change
 
+  # IMP-dd0305de2799 (D8): of the ~28 entries below, only these five can ever
+  # actually produce a WebhookDelivery today. WebhookEventPublisher only fires
+  # from Auditable's generic create/update/delete trail
+  # (WebhookEventPublisher.event_type_for), which only covers User and
+  # Account — every other entry (login/logout, subscription/payment/invoice/
+  # plan, system.maintenance_*) has no producer wired to it yet: the
+  # subscription/payment/invoice/plan actions are business-extension-owned
+  # audit actions that don't exist in core, login/logout are authentication
+  # events that never route through Auditable, and account.suspended /
+  # account.activated use explicit non-generic AuditLog action names
+  # (suspend_account / activate_account) that WebhookEventPublisher.event_type_for's
+  # allowlist deliberately does not map. test.webhook is delivered by the
+  # manual test-ping path (WebhooksController#test), not this producer, by
+  # design. See docs/guides/security.md's "Verifying Powernode webhook
+  # deliveries" section.
+  #
+  # available_event_types/event_categories still list every entry (removing
+  # one would silently invalidate an already-configured endpoint's
+  # event_types, and the UI picker in WebhookForm.tsx renders every category
+  # as choosable) — LIVE_EVENT_TYPES is the queryable, testable source of
+  # truth for "produces a delivery today", kept in sync by
+  # spec/models/webhook_endpoint_spec.rb.
+  LIVE_EVENT_TYPES = %w[
+    user.created user.updated user.deleted
+    account.created account.updated
+  ].freeze
+
+  def self.live_event_type?(event_type)
+    LIVE_EVENT_TYPES.include?(event_type.to_s)
+  end
+
   # Class methods
   def self.available_event_types
     [
-      # User events
+      # User events — created/updated/deleted are LIVE; login/logout are not.
       "user.created", "user.updated", "user.deleted", "user.login", "user.logout",
 
-      # Account events
+      # Account events — created/updated are LIVE; suspended/activated are not.
       "account.created", "account.updated", "account.suspended", "account.activated",
 
-      # Subscription events
+      # Subscription events — NOT LIVE (business-extension-owned, no producer).
       "subscription.created", "subscription.updated", "subscription.cancelled",
       "subscription.trial_started", "subscription.trial_ended",
 
-      # Payment events
+      # Payment events — NOT LIVE (business-extension-owned, no producer).
       "payment.created", "payment.completed", "payment.failed", "payment.refunded",
 
-      # Invoice events
+      # Invoice events — NOT LIVE (business-extension-owned, no producer).
       "invoice.created", "invoice.sent", "invoice.paid", "invoice.overdue",
 
-      # Plan events
+      # Plan events — NOT LIVE (business-extension-owned, no producer).
       "plan.created", "plan.updated", "plan.deleted",
 
-      # System events
+      # System events — NOT LIVE (no producer wired).
       "system.maintenance_start", "system.maintenance_end",
 
-      # Test events
+      # Test events — delivered by the manual test-ping path, not this
+      # producer; not "live" in the LIVE_EVENT_TYPES sense but not a gap.
       "test.webhook"
     ]
   end

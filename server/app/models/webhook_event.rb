@@ -6,7 +6,24 @@ class WebhookEvent < ApplicationRecord
   belongs_to :account, optional: true
   # :payment (Billing::Payment) association is added by the business extension's webhook_event decorator.
 
-  validates :provider, presence: true, inclusion: { in: %w[stripe paypal] }
+  # Single source of truth for the provider value set, mirrored by the DB
+  # check constraint "valid_webhook_provider" (db/migrate/20260917120000 and
+  # every migration before it that touched this constraint) — see
+  # spec/models/webhook_event_spec.rb's "provider value set agrees with the DB
+  # check constraint" spec, which fails the moment this list and the
+  # constraint disagree, rather than trusting hand-sync between the two.
+  #
+  # "system" (IMP-dd0305de2799) is the OUTBOUND platform-event value: it tags a
+  # row created by WebhookEventPublisher for a subscribable platform event
+  # (user.created, account.updated, ...), as opposed to an INBOUND stripe/paypal
+  # billing callback. Kept distinct from stripe/paypal so it is never counted by
+  # the provider-scoped billing queries (Admin::SettingsService.for_provider,
+  # WebhookHealthService#webhook_event_stats).
+  INBOUND_PROVIDERS = %w[stripe paypal].freeze
+  OUTBOUND_PROVIDER = "system"
+  ALL_PROVIDERS = (INBOUND_PROVIDERS + [ OUTBOUND_PROVIDER ]).freeze
+
+  validates :provider, presence: true, inclusion: { in: ALL_PROVIDERS }
   validates :event_type, presence: true
   validates :external_id, presence: true, uniqueness: true
   validates :payload, presence: true

@@ -158,5 +158,74 @@ RSpec.describe WebhookDelivery, type: :model do
         expect(delivery.attempt_number).to eq(1)
       end
     end
+
+    # IMP-dd0305de2799, D1: the worker must never be told about a delivery
+    # before it is durably committed (or after its transaction rolled back).
+    describe 'enqueue_worker_job (after_commit)' do
+      let(:account) { create(:account) }
+      let(:endpoint) { create(:webhook_endpoint, account: account) }
+      let(:event) { create(:webhook_event, account: account) }
+      let(:worker_api_client) { instance_double(WorkerApiClient, queue_job: { 'success' => true }) }
+
+      before { allow(WorkerApiClient).to receive(:new).and_return(worker_api_client) }
+
+      it 'enqueues Webhooks::WebhookDeliveryJob only AFTER the creating transaction commits' do
+        delivery = described_class.create!(webhook_endpoint: endpoint, webhook_event: event, status: 'pending')
+
+        expect(worker_api_client).to have_received(:queue_job)
+          .with('Webhooks::WebhookDeliveryJob', [ delivery.id ], queue: 'webhooks')
+      end
+
+      it 'does NOT enqueue when the creating transaction rolls back' do
+        expect {
+          ActiveRecord::Base.transaction do
+            described_class.create!(webhook_endpoint: endpoint, webhook_event: event, status: 'pending')
+            raise ActiveRecord::Rollback
+          end
+        }.not_to change(described_class, :count)
+
+        expect(worker_api_client).not_to have_received(:queue_job)
+      end
+
+      it 'does NOT enqueue a delivery created with a non-pending status (e.g. the rate-limited path)' do
+        described_class.create!(webhook_endpoint: endpoint, webhook_event: event, status: 'failed',
+                                 error_message: 'Endpoint daily delivery limit reached')
+
+        expect(worker_api_client).not_to have_received(:queue_job)
+      end
+
+      it 'logs and does not raise when the worker enqueue itself fails, leaving the row intact' do
+        allow(worker_api_client).to receive(:queue_job).and_raise(WorkerApiClient::ApiError, 'worker down')
+        allow(Rails.logger).to receive(:error)
+
+        delivery = nil
+        expect { delivery = described_class.create!(webhook_endpoint: endpoint, webhook_event: event, status: 'pending') }
+          .not_to raise_error
+
+        expect(described_class.find(delivery.id).status).to eq('pending')
+        expect(Rails.logger).to have_received(:error).with(a_string_matching(/Failed to enqueue delivery #{delivery.id}/))
+      end
+    end
+
+    # IMP-dd0305de2799, D2: a rate-limited delivery was never attempted and
+    # must not be counted as an endpoint FAILURE.
+    describe 'update_webhook_endpoint_stats with skip_endpoint_stats' do
+      let(:account) { create(:account) }
+      let(:endpoint) { create(:webhook_endpoint, account: account) }
+      let(:event) { create(:webhook_event, account: account) }
+      let(:delivery) { described_class.create!(webhook_endpoint: endpoint, webhook_event: event, status: 'pending') }
+
+      it 'does not increment failure_count when skip_endpoint_stats is set' do
+        delivery.skip_endpoint_stats = true
+
+        expect { delivery.update!(status: 'failed', error_message: 'rate limited') }
+          .not_to change { endpoint.reload.failure_count }
+      end
+
+      it 'still increments failure_count normally when skip_endpoint_stats is NOT set (a real attempt failed)' do
+        expect { delivery.update!(status: 'failed', attempted_at: Time.current, error_message: 'boom') }
+          .to change { endpoint.reload.failure_count }.by(1)
+      end
+    end
   end
 end

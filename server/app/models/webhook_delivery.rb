@@ -9,6 +9,14 @@ class WebhookDelivery < ApplicationRecord
   validates :status, presence: true, inclusion: { in: %w[pending success failed timeout] }
   validates :attempt_number, presence: true, numericality: { greater_than: 0 }
 
+  # Set by WebhookEventPublisher#deliver_to for a rate-limited delivery that
+  # was recorded "failed" WITHOUT ever being attempted (IMP-dd0305de2799, D2):
+  # the endpoint's success/failure stats must not treat a delivery that never
+  # reached the network as a real failure. Checked by
+  # #update_webhook_endpoint_stats below. Not persisted — a per-instance
+  # signal for the one write that sets it.
+  attr_accessor :skip_endpoint_stats
+
   # Scopes
   scope :pending, -> { where(status: "pending") }
   scope :successful, -> { where(status: "success") }
@@ -20,6 +28,29 @@ class WebhookDelivery < ApplicationRecord
   # Callbacks
   before_validation :set_defaults
   after_update :update_webhook_endpoint_stats
+
+  # IMP-dd0305de2799 (D1): enqueuing here — after_commit, not at creation time
+  # inside WebhookEventPublisher — is what keeps the worker from ever being
+  # told about a delivery before it durably exists (or after its creating
+  # transaction rolled back). WebhookEventPublisher.deliver_to runs inside
+  # Auditable#write_audit_log, itself inside the after_create/after_update/
+  # before_destroy callback of whatever real change triggered it — i.e. inside
+  # THAT transaction, not this row's own. A synchronous enqueue there would
+  # race the worker's internal delivery-fetch GET against that outer commit:
+  # a 404 there is not treated as a failure or a reason to retry
+  # (webhook_delivery_job.rb has no such branch), so the row would stay
+  # "pending" forever and the event would be lost with no trace — the exact
+  # failure class this producer exists to fix. after_commit also means a rolled-
+  # back transaction (or Account#destroy's N cascaded user deletions, each
+  # writing a WebhookDelivery inside one destroy transaction) never fires a
+  # premature or orphaned enqueue.
+  #
+  # Fires once per row (on: :create only) and reads `status` as of COMMIT
+  # time, not creation time: the rate-limited path in
+  # WebhookEventPublisher#deliver_to updates the same in-memory record to
+  # "failed" before the transaction commits, so this correctly skips
+  # enqueuing for that path without needing a second flag.
+  after_commit :enqueue_worker_job, on: :create
 
   # Instance methods
   def successful?
@@ -122,6 +153,7 @@ class WebhookDelivery < ApplicationRecord
   end
 
   def update_webhook_endpoint_stats
+    return if skip_endpoint_stats
     return unless saved_change_to_status?
 
     case status
@@ -131,5 +163,18 @@ class WebhookDelivery < ApplicationRecord
     when "failed", "timeout"
       webhook_endpoint.increment!(:failure_count)
     end
+  end
+
+  # See the after_commit declaration above for why this fires here rather
+  # than at creation time. Dispatches through the same worker HTTP-dispatch
+  # seam (WorkerApiClient) Api::V1::WebhooksController#retry_failed /
+  # #retry_delivery already use to reach Webhooks::WebhookDeliveryJob's
+  # sibling, Webhooks::WebhookRetryJob.
+  def enqueue_worker_job
+    return unless status == "pending"
+
+    WorkerApiClient.new.queue_job("Webhooks::WebhookDeliveryJob", [ id ], queue: "webhooks")
+  rescue WorkerApiClient::ApiError => e
+    Rails.logger.error "[WebhookDelivery] Failed to enqueue delivery #{id}: #{e.message}"
   end
 end

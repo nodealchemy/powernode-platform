@@ -118,10 +118,30 @@ class WebhookHealthService
     end
   end
 
-  # Get webhook event statistics
+  # Get webhook event statistics.
+  #
+  # IMP-dd0305de2799 (D3): scoped to INBOUND providers (stripe/paypal) only.
+  # WebhookEvent's AASM status (pending/processing/processed/failed/skipped)
+  # is an inbound-billing-intake lifecycle — mark_processed is called only
+  # from that intake path — so an OUTBOUND "system" platform event (created by
+  # WebhookEventPublisher) is never transitioned out of "pending" by design;
+  # its real outcome ledger is WebhookDelivery, not WebhookEvent#status.
+  # Mixing outbound volume into this reader would drive total_events and
+  # pending up forever while processed never follows, pushing the reported
+  # success_rate toward 0 as outbound traffic grows — a false negative on the
+  # actual (unrelated) inbound billing intake's health. Outbound volume is
+  # real and worth surfacing, so it is reported separately, never blended into
+  # this success rate.
   def webhook_event_stats(days: 7)
-    events = @account ? WebhookEvent.joins(:account).where(account: @account) : WebhookEvent.all
-    events = events.where("created_at >= ?", days.days.ago)
+    base = @account ? WebhookEvent.joins(:account).where(account: @account) : WebhookEvent.all
+    # Qualified column: joins(:account) puts webhook_events.created_at and
+    # accounts.created_at both in scope, and the bare column name raised
+    # PG::AmbiguousColumn the moment this @account branch was ever exercised
+    # (pre-existing; surfaced writing IMP-dd0305de2799's tests, the first
+    # coverage this method had).
+    base = base.where("webhook_events.created_at >= ?", days.days.ago)
+
+    events = base.where(provider: WebhookEvent::INBOUND_PROVIDERS)
 
     total_events = events.count
     processed_events = events.processed.count
@@ -134,6 +154,8 @@ class WebhookHealthService
 
     success_rate = total_events > 0 ? (processed_events.to_f / total_events * 100).round(2) : 0
 
+    outbound = base.where(provider: WebhookEvent::OUTBOUND_PROVIDER)
+
     {
       period: "#{days} days",
       total_events: total_events,
@@ -144,7 +166,15 @@ class WebhookHealthService
       provider_breakdown: provider_breakdown,
       event_type_breakdown: event_type_breakdown,
       daily_breakdown: daily_breakdown,
-      average_events_per_day: (total_events.to_f / days).round(1)
+      average_events_per_day: (total_events.to_f / days).round(1),
+      # Outbound PLATFORM events (WebhookEventPublisher). Reported as its own
+      # figure, never folded into total_events/success_rate above — see the
+      # method comment for why that would be misleading rather than merely
+      # imprecise.
+      outbound_platform_events: {
+        total: outbound.count,
+        event_type_breakdown: outbound.group(:event_type).count
+      }
     }
   end
 

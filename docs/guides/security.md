@@ -298,6 +298,8 @@ Returning a 500 to a webhook provider triggers exponential-backoff retries — t
 
 Every delivery Powernode sends to a webhook endpoint, including the test ping, is signed with that endpoint's signing secret (`whsec_…`), which is shown once when the endpoint is created. The secret is never sent with a delivery. (AI execution callbacks and monitoring notification webhooks are separate channels and are not signed this way.)
 
+An endpoint can subscribe to any name in `WebhookEndpoint.available_event_types`, but only five currently fire a real delivery: `user.created`, `user.updated`, `user.deleted`, `account.created`, `account.updated` (`WebhookEndpoint::LIVE_EVENT_TYPES`). The rest of the catalog — `user.login`/`user.logout`, every `subscription.*`/`payment.*`/`invoice.*`/`plan.*` entry, and `system.maintenance_*` — has no producer wired to it yet; ticking one of those in the endpoint's event list is accepted but never produces a delivery. `test.webhook` is a separate path (the manual test-ping button), not a produced event.
+
 | Header | Value |
 |---|---|
 | `X-Powernode-Signature` | `t=<unix timestamp>,v1=<hex HMAC-SHA256>` |

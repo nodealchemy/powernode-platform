@@ -118,6 +118,11 @@ module Auditable
     # tenant-owned (system templates shared across accounts, typically).
     class_attribute :audit_optional_account_reason, instance_writer: false, default: nil
 
+    # Set by webhook_payload_attributes (IMP-dd0305de2799, D5). Empty by
+    # default — see #webhook_payload_data for why that default is "ids only",
+    # not "everything redact_audit_values doesn't specifically strip".
+    class_attribute :webhook_payload_attribute_names, instance_writer: false, default: [].freeze
+
     # Audit log creation after record creation
     after_create :log_record_creation
 
@@ -147,6 +152,15 @@ module Auditable
     # do have an account are audited normally.
     def audit_optional_account!(reason:)
       self.audit_optional_account_reason = reason
+    end
+
+    # Declares which of this model's OWN attributes are safe to ship, verbatim
+    # (after redact_audit_values), in an outbound platform webhook payload's
+    # "data" (IMP-dd0305de2799, D5). Review the model's full column list
+    # before calling this — it is an allowlist precisely because the default
+    # (never calling it) is the safe one.
+    def webhook_payload_attributes(*names)
+      self.webhook_payload_attribute_names = names.map(&:to_s).freeze
     end
   end
 
@@ -201,22 +215,127 @@ module Auditable
     account = audit_account
     if account.nil?
       return record_audit_skipped(action) if audit_optional_account_reason
-
-      raise AccountUnresolved,
-            "#{self.class.name} could not resolve an audit account. Declare one with " \
-            "audit_account_via, or audit_without_account! if it has no owning tenant."
     end
 
-    AuditLog.log_action(
-      action: action,
-      resource: self,
+    begin
+      if account.nil?
+        raise AccountUnresolved,
+              "#{self.class.name} could not resolve an audit account. Declare one with " \
+              "audit_account_via, or audit_without_account! if it has no owning tenant."
+      end
+
+      AuditLog.log_action(
+        action: action,
+        resource: self,
+        account: account,
+        old_values: old_values,
+        new_values: new_values,
+        source: "system"
+      )
+    rescue StandardError => e
+      return record_audit_failure(action, e)
+    end
+
+    # IMP-dd0305de2799 (D9): deliberately OUTSIDE the rescue above and not
+    # wrapped in one of its own that routes through record_audit_failure. The
+    # audit row has already been written by the time this runs, so a
+    # webhook-publish failure is a DIFFERENT fact than "the audit write
+    # failed" and must not be reported (or counted) as one, nor allowed to
+    # unwind an audit write that already succeeded. publish_webhook_event owns
+    # its own failure handling end to end: it always logs, and in test it
+    # re-raises so a regression fails loud — but that raise propagates
+    # straight out of write_audit_log to the Rails callback (aborting the
+    # triggering save, same as any other uncaught callback exception), never
+    # through record_audit_failure / FAILURE_NOTIFICATION.
+    publish_webhook_event(action, account)
+  end
+
+  # IMP-dd0305de2799: the generic create/update/delete audit trail this
+  # concern already writes for every Auditable model is the seam a platform
+  # webhook event hangs off of.
+  #
+  # Why hook HERE and not AuditLog.log_action itself — two independent
+  # guards, doing two different jobs, and it matters which does which:
+  #
+  #   1. WebhookEventPublisher.event_type_for's %w[created updated deleted]
+  #      allowlist is what actually prevents a double-fire TODAY: no
+  #      AuditLog.log_action call site in core or the extensions passes a
+  #      bare "created"/"updated"/"deleted" action directly (they use
+  #      domain-specific names — "account_created", "suspend_account" — which
+  #      the allowlist already rejects regardless of hook location), so
+  #      hooking log_action itself would behave identically today. Do not
+  #      credit the hook location for that; it doesn't do it.
+  #   2. The hook location is what protects against a DIFFERENT, real risk:
+  #      some log_action callers (Audit::LoggingService, AuditLogging) pass a
+  #      synthesized OpenStruct "resource" rather than a real AR instance (see
+  #      the comment on Auditable.redact_values about a nil-constantizing
+  #      klass), and a future call site using a generic action name on one of
+  #      those would sail past the allowlist with no real `id`/attributes to
+  #      build a payload from. Hooking write_audit_log guarantees `self` is
+  #      always a real, Auditable-including model instance. See
+  #      spec/integration/webhook_platform_event_delivery_spec.rb for the
+  #      constructed case: an explicit `AuditLog.log_action(action: "updated",
+  #      ...)` call for the same resource does NOT produce a second delivery,
+  #      precisely because that call never reaches this method.
+  #
+  # WebhookEventPublisher.event_type_for is also what makes this a no-op for
+  # every Auditable model/action that isn't one of the names
+  # WebhookEndpoint.available_event_types declares — most Auditable models
+  # never produce a delivery.
+  #
+  # Inherits the audit subsystem's own enable flag and failure domain: this
+  # never runs at all while Auditable.logging_enabled is false (test default),
+  # and a write that bypasses Auditable's callbacks entirely — User#reset_password!
+  # and Security::AccountEncryptionKeyService both use update_columns — never
+  # reaches write_audit_log, so it produces no user.updated/account.updated
+  # event either. That is the same audit blind spot those call sites already
+  # have; this concern does not widen or narrow it.
+  def publish_webhook_event(action, account)
+    event_type = WebhookEventPublisher.event_type_for(self, action)
+    return unless event_type
+
+    WebhookEventPublisher.publish(
+      event_type: event_type,
       account: account,
-      old_values: old_values,
-      new_values: new_values,
-      source: "system"
+      payload: {
+        "event_type" => event_type,
+        "action" => action.to_s,
+        "timestamp" => Time.current.iso8601,
+        "id" => id,
+        "account_id" => account.id,
+        "data" => webhook_payload_data
+      }
     )
   rescue StandardError => e
-    record_audit_failure(action, e)
+    Rails.logger.error "Failed to publish webhook event for #{self.class.name}##{id} (#{action}): #{e.message}"
+    raise e if Auditable.raise_on_failure
+  end
+
+  # IMP-dd0305de2799 (D5): audit-row parity is the WRONG bar for a payload
+  # leaving the process to a customer-supplied URL. redact_audit_values exists
+  # to strip SECRETS (encrypted columns, ALWAYS_REDACTED_ATTRIBUTES,
+  # filter_attributes) — it is a no-op for a model with none of those
+  # declared, which is exactly Account's situation: no `encrypts`, no
+  # `filter_attributes` (ActiveRecord::Base.filter_attributes is empty in this
+  # app), so an unfiltered `auditable_attributes` would have shipped tax_id,
+  # billing_email, stripe_customer_id/paypal_customer_id,
+  # encryption_key_vault_path and the operator-writable settings/metadata
+  # jsonb bags to whatever URL an admin configured — at the DEFAULT
+  # payload_detail_level ("full"), the one that does not even trim it.
+  #
+  # So "data" is built from an explicit PER-MODEL ALLOWLIST of attributes the
+  # model has reviewed and declared safe to send externally
+  # (`webhook_payload_attributes :name, :slug, ...` in the model body), with
+  # redact_audit_values still applied as a SECOND pass over that narrowed set
+  # — not the only one. A model that declares no allowlist sends identifying
+  # fields only (the top-level "id"/"account_id" this payload already
+  # carries); neither User nor Account declares one yet, so both currently
+  # ship ids-only "data" until someone audits their own column list.
+  def webhook_payload_data
+    allowed = self.class.webhook_payload_attribute_names
+    return {} if allowed.empty?
+
+    redact_audit_values(attributes.slice(*allowed))
   end
 
   def record_audit_failure(action, error)

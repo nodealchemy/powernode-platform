@@ -311,6 +311,31 @@ RSpec.describe WebhookEndpoint, type: :model do
       end
     end
 
+    # IMP-dd0305de2799, D8: LIVE_EVENT_TYPES is the queryable claim that only
+    # these five actually produce a delivery today (WebhookEventPublisher.event_type_for).
+    # This spec is the tripwire for the claim itself (every LIVE entry is a
+    # real available_event_types member, so the docs/comment can't silently
+    # drift to naming something that was renamed or removed) — it does not,
+    # and cannot, prove the OTHER 23 stay inert; that is a property of the
+    # producer, exercised in spec/services/webhook_event_publisher_spec.rb.
+    describe '.live_event_type?' do
+      it 'is true for exactly the five known-live event types' do
+        expect(described_class::LIVE_EVENT_TYPES).to contain_exactly(
+          'user.created', 'user.updated', 'user.deleted',
+          'account.created', 'account.updated'
+        )
+        described_class::LIVE_EVENT_TYPES.each do |live_type|
+          expect(described_class).to be_live_event_type(live_type)
+          expect(described_class.available_event_types).to include(live_type)
+        end
+      end
+
+      it 'is false for an event type that is merely listed in available_event_types' do
+        expect(described_class).not_to be_live_event_type('user.login')
+        expect(described_class).not_to be_live_event_type('payment.completed')
+      end
+    end
+
     describe '.content_type_options' do
       it 'returns content type options' do
         result = described_class.content_type_options

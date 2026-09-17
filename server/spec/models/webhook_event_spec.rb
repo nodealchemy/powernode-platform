@@ -11,7 +11,23 @@ RSpec.describe WebhookEvent, type: :model do
 
   describe 'validations' do
     it { should validate_presence_of(:provider) }
-    it { should validate_inclusion_of(:provider).in_array(%w[stripe paypal]) }
+    # "system" (IMP-dd0305de2799): the OUTBOUND platform-event value WebhookEventPublisher
+    # uses, distinct from the two INBOUND billing providers.
+    it { should validate_inclusion_of(:provider).in_array(WebhookEvent::ALL_PROVIDERS) }
+
+    # IMP-dd0305de2799, D4: the provider value list now exists in three places
+    # (model validation, the DB check constraint, and the migration that
+    # changed it) with only hand-sync between them. This is the tripwire —
+    # it fails the moment WebhookEvent::ALL_PROVIDERS and the live DB
+    # constraint "valid_webhook_provider" disagree, in EITHER direction.
+    it 'agrees with the DB check constraint (valid_webhook_provider) on the allowed provider set' do
+      constraint = ActiveRecord::Base.connection.check_constraints(:webhook_events)
+                                      .find { |c| c.name == 'valid_webhook_provider' }
+      expect(constraint).to be_present, 'valid_webhook_provider constraint not found on webhook_events'
+
+      allowed_from_db = constraint.expression.scan(/'([a-z_]+)'::character varying/).flatten
+      expect(allowed_from_db.sort).to eq(WebhookEvent::ALL_PROVIDERS.sort)
+    end
     it { should validate_presence_of(:event_type) }
     it { should validate_presence_of(:external_id) }
     it { should validate_presence_of(:payload) }
