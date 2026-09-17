@@ -9,6 +9,16 @@ Pull the next task from a platform Ralph Loop queue (via the `dev_loop` MCP brid
 /dev-loop <loop-name-or-id>    # any other claude_code Ralph Loop
 ```
 
+## Delegate every task to a subagent (REQUIRED)
+
+The session that runs `/dev-loop` is the **driver**. It pulls and routes; it does not implement. Steps 2–8 below run inside a subagent:
+
+- **Driver does:** step 1 (Pull); picking the worktree (step 3, including a liveness check that no other session owns it); spawning the executor; relaying the executor's outcome to the operator; scheduling the next iteration.
+- **Executor:** pick the subagent by the task's area — `platform-developer` for code changes (the default, since it has Edit/Write/Bash and the dev-loop verbs). Use `platform.route_task` when the area is unclear. Brief it with the full task (key, acceptance criteria, `metadata.files`, guardrails), the worktree path and branch, and the red-first / commit / `dev_complete_task` contract, because a subagent starts without this session's context. The executor owns steps 2–8 and reports the task itself.
+- **Reviewer:** the canonical executor agents (e.g. `platform-developer`) have no Agent tool, so they cannot spawn a reviewer. When acceptance criteria require independent review, the executor stops before committing and reports its diff to the driver. The driver then spawns a read-only `general-purpose` reviewer (barred from rspec and from editing files). The driver sends the findings back to the same executor (SendMessage), which fixes them, commits, and calls `dev_complete_task`. An executor must never replace this review with a self-review.
+- **Blocked or ambiguous tasks:** the driver takes the decision to the operator (AskUserQuestion, one decision at a time) and records it with `dev_update_task` / `dev_complete_task`. The executor does not guess at operator decisions.
+- **One executor per worktree.** Do not pull the next task onto a worktree whose executor is still running. Use another worktree, within the `WORKTREE_MAX` cap below.
+
 ## Iteration Workflow
 
 ### 1. Pull
