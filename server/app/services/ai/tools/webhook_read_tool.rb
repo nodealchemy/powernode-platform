@@ -157,7 +157,13 @@ module Ai
           is_active: row.is_active,
           status: row.status,
           secret_configured: row.secret_key.present?,
-          signature_configured: row.signature_secret.present?,
+          # IMP-dd0305de2799: signing now uses secret_key, not the unused
+          # signature_secret column (see WebhookEndpoint#generate_secret_token
+          # and Api::V1::Internal::WebhookDeliveriesController#delivery_signature_headers).
+          # Reporting signature_secret.present? here answered a question about a
+          # column deliveries no longer read from, so it could say "not signed"
+          # for an endpoint whose deliveries were, in fact, signed.
+          signature_configured: row.secret_key.present?,
           success_count: row.success_count,
           failure_count: row.failure_count,
           consecutive_failures: row.consecutive_failures,

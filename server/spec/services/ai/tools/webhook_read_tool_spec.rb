@@ -228,6 +228,20 @@ RSpec.describe Ai::Tools::WebhookReadTool do
       expect(status).to include(secret_configured: false, signature_configured: false)
     end
 
+    # IMP-dd0305de2799: signing uses secret_key (WebhookEndpoint#generate_secret_token,
+    # Api::V1::Internal::WebhookDeliveriesController#delivery_signature_headers) —
+    # signature_secret is unused for deliveries. Discriminating the two columns
+    # (present secret_key, blank signature_secret) is what the two tests above
+    # cannot do: they always move both columns together, so a
+    # `signature_secret.present?` reading and a `secret_key.present?` reading
+    # would pass both of THOSE tests identically despite disagreeing here.
+    it "reports signature_configured from secret_key, not the unused signature_secret column" do
+      row.update_columns(signature_secret: nil)
+
+      status = tool.execute(params: { action: "get_webhook", id: row.id }).dig(:data, :webhook)
+      expect(status).to include(secret_configured: true, signature_configured: true)
+    end
+
     it "never emits a delivery's request headers or raw response body" do
       planted_signature = "sha256=#{SecureRandom.hex(32)}"
       planted_body = "SECRET-RESPONSE-#{SecureRandom.hex(12)}"
