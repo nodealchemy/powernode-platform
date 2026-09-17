@@ -1,8 +1,13 @@
 # frozen_string_literal: true
 
 # Centralized audit action definitions organized by domain.
-# All actions use dot notation for consistency (e.g., ai.agents.create) except
-# for legacy flat tokens (e.g., subscription_created) kept for compatibility.
+# Domains introduced after the dot-notation convention use it throughout
+# (e.g., ai.agents.create); domains that predate it (e.g., subscription_change)
+# keep their original flat tokens by design — that is the established name for
+# those events, not a compatibility shim. No action name may alias another:
+# register_actions refuses a token shaped like the deprecated ai_<domain>.<verb>
+# form (see LEGACY_ALIAS_PATTERN), and the same rule is pinned by
+# spec/models/concerns/audit_actions_spec.rb against the core set itself.
 #
 # Extension seam (mirrors Permissions.register_catalog / register_roles):
 # core declares its own actions/sources in the frozen CORE_* constants; an
@@ -220,12 +225,22 @@ module AuditActions
   ].freeze
 
   # =============================================================================
-  # AI AGENT TEAM ACTIONS
+  # AI AGENT TEAM ACTIONS — renamed from the underscore-namespace form
+  # (ai_agent_team.<verb>) to the dot convention (IMP-85fb47438be6, operator
+  # decision 2026-09-17): the old form matched LEGACY_ALIAS_PATTERN's shape
+  # below even though it aliased nothing, which forced a carve-out. Renaming
+  # removes the need for one — no core token matches the pattern now. Writers
+  # (server/app/controllers/api/v1/ai/agent_teams_controller.rb,
+  # agent_team_executions_controller.rb) and the historical-row migration
+  # (db/migrate/20260917010000_reclassify_legacy_audit_actions.rb) were
+  # updated in the same change; existing rows get a chained correction row
+  # rather than being renamed in place, same as every other pair in that
+  # migration.
   # =============================================================================
   AI_AGENT_TEAM_ACTIONS = %w[
-    ai_agent_team.created ai_agent_team.updated ai_agent_team.deleted
-    ai_agent_team.member_added ai_agent_team.member_removed
-    ai_agent_team.execution_started ai_agent_team.execution_completed ai_agent_team.execution_failed
+    ai.agent_team.created ai.agent_team.updated ai.agent_team.deleted
+    ai.agent_team.member_added ai.agent_team.member_removed
+    ai.agent_team.execution_started ai.agent_team.execution_completed ai.agent_team.execution_failed
   ].freeze
 
   # =============================================================================
@@ -309,19 +324,6 @@ module AuditActions
   ].freeze
 
   # =============================================================================
-  # LEGACY ACTIONS (deprecated, kept for backward compatibility)
-  # These will be migrated to their standardized equivalents
-  # =============================================================================
-  LEGACY_ACTIONS = %w[
-    ai_agents.index ai_agents.create ai_agents.update ai_agents.destroy
-    ai_agents.execute ai_agents.clone ai_agents.pause ai_agents.resume
-    ai_agents.archive ai_agents.stats ai_agents.analytics
-    ai_conversations.update ai_conversations.create ai_conversations.destroy
-    ai_messages.update ai_messages.create ai_messages.destroy ai_messages.edit_content
-    ai_analytics.usage_recorded ai_analytics.update
-  ].freeze
-
-  # =============================================================================
   # DEPLOY ACTIONS — Ai::Deploy::Orchestrator lifecycle (self-deploy + project deploy).
   # The privilege/irreversibility crossing is audited at every phase.
   # =============================================================================
@@ -343,6 +345,30 @@ module AuditActions
     platform.alert_channels.secret_replaced
     platform.alert_channels.secret_cleared
     platform.alert_channels.settings_updated
+  ].freeze
+
+  # =============================================================================
+  # AUDIT SELF-CORRECTION ACTIONS — appended by data migrations that need to
+  # annotate a sealed historical row without rewriting it. `action` is a hashed
+  # field in the tamper-evident chain (Audit::LogIntegrityService#build_hash_data),
+  # so a rename would invalidate that row's integrity_hash and force re-chaining
+  # everything after it. Instead a migration appends one NEW chained row per
+  # corrected row and leaves the original untouched. See
+  # db/migrate/*_reclassify_legacy_audit_actions.rb (IMP-85fb47438be6).
+  #
+  # WHERE THE RECLASSIFICATION PAYLOAD LIVES, stated precisely: old_values and
+  # new_values are NOT in build_hash_data's covered field list — a row's own
+  # `action`, `resource_type`, `resource_id` etc. are covered, but old_values/
+  # new_values are not, so anyone with UPDATE on audit_logs can rewrite them
+  # and verify_entry/verify_chain stay green (F1, IMP-85fb47438be6 review,
+  # 2026-09-17). The correction migration therefore puts the authoritative
+  # {from, to} pair in `metadata` (which IS hashed) and keeps old_values/
+  # new_values only as a non-authoritative, human-readable duplicate. Being a
+  # NEW row does not by itself make its payload tamper-evident — only landing
+  # it in a hashed column does.
+  # =============================================================================
+  AUDIT_CORRECTION_ACTIONS = %w[
+    audit.action_reclassified
   ].freeze
 
   # =============================================================================
@@ -379,7 +405,7 @@ module AuditActions
     SITE_SETTING_ACTIONS,
     REPORT_REQUEST_ACTIONS,
     PLATFORM_ALERT_CHANNEL_ACTIONS,
-    LEGACY_ACTIONS
+    AUDIT_CORRECTION_ACTIONS
   ].flatten.uniq.freeze
 
   # =============================================================================
@@ -402,6 +428,21 @@ module AuditActions
   # Flat Array of source tokens contributed by extensions.
   @extension_sources = []
 
+  # Catches the deprecated LEGACY_ACTIONS shape (ai_agents.index, ai_messages.create,
+  # ...): an underscore-joined "ai_" namespace immediately followed by a dotted
+  # verb. Deliberately narrow — it does not match ordinary flat tokens like
+  # "ai_execution_cost" (no dot) or ordinary dotted tokens like
+  # "ai.agents.create" (no underscore before the dot). Enforced by
+  # register_actions (below) so an extension can never register a token in
+  # this shape; that guard is what cannot be bypassed, NOT the module as a
+  # whole — extension_actions (below) returns the live mutable accumulator by
+  # reference, so code with a direct reference to it could still write
+  # around register_actions entirely. No core token may match this pattern
+  # either (pinned by spec/models/concerns/audit_actions_spec.rb against
+  # CORE_ALL_ACTIONS) — as of IMP-85fb47438be6's 2026-09-17 rename of
+  # AI_AGENT_TEAM_ACTIONS to the dot convention, that holds with no carve-out.
+  LEGACY_ALIAS_PATTERN = /\Aai_\w+\./.freeze
+
   class << self
     # Extension sink for audit ACTIONS — the audit twin of
     # Permissions.register_catalog. `namespace` is purely for attribution /
@@ -414,7 +455,9 @@ module AuditActions
     # Usage (extensions/<x>/server/lib/<engine>/engine.rb, after_initialize):
     #   AuditActions.register_actions("business", %w[subscription_created ...])
     def register_actions(namespace, actions)
-      @extension_actions[namespace.to_s] = Array(actions).map(&:to_s).uniq.freeze
+      tokens = Array(actions).map(&:to_s).uniq
+      assert_no_legacy_alias_shape!(tokens, namespace: namespace)
+      @extension_actions[namespace.to_s] = tokens.freeze
       nil
     end
 
@@ -451,8 +494,47 @@ module AuditActions
       all_sources.include?(source.to_s)
     end
 
-    def standardize_action(action)
-      MIGRATION_MAPPINGS[action.to_s] || action.to_s
+    # The token's underscore/dot "sibling" — the same string with every "."
+    # swapped for "_" (dotted tokens) or every "_" swapped for "." (flat
+    # tokens) — or nil if the token has no dot/underscore to swap, or the swap
+    # is a no-op (F3, IMP-85fb47438be6 review, 2026-09-17: a token with
+    # NEITHER character, e.g. "payment", must not compare to itself — without
+    # this nil guard every such core token reads as its own sibling and
+    # register_actions("some_ext", %w[payment]) raised on nothing). The single
+    # definition both assert_no_legacy_alias_shape! (below) and
+    # spec/models/concerns/audit_actions_spec.rb call, so the implementation
+    # and the spec enforce one rule, not two independently-maintained copies.
+    def dot_underscore_sibling(token)
+      token = token.to_s
+      sibling = token.include?(".") ? token.tr(".", "_") : token.tr("_", ".")
+      return nil if sibling == token
+
+      sibling
+    end
+
+    # Raises if any of `tokens` has the deprecated ai_<domain>.<verb> alias shape
+    # (LEGACY_ACTIONS' shape, removed IMP-85fb47438be6), or reintroduces an
+    # underscore/dot sibling of an action that is already valid (core or any
+    # other extension) — the same alias problem the other direction. Shared by
+    # the extension-registration seam (this method's only caller) and pinned
+    # directly by spec/models/concerns/audit_actions_spec.rb against the core
+    # set, so both enforce the identical rule and this is not a lint-only check.
+    def assert_no_legacy_alias_shape!(tokens, namespace:)
+      pattern_hits = tokens.select { |t| t.match?(LEGACY_ALIAS_PATTERN) }
+      if pattern_hits.any?
+        raise ArgumentError,
+              "AuditActions.register_actions(#{namespace.inspect}): legacy-shaped " \
+              "action token(s) #{pattern_hits.inspect} match /\\Aai_\\w+\\./ — " \
+              "no aliases, dot notation only"
+      end
+
+      existing = all_actions
+      sibling_hits = tokens.select { |t| (sibling = dot_underscore_sibling(t)) && existing.include?(sibling) }
+      return if sibling_hits.empty?
+
+      raise ArgumentError,
+            "AuditActions.register_actions(#{namespace.inspect}): action token(s) " \
+            "#{sibling_hits.inspect} collide with an existing underscore/dot sibling"
     end
 
     def actions_for_domain(domain)
@@ -499,40 +581,6 @@ module AuditActions
   end
 
   # =============================================================================
-  # MIGRATION MAPPINGS
-  # Maps legacy action names to their standardized equivalents
-  # =============================================================================
-  MIGRATION_MAPPINGS = {
-    # AI Agents legacy -> standardized
-    "ai_agents.index" => "ai.agents.read",
-    "ai_agents.create" => "ai.agents.create",
-    "ai_agents.update" => "ai.agents.update",
-    "ai_agents.destroy" => "ai.agents.delete",
-    "ai_agents.execute" => "ai.agents.execute",
-    "ai_agents.clone" => "ai.agents.clone",
-    "ai_agents.pause" => "ai.agents.pause",
-    "ai_agents.resume" => "ai.agents.resume",
-    "ai_agents.archive" => "ai.agents.archive",
-    "ai_agents.stats" => "ai.agents.stats",
-    "ai_agents.analytics" => "ai.agents.analytics",
-
-    # AI Conversations legacy -> standardized
-    "ai_conversations.create" => "ai.conversations.create",
-    "ai_conversations.update" => "ai.conversations.update",
-    "ai_conversations.destroy" => "ai.conversations.delete",
-
-    # AI Messages legacy -> standardized
-    "ai_messages.create" => "ai.messages.create",
-    "ai_messages.update" => "ai.messages.update",
-    "ai_messages.destroy" => "ai.messages.delete",
-    "ai_messages.edit_content" => "ai.messages.edit_content",
-
-    # AI Analytics legacy -> standardized
-    "ai_analytics.usage_recorded" => "ai.analytics.usage_recorded",
-    "ai_analytics.update" => "ai.analytics.update"
-  }.freeze
-
-  # =============================================================================
   # HELPER METHODS (instance/class via ActiveSupport::Concern) — delegate to the
   # module-level class methods so includers (AuditLog) keep the same surface.
   # =============================================================================
@@ -543,10 +591,6 @@ module AuditActions
 
     def valid_source?(source)
       AuditActions.valid_source?(source)
-    end
-
-    def standardize_action(action)
-      AuditActions.standardize_action(action)
     end
 
     def actions_for_domain(domain)

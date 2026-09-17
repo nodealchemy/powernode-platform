@@ -74,6 +74,99 @@ RSpec.describe AuditActions do
     end
   end
 
+  describe "no legacy support (IMP-85fb47438be6)" do
+    # inherit: false — the plain one-arg form also resolves top-level
+    # constants (Object::LEGACY_ACTIONS, if one ever existed), which is not
+    # what this is pinning (F9, review 2026-09-17).
+    it "does not define LEGACY_ACTIONS" do
+      expect(described_class.const_defined?(:LEGACY_ACTIONS, false)).to be false
+    end
+
+    it "does not define MIGRATION_MAPPINGS" do
+      expect(described_class.const_defined?(:MIGRATION_MAPPINGS, false)).to be false
+    end
+
+    it "does not respond to standardize_action" do
+      expect(described_class).not_to respond_to(:standardize_action)
+      expect(AuditLog).not_to respond_to(:standardize_action)
+    end
+
+    # No carve-out: AI_AGENT_TEAM_ACTIONS was renamed to the dot convention
+    # (ai.agent_team.*) specifically so this holds with no exception constant
+    # (operator decision 2026-09-17, superseding an earlier KNOWN_LEGACY_
+    # SHAPED_EXCEPTIONS carve-out this spec used to need).
+    it "has no core action token matching the legacy ai_<domain>.<verb> alias shape" do
+      offenders = described_class::CORE_ALL_ACTIONS
+        .select { |token| token.match?(described_class::LEGACY_ALIAS_PATTERN) }
+
+      expect(offenders).to be_empty
+    end
+
+    # Uses the SAME dot_underscore_sibling the production guard uses (F3,
+    # review 2026-09-17) — one rule, not a second hand-written copy that could
+    # drift from what register_actions actually enforces.
+    it "has no underscore/dot sibling pairs among core action tokens" do
+      all = described_class::CORE_ALL_ACTIONS
+      pairs = all.select { |token| (sibling = described_class.dot_underscore_sibling(token)) && all.include?(sibling) }
+
+      expect(pairs).to be_empty
+    end
+
+    it "register_actions raises for a token matching the legacy alias shape" do
+      expect {
+        described_class.register_actions("acme_ext", %w[ai_widgets.create])
+      }.to raise_error(ArgumentError, /legacy-shaped/)
+
+      expect(described_class.valid_action?("ai_widgets.create")).to be false
+    end
+
+    it "register_actions raises for a token that is the dotted sibling of an existing flat core action" do
+      expect {
+        described_class.register_actions("acme_ext", %w[subscription.change])
+      }.to raise_error(ArgumentError, /underscore\/dot sibling/)
+
+      expect(described_class.valid_action?("subscription.change")).to be false
+    end
+
+    # F3: a token with neither "." nor "_" (so its "sibling" transform is a
+    # no-op) must not be treated as colliding with itself. Before the fix,
+    # registering the literal string "payment" (already a valid core action)
+    # raised — which would have aborted supply-chain's extension boot
+    # (its engine has no rescue around this call) and, for system's engine
+    # (which does rescue and warn), silently dropped its entire audit action
+    # set, after which every system.* audit write would fail validation.
+    it "register_actions does not raise for a token that only collides with itself" do
+      expect(described_class.valid_action?("payment")).to be true
+
+      expect {
+        described_class.register_actions("acme_ext", %w[payment])
+      }.not_to raise_error
+
+      expect(described_class.extension_actions["acme_ext"]).to contain_exactly("payment")
+    end
+
+    it "register_actions does not partially register a namespace that fails validation" do
+      described_class.register_actions("acme_ext", %w[acme_ext.safe_token])
+      expect {
+        described_class.register_actions("acme_ext", %w[acme_ext.safe_token ai_widgets.create])
+      }.to raise_error(ArgumentError)
+
+      expect(described_class.extension_actions["acme_ext"]).to contain_exactly("acme_ext.safe_token")
+    end
+  end
+
+  describe "REPORT_REQUEST_ACTIONS" do
+    it "matches ReportRequest's status-derived action names plus the cleanup action" do
+      inclusion_validator = ReportRequest.validators_on(:status)
+        .find { |v| v.is_a?(ActiveModel::Validations::InclusionValidator) }
+      statuses = inclusion_validator.options[:in]
+
+      expected = statuses.map { |status| "report_request_#{status}" } + %w[report_request_cleanup_deleted]
+
+      expect(described_class::REPORT_REQUEST_ACTIONS).to match_array(expected)
+    end
+  end
+
   describe "AuditLog integration" do
     let(:account) { create(:account) }
     let(:user) { create(:user, account: account) }

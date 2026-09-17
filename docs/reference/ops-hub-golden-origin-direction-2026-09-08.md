@@ -61,7 +61,19 @@ Rejected/parked: the proving-ground campaign stays proposed (depends on the SDWA
 
 Legacy removals queued under the no-legacy rule:
 - FederationGrant raw-PK `fg-` token path and its env toggle; blank scope lists become deny.
-- `AuditActions::LEGACY_ACTIONS`; writers migrated, historical rows renamed.
+- `AuditActions::LEGACY_ACTIONS`; writers migrated (verified no-op across
+  core, worker and the two populated public extensions — `extensions/marketing`
+  is empty and private extensions are absent in the checkout this was verified
+  in, so the claim is scoped to what was actually checked, not "no code
+  anywhere ever"). Historical rows are NOT renamed (`action` is a hashed
+  field in the tamper-evident chain); a migration instead appends one chained
+  `audit.action_reclassified` correction row per legacy row, leaving the
+  original untouched, with the reclassification pair carried in `metadata`
+  (hashed) rather than old_values/new_values (those are unhashed and only a
+  readable duplicate) (operator ruling 2026-09-13 + review 2026-09-17,
+  IMP-85fb47438be6). `AI_AGENT_TEAM_ACTIONS` was also renamed from
+  `ai_agent_team.*` to `ai.agent_team.*` in the same change, for the same
+  no-legacy-shape reason.
 - Ralph loop dormant `learnings` column and its read-union; drained then dropped.
 - `core-purity-baseline.txt` burned down to zero and deleted.
 - Deprecated `ui/TabContainer` + `ui/TabNavigation`; dead worker_api task actions; serializer legacy fields; positional `api_response` compat; deprecated `syncRepositories`.

@@ -64,7 +64,7 @@ module Api
           @team = current_account.ai_agent_teams.build(team_params)
 
           if @team.save
-            log_audit_event("ai_agent_team.created", @team, metadata: { team_name: @team.name })
+            log_audit_event("ai.agent_team.created", @team, metadata: { team_name: @team.name })
 
             render_success(serialize_team_detail(@team), status: :created)
           else
@@ -76,7 +76,7 @@ module Api
         def update
           if @team.update(team_params)
             changes = @team.saved_changes.keys
-            log_audit_event("ai_agent_team.updated", @team, metadata: { changes: changes })
+            log_audit_event("ai.agent_team.updated", @team, metadata: { changes: changes })
 
             render_success(serialize_team_detail(@team))
           else
@@ -89,7 +89,7 @@ module Api
           team_name = @team.name
 
           if @team.destroy
-            log_audit_event("ai_agent_team.deleted", @team, metadata: { team_name: team_name })
+            log_audit_event("ai.agent_team.deleted", @team, metadata: { team_name: team_name })
 
             render_success({ message: "Team deleted successfully" })
           else
@@ -108,7 +108,7 @@ module Api
             is_lead: params[:is_lead] || false
           )
 
-          log_audit_event("ai_agent_team.member_added", member, metadata: { agent_id: agent.id, role: params[:role] })
+          log_audit_event("ai.agent_team.member_added", member, metadata: { agent_id: agent.id, role: params[:role] })
 
           render_success(serialize_member(member))
         rescue ActiveRecord::RecordInvalid => e
@@ -123,7 +123,7 @@ module Api
           agent_name = member.ai_agent_name
 
           if member.destroy
-            log_audit_event("ai_agent_team.member_removed", member, metadata: { agent_name: agent_name })
+            log_audit_event("ai.agent_team.member_removed", member, metadata: { agent_name: agent_name })
 
             render_success({ message: "Member removed successfully" })
           else
@@ -148,7 +148,7 @@ module Api
 
           jid = result&.dig("job_id") || "queued"
 
-          log_audit_event("ai_agent_team.execution_started", @team,
+          log_audit_event("ai.agent_team.execution_started", @team,
             metadata: { job_id: jid })
 
           render_success({

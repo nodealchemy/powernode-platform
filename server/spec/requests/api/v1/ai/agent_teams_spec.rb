@@ -226,7 +226,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       it 'creates audit log entry' do
         post '/api/v1/ai/agent_teams', params: valid_params, headers: headers, as: :json
 
-        audit_log = AuditLog.where(action: 'ai_agent_team.created').last
+        audit_log = AuditLog.where(action: 'ai.agent_team.created').last
         expect(audit_log).to be_present
         expect(audit_log.resource_type).to eq('Ai::AgentTeam')
         expect(audit_log.metadata['team_name']).to eq('New Team')
@@ -294,7 +294,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       it 'creates audit log entry' do
         patch "/api/v1/ai/agent_teams/#{team.id}", params: update_params, headers: headers, as: :json
 
-        audit_log = AuditLog.where(action: 'ai_agent_team.updated').last
+        audit_log = AuditLog.where(action: 'ai.agent_team.updated').last
         expect(audit_log).to be_present
         expect(audit_log.resource_type).to eq('Ai::AgentTeam')
         expect(audit_log.metadata['changes']).to include('name', 'description', 'status')
@@ -330,7 +330,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
         team_name = team.name
         delete "/api/v1/ai/agent_teams/#{team.id}", headers: headers, as: :json
 
-        audit_log = AuditLog.where(action: 'ai_agent_team.deleted').last
+        audit_log = AuditLog.where(action: 'ai.agent_team.deleted').last
         expect(audit_log).to be_present
         expect(audit_log.resource_type).to eq('Ai::AgentTeam')
         expect(audit_log.metadata['team_name']).to eq(team_name)
@@ -368,7 +368,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       it 'creates audit log entry' do
         post "/api/v1/ai/agent_teams/#{team.id}/members", params: member_params, headers: headers, as: :json
 
-        audit_log = AuditLog.where(action: 'ai_agent_team.member_added').last
+        audit_log = AuditLog.where(action: 'ai.agent_team.member_added').last
         expect(audit_log).to be_present
         expect(audit_log.resource_type).to eq('Ai::AgentTeamMember')
         expect(audit_log.metadata['agent_id']).to eq(agent.id)
@@ -441,7 +441,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
         agent_name = member.ai_agent_name
         delete "/api/v1/ai/agent_teams/#{team.id}/members/#{member_id}", headers: headers, as: :json
 
-        audit_log = AuditLog.where(action: 'ai_agent_team.member_removed').last
+        audit_log = AuditLog.where(action: 'ai.agent_team.member_removed').last
         expect(audit_log).to be_present
         expect(audit_log.resource_type).to eq('Ai::AgentTeamMember')
         expect(audit_log.metadata['agent_name']).to eq(agent_name)
@@ -501,7 +501,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
         allow(WorkerJobService).to receive(:enqueue_ai_team_execution).and_return({ "job_id" => "job-789" })
         post "/api/v1/ai/agent_teams/#{team.id}/execute", params: execute_params, headers: headers, as: :json
 
-        audit_log = AuditLog.where(action: 'ai_agent_team.execution_started').last
+        audit_log = AuditLog.where(action: 'ai.agent_team.execution_started').last
         expect(audit_log).to be_present
         expect(audit_log.resource_type).to eq('Ai::AgentTeam')
         expect(audit_log.metadata['job_id']).to eq('job-789')

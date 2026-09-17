@@ -52,7 +52,7 @@ module Api
           end
 
           @execution.update!(control_signal: "cancel")
-          audit_log("ai_agent_team.execution_cancel_requested", execution_id: @execution.execution_id)
+          audit_log("ai.agent_team.execution_cancel_requested", execution_id: @execution.execution_id)
           render_success({ status: "cancel_requested", execution_id: @execution.execution_id })
         end
 
@@ -63,7 +63,7 @@ module Api
           end
 
           @execution.update!(control_signal: "pause")
-          audit_log("ai_agent_team.execution_pause_requested", execution_id: @execution.execution_id)
+          audit_log("ai.agent_team.execution_pause_requested", execution_id: @execution.execution_id)
           render_success({ status: "pause_requested", execution_id: @execution.execution_id })
         end
 
@@ -74,7 +74,7 @@ module Api
           end
 
           @execution.update!(control_signal: nil)
-          audit_log("ai_agent_team.execution_resume_requested", execution_id: @execution.execution_id)
+          audit_log("ai.agent_team.execution_resume_requested", execution_id: @execution.execution_id)
           render_success({ status: "resume_requested", execution_id: @execution.execution_id })
         end
 
@@ -92,7 +92,7 @@ module Api
           }
 
           WorkerJobService.enqueue_ai_team_execution(**new_execution_args.symbolize_keys)
-          audit_log("ai_agent_team.execution_retried",
+          audit_log("ai.agent_team.execution_retried",
             original_execution_id: @execution.execution_id)
           render_success({ status: "retry_queued", original_execution_id: @execution.execution_id })
         end
