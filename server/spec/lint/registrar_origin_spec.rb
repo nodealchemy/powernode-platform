@@ -104,22 +104,51 @@ RSpec.describe "registrar call sites carry origin:" do
   # tool for a mark to reach. That is a decision, not a blind spot.
   def repo_root = File.expand_path("..", server_root)
 
-  # `...Tool.new(` names under Ai::Tools, and the seams that build one from a
-  # variable. Ai::Tools::LocalToolBinding and SemanticToolDiscoveryService are
-  # not tools, and do not end in "Tool".
+  # A construction's receiver is a `...Tool` constant under Ai::Tools (written
+  # qualified, or bare from inside that namespace) or a variable, whose class the
+  # text cannot name. It is built with `.new`, or `public_send`/`send` of `:new`,
+  # with or without parentheses. Ai::Tools::LocalToolBinding and
+  # SemanticToolDiscoveryService are not tools, and do not end in "Tool".
+  # (IMP-bda82956101d widened this from Ai::Tools-qualified constants and
+  # tool_class/tool_klass called with parentheses.)
   def construction_pattern
-    /(?:\bAi::Tools::[A-Z]\w*Tool|\btool_class|\btool_klass)\s*\.\s*new\s*\(/
+    /
+      (?<receiver>
+        (?:(?:::)?Ai::Tools::|(?<![\w:]))[A-Z]\w*Tool\b
+      | (?<![\w:.@$])@?[a-z_]\w*
+      )
+      \s*\.\s*
+      (?:new\b(?![?!=])|(?:public_send|__send__|send)\s*\(?\s*:new\b)
+    /x
   end
 
-  # Core files, each with its reason. An extension lists its own in
-  # server/config/direct_tool_constructions.yml (a path relative to its server/
-  # directory, mapped to the reason), found by glob, so core names no extension.
+  # Core exemptions, each with its reason. A key is a file, which excuses every
+  # construction in it, or `file#receiver`, which excuses only the constructions
+  # through that variable. Use the second for a variable that holds a class that
+  # is not a tool, so a real tool built elsewhere in the file is still judged.
+  # An extension lists its own in server/config/direct_tool_constructions.yml
+  # (keys relative to its server/ directory, mapped to the reason), found by
+  # glob, so core names no extension.
   def construction_allowlist
     allowlist = {
       "server/app/services/ai/tools/mcp_platform_tool_registrar.rb" =>
         "the funnel: build_and_execute sets the caller's origin: on the tool it just built",
       "server/app/services/ai/growth/cross_post_service.rb" =>
-        "built only by REST controllers (growth analytics cross_post, content drafts publish): a person's request"
+        "built only by REST controllers (growth analytics cross_post, content drafts publish): a person's request",
+      "server/app/services/ai/tools/base_tool.rb#executor_class" =>
+        "build_skill_executor builds a skill executor, not a BaseTool",
+      "server/app/services/ai/provisioning/skill_composition_runner.rb#executor_class" =>
+        "build_executor builds a System::Ai::Skills executor, not a BaseTool",
+      "server/app/services/ai/concierge_router.rb#klass" =>
+        "invoke_skill builds the class a skill's metadata executor_class names: a skill executor, not a BaseTool",
+      "server/app/services/ai/autonomy/observation_pipeline_service.rb#sensor_class" =>
+        "an observation sensor, not a BaseTool",
+      "server/app/services/ai/delivery/progressive_executor.rb#klass" =>
+        "a delivery strategy from STRATEGY_CLASSES, not a BaseTool",
+      "server/app/services/ai/deploy/orchestrator.rb#method_class" =>
+        "a deploy method, not a BaseTool",
+      "server/app/services/ai/team_strategies/strategy_factory.rb#strategy_class" =>
+        "a team strategy from STRATEGY_MAP, not a BaseTool"
     }
     Dir.glob(File.join(repo_root, "extensions/*/server/config/direct_tool_constructions.yml")).sort.each do |file|
       next if file.include?("/private/")
@@ -130,32 +159,65 @@ RSpec.describe "registrar call sites carry origin:" do
     allowlist
   end
 
-  # The argument text of every construction in `source` that is code, not a comment.
-  def construction_argument_texts(source)
-    texts = []
+  # Every construction in `source` that is code, not a comment, as
+  # { receiver:, args: }. A variable is judged only when it passes account:,
+  # which every BaseTool requires.
+  def constructions(source)
+    found = []
     source.scan(construction_pattern) do
       match = Regexp.last_match
       line_start = source.rindex("\n", match.begin(0)) || -1
       next if source[(line_start + 1)...match.begin(0)].lstrip.start_with?("#")
 
-      open_at = match.end(0) - 1
-      depth = 0
-      close_at = nil
-      source[open_at..].each_char.with_index do |char, offset|
-        depth += 1 if char == "("
-        depth -= 1 if char == ")"
-        if depth.zero?
-          close_at = open_at + offset
-          break
-        end
-      end
-      texts << source[open_at..(close_at || -1)]
+      receiver = match[:receiver]
+      args = construction_arguments(source, match)
+      next unless receiver.end_with?("Tool") || args.match?(/\baccount:/)
+
+      found << { receiver: receiver.delete_prefix("@"), args: args }
     end
-    texts
+    found
+  end
+
+  # A parenthesized call's argument text runs to its matching paren (for
+  # public_send(:new, ...), that call's own paren). One without parentheses
+  # runs to the end of its line, and on through lines ending in a comma or a
+  # backslash.
+  def construction_arguments(source, match)
+    paren = match[0].index("(")
+    open_at = paren ? match.begin(0) + paren : (match.end(0) if source[match.end(0)] == "(")
+    unless open_at
+      text = +""
+      source[match.end(0)..].each_line do |line|
+        text << line
+        break unless line.rstrip.end_with?(",", "\\")
+      end
+      return text
+    end
+
+    depth = 0
+    source[open_at..].each_char.with_index do |char, offset|
+      depth += 1 if char == "("
+      depth -= 1 if char == ")"
+      return source[open_at..(open_at + offset)] if depth.zero?
+    end
+    source[open_at..]
+  end
+
+  def construction_argument_texts(source)
+    constructions(source).map { |c| c[:args] }
+  end
+
+  # `call_origin: nil` names no origin.
+  def marked?(args)
+    args.match?(/\bcall_origin:(?!\s*nil\b)/)
+  end
+
+  def unmarked(source)
+    constructions(source).reject { |c| marked?(c[:args]) }
   end
 
   def unmarked_constructions(source)
-    construction_argument_texts(source).reject { |args| args.match?(/\bcall_origin:/) }
+    unmarked(source).map { |c| c[:args] }
   end
 
   describe "the construction matcher (both arms)" do
@@ -179,22 +241,85 @@ RSpec.describe "registrar call sites carry origin:" do
       expect(construction_argument_texts(source).size).to eq(1)
       expect(unmarked_constructions(source)).to be_empty
     end
+
+    # IMP-bda82956101d: each of these ships a tool with no origin.
+    it "flags the shapes a narrower matcher missed" do
+      source = <<~RUBY
+        module Ai
+          module Tools
+            class Nested
+              def bare = MemoryTool.new(account: account)
+              def no_parens = Ai::Tools::MemoryTool.new account: account,
+                                                        agent: agent
+              def other_variable(klass) = klass.new(account: account, user: user)
+              def ivar = @builder.new(account: account)
+              def sent = Ai::Tools::MemoryTool.public_send(:new, account: account)
+              def sent_bare = MemoryTool.send :new, account: account
+              def nil_origin = Ai::Tools::MemoryTool.new(account: account, call_origin: nil)
+            end
+          end
+        end
+      RUBY
+      expect(unmarked_constructions(source).size).to eq(7)
+    end
+
+    it "passes the same shapes when they name a call_origin:" do
+      source = <<~RUBY
+        MemoryTool.new(account: account, call_origin: origin)
+        Ai::Tools::MemoryTool.new account: account,
+                                  call_origin: origin
+        klass.new(account: account, call_origin:)
+        Ai::Tools::MemoryTool.public_send(:new, account: account, call_origin: origin)
+      RUBY
+      expect(construction_argument_texts(source).size).to eq(4)
+      expect(unmarked_constructions(source)).to be_empty
+    end
+
+    it "does not judge a variable's construction that takes no account:, or a tool outside Ai::Tools" do
+      source = <<~RUBY
+        row = klass.new(name: "x")
+        record.new_record?
+        service = System::FleetService.new(account: account)
+        other = Foo::BarTool.new(account: account)
+      RUBY
+      expect(construction_argument_texts(source)).to be_empty
+    end
+
+    it "a #receiver allowlist entry excuses only that receiver, not every construction in the file" do
+      source = <<~RUBY
+        skipped = sensor_class.new(account: account)
+        tool = ::Ai::Tools::MemoryTool.new(account: account)
+      RUBY
+      allowlist = { "some/file.rb#sensor_class" => "not a tool" }
+      expect(offenders_for("some/file.rb", source, allowlist).size).to eq(1)
+    end
+  end
+
+  # A file's own offenders: unmarked constructions whose receiver is not
+  # excused. A file key excuses everything in it; a `#receiver` key excuses
+  # only that receiver's constructions, so a DIFFERENT receiver's unmarked
+  # construction in the same file must still be flagged.
+  def offenders_for(key, source, allowlist)
+    return [] if allowlist.key?(key)
+
+    unmarked(source)
+      .reject { |c| allowlist.key?("#{key}##{c[:receiver]}") }
+      .map { |c| "#{key}: #{c[:receiver]}.new #{c[:args].lines.first.strip}" }
   end
 
   it "every direct tool construction under app/ names its origin, or is allowlisted with a reason" do
+    allowlist = construction_allowlist
     offenders = scanned_files.flat_map do |path|
-      key = path.delete_prefix("#{repo_root}/")
-      next [] if construction_allowlist.key?(key)
-
-      unmarked_constructions(File.read(path)).map { |args| "#{key}: #{args.lines.first.strip}" }
+      offenders_for(path.delete_prefix("#{repo_root}/"), File.read(path), allowlist)
     end
     expect(offenders).to be_empty, "direct tool constructions without call_origin:\n#{offenders.join("\n")}"
   end
 
   it "keeps the allowlist honest: every entry still constructs a tool without a mark" do
     stale = construction_allowlist.keys.reject do |key|
-      path = File.join(repo_root, key)
-      File.exist?(path) && unmarked_constructions(File.read(path)).any?
+      file, receiver = key.split("#", 2)
+      path = File.join(repo_root, file)
+      File.exist?(path) && unmarked(File.read(path)).any? { |c| receiver.nil? || c[:receiver] == receiver }
     end
     expect(stale).to be_empty, "allowlist entries with nothing left to excuse: #{stale.join(', ')}"
 
