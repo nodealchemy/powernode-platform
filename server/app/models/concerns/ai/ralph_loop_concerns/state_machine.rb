@@ -65,14 +65,13 @@ module Ai
       # quietest failure in the whole change. It now derives from the iteration
       # rows like every other reader.
       #
-      # THE LEGACY UNION IS NOT BELT-AND-BRACES. The column is dormant for NEW
-      # data, but a loop that was reset before this change carries array entries
-      # whose iteration rows are already gone. Deriving from the rows alone would
-      # make those permanently unharvestable — a silent loss confined to
-      # pre-existing data, which is exactly the kind no test written today catches.
-      # Reading the dormant column HERE (a completion/reset path, not the hot one)
-      # drains it into the durable store instead. It costs nothing once the column
-      # is empty, which it is for every loop from here on.
+      # IMP-077c2471b85a: the "legacy union" that used to drain array entries
+      # stranded by a pre-IMP-7f415874c14a reset is gone — there is nothing left
+      # here to union with #learning_entries. `bin/rails
+      # ai:drain_dormant_ralph_learnings` is the one-shot operator step for any
+      # such stranded entries; the `learnings` column itself is left in place
+      # (dropping it is a separate, deferred follow-up — D4, 2026-09-17), but
+      # this reader never looks at it again regardless.
       #
       # RETURNS true when the harvest is safe to rely on — including when there was
       # nothing to harvest — and false ONLY when extraction actually raised. #reset!
@@ -83,7 +82,7 @@ module Ai
       # a nil/truthy result: "nothing to harvest" and "the harvest blew up" must not
       # share a return value.
       def extract_compound_learnings
-        entries = harvestable_learning_entries
+        entries = learning_entries
         return true if account.nil? || entries.empty?
 
         Ai::Learning::RalphLearningExtractor.new(account: account).extract(self, entries: entries)
@@ -219,21 +218,6 @@ module Ai
         end
 
         harvested
-      end
-
-      # The harvest's source: the derived per-iteration entries, plus any entry
-      # stranded in the dormant `learnings` column whose iteration row no longer
-      # exists (a loop reset before IMP-7f415874c14a). Deduped on text, the same
-      # identity #preserve_iteration_learnings! used and for the same reason — the
-      # legacy top-level "iteration" stamp is not the producing iteration's number,
-      # so (text, iteration) matches nothing on pre-existing entries.
-      def harvestable_learning_entries
-        entries = learning_entries
-        legacy = Array(learnings).select { |e| e.is_a?(Hash) && e["text"].present? }
-        return entries if legacy.empty?
-
-        known = entries.map { |e| e["text"] }.to_set
-        entries + legacy.reject { |e| known.include?(e["text"]) }.uniq { |e| e["text"] }
       end
 
       # IMP-957902bf8474: reset! is the only terminal-legal transition, and it's

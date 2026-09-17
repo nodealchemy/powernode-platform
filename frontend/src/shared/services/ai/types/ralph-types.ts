@@ -57,7 +57,8 @@ export interface RalphDelegationConfig {
 // IMP-4bc71cfb2d2c — loop growth, measured and compared to its bound.
 // Carried on every loop_summary / loop_details payload. The `learnings` jsonb
 // array reached 548 kB unnoticed because no summary surface had a size field;
-// `limit_exceeded` is the half that turns the size into a signal.
+// `limit_exceeded` is the half that turns the size into a signal. IMP-077c2471b85a
+// dropped that column (and this field along with it — see RalphLoopConcerns::StorageMetrics).
 // ai_output_bytes and ai_prompt_bytes stay SEPARATE: ai_prompt is written only
 // by the in-platform executor, ai_output by that AND the MCP dev_loop bridge,
 // so a combined figure hides which driver produced the volume.
@@ -66,7 +67,6 @@ export interface RalphLoopStorage {
   learning_iteration_count: number;
   ai_output_bytes: number;
   ai_prompt_bytes: number;
-  learnings_column_bytes: number;
   total_bytes: number;
   limit_bytes: number;
   limit_exceeded: boolean;

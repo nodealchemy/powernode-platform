@@ -127,6 +127,22 @@ RSpec.describe Ai::Tools::RalphLoopTool do
 
       expect(result[:convergence]).to include(surfaced_classes: 1, recurrent_classes: 1, recurrence_rate: 1.0)
     end
+
+    # IMP-077c2471b85a: the fourth reader of the dropped `learnings` column,
+    # missed by the original finding — a vacuous `records.sum { block }` over
+    # an EMPTY loops list never runs the block at all, so every example above
+    # (none of which reference the `ralph_loop` let) passed against the
+    # regression this pins. A loop must actually exist for `records` to be
+    # non-empty here.
+    it "reports storage totals with no learnings_column_bytes term, even with a real loop present" do
+      ralph_loop
+
+      result = tool.execute(params: { action: "get_ralph_loop_statistics" })
+
+      expect(result[:success]).to be true
+      expect(result[:storage]).not_to have_key(:learnings_column_bytes)
+      expect(result[:storage][:total_bytes]).to be >= 0
+    end
   end
 
   describe "list_ralph_loops" do

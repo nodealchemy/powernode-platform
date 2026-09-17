@@ -5,19 +5,17 @@ require "rails_helper"
 # IMP-9d49b9833a67: a dev-loop learning fanned out to THREE sinks, and only one
 # of them was scrubbed.
 #
-#   1. ralph_loops.learnings (jsonb)      -- scrubbed in RalphLoop#add_learning
+#   1. ralph_loops.learnings (jsonb)      -- RETIRED, then DROPPED (IMP-7f415874c14a,
+#      IMP-077c2471b85a) -- see spec/models/ai/ralph_loop_learnings_column_removal_spec.rb
 #   2. ai_ralph_iterations.learning_extracted -- RAW (durable, iteration-keyed)
 #   3. Ai::CompoundLearning (compound store)  -- RAW (embedded, and re-served as
 #      `context.relevant_learnings` into EVERY later dev_next_task, INCLUDING
 #      other loops -- the store is cross-loop by design)
 #
-# IMP-7f415874c14a RETIRED sink 1: it was an O(n) rewrite of the whole jsonb
-# column on every completion, and every reader now derives from sink 2. Sinks 2
-# and 3 were always the durable, redistributed ones -- a spec that asserted only
-# sink 1 passed against the defective code and measured nothing -- so the two
-# that remain are exactly the two that mattered. Every example below asserts the
-# STORED ROW of both, and the leak example additionally pins sink 1 EMPTY, which
-# is what keeps the retirement from silently regressing at this seam.
+# Sinks 2 and 3 were always the durable, redistributed ones -- a spec that
+# asserted only sink 1 passed against the defective code and measured nothing
+# -- so the two that remain (sink 1 no longer exists at all) are exactly the
+# two that mattered. Every example below asserts the STORED ROW of both.
 #
 # The "passed" outcome is the leakiest path: it does NOT go through
 # #capture_learning at all, so a scrub placed there alone would still leak sink 3.
@@ -61,11 +59,8 @@ RSpec.describe Ai::Tools::DevLoopTool, "learning secret scrubbing" do
   end
 
   # --- Sink readers. Each returns a STRING read back from the database. ---
-
-  # RETIRED (IMP-7f415874c14a) -- asserted EMPTY, never as a carrier.
-  def sink1_loop_learnings_array
-    ralph_loop.reload.learnings
-  end
+  # Sink 1 (ralph_loops.learnings) no longer exists (IMP-077c2471b85a) -- there
+  # is nothing left to read back here.
 
   def sink2_iteration_learning_extracted
     Ai::RalphIteration.where(ralph_loop_id: ralph_loop.id).pluck(:learning_extracted).join("\n")
@@ -89,7 +84,7 @@ RSpec.describe Ai::Tools::DevLoopTool, "learning secret scrubbing" do
   # single scrub, so it is covered by construction rather than by example.
   %w[passed failed blocked].each do |outcome|
     context "on a #{outcome} outcome" do
-      it "does not persist the synthetic secret in ANY live sink, the retired one staying empty" do
+      it "does not persist the synthetic secret in ANY live sink" do
         complete(outcome: outcome, learning: leaky_learning)
 
         all_sinks.each do |name, stored|
@@ -97,7 +92,6 @@ RSpec.describe Ai::Tools::DevLoopTool, "learning secret scrubbing" do
           expect("#{name} leaked the secret: #{stored.include?(secret_marker)}")
             .to eq("#{name} leaked the secret: false")
         end
-        expect(sink1_loop_learnings_array).to eq([])
       end
 
       it "still persists the surrounding learning text, redacted rather than dropped" do

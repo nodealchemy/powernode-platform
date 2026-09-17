@@ -78,13 +78,6 @@ RSpec.describe "ralph-loop storage metrics", type: :model do
       expect(metrics[:ai_output_bytes]).to eq(0)
     end
 
-    # The dormant loop-level column is the ORIGINAL defect's surface. If a future
-    # change starts appending to it again, this number is what notices.
-    it "measures the dormant loop-level learnings column" do
-      expect(record.storage_metrics).to have_key(:learnings_column_bytes)
-      expect(record.storage_metrics[:learnings_column_bytes]).to be >= 0
-    end
-
     it "reports an empty loop as zero rather than raising" do
       metrics = record.storage_metrics
 

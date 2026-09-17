@@ -41,7 +41,6 @@ RSpec.describe Ai::RalphLoop, type: :model do
 
       expect(loop_record.ralph_iterations.find_by(iteration_number: 3).learning_extracted)
         .to eq("Discovered a flaky spec")
-      expect(loop_record.reload.learnings).to eq([])
     end
 
     it "falls back to the loop counter only when the caller supplies no iteration" do
@@ -67,8 +66,9 @@ RSpec.describe Ai::RalphLoop, type: :model do
 
   # ==========================================================================
   # IMP-44964469b565 — the recency channel reads from ai_ralph_iterations, not
-  # the loop-level jsonb array. The array is STILL WRITTEN; only the READ moved,
-  # so the switch stays reversible while both channels are populated.
+  # the loop-level jsonb array. IMP-7f415874c14a retired the array's write, and
+  # IMP-077c2471b85a dropped the column entirely: ai_ralph_iterations is now the
+  # sole source.
   # ==========================================================================
   describe "#recent_learnings" do
     let(:record) { create(:ai_ralph_loop, account: account, current_iteration: 0) }
@@ -128,28 +128,13 @@ RSpec.describe Ai::RalphLoop, type: :model do
       expect(record.recent_learnings).to eq([])
     end
 
-    # ---- SOURCE ORACLE, half A -------------------------------------------
-    # Clearing the loop-level array must NOT affect the read. Alone this proves
-    # nothing (an empty-tolerant array read would also pass) — it is only
-    # meaningful paired with half B below.
-    it "still reads when the loop-level learnings array is empty (source oracle A)" do
+    # ---- SOURCE ORACLE -----------------------------------------------------
+    # Clearing learning_extracted must empty the read — the only remaining
+    # source is ai_ralph_iterations, so there is nothing else it could read.
+    it "goes empty when learning_extracted is cleared (source oracle)" do
       seed_interleaved!
-      record.update!(learnings: [])
-
-      expect(record.reload.recent_learnings.map { |l| l["text"] }).to eq(%w[oldest middle newest])
-    end
-
-    # ---- SOURCE ORACLE, half B -------------------------------------------
-    # Clearing learning_extracted must empty the read EVEN THOUGH the array is
-    # fully populated. Alone this passes for code that reads neither; paired
-    # with half A it pins the source to the iteration rows.
-    it "goes empty when learning_extracted is cleared, array notwithstanding (source oracle B)" do
-      seed_interleaved!
-      record.update!(learnings: [ { "text" => "still in the legacy array", "iteration" => 6,
-                                    "timestamp" => Time.current.iso8601, "context" => {} } ])
       record.ralph_iterations.update_all(learning_extracted: nil)
 
-      expect(record.reload.learnings).to be_present
       expect(record.recent_learnings).to eq([])
     end
 
@@ -600,14 +585,19 @@ RSpec.describe Ai::RalphLoop, type: :model do
         expect { record.reset! }.not_to change(Ai::CompoundLearning, :count)
       end
 
-      it "leaves the retired jsonb column dormant and empty" do
+      # IMP-077c2471b85a: with the dormant column (and its union) gone, there is
+      # no fallback destination for the preservation and no fallback SOURCE for
+      # the harvest either — end-to-end, unmocked, this must still work.
+      it "still harvests the iteration's learning end-to-end and reports success, with no dormant column involved" do
         allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
         record.ralph_iterations.find_by(iteration_number: 1)
               .update!(learning_extracted: "Nothing may be written back to the dead column")
 
-        record.reset!
-
-        expect(record.reload.learnings).to eq([])
+        expect(record.reset!).to be(true)
+        expect(
+          Ai::CompoundLearning.where(account: account, extraction_method: "ralph_loop")
+                               .where("content ILIKE ?", "%dead column%")
+        ).to exist
       end
 
       %i[pending running paused].each do |state|

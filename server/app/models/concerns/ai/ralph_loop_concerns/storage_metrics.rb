@@ -34,9 +34,11 @@ module Ai
     # two into one number hides that driver asymmetry and invites a wrong
     # "unused, drop it" conclusion. Keep them apart.
     #
-    # The dormant loop-level `learnings` column is measured too. It is deliberately
-    # NOT dropped (see TaskAndLearning#add_learning), so it stays empty by
-    # convention only — this number is what would notice a regression re-growing it.
+    # IMP-077c2471b85a: this metric no longer measures the dormant loop-level
+    # `learnings` column — see TaskAndLearning#add_learning. The column itself
+    # is left in place for now (dropping it is a separate, deferred follow-up:
+    # D4, 2026-09-17), so it is intentionally invisible here rather than
+    # dropped from the schema.
     module StorageMetrics
       extend ActiveSupport::Concern
 
@@ -64,15 +66,9 @@ module Ai
         iteration_count: 0,
         learning_iteration_count: 0,
         ai_output_bytes: 0,
-        ai_prompt_bytes: 0,
-        learnings_column_bytes: 0
+        ai_prompt_bytes: 0
       }.freeze
 
-      # GROUP BY l.id alone is legal here: id is the primary key, so PostgreSQL's
-      # functional-dependency rule lets pg_column_size(l.learnings) sit in the
-      # select list ungrouped. Grouping by the jsonb column itself would work but
-      # would make the planner hash every learnings value.
-      #
       # LEFT JOIN, not INNER: a loop with zero iterations must report zeros, not
       # vanish from the result and silently fall back to the empty default.
       #
@@ -85,8 +81,7 @@ module Ai
                  WHERE i.learning_extracted IS NOT NULL AND i.learning_extracted <> ''
                ) AS learning_iteration_count,
                COALESCE(SUM(pg_column_size(i.ai_output)), 0) AS ai_output_bytes,
-               COALESCE(SUM(pg_column_size(i.ai_prompt)), 0) AS ai_prompt_bytes,
-               COALESCE(pg_column_size(l.learnings), 0) AS learnings_column_bytes
+               COALESCE(SUM(pg_column_size(i.ai_prompt)), 0) AS ai_prompt_bytes
         FROM ai_ralph_loops l
         LEFT JOIN ai_ralph_iterations i ON i.ralph_loop_id = l.id
         WHERE l.id IN (:ids)
@@ -120,8 +115,7 @@ module Ai
               iteration_count: row["iteration_count"].to_i,
               learning_iteration_count: row["learning_iteration_count"].to_i,
               ai_output_bytes: row["ai_output_bytes"].to_i,
-              ai_prompt_bytes: row["ai_prompt_bytes"].to_i,
-              learnings_column_bytes: row["learnings_column_bytes"].to_i
+              ai_prompt_bytes: row["ai_prompt_bytes"].to_i
             }
           end
         end
@@ -152,7 +146,7 @@ module Ai
       # never the only thing an operator sees.
       def storage_total_bytes
         m = storage_metrics
-        m[:ai_output_bytes] + m[:ai_prompt_bytes] + m[:learnings_column_bytes]
+        m[:ai_output_bytes] + m[:ai_prompt_bytes]
       end
 
       # configuration override -> SiteSetting global -> documented DEFAULT.

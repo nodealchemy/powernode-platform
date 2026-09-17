@@ -170,4 +170,38 @@ RSpec.describe Ai::Learning::RalphLearningExtractor, type: :service do
       expect { loop_record.complete! }.not_to change(Ai::CompoundLearning, :count)
     end
   end
+
+  # IMP-077c2471b85a. #extract_entry! is #extract's non-rescuing, single-jsonb-
+  # entry sibling for ai:drain_dormant_ralph_learnings, which cannot afford
+  # #extract's method-level rescue collapsing "raised" and "deduped" into the
+  # same falsy-ish outcome for a source it is about to erase.
+  describe "#extract_entry!" do
+    let(:extractor) { described_class.new(account: account) }
+    let(:loop_record) { create(:ai_ralph_loop, account: account) }
+
+    it "returns true and creates a durable record for a new entry" do
+      created = nil
+      expect { created = extractor.extract_entry!(loop_record, { "text" => "a stranded legacy entry" }) }
+        .to change(Ai::CompoundLearning, :count).by(1)
+
+      expect(created).to be(true)
+    end
+
+    it "returns false without raising when the content is a near-duplicate" do
+      extractor.extract_entry!(loop_record, { "text" => "a repeated stranded entry" })
+
+      result = nil
+      expect { result = extractor.extract_entry!(loop_record, { "text" => "a repeated stranded entry" }) }
+        .not_to change(Ai::CompoundLearning, :count)
+      expect(result).to be(false)
+    end
+
+    it "propagates a storage failure instead of swallowing it" do
+      allow_any_instance_of(Ai::Learning::CompoundLearningService)
+        .to receive(:store_learning).and_raise(StandardError, "embedding provider unreachable")
+
+      expect { extractor.extract_entry!(loop_record, { "text" => "would be lost if swallowed" }) }
+        .to raise_error(StandardError, "embedding provider unreachable")
+    end
+  end
 end

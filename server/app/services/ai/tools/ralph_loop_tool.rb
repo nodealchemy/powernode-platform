@@ -311,7 +311,6 @@ module Ai
             learning_iterations: records.sum { |l| l.storage_metrics[:learning_iteration_count] },
             ai_output_bytes: records.sum { |l| l.storage_metrics[:ai_output_bytes] },
             ai_prompt_bytes: records.sum { |l| l.storage_metrics[:ai_prompt_bytes] },
-            learnings_column_bytes: records.sum { |l| l.storage_metrics[:learnings_column_bytes] },
             total_bytes: records.sum(&:storage_total_bytes),
             # The threshold half. A size with no verdict is the same non-signal
             # as no size at all — that silence is the original defect.

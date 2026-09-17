@@ -15,8 +15,13 @@ require "rails_helper"
 # re-derived reader is pinned to its CONTENT here, the API group-by-iteration
 # SHAPE included (the one a naive re-derivation loses).
 #
-# The column is NOT dropped: it stays, dormant and empty, so this whole change is
-# a single revertible range with no migration on a live install.
+# IMP-077c2471b85a (operator rule 2026-09-08, no legacy support): every READER
+# of the column is retired in this release (superseding the "keep it dormant"
+# note this comment used to carry). D4 (2026-09-17) split the change in two:
+# the column itself stays in schema.rb for now — dropping it is a separate,
+# deferred follow-up gated on a clean `bin/rails ai:drain_dormant_ralph_learnings`
+# run. See spec/models/ai/ralph_loop_dormant_learnings_readers_spec.rb and
+# spec/lib/tasks/ralph_learnings_drain_spec.rb for that half of the change.
 # ============================================================================
 RSpec.describe "ralph-loop learning write retirement", type: :model do
   let(:account) { create(:account) }
@@ -32,20 +37,11 @@ RSpec.describe "ralph-loop learning write retirement", type: :model do
   end
 
   describe "the write is gone" do
-    it "records the learning on the iteration row and leaves the array empty" do
+    it "records the learning on the iteration row" do
       complete_iteration!(1, "Webhook receivers must return 202, never 500")
 
       expect(record.ralph_iterations.find_by(iteration_number: 1).learning_extracted)
         .to eq("Webhook receivers must return 202, never 500")
-      expect(record.reload.learnings).to eq([])
-    end
-
-    it "does not grow the array across successive completions" do
-      complete_iteration!(1, "first")
-      complete_iteration!(2, "second")
-      complete_iteration!(3, "third")
-
-      expect(record.reload.learnings).to eq([])
     end
 
     # The array rewrite took the SAME row lock #increment_iteration! takes, so the
@@ -65,7 +61,6 @@ RSpec.describe "ralph-loop learning write retirement", type: :model do
       record.add_learning("recorded via the public API", context: { iteration: 4 })
 
       expect(iteration.reload.learning_extracted).to eq("recorded via the public API")
-      expect(record.reload.learnings).to eq([])
     end
 
     it "never overwrites a learning the iteration row already carries" do
@@ -141,18 +136,12 @@ RSpec.describe "ralph-loop learning write retirement", type: :model do
       end
     end
 
-    # SOURCE ORACLE: a populated legacy array must not be able to satisfy any of
-    # the above. Clearing the rows empties every reader even though the array is
-    # full — which is what pins the source to ai_ralph_iterations.
-    it "goes empty everywhere when the rows are cleared, a full legacy array notwithstanding" do
-      record.update!(learnings: [
-        { "text" => "legacy array entry", "iteration" => 1, "timestamp" => Time.current.iso8601,
-          "context" => { "iteration" => 1 } }
-      ])
+    # SOURCE ORACLE: ai_ralph_iterations is the ONLY source since the column was
+    # dropped (IMP-077c2471b85a) — clearing the rows must empty every reader.
+    it "goes empty everywhere when the rows are cleared" do
       record.ralph_iterations.update_all(learning_extracted: nil)
       record.reload
 
-      expect(record.learnings).to be_present
       expect(record.learning_entries).to eq([])
       expect(record.recent_learnings).to eq([])
       expect(record.loop_details[:learnings]).to eq([])
@@ -193,7 +182,7 @@ RSpec.describe "ralph-loop learning write retirement", type: :model do
       expect(harvested).to eq([ "Webhook receivers must return 202, never 500" ])
     end
 
-    it "still destroys the iteration rows and leaves the dormant array empty" do
+    it "still destroys the iteration rows once the harvest succeeds" do
       allow_any_instance_of(Ai::Learning::RalphLearningExtractor).to receive(:extract).and_return(1)
 
       record.reset!
@@ -201,7 +190,6 @@ RSpec.describe "ralph-loop learning write retirement", type: :model do
 
       expect(record.ralph_iterations.count).to eq(0)
       expect(Ai::RalphIteration.where(ralph_loop_id: record.id).count).to eq(0)
-      expect(record.learnings).to eq([])
     end
 
     # #extract_compound_learnings RESCUES StandardError. Under
@@ -240,37 +228,6 @@ RSpec.describe "ralph-loop learning write retirement", type: :model do
         .to receive(:extract).and_raise(StandardError, "boom")
 
       expect(record.reset!).to be false
-    end
-
-    # A loop reset BEFORE this change carries array entries whose iteration rows
-    # are already gone. Deriving from the rows alone would strand them forever.
-    it "harvests a legacy array entry whose iteration row no longer exists" do
-      record.ralph_iterations.delete_all
-      record.update!(learnings: [
-        { "text" => "A learning stranded by an earlier reset", "iteration" => 1,
-          "timestamp" => Time.current.iso8601, "context" => { "iteration" => 1 } }
-      ])
-      harvested = nil
-      allow_any_instance_of(Ai::Learning::RalphLearningExtractor)
-        .to receive(:extract) { |_x, _loop, entries: nil| harvested = Array(entries).map { |e| e["text"] } }
-
-      record.reset!
-
-      expect(harvested).to eq([ "A learning stranded by an earlier reset" ])
-    end
-
-    it "does not harvest a legacy entry twice when its iteration row still carries it" do
-      record.update!(learnings: [
-        { "text" => "Webhook receivers must return 202, never 500", "iteration" => 0,
-          "timestamp" => Time.current.iso8601, "context" => {} }
-      ])
-      harvested = nil
-      allow_any_instance_of(Ai::Learning::RalphLearningExtractor)
-        .to receive(:extract) { |_x, _loop, entries: nil| harvested = Array(entries).map { |e| e["text"] } }
-
-      record.reset!
-
-      expect(harvested).to eq([ "Webhook receivers must return 202, never 500" ])
     end
 
     it "no longer back-fills the dead column" do
@@ -316,7 +273,6 @@ RSpec.describe "ralph-loop learning write retirement", type: :model do
         .to eq([ "the first run learning", "the second run learning" ])
       expect(record.recent_learnings.map { |l| l["text"] })
         .to eq([ "the first run learning", "the second run learning" ])
-      expect(record.learnings).to eq([])
     end
   end
 
@@ -348,10 +304,11 @@ RSpec.describe "ralph-loop learning write retirement", type: :model do
     end
   end
 
-  # The column stays. Dropping it would be a migration on a live install and buys
-  # nothing; leaving it dormant keeps the revert a single contiguous range.
-  it "keeps the learnings column, dormant and defaulting to []" do
+  # IMP-077c2471b85a / D4: the column is deliberately NOT dropped in this
+  # release (see spec/models/ai/ralph_loop_dormant_learnings_readers_spec.rb
+  # for the full coverage of what IS retired — every reader and the Ruby-side
+  # write-default).
+  it "still carries the (now unread) learnings column — dropping it is a deferred follow-up" do
     expect(Ai::RalphLoop.column_names).to include("learnings")
-    expect(create(:ai_ralph_loop, account: account).learnings).to eq([])
   end
 end

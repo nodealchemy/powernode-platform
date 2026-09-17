@@ -276,7 +276,6 @@ module Ai
       self.scheduling_mode ||= "manual"
       self.configuration ||= {}
       self.prd_json ||= {}
-      self.learnings ||= []
       self.current_iteration ||= 0
       self.max_iterations ||= 10
       self.total_tasks ||= 0

@@ -39,11 +39,15 @@ module Ai
       # from ai_ralph_iterations, which fixed the read cost only — retiring the
       # write is what fixes this, and it is why the lock is gone from here.
       #
-      # THE COLUMN IS DELIBERATELY NOT DROPPED. It stays dormant and empty. A
-      # migration on a live install buys nothing here, and leaving it keeps the
-      # read+write switch a single contiguous revertible range. Do not "finish the
-      # job" by dropping it; every reader is derived from ai_ralph_iterations and
-      # a drop would only remove the fallback that makes a revert cheap.
+      # IMP-077c2471b85a: EVERY READER IS NOW RETIRED TOO (operator rule
+      # 2026-09-08, no legacy support). The column itself is deliberately left
+      # in place for now — D4 (2026-09-17) split this into two releases so a
+      # refusing drop-migration never ships in the same release as its own
+      # remedy (rails-start.sh runs db:migrate under `set -e` before exec
+      # puma). `bin/rails ai:drain_dormant_ralph_learnings` is the one-shot
+      # operator step that will harvest any leftover data before the deferred
+      # follow-up drops the column. Every reader is derived from
+      # ai_ralph_iterations regardless of when that follow-up lands.
       #
       # WHY THIS IS NOT A NO-OP. #add_learning is a public model API. Both real
       # callers (RalphIteration#complete!, DevLoopTool#capture_learning) already

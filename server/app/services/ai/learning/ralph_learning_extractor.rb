@@ -71,9 +71,15 @@ module Ai
       #
       # IMP-7f415874c14a: the source is the loop's DERIVED learning entries
       # (ai_ralph_iterations), not the retired `learnings` jsonb column. `entries:`
-      # is how RalphLoop#extract_compound_learnings supplies its own list — the
-      # derived entries UNIONED with anything still stranded in the dormant column
-      # (a loop reset before this change). Re-deriving here would drop that union.
+      # is how RalphLoop#extract_compound_learnings supplies its own list.
+      #
+      # RESCUES THE WHOLE BATCH. A raise on entry N aborts every entry after it
+      # AND reports 0 — indistinguishable from "every entry deduped" — with no
+      # record of which entries (if any) were already committed before the
+      # raise. Safe here because the source (ai_ralph_iterations) survives
+      # regardless of this method's outcome. NOT safe for a caller that is about
+      # to erase its only source on the strength of this return value — see
+      # #extract_entry! for that case (ai:drain_dormant_ralph_learnings).
       def extract(ralph_loop, entries: nil)
         entries = ralph_loop.learning_entries if entries.nil?
         repo_id = repository_id_for(ralph_loop)
@@ -93,6 +99,20 @@ module Ai
       rescue StandardError => e
         Rails.logger.warn("[RalphLearningExtractor] extract_learning failed: #{e.message}")
         false
+      end
+
+      # IMP-077c2471b85a. Non-rescuing, single-jsonb-entry sibling of #extract,
+      # for a caller that MUST distinguish "handled" (stored as a new record, or
+      # matched an existing near-duplicate — either way the content is durably
+      # represented) from "the storage attempt itself raised" ON EVERY ENTRY,
+      # never collapsing that across a batch. #extract's method-level rescue is
+      # fine when the source survives it (ai_ralph_iterations always does); it is
+      # wrong for ai:drain_dormant_ralph_learnings, which is about to permanently
+      # erase the dormant `learnings` column entry-by-entry — a raise there must
+      # leave THAT entry in the column, not read as "0 stored, safe to clear
+      # everything". Callers wrap this in their own begin/rescue.
+      def extract_entry!(ralph_loop, entry)
+        store(entry_text(entry), repo_id: repository_id_for(ralph_loop), loop: ralph_loop, context: entry_context(entry))
       end
 
       private
