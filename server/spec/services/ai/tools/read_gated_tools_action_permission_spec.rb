@@ -44,12 +44,14 @@ RSpec.describe "read-gated MCP tools: per-action authorization" do
   # The write permissions are the REST twins', not invented: SharedKnowledge
   # writes map to ai.memory.write (TieredMemoryController), memory pools to
   # ai.memory_pools.manage (MemoryPoolsController#authorize_manage!), learning
-  # writes to ai.analytics.manage (LearningController) and code-graph writes to
-  # ai.knowledge_graph.manage (KnowledgeGraphController).
+  # writes ALSO to ai.memory.write (LearningController#reinforce/#promote, and
+  # LearningTool#create_learning/#reinforce_learning — IMP-909ac33451cf
+  # retargeted these off the uncatalogued "ai.analytics.manage") and
+  # code-graph writes to ai.knowledge_graph.manage (KnowledgeGraphController).
   let(:writer) do
     create(:user, account: account,
                   permissions: %w[ai.agents.read ai.memory.write ai.memory_pools.manage
-                                  ai.analytics.manage ai.knowledge_graph.manage])
+                                  ai.knowledge_graph.manage])
   end
 
   def run(tool_name, params = {}, user:)
@@ -155,6 +157,20 @@ RSpec.describe "read-gated MCP tools: per-action authorization" do
 
       expect(result[:error].to_s).not_to match(/permission|denied|requires/i)
     end
+
+    # IMP-909ac33451cf: refuses reinforce_learning from a reader and leaves the
+    # row unreinforced — the write-side twin of the create_learning refusal
+    # above, so the ladder covers both write actions this tool serves.
+    describe "reinforce_learning" do
+      let!(:learning) { create(:ai_compound_learning, account: account, importance_score: 0.5) }
+
+      it "refuses reinforce_learning from a reader and does not reinforce" do
+        result = refuse("reinforce_learning", { "learning_id" => learning.id }, user: reader)
+
+        expect_refused(result)
+        expect(learning.reload.importance_score.to_f).to eq(0.5)
+      end
+    end
   end
 
   # Added because mutating ONLY CodeMemoryTool's gate reddened NOTHING: the gate
@@ -255,6 +271,29 @@ RSpec.describe "read-gated MCP tools: per-action authorization" do
                    { "entry_id" => entry.id, "hard_delete" => true }, user: writer)
 
       expect(result[:error].to_s).not_to match(/permission|denied|requires/i)
+    end
+
+    # IMP-909ac33451cf: end-to-end through McpPlatformToolRegistrar
+    # (run/refuse), not tool.send(:call) directly — that bypasses the
+    # registrar's own class-floor and advertisement checks, which the
+    # send(:call) examples in learning_tool_action_permission_spec.rb do not
+    # exercise.
+    it "permits create_learning for a writer and writes a row" do
+      expect {
+        result = run("create_learning",
+                     { "content" => "writer-authored learning", "category" => "discovery" },
+                     user: writer)
+        expect(result[:error].to_s).not_to match(/permission|denied|requires/i)
+      }.to change { ::Ai::CompoundLearning.where(account_id: account.id).count }.by(1)
+    end
+
+    it "permits reinforce_learning for a writer and raises importance" do
+      learning = create(:ai_compound_learning, account: account, importance_score: 0.5)
+
+      result = run("reinforce_learning", { "learning_id" => learning.id }, user: writer)
+
+      expect(result[:error].to_s).not_to match(/permission|denied|requires/i)
+      expect(learning.reload.importance_score.to_f).to be > 0.5
     end
   end
 end

@@ -11,6 +11,12 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
   let(:read_user) { user_with_permissions('ai.analytics.read', account: account) }
   let(:manage_user) { user_with_permissions('ai.analytics.read', 'ai.analytics.manage', account: account) }
   let(:no_perms_user) { user_without_permissions(account: account) }
+  # IMP-909ac33451cf / IMP-4d0550eac20e: reinforce/promote moved off the
+  # uncatalogued "ai.analytics.manage" onto "ai.memory.write" — the same
+  # permission SharedKnowledgeTool's sibling G4 fix uses for this shape of
+  # write, and several real non-admin roles hold (owner, manager,
+  # ai_specialist, system_worker), alongside admin.
+  let(:memory_writer_user) { user_with_permissions('ai.memory.write', account: account) }
 
   # Test data
   let!(:recommendation) { create(:ai_improvement_recommendation, account: account) }
@@ -230,15 +236,30 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.analytics.manage permission' do
+    it 'returns 403 when user lacks ai.memory.write permission' do
       post path, headers: auth_headers_for(read_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'does not return 403 when user has ai.analytics.manage permission' do
-      post path, headers: auth_headers_for(manage_user)
+    it 'does not return 403 when user has ai.memory.write permission' do
+      post path, headers: auth_headers_for(memory_writer_user)
       expect(response).not_to have_http_status(:forbidden)
       expect(response).not_to have_http_status(:unauthorized)
+    end
+
+    # IMP-909ac33451cf: the "does not return 403" example above only proves
+    # the gate opened — the top-of-file stub answers every #reinforce_learning
+    # call with nil regardless of learning_id, so it cannot tell an actual
+    # reinforcement from a no-op. Call the real service against a real row.
+    it 'reinforces a real learning for a user with ai.memory.write' do
+      allow(Ai::Learning::CompoundLearningService).to receive(:new).and_call_original
+      learning = create(:ai_compound_learning, account: account, importance_score: 0.5, access_count: 0)
+
+      post "/api/v1/ai/learning/reinforce/#{learning.id}", headers: auth_headers_for(memory_writer_user)
+
+      expect(response).to have_http_status(:success)
+      expect(learning.reload.importance_score.to_f).to be > 0.5
+      expect(learning.access_count).to eq(1)
     end
   end
 
@@ -253,13 +274,13 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'returns 403 when user lacks ai.analytics.manage permission' do
+    it 'returns 403 when user lacks ai.memory.write permission' do
       post path, headers: auth_headers_for(read_user)
       expect(response).to have_http_status(:forbidden)
     end
 
-    it 'returns success when user has ai.analytics.manage permission' do
-      post path, headers: auth_headers_for(manage_user)
+    it 'returns success when user has ai.memory.write permission' do
+      post path, headers: auth_headers_for(memory_writer_user)
       expect(response).to have_http_status(:success)
       expect(json_response['success']).to eq(true)
     end

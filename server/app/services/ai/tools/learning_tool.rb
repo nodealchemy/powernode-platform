@@ -14,16 +14,27 @@ module Ai
       # error strings.
       #
       # REST twin: LearningController gates `reinforce` and `promote` on
-      # ai.analytics.manage and the read arms on ai.analytics.read
-      # (learning_controller.rb:408-419).
+      # ai.memory.write and the read arms on ai.analytics.read
+      # (learning_controller.rb#validate_permissions, currently lines
+      # 404-432 — the exact `when` clause moves as sibling actions are added,
+      # so read the method rather than trusting a pinned line number).
       #
       # Keyed on the action that RUNS, never on the invoked NAME: a user
       # principal is deliberately not pinned to the tool name
       # (McpPlatformToolRegistrar#action_pinned_to_name?), so a name-keyed check
       # is bypassable by supplying a sibling :action.
+      #
+      # IMP-909ac33451cf / IMP-4d0550eac20e: both actions previously floored on
+      # "ai.analytics.manage", a string Permissions.permission_exists? rejects
+      # (absent from config/permissions.rb) — no seeded role could ever match
+      # it, so the gate was reachable only via system.admin's blanket
+      # short-circuit. Retargeted onto "ai.memory.write", the permission the
+      # sibling G4 fix (SharedKnowledgeTool, same bundled-write defect) already
+      # uses for this shape of write, and several real non-admin roles hold
+      # (owner, manager, ai_specialist, system_worker), alongside admin.
       ACTION_PERMISSIONS = {
-        "create_learning" => "ai.analytics.manage",
-        "reinforce_learning" => "ai.analytics.manage"
+        "create_learning" => "ai.memory.write",
+        "reinforce_learning" => "ai.memory.write"
       }.freeze
 
 
@@ -50,7 +61,11 @@ module Ai
             confidence_score: { type: "number", required: false, description: "Confidence score 0.0-1.0 (for create_learning, default: 0.5)" },
             tags: { type: "array", required: false, description: "Tags array for categorization (for create_learning)" },
             scope: { type: "string", required: false, description: "Filter by scope (team/global)" },
-            status: { type: "string", required: false, description: "Filter by status (active/superseded/archived)" },
+            # Derived from the model constant so this cannot drift the way the
+            # old hand-kept "active/superseded/archived" did — "archived" was
+            # never a real status (see Ai::CompoundLearning::STATUSES), so a
+            # caller filtering on it got a silently empty result forever.
+            status: { type: "string", required: false, description: "Filter by status (#{Ai::CompoundLearning::STATUSES.join('/')})" },
             query: { type: "string", required: false, description: "Search query for learnings" },
             limit: { type: "integer", required: false, description: "Max results (default 20)" }
           }
@@ -69,7 +84,7 @@ module Ai
               query: { type: "string", required: false, description: "Search query for learnings" },
               category: { type: "string", required: false, description: "Filter by category (pattern/anti_pattern/best_practice/discovery/fact/failure_mode/review_finding/performance_insight)" },
               scope: { type: "string", required: false, description: "Filter by scope (team/global)" },
-              status: { type: "string", required: false, description: "Filter by status (active/superseded/archived)" },
+              status: { type: "string", required: false, description: "Filter by status (#{Ai::CompoundLearning::STATUSES.join('/')})" },
               limit: { type: "integer", required: false, description: "Max results (default 20)" }
             }
           },
@@ -122,6 +137,15 @@ module Ai
       private
 
       def query_learnings(params)
+        # Both retrieval branches below push an unrecognized status straight
+        # into a .where(status: ...), which matches no row and returns
+        # silently empty rather than erroring — the same failure shape that
+        # let the "archived" advertisement bug go unnoticed. Refuse it here
+        # instead, once, before either branch runs.
+        if params[:status].present? && Ai::CompoundLearning::STATUSES.exclude?(params[:status])
+          return { success: false, error: "Invalid status: #{params[:status]}. Valid: #{Ai::CompoundLearning::STATUSES.join(', ')}" }
+        end
+
         limit = (params[:limit] || 20).to_i.clamp(1, 50)
 
         # IMP-3470890a626f: a query routes through the service's embedding-first

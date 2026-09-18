@@ -416,7 +416,19 @@ module Api
             require_permission("ai.analytics.read")
           when "apply_recommendation", "dismiss_recommendation", "create_benchmark", "run_benchmark"
             require_permission("ai.analytics.manage")
-          when "reinforce", "promote", "compound_maintenance", "memory_maintenance", "knowledge_doc_sync",
+          # IMP-909ac33451cf / IMP-4d0550eac20e: both moved off the
+          # uncatalogued "ai.analytics.manage" onto "ai.memory.write".
+          # `reinforce` is the REST twin of LearningTool's reinforce_learning
+          # MCP action (see learning_tool.rb ACTION_PERMISSIONS). `promote`
+          # has no MCP twin — it is an account-scoped batch team->global
+          # promotion pass (service.promote_cross_team), distinct from the
+          # single-learning, event-driven `promote_learning` action below —
+          # moved here because a bulk cross-team promotion is the same trust
+          # level as SharedKnowledgeTool's promote_knowledge, which the
+          # sibling G4 fix already gates on ai.memory.write.
+          when "reinforce", "promote"
+            require_permission("ai.memory.write")
+          when "compound_maintenance", "memory_maintenance", "knowledge_doc_sync",
                "knowledge_graph_maintenance", "verify_maintenance", "cluster_promotion_maintenance"
             require_permission("ai.analytics.manage")
           when "promote_learning", "dedup_check", "update_graph_node"
