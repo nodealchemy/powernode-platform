@@ -60,15 +60,28 @@ module Security
         true
       end
 
-      # Blacklist all tokens for a user (e.g., on account suspension)
+      # Blacklist all tokens for a user (e.g., on account suspension).
+      #
+      # IMP-7ff4be3454a6: the success return used to be whatever
+      # `Rails.logger.info(...)` happened to return (Logger#add's `true`) —
+      # truthy on the happy path by accident, not a deliberate signal, and
+      # NOT truthy-vs-falsy-correct for the specific failure mode
+      # #blacklist_user_tokens_database used to have (see its own comment):
+      # a caller checking this return value (Api::V1::Internal::UsersController
+      # #anonymize does, to decide whether to raise) needs an explicit,
+      # intentional boolean.
       def blacklist_user_tokens(user_id, reason: "account_suspended")
-        if redis_available?
-          blacklist_user_tokens_redis(user_id, reason)
-        else
-          blacklist_user_tokens_database(user_id, reason)
-        end
+        success =
+          if redis_available?
+            blacklist_user_tokens_redis(user_id, reason)
+          else
+            blacklist_user_tokens_database(user_id, reason)
+          end
+
+        return false unless success
 
         Rails.logger.info "All JWT tokens blacklisted for user #{user_id} (reason: #{reason})"
+        true
       rescue StandardError => e
         Rails.logger.error "Failed to blacklist user tokens for #{user_id}: #{e.message}"
         false
@@ -143,6 +156,10 @@ module Security
         }.to_json
 
         redis.setex(user_key, USER_BLACKLIST_TTL.to_i, value)
+        # Explicit boolean, not whatever setex happens to return (redis-rb
+        # returns the literal string "OK") — a raise from a broken connection
+        # still propagates to blacklist_user_tokens' rescue and becomes false.
+        true
       end
 
       def cleanup_expired_redis
@@ -239,8 +256,23 @@ module Security
         nil
       end
 
+      # IMP-7ff4be3454a6: `defined?(JwtBlacklist)` used to be treated as
+      # "true unless something is badly wrong" — it returned bare (nil,
+      # falsy only by accident) here rather than writing a marker, which a
+      # caller checking truthiness could not distinguish from success.
+      # Reachability, measured against this app's actual environment
+      # configs, not assumed: production and CI test runs eager_load
+      # (config/environments/production.rb, test.rb), which requires every
+      # app/models file — including the real app/models/jwt_blacklist.rb —
+      # at boot, so JwtBlacklist is always a defined constant there
+      # regardless of this check; Ruby's `defined?` deliberately never
+      # triggers Zeitwerk's const_missing-based autoload the way a genuine
+      # reference to the constant would. Development (eager_load false, and
+      # with no REDIS_URL set, which is what routes here at all) CAN reach
+      # this branch before anything else in the process has referenced
+      # JwtBlacklist directly. Reachable somewhere ⇒ must fail loudly.
       def blacklist_user_tokens_database(user_id, reason)
-        return unless defined?(JwtBlacklist)
+        return false unless defined?(JwtBlacklist)
 
         # Upsert the per-user marker so re-blacklisting refreshes the cutoff
         # (expires_at) instead of being swallowed as a duplicate jti.
@@ -251,7 +283,7 @@ module Security
           user_blacklist: true,
           expires_at: USER_BLACKLIST_TTL.from_now
         )
-        marker.save!
+        marker.save! # raises (never returns false) on failure — caught by blacklist_user_tokens' rescue
       end
 
       def cleanup_expired_database

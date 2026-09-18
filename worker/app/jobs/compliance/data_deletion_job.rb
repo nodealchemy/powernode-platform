@@ -202,17 +202,14 @@ module Compliance
       end
     end
 
+    # The internal anonymize endpoint owns the full field list (email/name/
+    # status/credentials/PII) — see Api::V1::Internal::UsersController
+    # #anonymize — so no payload here. The `status: 'deleted'` this used to
+    # send was never a value the users table's `valid_user_status` check
+    # constraint allowed; the endpoint sets status: 'inactive' (design is
+    # anonymize-in-place, not a distinct deleted status).
     def anonymize_user(user_id)
-      anonymous_email = "deleted_#{SecureRandom.hex(8)}@deleted.powernode.local"
-
-      api_client.patch(
-        "/api/v1/internal/users/#{user_id}/anonymize",
-        {
-          email: anonymous_email,
-          name: 'Deleted User',
-          status: 'deleted'
-        }
-      )
+      api_client.patch("/api/v1/internal/users/#{user_id}/anonymize", {})
     end
 
     def anonymize_audit_logs(user_id)

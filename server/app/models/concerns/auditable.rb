@@ -72,11 +72,19 @@ module Auditable
   # nil klass still gets ALWAYS_REDACTED_ATTRIBUTES, which is the floor; it
   # must never raise, because a redaction pass that blows up takes the audit
   # write down with it.
-  def self.redact_values(values, klass)
+  #
+  # `extra_redacted:` is the CLASS-LEVEL rule's per-instance, per-write
+  # extension — see #audit_extra_redactions below for what sets it and why.
+  # It is matched by EXACT name (like the `redacted` set below), not the
+  # substring semantics `attribute_filter_for` gives `filter_attributes`:
+  # a caller here lists every field it means, deliberately, rather than
+  # relying on one name to sweep in siblings it may not have reviewed.
+  def self.redact_values(values, klass, extra_redacted: nil)
     return values unless values.is_a?(Hash)
     return values if values.blank?
 
     redacted = redacted_attribute_names_for(klass)
+    redacted |= Array(extra_redacted).map(&:to_s) if extra_redacted.present?
     filter = attribute_filter_for(klass)
     values.each_with_object({}) do |(name, value), filtered|
       filtered[name] = if redacted.include?(name.to_s)
@@ -123,6 +131,79 @@ module Auditable
     # not "everything redact_audit_values doesn't specifically strip".
     class_attribute :webhook_payload_attribute_names, instance_writer: false, default: [].freeze
 
+    # Per-INSTANCE, per-WRITE redaction extension. An ordinary attr_accessor
+    # (in-memory only, never persisted): a caller sets it on a specific
+    # record, immediately before the one save whose automatic audit row must
+    # not archive certain field values — an erasure/anonymization write being
+    # the motivating case, but nothing here names one (IMP-7ff4be3454a6).
+    #
+    #   record.audit_extra_redactions = %w[email name authorized_keys]
+    #   record.update!(...)
+    #
+    # Why an instance ivar and not a class-level toggle: the class-level
+    # `filter_attributes` seam (see redacted_attribute_names_for /
+    # attribute_filter_for) redacts a field for EVERY write of EVERY instance
+    # of the model, which is too broad when only one specific write needs it
+    # — the same field can be exactly the evidence a NORMAL write's audit row
+    # exists to preserve (User#authorized_keys: pinned in
+    # spec/models/concerns/auditable_secret_redaction_spec.rb, "a public key
+    # is not a secret"). And `Auditable.logging_enabled` (the other existing
+    # toggle) is a process-wide `mattr_accessor` — flipping it around one
+    # save is not thread-safe under a threaded Puma worker, so it must never
+    # be reused for this. An instance ivar has neither problem: it is scoped
+    # to the one Ruby object the caller is holding, so no other request or
+    # thread can observe it.
+    #
+    # Cleared on every path that could otherwise leave it set on the
+    # in-memory instance after the one write it was meant for is done —
+    # not only the happy path. FOUR clear sites, each verified empirically
+    # (spec/models/concerns/auditable_secret_redaction_spec.rb) against what
+    # this Rails version's callback/transaction machinery actually does,
+    # not assumed from general Rails knowledge — the first draft of this
+    # comment claimed after_rollback alone would cover a validation failure,
+    # which measurement below disproves:
+    #   - #write_audit_log clears it FIRST, unconditionally, which covers a
+    #     write that reaches that method (including when logging is
+    #     disabled, Auditable.logging_enabled false — the test-env default —
+    #     and no row is ever written). Safe there because every
+    #     #redact_audit_values call for THIS write has already consumed it —
+    #     Ruby evaluates a method's keyword-argument values before the
+    #     method body runs, so by the time write_audit_log's body starts,
+    #     the callback that triggered it already built old_values/new_values
+    #     with this redaction applied.
+    #   - #log_record_update's own early returns (saved_changes blank — a
+    #     genuine no-op update, e.g. re-assigning a field its current value —
+    #     or only timestamp columns changed) never reach write_audit_log at
+    #     all, so each clears it directly before returning.
+    #   - after_validation, ONLY when validation failed (`if: -> {
+    #     errors.any? }` — never on a passing validation, or it would clear
+    #     the flag before create/update ever gets to use it). This is the
+    #     PRIMARY defense for the common "save failed" case: a plain
+    #     `record.update!(invalid_attrs)` raises ActiveRecord::RecordInvalid
+    #     from validation, WITHOUT ever entering a transaction or running
+    #     after_update/after_rollback — measured directly, not assumed (see
+    #     "checks whether after_rollback fires on a validation failure" in
+    #     the redaction spec, which is false even wrapped in an explicit
+    #     outer transaction).
+    #   - after_rollback covers the DIFFERENT case where validation PASSED,
+    #     the record actually persisted, and something ELSE inside the same
+    #     (often caller-opened) transaction failed afterward, rolling the
+    #     whole thing back — measured to fire in exactly that shape. It does
+    #     NOT fire for a validation failure (measured, see above); it is not
+    #     a substitute for the after_validation clear, it is a different gap.
+    # Without all four, a caller whose write failed (either way) or was a
+    # no-op would leave the flag armed for whatever save touches this same
+    # in-memory instance next — which could be a genuinely unrelated, later
+    # write that was never meant to be redacted.
+    #
+    # Residual, accepted gap: a bare `record.valid?`/`record.invalid?` call —
+    # not part of a save — also runs after_validation, so it would clear a
+    # flag set for an UPCOMING save if that stray validity check happens to
+    # fail in between. The documented contract is "set immediately before
+    # the one save it covers"; a validity check squeezed into that window is
+    # unusual, out-of-contract usage, not a normal caller shape.
+    attr_accessor :audit_extra_redactions
+
     # Audit log creation after record creation
     after_create :log_record_creation
 
@@ -131,6 +212,11 @@ module Auditable
 
     # Audit log deletion before record destruction
     before_destroy :log_record_deletion
+
+    # See the audit_extra_redactions declaration above for what each of
+    # these two callbacks covers and why neither alone is sufficient.
+    after_validation :clear_audit_extra_redactions, if: -> { errors.any? }
+    after_rollback :clear_audit_extra_redactions
   end
 
   class_methods do
@@ -187,11 +273,17 @@ module Auditable
   end
 
   def log_record_update
-    return unless saved_changes.present?
+    unless saved_changes.present?
+      clear_audit_extra_redactions
+      return
+    end
 
     # Filter out non-auditable changes (timestamps, etc.)
     relevant_changes = saved_changes.except("updated_at", "created_at")
-    return if relevant_changes.empty?
+    if relevant_changes.empty?
+      clear_audit_extra_redactions
+      return
+    end
 
     # saved_changes is the ONLY source here — it deliberately does not go
     # through auditable_attributes, because an update audits what changed, not
@@ -209,6 +301,12 @@ module Auditable
   end
 
   def write_audit_log(action, old_values: nil, new_values: nil)
+    # Clear FIRST, unconditionally — see the audit_extra_redactions
+    # declaration for why this is always safe: every redact_audit_values
+    # call for THIS write already ran (its result is sitting in
+    # old_values/new_values above) before this method's body started.
+    clear_audit_extra_redactions
+
     return unless Auditable.logging_enabled
     return record_audit_skipped(action) if audit_account_exemption
 
@@ -378,7 +476,15 @@ module Auditable
   # in-memory audit payload it does not need to reach. The seam applies the
   # same rule, and re-running it over an already-masked value is a no-op.
   def redact_audit_values(values)
-    Auditable.redact_values(values, self.class)
+    Auditable.redact_values(values, self.class, extra_redacted: audit_extra_redactions)
+  end
+
+  # Every path that must not let audit_extra_redactions survive past the one
+  # write it was set for calls this — see the declaration above for the full
+  # list of call sites and why each is needed. A plain nil assignment;
+  # idempotent, safe to call whether or not the flag was ever set.
+  def clear_audit_extra_redactions
+    self.audit_extra_redactions = nil
   end
 
   # Which attribute names must never have their VALUE written to an audit row.

@@ -160,22 +160,16 @@ module Compliance
       # Delete user roles
       api_client.delete("/api/v1/internal/users/#{user_id}/roles")
 
-      # Anonymize user record
-      anonymous_email = "terminated_#{SecureRandom.hex(8)}@terminated.powernode.local"
-      api_client.patch(
-        "/api/v1/internal/users/#{user_id}",
-        {
-          email: anonymous_email,
-          name: 'Terminated User',
-          password_digest: nil,
-          status: 'terminated',
-          two_factor_secret: nil,
-          backup_codes: nil,
-          last_login_ip: nil,
-          preferences: {},
-          notification_preferences: {}
-        }
-      )
+      # Anonymize user record. The internal anonymize endpoint owns the full
+      # field list (email/name/status/credentials/PII) — see
+      # Api::V1::Internal::UsersController#anonymize — so no payload here.
+      # This used to PATCH a bare `/api/v1/internal/users/:id`, which has no
+      # route (404) and carried `status: 'terminated'`, a value the users
+      # table's `valid_user_status` check constraint has never allowed; every
+      # termination therefore failed at this step (IMP-7ff4be3454a6). The
+      # routed anonymize endpoint sets status: 'inactive' — the design is
+      # anonymize-in-place, not a distinct terminated status.
+      api_client.patch("/api/v1/internal/users/#{user_id}/anonymize", {})
       termination_log << { event: 'anonymized_user', user_id: user_id, at: Time.current.iso8601 }
     end
 

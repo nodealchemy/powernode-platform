@@ -70,14 +70,55 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
   end
 
   describe 'PATCH /api/v1/internal/users/:user_id/anonymize' do
+    # No phone shim. `users` has no `phone` column at all (confirmed against
+    # db/schema.rb) — the controller must not reference it. IMP-7ff4be3454a6:
+    # the old controller did `@user.update(phone: nil, ...)`, which raised
+    # ActiveModel::UnknownAttributeError -> 500 on every anonymize call, so
+    # every DataDeletionJob "full"/"anonymize" run failed at the final step.
+
+    # Give the user real values in every field anonymize is supposed to clear,
+    # so a passing assertion means the controller actually cleared it rather
+    # than it merely defaulting to that value (mutation-proof: an assertion
+    # against an already-nil field would still pass with the clearing code
+    # deleted).
     before do
-      # The controller sets phone: nil during anonymize, but User model has no phone column.
-      # Define the accessor so assign_attributes doesn't raise UnknownAttributeError.
-      User.send(:attr_accessor, :phone) unless User.method_defined?(:phone)
+      user.enable_two_factor!
+      user.generate_reset_token!
+      # NOTE last_login_ip is deliberately NOT populated here: `encrypts
+      # :last_login_ip` (user.rb) produces ciphertext that overflows the
+      # column's `limit: 45` for any real IP string, so ANY write of a real
+      # value — not just this spec's — raises PG::StringDataRightTruncation.
+      # Grepping app/ confirms nothing in the app ever writes to this column
+      # (only user_serialization.rb reads it); this is a pre-existing,
+      # separate defect, out of this task's scope. Reported to the driver
+      # rather than fixed here. The assertion below on last_login_ip is
+      # therefore not mutation-proof (it is already nil by default).
+      user.update!(
+        preferences: { theme: 'dark' },
+        # A key with no relation to any EXISTING redaction rule, deliberately:
+        # {"email" => true} would pass the "does not archive..." audit-PII
+        # assertion below even if notification_preferences were NEVER added
+        # to #anonymize's audit_extra_redactions list at all —
+        # ActiveSupport::ParameterFilter (the engine behind User's PRE-
+        # EXISTING "email" filter_attributes entry) recurses into Hash
+        # VALUES and masks any NESTED key matching a filtered name, so a
+        # nested "email" key would incidentally get redacted for a reason
+        # having nothing to do with the new per-instance mechanism this test
+        # exists to cover — a regression in the new list would go
+        # undetected. "digest"/"weekly" match no existing redaction rule.
+        notification_preferences: { digest: 'weekly' },
+        email_verification_token: 'verify-me-token',
+        email_verification_sent_at: Time.current,
+        email_verification_token_expires_at: 1.day.from_now,
+        authorized_keys: [ 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP fixture@example.com' ]
+      )
+      user.reload
     end
 
     context 'with valid service token' do
-      it 'anonymizes user data' do
+      it 'clears every PII/credential field and sets status inactive' do
+        original_password_digest = user.password_digest
+
         patch "/api/v1/internal/users/#{user.id}/anonymize",
               headers: internal_headers,
               as: :json
@@ -88,7 +129,156 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         user.reload
         expect(user.email).to eq("deleted_#{user.id}@anonymized.local")
         expect(user.name).to eq('Deleted User')
-        expect(user.phone).to be_nil
+        expect(user.status).to eq('inactive')
+        expect(user.password_digest).not_to eq(original_password_digest)
+        # A FRESH User instance, not `user` itself: has_secure_password's
+        # virtual `password` attribute is an in-memory ivar the factory set
+        # at creation time (password { TestUsers::PASSWORD }); #reload only
+        # refreshes DB-backed columns, so that ivar would otherwise still
+        # read TestUsers::PASSWORD here — and #authenticate's failure branch
+        # saves the record, which validates password reuse against
+        # `password` when it's present, spuriously matching the password
+        # history entry #track_password_change just wrote for the old
+        # digest.
+        expect(User.find(user.id).authenticate(TestUsers::PASSWORD)).to be false
+        expect(user.two_factor_secret).to be_nil
+        expect(user.two_factor_enabled).to be false
+        expect(user.two_factor_enabled_at).to be_nil
+        expect(user.backup_codes).to be_nil
+        expect(user.two_factor_backup_codes_generated_at).to be_nil
+        # NOT mutation-proof: `encrypts :last_login_ip` (user.rb) produces
+        # ciphertext that overflows the column's `limit: 45` for any real IP
+        # string, so this spec cannot seed a non-nil value to clear in the
+        # first place (see the `before` block above) — pre-existing, out of
+        # this task's scope, flagged separately. This assertion would pass
+        # even with the clearing code deleted.
+        expect(user.last_login_ip).to be_nil
+        expect(user.preferences).to eq({})
+        expect(user.notification_preferences).to eq({})
+        expect(user.reset_token_digest).to be_nil
+        expect(user.reset_token_expires_at).to be_nil
+        expect(user.email_verification_token).to be_nil
+        expect(user.email_verification_sent_at).to be_nil
+        expect(user.email_verification_token_expires_at).to be_nil
+        expect(user.authorized_keys).to eq([])
+        expect(user.email_verified).to be false
+        expect(user.email_verified_at).to be_nil
+      end
+
+      it 'deletes all password_histories, including the one the anonymize write itself creates' do
+        # Seed pre-existing history (simulates past password changes) plus
+        # confirm the anonymize write's OWN password change doesn't survive
+        # either: #update! setting `password:` fires
+        # PasswordSecurity#track_password_change, which writes the OUTGOING
+        # digest (the user's REAL current password) into a fresh history row
+        # (password_security.rb:148-163) — that row must not outlive this
+        # request either, or the "erasure" leaves the real password's digest
+        # behind under a different table.
+        create_list(:password_history, 3, user: user)
+        expect(user.password_histories.count).to eq(3)
+
+        patch "/api/v1/internal/users/#{user.id}/anonymize",
+              headers: internal_headers,
+              as: :json
+
+        expect_success_response
+        expect(user.password_histories.count).to eq(0)
+      end
+
+      it 'sets status inactive and makes the original password unusable' do
+        patch "/api/v1/internal/users/#{user.id}/anonymize",
+              headers: internal_headers,
+              as: :json
+        expect_success_response
+
+        # A FRESH User instance — see the comment on the same pattern above.
+        reloaded = User.find(user.id)
+        expect(reloaded.status).to eq('inactive')
+        expect(reloaded.active?).to be false
+        expect(reloaded.authenticate(TestUsers::PASSWORD)).to be false
+      end
+
+      it 'revokes an already-issued access token via the JWT blacklist, not merely via status' do
+        # Minted BEFORE anonymize, while the user is still active — assert the
+        # SPECIFIC mechanism (Security::JwtService.blacklisted?), not just
+        # that a request with it later 401s, which the status check alone
+        # would also produce.
+        #
+        # Minted a full minute in the past (travel_to), not merely "before" in
+        # wall-clock call order: JwtBlacklistService's per-user marker revokes
+        # a token only when its `iat` is STRICTLY EARLIER than the marker's
+        # cutoff (token_predates_cutoff? uses `<`, not `<=`), so a token minted
+        # in the SAME SECOND as the blacklist call — which two calls this
+        # close together in a fast in-process spec reliably are — reads as NOT
+        # revoked. That is a real, narrow same-second race in shared
+        # production code (flagged to the driver separately, out of this
+        # task's scope); sidestepping it here with travel_to keeps this
+        # assertion about OUR code's use of the seam, not about that edge case.
+        pre_anonymize_token = travel_to(1.minute.ago) { token_for(user) }
+        expect(Security::JwtService.blacklisted?(pre_anonymize_token)).to be false
+
+        patch "/api/v1/internal/users/#{user.id}/anonymize",
+              headers: internal_headers,
+              as: :json
+        expect_success_response
+
+        expect(Security::JwtService.blacklisted?(pre_anonymize_token)).to be true
+      end
+
+      it 'raises (fails the request) when JWT revocation fails, instead of reporting success' do
+        allow(Security::JwtService).to receive(:blacklist_user_tokens).and_return(false)
+
+        expect do
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+        end.not_to raise_error # the controller action itself must not blow up the request process
+
+        expect(response).to have_http_status(:internal_server_error)
+        expect(json_response['success']).to eq(false)
+      end
+
+      it 'does not archive the real PII (preferences, authorized_keys, old email/name, ...) in the automatic audit row' do
+        # The controller's own log_internal_audit("user.anonymize") row is the
+        # intended record of this event; Auditable's automatic "updated" row
+        # (fired by @user.update! via after_update) must not become a second,
+        # unredacted copy of what anonymize exists to erase. This is now via
+        # Auditable#audit_extra_redactions (per-instance, per-write), set by
+        # the controller right before the update — NOT via User's global
+        # filter_attributes, which stays exactly as it was (unchanged in this
+        # diff — see spec/models/concerns/auditable_secret_redaction_spec.rb,
+        # whose pinned "authorized_keys recorded in full" example for a
+        # NORMAL (non-anonymize) update must stay green, and does).
+        Auditable.with_logging do
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+        end
+        expect_success_response
+
+        updated_rows = AuditLog.where(resource_type: 'User', resource_id: user.id, action: 'updated')
+        expect(updated_rows).not_to be_empty
+
+        updated_rows.each do |row|
+          [ row.old_values, row.new_values ].each do |values|
+            next if values.blank?
+
+            json = values.to_json
+            expect(json).not_to include('dark') # the seeded preferences value
+            expect(json).not_to include('weekly') # the seeded notification_preferences value (no
+            # relation to any pre-existing redaction rule — see the `before`
+            # block comment for why this specific value was chosen)
+            expect(json).not_to include('verify-me-token') # email_verification_token
+            expect(json).not_to include('AAAAC3NzaC1lZDI1NTE5AAAAIP') # the seeded authorized_keys value
+            # email/name are ALSO in this write's audit_extra_redactions list
+            # (see the controller), but belt-and-braces: User's pre-existing
+            # `encrypts`-driven global redaction already masks both on every
+            # write, anonymize or not, so these two assertions would pass
+            # even if the new per-instance list dropped them.
+            expect(json).not_to include('test@example.com') # the user's pre-anonymize email
+            expect(json).not_to include('Test User') # the user's pre-anonymize name
+          end
+        end
       end
 
       it 'writes an audit_logs row for the anonymize action itself' do

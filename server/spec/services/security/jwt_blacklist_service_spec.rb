@@ -113,6 +113,40 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
     end
 
     describe ".blacklist_user_tokens" do
+      # IMP-7ff4be3454a6: the success return used to be the incidental return
+      # value of `Rails.logger.info(...)` (truthy, but not a deliberate
+      # signal) rather than an explicit boolean — a caller checking
+      # truthiness got the right answer by accident on the happy path, and
+      # the WRONG answer (a truthy "success") on the specific failure mode
+      # pinned below. Both are now asserted directly.
+      it "returns true explicitly on success" do
+        expect(described_class.blacklist_user_tokens(user.id, reason: "account_suspended")).to be(true)
+      end
+
+      # The database branch used to `return` (nil, falsy only by accident of
+      # the caller happening to check truthiness) when JwtBlacklist was not
+      # yet a defined constant, WITHOUT writing a marker — a silent no-op
+      # that read as neither success nor failure. Reachability: production
+      # and CI test runs eager_load (config/environments/production.rb,
+      # test.rb), which requires every app/models file — including
+      # app/models/jwt_blacklist.rb — at boot, so JwtBlacklist is always
+      # defined there regardless of this check; `defined?` deliberately never
+      # triggers Zeitwerk's const_missing-based autoload the way a bare
+      # reference would. Development (eager_load false, and no REDIS_URL,
+      # which is what routes here at all) can reach this branch before
+      # anything else in the process references JwtBlacklist directly. Since
+      # it is reachable somewhere, it must fail loudly (false), not silently.
+      it "returns false, not a silent no-op, when JwtBlacklist is not yet a defined constant" do
+        had_constant = Object.const_defined?(:JwtBlacklist)
+        removed_class = Object.send(:remove_const, :JwtBlacklist) if had_constant
+
+        begin
+          expect(described_class.send(:blacklist_user_tokens_database, user.id, "test")).to be(false)
+        ensure
+          Object.const_set(:JwtBlacklist, removed_class) if had_constant
+        end
+      end
+
       it "creates a user-level blacklist marker row" do
         expect do
           described_class.blacklist_user_tokens(user.id, reason: "account_suspended")
@@ -285,6 +319,10 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
     end
 
     describe ".blacklist_user_tokens" do
+      it "returns true explicitly on success" do
+        expect(described_class.blacklist_user_tokens(user.id, reason: "account_suspended")).to be(true)
+      end
+
       it "stores a user-level key with a ~1-year TTL" do
         described_class.blacklist_user_tokens(user.id, reason: "account_suspended")
 

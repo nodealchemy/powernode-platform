@@ -377,4 +377,141 @@ RSpec.describe "Auditable secret redaction" do
       end
     end
   end
+
+  # Auditable#audit_extra_redactions (IMP-7ff4be3454a6): a per-INSTANCE,
+  # per-WRITE redaction extension, deliberately generic — nothing here is
+  # User- or GDPR-specific, unlike the class-wide `filter_attributes` seam
+  # exercised everywhere else in this file. `status` is used purely as an
+  # arbitrary, ordinarily-unredacted User attribute to prove the MECHANISM;
+  # it carries no significance of its own to these examples.
+  describe "Auditable#audit_extra_redactions" do
+    it "redacts only the named field(s) on the write it was set for" do
+      user = create(:user)
+
+      Auditable.with_logging do
+        user.audit_extra_redactions = %w[status]
+        user.update!(status: "inactive", failed_login_attempts: 3)
+      end
+
+      row = audit_rows_for(user).where(action: "updated").order(:created_at).last
+      expect(row.old_values["status"]).to eq(SyntheticAuditProbe::FILTERED)
+      expect(row.new_values["status"]).to eq(SyntheticAuditProbe::FILTERED)
+      # Anti-over-redaction oracle: a field NOT listed in
+      # audit_extra_redactions keeps its real value — this is a targeted
+      # redaction, not a blanket suppression of the whole row.
+      expect(row.new_values["failed_login_attempts"]).to eq(3)
+    end
+
+    it "clears itself after the write, so a later update of the same instance audits normally" do
+      user = create(:user)
+
+      Auditable.with_logging do
+        user.audit_extra_redactions = %w[status]
+        user.update!(status: "inactive")
+
+        user.update!(status: "suspended")
+      end
+
+      rows = audit_rows_for(user).where(action: "updated").order(:created_at).to_a
+      expect(rows.length).to eq(2)
+      expect(rows.first.new_values["status"]).to eq(SyntheticAuditProbe::FILTERED)
+      expect(rows.second.new_values["status"]).to eq("suspended")
+    end
+
+    it "does not affect a different record of the same class that never set it" do
+      redacted_user = create(:user)
+      plain_user = create(:user)
+
+      Auditable.with_logging do
+        redacted_user.audit_extra_redactions = %w[status]
+        redacted_user.update!(status: "inactive")
+        plain_user.update!(status: "inactive")
+      end
+
+      redacted_row = audit_rows_for(redacted_user).where(action: "updated").order(:created_at).last
+      plain_row = audit_rows_for(plain_user).where(action: "updated").order(:created_at).last
+
+      expect(redacted_row.new_values["status"]).to eq(SyntheticAuditProbe::FILTERED)
+      expect(plain_row.new_values["status"]).to eq("inactive")
+    end
+
+    # The four examples below each pin one of the FOUR clear sites the
+    # declaration on audit_extra_redactions documents. Every save shape here
+    # was verified directly (not assumed) against this Rails version before
+    # being pinned — see that comment for what each one measured.
+    it "clears itself on a genuine no-op save (no attribute actually changed), so a later real update audits normally" do
+      user = create(:user)
+
+      Auditable.with_logging do
+        user.audit_extra_redactions = %w[status]
+        user.update!(status: user.status) # same value: saved_changes ends up {}
+
+        user.update!(status: "inactive")
+      end
+
+      rows = audit_rows_for(user).where(action: "updated").order(:created_at).to_a
+      expect(rows.length).to eq(1) # the no-op save wrote no "updated" audit row at all
+      expect(rows.first.new_values["status"]).to eq("inactive")
+    end
+
+    it "clears itself when only timestamp columns changed, so a later real update audits normally" do
+      user = create(:user)
+
+      Auditable.with_logging do
+        user.audit_extra_redactions = %w[status]
+        # #touch does not run after_update in this Rails version (measured),
+        # so it cannot exercise this branch; an explicit updated_at-only
+        # #update! does reach log_record_update with saved_changes ==
+        # {"updated_at" => [...]}, which is empty after the
+        # .except("updated_at", "created_at") filter.
+        user.update!(updated_at: Time.current + 1)
+
+        user.update!(status: "inactive")
+      end
+
+      rows = audit_rows_for(user).where(action: "updated").order(:created_at).to_a
+      expect(rows.length).to eq(1)
+      expect(rows.first.new_values["status"]).to eq("inactive")
+    end
+
+    it "clears itself when a save fails validation, so a later successful update audits normally" do
+      user = create(:user)
+
+      Auditable.with_logging do
+        user.audit_extra_redactions = %w[status]
+        expect { user.update!(email: "") }.to raise_error(ActiveRecord::RecordInvalid)
+
+        # Discards the invalid in-memory email so the NEXT update can
+        # succeed; reload never touches audit_extra_redactions (not a
+        # DB-backed column), so if this example passes, the clear is
+        # attributable to after_validation, not to this reload.
+        user.reload
+        user.update!(status: "inactive")
+      end
+
+      rows = audit_rows_for(user).where(action: "updated").order(:created_at).to_a
+      expect(rows.length).to eq(1)
+      expect(rows.first.new_values["status"]).to eq("inactive")
+    end
+
+    it "clears itself when a successful update is rolled back by an enclosing transaction, so a later update audits normally" do
+      user = create(:user)
+
+      Auditable.with_logging do
+        user.audit_extra_redactions = %w[status]
+
+        ActiveRecord::Base.transaction do
+          user.update!(status: "inactive")
+          raise ActiveRecord::Rollback
+        end
+        expect(user.reload.status).to eq("active") # confirms the rollback actually happened
+
+        user.update!(status: "suspended")
+      end
+
+      rows = audit_rows_for(user).where(action: "updated").order(:created_at).to_a
+      expect(rows.length).to eq(1) # the rolled-back update's audit row never committed either
+      expect(rows.first.new_values["status"]).to eq("suspended")
+    end
+  end
 end
