@@ -138,6 +138,38 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         expect(backup.error_message).to eq('Database connection timeout')
         expect(backup.duration_seconds).to eq(120)
       end
+
+      # IMP-8b25fb48368e should-fix #3: Database::Backup's after_update
+      # callback (log_backup_status_change) used to always raise
+      # ActiveModel::UnknownAttributeError on `details:` (not a real AuditLog
+      # column), silently swallowed — every worker status PATCH went
+      # unaudited regardless of created_by. Now the same write_backup_audit!
+      # writer as creation; a system (created_by: nil) backup's transition is
+      # attributed to the platform sentinel and produces exactly one row.
+      context 'auditing a worker-owned (created_by: nil) backup transition' do
+        let!(:sentinel) { create(:account, name: Audit::PlatformAccount::SENTINEL_NAME) }
+        let(:system_backup) { create(:database_backup, created_by: nil, status: 'pending') }
+
+        it 'writes exactly one NEW audit row (the transition, not the creation) attributed to the sentinel' do
+          system_backup # eagerly create — its own after_create fires one "system_backup" row already
+          audit_scope = AuditLog.where(resource_type: 'Database::Backup', resource_id: system_backup.id)
+          expect(audit_scope.count).to eq(1)
+
+          expect {
+            patch "/api/v1/internal/maintenance/backups/#{system_backup.id}",
+                  params: { status: 'running' },
+                  headers: internal_headers,
+                  as: :json
+          }.to change(audit_scope, :count).by(1)
+
+          expect_success_response
+
+          row = audit_scope.order(:created_at).last
+          expect(row.action).to eq('system_backup')
+          expect(row.account_id).to eq(sentinel.id)
+          expect(row.metadata['new_status']).to eq('running')
+        end
+      end
     end
 
     context 'when backup does not exist' do
@@ -728,19 +760,178 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
     end
   end
 
-  # IMP-26a95cba1d43 review (D1) — attempted here first, reverted: a live
-  # regression test through create_backup (whose own "backup.create" literal
-  # is the unregistered, account_id-less call site the review traced D1
-  # through — filed separately as IMP-01a0b2f5, not fixed here) turned out to
-  # be unreachable for a THIRD, independent, also out-of-scope reason:
-  # Database::Backup has `belongs_to :created_by, class_name: "User"`
-  # (required by default), and create_backup (maintenance_controller.rb)
-  # never sets it — `backup.save` fails validation before log_internal_audit
-  # is ever called, confirmed empirically (POST here does not create a row
-  # at all). So this endpoint cannot exercise the fallback fix live today
-  # regardless of backup.create's registration status. Flagged to the
-  # reviewer rather than fixed (a third unrelated pre-existing defect); the
-  # fallback-safety proof for "no account_id" instead lives in
-  # data_deletion_requests_spec.rb, simulated on a call site that already
-  # works end to end.
+  # IMP-8b25fb48368e / IMP-19c753c1e8a9: create_backup used to be unreachable
+  # end to end — `Database::Backup#created_by` was required by default (both
+  # by the Rails association AND the DB column) and the worker-initiated
+  # request never set it, so `backup.save` always failed before
+  # `log_internal_audit("backup.create", ...)` (an unregistered,
+  # account_id-less literal) was ever called. See git history for the
+  # empirical trace. Fixed together at this one call site: `created_by` is
+  # now optional (both in Rails and via migration
+  # 20260918130300_allow_null_created_by_on_database_backups — the established
+  # platform convention for worker/system-initiated rows, e.g. Devops::
+  # Pipeline, ApiKey, WebhookEndpoint), and Database::Backup's own after_create
+  # callback (not a separate controller-side audit call — see
+  # database/backup.rb#write_backup_audit!) writes the single `system_backup`
+  # audit row, attributed to the platform sentinel (Audit::PlatformAccount)
+  # rather than a guessed tenant — that `|| Account.first` shape was already
+  # rejected twice at this exact call site (internal_base_controller.rb's D1
+  # comment, and this file's own prior "unreachable" comment).
+  describe 'POST /api/v1/internal/maintenance/backups' do
+    context 'with service token authentication' do
+      context 'when the platform sentinel account exists' do
+        # N1 (second review): uuid7 is NOT strictly monotonic within the same
+        # millisecond, so two `create(:account)` calls issued back to back in
+        # the same example could tie or flip — relying on natural insertion
+        # order for "the decoy sorts first" would make this guard flaky
+        # rather than deterministic. An explicit, deliberately-low id (all
+        # zeros with a valid UUID v7 version/variant nibble) sorts before any
+        # id the DB itself generates at a real 2026 timestamp regardless of
+        # ordering races, so the decoy reliably occupies the `Account.first`
+        # slot a regression to `|| Account.first` would read from.
+        let!(:decoy) { create(:account, id: "00000000-0000-7000-8000-000000000000") }
+        let!(:sentinel) { create(:account, name: Audit::PlatformAccount::SENTINEL_NAME) }
+
+        before { expect(Account.first.id).to eq(decoy.id) }
+
+        it 'creates exactly one Database::Backup row and attributes its one audit row to the sentinel, never a tenant' do
+          expect {
+            post '/api/v1/internal/maintenance/backups',
+                 params: { backup_type: 'full', scheduled: true, description: 'nightly' },
+                 headers: internal_headers,
+                 as: :json
+          }.to change(Database::Backup, :count).by(1)
+
+          expect(response).to have_http_status(:accepted)
+
+          backup = Database::Backup.last
+          expect(backup.status).to eq('pending')
+          expect(backup.backup_type).to eq('full')
+          expect(backup.created_by_id).to be_nil
+          # started_at is NOT NULL with no DB default; create_backup must set
+          # it itself or the save raises ActiveRecord::NotNullViolation.
+          expect(backup.started_at).to be_present
+          # S1: the description COLUMN, not only metadata['description'] — the
+          # admin endpoint's `name:` field and the creation audit's metadata
+          # both read the column.
+          expect(backup.description).to eq('nightly')
+
+          audit_rows = AuditLog.where(resource_type: 'Database::Backup', resource_id: backup.id)
+          expect(audit_rows.count).to eq(1)
+          row = audit_rows.first
+          expect(row.action).to eq('system_backup')
+          expect(row.account_id).to eq(sentinel.id)
+          expect(row.account_id).not_to eq(internal_account.id)
+          expect(row.account_id).not_to eq(decoy.id)
+        end
+      end
+
+      context 'when the platform sentinel account is absent' do
+        before { expect(Account.where(name: Audit::PlatformAccount::SENTINEL_NAME)).to be_empty }
+
+        it 'still creates the backup row and returns 202, but writes no audit row and emits the skip signal' do
+          events = []
+          subscriber = ActiveSupport::Notifications.subscribe(Auditable::SKIPPED_NOTIFICATION) do |*args|
+            events << ActiveSupport::Notifications::Event.new(*args).payload
+          end
+
+          begin
+            expect {
+              post '/api/v1/internal/maintenance/backups',
+                   params: { backup_type: 'full', scheduled: true, description: 'nightly' },
+                   headers: internal_headers,
+                   as: :json
+            }.to change(Database::Backup, :count).by(1)
+          ensure
+            ActiveSupport::Notifications.unsubscribe(subscriber)
+          end
+
+          expect(response).to have_http_status(:accepted)
+
+          backup = Database::Backup.last
+          expect(AuditLog.where(resource_type: 'Database::Backup', resource_id: backup.id)).to be_empty
+
+          payload = events.find { |e| e[:record_id] == backup.id }
+          expect(payload).to be_present
+          expect(payload[:reason]).to eq(Audit::PlatformAccount::MISSING_REASON)
+          expect(payload[:action]).to eq('system_backup')
+        end
+      end
+
+      # IMP-8b25fb48368e S2 (second review): write_backup_audit! now issues a
+      # real INSERT inside the backup save's own transaction (before this
+      # fix, `details:` always raised at Ruby attribute assignment, before
+      # any SQL reached Postgres, so the surrounding transaction was never
+      # actually at risk). A REAL Postgres-level failure on that INSERT — not
+      # a plain `raise`, which proves nothing about transaction state — must
+      # not abort the backup's own transaction. Forces a genuine
+      # PG::UniqueViolation on audit_logs.sequence_number's partial unique
+      # index: reserve a real sequence_number with a throwaway row, then stub
+      # Audit::LogIntegrityService.apply_integrity to reuse it for the
+      # backup's own audit write, so the actual database rejects the INSERT.
+      context 'when the audit INSERT itself fails at the database level (not a Ruby exception)' do
+        let!(:sentinel) { create(:account, name: Audit::PlatformAccount::SENTINEL_NAME) }
+        let!(:reserved_sequence) do
+          AuditLog.create!(
+            account: sentinel, user: nil, action: 'system_backup', source: 'system',
+            resource_type: 'Database::Backup', resource_id: SecureRandom.uuid, metadata: {}
+          )
+        end
+
+        before do
+          # Scoped to Database::Backup only — internal_headers (mTLS worker
+          # auth) lazily creates the Worker used by this very request, and
+          # Worker#log_creation writes its OWN AuditLog row first; an
+          # unscoped stub would force that unrelated write to collide too.
+          original_apply_integrity = Audit::LogIntegrityService.method(:apply_integrity)
+          allow(Audit::LogIntegrityService).to receive(:apply_integrity) do |audit_log|
+            if audit_log.resource_type == "Database::Backup"
+              audit_log.sequence_number = reserved_sequence.sequence_number
+              audit_log.previous_hash = reserved_sequence.previous_hash
+              audit_log.integrity_hash = SecureRandom.hex(32)
+            else
+              original_apply_integrity.call(audit_log)
+            end
+          end
+        end
+
+        it 'still commits the backup and returns 202 despite the audit write aborting' do
+          expect {
+            post '/api/v1/internal/maintenance/backups',
+                 params: { backup_type: 'full' },
+                 headers: internal_headers,
+                 as: :json
+          }.to change(Database::Backup, :count).by(1)
+
+          expect(response).to have_http_status(:accepted)
+
+          backup = Database::Backup.last
+          expect(backup.status).to eq('pending')
+          # The forced PG::UniqueViolation means the audit row for THIS event
+          # never actually lands — the savepoint contains the failure, it
+          # doesn't paper over it with a fabricated success.
+          expect(AuditLog.where(resource_type: 'Database::Backup', resource_id: backup.id)).to be_empty
+        end
+      end
+
+      it 'rejects an invalid backup_type without creating a row' do
+        expect {
+          post '/api/v1/internal/maintenance/backups',
+               params: { backup_type: 'bogus' },
+               headers: internal_headers,
+               as: :json
+        }.not_to change(Database::Backup, :count)
+
+        expect_error_response('invalid backup_type: bogus', 422)
+      end
+    end
+
+    context 'without authentication' do
+      it 'returns unauthorized error' do
+        post '/api/v1/internal/maintenance/backups', as: :json
+
+        expect_error_response('mTLS client certificate required', 401)
+      end
+    end
+  end
 end

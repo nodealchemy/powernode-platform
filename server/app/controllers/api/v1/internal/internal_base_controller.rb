@@ -78,14 +78,19 @@ class Api::V1::Internal::InternalBaseController < ApplicationController
     # `account || Account.first`) — but that precedent is for a caller that
     # already resolved a real account and only lost the reference on the way
     # to the rescue; here `metadata[:account_id]` can be genuinely ABSENT for
-    # a tenant-less resource (e.g. maintenance_controller.rb's
-    # "backup.create", which audits a Database::Backup — not itself
-    # account-scoped, and separately unregistered; see IMP-01a0b2f5). Against
-    # that caller, guessing `Account.first` would attribute a tenant-less
-    # infrastructure event to a real customer's audit trail on every request
-    # — a cross-tenant defect this fix must not introduce. When no account
-    # can be honestly attributed, the fatal log line above is the only
-    # durable signal available; there is no safe row to write.
+    # a tenant-less resource. maintenance_controller.rb's "backup.create" used
+    # to be the live example (IMP-01a0b2f5) — it is no longer a
+    # log_internal_audit caller at all (IMP-8b25fb48368e moved backup auditing
+    # onto Database::Backup's own callback, which resolves the platform
+    # sentinel via Audit::PlatformAccount instead of reaching this rescue), so
+    # every current log_internal_audit caller does pass a real account_id.
+    # The guard below stays: the NEXT tenant-less caller must not silently
+    # regress to guessing `Account.first`. Against that caller, guessing
+    # `Account.first` would attribute a tenant-less infrastructure event to a
+    # real customer's audit trail on every request — a cross-tenant defect
+    # this fix must not introduce. When no account can be honestly
+    # attributed, the fatal log line above is the only durable signal
+    # available; there is no safe row to write.
     if metadata[:account_id]
       begin
         AuditLog.create!(

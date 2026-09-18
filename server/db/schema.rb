@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_17_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_130300) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -5268,7 +5268,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_17_010000) do
     t.string "backup_type", limit: 50, null: false
     t.datetime "completed_at"
     t.datetime "created_at", null: false
-    t.uuid "created_by_id", null: false
+    t.uuid "created_by_id"
     t.text "description"
     t.integer "duration_seconds"
     t.text "error_message"
@@ -11681,7 +11681,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_17_010000) do
     t.index ["provider"], name: "index_webhook_events_on_provider"
     t.index ["retry_count"], name: "index_webhook_events_on_retry_count"
     t.index ["status"], name: "index_webhook_events_on_status"
-    t.check_constraint "provider::text = ANY (ARRAY['stripe'::character varying::text, 'paypal'::character varying::text])", name: "valid_webhook_provider"
+    t.check_constraint "provider::text = ANY (ARRAY['stripe'::character varying::text, 'paypal'::character varying::text, 'system'::character varying::text])", name: "valid_webhook_provider"
     t.check_constraint "retry_count >= 0 AND retry_count <= 10", name: "valid_webhook_retry_count"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'processed'::character varying::text, 'failed'::character varying::text, 'skipped'::character varying::text])", name: "valid_webhook_event_status"
   end

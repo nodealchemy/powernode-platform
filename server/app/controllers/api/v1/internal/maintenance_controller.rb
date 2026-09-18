@@ -351,6 +351,17 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
     backup = Database::Backup.new(
       backup_type: backup_type == "schema_only" ? "manual" : backup_type,
       status: "pending",
+      # IMP-8b25fb48368e: `started_at` is NOT NULL with no DB default (and no
+      # user-facing "start time" param exists for this worker-initiated
+      # request) — without this, `backup.save` raised an uncaught
+      # ActiveRecord::NotNullViolation (a 500, not the `unprocessable_content`
+      # branch below, since `save` does not rescue StatementInvalid).
+      started_at: Time.current,
+      # IMP-8b25fb48368e S1: this used to only land in metadata — the real
+      # `description` column (which the admin endpoint's `name:` field reads,
+      # and Database::Backup's own creation-audit metadata reads) was always
+      # nil for a worker-initiated backup as a result.
+      description: params[:description].to_s.presence,
       metadata: {
         requested_at: Time.current.iso8601,
         scheduled: ActiveModel::Type::Boolean.new.cast(params[:scheduled]),
@@ -362,8 +373,16 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
     )
 
     if backup.save
-      log_internal_audit("backup.create", "Database::Backup", backup.id,
-                         backup_type: backup_type, scheduled: backup.metadata["scheduled"])
+      # IMP-8b25fb48368e / IMP-19c753c1e8a9: no separate log_internal_audit
+      # call here — "backup.create" was an unregistered, account_id-less
+      # action literal, silently dropped by that helper's rescue. Rather than
+      # patch it in place (and end up with two competing audit writers for
+      # one event), Database::Backup's own after_create callback
+      # (log_backup_creation) is now the single writer: it uses the
+      # already-registered "system_backup" action and resolves the account
+      # via Audit::PlatformAccount (the platform sentinel, never a guessed
+      # tenant) since this worker-initiated row has no created_by. See
+      # database/backup.rb#write_backup_audit! for the full writer.
       render_success({
         id: backup.id,
         status: backup.status,

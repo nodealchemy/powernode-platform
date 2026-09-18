@@ -221,6 +221,14 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   # Backups endpoint
+  # IMP-8b25fb48368e: `.name` / `.size` / `.location` are neither columns nor
+  # model methods on Database::Backup (schema: backup_type, description,
+  # file_path, file_size_bytes, status, started_at, completed_at, ...) — this
+  # raised NoMethodError -> 503 on every non-empty result, latent only because
+  # the table was always empty before the worker's create_backup path was
+  # reachable. Mapped to the real columns rather than fabricated; no rename to
+  # the frontend's `filename`/`type` naming, since that's a wider, separate
+  # contract question (see report).
   def backups
     backups = Database::Backup.order(created_at: :desc).limit(20)
 
@@ -228,12 +236,12 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       data: backups.map { |backup|
         {
           id: backup.id,
-          name: backup.name,
-          size: backup.size,
+          name: backup.description,
+          size: backup.file_size_bytes,
           status: backup.status,
           created_at: backup.created_at,
           completed_at: backup.completed_at,
-          location: backup.location
+          location: backup.file_path
         }
       }
     )
@@ -397,7 +405,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def get_last_backup_info
     backup = Database::Backup.order(created_at: :desc).first
-    backup ? { created_at: backup.created_at, size: backup.size } : nil
+    backup ? { created_at: backup.created_at, size: backup.file_size_bytes } : nil
   rescue StandardError => e
     Rails.logger.error "Failed to get last backup info: #{e.message}"
     nil

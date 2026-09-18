@@ -102,6 +102,37 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
         expect_success_response
       end
 
+      # IMP-8b25fb48368e: this action's `backup.name` / `.size` / `.location`
+      # calls raised NoMethodError (503) on any non-empty result — invisible
+      # in every prior spec because the table was always empty. A real row
+      # (via the actual, non-stubbed Database::Backup model — the `before`
+      # block's stub_const is a no-op once the model is loaded) exercises the
+      # mapping to real columns.
+      context 'with a real backup row' do
+        let!(:backup) do
+          create(:database_backup,
+            description: 'nightly full',
+            file_path: '/var/backups/pg/2026-09-18.sql',
+            file_size_bytes: 2_048,
+            status: 'completed'
+          )
+        end
+
+        it 'serializes the row without raising' do
+          get '/api/v1/admin/maintenance/backups', headers: headers, as: :json
+
+          expect_success_response
+          row = json_response_data.first
+          expect(row).to include(
+            'id' => backup.id,
+            'name' => 'nightly full',
+            'size' => 2_048,
+            'status' => 'completed',
+            'location' => '/var/backups/pg/2026-09-18.sql'
+          )
+        end
+      end
+
       context 'when database backup service fails' do
         before do
           allow(Database::Backup).to receive(:order).and_raise(StandardError.new('Connection failed'))
