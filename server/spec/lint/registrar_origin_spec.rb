@@ -28,6 +28,20 @@ RSpec.describe "registrar call sites carry origin:" do
   # Methods, not constants: a constant assigned in a describe block lands on
   # Object and collides with every other spec that names one ROOT.
   def server_root = File.expand_path("../..", __dir__)
+  def repo_root = File.expand_path("..", server_root)
+
+  # THE SINGLE PLACE an absolute scanned path becomes the string an offender
+  # message reports. Both offender-producing checks below (the registrar
+  # call-site scan and the direct-construction scan) MUST go through this one
+  # method — an extension file's absolute path lives under
+  # <repo_root>/extensions/<name>/server/app/..., which is not under
+  # <server_root>/ (that is core's own app/ tree), so a check that strips
+  # server_root/ instead of repo_root/ leaves an extension offender's path
+  # ABSOLUTE. Two checks each doing their own delete_prefix is exactly how
+  # that divergence happened once already (IMP-b5198eb0f004 review F1): the
+  # construction check used repo_root, the call-site check used server_root,
+  # silently disagreeing about what a path "looks like" for the same files.
+  def offender_path(path) = path.delete_prefix("#{repo_root}/")
 
   def call_pattern
     /(?:McpPlatformToolRegistrar\s*\.\s*(?:execute_tool|run_guarded)|\blocal_tools\s*\.\s*dispatch)\s*\(/
@@ -63,6 +77,73 @@ RSpec.describe "registrar call sites carry origin:" do
     roots.flat_map { |root| Dir.glob(File.join(root, "**", "*.rb")) }.sort
   end
 
+  # A core commit that ADDS or TIGHTENS this lint's requirement can go out
+  # ahead of the extension commit that satisfies it on the extension's own
+  # side (reviewer guidance 3's MCP identity plan #5/#6 shipped exactly this
+  # way: 9fe7d1cfb added the requirement and pinned extensions/system at its
+  # pre-fix commit; aa0de3336, a separate later commit, is the one that bumps
+  # the pointer to the extension commit that actually satisfies it). Anyone
+  # who checks out — or bisects through — the core commit alone sees this
+  # spec red for a reason that is not a defect in that commit: `scanned_files`
+  # and `construction_allowlist` above both read the extension's WORKING TREE
+  # at whatever commit the parent's gitlink pins, not the extension's own
+  # HEAD. The failure mode that matters is not that one red run: it's a
+  # reviewer learning to read this spec's red as "probably just the pointer"
+  # and missing a genuine offender. This note never changes the verdict
+  # (offenders empty or not decides pass/fail exactly as before) — it only
+  # gives the reviewer something concrete to check instead of a learned
+  # reflex to dismiss red on this file. It self-describes as a NOTE, not a
+  # verdict, on purpose: it never claims a failure IS skew, only that the
+  # offender lives in a path where that history exists to check.
+  def format_offenders(offenders, label)
+    message = "#{label}\n#{offenders.join("\n")}"
+    ext_names = offenders.filter_map { |o| o[%r{\Aextensions/([^/]+)/}, 1] }.uniq
+    return message if ext_names.empty?
+
+    hints = ext_names.map do |name|
+      "NOTE extensions/#{name}: this commit's pinned pointer may predate a fix already landed on the " \
+      "extension's own branch (a core commit that adds/tightens this lint can ship before the pointer bump " \
+      "that pulls the matching extension commit in). Before treating this as genuine, run " \
+      "`git log --oneline -- extensions/#{name}` and check whether a LATER \"bump extension pointer\" commit " \
+      "follows this one."
+    end
+    "#{message}\n\n#{hints.join("\n")}"
+  end
+
+  describe "offender messages distinguish extension-pointer skew from a core failure (both arms)" do
+    it "appends a skew-check hint when an offender lives under extensions/" do
+      offenders = [ "extensions/system/server/app/foo.rb: MemoryTool.new(account: a)" ]
+      message = format_offenders(offenders, "some label:")
+      expect(message).to include("NOTE extensions/system:")
+      expect(message).to include("git log --oneline -- extensions/system")
+    end
+
+    it "reports a core offender plainly, with no skew hint" do
+      offenders = [ "server/app/services/foo.rb: MemoryTool.new(account: a)" ]
+      message = format_offenders(offenders, "some label:")
+      expect(message).to eq("some label:\nserver/app/services/foo.rb: MemoryTool.new(account: a)")
+      expect(message).not_to include("NOTE")
+    end
+
+    # F1's actual bug lived here: the two examples above hand-build offender
+    # strings, so they exercise format_offenders in isolation and cannot see
+    # that a production check builds its offender path against the WRONG
+    # root (server_root instead of repo_root), leaving an extension path
+    # absolute and never matching format_offenders' `\Aextensions/` check.
+    # This one goes through `offender_path`, the actual method the
+    # production checks call, on a REAL absolute path pulled from
+    # `scanned_files` — so a regression in offender_path (or a call site
+    # that stops using it) is caught here too, not just by format_offenders.
+    it "recognizes a real extension offender path built the way the production checks build it" do
+      extension_file = scanned_files.find { |path| path.include?("/extensions/") }
+      raise "no extension file found under scanned_files to prove this against" unless extension_file
+
+      offender = "#{offender_path(extension_file)}: MemoryTool.new(account: a)"
+      message = format_offenders([ offender ], "some label:")
+      expect(message).to include("NOTE extensions/")
+    end
+  end
+
   describe "the matcher (both arms)" do
     it "flags a call that omits origin:" do
       source = "Ai::Tools::McpPlatformToolRegistrar.execute_tool(\"platform.x\", params: {}, account: a)"
@@ -89,9 +170,9 @@ RSpec.describe "registrar call sites carry origin:" do
 
   it "every production call site marks its origin" do
     offenders = scanned_files.flat_map do |path|
-      unmarked_calls(File.read(path)).map { |args| "#{path.delete_prefix("#{server_root}/")}: #{args.lines.first.strip}" }
+      unmarked_calls(File.read(path)).map { |args| "#{offender_path(path)}: #{args.lines.first.strip}" }
     end
-    expect(offenders).to be_empty, "registrar calls without origin:\n#{offenders.join("\n")}"
+    expect(offenders).to be_empty, format_offenders(offenders, "registrar calls without origin:")
   end
 
   # A TOOL CONSTRUCTED DIRECTLY carries no origin unless its constructor names
@@ -102,7 +183,8 @@ RSpec.describe "registrar call sites carry origin:" do
   # NOT SCANNED, deliberately: Ai::Introspection::McpToolRegistrar. It serves
   # the read-only introspection verbs and builds no BaseTool, so there is no
   # tool for a mark to reach. That is a decision, not a blind spot.
-  def repo_root = File.expand_path("..", server_root)
+  # (repo_root is defined once, near server_root, above — shared with
+  # offender_path so both offender-producing checks agree on it.)
 
   # A construction's receiver is a `...Tool` constant — bare, or fully
   # qualified through any number of `::`-namespaces, so Ai::Tools::MemoryTool,
@@ -438,9 +520,9 @@ RSpec.describe "registrar call sites carry origin:" do
   it "every direct tool construction under app/ names its origin, or is allowlisted with a reason" do
     allowlist = construction_allowlist
     offenders = scanned_files.flat_map do |path|
-      offenders_for(path.delete_prefix("#{repo_root}/"), File.read(path), allowlist)
+      offenders_for(offender_path(path), File.read(path), allowlist)
     end
-    expect(offenders).to be_empty, "direct tool constructions without call_origin:\n#{offenders.join("\n")}"
+    expect(offenders).to be_empty, format_offenders(offenders, "direct tool constructions without call_origin:")
   end
 
   it "keeps the allowlist honest: every entry still constructs a tool without a mark" do
