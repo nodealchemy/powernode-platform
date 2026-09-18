@@ -149,10 +149,12 @@ module Ai
       # to flag it: Ai::AgentToolBridgeService runs tool calls as agent.creator,
       # so that would have made the platform's autonomy enable-switch writable
       # from inside an agent conversation. A protected key carries no such
-      # WRITE reach — its only write door is the human-only verb. Reads are a
-      # separate question and `protected` does not answer it: site_setting_get
-      # serves every registered key, protected ones included, so registering a
-      # key also makes its VALUE readable over MCP by an admin.access holder.
+      # WRITE reach — its only write door is the human-only verb. Reads used to
+      # be a separate, unguarded question (IMP-872269ef50a5): `protected` did
+      # not answer it, and site_setting_get served every registered key's
+      # value, protected ones included, to any admin.access holder. #read_key_error
+      # below closes that: a protected key's value is never served over MCP —
+      # read it through the operator REST API instead.
       #
       # The registry is therefore empty until an owner declares a key —
       # nothing is reachable by default, which is the posture this surface
@@ -181,19 +183,20 @@ module Ai
       end
 
       def self.action_definitions
-        allowed = operator_configurable_keys.keys.sort.join(", ")
         ordinary = operator_configurable_keys.reject { |_, spec| spec[:protected] }.keys.sort.join(", ")
         protected_keys = operator_configurable_keys.select { |_, spec| spec[:protected] }.keys.sort.join(", ")
 
         {
           "site_setting_get" => {
-            description: "Read one allow-listed global platform setting. Allowed keys: #{allowed}. " \
+            description: "Read one allow-listed global platform setting. Allowed keys: #{ordinary}. " \
                          "A key outside that list is refused rather than served — this surface is " \
                          "persisted with the conversation and forwarded to the model provider, so it " \
-                         "is not a channel for arbitrary configuration. Use the operator REST API " \
-                         "(GET /api/v1/site_settings) for the full set.",
+                         "is not a channel for arbitrary configuration. Protected keys (#{protected_keys}) " \
+                         "are refused here too, even to an admin.access holder — their value is never " \
+                         "served over MCP. Use the operator REST API (GET /api/v1/site_settings) to read " \
+                         "a protected key's current value, or the full set.",
             parameters: {
-              key: { type: "string", required: true, description: "Setting key. One of: #{allowed}" }
+              key: { type: "string", required: true, description: "Setting key. One of: #{ordinary}" }
             }
           },
           "site_setting_set" => {
@@ -278,7 +281,7 @@ module Ai
           )
         end
 
-        write_key_error(params)
+        read_key_error(params) || write_key_error(params)
       end
 
       protected
@@ -320,6 +323,55 @@ module Ai
 
       def key_spec(params)
         self.class.operator_configurable_keys[params[:key].to_s]
+      end
+
+      # THE ASYMMETRY THIS CLOSES (IMP-872269ef50a5). `protected_key?` was
+      # consulted only on write doors — the REST twin's
+      # `refuse_protected_key_write` and, below, `write_key_error`. Nothing
+      # gated the read: `get_setting` checked only `key_spec`, and
+      # `action_definitions` built site_setting_get's advertised key list
+      # from every registered key, protected ones included. So registering a
+      # key `protected: true` — meant to close its write door — simultaneously
+      # OPENED its read: any admin.access holder could retrieve the value over
+      # MCP, including from inside an agent conversation, where
+      # Ai::AgentToolBridgeService runs the call as agent.creator, writes a
+      # preview into ai_messages.processing_metadata (durable, never
+      # re-filtered on read), and forwards the full JSON to the model provider
+      # on the next turn. That sink is documented at length on
+      # Ai::Tools::DiskImageOperatorTool and is exactly why this class is an
+      # allowlist rather than a generic getter in the first place (see the
+      # class comment) — a protected key sailed past that allowlist's own
+      # rationale.
+      #
+      # THE CHOICE: refuse the read outright, full stop, for every caller —
+      # not redact-and-serve, not "agents only". There is nothing to redact
+      # onto (SiteSetting has no partial-value shape, and half a control-plane
+      # guard value is still the guard value), and this tool has no notion of
+      # "the caller is inside an agent conversation" to gate on selectively —
+      # every dispatch, human MCP session or agent tool call, runs through the
+      # same #call. A selective gate would need a signal this tool cannot see
+      # without AgentToolBridgeService threading one through, which is a
+      # bigger, riskier change for a key set that is small and rarely read
+      # live. THE COST: an admin.access holder loses the ability to read a
+      # protected key's CURRENT VALUE from an interactive MCP client. That is
+      # not the operator's only read door — GET /api/v1/site_settings (and its
+      # :show) is untouched by this refusal, is not routed through
+      # AgentToolBridgeService or any conversation, and is the channel the
+      # class's own `not_allowlisted_error` already directs operators to for
+      # settings outside the allowlist entirely. So the working operator flow
+      # (the settings UI) keeps working; only the MCP-conversation path closes.
+      def read_key_error(params)
+        return nil unless routed_action_name(params) == "site_setting_get"
+
+        spec = key_spec(params)
+        return nil unless spec && spec[:protected]
+
+        error_result(
+          "#{params[:key].to_s.inspect} is a protected setting: its value is not served over " \
+          "MCP, even to an admin.access holder, because a tool result is persisted with the " \
+          "conversation and forwarded to the model provider. Read its current value through the " \
+          "operator REST API (GET /api/v1/site_settings) instead."
+        )
       end
 
       # Which write verb carries which key, checked BEFORE a write can park. An

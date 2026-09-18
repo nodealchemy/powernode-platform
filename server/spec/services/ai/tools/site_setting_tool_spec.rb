@@ -108,7 +108,30 @@ RSpec.describe Ai::Tools::SiteSettingTool do
   end
 
   describe "site_setting_get" do
-    it "returns the typed value for an allow-listed key" do
+    it "returns the typed value for an allow-listed ORDINARY key" do
+      SiteSetting.set(plain_key, "some-value")
+
+      result = call("site_setting_get", key: plain_key)
+
+      expect(result[:success]).to be true
+      expect(result[:data][:value]).to eq("some-value")
+    end
+
+    it "reports an unset allow-listed key as unset rather than erroring" do
+      result = call("site_setting_get", key: plain_key)
+
+      expect(result[:success]).to be true
+      expect(result[:data][:value]).to be_nil
+      expect(result[:data][:set]).to be false
+    end
+
+    # IMP-872269ef50a5 — the asymmetry this closes. `protected_key?` used to be
+    # consulted only on write doors; site_setting_get served every registered
+    # key's value, protected ones included, to any admin.access holder. See
+    # site_setting_tool_mcp_disclosure_spec.rb for the boundary-level oracle
+    # (what actually reaches the persisted row / provider payload); this is
+    # the unit-level refusal.
+    it "refuses to read a protected key's value, even to an admin.access holder" do
       # Synthetic id. An earlier version of this fixture used THIS DEPLOYMENT'S
       # real ops-hub node UUID, which is a deployment-local fact in a tracked
       # file published to a public mirror. The value here must never be a real
@@ -117,16 +140,18 @@ RSpec.describe Ai::Tools::SiteSettingTool do
 
       result = call("site_setting_get", key: "self_hosting_node_id")
 
-      expect(result[:success]).to be true
-      expect(result[:data][:value]).to eq("019f7c2d-0000-7000-8000-000000000001")
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/protected/i)
+      expect(result[:error]).to include("site_settings")
+      # The refusal must not leak the value it refused to serve.
+      expect(result.to_json).not_to include("019f7c2d-0000-7000-8000-000000000001")
     end
 
-    it "reports an unset allow-listed key as unset rather than erroring" do
+    it "refuses to read an unset protected key the same way as a set one" do
       result = call("site_setting_get", key: "self_hosting_node_id")
 
-      expect(result[:success]).to be true
-      expect(result[:data][:value]).to be_nil
-      expect(result[:data][:set]).to be false
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/protected/i)
     end
   end
 
