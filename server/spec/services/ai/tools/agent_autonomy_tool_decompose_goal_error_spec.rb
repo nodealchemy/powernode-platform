@@ -29,18 +29,13 @@ RSpec.describe "agent_autonomy MCP decompose_goal: sanitized provider errors" do
   end
 
   before do
-    # stub_const, not allow(...).to receive(:new): GoalDecompositionService's
-    # real #initialize only accepts account: (a separate, unrelated defect —
-    # the call site at :828 also passes agent:), and rspec-mocks' verifying
+    # stub_const, not allow(...).to receive(:new): rspec-mocks' verifying
     # partial double ALWAYS checks a stubbed .new's call args against the
     # real #initialize signature (unconditionally — without_partial_double_
     # verification does not cover it; see VerifyingExistingMethodDouble.for
-    # in rspec-mocks), so that extra agent: keyword raises ArgumentError from
-    # RSpec's own verification before and_raise ever fires. Replacing the
-    # constant with a fake class sidesteps verification entirely (nothing is
-    # stubbed on the real object) and exercises the rescue StandardError arm
-    # directly, so this spec stays correct if the constructor mismatch is
-    # ever fixed independently.
+    # in rspec-mocks). Replacing the constant with a fake class sidesteps
+    # verification entirely (nothing is stubbed on the real object) and
+    # exercises the rescue StandardError arm directly.
     fake_service_class = Class.new do
       def self.new(*, **)
         raise ActiveRecord::StatementInvalid,
@@ -79,7 +74,7 @@ RSpec.describe "agent_autonomy MCP decompose_goal: sanitized provider errors" do
           allocate
         end
 
-        def decompose(**)
+        def decompose(*)
           raise NoMethodError, "undefined method 'frobnicate_the_plan' for #<Ai::Autonomy::GoalDecompositionService>"
         end
       end

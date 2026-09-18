@@ -293,10 +293,9 @@ module Ai
             }
           },
           "decompose_goal" => {
-            description: "Decompose a goal into sub-goals using autonomous planning",
+            description: "Draft a versioned step plan for a goal (status draft; requires validation/approval before anything is created)",
             parameters: {
-              goal_id: { type: "string", description: "Goal ID to decompose", required: true },
-              max_sub_goals: { type: "integer", description: "Maximum sub-goals to create (default 5)", required: false }
+              goal_id: { type: "string", description: "Goal ID to decompose", required: true }
             }
           },
           # === Intervention policies (CRUD) ===
@@ -824,10 +823,38 @@ module Ai
         goal = account.ai_agent_goals.find_by(id: params["goal_id"])
         return error_result("Goal not found") unless goal
 
-        max_sub = (params["max_sub_goals"] || 5).to_i
-        service = Ai::Autonomy::GoalDecompositionService.new(account: account, agent: agent)
-        result = service.decompose(goal: goal, max_sub_goals: max_sub)
-        success_result(result)
+        # GoalDecompositionService#initialize takes account: only (no agent:
+        # kwarg — it resolves the agent from goal.agent internally), and
+        # #decompose takes a single positional goal. It has no notion of a
+        # max_sub_goals cap (its only step limit is the unrelated constant
+        # MAX_STEPS), so params["max_sub_goals"] is intentionally not passed
+        # through rather than inventing support the service doesn't have.
+        service = Ai::Autonomy::GoalDecompositionService.new(account: account)
+        plan = service.decompose(goal)
+        return error_result("Goal decomposition produced no plan") unless plan
+
+        # An explicit hash, not the AR record: success_result(plan) would put
+        # every GoalPlan column on the wire to the provider — including
+        # plan_data.raw_response and decomposition_context — and carry no
+        # steps at all, since the association isn't loaded. Mirrors
+        # Api::V1::Ai::GoalPlansController#serialize_plan(include_steps: true)
+        # without adding a controller dependency from a service object.
+        success_result(
+          plan_id: plan.id,
+          goal_id: plan.goal_id,
+          status: plan.status,
+          version: plan.version,
+          estimated_cost_usd: plan.estimated_cost_usd,
+          estimated_duration_minutes: plan.estimated_duration_minutes,
+          steps: plan.steps.in_order.map do |step|
+            {
+              step_number: step.step_number,
+              step_type: step.step_type,
+              description: step.description,
+              dependencies: step.dependencies
+            }
+          end
+        )
       rescue NameError => e
         # NameError is NoMethodError's superclass, so any NoMethodError raised
         # anywhere in this method body lands here too, not just a missing
