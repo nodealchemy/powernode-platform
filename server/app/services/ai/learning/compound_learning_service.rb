@@ -930,23 +930,59 @@ module Ai
         scope.order(column => direction)
       end
 
+      # IMP-01daa42e33de — was a time-window membership guess
+      # (`last_injected_at >= execution.created_at`, account-wide, no link to
+      # THIS execution). On a busy account, two concurrent executions each
+      # injected with different learnings would cross-credit each other's
+      # rows the instant either succeeded — the window has no idea which
+      # injection belongs to which execution. Now delegates to
+      # #injected_learning_ids_for(execution) + the same exact-id
+      # #credit_injections! the dev-loop drain path already uses (built as
+      # the shared seam here, not forked) — see that method for where the
+      # ids come from on the agent-execution path. No ids recorded -> no
+      # credit; this never falls back to the window it replaces.
       def boost_injected_learnings_on_success(execution)
-        # Find learnings injected into this execution (those with recent injection timestamps)
-        execution_start = execution.respond_to?(:created_at) ? execution.created_at : 1.hour.ago
-        recently_injected = Ai::CompoundLearning
-          .for_account(@account.id)
-          .where(status: %w[active verified])
-          .where("injection_count >= ?", 1)
-          .where("last_injected_at >= ?", execution_start)
-
-        recently_injected.find_each do |learning|
-          # Resolve the neutral injection recorded at recall as a positive
-          # outcome (injection_count was already advanced by record_injection!).
-          learning.record_positive_outcome!
-          learning.update_column(:confidence_score, [learning.confidence_score + 0.02, 1.0].min)
+        learning_ids = injected_learning_ids_for(execution)
+        if learning_ids.empty?
+          # Silence here is exactly how the old window bug stayed invisible
+          # — a path that never persists ids (team-strategy, ralph-loop
+          # re-extraction as of this change) now credits nothing rather than
+          # cross-crediting, but that must be discoverable, not just safe.
+          # Names the execution's class + id so an operator grepping this
+          # line can tell which caller/path never wired persistence, as
+          # opposed to a genuinely injection-free execution.
+          Rails.logger.info(
+            "[CompoundLearning] No injected learning ids to credit for " \
+            "#{execution.class}##{execution.try(:id)}"
+          )
+          return
         end
+
+        credit_injections!(learning_ids: learning_ids)
       rescue StandardError => e
         Rails.logger.warn("[CompoundLearning] Confidence boost failed: #{e.message}")
+      end
+
+      # Exact-id attribution seam (IMP-01daa42e33de), deliberately generic on
+      # `execution` rather than typed to Ai::AgentExecution: any completing
+      # execution record with a `performance_metrics` jsonb column can carry
+      # its injected ids the same way. Today only the
+      # Ai::McpAgentExecutor::ContextAndFormatting#persist_context_metrics
+      # writer populates it (see that method); executions reaching here via
+      # other post_execution_extract callers (team-strategy, ralph-loop
+      # cycle re-extraction) simply have nothing recorded yet and correctly
+      # get no credit rather than a guessed one — under-crediting on an
+      # unwired path is the safe failure mode, cross-crediting is not.
+      # Read-only: this is also the retrieval half a future negative-outcome
+      # caller (see 01a0b35b) would reuse to discredit by the same exact ids;
+      # it does not itself judge success/failure.
+      def injected_learning_ids_for(execution)
+        return [] unless execution.respond_to?(:performance_metrics)
+
+        metrics = execution.performance_metrics
+        return [] unless metrics.is_a?(Hash)
+
+        Array(metrics.dig("context", "compound_learning_ids"))
       end
 
       def learning_freshness(updated_at)

@@ -85,9 +85,19 @@ module Ai
         end
 
         # 6. Include compound learnings from the learning loop
+        # compound_learning_ids (IMP-01daa42e33de) — the exact rows
+        # build_compound_context recorded a neutral injection! for, threaded
+        # through so a caller with a completing execution (see
+        # Ai::McpAgentExecutor::ContextAndFormatting#persist_context_metrics)
+        # can persist them and credit by id later instead of guessing
+        # membership from a time window. Declared outside the conditional so
+        # it's always present in the returned hash (empty when the type is
+        # excluded or nothing matched), matching this method's existing
+        # stable-shape convention for section_chars/breakdown.
+        compound_learning_ids = []
         if types.include?("compound_learnings") && (query.present? || task.present?)
           search_query = query || extract_task_query(task)
-          compound_context, compound_chars = inject_compound_learnings(
+          compound_context, compound_chars, compound_learning_ids = inject_compound_learnings(
             budget_chars - used_chars,
             search_query
           )
@@ -155,7 +165,10 @@ module Ai
                         compound_learnings experience_replays graph_rag goals
                         observations self_awareness].index_with do |key|
             (section_chars[key] / CHARS_PER_TOKEN.to_f).ceil
-          end
+          end,
+          # IMP-01daa42e33de — surfaced (not discarded) so a caller with a
+          # completing execution can persist it for exact-id credit later.
+          compound_learning_ids: compound_learning_ids
         }
       end
 
@@ -297,7 +310,7 @@ module Ai
       end
 
       def inject_compound_learnings(char_budget, query)
-        return [nil, 0] if query.blank?
+        return [nil, 0, []] if query.blank?
 
         service = Ai::Learning::CompoundLearningService.new(account: @account)
         result = service.build_compound_context(
@@ -307,16 +320,20 @@ module Ai
         )
 
         context_text = result[:context]
-        return [nil, 0] if context_text.blank?
+        return [nil, 0, []] if context_text.blank?
 
         if context_text.length > char_budget
           context_text = context_text.truncate(char_budget)
         end
 
-        [context_text, context_text.length]
+        # IMP-01daa42e33de — previously only [text, chars] was returned and
+        # result[:learning_ids] was dropped here, which is why the exact
+        # rows record_injection! touched could never reach the completing
+        # execution: build_context (below) had nothing to persist.
+        [context_text, context_text.length, result[:learning_ids] || []]
       rescue StandardError => e
         Rails.logger.warn("[ContextInjector] Compound learnings injection failed: #{e.message}")
-        [nil, 0]
+        [nil, 0, []]
       end
 
       def inject_graph_rag_memory(char_budget, query)

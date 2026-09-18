@@ -399,15 +399,23 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
   end
 
   describe "#boost_injected_learnings_on_success" do
-    it "resolves recent neutral injections as positive outcomes without re-counting the injection" do
+    # IMP-01daa42e33de. The old implementation inferred membership from
+    # `last_injected_at >= execution.created_at`, account-wide — any learning
+    # injected into ANY execution in the window got credited, regardless of
+    # which execution actually used it. These specs assert the replacement:
+    # exact-id attribution read back from execution.performance_metrics.
+
+    def execution_with_injected_ids(ids)
+      double("AgentExecution", performance_metrics: { "context" => { "compound_learning_ids" => ids } })
+    end
+
+    it "resolves the execution's exact injected learnings as positive outcomes without re-counting the injection" do
       learning = create(:ai_compound_learning,
                         account: account,
                         injection_count: 3,
                         positive_outcome_count: 2,
-                        last_injected_at: 5.minutes.ago,
                         confidence_score: 0.5)
-      execution = double("TeamExecution", created_at: 1.hour.ago)
-      allow(execution).to receive(:respond_to?).with(:created_at).and_return(true)
+      execution = execution_with_injected_ids([ learning.id ])
 
       service.send(:boost_injected_learnings_on_success, execution)
       learning.reload
@@ -418,18 +426,72 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       expect(learning.confidence_score.to_f).to be_within(0.001).of(0.52)
     end
 
-    it "skips learnings not injected since the execution started" do
-      learning = create(:ai_compound_learning,
-                        account: account,
-                        injection_count: 2,
-                        positive_outcome_count: 0,
-                        last_injected_at: 2.days.ago)
-      execution = double("TeamExecution", created_at: 1.hour.ago)
-      allow(execution).to receive(:respond_to?).with(:created_at).and_return(true)
+    it "credits nothing when the execution recorded no injected ids, and logs the absence" do
+      learning = create(:ai_compound_learning, account: account, injection_count: 2, positive_outcome_count: 0)
+      execution = execution_with_injected_ids([])
 
       service.send(:boost_injected_learnings_on_success, execution)
 
       expect(learning.reload.positive_outcome_count).to eq(0)
+      # Silence is exactly how the window bug stayed invisible — the "no
+      # ids" branch must be discoverable, not just safe. This line is what
+      # lets an operator find which paths never credit without reading the
+      # diff. Class+id naming is asserted separately below against a real
+      # execution record, where `.class` resolves to something meaningful
+      # (a test double's `.class` is always RSpec::Mocks::Double).
+      expect(Rails.logger).to have_received(:info)
+        .with(a_string_matching(/No injected learning ids to credit for/))
+    end
+
+    it "credits nothing for an execution type that never persisted the ids (e.g. a bare double), and logs it" do
+      learning = create(:ai_compound_learning, account: account, injection_count: 2, positive_outcome_count: 0)
+      execution = double("SomeOtherExecutionType")
+
+      service.send(:boost_injected_learnings_on_success, execution)
+
+      expect(learning.reload.positive_outcome_count).to eq(0)
+      expect(Rails.logger).to have_received(:info)
+        .with(a_string_matching(/No injected learning ids to credit for/))
+    end
+
+    # The naming requirement itself: against a REAL execution record (a test
+    # double's `.class` is always RSpec::Mocks::Double, which would make this
+    # assertion vacuous) so the log line genuinely identifies which class/id
+    # never credited, the way an operator grepping production logs needs.
+    it "names the execution's real class and id in the no-credit log line" do
+      real_execution = create(:ai_agent_execution, account: account, agent: create(:ai_agent, account: account))
+
+      service.send(:boost_injected_learnings_on_success, real_execution)
+
+      expect(Rails.logger).to have_received(:info)
+        .with("[CompoundLearning] No injected learning ids to credit for Ai::AgentExecution##{real_execution.id}")
+    end
+
+    # The decisive example: two concurrent executions in the SAME account,
+    # each injected with a DIFFERENT learning, only one succeeding. A spec
+    # that only checked "the right learning got credited" could not see
+    # cross-crediting (the old time-window bug would ALSO have passed that
+    # half); asserting the unrelated execution's learning stayed untouched
+    # is what a window-based implementation cannot satisfy.
+    it "does not cross-credit a concurrent execution's injected learnings" do
+      succeeding_learning = create(:ai_compound_learning,
+                                   account: account,
+                                   injection_count: 1,
+                                   positive_outcome_count: 0,
+                                   confidence_score: 0.5)
+      concurrent_unrelated_learning = create(:ai_compound_learning,
+                                             account: account,
+                                             injection_count: 1,
+                                             positive_outcome_count: 0,
+                                             confidence_score: 0.5)
+
+      succeeding_execution = execution_with_injected_ids([ succeeding_learning.id ])
+
+      service.send(:boost_injected_learnings_on_success, succeeding_execution)
+
+      expect(succeeding_learning.reload.positive_outcome_count).to eq(1)
+      expect(concurrent_unrelated_learning.reload.positive_outcome_count).to eq(0)
+      expect(concurrent_unrelated_learning.reload.confidence_score.to_f).to eq(0.5)
     end
   end
 

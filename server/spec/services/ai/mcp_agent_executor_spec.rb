@@ -303,6 +303,44 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       expect(ctx["sections"]).to eq({ "factual" => 100, "working" => 23 })
     end
 
+    # IMP-01daa42e33de — the injected learning ids build_compound_context
+    # returned (threaded through Ai::Memory::ContextInjectorService's
+    # build_context as :compound_learning_ids, see that spec/service) are
+    # persisted onto THIS execution's row, durably, so
+    # Ai::Learning::CompoundLearningService#boost_injected_learnings_on_success
+    # can credit by exact id at completion instead of a time-window guess.
+    it 'persists the injected compound learning ids onto the execution record' do
+      real_execution = create(:ai_agent_execution, account: account, agent: agent)
+      injector = instance_double(Ai::Memory::ContextInjectorService)
+      allow(Ai::Memory::ContextInjectorService).to receive(:new).and_return(injector)
+      allow(injector).to receive(:build_context).and_return(
+        context: "## Compound Learnings\nx", token_estimate: 50,
+        breakdown: { compound_learnings: 50 },
+        compound_learning_ids: %w[019f0000-0000-7000-0000-000000000001]
+      )
+      persisting = described_class.new(agent: agent, execution: real_execution, account: account)
+
+      persisting.send(:build_execution_context, { "input" => "test" })
+
+      ctx = real_execution.reload.performance_metrics["context"]
+      expect(ctx["compound_learning_ids"]).to eq(%w[019f0000-0000-7000-0000-000000000001])
+    end
+
+    it 'does not write a compound_learning_ids key when none were injected' do
+      real_execution = create(:ai_agent_execution, account: account, agent: agent)
+      injector = instance_double(Ai::Memory::ContextInjectorService)
+      allow(Ai::Memory::ContextInjectorService).to receive(:new).and_return(injector)
+      allow(injector).to receive(:build_context).and_return(
+        context: "## Known Facts\nx", token_estimate: 10,
+        breakdown: { factual: 10 }, compound_learning_ids: []
+      )
+      persisting = described_class.new(agent: agent, execution: real_execution, account: account)
+
+      persisting.send(:build_execution_context, { "input" => "test" })
+
+      expect(real_execution.reload.performance_metrics["context"]).not_to have_key("compound_learning_ids")
+    end
+
     it 'reads working memory without proactively hydrating it from the database' do
       expect_any_instance_of(Ai::Memory::WorkingMemoryService).not_to receive(:load_from_database)
 

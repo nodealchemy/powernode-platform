@@ -100,6 +100,45 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
         expect(result[:context]).to eq('')
         expect(result[:token_estimate]).to eq(0)
       end
+
+      it 'returns an empty compound_learning_ids array, not nil' do
+        result = service.build_context
+
+        expect(result[:compound_learning_ids]).to eq([])
+      end
+    end
+
+    # IMP-01daa42e33de — previously #inject_compound_learnings returned only
+    # [text, chars] and build_compound_context's learning_ids were dropped
+    # right here, which is why the completing execution had nothing to
+    # persist for exact-id credit attribution (see
+    # Ai::Learning::CompoundLearningService#boost_injected_learnings_on_success
+    # and Ai::McpAgentExecutor::ContextAndFormatting#persist_context_metrics).
+    context 'compound learning id threading' do
+      it 'surfaces the injected learning ids build_compound_context returned, not just the rendered text' do
+        compound_service = instance_double(Ai::Learning::CompoundLearningService)
+        allow(Ai::Learning::CompoundLearningService).to receive(:new).and_return(compound_service)
+        allow(compound_service).to receive(:build_compound_context).and_return(
+          context: "## Compound Learnings\n- x", token_estimate: 10,
+          learning_ids: %w[019f0000-0000-7000-0000-000000000001 019f0000-0000-7000-0000-000000000002],
+          match_mode: "semantic"
+        )
+
+        result = service.build_context(query: 'test query', include_types: %w[compound_learnings])
+
+        expect(result[:compound_learning_ids]).to eq(%w[019f0000-0000-7000-0000-000000000001 019f0000-0000-7000-0000-000000000002])
+      end
+
+      it 'returns an empty array when the compound_learnings type is not requested at all' do
+        compound_service = instance_double(Ai::Learning::CompoundLearningService)
+        allow(Ai::Learning::CompoundLearningService).to receive(:new).and_return(compound_service)
+        allow(compound_service).to receive(:build_compound_context)
+
+        result = service.build_context(query: 'test query', include_types: %w[factual])
+
+        expect(compound_service).not_to have_received(:build_compound_context)
+        expect(result[:compound_learning_ids]).to eq([])
+      end
     end
   end
 

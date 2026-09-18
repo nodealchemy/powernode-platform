@@ -40,6 +40,15 @@ class Ai::McpAgentExecutor
           ].compact.join("\n\n")
           base_context[:memory_breakdown] = memory_result[:breakdown]
           base_context[:memory_tokens_used] = memory_result[:token_estimate]
+        end
+
+        # IMP-01daa42e33de — persisted even when the OVERALL memory_result is
+        # blank in some other section's favor is not possible in practice
+        # (build_compound_context only returns ids alongside non-blank
+        # context), but gating on compound_learning_ids specifically rather
+        # than folding into the block above keeps this write correct even if
+        # that invariant ever changes.
+        if memory_result[:context].present? || memory_result[:compound_learning_ids].present?
           persist_context_metrics(memory_result)
         end
       rescue StandardError => e
@@ -207,12 +216,26 @@ class Ai::McpAgentExecutor
     def persist_context_metrics(memory_result)
       return unless @execution.respond_to?(:update_columns) && @execution.respond_to?(:persisted?) && @execution.persisted?
 
-      merged = (@execution.performance_metrics || {}).merge(
-        "context" => {
-          "total_tokens" => memory_result[:token_estimate],
-          "sections" => (memory_result[:breakdown] || {}).transform_keys(&:to_s)
-        }
-      )
+      context_metrics = {
+        "total_tokens" => memory_result[:token_estimate],
+        "sections" => (memory_result[:breakdown] || {}).transform_keys(&:to_s)
+      }
+
+      # IMP-01daa42e33de — the exact learning ids this execution's injection
+      # surfaced, durably attached to THIS execution row (a DB write via
+      # update_columns, same as the rest of this method) rather than held
+      # only in memory. Ai::Learning::CompoundLearningService#credit_injections!
+      # reads it back at completion via the shared
+      # #injected_learning_ids_for(execution) seam instead of inferring
+      # membership from a time window — see boost_injected_learnings_on_success.
+      # A crash between this write and completion still leaves the ids on
+      # the persisted row; an in-memory-only pass-through would not survive
+      # that gap, which is exactly when the old time-window guess used to
+      # fire wrong.
+      learning_ids = memory_result[:compound_learning_ids]
+      context_metrics["compound_learning_ids"] = learning_ids if learning_ids.present?
+
+      merged = (@execution.performance_metrics || {}).merge("context" => context_metrics)
       @execution.update_columns(performance_metrics: merged)
     rescue StandardError => e
       Rails.logger.warn "[ContextAndFormatting] context metrics persistence failed: #{e.message}"
