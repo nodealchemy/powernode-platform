@@ -220,4 +220,100 @@ RSpec.describe Ai::Skill, type: :model do
       expect(skill.reload.knowledge_graph_node).to be_nil
     end
   end
+
+  # IMP-702d27f2d384 — read-time descriptor derivation. Uses an anonymous
+  # test double under a throwaway top-level constant, never a real extension
+  # class: this is a CORE spec, and it must pass with no extension loaded at
+  # all (core mode) — a core spec reaching for System::Ai::Skills::Something
+  # would be exactly the coupling the model change is designed not to have.
+  describe "#executor_descriptor / #executor_input_contract / #executor_requires_approval?" do
+    before do
+      stub_const("SpecFakeSkillExecutor", Class.new do
+        def self.descriptor
+          {
+            inputs: {
+              widget_id: { type: "string", required: true, description: "the widget" },
+              dry_run: { type: "boolean", required: false, description: "plan only" }
+            },
+            requires_approval: true
+          }
+        end
+      end)
+    end
+
+    it "resolves the descriptor live off metadata[\"executor_class\"]" do
+      skill = create(:ai_skill, metadata: { "executor_class" => "SpecFakeSkillExecutor" })
+
+      expect(skill.executor_descriptor).to eq(SpecFakeSkillExecutor.descriptor)
+    end
+
+    it "reflects a change to the executor's descriptor on the NEXT read, with no re-seed step" do
+      skill = create(:ai_skill, metadata: { "executor_class" => "SpecFakeSkillExecutor" })
+      expect(skill.executor_input_contract.map { |i| i["name"] }).to contain_exactly("widget_id", "dry_run")
+
+      # Simulate the executor gaining a new declared input after this skill
+      # was seeded — no write to `skill` at all.
+      stub_const("SpecFakeSkillExecutor", Class.new do
+        def self.descriptor
+          { inputs: { widget_id: { type: "string", required: true } }, requires_approval: false }
+        end
+      end)
+
+      expect(skill.executor_input_contract.map { |i| i["name"] }).to eq(%w[widget_id])
+      expect(skill.executor_requires_approval?).to be false
+    end
+
+    it "builds the full input contract shape (name/type/required/description)" do
+      skill = create(:ai_skill, metadata: { "executor_class" => "SpecFakeSkillExecutor" })
+
+      expect(skill.executor_input_contract).to contain_exactly(
+        { "name" => "widget_id", "type" => "string", "required" => true, "description" => "the widget" },
+        { "name" => "dry_run", "type" => "boolean", "required" => false, "description" => "plan only" }
+      )
+    end
+
+    it "is true only when the executor's descriptor declares requires_approval: true" do
+      skill = create(:ai_skill, metadata: { "executor_class" => "SpecFakeSkillExecutor" })
+
+      expect(skill.executor_requires_approval?).to be true
+    end
+
+    it "returns nil, not an empty hash, when there is no executor_class" do
+      skill = create(:ai_skill, metadata: {})
+
+      expect(skill.executor_descriptor).to be_nil
+      expect(skill.executor_input_contract).to be_nil
+      expect(skill.executor_requires_approval?).to be false
+    end
+
+    it "returns nil when executor_class names a constant that doesn't resolve" do
+      skill = create(:ai_skill, metadata: { "executor_class" => "Totally::Nonexistent::Executor" })
+
+      expect(skill.executor_descriptor).to be_nil
+    end
+
+    it "returns nil when the resolved class has no .descriptor" do
+      stub_const("SpecFakeNonDescriptorClass", Class.new)
+      skill = create(:ai_skill, metadata: { "executor_class" => "SpecFakeNonDescriptorClass" })
+
+      expect(skill.executor_descriptor).to be_nil
+    end
+
+    it "surfaces in skill_summary (requires_approval) and skill_details (inputs, bound_agents)" do
+      skill = create(:ai_skill, metadata: { "executor_class" => "SpecFakeSkillExecutor" })
+      agent = create(:ai_agent, account: skill.account)
+      create(:ai_agent_skill, agent: agent, skill: skill)
+
+      expect(skill.skill_summary[:requires_approval]).to be true
+      expect(skill.skill_details[:inputs].map { |i| i["name"] }).to contain_exactly("widget_id", "dry_run")
+      expect(skill.skill_details[:bound_agents]).to contain_exactly({ id: agent.id, name: agent.name })
+    end
+
+    it "defaults requires_approval to false in skill_summary when there is no resolvable executor" do
+      skill = create(:ai_skill, metadata: {})
+
+      expect(skill.skill_summary[:requires_approval]).to be false
+      expect(skill.skill_details[:inputs]).to be_nil
+    end
+  end
 end

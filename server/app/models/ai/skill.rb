@@ -252,7 +252,14 @@ module Ai
         usage_count: usage_count,
         version: version,
         provenance: provenance,
-        trust_level: trust_level
+        trust_level: trust_level,
+        # IMP-702d27f2d384 — the one executor-derived property light enough
+        # to belong in a summary: a caller deciding whether to invoke a skill
+        # needs to know up front whether the call gates on operator approval.
+        # Defaults false (matches BaseSkillExecutor's own descriptor default)
+        # when there is no resolvable executor at all — never a proxy for
+        # "safe", just "this read found nothing to gate on".
+        requires_approval: executor_requires_approval?
       }.merge(self.scope_attributes)
     end
 
@@ -262,6 +269,14 @@ module Ai
         commands: commands,
         activation_rules: activation_rules,
         metadata: metadata,
+        # IMP-702d27f2d384 — the full declared input contract, derived live
+        # from the executor (see #executor_input_contract); nil when the
+        # skill has no resolvable executor (e.g. a recipe skill).
+        inputs: executor_input_contract,
+        # Agents already bound to this skill (Ai::AgentSkill, core data —
+        # no executor resolution involved) — answers "who owns this" that
+        # discover_skills/skill_details previously left silent.
+        bound_agents: agents.map { |a| { id: a.id, name: a.name } },
         knowledge_base: knowledge_base ? { id: knowledge_base.id, name: knowledge_base.name } : nil,
         connectors: mcp_servers.map { |s| { id: s.id, name: s.name, status: s.status } },
         created_at: created_at,
@@ -271,6 +286,90 @@ module Ai
 
     def command_definitions
       commands || []
+    end
+
+    # === Executor descriptor (read-time derivation, IMP-702d27f2d384) ===
+    #
+    # A third-party MCP client or non-Claude agent could not previously tell
+    # what a skill actually accepts: executors declare typed inputs (see
+    # System::Ai::Skills::BaseSkillExecutor's `skill_descriptor` DSL in the
+    # system extension) but nothing surfaced them here — the inputs survived
+    # only as free-text prose in `system_prompt`, and that prose already
+    # drifted (CveResponseExecutor's `persist` parameter was accepted by
+    # `#perform` for a full seed cycle with no mention anywhere a caller
+    # could discover it).
+    #
+    # Derived LIVE on every read, never cached on the row or stamped at seed
+    # time: seeds in this platform do not re-run after first boot, so a
+    # value written once at seed time would freeze every already-seeded
+    # install on whatever the executor declared the day it was seeded, and
+    # any later change to the executor's declared inputs would never
+    # propagate — reintroducing the exact prose-drift problem this method
+    # exists to kill, just in a column instead of a system_prompt paragraph.
+    # Deriving it live means it cannot drift by construction: the descriptor
+    # IS the executor's current `skill_descriptor(...)` declaration, every
+    # time this is called.
+    #
+    # `metadata["executor_class"]` is DATA in a jsonb column — written by
+    # whichever extension's seed owns this skill — not a source-level
+    # reference: core names no extension namespace here. This mirrors
+    # #infer_domain_from_executor below, which reads the same field, and
+    # Ai::Provisioning::SkillCompositionRunner.resolve_executor (core), which
+    # resolves the equivalent camelized-slug form via `Object.const_defined?`
+    # + `.constantize` specifically so a caller never has to reference an
+    # executor by name. Any class — core or extension — that responds to
+    # `.descriptor` qualifies; core makes no assumption about which module
+    # defines it.
+    #
+    # Returns nil — never an empty Hash — when the skill has no
+    # executor_class (e.g. a recipe skill), the named constant doesn't
+    # resolve, or the resolved class doesn't implement `.descriptor`. "no
+    # executor" and "executor declares nothing" must not collapse together.
+    def executor_class_name
+      metadata.is_a?(Hash) ? metadata["executor_class"].to_s.presence : nil
+    end
+
+    def executor_descriptor
+      name = executor_class_name
+      return nil unless name
+
+      klass = name.safe_constantize
+      return nil unless klass.respond_to?(:descriptor)
+
+      klass.descriptor
+    rescue StandardError => e
+      Rails.logger.warn("[Ai::Skill] executor descriptor lookup failed for #{slug}: #{e.message}")
+      nil
+    end
+
+    # The declared input contract — name/type/required/description — for
+    # this skill's executor. Deliberately duplicated (not delegated to
+    # Ai::Provisioning::SkillCompositionRunner.input_contract_for, which
+    # returns the same shape off the equivalent camelized-slug lookup) so a
+    # plain `Ai::Skill` read never depends on the provisioning service layer
+    # — a model reaching into a service would be a layering inversion, and
+    # the derivation itself is a few lines.
+    #
+    # Same nil-vs-empty contract as #executor_descriptor: nil means "cannot
+    # tell what this needs", never "needs nothing".
+    def executor_input_contract
+      declared = executor_descriptor&.dig(:inputs)
+      return nil unless declared.is_a?(Hash)
+
+      declared.filter_map do |key, spec|
+        next nil unless spec.is_a?(Hash)
+
+        {
+          "name" => key.to_s,
+          "type" => spec[:type].to_s.presence || "string",
+          "required" => spec[:required] ? true : false,
+          "description" => spec[:description].to_s
+        }
+      end
+    end
+
+    def executor_requires_approval?
+      executor_descriptor&.dig(:requires_approval) == true
     end
 
     def activate!

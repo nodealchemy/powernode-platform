@@ -68,6 +68,25 @@ RSpec.describe Ai::SkillGraph::TraversalService, type: :service do
 
           expect(result[:discovered_skills].map { |s| s[:name] }).to include("Code Review")
         end
+
+        # IMP-702d27f2d384 — discover_skills previously dropped the slug
+        # entirely (no natural-key way to follow up with get_skill) and
+        # carried no inputs/requires_approval at all, so a third-party MCP
+        # client could not tell what a discovered skill accepts.
+        it "carries slug, inputs and requires_approval, derived live off the skill's executor" do
+          allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+          allow_any_instance_of(Ai::Skill).to receive(:executor_input_contract).and_return(
+            [ { "name" => "target_path", "type" => "string", "required" => true, "description" => "" } ]
+          )
+          allow_any_instance_of(Ai::Skill).to receive(:executor_requires_approval?).and_return(true)
+
+          result = service.traverse(task_context: "code review task", mode: :auto)
+          entry = result[:discovered_skills].find { |s| s[:name] == "Code Review" }
+
+          expect(entry[:slug]).to eq(skill.slug)
+          expect(entry[:inputs]).to eq([ { "name" => "target_path", "type" => "string", "required" => true, "description" => "" } ])
+          expect(entry[:requires_approval]).to be true
+        end
       end
     end
 

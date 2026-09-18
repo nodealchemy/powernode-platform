@@ -218,13 +218,25 @@ module Ai
         {
           skill_id: skill.id,
           node_id: node.id,
+          # IMP-702d27f2d384 — discover_skills was the one MCP-facing surface
+          # that dropped the slug entirely, so a caller who found a skill
+          # here had no natural-key way to invoke get_skill on it. inputs /
+          # requires_approval close the same finding's other half: a
+          # third-party client picking a skill off this list previously had
+          # no machine-readable way to know what to pass it or whether the
+          # call gates on approval — both derived live off the executor (see
+          # Ai::Skill#executor_input_contract / #executor_requires_approval?)
+          # so they can't drift from what the executor actually accepts.
+          slug: skill.slug,
           name: skill.name,
           category: skill.category,
           description: skill.description,
           system_prompt: skill.system_prompt,
           score: score.round(4),
           depth: depth,
-          tags: skill.tags
+          tags: skill.tags,
+          inputs: skill.executor_input_contract,
+          requires_approval: skill.executor_requires_approval?
         }
       end
 
