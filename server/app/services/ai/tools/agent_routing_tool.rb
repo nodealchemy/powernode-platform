@@ -81,16 +81,24 @@ module Ai
         )
 
         success_result(
-          subagent_type: routed[:subagent_type],
-          winner: routed[:candidates].first,
-          candidates: routed[:candidates],
-          complexity: routed[:complexity],
-          delegation: routed[:delegation],
-          reasoning: routed[:reasoning],
-          spawn_hint: routed[:subagent_type] && %(Agent(subagent_type: "#{routed[:subagent_type]}", prompt: <the task>)),
-          agent_id: routed[:agent_id],
-          agent_name: routed[:agent_name],
-          confidence: routed[:confidence]
+          {
+            subagent_type: routed[:subagent_type],
+            winner: routed[:candidates].first,
+            candidates: routed[:candidates],
+            complexity: routed[:complexity],
+            delegation: routed[:delegation],
+            reasoning: routed[:reasoning],
+            spawn_hint: routed[:subagent_type] && %(Agent(subagent_type: "#{routed[:subagent_type]}", prompt: <the task>)),
+            agent_id: routed[:agent_id],
+            agent_name: routed[:agent_name],
+            confidence: routed[:confidence],
+            # HIER-P2I (Ai::Routing::AgentRouterService#route): a winner MAY be a
+            # global canonical the caller has not cloned yet — canonical:true
+            # must reach the caller, or a caller that blindly executes on
+            # agent_id meets the template's own execution refusal instead of a
+            # forwarded reason it could act on.
+            canonical: routed[:canonical] == true
+          }.merge(routed[:execution_note] ? { execution_note: routed[:execution_note] } : {})
         )
       rescue StandardError => e
         Rails.logger.error("[AgentRoutingTool] route_task failed: #{e.class}: #{e.message}")

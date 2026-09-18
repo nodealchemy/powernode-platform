@@ -59,6 +59,32 @@ RSpec.describe Ai::Tools::AgentRoutingTool do
     expect(data[:delegation]).to include(policy_applied: true)
   end
 
+  # IMP-dfca08b9b412 cause (c): the service already flags a global-canonical
+  # winner (Ai::Routing::AgentRouterService#route: canonical:, execution_note:)
+  # but the tool seam used to drop both from success_result — a caller reading
+  # only this MCP response could try to EXECUTE agent_id and meet the
+  # canonical's own execution refusal instead of a forwarded reason it could
+  # act on (clone the canonical first).
+  it "forwards canonical and execution_note for a global-canonical winner" do
+    canonical = create(:ai_agent, :global, is_system: true, agent_type: "monitor", name: "Canonical Drift Fixer",
+                       description: "Reconciles fleet drift and module upgrades on every node.")
+
+    result = tool.execute(params: { action: "route_task", task_description: "reconcile fleet drift and upgrade modules" })
+
+    expect(result[:success]).to be true
+    expect(result[:data][:agent_id]).to eq(canonical.id)
+    expect(result[:data][:canonical]).to be(true)
+    expect(result[:data][:execution_note]).to match(/clone/i)
+  end
+
+  it "does not carry an execution_note for an account-owned winner" do
+    result = tool.execute(params: { action: "route_task", task_description: "attach a new sdwan peer" })
+
+    expect(result[:success]).to be true
+    expect(result[:data][:canonical]).to be(false)
+    expect(result[:data]).not_to have_key(:execution_note)
+  end
+
   it "refuses a user without ai.agents.read" do
     no_perm = create(:user, account: account, permissions: [])
 

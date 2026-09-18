@@ -215,7 +215,19 @@ module Ai
 
       def score(agent, task, complexity, context)
         domains = context[:domains][agent.id] || []
+        skills = context[:skills][agent.id] || []
         task_words = task_words_of(task)
+        domain_words = domain_words_of(task)
+        # Built ONCE per candidate (F1 fix, IMP-dfca08b9b412 review round 2):
+        # the extraction that gave #skill_matches and
+        # #domain_corroborated_by_profile? a shared #profile_text_for lost the
+        # hoist the inline `profile = [...]` assignment used to give it —
+        # #skill_matches was re-running the full name+description+
+        # system_prompt+capabilities+skills join PER TASK WORD (15+ times per
+        # candidate) instead of once. Compute it here and pass the string in;
+        # neither helper touches the agent or skills directly any more.
+        profile = profile_text_for(agent, skills)
+        corroboration_tokens = domain_corroboration_tokens_for(skills)
         scores = {}
         reasons = {}
 
@@ -227,20 +239,54 @@ module Ai
         scores[:trust] = trust ? trust.overall_score.to_f : UNSCORED_TRUST
         reasons[:trust] = trust ? "trust score #{trust.overall_score.to_f.round(2)} (#{trust.tier})" : "no trust score yet (#{UNSCORED_TRUST} baseline)"
 
-        matched = skill_matches(agent, task_words, context[:skills][agent.id] || [])
+        matched = skill_matches(task_words, profile)
         scores[:skill] = task_words.empty? ? 0.3 : [ matched.size.to_f / task_words.size, 1.0 ].min
         reasons[:skill] = matched.any? ? "matches task terms: #{matched.first(5).join(', ')}" : "no task-term overlap with the agent's profile or skills"
 
-        matched_domains = domains.select { |domain| domain_matches?(domain, task_words) }
+        matched_domains = domains.select { |domain| domain_matches?(domain, domain_words) }
+        # A literal domain-token hit is the strongest signal (1.0). Short of
+        # that, the agent's own BOUND SKILLS corroborate the SAME domain via
+        # #domain_corroborated? — a task that says "publish this service to
+        # the internet" (never the literal word "ingress") still lands on the
+        # Ingress Manager because its real bound skills are tagged
+        # expose/public/acme. Bounded to agents that HAVE declared domains — a
+        # domain-less generalist stays on NEUTRAL_DOMAIN regardless.
+        #
+        # CURATED CORPUS, deliberately narrower than the SKILL dimension's
+        # profile (review round 2, F2): #skill_matches profiles against free
+        # prose (name, description, system_prompt) because a loose,
+        # continuous 0..1 skill-relevance score can afford a little noise.
+        # Domain corroboration promotes a BINARY 0.0 -> 0.6, well above the
+        # 0.25 generalist floor, off of what it finds — and measurement
+        # (spec/services/ai/routing/agent_router_service_probe_spec.rb
+        # header) showed free prose alone corroborating the WRONG specialist
+        # on half the probes tested, off single incidental words a
+        # hand-written charter paragraph happens to contain ("from" in a
+        # skill's DESCRIPTION corroborating Storage Manager for an ingress
+        # task; "feature" corroborating Platform Developer for a docs task).
+        # Restricted to each bound skill's NAME and TAGS — curated,
+        # maintainer-declared metadata that exists specifically to say what a
+        # skill is about, not prose written for a human reader — and requires
+        # TWO distinct overlapping tokens, not one, since a single generic
+        # word ("service", "public") is exactly the false-positive shape the
+        # measurement caught.
+        corroborated = matched_domains.empty? && domain_corroborated?(domain_words, corroboration_tokens)
         scores[:domain] = if domains.empty?
           NEUTRAL_DOMAIN
+        elsif matched_domains.any?
+          1.0
+        elsif corroborated
+          0.6
         else
-          matched_domains.any? ? 1.0 : 0.0
+          0.0
         end
         reasons[:domain] = if domains.empty?
           "no policy domains declared (neutral)"
         elsif matched_domains.any?
           "task names the agent's policy domain(s): #{matched_domains.join(', ')}"
+        elsif corroborated
+          "task overlaps the agent's skill/description profile, corroborating its policy domain(s) " \
+            "(#{domains.join(', ')}) without naming them literally"
         else
           "task names none of the agent's policy domains (#{domains.join(', ')})"
         end
@@ -282,20 +328,66 @@ module Ai
         @capability_by_tier[tier] = @capability_service.check(agent: agent, action_type: "execute_tool")
       end
 
+      # Length-filtered: feeds the SKILL dimension, where MIN_TASK_WORD exists
+      # to keep noise words ("the", "a", "is") from padding a profile match.
       def task_words_of(task)
         task.to_s.downcase.scan(/[a-z0-9][a-z0-9_-]*/).reject { |w| w.length < MIN_TASK_WORD }.uniq
       end
 
-      # `skills` is the preloaded, slug-sorted binding set for this agent —
-      # never `agent.skills` (that is a query per candidate inside the loop).
-      def skill_matches(agent, task_words, skills)
-        profile = [
+      # UNFILTERED: feeds the DOMAIN dimension. A registered domain name can be
+      # shorter than MIN_TASK_WORD (e.g. "cve", "dev" — both 3 chars), and the
+      # router has no static registry of every domain name to exempt one by
+      # one (an extension registers its own at boot; a core account's own
+      # category namespace is derived from the category text itself, never
+      # enumerated up front) — so #domain_matches? gets the RAW word set
+      # instead of trying to special-case short names past the noise filter.
+      def domain_words_of(task)
+        task.to_s.downcase.scan(/[a-z0-9][a-z0-9_-]*/).uniq
+      end
+
+      # `profile` is #score's ALREADY-BUILT #profile_text_for string for this
+      # candidate — never rebuild it here (that was F1: per-task-word rebuild).
+      def skill_matches(task_words, profile)
+        task_words.select { |word| profile.include?(word) }
+      end
+
+      # Shared by the SKILL dimension (substring — a short task word may
+      # legitimately be a piece of a longer profile word, e.g. "quarantine"
+      # inside a longer capability token) and #domain_corroborated_by_profile?
+      # (exact word-boundary — substring would let "back" match inside
+      # "rollback" or "backend" and falsely corroborate an unrelated agent's
+      # domain, which is a false ROUTING signal in a way a slightly generous
+      # skill-relevance score is not).
+      def profile_text_for(agent, skills)
+        [
           agent.name, agent.description,
           (agent.respond_to?(:system_prompt) ? agent.system_prompt : nil),
           declared_capabilities_for(agent, skills).join(" "),
           skills.map { |skill| [ skill.name, skill.description, Array(skill.tags).join(" ") ] }
         ].flatten.compact.join(" ").downcase
-        task_words.select { |word| profile.include?(word) }
+      end
+
+      # The CURATED corpus #domain_corroborated? matches against: each bound
+      # skill's declared `name` and `tags` only — never `description` or
+      # `system_prompt` (see the review-round-2 note above #score). Tags are
+      # frequently compound ("boot-image", "disaster-recovery"); split on the
+      # same separators .domain_matches? already uses for a domain's own name
+      # so "boot-image" can corroborate a task that says "boot" OR "image".
+      def domain_corroboration_tokens_for(skills)
+        skills.flat_map { |skill| [ skill.name ] + Array(skill.tags) }
+              .flat_map { |text| text.to_s.downcase.split(/[_\s-]+/) }
+              .uniq
+      end
+
+      # Cause (b) fix, tightened (review round 2, F2): requires TWO distinct
+      # overlapping tokens between the task and the agent's curated skill
+      # corpus, not one — measurement showed a single shared word (often a
+      # generic noun any two unrelated skills might both mention) corroborates
+      # the WRONG agent about as often as the right one. domain_words (the
+      # UNFILTERED tokenizer, cause (a)) is deliberate here too: a skill tag
+      # can be as short as "gc" or "tls".
+      def domain_corroborated?(domain_words, corroboration_tokens)
+        (domain_words & corroboration_tokens).size >= 2
       end
 
       # Ai::Agent#declared_capabilities is skill slugs + the capability tokens in
