@@ -331,6 +331,57 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
   end
 
   describe "body shape" do
+    # IMP-9fc894cf80e6: step 1's verb (get_agent) is a BootstrapVerbs member
+    # every skeleton's own `tools:` line names, but a narrower instance grant
+    # can still omit it at runtime — the grant is instance-local state the
+    # canonical exporter structurally cannot see (Mcp::Principal.tool_grant_resolver
+    # is an extension-injected, per-instance lambda), so the committed file
+    # cannot be made grant-aware without breaking byte-identical-per-install.
+    # The fix is legibility, not recovery: an executor without get_agent must
+    # STOP and say so, never proceed under a generic identity with no
+    # specialist system_prompt (the file already says the platform record —
+    # fetched only by that verb — is the sole source of truth).
+    it "tells the executor not to proceed to the skill-context/operate steps when get_agent is unavailable, " \
+       "without foreclosing the self-report exception" do
+      agent = build_agent(name: "Bootstrapped Agent", resolved_model: "claude-sonnet-4-6")
+      stub_syncable([ agent ])
+
+      service.sync!
+      body = body_of(content_for(agent))
+
+      expect(body).to include("If `get_agent` is not in your available tool list")
+      expect(body).to include("do not proceed under a generic identity")
+      expect(body).to include("do not attempt the fetch-skill-context or operate-under-the-prompt steps below")
+      expect(body).to include("this run did not execute")
+      # The old wording ("do not attempt step 2 onward") numerically swept in the
+      # self-report step too, since it is itself one of the later numbered steps —
+      # a careless reading forecloses the exact reporting the next example
+      # requires. That phrasing must be gone, not just superseded.
+      expect(body).not_to include("do not attempt step 2 onward")
+    end
+
+    # A stop that never reports leaves the platform's statistics blind: an
+    # agent that never ran looks identical to one that was never spawned.
+    # record_agent_execution IS served to a default-deny instance principal
+    # (unlike get_agent), so the stop path must still call it — outcome
+    # "failed", task_digest naming the unavailable verb — before it stops.
+    # Asserted separately from the "does not proceed" example above: a single
+    # assertion spanning both halves would stay green if this exception were
+    # dropped from the wording later.
+    it "still self-reports a failed run on the stop path, naming get_agent in the digest" do
+      agent = build_agent(name: "Bootstrapped Agent", resolved_model: "claude-sonnet-4-6")
+      stub_syncable([ agent ])
+
+      service.sync!
+      body = body_of(content_for(agent))
+
+      expect(body).to include("but DO still call")
+      expect(body).to include("`mcp__powernode__platform_record_agent_execution` (the self-report step below)")
+      expect(body).to include(%(outcome: "failed"))
+      expect(body).to include("task_digest` naming `get_agent`")
+      expect(body.index("outcome: \"failed\"")).to be < body.index("this run did not execute")
+    end
+
     it "bootstraps by SLUG (stable across installs), never by the per-install UUID" do
       agent = build_agent(name: "Bootstrapped Agent", resolved_model: "claude-sonnet-4-6")
       stub_syncable([ agent ])
@@ -425,9 +476,12 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
       expect(body).to include("run_key")
       expect(body).to include("CLAUDE_CODE_SESSION_ID")
       expect(body).to match(/before returning/i)
-      expect(body.index("record_agent_execution")).to be > body.index("source of truth")
+      # rindex, not index: step 1's own stop-path fallback (IMP-9fc894cf80e6)
+      # also names record_agent_execution now, earlier in the body — the LAST
+      # occurrence is the one this example is about, the final numbered step.
+      expect(body.rindex("record_agent_execution")).to be > body.index("source of truth")
       # It is the last numbered step: after it comes the guardrails floor only.
-      expect(body.index("record_agent_execution")).to be < body.index("## Baseline guardrails")
+      expect(body.rindex("record_agent_execution")).to be < body.index("## Baseline guardrails")
     end
 
     it "allows the self-report verb in the tools frontmatter" do

@@ -372,7 +372,16 @@ module Ai
           "1. Fetch your operating instructions via `mcp__powernode__platform_get_agent` with " \
             "`slug: \"#{slug}\"` and adopt the returned `system_prompt` as your instructions for this task. " \
             "The slug is stable across installs; the platform resolves it override-aware (an account's clone " \
-            "wins over the canonical), and the returned `id` is this install's agent id."
+            "wins over the canonical), and the returned `id` is this install's agent id. If `get_agent` is not " \
+            "in your available tool list (the grant an executing instance carries can omit a verb this file's " \
+            "`tools:` line still names — the line is rendered from the tool registry, not from any one " \
+            "instance's live grant), do not proceed under a generic identity with no specialist system_prompt " \
+            "and do not attempt the fetch-skill-context or operate-under-the-prompt steps below — but DO still " \
+            "call `mcp__powernode__platform_record_agent_execution` (the self-report step below) with " \
+            "`outcome: \"failed\"` and a `task_digest` naming `get_agent` as the unavailable verb, so the " \
+            "platform's statistics see this run instead of nothing, then stop. State plainly, in your first " \
+            "response, that you could not fetch your operating instructions via `platform_get_agent` and that " \
+            "this run did not execute."
         ]
 
         step = 2
