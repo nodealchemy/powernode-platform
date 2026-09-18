@@ -34,29 +34,42 @@ module Ai
         # Determine version
         latest_version = Ai::GoalPlan.for_goal(goal.id).maximum(:version) || 0
 
-        # Create plan
-        plan = Ai::GoalPlan.create!(
-          account: @account,
-          goal: goal,
-          agent: agent,
-          status: "draft",
-          version: latest_version + 1,
-          plan_data: { raw_response: response[:content], decomposition_context: context },
-          estimated_cost_usd: steps_data.sum { |s| s[:estimated_cost] || 0 },
-          estimated_duration_minutes: steps_data.sum { |s| s[:estimated_duration] || 5 }
-        )
-
-        # Create steps
-        steps_data.each_with_index do |step_data, idx|
-          plan.steps.create!(
-            step_number: idx + 1,
-            step_type: step_data[:type] || "agent_execution",
-            description: step_data[:description],
-            dependencies: step_data[:dependencies] || [],
-            execution_config: step_data[:config] || {},
-            estimated_cost_usd: step_data[:estimated_cost],
-            estimated_duration_minutes: step_data[:estimated_duration]
+        # Plan + its steps are one unit: GoalPlanStep validates step_type
+        # against STEP_TYPES, and step_type comes straight from the LLM's
+        # `TYPE:` line (#parse_plan_steps) — a model that echoes an invalid
+        # type raises on plan.steps.create!. Without a transaction, the
+        # already-created GoalPlan (and any steps created before the bad
+        # one) survived the `rescue StandardError` below that turns the
+        # raise into decompose's documented nil-on-failure contract: a
+        # draft plan with zero or partial steps stayed persisted AND
+        # consumed a version number (unique scoped to goal_id), silently
+        # skipping a caller's retry past the poisoned version. The rescue
+        # itself stays OUTSIDE this block — catching inside it would
+        # swallow the raise before the transaction ever rolls back.
+        plan = nil
+        ActiveRecord::Base.transaction do
+          plan = Ai::GoalPlan.create!(
+            account: @account,
+            goal: goal,
+            agent: agent,
+            status: "draft",
+            version: latest_version + 1,
+            plan_data: { raw_response: response[:content], decomposition_context: context },
+            estimated_cost_usd: steps_data.sum { |s| s[:estimated_cost] || 0 },
+            estimated_duration_minutes: steps_data.sum { |s| s[:estimated_duration] || 5 }
           )
+
+          steps_data.each_with_index do |step_data, idx|
+            plan.steps.create!(
+              step_number: idx + 1,
+              step_type: step_data[:type] || "agent_execution",
+              description: step_data[:description],
+              dependencies: step_data[:dependencies] || [],
+              execution_config: step_data[:config] || {},
+              estimated_cost_usd: step_data[:estimated_cost],
+              estimated_duration_minutes: step_data[:estimated_duration]
+            )
+          end
         end
 
         Rails.logger.info("[GoalDecomposition] Created plan #{plan.id} with #{steps_data.size} steps for goal #{goal.id}")
