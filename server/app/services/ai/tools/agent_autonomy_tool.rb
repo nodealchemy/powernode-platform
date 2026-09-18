@@ -828,10 +828,21 @@ module Ai
         service = Ai::Autonomy::GoalDecompositionService.new(account: account, agent: agent)
         result = service.decompose(goal: goal, max_sub_goals: max_sub)
         success_result(result)
-      rescue NameError
+      rescue NameError => e
+        # NameError is NoMethodError's superclass, so any NoMethodError raised
+        # anywhere in this method body lands here too, not just a missing
+        # constant. Same both-arms requirement as the StandardError rescue
+        # below: the provider gets a stable message, the server log keeps the
+        # detail — otherwise a NoMethodError here would be reported outward as
+        # a misleading "service not available" and recorded nowhere.
+        Rails.logger.error("[AgentAutonomyTool] decompose_goal unavailable: #{e.class}: #{e.message}")
         error_result("Goal decomposition service not available")
       rescue StandardError => e
-        error_result("Failed to decompose goal: #{e.message}")
+        # The class and message stay in the server log; the provider sees a
+        # stable, non-revealing message (mirrors approve/reject_deferred_operation
+        # below — a driver error here can name tables, constraints and values).
+        Rails.logger.error("[AgentAutonomyTool] decompose_goal failed: #{e.class}: #{e.message}")
+        error_result("Goal decomposition failed")
       end
 
       def resolve_agent(agent_id)
