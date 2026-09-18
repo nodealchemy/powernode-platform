@@ -61,7 +61,7 @@ module Api
             end
 
             render_success({ status: "ok" })
-            log_internal_audit("docker.host.sync", "DockerHost", host.id, account_id: host.account_id)
+            log_internal_audit("docker.hosts.sync", "DockerHost", host.id, account_id: host.account_id)
           rescue ActiveRecord::RecordNotFound
             render_error("Host not found", status: :not_found)
           rescue StandardError => e

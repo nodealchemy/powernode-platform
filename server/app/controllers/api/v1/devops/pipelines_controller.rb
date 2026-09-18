@@ -29,7 +29,7 @@ module Api
             }
           })
 
-          log_audit_event("devops.pipelines.list", current_user.account)
+          log_audit_event("ci_cd.pipelines.list", current_user.account)
         rescue StandardError => e
           Rails.logger.error "Failed to list pipelines: #{e.message}"
           render_error("Failed to list pipelines", status: :internal_server_error)
@@ -41,7 +41,7 @@ module Api
             pipeline: serialize_pipeline(@pipeline, include_steps: true, include_recent_runs: params[:include_runs])
           })
 
-          log_audit_event("devops.pipelines.read", @pipeline)
+          log_audit_event("ci_cd.pipelines.read", @pipeline)
         rescue StandardError => e
           Rails.logger.error "Failed to get pipeline: #{e.message}"
           render_error("Failed to get pipeline", status: :internal_server_error)
@@ -61,7 +61,7 @@ module Api
               message: "Pipeline created successfully"
             }, status: :created)
 
-            log_audit_event("devops.pipelines.create", pipeline)
+            log_audit_event("ci_cd.pipelines.create", pipeline)
           else
             render_validation_error(pipeline.errors)
           end
@@ -81,7 +81,7 @@ module Api
               message: "Pipeline updated successfully"
             })
 
-            log_audit_event("devops.pipelines.update", @pipeline)
+            log_audit_event("ci_cd.pipelines.update", @pipeline)
           else
             render_validation_error(@pipeline.errors)
           end
@@ -104,7 +104,7 @@ module Api
             message: "Pipeline deleted successfully"
           })
 
-          log_audit_event("devops.pipelines.delete", @pipeline)
+          log_audit_event("ci_cd.pipelines.delete", @pipeline)
         rescue StandardError => e
           Rails.logger.error "Failed to delete pipeline: #{e.message}"
           render_error("Failed to delete pipeline", status: :internal_server_error)
@@ -164,7 +164,7 @@ module Api
             worker_error: worker_error
           }, status: :created)
 
-          log_audit_event("devops.pipelines.trigger", @pipeline)
+          log_audit_event("ci_cd.pipelines.trigger", @pipeline)
         rescue StandardError => e
           render_internal_error("Failed to trigger pipeline", exception: e)
         end
@@ -180,7 +180,7 @@ module Api
             generated_at: Time.current
           })
 
-          log_audit_event("devops.pipelines.export_yaml", @pipeline)
+          log_audit_event("ci_cd.pipelines.export_yaml", @pipeline)
         rescue StandardError => e
           render_internal_error("Failed to export pipeline YAML", exception: e)
         end
@@ -208,7 +208,7 @@ module Api
             message: "Pipeline duplicated successfully"
           }, status: :created)
 
-          log_audit_event("devops.pipelines.duplicate", new_pipeline)
+          log_audit_event("ci_cd.pipelines.duplicate", new_pipeline)
         rescue StandardError => e
           Rails.logger.error "Failed to duplicate pipeline: #{e.message}"
           render_error("Failed to duplicate pipeline", status: :internal_server_error)

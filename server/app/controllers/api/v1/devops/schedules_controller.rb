@@ -33,7 +33,7 @@ module Api
             }
           })
 
-          log_audit_event("devops.schedules.list", current_user.account)
+          log_audit_event("ci_cd.schedules.list", current_user.account)
         rescue StandardError => e
           Rails.logger.error "Failed to list schedules: #{e.message}"
           render_error("Failed to list schedules", status: :internal_server_error)
@@ -45,7 +45,7 @@ module Api
             schedule: serialize_schedule(@schedule, include_pipeline: params[:include_pipeline])
           })
 
-          log_audit_event("devops.schedules.read", @schedule)
+          log_audit_event("ci_cd.schedules.read", @schedule)
         rescue StandardError => e
           Rails.logger.error "Failed to get schedule: #{e.message}"
           render_error("Failed to get schedule", status: :internal_server_error)
@@ -65,7 +65,7 @@ module Api
               message: "Schedule created successfully"
             }, status: :created)
 
-            log_audit_event("devops.schedules.create", schedule)
+            log_audit_event("ci_cd.schedules.create", schedule)
           else
             render_validation_error(schedule.errors)
           end
@@ -89,7 +89,7 @@ module Api
               message: "Schedule updated successfully"
             })
 
-            log_audit_event("devops.schedules.update", @schedule)
+            log_audit_event("ci_cd.schedules.update", @schedule)
           else
             render_validation_error(@schedule.errors)
           end
@@ -108,7 +108,7 @@ module Api
             message: "Schedule deleted successfully"
           })
 
-          log_audit_event("devops.schedules.delete", @schedule)
+          log_audit_event("ci_cd.schedules.delete", @schedule)
         rescue StandardError => e
           Rails.logger.error "Failed to delete schedule: #{e.message}"
           render_error("Failed to delete schedule", status: :internal_server_error)
@@ -123,7 +123,7 @@ module Api
             message: @schedule.is_active? ? "Schedule activated" : "Schedule deactivated"
           })
 
-          log_audit_event("devops.schedules.toggle", @schedule)
+          log_audit_event("ci_cd.schedules.toggle", @schedule)
         rescue StandardError => e
           Rails.logger.error "Failed to toggle schedule: #{e.message}"
           render_error("Failed to toggle schedule", status: :internal_server_error)

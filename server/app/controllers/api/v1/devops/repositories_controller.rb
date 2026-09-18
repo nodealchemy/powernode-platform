@@ -32,7 +32,7 @@ module Api
             }
           })
 
-          log_audit_event("devops.repositories.list", current_user.account)
+          log_audit_event("ci_cd.repositories.list", current_user.account)
         rescue StandardError => e
           Rails.logger.error "Failed to list repositories: #{e.message}"
           render_error("Failed to list repositories", status: :internal_server_error)
@@ -44,7 +44,7 @@ module Api
             repository: serialize_repository(@repository, include_pipelines: params[:include_pipelines])
           })
 
-          log_audit_event("devops.repositories.read", @repository)
+          log_audit_event("ci_cd.repositories.read", @repository)
         rescue StandardError => e
           Rails.logger.error "Failed to get repository: #{e.message}"
           render_error("Failed to get repository", status: :internal_server_error)
@@ -67,7 +67,7 @@ module Api
               message: "Repository created successfully"
             }, status: :created)
 
-            log_audit_event("devops.repositories.create", repository)
+            log_audit_event("ci_cd.repositories.create", repository)
           else
             render_validation_error(repository.errors)
           end
@@ -92,7 +92,7 @@ module Api
               message: "Repository updated successfully"
             })
 
-            log_audit_event("devops.repositories.update", @repository)
+            log_audit_event("ci_cd.repositories.update", @repository)
           else
             render_validation_error(@repository.errors)
           end
@@ -111,7 +111,7 @@ module Api
             message: "Repository deleted successfully"
           })
 
-          log_audit_event("devops.repositories.delete", @repository)
+          log_audit_event("ci_cd.repositories.delete", @repository)
         rescue StandardError => e
           Rails.logger.error "Failed to delete repository: #{e.message}"
           render_error("Failed to delete repository", status: :internal_server_error)
@@ -141,7 +141,7 @@ module Api
             job_queued: job_queued
           })
 
-          log_audit_event("devops.repositories.sync", @repository)
+          log_audit_event("ci_cd.repositories.sync", @repository)
         rescue StandardError => e
           render_internal_error("Failed to sync repository", exception: e)
         end
@@ -171,7 +171,7 @@ module Api
             message: "Pipeline attached successfully"
           })
 
-          log_audit_event("devops.repositories.attach_pipeline", @repository)
+          log_audit_event("ci_cd.repositories.attach_pipeline", @repository)
         rescue ActiveRecord::RecordNotFound
           render_error("Pipeline not found", status: :not_found)
         rescue StandardError => e
@@ -188,7 +188,7 @@ module Api
             message: "Pipeline detached successfully"
           })
 
-          log_audit_event("devops.repositories.detach_pipeline", @repository)
+          log_audit_event("ci_cd.repositories.detach_pipeline", @repository)
         rescue ActiveRecord::RecordNotFound
           render_error("Pipeline not attached to this repository", status: :not_found)
         rescue StandardError => e

@@ -44,7 +44,7 @@ module Api
             }
           })
 
-          log_audit_event("devops.pipeline_runs.list", current_user.account)
+          log_audit_event("ci_cd.pipeline_runs.list", current_user.account)
         rescue StandardError => e
           Rails.logger.error "Failed to list pipeline runs: #{e.message}"
           render_error("Failed to list pipeline runs", status: :internal_server_error)
@@ -56,7 +56,7 @@ module Api
             pipeline_run: serialize_pipeline_run(@pipeline_run, include_steps: true)
           })
 
-          log_audit_event("devops.pipeline_runs.read", @pipeline_run)
+          log_audit_event("ci_cd.pipeline_runs.read", @pipeline_run)
         rescue StandardError => e
           Rails.logger.error "Failed to get pipeline run: #{e.message}"
           render_error("Failed to get pipeline run", status: :internal_server_error)
@@ -76,7 +76,7 @@ module Api
             message: "Pipeline run cancelled successfully"
           })
 
-          log_audit_event("devops.pipeline_runs.cancel", @pipeline_run)
+          log_audit_event("ci_cd.pipeline_runs.cancel", @pipeline_run)
         rescue StandardError => e
           render_internal_error("Failed to cancel pipeline run", exception: e)
         end
@@ -115,7 +115,7 @@ module Api
             message: "Pipeline run retry initiated"
           }, status: :created)
 
-          log_audit_event("devops.pipeline_runs.retry", new_run)
+          log_audit_event("ci_cd.pipeline_runs.retry", new_run)
         rescue StandardError => e
           render_internal_error("Failed to retry pipeline run", exception: e)
         end
@@ -146,7 +146,7 @@ module Api
             retrieved_at: Time.current
           })
 
-          log_audit_event("devops.pipeline_runs.logs", @pipeline_run)
+          log_audit_event("ci_cd.pipeline_runs.logs", @pipeline_run)
         rescue StandardError => e
           Rails.logger.error "Failed to get pipeline run logs: #{e.message}"
           render_error("Failed to get pipeline run logs", status: :internal_server_error)

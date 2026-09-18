@@ -65,7 +65,7 @@ module Api
             end
 
             render_success({ status: "ok" }) # hash literal: braceless, status: binds the HTTP-status keyword and raises
-            log_internal_audit("swarm.cluster.sync", "SwarmCluster", cluster.id, account_id: cluster.account_id)
+            log_internal_audit("swarm.clusters.sync", "SwarmCluster", cluster.id, account_id: cluster.account_id)
           rescue ActiveRecord::RecordNotFound
             render_error("Cluster not found", status: :not_found)
           rescue StandardError => e

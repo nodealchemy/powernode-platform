@@ -47,13 +47,13 @@ module Api
             items: scope.map(&:template_summary),
             pagination: pagination_data(scope)
           )
-          log_audit_event("devops.container_templates.list", current_user.account)
+          log_audit_event("ci_cd.container_templates.list", current_user.account)
         end
 
         # GET /api/v1/mcp/templates/:id
         def show
           render_success(template: @template.template_details)
-          log_audit_event("devops.container_templates.read", @template)
+          log_audit_event("ci_cd.container_templates.read", @template)
         end
 
         # POST /api/v1/mcp/templates
@@ -63,7 +63,7 @@ module Api
 
           if template.save
             render_success({ template: template.template_details }, status: :created)
-            log_audit_event("devops.container_templates.create", template)
+            log_audit_event("ci_cd.container_templates.create", template)
           else
             render_error(template.errors.full_messages, status: :unprocessable_content)
           end
@@ -78,7 +78,7 @@ module Api
 
           if @template.update(template_params)
             render_success(template: @template.template_details)
-            log_audit_event("devops.container_templates.update", @template)
+            log_audit_event("ci_cd.container_templates.update", @template)
           else
             render_error(@template.errors.full_messages, status: :unprocessable_content)
           end
@@ -93,7 +93,7 @@ module Api
 
           @template.destroy!
           render_success(message: "Template deleted successfully")
-          log_audit_event("devops.container_templates.delete", @template)
+          log_audit_event("ci_cd.container_templates.delete", @template)
         end
 
         # POST /api/v1/mcp/templates/:id/publish
@@ -105,7 +105,7 @@ module Api
 
           @template.update!(visibility: "public", status: "active")
           render_success(template: @template.template_details)
-          log_audit_event("devops.container_templates.publish", @template)
+          log_audit_event("ci_cd.container_templates.publish", @template)
         end
 
         # POST /api/v1/mcp/templates/:id/unpublish
@@ -117,7 +117,7 @@ module Api
 
           @template.update!(visibility: "private")
           render_success(template: @template.template_details)
-          log_audit_event("devops.container_templates.unpublish", @template)
+          log_audit_event("ci_cd.container_templates.unpublish", @template)
         end
 
         # GET /api/v1/mcp/templates/:id/executions
@@ -198,7 +198,7 @@ module Api
             .trigger_build(template: @template, trigger_type: "manual")
 
           render_success({ build: build.build_summary }, status: :created)
-          log_audit_event("devops.container_templates.trigger_build", @template)
+          log_audit_event("ci_cd.container_templates.trigger_build", @template)
         rescue ::Devops::ContainerImageBuildService::BuildError => e
           render_error(e.message, status: :unprocessable_content)
         end
@@ -237,7 +237,7 @@ module Api
             repository: result[:repository],
             files_created: result[:files_created]
           }, status: :created)
-          log_audit_event("devops.container_templates.create_image_repo", result[:template])
+          log_audit_event("ci_cd.container_templates.create_image_repo", result[:template])
         rescue ::Devops::ContainerImageRepoService::RepoCreationError => e
           render_error(e.message, status: :unprocessable_content)
         end

@@ -35,7 +35,7 @@ module Api
             quota: service.quota.reload.quota_summary,
             message: "Quota updated successfully"
           )
-          log_audit_event("devops.container_quotas.update", current_user.account)
+          log_audit_event("ci_cd.container_quotas.update", current_user.account)
         rescue ActiveRecord::RecordInvalid => e
           render_error(e.record.errors.full_messages, status: :unprocessable_content)
         end
@@ -55,7 +55,7 @@ module Api
             quota: service.quota.reload.quota_summary,
             message: "Usage counters reset successfully"
           )
-          log_audit_event("devops.container_quotas.reset_usage", current_user.account)
+          log_audit_event("ci_cd.container_quotas.reset_usage", current_user.account)
         end
 
         # GET /api/v1/mcp/quotas/usage_history
@@ -112,7 +112,7 @@ module Api
             overage_rate: quota.overage_rate_per_container,
             message: "Overage settings updated successfully"
           )
-          log_audit_event("devops.container_quotas.update_overage", current_user.account)
+          log_audit_event("ci_cd.container_quotas.update_overage", current_user.account)
         end
 
         private

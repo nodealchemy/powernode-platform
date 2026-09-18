@@ -245,6 +245,25 @@ module AuditActions
 
   # =============================================================================
   # DEVOPS (CI/CD) ACTIONS
+  #
+  # IMP-b95b8c5b6c40 (2026-09-18): every writer under
+  # server/app/controllers/api/v1/devops/{pipelines,pipeline_runs,providers,
+  # repositories,schedules,prompt_templates,container_templates,containers,
+  # container_quotas}_controller.rb used to call log_audit_event with a
+  # "devops.<resource>.<verb>" literal — this array only ever registered the
+  # "ci_cd.<resource>.<verb>" spelling, so EVERY one of those calls failed
+  # AuditLog's inclusion validation and (log_audit_event rescues StandardError
+  # and only re-raises in Rails.env.test?) was silently dropped everywhere
+  # else, including production. Fixed by moving the writers to the already-
+  # registered ci_cd.* spelling (verb-for-verb identical requests) rather than
+  # adding a second "devops.*" spelling for the same events — one convention,
+  # not two. container_templates/containers/container_quotas had NO registered
+  # counterpart under either prefix (a second, distinct defect: never-
+  # registered rather than mis-spelled); they join this array under the same
+  # ci_cd.* convention as their siblings in the same controller family, and
+  # their writers were renamed to match. See SWARM_ACTIONS/DOCKER_ACTIONS
+  # below for the sibling defect in the swarm/docker sub-namespaces, which
+  # keep their own already-self-consistent prefix instead.
   # =============================================================================
   DEVOPS_ACTIONS = %w[
     ci_cd.pipelines.list ci_cd.pipelines.read ci_cd.pipelines.create ci_cd.pipelines.update ci_cd.pipelines.delete
@@ -257,6 +276,74 @@ module AuditActions
     ci_cd.schedules.list ci_cd.schedules.read ci_cd.schedules.create ci_cd.schedules.update ci_cd.schedules.delete ci_cd.schedules.toggle
     ci_cd.prompt_templates.list ci_cd.prompt_templates.read ci_cd.prompt_templates.create ci_cd.prompt_templates.update
     ci_cd.prompt_templates.delete ci_cd.prompt_templates.duplicate ci_cd.prompt_templates.preview
+    ci_cd.container_templates.list ci_cd.container_templates.read ci_cd.container_templates.create
+    ci_cd.container_templates.update ci_cd.container_templates.delete ci_cd.container_templates.publish
+    ci_cd.container_templates.unpublish ci_cd.container_templates.trigger_build ci_cd.container_templates.create_image_repo
+    ci_cd.containers.list ci_cd.containers.read ci_cd.containers.execute ci_cd.containers.cancel
+    ci_cd.container_quotas.update ci_cd.container_quotas.reset_usage ci_cd.container_quotas.update_overage
+  ].freeze
+
+  # =============================================================================
+  # DOCKER SWARM ACTIONS — server/app/controllers/api/v1/devops/swarm/*.rb.
+  # IMP-b95b8c5b6c40: these writers already used a self-consistent "swarm.*"
+  # prefix (not "devops.swarm.*"), matching their own controller namespace —
+  # they were simply never registered under ANY name, so every one of these
+  # writes has always failed AuditLog's inclusion validation and been
+  # silently dropped. Registered as-written rather than renamed: "swarm" is
+  # its own resource domain (Docker Swarm orchestration), not a CI/CD
+  # pipeline concept, so folding it under "ci_cd.*" would misname it.
+  # swarm.clusters.sync (plural) is also the target the internal worker
+  # callback in Api::V1::Internal::Devops::SwarmController#sync_results was
+  # renamed to match (it previously wrote the singular "swarm.cluster.sync",
+  # a second, independent naming drift on the same conceptual event).
+  # =============================================================================
+  SWARM_ACTIONS = %w[
+    swarm.clusters.list swarm.clusters.read swarm.clusters.create swarm.clusters.update
+    swarm.clusters.delete swarm.clusters.sync
+    swarm.nodes.promote swarm.nodes.demote swarm.nodes.drain swarm.nodes.activate swarm.nodes.remove
+    swarm.secrets.create swarm.secrets.delete
+    swarm.configs.create swarm.configs.delete
+    swarm.events.acknowledge
+    swarm.stacks.create swarm.stacks.update swarm.stacks.delete swarm.stacks.deploy swarm.stacks.remove
+    swarm.networks.create swarm.networks.delete
+    swarm.services.import swarm.services.create swarm.services.update swarm.services.delete
+    swarm.services.scale swarm.services.rollback
+    swarm.volumes.create swarm.volumes.delete
+  ].freeze
+
+  # =============================================================================
+  # DOCKER HOST ACTIONS — server/app/controllers/api/v1/devops/docker/*.rb.
+  # IMP-b95b8c5b6c40: same defect as SWARM_ACTIONS above — a self-consistent
+  # "docker.*" prefix, never registered. docker.hosts.sync (plural) is the
+  # target the internal worker callback in
+  # Api::V1::Internal::Devops::DockerController#sync_results was renamed to
+  # match (it previously wrote the singular "docker.host.sync").
+  # =============================================================================
+  DOCKER_ACTIONS = %w[
+    docker.images.import docker.images.pull docker.images.delete docker.images.tag
+    docker.hosts.list docker.hosts.read docker.hosts.create docker.hosts.update
+    docker.hosts.delete docker.hosts.sync
+    docker.events.acknowledge
+    docker.networks.create docker.networks.delete
+    docker.containers.import docker.containers.create docker.containers.delete
+    docker.containers.start docker.containers.stop docker.containers.restart
+    docker.volumes.create docker.volumes.delete
+  ].freeze
+
+  # =============================================================================
+  # WORKER ACTIONS — Workers::EnsureSystemWorker's mTLS dev-sentinel revocation
+  # (app/services/workers/ensure_system_worker.rb). IMP-b95b8c5b6c40: found
+  # while enumerating unregistered audit literals for the devops/ci_cd drift;
+  # a distinct, unrelated writer with the same failure mode. Its own spec
+  # (spec/services/workers/ensure_system_worker_spec.rb) stubs
+  # Audit::LoggingService.instance.log entirely, so it never exercised the
+  # real AuditLog validation and never caught this. Security-relevant (a
+  # revoked mTLS identity), so — per the crypto-material-safety rule that key
+  # operations must be audited — this write being silently dropped is itself
+  # the gap that rule exists to prevent.
+  # =============================================================================
+  WORKER_ACTIONS = %w[
+    worker.mtls_dev_sentinel_revoked
   ].freeze
 
   # =============================================================================
@@ -399,6 +486,9 @@ module AuditActions
     AI_IMPROVEMENT_ACTIONS,
     AI_AGENT_TEAM_ACTIONS,
     DEVOPS_ACTIONS,
+    SWARM_ACTIONS,
+    DOCKER_ACTIONS,
+    WORKER_ACTIONS,
     DEPLOY_ACTIONS,
     MCP_ACTIONS,
     INVITATION_ACTIONS,
@@ -557,6 +647,9 @@ module AuditActions
       when "ai_monitoring" then AI_MONITORING_ACTIONS
       when "ai_agent_team" then AI_AGENT_TEAM_ACTIONS
       when "devops" then DEVOPS_ACTIONS
+      when "swarm" then SWARM_ACTIONS
+      when "docker" then DOCKER_ACTIONS
+      when "worker" then WORKER_ACTIONS
       when "mcp" then MCP_ACTIONS
       when "invitation" then INVITATION_ACTIONS
       when "site_setting" then SITE_SETTING_ACTIONS

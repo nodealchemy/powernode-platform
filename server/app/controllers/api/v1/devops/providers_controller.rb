@@ -26,7 +26,7 @@ module Api
             }
           })
 
-          log_audit_event("devops.providers.list", current_user.account)
+          log_audit_event("ci_cd.providers.list", current_user.account)
         rescue StandardError => e
           Rails.logger.error "Failed to list DevOps providers: #{e.message}"
           render_error("Failed to list providers", status: :internal_server_error)
@@ -38,7 +38,7 @@ module Api
             provider: serialize_provider(@provider, include_repositories: params[:include_repositories])
           })
 
-          log_audit_event("devops.providers.read", @provider)
+          log_audit_event("ci_cd.providers.read", @provider)
         rescue StandardError => e
           Rails.logger.error "Failed to get DevOps provider: #{e.message}"
           render_error("Failed to get provider", status: :internal_server_error)
@@ -54,7 +54,7 @@ module Api
               message: "Provider created successfully"
             }, status: :created)
 
-            log_audit_event("devops.providers.create", provider)
+            log_audit_event("ci_cd.providers.create", provider)
           else
             render_validation_error(provider.errors)
           end
@@ -71,7 +71,7 @@ module Api
               message: "Provider updated successfully"
             })
 
-            log_audit_event("devops.providers.update", @provider)
+            log_audit_event("ci_cd.providers.update", @provider)
           else
             render_validation_error(@provider.errors)
           end
@@ -88,7 +88,7 @@ module Api
             message: "Provider deleted successfully"
           })
 
-          log_audit_event("devops.providers.delete", @provider)
+          log_audit_event("ci_cd.providers.delete", @provider)
         rescue StandardError => e
           Rails.logger.error "Failed to delete DevOps provider: #{e.message}"
           render_error("Failed to delete provider", status: :internal_server_error)
@@ -119,7 +119,7 @@ module Api
             tested_at: Time.current
           })
 
-          log_audit_event("devops.providers.test_connection", @provider)
+          log_audit_event("ci_cd.providers.test_connection", @provider)
         rescue StandardError => e
           Rails.logger.error "Failed to test connection: #{e.message}"
           render_error("Failed to test connection: #{e.message}", status: :unprocessable_content)
@@ -146,7 +146,7 @@ module Api
             job_queued: job_queued
           })
 
-          log_audit_event("devops.providers.sync_repositories", @provider)
+          log_audit_event("ci_cd.providers.sync_repositories", @provider)
         rescue StandardError => e
           Rails.logger.error "Failed to sync repositories: #{e.message}"
           render_error("Failed to sync repositories: #{e.message}", status: :unprocessable_content)

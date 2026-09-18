@@ -316,6 +316,35 @@ RSpec.describe 'Api::V1::Devops::Providers', type: :request do
 
         expect(response_data['data']['job_queued']).to be false
       end
+
+      # IMP-b95b8c5b6c40: the controller used to call
+      # log_audit_event("devops.providers.sync_repositories", @provider) — a
+      # name AuditActions never registered (only "ci_cd.providers.
+      # sync_repositories" was). AuditLog's inclusion validation rejected it,
+      # and log_audit_event's own rescue silently dropped the row (it only
+      # re-raises in Rails.env.test?, and even there the outer
+      # `rescue StandardError` in #sync_repositories swallowed it without a
+      # second render, since render_success had already committed the
+      # response — so the request appeared to succeed with no visible symptom
+      # anywhere except an ActiveRecord::RecordInvalid logged to
+      # server/log/test.log). Pinned here against the real AuditLog validator
+      # rather than a stub, so a future rename back to an unregistered
+      # spelling fails this example instead of silently dropping the row
+      # again.
+      it 'records an audit log entry for the sync' do
+        allow(WorkerJobService).to receive(:enqueue_job).and_return(true)
+
+        expect {
+          post "/api/v1/devops/providers/#{provider.id}/sync_repositories", headers: headers, as: :json
+        }.to change(AuditLog, :count).by(1)
+
+        expect_success_response
+
+        entry = AuditLog.order(:created_at).last
+        expect(entry.action).to eq('ci_cd.providers.sync_repositories')
+        expect(entry.resource_type).to eq('Devops::GitProvider')
+        expect(entry.resource_id).to eq(provider.id)
+      end
     end
   end
 end

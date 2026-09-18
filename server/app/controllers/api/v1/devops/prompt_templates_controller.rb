@@ -32,7 +32,7 @@ module Api
             }
           })
 
-          log_audit_event("devops.prompt_templates.list", current_user.account)
+          log_audit_event("ci_cd.prompt_templates.list", current_user.account)
         rescue StandardError => e
           Rails.logger.error "Failed to list prompt templates: #{e.message}"
           render_error("Failed to list prompt templates", status: :internal_server_error)
@@ -44,7 +44,7 @@ module Api
             prompt_template: serialize_prompt_template(@prompt_template, include_versions: params[:include_versions])
           })
 
-          log_audit_event("devops.prompt_templates.read", @prompt_template)
+          log_audit_event("ci_cd.prompt_templates.read", @prompt_template)
         rescue StandardError => e
           Rails.logger.error "Failed to get prompt template: #{e.message}"
           render_error("Failed to get prompt template", status: :internal_server_error)
@@ -62,7 +62,7 @@ module Api
               message: "Prompt template created successfully"
             }, status: :created)
 
-            log_audit_event("devops.prompt_templates.create", template)
+            log_audit_event("ci_cd.prompt_templates.create", template)
           else
             render_validation_error(template.errors)
           end
@@ -79,7 +79,7 @@ module Api
               message: "Prompt template updated successfully"
             })
 
-            log_audit_event("devops.prompt_templates.update", @prompt_template)
+            log_audit_event("ci_cd.prompt_templates.update", @prompt_template)
           else
             render_validation_error(@prompt_template.errors)
           end
@@ -102,7 +102,7 @@ module Api
             message: "Prompt template deleted successfully"
           })
 
-          log_audit_event("devops.prompt_templates.delete", @prompt_template)
+          log_audit_event("ci_cd.prompt_templates.delete", @prompt_template)
         rescue StandardError => e
           Rails.logger.error "Failed to delete prompt template: #{e.message}"
           render_error("Failed to delete prompt template", status: :internal_server_error)
@@ -128,7 +128,7 @@ module Api
             rendered_at: Time.current
           })
 
-          log_audit_event("devops.prompt_templates.preview", @prompt_template)
+          log_audit_event("ci_cd.prompt_templates.preview", @prompt_template)
         rescue ::Liquid::SyntaxError => e
           render_error("Template syntax error: #{e.message}", status: :unprocessable_content)
         rescue StandardError => e
@@ -144,7 +144,7 @@ module Api
             message: "Prompt template duplicated successfully"
           }, status: :created)
 
-          log_audit_event("devops.prompt_templates.duplicate", new_template)
+          log_audit_event("ci_cd.prompt_templates.duplicate", new_template)
         rescue StandardError => e
           Rails.logger.error "Failed to duplicate prompt template: #{e.message}"
           render_error("Failed to duplicate template", status: :internal_server_error)

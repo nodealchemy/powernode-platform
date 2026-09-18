@@ -36,13 +36,13 @@ module Api
             items: scope.map(&:instance_summary),
             pagination: pagination_data(scope)
           )
-          log_audit_event("devops.containers.list", current_user.account)
+          log_audit_event("ci_cd.containers.list", current_user.account)
         end
 
         # GET /api/v1/mcp/containers/:id
         def show
           render_success(instance: @instance.instance_details)
-          log_audit_event("devops.containers.read", @instance)
+          log_audit_event("ci_cd.containers.read", @instance)
         end
 
         # POST /api/v1/mcp/containers
@@ -64,7 +64,7 @@ module Api
             )
 
             render_success({ instance: instance.instance_details }, status: :created)
-            log_audit_event("devops.containers.execute", instance)
+            log_audit_event("ci_cd.containers.execute", instance)
           rescue ::Devops::QuotaService::QuotaExceededError => e
             render_error("Quota exceeded: #{e.message}", status: :too_many_requests)
           rescue ::Devops::ContainerOrchestrationService::OrchestrationError => e
@@ -81,7 +81,7 @@ module Api
 
           if service.cancel(@instance.execution_id, reason: params[:reason])
             render_success(instance: @instance.reload.instance_details)
-            log_audit_event("devops.containers.cancel", @instance)
+            log_audit_event("ci_cd.containers.cancel", @instance)
           else
             render_error("Could not cancel execution", status: :unprocessable_content)
           end
