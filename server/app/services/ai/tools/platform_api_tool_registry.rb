@@ -215,6 +215,7 @@ module Ai
         "system_revert_storage_migration_binding" => "Ai::Tools::SystemFleetTool",
         "system_cleanup_storage_migration"        => "Ai::Tools::SystemFleetTool",
         "system_platform_maintenance" => "Ai::Tools::SystemFleetTool",
+        "system_platform_health_check" => "Ai::Tools::SystemFleetTool", # IMP-80a353489ba4
         "system_platform_resilience" => "Ai::Tools::SystemFleetTool",
         # Gap remediation slice 5 — disk image CI
         "system_list_disk_image_publications" => "Ai::Tools::SystemFleetTool",

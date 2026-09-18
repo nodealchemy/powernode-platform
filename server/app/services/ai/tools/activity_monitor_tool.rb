@@ -85,7 +85,7 @@ module Ai
                          "credential. This is NOT platform or fleet health: it does not observe node instances, " \
                          "Rails, Postgres, Redis, Sidekiq, the worker, the reverse proxy or certificates, and it " \
                          "cannot tell you whether any node instance is in error. For fleet and platform health " \
-                         "use the platform_maintenance skill with action=health_check, which returns a composite " \
+                         "use the platform_health_check skill (system extension), which returns a composite " \
                          "across every subsystem and reports anything it could not observe as not_measured.",
             parameters: {}
           }

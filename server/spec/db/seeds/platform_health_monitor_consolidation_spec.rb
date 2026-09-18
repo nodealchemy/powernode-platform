@@ -106,6 +106,23 @@ RSpec.describe "Platform Health Monitor consolidation (monitoring seeds)" do
     expect(monitor.mcp_metadata["system_prompt"]).to include("get_system_health")
   end
 
+  # The seed's own rescue: `retired.update!(status: "archived")` goes through
+  # ActiveRecord validations, and a retired row a LATER change made invalid
+  # (blank name, here — column-written to bypass validation getting it there,
+  # exactly as a bad migration or a hand edit could leave a row) must not
+  # abort the seed run for every other row. Before this example nothing
+  # exercised the `rescue ActiveRecord::RecordInvalid` branch — a row could
+  # only ever take the happy `update!` path in CI, so the fallback
+  # `update_columns` call had never actually run.
+  it "still archives a retired row by column write when update! raises RecordInvalid" do
+    legacy = legacy_canonical("system-health-monitor", "System Health Monitor")
+    legacy.update_column(:name, "") # invalid (name presence), bypassing validation to get there
+
+    expect { seed_monitoring! }.not_to raise_error
+
+    expect(legacy.reload).to have_attributes(status: "archived", name: "")
+  end
+
   it "archives a stray Infrastructure Health Monitor when the Platform Health Monitor already exists" do
     seed_monitoring!
     stray = legacy_canonical("infrastructure-health-monitor", "Infrastructure Health Monitor")

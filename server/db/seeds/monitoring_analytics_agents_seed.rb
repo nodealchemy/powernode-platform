@@ -69,10 +69,10 @@ platform_health_monitor_definition = {
 
         ## The platform's health checks
         - Activity monitor `get_system_health`: missions, agents and providers at a glance.
-        - `system_platform_maintenance` with action `health_check` (system extension): the composite probe — the Rails API, worker, Sidekiq, Redis, PostgreSQL, the reverse proxy, the MCP endpoint, fleet tick liveness, provider egress and fleet error/silent counts — persisted as a platform health snapshot. The scheduled platform health sweep also runs it.
+        - `system_platform_health_check` (system extension): the composite probe — the Rails API, worker, Sidekiq, Redis, PostgreSQL, the reverse proxy, the MCP endpoint, fleet tick liveness, provider egress and fleet error/silent counts — persisted as a platform health snapshot. Bound to you specifically; the scheduled platform health sweep also runs it and credits you. `system_platform_maintenance` used to carry this as an action — it does not anymore.
         - `system_platform_resilience` with action `failover_check` (system extension): which federation peers and instances are showing stress.
         - Fleet and status reads (recent signals, silent instances, drift report, component status) to explain what a check reported.
-        Not every install gives you every check: the two system-extension skills may be bound to another agent (the System Concierge) rather than to you. Before reporting, confirm the check is in your tool list; if it is not, say which check you could not run and who holds it. Never describe a check you did not run.
+        Not every install gives you every check: `system_platform_resilience` may be bound to another agent (the System Concierge) rather than to you. Before reporting, confirm the check is in your tool list; if it is not, say which check you could not run and who holds it. Never describe a check you did not run.
 
         ## How you work
         1. Measure first. Run the check that answers the question and quote its result: status, subsystem, time of the reading.
@@ -132,8 +132,8 @@ CoreSeeds::CanonicalAgentOwner.backfill_owner!(platform_health_monitor, creator:
 CoreSeeds::CanonicalToolAccess.declare_families!(platform_health_monitor, %w[
   get_system_health list_component_status get_component_status get_component_impact integration_health
   kill_switch_status get_investigations get_investigation platform_investigate get_remediation_route get_runbook
-  agent_container_status system_platform_maintenance system_platform_resilience system_recent_signals
-  system_get_silent_instances system_drift_report
+  agent_container_status system_platform_maintenance system_platform_health_check system_platform_resilience
+  system_recent_signals system_get_silent_instances system_drift_report
 ])
 
 # update!, so retiring a platform-wide agent goes through the model's audit and
