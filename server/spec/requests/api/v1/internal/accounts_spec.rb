@@ -109,6 +109,21 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         audit_log = AuditLog.where(account_id: account.id).first
         expect(audit_log.ip_address).to eq('0.0.0.0')
       end
+
+      it 'writes an audit_logs row for the anonymize_audit_logs action itself' do
+        # IMP-26a95cba1d43: log_internal_audit("account.anonymize_audit_logs", ...)
+        # was never registered in AuditActions, so AuditLog.create! raised
+        # ActiveRecord::RecordInvalid and the rescue in log_internal_audit
+        # silently dropped the row — the endpoint above returned 200 while
+        # writing no audit trail for its own effect. Assert the row EXISTS
+        # with the exact action, not just that the request succeeded.
+        patch "/api/v1/internal/accounts/#{account.id}/anonymize_audit_logs", headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(
+          AuditLog.exists?(account_id: account.id, action: 'account.anonymize_audit_logs')
+        ).to be true
+      end
     end
   end
 
@@ -126,6 +141,26 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         data = json_response_data
 
         expect(data['message']).to include('Anonymized')
+        expect(
+          AuditLog.exists?(account_id: account.id, action: 'account.anonymize_payments')
+        ).to be true
+      end
+    end
+  end
+
+  describe 'DELETE /api/v1/internal/accounts/:account_id/files' do
+    context 'with internal authentication' do
+      it 'writes an audit_logs row for the delete_files action' do
+        # Account has no `files` association in core mode, so the endpoint
+        # deletes nothing (records_deleted stays 0) — the audit write is the
+        # only observable effect and is the one this cluster silently lost.
+        delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['message']).to include('Deleted')
+        expect(
+          AuditLog.exists?(account_id: account.id, action: 'account.delete_files')
+        ).to be true
       end
     end
   end
@@ -144,6 +179,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
 
         expect(data['message']).to include('Deleted')
         expect(account.api_keys.count).to eq(0)
+        expect(
+          AuditLog.exists?(account_id: account.id, action: 'account.delete_api_keys')
+        ).to be true
       end
     end
   end
@@ -161,6 +199,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         data = json_response_data
 
         expect(data['message']).to include('Deleted')
+        expect(
+          AuditLog.exists?(account_id: account.id, action: 'account.delete_webhooks')
+        ).to be true
       end
     end
   end
@@ -174,6 +215,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         data = json_response_data
 
         expect(data['message']).to include('Deleted')
+        expect(
+          AuditLog.exists?(account_id: account.id, action: 'account.delete_data_export_requests')
+        ).to be true
       end
     end
   end
@@ -187,6 +231,9 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         data = json_response_data
 
         expect(data['message']).to include('Deleted')
+        expect(
+          AuditLog.exists?(account_id: account.id, action: 'account.delete_data_deletion_requests')
+        ).to be true
       end
     end
   end

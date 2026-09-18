@@ -727,4 +727,20 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
       end
     end
   end
+
+  # IMP-26a95cba1d43 review (D1) — attempted here first, reverted: a live
+  # regression test through create_backup (whose own "backup.create" literal
+  # is the unregistered, account_id-less call site the review traced D1
+  # through — filed separately as IMP-01a0b2f5, not fixed here) turned out to
+  # be unreachable for a THIRD, independent, also out-of-scope reason:
+  # Database::Backup has `belongs_to :created_by, class_name: "User"`
+  # (required by default), and create_backup (maintenance_controller.rb)
+  # never sets it — `backup.save` fails validation before log_internal_audit
+  # is ever called, confirmed empirically (POST here does not create a row
+  # at all). So this endpoint cannot exercise the fallback fix live today
+  # regardless of backup.create's registration status. Flagged to the
+  # reviewer rather than fixed (a third unrelated pre-existing defect); the
+  # fallback-safety proof for "no account_id" instead lives in
+  # data_deletion_requests_spec.rb, simulated on a call site that already
+  # works end to end.
 end

@@ -17,6 +17,18 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
   let(:account) { create(:account) }
   let!(:user) { create(:user, account: account, email: 'test@example.com', name: 'Test User') }
 
+  # NOTE (IMP-26a95cba1d43): UsersController#destroy emits log_internal_audit
+  # ("user.delete", ...), which is now a registered AuditActions literal (see
+  # audit_actions.rb) — but `bin/rails routes` shows no DELETE route to
+  # api/v1/internal/users#destroy exists (only :show is declared under
+  # `resources :users, only: [:show]`). The action is unreachable over HTTP
+  # today, a separate pre-existing defect (dead controller code / missing
+  # route) out of scope for this task, so there is deliberately no request
+  # spec here for it. Its literal is still guarded statically by
+  # spec/models/concerns/deletion_domain_audit_action_literals_spec.rb, and
+  # the log_internal_audit mechanism it would use is exercised live by every
+  # other action in this file.
+
   describe 'GET /api/v1/internal/users/:id' do
     context 'with valid service token' do
       it 'returns user details' do
@@ -91,6 +103,19 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         expect(user.phone).to be_nil
       end
 
+      it 'writes an audit_logs row for the anonymize action itself' do
+        # IMP-26a95cba1d43: log_internal_audit("user.anonymize", ...) was
+        # never registered in AuditActions — AuditLog.create! raised
+        # ActiveRecord::RecordInvalid and the rescue silently dropped the
+        # row. Assert the row EXISTS with the exact action, not just 200.
+        patch "/api/v1/internal/users/#{user.id}/anonymize",
+              headers: internal_headers,
+              as: :json
+
+        expect_success_response
+        expect(AuditLog.exists?(action: 'user.anonymize', resource_id: user.id)).to be true
+      end
+
       it 'preserves user ID' do
         original_id = user.id
 
@@ -146,6 +171,8 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
           expect(log.ip_address).to eq('0.0.0.0')
           expect(log.user_agent).to eq('anonymized')
         end
+
+        expect(AuditLog.exists?(action: 'user.anonymize_audit_logs', resource_id: user.id)).to be true
       end
 
       it 'does not affect other users audit logs' do
@@ -190,6 +217,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
 
         expect_success_response
         expect(json_response_data['message']).to eq('Deleted 2 consent records')
+        expect(AuditLog.exists?(action: 'user.delete_consents', resource_id: user.id)).to be true
       end
 
       it 'does not affect other users consents' do
@@ -224,6 +252,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
 
         expect_success_response
         expect(json_response_data['message']).to match(/Deleted \d+ terms acceptance records/)
+        expect(AuditLog.exists?(action: 'user.delete_terms_acceptances', resource_id: user.id)).to be true
       end
     end
 
@@ -246,6 +275,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
 
         expect_success_response
         expect(json_response_data['message']).to match(/Deleted \d+ password history records/)
+        expect(AuditLog.exists?(action: 'user.delete_password_histories', resource_id: user.id)).to be true
       end
     end
 
@@ -274,6 +304,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
 
         expect_success_response
         expect(user.user_roles.count).to eq(0)
+        expect(AuditLog.exists?(action: 'user.delete_roles', resource_id: user.id)).to be true
       end
 
       it 'does not affect other users roles' do

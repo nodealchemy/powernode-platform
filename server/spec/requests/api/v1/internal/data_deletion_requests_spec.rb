@@ -146,6 +146,15 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
 
         deletion_request.reload
         expect(deletion_request.status).to eq('approved')
+
+        # IMP-26a95cba1d43: log_internal_audit("data_deletion.approve", ...)
+        # was never registered in AuditActions — AuditLog.create! raised
+        # ActiveRecord::RecordInvalid and the rescue silently dropped the
+        # row (this endpoint returns 200 regardless). Assert the row EXISTS
+        # with the exact action, not just that the status transitioned.
+        expect(
+          AuditLog.exists?(action: 'data_deletion.approve', resource_id: deletion_request.id)
+        ).to be true
       end
 
       it 'rejects non-pending request' do
@@ -175,6 +184,9 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
 
         deletion_request.reload
         expect(deletion_request.status).to eq('rejected')
+        expect(
+          AuditLog.exists?(action: 'data_deletion.reject', resource_id: deletion_request.id)
+        ).to be true
       end
 
       it 'requires rejection reason' do
@@ -208,6 +220,9 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
         expect(deletion_request.status).to eq('processing')
         expect(worker_api_client).to have_received(:queue_job)
           .with('Compliance::DataDeletionJob', [ deletion_request.id ], queue: 'compliance')
+        expect(
+          AuditLog.exists?(action: 'data_deletion.execute', resource_id: deletion_request.id)
+        ).to be true
       end
 
       it 'rejects non-approved request' do
@@ -243,6 +258,9 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
 
         deletion_request.reload
         expect(deletion_request.status).to eq('completed')
+        expect(
+          AuditLog.exists?(action: 'data_deletion.complete', resource_id: deletion_request.id)
+        ).to be true
       end
 
       it 'rejects non-processing request' do
@@ -255,6 +273,131 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
 
         expect(response).to have_http_status(:unprocessable_content)
       end
+    end
+  end
+
+  # IMP-26a95cba1d43 — the swallowed-write decision on the irreversible
+  # personal-data deletion path. Simulates the exact defect this task fixed
+  # (an unregistered action literal reaching log_internal_audit) by revoking
+  # registration for one already-valid literal, WITHOUT touching the real
+  # AuditActions registry the rest of the suite relies on. Proves both halves
+  # of the decision: (a) a durable, self-referential "audit_logging_error"
+  # row is written every time (never silently drop the failure), and (b) the
+  # request environment surfaces the failure instead of returning 200 with
+  # nothing to show for it.
+  #
+  # HOW THE 422 ACTUALLY HAPPENS (review correction, IMP-26a95cba1d43 D5): an
+  # earlier version of this comment blamed
+  # `config.action_dispatch.show_exceptions = :rescuable` and said "no local
+  # rescue_from is involved" — that was wrong, and worse, it pointed a future
+  # debugger at the wrong lever. The real mechanism: ApiResponse (included
+  # into ApplicationController) registers `rescue_from ActiveRecord::
+  # RecordInvalid` (app/controllers/concerns/api_response.rb) which calls
+  # `render_validation_error(exception.record.errors)` — the exception never
+  # leaves the controller at all. That same `included do` block also has a
+  # catch-all `rescue_from StandardError` (defined first, so lower priority
+  # per rescue_from's "last defined wins" rule) — so a re-raised failure that
+  # is NOT an ActiveRecord::RecordInvalid (e.g. some other write error) would
+  # surface as a generic 500 body via that handler instead of a 422 naming
+  # the field, a different shape than this example asserts.
+  describe 'when the underlying audit write is rejected (unregistered action literal)' do
+    let(:deletion_request) { create_deletion_request.call(status: 'pending') }
+
+    before do
+      allow(AuditActions).to receive(:all_actions)
+        .and_return(AuditActions.all_actions - [ 'data_deletion.approve' ])
+    end
+
+    it 'surfaces the failure as an error response and writes a durable audit_logging_error row' do
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { action_type: 'approve', processed_by_id: admin_user.id },
+            headers: internal_headers,
+            as: :json
+
+      # Not a silent 200 — the broken literal is now visible in the
+      # response. Asserted on the stable error CODE and on an attribute-
+      # level regex, not the exact full sentence: the exact message is
+      # `errors.full_messages.first` (render_validation_error), so it is
+      # order-dependent on AuditLog's OTHER validations — had account_id
+      # also been unattributable here, the first message would be about
+      # the account, not the action, without this test having regressed.
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response['code']).to eq('VALIDATION_ERROR')
+      expect(json_response['details']['errors'].join(' ')).to match(/action/i)
+
+      # The destructive state transition already committed before the audit
+      # write was attempted — the response turning into an error does not
+      # roll it back.
+      expect(deletion_request.reload.status).to eq('approved')
+
+      fallback_row = AuditLog.where(action: 'audit_logging_error').order(:created_at).last
+      expect(fallback_row).not_to be_nil
+      expect(fallback_row.metadata['original_action']).to eq('data_deletion.approve')
+      expect(fallback_row.metadata['original_resource_id']).to eq(deletion_request.id)
+
+      # The row that SHOULD have carried the real event is still absent —
+      # this is the "audit silently dropped" state the fallback row exists
+      # to make visible, not a substitute for the missing row.
+      expect(
+        AuditLog.exists?(action: 'data_deletion.approve', resource_id: deletion_request.id)
+      ).to be false
+    end
+
+    it 'does not raise outside the test environment, but still writes the durable fallback row' do
+      # Runs the REAL log_internal_audit (nothing about it is stubbed) with
+      # only Rails.env.test? forced false, so this exercises the exact
+      # production code path rather than a hand-written reimplementation.
+      # This is what makes `raise if Rails.env.test?` in
+      # internal_base_controller.rb load-bearing in BOTH directions: making
+      # it unconditional (raising in production too) reddens this example;
+      # deleting it entirely (back to the pre-fix silent swallow) reddens
+      # the example above instead, since the response would stay 200.
+      allow(Rails.env).to receive(:test?).and_return(false)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { action_type: 'approve', processed_by_id: admin_user.id },
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
+      expect(deletion_request.reload.status).to eq('approved')
+
+      fallback_row = AuditLog.where(action: 'audit_logging_error').order(:created_at).last
+      expect(fallback_row).not_to be_nil
+      expect(fallback_row.metadata['original_action']).to eq('data_deletion.approve')
+
+      expect(
+        AuditLog.exists?(action: 'data_deletion.approve', resource_id: deletion_request.id)
+      ).to be false
+    end
+
+    it 'does not attribute the fallback row to a guessed account when metadata carries no account_id (D1)' do
+      # Simulates the shape of maintenance_controller.rb's own
+      # "backup.create" writer (unregistered AND account_id-less; filed
+      # separately as IMP-01a0b2f5, not fixed here) without depending on
+      # that endpoint: `belongs_to :created_by` on Database::Backup makes
+      # create_backup fail before ever reaching log_internal_audit today
+      # (confirmed directly; a third, independent, also out-of-scope
+      # defect), so it cannot exercise this live. `and_wrap_original` calls
+      # through the REAL log_internal_audit with only `account_id` stripped
+      # from metadata — the exact branch this task's fix added — rather
+      # than replacing the method with a reimplementation.
+      other_account = create(:account)
+
+      allow_any_instance_of(Api::V1::Internal::DataDeletionRequestsController)
+        .to receive(:log_internal_audit).and_wrap_original do |original, action, resource_type, resource_id, metadata = {}|
+          original.call(action, resource_type, resource_id, metadata.except(:account_id))
+        end
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { action_type: 'approve', processed_by_id: admin_user.id },
+            headers: internal_headers,
+            as: :json
+
+      # No account can be honestly attributed — zero fallback rows anywhere,
+      # not a row guessed onto `other_account` (or any other account).
+      expect(AuditLog.where(action: 'audit_logging_error').count).to eq(0)
+      expect(AuditLog.where(account_id: other_account.id)).to be_empty
     end
   end
 end

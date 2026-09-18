@@ -110,6 +110,61 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # ACCOUNT DATA LIFECYCLE ACTIONS — server/app/controllers/api/v1/internal/
+  # accounts_controller.rb, the account-scoped leg of the worker-driven
+  # GDPR/CCPA deletion path (IMP-26a95cba1d43). Found while enumerating the
+  # 225 further unregistered-literal occurrences left after
+  # IMP-b95b8c5b6c40's devops/swarm/docker/worker fix — this is the cluster
+  # that task named explicitly as the one that "matters most": every one of
+  # these seven writers used a self-consistent "account.<verb>" prefix that
+  # was never registered, so AuditLog's inclusion validation rejected every
+  # row and log_internal_audit's rescue (internal_base_controller.rb, see
+  # its swallowed-write fix below) dropped it silently everywhere except a
+  # manual log read — the platform believed it was auditing irreversible
+  # personal-data destruction and anonymization and was writing nothing.
+  # Registered AS WRITTEN rather than renamed onto ACCOUNT_ACTIONS' unrelated
+  # flat tokens (account_created, suspend_account, ...): same reasoning as
+  # SWARM_ACTIONS/DOCKER_ACTIONS below — a self-consistent domain prefix
+  # that was simply never registered, not a mis-spelling of an existing one.
+  # =============================================================================
+  ACCOUNT_DATA_LIFECYCLE_ACTIONS = %w[
+    account.anonymize_audit_logs account.anonymize_payments
+    account.delete_files account.delete_api_keys account.delete_webhooks
+    account.delete_data_export_requests account.delete_data_deletion_requests
+  ].freeze
+
+  # =============================================================================
+  # USER DATA LIFECYCLE ACTIONS — server/app/controllers/api/v1/internal/
+  # users_controller.rb, the user-scoped leg of the same GDPR/CCPA path
+  # (IMP-26a95cba1d43). Same defect and same registration decision as
+  # ACCOUNT_DATA_LIFECYCLE_ACTIONS above: a self-consistent "user.<verb>"
+  # prefix, never registered. "user.delete" is NOT an alias of the
+  # pre-existing flat USER_ACTIONS token "user_deleted" (past tense) — that
+  # token is written by a different, ordinary-request-path writer for a
+  # different event shape; neither is renamed onto the other.
+  # =============================================================================
+  USER_DATA_LIFECYCLE_ACTIONS = %w[
+    user.delete user.anonymize user.anonymize_audit_logs
+    user.delete_consents user.delete_terms_acceptances
+    user.delete_password_histories user.delete_roles
+  ].freeze
+
+  # =============================================================================
+  # DATA DELETION REQUEST ACTIONS — server/app/controllers/api/v1/internal/
+  # data_deletion_requests_controller.rb, the DeletionRequest state-machine
+  # transitions (approve/reject/execute/complete) that drive the account/user
+  # lifecycle writers above (IMP-26a95cba1d43). Same defect, same decision.
+  # Distinct from the pre-existing flat COMPLIANCE_ACTIONS token
+  # "data_deletion" (no dot, fired once by
+  # DataManagement::DeletionRequest#log_deletion_requested on request
+  # creation) — that token names a different event and is untouched here.
+  # =============================================================================
+  DATA_DELETION_REQUEST_ACTIONS = %w[
+    data_deletion.approve data_deletion.reject
+    data_deletion.execute data_deletion.complete
+  ].freeze
+
+  # =============================================================================
   # EMAIL & NOTIFICATION ACTIONS
   # =============================================================================
   NOTIFICATION_ACTIONS = %w[
@@ -473,6 +528,9 @@ module AuditActions
     SYSTEM_ACTIONS,
     SECURITY_ACTIONS,
     COMPLIANCE_ACTIONS,
+    ACCOUNT_DATA_LIFECYCLE_ACTIONS,
+    USER_DATA_LIFECYCLE_ACTIONS,
+    DATA_DELETION_REQUEST_ACTIONS,
     NOTIFICATION_ACTIONS,
     AI_AGENT_ACTIONS,
     AI_CONVERSATION_ACTIONS,
