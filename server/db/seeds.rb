@@ -494,6 +494,25 @@ settings.set_unless_exists(Ai::Learning::EvaluationService::DAILY_CAP_SETTING,
                                         "A missing, zero or non-numeric value falls back to the default.",
                            setting_type: "integer", is_public: false)
 
+# Sample/demo content (IMP-f1f96c292991, 2026-09-13 operator ruling): the 5
+# business example agents, hobby/showcase node templates + their exclusive
+# modules, role modules used only by smoke seeds, and the local-qemu dev
+# provider. OFF by default — a fresh install ships product content (the
+# starter catalog + Pro Cloud scaffold) only; sample content is opt-in.
+# unless-exists, like the flags above, so a re-seed never reverts an
+# operator's choice. The reader (Powernode::SampleContentGate) already
+# treats an absent row as OFF, so this row exists only to give the operator
+# a toggle to render — seeds do not re-run after first boot, so flipping it
+# on an established install affects only future per-account bootstrap, not
+# content already seeded (see the removal rake for existing installs).
+settings.set_unless_exists(Powernode::SampleContentGate::SETTING_KEY, "false",
+                           description: "Seed sample/demo content: the 5 business example agents, " \
+                                        "hobby/showcase node templates (rpi4-base, rpi4-hardened, " \
+                                        "web-apache, web-nginx) and their exclusive modules, role " \
+                                        "modules used only by smoke seeds, and the local-qemu dev " \
+                                        "provider. OFF means a clean install ships product content only.",
+                           setting_type: "boolean", is_public: false)
+
 settings.finish
 
 

@@ -41,6 +41,11 @@ RSpec.describe "core fundamental agent seeds → global" do
   end
 
   it "globalizes the 2 fundamental autonomy_data agents but keeps industry agents account-scoped" do
+    # IMP-f1f96c292991: the industry/business example agents are sample
+    # content, OFF by default — enable the gate to exercise their creation
+    # path here (this example is about globalization, not gating; gating
+    # itself is covered by sample_content_agents_seed_spec.rb).
+    SiteSetting.set(Powernode::SampleContentGate::SETTING_KEY, "true", setting_type: "boolean")
     load_seed!("autonomy_data_seed.rb")
     %w[process-automation-optimizer visual-design-assistant].each do |slug|
       expect(global?(slug)).to be(true), "#{slug} should be global"

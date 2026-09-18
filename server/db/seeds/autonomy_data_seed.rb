@@ -26,6 +26,19 @@ admin_user    = admin_account&.users&.find_by(email: "admin@powernode.org")
 # ===========================================================================
 # STEP 1 — Agent Consolidation
 # ===========================================================================
+
+# IMP-f1f96c292991 (2026-09-13 operator ruling): the 5 industry/business
+# example agents below are SAMPLE content — behind Powernode::SampleContentGate,
+# default OFF. The GLOBAL canonicals (process-automation-optimizer,
+# visual-design-assistant) are product, not sample, and are never gated.
+SAMPLE_AGENT_NAMES = [
+  "Legal & Compliance Analyst",
+  "Life Sciences Research Analyst",
+  "Finance Operations Analyst",
+  "Sales Operations Specialist",
+  "Customer Success Agent"
+].freeze
+
 KEEP_AGENT_NAMES = [
   # Dev team agents (ai_dev_team_seed.rb)
   "Powernode Project Lead",
@@ -186,6 +199,8 @@ extra_agents.each do |ad|
     declare_canonical_tier.call(canonical, ad[:tier]) if ad[:tier]
     CoreSeeds::CanonicalToolAccess.declare_families!(canonical, ad.fetch(:tool_families))
   else
+    # Account-scoped SAMPLE agent (IMP-f1f96c292991) — OFF by default.
+    next unless Powernode::SampleContentGate.enabled?
     # Account-scoped demo agent: needs the admin account, its user and a provider.
     next unless admin_account && admin_user && chosen_provider
 
@@ -268,16 +283,20 @@ end
 # STEP 2 — Seed Trust Scores and Budgets
 # ===========================================================================
 
-# Reload kept agents
-agents = Ai::Agent.for_account(admin_account.id).where(name: KEEP_AGENT_NAMES)
+# Reload kept agents. When sample content is OFF the 5 SAMPLE_AGENT_NAMES
+# were never created above, so they are excluded from the expected set —
+# otherwise every seed run on a default (sample-content-off) install would
+# log a "missing agents" warning for agents that were deliberately not seeded.
+expected_agent_names = Powernode::SampleContentGate.enabled? ? KEEP_AGENT_NAMES : (KEEP_AGENT_NAMES - SAMPLE_AGENT_NAMES)
+agents = Ai::Agent.for_account(admin_account.id).where(name: expected_agent_names)
   .index_by(&:name)
 
 # Also include the concierge agent
 concierge = Ai::Agent.resolve_concierge_for(admin_account.id)
 agents[concierge.name] = concierge if concierge
 
-if agents.size < KEEP_AGENT_NAMES.size
-  missing = KEEP_AGENT_NAMES - agents.keys
+if agents.size < expected_agent_names.size
+  missing = expected_agent_names - agents.keys
   Rails.logger.warn "[AutonomySeed] Missing agents: #{missing.join(', ')} — seeding partial data"
 end
 
