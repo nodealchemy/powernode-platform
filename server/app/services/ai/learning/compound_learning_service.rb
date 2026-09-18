@@ -1228,18 +1228,77 @@ module Ai
         value.to_f.clamp(0.0, 1.0)
       end
 
+      # IMP-8988961e5bf1 — plain OR across the first five words of >= 3 chars,
+      # with no stop-word removal, made this branch fire on almost the entire
+      # corpus whenever a query happened to contain a common filler word
+      # ("the", "how", ...): a single-word OR condition on "the" alone matched
+      # the same top rows (by importance_score) as the full 12-word probe that
+      # exposed this (evaluation 2026-09-18 §4) — the filler word, not the
+      # query's actual content, was picking the results. Measured live against
+      # the production corpus (~1,388 rows): "restart" alone returned 20
+      # unrelated rows (MCP payload scoring, encryption key rotation, a
+      # monotonic-guard postmortem — nothing about restarting anything);
+      # "ops-hub deploy restart" (3-word OR) returned 20 rows of which exactly
+      # ONE actually contains all three terms.
+      #
+      # Plain AND-of-all-keywords was considered and rejected: it is the exact
+      # regression IMP-3470890a626f fixed (see
+      # spec/services/ai/tools/learning_tool_spec.rb, "returns learnings
+      # matching ANY of the query words (not strict AND)") — a query whose
+      # words don't all land in the same row returned zero for every
+      # multi-word query, while each word alone returned everything. Strict
+      # AND on a 5-token query would reproduce that on a query summarized
+      # imprecisely.
+      #
+      # The fix is a RELEVANCE FLOOR (operator ruling, evaluation 2026-09-18
+      # §4): stop words are dropped before the five-keyword cap so the cap
+      # holds content words, not filler, and a row must match at least half
+      # (rounded up) of the surviving keywords rather than any single one —
+      # floored at 2 once there are 2+ keywords, not ceil(2/2)=1. A floor of 1
+      # at n=2 would keep the exact defect this fix exists for: measured live
+      # ("restart rails", 2 words, no stop words to strip) it returns the same
+      # 20-row noisy OR set as the single-word probes ("restart" alone) —
+      # AR encryption key rotation, MCP payload scoring, a monotonic-guard
+      # postmortem — with only a couple of rows in that set actually
+      # mentioning both terms together. required=2 keeps those and drops the
+      # rest; n=1 stays at 1 (nothing to raise it against). n=3/n=4 already
+      # computed 2 under plain ceil(n/2), n=5 stays 3 — only the n=2 case
+      # changes. Returning fewer rows — or none — than a looser match would
+      # have is the intended outcome, not a regression: a query nothing clears
+      # the floor for should answer empty (D7), not with irrelevant matches.
+      STOP_WORDS = %w[
+        how why what who which when where the this that these those and but
+        for you your our their his her its from with into over under about
+        after before during through between among without within upon
+        toward towards across along behind beyond despite except since
+        until per out off
+        again more most some any all each few other only own same too very
+        just does did was were are been being can could will would should
+        shall may might must not yes then than such
+      ].to_set.freeze
+
       def keyword_search(query, statuses: Ai::CompoundLearning::SURFACING_STATUSES)
         return Ai::CompoundLearning.none if query.blank?
 
-        keywords = query.downcase.split(/\s+/).reject { |w| w.length < 3 }.first(5)
+        keywords = query.downcase.split(/\s+/)
+          .reject { |w| w.length < 3 || STOP_WORDS.include?(w) }
+          .first(5)
         return Ai::CompoundLearning.none if keywords.empty?
+
+        required_matches = keywords.size <= 1 ? 1 : [ 2, (keywords.size / 2.0).ceil ].max
 
         # Parameterized, never string-built: sanitize_sql_like escapes LIKE
         # wildcards but NOT quotes, so interpolating it into a raw SQL string
         # broke (and was injectable) for any query containing an apostrophe —
         # which matters now that MCP query_learnings routes user-typed queries
         # here. Title included for parity with the old tool-side matcher.
-        conditions = Array.new(keywords.size) { "(LOWER(title) LIKE ? OR LOWER(content) LIKE ?)" }.join(" OR ")
+        #
+        # Each keyword contributes 0 or 1 to a per-row match count (title OR
+        # content, same as before); the row is kept only once that count
+        # clears required_matches — the N-of-M relevance floor described
+        # above, computed in SQL rather than by pulling every OR-matched row
+        # into Ruby to count there.
+        match_count_sql = keywords.map { "(CASE WHEN LOWER(title) LIKE ? OR LOWER(content) LIKE ? THEN 1 ELSE 0 END)" }.join(" + ")
         patterns = keywords.flat_map { |kw| pattern = "%#{Ai::CompoundLearning.sanitize_sql_like(kw)}%"; [ pattern, pattern ] }
         # The same status set semantic_search uses, from the same constant
         # (Ai::CompoundLearning::SURFACING_STATUSES) so the two branches cannot
@@ -1250,7 +1309,7 @@ module Ai
         # answerable instead of silently unsatisfiable.
         Ai::CompoundLearning.where(status: Array(statuses))
           .for_account(@account.id)
-          .where(conditions, *patterns)
+          .where("(#{match_count_sql}) >= ?", *patterns, required_matches)
           .order(importance_score: :desc)
           .limit(20)
       end

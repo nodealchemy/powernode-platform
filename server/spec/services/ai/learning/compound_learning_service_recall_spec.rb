@@ -315,4 +315,120 @@ RSpec.describe Ai::Learning::CompoundLearningService, "recall fallback", type: :
       expect(result[:match_mode]).to eq("filter")
     end
   end
+
+  # IMP-8988961e5bf1 — keyword_search ORed the first five words of >= 3 chars
+  # with no stop-word removal. On a real prose query that OR is dominated by
+  # whichever filler word (here "the") happens to survive the length filter:
+  # measured live against the production corpus (evaluation 2026-09-18 §4),
+  # "the" alone returned the same top rows as the full query. Operator ruling:
+  # a relevance floor — drop stop words before the five-keyword cap, then
+  # require a row to match at least half (rounded up) of what's left, not
+  # any single keyword. See the STOP_WORDS / keyword_search comment for why
+  # plain AND-of-all-keywords was rejected (it is the exact regression
+  # IMP-3470890a626f fixed, pinned in learning_tool_spec.rb).
+  describe "keyword fallback relevance floor (IMP-8988961e5bf1)" do
+    let(:probe_query) { "how do I restart the rails service on ops-hub after a deploy" }
+
+    # Matches 4 of the 5 surviving keywords (restart, rails, service, deploy;
+    # not the literal token "ops-hub") — clears a 3-of-5 floor.
+    let!(:on_topic) do
+      create(:ai_compound_learning, account: account, status: "active",
+             title: "Restarting the rails service on ops-hub after a deploy",
+             content: "Run systemctl restart on the rails service unit after every deploy.",
+             importance_score: 0.6)
+    end
+
+    # Each of these matches exactly ONE of the 5 surviving keywords — the
+    # shape of the noise the unpatched OR branch surfaced (a single shared
+    # word with an otherwise unrelated row).
+    let!(:only_restart) do
+      create(:ai_compound_learning, account: account, status: "active",
+             title: "Monotonic guard is an amplifier, not a safety property",
+             content: "A never-written last_seen_at made real; restart of the reconciler is unrelated.",
+             importance_score: 0.95)
+    end
+    let!(:only_rails) do
+      create(:ai_compound_learning, account: account, status: "active",
+             title: "AR encryption key rotation pattern",
+             content: "Rails 8 ActiveRecord::Encryption.configure accepts an array of keys.",
+             importance_score: 0.9)
+    end
+    let!(:only_service) do
+      create(:ai_compound_learning, account: account, status: "active",
+             title: "Fleet sensor definition of done",
+             content: "A signal binding, an intervention policy, and a dedup key define a service sensor.",
+             importance_score: 0.85)
+    end
+
+    it "excludes single-keyword-overlap noise and keeps the row that actually answers the query" do
+      result = service.search_learnings(query: probe_query)
+
+      ids = result[:learnings].map(&:id)
+      expect(ids).to include(on_topic.id)
+      expect(ids).not_to include(only_restart.id, only_rails.id, only_service.id)
+      expect(result[:match_mode]).to eq("keyword")
+    end
+
+    it "returns fewer rows than the old unfloored OR would have (which matched all four)" do
+      result = service.search_learnings(query: probe_query)
+
+      expect(result[:learnings].size).to eq(1)
+    end
+
+    it "returns match_mode none with zero rows when nothing clears the floor — not a loose guess" do
+      result = service.search_learnings(query: "zzzz nonexistent phrase qqqq wibble")
+
+      expect(result[:learnings]).to be_empty
+      expect(result[:match_mode]).to eq("none")
+    end
+
+    # Isolates stop-word removal from the relevance floor above: this query's
+    # non-stop-word content is exactly 5 tokens ("best", "way", "configure",
+    # "rails", "service"), the same five the fix selects. Without stop-word
+    # removal the five-word cap instead keeps ["what", "the", "best", "way",
+    # "configure"] — "rails" and "service" never make the cut — so
+    # on_target's 3 real overlaps (configure/rails/service) collapse to 2
+    # ("the" + "configure"), one short of the 3-of-5 floor, and it drops out.
+    # A mutant that keeps the relevance floor but deletes STOP_WORDS filtering
+    # reddens this example without touching the two above it.
+    it "keeps a real content word inside the five-keyword cap instead of losing it to filler words" do
+      on_target = create(:ai_compound_learning, account: account, status: "active",
+                          title: "Local database setup",
+                          content: "Configure the rails service unit for local development.",
+                          importance_score: 0.6)
+
+      result = service.search_learnings(query: "what is the best way to configure the rails service")
+
+      expect(result[:learnings].map(&:id)).to include(on_target.id)
+    end
+
+    # F1 (review): ceil(2/2) is 1, i.e. plain OR — a 2-keyword query kept the
+    # exact defect this task exists to fix. Measured live: "restart rails" (no
+    # stop words to strip) returned the same 20-row noisy OR set as "restart"
+    # alone. required_matches is floored at 2 once there are 2+ keywords, not
+    # left at ceil(n/2), so a 2-word query needs BOTH terms, same as the
+    # 3-and-4-word cases already did.
+    describe "n=2 also needs both keywords, not either" do
+      let!(:both_terms) do
+        create(:ai_compound_learning, account: account, status: "active",
+               title: "Hot restart races Puma workers",
+               content: "SIGUSR2 hot restarts a rails app server intermittently 404s on real routes.",
+               importance_score: 0.6)
+      end
+      let!(:one_term_only) do
+        create(:ai_compound_learning, account: account, status: "active",
+               title: "AR encryption key rotation pattern",
+               content: "Rails 8 ActiveRecord::Encryption.configure accepts an array of keys.",
+               importance_score: 0.95)
+      end
+
+      it "keeps the row matching both keywords and excludes the row matching only one" do
+        result = service.search_learnings(query: "restart rails")
+
+        ids = result[:learnings].map(&:id)
+        expect(ids).to include(both_terms.id)
+        expect(ids).not_to include(one_term_only.id)
+      end
+    end
+  end
 end
