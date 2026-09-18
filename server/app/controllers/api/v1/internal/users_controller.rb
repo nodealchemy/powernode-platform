@@ -2,7 +2,7 @@
 
 # Internal API controller for worker service to fetch and manage user data
 class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseController
-  before_action :set_user, only: [ :show, :destroy, :anonymize, :anonymize_audit_logs,
+  before_action :set_user, only: [ :show, :anonymize, :anonymize_audit_logs,
                                     :delete_consents, :delete_terms_acceptances,
                                     :delete_password_histories, :delete_roles ]
 
@@ -25,15 +25,6 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
         last_login_at: @user.last_login_at
       }
     )
-  end
-
-  # DELETE /api/v1/internal/users/:id
-  def destroy
-    account_id = @user.account_id
-    user_id = @user.id
-    @user.destroy
-    log_internal_audit("user.delete", "User", user_id, account_id: account_id)
-    render_success(message: "User deleted successfully")
   end
 
   # PATCH /api/v1/internal/users/:user_id/anonymize

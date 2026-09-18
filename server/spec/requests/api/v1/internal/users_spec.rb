@@ -17,18 +17,6 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
   let(:account) { create(:account) }
   let!(:user) { create(:user, account: account, email: 'test@example.com', name: 'Test User') }
 
-  # NOTE (IMP-26a95cba1d43): UsersController#destroy emits log_internal_audit
-  # ("user.delete", ...), which is now a registered AuditActions literal (see
-  # audit_actions.rb) — but `bin/rails routes` shows no DELETE route to
-  # api/v1/internal/users#destroy exists (only :show is declared under
-  # `resources :users, only: [:show]`). The action is unreachable over HTTP
-  # today, a separate pre-existing defect (dead controller code / missing
-  # route) out of scope for this task, so there is deliberately no request
-  # spec here for it. Its literal is still guarded statically by
-  # spec/models/concerns/deletion_domain_audit_action_literals_spec.rb, and
-  # the log_internal_audit mechanism it would use is exercised live by every
-  # other action in this file.
-
   describe 'GET /api/v1/internal/users/:id' do
     context 'with valid service token' do
       it 'returns user details' do

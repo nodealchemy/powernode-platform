@@ -40,13 +40,12 @@ require "open3"
 #     divergence between them is a genuine finding, not a tautology.
 #   - Recognizes only the log_internal_audit("literal", ...) call shape,
 #     which is the only shape any writer in this cluster uses.
-#   - user.delete (UsersController#destroy) is included in the extraction and
-#     in AuditActions' registration, but that controller action has NO route
-#     (confirmed via `bin/rails routes`) — it is unreachable over HTTP today,
-#     a separate, pre-existing defect (dead controller code) out of scope for
-#     this task. This spec still guards its literal because AuditActions
-#     validates by string, not by reachability, and the action returning to
-#     life via a future routing fix must not silently regress this guard.
+#   - user.delete (UsersController#destroy) used to be included here: that
+#     controller action had NO route and nothing in the real GDPR erasure
+#     flow ever called it (IMP-d845eb50e0b6 confirmed the design is
+#     anonymize-in-place, not hard-delete). Both the dead action and its
+#     literal were removed rather than wired — see audit_actions.rb's
+#     USER_DATA_LIFECYCLE_ACTIONS comment for the full investigation.
 RSpec.describe "deletion/anonymization domain audit action literals are registered" do
   domain_prefixes = %w[account. user. data_deletion.].freeze
   literal_pattern = /\blog_internal_audit\(\s*["']([\w.]+)["']/
@@ -100,10 +99,11 @@ RSpec.describe "deletion/anonymization domain audit action literals are register
 
     # Positive floor, same reasoning as audit_action_literals_spec.rb's F1:
     # `offenders` reads empty both when every literal is registered AND when
-    # the extraction matched nothing — 18 is the actual raw literal count
-    # across these three files as of this task (7 account.* + 7 user.* + 4
-    # data_deletion.*); verified by temporarily excluding one file, which
-    # drops the count below this floor and fails the example.
+    # the extraction matched nothing — 17 is the actual raw literal count
+    # across these three files as of IMP-d845eb50e0b6 (7 account.* + 6
+    # user.* + 4 data_deletion.*, down from 7 user.* after user.delete's
+    # removal); verified by temporarily excluding one file, which drops the
+    # count below this floor and fails the example.
     expect(total_literal_occurrences).to be >= 15
   end
 

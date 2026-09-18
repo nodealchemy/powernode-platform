@@ -20,7 +20,7 @@ class Api::V1::Internal::InternalBaseController < ApplicationController
   private
 
   # Audit logging helper for internal service operations
-  # @param action [String] The action being performed (e.g., 'account.anonymize', 'user.delete')
+  # @param action [String] The action being performed (e.g., 'account.anonymize_audit_logs', 'user.anonymize')
   # @param resource_type [String] The type of resource being affected
   # @param resource_id [String] The ID of the resource being affected
   # @param metadata [Hash] Additional context for the audit log

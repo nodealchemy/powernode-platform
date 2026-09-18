@@ -138,13 +138,26 @@ module AuditActions
   # users_controller.rb, the user-scoped leg of the same GDPR/CCPA path
   # (IMP-26a95cba1d43). Same defect and same registration decision as
   # ACCOUNT_DATA_LIFECYCLE_ACTIONS above: a self-consistent "user.<verb>"
-  # prefix, never registered. "user.delete" is NOT an alias of the
-  # pre-existing flat USER_ACTIONS token "user_deleted" (past tense) — that
-  # token is written by a different, ordinary-request-path writer for a
-  # different event shape; neither is renamed onto the other.
+  # prefix, never registered.
+  #
+  # "user.delete" was removed (IMP-d845eb50e0b6): it was the literal for
+  # UsersController#destroy, which had no route and nothing in the actual
+  # GDPR erasure flow ever called it. The DESIGN INTENT is anonymize-in-place
+  # — worker's DataDeletionJob and AccountTerminationJob call anonymize
+  # endpoints instead of a hard delete, never hard-deleting the user row for
+  # any deletion_type. (That anonymize path is itself currently defective in
+  # production — internal users#anonymize writes a nonexistent `phone`
+  # column and AccountTerminationJob's user-anonymize PATCH hits an unrouted
+  # URL — tracked separately as improvement offer 01a0b57b-71ba, not fixed
+  # here.) The dead destroy action and its dead literal are both gone;
+  # hard-deleting a user is handled by the routed, permission-gated
+  # Api::V1::UsersController#destroy (blocks self-deletion) and
+  # Api::V1::Admin::UsersController#destroy (admin.user.delete; blocks
+  # self-deletion AND removing the last account owner) — invariants this
+  # internal action never had.
   # =============================================================================
   USER_DATA_LIFECYCLE_ACTIONS = %w[
-    user.delete user.anonymize user.anonymize_audit_logs
+    user.anonymize user.anonymize_audit_logs
     user.delete_consents user.delete_terms_acceptances
     user.delete_password_histories user.delete_roles
   ].freeze
