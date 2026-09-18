@@ -178,62 +178,207 @@ RSpec.describe Ai::Learning::CompoundLearningService, "similarity-weighted ranki
     end
 
     it "injection threshold is overridable via the account setting, independent of recall" do
+      learning = create(:ai_compound_learning, account: account, status: "active", content: "anything")
       account.update!(settings: (account.settings || {}).merge(
         "ai_learning_injection_similarity_threshold" => 0.8
       ))
       overridden_service = described_class.new(account: account.reload)
       allow(Ai::Memory::EmbeddingService).to receive(:new).and_return(embedding_service)
+      # IMP-bfe8d1ef425e: an empty primary-tier result now triggers a real
+      # (production, not diagnostic) retry at the recall floor — see the
+      # dedicated "tiered similarity floor fallback" describe block below.
+      # This test is only about which threshold each SURFACE's primary call
+      # uses, so the stub returns a hit at every threshold it's asked about,
+      # keeping that retry from firing and adding a call this test doesn't
+      # expect.
+      allow(Ai::CompoundLearning).to receive(:semantic_search) do |_embedding, **kwargs|
+        captured << kwargs
+        [ with_distance(learning, 0.1) ]
+      end
 
       overridden_service.build_compound_context(agent: nil, task_description: "anything")
       overridden_service.search_learnings(query: "anything")
 
-      # build_compound_context's empty-candidate branch makes a second,
-      # diagnostic semantic_search call at threshold 0.0 (see
-      # #log_empty_injection_floor) — filter it out rather than index
-      # positionally, so this test doesn't depend on that call happening to
-      # land between the two calls under test.
-      real_calls = captured.reject { |kwargs| kwargs[:threshold] == 0.0 }
-      expect(real_calls[0][:threshold]).to eq(0.8)   # injection: overridden
-      expect(real_calls[1][:threshold]).to eq(0.5)   # recall: untouched by the injection setting
+      expect(captured[0][:threshold]).to eq(0.8)   # injection: overridden
+      expect(captured[1][:threshold]).to eq(0.5)   # recall: untouched by the injection setting
     end
   end
 
-  # A1 (review of IMP-71ea81f5ab16, 2026-09-18): the 0.65 injection floor
-  # legitimately empties a real fraction of tasks (measured 68% on a
-  # realistically-sized probe). That must be logged, not silent, so
-  # "correctly withheld" is distinguishable from "broken".
-  describe "logging when the injection floor empties every candidate" do
-    let!(:below_floor) do
+  # IMP-bfe8d1ef425e (follow-up to IMP-71ea81f5ab16 / evaluation 2026-09-18
+  # §1.1): the 0.65 injection floor legitimately empties a real fraction of
+  # tasks (measured 68% on a realistically-sized probe), and the injection
+  # path has no keyword fallback (see the fallback-mode note on
+  # #ranked_learning_candidates_with_mode), so an empty primary tier meant
+  # the agent ran with zero learnings. Operator ruling: TIERED retry, not a
+  # floor change — try 0.65 first; only when that returns zero candidates,
+  # retry once at 0.5 and mark which tier served the result.
+  #
+  # Three distinct behaviours get three distinct examples — a single example
+  # asserting only "results came back non-empty" would still pass under a
+  # mutant that collapsed the two tiers into one (e.g. always querying at
+  # 0.5), which is exactly the regression this pair of tasks is trying to
+  # prevent.
+  describe "tiered similarity floor fallback" do
+    let!(:clears_primary) do
       create(:ai_compound_learning, account: account, status: "active",
-             content: "a row that exists but never clears the injection floor")
+             content: "row that clears the 0.65 injection floor")
     end
 
-    before do
-      # First call (the real threshold) returns nothing; the diagnostic
-      # re-query at threshold 0.0 (no floor) returns the one row that exists,
-      # so the log line's candidates_in_window figure is exercised as >0.
+    let!(:clears_only_fallback) do
+      create(:ai_compound_learning, account: account, status: "active",
+             content: "row that only clears the looser 0.5 recall floor")
+    end
+
+    it "a probe clearing the primary 0.65 floor is served by the first tier and never reaches the second query" do
       allow(Ai::CompoundLearning).to receive(:semantic_search) do |_embedding, **kwargs|
-        if kwargs[:threshold] == 0.0
-          [ with_distance(below_floor, 0.9) ]
-        else
-          []
-        end
+        [ with_distance(clears_primary, 0.2) ].select { |l| l.neighbor_distance <= 1.0 - kwargs[:threshold] }
       end
-      allow(Rails.logger).to receive(:info)
+
+      result = service.build_compound_context(agent: nil, task_description: "primary tier probe")
+
+      expect(result[:learning_ids]).to eq([ clears_primary.id ])
+      expect(result[:match_mode]).to eq("semantic")
+      expect(Ai::CompoundLearning).to have_received(:semantic_search).once
     end
 
-    it "logs query shape, the floor in force, and the pre-floor candidate count" do
-      service.build_compound_context(agent: nil, task_description: "floor test")
+    it "a probe clearing only the 0.5 fallback floor is served by the retry and marked as such" do
+      allow(Ai::CompoundLearning).to receive(:semantic_search) do |_embedding, **kwargs|
+        [ with_distance(clears_only_fallback, 0.45) ].select { |l| l.neighbor_distance <= 1.0 - kwargs[:threshold] }
+      end
+
+      result = service.build_compound_context(agent: nil, task_description: "fallback tier probe")
+
+      expect(result[:learning_ids]).to eq([ clears_only_fallback.id ])
+      expect(result[:match_mode]).to eq("semantic_fallback")
+      expect(Ai::CompoundLearning).to have_received(:semantic_search).twice
+    end
+
+    it "a probe clearing neither floor still returns empty gracefully and is marked genuinely empty" do
+      allow(Ai::CompoundLearning).to receive(:semantic_search).and_return([])
+
+      result = service.build_compound_context(agent: nil, task_description: "no match probe")
+
+      expect(result[:context]).to be_nil
+      expect(result[:learning_ids]).to eq([])
+      expect(result[:match_mode]).to eq("none")
+      expect(Ai::CompoundLearning).to have_received(:semantic_search).twice
+    end
+
+    it "logs the fallback-served outcome with the surfaced count" do
+      allow(Rails.logger).to receive(:info)
+      allow(Ai::CompoundLearning).to receive(:semantic_search) do |_embedding, **kwargs|
+        [ with_distance(clears_only_fallback, 0.45) ].select { |l| l.neighbor_distance <= 1.0 - kwargs[:threshold] }
+      end
+
+      service.build_compound_context(agent: nil, task_description: "fallback tier probe")
 
       expect(Rails.logger).to have_received(:info).with(
-        a_string_matching(/injection similarity floor emptied candidates.*threshold=0\.65.*candidates_in_window=1.*surfaced=0/)
+        a_string_matching(/injection retrieval outcome.*match_mode=semantic_fallback.*embedding_present=true.*primary_threshold=0\.65.*fallback_threshold=0\.5.*surfaced=1/)
       )
     end
 
-    it "does not log on the RECALL surface (which has its own keyword fallback instead)" do
-      service.search_learnings(query: "floor test")
+    it "logs the genuinely-empty outcome with surfaced=0" do
+      allow(Rails.logger).to receive(:info)
+      allow(Ai::CompoundLearning).to receive(:semantic_search).and_return([])
 
-      expect(Rails.logger).not_to have_received(:info).with(a_string_matching(/injection similarity floor emptied/))
+      service.build_compound_context(agent: nil, task_description: "no match probe")
+
+      expect(Rails.logger).to have_received(:info).with(
+        a_string_matching(/injection retrieval outcome.*match_mode=none.*embedding_present=true.*primary_threshold=0\.65.*fallback_threshold=0\.5.*surfaced=0/)
+      )
+    end
+
+    # F1 (review of IMP-bfe8d1ef425e, 2026-09-18): a tiered fallback only
+    # closes the observability gap this task exists to close if the HEALTHY
+    # outcome is ALSO distinguishable from every unhealthy one. Staying silent
+    # on primary-tier success (the pre-fix behavior) was byte-identical to
+    # staying silent because the embedding service is down and every task is
+    # quietly degrading — so the primary-served case must log too.
+    it "logs the primary-tier-served (healthy) outcome too, so it's distinguishable from an outage" do
+      allow(Rails.logger).to receive(:info)
+      allow(Ai::CompoundLearning).to receive(:semantic_search) do |_embedding, **kwargs|
+        [ with_distance(clears_primary, 0.2) ].select { |l| l.neighbor_distance <= 1.0 - kwargs[:threshold] }
+      end
+
+      service.build_compound_context(agent: nil, task_description: "primary tier probe")
+
+      expect(Rails.logger).to have_received(:info).with(
+        a_string_matching(/injection retrieval outcome.*match_mode=semantic.*embedding_present=true.*fallback_threshold=n\/a.*surfaced=1/)
+      )
+    end
+
+    # F1: the case with the widest blast radius — an embedding-service outage
+    # degrading injection to keyword (or to nothing) — must be as visible as
+    # the similarity-floor outcomes, not indistinguishable from either a clean
+    # 0.65 match (silence) or a genuine similarity-floor withhold.
+    it "logs embedding_present=false when the injection path degrades to keyword on a missing embedding" do
+      allow(Rails.logger).to receive(:info)
+      allow(embedding_service).to receive(:generate_or_nil).and_return(nil)
+      create(:ai_compound_learning, account: account, status: "active", content: "caching queries pattern")
+
+      service.build_compound_context(agent: nil, task_description: "caching queries")
+
+      expect(Rails.logger).to have_received(:info).with(
+        a_string_matching(/injection retrieval outcome.*match_mode=keyword.*embedding_present=false.*fallback_threshold=n\/a/)
+      )
+    end
+
+    it "logs embedding_present=false and match_mode=none when a missing embedding also finds no keyword hits" do
+      allow(Rails.logger).to receive(:info)
+      allow(embedding_service).to receive(:generate_or_nil).and_return(nil)
+
+      service.build_compound_context(agent: nil, task_description: "zzzz nonexistent phrase qqqq")
+
+      expect(Rails.logger).to have_received(:info).with(
+        a_string_matching(/injection retrieval outcome.*match_mode=none.*embedding_present=false.*fallback_threshold=n\/a/)
+      )
+    end
+
+    it "does not log on the RECALL surface, which has its own keyword fallback instead" do
+      allow(Rails.logger).to receive(:info)
+      allow(Ai::CompoundLearning).to receive(:semantic_search).and_return([])
+
+      service.search_learnings(query: "no match probe")
+
+      expect(Rails.logger).not_to have_received(:info).with(a_string_matching(/injection retrieval outcome/))
+    end
+
+    # F3 (review of IMP-bfe8d1ef425e, 2026-09-18): both floors are
+    # account-overridable, independently. If an account tightens its
+    # injection floor to at-or-below its recall floor, the "fallback" tier is
+    # no looser than primary — it can only ever reproduce primary's empty
+    # result — so the retry must be skipped rather than paying a provably
+    # useless duplicate query.
+    describe "when the account's injection floor is not looser to fall back to (F3)" do
+      before do
+        account.update!(settings: (account.settings || {}).merge(
+          "ai_learning_injection_similarity_threshold" => 0.4
+        ))
+      end
+
+      let(:tight_service) { described_class.new(account: account.reload) }
+
+      it "skips the retry query entirely and reports genuinely empty" do
+        allow(Ai::Memory::EmbeddingService).to receive(:new).and_return(embedding_service)
+        allow(Ai::CompoundLearning).to receive(:semantic_search).and_return([])
+
+        result = tight_service.build_compound_context(agent: nil, task_description: "no match probe")
+
+        expect(result[:match_mode]).to eq("none")
+        expect(Ai::CompoundLearning).to have_received(:semantic_search).once
+      end
+
+      it "logs fallback_threshold as the value that would have applied, not a looser one that never ran" do
+        allow(Ai::Memory::EmbeddingService).to receive(:new).and_return(embedding_service)
+        allow(Ai::CompoundLearning).to receive(:semantic_search).and_return([])
+        allow(Rails.logger).to receive(:info)
+
+        tight_service.build_compound_context(agent: nil, task_description: "no match probe")
+
+        expect(Rails.logger).to have_received(:info).with(
+          a_string_matching(/injection retrieval outcome.*primary_threshold=0\.4.*fallback_threshold=0\.5.*surfaced=0/)
+        )
+      end
     end
   end
 

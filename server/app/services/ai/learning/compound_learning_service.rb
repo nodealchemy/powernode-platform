@@ -195,13 +195,13 @@ module Ai
       # ==================================================
 
       def build_compound_context(agent:, task_description:, token_budget: 2000)
-        return { context: nil, token_estimate: 0, learning_ids: [] } unless injection_enabled?
+        return { context: nil, token_estimate: 0, learning_ids: [], match_mode: nil } unless injection_enabled?
 
         char_budget = token_budget * CHARS_PER_TOKEN
         learning_ids = []
 
-        ranked = ranked_learning_candidates(task_description)
-        return { context: nil, token_estimate: 0, learning_ids: [] } if ranked.empty?
+        ranked, match_mode = ranked_learning_candidates(task_description)
+        return { context: nil, token_estimate: 0, learning_ids: [], match_mode: match_mode } if ranked.empty?
 
         # Build context string within budget
         lines = ["## Compound Learnings"]
@@ -225,17 +225,18 @@ module Ai
           learning.record_injection!
         end
 
-        return { context: nil, token_estimate: 0, learning_ids: [] } if lines.size == 1
+        return { context: nil, token_estimate: 0, learning_ids: [], match_mode: match_mode } if lines.size == 1
 
         context = lines.join("\n")
         {
           context: context,
           token_estimate: (used_chars / CHARS_PER_TOKEN.to_f).ceil,
-          learning_ids: learning_ids
+          learning_ids: learning_ids,
+          match_mode: match_mode
         }
       rescue StandardError => e
         Rails.logger.warn("[CompoundLearning] Context build failed: #{e.message}")
-        { context: nil, token_estimate: 0, learning_ids: [] }
+        { context: nil, token_estimate: 0, learning_ids: [], match_mode: nil }
       end
 
       # Lean, top-k relevant learnings for a caller that wants a small structured
@@ -243,11 +244,16 @@ module Ai
       # dev_next_task, injecting prior learnings into the primary (Claude Code)
       # executor's payload the same way build_compound_context already does for
       # platform-agent executions. Reuses the identical retrieval/ranking
-      # (embedding search at the injection similarity floor -> keyword
-      # fallback on missing embedding only -> similarity x effective_importance
-      # rank via #ranking_score, both of which already restrict to the
-      # active/verified surfacing set — retired learnings never reach either)
-      # so the two consumers can't drift apart.
+      # (embedding search at the injection similarity floor, tiered fallback to
+      # the recall floor on an empty primary tier -> keyword fallback on
+      # missing embedding only -> similarity x effective_importance rank via
+      # #ranking_score, both of which already restrict to the active/verified
+      # surfacing set — retired learnings never reach either) so the two
+      # consumers can't drift apart. match_mode is intentionally not threaded
+      # into this method's return value (an Array, unlike build_compound_context's
+      # Hash) — the shared retrieval already logs a fallback/empty outcome
+      # regardless of what either caller does with it, so nothing here is
+      # silently lost by not widening this consumer's return shape.
       # Bumps injection_count/last_injected on each surfaced learning exactly like
       # build_compound_context, so usage from either path feeds the same
       # effectiveness accrual. Summaries only (truncated title/content) to keep
@@ -256,7 +262,8 @@ module Ai
         return [] unless injection_enabled?
         return [] if task_description.blank?
 
-        ranked = ranked_learning_candidates(task_description).first(k)
+        ranked, _match_mode = ranked_learning_candidates(task_description)
+        ranked = ranked.first(k)
         return [] if ranked.empty?
 
         ranked.map do |learning|
@@ -973,13 +980,24 @@ module Ai
       # the keyword branch, which has no similarity signal to weight by. Both
       # retrieval paths already restrict to the active/verified surfacing set.
       # The INJECTION consumers' entry point. `fallback: :on_missing_embedding`
-      # is deliberate — see the note on the mode parameter below.
+      # is deliberate — see the note on the mode parameter below. On the
+      # injection path specifically, an empty primary-floor result additionally
+      # retries once at the looser recall floor before giving up — see
+      # #injection_floor_fallback.
+      #
+      # Returns [candidates, match_mode] — NOT just candidates. An earlier
+      # version called `.first` here and discarded match_mode entirely, which
+      # made a result served by the degraded fallback tier ("semantic_fallback")
+      # exactly as invisible to callers as a genuinely empty result: both this
+      # method's callers now capture it, even where a caller chooses not to
+      # thread it any further (see #top_relevant_learnings).
       def ranked_learning_candidates(task_description)
-        ranked_learning_candidates_with_mode(task_description, fallback: :on_missing_embedding).first
+        ranked_learning_candidates_with_mode(task_description, fallback: :on_missing_embedding)
       end
 
       # Returns [candidates, match_mode]. match_mode names the branch the rows
-      # came from: "semantic", "keyword", or "none" when neither matched.
+      # came from: "semantic", "semantic_fallback" (injection only — see
+      # #injection_floor_fallback), "keyword", or "none" when nothing matched.
       #
       # D7 — on the RECALL surface the fallback fires whenever the semantic
       # branch yields NOTHING, not only when the query embedding is nil. An
@@ -1053,6 +1071,7 @@ module Ai
         end
 
         match_mode = "semantic"
+        fallback_threshold = nil
         if candidates.empty? && (fallback == :on_empty || query_embedding.nil?)
           candidates = keyword_search(task_description, statuses: statuses).to_a
           match_mode = candidates.any? ? "keyword" : "none"
@@ -1062,41 +1081,113 @@ module Ai
           # similarity floor, not a missing embedding, produced zero
           # candidates. Review of IMP-71ea81f5ab16 (2026-09-18) measured this
           # as common at the 0.65 injection floor (68% empty on a probe sized
-          # like a real task description) — a legitimate withhold, but a
-          # silent one: #ranked_learning_candidates discards match_mode, and
-          # nothing otherwise distinguishes "correctly withheld" from
-          # "broken". Log the shape of what was withheld rather than adding a
-          # keyword fallback here (deliberately absent — see the fallback-mode
-          # note above).
-          match_mode = "none"
-          log_empty_injection_floor(task_description, threshold: threshold, statuses: statuses,
-                                     query_embedding: query_embedding)
+          # like a real task description) — a legitimate withhold, but the
+          # injection path has no keyword fallback to fall back on (see the
+          # fallback-mode note above), so an empty primary tier meant the
+          # agent ran with zero learnings. IMP-bfe8d1ef425e: retry once at the
+          # looser recall floor rather than lowering the injection floor
+          # outright (see #injection_floor_fallback for why precision-first
+          # stays the default).
+          candidates, match_mode, fallback_threshold = injection_floor_fallback(
+            query_embedding: query_embedding, primary_threshold: threshold, statuses: statuses
+          )
+        end
+
+        # F1 (review of IMP-bfe8d1ef425e, 2026-09-18): logged for ALL FOUR
+        # injection outcomes, not just the two non-primary ones — a tiered
+        # fallback only closes the observability gap this task exists to close
+        # if the HEALTHY outcome is also distinguishable from every unhealthy
+        # one. Before this line, silence on a primary-tier success was
+        # byte-identical to silence on the worst case: the embedding service
+        # being down, every task quietly degrading to keyword-only (or to
+        # zero learnings), with match_mode and this log both absent either
+        # way. Gated to the injection path only (:on_missing_embedding) —
+        # recall (:on_empty) has its own keyword fallback and stays silent, as
+        # a dedicated spec asserts.
+        if fallback == :on_missing_embedding
+          log_injection_outcome(
+            task_description, match_mode: match_mode, embedding_present: !query_embedding.nil?,
+            primary_threshold: threshold, fallback_threshold: fallback_threshold, surfaced: candidates.size
+          )
         end
 
         [ candidates.sort_by { |l| -ranking_score(l) }, match_mode ]
       end
 
-      # See the call site's comment. One extra semantic_search call, at
-      # threshold 0.0 (i.e. no floor) so the log line reports how many rows
-      # were actually in the candidate window before the floor cut them —
-      # only paid on the already-rare "nothing surfaced" path, never on a
-      # successful injection.
-      def log_empty_injection_floor(task_description, threshold:, statuses:, query_embedding:)
-        candidates_in_window = Ai::CompoundLearning.semantic_search(
+      # Tiered similarity floor for the injection path (IMP-bfe8d1ef425e,
+      # follow-up to IMP-71ea81f5ab16). Reached only when the primary
+      # injection floor (DEFAULT_INJECTION_SIMILARITY_THRESHOLD, 0.65)
+      # produced zero candidates despite a real query embedding. Retrying
+      # ONCE at the looser recall floor (DEFAULT_RECALL_SIMILARITY_THRESHOLD,
+      # 0.5) — rather than simply lowering the injection floor to 0.5 — keeps
+      # the precision gain IMP-71ea81f5ab16 bought for the common case (a
+      # candidate clears 0.65) while stopping a legitimate-but-tight query
+      # from costing an agent every learning. match_mode distinguishes the
+      # two outcomes ("semantic_fallback" served vs "none" genuinely empty)
+      # so a degraded-precision hit is as visible as a clean empty, never
+      # silently indistinguishable from a primary-tier match.
+      #
+      # This retry doubles as A diagnostic the pre-fix code paid for
+      # separately with an extra semantic_search call at threshold 0.0: it
+      # tells us whether anything clears the loosest floor this service still
+      # trusts for injection-adjacent ranking. It is a narrower question than
+      # the old 0.0-threshold count answered — that count could distinguish
+      # "corpus exists but is semantically distant" from "corpus empty or
+      # unembedded"; surfaced=0 here collapses both into the same reading.
+      # That narrower trade is the intended one (see the operator ruling this
+      # task was scoped under), not a claim that this retry answers every
+      # question the old diagnostic could.
+      #
+      # Returns [candidates, match_mode, fallback_threshold]. fallback_threshold
+      # is returned even when the guard below skips the query, so the caller's
+      # log line can report what the fallback floor WOULD have been.
+      def injection_floor_fallback(query_embedding:, primary_threshold:, statuses:)
+        fallback_threshold = recall_similarity_threshold
+
+        # F3 (review of IMP-bfe8d1ef425e, 2026-09-18): both floors are
+        # account-overridable (ai_learning_injection_similarity_threshold,
+        # ai_learning_recall_similarity_threshold), independently. An account
+        # that sets its injection floor at or below its recall floor makes
+        # this "fallback" tier no looser than — or stricter than — primary:
+        # every candidate that could clear it already had a chance to clear
+        # primary, so the retry can only ever reproduce primary's empty
+        # result. Skip the query rather than pay a provably useless duplicate
+        # semantic_search call and log a "fallback" that was never actually
+        # looser than what already ran.
+        return [ [], "none", fallback_threshold ] if fallback_threshold >= primary_threshold
+
+        fallback_candidates = Ai::CompoundLearning.semantic_search(
           query_embedding,
           account_id: @account.id,
-          threshold: 0.0,
+          threshold: fallback_threshold,
           limit: SEMANTIC_CANDIDATE_LIMIT,
           statuses: statuses
-        ).size
+        ).to_a
 
+        match_mode = fallback_candidates.any? ? "semantic_fallback" : "none"
+        [ fallback_candidates, match_mode, fallback_threshold ]
+      end
+
+      # Single log line covering every outcome of the INJECTION retrieval path
+      # (fallback == :on_missing_embedding only; recall never calls this — see
+      # the dedicated spec asserting that). embedding_present distinguishes a
+      # "keyword"/"none" match_mode caused by a missing embedding (an outage —
+      # see the #generate_or_nil note above) from a "none" caused by a real
+      # embedding finding nothing at either similarity tier; primary_threshold/
+      # fallback_threshold/surfaced give the same shape the previous
+      # fallback-only log line carried. fallback_threshold is nil whenever the
+      # fallback tier never ran (primary served, or the embedding was missing
+      # and the branch never reached #injection_floor_fallback at all).
+      def log_injection_outcome(task_description, match_mode:, embedding_present:, primary_threshold:,
+                                fallback_threshold:, surfaced:)
         Rails.logger.info(
-          "[CompoundLearning] injection similarity floor emptied candidates: " \
-          "query_chars=#{task_description.to_s.length} threshold=#{threshold} " \
-          "candidates_in_window=#{candidates_in_window} surfaced=0"
+          "[CompoundLearning] injection retrieval outcome: " \
+          "query_chars=#{task_description.to_s.length} match_mode=#{match_mode} " \
+          "embedding_present=#{embedding_present} primary_threshold=#{primary_threshold} " \
+          "fallback_threshold=#{fallback_threshold.nil? ? 'n/a' : fallback_threshold} surfaced=#{surfaced}"
         )
       rescue StandardError => e
-        Rails.logger.warn("[CompoundLearning] log_empty_injection_floor failed: #{e.message}")
+        Rails.logger.warn("[CompoundLearning] log_injection_outcome failed: #{e.message}")
       end
 
       # Rank = similarity x quality (evaluation 2026-09-18 §1.1 / design D3.1).
