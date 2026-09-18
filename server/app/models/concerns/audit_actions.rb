@@ -291,11 +291,28 @@ module AuditActions
   # updated in the same change; existing rows get a chained correction row
   # rather than being renamed in place, same as every other pair in that
   # migration.
+  #
+  # execution_cancel_requested/execution_pause_requested/
+  # execution_resume_requested/execution_retried (IMP-352641d30a86): the four
+  # control-signal literals agent_team_executions_controller.rb's
+  # cancel/pause/resume/retry_execution actions already wrote in this
+  # convention, but that renaming pass never registered them — they were
+  # never an alias of execution_started/completed/failed above (those name
+  # the worker's own lifecycle transitions, not an operator's control
+  # request), so AuditLog's inclusion validation rejected every one of these
+  # four rows. Found alongside a second, independent defect in the same four
+  # call sites: each called an `audit_log` method that AuditLogging never
+  # defines (it defines `log_audit_event`), which raised NoMethodError AFTER
+  # the state mutation (control_signal update / job enqueue) had already
+  # happened — fixed in the same change as this registration, so the
+  # NoMethodError could not mask this validation gap once resolved.
   # =============================================================================
   AI_AGENT_TEAM_ACTIONS = %w[
     ai.agent_team.created ai.agent_team.updated ai.agent_team.deleted
     ai.agent_team.member_added ai.agent_team.member_removed
     ai.agent_team.execution_started ai.agent_team.execution_completed ai.agent_team.execution_failed
+    ai.agent_team.execution_cancel_requested ai.agent_team.execution_pause_requested
+    ai.agent_team.execution_resume_requested ai.agent_team.execution_retried
   ].freeze
 
   # =============================================================================

@@ -15,11 +15,6 @@ RSpec.describe Api::V1::Ai::AgentTeamExecutionsController, type: :controller do
   before do
     @request.headers['Content-Type'] = 'application/json'
     @request.headers['Accept'] = 'application/json'
-    # The controller calls audit_log which is not defined in the AuditLogging concern
-    # (it defines log_audit_event instead). Define it as a no-op to prevent NoMethodError.
-    unless Api::V1::Ai::AgentTeamExecutionsController.method_defined?(:audit_log)
-      Api::V1::Ai::AgentTeamExecutionsController.define_method(:audit_log) { |*_args, **_kwargs| nil }
-    end
   end
 
   # ===========================================================================
@@ -117,6 +112,18 @@ RSpec.describe Api::V1::Ai::AgentTeamExecutionsController, type: :controller do
         expect(execution.reload.control_signal).to eq('cancel')
       end
 
+      it 'writes an audit log row for the cancel request instead of 500ing (IMP-352641d30a86)' do
+        expect {
+          post :cancel, params: { agent_team_id: team.id, id: execution.id }
+        }.to change(AuditLog, :count).by(1)
+
+        expect(response).to have_http_status(:success)
+        log = AuditLog.order(:created_at).last
+        expect(log.action).to eq('ai.agent_team.execution_cancel_requested')
+        expect(log.resource_id).to eq(execution.id.to_s)
+        expect(log.resource_type).to eq('Ai::TeamExecution')
+      end
+
       it 'returns error for non-active execution' do
         completed_exec = create(:ai_team_execution, :completed, account: account, agent_team: team)
 
@@ -149,6 +156,18 @@ RSpec.describe Api::V1::Ai::AgentTeamExecutionsController, type: :controller do
         expect(execution.reload.control_signal).to eq('pause')
       end
 
+      it 'writes an audit log row for the pause request instead of 500ing (IMP-352641d30a86)' do
+        expect {
+          post :pause, params: { agent_team_id: team.id, id: execution.id }
+        }.to change(AuditLog, :count).by(1)
+
+        expect(response).to have_http_status(:success)
+        log = AuditLog.order(:created_at).last
+        expect(log.action).to eq('ai.agent_team.execution_pause_requested')
+        expect(log.resource_id).to eq(execution.id.to_s)
+        expect(log.resource_type).to eq('Ai::TeamExecution')
+      end
+
       it 'returns error for non-running execution' do
         pending_exec = create(:ai_team_execution, account: account, agent_team: team, status: 'pending')
 
@@ -178,6 +197,20 @@ RSpec.describe Api::V1::Ai::AgentTeamExecutionsController, type: :controller do
         expect(execution.reload.control_signal).to be_nil
       end
 
+      it 'writes an audit log row for the resume request instead of 500ing (IMP-352641d30a86)' do
+        execution.update!(control_signal: 'pause')
+
+        expect {
+          post :resume, params: { agent_team_id: team.id, id: execution.id }
+        }.to change(AuditLog, :count).by(1)
+
+        expect(response).to have_http_status(:success)
+        log = AuditLog.order(:created_at).last
+        expect(log.action).to eq('ai.agent_team.execution_resume_requested')
+        expect(log.resource_id).to eq(execution.id.to_s)
+        expect(log.resource_type).to eq('Ai::TeamExecution')
+      end
+
       it 'returns error when not paused' do
         post :resume, params: { agent_team_id: team.id, id: execution.id }
 
@@ -204,6 +237,22 @@ RSpec.describe Api::V1::Ai::AgentTeamExecutionsController, type: :controller do
         expect(response).to have_http_status(:success)
         expect(json_response['success']).to be true
         expect(json_response['data']['status']).to eq('retry_queued')
+      end
+
+      it 'writes an audit log row for the retry instead of 500ing (IMP-352641d30a86)' do
+        failed_exec = create(:ai_team_execution, :failed, account: account, agent_team: team)
+
+        allow(WorkerJobService).to receive(:enqueue_ai_team_execution)
+
+        expect {
+          post :retry_execution, params: { agent_team_id: team.id, id: failed_exec.id }
+        }.to change(AuditLog, :count).by(1)
+
+        expect(response).to have_http_status(:success)
+        log = AuditLog.order(:created_at).last
+        expect(log.action).to eq('ai.agent_team.execution_retried')
+        expect(log.resource_id).to eq(failed_exec.id.to_s)
+        expect(log.resource_type).to eq('Ai::TeamExecution')
       end
 
       it 'returns error for non-finished execution' do
