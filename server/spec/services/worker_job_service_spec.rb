@@ -114,4 +114,128 @@ RSpec.describe WorkerJobService do
       expect(payload["options"]).to eq({ "retry" => 2 })
     end
   end
+
+  # IMP-f301fd6563d2: callers that need to distinguish "definitely not sent"
+  # from "outcome unknown" (to decide whether an idempotency claim should be
+  # released) depend on #make_worker_request raising the RIGHT subclass of
+  # WorkerServiceError for each failure shape. Stubbed at the Net::HTTP
+  # boundary so the real branching in #make_worker_request runs.
+  describe "#make_worker_request error mapping" do
+    let(:service) { described_class.new }
+    let(:http_double) { instance_double(Net::HTTP) }
+
+    before do
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(described_class).to receive(:system_worker_jwt).and_return("jwt-token")
+    end
+
+    def stub_response(code:, body: nil)
+      response = instance_double(Net::HTTPResponse, code: code.to_s, body: body)
+      allow(http_double).to receive(:request).and_return(response)
+    end
+
+    def call_it
+      service.make_worker_request("POST", "/api/v1/jobs", { "job_class" => "TestWorkerJob", "args" => [] })
+    end
+
+    it "maps a read timeout (request already sent) to WorkerOutcomeUnknownError" do
+      allow(http_double).to receive(:request).and_raise(Net::ReadTimeout)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerOutcomeUnknownError)
+    end
+
+    it "maps a failed connection open (request never sent) to WorkerNotSentError" do
+      allow(http_double).to receive(:request).and_raise(Net::OpenTimeout)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerNotSentError)
+    end
+
+    it "maps connection refused to WorkerNotSentError" do
+      allow(http_double).to receive(:request).and_raise(Errno::ECONNREFUSED)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerNotSentError)
+    end
+
+    it "maps a mid-flight connection reset to WorkerOutcomeUnknownError" do
+      allow(http_double).to receive(:request).and_raise(Errno::ECONNRESET)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerOutcomeUnknownError)
+    end
+
+    it "maps a dropped connection (EOFError) to WorkerOutcomeUnknownError" do
+      allow(http_double).to receive(:request).and_raise(EOFError)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerOutcomeUnknownError)
+    end
+
+    it "maps an SSL error mid-request to WorkerOutcomeUnknownError" do
+      allow(http_double).to receive(:request).and_raise(OpenSSL::SSL::SSLError)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerOutcomeUnknownError)
+    end
+
+    it "maps a generic Timeout::Error to WorkerOutcomeUnknownError" do
+      allow(http_double).to receive(:request).and_raise(Timeout::Error)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerOutcomeUnknownError)
+    end
+
+    it "maps SocketError to WorkerNotSentError" do
+      allow(http_double).to receive(:request).and_raise(SocketError)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerNotSentError)
+    end
+
+    it "maps EHOSTUNREACH to WorkerNotSentError" do
+      allow(http_double).to receive(:request).and_raise(Errno::EHOSTUNREACH)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerNotSentError)
+    end
+
+    it "maps a bad worker_url (URI construction fails) to WorkerNotSentError" do
+      allow(described_class).to receive(:worker_api_base).and_return("http://bad host with spaces")
+      expect { call_it }.to raise_error(WorkerJobService::WorkerNotSentError)
+    end
+
+    it "maps a 4xx response to WorkerRejectedError" do
+      stub_response(code: 422, body: '{"error":"nope"}')
+      expect { call_it }.to raise_error(WorkerJobService::WorkerRejectedError)
+    end
+
+    it "maps a 5xx response to WorkerOutcomeUnknownError (may have already been processed)" do
+      stub_response(code: 502, body: '{"error":"bad gateway"}')
+      expect { call_it }.to raise_error(WorkerJobService::WorkerOutcomeUnknownError)
+    end
+
+    it "maps an unexpected status code to WorkerOutcomeUnknownError" do
+      stub_response(code: 100, body: nil)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerOutcomeUnknownError)
+    end
+
+    it "maps a 2xx with an unparseable body to WorkerResponseUnparseableError (job IS enqueued)" do
+      stub_response(code: 200, body: "not json")
+      expect { call_it }.to raise_error(WorkerJobService::WorkerResponseUnparseableError)
+    end
+
+    it "returns the parsed body on a clean 2xx" do
+      stub_response(code: 200, body: '{"job_id":"abc"}')
+      expect(call_it).to eq({ "job_id" => "abc" })
+    end
+
+    it "every mapped error is still a WorkerServiceError (existing rescue sites keep working)" do
+      allow(http_double).to receive(:request).and_raise(Net::OpenTimeout)
+      expect { call_it }.to raise_error(WorkerJobService::WorkerServiceError)
+    end
+
+    # Exercises the REAL .system_worker_jwt (not stubbed, unlike the outer
+    # `before` block) so the "no active system worker" raise itself is
+    # proven to map to WorkerNotSentError, not just asserted by reading the
+    # source.
+    context "when there is no active system worker" do
+      before do
+        # Undo the outer before's stub so .system_worker_jwt runs for real.
+        allow(described_class).to receive(:system_worker_jwt).and_call_original
+        Thread.current[:_system_worker_jwt] = nil
+        allow(Worker).to receive(:system_worker).and_return(nil)
+      end
+
+      it "maps the resulting failure to WorkerNotSentError" do
+        expect { call_it }.to raise_error(WorkerJobService::WorkerNotSentError)
+      end
+    end
+  end
 end

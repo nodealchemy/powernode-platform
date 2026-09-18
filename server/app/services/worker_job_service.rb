@@ -2,13 +2,32 @@
 
 require "net/http"
 require "timeout"
+require "openssl"
 
 # API client service for delegating async operations to the external worker service
 # The Rails server contains NO worker functionality - all async ops handled by separate worker service
 class WorkerJobService
+  # Net::HTTP timeouts for a single worker round-trip, in seconds. Named
+  # constants (not inline literals in #make_worker_request) so callers that
+  # need to reason about how long a request can be in flight before this
+  # method itself times out — e.g. Ai::TeamExecution#retry_enqueuing_stale? —
+  # derive their margin from the real values via .request_timeout_seconds
+  # instead of duplicating a magic number.
+  OPEN_TIMEOUT_SECONDS = 5
+  READ_TIMEOUT_SECONDS = 10
+
   # Base URL for worker service API calls
   def self.worker_api_base
     Rails.application.config.worker_url
+  end
+
+  # Upper bound on how long a single #make_worker_request call can run
+  # before it raises on its own (open + read timeout). A caller holding an
+  # idempotency claim that predates the worker's own dispatch can use this
+  # to bound how long "still in flight" is a credible explanation, versus
+  # "the process that made the call died before ever reaching a timeout".
+  def self.request_timeout_seconds
+    OPEN_TIMEOUT_SECONDS + READ_TIMEOUT_SECONDS
   end
 
   class << self
@@ -652,11 +671,12 @@ class WorkerJobService
   end
 
   def make_worker_request(method, path, payload = {})
+      begin
       uri = URI("#{self.class.worker_api_base}#{path}")
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == "https"
-      http.read_timeout = 10
-      http.open_timeout = 5
+      http.read_timeout = READ_TIMEOUT_SECONDS
+      http.open_timeout = OPEN_TIMEOUT_SECONDS
 
       request = case method.upcase
       when "GET"
@@ -683,34 +703,59 @@ class WorkerJobService
         request.body = payload.to_json
       end
 
-      begin
         response = http.request(request)
 
         case response.code.to_i
         when 200..299
           Rails.logger.info "Worker job enqueued successfully: #{method} #{path}"
-          JSON.parse(response.body) if response.body.present?
+          begin
+            response.body.present? ? JSON.parse(response.body) : nil
+          rescue JSON::ParserError => e
+            # The request definitely reached the worker and was accepted
+            # (2xx) — whatever it did (e.g. perform_async) already happened.
+            # Only the response body is unreadable, so this is NOT the same
+            # as "outcome unknown": callers that care about at-most-once
+            # enqueue semantics should treat this as queued.
+            Rails.logger.error "Invalid JSON response from worker service: #{e.message}"
+            raise WorkerResponseUnparseableError, "Invalid response format from worker service"
+          end
         when 400..499
           error_body = JSON.parse(response.body) rescue { error: response.body }
           Rails.logger.warn "Worker service client error (#{response.code}): #{error_body}"
-          raise WorkerServiceError, "Client error: #{error_body['error'] || response.body}"
+          raise WorkerRejectedError, "Client error: #{error_body['error'] || response.body}"
         when 500..599
+          # A 5xx does not tell us whether the worker (or a proxy in front of
+          # it) failed before or after doing the work — e.g. it could be a
+          # 502/504 from something downstream of an already-successful
+          # perform_async. Treat as unknown, never as "definitely not sent".
           error_body = JSON.parse(response.body) rescue { error: response.body }
           Rails.logger.error "Worker service server error (#{response.code}): #{error_body}"
-          raise WorkerServiceError, "Server error: #{error_body['error'] || response.body}"
+          raise WorkerOutcomeUnknownError, "Server error: #{error_body['error'] || response.body}"
         else
           Rails.logger.warn "Unexpected response from worker service (#{response.code}): #{response.body}"
-          raise WorkerServiceError, "Unexpected response: #{response.code}"
+          raise WorkerOutcomeUnknownError, "Unexpected response: #{response.code}"
         end
-      rescue Net::ReadTimeout, Net::OpenTimeout, Timeout::Error => e
+      rescue Net::OpenTimeout => e
+        # Failed to even open the connection — the request was never sent.
         Rails.logger.error "Worker service timeout: #{e.message}"
-        raise WorkerServiceError, "Worker service timeout: #{e.message}"
-      rescue Errno::ECONNREFUSED, SocketError => e
+        raise WorkerNotSentError, "Worker service timeout: #{e.message}"
+      rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ENETUNREACH, Errno::EADDRNOTAVAIL,
+             SocketError, URI::InvalidURIError, ArgumentError => e
+        # Connection never established, the target was unreachable, or the
+        # request couldn't even be built (bad/blank worker_url, unsupported
+        # method) — in every case nothing was sent.
         Rails.logger.error "Worker service connection error: #{e.message}"
-        raise WorkerServiceError, "Worker service unavailable: #{e.message}"
-      rescue JSON::ParserError => e
-        Rails.logger.error "Invalid JSON response from worker service: #{e.message}"
-        raise WorkerServiceError, "Invalid response format from worker service"
+        raise WorkerNotSentError, "Worker service unavailable: #{e.message}"
+      rescue Net::ReadTimeout, Timeout::Error => e
+        # The request was sent; only the response never arrived in time, so
+        # the worker may have already processed it (e.g. perform_async).
+        Rails.logger.error "Worker service timeout: #{e.message}"
+        raise WorkerOutcomeUnknownError, "Worker service timeout: #{e.message}"
+      rescue Errno::ECONNRESET, EOFError, OpenSSL::SSL::SSLError => e
+        # The connection dropped mid-request/response — whether the worker
+        # received and acted on the request before the drop is unknown.
+        Rails.logger.error "Worker service connection error: #{e.message}"
+        raise WorkerOutcomeUnknownError, "Worker service connection error: #{e.message}"
       end
     end
 
@@ -724,7 +769,7 @@ class WorkerJobService
     end
 
     worker = Worker.system_worker
-    raise WorkerServiceError, "No active system worker found in database" unless worker&.active?
+    raise WorkerNotSentError, "No active system worker found in database" unless worker&.active?
 
     token = Security::JwtService.encode(
       { type: "worker", sub: worker.id },
@@ -741,6 +786,29 @@ class WorkerJobService
     self.class.system_worker_jwt
   end
 
-  # Custom exception for worker service errors
+  # Custom exception for worker service errors. Existing `rescue
+  # WorkerServiceError` call sites keep working unchanged, since every more
+  # specific error below is a subclass — the split only matters to callers
+  # (like retry_execution) that need to distinguish whether the worker
+  # request landed, to decide whether an idempotency claim should hold.
   class WorkerServiceError < StandardError; end
+
+  # The request never reached the worker (or was refused before minting a
+  # token) — definitely NOT sent, safe to treat as "nothing happened".
+  class WorkerNotSentError < WorkerServiceError; end
+
+  # The worker received the request and explicitly rejected it (4xx) —
+  # definitely NOT enqueued.
+  class WorkerRejectedError < WorkerServiceError; end
+
+  # Whether the worker received/processed the request is genuinely unknown
+  # (timeout after send, 5xx, unexpected status code, or the connection
+  # dropped mid-flight) — must NOT be treated as "nothing happened", since
+  # the underlying perform_async may already have run.
+  class WorkerOutcomeUnknownError < WorkerServiceError; end
+
+  # The worker returned a 2xx (request definitely accepted) but the response
+  # body could not be parsed — the job IS enqueued; only the response is
+  # unreadable.
+  class WorkerResponseUnparseableError < WorkerServiceError; end
 end

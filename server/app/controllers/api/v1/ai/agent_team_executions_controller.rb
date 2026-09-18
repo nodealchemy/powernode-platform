@@ -84,6 +84,49 @@ module Api
             return render_error("Execution has not finished", :unprocessable_content)
           end
 
+          # Idempotency: at most one worker enqueue per finished original
+          # execution. A DB-level atomic claim on @execution (not a new row —
+          # the retry execution itself doesn't exist yet, it's created later
+          # and asynchronously by the worker) so a double-click or a client
+          # retry after a failed response never queues a second full
+          # agent-team execution. See Ai::TeamExecution#claim_retry!.
+          unless @execution.claim_retry!
+            case @execution.retry_state
+            when ::Ai::TeamExecution::RETRY_STATE_QUEUED
+              return render_success({
+                status: "retry_already_queued",
+                original_execution_id: @execution.execution_id,
+                retry_queued_at: @execution.retry_queued_at,
+                retry_job_id: @execution.retry_job_id
+              })
+            when ::Ai::TeamExecution::RETRY_STATE_UNKNOWN
+              return render_success({
+                status: "retry_outcome_unknown",
+                original_execution_id: @execution.execution_id,
+                retry_queued_at: @execution.retry_queued_at
+              })
+            else
+              # "enqueuing". Ordinarily a concurrent request is still
+              # mid-flight for this execution — but the claiming process can
+              # die before it ever marks queued/unknown/released, which
+              # would otherwise strand the row here forever and 409 every
+              # later attempt. A claim older than a real worker request
+              # could still be running is treated the same as a genuinely
+              # ambiguous outcome, never as "safe to retry" (that could
+              # create a duplicate on top of a request that IS still live).
+              if @execution.retry_enqueuing_stale?
+                return render_success({
+                  status: "retry_outcome_unknown",
+                  original_execution_id: @execution.execution_id,
+                  retry_queued_at: @execution.retry_queued_at
+                })
+              end
+
+              return render_error("A retry is already in progress for this execution",
+                status: :conflict)
+            end
+          end
+
           new_execution_args = {
             team_id: @team.id,
             user_id: current_user.id,
@@ -91,13 +134,67 @@ module Api
             context: { retried_from: @execution.execution_id }
           }
 
-          WorkerJobService.enqueue_ai_team_execution(**new_execution_args.symbolize_keys)
+          begin
+            result = WorkerJobService.enqueue_ai_team_execution(**new_execution_args.symbolize_keys)
+          rescue WorkerJobService::WorkerResponseUnparseableError
+            # The worker returned 2xx (job definitely enqueued) but the
+            # response body was unreadable — treat as queued rather than
+            # surfacing an error for a job that already exists.
+            result = nil
+          rescue WorkerJobService::WorkerNotSentError, WorkerJobService::WorkerRejectedError => e
+            # The request definitely never reached, or was definitely
+            # refused by, the worker — no job was queued, so release the
+            # claim for a genuine retry.
+            release_retry_claim_then_reraise!(e)
+          rescue StandardError => e
+            # Catches WorkerOutcomeUnknownError (read timeout / 5xx / dropped
+            # connection after the request was sent — outcome genuinely
+            # unknown) AND any OTHER failure here (an unmapped errno, a bug
+            # in our own code, ...), which is exactly as ambiguous: we don't
+            # know whether the worker request landed. Either way the claim
+            # must NOT be released, or a client retry could queue a SECOND
+            # execution on top of one that already exists; re-raise so the
+            # caller sees the failure rather than a false success.
+            mark_retry_unknown_then_reraise!(e)
+          end
+
+          @execution.mark_retry_queued!(job_id: result.is_a?(Hash) ? result["job_id"] : nil)
           log_audit_event("ai.agent_team.execution_retried", @execution,
             original_execution_id: @execution.execution_id)
           render_success({ status: "retry_queued", original_execution_id: @execution.execution_id })
         end
 
         private
+
+        # Best-effort release of a won-but-failed retry claim, WITHOUT
+        # masking the original error: a failure inside release_retry_claim!
+        # is logged, never raised in its place.
+        def release_retry_claim_then_reraise!(original_error)
+          begin
+            @execution.release_retry_claim!
+          rescue StandardError => release_error
+            Rails.logger.error(
+              "[AgentTeamExecutionsController] failed to release retry claim " \
+              "for #{@execution.execution_id}: #{release_error.message}"
+            )
+          end
+          raise original_error
+        end
+
+        # Same shape as release_retry_claim_then_reraise!, for the ambiguous
+        # (keep-the-claim) outcome: mark_retry_unknown! failing must not mask
+        # the error that got us here.
+        def mark_retry_unknown_then_reraise!(original_error)
+          begin
+            @execution.mark_retry_unknown!
+          rescue StandardError => mark_error
+            Rails.logger.error(
+              "[AgentTeamExecutionsController] failed to mark retry outcome unknown " \
+              "for #{@execution.execution_id}: #{mark_error.message}"
+            )
+          end
+          raise original_error
+        end
 
         def set_team
           @team = current_account.ai_agent_teams.find(params[:agent_team_id])

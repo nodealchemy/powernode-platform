@@ -120,6 +120,139 @@ module Ai
       ((tasks_completed.to_f / tasks_total) * 100).round(2)
     end
 
+    # Keys under `metadata` tracking retry-enqueue idempotency for this
+    # execution. Reused rather than a new column/table, since the retried
+    # execution itself is created asynchronously by the worker and never
+    # exists synchronously for the controller to key a claim off.
+    #
+    # Two-phase, not a single flag, so a request that only WON the claim (but
+    # hasn't enqueued yet) can't be read by a concurrent loser as "queued":
+    #   enqueuing -> mark_retry_queued! / mark_retry_unknown!, or the claim
+    #   is released outright on a definite non-enqueue (see
+    #   claim_retry!/release_retry_claim! callers in
+    #   AgentTeamExecutionsController#retry_execution).
+    RETRY_STATE_KEY = "retry_state"
+    RETRY_QUEUED_AT_KEY = "retry_queued_at"
+    RETRY_JOB_ID_KEY = "retry_job_id"
+
+    RETRY_STATE_ENQUEUING = "enqueuing"
+    RETRY_STATE_QUEUED = "queued"
+    RETRY_STATE_UNKNOWN = "unknown"
+
+    # Margin added on top of WorkerJobService's own request timeout when
+    # deciding whether an "enqueuing" claim is stale rather than genuinely
+    # in flight. The process that won the claim can die (deploy, OOM, ...)
+    # before ever reaching make_worker_request's own timeout, which would
+    # otherwise strand the row in "enqueuing" forever and 409 every later
+    # retry attempt. Not itself a business/spend budget — a technical
+    # allowance for scheduling jitter on top of a real timeout value.
+    RETRY_STALE_MARGIN_SECONDS = 60
+
+    def self.retry_enqueuing_stale_after_seconds
+      WorkerJobService.request_timeout_seconds + RETRY_STALE_MARGIN_SECONDS
+    end
+
+    # Atomically claim the retry slot for this execution: at most one caller
+    # ever wins, including under a concurrent double-click. The UPDATE's
+    # WHERE clause only matches while retry_state is absent, and Postgres
+    # serializes concurrent UPDATEs against the same row — the second
+    # writer's statement blocks until the first commits, then re-evaluates
+    # its WHERE against the now-committed row and matches nothing. This is a
+    # single conditional UPDATE, not a check-then-act race.
+    #
+    # Always reloads (win or lose), so a losing caller sees the winner's
+    # retry_state/retry_queued_at rather than its own stale pre-claim read.
+    # Returns true iff THIS call won the claim.
+    def claim_retry!
+      claimed_at = Time.current
+      updated = self.class
+        .where(id: id)
+        .where("metadata->>'#{RETRY_STATE_KEY}' IS NULL")
+        .update_all(
+          [ "metadata = COALESCE(metadata, '{}'::jsonb) || " \
+            "jsonb_build_object(?::text, ?::text, ?::text, ?::text), updated_at = ?",
+            RETRY_STATE_KEY, RETRY_STATE_ENQUEUING, RETRY_QUEUED_AT_KEY, claimed_at.iso8601, claimed_at ]
+        )
+      reload
+      updated.positive?
+    end
+
+    # Release a claim made by this caller after a DEFINITE non-enqueue (the
+    # request never reached the worker, or the worker explicitly rejected
+    # it) — never call this for an ambiguous outcome, or a client retry could
+    # queue a second execution on top of one that already exists. Clears
+    # both retry keys so a later claim starts clean; leaves retry_job_id (set
+    # only after a real success) alone, though it should never be present
+    # here. No reload — callers re-raise immediately and don't read the
+    # execution's retry state afterward.
+    def release_retry_claim!
+      self.class.where(id: id).update_all(
+        [ "metadata = metadata - ? - ?, updated_at = ?", RETRY_STATE_KEY, RETRY_QUEUED_AT_KEY, Time.current ]
+      )
+    end
+
+    # Same unconditional "merge into metadata via update_all" idiom as
+    # Ai::Provisioning::SkillCompositionRunner#stamp_dispatched! — appropriate
+    # here because the CAS already happened in claim_retry!; this only
+    # advances a claim this caller already won. The `retry_state = enqueuing`
+    # WHERE clause is defence-in-depth, not the primary guarantee (that's
+    # claim_retry!'s CAS) — it just stops this from clobbering a state that
+    # somehow isn't "enqueuing" anymore (e.g. mis-sequenced calls) rather
+    # than silently overwriting it.
+    def mark_retry_queued!(job_id: nil)
+      payload = { RETRY_STATE_KEY => RETRY_STATE_QUEUED }
+      payload[RETRY_JOB_ID_KEY] = job_id.to_s if job_id.present?
+      self.class.where(id: id)
+        .where("metadata->>'#{RETRY_STATE_KEY}' = '#{RETRY_STATE_ENQUEUING}'")
+        .update_all(
+          [ "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb, updated_at = ?", payload.to_json, Time.current ]
+        )
+      reload
+    end
+
+    # The worker outcome is genuinely unknown (e.g. a read timeout or 5xx
+    # after the request was sent) — keep the claim so a client retry can't
+    # queue a second execution on top of a possible first one. Same
+    # defence-in-depth WHERE guard as mark_retry_queued!.
+    def mark_retry_unknown!
+      self.class.where(id: id)
+        .where("metadata->>'#{RETRY_STATE_KEY}' = '#{RETRY_STATE_ENQUEUING}'")
+        .update_all(
+          [ "metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(?::text, ?::text), updated_at = ?",
+            RETRY_STATE_KEY, RETRY_STATE_UNKNOWN, Time.current ]
+        )
+      reload
+    end
+
+    def retry_state
+      metadata && metadata[RETRY_STATE_KEY]
+    end
+
+    def retry_queued_at
+      metadata && metadata[RETRY_QUEUED_AT_KEY]
+    end
+
+    def retry_job_id
+      metadata && metadata[RETRY_JOB_ID_KEY]
+    end
+
+    # True when this execution's claim is stuck at "enqueuing" for longer
+    # than a real worker request could still be in flight — i.e. the process
+    # that won the claim almost certainly died before it could ever mark the
+    # outcome queued/unknown/released. Never re-claims (that could create a
+    # duplicate if the original request is in fact still running); callers
+    # should treat this as "unknown", not as "safe to retry".
+    def retry_enqueuing_stale?
+      return false unless retry_state == RETRY_STATE_ENQUEUING
+
+      queued_at = retry_queued_at
+      return false if queued_at.blank?
+
+      Time.iso8601(queued_at) < self.class.retry_enqueuing_stale_after_seconds.seconds.ago
+    rescue ArgumentError
+      false
+    end
+
     # Messaging
     def record_message!
       increment!(:messages_exchanged)
