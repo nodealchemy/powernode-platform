@@ -50,13 +50,27 @@ module Ai
       DEFAULT_VERIFY_BATCH_SIZE = 100
 
       # Recall (D7). Similarity floor for the semantic branch of
-      # #ranked_learning_candidates, and the size of the candidate window it
-      # pulls before ranking. Overridable per account via
+      # #search_learnings (fallback: :on_empty), and the size of the candidate
+      # window it pulls before ranking. #ranked_learning_candidates — the
+      # INJECTION entry point — uses DEFAULT_INJECTION_SIMILARITY_THRESHOLD
+      # below instead (D3.2). Overridable per account via
       # Account#settings["ai_learning_recall_similarity_threshold"], matching
       # the ai_learning_cluster_* thresholds in
       # Ai::Learning::LearningClusterService (Account#settings -> constant
       # fallback). The default is the value the floor was hardcoded to.
       DEFAULT_RECALL_SIMILARITY_THRESHOLD = 0.5
+
+      # Injection (evaluation 2026-09-18 §1.1 / design D3.2). The recall floor
+      # above is deliberately loose — a caller reading results can discount a
+      # weak match. Injection has no such backstop: every surfaced row is
+      # counted (record_injection!) and later credited on task success
+      # (credit_injections! / boost_injected_learnings_on_success), which is
+      # exactly the feedback loop that let a handful of heavily-credited,
+      # weakly-similar rows dominate every task regardless of relevance.
+      # Injection therefore needs a tighter floor than recall. Overridable via
+      # Account#settings["ai_learning_injection_similarity_threshold"], same
+      # convention as the recall threshold above.
+      DEFAULT_INJECTION_SIMILARITY_THRESHOLD = 0.65
       SEMANTIC_CANDIDATE_LIMIT = 30
 
       def initialize(account:)
@@ -229,9 +243,11 @@ module Ai
       # dev_next_task, injecting prior learnings into the primary (Claude Code)
       # executor's payload the same way build_compound_context already does for
       # platform-agent executions. Reuses the identical retrieval/ranking
-      # (embedding search -> keyword fallback -> effective_importance rank, both
-      # of which already restrict to the active/verified surfacing set — retired
-      # learnings never reach either) so the two consumers can't drift apart.
+      # (embedding search at the injection similarity floor -> keyword
+      # fallback on missing embedding only -> similarity x effective_importance
+      # rank via #ranking_score, both of which already restrict to the
+      # active/verified surfacing set — retired learnings never reach either)
+      # so the two consumers can't drift apart.
       # Bumps injection_count/last_injected on each surfaced learning exactly like
       # build_compound_context, so usage from either path feeds the same
       # effectiveness accrual. Summaries only (truncated title/content) to keep
@@ -838,8 +854,13 @@ module Ai
       # (task metadata), so no window heuristics. Public: called across the
       # service boundary by Ai::Tools::DevLoopTool#complete_task.
       # MCP recall surface (query_learnings): the same embedding-first
-      # retrieval + effective_importance ranking as context injection, WITHOUT
-      # record_injection! — an MCP query has no completing execution to credit,
+      # retrieval as context injection, but NOT the same rank or floor
+      # (evaluation 2026-09-18 §1.1 / D3.2) — recall keeps the looser 0.5
+      # similarity floor and ranks by effective_importance alone on the
+      # keyword branch; injection uses the tighter 0.65 floor and weights by
+      # similarity x effective_importance (#ranking_score) whenever a
+      # candidate carries a neighbor_distance. Also WITHOUT record_injection!
+      # — an MCP query has no completing execution to credit,
       # so counting it as an injection would depress effectiveness exactly the
       # way the uncredited dev-loop injections did (IMP-5f8a744b8892).
       # record_access! only (usage telemetry with no effectiveness impact).
@@ -947,10 +968,10 @@ module Ai
 
       # Shared retrieval + ranking for build_compound_context,
       # top_relevant_learnings and search_learnings: embedding search first,
-      # keyword fallback, ranked by effective_importance (importance_score
-      # blended with observed injection effectiveness once there's enough
-      # signal — see Ai::CompoundLearning#effective_importance). Both retrieval
-      # paths already restrict to the active/verified surfacing set.
+      # keyword fallback, ranked by similarity x effective_importance on the
+      # semantic branch (see #ranking_score) or effective_importance alone on
+      # the keyword branch, which has no similarity signal to weight by. Both
+      # retrieval paths already restrict to the active/verified surfacing set.
       # The INJECTION consumers' entry point. `fallback: :on_missing_embedding`
       # is deliberate — see the note on the mode parameter below.
       def ranked_learning_candidates(task_description)
@@ -1010,11 +1031,20 @@ module Ai
           context: "CompoundLearningService#ranked_learning_candidates"
         )
 
+        # fallback: :on_missing_embedding names the INJECTION consumers
+        # (#ranked_learning_candidates, private, below); :on_empty names the
+        # RECALL consumer (#search_learnings). The two need different
+        # similarity floors (see DEFAULT_INJECTION_SIMILARITY_THRESHOLD) —
+        # keying off the fallback mode reuses the seam that already
+        # distinguishes them rather than adding a second parameter callers
+        # could pass inconsistently.
+        threshold = fallback == :on_missing_embedding ? injection_similarity_threshold : recall_similarity_threshold
+
         candidates = if query_embedding
           Ai::CompoundLearning.semantic_search(
             query_embedding,
             account_id: @account.id,
-            threshold: recall_similarity_threshold,
+            threshold: threshold,
             limit: SEMANTIC_CANDIDATE_LIMIT,
             statuses: statuses
           ).to_a
@@ -1027,16 +1057,83 @@ module Ai
           candidates = keyword_search(task_description, statuses: statuses).to_a
           match_mode = candidates.any? ? "keyword" : "none"
         elsif candidates.empty?
+          # This branch is reachable only when fallback == :on_missing_embedding
+          # (the injection path) AND an embedding was generated — i.e. the
+          # similarity floor, not a missing embedding, produced zero
+          # candidates. Review of IMP-71ea81f5ab16 (2026-09-18) measured this
+          # as common at the 0.65 injection floor (68% empty on a probe sized
+          # like a real task description) — a legitimate withhold, but a
+          # silent one: #ranked_learning_candidates discards match_mode, and
+          # nothing otherwise distinguishes "correctly withheld" from
+          # "broken". Log the shape of what was withheld rather than adding a
+          # keyword fallback here (deliberately absent — see the fallback-mode
+          # note above).
           match_mode = "none"
+          log_empty_injection_floor(task_description, threshold: threshold, statuses: statuses,
+                                     query_embedding: query_embedding)
         end
 
-        [ candidates.sort_by { |l| -l.effective_importance }, match_mode ]
+        [ candidates.sort_by { |l| -ranking_score(l) }, match_mode ]
+      end
+
+      # See the call site's comment. One extra semantic_search call, at
+      # threshold 0.0 (i.e. no floor) so the log line reports how many rows
+      # were actually in the candidate window before the floor cut them —
+      # only paid on the already-rare "nothing surfaced" path, never on a
+      # successful injection.
+      def log_empty_injection_floor(task_description, threshold:, statuses:, query_embedding:)
+        candidates_in_window = Ai::CompoundLearning.semantic_search(
+          query_embedding,
+          account_id: @account.id,
+          threshold: 0.0,
+          limit: SEMANTIC_CANDIDATE_LIMIT,
+          statuses: statuses
+        ).size
+
+        Rails.logger.info(
+          "[CompoundLearning] injection similarity floor emptied candidates: " \
+          "query_chars=#{task_description.to_s.length} threshold=#{threshold} " \
+          "candidates_in_window=#{candidates_in_window} surfaced=0"
+        )
+      rescue StandardError => e
+        Rails.logger.warn("[CompoundLearning] log_empty_injection_floor failed: #{e.message}")
+      end
+
+      # Rank = similarity x quality (evaluation 2026-09-18 §1.1 / design D3.1).
+      # Sorting by effective_importance alone — outcome counters, with only
+      # positive outcomes ever recorded — let a handful of heavily-credited,
+      # weakly-similar rows outrank a fresh, strongly-similar row on every
+      # task: similarity gated candidates in, then got discarded. Similarity
+      # dominates here (full weight); effective_importance only breaks ties
+      # among comparably-similar rows (its term ranges 0.5-1.0).
+      #
+      # Rows with no neighbor_distance — the keyword-fallback branch, which has
+      # no cosine distance to weight by, and any caller (real or test double)
+      # that hands back a plain record instead of one selected via
+      # Ai::CompoundLearning.semantic_search's nearest_neighbors chain — fall
+      # back to quality alone, the pre-fix behavior. neighbor_distance is a
+      # per-query SELECT alias (see the neighbor gem), not a real column, so
+      # #respond_to? is the correct presence check: it is false on a plain
+      # record and true only when the row actually came back with a distance.
+      def ranking_score(learning)
+        return learning.effective_importance unless learning.respond_to?(:neighbor_distance)
+
+        similarity = 1.0 - learning.neighbor_distance
+        similarity * (0.5 + 0.5 * learning.effective_importance)
       end
 
       # Account#settings -> constant fallback, matching
       # Ai::Learning::LearningClusterService#resolve_similarity_threshold.
       def recall_similarity_threshold
         value = setting("ai_learning_recall_similarity_threshold").presence || DEFAULT_RECALL_SIMILARITY_THRESHOLD
+        value.to_f.clamp(0.0, 1.0)
+      end
+
+      # Same convention, injection-specific floor. See
+      # DEFAULT_INJECTION_SIMILARITY_THRESHOLD for why injection needs a
+      # tighter floor than recall.
+      def injection_similarity_threshold
+        value = setting("ai_learning_injection_similarity_threshold").presence || DEFAULT_INJECTION_SIMILARITY_THRESHOLD
         value.to_f.clamp(0.0, 1.0)
       end
 

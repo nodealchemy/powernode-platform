@@ -1429,9 +1429,10 @@ module Ai
       end
 
       # C3: reuses Ai::Learning::CompoundLearningService's existing retrieval/
-      # ranking (the same embedding search + effective_importance rank that
-      # build_compound_context already uses for platform-agent executions) so
-      # this consumer never drifts from that one. Feature-flagged behind the
+      # ranking (the same embedding search at the injection similarity floor,
+      # weighted by similarity x effective_importance, that build_compound_context
+      # already uses for platform-agent executions) so this consumer never
+      # drifts from that one. Feature-flagged behind the
       # same :compound_learning_injection flag; excludes retired learnings via
       # the surfacing set both retrieval paths already restrict to
       # (active/verified); bumps injection_count/last_injected on each
