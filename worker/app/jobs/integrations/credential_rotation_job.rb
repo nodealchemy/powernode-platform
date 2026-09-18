@@ -25,7 +25,7 @@ module Integrations
       # the :integrations namespace only routes `instances`).
       response = api_client.post("/api/v1/devops/integration_credentials/#{credential_id}/rotate")
 
-      if response[:success]
+      if response['success']
         log_info("Credential rotated successfully", credential_id: credential_id)
         increment_counter("credential_rotation_success")
 
@@ -38,10 +38,10 @@ module Integrations
       else
         log_error("Failed to rotate credential",
                   credential_id: credential_id,
-                  error: response[:error])
+                  error: response['error'])
         increment_counter("credential_rotation_failure")
 
-        { success: false, credential_id: credential_id, error: response[:error] }
+        { success: false, credential_id: credential_id, error: response['error'] }
       end
     rescue StandardError => e
       log_error("Credential rotation error", exception: e, credential_id: credential_id)
@@ -67,14 +67,14 @@ module Integrations
           per_page: 50
         })
 
-        break unless response[:success]
+        break unless response['success']
 
-        credentials = response[:data][:credentials] || []
+        credentials = response['data']['credentials'] || []
         break if credentials.empty?
 
         credentials.each do |credential|
           if needs_rotation?(credential, days_before_expiry)
-            result = rotate_single_credential(credential[:id], options)
+            result = rotate_single_credential(credential['id'], options)
 
             if result[:success]
               rotated += 1
@@ -87,8 +87,8 @@ module Integrations
         end
 
         # Check for more pages
-        pagination = response[:data][:pagination]
-        break if page >= (pagination[:total_pages] || 1)
+        pagination = response['data']['pagination']
+        break if page >= (pagination['total_pages'] || 1)
 
         page += 1
       end
@@ -109,7 +109,7 @@ module Integrations
 
     def needs_rotation?(credential, days_before_expiry)
       # Check if credential has an expiry date
-      expires_at = credential[:expires_at]
+      expires_at = credential['expires_at']
       return false unless expires_at
 
       expiry_time = Time.parse(expires_at)
@@ -129,22 +129,22 @@ module Integrations
         status: "active"
       })
 
-      return unless response[:success]
+      return unless response['success']
 
-      instances = response[:data][:instances] || []
+      instances = response['data']['instances'] || []
 
       instances.each do |instance|
-        test_result = api_client.post("/api/v1/integrations/instances/#{instance[:id]}/test")
+        test_result = api_client.post("/api/v1/integrations/instances/#{instance['id']}/test")
 
-        if test_result[:success] && test_result[:data][:result][:success]
+        if test_result['success'] && test_result.dig('data', 'result', 'success')
           log_info("Instance test passed after rotation",
-                   instance_id: instance[:id],
+                   instance_id: instance['id'],
                    credential_id: credential_id)
         else
           log_warn("Instance test failed after rotation",
-                   instance_id: instance[:id],
+                   instance_id: instance['id'],
                    credential_id: credential_id,
-                   error: test_result[:data]&.dig(:result, :error))
+                   error: test_result['data']&.dig('result', 'error'))
         end
       end
     rescue StandardError => e

@@ -14,12 +14,12 @@ module Mcp
       # Fetch all connected servers
       response = api_client.get("/api/v1/internal/mcp_servers?status=connected")
 
-      unless response[:success]
+      unless response['success']
         log_error("Failed to fetch connected servers")
         return
       end
 
-      servers = response[:data][:mcp_servers] || []
+      servers = response['data']['mcp_servers'] || []
 
       if servers.empty?
         log_info("No connected MCP servers for cache refresh")
@@ -30,7 +30,7 @@ module Mcp
 
       # Queue tool discovery for each server
       servers.each do |server|
-        McpToolDiscoveryJob.perform_async(server[:id])
+        McpToolDiscoveryJob.perform_async(server['id'])
       end
 
       log_info("Queued tool discovery for #{servers.count} MCP server(s)")

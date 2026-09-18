@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../base_job'
+require_relative '../../services/mcp_security_service'
 
 module Mcp
   # Job for discovering tools from a connected MCP server
@@ -14,18 +15,18 @@ module Mcp
       # Fetch server details from backend API
       response = api_client.get("/api/v1/internal/mcp_servers/#{server_id}")
 
-      unless response[:success]
+      unless response['success']
         log_error("Failed to fetch server details", nil, server_id: server_id)
         return
       end
 
-      server = response[:data][:mcp_server]
+      server = response['data']['mcp_server']
 
       # Verify server is connected
-      unless server[:status] == 'connected'
+      unless server['status'] == 'connected'
         log_warn("Skipping tool discovery - server not connected",
                  server_id: server_id,
-                 status: server[:status])
+                 status: server['status'])
         return
       end
 
@@ -41,25 +42,25 @@ module Mcp
             tools: tools
           })
 
-          if register_response[:success]
+          if register_response['success']
             log_info("MCP tools discovered and registered",
                      server_id: server_id,
-                     name: server[:name],
+                     name: server['name'],
                      tools_count: tools.count)
           else
             log_error("Failed to register discovered tools", nil,
                       server_id: server_id,
-                      error: register_response[:error])
+                      error: register_response['error'])
           end
         else
           log_info("No tools discovered from MCP server",
                    server_id: server_id,
-                   name: server[:name])
+                   name: server['name'])
         end
       else
         log_error("Tool discovery failed", nil,
                   server_id: server_id,
-                  name: server[:name],
+                  name: server['name'],
                   error: result[:error])
       end
     rescue BackendApiClient::ApiError => e
@@ -73,7 +74,7 @@ module Mcp
     private
 
     def discover_tools_from_server(server)
-      case server[:connection_type]
+      case server['connection_type']
       when 'stdio'
         discover_stdio_tools(server)
       when 'websocket'
@@ -81,13 +82,21 @@ module Mcp
       when 'http'
         discover_http_tools(server)
       else
-        { success: false, error: "Unknown connection type: #{server[:connection_type]}" }
+        { success: false, error: "Unknown connection type: #{server['connection_type']}" }
       end
     end
 
     def discover_stdio_tools(server)
-      command = server[:command]
-      args = Array(server[:args])
+      args = Array(server['args'])
+
+      # Security validation - command whitelist and environment sanitization,
+      # shared with McpServerConnectionJob, McpServerHealthCheckJob and
+      # Mcp::McpTransportClient via McpSecurityService.validate_stdio_server!.
+      begin
+        command, sanitized_env = McpSecurityService.validate_stdio_server!(server)
+      rescue McpSecurityService::CommandNotAllowedError, McpSecurityService::EnvironmentViolationError => e
+        return { success: false, error: "Security error: #{e.message}" }
+      end
 
       begin
         require 'open3'
@@ -102,7 +111,7 @@ module Mcp
 
         stdin_data = list_request.to_json
         stdout, stderr, status = Open3.capture3(
-          server[:env] || {},
+          sanitized_env,
           command,
           *args,
           stdin_data: stdin_data
@@ -136,7 +145,7 @@ module Mcp
       require 'net/http'
 
       begin
-        uri = URI("#{server[:url]}/tools/list")
+        uri = URI("#{server['url']}/tools/list")
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = uri.scheme == 'https'
         http.read_timeout = 15

@@ -4,6 +4,7 @@ require 'json'
 require 'logger'
 require 'securerandom'
 require 'uri'
+require_relative '../mcp_security_service'
 
 module Mcp
   # Transport client for executing MCP tools over the MCP protocol.
@@ -38,16 +39,27 @@ module Mcp
         arguments: parameters
       })
 
-      # Execute the command with the request piped to stdin
-      command = server[:command]
       args = Array(server[:args])
+
+      # Security validation - command whitelist and environment sanitization,
+      # shared with McpServerConnectionJob, McpServerHealthCheckJob and
+      # McpToolDiscoveryJob via McpSecurityService.validate_stdio_server!.
+      # validate_stdio_server! reads string keys ('command'/'env'/...); a
+      # plain symbol-keyed server (as used directly by this class's own
+      # specs, and possible via any caller that hasn't been through the
+      # with_indifferent_access job boundary) needs normalizing first.
+      begin
+        command, sanitized_env = McpSecurityService.validate_stdio_server!(server.with_indifferent_access)
+      rescue McpSecurityService::CommandNotAllowedError, McpSecurityService::EnvironmentViolationError => e
+        return { success: false, error: "Security error: #{e.message}" }
+      end
 
       begin
         require 'open3'
 
         stdin_data = mcp_request.to_json
         stdout, stderr, status = Open3.capture3(
-          server[:env] || {},
+          sanitized_env,
           command,
           *args,
           stdin_data: stdin_data

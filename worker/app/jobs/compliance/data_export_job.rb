@@ -11,11 +11,11 @@ module Compliance
       # Fetch export request from API
       response = api_client.get("/api/v1/internal/data_export_requests/#{export_request_id}")
 
-      unless response[:success]
-        raise "Failed to fetch export request: #{response[:error]}"
+      unless response['success']
+        raise "Failed to fetch export request: #{response['error']}"
       end
 
-      export_request = response[:data]
+      export_request = response['data']
 
       # Skip if not pending
       unless export_request['status'] == 'pending'
@@ -100,21 +100,21 @@ module Compliance
     def fetch_data_type(data_type, user_id, account_id)
       case data_type
       when 'profile'
-        api_client.get("/api/v1/internal/users/#{user_id}/export/profile")[:data]
+        api_client.get("/api/v1/internal/users/#{user_id}/export/profile")['data']
       when 'activity'
-        api_client.get("/api/v1/internal/users/#{user_id}/export/activity")[:data]
+        api_client.get("/api/v1/internal/users/#{user_id}/export/activity")['data']
       when 'audit_logs'
-        api_client.get("/api/v1/internal/users/#{user_id}/export/audit_logs")[:data]
+        api_client.get("/api/v1/internal/users/#{user_id}/export/audit_logs")['data']
       when 'payments'
-        api_client.get("/api/v1/internal/accounts/#{account_id}/export/payments")[:data]
+        api_client.get("/api/v1/internal/accounts/#{account_id}/export/payments")['data']
       when 'invoices'
-        api_client.get("/api/v1/internal/accounts/#{account_id}/export/invoices")[:data]
+        api_client.get("/api/v1/internal/accounts/#{account_id}/export/invoices")['data']
       when 'subscriptions'
-        api_client.get("/api/v1/internal/accounts/#{account_id}/export/subscriptions")[:data]
+        api_client.get("/api/v1/internal/accounts/#{account_id}/export/subscriptions")['data']
       when 'files'
-        api_client.get("/api/v1/internal/accounts/#{account_id}/export/files")[:data]
+        api_client.get("/api/v1/internal/accounts/#{account_id}/export/files")['data']
       when 'consents'
-        api_client.get("/api/v1/internal/users/#{user_id}/export/consents")[:data]
+        api_client.get("/api/v1/internal/users/#{user_id}/export/consents")['data']
       else
         { note: "Data type '#{data_type}' not supported" }
       end

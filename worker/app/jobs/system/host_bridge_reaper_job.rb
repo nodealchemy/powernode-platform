@@ -24,8 +24,8 @@ module System
         {}
       )
 
-      if response.is_a?(Hash) && response[:success] == false
-        raise BackendApiClient::ApiError, "reap failed: #{response[:error] || 'unknown'}"
+      if response.is_a?(Hash) && response['success'] == false
+        raise BackendApiClient::ApiError, "reap failed: #{response['error'] || 'unknown'}"
       end
 
       logger.info "[System::HostBridgeReaperJob] reaped bridges=#{extract(response, :reaped_bridges) || '?'}"

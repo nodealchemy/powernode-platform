@@ -27,14 +27,21 @@ module Mcp
         { include_server_config: true }
       )
 
-      unless response[:success]
+      unless response['success']
         log_error("Failed to fetch execution details", nil, execution_id: execution_id)
         return
       end
 
-      execution_data = response[:data][:mcp_tool_execution]
-      tool = execution_data[:mcp_tool]
-      server = tool[:mcp_server]
+      execution_data = response['data']['mcp_tool_execution']
+      # Mcp::McpTransportClient (and the other stdio/HTTP/websocket transport
+      # code) reads server/tool with symbol keys — a legacy assumption from
+      # before the worker knew BackendApiClient bodies are string-keyed.
+      # Normalize at this boundary with with_indifferent_access (never
+      # deep_symbolize: the stdio path spawns Open3.capture3(env, ...) and a
+      # symbol-keyed env Hash raises TypeError there) so both key styles work
+      # on the far side without rewriting every transport read.
+      tool = execution_data['mcp_tool'].with_indifferent_access
+      server = tool['mcp_server']
 
       # Update status to running
       api_client.patch("/api/v1/internal/mcp_tool_executions/#{execution_id}", {
@@ -43,7 +50,7 @@ module Mcp
 
       # Execute the tool via MCP protocol
       started_at = Time.current
-      result = execute_mcp_tool(server, tool, execution_data[:parameters])
+      result = execute_mcp_tool(server, tool, execution_data['parameters'])
       duration_ms = ((Time.current - started_at) * 1000).to_i
 
       # Update execution with result
@@ -56,7 +63,7 @@ module Mcp
 
         log_info("MCP tool execution completed",
                  execution_id: execution_id,
-                 tool_name: tool[:name],
+                 tool_name: tool['name'],
                  duration_ms: duration_ms)
       else
         api_client.patch("/api/v1/internal/mcp_tool_executions/#{execution_id}", {
@@ -67,7 +74,7 @@ module Mcp
 
         log_error("MCP tool execution failed", nil,
                   execution_id: execution_id,
-                  tool_name: tool[:name],
+                  tool_name: tool['name'],
                   error: result[:error])
       end
     rescue BackendApiClient::ApiError => e

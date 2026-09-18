@@ -34,13 +34,13 @@ module System
         tag: tag
       )
 
-      if response.is_a?(Hash) && response[:success] == false
+      if response.is_a?(Hash) && response['success'] == false
         # Worker_api endpoints emit `{success: false, error: "..."}` on
         # 4xx/5xx; surface as a job failure so Sidekiq's retry kicks in.
         # Validation-class errors (4xx) won't actually recover on retry,
         # but they're rare and the audit trail in the dead queue is more
         # useful than silent loss.
-        raise BackendApiClient::ApiError, "process_publication failed: #{response[:error] || 'unknown'}"
+        raise BackendApiClient::ApiError, "process_publication failed: #{response['error'] || 'unknown'}"
       end
 
       logger.info "[ProcessModulePublicationJob] success module=#{node_module_id} tag=#{tag}"

@@ -17,26 +17,26 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
 
   let(:tool_data) do
     {
-      id: tool_id,
-      name: 'search',
-      description: 'Search the web',
-      mcp_server: {
-        id: server_id,
-        name: 'Test Server',
-        connection_type: 'stdio',
-        command: '/usr/bin/mcp-server',
-        args: [],
-        env: {}
+      'id' => tool_id,
+      'name' => 'search',
+      'description' => 'Search the web',
+      'mcp_server' => {
+        'id' => server_id,
+        'name' => 'Test Server',
+        'connection_type' => 'stdio',
+        'command' => '/usr/bin/node',
+        'args' => [],
+        'env' => {}
       }
     }
   end
 
   let(:execution_data) do
     {
-      id: execution_id,
-      status: 'pending',
-      parameters: { query: 'test query' },
-      mcp_tool: tool_data
+      'id' => execution_id,
+      'status' => 'pending',
+      'parameters' => { 'query' => 'test query' },
+      'mcp_tool' => tool_data
     }
   end
 
@@ -77,7 +77,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
-          .and_return(success: true, data: { mcp_tool_execution: execution_data })
+          .and_return('success' => true, 'data' => { 'mcp_tool_execution' => execution_data })
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(job).to receive(:execute_mcp_tool).and_return(
           success: true,
@@ -104,9 +104,9 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
 
       it 'executes the MCP tool' do
         expect(job).to receive(:execute_mcp_tool).with(
-          tool_data[:mcp_server],
+          tool_data['mcp_server'],
           tool_data,
-          execution_data[:parameters]
+          execution_data['parameters']
         )
 
         job.execute(execution_id)
@@ -143,7 +143,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
-          .and_return(success: true, data: { mcp_tool_execution: execution_data })
+          .and_return('success' => true, 'data' => { 'mcp_tool_execution' => execution_data })
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(job).to receive(:execute_mcp_tool).and_return(
           success: false,
@@ -172,7 +172,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
-          .and_return(success: false, error: 'Not found')
+          .and_return('success' => false, 'error' => 'Not found')
       end
 
       it 'logs error and returns' do
@@ -187,12 +187,26 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
         before do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
-            .and_return(success: true, data: { mcp_tool_execution: execution_data })
+            .and_return('success' => true, 'data' => { 'mcp_tool_execution' => execution_data })
           allow(api_client).to receive(:patch).and_return(success: true)
         end
 
-        it 'executes via stdio' do
+        it 'dispatches to the real stdio transport and completes (regression: string-keyed server must resolve connection_type)' do
+          # Against the pre-fix code (symbol-key reads on a string-keyed
+          # server/tool), dispatch always fell through to "Unknown
+          # connection type: " and Open3.capture3 was never called.
           expect(job).to receive(:execute_mcp_tool).and_call_original
+          success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+          expect(Open3).to receive(:capture3) do |_env, command, *_args, **_opts|
+            expect(command).to eq('/usr/bin/node')
+            ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
+          end
+          expect(api_client).to receive(:patch)
+            .with(
+              "/api/v1/internal/mcp_tool_executions/#{execution_id}",
+              hash_including(status: 'completed', result: { ok: true })
+            )
+          allow(api_client).to receive(:patch).with(anything, hash_including(status: 'running'))
 
           job.execute(execution_id)
         end
@@ -201,57 +215,79 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
       context 'http execution' do
         let(:http_tool_data) do
           tool_data.merge(
-            mcp_server: tool_data[:mcp_server].merge(
-              connection_type: 'http',
-              url: 'http://localhost:3000'
+            'mcp_server' => tool_data['mcp_server'].merge(
+              'connection_type' => 'http',
+              'url' => 'http://localhost:3000'
             )
           )
         end
 
-        let(:http_execution_data) { execution_data.merge(mcp_tool: http_tool_data) }
+        let(:http_execution_data) { execution_data.merge('mcp_tool' => http_tool_data) }
 
         before do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
-            .and_return(success: true, data: { mcp_tool_execution: http_execution_data })
-          allow(api_client).to receive(:patch).and_return(success: true)
-          stub_request(:post, 'http://localhost:3000/tools/call')
-            .to_return(
-              status: 200,
-              body: { result: { data: 'test result' } }.to_json
-            )
+            .and_return('success' => true, 'data' => { 'mcp_tool_execution' => http_execution_data })
+          allow(api_client).to receive(:patch)
         end
 
-        it 'executes via HTTP' do
+        it 'dispatches to the real HTTP transport and completes (regression: string-keyed server must resolve connection_type)' do
+          # Against the pre-fix code, dispatch always fell through to
+          # "Unknown connection type: " and this stub would go unrequested.
+          stub = stub_request(:post, 'http://localhost:3000/tools/call')
+                 .to_return(status: 200, body: { result: { data: 'test result' } }.to_json)
+
+          expect(api_client).to receive(:patch)
+            .with(
+              "/api/v1/internal/mcp_tool_executions/#{execution_id}",
+              hash_including(status: 'completed', result: { 'data' => 'test result' })
+            )
+
           job.execute(execution_id)
+
+          expect(stub).to have_been_requested
         end
       end
 
       context 'websocket execution' do
         let(:ws_tool_data) do
           tool_data.merge(
-            mcp_server: tool_data[:mcp_server].merge(
-              connection_type: 'websocket',
-              url: 'ws://localhost:3000'
+            'mcp_server' => tool_data['mcp_server'].merge(
+              'connection_type' => 'websocket',
+              'url' => 'ws://localhost:3000'
             )
           )
         end
 
-        let(:ws_execution_data) { execution_data.merge(mcp_tool: ws_tool_data) }
+        let(:ws_execution_data) { execution_data.merge('mcp_tool' => ws_tool_data) }
 
         before do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
-            .and_return(success: true, data: { mcp_tool_execution: ws_execution_data })
-          allow(api_client).to receive(:patch).and_return(success: true)
-          # Mock the WebSocket library
-          allow(job).to receive(:execute_websocket_tool).and_return(
-            success: true,
-            output: { result: 'websocket result' }
-          )
+            .and_return('success' => true, 'data' => { 'mcp_tool_execution' => ws_execution_data })
+          allow(api_client).to receive(:patch)
         end
 
-        it 'executes via WebSocket' do
+        it 'dispatches to the real WebSocket transport (regression: string-keyed server must resolve connection_type)' do
+          # job#execute_websocket_tool is a thin delegator that the real
+          # execution path never calls (mcp_transport_client.execute
+          # dispatches internally) — stubbing it, as this test used to,
+          # exercises nothing. Mock the actual WebSocket library call
+          # instead so this fails fast rather than trying a real 10s
+          # connection timeout, and so the assertion is meaningful: against
+          # the pre-fix code, dispatch always fell through to "Unknown
+          # connection type: " and WebSocket::Client::Simple.connect was
+          # never called at all.
+          expect(WebSocket::Client::Simple).to receive(:connect)
+            .with('ws://localhost:3000')
+            .and_raise(Errno::ECONNREFUSED.new('refused'))
+
+          expect(api_client).to receive(:patch)
+            .with(
+              "/api/v1/internal/mcp_tool_executions/#{execution_id}",
+              hash_including(status: 'failed', error_message: /Connection refused/)
+            )
+
           job.execute(execution_id)
         end
       end
@@ -259,24 +295,25 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
       context 'unknown connection type' do
         let(:unknown_tool_data) do
           tool_data.merge(
-            mcp_server: tool_data[:mcp_server].merge(connection_type: 'grpc')
+            'mcp_server' => tool_data['mcp_server'].merge('connection_type' => 'grpc')
           )
         end
 
-        let(:unknown_execution_data) { execution_data.merge(mcp_tool: unknown_tool_data) }
+        let(:unknown_execution_data) { execution_data.merge('mcp_tool' => unknown_tool_data) }
 
         before do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
-            .and_return(success: true, data: { mcp_tool_execution: unknown_execution_data })
+            .and_return('success' => true, 'data' => { 'mcp_tool_execution' => unknown_execution_data })
           allow(api_client).to receive(:patch).and_return(success: true)
         end
 
-        it 'fails with unknown connection type error' do
+        it 'fails with an unknown connection type error naming the actual type' do
+          allow(api_client).to receive(:patch)
           expect(api_client).to receive(:patch)
             .with(
               "/api/v1/internal/mcp_tool_executions/#{execution_id}",
-              hash_including(status: 'failed', error_message: /Unknown connection type/)
+              hash_including(status: 'failed', error_message: 'Unknown connection type: grpc')
             )
 
           job.execute(execution_id)
@@ -288,7 +325,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
-          .and_return(success: true, data: { mcp_tool_execution: execution_data })
+          .and_return('success' => true, 'data' => { 'mcp_tool_execution' => execution_data })
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(job).to receive(:execute_mcp_tool).and_raise(StandardError, 'Unexpected error')
       end

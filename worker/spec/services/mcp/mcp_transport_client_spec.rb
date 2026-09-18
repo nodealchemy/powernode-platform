@@ -97,7 +97,11 @@ RSpec.describe Mcp::McpTransportClient do
   end
 
   describe '#execute_stdio_tool' do
-    let(:server) { { connection_type: 'stdio', command: '/usr/bin/mcp-server', args: ['--flag'], env: { 'MCP_X' => '1' } } }
+    # /usr/bin/node is on McpSecurityService::ALLOWED_COMMANDS — these tests
+    # exercise the real security validation path (IMP-7046f6e448d6 review
+    # item 3), not a stub, so the command must actually be whitelisted for
+    # them to reach Open3.capture3 at all.
+    let(:server) { { connection_type: 'stdio', command: '/usr/bin/node', args: ['--flag'], env: { 'MCP_X' => '1' } } }
 
     it 'frames the request to stdin and parses a successful response' do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
@@ -105,7 +109,7 @@ RSpec.describe Mcp::McpTransportClient do
 
       allow(Open3).to receive(:capture3) do |env, command, *cmd_args, **opts|
         expect(env).to eq('MCP_X' => '1')
-        expect(command).to eq('/usr/bin/mcp-server')
+        expect(command).to eq('/usr/bin/node')
         expect(cmd_args).to eq(['--flag'])
         captured_stdin = opts[:stdin_data]
         ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
@@ -143,8 +147,39 @@ RSpec.describe Mcp::McpTransportClient do
       allow(Open3).to receive(:capture3).and_raise(Errno::ENOENT)
 
       expect(client.execute_stdio_tool(server, tool, parameters)).to eq(
-        success: false, error: 'Command not found: /usr/bin/mcp-server'
+        success: false, error: 'Command not found: /usr/bin/node'
       )
+    end
+
+    it 'refuses a non-whitelisted command via the real McpSecurityService, without ever spawning it' do
+      blocked_server = server.merge(command: '/usr/bin/mcp-server')
+      expect(Open3).not_to receive(:capture3)
+
+      result = client.execute_stdio_tool(blocked_server, tool, parameters)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Security error:.*not in the allowed list/)
+    end
+
+    it 'accepts a string-keyed (indifferent-access) server, not just symbol-keyed' do
+      indifferent_server = server.with_indifferent_access
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+      allow(Open3).to receive(:capture3).and_return(
+        ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
+      )
+
+      expect(client.execute_stdio_tool(indifferent_server, tool, parameters)).to eq(success: true, output: { ok: true })
+    end
+
+    it 'passes a string-keyed env to Open3.capture3, never symbol-keyed (would raise TypeError)' do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(Open3).to receive(:capture3) do |env, *_rest|
+        expect(env.keys).to all(be_a(String))
+        ['{"jsonrpc":"2.0","id":"1","result":{}}', '', success_status]
+      end
+
+      client.execute_stdio_tool(server, tool, parameters)
     end
   end
 

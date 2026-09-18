@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../base_job'
+require_relative '../../services/mcp_security_service'
 
 module Mcp
   # Job for performing periodic health checks on MCP servers
@@ -30,12 +31,12 @@ module Mcp
       # Fetch all connected servers
       response = api_client.get("/api/v1/internal/mcp_servers?status=connected")
 
-      unless response[:success]
+      unless response['success']
         log_error("Failed to fetch connected servers")
         return
       end
 
-      servers = response[:data][:mcp_servers] || []
+      servers = response['data']['mcp_servers'] || []
 
       if servers.empty?
         log_info("No connected MCP servers to check")
@@ -46,7 +47,7 @@ module Mcp
 
       servers.each do |server|
         # Queue individual health checks to distribute load
-        McpServerHealthCheckJob.perform_async(server[:id])
+        McpServerHealthCheckJob.perform_async(server['id'])
       end
 
       log_info("Queued health checks for #{servers.count} MCP server(s)")
@@ -58,18 +59,18 @@ module Mcp
       # Fetch server details
       response = api_client.get("/api/v1/internal/mcp_servers/#{server_id}")
 
-      unless response[:success]
+      unless response['success']
         log_error("Failed to fetch server details", nil, server_id: server_id)
         return
       end
 
-      server = response[:data][:mcp_server]
+      server = response['data']['mcp_server']
 
       # Skip if server is not connected
-      unless server[:status] == 'connected'
+      unless server['status'] == 'connected'
         log_info("Skipping health check - server not connected",
                  server_id: server_id,
-                 status: server[:status])
+                 status: server['status'])
         return
       end
 
@@ -87,18 +88,18 @@ module Mcp
       if result[:healthy]
         log_info("MCP server health check passed",
                  server_id: server_id,
-                 name: server[:name],
+                 name: server['name'],
                  latency_ms: latency_ms)
       else
         log_warn("MCP server health check failed",
                  server_id: server_id,
-                 name: server[:name],
+                 name: server['name'],
                  error: result[:error])
       end
     end
 
     def ping_server(server)
-      case server[:connection_type]
+      case server['connection_type']
       when 'stdio'
         ping_stdio_server(server)
       when 'websocket'
@@ -106,14 +107,21 @@ module Mcp
       when 'http'
         ping_http_server(server)
       else
-        { healthy: false, error: "Unknown connection type: #{server[:connection_type]}" }
+        { healthy: false, error: "Unknown connection type: #{server['connection_type']}" }
       end
     end
 
     def ping_stdio_server(server)
-      # For stdio servers, we send a ping request
-      command = server[:command]
-      args = Array(server[:args])
+      args = Array(server['args'])
+
+      # Security validation - command whitelist and environment sanitization,
+      # shared with McpServerConnectionJob, McpToolDiscoveryJob and
+      # Mcp::McpTransportClient via McpSecurityService.validate_stdio_server!.
+      begin
+        command, sanitized_env = McpSecurityService.validate_stdio_server!(server)
+      rescue McpSecurityService::CommandNotAllowedError, McpSecurityService::EnvironmentViolationError => e
+        return { healthy: false, error: "Security error: #{e.message}" }
+      end
 
       begin
         require 'open3'
@@ -128,7 +136,7 @@ module Mcp
 
         stdin_data = ping_request.to_json
         stdout, _stderr, status = Open3.capture3(
-          server[:env] || {},
+          sanitized_env,
           command,
           *args,
           stdin_data: stdin_data
@@ -156,7 +164,7 @@ module Mcp
       require 'net/http'
 
       begin
-        uri = URI.parse(server[:url].sub('ws://', 'http://').sub('wss://', 'https://'))
+        uri = URI.parse(server['url'].sub('ws://', 'http://').sub('wss://', 'https://'))
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = uri.scheme == 'https'
         http.read_timeout = 5
@@ -173,7 +181,7 @@ module Mcp
       require 'net/http'
 
       begin
-        uri = URI("#{server[:url]}/ping")
+        uri = URI("#{server['url']}/ping")
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = uri.scheme == 'https'
         http.read_timeout = 5

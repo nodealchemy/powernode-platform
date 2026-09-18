@@ -23,8 +23,8 @@ module Sdwan
         {}
       )
 
-      if response.is_a?(Hash) && response[:success] == false
-        raise BackendApiClient::ApiError, "reap failed: #{response[:error] || 'unknown'}"
+      if response.is_a?(Hash) && response['success'] == false
+        raise BackendApiClient::ApiError, "reap failed: #{response['error'] || 'unknown'}"
       end
 
       reaped = response.is_a?(Hash) ? (response.dig(:data, :reaped_count) || response.dig("data", "reaped_count")) : nil

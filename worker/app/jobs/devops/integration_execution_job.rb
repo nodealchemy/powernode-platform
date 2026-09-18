@@ -32,11 +32,11 @@ module Devops
         { context: context }
       )
 
-      if response[:success]
+      if response['success']
         log_info('Integration execution completed', execution_id: execution_id)
         increment_counter('integration_execution_success')
       else
-        log_error('Integration execution failed', execution_id: execution_id, error: response[:error])
+        log_error('Integration execution failed', execution_id: execution_id, error: response['error'])
         increment_counter('integration_execution_failure')
       end
 

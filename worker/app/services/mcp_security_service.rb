@@ -167,6 +167,35 @@ class McpSecurityService
       { command: command, env: sanitize_environment(env, strict: strict_env) }
     end
 
+    # Shared validated-spawn entry point for every stdio MCP call site
+    # (McpServerHealthCheckJob#ping_stdio_server, McpToolDiscoveryJob
+    # #discover_stdio_tools, McpServerConnectionJob#establish_stdio_connection,
+    # Mcp::McpTransportClient#execute_stdio_tool). Takes the `server` hash
+    # (string-keyed, or indifferent-access) directly so callers don't each
+    # re-derive command/env/allow_extended/strict_env from it, and always
+    # returns a STRING-keyed env — Open3.capture3 raises TypeError if handed
+    # a symbol-keyed env Hash, so never deep_symbolize this. Raises
+    # McpSecurityService::CommandNotAllowedError /
+    # ::EnvironmentViolationError on a blocked command/env; callers decide
+    # how to log/report that per their own return shape.
+    #
+    # @return [Array(String, Hash)] [command, string-keyed sanitized env]
+    def validate_stdio_server!(server)
+      command = server['command']
+      env = server['env'] || {}
+      allow_extended = server.dig('capabilities', 'allow_extended_commands') == true
+      strict_env = server.dig('capabilities', 'strict_environment') == true
+
+      validated = validate_stdio_execution!(
+        command: command,
+        env: env,
+        allow_extended: allow_extended,
+        strict_env: strict_env
+      )
+
+      [validated[:command], validated[:env].transform_keys(&:to_s)]
+    end
+
     private
 
     def extract_base_command(command)

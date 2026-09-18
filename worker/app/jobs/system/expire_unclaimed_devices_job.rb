@@ -29,8 +29,8 @@ module System
         {}
       )
 
-      if response.is_a?(Hash) && response[:success] == false
-        raise BackendApiClient::ApiError, "expire failed: #{response[:error] || 'unknown'}"
+      if response.is_a?(Hash) && response['success'] == false
+        raise BackendApiClient::ApiError, "expire failed: #{response['error'] || 'unknown'}"
       end
 
       reaped = response.is_a?(Hash) ? response.dig(:data, :reaped_count) || response.dig("data", "reaped_count") : nil

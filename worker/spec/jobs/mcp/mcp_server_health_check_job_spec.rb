@@ -15,13 +15,13 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
 
   let(:server_data) do
     {
-      id: server_id,
-      name: 'Test MCP Server',
-      connection_type: 'stdio',
-      command: '/usr/bin/mcp-server',
-      args: [],
-      env: {},
-      status: 'connected'
+      'id' => server_id,
+      'name' => 'Test MCP Server',
+      'connection_type' => 'stdio',
+      'command' => '/usr/bin/mcp-server',
+      'args' => [],
+      'env' => {},
+      'status' => 'connected'
     }
   end
 
@@ -59,15 +59,15 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
     context 'when checking all servers' do
       let(:servers) do
         [
-          { id: 'server-1', name: 'Server 1', status: 'connected' },
-          { id: 'server-2', name: 'Server 2', status: 'connected' }
+          { 'id' => 'server-1', 'name' => 'Server 1', 'status' => 'connected' },
+          { 'id' => 'server-2', 'name' => 'Server 2', 'status' => 'connected' }
         ]
       end
 
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/mcp_servers?status=connected')
-          .and_return(success: true, data: { mcp_servers: servers })
+          .and_return('success' => true, 'data' => { 'mcp_servers' => servers })
         allow(described_class).to receive(:perform_async)
       end
 
@@ -96,7 +96,7 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/mcp_servers?status=connected')
-          .and_return(success: true, data: { mcp_servers: [] })
+          .and_return('success' => true, 'data' => { 'mcp_servers' => [] })
       end
 
       it 'logs that no servers are available' do
@@ -116,8 +116,8 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: true, data: { mcp_server: server_data })
-        allow(api_client).to receive(:post).and_return(success: true)
+          .and_return('success' => true, 'data' => { 'mcp_server' => server_data })
+        allow(api_client).to receive(:post).and_return('success' => true)
       end
 
       context 'with healthy server' do
@@ -175,12 +175,12 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
       end
 
       context 'when server is not connected' do
-        let(:disconnected_server) { server_data.merge(status: 'disconnected') }
+        let(:disconnected_server) { server_data.merge('status' => 'disconnected') }
 
         before do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_servers/#{server_id}")
-            .and_return(success: true, data: { mcp_server: disconnected_server })
+            .and_return('success' => true, 'data' => { 'mcp_server' => disconnected_server })
         end
 
         it 'skips health check' do
@@ -196,7 +196,7 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: false, error: 'Not found')
+          .and_return('success' => false, 'error' => 'Not found')
       end
 
       it 'logs error' do
@@ -211,8 +211,8 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
         before do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_servers/#{server_id}")
-            .and_return(success: true, data: { mcp_server: server_data })
-          allow(api_client).to receive(:post).and_return(success: true)
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data })
+          allow(api_client).to receive(:post).and_return('success' => true)
         end
 
         it 'pings stdio server' do
@@ -220,16 +220,46 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
 
           job.execute(server_id)
         end
+
+        it 'refuses a non-whitelisted stdio command via the real McpSecurityService' do
+          # server_data's command (/usr/bin/mcp-server) is not on
+          # McpSecurityService::ALLOWED_COMMANDS, so this must be blocked
+          # before Open3.capture3 is ever reached (IMP-7046f6e448d6 review
+          # item 2).
+          expect(Open3).not_to receive(:capture3)
+
+          job.execute(server_id)
+
+          expect(api_client).to have_received(:post)
+            .with(
+              "/api/v1/internal/mcp_servers/#{server_id}/health_result",
+              hash_including(healthy: false)
+            )
+        end
+
+        it 'spawns a whitelisted stdio command with a string-keyed sanitized env' do
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/mcp_servers/#{server_id}")
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node') })
+
+          expect(Open3).to receive(:capture3) do |env, command, *_args, **_opts|
+            expect(command).to eq('node')
+            expect(env.keys).to all(be_a(String))
+            ['{}', '', instance_double(Process::Status, success?: true)]
+          end
+
+          job.execute(server_id)
+        end
       end
 
       context 'http server' do
-        let(:http_server_data) { server_data.merge(connection_type: 'http', url: 'http://localhost:3000') }
+        let(:http_server_data) { server_data.merge('connection_type' => 'http', 'url' => 'http://localhost:3000') }
 
         before do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_servers/#{server_id}")
-            .and_return(success: true, data: { mcp_server: http_server_data })
-          allow(api_client).to receive(:post).and_return(success: true)
+            .and_return('success' => true, 'data' => { 'mcp_server' => http_server_data })
+          allow(api_client).to receive(:post).and_return('success' => true)
           stub_request(:post, 'http://localhost:3000/ping')
             .to_return(status: 200, body: '{}')
         end

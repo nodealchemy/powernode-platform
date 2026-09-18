@@ -33,13 +33,13 @@ module System
         {} # account-wide sweep — server scopes by current_worker.account
       )
 
-      if response.is_a?(Hash) && response[:success] == false
-        raise "retention sweep failed: #{response[:error]}"
+      if response.is_a?(Hash) && response['success'] == false
+        raise "retention sweep failed: #{response['error']}"
       end
 
-      summary = response.is_a?(Hash) ? response.dig(:data, :per_platform) : nil
-      total_retired = summary.is_a?(Hash) ? summary.values.sum { |v| v[:retired].to_i } : 0
-      total_purged  = summary.is_a?(Hash) ? summary.values.sum { |v| v[:purged].to_i }  : 0
+      summary = response.is_a?(Hash) ? response.dig('data', 'per_platform') : nil
+      total_retired = summary.is_a?(Hash) ? summary.values.sum { |v| v['retired'].to_i } : 0
+      total_purged  = summary.is_a?(Hash) ? summary.values.sum { |v| v['purged'].to_i }  : 0
       logger.info "[ExpireOldDiskImageFileObjectsJob] swept retired=#{total_retired} purged=#{total_purged}"
     end
   end

@@ -59,16 +59,16 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return(success: true, data: export_request_data)
+          .and_return('success' => true, 'data' => export_request_data)
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/users/#{user_id}/export/profile")
-          .and_return(success: true, data: { name: 'Test User', email: 'test@example.com' })
+          .and_return('success' => true, 'data' => { 'name' => 'Test User', 'email' => 'test@example.com' })
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/users/#{user_id}/export/activity")
-          .and_return(success: true, data: [{ action: 'login', timestamp: '2024-01-01' }])
+          .and_return('success' => true, 'data' => [{ 'action' => 'login', 'timestamp' => '2024-01-01' }])
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/accounts/#{account_id}/export/payments")
-          .and_return(success: true, data: [{ amount: 99.99, date: '2024-01-01' }])
+          .and_return('success' => true, 'data' => [{ 'amount' => 99.99, 'date' => '2024-01-01' }])
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(api_client).to receive(:post).and_return(success: true)
       end
@@ -114,6 +114,21 @@ RSpec.describe Compliance::DataExportJob, type: :job do
         job.execute(export_request_id)
       end
 
+      it 'gathers the actual string-keyed body for each data type, not nil' do
+        # Regression guard for IMP-7046f6e448d6 review finding: fetch_data_type
+        # used to read `api_client.get(...)[:data]` (symbol key) against a
+        # string-keyed BackendApiClient body, so every gathered section was
+        # nil and the job silently produced an empty GDPR export.
+        expect(job).to receive(:write_export_file) do |_export_request, export_data|
+          expect(export_data['profile']).to eq('name' => 'Test User', 'email' => 'test@example.com')
+          expect(export_data['activity']).to eq([{ 'action' => 'login', 'timestamp' => '2024-01-01' }])
+          expect(export_data['payments']).to eq([{ 'amount' => 99.99, 'date' => '2024-01-01' }])
+          ['/tmp/test_export.json', 512]
+        end
+
+        job.execute(export_request_id)
+      end
+
       it 'sends notification to user' do
         expect(api_client).to receive(:post)
           .with(
@@ -134,7 +149,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return(success: true, data: completed_request)
+          .and_return('success' => true, 'data' => completed_request)
       end
 
       it 'skips processing' do
@@ -149,7 +164,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return(success: false, error: 'Not found')
+          .and_return('success' => false, 'error' => 'Not found')
       end
 
       it 'raises an error' do
@@ -167,7 +182,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return(success: true, data: single_type_request)
+          .and_return('success' => true, 'data' => single_type_request)
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(api_client).to receive(:post).and_return(success: true)
         allow(api_client).to receive(:get)
@@ -186,7 +201,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return(success: true, data: export_request_data)
+          .and_return('success' => true, 'data' => export_request_data)
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(job).to receive(:gather_export_data).and_return({ test: 'data' })
         allow(job).to receive(:write_export_file).and_raise(StandardError, 'Write failed')
@@ -211,10 +226,10 @@ RSpec.describe Compliance::DataExportJob, type: :job do
         # Stub API responses - order matters, specific before general
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return(success: true, data: csv_request)
+          .and_return('success' => true, 'data' => csv_request)
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/users/#{user_id}/export/profile")
-          .and_return(success: true, data: { name: 'Test', email: 'test@example.com' })
+          .and_return('success' => true, 'data' => { 'name' => 'Test', 'email' => 'test@example.com' })
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(api_client).to receive(:post).and_return(success: true)
         # Stub file writing to avoid dependency on zip gem
@@ -247,17 +262,25 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       end
 
       before do
-        allow(api_client).to receive(:get)
-          .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return(success: true, data: request_with_exclusions)
+        # Order matters: RSpec resolves to the LAST matching stub, so the
+        # generic `anything` catch-all must be registered first or it
+        # shadows the specific data_export_requests stub below (pre-existing
+        # ordering issue exposed once the two stub shapes stopped
+        # coincidentally agreeing — see IMP-7046f6e448d6).
         allow(api_client).to receive(:get)
           .with(anything)
-          .and_return(success: true, data: {})
+          .and_return('success' => true, 'data' => {})
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_export_requests/#{export_request_id}")
+          .and_return('success' => true, 'data' => request_with_exclusions)
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(api_client).to receive(:post).and_return(success: true)
       end
 
       it 'excludes specified data types' do
+        expect(api_client).to receive(:get)
+          .with("/api/v1/internal/users/#{user_id}/export/profile")
+          .and_return('success' => true, 'data' => { 'name' => 'Test User' })
         expect(api_client).not_to receive(:get)
           .with("/api/v1/internal/users/#{user_id}/export/activity")
 

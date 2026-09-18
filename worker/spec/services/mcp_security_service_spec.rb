@@ -283,6 +283,90 @@ RSpec.describe McpSecurityService do
     end
   end
 
+  describe '.validate_stdio_server!' do
+    # Shared entry point for every stdio call site (IMP-7046f6e448d6 review
+    # item 2): McpServerConnectionJob, McpServerHealthCheckJob,
+    # McpToolDiscoveryJob, Mcp::McpTransportClient. Takes the `server` hash
+    # directly, string-keyed as BackendApiClient actually returns it.
+    it 'returns [command, string-keyed env] for a whitelisted command' do
+      server = { 'command' => 'node', 'args' => [], 'env' => { 'MCP_API_KEY' => 'secret' } }
+
+      command, env = described_class.validate_stdio_server!(server)
+
+      expect(command).to eq('node')
+      expect(env).to eq('MCP_API_KEY' => 'secret')
+      expect(env.keys).to all(be_a(String))
+    end
+
+    it 'raises CommandNotAllowedError for a non-whitelisted command' do
+      server = { 'command' => '/usr/bin/mcp-server', 'env' => {} }
+
+      expect { described_class.validate_stdio_server!(server) }
+        .to raise_error(McpSecurityService::CommandNotAllowedError)
+    end
+
+    it 'raises EnvironmentViolationError for a forbidden env var' do
+      server = { 'command' => 'node', 'env' => { 'LD_PRELOAD' => '/tmp/evil.so' } }
+
+      expect { described_class.validate_stdio_server!(server) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError)
+    end
+
+    it 'reads allow_extended/strict_env from server["capabilities"]' do
+      server = {
+        'command' => 'uvx',
+        'env' => {},
+        'capabilities' => { 'allow_extended_commands' => true }
+      }
+
+      command, = described_class.validate_stdio_server!(server)
+
+      expect(command).to eq('uvx')
+    end
+
+    it 'refuses an extended command (docker) without capabilities.allow_extended_commands' do
+      server = { 'command' => 'docker', 'env' => {} }
+
+      expect { described_class.validate_stdio_server!(server) }
+        .to raise_error(McpSecurityService::CommandNotAllowedError)
+    end
+
+    it 'allows an extended command (docker) when capabilities.allow_extended_commands == true' do
+      server = {
+        'command' => 'docker',
+        'env' => {},
+        'capabilities' => { 'allow_extended_commands' => true }
+      }
+
+      command, = described_class.validate_stdio_server!(server)
+
+      expect(command).to eq('docker')
+    end
+
+    it 'drops non-allowlisted env keys and returns String env keys when capabilities.strict_environment == true' do
+      server = {
+        'command' => 'node',
+        'env' => { 'PATH' => '/usr/bin', 'MCP_API_KEY' => 'secret', 'CUSTOM_UNLISTED_VAR' => 'value' },
+        'capabilities' => { 'strict_environment' => true }
+      }
+
+      _command, env = described_class.validate_stdio_server!(server)
+
+      expect(env).to include('PATH', 'MCP_API_KEY')
+      expect(env).not_to include('CUSTOM_UNLISTED_VAR')
+      expect(env.keys).to all(be_a(String))
+    end
+
+    it 'works with an indifferent-access server too' do
+      server = { 'command' => 'node', 'env' => {} }.with_indifferent_access
+
+      command, env = described_class.validate_stdio_server!(server)
+
+      expect(command).to eq('node')
+      expect(env).to eq({})
+    end
+  end
+
   describe 'error classes' do
     it 'defines SecurityError as base class' do
       expect(McpSecurityService::SecurityError).to be < StandardError

@@ -31,16 +31,16 @@ module System
         publication_id: publication_id
       )
 
-      if response.is_a?(Hash) && response[:success] == false
+      if response.is_a?(Hash) && response['success'] == false
         # Worker_api endpoints emit `{success: false, error: "..."}` on
         # 4xx/5xx; surface as job failure so Sidekiq's retry kicks in
         # (idempotency makes re-runs safe — same git_sha returns
         # idempotent_hit on second attempt).
-        raise "publication #{publication_id} processing failed: #{response[:error]}"
+        raise "publication #{publication_id} processing failed: #{response['error']}"
       end
 
       logger.info "[ProcessDiskImagePublicationJob] publication=#{publication_id} completed " \
-                  "status=#{response.is_a?(Hash) ? response.dig(:data, :publication_status) : 'unknown'}"
+                  "status=#{response.is_a?(Hash) ? response.dig('data', 'publication_status') : 'unknown'}"
     end
   end
 end

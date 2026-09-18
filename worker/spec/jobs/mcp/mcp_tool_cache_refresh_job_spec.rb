@@ -45,16 +45,16 @@ RSpec.describe Mcp::McpToolCacheRefreshJob, type: :job do
     context 'when servers are connected' do
       let(:servers) do
         [
-          { id: 'server-1', name: 'Server 1', status: 'connected' },
-          { id: 'server-2', name: 'Server 2', status: 'connected' },
-          { id: 'server-3', name: 'Server 3', status: 'connected' }
+          { 'id' => 'server-1', 'name' => 'Server 1', 'status' => 'connected' },
+          { 'id' => 'server-2', 'name' => 'Server 2', 'status' => 'connected' },
+          { 'id' => 'server-3', 'name' => 'Server 3', 'status' => 'connected' }
         ]
       end
 
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/mcp_servers?status=connected')
-          .and_return(success: true, data: { mcp_servers: servers })
+          .and_return('success' => true, 'data' => { 'mcp_servers' => servers })
         allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
       end
 
@@ -84,7 +84,7 @@ RSpec.describe Mcp::McpToolCacheRefreshJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/mcp_servers?status=connected')
-          .and_return(success: true, data: { mcp_servers: [] })
+          .and_return('success' => true, 'data' => { 'mcp_servers' => [] })
       end
 
       it 'logs that no servers are available' do
@@ -104,7 +104,7 @@ RSpec.describe Mcp::McpToolCacheRefreshJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/mcp_servers?status=connected')
-          .and_return(success: false, error: 'Service unavailable')
+          .and_return('success' => false, 'error' => 'Service unavailable')
       end
 
       it 'logs error' do

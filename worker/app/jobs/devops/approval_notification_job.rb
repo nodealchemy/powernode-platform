@@ -46,7 +46,7 @@ module Devops
 
     def fetch_step_execution_details(step_execution_id)
       response = api_client.get("/api/v1/internal/approval_tokens/#{step_execution_id}")
-      response[:data]
+      response['data']
     rescue BackendApiClient::ApiError => e
       logger.error "Failed to fetch step execution details: #{e.message}"
       nil
@@ -58,7 +58,7 @@ module Devops
         { recipients: recipients }
       )
 
-      response.dig(:data, "tokens") || []
+      response.dig('data', 'tokens') || []
     rescue BackendApiClient::ApiError => e
       logger.error "Failed to create approval tokens: #{e.message}"
       []

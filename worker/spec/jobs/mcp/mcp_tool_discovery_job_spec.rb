@@ -15,13 +15,13 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
 
   let(:server_data) do
     {
-      id: server_id,
-      name: 'Test MCP Server',
-      connection_type: 'stdio',
-      command: '/usr/bin/mcp-server',
-      args: [],
-      env: {},
-      status: 'connected'
+      'id' => server_id,
+      'name' => 'Test MCP Server',
+      'connection_type' => 'stdio',
+      'command' => '/usr/bin/mcp-server',
+      'args' => [],
+      'env' => {},
+      'status' => 'connected'
     }
   end
 
@@ -67,14 +67,14 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: true, data: { mcp_server: server_data })
+          .and_return('success' => true, 'data' => { 'mcp_server' => server_data })
         allow(job).to receive(:discover_tools_from_server).and_return(
           success: true,
           tools: discovered_tools
         )
         allow(api_client).to receive(:post)
           .with("/api/v1/internal/mcp_servers/#{server_id}/register_tools", anything)
-          .and_return(success: true)
+          .and_return('success' => true)
       end
 
       it 'fetches server details' do
@@ -111,7 +111,7 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: true, data: { mcp_server: server_data })
+          .and_return('success' => true, 'data' => { 'mcp_server' => server_data })
         allow(job).to receive(:discover_tools_from_server).and_return(
           success: true,
           tools: []
@@ -133,12 +133,12 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
     end
 
     context 'when server is not connected' do
-      let(:disconnected_server) { server_data.merge(status: 'disconnected') }
+      let(:disconnected_server) { server_data.merge('status' => 'disconnected') }
 
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: true, data: { mcp_server: disconnected_server })
+          .and_return('success' => true, 'data' => { 'mcp_server' => disconnected_server })
       end
 
       it 'skips discovery' do
@@ -153,7 +153,7 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: true, data: { mcp_server: server_data })
+          .and_return('success' => true, 'data' => { 'mcp_server' => server_data })
         allow(job).to receive(:discover_tools_from_server).and_return(
           success: false,
           error: 'MCP protocol error'
@@ -171,18 +171,19 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: true, data: { mcp_server: server_data })
+          .and_return('success' => true, 'data' => { 'mcp_server' => server_data })
         allow(job).to receive(:discover_tools_from_server).and_return(
           success: true,
           tools: discovered_tools
         )
         allow(api_client).to receive(:post)
           .with("/api/v1/internal/mcp_servers/#{server_id}/register_tools", anything)
-          .and_return(success: false, error: 'Registration failed')
+          .and_return('success' => false, 'error' => 'Registration failed')
       end
 
-      it 'logs error' do
-        expect(job).to receive(:log_error).with(/Failed to register discovered tools/, anything, anything)
+      it 'logs error with the string-keyed error message' do
+        expect(job).to receive(:log_error)
+          .with(/Failed to register discovered tools/, nil, hash_including(error: 'Registration failed'))
 
         job.execute(server_id)
       end
@@ -192,7 +193,7 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: false, error: 'Not found')
+          .and_return('success' => false, 'error' => 'Not found')
       end
 
       it 'logs error and returns' do
@@ -203,13 +204,46 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
     end
 
     context 'with different connection types' do
+      context 'stdio server' do
+        before do
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/mcp_servers/#{server_id}")
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data })
+        end
+
+        it 'refuses a non-whitelisted stdio command via the real McpSecurityService' do
+          # server_data's command (/usr/bin/mcp-server) is not on
+          # McpSecurityService::ALLOWED_COMMANDS, so this must be blocked
+          # before Open3.capture3 is ever reached (IMP-7046f6e448d6 review
+          # item 2).
+          expect(Open3).not_to receive(:capture3)
+          expect(job).to receive(:log_error).with(/Tool discovery failed/, nil, hash_including(error: /Security error/))
+
+          job.execute(server_id)
+        end
+
+        it 'spawns a whitelisted stdio command with a string-keyed sanitized env' do
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/mcp_servers/#{server_id}")
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node') })
+
+          expect(Open3).to receive(:capture3) do |env, command, *_args, **_opts|
+            expect(command).to eq('node')
+            expect(env.keys).to all(be_a(String))
+            ['{}', '', instance_double(Process::Status, success?: true)]
+          end
+
+          job.execute(server_id)
+        end
+      end
+
       context 'http server' do
-        let(:http_server_data) { server_data.merge(connection_type: 'http', url: 'http://localhost:3000') }
+        let(:http_server_data) { server_data.merge('connection_type' => 'http', 'url' => 'http://localhost:3000') }
 
         before do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_servers/#{server_id}")
-            .and_return(success: true, data: { mcp_server: http_server_data })
+            .and_return('success' => true, 'data' => { 'mcp_server' => http_server_data })
           allow(api_client).to receive(:post).and_return(success: true)
           stub_request(:post, 'http://localhost:3000/tools/list')
             .to_return(
@@ -224,12 +258,12 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
       end
 
       context 'websocket server' do
-        let(:ws_server_data) { server_data.merge(connection_type: 'websocket', url: 'ws://localhost:3000') }
+        let(:ws_server_data) { server_data.merge('connection_type' => 'websocket', 'url' => 'ws://localhost:3000') }
 
         before do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_servers/#{server_id}")
-            .and_return(success: true, data: { mcp_server: ws_server_data })
+            .and_return('success' => true, 'data' => { 'mcp_server' => ws_server_data })
         end
 
         it 'handles websocket discovery' do
@@ -239,12 +273,12 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
       end
 
       context 'unknown connection type' do
-        let(:unknown_server_data) { server_data.merge(connection_type: 'grpc') }
+        let(:unknown_server_data) { server_data.merge('connection_type' => 'grpc') }
 
         before do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_servers/#{server_id}")
-            .and_return(success: true, data: { mcp_server: unknown_server_data })
+            .and_return('success' => true, 'data' => { 'mcp_server' => unknown_server_data })
         end
 
         it 'returns error for unknown type' do

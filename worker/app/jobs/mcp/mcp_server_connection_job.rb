@@ -1,6 +1,13 @@
 # frozen_string_literal: true
 
 require_relative '../base_job'
+# McpSecurityService is not on boot.rb's explicit require list and the
+# worker has no autoloader — without this, #establish_stdio_connection's
+# reference to it raises NameError the first time a real stdio connection
+# is attempted (found during IMP-7046f6e448d6 review item 2: nothing in the
+# codebase required this file before now, so the "reference" stdio security
+# validation path had never actually run).
+require_relative '../../services/mcp_security_service'
 
 module Mcp
   # Job for managing MCP server connections asynchronously
@@ -16,12 +23,12 @@ module Mcp
       # Fetch server details from backend API
       response = api_client.get("/api/v1/internal/mcp_servers/#{server_id}")
 
-      unless response[:success]
+      unless response['success']
         log_error('Failed to fetch server details', nil, server_id: server_id)
         return
       end
 
-      server = response[:data][:mcp_server]
+      server = response['data']['mcp_server']
 
       case action
       when 'connect'
@@ -42,55 +49,55 @@ module Mcp
     private
 
     def handle_connect(server)
-      log_info('Connecting to MCP server', server_id: server[:id], name: server[:name])
+      log_info('Connecting to MCP server', server_id: server['id'], name: server['name'])
 
       result = establish_connection(server)
 
       if result[:success]
         # Update server status to connected
-        api_client.patch("/api/v1/internal/mcp_servers/#{server[:id]}", {
+        api_client.patch("/api/v1/internal/mcp_servers/#{server['id']}", {
                            status: 'connected',
                            capabilities: result[:capabilities],
                            last_connected_at: Time.current.iso8601
                          })
 
         log_info('MCP server connected successfully',
-                 server_id: server[:id],
-                 name: server[:name],
+                 server_id: server['id'],
+                 name: server['name'],
                  capabilities: result[:capabilities])
 
         # Trigger tool discovery
-        McpToolDiscoveryJob.perform_async(server[:id])
+        McpToolDiscoveryJob.perform_async(server['id'])
       else
         # Update server status to error
-        api_client.patch("/api/v1/internal/mcp_servers/#{server[:id]}", {
+        api_client.patch("/api/v1/internal/mcp_servers/#{server['id']}", {
                            status: 'error',
                            last_error: result[:error]
                          })
 
         log_error('MCP server connection failed', nil,
-                  server_id: server[:id],
-                  name: server[:name],
+                  server_id: server['id'],
+                  name: server['name'],
                   error: result[:error])
       end
     end
 
     def handle_disconnect(server)
-      log_info('Disconnecting from MCP server', server_id: server[:id], name: server[:name])
+      log_info('Disconnecting from MCP server', server_id: server['id'], name: server['name'])
 
       # Perform any cleanup needed for the connection type
       cleanup_connection(server)
 
       # Update server status
-      api_client.patch("/api/v1/internal/mcp_servers/#{server[:id]}", {
+      api_client.patch("/api/v1/internal/mcp_servers/#{server['id']}", {
                          status: 'disconnected'
                        })
 
-      log_info('MCP server disconnected', server_id: server[:id], name: server[:name])
+      log_info('MCP server disconnected', server_id: server['id'], name: server['name'])
     end
 
     def establish_connection(server)
-      case server[:connection_type]
+      case server['connection_type']
       when 'stdio'
         establish_stdio_connection(server)
       when 'websocket'
@@ -98,29 +105,24 @@ module Mcp
       when 'http'
         establish_http_connection(server)
       else
-        { success: false, error: "Unknown connection type: #{server[:connection_type]}" }
+        { success: false, error: "Unknown connection type: #{server['connection_type']}" }
       end
     end
 
     def establish_stdio_connection(server)
       # For stdio connections, we verify the command exists and can respond to initialize
-      command = server[:command]
-      args = Array(server[:args])
-      env = server[:env] || {}
+      args = Array(server['args'])
 
-      # Security validation - command whitelist and environment sanitization
+      # Security validation - command whitelist and environment sanitization,
+      # shared with McpServerHealthCheckJob, McpToolDiscoveryJob and
+      # Mcp::McpTransportClient via McpSecurityService.validate_stdio_server!.
       begin
-        validated = McpSecurityService.validate_stdio_execution!(
-          command: command,
-          env: env,
-          allow_extended: server.dig(:capabilities, 'allow_extended_commands') == true,
-          strict_env: server.dig(:capabilities, 'strict_environment') == true
-        )
+        command, sanitized_env = McpSecurityService.validate_stdio_server!(server)
       rescue McpSecurityService::CommandNotAllowedError => e
-        log_error('Security violation - command blocked', nil, server_id: server[:id], error: e.message)
+        log_error('Security violation - command blocked', nil, server_id: server['id'], error: e.message)
         return { success: false, error: "Security error: #{e.message}" }
       rescue McpSecurityService::EnvironmentViolationError => e
-        log_error('Security violation - environment blocked', nil, server_id: server[:id], error: e.message)
+        log_error('Security violation - environment blocked', nil, server_id: server['id'], error: e.message)
         return { success: false, error: "Security error: #{e.message}" }
       end
 
@@ -145,8 +147,6 @@ module Mcp
         }
 
         stdin_data = init_request.to_json
-        # Use sanitized environment
-        sanitized_env = validated[:env].transform_keys(&:to_s)
 
         stdout, stderr, status = Open3.capture3(
           sanitized_env,
@@ -184,7 +184,7 @@ module Mcp
       # WebSocket-based MCP servers should use the real-time connection manager.
       require 'websocket-client-simple'
 
-      ws_url = server[:url] || server[:websocket_url]
+      ws_url = server['url'] || server['websocket_url']
 
       unless ws_url.present?
         return { success: false, error: 'WebSocket URL not configured' }
@@ -252,7 +252,7 @@ module Mcp
       rescue LoadError
         # websocket-client-simple gem not available
         log_warn('WebSocket gem not available, WebSocket connections not supported',
-                 server_id: server[:id])
+                 server_id: server['id'])
         return {
           success: false,
           error: 'WebSocket support requires websocket-client-simple gem'
@@ -273,7 +273,7 @@ module Mcp
       require 'net/http'
 
       begin
-        uri = URI("#{server[:url]}/initialize")
+        uri = URI("#{server['url']}/initialize")
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = uri.scheme == 'https'
         http.read_timeout = 10

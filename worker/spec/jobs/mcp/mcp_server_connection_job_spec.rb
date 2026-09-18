@@ -15,13 +15,13 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
 
   let(:server_data) do
     {
-      id: server_id,
-      name: 'Test MCP Server',
-      connection_type: 'stdio',
-      command: '/usr/bin/mcp-server',
-      args: ['--mode', 'stdio'],
-      env: { 'MCP_TOKEN' => 'test' },
-      status: 'disconnected'
+      'id' => server_id,
+      'name' => 'Test MCP Server',
+      'connection_type' => 'stdio',
+      'command' => '/usr/bin/mcp-server',
+      'args' => ['--mode', 'stdio'],
+      'env' => { 'MCP_TOKEN' => 'test' },
+      'status' => 'disconnected'
     }
   end
 
@@ -60,7 +60,7 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: true, data: { mcp_server: server_data })
+          .and_return('success' => true, 'data' => { 'mcp_server' => server_data })
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
       end
@@ -137,7 +137,7 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: true, data: { mcp_server: server_data.merge(status: 'connected') })
+          .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('status' => 'connected') })
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(job).to receive(:cleanup_connection).and_return(true)
       end
@@ -163,7 +163,7 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: false, error: 'Not found')
+          .and_return('success' => false, 'error' => 'Not found')
       end
 
       it 'logs error and returns' do
@@ -177,7 +177,7 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/mcp_servers/#{server_id}")
-          .and_return(success: true, data: { mcp_server: server_data })
+          .and_return('success' => true, 'data' => { 'mcp_server' => server_data })
       end
 
       it 'logs error for unknown action' do
@@ -189,36 +189,47 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
 
     context 'with different connection types' do
       context 'stdio connection' do
-        before do
-          # Define McpSecurityService stub if it doesn't exist
-          stub_const('McpSecurityService', Class.new do
-            class CommandNotAllowedError < StandardError; end
-            class EnvironmentViolationError < StandardError; end
-            def self.validate_stdio_execution!(**args)
-              { env: args[:env] || {} }
-            end
-          end)
+        it 'refuses a non-whitelisted stdio command via the real McpSecurityService' do
+          # No stub_const: exercises the real McpSecurityService validation
+          # path (IMP-7046f6e448d6 review item 2). server_data's command
+          # (/usr/bin/mcp-server) is not on ALLOWED_COMMANDS, so this must be
+          # blocked before Open3.capture3 is ever reached.
+          allow(api_client).to receive(:get)
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data })
+          allow(api_client).to receive(:patch).and_return(success: true)
+          allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
+          expect(Open3).not_to receive(:capture3)
+
+          expect(job).to receive(:establish_connection).and_call_original
+          expect(job).to receive(:log_error).with(
+            'Security violation - command blocked', nil, hash_including(server_id: server_id)
+          )
+
+          job.execute(server_id, { 'action' => 'connect' })
         end
 
-        it 'establishes stdio connection' do
+        it 'spawns a whitelisted stdio command with a string-keyed sanitized env' do
           allow(api_client).to receive(:get)
-            .and_return(success: true, data: { mcp_server: server_data })
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node') })
           allow(api_client).to receive(:patch).and_return(success: true)
           allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
 
-          expect(job).to receive(:establish_connection).and_call_original
+          expect(Open3).to receive(:capture3) do |env, command, *args, **_opts|
+            expect(command).to eq('node')
+            expect(env.keys).to all(be_a(String))
+            ['{}', '', instance_double(Process::Status, success?: true)]
+          end
 
-          # This will fail because the command doesn't exist, but tests the path
           job.execute(server_id, { 'action' => 'connect' })
         end
       end
 
       context 'websocket connection' do
-        let(:ws_server_data) { server_data.merge(connection_type: 'websocket', url: 'ws://localhost:3000') }
+        let(:ws_server_data) { server_data.merge('connection_type' => 'websocket', 'url' => 'ws://localhost:3000') }
 
         before do
           allow(api_client).to receive(:get)
-            .and_return(success: true, data: { mcp_server: ws_server_data })
+            .and_return('success' => true, 'data' => { 'mcp_server' => ws_server_data })
           allow(api_client).to receive(:patch).and_return(success: true)
           allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
         end
@@ -229,11 +240,11 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
       end
 
       context 'http connection' do
-        let(:http_server_data) { server_data.merge(connection_type: 'http', url: 'http://localhost:3000') }
+        let(:http_server_data) { server_data.merge('connection_type' => 'http', 'url' => 'http://localhost:3000') }
 
         before do
           allow(api_client).to receive(:get)
-            .and_return(success: true, data: { mcp_server: http_server_data })
+            .and_return('success' => true, 'data' => { 'mcp_server' => http_server_data })
           allow(api_client).to receive(:patch).and_return(success: true)
           allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
           stub_request(:post, 'http://localhost:3000/initialize')
