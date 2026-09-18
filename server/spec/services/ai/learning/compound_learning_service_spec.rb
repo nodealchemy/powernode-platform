@@ -235,6 +235,42 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
         expect(result[:context]).to be_nil
         expect(result[:learning_ids]).to eq([])
       end
+
+      context "content length relative to the interim 600-char injection cap" do
+        # Padded so the fixed-word opening phrase (what the keyword fallback
+        # matches on) survives well inside whatever slice length is taken below.
+        # Boundaries (200, 600) are hardcoded deliberately, not read from
+        # INJECTION_CONTENT_CHAR_CAP: an assertion built from the same constant
+        # the production code truncates with would move in lockstep with a
+        # regression to the constant and prove nothing about actual behavior.
+        let(:padded) do
+          "Use caching for repeated queries. " \
+          + ("Padding prose to exceed the truncation threshold realistically. " * 20)
+        end
+
+        it "delivers content longer than 200 but within 600 chars intact" do
+          content = padded[0, 400]
+          expect(content.length).to be_between(201, 600)
+          create(:ai_compound_learning, account: account, category: "best_practice",
+                 content: content, importance_score: 0.8, status: "active")
+
+          result = service.build_compound_context(agent: agent, task_description: "caching queries")
+
+          expect(result[:context]).to include(content)
+        end
+
+        it "truncates content longer than 600 chars at 600, not at 200" do
+          content = padded[0, 900]
+          expect(content.length).to be > 600
+          create(:ai_compound_learning, account: account, category: "best_practice",
+                 content: content, importance_score: 0.8, status: "active")
+
+          result = service.build_compound_context(agent: agent, task_description: "caching queries")
+
+          expect(result[:context]).to include(content.truncate(600))
+          expect(result[:context]).not_to include(content)
+        end
+      end
     end
   end
 
@@ -330,6 +366,34 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
         allow(embedding_service).to receive(:generate_or_nil).and_raise(StandardError, "embedding error")
 
         expect(service.top_relevant_learnings(task_description: "test")).to eq([])
+      end
+
+      context "summary length relative to the interim 600-char injection cap" do
+        # Boundaries hardcoded — see the matching comment on #build_compound_context's spec.
+        let(:padded) do
+          "Use caching for repeated queries. " \
+          + ("Padding prose to exceed the truncation threshold realistically. " * 20)
+        end
+
+        it "returns a summary longer than 200 but within 600 chars intact" do
+          content = padded[0, 400]
+          expect(content.length).to be_between(201, 600)
+          create(:ai_compound_learning, account: account, content: content, status: "active")
+
+          results = service.top_relevant_learnings(task_description: "caching queries")
+
+          expect(results.first[:summary]).to eq(content)
+        end
+
+        it "truncates a summary longer than 600 chars at 600, not at 200" do
+          content = padded[0, 900]
+          expect(content.length).to be > 600
+          create(:ai_compound_learning, account: account, content: content, status: "active")
+
+          results = service.top_relevant_learnings(task_description: "caching queries")
+
+          expect(results.first[:summary]).to eq(content.truncate(600))
+        end
       end
     end
   end

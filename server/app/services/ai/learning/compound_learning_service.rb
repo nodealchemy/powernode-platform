@@ -7,6 +7,16 @@ module Ai
       CONFLICT_THRESHOLD_LOW = 0.7
       CHARS_PER_TOKEN = 4
 
+      # Interim injection cap (evaluation 2026-09-18 section 1.2 / item 3): both
+      # injection consumers (#build_compound_context and #top_relevant_learnings)
+      # truncated content to 200 chars while the live store's median entry is
+      # 1,078 chars, so most learnings arrived as their first sentence. 600 is a
+      # stopgap raise, not the final number — item 5 in the same evaluation
+      # proposes a write-side shape contract (dev_complete_task.learning capped
+      # at a `rule`/`why` pair, ~40-1,200 chars) that this constant should track
+      # once it lands; until then this is what the token budget already allows.
+      INJECTION_CONTENT_CHAR_CAP = 600
+
       # Cross-team/global promotion quality gate. importance_score + access_count
       # alone are not sufficient evidence of "genuinely reusable" — importance is
       # cheaply inflated by same-source reinforcement (e.g. a sensor/reconcile-tick
@@ -187,7 +197,7 @@ module Ai
           category_label = "[#{learning.category}]"
           freshness = learning_freshness(learning.updated_at)
           freshness_label = freshness == "fresh" ? "" : " [#{freshness}]"
-          line = "- #{category_label}#{freshness_label} #{learning.title || learning.content.truncate(100)}: #{learning.content.truncate(200)}"
+          line = "- #{category_label}#{freshness_label} #{learning.title || learning.content.truncate(100)}: #{learning.content.truncate(INJECTION_CONTENT_CHAR_CAP)}"
           break if used_chars + line.length > char_budget
 
           lines << line
@@ -240,7 +250,7 @@ module Ai
             id: learning.id,
             category: learning.category,
             title: learning.title || learning.content.truncate(100),
-            summary: learning.content.truncate(200),
+            summary: learning.content.truncate(INJECTION_CONTENT_CHAR_CAP),
             confidence: learning.confidence_score,
             effectiveness: learning.effectiveness_score
           }
