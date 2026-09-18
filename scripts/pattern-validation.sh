@@ -305,6 +305,32 @@ else
     failed_checks=$((failed_checks + 1))
 fi
 
+# extensions/system rubocop guard (IMP-d96158bf07df): IMP-b531fc42ed51 cleared
+# 22 offences that had kept extensions/system's CI `rubocop` job permanently
+# red; until now nothing local kept it clear, so an offense was discoverable
+# only by CI, after push. check-extension-rubocop.sh runs the identical
+# `bundle exec rubocop` invocation CI's rubocop job runs — same target dirs,
+# same CWD (core server/, so the same Gemfile.lock-resolved version and the
+# same per-directory .rubocop.yml resolution) — see that script for the one
+# place it can still diverge from CI. Exit 2 is an environment gap (rubocop
+# unresolvable from server/), scored as a WARN, not a FAIL, same treatment as
+# the claude-agents-fresh guard above.
+total_checks=$((total_checks + 1))
+echo -n "Checking: extensions/system rubocop (mirrors the CI rubocop job)... "
+ext_rubocop_status=0
+ext_rubocop_output="$(bash scripts/check-extension-rubocop.sh 2>&1)" || ext_rubocop_status=$?
+if [[ $ext_rubocop_status -eq 0 ]]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+elif [[ $ext_rubocop_status -eq 2 ]]; then
+    echo -e "${YELLOW}⚠ WARN${NC} (rubocop unresolvable from server/ — run: cd server && bundle install)"
+    warnings=$((warnings + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (extensions/system rubocop offense(s); run: bash scripts/check-extension-rubocop.sh)"
+    echo "$ext_rubocop_output" | tail -30
+    failed_checks=$((failed_checks + 1))
+fi
+
 # A spec that `require`s a file living inside an AUTOLOAD root bypasses Zeitwerk
 # and REOPENS whatever constant that file defines, for the rest of the process.
 # When two files define the same constant, the autoload path decides which one
