@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "rails_helper"
+require "tmpdir"
+require "open3"
 
 RSpec.describe Ai::Tools::CampaignTool do
   let(:account) { create(:account) }
@@ -211,6 +213,43 @@ RSpec.describe Ai::Tools::CampaignTool do
     expect(res[:data]).to have_key(:advised)
   end
 
+  # IMP-eb68dc28c0c7: campaign_check_rebase is declared `mutating: false`, but the verb
+  # actually writes — Ai::Land::RebaseAdvisor#notify_stale! creates a Notification and
+  # persists a rebase_advisory + decision on the stale campaign. Behavioural oracle (not a
+  # comparison against the declaration): against a REAL stale campaign, invoking the verb
+  # must be observed to write, and the declared flag must agree with that observation.
+  it "campaign_check_rebase WRITES (Notification + campaign configuration) despite being declared non-mutating" do
+    campaign = create(:ai_campaign, account: account, created_by: user)
+    branch = "campaign/#{campaign.id}"
+    create(:ai_ralph_loop, account: account, campaign: campaign, branch: branch)
+
+    Dir.mktmpdir do |root|
+      work = File.join(root, "work")
+      Open3.capture3("git", "-c", "init.defaultBranch=develop", "init", work)
+      git = ->(*args) { Open3.capture3("git", *args, chdir: work) }
+      git.call("config", "user.email", "test@example.com")
+      git.call("config", "user.name", "Test")
+      File.write(File.join(work, "base.txt"), "base\n")
+      git.call("add", "."); git.call("commit", "-m", "init")
+      git.call("checkout", "-b", branch)
+      git.call("checkout", "develop")
+      File.write(File.join(work, "base.txt"), "moved\n")
+      git.call("add", "."); git.call("commit", "-m", "dev advance")
+
+      allow(Ai::Land::LandService).to receive(:default_repository_path).and_return(work)
+
+      expect {
+        expect(exec(action: "campaign_check_rebase", target_branch: "develop")[:success]).to be true
+      }.to change { Notification.where(user: user).where("title LIKE ?", "Rebase needed%").count }.by(1)
+
+      expect(campaign.reload.configuration.dig("rebase_advisory", "target_branch")).to eq("develop")
+    end
+
+    observed_mutating = true # the writes above are the observation
+    declared_mutating = described_class.declared_actions["campaign_check_rebase"][:mutating]
+    expect(declared_mutating).to eq(observed_mutating)
+  end
+
   it "campaign_claim takes the single-driver lease and campaign_release frees it" do
     id = exec(action: "campaign_start", name: "X")[:data][:campaign][:id]
 
@@ -268,6 +307,23 @@ RSpec.describe Ai::Tools::CampaignTool do
     expect(res[:success]).to be true
     expect(res[:data][:campaign][:name]).to eq("X")
     expect(res[:data][:loops].size).to eq(1)
+  end
+
+  # IMP-eb68dc28c0c7 (sibling of campaign_check_rebase, same declaration defect):
+  # campaign_status is declared `mutating: false`, but CampaignDriver#status calls
+  # campaign.snapshot_progress!, which creates an Ai::ProgressEntry row and updates the
+  # campaign — a write, not a read. Behavioural oracle against the observed write.
+  it "campaign_status WRITES a progress-entry snapshot despite being declared non-mutating" do
+    id = exec(action: "campaign_start", name: "Y")[:data][:campaign][:id]
+    campaign = account.ai_campaigns.find(id)
+
+    expect {
+      expect(exec(action: "campaign_status", campaign_id: id)[:success]).to be true
+    }.to change { campaign.progress_entries.count }.by(1)
+
+    observed_mutating = true
+    declared_mutating = described_class.declared_actions["campaign_status"][:mutating]
+    expect(declared_mutating).to eq(observed_mutating)
   end
 
   it "answers a parked question then stops the campaign" do

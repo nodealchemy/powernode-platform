@@ -16,7 +16,12 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "campaign_answer_question", mutating: true
       declare_action "campaign_approve_proposal", mutating: true
-      declare_action "campaign_check_rebase", mutating: false
+      # IMP-eb68dc28c0c7: this reaches Ai::Land::RebaseAdvisor#notify_stale!, which creates a
+      # Notification and persists a rebase_advisory + decision on each stale campaign — a
+      # write. `mutating: false` was untrue: it fed readOnlyHint disclosure (Mcp::ToolCatalog)
+      # and the CC export's default-read-only allowlist (Ai::ClaudeExport::ToolAllowlist),
+      # both of which would have told a read-only caller this verb never writes.
+      declare_action "campaign_check_rebase", mutating: true
       declare_action "campaign_claim", mutating: true
       declare_action "campaign_delegate", mutating: true
       declare_action "campaign_list", mutating: false
@@ -34,7 +39,10 @@ module Ai
                                         gate_context: :deferred_tool_call_context,
                                         on_proceed: :deferred_tool_call_result
       declare_action "campaign_start", mutating: true
-      declare_action "campaign_status", mutating: false
+      # IMP-eb68dc28c0c7 (same declaration defect as campaign_check_rebase): CampaignDriver
+      # #status calls campaign.snapshot_progress!, which creates an Ai::ProgressEntry row and
+      # updates the campaign — a write on a verb named like a read.
+      declare_action "campaign_status", mutating: true
       declare_action "campaign_stop", mutating: true
       declare_action "campaign_update_proposal", mutating: true
 
