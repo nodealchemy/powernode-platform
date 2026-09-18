@@ -36,7 +36,7 @@ export interface DataExportRequest {
 
 export interface DataDeletionRequest {
   id: string;
-  status: 'pending' | 'approved' | 'processing' | 'completed' | 'rejected' | 'cancelled';
+  status: 'pending' | 'approved' | 'processing' | 'completed' | 'failed' | 'rejected' | 'cancelled';
   deletion_type: 'full' | 'partial' | 'anonymize';
   reason?: string;
   can_be_cancelled: boolean;

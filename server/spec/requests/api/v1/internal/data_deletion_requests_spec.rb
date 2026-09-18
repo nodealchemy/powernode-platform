@@ -147,6 +147,18 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
         deletion_request.reload
         expect(deletion_request.status).to eq('approved')
 
+        # S-B (IMP-b33a3ecca331 third review): this used to omit
+        # grace_period_ends_at entirely, unlike the model's own #approve!
+        # (unused by this controller) which sets it. Compliance::
+        # DataDeletionJob reads this unconditionally once a request is
+        # approved/processing and crashed on Time.zone.parse(nil) for every
+        # request approved through this — the only approval path that
+        # exists.
+        expect(deletion_request.grace_period_ends_at).to be_present
+        expect(deletion_request.grace_period_ends_at).to be_within(1.minute).of(
+          DataManagement::DeletionRequest::GRACE_PERIOD_DAYS.days.from_now
+        )
+
         # IMP-26a95cba1d43: log_internal_audit("data_deletion.approve", ...)
         # was never registered in AuditActions — AuditLog.create! raised
         # ActiveRecord::RecordInvalid and the rescue silently dropped the
@@ -273,6 +285,307 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
 
         expect(response).to have_http_status(:unprocessable_content)
       end
+    end
+  end
+
+  # IMP-b33a3ecca331: Compliance::DataDeletionJob PATCHes this endpoint with a
+  # raw top-level JSON body (no `data_deletion_request:` wrapper — the app is
+  # ActionController::API, no ParamsWrapper) and never sets `action_type`, so
+  # every one of these calls falls into the generic `else` branch. That branch
+  # used to `params.require(:data_deletion_request)`, which raised
+  # ActionController::ParameterMissing on a body shaped exactly like this —
+  # rescued into a 400 the job never checked, so none of these writes ever
+  # actually persisted. Sends the exact raw, job-shaped bodies.
+  describe 'PATCH /api/v1/internal/data_deletion_requests/:id (raw job-shaped body, no action_type)' do
+    let(:deletion_request) { create_deletion_request.call(status: 'approved') }
+
+    it 'persists a processing-start status transition' do
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'processing', processing_started_at: Time.current.iso8601 },
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
+
+      deletion_request.reload
+      expect(deletion_request.status).to eq('processing')
+      expect(deletion_request.processing_started_at).to be_present
+    end
+
+    it 'persists a completed transition with deletion_log and retention_log' do
+      deletion_request.update!(status: 'processing', processing_started_at: Time.current)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: {
+              status: 'completed',
+              completed_at: Time.current.iso8601,
+              deletion_log: [
+                { data_type: 'consents', action: 'deleted', records_affected: 2, processed_at: Time.current.iso8601 },
+                { data_type: 'profile', action: 'anonymized', processed_at: Time.current.iso8601 }
+              ],
+              retention_log: [
+                { data_type: 'financial_records', reason: 'Required for tax and accounting purposes',
+                  processed_at: Time.current.iso8601 }
+              ]
+            },
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
+
+      deletion_request.reload
+      expect(deletion_request.status).to eq('completed')
+      expect(deletion_request.completed_at).to be_present
+      expect(deletion_request.deletion_log.size).to eq(2)
+      expect(deletion_request.deletion_log.first).to include('data_type' => 'consents', 'action' => 'deleted')
+      expect(deletion_request.retention_log.size).to eq(1)
+    end
+
+    it 'persists a failed transition with error_message and a skipped-type log entry' do
+      deletion_request.update!(status: 'processing', processing_started_at: Time.current)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: {
+              status: 'failed',
+              error_message: 'Data deletion failed for: files',
+              deletion_log: [
+                { data_type: 'files', action: 'skipped', reason: 'no_backing_data_model',
+                  processed_at: Time.current.iso8601 }
+              ]
+            },
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
+
+      deletion_request.reload
+      expect(deletion_request.status).to eq('failed')
+      expect(deletion_request.error_message).to eq('Data deletion failed for: files')
+      expect(deletion_request.deletion_log.first).to include('action' => 'skipped', 'reason' => 'no_backing_data_model')
+    end
+
+    it 'rejects an unsupported status value (model inclusion validation still applies)' do
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'not_a_real_status' },
+            headers: internal_headers,
+            as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+
+      deletion_request.reload
+      expect(deletion_request.status).to eq('approved')
+    end
+  end
+
+  # SECURITY-RELEVANT (IMP-b33a3ecca331 review, S3): before this fix, the raw
+  # (no action_type) branch let ANY mTLS-enrolled worker principal set ANY
+  # valid model status via this one generic PATCH — including `completed` on
+  # a request that was never approved, bypassing complete_request's own
+  # `processing?` guard, its audit row, and its user notification. That would
+  # forge a GDPR completion record for a request nobody ever authorized.
+  describe 'PATCH /api/v1/internal/data_deletion_requests/:id status-transition guard (raw body)' do
+    it 'rejects pending -> completed (the forged-completion scenario)' do
+      deletion_request = create_deletion_request.call(status: 'pending')
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'completed', completed_at: Time.current.iso8601 },
+            headers: internal_headers,
+            as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response['code']).to eq('INVALID_STATUS_TRANSITION')
+
+      deletion_request.reload
+      expect(deletion_request.status).to eq('pending')
+    end
+
+    it 'rejects approved -> completed (skipping processing entirely)' do
+      deletion_request = create_deletion_request.call(status: 'approved')
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'completed', completed_at: Time.current.iso8601 },
+            headers: internal_headers,
+            as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+
+      deletion_request.reload
+      expect(deletion_request.status).to eq('approved')
+    end
+
+    it 'rejects failed -> completed (no re-arm path for a terminal request)' do
+      deletion_request = create_deletion_request.call(status: 'failed')
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'completed', completed_at: Time.current.iso8601 },
+            headers: internal_headers,
+            as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+
+      deletion_request.reload
+      expect(deletion_request.status).to eq('failed')
+    end
+
+    it 'allows approved -> processing and writes a data_deletion.status_transition audit row' do
+      deletion_request = create_deletion_request.call(status: 'approved')
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'processing', processing_started_at: Time.current.iso8601 },
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
+      deletion_request.reload
+      expect(deletion_request.status).to eq('processing')
+      expect(
+        AuditLog.exists?(action: 'data_deletion.status_transition', resource_id: deletion_request.id)
+      ).to be true
+    end
+
+    it 'allows processing -> processing (a retry resuming a request left mid-flight)' do
+      deletion_request = create_deletion_request.call(status: 'processing', processing_started_at: Time.current)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'processing', processing_started_at: Time.current.iso8601 },
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
+      deletion_request.reload
+      expect(deletion_request.status).to eq('processing')
+    end
+
+    # S-B (IMP-b33a3ecca331 third review): the job's grace_period_ends_at
+    # nil-guard fires BEFORE the 'processing' write (deliberately, so a
+    # request still legitimately waiting out its grace period is never
+    # marked 'processing') — so it needs to terminally fail an 'approved'
+    # request directly, which the transition map didn't allow before.
+    it 'allows approved -> failed (the grace_period_ends_at nil-guard path)' do
+      deletion_request = create_deletion_request.call(status: 'approved', grace_period_ends_at: nil)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'failed', error_message: 'Deletion request has no grace_period_ends_at set' },
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
+      deletion_request.reload
+      expect(deletion_request.status).to eq('failed')
+    end
+
+    # Fourth review, nit 3: the guard above is conditioned on the actual
+    # data-integrity defect it exists for, not a general approved -> failed
+    # escape hatch — when grace_period_ends_at IS present, this must still be
+    # rejected the same as any other unlisted transition.
+    it 'rejects approved -> failed when grace_period_ends_at is present (not a general escape hatch)' do
+      deletion_request = create_deletion_request.call(status: 'approved', grace_period_ends_at: 5.days.from_now)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'failed', error_message: 'should not be allowed' },
+            headers: internal_headers,
+            as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response['code']).to eq('INVALID_STATUS_TRANSITION')
+
+      deletion_request.reload
+      expect(deletion_request.status).to eq('approved')
+    end
+  end
+
+  # Nit (IMP-b33a3ecca331 third review): a status-less PATCH carrying
+  # progress fields (completed_at/deletion_log/retention_log/error_message)
+  # is a status-ADJACENT write, meaningful only while the request is actively
+  # 'processing' — an 'approved' request has no run in flight to report
+  # progress for.
+  describe 'PATCH /api/v1/internal/data_deletion_requests/:id status-less progress writes' do
+    it 'rejects a status-less error_message write while still approved' do
+      deletion_request = create_deletion_request.call(status: 'approved', processing_started_at: nil)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { error_message: 'should not be accepted yet' },
+            headers: internal_headers,
+            as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response['code']).to eq('INVALID_STATUS_TRANSITION')
+
+      deletion_request.reload
+      expect(deletion_request.error_message).to be_nil
+    end
+
+    it 'allows a status-less deletion_log write while processing' do
+      deletion_request = create_deletion_request.call(status: 'processing', processing_started_at: Time.current)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: {
+              deletion_log: [
+                { data_type: 'consents', action: 'deleted', records_affected: 2, processed_at: Time.current.iso8601 }
+              ]
+            },
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
+      deletion_request.reload
+      expect(deletion_request.deletion_log.first).to include('data_type' => 'consents', 'action' => 'deleted')
+    end
+
+    # Fourth review, nit 3: metadata is now a status-adjacent key too (no real
+    # caller — job or admin action — sends a status-less metadata write while
+    # NOT processing, so it's guarded the same as the rest rather than left
+    # as an unrestricted escape hatch).
+    it 'rejects a status-less metadata write while still approved' do
+      deletion_request = create_deletion_request.call(status: 'approved')
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { metadata: { note: 'should not be accepted yet' } },
+            headers: internal_headers,
+            as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response['code']).to eq('INVALID_STATUS_TRANSITION')
+    end
+
+    it 'allows a status-less metadata write while processing' do
+      deletion_request = create_deletion_request.call(status: 'processing', processing_started_at: Time.current)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { metadata: { note: 'in flight' } },
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
+      deletion_request.reload
+      expect(deletion_request.metadata).to include('note' => 'in flight')
+    end
+
+    # processing_started_at also joined STATUS_ADJACENT_KEYS this round —
+    # every real caller sends it paired WITH status: 'processing' (a
+    # status-present write, a different branch entirely), never status-less,
+    # so guarding it costs no real coverage.
+    it 'rejects a status-less processing_started_at write while still approved' do
+      deletion_request = create_deletion_request.call(status: 'approved')
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { processing_started_at: Time.current.iso8601 },
+            headers: internal_headers,
+            as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response['code']).to eq('INVALID_STATUS_TRANSITION')
+    end
+
+    it 'still allows a genuinely bare write (no status-adjacent keys at all) regardless of status' do
+      deletion_request = create_deletion_request.call(status: 'approved')
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: {},
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
     end
   end
 

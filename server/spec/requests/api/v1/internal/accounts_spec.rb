@@ -90,6 +90,63 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
     end
   end
 
+  # IMP-b33a3ecca331 (Fork 1): the worker's PATCH accounts/:id status:
+  # 'terminated' call had no route at all, and 'terminated' was never a value
+  # `valid_account_status` allowed. Operator decision: a narrow member action
+  # that sets the existing 'cancelled' enum value — not a generic update.
+  describe 'PATCH /api/v1/internal/accounts/:account_id/terminate' do
+    context 'with internal authentication' do
+      it 'sets the account status to cancelled' do
+        patch "/api/v1/internal/accounts/#{account.id}/terminate", headers: internal_headers, as: :json
+
+        expect_success_response
+        data = json_response_data
+
+        expect(data['status']).to eq('cancelled')
+
+        account.reload
+        expect(account.status).to eq('cancelled')
+      end
+
+      it 'writes an account.terminate audit row' do
+        patch "/api/v1/internal/accounts/#{account.id}/terminate", headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(
+          AuditLog.exists?(account_id: account.id, action: 'account.terminate')
+        ).to be true
+      end
+
+      it 'is idempotent: succeeds without a duplicate audit row on an already-cancelled account' do
+        account.update!(status: 'cancelled')
+
+        expect {
+          patch "/api/v1/internal/accounts/#{account.id}/terminate", headers: internal_headers, as: :json
+        }.not_to change { AuditLog.where(account_id: account.id, action: 'account.terminate').count }
+
+        expect_success_response
+        account.reload
+        expect(account.status).to eq('cancelled')
+      end
+    end
+
+    context 'when account does not exist' do
+      it 'returns not found error' do
+        patch '/api/v1/internal/accounts/nonexistent-id/terminate', headers: internal_headers, as: :json
+
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
+    context 'without authentication' do
+      it 'returns unauthorized error' do
+        patch "/api/v1/internal/accounts/#{account.id}/terminate", as: :json
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+  end
+
   describe 'PATCH /api/v1/internal/accounts/:account_id/anonymize_audit_logs' do
     before do
       create_list(:audit_log, 5, account: account, user: owner, ip_address: '192.168.1.1')
@@ -157,7 +214,12 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
 
         expect_success_response
-        expect(json_response_data['message']).to include('Deleted')
+        # IMP-b33a3ecca331 (S5): the response now also carries `data: {count:}`
+        # (Compliance::AccountTerminationJob reads it back), so
+        # json_response_data returns that data hash rather than falling back
+        # to the whole envelope — read `message` from the full response.
+        expect(json_response['message']).to include('Deleted')
+        expect(json_response_data['count']).to eq(0)
         expect(
           AuditLog.exists?(account_id: account.id, action: 'account.delete_files')
         ).to be true

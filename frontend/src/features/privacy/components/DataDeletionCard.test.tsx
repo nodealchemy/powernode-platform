@@ -282,6 +282,20 @@ describe('DataDeletionCard', () => {
 
       expect(screen.getByText('Delete Your Data')).toBeInTheDocument();
     });
+
+    // IMP-b33a3ecca331: the server started returning status: 'failed' as a real
+    // terminal state (DataManagement::DeletionRequest previously had no such
+    // status). This card's active-request check is an explicit allowlist
+    // (['pending', 'approved', 'processing']), so a 'failed' request falls
+    // through to the normal "request deletion" UI rather than showing a false
+    // "in progress" state — proves that behavior rather than assuming it.
+    it('shows normal UI for failed status, not the in-progress card', () => {
+      const failedRequest = { ...mockDeletionRequest, status: 'failed' as const };
+      render(<DataDeletionCard {...defaultProps} deletionRequest={failedRequest} />);
+
+      expect(screen.getByText('Delete Your Data')).toBeInTheDocument();
+      expect(screen.queryByText('Account Deletion Scheduled')).not.toBeInTheDocument();
+    });
   });
 
   describe('loading state', () => {

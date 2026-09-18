@@ -15,8 +15,17 @@ module DataManagement
     belongs_to :processed_by, class_name: "User", optional: true
 
     # Validations
+    #
+    # 'failed' added (IMP-b33a3ecca331): Compliance::DataDeletionJob sets this
+    # status on both a partial per-data-type erasure failure and an
+    # unrecoverable processing error — the terminal, non-'processing' outcome
+    # a stuck request needs so a Sidekiq retry can tell "still running" from
+    # "done, unsuccessfully" instead of resuming forever. It was missing here,
+    # so every one of the job's `status: 'failed'` writes was itself rejected
+    # by this validation (422), on top of the params-contract bug that was
+    # separately dropping the write.
     validates :status, presence: true, inclusion: {
-      in: %w[pending approved processing completed rejected cancelled]
+      in: %w[pending approved processing completed failed rejected cancelled]
     }
     validates :deletion_type, presence: true, inclusion: {
       in: %w[full partial anonymize]
@@ -71,6 +80,10 @@ module DataManagement
 
     def completed?
       status == "completed"
+    end
+
+    def failed?
+      status == "failed"
     end
 
     def rejected?

@@ -394,7 +394,12 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         end.to change { UserConsent.where(user_id: user.id).count }.from(2).to(0)
 
         expect_success_response
-        expect(json_response_data['message']).to eq('Deleted 2 consent records')
+        # IMP-b33a3ecca331 (S5): the response now also carries `data: {count:}`
+        # (Compliance::DataDeletionJob reads it back), so json_response_data
+        # returns that data hash rather than falling back to the whole
+        # envelope — read `message` from the full response.
+        expect(json_response['message']).to eq('Deleted 2 consent records')
+        expect(json_response_data['count']).to eq(2)
         expect(AuditLog.exists?(action: 'user.delete_consents', resource_id: user.id)).to be true
       end
 

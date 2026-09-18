@@ -164,10 +164,15 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
   end
 
   # DELETE /api/v1/internal/users/:user_id/consents
+  #
+  # `data: { count: }` added (IMP-b33a3ecca331 review, S5): the worker reads
+  # this count back (Compliance::DataDeletionJob#delete_data_type) to record
+  # how many records were actually deleted — a message-only response gave it
+  # nothing structured to read, so that read always saw 0.
   def delete_consents
     count = UserConsent.where(user_id: @user.id).delete_all
     log_internal_audit("user.delete_consents", "User", @user.id, account_id: @user.account_id, records_deleted: count)
-    render_success(message: "Deleted #{count} consent records")
+    render_success(data: { count: count }, message: "Deleted #{count} consent records")
   end
 
   # DELETE /api/v1/internal/users/:user_id/terms_acceptances

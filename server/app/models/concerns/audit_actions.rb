@@ -127,10 +127,33 @@ module AuditActions
   # SWARM_ACTIONS/DOCKER_ACTIONS below — a self-consistent domain prefix
   # that was simply never registered, not a mis-spelling of an existing one.
   # =============================================================================
+  # account.terminate (IMP-b33a3ecca331) — Api::V1::Internal::AccountsController
+  # #terminate, the narrow member action that sets an account's status to
+  # 'cancelled' at the end of Compliance::AccountTerminationJob's per-account
+  # run. Same "account.<verb>" prefix as its siblings below; registered here
+  # rather than in ACCOUNT_ACTIONS' flat tokens for the same reason as the
+  # rest of this constant — it's the same controller, same self-consistent
+  # prefix, not a rename of the unrelated admin-facing suspend_account/
+  # activate_account pair (Admin::SettingsService, a different actor and a
+  # reversible action).
   ACCOUNT_DATA_LIFECYCLE_ACTIONS = %w[
+    account.terminate
     account.anonymize_audit_logs account.anonymize_payments
     account.delete_files account.delete_api_keys account.delete_webhooks
     account.delete_data_export_requests account.delete_data_deletion_requests
+  ].freeze
+
+  # =============================================================================
+  # ACCOUNT TERMINATION ACTIONS — server/app/controllers/api/v1/internal/
+  # account_terminations_controller.rb#update (IMP-b33a3ecca331 second
+  # review, S-A). A distinct resource from Account itself (Account::
+  # Termination), hence its own prefix rather than folding into
+  # ACCOUNT_DATA_LIFECYCLE_ACTIONS above. Written on every allowed status
+  # transition the status-transition guard admits (grace_period->processing,
+  # processing->completed/grace_period), carrying from_status/to_status.
+  # =============================================================================
+  ACCOUNT_TERMINATION_ACTIONS = %w[
+    account_termination.status_transition
   ].freeze
 
   # =============================================================================
@@ -171,10 +194,18 @@ module AuditActions
   # "data_deletion" (no dot, fired once by
   # DataManagement::DeletionRequest#log_deletion_requested on request
   # creation) — that token names a different event and is untouched here.
+  # data_deletion.status_transition (IMP-b33a3ecca331 review, S3) —
+  # Compliance::DataDeletionJob's own raw status-progress PATCHes (approved->
+  # processing, processing->processing/completed/failed), guarded by
+  # DataDeletionRequestsController::ALLOWED_WORKER_STATUS_TRANSITIONS. Distinct
+  # from the four action_type-driven tokens below, which are the admin-facing
+  # dispatch (approve/reject/execute/complete) — this one is the job reporting
+  # its own progress on the SAME resource through a different code path.
   # =============================================================================
   DATA_DELETION_REQUEST_ACTIONS = %w[
     data_deletion.approve data_deletion.reject
     data_deletion.execute data_deletion.complete
+    data_deletion.status_transition
   ].freeze
 
   # =============================================================================
@@ -559,6 +590,7 @@ module AuditActions
     SECURITY_ACTIONS,
     COMPLIANCE_ACTIONS,
     ACCOUNT_DATA_LIFECYCLE_ACTIONS,
+    ACCOUNT_TERMINATION_ACTIONS,
     USER_DATA_LIFECYCLE_ACTIONS,
     DATA_DELETION_REQUEST_ACTIONS,
     NOTIFICATION_ACTIONS,

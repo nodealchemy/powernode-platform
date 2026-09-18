@@ -42,15 +42,20 @@ module Compliance
     private
 
     def process_ready_terminations(results)
-      # Fetch terminations ready for processing
+      # Fetch terminations ready for processing. BackendApiClient#handle_response
+      # returns the parsed JSON body VERBATIM (string keys) on 2xx and raises
+      # ApiError on any non-2xx — not a symbol-keyed {success:, data:} envelope
+      # (see the matching note in DataDeletionJob#execute). Every response
+      # read in this job was symbol-keyed against a string-keyed hash, so it
+      # has never actually processed a termination (IMP-b33a3ecca331 review).
       response = api_client.get('/api/v1/internal/account_terminations', {
         status: 'grace_period',
         grace_period_expired: true
       })
 
-      return unless response[:success]
+      return unless response['success']
 
-      terminations = response[:data] || []
+      terminations = response['data'] || []
 
       terminations.each do |termination|
         begin
@@ -70,33 +75,54 @@ module Compliance
       log_info "Processing account termination: #{termination_id} (account: #{account_id})"
 
       # Update status to processing
-      api_client.patch(
-        "/api/v1/internal/account_terminations/#{termination_id}",
+      patch_termination!(
+        termination_id,
         { status: 'processing', processing_started_at: Time.current.iso8601 }
       )
 
+      # Accumulates ONLY the entries THIS run produces. The server now merges
+      # these onto the stored log itself (AccountTerminationsController#update
+      # / termination_log_append, IMP-b33a3ecca331 third review, BLOCKER 2) —
+      # an atomic, locked append rather than a whole-array replace. Seeding
+      # this from the fetched `termination['termination_log']` and sending it
+      # straight back (the prior fix, second review) is no longer needed and
+      # would now double the history on every write; starting from `[]` and
+      # sending only new entries as `termination_log_append` is both correct
+      # and race-free.
       termination_log = []
 
       begin
         # Delete account data
         delete_account_data(account_id, termination_log)
 
+        # Update account status. Fork 1 (IMP-b33a3ecca331): operator decision
+        # is to mark the account 'cancelled' (the existing accounts.status enum
+        # value closest to "this account is done" — no new status, no new
+        # column). A narrow, purpose-built action, not a generic PATCH — it
+        # takes no payload and is idempotent, so calling it again on retry is
+        # safe. This used to PATCH a bare /api/v1/internal/accounts/:id, which
+        # has no route (only GET show is/was routed) with status: 'terminated',
+        # a value the check constraint has never allowed.
+        #
+        # Called BEFORE the account_terminations 'completed' write (review
+        # follow-up S1): 'completed' terminations are excluded from every
+        # re-fetch this job makes (process_ready_terminations' status filter,
+        # send_termination_reminders' status filter), so once written there is
+        # no automatic retry. Terminating the account first means a failure
+        # here still lands in the rescue below and reverts to 'grace_period'
+        # (re-selectable); terminating it AFTER would have left the
+        # termination record permanently 'completed' while the account itself
+        # was never actually cancelled — an inconsistent state with no path
+        # back to consistency.
+        terminate_account!(account_id)
+
         # Complete termination
-        api_client.patch(
-          "/api/v1/internal/account_terminations/#{termination_id}",
+        patch_termination!(
+          termination_id,
           {
             status: 'completed',
             completed_at: Time.current.iso8601,
-            termination_log: termination_log
-          }
-        )
-
-        # Update account status
-        api_client.patch(
-          "/api/v1/internal/accounts/#{account_id}",
-          {
-            status: 'terminated',
-            terminated_at: Time.current.iso8601
+            termination_log_append: termination_log
           }
         )
 
@@ -111,26 +137,61 @@ module Compliance
         # so the next run's re-fetch (status: 'grace_period', grace_period_expired:
         # true) re-selects this partially-terminated account instead of stranding
         # it forever in 'processing' (which no query re-selects).
-        api_client.patch(
-          "/api/v1/internal/account_terminations/#{termination_id}",
-          {
-            status: 'grace_period',
-            termination_log: termination_log + [{
-              event: 'error',
-              error: e.message,
-              at: Time.current.iso8601
-            }]
-          }
-        )
+        #
+        # patch_termination! itself raises on a failed write — nested
+        # begin/rescue so THAT failure can never mask the ORIGINAL error `e`
+        # (same defect class as DataDeletionJob, review follow-up
+        # IMP-b33a3ecca331). Log the write failure (still visible) and
+        # re-raise `e` regardless.
+        begin
+          patch_termination!(
+            termination_id,
+            {
+              status: 'grace_period',
+              termination_log_append: termination_log + [{
+                event: 'error',
+                error: e.message,
+                at: Time.current.iso8601
+              }]
+            }
+          )
+        rescue => write_error
+          log_error "Failed to revert termination #{termination_id} to grace_period: #{write_error.message}"
+        end
 
-        raise
+        raise e
       end
+    end
+
+    # Persisted status writes must never fail silently. IMP-b33a3ecca331 found
+    # that the server-side params contract had been dropping every one of
+    # these writes (ActionController::ParameterMissing, rescued into a 400 this
+    # job never checked) — the fix there is what makes these writes real again,
+    # and this raises if that (or any future) write failure ever recurs, so the
+    # job's own rescue/retry path takes over instead of silently proceeding as
+    # if the state had changed.
+    def patch_termination!(termination_id, payload)
+      response = api_client.patch("/api/v1/internal/account_terminations/#{termination_id}", payload)
+      unless response['success']
+        raise "Failed to update account termination #{termination_id}: #{response['error']}"
+      end
+      response
+    end
+
+    # See Api::V1::Internal::AccountsController#terminate — no payload, sets
+    # status: 'cancelled', idempotent.
+    def terminate_account!(account_id)
+      response = api_client.patch("/api/v1/internal/accounts/#{account_id}/terminate", {})
+      unless response['success']
+        raise "Failed to terminate account #{account_id}: #{response['error']}"
+      end
+      response
     end
 
     def delete_account_data(account_id, termination_log)
       # Fetch account users
       users_response = api_client.get("/api/v1/internal/accounts/#{account_id}/users")
-      users = users_response[:data] || []
+      users = users_response['data'] || []
 
       # Process each user
       users.each do |user|
@@ -174,11 +235,14 @@ module Compliance
     end
 
     def delete_account_records(account_id, termination_log)
-      # Delete files
+      # Delete files. Api::V1::Internal::AccountsController#delete_files
+      # returns `data: { count: }` (added alongside this fix — it previously
+      # returned `message` only, so this read was always 0 regardless of the
+      # symbol/string key bug).
       response = api_client.delete("/api/v1/internal/accounts/#{account_id}/files")
       termination_log << {
         event: 'deleted_files',
-        count: response[:data]&.dig('count') || 0,
+        count: response['data']&.dig('count') || 0,
         at: Time.current.iso8601
       }
 
@@ -198,12 +262,21 @@ module Compliance
       api_client.delete("/api/v1/internal/accounts/#{account_id}/data_deletion_requests")
       termination_log << { event: 'deleted_deletion_requests', at: Time.current.iso8601 }
 
-      # Anonymize subscription
-      api_client.patch(
-        "/api/v1/internal/accounts/#{account_id}/subscription/anonymize",
-        {}
-      )
-      termination_log << { event: 'anonymized_subscription', at: Time.current.iso8601 }
+      # Subscription anonymization is a business-extension concern (billing
+      # subscriptions only exist when that extension is loaded). Core has no
+      # route for this and no generic seam covers it either —
+      # Powernode::BillingBridge registers subscription/payment/plan MODELS
+      # and a provisioning quota/meter handler, but no anonymize handler.
+      # Per IMP-b33a3ecca331 direction: skip cleanly in core mode rather than
+      # calling an unrouted endpoint or inventing a new bridge seam; the gap
+      # is documented in docs/operations/compliance.md.
+      log_info "Skipping subscription anonymization for account #{account_id}: " \
+               'no billing extension provider registered (core mode)'
+      termination_log << {
+        event: 'subscription_anonymize_skipped',
+        reason: 'no_billing_extension_provider',
+        at: Time.current.iso8601
+      }
     end
 
     def send_termination_reminders(results)
@@ -212,9 +285,9 @@ module Compliance
         status: 'grace_period'
       })
 
-      return unless response[:success]
+      return unless response['success']
 
-      terminations = response[:data] || []
+      terminations = response['data'] || []
 
       terminations.each do |termination|
         grace_period_ends = Time.zone.parse(termination['grace_period_ends_at'])
@@ -238,11 +311,13 @@ module Compliance
         begin
           send_reminder(termination, reminder_type, days_remaining)
 
-          # Update log
-          api_client.patch(
-            "/api/v1/internal/account_terminations/#{termination['id']}",
+          # Update log — append only this reminder's own entry (the fetched
+          # `termination_log` above is read-only, used to decide whether this
+          # reminder is already due/sent; it is not resent to the server).
+          patch_termination!(
+            termination['id'],
             {
-              termination_log: termination_log + [{
+              termination_log_append: [{
                 event: reminder_event,
                 at: Time.current.iso8601
               }]

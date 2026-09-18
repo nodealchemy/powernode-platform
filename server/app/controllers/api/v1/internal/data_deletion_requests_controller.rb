@@ -38,15 +38,142 @@ module Api
           when "complete"
             complete_request
           else
-            if @deletion_request.update(deletion_request_update_params)
-              render_success({ data_deletion_request: serialize_request(@deletion_request) })
-            else
-              render_error(@deletion_request.errors.full_messages.join(", "), status: :unprocessable_content)
-            end
+            worker_status_update
           end
         end
 
         private
+
+        # The action_type dispatch above guards each admin-facing transition
+        # individually (approve_request requires pending?, execute_request
+        # requires approved?, complete_request requires processing?). This
+        # branch is the OTHER caller — Compliance::DataDeletionJob's raw,
+        # no-action_type status-progress PATCHes — and until this fix it had
+        # NO transition guard at all: any mTLS-enrolled worker principal could
+        # set ANY valid model status (e.g. `completed` on a request that was
+        # never approved), bypassing complete_request's own guard, its audit
+        # row, and its user notification — effectively forging a GDPR
+        # completion record (security-relevant, IMP-b33a3ecca331 review, S3).
+        #
+        # Mirrors the exact transitions Compliance::DataDeletionJob actually
+        # makes (see the job's patch_deletion_request! call sites):
+        # approved -> processing (job starts), processing -> processing (a
+        # Sidekiq retry RESUMING a request left mid-flight — see the job's
+        # 'processing' guard), processing -> completed, processing -> failed.
+        # approved -> failed is NOT in this static map (fourth review, nit 3):
+        # it is conditional, handled by #approved_to_failed_for_missing_grace_period?
+        # below, not a general escape hatch from 'approved'.
+        # A status-less PATCH (no `status` key at all) is not itself a
+        # transition, but (nit, second review; extended fourth review, nit 3)
+        # one carrying progress fields (completed_at/deletion_log/
+        # retention_log/error_message/metadata/processing_started_at) IS a
+        # status-adjacent write and is only meaningful while the request is
+        # actively `processing` — a request that is `pending`/`approved` has
+        # no processing run in flight to report progress for, and one that's
+        # already terminal (completed/failed/rejected) has nothing left to
+        # report. No real caller (job or admin action) sends any of these
+        # status-less while NOT processing — `metadata`/`processing_started_at`
+        # were the two remaining permitted fields NOT already covered; a
+        # genuinely bare write carrying NONE of these keys (nothing left to
+        # gate) is still always allowed.
+        ALLOWED_WORKER_STATUS_TRANSITIONS = {
+          "approved" => %w[processing],
+          "processing" => %w[processing completed failed]
+        }.freeze
+
+        STATUS_ADJACENT_KEYS = %i[
+          completed_at deletion_log retention_log error_message metadata processing_started_at
+        ].freeze
+
+        # `with_lock` (second review, atomicity nit): the guard is now
+        # re-checked INSIDE the lock against a freshly-reloaded row, so a
+        # concurrent writer that changed this request's status between the
+        # first (fail-fast) check and lock acquisition can't slip a write
+        # through on stale assumptions. `transitioned` records whether the
+        # write actually ran — not a status comparison — so a race landing on
+        # some third status is still caught (mirrors AccountTerminationsController#update).
+        #
+        # `previous_status` (fourth review, nit 2) is captured INSIDE the
+        # lock, off the freshly-reloaded record — capturing it before
+        # `with_lock` would name whatever status this controller read BEFORE
+        # the lock, which a concurrent writer could have already moved past;
+        # the audit row must name the status this write actually transitioned
+        # FROM, not a stale one.
+        def worker_status_update
+          requested_status = params[:status]
+
+          unless worker_write_guard_passes?(requested_status, @deletion_request.status)
+            return render_error(
+              "Invalid status transition from '#{@deletion_request.status}' to '#{requested_status}'",
+              status: :unprocessable_content, code: "INVALID_STATUS_TRANSITION"
+            )
+          end
+
+          transitioned = false
+          previous_status = nil
+
+          @deletion_request.with_lock do
+            previous_status = @deletion_request.status
+
+            unless worker_write_guard_passes?(requested_status, @deletion_request.status)
+              raise ActiveRecord::Rollback
+            end
+
+            @deletion_request.update!(deletion_request_update_params)
+            transitioned = true
+          end
+
+          unless transitioned
+            return render_error(
+              "Invalid status transition from '#{@deletion_request.status}' to '#{requested_status}' " \
+              "(lost a concurrent update race)",
+              status: :unprocessable_content, code: "INVALID_STATUS_TRANSITION"
+            )
+          end
+
+          if requested_status.present?
+            log_internal_audit("data_deletion.status_transition", "DeletionRequest", @deletion_request.id,
+                               account_id: @deletion_request.account_id,
+                               from_status: previous_status, to_status: requested_status)
+          end
+
+          render_success({ data_deletion_request: serialize_request(@deletion_request) })
+        rescue ActiveRecord::RecordInvalid
+          render_error(@deletion_request.errors.full_messages.join(", "), status: :unprocessable_content)
+        end
+
+        def worker_write_guard_passes?(requested_status, current_status)
+          if requested_status.present?
+            return true if approved_to_failed_for_missing_grace_period?(requested_status, current_status)
+
+            (ALLOWED_WORKER_STATUS_TRANSITIONS[current_status] || []).include?(requested_status)
+          elsif status_adjacent_write?
+            current_status == "processing"
+          else
+            true
+          end
+        end
+
+        # S-B's nil-guard path (third review): Compliance::DataDeletionJob
+        # checks grace_period_ends_at BEFORE ever writing 'processing' —
+        # deliberately, so a request still legitimately waiting out its grace
+        # period is never marked processing — so a request the job finds
+        # broken (missing grace_period_ends_at) is still 'approved' when it
+        # needs to terminally fail it. Fourth review, nit 3: this is NOT a
+        # general approved -> failed escape hatch — conditioned on the exact
+        # data-integrity defect the job's nil-guard exists for. Reads
+        # @deletion_request directly (not a param), so it reflects the
+        # CURRENT stored value both times worker_write_guard_passes? runs:
+        # the not-yet-locked instance on the fail-fast check, and the
+        # freshly-reloaded, locked instance inside the with_lock block above.
+        def approved_to_failed_for_missing_grace_period?(requested_status, current_status)
+          requested_status == "failed" && current_status == "approved" &&
+            @deletion_request.grace_period_ends_at.blank?
+        end
+
+        def status_adjacent_write?
+          STATUS_ADJACENT_KEYS.any? { |key| params.key?(key) }
+        end
 
         # Dispatch deletion processing through the worker HTTP API seam. The old
         # DataManagement::Deletion{Processing,Execution}Job classes never existed
@@ -73,8 +200,25 @@ module Api
           )
         end
 
+        # The worker (Compliance::DataDeletionJob) is this branch's ONLY caller,
+        # and it PATCHes a raw top-level JSON body — no `data_deletion_request:`
+        # wrapper (this app is ActionController::API; there is no ParamsWrapper
+        # to add one). `params.require(:data_deletion_request)` therefore raised
+        # ActionController::ParameterMissing on every status-transition write the
+        # job makes (processing/completed/failed/error_message-only), rescued by
+        # ApiResponse into a 400 the job never checked — so none of those writes
+        # ever actually persisted (IMP-b33a3ecca331). Read these fields at the
+        # top level instead, mirroring the sibling AccountTerminationsController
+        # #update, which already does. `status` stays guarded by the model's own
+        # inclusion validation (DataManagement::DeletionRequest), not re-checked
+        # here.
         def deletion_request_update_params
-          params.require(:data_deletion_request).permit(metadata: {})
+          params.permit(
+            :status, :processing_started_at, :completed_at, :error_message,
+            deletion_log: [ :data_type, :action, :error, :records_affected, :processed_at, :reason ],
+            retention_log: [ :data_type, :reason, :processed_at ],
+            metadata: {}
+          )
         end
 
         def approve_request
@@ -91,9 +235,19 @@ module Api
             end
           end
 
+          # grace_period_ends_at (IMP-b33a3ecca331 third review, S-B): this
+          # write used to omit it entirely, while DataManagement::
+          # DeletionRequest#approve! (the model's own approval path, unused
+          # by this controller) sets it. Compliance::DataDeletionJob reads
+          # this field unconditionally once a request is approved/processing
+          # and previously crashed on `Time.zone.parse(nil)` for every
+          # request approved through this endpoint — the ONLY approval path
+          # that exists (nothing here calls the model method) — turning
+          # every approval into a crash-loop rather than a grace period.
           @deletion_request.update!(
             status: "approved",
             approved_at: Time.current,
+            grace_period_ends_at: DataManagement::DeletionRequest::GRACE_PERIOD_DAYS.days.from_now,
             processed_by_id: processed_by&.id
           )
           log_internal_audit("data_deletion.approve", "DeletionRequest", @deletion_request.id,

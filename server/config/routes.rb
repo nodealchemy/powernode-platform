@@ -242,6 +242,7 @@ Rails.application.routes.draw do
           get "export/subscriptions", to: "data_exports#account_subscriptions"
           get "export/files", to: "data_exports#account_files"
           get :users, to: "accounts#users"
+          patch :terminate, to: "accounts#terminate"
           patch :anonymize_audit_logs, to: "accounts#anonymize_audit_logs"
           patch :anonymize_payments, to: "accounts#anonymize_payments"
           delete :files, to: "accounts#delete_files"

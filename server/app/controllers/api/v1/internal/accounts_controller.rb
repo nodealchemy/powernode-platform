@@ -2,7 +2,7 @@
 
 # Internal API controller for worker service to fetch and manage account data
 class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseController
-  before_action :set_account, only: [ :show, :users, :anonymize_audit_logs, :anonymize_payments,
+  before_action :set_account, only: [ :show, :users, :terminate, :anonymize_audit_logs, :anonymize_payments,
                                        :delete_files, :delete_api_keys, :delete_webhooks,
                                        :delete_data_export_requests, :delete_data_deletion_requests ]
 
@@ -36,6 +36,31 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
     )
   end
 
+  # PATCH /api/v1/internal/accounts/:account_id/terminate
+  #
+  # Fork 1 (IMP-b33a3ecca331): what "terminated" means for the account row.
+  # `accounts.status` only allows active/cancelled/suspended (the
+  # `valid_account_status` check constraint) — there is no 'terminated' value,
+  # and none is being added. Operator decision: mark the account 'cancelled',
+  # the existing enum value closest to "this account is done" — no migration,
+  # no new column. Account has no fitting timestamp column (no cancelled_at /
+  # terminated_at); the authoritative WHEN/WHY record is
+  # `Account::Termination#completed_at`, already set by
+  # Compliance::AccountTerminationJob's own status write to that resource.
+  # This is ONE narrowly-named action, not a generic accounts#update — it can
+  # only ever do this one thing. Idempotent: calling it on an already-
+  # cancelled account succeeds without a redundant write or audit row.
+  def terminate
+    if @account.cancelled?
+      render_success(data: account_status_payload(@account), message: "Account already terminated")
+      return
+    end
+
+    @account.update!(status: "cancelled")
+    log_internal_audit("account.terminate", "Account", @account.id, account_id: @account.id)
+    render_success(data: account_status_payload(@account), message: "Account terminated")
+  end
+
   # PATCH /api/v1/internal/accounts/:account_id/anonymize_audit_logs
   def anonymize_audit_logs
     count = AuditLog.where(account_id: @account.id).update_all(
@@ -56,10 +81,15 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/files
+  #
+  # `data: { count: }` added (IMP-b33a3ecca331 review, S5): the worker reads
+  # this count back (Compliance::AccountTerminationJob#delete_account_records)
+  # to log how many records were actually deleted — a message-only response
+  # gave it nothing structured to read, so that read always saw 0.
   def delete_files
     count = @account.files.delete_all if @account.respond_to?(:files)
     log_internal_audit("account.delete_files", "Account", @account.id, account_id: @account.id, records_deleted: count || 0)
-    render_success(message: "Deleted #{count || 0} file records")
+    render_success(data: { count: count || 0 }, message: "Deleted #{count || 0} file records")
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/api_keys
@@ -91,6 +121,10 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
   end
 
   private
+
+  def account_status_payload(account)
+    { id: account.id, status: account.status }
+  end
 
   def set_account
     @account = Account.find(params[:account_id] || params[:id])
