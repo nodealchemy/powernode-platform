@@ -144,11 +144,11 @@ RSpec.describe McpSecurityService do
 
   describe '.sanitize_environment' do
     context 'with allowed variables' do
-      it 'allows PATH' do
-        env = { 'PATH' => '/usr/bin:/usr/local/bin' }
+      it 'allows USER' do
+        env = { 'USER' => 'mcp-runner' }
         result = described_class.sanitize_environment(env)
 
-        expect(result).to include('PATH' => '/usr/bin:/usr/local/bin')
+        expect(result).to include('USER' => 'mcp-runner')
       end
 
       it 'allows MCP_ prefixed variables' do
@@ -175,11 +175,11 @@ RSpec.describe McpSecurityService do
 
     context 'with forbidden variables' do
       it 'removes LD_PRELOAD' do
-        env = { 'LD_PRELOAD' => '/tmp/evil.so', 'PATH' => '/usr/bin' }
+        env = { 'LD_PRELOAD' => '/tmp/evil.so', 'MCP_API_KEY' => 'secret' }
         result = described_class.sanitize_environment(env)
 
         expect(result).not_to include('LD_PRELOAD')
-        expect(result).to include('PATH')
+        expect(result).to include('MCP_API_KEY')
       end
 
       it 'removes LD_LIBRARY_PATH' do
@@ -195,19 +195,167 @@ RSpec.describe McpSecurityService do
 
         expect(result).not_to include('NODE_OPTIONS')
       end
+
+      # IMP-e2cba83ee39f: PATH/HOME are FORBIDDEN in server-supplied env —
+      # a server-supplied PATH could point a bare command name like
+      # "node" at an attacker binary resolved through it; a server env is
+      # never the source of truth for either, see
+      # McpSecurityService.build_stdio_env's worker-side passthrough.
+      it 'removes PATH and HOME' do
+        env = { 'PATH' => '/tmp/evil-bin', 'HOME' => '/tmp/evil-home', 'MCP_API_KEY' => 'secret' }
+        result = described_class.sanitize_environment(env)
+
+        expect(result).not_to include('PATH', 'HOME')
+        expect(result).to include('MCP_API_KEY')
+      end
+
+      # IMP-e2cba83ee39f: module/gem search-path and interpreter
+      # auto-load-on-start vectors.
+      it 'removes the interpreter module/gem search-path and auto-load vectors' do
+        env = {
+          'NODE_PATH' => '/tmp/evil', 'RUBYLIB' => '/tmp/evil', 'PYTHONPATH' => '/tmp/evil',
+          'PYTHON_PATH' => '/tmp/evil', 'PYTHONHOME' => '/tmp/evil', 'PYTHONINSPECT' => '1',
+          'GEM_HOME' => '/tmp/evil', 'GEM_PATH' => '/tmp/evil', 'BUN_OPTIONS' => '--evil',
+          'PERL5OPT' => '-Mevil', 'PERL5LIB' => '/tmp/evil', 'JAVA_TOOL_OPTIONS' => '-evil',
+          '_JAVA_OPTIONS' => '-evil', 'JDK_JAVA_OPTIONS' => '-evil', 'DOTNET_STARTUP_HOOKS' => '/tmp/evil.dll'
+        }
+        result = described_class.sanitize_environment(env)
+
+        expect(result).to be_empty
+      end
+
+      it 'removes the whole DYLD_* family, not just the two explicitly-named ones' do
+        env = { 'DYLD_INSERT_LIBRARIES' => '/tmp/evil.dylib', 'DYLD_FRAMEWORK_PATH' => '/tmp/evil' }
+        result = described_class.sanitize_environment(env)
+
+        expect(result).to be_empty
+      end
+
+      # IMP-e2cba83ee39f round 2 BLOCKER: LD_AUDIT/LD_PROFILE were still
+      # ALLOWED in non-strict mode despite loading an arbitrary shared
+      # object into the process, the same class as LD_PRELOAD (already
+      # forbidden by exact name above) — this mirrors the DYLD_* prefix
+      # coverage for glibc's dynamic linker.
+      it 'removes the whole LD_* family, not just LD_PRELOAD/LD_LIBRARY_PATH' do
+        env = { 'LD_AUDIT' => '/tmp/evil.so', 'LD_PROFILE' => 'evil', 'LD_BIND_NOW' => '1' }
+        result = described_class.sanitize_environment(env)
+
+        expect(result).to be_empty
+      end
+
+      it 'removes the glibc locale/NSS lookup-path and DNS-redirection vars' do
+        env = {
+          'GCONV_PATH' => '/tmp/evil', 'GLIBC_TUNABLES' => 'evil', 'LOCPATH' => '/tmp/evil',
+          'NLSPATH' => '/tmp/evil', 'HOSTALIASES' => '/tmp/evil-hosts', 'RESOLV_HOST_CONF' => '/tmp/evil-resolv'
+        }
+        result = described_class.sanitize_environment(env)
+
+        expect(result).to be_empty
+      end
+
+      it "removes the package manager's registry/index-redirection prefixes and uv's named source vars" do
+        env = {
+          'NPM_CONFIG_REGISTRY' => 'https://evil.example/npm',
+          'npm_config_registry' => 'https://evil.example/npm-lowercase',
+          'PIP_INDEX_URL' => 'https://evil.example/pypi',
+          'PIP_EXTRA_INDEX_URL' => 'https://evil.example/pypi2',
+          'PIP_FIND_LINKS' => 'https://evil.example/links',
+          'BUN_CONFIG_REGISTRY' => 'https://evil.example/bun',
+          'UV_INDEX_URL' => 'https://evil.example/pypi',
+          'UV_EXTRA_INDEX_URL' => 'https://evil.example/pypi2',
+          'UV_INDEX' => 'https://evil.example/pypi3',
+          'UV_DEFAULT_INDEX' => 'https://evil.example/pypi4',
+          'UV_FIND_LINKS' => 'https://evil.example/links',
+          'UV_PYTHON_INSTALL_MIRROR' => 'https://evil.example/python',
+          'UV_PYPY_INSTALL_MIRROR' => 'https://evil.example/pypy'
+        }
+        result = described_class.sanitize_environment(env)
+
+        expect(result).to be_empty
+      end
+
+      it 'removes PYTHONUSERBASE (auto-imports usercustomize.py on interpreter start)' do
+        env = { 'PYTHONUSERBASE' => '/tmp/evil-userbase' }
+        result = described_class.sanitize_environment(env)
+
+        expect(result).to be_empty
+      end
+
+      it "removes ruby's gem/bundler-redirection vars, including the now-former ALLOWED_ENV_VARS entry BUNDLE_PATH" do
+        env = {
+          'BUNDLE_GEMFILE' => '/tmp/evil/Gemfile', 'RUBYGEMS_GEMDEPS' => '/tmp/evil/gem.deps.rb',
+          'BUNDLE_PATH' => '/tmp/evil-gems'
+        }
+        result = described_class.sanitize_environment(env)
+
+        expect(result).to be_empty
+      end
+
+      it 'removes the extended-launcher (java/docker/go) vars' do
+        env = {
+          'CLASSPATH' => '/tmp/evil.jar', 'DOCKER_HOST' => 'tcp://evil.example:2375',
+          'DOCKER_CONFIG' => '/tmp/evil-docker-config', 'GOPROXY' => 'https://evil.example',
+          'GOFLAGS' => '-evil', 'GONOSUMDB' => '*', 'GONOSUMCHECK' => '1', 'GOSUMDB' => 'off',
+          'GOINSECURE' => '*', 'GOPRIVATE' => '*'
+        }
+        result = described_class.sanitize_environment(env)
+
+        expect(result).to be_empty
+      end
     end
 
     context 'with strict mode' do
       it 'only allows explicitly allowed variables in strict mode' do
         env = {
-          'PATH' => '/usr/bin',
+          'USER' => 'mcp-runner',
           'CUSTOM_VAR' => 'value',
           'MCP_API_KEY' => 'secret'
         }
         result = described_class.sanitize_environment(env, strict: true)
 
-        expect(result).to include('PATH', 'MCP_API_KEY')
+        expect(result).to include('USER', 'MCP_API_KEY')
         expect(result).not_to include('CUSTOM_VAR')
+      end
+
+      it 'still removes PATH/HOME in strict mode, even though PATH/HOME were once ALLOWED_ENV_VARS' do
+        env = { 'PATH' => '/tmp/evil-bin', 'HOME' => '/tmp/evil-home' }
+        result = described_class.sanitize_environment(env, strict: true)
+
+        expect(result).to be_empty
+      end
+
+      it 'still removes the LD_* family, the glibc/DNS vars, and the package-source prefixes/vars in strict mode' do
+        env = {
+          'LD_AUDIT' => '/tmp/evil.so', 'GCONV_PATH' => '/tmp/evil', 'HOSTALIASES' => '/tmp/evil-hosts',
+          'NPM_CONFIG_REGISTRY' => 'https://evil.example', 'PIP_INDEX_URL' => 'https://evil.example',
+          'BUN_CONFIG_REGISTRY' => 'https://evil.example', 'UV_INDEX_URL' => 'https://evil.example'
+        }
+        result = described_class.sanitize_environment(env, strict: true)
+
+        expect(result).to be_empty
+      end
+
+      # BUNDLE_PATH was ALLOWED in strict mode before round 3 (it was in
+      # ALLOWED_ENV_VARS, so strict mode's default-deny didn't apply to
+      # it) — this is the one round-3 addition where strict mode's
+      # behavior actually CHANGES, unlike the other round-2/3 additions
+      # where strict mode's default-deny already blocked them regardless.
+      it 'removes BUNDLE_PATH in strict mode too, now that it is no longer in ALLOWED_ENV_VARS' do
+        env = { 'BUNDLE_PATH' => '/tmp/evil-gems' }
+        result = described_class.sanitize_environment(env, strict: true)
+
+        expect(result).to be_empty
+      end
+
+      it 'still removes PYTHONUSERBASE, the ruby gem/bundler vars, and the java/docker/go vars in strict mode' do
+        env = {
+          'PYTHONUSERBASE' => '/tmp/evil', 'BUNDLE_GEMFILE' => '/tmp/evil/Gemfile',
+          'RUBYGEMS_GEMDEPS' => '/tmp/evil/gem.deps.rb', 'CLASSPATH' => '/tmp/evil.jar',
+          'DOCKER_HOST' => 'tcp://evil.example:2375', 'GOPROXY' => 'https://evil.example'
+        }
+        result = described_class.sanitize_environment(env, strict: true)
+
+        expect(result).to be_empty
       end
     end
 
@@ -219,7 +367,7 @@ RSpec.describe McpSecurityService do
 
   describe '.validate_environment!' do
     it 'does not raise for allowed variables' do
-      env = { 'PATH' => '/usr/bin', 'MCP_API_KEY' => 'secret' }
+      env = { 'USER' => 'mcp-runner', 'MCP_API_KEY' => 'secret' }
 
       expect { described_class.validate_environment!(env) }.not_to raise_error
     end
@@ -229,6 +377,94 @@ RSpec.describe McpSecurityService do
 
       expect { described_class.validate_environment!(env) }
         .to raise_error(McpSecurityService::EnvironmentViolationError)
+    end
+
+    # IMP-e2cba83ee39f: PATH/HOME are FORBIDDEN in server-supplied env —
+    # a server config that tries to set either is rejected outright
+    # rather than silently overridden, same as any other forbidden var.
+    it 'raises for a server-supplied PATH or HOME' do
+      expect { described_class.validate_environment!({ 'PATH' => '/tmp/evil-bin' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /PATH/)
+      expect { described_class.validate_environment!({ 'HOME' => '/tmp/evil-home' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /HOME/)
+    end
+
+    it 'raises for the interpreter module/gem search-path and auto-load vectors' do
+      %w[NODE_PATH RUBYLIB PYTHONPATH PYTHON_PATH PYTHONHOME PYTHONINSPECT GEM_HOME GEM_PATH
+         BUN_OPTIONS PERL5OPT PERL5LIB JAVA_TOOL_OPTIONS _JAVA_OPTIONS JDK_JAVA_OPTIONS
+         DOTNET_STARTUP_HOOKS].each do |key|
+        expect { described_class.validate_environment!({ key => 'evil' }) }
+          .to raise_error(McpSecurityService::EnvironmentViolationError, /#{Regexp.escape(key)}/),
+              "expected #{key} to be forbidden"
+      end
+    end
+
+    it 'raises for any DYLD_* variable, not just the two explicitly-named ones' do
+      expect { described_class.validate_environment!({ 'DYLD_FRAMEWORK_PATH' => '/tmp/evil' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /DYLD_FRAMEWORK_PATH/)
+    end
+
+    it 'raises for any LD_* variable, not just LD_PRELOAD/LD_LIBRARY_PATH' do
+      expect { described_class.validate_environment!({ 'LD_AUDIT' => '/tmp/evil.so' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /LD_AUDIT/)
+      expect { described_class.validate_environment!({ 'LD_PROFILE' => 'evil' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /LD_PROFILE/)
+      expect { described_class.validate_environment!({ 'LD_BIND_NOW' => '1' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /LD_BIND_NOW/)
+    end
+
+    it 'raises for the glibc locale/NSS lookup-path and DNS-redirection vars' do
+      %w[GCONV_PATH GLIBC_TUNABLES LOCPATH NLSPATH HOSTALIASES RESOLV_HOST_CONF].each do |key|
+        expect { described_class.validate_environment!({ key => 'evil' }) }
+          .to raise_error(McpSecurityService::EnvironmentViolationError, /#{Regexp.escape(key)}/),
+              "expected #{key} to be forbidden"
+      end
+    end
+
+    it "raises for the package manager's registry/index-redirection prefixes" do
+      expect { described_class.validate_environment!({ 'NPM_CONFIG_REGISTRY' => 'https://evil.example' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /NPM_CONFIG_REGISTRY/)
+      expect { described_class.validate_environment!({ 'npm_config_registry' => 'https://evil.example' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /NPM_CONFIG_REGISTRY/)
+      expect { described_class.validate_environment!({ 'PIP_INDEX_URL' => 'https://evil.example' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /PIP_INDEX_URL/)
+      expect { described_class.validate_environment!({ 'PIP_EXTRA_INDEX_URL' => 'https://evil.example' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /PIP_EXTRA_INDEX_URL/)
+      expect { described_class.validate_environment!({ 'PIP_FIND_LINKS' => 'https://evil.example' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /PIP_FIND_LINKS/)
+      expect { described_class.validate_environment!({ 'BUN_CONFIG_REGISTRY' => 'https://evil.example' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /BUN_CONFIG_REGISTRY/)
+    end
+
+    it "raises for uv's named package-source vars (the UV_ prefix itself stays allowed)" do
+      %w[UV_INDEX_URL UV_EXTRA_INDEX_URL UV_INDEX UV_DEFAULT_INDEX UV_FIND_LINKS
+         UV_PYTHON_INSTALL_MIRROR UV_PYPY_INSTALL_MIRROR].each do |key|
+        expect { described_class.validate_environment!({ key => 'https://evil.example' }) }
+          .to raise_error(McpSecurityService::EnvironmentViolationError, /#{Regexp.escape(key)}/),
+              "expected #{key} to be forbidden"
+      end
+    end
+
+    it 'raises for PYTHONUSERBASE (auto-imports usercustomize.py on interpreter start)' do
+      expect { described_class.validate_environment!({ 'PYTHONUSERBASE' => '/tmp/evil-userbase' }) }
+        .to raise_error(McpSecurityService::EnvironmentViolationError, /PYTHONUSERBASE/)
+    end
+
+    it "raises for ruby's gem/bundler-redirection vars, including the now-former ALLOWED_ENV_VARS entry BUNDLE_PATH" do
+      %w[BUNDLE_GEMFILE RUBYGEMS_GEMDEPS BUNDLE_PATH].each do |key|
+        expect { described_class.validate_environment!({ key => '/tmp/evil' }) }
+          .to raise_error(McpSecurityService::EnvironmentViolationError, /#{Regexp.escape(key)}/),
+              "expected #{key} to be forbidden"
+      end
+    end
+
+    it 'raises for the extended-launcher (java/docker/go) vars' do
+      %w[CLASSPATH DOCKER_HOST DOCKER_CONFIG GOPROXY GOFLAGS GONOSUMDB GONOSUMCHECK GOSUMDB
+         GOINSECURE GOPRIVATE].each do |key|
+        expect { described_class.validate_environment!({ key => 'evil' }) }
+          .to raise_error(McpSecurityService::EnvironmentViolationError, /#{Regexp.escape(key)}/),
+              "expected #{key} to be forbidden"
+      end
     end
 
     it 'handles blank environment' do
@@ -248,7 +484,12 @@ RSpec.describe McpSecurityService do
       command, env = described_class.validate_stdio_server!(server)
 
       expect(command).to eq('node')
-      expect(env).to eq('MCP_API_KEY' => 'secret')
+      # IMP-e2cba83ee39f: env is now the worker's own base passthrough
+      # (PATH/HOME/LANG/LC_ALL/TZ/TMPDIR, whichever are set) merged with
+      # the validated server env — never an exact match on the server env
+      # alone (see the dedicated 'worker env passthrough' describe block
+      # below for the full contract).
+      expect(env).to include('MCP_API_KEY' => 'secret', 'PATH' => ENV['PATH'])
       expect(env.keys).to all(be_a(String))
     end
 
@@ -300,13 +541,13 @@ RSpec.describe McpSecurityService do
     it 'drops non-allowlisted env keys and returns String env keys when capabilities.strict_environment == true' do
       server = {
         'command' => 'node',
-        'env' => { 'PATH' => '/usr/bin', 'MCP_API_KEY' => 'secret', 'CUSTOM_UNLISTED_VAR' => 'value' },
+        'env' => { 'USER' => 'mcp-runner', 'MCP_API_KEY' => 'secret', 'CUSTOM_UNLISTED_VAR' => 'value' },
         'capabilities' => { 'strict_environment' => true }
       }
 
       _command, env = described_class.validate_stdio_server!(server)
 
-      expect(env).to include('PATH', 'MCP_API_KEY')
+      expect(env).to include('USER', 'MCP_API_KEY', 'PATH')
       expect(env).not_to include('CUSTOM_UNLISTED_VAR')
       expect(env.keys).to all(be_a(String))
     end
@@ -317,7 +558,7 @@ RSpec.describe McpSecurityService do
       command, env = described_class.validate_stdio_server!(server)
 
       expect(command).to eq('node')
-      expect(env).to eq({})
+      expect(env).to include('PATH' => ENV['PATH'])
     end
 
     it 'refuses inline code via args even though command and env are both fine (IMP-97b6b1185748)' do
@@ -336,7 +577,7 @@ RSpec.describe McpSecurityService do
       command, env, argv = described_class.validate_stdio_server!(server)
 
       expect(command).to eq('node')
-      expect(env).to eq({})
+      expect(env).to include('PATH' => ENV['PATH'])
       expect(argv).to eq(['server.js', '--port', '3000'])
     end
 
@@ -435,6 +676,108 @@ RSpec.describe McpSecurityService do
 
         expect { described_class.validate_stdio_server!(server) }
           .to raise_error(McpSecurityService::CommandNotAllowedError, /not in the allowed list/)
+      end
+    end
+
+    # IMP-e2cba83ee39f BLOCKER: the child stdio MCP server process must
+    # NEVER inherit the worker's own environment — Process.spawn/Open3
+    # MERGE a given env Hash ON TOP of the current process's full
+    # environment by default (unsetenv_others defaults to false), so
+    # every worker secret would otherwise leak into the spawned server
+    # even though this class only ever built a small, deliberate env.
+    # #spawn_stdio pairs this with unsetenv_others: true (see its own
+    # specs at each of the 4 call sites) so this hash really is the ONLY
+    # thing the child ever sees.
+    describe 'worker env passthrough, never the worker\'s full environment' do
+      around do |example|
+        original = ENV.to_hash
+        ENV['MCP_WORKER_SECRET_SENTINEL'] = 'do-not-leak-me'
+        example.run
+      ensure
+        ENV.replace(original)
+      end
+
+      it 'never lets a worker secret reach the env passed to Open3, while PATH and the validated server env are present' do
+        server = { 'command' => 'node', 'env' => { 'MCP_API_KEY' => 'secret' } }
+
+        _command, env, = described_class.validate_stdio_server!(server)
+
+        expect(env).not_to include('MCP_WORKER_SECRET_SENTINEL')
+        expect(env).to include('PATH' => ENV['PATH'], 'MCP_API_KEY' => 'secret')
+      end
+
+      it 'never lets the sentinel through even in strict mode' do
+        server = {
+          'command' => 'node',
+          'env' => { 'MCP_API_KEY' => 'secret' },
+          'capabilities' => { 'strict_environment' => true }
+        }
+
+        _command, env, = described_class.validate_stdio_server!(server)
+
+        expect(env).not_to include('MCP_WORKER_SECRET_SENTINEL')
+      end
+
+      it "passes through HOME/LANG/LC_ALL/TZ/TMPDIR from the worker's own env when present, nothing else" do
+        ENV['LC_ALL'] = 'en_US.UTF-8'
+        ENV['TZ'] = 'UTC'
+        ENV['TMPDIR'] = '/tmp/mcp-test'
+
+        server = { 'command' => 'node', 'env' => {} }
+        _command, env, = described_class.validate_stdio_server!(server)
+
+        expect(env).to include(
+          'PATH' => ENV['PATH'],
+          'HOME' => ENV['HOME'],
+          'LC_ALL' => 'en_US.UTF-8',
+          'TZ' => 'UTC',
+          'TMPDIR' => '/tmp/mcp-test'
+        )
+      end
+
+      it "a server-supplied PATH or HOME is refused outright — the worker's own values always win" do
+        expect { described_class.validate_stdio_server!({ 'command' => 'node', 'env' => { 'PATH' => '/tmp/evil-bin' } }) }
+          .to raise_error(McpSecurityService::EnvironmentViolationError, /PATH/)
+        expect { described_class.validate_stdio_server!({ 'command' => 'node', 'env' => { 'HOME' => '/tmp/evil-home' } }) }
+          .to raise_error(McpSecurityService::EnvironmentViolationError, /HOME/)
+      end
+
+      it "a server-supplied LANG/TZ/TMPDIR DOES override the worker's passthrough value (only PATH/HOME are pinned)" do
+        ENV['TZ'] = 'UTC'
+        server = { 'command' => 'node', 'env' => { 'TZ' => 'America/New_York' } }
+
+        _command, env, = described_class.validate_stdio_server!(server)
+
+        expect(env['TZ']).to eq('America/New_York')
+      end
+
+      # IMP-e2cba83ee39f round 2: everything above asserts on the Hash
+      # #validate_stdio_server!/#build_stdio_env RETURN — this spawns a
+      # REAL child process through #spawn_stdio (the actual call sites'
+      # code path) and inspects what environment the CHILD ITSELF
+      # observes, so a defect that only shows up in how Open3 actually
+      # applies `env`/`unsetenv_others` (rather than in the Hash this
+      # class builds) can't hide behind a stubbed Open3.
+      it 'spawns a real ruby child whose observed env is exactly the passthrough plus server keys, sentinel absent' do
+        require 'tempfile'
+        script = Tempfile.new(['mcp_env_probe', '.rb'])
+        begin
+          script.write('puts ENV.keys.sort.join(",")')
+          script.close
+
+          server = { 'command' => 'ruby', 'args' => [script.path], 'env' => { 'MCP_API_KEY' => 'secret' } }
+          command, env, args = described_class.validate_stdio_server!(server)
+
+          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '')
+
+          expect(status).to be_success, "ruby child failed: #{stderr}"
+          child_keys = stdout.strip.split(',')
+
+          expect(child_keys).not_to include('MCP_WORKER_SECRET_SENTINEL')
+          expect(child_keys.sort).to eq(env.keys.sort)
+        ensure
+          script.unlink
+        end
       end
     end
   end

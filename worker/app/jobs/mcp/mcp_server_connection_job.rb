@@ -127,8 +127,6 @@ module Mcp
       end
 
       begin
-        require 'open3'
-
         # Build MCP initialize request
         init_request = {
           jsonrpc: '2.0',
@@ -148,17 +146,10 @@ module Mcp
 
         stdin_data = init_request.to_json
 
-        # [command, command] (argv0 form) forces a direct exec — never a
-        # shell — even when `args` is empty, which a bare string command
-        # would NOT: Process.spawn/Open3 run a lone string through
-        # `/bin/sh -c` when given no additional args (IMP-97b6b1185748
-        # item 1).
-        stdout, stderr, status = Open3.capture3(
-          sanitized_env,
-          [command, command],
-          *args,
-          stdin_data: stdin_data
-        )
+        # McpSecurityService.spawn_stdio is the shared spawn point (argv0
+        # exec form + unsetenv_others: true — IMP-97b6b1185748 item 1,
+        # IMP-e2cba83ee39f) — never call Open3.capture3 directly here.
+        stdout, stderr, status = McpSecurityService.spawn_stdio(command, sanitized_env, args, stdin_data: stdin_data)
 
         if status.success? || stdout.present?
           # Parse the response to extract capabilities

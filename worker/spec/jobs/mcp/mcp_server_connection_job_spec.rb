@@ -214,9 +214,10 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
           allow(api_client).to receive(:patch).and_return(success: true)
           allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
 
-          expect(Open3).to receive(:capture3) do |env, command, *args, **_opts|
+          expect(Open3).to receive(:capture3) do |env, command, *args, **opts|
             expect(command).to eq(['node', 'node'])
             expect(env.keys).to all(be_a(String))
+            expect(opts[:unsetenv_others]).to be true
             ['{}', '', instance_double(Process::Status, success?: true)]
           end
 

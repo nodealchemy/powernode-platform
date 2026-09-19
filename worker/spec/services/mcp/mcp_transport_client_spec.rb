@@ -108,9 +108,10 @@ RSpec.describe Mcp::McpTransportClient do
       captured_stdin = nil
 
       allow(Open3).to receive(:capture3) do |env, command, *cmd_args, **opts|
-        expect(env).to eq('MCP_X' => '1')
+        expect(env).to include('MCP_X' => '1', 'PATH' => ENV['PATH'])
         expect(command).to eq(['/usr/bin/node', '/usr/bin/node'])
         expect(cmd_args).to eq(['--flag'])
+        expect(opts[:unsetenv_others]).to be true
         captured_stdin = opts[:stdin_data]
         ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
       end

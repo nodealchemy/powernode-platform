@@ -124,8 +124,6 @@ module Mcp
       end
 
       begin
-        require 'open3'
-
         # Send MCP ping request
         ping_request = {
           jsonrpc: '2.0',
@@ -135,14 +133,10 @@ module Mcp
         }
 
         stdin_data = ping_request.to_json
-        # [command, command] (argv0 form) forces a direct exec — never a
-        # shell — even when `args` is empty (IMP-97b6b1185748 item 1).
-        stdout, _stderr, status = Open3.capture3(
-          sanitized_env,
-          [command, command],
-          *args,
-          stdin_data: stdin_data
-        )
+        # McpSecurityService.spawn_stdio is the shared spawn point (argv0
+        # exec form + unsetenv_others: true — IMP-97b6b1185748 item 1,
+        # IMP-e2cba83ee39f) — never call Open3.capture3 directly here.
+        stdout, _stderr, status = McpSecurityService.spawn_stdio(command, sanitized_env, args, stdin_data: stdin_data)
 
         # Consider it healthy if we get any valid JSON response
         if status.success? || stdout.present?

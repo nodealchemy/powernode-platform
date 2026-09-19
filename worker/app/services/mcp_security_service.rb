@@ -77,10 +77,15 @@ class McpSecurityService
     PERPLEXITY_
   ].freeze
 
-  # Explicitly allowed environment variables
+  # Explicitly allowed environment variables. NOTE (IMP-e2cba83ee39f):
+  # PATH and HOME are deliberately NOT here — see FORBIDDEN_ENV_VARS and
+  # #build_stdio_env — nor are PYTHONPATH/PYTHON_PATH/GEM_HOME/GEM_PATH,
+  # each of which is a code-injection vector (arbitrary module/gem load
+  # path) rather than a harmless locale/runtime setting. Round-3 review:
+  # BUNDLE_PATH moved OUT of here and INTO FORBIDDEN_ENV_VARS — it's the
+  # same "arbitrary gem load location" class as GEM_HOME/GEM_PATH, not a
+  # harmless setting.
   ALLOWED_ENV_VARS = %w[
-    PATH
-    HOME
     USER
     LANG
     LC_ALL
@@ -88,12 +93,7 @@ class McpSecurityService
     TERM
     TZ
     NODE_ENV
-    PYTHON_PATH
-    PYTHONPATH
     RUBY_VERSION
-    GEM_HOME
-    GEM_PATH
-    BUNDLE_PATH
     XDG_CONFIG_HOME
     XDG_DATA_HOME
     XDG_CACHE_HOME
@@ -102,7 +102,50 @@ class McpSecurityService
     TMP
   ].freeze
 
-  # Forbidden environment variables (security sensitive)
+  # Forbidden environment variables (security sensitive) — exact match.
+  # See FORBIDDEN_ENV_PREFIXES below for the DYLD_* family. IMP-e2cba83ee39f
+  # additions: PATH/HOME (a server-supplied PATH could point a bare
+  # command name like "node" at an attacker binary resolved through it;
+  # HOME can redirect config/rc-file loading the same way — the worker's
+  # own values always win, see #build_stdio_env); the interpreter
+  # module/gem search-path vars (NODE_PATH, RUBYLIB, PYTHONPATH,
+  # PYTHON_PATH, PYTHONHOME, GEM_HOME, GEM_PATH) — each lets an arbitrary
+  # installed (or planted) module/gem get loaded as a side effect of an
+  # ordinary require/import; the interpreter auto-load-on-start vars
+  # (PYTHONINSPECT, BUN_OPTIONS, PERL5OPT, PERL5LIB, JAVA_TOOL_OPTIONS,
+  # _JAVA_OPTIONS, JDK_JAVA_OPTIONS, DOTNET_STARTUP_HOOKS) — each runs
+  # attacker-supplied code/flags the moment the interpreter starts, no
+  # inline-code flag needed at all. Round-2 review additions: the glibc
+  # locale/NSS lookup-path vars (GCONV_PATH, GLIBC_TUNABLES, LOCPATH,
+  # NLSPATH) — each can point glibc at an attacker-supplied shared
+  # object/conversion module, the same class as LD_PRELOAD; the DNS/host
+  # resolution vars (HOSTALIASES, RESOLV_HOST_CONF) — redirect hostname
+  # resolution to an attacker-controlled file; uv's package-source vars
+  # (UV_INDEX_URL, UV_EXTRA_INDEX_URL, UV_INDEX, UV_DEFAULT_INDEX,
+  # UV_FIND_LINKS, UV_PYTHON_INSTALL_MIRROR, UV_PYPY_INSTALL_MIRROR) —
+  # named individually rather than banning the whole UV_ prefix, since uv
+  # has other, harmless UV_* config vars a real server may legitimately
+  # set. Round-3 review additions: PYTHONUSERBASE — PROVEN code execution
+  # (redirects Python's per-user site-packages dir, whose
+  # usercustomize.py is auto-imported on interpreter startup — the same
+  # "runs on start, no flag needed" class as PYTHONSTARTUP, just via a
+  # different mechanism); BUNDLE_GEMFILE/RUBYGEMS_GEMDEPS/BUNDLE_PATH —
+  # each can point Ruby's gem resolution at an attacker-supplied
+  # Gemfile/gemdeps file or gem install location, the same class as
+  # GEM_HOME/GEM_PATH (BUNDLE_PATH moved here from ALLOWED_ENV_VARS, not
+  # merely removed from it); the extended-launcher vars CLASSPATH (java —
+  # arbitrary .class/.jar load path, the JVM's equivalent of
+  # LD_LIBRARY_PATH), DOCKER_HOST/DOCKER_CONFIG (docker/podman — redirect
+  # the daemon socket or config/credential-helper location an attacker
+  # controls), and the Go module-proxy/checksum-verification vars
+  # (GOPROXY, GOFLAGS, GONOSUMDB, GONOSUMCHECK, GOSUMDB, GOINSECURE,
+  # GOPRIVATE) — each can disable Go's module checksum verification or
+  # redirect module fetches through an attacker-controlled proxy, a
+  # supply-chain vector. Deliberately NOT added (deferred): the CA-trust
+  # vars (NODE_EXTRA_CA_CERTS, DENO_CERT, DENO_TLS_CA_STORE) — some real
+  # MCP deployments legitimately need a custom CA bundle for TLS
+  # interception (corporate proxies), so this needs its own decision
+  # rather than a blanket ban.
   FORBIDDEN_ENV_VARS = %w[
     LD_PRELOAD
     LD_LIBRARY_PATH
@@ -114,7 +157,78 @@ class McpSecurityService
     BASH_ENV
     ENV
     CDPATH
+    PATH
+    HOME
+    NODE_PATH
+    RUBYLIB
+    PYTHONPATH
+    PYTHON_PATH
+    PYTHONHOME
+    PYTHONINSPECT
+    GEM_HOME
+    GEM_PATH
+    BUN_OPTIONS
+    PERL5OPT
+    PERL5LIB
+    JAVA_TOOL_OPTIONS
+    _JAVA_OPTIONS
+    JDK_JAVA_OPTIONS
+    DOTNET_STARTUP_HOOKS
+    GCONV_PATH
+    GLIBC_TUNABLES
+    LOCPATH
+    NLSPATH
+    HOSTALIASES
+    RESOLV_HOST_CONF
+    UV_INDEX_URL
+    UV_EXTRA_INDEX_URL
+    UV_INDEX
+    UV_DEFAULT_INDEX
+    UV_FIND_LINKS
+    UV_PYTHON_INSTALL_MIRROR
+    UV_PYPY_INSTALL_MIRROR
+    PYTHONUSERBASE
+    BUNDLE_GEMFILE
+    RUBYGEMS_GEMDEPS
+    BUNDLE_PATH
+    CLASSPATH
+    DOCKER_HOST
+    DOCKER_CONFIG
+    GOPROXY
+    GOFLAGS
+    GONOSUMDB
+    GONOSUMCHECK
+    GOSUMDB
+    GOINSECURE
+    GOPRIVATE
   ].freeze
+
+  # Forbidden environment variable PREFIXES. DYLD_* (IMP-e2cba83ee39f round
+  # 1) covers the whole macOS dynamic-linker family (DYLD_INSERT_LIBRARIES/
+  # DYLD_LIBRARY_PATH are also listed explicitly above for clarity, but
+  # this catches every other DYLD_* variable too, e.g. DYLD_FRAMEWORK_PATH).
+  # LD_ (round 2 BLOCKER — review found LD_AUDIT/LD_PROFILE were still
+  # ALLOWED in non-strict mode despite being the exact same "load an
+  # arbitrary shared object into the process" class as LD_PRELOAD, which is
+  # already named above) covers the whole glibc dynamic-linker family the
+  # same way (LD_AUDIT, LD_PROFILE, LD_BIND_NOW, LD_ORIGIN_PATH, ...).
+  # NPM_CONFIG_/PIP_/BUN_CONFIG_ (round 2) each redirect a package
+  # manager's package/registry SOURCE (npm_config_registry, PIP_INDEX_URL,
+  # a malicious bun registry, ...) — letting a server override where its
+  # own dependencies are fetched from is a supply-chain vector, not a
+  # harmless runtime setting. uv is deliberately NOT covered by a whole-
+  # prefix ban here — see the named UV_* entries in FORBIDDEN_ENV_VARS
+  # below instead.
+  FORBIDDEN_ENV_PREFIXES = %w[DYLD_ LD_ NPM_CONFIG_ PIP_ BUN_CONFIG_].freeze
+
+  # IMP-e2cba83ee39f: the ONLY variables passed through from the WORKER's
+  # own process environment into a spawned stdio MCP server — everything
+  # else (DATABASE_URL, REDIS_URL, WORKER_ID, JWT_SECRET_KEY, ...) must
+  # NEVER reach the child. See #build_stdio_env and #spawn_stdio. TMPDIR is
+  # deliberately server-overridable (unlike PATH/HOME) — a server pointing
+  # its own child-scoped scratch dir elsewhere is accepted, not a security
+  # boundary the way a binary-resolution or config-file path is.
+  STDIO_ENV_PASSTHROUGH_KEYS = %w[PATH HOME LANG LC_ALL TZ TMPDIR].freeze
 
   # IMP-97b6b1185748: validate_command! only ever checked the *command*
   # string. server['args'] reached Open3.capture3 completely unchecked, so
@@ -396,18 +510,24 @@ class McpSecurityService
     def env_allowed?(key, strict: false)
       key = key.to_s.upcase
 
-      return false if FORBIDDEN_ENV_VARS.include?(key)
+      return false if env_forbidden?(key)
       return true if ALLOWED_ENV_PREFIXES.any? { |prefix| key.start_with?(prefix) }
       return true if ALLOWED_ENV_VARS.include?(key)
 
       !strict
     end
 
+    def env_forbidden?(key)
+      key = key.to_s.upcase
+
+      FORBIDDEN_ENV_VARS.include?(key) || FORBIDDEN_ENV_PREFIXES.any? { |prefix| key.start_with?(prefix) }
+    end
+
     # Validate environment and raise if forbidden vars present
     def validate_environment!(env)
       return if env.blank?
 
-      forbidden = env.keys.map(&:to_s).map(&:upcase) & FORBIDDEN_ENV_VARS
+      forbidden = env.keys.map(&:to_s).map(&:upcase).select { |key| env_forbidden?(key) }
 
       return unless forbidden.any?
 
@@ -494,12 +614,59 @@ class McpSecurityService
       validate_environment!(env) if env.present?
       validate_stdio_args!(base_command, combined_args)
 
-      sanitized_env = sanitize_environment(env, strict: strict_env).transform_keys(&:to_s)
+      final_env = build_stdio_env(env, strict_env: strict_env)
 
-      [base_command, sanitized_env, combined_args]
+      [base_command, final_env, combined_args]
+    end
+
+    # IMP-e2cba83ee39f: the shared spawn point for every stdio MCP call
+    # site (McpServerHealthCheckJob#ping_stdio_server, McpToolDiscoveryJob
+    # #discover_stdio_tools, McpServerConnectionJob#establish_stdio_connection,
+    # Mcp::McpTransportClient#execute_stdio_tool) — the ONLY place
+    # Open3.capture3 is invoked for a stdio MCP server, so `unsetenv_others:
+    # true` can never be forgotten at a call site. Without it,
+    # Process.spawn/Open3 MERGE the given `env` Hash ON TOP of the
+    # worker's own FULL process environment rather than replacing it —
+    # every worker secret (DATABASE_URL, REDIS_URL, WORKER_ID,
+    # JWT_SECRET_KEY, ...) would otherwise leak into the spawned server's
+    # environment even though `env` here is deliberately built to contain
+    # only the small passthrough plus the validated server env (see
+    # #build_stdio_env). `command`/`env`/`args` are exactly the 3-tuple
+    # `validate_stdio_server!` returns; callers must not construct these
+    # themselves.
+    #
+    # @return [Array(String, String, Process::Status)] [stdout, stderr, status]
+    def spawn_stdio(command, env, args, stdin_data:)
+      require 'open3'
+
+      Open3.capture3(env, [command, command], *Array(args), stdin_data: stdin_data, unsetenv_others: true)
     end
 
     private
+
+    # IMP-e2cba83ee39f: the ONLY env the spawned stdio MCP server process
+    # ever sees (paired with #spawn_stdio's unsetenv_others: true) — a
+    # small, fixed passthrough from the WORKER's own environment
+    # (STDIO_ENV_PASSTHROUGH_KEYS: PATH, HOME, LANG, LC_ALL, TZ, TMPDIR —
+    # whichever are actually set), with the validated/sanitized SERVER env
+    # merged on top. PATH and HOME are FORBIDDEN in the server env (see
+    # FORBIDDEN_ENV_VARS) specifically so a malicious server config can
+    # never override them: a server-supplied PATH could point a bare
+    # command name like "node" at an attacker-controlled binary resolved
+    # through it — the worker's own PATH/HOME always win. Every other
+    # passthrough key CAN be overridden by an explicit, validated server
+    # env value (e.g. a server-supplied LANG/TZ), same as "merge on top"
+    # for everything else.
+    def build_stdio_env(env, strict_env: false)
+      sanitized = sanitize_environment(env, strict: strict_env).transform_keys(&:to_s)
+
+      base_passthrough = STDIO_ENV_PASSTHROUGH_KEYS.each_with_object({}) do |key, memo|
+        value = ENV[key]
+        memo[key] = value if value
+      end
+
+      base_passthrough.merge(sanitized)
+    end
 
     # Shellwords-split a command string into argv tokens. An unparseable
     # string (unbalanced quoting/escaping, e.g. "node -e 'x") is refused

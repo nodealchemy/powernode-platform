@@ -242,9 +242,10 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
             .with("/api/v1/internal/mcp_servers/#{server_id}")
             .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node') })
 
-          expect(Open3).to receive(:capture3) do |env, command, *_args, **_opts|
+          expect(Open3).to receive(:capture3) do |env, command, *_args, **opts|
             expect(command).to eq(['node', 'node'])
             expect(env.keys).to all(be_a(String))
+            expect(opts[:unsetenv_others]).to be true
             ['{}', '', instance_double(Process::Status, success?: true)]
           end
 
