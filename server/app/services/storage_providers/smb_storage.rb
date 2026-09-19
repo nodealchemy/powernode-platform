@@ -40,16 +40,17 @@ module StorageProviders
     end
 
     def issue_node_credential(context: {})
-      short_id = context[:instance_id].to_s.delete("-").first(12)
+      username = derive_username(context[:instance_id])
       {
         kind: "cifs_user_pass",
         payload: {
-          username: "node-#{short_id}",
+          username: username,
           password: SecureRandom.alphanumeric(16)
         },
         ttl: 90.days,
         metadata: {
           smb_user_handle: UUID7.generate,
+          username: username,
           shape: context[:deployment_shape] || "self_hosted"
         }
       }
@@ -331,6 +332,39 @@ module StorageProviders
     end
 
     private
+
+    # IMP-eb6a3c299f4b increment 2 — the old scheme, "node-" + the first 12
+    # hex chars of instance_id (its dashes stripped), collided in two ways:
+    # a single node mounting a SECOND SMB share minted the IDENTICAL
+    # username for both (username depended on instance_id alone, never the
+    # storage), and separately, two DIFFERENT instances created within the
+    # same millisecond could collide too, since a UUIDv7's leading bytes are
+    # its millisecond timestamp — truncating to a PREFIX of the id keeps
+    # that structure instead of erasing it.
+    #
+    # `storage_config` (see Base#initialize) is the FileManagement::Storage
+    # AR record this provider instance was built for — its `id` is a
+    # UUIDv7 primary key that does not change for the storage's lifetime.
+    # Whatever durable reference a caller holds to reach this storage (an
+    # assignment naming its storage id, or equivalent) is, by construction,
+    # equally fixed once set — never repointed at a different storage
+    # mid-lifetime — so `storage_config.id` is stable across this
+    # credential's (and its rotations') whole lifetime too. Namespacing by
+    # BOTH instance_id and storage_config.id makes the
+    # derivation per-(node, storage) instead of per-node-alone, fixing the
+    # first collision; hashing the concatenation with SHA256 (rather than
+    # truncating either id directly) fixes the second, since a hash digest
+    # mixes its entire input instead of preserving a timestamp-prefixed
+    # structure that two same-millisecond ids would still share.
+    #
+    # `n-` + 16 hex chars of the digest = 18 characters total: within
+    # Windows sAMAccountName's 20-character hard limit, and within the
+    # agent's taskguard.Identifier charset ([A-Za-z0-9._-], no leading
+    # dash — `n-` guarantees a leading letter).
+    def derive_username(instance_id)
+      digest = Digest::SHA256.hexdigest("#{instance_id}:#{storage_config.id}")
+      "n-#{digest.first(16)}"
+    end
 
     def full_path_for(storage_key)
       File.join(@mount_path, sanitize_key(storage_key))

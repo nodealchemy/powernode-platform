@@ -267,6 +267,64 @@ RSpec.describe StorageProviders::SmbStorage, type: :service do
     end
   end
 
+  # IMP-eb6a3c299f4b increment 2 — the OLD scheme, "node-" + the first 12
+  # hex chars of instance_id, collided across a single node's SECOND SMB
+  # share (username depended on instance_id alone, never the storage) and,
+  # separately, across two instances created in the same millisecond
+  # (a UUIDv7's leading bytes are its timestamp, so truncating to a PREFIX
+  # of the id preserved that collision risk instead of erasing it).
+  describe '#issue_node_credential' do
+    let(:instance_id) { SecureRandom.uuid }
+
+    it 'derives an "n-" + 16 hex char username, 18 characters total' do
+      result = provider.issue_node_credential(context: { instance_id: instance_id })
+      username = result[:payload][:username]
+
+      expect(username).to match(/\An-[0-9a-f]{16}\z/)
+      expect(username.length).to eq(18) # within sAMAccountName's 20-char limit and taskguard.Identifier's charset
+    end
+
+    it 'is deterministic for the same instance and storage' do
+      first = provider.issue_node_credential(context: { instance_id: instance_id })
+      second = provider.issue_node_credential(context: { instance_id: instance_id })
+
+      expect(first[:payload][:username]).to eq(second[:payload][:username])
+    end
+
+    it 'stores the derived username in the credential metadata' do
+      result = provider.issue_node_credential(context: { instance_id: instance_id })
+
+      expect(result[:metadata][:username]).to eq(result[:payload][:username])
+    end
+
+    it 'derives a DIFFERENT username for a different storage, same instance (the reported collision)' do
+      other_storage = create(:file_storage, :smb, account: account,
+        configuration: {
+          'mount_path' => mount_path, 'server_address' => '192.168.1.201', 'share_name' => 'other-share'
+        })
+      other_provider = described_class.new(other_storage)
+
+      username_a = provider.issue_node_credential(context: { instance_id: instance_id })[:payload][:username]
+      username_b = other_provider.issue_node_credential(context: { instance_id: instance_id })[:payload][:username]
+
+      expect(username_a).not_to eq(username_b)
+    end
+
+    it 'derives DIFFERENT usernames for two instance ids created in the same millisecond' do
+      # Two UUIDv7-shaped ids sharing the SAME leading (timestamp) bytes —
+      # exactly the case the old "first 12 hex chars" truncation risked
+      # colliding on. Hashing the FULL id (not a prefix of it) avoids this
+      # regardless of how much of a timestamp prefix two real ids share.
+      same_millisecond_a = "018f0000-0000-7000-8000-000000000001"
+      same_millisecond_b = "018f0000-0000-7000-8000-000000000002"
+
+      username_a = provider.issue_node_credential(context: { instance_id: same_millisecond_a })[:payload][:username]
+      username_b = provider.issue_node_credential(context: { instance_id: same_millisecond_b })[:payload][:username]
+
+      expect(username_a).not_to eq(username_b)
+    end
+  end
+
   describe '#file_metadata' do
     before do
       full_path = File.join(mount_path, file_object.storage_key)
