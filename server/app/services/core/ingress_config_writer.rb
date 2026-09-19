@@ -5,6 +5,7 @@ require "fileutils"
 require "openssl"
 require "socket"
 require "securerandom"
+require "etc"
 
 module Core
   # Core-mode ingress baseline for the bundled Traefik reverse proxy — the
@@ -142,7 +143,7 @@ module Core
           "accessLog" => {},
           "api"       => { "dashboard" => false, "insecure" => false }
         }
-        File.write(out, YAML.dump(config))
+        atomic_write!(out, YAML.dump(config))
         out
       end
 
@@ -327,12 +328,205 @@ module Core
         FileUtils.mkdir_p(dir)
         cert_path = baseline_cert_file_path(cert_dir: dir)
         key_path  = baseline_key_file_path(cert_dir: dir)
-        return [ cert_path, key_path ] if reusable_pair?(cert_path, key_path)
+        if reusable_pair?(cert_path, key_path)
+          # review round 3 (c): the group/mode assertion used to run ONLY
+          # on fresh regeneration. Regeneration is rare (first boot, or
+          # after deletion) — every OTHER boot took this early return, so a
+          # key that drifted wide/mis-grouped between boots (an external
+          # re-chmod, a GID that changed underneath it) went unchecked on
+          # exactly the boots that matter most.
+          assert_key_group_and_mode!(key_path, resolve_traefik_gid)
+          return [ cert_path, key_path ]
+        end
 
         key, cert = generate_self_signed_pair(baseline_host)
-        File.write(cert_path, cert.to_pem)
-        File.write(key_path, key.to_pem, perm: 0o600)
+        # review round 3 (d): this was the one writer left as a direct
+        # File.write — it needs write permission on an EXISTING file on
+        # every regeneration, exactly the non-root case this task exists
+        # for. Route it through the same atomic temp+rename path as the
+        # key, so a partial write or an EACCES mid-write behaves the same
+        # way here as everywhere else.
+        atomic_write!(cert_path, cert.to_pem)
+        write_baseline_key!(key_path, key)
         [ cert_path, key_path ]
+      end
+
+      # IMP-94977647c24c: this key is read by the traefik PROCESS to
+      # terminate TLS for the host-login ingress. On a module-composed hub
+      # where hub-backend's rails no longer runs as root, the writer
+      # (rails) and the reader (traefik) are DIFFERENT OS identities
+      # sharing only a "traefik" supplementary group (setgid on the
+      # parent directory) — 0600 (owner-only) would leave the key
+      # unreadable by traefik the moment the writer isn't root too.
+      #
+      # Only relaxed when a "traefik" OS group actually exists. A
+      # deployment with no separate traefik identity (a bare/core
+      # install, tests, a same-process reverse proxy) has nothing to
+      # share the key WITH, so 0600 stays the tighter, correct default —
+      # this is a conditional widening, not an unconditional one.
+      #
+      # "Assert it, don't assume": setgid on the parent directory is what
+      # is SUPPOSED to make a new file's group traefik automatically, but
+      # this explicitly chowns to the resolved GID and logs if the result
+      # doesn't match, rather than trusting the directory bit alone — a
+      # setgid bit that silently isn't set (wrong directory mode, a
+      # filesystem that doesn't honor it) would otherwise produce a key
+      # traefik still can't read, discovered only by traefik 404ing.
+      def write_baseline_key!(key_path, key)
+        traefik_gid = resolve_traefik_gid
+
+        unless traefik_gid
+          atomic_write!(key_path, key.to_pem, mode: 0o600)
+          # File.write's perm: is masked by the process umask — chmod
+          # explicitly so a restrictive umask can't leave this MORE
+          # restrictive than intended either (defensive; 0600 narrowed
+          # further isn't a safety problem, but it should still be exactly
+          # what was asked for).
+          File.chmod(0o600, key_path)
+          return
+        end
+
+        atomic_write!(key_path, key.to_pem, mode: 0o640)
+        # review round 2 (BLOCKER 2): perm: on File.write is MASKED by the
+        # process umask — a 0077 umask would silently narrow this to 0600
+        # with no error, and the old readback (gid only) would never catch
+        # it. chmod explicitly to defeat the mask, same precedent as
+        # ensure_host_login_ingress!'s File.chmod(0o644, ...) below.
+        File.chmod(0o640, key_path)
+
+        begin
+          File.chown(nil, traefik_gid, key_path)
+        rescue SystemCallError => e
+          # review round 2 (BLOCKER 3), widened in review round 3 (b):
+          # chown can fail with more than just EPERM/EINVAL — EACCES,
+          # EROFS, or ENOENT (a path removed between the write and the
+          # chown) all leave the key wide open under whatever group the
+          # writer happened to be in, which is precisely the non-root
+          # rails case this whole mechanism exists for. SystemCallError is
+          # Errno's common superclass, so every one of those is caught
+          # here, not just the two originally observed. The key is
+          # ALREADY 0640 under the writer's own primary group at this
+          # point: wider than 0600, and to a group nobody intended. Fail
+          # closed rather than leave it there.
+          File.chmod(0o600, key_path)
+          log_key_safety_error(
+            "chown of #{key_path} to traefik gid #{traefik_gid} failed (#{e.class}: #{e.message}) — " \
+            "reverted to 0600 rather than leave it 0640 under the wrong group"
+          )
+          return
+        end
+
+        assert_key_group_and_mode!(key_path, traefik_gid)
+      end
+
+      # Extracted (review round 3) so both the fresh-write path
+      # (write_baseline_key!) and the reuse path (ensure_baseline_cert!'s
+      # early return) resolve the group identically instead of carrying
+      # two copies of the same rescue.
+      def resolve_traefik_gid
+        Etc.getgrnam("traefik").gid
+      rescue ArgumentError
+        nil
+      end
+
+      # "Assert it, don't assume" (review round 1) extended to MODE, not
+      # just group (review round 2, BLOCKER 2/3's shared readback): a
+      # setgid bit that silently isn't set, or a chown that "succeeded"
+      # against a stale cached stat, would otherwise produce a key traefik
+      # still can't read, discovered only by traefik 404ing.
+      def assert_key_group_and_mode!(key_path, expected_gid)
+        stat = File.stat(key_path)
+        actual_mode = stat.mode & 0o777
+        # review round 3 (c): now called from the reuse path too, where no
+        # traefik group may exist at all (expected_gid nil) — the correct
+        # mode there is 0600 owner-only, and there is no expected group to
+        # compare against.
+        expected_mode = expected_gid ? 0o640 : 0o600
+        return if actual_mode == expected_mode && (expected_gid.nil? || stat.gid == expected_gid)
+
+        log_key_safety_error(
+          "baseline key #{key_path} is group #{stat.gid} mode #{format('%04o', actual_mode)}, expected " \
+          "group #{expected_gid.inspect} mode #{format('%04o', expected_mode)} — traefik may be unable to read the TLS key"
+        )
+      end
+
+      # No core-side "component status" seam exists for this (checked,
+      # IMP-94977647c24c review round 2's non-blocking suggestion):
+      # Platform::Status::SignalSources is a PULL seam an extension
+      # registers a source with — core has no SignalState/FleetEvent and
+      # cannot push a signal into it without depending on the extension
+      # that defines those tables (the platform's own "pull, never push"
+      # rule). A log line is therefore the correct core-side ceiling here,
+      # not a placeholder for something better within core's reach.
+      def log_key_safety_error(message)
+        return unless defined?(Rails) && Rails.respond_to?(:logger) && Rails.logger
+
+        Rails.logger.error("[IngressConfigWriter] #{message}")
+      end
+
+      # Writes `content` to `path` atomically: a temp file in the SAME
+      # directory (so the rename is same-filesystem, hence atomic — a
+      # concurrent reader, e.g. Traefik's file provider watching this
+      # directory, never observes a partial write), then File.rename.
+      #
+      # Tolerates a transient EACCES with ONE retry after a brief pause
+      # (IMP-94977647c24c): hub-backend's rails process is not always
+      # root, and a setgid/ownership provisioning step racing this write,
+      # or a leftover wrong-permission file from before that provisioning
+      # ran, is a real, recoverable, one-time condition — not something
+      # that should fail the request on the first hiccup. Still raises if
+      # the retry ALSO fails: a persistent EACCES is a genuine
+      # misconfiguration the caller needs to know about, not something to
+      # swallow forever.
+      def atomic_write!(path, content, mode: nil, retries: 1)
+        tmp = "#{path}.tmp-#{Process.pid}-#{SecureRandom.hex(4)}"
+        renamed = false
+        begin
+          write_opts = mode ? { perm: mode } : {}
+          File.write(tmp, content, **write_opts)
+          File.rename(tmp, path)
+          renamed = true
+        rescue Errno::EACCES => e
+          raise if retries <= 0
+
+          if defined?(Rails) && Rails.respond_to?(:logger) && Rails.logger
+            Rails.logger.warn("[IngressConfigWriter] EACCES writing #{path}, retrying once: #{e.message}")
+          end
+          # review round 3 (a): delete THIS attempt's temp file BEFORE
+          # recursing, not just via the `ensure` below. `return
+          # atomic_write!(...)` inside a rescue runs the ENTIRE recursive
+          # call to completion before the enclosing `ensure` fires (Ruby's
+          # ensure-timing, not a bug in the ensure itself) — for
+          # write_baseline_key!'s caller that left this attempt's tmp file,
+          # holding the plaintext PEM key, on disk for the whole retry
+          # window (the sleep plus the second attempt), not just until the
+          # rescue. Deleting explicitly here closes that window
+          # immediately; the `ensure` below still runs afterward but finds
+          # nothing left to do on this path.
+          delete_tmp(tmp)
+          sleep 0.2
+          return atomic_write!(path, content, mode: mode, retries: retries - 1)
+        ensure
+          # review round 2 (BLOCKER 1): moved out of the rescue block —
+          # `rescue Errno::EACCES` only ever caught ONE failure mode.
+          # ENOSPC/EDQUOT on the write, or EPERM/EROFS/EBUSY on the
+          # rename, propagated straight past the old cleanup and left
+          # `tmp` on disk holding whatever was written — the KEY's
+          # plaintext PEM, for write_baseline_key!'s caller. `ensure` runs
+          # on every exit path (return, retry-recursion, or an
+          # unrescued raise), so `renamed` is the only thing gating the
+          # delete now, not which exception (if any) was raised.
+          delete_tmp(tmp) unless renamed
+        end
+      end
+
+      # Extracted (review round 3 (a)) so the EACCES retry path can close
+      # the plaintext-on-disk window immediately, before recursing,
+      # instead of only via the `ensure`.
+      def delete_tmp(tmp)
+        File.delete(tmp) if File.exist?(tmp)
+      rescue StandardError
+        nil
       end
 
       # ------------------------------------------------------------------
@@ -369,7 +563,7 @@ module Core
         client_auth_ca = prepare_client_auth_ca(cert_dir: crt)
         FileUtils.mkdir_p(dyn)
         output_path = File.join(dyn, HOST_LOGIN_FILENAME)
-        File.write(output_path, YAML.dump(host_login_config(cert_path, key_path, client_auth_ca: client_auth_ca)))
+        atomic_write!(output_path, YAML.dump(host_login_config(cert_path, key_path, client_auth_ca: client_auth_ca)))
         # This file is NON-SECRET (router defs + cert PATHS, no keys) and MUST be
         # readable by the unprivileged traefik user. chmod explicitly (NOT
         # File.write(perm:), which is masked by the process umask) so a stray
@@ -606,7 +800,7 @@ module Core
 
         FileUtils.mkdir_p(cert_dir)
         dest = File.join(cert_dir, "internal-ca.crt")
-        File.write(dest, certs.join)
+        atomic_write!(dest, certs.join)
         dest
       rescue StandardError => e
         if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
@@ -766,7 +960,7 @@ module Core
 
       FileUtils.mkdir_p(@dynamic_dir)
       output_path = File.join(@dynamic_dir, "acme-#{@account.id}.yaml")
-      File.write(output_path, YAML.dump(hash))
+      self.class.atomic_write!(output_path, YAML.dump(hash))
 
       { output_path: output_path, cert_count: 1 }
     rescue StandardError => e

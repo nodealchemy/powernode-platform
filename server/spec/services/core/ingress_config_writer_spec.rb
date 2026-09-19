@@ -766,4 +766,247 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
       end
     end
   end
+
+  # IMP-94977647c24c: hub-backend's rails process is not always root; the
+  # baseline TLS key must stay traefik-readable across regeneration, and
+  # the dynamic-dir writers must tolerate a transient permission hiccup
+  # rather than 500ing the request on the first one.
+  describe "baseline key group ownership (IMP-94977647c24c)" do
+    let(:fake_gid) { 31_337 }
+
+    it "writes the key 0640 and chowns it to the traefik group, when one exists" do
+      # Not `.and_call_original`: chowning to an arbitrary GID this test
+      # process isn't a member of raises EPERM (real chown needs root, or
+      # membership in the target group) — exactly the unprivileged
+      # constraint that motivates the setgid design in the first place.
+      # This test proves the CALL is made with the right args; the
+      # "asserted, not assumed" mismatch-logging example below proves the
+      # code checks the OUTCOME rather than trusting the call succeeded.
+      allow(Etc).to receive(:getgrnam).with("traefik").and_return(instance_double(Etc::Group, gid: fake_gid))
+      allow(File).to receive(:chown)
+
+      cert_path, key_path = described_class.ensure_baseline_cert!(cert_dir: tmp_cert_dir)
+
+      expect(File.stat(key_path).mode & 0o777).to eq(0o640)
+      expect(File).to have_received(:chown).with(nil, fake_gid, key_path)
+      expect(File.exist?(cert_path)).to be true
+    end
+
+    it "leaves the key 0600 (no chown) when no traefik group exists — the tighter default holds" do
+      allow(Etc).to receive(:getgrnam).with("traefik").and_raise(ArgumentError, "can't find group for traefik")
+      allow(File).to receive(:chown)
+
+      _cert_path, key_path = described_class.ensure_baseline_cert!(cert_dir: tmp_cert_dir)
+
+      expect(File.stat(key_path).mode & 0o777).to eq(0o600)
+      expect(File).not_to have_received(:chown)
+    end
+
+    it "logs (does not raise) when the post-chown group doesn't match — asserted, not assumed" do
+      allow(Etc).to receive(:getgrnam).with("traefik").and_return(instance_double(Etc::Group, gid: fake_gid))
+      allow(File).to receive(:chown) # no-op: the real chown "succeeds" but the mocked stat below disagrees
+      allow(File).to receive(:stat).and_call_original
+      allow(File).to receive(:stat).with(a_string_matching(/#{Core::IngressConfigWriter::BASELINE_KEY_FILENAME}\z/))
+        .and_return(instance_double(File::Stat, gid: fake_gid + 1, mode: 0o100640))
+      expect(Rails.logger).to receive(:error).with(a_string_matching(/expected group #{fake_gid} mode 0640/))
+
+      described_class.ensure_baseline_cert!(cert_dir: tmp_cert_dir)
+    end
+
+    it "logs when the post-write MODE doesn't match, even though the group is correct" do
+      allow(Etc).to receive(:getgrnam).with("traefik").and_return(instance_double(Etc::Group, gid: fake_gid))
+      allow(File).to receive(:chown)
+      allow(File).to receive(:stat).and_call_original
+      allow(File).to receive(:stat).with(a_string_matching(/#{Core::IngressConfigWriter::BASELINE_KEY_FILENAME}\z/))
+        .and_return(instance_double(File::Stat, gid: fake_gid, mode: 0o100600))
+      expect(Rails.logger).to receive(:error).with(a_string_matching(/mode 0640/))
+
+      described_class.ensure_baseline_cert!(cert_dir: tmp_cert_dir)
+    end
+
+    # Review round 2 (BLOCKER 2): File.write's perm: is masked by the
+    # process umask — a 0077 umask would silently narrow 0640 to 0600,
+    # leaving traefik unable to read the key with no error at all (the
+    # old readback only checked gid, never mode). An explicit chmod
+    # after the write must defeat the mask, same precedent as
+    # ensure_host_login_ingress!'s File.chmod(0o644, ...) below.
+    it "keeps the key at 0640 even under a restrictive umask that would otherwise narrow it" do
+      allow(Etc).to receive(:getgrnam).with("traefik").and_return(instance_double(Etc::Group, gid: fake_gid))
+      allow(File).to receive(:chown)
+      old_umask = File.umask(0o077)
+      begin
+        _cert_path, key_path = described_class.ensure_baseline_cert!(cert_dir: tmp_cert_dir)
+        expect(File.stat(key_path).mode & 0o777).to eq(0o640)
+      ensure
+        File.umask(old_umask)
+      end
+    end
+
+    # Review round 2 (BLOCKER 3): File.chown raises EPERM/EINVAL unless the
+    # process owns the file and belongs to the target group — precisely the
+    # non-root rails case this exists for. The key must not be left 0640
+    # under the WRONG (writer's own) group when that happens — fail closed
+    # to 0600 rather than leave a widened, unintentionally-shared key.
+    it "reverts the key to 0600 and logs when chown to the traefik group fails — never left wide" do
+      allow(Etc).to receive(:getgrnam).with("traefik").and_return(instance_double(Etc::Group, gid: fake_gid))
+      allow(File).to receive(:chown).and_raise(Errno::EPERM, "operation not permitted")
+      expect(Rails.logger).to receive(:error).with(a_string_matching(/chown.*failed/i))
+
+      _cert_path, key_path = described_class.ensure_baseline_cert!(cert_dir: tmp_cert_dir)
+
+      expect(File.stat(key_path).mode & 0o777).to eq(0o600)
+    end
+
+    # Review round 3 (b): the old rescue only caught EPERM/EINVAL. Any
+    # OTHER chown failure (EACCES, EROFS, ENOENT — a path removed between
+    # the write and the chown) propagated uncaught, leaving the key 0640
+    # under the WRITER's own primary group, never reverted.
+    it "reverts the key to 0600 on ANY chown failure (SystemCallError), not just EPERM/EINVAL" do
+      allow(Etc).to receive(:getgrnam).with("traefik").and_return(instance_double(Etc::Group, gid: fake_gid))
+      allow(File).to receive(:chown).and_raise(Errno::ENOENT, "no such file or directory")
+      expect(Rails.logger).to receive(:error).with(a_string_matching(/chown.*failed/i))
+
+      _cert_path, key_path = described_class.ensure_baseline_cert!(cert_dir: tmp_cert_dir)
+
+      expect(File.stat(key_path).mode & 0o777).to eq(0o600)
+    end
+
+    # Review round 3 (c): the group/mode assertion only ran on a FRESH
+    # regeneration. ensure_baseline_cert! returns early when the pair is
+    # already reusable, so a wrong group/mode picked up between boots
+    # (e.g. the traefik group's GID changed, or something external
+    # re-chmodded the key) went unchecked on every steady-state boot —
+    # exactly the boots that matter most, since regeneration is rare.
+    it "asserts group/mode on the REUSE path too, not only on fresh regeneration" do
+      allow(Etc).to receive(:getgrnam).with("traefik").and_return(instance_double(Etc::Group, gid: fake_gid))
+      allow(File).to receive(:chown)
+
+      # First call: fresh regeneration, establishes the reusable pair.
+      _cert_path, key_path = described_class.ensure_baseline_cert!(cert_dir: tmp_cert_dir)
+
+      # Simulate drift: something external widened/re-owned the key
+      # between boots, without going through this writer.
+      File.chmod(0o644, key_path)
+
+      expect(Rails.logger).to receive(:error).with(a_string_matching(/mode 0644.*expected.*mode 0640/))
+      described_class.ensure_baseline_cert!(cert_dir: tmp_cert_dir)
+    end
+
+    # Review round 3 (d): the cert write was the one writer left
+    # non-atomic — File.write(cert_path, ...) needs write permission on
+    # an EXISTING file on every regeneration, exactly the non-root case
+    # this whole task exists for.
+    it "writes the cert atomically too (temp + rename), not via a direct File.write" do
+      allow(File).to receive(:write).and_call_original
+      described_class.ensure_baseline_cert!(cert_dir: tmp_cert_dir)
+
+      expect(File).to have_received(:write).with(
+        a_string_matching(/#{Core::IngressConfigWriter::BASELINE_CERT_FILENAME}\.tmp-/), anything
+      )
+    end
+  end
+
+  describe "atomic_write! (IMP-94977647c24c)" do
+    it "leaves no .tmp- file behind after a successful write" do
+      out = File.join(tmp_dynamic_dir, "..", "traefik.yaml")
+      described_class.write_static_config!(dynamic_dir: tmp_dynamic_dir, output_path: out)
+
+      expect(Dir.glob("#{File.dirname(out)}/*.tmp-*")).to be_empty
+      expect(Dir.glob("#{out}.tmp-*")).to be_empty
+    end
+
+    it "retries once on a transient EACCES and succeeds" do
+      out = File.join(tmp_dynamic_dir, "..", "traefik.yaml")
+      real_write = File.method(:write)
+      call_count = 0
+      allow(File).to receive(:write) do |*args, **kwargs|
+        call_count += 1
+        raise Errno::EACCES, "permission denied" if call_count == 1
+
+        real_write.call(*args, **kwargs)
+      end
+      allow(described_class).to receive(:sleep) # don't actually pause the suite
+
+      described_class.write_static_config!(dynamic_dir: tmp_dynamic_dir, output_path: out)
+
+      expect(call_count).to eq(2)
+      expect(File.exist?(out)).to be true
+    end
+
+    # Review round 3 (a): `return atomic_write!(...)` inside a `rescue`
+    # runs the WHOLE recursive call to completion before the enclosing
+    # `ensure` fires (Ruby's ensure-timing) — the old code relied solely
+    # on that `ensure`, so the first attempt's temp file (which, for
+    # write_baseline_key!'s caller, holds the plaintext PEM key) survived
+    # on disk for the entire retry window: the sleep plus the whole second
+    # attempt. Observing state at the `sleep` call proves the temp file is
+    # already gone BEFORE the recursion, not merely gone by the time the
+    # method returns.
+    it "deletes the failed attempt's temp file BEFORE sleeping/recursing on EACCES, not only afterward" do
+      out = File.join(tmp_dynamic_dir, "..", "traefik.yaml")
+      real_rename = File.method(:rename)
+      call_count = 0
+      # EACCES on the RENAME (not the write) so the temp file is actually
+      # created on disk first — the exact shape that leaves plaintext
+      # sitting in a real tmp file if it isn't deleted before the retry.
+      allow(File).to receive(:rename) do |*args|
+        call_count += 1
+        raise Errno::EACCES, "permission denied" if call_count == 1
+
+        real_rename.call(*args)
+      end
+      allow(described_class).to receive(:sleep) do
+        expect(Dir.glob("#{File.dirname(out)}/*.tmp-*")).to be_empty
+      end
+
+      described_class.write_static_config!(dynamic_dir: tmp_dynamic_dir, output_path: out)
+
+      expect(call_count).to eq(2)
+    end
+
+    it "raises if EACCES persists past the retry, and cleans up its temp file" do
+      out = File.join(tmp_dynamic_dir, "..", "traefik.yaml")
+      allow(File).to receive(:write).and_raise(Errno::EACCES, "permission denied")
+      allow(described_class).to receive(:sleep)
+
+      expect { described_class.write_static_config!(dynamic_dir: tmp_dynamic_dir, output_path: out) }
+        .to raise_error(Errno::EACCES)
+      expect(Dir.glob("#{File.dirname(out)}/*.tmp-*")).to be_empty
+    end
+
+    # Review round 2 (BLOCKER 1): only Errno::EACCES was rescued, and the
+    # temp-file cleanup lived INSIDE that rescue — any other failure
+    # (ENOSPC/EDQUOT on the write, EPERM/EROFS/EBUSY on the rename) left
+    # `<path>.tmp-<pid>-<hex>` on disk holding the just-written content
+    # (the KEY's plaintext PEM, for write_baseline_key!'s caller).
+    #
+    # `output_path:` is passed explicitly in these three examples (unlike
+    # the two above): write_static_config!'s OWN default output path
+    # ignores its `dynamic_dir:` argument (that param only feeds the file
+    # provider directory inside the rendered content) and resolves via
+    # `default_static_config_path`/`default_dynamic_dir` instead — a glob
+    # anchored on tmp_dynamic_dir would silently check the wrong directory
+    # and pass vacuously regardless of whether a leak occurred.
+    it "cleans up the temp file when File.rename fails with something other than EACCES" do
+      out = File.join(tmp_dynamic_dir, "..", "traefik.yaml")
+      allow(File).to receive(:rename).and_raise(Errno::EROFS, "read-only file system")
+
+      expect {
+        described_class.write_static_config!(dynamic_dir: tmp_dynamic_dir, output_path: out)
+      }.to raise_error(Errno::EROFS)
+
+      expect(Dir.glob("#{File.dirname(out)}/*.tmp-*")).to be_empty
+    end
+
+    it "cleans up the temp file when the rename fails with ENOSPC (e.g. a cross-device move on a full destination)" do
+      out = File.join(tmp_dynamic_dir, "..", "traefik.yaml")
+      allow(File).to receive(:rename).and_raise(Errno::ENOSPC, "no space left on device")
+
+      expect {
+        described_class.write_static_config!(dynamic_dir: tmp_dynamic_dir, output_path: out)
+      }.to raise_error(Errno::ENOSPC)
+
+      expect(Dir.glob("#{File.dirname(out)}/*.tmp-*")).to be_empty
+    end
+  end
 end
