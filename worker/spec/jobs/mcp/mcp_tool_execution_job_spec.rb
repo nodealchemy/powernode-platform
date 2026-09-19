@@ -210,6 +210,68 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
 
           job.execute(execution_id)
         end
+
+        # IMP-427e98cae0be: end-to-end coverage that capabilities actually
+        # reaches McpSecurityService.validate_stdio_server! through the REAL
+        # string-keyed nested payload shape the backend sends
+        # (data.mcp_tool_execution.mcp_tool.mcp_server.capabilities) — not a
+        # symbol-keyed convenience double, and not a direct call into
+        # McpTransportClient bypassing the job/API-fetch boundary.
+        context 'with capabilities.allow_extended_commands in the real nested payload' do
+          let(:extended_tool_data) do
+            tool_data.merge(
+              'mcp_server' => tool_data['mcp_server'].merge(
+                'command' => 'uvx',
+                'args' => ['mcp-server-git'],
+                'capabilities' => { 'allow_extended_commands' => true }
+              )
+            )
+          end
+          let(:extended_execution_data) { execution_data.merge('mcp_tool' => extended_tool_data) }
+
+          before do
+            allow(api_client).to receive(:get)
+              .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
+              .and_return('success' => true, 'data' => { 'mcp_tool_execution' => extended_execution_data })
+          end
+
+          it 'reaches Open3.capture3 for uvx because allow_extended_commands is true' do
+            success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+            expect(Open3).to receive(:capture3) do |_env, command, *_args, **_opts|
+              expect(command).to eq(['uvx', 'uvx'])
+              ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
+            end
+
+            job.execute(execution_id)
+          end
+        end
+
+        context 'without allow_extended_commands in the real nested payload' do
+          let(:extended_tool_data) do
+            tool_data.merge(
+              'mcp_server' => tool_data['mcp_server'].merge('command' => 'uvx', 'args' => ['mcp-server-git'])
+            )
+          end
+          let(:extended_execution_data) { execution_data.merge('mcp_tool' => extended_tool_data) }
+
+          before do
+            allow(api_client).to receive(:get)
+              .with("/api/v1/internal/mcp_tool_executions/#{execution_id}", { include_server_config: true })
+              .and_return('success' => true, 'data' => { 'mcp_tool_execution' => extended_execution_data })
+          end
+
+          it 'refuses uvx and never reaches Open3.capture3' do
+            expect(Open3).not_to receive(:capture3)
+            expect(api_client).to receive(:patch)
+              .with(
+                "/api/v1/internal/mcp_tool_executions/#{execution_id}",
+                hash_including(status: 'failed', error_message: /Security error:.*not in the allowed list/)
+              )
+            allow(api_client).to receive(:patch).with(anything, hash_including(status: 'running'))
+
+            job.execute(execution_id)
+          end
+        end
       end
 
       context 'http execution' do

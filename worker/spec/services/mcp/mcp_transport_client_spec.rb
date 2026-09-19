@@ -228,6 +228,72 @@ RSpec.describe Mcp::McpTransportClient do
 
       expect(result).to eq(success: true, output: { ok: true })
     end
+
+    # IMP-427e98cae0be: Api::V1::Internal::McpToolExecutionsController used
+    # to omit `capabilities` from the nested server hash entirely, so
+    # McpSecurityService.validate_stdio_server! (called right here) always
+    # saw allow_extended_commands/strict_environment as false regardless of
+    # what the server was actually configured with. This end-to-end spec
+    # exercises exactly the server-hash shape the backend now sends.
+    it "refuses an extended-only command (uvx) when the server hash carries no capabilities at all" do
+      extended_server = server.merge(command: 'uvx', args: ['mcp-server-git'])
+      expect(Open3).not_to receive(:capture3)
+
+      result = client.execute_stdio_tool(extended_server, tool, parameters)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Security error:.*not in the allowed list/)
+    end
+
+    it "honors capabilities.allow_extended_commands: true and allows uvx/docker through to Open3" do
+      extended_server = server.merge(
+        command: 'uvx', args: ['mcp-server-git'], capabilities: { 'allow_extended_commands' => true }
+      )
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(Open3).to receive(:capture3) do |_env, command, *_cmd_args, **_opts|
+        expect(command).to eq(['uvx', 'uvx'])
+        ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
+      end
+
+      result = client.execute_stdio_tool(extended_server, tool, parameters)
+
+      expect(result).to eq(success: true, output: { ok: true })
+    end
+
+    it "still refuses uvx when capabilities is present but allow_extended_commands is absent/false" do
+      extended_server = server.merge(command: 'uvx', args: ['mcp-server-git'], capabilities: { 'tools' => true })
+      expect(Open3).not_to receive(:capture3)
+
+      result = client.execute_stdio_tool(extended_server, tool, parameters)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Security error:.*not in the allowed list/)
+    end
+
+    it "honors capabilities.strict_environment: true and drops a non-allowlisted env var that would otherwise pass through" do
+      strict_server = server.merge(env: { 'CUSTOM_VAR' => 'value' }, capabilities: { 'strict_environment' => true })
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(Open3).to receive(:capture3) do |env, *_rest|
+        expect(env).not_to include('CUSTOM_VAR')
+        ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
+      end
+
+      client.execute_stdio_tool(strict_server, tool, parameters)
+    end
+
+    it "without strict_environment, the same non-allowlisted env var DOES pass through (non-strict default)" do
+      non_strict_server = server.merge(env: { 'CUSTOM_VAR' => 'value' })
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(Open3).to receive(:capture3) do |env, *_rest|
+        expect(env).to include('CUSTOM_VAR' => 'value')
+        ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
+      end
+
+      client.execute_stdio_tool(non_strict_server, tool, parameters)
+    end
   end
 
   describe '#execute_http_tool' do

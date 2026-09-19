@@ -2,6 +2,7 @@
 
 class Api::V1::Internal::McpToolExecutionsController < Api::V1::Internal::InternalBaseController
   include Api::V1::Internal::WorkerTenancy
+  include Api::V1::Internal::McpServerCapabilitiesSerialization
 
   # Internal API endpoints for MCP tool execution tracking
   # These endpoints are called by background workers only
@@ -98,6 +99,17 @@ class Api::V1::Internal::McpToolExecutionsController < Api::V1::Internal::Intern
   # `?include_server_config=true`; every other reader gets the default,
   # secret-free representation. Defence in depth BEHIND the tenancy scope, not
   # in place of it.
+  #
+  # `capabilities` (IMP-427e98cae0be) is NOT gated behind include_server_config
+  # — it's ALWAYS filtered to just `allow_extended_commands`/`strict_environment`
+  # via McpServerCapabilitiesSerialization, which is itself an allowlist, not
+  # a pass-through: the raw `capabilities` jsonb column ALSO stores `config`
+  # (free-form, user-supplied, may hold auth) and `last_error`, so returning
+  # it unconditionally would defeat this very gate (see that module's
+  # comment). This used to omit `capabilities` here entirely, so
+  # McpSecurityService.validate_stdio_server! — called from the worker's
+  # stdio tool-execution path — always saw both flags as false regardless of
+  # the server's real configuration.
   def serialize_nested_server(server, include_server_config: false)
     nested = {
       id: server.id,
@@ -106,7 +118,8 @@ class Api::V1::Internal::McpToolExecutionsController < Api::V1::Internal::Intern
       connection_type: server.connection_type,
       command: server.command,
       args: server.args,
-      url: server.url
+      url: server.url,
+      capabilities: serialize_mcp_server_capabilities(server)
     }
     nested[:env] = server.env if include_server_config
     nested

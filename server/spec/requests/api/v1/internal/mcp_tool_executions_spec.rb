@@ -45,6 +45,49 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
         expect(execution['mcp_tool']['mcp_server']['id']).to eq(mcp_server.id)
       end
 
+      # IMP-427e98cae0be BLOCKER: serialize_nested_server omitted
+      # `capabilities` entirely, so McpSecurityService.validate_stdio_server!
+      # (called from the worker's stdio tool-execution path) always saw
+      # allow_extended_commands/strict_environment as false regardless of
+      # the server's real configuration.
+      #
+      # Round 2: `capabilities` is filtered to exactly those two flags — the
+      # jsonb column also stores `config` (may hold auth) and `last_error`,
+      # so a server with those keys set must never leak them here, or via
+      # the mcp_servers endpoint this is compared against.
+      it "includes the server's capabilities, matching the mcp_servers endpoint's own value, never config or last_error" do
+        mcp_server.update!(
+          capabilities: {
+            'allow_extended_commands' => true,
+            'strict_environment' => true,
+            'tools' => true,
+            'config' => { 'api_key' => 'leaked-secret' },
+            'last_error' => 'some previous failure'
+          }
+        )
+
+        get "/api/v1/internal/mcp_tool_executions/#{mcp_tool_execution.id}",
+            headers: internal_headers,
+            as: :json
+
+        expect_success_response
+        nested_server = json_response_data['mcp_tool_execution']['mcp_tool']['mcp_server']
+
+        expect(nested_server).to have_key('capabilities')
+        expect(nested_server['capabilities']).to eq(
+          'allow_extended_commands' => true, 'strict_environment' => true
+        )
+        expect(nested_server['capabilities']).not_to have_key('config')
+        expect(nested_server['capabilities']).not_to have_key('last_error')
+        expect(nested_server['capabilities']).not_to have_key('tools')
+
+        get "/api/v1/internal/mcp_servers/#{mcp_server.id}", headers: internal_headers, as: :json
+        expect_success_response
+        mcp_servers_endpoint_capabilities = json_response_data['mcp_server']['capabilities']
+
+        expect(nested_server['capabilities']).to eq(mcp_servers_endpoint_capabilities)
+      end
+
       it 'includes execution parameters and result' do
         get "/api/v1/internal/mcp_tool_executions/#{mcp_tool_execution.id}",
             headers: internal_headers,

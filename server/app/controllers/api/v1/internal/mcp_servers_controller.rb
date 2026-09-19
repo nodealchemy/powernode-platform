@@ -2,6 +2,7 @@
 
 class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseController
   include Api::V1::Internal::WorkerTenancy
+  include Api::V1::Internal::McpServerCapabilitiesSerialization
 
   # Internal API endpoints for MCP server management
   # These endpoints are called by background workers only
@@ -185,7 +186,7 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
       command: server.command,
       args: server.args,
       url: server.url,
-      capabilities: server.capabilities,
+      capabilities: serialize_mcp_server_capabilities(server),
       last_connected_at: server.last_connected_at,
       last_health_check: server.last_health_check,
       last_error: server.last_error,

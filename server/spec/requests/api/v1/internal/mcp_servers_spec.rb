@@ -53,6 +53,35 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
           'id', 'name', 'status', 'connection_type', 'account_id'
         )
       end
+
+      # IMP-427e98cae0be BLOCKER (round 2): `capabilities` also stores
+      # free-form, user-supplied `config` (may hold auth) and `last_error`
+      # in the same jsonb column (McpServer#config/#last_error). #index
+      # never opts into include_config at all, so returning the raw
+      # capabilities hash was ALREADY leaking `config` here regardless of
+      # the include_config gate — this must only ever expose the two flags
+      # McpSecurityService.validate_stdio_server! reads.
+      it "only exposes allow_extended_commands/strict_environment in capabilities, never config or last_error" do
+        leaky_server = create(:mcp_server, account: account, capabilities: {
+                                'allow_extended_commands' => true,
+                                'strict_environment' => false,
+                                'config' => { 'api_key' => 'leaked-secret' },
+                                'last_error' => 'some previous failure',
+                                'tools' => true
+                              })
+
+        get '/api/v1/internal/mcp_servers', headers: internal_headers, as: :json
+
+        response_data = json_response_data
+        served = response_data['mcp_servers'].find { |s| s['id'] == leaky_server.id }
+
+        expect(served['capabilities']).to eq(
+          'allow_extended_commands' => true, 'strict_environment' => false
+        )
+        expect(served['capabilities']).not_to have_key('config')
+        expect(served['capabilities']).not_to have_key('last_error')
+        expect(served['capabilities']).not_to have_key('tools')
+      end
     end
 
     context 'without authentication' do
@@ -87,6 +116,26 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
 
         expect(server).to have_key('env')
         expect(server).to have_key('config')
+      end
+
+      it "only exposes allow_extended_commands/strict_environment in capabilities, never config or last_error, even with include_config" do
+        mcp_server.update!(capabilities: {
+                              'allow_extended_commands' => true,
+                              'strict_environment' => true,
+                              'config' => { 'api_key' => 'leaked-secret' },
+                              'last_error' => 'some previous failure'
+                            })
+
+        get "/api/v1/internal/mcp_servers/#{mcp_server.id}", headers: internal_headers, as: :json
+
+        response_data = json_response_data
+        server = response_data['mcp_server']
+
+        expect(server['capabilities']).to eq(
+          'allow_extended_commands' => true, 'strict_environment' => true
+        )
+        expect(server['capabilities']).not_to have_key('config')
+        expect(server['capabilities']).not_to have_key('last_error')
       end
     end
 
